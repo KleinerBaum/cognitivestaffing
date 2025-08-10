@@ -1,4 +1,10 @@
-from core.schema import ALL_FIELDS, LIST_FIELDS, VacalyserJD, coerce_and_fill
+from core.schema import (
+    ALL_FIELDS,
+    LIST_FIELDS,
+    STRING_FIELDS,
+    VacalyserJD,
+    coerce_and_fill,
+)
 
 
 def test_constants() -> None:
@@ -33,3 +39,28 @@ def test_coerce_and_fill_partial_and_aliases() -> None:
     assert jd.benefits == ["Gym"]
     # missing field filled with default
     assert jd.company_name == ""
+
+
+def test_default_insertion() -> None:
+    """All missing fields are populated with default empty values."""
+
+    jd = coerce_and_fill({})
+    for field in STRING_FIELDS:
+        assert getattr(jd, field) == ""
+    for field in LIST_FIELDS:
+        assert getattr(jd, field) == []
+
+
+def test_alias_priority() -> None:
+    """Canonical fields are not overridden by aliases."""
+
+    data = {"requirements": "BSc", "qualifications": "MSc"}
+    jd = coerce_and_fill(data)
+    assert jd.qualifications == "MSc"
+
+
+def test_list_coercion_split_and_dedupe() -> None:
+    """String list fields are split on newlines/commas and deduplicated."""
+
+    jd = coerce_and_fill({"hard_skills": "Python, Java\nPython"})
+    assert jd.hard_skills == ["Python", "Java"]
