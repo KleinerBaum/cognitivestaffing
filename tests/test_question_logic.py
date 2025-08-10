@@ -34,10 +34,18 @@ def test_role_specific_payload(monkeypatch):
         return "[]"
 
     def fake_classify(job_title, lang="en"):
-        return {"preferredLabel": "Software developer", "group": "Software developers"}
+        return {
+            "preferredLabel": "Software developer",
+            "group": "Software developers",
+            "uri": "http://example.com/occ",
+        }
+
+    def fake_get_skills(uri, lang="en"):
+        return ["Project management"]
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
     monkeypatch.setattr("question_logic.classify_occupation", fake_classify)
+    monkeypatch.setattr("question_logic.get_essential_skills", fake_get_skills)
 
     generate_followup_questions({"job_title": "Software engineer"})
 
@@ -46,3 +54,4 @@ def test_role_specific_payload(monkeypatch):
     assert "programming_languages" in data
     assert data["esco_group"] == "Software developers"
     assert data["esco_occupation"] == "Software developer"
+    assert data["missing_esco_skills"] == ["Project management"]

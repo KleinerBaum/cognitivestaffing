@@ -1,11 +1,12 @@
 """Utilities for interacting with the ESCO API."""
 
-from typing import Dict
+from typing import Dict, List
 
 import requests
 
 _esco_cache: Dict[tuple[str, str], Dict] = {}
 _occupation_cache: Dict[tuple[str, str], Dict[str, str]] = {}
+_essential_cache: Dict[tuple[str, str], List[str]] = {}
 
 
 def lookup_esco_skill(skill_name: str, lang: str = "en") -> dict:
@@ -61,8 +62,8 @@ def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
         lang: Preferred language code for labels.
 
     Returns:
-        A dictionary containing ``preferredLabel`` and ``group`` keys. Empty
-        if no match was found or the API call failed.
+        A dictionary containing ``preferredLabel``, ``group`` and ``uri`` keys.
+        Empty if no match was found or the API call failed.
     """
 
     if not job_title:
@@ -80,6 +81,7 @@ def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
             if results:
                 occ = results[0]
                 label = occ.get("preferredLabel", {}).get(lang) or occ.get("title", "")
+                uri = occ.get("uri", "")
                 group_uri = (occ.get("broaderIscoGroup") or [None])[0]
                 group_label = ""
                 if group_uri:
@@ -90,10 +92,40 @@ def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
                     )
                     if group_resp.status_code == 200:
                         group_label = group_resp.json().get("title", "")
-                result = {"preferredLabel": label, "group": group_label}
+                result = {"preferredLabel": label, "group": group_label, "uri": uri}
                 _occupation_cache[cache_key] = result
                 return result
     except Exception:
         pass
     _occupation_cache[cache_key] = {}
     return {}
+
+
+def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
+    """Fetch essential ESCO skills for a given occupation URI."""
+
+    if not occupation_uri:
+        return []
+    cache_key = (occupation_uri, lang)
+    if cache_key in _essential_cache:
+        return _essential_cache[cache_key]
+    try:
+        resp = requests.get(
+            "https://ec.europa.eu/esco/api/resource",
+            params={"uri": occupation_uri, "language": lang},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            links = data.get("_links", {})
+            skills: List[str] = []
+            for item in links.get("hasEssentialSkill", []):
+                title = item.get("title", "")
+                if title:
+                    skills.append(title)
+            _essential_cache[cache_key] = skills
+            return skills
+    except Exception:
+        pass
+    _essential_cache[cache_key] = []
+    return []

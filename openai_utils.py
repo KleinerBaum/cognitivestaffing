@@ -4,6 +4,7 @@ import openai
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
+
 def call_chat_api(messages: list[dict], model: str = None, max_tokens: int = 500, temperature: float = 0.5) -> str:
     if model is None:
         model = OPENAI_MODEL
@@ -15,6 +16,7 @@ def call_chat_api(messages: list[dict], model: str = None, max_tokens: int = 500
     except Exception as e:
         print(f"OpenAI API error: {e}")
         return ""
+
 
 def suggest_additional_skills(job_title: str, tasks: str = "", existing_skills: list[str] = None,
                               num_suggestions: int = 10, lang: str = "en") -> dict:
@@ -58,6 +60,7 @@ def suggest_additional_skills(job_title: str, tasks: str = "", existing_skills: 
         pass
     return {"technical": tech_skills, "soft": soft_skills}
 
+
 def suggest_role_tasks(job_title: str, num_tasks: int = 5) -> list[str]:
     job_title = job_title.strip()
     if not job_title:
@@ -72,6 +75,7 @@ def suggest_role_tasks(job_title: str, num_tasks: int = 5) -> list[str]:
             tasks.append(t)
     return tasks[:num_tasks]
 
+
 def generate_interview_guide(job_title: str, tasks: str = "", audience: str = "general", num_questions: int = 5) -> str:
     prompt = (
         f"Generate an interview guide for a {job_title} role for {audience} interviewers.\n"
@@ -80,6 +84,7 @@ def generate_interview_guide(job_title: str, tasks: str = "", audience: str = "g
     )
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, temperature=0.7, max_tokens=1000)
+
 
 def generate_job_ad(session_data: dict) -> str:
     job_title = session_data.get("job_title", "")
