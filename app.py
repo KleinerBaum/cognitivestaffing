@@ -1,13 +1,24 @@
 import streamlit as st
 from config import DEFAULT_LANGUAGE
 from components.tailwind_injector import inject_tailwind
-from auth import is_authenticated, login_form, logout_button
-from wizard import (apply_global_styling, show_progress_bar, show_navigation,
-                    start_discovery_page, company_information_page, role_description_page,
-                    task_scope_page, skills_competencies_page, benefits_compensation_page,
-                    recruitment_process_page, summary_outputs_page)
+from wizard import (
+    apply_global_styling,
+    show_progress_bar,
+    show_navigation,
+    start_discovery_page,
+    company_information_page,
+    role_description_page,
+    task_scope_page,
+    skills_competencies_page,
+    benefits_compensation_page,
+    recruitment_process_page,
+    summary_outputs_page,
+)
 
-st.set_page_config(page_title="Vacalyzer - Recruitment Need Analysis", layout="centered")
+st.set_page_config(
+    page_title="Vacalyzer - Recruitment Need Analysis",
+    layout="centered",
+)
 
 # Tailwind
 inject_tailwind(theme="dark")
@@ -16,22 +27,21 @@ inject_tailwind(theme="dark")
 if "current_section" not in st.session_state:
     st.session_state["current_section"] = 0
 if "lang" not in st.session_state:
-    st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
+    st.session_state["lang"] = (
+        "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
+    )
 if "llm_model" not in st.session_state:
     st.session_state["llm_model"] = None
 
-# Auth
-if not is_authenticated():
-    login_form()
-    st.stop()
-logout_button()
-
-# Extra styling
+# Styling
 apply_global_styling()
 
 # Sidebar: Language switch
-lang_choice = st.sidebar.selectbox("Language / Sprache", ["English", "Deutsch"],
-                                   0 if st.session_state["lang"] == "en" else 1)
+lang_choice = st.sidebar.selectbox(
+    "Language / Sprache",
+    ["English", "Deutsch"],
+    0 if st.session_state["lang"] == "en" else 1,
+)
 st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
 
 # Wizard steps

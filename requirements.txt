@@ -7,4 +7,3 @@ readability-lxml>=0.8.1
 lxml>=5.2.1
 beautifulsoup4>=4.12.3
 python-dotenv>=1.0.1
-bcrypt>=4.1.3
