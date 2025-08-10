@@ -1,20 +1,19 @@
 import os
 import sys
 
-import pytest
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from core.ss_bridge import to_session_state
-from llm.client import extract_and_parse
+import pytest  # noqa: E402
+from core.ss_bridge import to_session_state  # noqa: E402
+from llm.client import extract_and_parse  # noqa: E402
 
 
 @pytest.mark.parametrize(
     "raw",
     [
         '{"job_title": "Dev"}',
-        "```json\n{\"job_title\": \"Dev\"}\n```",
-        "Noise {\"job_title\": \"Dev\"} tail",
+        '```json\n{"job_title": "Dev"}\n```',
+        'Noise {"job_title": "Dev"} tail',
     ],
 )
 def test_e2e_to_session_state(monkeypatch, raw: str) -> None:

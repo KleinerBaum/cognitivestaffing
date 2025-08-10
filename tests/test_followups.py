@@ -3,8 +3,8 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from core.schema import VacalyserJD
-from questions.generate import generate_followup_questions
+from core.schema import VacalyserJD  # noqa: E402
+from questions.generate import generate_followup_questions  # noqa: E402
 
 
 def test_missing_detector_categories(monkeypatch) -> None:
@@ -15,8 +15,12 @@ def test_missing_detector_categories(monkeypatch) -> None:
         return "[]"
 
     monkeypatch.setattr("questions.generate.call_chat_api", fake_call_chat_api)
-    monkeypatch.setattr("questions.generate.classify_occupation", lambda *args, **kwargs: {})
-    monkeypatch.setattr("questions.generate.get_essential_skills", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        "questions.generate.classify_occupation", lambda *args, **kwargs: {}
+    )
+    monkeypatch.setattr(
+        "questions.generate.get_essential_skills", lambda *args, **kwargs: []
+    )
 
     jd = VacalyserJD(job_title="Dev", responsibilities=["Code"])
     generate_followup_questions(jd)
