@@ -9,6 +9,7 @@ A modern Streamlit Cloud app that parses job ads, autofills key fields, and now 
 - OpenAI prompts for extraction, suggestions, and content generation
 - Dynamic, low-friction wizard (EN/DE)
 - Adaptive follow-up questioning for comprehensive vacancy data
+- Typed vacancy schema via Pydantic for consistent job outputs
 
 ## Setup
 ```bash
