@@ -3,8 +3,8 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from esco.normalize import normalize_skills
-from questions.augment import missing_esco_skills
+from esco.normalize import normalize_skills  # noqa: E402
+from questions.augment import missing_esco_skills  # noqa: E402
 
 
 def test_normalize_skills(monkeypatch) -> None:

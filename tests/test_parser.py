@@ -2,11 +2,10 @@ import json
 import os
 import sys
 
-import pytest
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from utils.json_parse import parse_extraction
+import pytest  # noqa: E402
+from utils.json_parse import parse_extraction  # noqa: E402
 
 
 def test_parse_pure_json() -> None:
@@ -17,8 +16,8 @@ def test_parse_pure_json() -> None:
 @pytest.mark.parametrize(
     "raw",
     [
-        "```json\n{\"job_title\": \"Dev\"}\n```",
-        "Here is the data: {\"job_title\": \"Dev\"} Thanks",
+        '```json\n{"job_title": "Dev"}\n```',
+        'Here is the data: {"job_title": "Dev"} Thanks',
     ],
 )
 def test_parse_with_sanitization(raw: str) -> None:
