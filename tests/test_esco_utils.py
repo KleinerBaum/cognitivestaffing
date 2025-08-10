@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from esco_utils import classify_occupation  # noqa: E402
+from esco_utils import classify_occupation, get_essential_skills  # noqa: E402
 
 
 def test_classify_occupation(monkeypatch):
@@ -28,6 +28,7 @@ def test_classify_occupation(monkeypatch):
                             "broaderIscoGroup": [
                                 "http://data.europa.eu/esco/isco/C2512"
                             ],
+                            "uri": "http://example.com/occ",
                         }
                     ]
                 }
@@ -41,4 +42,29 @@ def test_classify_occupation(monkeypatch):
     assert res == {
         "preferredLabel": "software developer",
         "group": "Software developers",
+        "uri": "http://example.com/occ",
     }
+
+
+def test_get_essential_skills(monkeypatch):
+    """Essential skills are extracted from ESCO resource payload."""
+
+    def fake_get(url, params=None, timeout=5):
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "_links": {
+                        "hasEssentialSkill": [
+                            {"title": "Project management"},
+                            {"title": "Python"},
+                        ]
+                    }
+                }
+
+        return Resp()
+
+    monkeypatch.setattr("esco_utils.requests.get", fake_get)
+    skills = get_essential_skills("http://example.com/occ")
+    assert skills == ["Project management", "Python"]

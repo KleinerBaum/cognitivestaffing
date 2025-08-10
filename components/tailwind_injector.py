@@ -1,6 +1,6 @@
 from __future__ import annotations
-import streamlit as st
 import streamlit.components.v1 as components
+
 
 def inject_tailwind(theme: str = "dark") -> None:
     html = f"""
