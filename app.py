@@ -6,6 +6,7 @@ from wizard import (
     show_progress_bar,
     show_navigation,
     start_discovery_page,
+    followup_questions_page,
     company_information_page,
     role_description_page,
     task_scope_page,
@@ -27,9 +28,7 @@ inject_tailwind(theme="dark")
 if "current_section" not in st.session_state:
     st.session_state["current_section"] = 0
 if "lang" not in st.session_state:
-    st.session_state["lang"] = (
-        "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
-    )
+    st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"  # noqa: E501
 if "llm_model" not in st.session_state:
     st.session_state["llm_model"] = None
 
@@ -47,6 +46,7 @@ st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
 # Wizard steps
 sections = [
     {"name": "Start", "func": start_discovery_page},
+    {"name": "Follow-Ups", "func": followup_questions_page},
     {"name": "Company Info", "func": company_information_page},
     {"name": "Role Description", "func": role_description_page},
     {"name": "Tasks", "func": task_scope_page},
