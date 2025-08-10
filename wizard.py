@@ -171,7 +171,7 @@ def skills_competencies_page():
         st.session_state["hard_skills"] = "\n".join(updated_hard)
         st.session_state["soft_skills"] = "\n".join(updated_soft)
         st.success("✔️ Added skill suggestions.")
-        st._rerun()
+        st.rerun()
 
 def benefits_compensation_page():
     lang = st.session_state.get("lang","en")
