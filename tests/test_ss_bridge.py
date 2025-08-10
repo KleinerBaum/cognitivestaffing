@@ -15,3 +15,13 @@ def test_round_trip_session_state():
     jd2 = from_session_state(ss)
     assert jd2 == jd
     assert ss["responsibilities"] == "Code\nReview"
+
+
+def test_alias_fields_round_trip():
+    ss = {"tasks": "Alpha\nBeta", "requirements": "BSc"}
+    jd = from_session_state(ss)
+    assert jd.responsibilities == ["Alpha", "Beta"]
+    assert jd.qualifications == "BSc"
+    to_session_state(jd, ss)
+    assert "tasks" not in ss
+    assert "requirements" not in ss
