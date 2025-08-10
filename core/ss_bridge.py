@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .schema import ALL_FIELDS, LIST_FIELDS, VacalyserJD, coerce_and_fill
+from .schema import ALL_FIELDS, ALIASES, LIST_FIELDS, VacalyserJD, coerce_and_fill
 
 
 def to_session_state(jd: VacalyserJD, ss: dict) -> None:
@@ -23,11 +23,16 @@ def to_session_state(jd: VacalyserJD, ss: dict) -> None:
         else:
             ss[field] = value
 
+    # remove deprecated alias keys to avoid duplicate form fields
+    for alias in ALIASES:
+        ss.pop(alias, None)
+
 
 def from_session_state(ss: dict) -> VacalyserJD:
     """Build a :class:`VacalyserJD` from session state values.
 
-    Text area fields are split on newlines to re-create lists.
+    Text area fields are split on newlines to re-create lists. Alias keys are
+    preserved so that older state snapshots remain compatible.
 
     Args:
         ss: Session state dictionary.
@@ -37,9 +42,9 @@ def from_session_state(ss: dict) -> VacalyserJD:
     """
 
     data: dict[str, object] = {}
-    for field in ALL_FIELDS:
-        value = ss.get(field, [] if field in LIST_FIELDS else "")
-        if field in LIST_FIELDS and isinstance(value, str):
+    for key, value in ss.items():
+        target = ALIASES.get(key, key)
+        if target in LIST_FIELDS and isinstance(value, str):
             value = [line for line in value.splitlines() if line.strip()]
-        data[field] = value
+        data[target] = value
     return coerce_and_fill(data)
