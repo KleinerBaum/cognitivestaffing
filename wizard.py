@@ -1,6 +1,8 @@
 import streamlit as st
 from utils import (
     extract_text_from_file,
+    extract_text_from_url,
+    merge_texts,
     build_boolean_query,
     seo_optimize,
     ensure_logs_dir,
@@ -96,28 +98,17 @@ def start_discovery_page():
                 st.error("❌ Failed to extract text from the file.")
 
     if st.button("🔎 Analyze"):
-        combined_text = ""
+        url_text = ""
         if st.session_state.get("input_url"):
-            try:
-                from readability import Document
-                import requests
-
-                r = requests.get(st.session_state["input_url"], timeout=8)
-                if r.status_code == 200:
-                    doc = Document(r.text)
-                    # Keep text only — a quick heuristic
-                    from bs4 import BeautifulSoup
-
-                    soup = BeautifulSoup(doc.summary(), "lxml")
-                    combined_text += soup.get_text("\n")
-            except Exception:
+            url_text = extract_text_from_url(st.session_state["input_url"])
+            if not url_text:
                 st.warning("Unable to fetch/parse URL content.")
-        if st.session_state.get("uploaded_text"):
-            combined_text += "\n" + st.session_state["uploaded_text"]
-        if st.session_state.get("job_title") and not combined_text.strip():
+        file_text = st.session_state.get("uploaded_text", "")
+        combined_text = merge_texts(url_text, file_text)
+        if st.session_state.get("job_title") and not combined_text:
             combined_text = st.session_state["job_title"]
 
-        if not combined_text.strip():
+        if not combined_text:
             st.warning("⚠️ No text available to analyze.")
             return
 
