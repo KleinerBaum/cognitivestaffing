@@ -23,7 +23,7 @@ def show_navigation(current_step: int, total_steps: int):
         if current_step > 0:
             if st.button("⬅ Previous"):
                 st.session_state["current_section"] -= 1
-                st._rerun()
+                st.rerun()
     with col3:
         if current_step < total_steps - 1:
             if st.button("Next ➡"):
