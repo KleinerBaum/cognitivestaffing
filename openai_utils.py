@@ -1,4 +1,3 @@
-import streamlit as st
 from config import OPENAI_MODEL, OPENAI_API_KEY
 import openai
 
@@ -42,10 +41,12 @@ def suggest_additional_skills(job_title: str, tasks: str = "", existing_skills: 
             continue
         # simple split heuristic
         if t.lower().startswith("soft"):
-            bucket = "soft"; continue
+            bucket = "soft"
+            continue
         if t.lower().startswith("technical"):
-            bucket = "tech"; continue
-        (soft_skills if bucket=="soft" else tech_skills).append(t)
+            bucket = "tech"
+            continue
+        (soft_skills if bucket == "soft" else tech_skills).append(t)
     existing_lower = {s.lower() for s in existing_skills}
     tech_skills = [s for s in tech_skills if s.lower() not in existing_lower]
     soft_skills = [s for s in soft_skills if s.lower() not in existing_lower]

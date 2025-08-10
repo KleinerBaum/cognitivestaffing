@@ -7,10 +7,9 @@ A modern Streamlit Cloud app that parses job ads, autofills key fields, and asks
 - ESCO skill enrichment (preferred labels)
 - OpenAI prompts for extraction, suggestions, and content generation
 - Dynamic, low-friction wizard (EN/DE)
-- Simple auth (bcrypt hashes in Streamlit secrets)
-- Usage logging per user
 
 ## Setup
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
+```
