@@ -2,10 +2,6 @@ from __future__ import annotations
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Minimal Tailwind injector:
-# - Loads Tailwind CDN inside the component iframe
-# - Best-effort injection into the parent document's <head> so native Streamlit widgets get Tailwind variables
-# Note: This is a pragmatic approach; Streamlit's DOM is not guaranteed stable.
 def inject_tailwind(theme: str = "dark") -> None:
     html = f"""
 <!DOCTYPE html>
@@ -17,23 +13,17 @@ def inject_tailwind(theme: str = "dark") -> None:
   (function() {{
     try {{
       const parentDoc = window.parent.document;
-
-      // Inject tailwind CDN into parent if not already present
       if (!parentDoc.getElementById('tailwind-cdn')) {{
         const s = parentDoc.createElement('script');
         s.src = 'https://cdn.tailwindcss.com';
         s.id = 'tailwind-cdn';
         parentDoc.head.appendChild(s);
       }}
-
-      // Ensure a dark class if requested
       if ('{theme}' === 'dark') {{
         parentDoc.documentElement.classList.add('dark');
       }} else {{
         parentDoc.documentElement.classList.remove('dark');
       }}
-
-      // Basic theme variables (optional)
       const styleId = 'vacalyser-theme-vars';
       if (!parentDoc.getElementById(styleId)) {{
         const st = parentDoc.createElement('style');
@@ -44,8 +34,8 @@ def inject_tailwind(theme: str = "dark") -> None:
             --bg-card: #111827;
             --fg-muted: #9ca3af;
             --fg: #e5e7eb;
-            --primary: #22d3ee; /* cyan-400 */
-            --accent: #a78bfa;  /* violet-400 */
+            --primary: #22d3ee;
+            --accent: #a78bfa;
           }}
           .dark body, .dark .stApp {{
             background-color: var(--bg-app) !important;
@@ -71,14 +61,11 @@ def inject_tailwind(theme: str = "dark") -> None:
         `;
         parentDoc.head.appendChild(st);
       }}
-    }} catch (e) {{
-      // no-op
-    }}
+    }} catch (e) {{}}
   }})();
   </script>
 </head>
 <body></body>
 </html>
 """
-    # Render zero-height component that runs the injection
     components.html(html, height=0, width=0, scrolling=False)
