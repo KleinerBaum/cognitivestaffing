@@ -2,7 +2,7 @@ from core.schema import ALL_FIELDS, LIST_FIELDS, VacalyserJD, coerce_and_fill
 
 
 def test_constants() -> None:
-    assert len(ALL_FIELDS) == 23
+    assert len(ALL_FIELDS) == 22
     assert LIST_FIELDS == {
         "responsibilities",
         "hard_skills",

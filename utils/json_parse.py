@@ -4,6 +4,7 @@ Robust JSON parsing utilities for LLM extraction output.
 Implements:
 - CS-PAR-01: Strict parser with sanitization
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,7 @@ def _strip_code_fences(s: str) -> str:
     if not s:
         return s
     # Remove leading BOMs
-    s = s.lstrip("\ufeff").lstrip("\uFEFF")
+    s = s.lstrip("\ufeff").lstrip("\ufeff")
     # Drop fence lines like ``` or ```json
     return _CODE_FENCE_RE.sub("", s)
 
@@ -68,7 +69,7 @@ def _first_balanced_json(s: str) -> Optional[str]:
             if depth > 0:
                 depth -= 1
                 if depth == 0 and start != -1:
-                    return s[start : i + 1]
+                    return s[start : i + 1]  # noqa: E203
     return None
 
 
