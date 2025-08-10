@@ -140,7 +140,7 @@ def task_scope_page():
                     current.append(t)
             st.session_state["tasks"] = "\n".join(current)
             st.success("✔️ Added suggested tasks.")
-            st._rerun()
+            st.rerun()
         else:
             st.warning("No suggestions available.")
 
