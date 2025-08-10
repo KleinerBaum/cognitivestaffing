@@ -5,6 +5,7 @@ A modern Streamlit Cloud app that parses job ads, autofills key fields, and now 
 ## Features
 - Robust PDF/DOCX/TXT/URL ingestion with OCR for scanned PDFs
 - ESCO skill enrichment (preferred labels)
+- Occupation classification via ESCO API
 - Essential skill checks via ESCO to flag missing requirements
 - OpenAI prompts for extraction, suggestions, and content generation
 - Dynamic, low-friction wizard (EN/DE)
