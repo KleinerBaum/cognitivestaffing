@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 import json
 
 from openai_utils import call_chat_api
+from esco_utils import classify_occupation
 
 # Extended vacancy fields to ensure a comprehensive profile
 EXTENDED_FIELDS: List[str] = [
@@ -48,6 +49,24 @@ EXTENDED_FIELDS: List[str] = [
     "performance_metrics",
 ]
 
+# Mapping from ESCO occupation groups to additional vacancy fields that are
+# relevant for those roles.
+ROLE_FIELD_MAP: Dict[str, List[str]] = {
+    "software developers": [
+        "programming_languages",
+        "frameworks",
+        "tech_stack",
+    ],
+    "sales, marketing and public relations professionals": [
+        "target_markets",
+        "sales_quota",
+    ],
+    "nursing and midwifery professionals": [
+        "required_certifications",
+        "shift_schedule",
+    ],
+}
+
 
 def generate_followup_questions(
     extracted: Dict[str, Any],
@@ -70,7 +89,18 @@ def generate_followup_questions(
         A list of dictionaries with ``field`` and ``question`` keys.
     """
 
-    payload = {field: extracted.get(field, "") for field in EXTENDED_FIELDS}
+    job_title = extracted.get("job_title", "")
+    occupation_info: Dict[str, str] = {}
+    role_fields: List[str] = []
+    if job_title:
+        occupation_info = classify_occupation(job_title, lang=lang)
+        group = (occupation_info.get("group") or "").lower()
+        role_fields = ROLE_FIELD_MAP.get(group, [])
+    fields = EXTENDED_FIELDS + role_fields
+    payload = {field: extracted.get(field, "") for field in fields}
+    if occupation_info:
+        payload["esco_occupation"] = occupation_info.get("preferredLabel", "")
+        payload["esco_group"] = occupation_info.get("group", "")
     prompt = (
         "You analyse vacancy data and ensure every field is complete. "
         "First think step-by-step about missing or vague information. "
