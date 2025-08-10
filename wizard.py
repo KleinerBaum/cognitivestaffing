@@ -23,12 +23,12 @@ def show_navigation(current_step: int, total_steps: int):
         if current_step > 0:
             if st.button("⬅ Previous"):
                 st.session_state["current_section"] -= 1
-                st.experimental_rerun()
+                st._rerun()
     with col3:
         if current_step < total_steps - 1:
             if st.button("Next ➡"):
                 st.session_state["current_section"] += 1
-                st.experimental_rerun()
+                st.rerun()
 
 def start_discovery_page():
     lang = st.session_state.get("lang", "en")
@@ -140,7 +140,7 @@ def task_scope_page():
                     current.append(t)
             st.session_state["tasks"] = "\n".join(current)
             st.success("✔️ Added suggested tasks.")
-            st.experimental_rerun()
+            st._rerun()
         else:
             st.warning("No suggestions available.")
 
@@ -171,7 +171,7 @@ def skills_competencies_page():
         st.session_state["hard_skills"] = "\n".join(updated_hard)
         st.session_state["soft_skills"] = "\n".join(updated_soft)
         st.success("✔️ Added skill suggestions.")
-        st.experimental_rerun()
+        st._rerun()
 
 def benefits_compensation_page():
     lang = st.session_state.get("lang","en")
