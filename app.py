@@ -21,21 +21,21 @@ st.set_page_config(
     layout="centered",
 )
 
-# Tailwind
+# Inject Tailwind CSS for styling
 inject_tailwind(theme="dark")
 
-# Init session defaults
+# Initialize session state defaults
 if "current_section" not in st.session_state:
     st.session_state["current_section"] = 0
 if "lang" not in st.session_state:
-    st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"  # noqa: E501
+    st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
 if "llm_model" not in st.session_state:
     st.session_state["llm_model"] = None
 
-# Styling
+# Apply global styles
 apply_global_styling()
 
-# Sidebar: Language switch
+# Sidebar language switcher
 lang_choice = st.sidebar.selectbox(
     "Language / Sprache",
     ["English", "Deutsch"],
@@ -43,7 +43,7 @@ lang_choice = st.sidebar.selectbox(
 )
 st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
 
-# Wizard steps
+# Define wizard sections and their corresponding page functions
 sections = [
     {"name": "Start", "func": start_discovery_page},
     {"name": "Follow-Ups", "func": followup_questions_page},
@@ -56,9 +56,9 @@ sections = [
     {"name": "Summary", "func": summary_outputs_page},
 ]
 
+# Render current section
 idx = st.session_state["current_section"]
 total = len(sections)
-
 show_progress_bar(idx, total)
 sections[idx]["func"]()
 show_navigation(idx, total)
