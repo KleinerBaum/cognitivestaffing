@@ -24,10 +24,16 @@ import os
 from typing import Any, Dict, List, Optional, Set
 
 # ESCO helpers (must exist in core/esco_utils.py)
-from core.esco_utils import classify_occupation, get_essential_skills
 
-# Generic chat helper (fallback) — must exist in core/openai_utils.py
-from core.openai_utils import call_chat_api
+
+from core.esco_utils import (
+    classify_occupation,
+    get_essential_skills,
+    enrich_skills_with_esco,
+)
+
+# Generic chat helper (fallback)
+from openai_utils import call_chat_api
 
 # Try modern OpenAI SDK (Responses API)
 try:
@@ -122,6 +128,9 @@ CRITICAL_FIELDS: Set[str] = {
 }
 
 
+SKILL_FIELDS: Set[str] = {"hard_skills", "soft_skills", "tools_and_technologies"}
+
+
 def _is_empty(val: Any) -> bool:
     if val is None:
         return True
@@ -210,8 +219,10 @@ def _rag_suggestions(
         out: Dict[str, List[str]] = {}
         for f in missing_fields:
             vals = data.get(f) or data.get(f.replace("_", " ")) or []
-            # sanitize to strings
-            out[f] = [str(x).strip() for x in vals if str(x).strip()]
+            sanitized = [str(x).strip() for x in vals if str(x).strip()]
+            if f in SKILL_FIELDS and sanitized:
+                sanitized = enrich_skills_with_esco(sanitized, lang=lang)
+            out[f] = sanitized
         return out
     except Exception:
         return {}

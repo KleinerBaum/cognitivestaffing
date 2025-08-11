@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from io import BytesIO
-
 import fitz  # type: ignore[import-not-found]
-from PIL import Image
-import pytesseract
+
+from core.ocr_backends import extract_text as ocr_extract_text
 
 
 def ocr_pdf(pdf_path: str) -> str:
-    """Extract text from a PDF using Tesseract OCR.
+    """Extract text from a PDF using the configured OCR backend.
 
     Args:
         pdf_path: Path to the PDF file.
@@ -18,11 +16,9 @@ def ocr_pdf(pdf_path: str) -> str:
     Returns:
         Text recognised from the PDF.
     """
-
     text_parts: list[str] = []
     with fitz.open(pdf_path) as doc:
         for page in doc:
             pix = page.get_pixmap()
-            img = Image.open(BytesIO(pix.tobytes("png")))
-            text_parts.append(pytesseract.image_to_string(img))
+            text_parts.append(ocr_extract_text(pix.tobytes("png")))
     return "\n".join(text_parts).strip()
