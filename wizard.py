@@ -10,7 +10,7 @@ from utils import (
     seo_optimize,
     ensure_logs_dir,
 )
-from openai_utils import (
+from core.openai_utils import (
     call_chat_api,
     suggest_additional_skills,
     suggest_benefits,
@@ -225,6 +225,7 @@ def followup_questions_page():
             )
         else:
             _ = st.text_input(question, "", key=key)
+
 
         suggestions = item.get("suggestions") or []
         if suggestions and field:
