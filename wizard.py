@@ -172,7 +172,11 @@ def start_discovery_page():
                 )
             normalise_state()  # normalize keys and prepare validated JSON
             # Generate follow-up questions for missing info
-            followups = generate_followup_questions(st.session_state, lang=lang)
+            followups = generate_followup_questions(
+                st.session_state,
+                lang=lang,
+                use_rag=st.session_state.get("use_rag", True),
+            )
             st.session_state["followup_questions"] = followups
             st.session_state["extraction_success"] = True
             log_event(
@@ -197,19 +201,59 @@ def followup_questions_page():
             else "Keine weiteren Fragen – das Profil ist vollständig."
         )
         return
-    # Render each follow-up question as a text input
+
+    rank = {"critical": 0, "normal": 1, "optional": 2}
+    followups = sorted(
+        followups, key=lambda item: rank.get(item.get("priority", "normal"), 1)
+    )
+
+    if "pending_critical_fields" not in st.session_state:
+        st.session_state["pending_critical_fields"] = {
+            f.get("field")
+            for f in followups
+            if f.get("priority") == "critical"
+            and not st.session_state.get(f.get("field", ""), "").strip()
+        }
+
     for item in followups:
         field = item.get("field", "")
         question = item.get("question", "")
-        # Use field as the Streamlit key if available, otherwise use the question text as key
         key = field or question
         if field:
             st.session_state[field] = st.text_input(
                 question, st.session_state.get(field, ""), key=key
             )
         else:
-            # Question with no specific field: provide an input for user response (not stored in schema)
             _ = st.text_input(question, "", key=key)
+
+
+        suggestions = item.get("suggestions") or []
+        if suggestions and field:
+            cols = st.columns(len(suggestions))
+            for idx, (col, sugg) in enumerate(zip(cols, suggestions)):
+                with col:
+                    if st.button(sugg, key=f"{key}_sugg_{idx}"):
+                        existing = st.session_state.get(field, "")
+                        sep = "\n" if existing else ""
+                        st.session_state[field] = f"{existing}{sep}{sugg}"
+                        st.rerun()
+
+    pending = st.session_state.get("pending_critical_fields", set())
+    filled_now = [f for f in list(pending) if st.session_state.get(f, "").strip()]
+    if filled_now:
+        followups = generate_followup_questions(
+            st.session_state,
+            lang=lang,
+            use_rag=st.session_state.get("use_rag", True),
+        )
+        st.session_state["followup_questions"] = followups
+        st.session_state["pending_critical_fields"] = {
+            f.get("field")
+            for f in followups
+            if f.get("priority") == "critical"
+            and not st.session_state.get(f.get("field", ""), "").strip()
+        }
+        st.rerun()
 
 
 def company_information_page():
