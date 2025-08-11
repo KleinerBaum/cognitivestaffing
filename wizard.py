@@ -21,6 +21,7 @@ from openai_utils import (
 )
 from question_logic import generate_followup_questions, EXTENDED_FIELDS
 
+
 def normalise_state(reapply_aliases: bool = True):
     """Normalize session state to canonical schema keys and update JSON."""
     jd = from_session_state(st.session_state)
@@ -34,6 +35,7 @@ def normalise_state(reapply_aliases: bool = True):
         jd.model_dump(mode="json"), indent=2, ensure_ascii=False
     )
     return jd
+
 
 def apply_global_styling():
     """Apply global CSS styles to the Streamlit app."""
@@ -50,9 +52,11 @@ def apply_global_styling():
         unsafe_allow_html=True,
     )
 
+
 def show_progress_bar(current_step: int, total_steps: int):
     progress = (current_step + 1) / total_steps
     st.progress(progress, text=f"{int(progress*100)}% complete")
+
 
 def show_navigation(current_step: int, total_steps: int):
     """Render Previous/Next navigation buttons for the wizard."""
@@ -68,16 +72,19 @@ def show_navigation(current_step: int, total_steps: int):
                 st.session_state["current_section"] += 1
                 st.rerun()
 
+
 def start_discovery_page():
     """Start page: Input job title and job ad content (URL or file) for analysis."""
     lang = st.session_state.get("lang", "en")
     st.header(
         "🔍 Start Your Analysis with Vacalyzer"
-        if lang != "de" else "🔍 Starten Sie Ihre Analyse mit Vacalyzer"
+        if lang != "de"
+        else "🔍 Starten Sie Ihre Analyse mit Vacalyzer"
     )
     st.caption(
         "Upload a job ad or paste a URL. We’ll extract everything we can — then ask only what’s missing."
-        if lang != "de" else "Laden Sie eine Stellenanzeige hoch oder fügen Sie eine URL ein. Wir extrahieren alle verfügbaren Informationen und fragen nur noch fehlende Details ab."
+        if lang != "de"
+        else "Laden Sie eine Stellenanzeige hoch oder fügen Sie eine URL ein. Wir extrahieren alle verfügbaren Informationen und fragen nur noch fehlende Details ab."
     )
 
     if st.session_state.get("extraction_success"):
@@ -94,14 +101,22 @@ def start_discovery_page():
         if job_title:
             st.session_state["job_title"] = job_title
         input_url = st.text_input(
-            "Job Ad URL (optional)" if lang != "de" else "Stellenanzeigen-URL (optional)",
+            (
+                "Job Ad URL (optional)"
+                if lang != "de"
+                else "Stellenanzeigen-URL (optional)"
+            ),
             st.session_state.get("input_url", ""),
         )
         if input_url:
             st.session_state["input_url"] = input_url
     with colB:
         uploaded_file = st.file_uploader(
-            "Upload Job Ad (PDF, DOCX, TXT)" if lang != "de" else "Stellenanzeige hochladen (PDF, DOCX, TXT)",
+            (
+                "Upload Job Ad (PDF, DOCX, TXT)"
+                if lang != "de"
+                else "Stellenanzeige hochladen (PDF, DOCX, TXT)"
+            ),
             type=["pdf", "docx", "txt"],
         )
         if uploaded_file is not None:
@@ -127,7 +142,9 @@ def start_discovery_page():
             combined_text = st.session_state["job_title"]
 
         if not combined_text:
-            st.warning("⚠️ No text available to analyze. Please provide a job ad URL or upload a document.")
+            st.warning(
+                "⚠️ No text available to analyze. Please provide a job ad URL or upload a document."
+            )
             return
 
         # Construct prompt for extracting all extended fields from text
@@ -140,17 +157,26 @@ def start_discovery_page():
             f"Text:\n{combined_text}"
         )
         messages = [{"role": "user", "content": extract_prompt}]
-        response = call_chat_api(messages, model=st.session_state.get("llm_model"), temperature=0.0)
+        response = call_chat_api(
+            messages, model=st.session_state.get("llm_model"), temperature=0.0
+        )
         import json
+
         try:
             parsed = json.loads(response)
             # Update session state with extracted values
             for key, val in parsed.items():
                 # Join lists into newline-separated strings for text areas
-                st.session_state[key] = "\n".join(val) if isinstance(val, list) else str(val)
+                st.session_state[key] = (
+                    "\n".join(val) if isinstance(val, list) else str(val)
+                )
             normalise_state()  # normalize keys and prepare validated JSON
             # Generate follow-up questions for missing info
-            followups = generate_followup_questions(st.session_state, lang=lang)
+            followups = generate_followup_questions(
+                st.session_state,
+                lang=lang,
+                use_rag=st.session_state.get("use_rag", True),
+            )
             st.session_state["followup_questions"] = followups
             st.session_state["extraction_success"] = True
             log_event(
@@ -158,7 +184,10 @@ def start_discovery_page():
             )
             st.rerun()
         except json.JSONDecodeError:
-            st.error("❌ Could not parse AI response as JSON. Please try again or rephrase the input.")
+            st.error(
+                "❌ Could not parse AI response as JSON. Please try again or rephrase the input."
+            )
+
 
 def followup_questions_page():
     """Follow-up page: Display dynamically generated follow-up questions for missing fields."""
@@ -168,20 +197,63 @@ def followup_questions_page():
     if not followups:
         st.info(
             "No further questions – vacancy profile looks complete."
-            if lang != "de" else "Keine weiteren Fragen – das Profil ist vollständig."
+            if lang != "de"
+            else "Keine weiteren Fragen – das Profil ist vollständig."
         )
         return
-    # Render each follow-up question as a text input
+
+    rank = {"critical": 0, "normal": 1, "optional": 2}
+    followups = sorted(
+        followups, key=lambda item: rank.get(item.get("priority", "normal"), 1)
+    )
+
+    if "pending_critical_fields" not in st.session_state:
+        st.session_state["pending_critical_fields"] = {
+            f.get("field")
+            for f in followups
+            if f.get("priority") == "critical"
+            and not st.session_state.get(f.get("field", ""), "").strip()
+        }
+
     for item in followups:
         field = item.get("field", "")
         question = item.get("question", "")
-        # Use field as the Streamlit key if available, otherwise use the question text as key
         key = field or question
         if field:
-            st.session_state[field] = st.text_input(question, st.session_state.get(field, ""), key=key)
+            st.session_state[field] = st.text_input(
+                question, st.session_state.get(field, ""), key=key
+            )
         else:
-            # Question with no specific field: provide an input for user response (not stored in schema)
             _ = st.text_input(question, "", key=key)
+
+        suggestions = item.get("suggestions") or []
+        if suggestions and field:
+            cols = st.columns(len(suggestions))
+            for idx, (col, sugg) in enumerate(zip(cols, suggestions)):
+                with col:
+                    if st.button(sugg, key=f"{key}_sugg_{idx}"):
+                        existing = st.session_state.get(field, "")
+                        sep = "\n" if existing else ""
+                        st.session_state[field] = f"{existing}{sep}{sugg}"
+                        st.rerun()
+
+    pending = st.session_state.get("pending_critical_fields", set())
+    filled_now = [f for f in list(pending) if st.session_state.get(f, "").strip()]
+    if filled_now:
+        followups = generate_followup_questions(
+            st.session_state,
+            lang=lang,
+            use_rag=st.session_state.get("use_rag", True),
+        )
+        st.session_state["followup_questions"] = followups
+        st.session_state["pending_critical_fields"] = {
+            f.get("field")
+            for f in followups
+            if f.get("priority") == "critical"
+            and not st.session_state.get(f.get("field", ""), "").strip()
+        }
+        st.rerun()
+
 
 def company_information_page():
     """Company Info page: Gather basic company information and optionally auto-fetch details from website."""
@@ -226,7 +298,9 @@ def company_information_page():
                 # Use OpenAI to extract company details (name, mission, culture, location) from site text
                 info = extract_company_info(combined_site_text)
                 # Update session state with any info found (if fields were empty or not set by user yet)
-                if info.get("company_name") and not st.session_state.get("company_name"):
+                if info.get("company_name") and not st.session_state.get(
+                    "company_name"
+                ):
                     st.session_state["company_name"] = info["company_name"]
                 if info.get("location") and not st.session_state.get("location"):
                     st.session_state["location"] = info["location"]
@@ -238,11 +312,26 @@ def company_information_page():
                 # If mission or culture were fetched, add them to follow-up questions if they were missing
                 # (So that user can see and edit them if needed in follow-ups)
                 followups = st.session_state.get("followup_questions", [])
-                if info.get("company_mission") and not any(f.get("field") == "company_mission" for f in followups):
-                    followups.append({"field": "company_mission", "question": "Company Mission / Core Values"})
-                if info.get("company_culture") and not any(f.get("field") == "company_culture" for f in followups):
-                    followups.append({"field": "company_culture", "question": "Company Culture or Work Environment"})
+                if info.get("company_mission") and not any(
+                    f.get("field") == "company_mission" for f in followups
+                ):
+                    followups.append(
+                        {
+                            "field": "company_mission",
+                            "question": "Company Mission / Core Values",
+                        }
+                    )
+                if info.get("company_culture") and not any(
+                    f.get("field") == "company_culture" for f in followups
+                ):
+                    followups.append(
+                        {
+                            "field": "company_culture",
+                            "question": "Company Culture or Work Environment",
+                        }
+                    )
                 st.session_state["followup_questions"] = followups
+
 
 def role_description_page():
     """Role Description page: High-level summary of the role and key requirements."""
@@ -254,21 +343,29 @@ def role_description_page():
         height=100,
     )
     # Combine requirements and qualifications in one field for user convenience
-    req_initial = st.session_state.get("requirements") or st.session_state.get("qualifications", "")
+    req_initial = st.session_state.get("requirements") or st.session_state.get(
+        "qualifications", ""
+    )
     req_text = st.text_area(
-        "Requirements/Qualifications" if lang != "de" else "Anforderungen/Qualifikationen",
+        (
+            "Requirements/Qualifications"
+            if lang != "de"
+            else "Anforderungen/Qualifikationen"
+        ),
         req_initial,
         height=100,
     )
     st.session_state["requirements"] = req_text
     st.session_state["qualifications"] = req_text
 
+
 def task_scope_page():
     """Tasks page: Key tasks and responsibilities of the role, with suggestions."""
     lang = st.session_state.get("lang", "en")
     st.header(
         "📝 Key Tasks & Responsibilities"
-        if lang != "de" else "📝 Wichtige Aufgaben & Verantwortlichkeiten"
+        if lang != "de"
+        else "📝 Wichtige Aufgaben & Verantwortlichkeiten"
     )
     tasks_text = st.text_area(
         "Tasks (one per line)" if lang != "de" else "Aufgaben (eine pro Zeile)",
@@ -292,12 +389,14 @@ def task_scope_page():
         else:
             st.warning("No task suggestions available at the moment.")
 
+
 def skills_competencies_page():
     """Skills page: Required hard and soft skills, with AI suggestions to enrich the list."""
     lang = st.session_state.get("lang", "en")
     st.header(
         "🛠️ Required Skills & Competencies"
-        if lang != "de" else "🛠️ Erforderliche Fähigkeiten & Kompetenzen"
+        if lang != "de"
+        else "🛠️ Erforderliche Fähigkeiten & Kompetenzen"
     )
     hard_skills_text = st.text_area(
         "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
@@ -313,12 +412,18 @@ def skills_competencies_page():
     st.session_state["soft_skills"] = soft_skills_text
     if st.button("💡 Suggest Additional Skills"):
         title = st.session_state.get("job_title", "")
-        tasks = st.session_state.get("tasks", "") or st.session_state.get("responsibilities", "")
+        tasks = st.session_state.get("tasks", "") or st.session_state.get(
+            "responsibilities", ""
+        )
         existing_skills = []
         if hard_skills_text:
-            existing_skills += [s.strip() for s in hard_skills_text.splitlines() if s.strip()]
+            existing_skills += [
+                s.strip() for s in hard_skills_text.splitlines() if s.strip()
+            ]
         if soft_skills_text:
-            existing_skills += [s.strip() for s in soft_skills_text.splitlines() if s.strip()]
+            existing_skills += [
+                s.strip() for s in soft_skills_text.splitlines() if s.strip()
+            ]
         suggestions = suggest_additional_skills(
             job_title=title,
             tasks=tasks,
@@ -329,17 +434,28 @@ def skills_competencies_page():
         tech_suggestions = suggestions.get("technical", [])
         soft_suggestions = suggestions.get("soft", [])
         # Merge new suggestions avoiding duplicates
-        updated_hard = existing_skills + [s for s in tech_suggestions if s and s.lower() not in [e.lower() for e in existing_skills]]
-        updated_soft = [s for s in soft_suggestions if s and s.lower() not in [e.lower() for e in existing_skills]]
+        updated_hard = existing_skills + [
+            s
+            for s in tech_suggestions
+            if s and s.lower() not in [e.lower() for e in existing_skills]
+        ]
+        updated_soft = [
+            s
+            for s in soft_suggestions
+            if s and s.lower() not in [e.lower() for e in existing_skills]
+        ]
         st.session_state["hard_skills"] = "\n".join(updated_hard)
         st.session_state["soft_skills"] = "\n".join(updated_soft)
         st.success("✔️ Added skill suggestions.")
         st.rerun()
 
+
 def benefits_compensation_page():
     """Benefits page: Compensation and benefits details, with suggestions for perks."""
     lang = st.session_state.get("lang", "en")
-    st.header("💰 Benefits & Compensation" if lang != "de" else "💰 Vergütung & Vorteile")
+    st.header(
+        "💰 Benefits & Compensation" if lang != "de" else "💰 Vergütung & Vorteile"
+    )
     st.session_state["salary_range"] = st.text_input(
         "Salary Range", st.session_state.get("salary_range", "")
     )
@@ -366,7 +482,11 @@ def benefits_compensation_page():
         existing = st.session_state.get("benefits", "")
         suggestions = suggest_benefits(title, industry, existing_benefits=existing)
         if suggestions:
-            current_benefits = [b.strip() for b in st.session_state["benefits"].splitlines() if b.strip()]
+            current_benefits = [
+                b.strip()
+                for b in st.session_state["benefits"].splitlines()
+                if b.strip()
+            ]
             for perk in suggestions:
                 if perk and perk not in current_benefits:
                     current_benefits.append(perk)
@@ -376,33 +496,49 @@ def benefits_compensation_page():
         else:
             st.warning("No benefit suggestions available at the moment.")
 
+
 def recruitment_process_page():
     """Process page: Details about the recruitment process (interview rounds, notes)."""
     lang = st.session_state.get("lang", "en")
     st.header("🏁 Recruitment Process" if lang != "de" else "🏁 Einstellungsprozess")
     st.session_state["interview_stages"] = int(
         st.number_input(
-            "Number of Interview Rounds" if lang != "de" else "Anzahl der Interviewrunden",
+            (
+                "Number of Interview Rounds"
+                if lang != "de"
+                else "Anzahl der Interviewrunden"
+            ),
             min_value=0,
             step=1,
             value=int(st.session_state.get("interview_stages", 0)),
         )
     )
     st.session_state["process_notes"] = st.text_area(
-        "Additional Hiring Process Notes" if lang != "de" else "Weitere Hinweise zum Prozess",
+        (
+            "Additional Hiring Process Notes"
+            if lang != "de"
+            else "Weitere Hinweise zum Prozess"
+        ),
         st.session_state.get("process_notes", ""),
         height=80,
     )
 
+
 def summary_outputs_page():
     """Summary page: Display a summary of collected fields and provide output generation (job ad, interview guide, boolean query)."""
     lang = st.session_state.get("lang", "en")
-    normalise_state(reapply_aliases=False)  # Final normalization (do not reapply alias values here)
-    st.header("📊 Summary & Outputs" if lang != "de" else "📊 Zusammenfassung & Ergebnisse")
+    normalise_state(
+        reapply_aliases=False
+    )  # Final normalization (do not reapply alias values here)
+    st.header(
+        "📊 Summary & Outputs" if lang != "de" else "📊 Zusammenfassung & Ergebnisse"
+    )
     # List of fields to display in summary (avoiding duplicate alias keys)
     fields_to_show = (
         ["job_title"]
-        + [f for f in EXTENDED_FIELDS if f not in ALIASES]  # show all extended fields (aliases filtered out)
+        + [
+            f for f in EXTENDED_FIELDS if f not in ALIASES
+        ]  # show all extended fields (aliases filtered out)
         + ["hard_skills", "soft_skills"]
     )
     seen_keys = set()
@@ -432,8 +568,12 @@ def summary_outputs_page():
     with colB:
         if st.button("📝 Generate Interview Guide"):
             title = st.session_state.get("job_title", "")
-            tasks = st.session_state.get("tasks", "") or st.session_state.get("responsibilities", "")
-            guide = generate_interview_guide(title, tasks, audience="hiring managers", num_questions=5)
+            tasks = st.session_state.get("tasks", "") or st.session_state.get(
+                "responsibilities", ""
+            )
+            guide = generate_interview_guide(
+                title, tasks, audience="hiring managers", num_questions=5
+            )
             st.subheader("Interview Guide & Scoring Rubrics")
             st.write(guide)
             log_event(f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}")
@@ -441,15 +581,21 @@ def summary_outputs_page():
     if st.session_state.get("job_title") or st.session_state.get("hard_skills"):
         bool_query = build_boolean_query(
             st.session_state.get("job_title", ""),
-            (st.session_state.get("hard_skills", "") + "\n" + st.session_state.get("soft_skills", "")).splitlines(),
+            (
+                st.session_state.get("hard_skills", "")
+                + "\n"
+                + st.session_state.get("soft_skills", "")
+            ).splitlines(),
         )
         if bool_query:
             st.info(f"**Boolean Search Query:** `{bool_query}`")
+
 
 def log_event(event_text: str):
     """Append an event entry to the usage log with a timestamp."""
     ensure_logs_dir()
     import datetime
+
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     entry = f"[{timestamp}] {event_text}\n"
     try:
