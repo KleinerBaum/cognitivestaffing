@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Set
 
 # ESCO helpers (must exist in core/esco_utils.py)
 
+
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
