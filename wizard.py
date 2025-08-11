@@ -1,4 +1,6 @@
 import streamlit as st
+from core.ss_bridge import from_session_state, to_session_state
+from core.schema import ALIASES
 from utils import (
     extract_text_from_file,
     extract_text_from_url,
@@ -14,6 +16,21 @@ from openai_utils import (
     generate_job_ad,
 )
 from question_logic import generate_followup_questions, EXTENDED_FIELDS
+
+
+def normalise_state(reapply_aliases: bool = True):
+    """Normalise session state to canonical schema keys."""
+
+    jd = from_session_state(st.session_state)
+    to_session_state(jd, st.session_state)
+    if reapply_aliases:
+        st.session_state["requirements"] = st.session_state.get("qualifications", "")
+        st.session_state["tasks"] = st.session_state.get("responsibilities", "")
+        st.session_state["contract_type"] = st.session_state.get("job_type", "")
+    st.session_state["validated_json"] = jd.model_dump_json(
+        indent=2, ensure_ascii=False
+    )
+    return jd
 
 
 def apply_global_styling():
@@ -129,6 +146,7 @@ def start_discovery_page():
             parsed = json.loads(resp)
             for k, v in parsed.items():
                 st.session_state[k] = "\n".join(v) if isinstance(v, list) else str(v)
+            normalise_state()
             followups = generate_followup_questions(st.session_state, lang=lang)
             st.session_state["followup_questions"] = followups
             st.success("✅ Key information extracted successfully!")
@@ -191,15 +209,20 @@ def role_description_page():
         st.session_state.get("role_summary", ""),
         height=100,
     )
-    st.session_state["requirements"] = st.text_area(
+    req_initial = st.session_state.get("requirements") or st.session_state.get(
+        "qualifications", ""
+    )
+    req_text = st.text_area(
         (
             "Requirements/Qualifications"
             if lang != "de"
             else "Anforderungen/Qualifikationen"
         ),
-        st.session_state.get("requirements", ""),
+        req_initial,
         height=100,
     )
+    st.session_state["requirements"] = req_text
+    st.session_state["qualifications"] = req_text
 
 
 def task_scope_page():
@@ -211,10 +234,11 @@ def task_scope_page():
     )
     tasks_text = st.text_area(
         "Tasks (one per line)" if lang != "de" else "Aufgaben (eine pro Zeile)",
-        st.session_state.get("tasks", ""),
+        st.session_state.get("tasks") or st.session_state.get("responsibilities", ""),
         height=150,
     )
     st.session_state["tasks"] = tasks_text
+    st.session_state["responsibilities"] = tasks_text
     if st.button("💡 Suggest Tasks"):
         title = st.session_state.get("job_title", "")
         suggestions = suggest_role_tasks(title, num_tasks=5)
@@ -329,10 +353,23 @@ def recruitment_process_page():
 
 def summary_outputs_page():
     lang = st.session_state.get("lang", "en")
+    normalise_state(reapply_aliases=False)
     st.header(
         "📊 Summary & Outputs" if lang != "de" else "📊 Zusammenfassung & Ergebnisse"
     )
-    for field in ["job_title"] + EXTENDED_FIELDS + ["hard_skills", "soft_skills"]:
+    fields = (
+        ["job_title"]
+        + [f for f in EXTENDED_FIELDS if f not in ALIASES]
+        + [
+            "hard_skills",
+            "soft_skills",
+        ]
+    )
+    seen = set()
+    for field in fields:
+        if field in seen:
+            continue
+        seen.add(field)
         value = st.session_state.get(field)
         if value:
             display = str(value).replace("\n", "; ")
@@ -353,7 +390,9 @@ def summary_outputs_page():
     with colB:
         if st.button("📝 Generate Interview Guide"):
             title = st.session_state.get("job_title", "")
-            tasks = st.session_state.get("tasks", "")
+            tasks = st.session_state.get("tasks", "") or st.session_state.get(
+                "responsibilities", ""
+            )
             guide = generate_interview_guide(
                 title, tasks, audience="hiring managers", num_questions=5
             )
