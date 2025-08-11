@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 from core.ss_bridge import from_session_state, to_session_state
 from core.schema import ALIASES
@@ -29,7 +30,9 @@ def normalise_state(reapply_aliases: bool = True):
         st.session_state["requirements"] = st.session_state.get("qualifications", "")
         st.session_state["tasks"] = st.session_state.get("responsibilities", "")
         st.session_state["contract_type"] = st.session_state.get("job_type", "")
-    st.session_state["validated_json"] = jd.model_dump_json(indent=2, ensure_ascii=False)
+    st.session_state["validated_json"] = json.dumps(
+        jd.model_dump(mode="json"), indent=2, ensure_ascii=False
+    )
     return jd
 
 def apply_global_styling():

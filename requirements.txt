@@ -9,4 +9,4 @@ beautifulsoup4>=4.12.3
 python-dotenv>=1.0.1
 pytesseract>=0.3.10
 Pillow>=10.3.0
-pydantic>=1.10.7
+pydantic>=2.0.0
