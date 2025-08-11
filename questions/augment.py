@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from esco_utils import get_essential_skills
+from core.esco_utils import get_essential_skills
 
 
 def missing_esco_skills(

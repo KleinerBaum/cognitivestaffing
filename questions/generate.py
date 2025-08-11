@@ -6,7 +6,7 @@ import json
 from typing import List
 
 from core.schema import ALL_FIELDS, VacalyserJD
-from esco_utils import classify_occupation, get_essential_skills
+from core.esco_utils import classify_occupation, get_essential_skills
 from openai_utils import call_chat_api
 
 from .missing import missing_fields

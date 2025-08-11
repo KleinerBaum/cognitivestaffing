@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from esco_utils import classify_occupation, get_essential_skills  # noqa: E402
+from core.esco_utils import classify_occupation, get_essential_skills  # noqa: E402
 
 
 def test_classify_occupation(monkeypatch):
@@ -37,7 +37,7 @@ def test_classify_occupation(monkeypatch):
         data = {"title": "Software developers"}
         return Resp(data)
 
-    monkeypatch.setattr("esco_utils.requests.get", fake_get)
+    monkeypatch.setattr("core.esco_utils.requests.get", fake_get)
     res = classify_occupation("Software engineer")
     assert res == {
         "preferredLabel": "software developer",
@@ -65,6 +65,6 @@ def test_get_essential_skills(monkeypatch):
 
         return Resp()
 
-    monkeypatch.setattr("esco_utils.requests.get", fake_get)
+    monkeypatch.setattr("core.esco_utils.requests.get", fake_get)
     skills = get_essential_skills("http://example.com/occ")
     assert skills == ["Project management", "Python"]

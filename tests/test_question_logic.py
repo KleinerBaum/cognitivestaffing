@@ -18,7 +18,12 @@ def test_generate_followup_questions(monkeypatch):
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
     questions = generate_followup_questions({"company_name": "ACME"})
     assert questions == [
-        {"field": "salary_range", "question": "What is the salary range?"}
+        {
+            "field": "salary_range",
+            "question": "What is the salary range?",
+            "priority": "critical",
+            "suggestions": [],
+        }
     ]
 
 
@@ -49,9 +54,9 @@ def test_role_specific_payload(monkeypatch):
 
     generate_followup_questions({"job_title": "Software engineer"})
 
-    payload_json = captured["payload"].split("Current data:\n", 1)[1]
+    payload_json = captured["payload"].split("Context:\n", 1)[1]
     data = json.loads(payload_json)
-    assert "programming_languages" in data
-    assert data["esco_group"] == "Software developers"
-    assert data["esco_occupation"] == "Software developer"
+    assert "programming_languages" in data["current"]
+    assert data["occupation"]["group"] == "Software developers"
+    assert data["occupation"]["preferredLabel"] == "Software developer"
     assert data["missing_esco_skills"] == ["Project management"]
