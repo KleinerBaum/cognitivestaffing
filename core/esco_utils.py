@@ -1,20 +1,22 @@
 """Utilities for interacting with the ESCO API."""
 
+from functools import lru_cache
 from typing import Dict, List
 
 import requests
 
-_esco_cache: Dict[tuple[str, str], Dict] = {}
-_occupation_cache: Dict[tuple[str, str], Dict[str, str]] = {}
-_essential_cache: Dict[tuple[str, str], List[str]] = {}
+__all__ = [
+    "lookup_esco_skill",
+    "enrich_skills_with_esco",
+    "classify_occupation",
+    "get_essential_skills",
+]
 
 
+@lru_cache(maxsize=256)
 def lookup_esco_skill(skill_name: str, lang: str = "en") -> dict:
     if not skill_name:
         return {}
-    key = (skill_name.lower(), lang)
-    if key in _esco_cache:
-        return _esco_cache[key]
     try:
         url = f"https://esco.ec.europa.eu/api/search?type=skill&text={skill_name}&language={lang}&limit=1"
         resp = requests.get(url, timeout=5)
@@ -26,16 +28,13 @@ def lookup_esco_skill(skill_name: str, lang: str = "en") -> dict:
                 preferred = skill.get("preferredLabel", {})
                 label = preferred.get(lang) or preferred.get("en") or skill_name
                 desc = skill.get("description", {}).get(lang) or ""
-                result = {
+                return {
                     "preferredLabel": label,
                     "type": skill.get("type", ""),
                     "description": desc,
                 }
-                _esco_cache[key] = result
-                return result
     except Exception:
         pass
-    _esco_cache[key] = {}
     return {}
 
 
@@ -49,6 +48,7 @@ def enrich_skills_with_esco(skill_list: list[str], lang: str = "en") -> list[str
     return enriched
 
 
+@lru_cache(maxsize=256)
 def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
     """Return the closest ESCO occupation for a job title.
 
@@ -68,9 +68,6 @@ def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
 
     if not job_title:
         return {}
-    cache_key = (job_title.lower(), lang)
-    if cache_key in _occupation_cache:
-        return _occupation_cache[cache_key]
     try:
         search_url = "https://ec.europa.eu/esco/api/search"
         params = {"type": "occupation", "text": job_title, "language": lang, "limit": 1}
@@ -92,23 +89,18 @@ def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
                     )
                     if group_resp.status_code == 200:
                         group_label = group_resp.json().get("title", "")
-                result = {"preferredLabel": label, "group": group_label, "uri": uri}
-                _occupation_cache[cache_key] = result
-                return result
+                return {"preferredLabel": label, "group": group_label, "uri": uri}
     except Exception:
         pass
-    _occupation_cache[cache_key] = {}
     return {}
 
 
+@lru_cache(maxsize=256)
 def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     """Fetch essential ESCO skills for a given occupation URI."""
 
     if not occupation_uri:
         return []
-    cache_key = (occupation_uri, lang)
-    if cache_key in _essential_cache:
-        return _essential_cache[cache_key]
     try:
         resp = requests.get(
             "https://ec.europa.eu/esco/api/resource",
@@ -123,9 +115,7 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
                 title = item.get("title", "")
                 if title:
                     skills.append(title)
-            _essential_cache[cache_key] = skills
             return skills
     except Exception:
         pass
-    _essential_cache[cache_key] = []
     return []
