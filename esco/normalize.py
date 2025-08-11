@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from esco_utils import lookup_esco_skill
+from core.esco_utils import lookup_esco_skill
 
 
 def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
