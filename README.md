@@ -1,20 +1,22 @@
-# Vacalyser — AI-Powered Recruitment Need Analysis
+# Vacalyser — AI Recruitment Need Analysis (Streamlit)
 
-A modern Streamlit Cloud app that parses job ads, autofills key fields, and now adapts its follow-up questions to gather a complete vacancy profile. Generates SEO-ready job ads, Boolean search strings, and interview guides. Styled with Tailwind (CDN) via a tiny component.
+**Vacalyser** turns messy job ads into a **complete, structured vacancy profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
-## Features
-- Robust PDF/DOCX/TXT/URL ingestion with OCR for scanned PDFs
-- ESCO skill enrichment (preferred labels)
-- Occupation classification via ESCO API
-- Essential skill checks via ESCO to flag missing requirements
-- OpenAI prompts for extraction, suggestions, and content generation
-- Dynamic, low-friction wizard (EN/DE)
-- Adaptive follow-up questioning for comprehensive vacancy data
-- Auto-fills the job title on upload for a quicker start
-- Typed vacancy schema via Pydantic for consistent job outputs
+## Highlights
+- **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs
+- **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
+- **ESCO‑Power**: occupation classification + essential skill gaps
+- **RAG‑Assist**: use your vector store to fill/contextualize
+- **No system OCR deps**: choose **OpenAI Vision** / **AWS Textract** / **RapidOCR** (pip‑only)
+- **Cost‑aware**: hybrid models (4o‑mini default), minimal re‑asks
+- **Export**: clean JSON profile, job‑ad markdown, interview guide
 
-## Setup
+---
+
+## Quick Start
+
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/KleinerBaum/cognitivestaffing
+cd cognitivestaffing
+pip install -r requirements.txt  # or: pip install -e .
 streamlit run app.py
-```
