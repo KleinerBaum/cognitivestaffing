@@ -16,6 +16,7 @@ from esco_utils import classify_occupation, get_essential_skills
 # Extended vacancy fields to ensure a comprehensive profile.
 # These cover additional details beyond the core schema (which has ~22 fields).
 EXTENDED_FIELDS: List[str] = [
+    "job_title",
     "company_name",
     "location",
     "company_website",

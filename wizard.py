@@ -80,6 +80,10 @@ def start_discovery_page():
         if lang != "de" else "Laden Sie eine Stellenanzeige hoch oder fügen Sie eine URL ein. Wir extrahieren alle verfügbaren Informationen und fragen nur noch fehlende Details ab."
     )
 
+    if st.session_state.get("extraction_success"):
+        st.success("✅ Key information extracted successfully!")
+        st.session_state.pop("extraction_success")
+
     # Job title and source inputs
     colA, colB = st.columns(2)
     with colA:
@@ -148,10 +152,11 @@ def start_discovery_page():
             # Generate follow-up questions for missing info
             followups = generate_followup_questions(st.session_state, lang=lang)
             st.session_state["followup_questions"] = followups
-            st.success("✅ Key information extracted successfully!")
+            st.session_state["extraction_success"] = True
             log_event(
                 f"ANALYZE by {st.session_state.get('user', 'anonymous')} title='{st.session_state.get('job_title', '')}'"
             )
+            st.rerun()
         except json.JSONDecodeError:
             st.error("❌ Could not parse AI response as JSON. Please try again or rephrase the input.")
 
