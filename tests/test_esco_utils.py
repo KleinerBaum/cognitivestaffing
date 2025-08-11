@@ -1,9 +1,4 @@
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from esco_utils import classify_occupation, get_essential_skills  # noqa: E402
+from core.esco_utils import classify_occupation, get_essential_skills
 
 
 def test_classify_occupation(monkeypatch):

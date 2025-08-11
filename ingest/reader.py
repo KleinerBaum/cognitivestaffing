@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+import os
 
 import fitz  # type: ignore[import-not-found]
 from bs4 import BeautifulSoup
 from docx import Document
 import requests
 
-from .ocr import ocr_pdf
+from .ocr import select_ocr_backend
+
+OCR_BACKEND = os.getenv("OCR_BACKEND", "tesseract")
 
 
 def _clean(text: str) -> str:
@@ -47,6 +50,7 @@ def read_job_text(
     pasted: str | None = None,
     *,
     use_ocr: bool = False,
+    ocr_backend: str = OCR_BACKEND,
 ) -> str:
     """Merge text from files, URL and pasted snippets.
 
@@ -55,6 +59,7 @@ def read_job_text(
         url: Optional web URL to fetch.
         pasted: Additional pasted text.
         use_ocr: Whether to OCR PDFs lacking extractable text.
+        ocr_backend: Which OCR service to use if ``use_ocr`` is true.
 
     Returns:
         Cleaned and de-duplicated text.
@@ -68,7 +73,8 @@ def read_job_text(
         if suffix == ".pdf":
             content = _read_pdf(path)
             if use_ocr and not content.strip():
-                content = ocr_pdf(str(path))
+                ocr_func = select_ocr_backend(ocr_backend)
+                content = ocr_func(str(path))
         elif suffix == ".docx":
             content = _read_docx(path)
         elif suffix == ".txt":
