@@ -43,6 +43,13 @@ lang_choice = st.sidebar.selectbox(
 )
 st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
 
+# Sidebar RAG toggle and priority legend
+st.sidebar.markdown("**Priority Legend**")
+st.sidebar.markdown("🔴 critical\n🟡 normal\n⚪ optional")
+st.session_state["use_rag"] = st.sidebar.checkbox(
+    "Use RAG suggestions", value=st.session_state.get("use_rag", True)
+)
+
 # Define wizard sections and their corresponding page functions
 sections = [
     {"name": "Start", "func": start_discovery_page},
