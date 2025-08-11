@@ -156,9 +156,12 @@ def followup_questions_page():
         field = item.get("field", "")
         question = item.get("question", "")
         key = field or question
-        st.session_state[field] = st.text_input(
-            question, st.session_state.get(field, ""), key=key
-        )
+        if field:
+            st.session_state[field] = st.text_input(
+                question, st.session_state.get(field, ""), key=key
+            )
+        else:
+            _ = st.text_input(question, "", key=key)
 
 
 def company_information_page():
