@@ -28,12 +28,10 @@ def test_extract_text_from_file_pdf_ocr(monkeypatch):
     doc.new_page()
     pdf_bytes = doc.tobytes()
 
-    import pytesseract
-
-    def fake_ocr(_img):
+    def fake_ocr(_img: bytes) -> str:
         return "SCANNED TEXT"
 
-    monkeypatch.setattr(pytesseract, "image_to_string", fake_ocr)
+    monkeypatch.setattr(utils, "ocr_extract_text", fake_ocr)
     text = utils.extract_text_from_file(pdf_bytes, "scan.pdf")
     assert "SCANNED TEXT" in text
 
@@ -52,6 +50,7 @@ def test_extract_text_from_url(monkeypatch):
         return Resp()
 
     import requests
+
     monkeypatch.setattr(requests, "get", fake_get)
 
     import readability

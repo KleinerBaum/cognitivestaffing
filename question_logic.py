@@ -24,6 +24,7 @@ import os
 from typing import Any, Dict, List, Optional, Set
 
 # ESCO helpers (must exist in core/esco_utils.py)
+
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
@@ -124,6 +125,7 @@ CRITICAL_FIELDS: Set[str] = {
     "certifications",
     "tools_and_technologies",
 }
+
 
 SKILL_FIELDS: Set[str] = {"hard_skills", "soft_skills", "tools_and_technologies"}
 
