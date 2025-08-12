@@ -117,7 +117,7 @@ def render_followups_for(fields: list[str] | None = None) -> None:
                         existing = st.session_state.get(field, "")
                         sep = "\n" if existing else ""
                         st.session_state[field] = f"{existing}{sep}{sugg}"
-                        st.rerun()  # type: ignore[attr-defined]
+                        st.rerun()
 
     st.session_state["followup_questions"] = [
         f
@@ -740,15 +740,40 @@ def summary_outputs_page():
                 log_event(
                     f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}"
                 )
-    # Always display a suggested Boolean search query for recruiters (based on title and skills)
+    # Always display a suggested Boolean search query for recruiters
     if st.session_state.get("job_title") or st.session_state.get("hard_skills"):
+        skills = (
+            st.session_state.get("hard_skills", "")
+            + "\n"
+            + st.session_state.get("soft_skills", "")
+        ).splitlines()
+        skills = [s.strip() for s in skills if s.strip()]
+        with st.expander(
+            "Customize Boolean Search" if lang != "de" else "Boolean-Suche anpassen"
+        ):
+            include_title = st.checkbox(
+                "Include job title" if lang != "de" else "Jobtitel einbeziehen",
+                value=bool(st.session_state.get("job_title")),
+            )
+            title_synonyms_input = st.text_input(
+                (
+                    "Title synonyms (comma-separated)"
+                    if lang != "de"
+                    else "Titel-Synonyme (durch Komma getrennt)"
+                ),
+            )
+            selected_skills = st.multiselect(
+                "Skills to include" if lang != "de" else "Skills einbeziehen",
+                options=skills,
+                default=skills,
+            )
         bool_query = build_boolean_query(
             st.session_state.get("job_title", ""),
-            (
-                st.session_state.get("hard_skills", "")
-                + "\n"
-                + st.session_state.get("soft_skills", "")
-            ).splitlines(),
+            selected_skills,
+            include_title=include_title,
+            title_synonyms=[
+                s.strip() for s in title_synonyms_input.split(",") if s.strip()
+            ],
         )
         if bool_query:
             st.info(f"**Boolean Search Query:** `{bool_query}`")
