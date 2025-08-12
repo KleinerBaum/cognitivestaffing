@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Set
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
-    enrich_skills_with_esco,
+    normalize_skills,
 )
 
 # Generic chat helper (fallback)
@@ -222,7 +222,7 @@ def _rag_suggestions(
             vals = data.get(f) or data.get(f.replace("_", " ")) or []
             sanitized = [str(x).strip() for x in vals if str(x).strip()]
             if f in SKILL_FIELDS and sanitized:
-                sanitized = enrich_skills_with_esco(sanitized, lang=lang)
+                sanitized = normalize_skills(sanitized, lang=lang)
             out[f] = sanitized
         return out
     except Exception:

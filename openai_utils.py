@@ -88,18 +88,27 @@ def suggest_additional_skills(
             tech_skills.append(skill)
         else:
             soft_skills.append(skill)
-    # Remove any suggested skills that were already in existing_skills (case-insensitive)
-    existing_lower = {s.lower() for s in existing_skills}
-    tech_skills = [s for s in tech_skills if s.lower() not in existing_lower]
-    soft_skills = [s for s in soft_skills if s.lower() not in existing_lower]
-    # Optionally enrich skill names to ESCO preferred labels (for consistency in language)
+    # Normalize skill labels via ESCO and drop duplicates against existing skills
     try:
-        from core.esco_utils import enrich_skills_with_esco
+        from core.esco_utils import normalize_skills
 
-        tech_skills = enrich_skills_with_esco(tech_skills, lang=lang)
-        soft_skills = enrich_skills_with_esco(soft_skills, lang=lang)
+        existing_norm = {
+            s.lower() for s in normalize_skills(existing_skills, lang=lang)
+        }
+        tech_skills = [
+            s
+            for s in normalize_skills(tech_skills, lang=lang)
+            if s.lower() not in existing_norm
+        ]
+        soft_skills = [
+            s
+            for s in normalize_skills(soft_skills, lang=lang)
+            if s.lower() not in existing_norm
+        ]
     except Exception:
-        pass
+        existing_lower = {s.lower() for s in existing_skills}
+        tech_skills = [s for s in tech_skills if s.lower() not in existing_lower]
+        soft_skills = [s for s in soft_skills if s.lower() not in existing_lower]
     return {"technical": tech_skills, "soft": soft_skills}
 
 

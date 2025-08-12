@@ -3,8 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from esco.classify import classify_occupation  # noqa: E402
-from esco.normalize import normalize_skills  # noqa: E402
+from core.esco_utils import classify_occupation, normalize_skills  # noqa: E402
 from questions.augment import missing_esco_skills  # noqa: E402
 
 
@@ -38,12 +37,12 @@ def test_classify_occupation(monkeypatch):
             return Resp(data)
         return Resp({"title": "Software developers"})
 
-    monkeypatch.setattr("esco.classify.requests.get", fake_get)
-    res = classify_occupation("Software engineer", "")
+    monkeypatch.setattr("core.esco_utils.requests.get", fake_get)
+    res = classify_occupation("Software engineer")
     assert res == {
-        "occupation_label": "software developer",
-        "occupation_code": "http://example.com/occ",
+        "preferredLabel": "software developer",
         "group": "Software developers",
+        "uri": "http://example.com/occ",
     }
 
 
@@ -57,7 +56,7 @@ def test_normalize_skills(monkeypatch):
         }
         return mapping.get(name.lower(), {})
 
-    monkeypatch.setattr("esco.normalize.lookup_esco_skill", fake_lookup)
+    monkeypatch.setattr("core.esco_utils.lookup_esco_skill", fake_lookup)
     out = normalize_skills(["Python", "python", "Management"])
     assert out == ["Python", "Project management"]
 
