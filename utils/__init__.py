@@ -124,10 +124,10 @@ def seo_optimize(text: str, max_keywords: int = 5) -> dict:
     if not text:
         return result
     words = re.findall(r"\b[a-zA-Z]{4,}\b", text.lower())
-    freq = {}
+    freq: dict[str, int] = {}
     for w in words:
         freq[w] = freq.get(w, 0) + 1
-    top_words = sorted(freq, key=freq.get, reverse=True)
+    top_words = sorted(freq, key=lambda k: freq[k], reverse=True)
     result["keywords"] = [w for w in top_words[:max_keywords]]
     first_sentence_end = re.search(r"[.!?]", text)
     if first_sentence_end:
