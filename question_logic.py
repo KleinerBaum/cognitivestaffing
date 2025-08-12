@@ -128,6 +128,24 @@ ROLE_FIELD_MAP: Dict[str, List[str]] = {
         "design_software_tools",
         "portfolio_url",
     ],
+    "business services and administration managers not elsewhere classified": [
+        "project_management_methodologies",
+        "project_management_tools",
+        "stakeholder_types",
+        "budget_responsibility",
+    ],
+    "systems analysts": [
+        "machine_learning_frameworks",
+        "data_analysis_tools",
+        "data_visualization_tools",
+        "programming_languages",
+    ],
+    "accountants": [
+        "accounting_software",
+        "professional_certifications",
+        "reporting_standards",
+        "regulatory_frameworks",
+    ],
 }
 
 # Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
@@ -194,6 +212,36 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
         {
             "field": "portfolio_url",
             "question": "What is the portfolio URL?",
+        },
+    ],
+    "business services and administration managers not elsewhere classified": [
+        {
+            "field": "project_management_methodologies",
+            "question": "Which project management methodologies are used?",
+        },
+        {
+            "field": "budget_responsibility",
+            "question": "What budget responsibility does this role carry?",
+        },
+    ],
+    "systems analysts": [
+        {
+            "field": "machine_learning_frameworks",
+            "question": "Which machine learning frameworks are required?",
+        },
+        {
+            "field": "data_analysis_tools",
+            "question": "Which data analysis tools are used?",
+        },
+    ],
+    "accountants": [
+        {
+            "field": "accounting_software",
+            "question": "Which accounting software is used?",
+        },
+        {
+            "field": "professional_certifications",
+            "question": "Which professional certifications are required?",
         },
     ],
 }
