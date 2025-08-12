@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import fitz  # type: ignore[import-not-found]
+import fitz
 from bs4 import BeautifulSoup
 from docx import Document
 import requests
@@ -25,7 +25,7 @@ def _read_txt(path: Path) -> str:
 
 
 def _read_docx(path: Path) -> str:
-    doc = Document(path)
+    doc = Document(str(path))
     return "\n".join(p.text for p in doc.paragraphs)
 
 
