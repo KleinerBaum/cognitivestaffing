@@ -73,6 +73,45 @@ ALIASES: Dict[str, str] = {
     "tools_technologies": "tools_and_technologies",
 }
 
+# Canonical category mappings.
+JOB_TYPE_CATEGORIES: Dict[str, str] = {
+    "full-time": "Full-time",
+    "full time": "Full-time",
+    "fulltime": "Full-time",
+    "part-time": "Part-time",
+    "part time": "Part-time",
+    "parttime": "Part-time",
+    "contract": "Contract",
+    "contractor": "Contract",
+    "temporary": "Temporary",
+    "temp": "Temporary",
+    "internship": "Internship",
+    "intern": "Internship",
+}
+
+
+def _normalize_job_type(value: str) -> str:
+    """Normalize job type string to a canonical category.
+
+    Args:
+        value: Raw job type value.
+
+    Returns:
+        Canonical job type with standardized capitalization.
+
+    Raises:
+        ValueError: If the value does not map to a known category.
+    """
+
+    key = value.strip().lower().replace("_", "-")
+    key = key.replace("\u2011", "-")  # non-breaking hyphen
+    key = key.replace("\u2013", "-").replace("\u2014", "-")
+    key = key.replace(" ", "-")
+    if key in JOB_TYPE_CATEGORIES:
+        return JOB_TYPE_CATEGORIES[key]
+    raise ValueError(f"Unknown job type: {value!r}")
+
+
 # Base model configuration for extra fields
 if _HAS_V2:
 
@@ -209,6 +248,10 @@ def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
         if val is None:
             val = ""
         data[key] = str(val).strip()
-    # 5) build model (extra keys ignored by BaseModel config)
+    # 5) normalize categorical fields
+    job_type_val = data.get("job_type", "")
+    if job_type_val:
+        data["job_type"] = _normalize_job_type(job_type_val)
+    # 6) build model (extra keys ignored by BaseModel config)
     model = VacalyserJD(**data)
     return _dedupe_across_fields(model)

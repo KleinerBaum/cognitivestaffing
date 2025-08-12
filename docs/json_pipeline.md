@@ -29,6 +29,9 @@ The schema contains 22 fields ordered for prompting:
 - languages_required
 - tools_and_technologies
 
+`job_type` values are normalized to one of the canonical categories:
+`Full-time`, `Part-time`, `Contract`, `Temporary`, or `Internship`.
+
 Example JSON produced by the pipeline:
 
 ```json

@@ -1,3 +1,5 @@
+import pytest
+
 from core.schema import (
     ALL_FIELDS,
     LIST_FIELDS,
@@ -34,7 +36,7 @@ def test_coerce_and_fill_partial_and_aliases() -> None:
     assert jd.job_title == "Engineer"
     assert jd.hard_skills == ["Python"]
     assert jd.qualifications == "BSc"
-    assert jd.job_type == "full-time"
+    assert jd.job_type == "Full-time"
     assert jd.responsibilities == ["Code apps"]
     assert jd.benefits == ["Gym"]
     # missing field filled with default
@@ -78,3 +80,13 @@ def test_cross_field_dedupe() -> None:
     assert jd.remote_policy == "Fully remote"
     assert jd.travel_required == ""
     assert jd.responsibilities == ["Develop APIs"]
+
+
+def test_job_type_normalization() -> None:
+    jd = coerce_and_fill({"job_type": "full time"})
+    assert jd.job_type == "Full-time"
+
+
+def test_job_type_invalid() -> None:
+    with pytest.raises(ValueError):
+        coerce_and_fill({"job_type": "unknown"})
