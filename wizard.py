@@ -41,7 +41,18 @@ def normalise_state(reapply_aliases: bool = True):
 
 
 def apply_global_styling():
-    """Apply global CSS styles to the Streamlit app."""
+        bg_path = Path("images/background.jpeg")
+    st.markdown(
+        f"""
+        <style>
+            .stApp {{
+                background: url("{bg_path.as_posix()}") no-repeat center center fixed;
+                background-size: cover;
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     st.markdown(
         """
         <style>
