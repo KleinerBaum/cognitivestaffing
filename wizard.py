@@ -74,6 +74,59 @@ def show_navigation(current_step: int, total_steps: int):
                 st.rerun()
 
 
+def render_followups_for(fields: list[str] | None = None) -> None:
+    """Display follow-up questions inline for specified fields.
+
+    Args:
+        fields: List of field names relevant to the current page. If ``None``,
+            all follow-up questions are considered.
+    """
+    followups = st.session_state.get("followup_questions", [])
+    if not followups:
+        return
+
+    allowed = set(fields) if fields else None
+    rank = {"critical": 0, "normal": 1, "optional": 2}
+    relevant = [
+        f
+        for f in followups
+        if not allowed or f.get("field") in allowed or not f.get("field")
+    ]
+    if not relevant:
+        return
+
+    relevant.sort(key=lambda item: rank.get(item.get("priority", "normal"), 1))
+
+    for item in relevant:
+        field = item.get("field", "")
+        question = item.get("question", "")
+        key = field or question
+        if field:
+            st.session_state[field] = st.text_input(
+                question, st.session_state.get(field, ""), key=key
+            )
+        else:
+            _ = st.text_input(question, "", key=key)
+
+        suggestions = item.get("suggestions") or []
+        if suggestions and field:
+            cols = st.columns(len(suggestions))
+            for idx, (col, sugg) in enumerate(zip(cols, suggestions)):
+                with col:
+                    if st.button(sugg, key=f"{key}_sugg_{idx}"):
+                        existing = st.session_state.get(field, "")
+                        sep = "\n" if existing else ""
+                        st.session_state[field] = f"{existing}{sep}{sugg}"
+                        st.experimental_rerun()  # type: ignore[attr-defined]
+
+    st.session_state["followup_questions"] = [
+        f
+        for f in followups
+        if not f.get("field")
+        or not st.session_state.get(f.get("field", ""), "").strip()
+    ]
+
+
 def start_discovery_page():
     """Start page: Input job title and job ad content (URL or file) for analysis."""
     lang = st.session_state.get("lang", "en")
@@ -224,88 +277,28 @@ def start_discovery_page():
             st.experimental_rerun()
 
 
-def followup_questions_page():
-    """Follow-up page: Display dynamically generated follow-up questions for missing fields."""
-    lang = st.session_state.get("lang", "en")
-    st.header("❓ Additional Questions" if lang != "de" else "❓ Zusätzliche Fragen")
-    followups = st.session_state.get("followup_questions", [])
-    if not followups:
-        st.info(
-            "No further questions – vacancy profile looks complete."
-            if lang != "de"
-            else "Keine weiteren Fragen – das Profil ist vollständig."
-        )
-        return
-
-    # Prioritize questions (critical first, then normal, then optional)
-    rank = {"critical": 0, "normal": 1, "optional": 2}
-    followups = sorted(
-        followups, key=lambda item: rank.get(item.get("priority", "normal"), 1)
-    )
-
-    # Track which critical fields are still unanswered
-    if "pending_critical_fields" not in st.session_state:
-        st.session_state["pending_critical_fields"] = {
-            f.get("field")
-            for f in followups
-            if f.get("priority") == "critical"
-            and f.get("field")  # field is specified
-            and not st.session_state.get(f.get("field", ""), "").strip()
-        }
-
-    # Display each follow-up question with an input and optional suggestion chips
-    for item in followups:
-        field = item.get("field", "")
-        question = item.get("question", "")
-        key = (
-            field or question
-        )  # use field name as key if available, otherwise question text
-        if field:
-            st.session_state[field] = st.text_input(
-                question, st.session_state.get(field, ""), key=key
-            )
-        else:
-            # If no specific field, just provide an input for the question
-            _ = st.text_input(question, "", key=key)
-
-        # If there are suggestions for this question, show them as chips (buttons)
-        suggestions = item.get("suggestions") or []
-        if suggestions and field:
-            cols = st.columns(len(suggestions))
-            for idx, (col, sugg) in enumerate(zip(cols, suggestions)):
-                with col:
-                    if st.button(sugg, key=f"{key}_sugg_{idx}"):
-                        existing = st.session_state.get(field, "")
-                        sep = "\n" if existing else ""
-                        st.session_state[field] = f"{existing}{sep}{sugg}"
-                        st.experimental_rerun()
-
-    # After displaying all questions, check if any critical fields got filled this round
-    pending = st.session_state.get("pending_critical_fields", set())
-    filled_now = [f for f in list(pending) if st.session_state.get(f, "").strip()]
-    if filled_now:
-        # Regenerate follow-up questions since critical info was provided
-        followups = generate_followup_questions(
-            st.session_state,
-            lang=lang,
-            use_rag=st.session_state.get("use_rag", True),
-        )
-        st.session_state["followup_questions"] = followups
-        # Update the pending critical fields list for the new set
-        st.session_state["pending_critical_fields"] = {
-            f.get("field")
-            for f in followups
-            if f.get("priority") == "critical"
-            and f.get("field")
-            and not st.session_state.get(f.get("field", ""), "").strip()
-        }
-        st.experimental_rerun()
-
-
 def company_information_page():
     """Company Info page: Gather basic company information and optionally auto-fetch details from website."""
     lang = st.session_state.get("lang", "en")
     st.header("🏢 Company Information" if lang != "de" else "🏢 Firmeninformationen")
+    try:
+        st.session_state["followup_questions"] = generate_followup_questions(
+            st.session_state,
+            lang=lang,
+            use_rag=st.session_state.get("use_rag", True),
+        )
+    except Exception:  # pragma: no cover - network failure
+        pass
+    render_followups_for(
+        [
+            "company_name",
+            "industry",
+            "location",
+            "company_website",
+            "company_mission",
+            "company_culture",
+        ]
+    )
     st.session_state["company_name"] = st.text_input(
         "Company Name" if lang != "de" else "Unternehmensname",
         st.session_state.get("company_name", ""),
@@ -393,6 +386,15 @@ def role_description_page():
     """Role Description page: Summary of the role and key responsibilities."""
     lang = st.session_state.get("lang", "en")
     st.header("📋 Role Description" if lang != "de" else "📋 Rollenbeschreibung")
+    try:
+        st.session_state["followup_questions"] = generate_followup_questions(
+            st.session_state,
+            lang=lang,
+            use_rag=st.session_state.get("use_rag", True),
+        )
+    except Exception:  # pragma: no cover - network failure
+        pass
+    render_followups_for(["role_summary", "responsibilities"])
     st.session_state["role_summary"] = st.text_area(
         "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
         st.session_state.get("role_summary", ""),
@@ -411,6 +413,7 @@ def task_scope_page():
     st.header(
         "🗒️ Project/Task Scope" if lang != "de" else "🗒️ Projekt- / Aufgabenbereich"
     )
+    render_followups_for(["tasks"])
     st.session_state["tasks"] = st.text_area(
         (
             "Main Tasks or Projects"
@@ -430,6 +433,7 @@ def skills_competencies_page():
         if lang != "de"
         else "🛠️ Erforderliche Fähigkeiten & Kompetenzen"
     )
+    render_followups_for(["hard_skills", "soft_skills"])
     hard_skills_text = st.text_area(
         "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
         st.session_state.get("hard_skills", st.session_state.get("requirements", "")),
@@ -528,6 +532,16 @@ def benefits_compensation_page():
     st.header(
         "💰 Benefits & Compensation" if lang != "de" else "💰 Vergütung & Vorteile"
     )
+    render_followups_for(
+        [
+            "salary_range",
+            "benefits",
+            "health_benefits",
+            "learning_opportunities",
+            "remote_policy",
+            "travel_required",
+        ]
+    )
     st.session_state["salary_range"] = st.text_input(
         "Salary Range" if lang != "de" else "Gehaltsspanne",
         st.session_state.get("salary_range", ""),
@@ -603,6 +617,7 @@ def recruitment_process_page():
     """Process page: Details about the recruitment process (interview rounds, notes)."""
     lang = st.session_state.get("lang", "en")
     st.header("🏁 Recruitment Process" if lang != "de" else "🏁 Einstellungsprozess")
+    render_followups_for(["interview_stages", "process_notes"])
     st.session_state["interview_stages"] = int(
         st.number_input(
             (
