@@ -12,8 +12,16 @@ def call_chat_api(
     model: str | None = None,
     max_tokens: int = 500,
     temperature: float = 0.5,
+    *,
+    functions: list[dict] | None = None,
+    function_call: dict | None = None,
+    response_format: dict | None = None,
 ) -> str:
-    """Generic helper to call OpenAI ChatCompletion API and return the response text.
+    """Call OpenAI's chat completion endpoint and return text or function args.
+
+    The helper now supports OpenAI function calling. If ``functions`` are
+    provided and the model chooses to invoke one, the function call arguments
+    string is returned. Otherwise, the plain message content is returned.
 
     Raises:
         RuntimeError: If the OpenAI API key is missing or the API request fails.
@@ -30,8 +38,15 @@ def call_chat_api(
             messages=cast(list[Any], messages),
             temperature=temperature,
             max_tokens=max_tokens,
+            functions=cast(Any, functions),
+            function_call=cast(Any, function_call),
+            response_format=cast(Any, response_format),
         )
-        return (response.choices[0].message.content or "").strip()
+        msg = response.choices[0].message
+        func = getattr(msg, "function_call", None)
+        if func and getattr(func, "arguments", None):
+            return (func.arguments or "").strip()
+        return (msg.content or "").strip()
     except Exception as e:
         raise RuntimeError(f"OpenAI API error: {e}") from e
 
