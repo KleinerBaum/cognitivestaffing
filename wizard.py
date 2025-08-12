@@ -117,7 +117,7 @@ def render_followups_for(fields: list[str] | None = None) -> None:
                         existing = st.session_state.get(field, "")
                         sep = "\n" if existing else ""
                         st.session_state[field] = f"{existing}{sep}{sugg}"
-                        st.experimental_rerun()  # type: ignore[attr-defined]
+                        st.rerun()  # type: ignore[attr-defined]
 
     st.session_state["followup_questions"] = [
         f
@@ -271,7 +271,7 @@ def start_discovery_page():
         # After processing, move to next section
         if st.session_state.get("extraction_success"):
             st.session_state["current_section"] = 1
-            st.experimental_rerun()
+            st.rerun()
 
 
 def company_information_page():
@@ -505,7 +505,7 @@ def skills_competencies_page():
                     st.session_state["suggested_tech_skills"] = [
                         s for s in tech_list if s != skill
                     ]
-                    st.experimental_rerun()
+                    st.rerun()
     if soft_list:
         st.caption("**Suggested Soft Skills:**")
         cols = st.columns(len(soft_list))
@@ -520,7 +520,7 @@ def skills_competencies_page():
                     st.session_state["suggested_soft_skills"] = [
                         s for s in soft_list if s != skill
                     ]
-                    st.experimental_rerun()
+                    st.rerun()
 
 
 def benefits_compensation_page():
@@ -607,7 +607,7 @@ def benefits_compensation_page():
                     st.session_state["suggested_benefits"] = [
                         b for b in benefit_suggestions if b != perk
                     ]
-                    st.experimental_rerun()
+                    st.rerun()
 
 
 def recruitment_process_page():
