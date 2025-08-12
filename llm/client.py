@@ -58,6 +58,9 @@ def extract_json(
 ) -> str:
     """Extract schema fields via the configured LLM mode.
 
+    Structured output modes (JSON or function calls) are attempted first to
+    reduce downstream parsing errors.
+
     Args:
         text: Input job description.
         title: Optional job title for context.
@@ -74,24 +77,37 @@ def extract_json(
     # Some SDKs support deterministic seeds
     common["seed"] = 42
 
-    if MODE == "json":
-        response = openai.ChatCompletion.create(
-            **common, response_format={"type": "json_object"}
-        )
-        return response["choices"][0]["message"]["content"].strip()
+    modes: list[str]
+    if MODE == "plain":
+        modes = ["json", "function", "plain"]
+    else:
+        modes = [MODE, "plain"] if MODE != "plain" else ["plain"]
 
-    if MODE == "function":
-        response = openai.ChatCompletion.create(
-            **common,
-            functions=[_function_schema()],
-            function_call={"name": "return_extraction"},
-        )
-        call = response["choices"][0]["message"].get("function_call", {})
-        return call.get("arguments", "")
+    last_exc: Exception | None = None
+    for mode in modes:
+        try:
+            if mode == "json":
+                response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
+                    **common, response_format={"type": "json_object"}
+                )
+                return response["choices"][0]["message"]["content"].strip()
+            if mode == "function":
+                response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
+                    **common,
+                    functions=[_function_schema()],
+                    function_call={"name": "return_extraction"},
+                )
+                call = response["choices"][0]["message"].get("function_call", {})
+                if call.get("arguments"):
+                    return call["arguments"]
+                continue
+            response = openai.ChatCompletion.create(**common)  # type: ignore[attr-defined]
+            return response["choices"][0]["message"]["content"].strip()
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            last_exc = exc
+            continue
 
-    # Plain text fallback
-    response = openai.ChatCompletion.create(**common)
-    return response["choices"][0]["message"]["content"].strip()
+    raise ExtractionError("LLM call failed") from last_exc
 
 
 def extract_and_parse(
@@ -107,6 +123,7 @@ def extract_and_parse(
     try:
         return parse_extraction(raw)
     except JsonInvalid:
+
         def second_call() -> str:
             return extract_json(text, title, url, minimal=True)
 
