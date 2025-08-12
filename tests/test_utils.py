@@ -66,3 +66,22 @@ def test_extract_text_from_url(monkeypatch):
 
     text = utils.extract_text_from_url("http://example.com")
     assert "Hello URL" in text and "nope" not in text
+
+
+def test_build_boolean_query_basic():
+    query = utils.build_boolean_query("Data Scientist", ["Python", "SQL"])
+    assert query == '("Data Scientist") AND ("Python" OR "SQL")'
+
+
+def test_build_boolean_query_exclude_title():
+    query = utils.build_boolean_query("Data Scientist", ["Python"], include_title=False)
+    assert query == '"Python"'
+
+
+def test_build_boolean_query_with_synonyms():
+    query = utils.build_boolean_query(
+        "Developer",
+        ["Python"],
+        title_synonyms=["Engineer", "Programmer"],
+    )
+    assert query == '("Developer" OR "Engineer" OR "Programmer") AND ("Python")'

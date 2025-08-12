@@ -107,16 +107,38 @@ def highlight_keywords(text: str, keywords: list[str]) -> str:
     return pattern.sub(lambda m: f"**{m.group(0)}**", text)
 
 
-def build_boolean_query(job_title: str, skills: list[str]) -> str:
-    job_title_part = f'"{job_title}"' if job_title else ""
+def build_boolean_query(
+    job_title: str,
+    skills: list[str],
+    *,
+    include_title: bool = True,
+    title_synonyms: list[str] | None = None,
+) -> str:
+    """Compose a Boolean search string from title and skills.
+
+    Args:
+        job_title: The main job title.
+        skills: Skills to include in the query.
+        include_title: Whether to include the job title and synonyms.
+        title_synonyms: Additional job title synonyms.
+
+    Returns:
+        A Boolean search string combining title and skill terms.
+    """
+
+    title_terms: list[str] = []
+    if include_title and job_title:
+        title_terms.append(f'"{job_title}"')
+    if include_title and title_synonyms:
+        title_terms.extend(f'"{syn.strip()}"' for syn in title_synonyms if syn.strip())
+
     skill_terms = [f'"{s.strip()}"' for s in skills if s.strip()]
-    if job_title_part and skill_terms:
-        skills_query = " OR ".join(skill_terms)
-        return f"{job_title_part} AND ({skills_query})"
-    elif job_title_part:
-        return job_title_part
-    else:
-        return " OR ".join(skill_terms)
+    title_query = " OR ".join(title_terms)
+    skills_query = " OR ".join(skill_terms)
+
+    if title_query and skills_query:
+        return f"({title_query}) AND ({skills_query})"
+    return title_query or skills_query
 
 
 def seo_optimize(text: str, max_keywords: int = 5) -> dict:

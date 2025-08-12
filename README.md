@@ -14,6 +14,7 @@
 - **Cost‑aware**: hybrid models (4o‑mini default), minimal re‑asks
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
+- **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 
 ---
