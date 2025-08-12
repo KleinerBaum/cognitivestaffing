@@ -1,9 +1,11 @@
-"""
-Adaptive follow-up question logic with embedded ESCO + RAG.
+"""Adaptive follow-up question logic with embedded ESCO + RAG.
 
-- Classifies job_title via ESCO, fetches essential skills, and flags missing ones.
-- Queries your OpenAI Vector Store (File Search) for field-specific suggestions.
-- Asks the LLM to produce compact, localized questions with priority flags and options.
+- Classifies ``job_title`` via ESCO, fetches essential skills, and flags missing
+  ones.
+- Optionally queries your OpenAI Vector Store (File Search) for field-specific
+  suggestions (set ``VECTOR_STORE_ID``).
+- Asks the LLM to produce compact, localized questions with priority flags and
+  options.
 
 Outputs (for UI sorting and chips):
 [
@@ -46,9 +48,9 @@ except Exception:  # pragma: no cover
     _HAS_RESPONSES = False
 
 DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-RAG_VECTOR_STORE_ID = os.getenv(
-    "VECTOR_STORE_ID", "vs_67e40071e7608191a62ab06cacdcdd10"
-)
+# Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
+# If unset or blank, RAG lookups are skipped.
+RAG_VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 # Extended coverage: combine legacy and new fields (kept flat for prompts).
 EXTENDED_FIELDS: List[str] = [
@@ -168,9 +170,10 @@ def _rag_suggestions(
     vector_store_id: Optional[str] = None,
     max_items_per_field: int = 6,
 ) -> Dict[str, List[str]]:
-    """
-    Ask OpenAI Responses + File Search for field-specific suggestions (chips).
-    Returns mapping: field -> [suggestion, ...]
+    """Ask OpenAI Responses + File Search for field-specific suggestions.
+
+    Returns a mapping ``field -> [suggestion, ...]``. If ``vector_store_id`` is
+    ``None`` or blank, no lookup is performed and an empty dict is returned.
     """
     if not _HAS_RESPONSES:
         return {}  # fallback handled later
