@@ -7,7 +7,7 @@ import requests
 
 __all__ = [
     "lookup_esco_skill",
-    "enrich_skills_with_esco",
+    "normalize_skills",
     "classify_occupation",
     "get_essential_skills",
 ]
@@ -38,14 +38,22 @@ def lookup_esco_skill(skill_name: str, lang: str = "en") -> dict:
     return {}
 
 
-def enrich_skills_with_esco(skill_list: list[str], lang: str = "en") -> list[str]:
-    enriched = []
-    for skill in skill_list:
+def normalize_skills(skills: list[str], lang: str = "en") -> list[str]:
+    """Return ESCO preferred labels for ``skills`` without duplicates."""
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for skill in skills:
         if not skill:
             continue
         res = lookup_esco_skill(skill, lang=lang)
-        enriched.append(res.get("preferredLabel") or skill)
-    return enriched
+        label = res.get("preferredLabel") or skill
+        norm = label.strip()
+        key = norm.lower()
+        if key not in seen:
+            seen.add(key)
+            normalized.append(norm)
+    return normalized
 
 
 @lru_cache(maxsize=256)
