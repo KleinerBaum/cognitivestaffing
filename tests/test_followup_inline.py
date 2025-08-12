@@ -37,3 +37,30 @@ def test_render_followups_prefill(monkeypatch) -> None:
 
     assert st.session_state["location"] == "Berlin"
     assert st.session_state["followup_questions"] == []
+
+
+def test_render_followups_critical_prefix(monkeypatch) -> None:
+    """Critical questions should be prefixed with a red asterisk."""
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    st.session_state["followup_questions"] = [
+        {"field": "salary", "question": "Salary?", "priority": "critical"}
+    ]
+
+    seen = {"markdown": None, "label": None}
+
+    def fake_markdown(text, **_):
+        seen["markdown"] = text
+
+    def fake_input(label, value="", key=None):
+        seen["label"] = label
+        return "100k"
+
+    monkeypatch.setattr(st, "markdown", fake_markdown)
+    monkeypatch.setattr(st, "text_input", fake_input)
+
+    render_followups_for(["salary"])
+
+    assert seen["markdown"] is not None
+    assert seen["markdown"].lstrip().startswith("<span style='color:red'>*")
+    assert seen["label"] == ""

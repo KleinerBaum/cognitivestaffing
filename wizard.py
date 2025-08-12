@@ -96,6 +96,9 @@ def show_navigation(current_step: int, total_steps: int):
 def render_followups_for(fields: list[str] | None = None) -> None:
     """Display follow-up questions inline for specified fields.
 
+    Critical questions are prefixed with a red asterisk to signal required
+    input.
+
     Args:
         fields: List of field names relevant to the current page. If ``None``,
             all follow-up questions are considered.
@@ -120,11 +123,21 @@ def render_followups_for(fields: list[str] | None = None) -> None:
         field = item.get("field", "")
         question = item.get("question", "")
         key = field or question
+        is_critical = item.get("priority") == "critical"
+
+        label = ""
+        if is_critical:
+            st.markdown(
+                f"<span style='color:red'>* {question}</span>", unsafe_allow_html=True
+            )
+        else:
+            label = question
+
         if field:
             default_val = st.session_state.get(field) or item.get("prefill", "")
-            st.session_state[field] = st.text_input(question, default_val, key=key)
+            st.session_state[field] = st.text_input(label, default_val, key=key)
         else:
-            _ = st.text_input(question, "", key=key)
+            _ = st.text_input(label, "", key=key)
 
         suggestions = item.get("suggestions") or []
         if suggestions and field:
