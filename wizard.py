@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+
 import streamlit as st
 from core.ss_bridge import from_session_state, to_session_state
 from core.schema import ALIASES, coerce_and_fill
@@ -40,8 +42,12 @@ def normalise_state(reapply_aliases: bool = True):
     return jd
 
 
-def apply_global_styling():
-        bg_path = Path("images/background.jpeg")
+def apply_global_styling() -> None:
+    """Apply global styling and background image to the app.
+
+    Injects fonts, colors and a background image into the Streamlit application.
+    """
+    bg_path = Path("images/background.jpeg")
     st.markdown(
         f"""
         <style>
