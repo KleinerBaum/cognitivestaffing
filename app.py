@@ -38,7 +38,9 @@ if "llm_model" not in st.session_state:
 
 # Apply global styles
 apply_global_styling()
-st.sidebar.image("images/color1_logo_transparent_background.png", use_column_width=True)
+st.sidebar.image(
+    "images/color1_logo_transparent_background.png", use_container_width=True
+)
 # Sidebar language switcher
 lang_choice = st.sidebar.selectbox(
     "Language / Sprache",
