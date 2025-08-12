@@ -5,6 +5,7 @@ from wizard import (
     apply_global_styling,
     show_progress_bar,
     show_navigation,
+    intro_page,
     start_discovery_page,
     company_information_page,
     role_description_page,
@@ -24,8 +25,12 @@ st.set_page_config(
 inject_tailwind(theme="dark")
 
 # Initialize session state defaults
+if "skip_intro" not in st.session_state:
+    st.session_state["skip_intro"] = False
 if "current_section" not in st.session_state:
     st.session_state["current_section"] = 0
+if st.session_state.get("skip_intro") and st.session_state["current_section"] == 0:
+    st.session_state["current_section"] = 1
 if "lang" not in st.session_state:
     st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
 if "llm_model" not in st.session_state:
@@ -44,6 +49,7 @@ st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
 
 # Define wizard sections and their corresponding page functions
 sections = [
+    {"name": "Intro", "func": intro_page},
     {"name": "Start", "func": start_discovery_page},
     {"name": "Company Info", "func": company_information_page},
     {"name": "Role Description", "func": role_description_page},
@@ -57,6 +63,7 @@ sections = [
 # Render current section
 idx = st.session_state["current_section"]
 total = len(sections)
-show_progress_bar(idx, total)
+offset = 1 if st.session_state.get("skip_intro") else 0
+show_progress_bar(max(idx - offset, 0), total - offset)
 sections[idx]["func"]()
 show_navigation(idx, total)
