@@ -19,7 +19,9 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 
-def _function_schema() -> dict[str, Any]:
+def build_extraction_function() -> dict[str, Any]:
+    """Return an OpenAI function schema for the vacancy profile."""
+
     properties: dict[str, Any] = {}
     for field in FIELDS_ORDER:
         if field in LIST_FIELDS:
@@ -95,7 +97,7 @@ def extract_json(
             if mode == "function":
                 response = OPENAI_CLIENT.chat.completions.create(  # type: ignore[call-overload]
                     **common,
-                    functions=[_function_schema()],
+                    functions=[build_extraction_function()],
                     function_call={"name": "return_extraction"},
                 )
                 call = response.choices[0].message.function_call

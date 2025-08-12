@@ -1,7 +1,7 @@
 import json
 import streamlit as st
 from core.ss_bridge import from_session_state, to_session_state
-from core.schema import ALIASES
+from core.schema import ALIASES, coerce_and_fill
 from utils import (
     extract_text_from_file,
     extract_text_from_url,
@@ -18,7 +18,8 @@ from openai_utils import (
     generate_job_ad,
     extract_company_info,
 )
-from utils.json_parse import parse_extraction
+from llm.context import build_extract_messages
+from llm.client import build_extraction_function
 from question_logic import generate_followup_questions, EXTENDED_FIELDS
 from core import esco_utils  # Added import to use ESCO classification
 
@@ -204,19 +205,16 @@ def start_discovery_page():
                 )
                 return
 
-            # Construct prompt for extracting all extended fields from text
-            field_list = "".join([f"- {f}\n" for f in EXTENDED_FIELDS])
-            extract_prompt = (
-                "Extract the following fields from the job advertisement text. "
-                "Return ONLY a JSON object with these keys:\n"
-                f"{field_list}\n"
-                "Use an empty string or empty list for any field that is not present in the text.\n"
-                f"Text:\n{combined_text}"
-            )
-            messages = [{"role": "user", "content": extract_prompt}]
+            # Build messages and function schema for structured extraction
+            messages = build_extract_messages(combined_text)
+            fn_schema = build_extraction_function()
             try:
                 response = call_chat_api(
-                    messages, model=st.session_state.get("llm_model"), temperature=0.0
+                    messages,
+                    model=st.session_state.get("llm_model"),
+                    temperature=0.0,
+                    functions=[fn_schema],
+                    function_call={"name": fn_schema["name"]},
                 )
             except Exception:  # pragma: no cover - network failure
                 st.session_state["extraction_success"] = False
@@ -228,9 +226,9 @@ def start_discovery_page():
                 st.error(err_msg)
                 return
             try:
-                parsed = parse_extraction(response).model_dump(mode="json")
+                data = coerce_and_fill(json.loads(response)).model_dump(mode="json")
                 # Update session state with extracted values
-                for key, val in parsed.items():
+                for key, val in data.items():
                     # Join lists into newline-separated strings for text areas
                     st.session_state[key] = (
                         "\n".join(val) if isinstance(val, list) else str(val)

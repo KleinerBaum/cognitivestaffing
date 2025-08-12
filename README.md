@@ -6,6 +6,7 @@
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
+- **API helper**: `call_chat_api` supports OpenAI function calls for reliable extraction
 - **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG, shown inline in relevant steps
 - **ESCO‑Power**: occupation classification + essential skill gaps
 - **RAG‑Assist**: use your vector store to fill/contextualize
