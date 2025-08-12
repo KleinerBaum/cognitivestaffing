@@ -239,8 +239,19 @@ def generate_interview_guide(
     audience: str = "general",
     num_questions: int = 5,
     lang: str = "en",
+    company_culture: str = "",
 ) -> str:
-    """Generate an interview guide (questions + scoring rubrics) for the role."""
+    """Generate an interview guide (questions + scoring rubrics) for the role.
+
+    Args:
+        job_title: Title of the role to generate questions for.
+        tasks: Key tasks or responsibilities for context.
+        audience: Target interviewers.
+        num_questions: Number of interview questions to include.
+        lang: Two-letter language code (``en`` or ``de``).
+        company_culture: Company culture description used to craft a
+            culture-fit question.
+    """
     job_title = job_title.strip() or "this position"
     if lang.startswith("de"):
         # German prompt for interview guide
@@ -249,12 +260,22 @@ def generate_interview_guide(
             f"Formuliere {num_questions} Schlüsselfragen für das Interview und gib für jede Frage kurz die idealen Antwortkriterien an.\n"
             f"Wichtige Aufgaben der Rolle: {tasks or 'N/A'}."
         )
+        if company_culture:
+            prompt += (
+                f"\nUnternehmenskultur: {company_culture}."
+                "\nFüge mindestens eine Frage hinzu, die die Passung zur Unternehmenskultur bewertet."
+            )
     else:
         prompt = (
             f"Generate an interview guide for a {job_title} for {audience} interviewers.\n"
             f"Include {num_questions} key interview questions and for each question, provide a brief scoring rubric or ideal answer criteria.\n"
             f"Key tasks for the role: {tasks or 'N/A'}."
         )
+        if company_culture:
+            prompt += (
+                f"\nCompany culture: {company_culture}."
+                "\nInclude at least one question assessing cultural fit."
+            )
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, temperature=0.7, max_tokens=1000)
 
@@ -301,6 +322,8 @@ def generate_job_ad(session_data: dict) -> str:
         ("seniority_level", "Seniority Level", "Erfahrungsebene"),
         ("languages_required", "Languages Required", "Erforderliche Sprachen"),
         ("tools_and_technologies", "Tools and Technologies", "Tools und Technologien"),
+        ("company_mission", "Company Mission", "Unternehmensmission"),
+        ("company_culture", "Company Culture", "Unternehmenskultur"),
     ]
 
     details: list[str] = []
@@ -314,18 +337,36 @@ def generate_job_ad(session_data: dict) -> str:
         label = label_de if lang.startswith("de") else label_en
         details.append(f"{label}: {formatted}")
 
+    mission = session_copy.get("company_mission", "").strip()
+    culture = session_copy.get("company_culture", "").strip()
     if lang.startswith("de"):
         prompt = (
             "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
             + "\n".join(details)
             + "\nTonfall: klar, ansprechend und inklusiv."
         )
+        if mission or culture:
+            lines = []
+            if mission:
+                lines.append(f"Unsere Mission: {mission}")
+            if culture:
+                lines.append(f"Unternehmenskultur: {culture}")
+            prompt += "\n" + "\n".join(lines)
+            prompt += "\nFüge einen Satz über Mission oder Werte des Unternehmens hinzu, um das Employer Branding zu stärken."
     else:
         prompt = (
             "Create an engaging, professional job advertisement in Markdown format.\n"
             + "\n".join(details)
             + "\nTone: engaging, clear, and inclusive."
         )
+        if mission or culture:
+            lines = []
+            if mission:
+                lines.append(f"Our mission: {mission}")
+            if culture:
+                lines.append(f"Company culture: {culture}")
+            prompt += "\n" + "\n".join(lines)
+            prompt += "\nInclude a brief statement about the company's mission or values to strengthen employer branding."
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, temperature=0.7, max_tokens=600)
 

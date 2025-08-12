@@ -51,8 +51,8 @@ FIELD_SECTION_MAP: dict[str, int] = {
 
 def normalise_state(reapply_aliases: bool = True):
     """Normalize session state to canonical schema keys and update JSON."""
-    jd = from_session_state(st.session_state)  # type: ignore[arg-type]
-    to_session_state(jd, st.session_state)  # type: ignore[arg-type]
+    jd = from_session_state(st.session_state)
+    to_session_state(jd, st.session_state)
     if reapply_aliases:
         # Keep legacy alias fields in sync for UI (if needed)
         st.session_state["requirements"] = st.session_state.get("qualifications", "")
@@ -367,23 +367,18 @@ def company_information_page():
     lang = st.session_state.get("lang", "en")
     st.header("🏢 Company Information" if lang != "de" else "🏢 Firmeninformationen")
     try:
-        st.session_state["followup_questions"] = generate_followup_questions(
-            st.session_state,
-            lang=lang,
-            use_rag=st.session_state.get("use_rag", True),
-        )
+        st.session_state["followup_questions"] = [
+            f
+            for f in generate_followup_questions(
+                st.session_state,
+                lang=lang,
+                use_rag=st.session_state.get("use_rag", True),
+            )
+            if f.get("field") not in {"company_mission", "company_culture"}
+        ]
     except Exception:  # pragma: no cover - network failure
         pass
-    render_followups_for(
-        [
-            "company_name",
-            "industry",
-            "location",
-            "company_website",
-            "company_mission",
-            "company_culture",
-        ]
-    )
+    render_followups_for(["company_name", "industry", "location", "company_website"])
     st.session_state["company_name"] = st.text_input(
         "Company Name" if lang != "de" else "Unternehmensname",
         st.session_state.get("company_name", ""),
@@ -444,27 +439,22 @@ def company_information_page():
                     if info.get("company_culture"):
                         st.session_state["company_culture"] = info["company_culture"]
                     st.success("✅ Company information fetched from website.")
-                    # If mission or culture were fetched, add them to follow-up questions if they were missing
-                    followups = st.session_state.get("followup_questions", [])
-                    if info.get("company_mission") and not any(
-                        f.get("field") == "company_mission" for f in followups
-                    ):
-                        followups.append(
-                            {
-                                "field": "company_mission",
-                                "question": "Company Mission / Core Values",
-                            }
-                        )
-                    if info.get("company_culture") and not any(
-                        f.get("field") == "company_culture" for f in followups
-                    ):
-                        followups.append(
-                            {
-                                "field": "company_culture",
-                                "question": "Company Culture or Work Environment",
-                            }
-                        )
-                    st.session_state["followup_questions"] = followups
+                    st.session_state["followup_questions"] = [
+                        f
+                        for f in st.session_state.get("followup_questions", [])
+                        if f.get("field") not in {"company_mission", "company_culture"}
+                    ]
+
+    st.session_state["company_mission"] = st.text_area(
+        "Company Mission" if lang != "de" else "Unternehmensmission",
+        st.session_state.get("company_mission", ""),
+        height=80,
+    )
+    st.session_state["company_culture"] = st.text_area(
+        "Company Culture" if lang != "de" else "Unternehmenskultur",
+        st.session_state.get("company_culture", ""),
+        height=80,
+    )
 
 
 def role_description_page():
@@ -949,6 +939,7 @@ def summary_outputs_page():
                         audience="hiring managers",
                         num_questions=num_questions,
                         lang=lang,
+                        company_culture=st.session_state.get("company_culture", ""),
                     )
                 except Exception:  # pragma: no cover - network failure
                     err = (

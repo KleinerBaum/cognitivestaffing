@@ -20,6 +20,8 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
         "qualifications": "Python experience",
         "remote_policy": "Remote-friendly",
         "salary_range": "€50k-70k",
+        "company_mission": "Build the future of collaboration",
+        "company_culture": "Inclusive and growth-oriented",
         "lang": "en",
     }
 
@@ -28,3 +30,5 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
     assert "Requirements: Python experience" in prompt
     assert "Work Policy: Remote-friendly" in prompt
     assert "Salary Range: €50k-70k" in prompt
+    assert "Company Mission: Build the future of collaboration" in prompt
+    assert "Company Culture: Inclusive and growth-oriented" in prompt
