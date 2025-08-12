@@ -115,6 +115,32 @@ ROLE_FIELD_MAP: Dict[str, List[str]] = {
     ],
 }
 
+# Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
+ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
+    "software developers": [
+        {
+            "field": "programming_languages",
+            "question": "Which programming languages will the developer use?",
+        }
+    ],
+    "sales, marketing and public relations professionals": [
+        {
+            "field": "target_markets",
+            "question": "Which target markets will the salesperson focus on?",
+        },
+        {
+            "field": "sales_quota",
+            "question": "What is the sales quota for this role?",
+        },
+    ],
+    "nursing and midwifery professionals": [
+        {
+            "field": "shift_schedule",
+            "question": "What is the shift schedule?",
+        }
+    ],
+}
+
 CRITICAL_FIELDS: Set[str] = {
     "job_title",
     "company_name",
@@ -268,13 +294,17 @@ def generate_followup_questions(
     occupation = {}
     essential_skills: List[str] = []
     missing_esco_skills: List[str] = []
+    occ_group = ""
+    role_questions_cfg: List[Dict[str, str]] = []
 
     if job_title:
         occupation = classify_occupation(job_title, lang=lang) or {}
         occ_group = (occupation.get("group") or "").lower()
         role_fields = ROLE_FIELD_MAP.get(occ_group, [])
+        role_questions_cfg = ROLE_QUESTION_MAP.get(occ_group, [])
     else:
         role_fields = []
+        role_questions_cfg = []
 
     occ_uri = occupation.get("uri", "")
     if occ_uri:
@@ -296,6 +326,9 @@ def generate_followup_questions(
         dict.fromkeys(EXTENDED_FIELDS + role_fields)
     )  # dedupe keep order
     missing_fields = _collect_missing_fields(extracted, fields_to_check)
+    role_questions_needed = [
+        q for q in role_questions_cfg if q["field"] in missing_fields
+    ]
 
     if not missing_fields and not missing_esco_skills:
         return []
@@ -307,6 +340,7 @@ def generate_followup_questions(
         if "qualifications" in critical_missing:
             base += 1
         num_questions = min(max(base, 3), 7)
+        num_questions += len(role_questions_needed)
 
     split_fields: Dict[str, List[str]] = {}
     if "qualifications" in missing_fields:
@@ -469,6 +503,21 @@ def generate_followup_questions(
                     "priority": pr,
                     "suggestions": sugg,
                     "prefill": prefill,
+                }
+            )
+
+    # Append role-specific predefined questions if still unanswered
+    asked_fields = {item["field"] for item in out if item["field"]}
+    for cfg in role_questions_needed:
+        f = cfg["field"]
+        if f not in asked_fields:
+            out.append(
+                {
+                    "field": f,
+                    "question": cfg["question"],
+                    "priority": _priority_for(f),
+                    "suggestions": [],
+                    "prefill": "",
                 }
             )
 

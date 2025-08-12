@@ -65,6 +65,25 @@ def test_role_specific_payload(monkeypatch):
     assert data["missing_esco_skills"] == ["Project management"]
 
 
+def test_role_specific_extra_question(monkeypatch):
+    """Role-specific questions should be appended automatically."""
+
+    def fake_call_chat_api(
+        messages, temperature=0.0, max_tokens=0, model=None
+    ) -> str:  # noqa: E501
+        return "[]"
+
+    def fake_classify(job_title, lang="en"):
+        return {"group": "Software developers"}
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.classify_occupation", fake_classify)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+
+    out = generate_followup_questions({"job_title": "Backend Developer"})
+    assert any(q["field"] == "programming_languages" for q in out)
+
+
 def test_optional_field_cap(monkeypatch):
     """Missing optional fields should not exceed the minimum question cap."""
 
