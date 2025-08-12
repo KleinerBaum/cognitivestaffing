@@ -23,13 +23,30 @@ from openai_utils import (
 )
 from llm.context import build_extract_messages
 from llm.client import build_extraction_function
-from question_logic import generate_followup_questions
+from question_logic import CRITICAL_FIELDS, generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
 
 MODEL_OPTIONS = {
     "GPT-3.5 (fast, cheap)": "gpt-3.5-turbo",
     "GPT-4 (slow, accurate)": "gpt-4",
 }
+
+
+FIELD_SECTION_MAP: dict[str, int] = {
+    "job_title": 1,
+    "company_name": 2,
+    "location": 2,
+    "role_summary": 3,
+    "responsibilities": 3,
+    "qualifications": 5,
+    "languages_required": 5,
+    "certifications": 5,
+    "tools_and_technologies": 5,
+    "salary_range": 6,
+    "job_type": 6,
+    "remote_policy": 6,
+}
+"""Map critical field names to wizard section indices for navigation."""
 
 
 def normalise_state(reapply_aliases: bool = True):
@@ -824,19 +841,33 @@ def summary_outputs_page():
         },
     ]
     for category in categories:
-        items = []
+        items: list[tuple[str, str, str]] = []
         for field in category["fields"]:
             value = st.session_state.get(field)
-            if not value:
-                continue
-            display_val = str(value).replace("\n", "; ")
             label = field.replace("_", " ").title()
-            items.append(f"**{label}:** {display_val}")
+            if value:
+                display_val = str(value).replace("\n", "; ")
+                items.append(("filled", label, display_val))
+            elif field in CRITICAL_FIELDS:
+                items.append(("missing", label, field))
         if items:
             heading = category["de"] if lang == "de" else category["en"]
             st.subheader(heading)
-            for item in items:
-                st.write(item)
+            for status, label, content in items:
+                if status == "filled":
+                    st.write(f"**{label}:** {content}")
+                else:
+                    col1, col2 = st.columns([3, 1])
+                    col1.markdown(
+                        f"<span style='color:red;'>**{label}:** [Not provided]</span>",
+                        unsafe_allow_html=True,
+                    )
+                    add_label = "Add" if lang != "de" else "Hinzufügen"
+                    if col2.button(add_label, key=f"add_{content}"):
+                        st.session_state["current_section"] = FIELD_SECTION_MAP.get(
+                            content, 0
+                        )
+                        st.rerun()
     # Buttons to generate final outputs
     colA, colB = st.columns(2)
     with colA:
