@@ -26,6 +26,11 @@ from llm.client import build_extraction_function
 from question_logic import generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
 
+MODEL_OPTIONS = {
+    "GPT-3.5 (fast, cheap)": "gpt-3.5-turbo",
+    "GPT-4 (slow, accurate)": "gpt-4",
+}
+
 
 def normalise_state(reapply_aliases: bool = True):
     """Normalize session state to canonical schema keys and update JSON."""
@@ -509,43 +514,55 @@ def skills_competencies_page():
         height=100,
     )
     st.session_state["soft_skills"] = soft_skills_text
-    if st.button("💡 Suggest Additional Skills"):
-        # Use AI to suggest additional technical and soft skills
-        with st.spinner("Generating skill suggestions..."):
-            title = st.session_state.get("job_title", "")
-            tasks = st.session_state.get("tasks", "") or st.session_state.get(
-                "responsibilities", ""
-            )
-            existing_skills = []
-            if hard_skills_text:
-                existing_skills += [
-                    s.strip() for s in hard_skills_text.splitlines() if s.strip()
-                ]
-            if soft_skills_text:
-                existing_skills += [
-                    s.strip() for s in soft_skills_text.splitlines() if s.strip()
-                ]
-            try:
-                suggestions = suggest_additional_skills(
-                    job_title=title,
-                    tasks=tasks,
-                    existing_skills=existing_skills,
-                    num_suggestions=10,
-                    lang="de" if lang == "de" else "en",
+    skill_btn_col, skill_model_col = st.columns([3, 2])
+    with skill_model_col:
+        skill_model_label = st.selectbox(
+            "Model",
+            list(MODEL_OPTIONS.keys()),
+            key="skill_model",
+        )
+    with skill_btn_col:
+        if st.button("💡 Suggest Additional Skills"):
+            model_name = MODEL_OPTIONS[skill_model_label]
+            # Use AI to suggest additional technical and soft skills
+            with st.spinner(
+                f"Generating skill suggestions with {skill_model_label}..."
+            ):
+                title = st.session_state.get("job_title", "")
+                tasks = st.session_state.get("tasks", "") or st.session_state.get(
+                    "responsibilities", ""
                 )
-            except Exception:  # pragma: no cover - network failure
-                warn = (
-                    "⚠️ Could not generate skill suggestions."
-                    if lang != "de"
-                    else "⚠️ Konnte keine Skill-Vorschläge generieren."
-                )
-                st.warning(warn)
-                suggestions = {"technical": [], "soft": []}
-            tech_suggestions = suggestions.get("technical", [])
-            soft_suggestions = suggestions.get("soft", [])
-            # Store suggestions in session state to display as chips
-            st.session_state["suggested_tech_skills"] = tech_suggestions
-            st.session_state["suggested_soft_skills"] = soft_suggestions
+                existing_skills = []
+                if hard_skills_text:
+                    existing_skills += [
+                        s.strip() for s in hard_skills_text.splitlines() if s.strip()
+                    ]
+                if soft_skills_text:
+                    existing_skills += [
+                        s.strip() for s in soft_skills_text.splitlines() if s.strip()
+                    ]
+                try:
+                    suggestions = suggest_additional_skills(
+                        job_title=title,
+                        tasks=tasks,
+                        existing_skills=existing_skills,
+                        num_suggestions=10,
+                        lang="de" if lang == "de" else "en",
+                        model=model_name,
+                    )
+                except Exception:  # pragma: no cover - network failure
+                    warn = (
+                        "⚠️ Could not generate skill suggestions."
+                        if lang != "de"
+                        else "⚠️ Konnte keine Skill-Vorschläge generieren."
+                    )
+                    st.warning(warn)
+                    suggestions = {"technical": [], "soft": []}
+                tech_suggestions = suggestions.get("technical", [])
+                soft_suggestions = suggestions.get("soft", [])
+                # Store suggestions in session state to display as chips
+                st.session_state["suggested_tech_skills"] = tech_suggestions
+                st.session_state["suggested_soft_skills"] = soft_suggestions
         # Notify user to pick from suggestions
         if st.session_state.get("suggested_tech_skills") or st.session_state.get(
             "suggested_soft_skills"
@@ -636,28 +653,42 @@ def benefits_compensation_page():
         "Travel Requirements" if lang != "de" else "Reisebereitschaft",
         st.session_state.get("travel_required", ""),
     )
-    if st.button("💡 Suggest Benefits"):
-        with st.spinner("Suggesting common benefits..."):
-            title = st.session_state.get("job_title", "")
-            industry = st.session_state.get("industry", "")
-            existing = st.session_state.get("benefits", "")
-            try:
-                suggestions = suggest_benefits(
-                    title, industry, existing_benefits=existing
-                )
-            except Exception:  # pragma: no cover - network failure
-                warn = (
-                    "⚠️ Could not generate benefit suggestions."
-                    if lang != "de"
-                    else "⚠️ Konnte keine Benefit-Vorschläge generieren."
-                )
-                st.warning(warn)
-                suggestions = []
-        if suggestions:
-            st.session_state["suggested_benefits"] = suggestions
-            st.success("✔️ Benefit suggestions generated. Click to add them.")
-        else:
-            st.warning("No benefit suggestions available at the moment.")
+    benefit_btn_col, benefit_model_col = st.columns([3, 2])
+    with benefit_model_col:
+        benefit_model_label = st.selectbox(
+            "Model",
+            list(MODEL_OPTIONS.keys()),
+            key="benefit_model",
+        )
+    with benefit_btn_col:
+        if st.button("💡 Suggest Benefits"):
+            model_name = MODEL_OPTIONS[benefit_model_label]
+            with st.spinner(
+                f"Suggesting common benefits with {benefit_model_label}..."
+            ):
+                title = st.session_state.get("job_title", "")
+                industry = st.session_state.get("industry", "")
+                existing = st.session_state.get("benefits", "")
+                try:
+                    suggestions = suggest_benefits(
+                        title,
+                        industry,
+                        existing_benefits=existing,
+                        model=model_name,
+                    )
+                except Exception:  # pragma: no cover - network failure
+                    warn = (
+                        "⚠️ Could not generate benefit suggestions."
+                        if lang != "de"
+                        else "⚠️ Konnte keine Benefit-Vorschläge generieren."
+                    )
+                    st.warning(warn)
+                    suggestions = []
+            if suggestions:
+                st.session_state["suggested_benefits"] = suggestions
+                st.success("✔️ Benefit suggestions generated. Click to add them.")
+            else:
+                st.warning("No benefit suggestions available at the moment.")
     # Display benefit suggestions as chips if available
     benefit_suggestions = st.session_state.get("suggested_benefits", [])
     if benefit_suggestions:
