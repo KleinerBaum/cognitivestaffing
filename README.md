@@ -10,6 +10,7 @@
 - **RAG‑Assist**: use your vector store to fill/contextualize
 - **No system OCR deps**: **OpenAI Vision** by default (override via `OCR_BACKEND`)
 - **Cost‑aware**: hybrid models (4o‑mini default), minimal re‑asks
+- **Robust error handling**: user-facing alerts for API or network issues
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 
 ---

@@ -363,17 +363,20 @@ def generate_followup_questions(
     else:
         # Chat fallback
         chat_prompt = f"{instruction}\nN={num_questions}\n\nContext:\n{json.dumps(payload, ensure_ascii=False)}"
-        raw = call_chat_api(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a meticulous recruitment analyst.",
-                },
-                {"role": "user", "content": chat_prompt},
-            ],
-            temperature=0.1,
-            max_tokens=600,
-        )
+        try:
+            raw = call_chat_api(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a meticulous recruitment analyst.",
+                    },
+                    {"role": "user", "content": chat_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=600,
+            )
+        except Exception as e:  # pragma: no cover - network failure
+            raise RuntimeError(f"OpenAI API error: {e}") from e
         try:
             items = json.loads(raw)
         except Exception:

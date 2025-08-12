@@ -25,8 +25,8 @@ from core import esco_utils  # Added import to use ESCO classification
 
 def normalise_state(reapply_aliases: bool = True):
     """Normalize session state to canonical schema keys and update JSON."""
-    jd = from_session_state(st.session_state)
-    to_session_state(jd, st.session_state)
+    jd = from_session_state(st.session_state)  # type: ignore[arg-type]
+    to_session_state(jd, st.session_state)  # type: ignore[arg-type]
     if reapply_aliases:
         # Keep legacy alias fields in sync for UI (if needed)
         st.session_state["requirements"] = st.session_state.get("qualifications", "")
@@ -161,9 +161,19 @@ def start_discovery_page():
                 f"Text:\n{combined_text}"
             )
             messages = [{"role": "user", "content": extract_prompt}]
-            response = call_chat_api(
-                messages, model=st.session_state.get("llm_model"), temperature=0.0
-            )
+            try:
+                response = call_chat_api(
+                    messages, model=st.session_state.get("llm_model"), temperature=0.0
+                )
+            except Exception:  # pragma: no cover - network failure
+                st.session_state["extraction_success"] = False
+                err_msg = (
+                    "❌ OpenAI request failed. Please try again later."
+                    if lang != "de"
+                    else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
+                )
+                st.error(err_msg)
+                return
             try:
                 parsed = parse_extraction(response).model_dump(mode="json")
                 # Update session state with extracted values
@@ -174,11 +184,20 @@ def start_discovery_page():
                     )
                 normalise_state()  # normalize keys and prepare validated JSON
                 # Generate follow-up questions for missing info
-                followups = generate_followup_questions(
-                    st.session_state,
-                    lang=lang,
-                    use_rag=st.session_state.get("use_rag", True),
-                )
+                try:
+                    followups = generate_followup_questions(
+                        st.session_state,
+                        lang=lang,
+                        use_rag=st.session_state.get("use_rag", True),
+                    )
+                except Exception:  # pragma: no cover - network failure
+                    warn_msg = (
+                        "⚠️ Unable to generate follow-up questions."
+                        if lang != "de"
+                        else "⚠️ Folgefragen konnten nicht erstellt werden."
+                    )
+                    st.warning(warn_msg)
+                    followups = []
                 st.session_state["followup_questions"] = followups
                 # Classify occupation via ESCO and store for later display
                 occ = esco_utils.classify_occupation(
@@ -325,7 +344,16 @@ def company_information_page():
                     st.error("❌ Could not retrieve any text from the website.")
                 else:
                     # Use OpenAI to extract company details (name, mission, culture, location) from site text
-                    info = extract_company_info(combined_site_text)
+                    try:
+                        info = extract_company_info(combined_site_text)
+                    except Exception:  # pragma: no cover - network failure
+                        err = (
+                            "❌ Failed to extract company information. Please try again later."
+                            if lang != "de"
+                            else "❌ Unternehmensinformationen konnten nicht extrahiert werden. Bitte später erneut versuchen."
+                        )
+                        st.error(err)
+                        info = {}
                     # Update session state with any info found (if fields were empty or not set by user yet)
                     if info.get("company_name") and not st.session_state.get(
                         "company_name"
@@ -430,13 +458,22 @@ def skills_competencies_page():
                 existing_skills += [
                     s.strip() for s in soft_skills_text.splitlines() if s.strip()
                 ]
-            suggestions = suggest_additional_skills(
-                job_title=title,
-                tasks=tasks,
-                existing_skills=existing_skills,
-                num_suggestions=10,
-                lang="de" if lang == "de" else "en",
-            )
+            try:
+                suggestions = suggest_additional_skills(
+                    job_title=title,
+                    tasks=tasks,
+                    existing_skills=existing_skills,
+                    num_suggestions=10,
+                    lang="de" if lang == "de" else "en",
+                )
+            except Exception:  # pragma: no cover - network failure
+                warn = (
+                    "⚠️ Could not generate skill suggestions."
+                    if lang != "de"
+                    else "⚠️ Konnte keine Skill-Vorschläge generieren."
+                )
+                st.warning(warn)
+                suggestions = {"technical": [], "soft": []}
             tech_suggestions = suggestions.get("technical", [])
             soft_suggestions = suggestions.get("soft", [])
             # Store suggestions in session state to display as chips
@@ -527,7 +564,18 @@ def benefits_compensation_page():
             title = st.session_state.get("job_title", "")
             industry = st.session_state.get("industry", "")
             existing = st.session_state.get("benefits", "")
-            suggestions = suggest_benefits(title, industry, existing_benefits=existing)
+            try:
+                suggestions = suggest_benefits(
+                    title, industry, existing_benefits=existing
+                )
+            except Exception:  # pragma: no cover - network failure
+                warn = (
+                    "⚠️ Could not generate benefit suggestions."
+                    if lang != "de"
+                    else "⚠️ Konnte keine Benefit-Vorschläge generieren."
+                )
+                st.warning(warn)
+                suggestions = []
         if suggestions:
             st.session_state["suggested_benefits"] = suggestions
             st.success("✔️ Benefit suggestions generated. Click to add them.")
@@ -618,37 +666,68 @@ def summary_outputs_page():
     with colA:
         if st.button("🎯 Generate Final Job Ad"):
             with st.spinner("Generating job advertisement..."):
-                job_ad_text = generate_job_ad(st.session_state)
-            st.subheader(
-                "Generated Job Advertisement"
-                if lang != "de"
-                else "Erstellte Stellenanzeige"
-            )
-            st.write(job_ad_text)
-            # Basic SEO optimization suggestions for the generated ad
-            seo = seo_optimize(job_ad_text)
-            if seo["keywords"]:
-                st.markdown(f"**SEO Keywords:** `{', '.join(seo['keywords'])}`")
-            if seo["meta_description"]:
-                st.markdown(f"**Meta Description:** {seo['meta_description']}")
-            log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
+                try:
+                    job_ad_text = generate_job_ad(st.session_state)
+                except Exception:  # pragma: no cover - network failure
+                    err = (
+                        "❌ Failed to generate job ad. Please try again later."
+                        if lang != "de"
+                        else "❌ Stellenanzeige konnte nicht erstellt werden. Bitte später erneut versuchen."
+                    )
+                    st.error(err)
+                    job_ad_text = ""
+            if job_ad_text:
+                st.subheader(
+                    (
+                        "Generated Job Advertisement"
+                        if lang != "de"
+                        else "Erstellte Stellenanzeige"
+                    ),
+                )
+                st.write(job_ad_text)
+                # Basic SEO optimization suggestions for the generated ad
+                seo = seo_optimize(job_ad_text)
+                if seo["keywords"]:
+                    st.markdown(f"**SEO Keywords:** `{', '.join(seo['keywords'])}`")
+                if seo["meta_description"]:
+                    st.markdown(f"**Meta Description:** {seo['meta_description']}")
+                log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
     with colB:
         if st.button("📝 Generate Interview Guide"):
             title = st.session_state.get("job_title", "")
             tasks = st.session_state.get("tasks", "") or st.session_state.get(
-                "responsibilities", ""
+                "responsibilities",
+                "",
             )
             with st.spinner("Generating interview guide..."):
-                guide = generate_interview_guide(
-                    title, tasks, audience="hiring managers", num_questions=5, lang=lang
+                try:
+                    guide = generate_interview_guide(
+                        title,
+                        tasks,
+                        audience="hiring managers",
+                        num_questions=5,
+                        lang=lang,
+                    )
+                except Exception:  # pragma: no cover - network failure
+                    err = (
+                        "❌ Failed to generate interview guide. Please try again later."
+                        if lang != "de"
+                        else "❌ Leitfaden konnte nicht erstellt werden. Bitte später erneut versuchen."
+                    )
+                    st.error(err)
+                    guide = ""
+            if guide:
+                st.subheader(
+                    (
+                        "Interview Guide & Scoring Rubrics"
+                        if lang != "de"
+                        else "Leitfaden für Vorstellungsgespräch & Bewertungsrichtlinien"
+                    ),
                 )
-            st.subheader(
-                "Interview Guide & Scoring Rubrics"
-                if lang != "de"
-                else "Leitfaden für Vorstellungsgespräch & Bewertungsrichtlinien"
-            )
-            st.write(guide)
-            log_event(f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}")
+                st.write(guide)
+                log_event(
+                    f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}"
+                )
     # Always display a suggested Boolean search query for recruiters (based on title and skills)
     if st.session_state.get("job_title") or st.session_state.get("hard_skills"):
         bool_query = build_boolean_query(
