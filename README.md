@@ -12,6 +12,7 @@
 - **RAG‑Assist**: use your vector store to fill/contextualize
 - **No system OCR deps**: uses **OpenAI Vision** (set `OCR_BACKEND=none` to disable)
 - **Cost‑aware**: hybrid models (4o‑mini default), minimal re‑asks
+- **Model toggle**: choose GPT‑3.5 (fast, cheap) or GPT‑4 (accurate) for suggestions
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Categorized summary**: groups related fields under clear headings for faster review

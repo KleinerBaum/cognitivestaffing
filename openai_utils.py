@@ -57,8 +57,21 @@ def suggest_additional_skills(
     existing_skills: list[str] | None = None,
     num_suggestions: int = 10,
     lang: str = "en",
+    model: str | None = None,
 ) -> dict:
-    """Suggest a mix of technical and soft skills for the given role, avoiding duplicates."""
+    """Suggest a mix of technical and soft skills for the given role.
+
+    Args:
+        job_title: Target role title.
+        tasks: Known responsibilities for context.
+        existing_skills: Skills already listed by the user.
+        num_suggestions: Total number of skills to request.
+        lang: Language of the response ("en" or "de").
+        model: Optional OpenAI model override.
+
+    Returns:
+        Dict with keys ``technical`` and ``soft`` containing suggested skills.
+    """
     if existing_skills is None:
         existing_skills = []
     job_title = job_title.strip()
@@ -84,7 +97,10 @@ def suggest_additional_skills(
         if existing_skills:
             prompt += f" Bereits aufgelistet: {', '.join(existing_skills)}."
     messages = [{"role": "user", "content": prompt}]
-    answer = call_chat_api(messages, temperature=0.4, max_tokens=220)
+    max_tokens = 220 if not model or "gpt-3.5" in model else 300
+    answer = call_chat_api(
+        messages, model=model, temperature=0.4, max_tokens=max_tokens
+    )
     tech_skills, soft_skills = [], []
     bucket = "tech"
     for line in answer.splitlines():
@@ -129,9 +145,22 @@ def suggest_additional_skills(
 
 
 def suggest_benefits(
-    job_title: str, industry: str = "", existing_benefits: str = ""
+    job_title: str,
+    industry: str = "",
+    existing_benefits: str = "",
+    model: str | None = None,
 ) -> list[str]:
-    """Suggest common benefits/perks for the given role (and industry), avoiding those already listed."""
+    """Suggest common benefits/perks for the given role.
+
+    Args:
+        job_title: Target role title.
+        industry: Optional industry context.
+        existing_benefits: Benefits already provided by the user.
+        model: Optional OpenAI model override.
+
+    Returns:
+        A list of new benefit suggestions.
+    """
     job_title = job_title.strip()
     if not job_title:
         return []
@@ -159,7 +188,10 @@ def suggest_benefits(
         if existing_benefits:
             prompt += f"Bereits aufgelistet: {existing_benefits}"
     messages = [{"role": "user", "content": prompt}]
-    answer = call_chat_api(messages, temperature=0.5, max_tokens=150)
+    max_tokens = 150 if not model or "gpt-3.5" in model else 200
+    answer = call_chat_api(
+        messages, model=model, temperature=0.5, max_tokens=max_tokens
+    )
     benefits = []
     for line in answer.splitlines():
         perk = line.strip("-•* \t")
@@ -171,14 +203,28 @@ def suggest_benefits(
     return benefits
 
 
-def suggest_role_tasks(job_title: str, num_tasks: int = 5) -> list[str]:
-    """Suggest a list of key responsibilities/tasks for a given job title."""
+def suggest_role_tasks(
+    job_title: str, num_tasks: int = 5, model: str | None = None
+) -> list[str]:
+    """Suggest a list of key responsibilities/tasks for a given job title.
+
+    Args:
+        job_title: Target role title.
+        num_tasks: Number of tasks to request.
+        model: Optional OpenAI model override.
+
+    Returns:
+        A list of suggested tasks.
+    """
     job_title = job_title.strip()
     if not job_title:
         return []
     prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role."
     messages = [{"role": "user", "content": prompt}]
-    answer = call_chat_api(messages, temperature=0.5, max_tokens=180)
+    max_tokens = 180 if not model or "gpt-3.5" in model else 250
+    answer = call_chat_api(
+        messages, model=model, temperature=0.5, max_tokens=max_tokens
+    )
     tasks = []
     for line in answer.splitlines():
         task = line.strip("-•* \t")
