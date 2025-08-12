@@ -215,27 +215,70 @@ def generate_interview_guide(
 
 def generate_job_ad(session_data: dict) -> str:
     """Generate a compelling job advertisement using the collected session data."""
-    job_title = session_data.get("job_title", "")
-    company = session_data.get("company_name", "")
-    location = session_data.get("location", "")
-    role_desc = session_data.get("role_summary", "")
-    tasks = session_data.get("tasks", "") or session_data.get("responsibilities", "")
-    benefits = session_data.get("benefits", "")
-    lang = session_data.get("lang", "en")
+
+    def _format(value: Any) -> str:
+        """Convert list values to a comma-separated string."""
+
+        if isinstance(value, list):
+            return ", ".join(str(v) for v in value if v)
+        return str(value)
+
+    # Normalize aliases and aggregate all fields
+    session_copy = dict(session_data)
+    session_copy["responsibilities"] = (
+        session_data.get("tasks") or session_data.get("responsibilities") or ""
+    )
+    session_copy["qualifications"] = (
+        session_data.get("qualifications") or session_data.get("requirements") or ""
+    )
+    lang = session_copy.get("lang", "en")
+
+    fields = [
+        ("job_title", "Job Title", "Jobtitel"),
+        ("company_name", "Company", "Unternehmen"),
+        ("location", "Location", "Standort"),
+        ("industry", "Industry", "Branche"),
+        ("job_type", "Job Type", "Anstellungsart"),
+        ("remote_policy", "Work Policy", "Arbeitsmodell"),
+        ("travel_required", "Travel Requirements", "Reisebereitschaft"),
+        ("role_summary", "Role Summary", "Rollenbeschreibung"),
+        ("responsibilities", "Key Responsibilities", "Wichtigste Aufgaben"),
+        ("qualifications", "Requirements", "Anforderungen"),
+        ("hard_skills", "Hard Skills", "Technische Fähigkeiten"),
+        ("soft_skills", "Soft Skills", "Soziale Fähigkeiten"),
+        ("salary_range", "Salary Range", "Gehaltsspanne"),
+        ("benefits", "Benefits", "Vorteile"),
+        ("reporting_line", "Reporting Line", "Berichtsweg"),
+        ("target_start_date", "Target Start Date", "Startdatum"),
+        ("team_structure", "Team Structure", "Teamstruktur"),
+        ("application_deadline", "Application Deadline", "Bewerbungsschluss"),
+        ("seniority_level", "Seniority Level", "Erfahrungsebene"),
+        ("languages_required", "Languages Required", "Erforderliche Sprachen"),
+        ("tools_and_technologies", "Tools and Technologies", "Tools und Technologien"),
+    ]
+
+    details: list[str] = []
+    for key, label_en, label_de in fields:
+        value = session_copy.get(key)
+        if not value:
+            continue
+        formatted = _format(value).strip()
+        if not formatted:
+            continue
+        label = label_de if lang.startswith("de") else label_en
+        details.append(f"{label}: {formatted}")
+
     if lang.startswith("de"):
-        # German prompt for job ad
         prompt = (
             "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
-            f"Jobtitel: {job_title}\nUnternehmen: {company}\nStandort: {location}\n"
-            f"Rollenbeschreibung: {role_desc}\nWichtigste Aufgaben: {tasks}\nVorteile: {benefits}\n"
-            "Tonfall: klar, ansprechend und inklusiv."
+            + "\n".join(details)
+            + "\nTonfall: klar, ansprechend und inklusiv."
         )
     else:
         prompt = (
             "Create an engaging, professional job advertisement in Markdown format.\n"
-            f"Job Title: {job_title}\nCompany: {company}\nLocation: {location}\n"
-            f"Role Summary: {role_desc}\nKey Responsibilities: {tasks}\nBenefits: {benefits}\n"
-            "Tone: engaging, clear, and inclusive."
+            + "\n".join(details)
+            + "\nTone: engaging, clear, and inclusive."
         )
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, temperature=0.7, max_tokens=600)

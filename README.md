@@ -16,6 +16,7 @@
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
+- **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 
 ---
