@@ -47,7 +47,7 @@ def apply_global_styling() -> None:
 
     Injects fonts, colors and a background image into the Streamlit application.
     """
-    bg_path = Path("images/background.jpeg")
+    bg_path = Path("images/AdobeStock_506577005.jpeg")
     st.markdown(
         f"""
         <style>
