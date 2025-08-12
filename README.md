@@ -22,6 +22,7 @@
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
+- **Employer branding**: company mission and culture flow into job ads and interview guides
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 
 ---
