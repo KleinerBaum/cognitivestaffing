@@ -34,6 +34,7 @@ from core.esco_utils import (
 
 # Generic chat helper (fallback)
 from openai_utils import call_chat_api
+from config import OPENAI_API_KEY
 
 # Try modern OpenAI SDK (Responses API)
 try:
@@ -41,7 +42,7 @@ try:
 
     _HAS_RESPONSES = True
 except Exception:  # pragma: no cover
-    OpenAI = None
+    OpenAI = None  # type: ignore[assignment, misc]
     _HAS_RESPONSES = False
 
 DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -193,7 +194,7 @@ def _rag_suggestions(
         "N": max_items_per_field,
     }
     try:
-        resp = client.responses.create(
+        resp = client.responses.create(  # type: ignore[call-overload]
             model=model,
             input=[
                 {"role": "system", "content": sys},
@@ -332,10 +333,10 @@ def generate_followup_questions(
     }
 
     # Prefer modern Responses+JSON if available (cheaper parsing); fallback to Chat
-    if _HAS_RESPONSES:
+    if _HAS_RESPONSES and OPENAI_API_KEY:
         try:
             client = OpenAI()
-            resp = client.responses.create(
+            resp = client.responses.create(  # type: ignore[call-overload]
                 model=DEFAULT_LOW_COST_MODEL,
                 input=[
                     {
@@ -357,8 +358,8 @@ def generate_followup_questions(
                 if isinstance(data, list)
                 else data.get("items") or data.get("questions") or []
             )
-        except Exception:
-            items = []
+        except Exception as e:
+            raise RuntimeError(f"OpenAI API error: {e}") from e
     else:
         # Chat fallback
         chat_prompt = f"{instruction}\nN={num_questions}\n\nContext:\n{json.dumps(payload, ensure_ascii=False)}"
