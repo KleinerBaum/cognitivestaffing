@@ -12,18 +12,19 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 def extract_text(image_bytes: bytes, backend: str | None = None) -> str:
-    """Extract text from image bytes using the configured OCR backend.
+    """Extract text from image bytes using OpenAI Vision or a no-op.
 
     Args:
         image_bytes: Raw image data.
-        backend: Optional backend name overriding ``OCR_BACKEND`` env var.
+        backend: Optional backend name (``"openai"`` or ``"none"``)
+            overriding ``OCR_BACKEND`` env var.
 
     Returns:
         Recognised text. Returns an empty string if the backend is ``"none"``.
 
     Raises:
-        ValueError: If an unsupported backend is specified.
-        ImportError: If the OpenAI backend is selected but the package is missing.
+        ValueError: If ``backend`` is not ``"openai"`` or ``"none"``.
+        ImportError: If the OpenAI package is required but missing.
     """
     backend_name = (backend or os.getenv("OCR_BACKEND", "openai")).lower()
 

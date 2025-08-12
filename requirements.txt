@@ -11,9 +11,3 @@ requests>=2.31
 tenacity>=8.2
 typing-extensions>=4.8
 
-# Optional extras
-# OCR
-# pdf
-# Environment
-# python-dotenv>=1.0.1
-
