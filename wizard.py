@@ -10,6 +10,7 @@ from utils import (
     seo_optimize,
     ensure_logs_dir,
 )
+from utils.export import prepare_download_data
 from openai_utils import (
     call_chat_api,
     suggest_additional_skills,
@@ -703,6 +704,29 @@ def summary_outputs_page():
                     st.markdown(f"**SEO Keywords:** `{', '.join(seo['keywords'])}`")
                 if seo["meta_description"]:
                     st.markdown(f"**Meta Description:** {seo['meta_description']}")
+                fmt_label = "Download format" if lang != "de" else "Download-Format"
+                job_fmt = st.selectbox(
+                    fmt_label,
+                    ["markdown", "docx", "pdf", "json"],
+                    key="job_ad_format",
+                )
+                data, mime, ext = prepare_download_data(
+                    job_ad_text,
+                    job_fmt,
+                    key="job_ad",
+                    title=st.session_state.get("job_title"),
+                )
+                dl_label = (
+                    "💾 Download Job Ad"
+                    if lang != "de"
+                    else "💾 Stellenanzeige herunterladen"
+                )
+                st.download_button(
+                    dl_label,
+                    data=data,
+                    file_name=f"job_ad.{ext}",
+                    mime=mime,
+                )
                 log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
     with colB:
         if st.button("📝 Generate Interview Guide"):
@@ -737,6 +761,29 @@ def summary_outputs_page():
                     ),
                 )
                 st.write(guide)
+                fmt_label = "Download format" if lang != "de" else "Download-Format"
+                guide_fmt = st.selectbox(
+                    fmt_label,
+                    ["markdown", "docx", "pdf", "json"],
+                    key="guide_format",
+                )
+                data, mime, ext = prepare_download_data(
+                    guide,
+                    guide_fmt,
+                    key="interview_guide",
+                    title=st.session_state.get("job_title"),
+                )
+                dl_label = (
+                    "💾 Download Interview Guide"
+                    if lang != "de"
+                    else "💾 Leitfaden herunterladen"
+                )
+                st.download_button(
+                    dl_label,
+                    data=data,
+                    file_name=f"interview_guide.{ext}",
+                    mime=mime,
+                )
                 log_event(
                     f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}"
                 )
