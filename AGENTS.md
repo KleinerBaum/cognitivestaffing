@@ -59,8 +59,8 @@ Normalize role context and surface **missing essential skills** by ESCO; standar
 
 ## 3) RAG Completion Agent
 
-**Purpose**  
-Fill or propose values for missing fields using your **OpenAI vector store** (id: `vs_67e40071e7608191a62ab06cacdcdd10`).
+**Purpose**
+Fill or propose values for missing fields using your **OpenAI vector store** (set via the `VECTOR_STORE_ID` env var; omit to disable).
 
 **Inputs**  
 - job context (title + industry + current JSON)  

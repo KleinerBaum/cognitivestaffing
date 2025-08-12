@@ -23,3 +23,15 @@ git clone https://github.com/KleinerBaum/cognitivestaffing
 cd cognitivestaffing
 pip install -r requirements.txt  # or: pip install -e .
 streamlit run app.py
+```
+
+### Optional: RAG vector store
+
+To enable retrieval-augmented suggestions, create an OpenAI vector store and
+set the environment variable `VECTOR_STORE_ID` to its ID:
+
+```bash
+export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+If `VECTOR_STORE_ID` is unset or empty, Vacalyser runs without RAG.
