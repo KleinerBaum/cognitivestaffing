@@ -13,6 +13,7 @@
 - **No system OCR deps**: uses **OpenAI Vision** (set `OCR_BACKEND=none` to disable)
 - **Cost‑aware**: hybrid models (4o‑mini default), minimal re‑asks
 - **Robust error handling**: user-facing alerts for API or network issues
+- **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 
 ---

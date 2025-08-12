@@ -64,3 +64,17 @@ def test_list_coercion_split_and_dedupe() -> None:
 
     jd = coerce_and_fill({"hard_skills": "Python, Java\nPython"})
     assert jd.hard_skills == ["Python", "Java"]
+
+
+def test_cross_field_dedupe() -> None:
+    """Duplicate text appearing in multiple fields is removed from later fields."""
+
+    data = {
+        "remote_policy": "Fully remote",
+        "responsibilities": ["Develop APIs", "Fully remote"],
+        "travel_required": "Fully remote",
+    }
+    jd = coerce_and_fill(data)
+    assert jd.remote_policy == "Fully remote"
+    assert jd.travel_required == ""
+    assert jd.responsibilities == ["Develop APIs"]

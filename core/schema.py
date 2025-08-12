@@ -1,16 +1,20 @@
 """
 Vacalyzer – canonical extraction schema and coercion utilities.
 """
+
 from __future__ import annotations
+import re
 from typing import Any, Dict, Iterable, List
 
 # --- Pydantic v2/v1 compatibility ---
 try:
     from pydantic import BaseModel, Field  # type: ignore
     from pydantic import ConfigDict  # v2 compatibility
+
     _HAS_V2 = True
 except Exception:
     from pydantic import BaseModel, Field  # type: ignore
+
     ConfigDict = None
     _HAS_V2 = False
 
@@ -71,18 +75,23 @@ ALIASES: Dict[str, str] = {
 
 # Base model configuration for extra fields
 if _HAS_V2:
+
     class _BaseModel(BaseModel):
         model_config = ConfigDict(extra="ignore")
+
 else:  # Pydantic v1
+
     class _BaseModel(BaseModel):
         class Config:
             extra = "ignore"
+
 
 class VacalyserJD(_BaseModel):
     """
     Canonical job description model (vacancy profile). All string fields default to "",
     all list fields default to []. Always include every key (even if empty) to keep the shape stable.
     """
+
     schema_version: str = Field(default=SCHEMA_VERSION)
     # String fields
     job_title: str = ""
@@ -109,6 +118,7 @@ class VacalyserJD(_BaseModel):
     languages_required: List[str] = []
     tools_and_technologies: List[str] = []
 
+
 def _dedupe_preserve_order(items: Iterable[str]) -> List[str]:
     """Remove duplicates from a list while preserving order and stripping whitespace."""
     seen = set()
@@ -121,6 +131,45 @@ def _dedupe_preserve_order(items: Iterable[str]) -> List[str]:
             seen.add(val)
             out.append(val)
     return out
+
+
+def _dedupe_across_fields(jd: VacalyserJD) -> VacalyserJD:
+    """Remove duplicate content that appears in multiple fields.
+
+    The first occurrence of a normalized text segment is kept and subsequent
+    duplicates in later fields are cleared. Field order is determined by
+    ``ALL_FIELDS`` so more specific fields earlier in the schema take priority.
+
+    Args:
+        jd: The vacancy profile to deduplicate.
+
+    Returns:
+        The deduplicated vacancy profile.
+    """
+
+    def _norm(text: str) -> str:
+        return re.sub(r"\W+", " ", text).strip().lower()
+
+    seen: set[str] = set()
+    for field in ALL_FIELDS:
+        value = getattr(jd, field)
+        if field in LIST_FIELDS:
+            filtered: List[str] = []
+            for item in value:
+                norm_item = _norm(item)
+                if norm_item and norm_item not in seen:
+                    seen.add(norm_item)
+                    filtered.append(item)
+            setattr(jd, field, filtered)
+        else:
+            norm_val = _norm(value)
+            if norm_val in seen:
+                setattr(jd, field, "")
+            elif norm_val:
+                seen.add(norm_val)
+
+    return jd
+
 
 def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
     """
@@ -161,4 +210,5 @@ def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
             val = ""
         data[key] = str(val).strip()
     # 5) build model (extra keys ignored by BaseModel config)
-    return VacalyserJD(**data)
+    model = VacalyserJD(**data)
+    return _dedupe_across_fields(model)
