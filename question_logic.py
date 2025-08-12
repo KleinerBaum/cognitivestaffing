@@ -102,16 +102,31 @@ ROLE_FIELD_MAP: Dict[str, List[str]] = {
         "frameworks",
         "tech_stack",
         "code_quality_practices",
+        "development_methodology",
     ],
     "sales, marketing and public relations professionals": [
         "target_markets",
         "sales_quota",
         "crm_tools",
+        "campaign_types",
+        "digital_marketing_platforms",
     ],
     "nursing and midwifery professionals": [
         "required_certifications",
         "shift_schedule",
         "patient_ratio",
+    ],
+    "medical doctors": [
+        "board_certification",
+        "on_call_requirements",
+    ],
+    "teaching professionals": [
+        "grade_level",
+        "teaching_license",
+    ],
+    "graphic and multimedia designers": [
+        "design_software_tools",
+        "portfolio_url",
     ],
 }
 
@@ -121,7 +136,11 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
         {
             "field": "programming_languages",
             "question": "Which programming languages will the developer use?",
-        }
+        },
+        {
+            "field": "development_methodology",
+            "question": "Which development methodology does the team follow?",
+        },
     ],
     "sales, marketing and public relations professionals": [
         {
@@ -132,12 +151,50 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
             "field": "sales_quota",
             "question": "What is the sales quota for this role?",
         },
+        {
+            "field": "campaign_types",
+            "question": "What campaign types will the marketer manage?",
+        },
+        {
+            "field": "digital_marketing_platforms",
+            "question": "Which digital marketing platforms are used?",
+        },
     ],
     "nursing and midwifery professionals": [
         {
             "field": "shift_schedule",
             "question": "What is the shift schedule?",
-        }
+        },
+    ],
+    "medical doctors": [
+        {
+            "field": "board_certification",
+            "question": "What board certifications are required?",
+        },
+        {
+            "field": "on_call_requirements",
+            "question": "Are there on-call requirements for this role?",
+        },
+    ],
+    "teaching professionals": [
+        {
+            "field": "grade_level",
+            "question": "Which grade levels will the teacher instruct?",
+        },
+        {
+            "field": "teaching_license",
+            "question": "Is a teaching license required?",
+        },
+    ],
+    "graphic and multimedia designers": [
+        {
+            "field": "design_software_tools",
+            "question": "Which design software tools should the designer be proficient in?",
+        },
+        {
+            "field": "portfolio_url",
+            "question": "What is the portfolio URL?",
+        },
     ],
 }
 
