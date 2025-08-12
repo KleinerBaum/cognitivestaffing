@@ -3,7 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 from core.ss_bridge import from_session_state, to_session_state
-from core.schema import ALIASES, coerce_and_fill
+from core.schema import coerce_and_fill
 from utils import (
     extract_text_from_file,
     extract_text_from_url,
@@ -23,7 +23,7 @@ from openai_utils import (
 )
 from llm.context import build_extract_messages
 from llm.client import build_extraction_function
-from question_logic import generate_followup_questions, EXTENDED_FIELDS
+from question_logic import generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
 
 
@@ -721,24 +721,91 @@ def summary_outputs_page():
             st.write(f"**Erkannte ESCO-Berufsgruppe:** {occ_label} ({occ_group})")
         else:
             st.write(f"**Identified ESCO Occupation:** {occ_label} ({occ_group})")
-    # List of fields to display in summary (avoiding duplicate alias keys)
-    fields_to_show = (
-        ["job_title"]
-        + [
-            f for f in EXTENDED_FIELDS if f not in ALIASES
-        ]  # show all extended fields (aliases filtered out)
-        + ["hard_skills", "soft_skills"]
-    )
-    seen_keys = set()
-    for field in fields_to_show:
-        if field in seen_keys:
-            continue
-        seen_keys.add(field)
-        value = st.session_state.get(field)
-        if value:
-            # Format list values nicely, join with "; "
+    categories = [
+        {
+            "en": "Company & Context",
+            "de": "Unternehmen & Kontext",
+            "fields": [
+                "company_name",
+                "company_website",
+                "industry",
+                "location",
+                "company_mission",
+                "company_culture",
+            ],
+        },
+        {
+            "en": "Role Details",
+            "de": "Rollenbeschreibung",
+            "fields": [
+                "job_title",
+                "role_summary",
+                "responsibilities",
+                "tasks",
+                "department",
+                "team_structure",
+                "reporting_line",
+            ],
+        },
+        {
+            "en": "Requirements",
+            "de": "Anforderungen",
+            "fields": [
+                "qualifications",
+                "hard_skills",
+                "soft_skills",
+                "tools_and_technologies",
+                "languages_required",
+                "certifications",
+                "seniority_level",
+            ],
+        },
+        {
+            "en": "Benefits & Conditions",
+            "de": "Leistungen & Konditionen",
+            "fields": [
+                "job_type",
+                "remote_policy",
+                "onsite_requirements",
+                "travel_required",
+                "working_hours",
+                "salary_range",
+                "bonus_compensation",
+                "benefits",
+                "health_benefits",
+                "retirement_benefits",
+                "learning_opportunities",
+                "equity_options",
+                "relocation_assistance",
+                "visa_sponsorship",
+            ],
+        },
+        {
+            "en": "Process",
+            "de": "Prozess",
+            "fields": [
+                "target_start_date",
+                "application_deadline",
+                "performance_metrics",
+                "interview_stages",
+                "process_notes",
+            ],
+        },
+    ]
+    for category in categories:
+        items = []
+        for field in category["fields"]:
+            value = st.session_state.get(field)
+            if not value:
+                continue
             display_val = str(value).replace("\n", "; ")
-            st.write(f"**{field.replace('_', ' ').title()}:** {display_val}")
+            label = field.replace("_", " ").title()
+            items.append(f"**{label}:** {display_val}")
+        if items:
+            heading = category["de"] if lang == "de" else category["en"]
+            st.subheader(heading)
+            for item in items:
+                st.write(item)
     # Buttons to generate final outputs
     colA, colB = st.columns(2)
     with colA:
