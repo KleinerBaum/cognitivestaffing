@@ -103,9 +103,8 @@ def render_followups_for(fields: list[str] | None = None) -> None:
         question = item.get("question", "")
         key = field or question
         if field:
-            st.session_state[field] = st.text_input(
-                question, st.session_state.get(field, ""), key=key
-            )
+            default_val = st.session_state.get(field) or item.get("prefill", "")
+            st.session_state[field] = st.text_input(question, default_val, key=key)
         else:
             _ = st.text_input(question, "", key=key)
 

@@ -24,6 +24,7 @@ def test_generate_followup_questions(monkeypatch):
             "question": "What is the salary range?",
             "priority": "critical",
             "suggestions": [],
+            "prefill": "",
         }
     ]
 
@@ -109,3 +110,50 @@ def test_qualification_split(monkeypatch):
     assert data["rules"]["split_fields"] == {
         "qualifications": ["education", "experience"]
     }
+
+
+def test_prefill_from_rag(monkeypatch):
+    """First RAG suggestion should populate prefill value."""
+
+    def fake_call_chat_api(
+        messages, temperature=0.0, max_tokens=0, model=None
+    ) -> str:  # noqa: E501
+        return '[{"field": "location", "question": "Location?"}]'
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+    monkeypatch.setattr(
+        "question_logic._rag_suggestions", lambda *a, **k: {"location": ["Berlin"]}
+    )
+    out = generate_followup_questions({"company_name": "ACME"})
+    assert out == [
+        {
+            "field": "location",
+            "question": "Location?",
+            "priority": "critical",
+            "suggestions": ["Berlin"],
+            "prefill": "Berlin",
+        }
+    ]
+
+
+def test_yes_no_default(monkeypatch):
+    """Yes/no fields default to 'Not specified' when empty."""
+
+    def fake_call_chat_api(
+        messages, temperature=0.0, max_tokens=0, model=None
+    ) -> str:  # noqa: E501
+        return '[{"field": "visa_sponsorship", "question": "Visa sponsorship?"}]'
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+    out = generate_followup_questions({"company_name": "ACME"})
+    assert out == [
+        {
+            "field": "visa_sponsorship",
+            "question": "Visa sponsorship?",
+            "priority": "normal",
+            "suggestions": [],
+            "prefill": "Not specified",
+        }
+    ]

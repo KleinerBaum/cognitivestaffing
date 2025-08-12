@@ -133,6 +133,18 @@ CRITICAL_FIELDS: Set[str] = {
 
 SKILL_FIELDS: Set[str] = {"hard_skills", "soft_skills", "tools_and_technologies"}
 
+# Fields that typically represent yes/no questions. These will receive a
+# default prefill of "Not specified" if no better hint is available.
+YES_NO_FIELDS: Set[str] = {
+    "bonus_compensation",
+    "health_benefits",
+    "retirement_benefits",
+    "learning_opportunities",
+    "equity_options",
+    "relocation_assistance",
+    "visa_sponsorship",
+}
+
 
 def _is_empty(val: Any) -> bool:
     if val is None:
@@ -245,9 +257,10 @@ def generate_followup_questions(
     may be split into sub-questions (e.g. ``qualifications`` yields separate
     education and experience prompts). The total defaults to between three and
     seven questions. Each item contains the target field, the localized
-    question, a priority flag, and optional suggestions.
+    question, a priority flag, optional suggestions, and a ``prefill`` hint
+    used to prime the answer field in the UI.
 
-    Returns: list of {field, question, priority, suggestions?}
+    Returns: list of {field, question, priority, suggestions?, prefill?}
     """
     # 1) ESCO occupation + essential skills
     job_title = (extracted.get("job_title") or "").strip()
@@ -425,6 +438,7 @@ def generate_followup_questions(
         q = str(it.get("question", "") or "")
         pr = str(it.get("priority", "") or "").lower()
         sugg = it.get("suggestions") or []
+        prefill = str(it.get("prefill", "") or "")
 
         # Default / fixup priority
         if pr not in {"critical", "normal", "optional"}:
@@ -439,9 +453,23 @@ def generate_followup_questions(
         if field and not sugg and rag_map.get(field):
             sugg = rag_map[field][:6]
 
+        # Use first suggestion as prefill if none provided
+        if field and not prefill and rag_map.get(field):
+            prefill = rag_map[field][0]
+
+        # Default prefill for yes/no style questions
+        if field in YES_NO_FIELDS and not prefill:
+            prefill = "Not specified"
+
         if field or q:
             out.append(
-                {"field": field, "question": q, "priority": pr, "suggestions": sugg}
+                {
+                    "field": field,
+                    "question": q,
+                    "priority": pr,
+                    "suggestions": sugg,
+                    "prefill": prefill,
+                }
             )
 
     # Sort: critical → normal → optional, keep original order within tier; cap N
