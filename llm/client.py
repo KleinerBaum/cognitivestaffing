@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
-import openai
+from openai import OpenAI
 
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
@@ -16,6 +16,7 @@ from utils.retry import retry
 
 MODE = os.getenv("LLM_MODE", "plain").lower()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 
 def _function_schema() -> dict[str, Any]:
@@ -87,22 +88,22 @@ def extract_json(
     for mode in modes:
         try:
             if mode == "json":
-                response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
+                response = OPENAI_CLIENT.chat.completions.create(
                     **common, response_format={"type": "json_object"}
                 )
-                return response["choices"][0]["message"]["content"].strip()
+                return response.choices[0].message.content.strip()
             if mode == "function":
-                response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
+                response = OPENAI_CLIENT.chat.completions.create(  # type: ignore[call-overload]
                     **common,
                     functions=[_function_schema()],
                     function_call={"name": "return_extraction"},
                 )
-                call = response["choices"][0]["message"].get("function_call", {})
-                if call.get("arguments"):
-                    return call["arguments"]
+                call = response.choices[0].message.function_call
+                if call and getattr(call, "arguments", None):
+                    return call.arguments
                 continue
-            response = openai.ChatCompletion.create(**common)  # type: ignore[attr-defined]
-            return response["choices"][0]["message"]["content"].strip()
+            response = OPENAI_CLIENT.chat.completions.create(**common)
+            return response.choices[0].message.content.strip()
         except Exception as exc:  # pragma: no cover - network/SDK issues
             last_exc = exc
             continue

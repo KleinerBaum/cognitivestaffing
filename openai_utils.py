@@ -1,9 +1,10 @@
-from config import OPENAI_API_KEY, OPENAI_MODEL
-import openai
+from typing import Any, cast
 
-# Set API key for OpenAI if available
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+from openai import OpenAI
+
+from config import OPENAI_API_KEY, OPENAI_MODEL
+
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
 def call_chat_api(
@@ -19,18 +20,18 @@ def call_chat_api(
     """
     if model is None:
         model = OPENAI_MODEL
-    if not OPENAI_API_KEY:
+    if client is None:
         raise RuntimeError(
             "OpenAI API key is not set. Set the OPENAI_API_KEY environment variable or add it to Streamlit secrets."
         )
     try:
-        response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
+        response = client.chat.completions.create(
             model=model,
-            messages=messages,
+            messages=cast(list[Any], messages),
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        return (response["choices"][0]["message"]["content"] or "").strip()
+        return (response.choices[0].message.content or "").strip()
     except Exception as e:
         raise RuntimeError(f"OpenAI API error: {e}") from e
 
