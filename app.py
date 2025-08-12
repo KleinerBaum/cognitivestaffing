@@ -1,6 +1,7 @@
 import streamlit as st
 from config import DEFAULT_LANGUAGE
 from components.tailwind_injector import inject_tailwind
+from components.salary_dashboard import render_salary_dashboard
 from wizard import (
     apply_global_styling,
     show_progress_bar,
@@ -67,3 +68,4 @@ offset = 1 if st.session_state.get("skip_intro") else 0
 show_progress_bar(max(idx - offset, 0), total - offset)
 sections[idx]["func"]()
 show_navigation(idx, total)
+render_salary_dashboard()
