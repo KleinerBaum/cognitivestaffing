@@ -231,12 +231,16 @@ def _rag_suggestions(
 
 def generate_followup_questions(
     extracted: Dict[str, Any],
-    num_questions: int = 8,
+    num_questions: Optional[int] = None,
     lang: str = "en",
     use_rag: bool = True,
 ) -> List[Dict[str, Any]]:
-    """
-    Build a small set of high-impact follow-up questions (localized), enriched by ESCO + RAG.
+    """Build a small set of high-impact follow-up questions.
+
+    If ``num_questions`` is ``None``, the amount of questions is derived from the
+    number of missing fields (between three and seven). Each item contains the
+    target field, the localized question, a priority flag, and optional
+    suggestions.
 
     Returns: list of {field, question, priority, suggestions?}
     """
@@ -274,6 +278,13 @@ def generate_followup_questions(
         dict.fromkeys(EXTENDED_FIELDS + role_fields)
     )  # dedupe keep order
     missing_fields = _collect_missing_fields(extracted, fields_to_check)
+
+    if not missing_fields and not missing_esco_skills:
+        return []
+
+    if num_questions is None:
+        base = len(missing_fields) or len(missing_esco_skills)
+        num_questions = min(max(base, 3), 7)
 
     # 3) RAG suggestions (chips)
     rag_map: Dict[str, List[str]] = {}

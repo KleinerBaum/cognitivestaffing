@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import fitz  # type: ignore[import-not-found]
+import fitz
 
 from core.ocr_backends import extract_text as ocr_extract_text
 
