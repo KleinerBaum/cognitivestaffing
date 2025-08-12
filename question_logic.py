@@ -240,10 +240,12 @@ def generate_followup_questions(
 ) -> List[Dict[str, Any]]:
     """Build a small set of high-impact follow-up questions.
 
-    If ``num_questions`` is ``None``, the amount of questions is derived from the
-    number of missing fields (between three and seven). Each item contains the
-    target field, the localized question, a priority flag, and optional
-    suggestions.
+    If ``num_questions`` is ``None``, the amount of questions is derived from
+    the importance of the missing fields. Critical fields are prioritised and
+    may be split into sub-questions (e.g. ``qualifications`` yields separate
+    education and experience prompts). The total defaults to between three and
+    seven questions. Each item contains the target field, the localized
+    question, a priority flag, and optional suggestions.
 
     Returns: list of {field, question, priority, suggestions?}
     """
@@ -286,8 +288,16 @@ def generate_followup_questions(
         return []
 
     if num_questions is None:
-        base = len(missing_fields) or len(missing_esco_skills)
+        critical_missing = [f for f in missing_fields if f in CRITICAL_FIELDS]
+        optional_missing = [f for f in missing_fields if f not in CRITICAL_FIELDS]
+        base = len(critical_missing) + min(len(optional_missing), 3)
+        if "qualifications" in critical_missing:
+            base += 1
         num_questions = min(max(base, 3), 7)
+
+    split_fields: Dict[str, List[str]] = {}
+    if "qualifications" in missing_fields:
+        split_fields["qualifications"] = ["education", "experience"]
 
     # 3) RAG suggestions (chips)
     rag_map: Dict[str, List[str]] = {}
@@ -309,6 +319,7 @@ def generate_followup_questions(
                 "critical_fields": sorted(list(CRITICAL_FIELDS)),
                 "isco_group_fields": role_fields,
             },
+            **({"split_fields": split_fields} if split_fields else {}),
             "format": {
                 "type": "array",
                 "item": {

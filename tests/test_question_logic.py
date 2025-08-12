@@ -4,7 +4,7 @@ import json
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from question_logic import generate_followup_questions  # noqa: E402
+from question_logic import CRITICAL_FIELDS, generate_followup_questions  # noqa: E402
 
 
 def test_generate_followup_questions(monkeypatch):
@@ -62,3 +62,50 @@ def test_role_specific_payload(monkeypatch):
     assert data["occupation"]["group"] == "Software developers"
     assert data["occupation"]["preferredLabel"] == "Software developer"
     assert data["missing_esco_skills"] == ["Project management"]
+
+
+def test_optional_field_cap(monkeypatch):
+    """Missing optional fields should not exceed the minimum question cap."""
+
+    captured = {}
+
+    def fake_call_chat_api(
+        messages, temperature=0.0, max_tokens=0, model=None
+    ) -> str:  # noqa: E501
+        captured["payload"] = messages[1]["content"]
+        return "[]"
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+
+    extracted = {f: "x" for f in CRITICAL_FIELDS}
+    generate_followup_questions(extracted)
+
+    payload_json = captured["payload"].split("Context:\n", 1)[1]
+    data = json.loads(payload_json)
+    assert data["rules"]["max_questions"] == 3
+
+
+def test_qualification_split(monkeypatch):
+    """Missing qualifications should trigger split sub-questions."""
+
+    captured = {}
+
+    def fake_call_chat_api(
+        messages, temperature=0.0, max_tokens=0, model=None
+    ) -> str:  # noqa: E501
+        captured["payload"] = messages[1]["content"]
+        return "[]"
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+
+    extracted = {f: "x" for f in CRITICAL_FIELDS if f != "qualifications"}
+    generate_followup_questions(extracted)
+
+    payload_json = captured["payload"].split("Context:\n", 1)[1]
+    data = json.loads(payload_json)
+    assert data["rules"]["max_questions"] == 5
+    assert data["rules"]["split_fields"] == {
+        "qualifications": ["education", "experience"]
+    }
