@@ -128,6 +128,41 @@ def render_followups_for(fields: list[str] | None = None) -> None:
     ]
 
 
+def intro_page() -> None:
+    """Display an introductory page explaining the wizard flow."""
+    lang = st.session_state.get("lang", "en")
+    if lang == "de":
+        st.title("Willkommen bei Vacalyzer")
+        st.write(
+            "Dieses Tool hilft Ihnen, eine Stellenanzeige zu analysieren und fehlende Informationen zu sammeln."
+        )
+        st.subheader("Sie benötigen")
+        st.markdown("- Stellenanzeige (URL oder PDF)")
+        st.markdown("- Kenntnisse über Unternehmensdetails")
+        st.write(
+            "Der Prozess umfasst 9 Schritte und generiert am Ende eine Stellenanzeige sowie einen Interviewleitfaden."
+        )
+        st.checkbox("Intro beim nächsten Mal überspringen", key="skip_intro")
+        if st.button("🚀 Los geht's"):
+            st.session_state["current_section"] = 1
+            st.rerun()
+    else:
+        st.title("Welcome to Vacalyzer")
+        st.write(
+            "This tool will help you analyze a job ad and gather missing information."
+        )
+        st.subheader("You'll need")
+        st.markdown("- Job description (URL or PDF)")
+        st.markdown("- Knowledge of company details")
+        st.write(
+            "The process has 9 steps and will generate a job ad and interview guide at the end."
+        )
+        st.checkbox("Skip intro next time", key="skip_intro")
+        if st.button("🚀 Get Started"):
+            st.session_state["current_section"] = 1
+            st.rerun()
+
+
 def start_discovery_page():
     """Start page: Input job title and job ad content (URL or file) for analysis."""
     lang = st.session_state.get("lang", "en")
