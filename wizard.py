@@ -794,6 +794,18 @@ def summary_outputs_page():
                 )
                 log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
     with colB:
+        q_label = (
+            "Number of interview questions"
+            if lang != "de"
+            else "Anzahl der Interviewfragen"
+        )
+        num_questions = st.slider(
+            q_label,
+            min_value=3,
+            max_value=10,
+            value=5,
+            key="num_questions",
+        )
         if st.button("📝 Generate Interview Guide"):
             title = st.session_state.get("job_title", "")
             tasks = st.session_state.get("tasks", "") or st.session_state.get(
@@ -806,7 +818,7 @@ def summary_outputs_page():
                         title,
                         tasks,
                         audience="hiring managers",
-                        num_questions=5,
+                        num_questions=num_questions,
                         lang=lang,
                     )
                 except Exception:  # pragma: no cover - network failure
