@@ -1,7 +1,7 @@
-from config import OPENAI_MODEL, OPENAI_API_KEY
+from config import OPENAI_API_KEY, OPENAI_MODEL
 import openai
 
-# Set API key for OpenAI
+# Set API key for OpenAI if available
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
@@ -12,9 +12,17 @@ def call_chat_api(
     max_tokens: int = 500,
     temperature: float = 0.5,
 ) -> str:
-    """Generic helper to call OpenAI ChatCompletion API and return the response text."""
+    """Generic helper to call OpenAI ChatCompletion API and return the response text.
+
+    Raises:
+        RuntimeError: If the OpenAI API key is missing or the API request fails.
+    """
     if model is None:
         model = OPENAI_MODEL
+    if not OPENAI_API_KEY:
+        raise RuntimeError(
+            "OpenAI API key is not set. Set the OPENAI_API_KEY environment variable or add it to Streamlit secrets."
+        )
     try:
         response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
             model=model,
@@ -24,8 +32,7 @@ def call_chat_api(
         )
         return (response["choices"][0]["message"]["content"] or "").strip()
     except Exception as e:
-        print(f"OpenAI API error: {e}")
-        return ""
+        raise RuntimeError(f"OpenAI API error: {e}") from e
 
 
 def suggest_additional_skills(

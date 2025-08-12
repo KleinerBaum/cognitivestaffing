@@ -1,8 +1,11 @@
 import os
+import warnings
+
 import streamlit as st
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -24,9 +27,15 @@ except Exception:
 if OPENAI_API_KEY:
     try:
         import openai
+
         openai.api_key = OPENAI_API_KEY
     except ImportError:
         pass
+else:
+    warnings.warn(
+        "OpenAI API key is not set. Set the OPENAI_API_KEY environment variable or add it to Streamlit secrets.",
+        RuntimeWarning,
+    )
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")

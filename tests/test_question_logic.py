@@ -16,6 +16,7 @@ def test_generate_followup_questions(monkeypatch):
         return '[{"field": "salary_range", "question": ' '"What is the salary range?"}]'
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
     questions = generate_followup_questions({"company_name": "ACME"})
     assert questions == [
         {
@@ -51,6 +52,7 @@ def test_role_specific_payload(monkeypatch):
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
     monkeypatch.setattr("question_logic.classify_occupation", fake_classify)
     monkeypatch.setattr("question_logic.get_essential_skills", fake_get_skills)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
 
     generate_followup_questions({"job_title": "Software engineer"})
 
