@@ -6,7 +6,6 @@ from wizard import (
     show_progress_bar,
     show_navigation,
     start_discovery_page,
-    followup_questions_page,
     company_information_page,
     role_description_page,
     task_scope_page,
@@ -46,7 +45,6 @@ st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
 # Define wizard sections and their corresponding page functions
 sections = [
     {"name": "Start", "func": start_discovery_page},
-    {"name": "Follow-Ups", "func": followup_questions_page},
     {"name": "Company Info", "func": company_information_page},
     {"name": "Role Description", "func": role_description_page},
     {"name": "Tasks", "func": task_scope_page},

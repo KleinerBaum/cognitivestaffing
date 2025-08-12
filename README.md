@@ -6,7 +6,7 @@
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
-- **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG
+- **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG, shown inline in relevant steps
 - **ESCO‑Power**: occupation classification + essential skill gaps
 - **RAG‑Assist**: use your vector store to fill/contextualize
 - **No system OCR deps**: uses **OpenAI Vision** (set `OCR_BACKEND=none` to disable)
