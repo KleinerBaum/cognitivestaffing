@@ -9,7 +9,7 @@
 - **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG
 - **ESCO‑Power**: occupation classification + essential skill gaps
 - **RAG‑Assist**: use your vector store to fill/contextualize
-- **No system OCR deps**: **OpenAI Vision** by default (override via `OCR_BACKEND`)
+- **No system OCR deps**: uses **OpenAI Vision** (set `OCR_BACKEND=none` to disable)
 - **Cost‑aware**: hybrid models (4o‑mini default), minimal re‑asks
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
