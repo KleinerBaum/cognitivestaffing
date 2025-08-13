@@ -11,7 +11,7 @@ from core.schema import (
 
 def test_constants() -> None:
     assert len(ALL_FIELDS) == 22
-    assert LIST_FIELDS == {
+    base_lists = {
         "responsibilities",
         "hard_skills",
         "soft_skills",
@@ -20,6 +20,7 @@ def test_constants() -> None:
         "languages_required",
         "tools_and_technologies",
     }
+    assert base_lists <= LIST_FIELDS
 
 
 def test_coerce_and_fill_partial_and_aliases() -> None:
@@ -51,6 +52,9 @@ def test_default_insertion() -> None:
         assert getattr(jd, field) == ""
     for field in LIST_FIELDS:
         assert getattr(jd, field) == []
+    # role-specific defaults
+    assert jd.programming_languages == []
+    assert jd.development_methodology == ""
 
 
 def test_alias_priority() -> None:

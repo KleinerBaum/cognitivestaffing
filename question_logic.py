@@ -146,6 +146,21 @@ ROLE_FIELD_MAP: Dict[str, List[str]] = {
         "reporting_standards",
         "regulatory_frameworks",
     ],
+    "human resource professionals": [
+        "hr_software_tools",
+        "recruitment_channels",
+        "employee_engagement_strategies",
+    ],
+    "civil engineers": [
+        "engineering_software_tools",
+        "civil_project_types",
+        "site_visit_frequency",
+    ],
+    "chefs": [
+        "cuisine_specialties",
+        "kitchen_environment",
+        "menu_development_responsibility",
+    ],
 }
 
 # Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
@@ -242,6 +257,32 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
         {
             "field": "professional_certifications",
             "question": "Which professional certifications are required?",
+        },
+    ],
+    "human resource professionals": [
+        {
+            "field": "hr_software_tools",
+            "question": "Which HR software tools are used?",
+        },
+        {
+            "field": "recruitment_channels",
+            "question": "Which recruitment channels are prioritized?",
+        },
+    ],
+    "civil engineers": [
+        {
+            "field": "civil_project_types",
+            "question": "What types of civil projects will the engineer handle?",
+        },
+        {
+            "field": "engineering_software_tools",
+            "question": "Which engineering software tools are required?",
+        },
+    ],
+    "chefs": [
+        {
+            "field": "cuisine_specialties",
+            "question": "Which cuisine specialties should the chef have?",
         },
     ],
 }

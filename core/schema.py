@@ -58,6 +58,33 @@ LIST_FIELDS = {
     "benefits",
     "languages_required",
     "tools_and_technologies",
+    # role-specific list fields
+    "programming_languages",
+    "frameworks",
+    "tech_stack",
+    "code_quality_practices",
+    "target_markets",
+    "crm_tools",
+    "campaign_types",
+    "digital_marketing_platforms",
+    "required_certifications",
+    "design_software_tools",
+    "project_management_methodologies",
+    "project_management_tools",
+    "stakeholder_types",
+    "machine_learning_frameworks",
+    "data_analysis_tools",
+    "data_visualization_tools",
+    "accounting_software",
+    "professional_certifications",
+    "reporting_standards",
+    "regulatory_frameworks",
+    "hr_software_tools",
+    "recruitment_channels",
+    "employee_engagement_strategies",
+    "engineering_software_tools",
+    "civil_project_types",
+    "cuisine_specialties",
 }
 
 # Convenience set of string-typed fields.
@@ -156,6 +183,46 @@ class VacalyserJD(_BaseModel):
     benefits: List[str] = []
     languages_required: List[str] = []
     tools_and_technologies: List[str] = []
+    # Role-specific optional fields
+    programming_languages: List[str] = []
+    frameworks: List[str] = []
+    tech_stack: List[str] = []
+    code_quality_practices: List[str] = []
+    development_methodology: str = ""
+    target_markets: List[str] = []
+    sales_quota: str = ""
+    crm_tools: List[str] = []
+    campaign_types: List[str] = []
+    digital_marketing_platforms: List[str] = []
+    required_certifications: List[str] = []
+    shift_schedule: str = ""
+    patient_ratio: str = ""
+    board_certification: str = ""
+    on_call_requirements: str = ""
+    grade_level: str = ""
+    teaching_license: str = ""
+    design_software_tools: List[str] = []
+    portfolio_url: str = ""
+    project_management_methodologies: List[str] = []
+    project_management_tools: List[str] = []
+    stakeholder_types: List[str] = []
+    budget_responsibility: str = ""
+    machine_learning_frameworks: List[str] = []
+    data_analysis_tools: List[str] = []
+    data_visualization_tools: List[str] = []
+    accounting_software: List[str] = []
+    professional_certifications: List[str] = []
+    reporting_standards: List[str] = []
+    regulatory_frameworks: List[str] = []
+    hr_software_tools: List[str] = []
+    recruitment_channels: List[str] = []
+    employee_engagement_strategies: List[str] = []
+    engineering_software_tools: List[str] = []
+    civil_project_types: List[str] = []
+    site_visit_frequency: str = ""
+    cuisine_specialties: List[str] = []
+    kitchen_environment: str = ""
+    menu_development_responsibility: str = ""
 
 
 def _dedupe_preserve_order(items: Iterable[str]) -> List[str]:
