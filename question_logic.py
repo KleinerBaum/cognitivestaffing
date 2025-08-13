@@ -289,33 +289,21 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
 }
 
 CRITICAL_FIELDS: Set[str] = {
-    "job_title",
-    "company_name",
-    "location",
-    "role_summary",
-    "responsibilities",
-    "qualifications",
-    "salary_range",
-    "job_type",
-    "remote_policy",
-    "languages_required",
-    "certifications",
-    "tools_and_technologies",
+    "position.job_title", "company.name", "location.primary_city",
+    "position.role_summary", "responsibilities.items",
+    "requirements.hard_skills", "requirements.soft_skills", "requirements.tools_and_technologies",
+    "employment.job_type", "employment.work_policy",
+    "compensation.salary_min", "compensation.salary_max",  # treat salary info as critical
+    "requirements.languages_required", "requirements.certifications"
 }
+SKILL_FIELDS: Set[str] = {"requirements.hard_skills", "requirements.soft_skills", "requirements.tools_and_technologies"}
 
-
-SKILL_FIELDS: Set[str] = {"hard_skills", "soft_skills", "tools_and_technologies"}
-
-# Fields that typically represent yes/no questions. These will receive a
-# default prefill of "Not specified" if no better hint is available.
 YES_NO_FIELDS: Set[str] = {
-    "bonus_compensation",
-    "health_benefits",
-    "retirement_benefits",
-    "learning_opportunities",
-    "equity_options",
-    "relocation_assistance",
-    "visa_sponsorship",
+    "compensation.variable_pay", "compensation.equity_offered",
+    "employment.travel_required", "employment.overtime_expected",
+    "employment.relocation_support", "employment.security_clearance_required",
+    "employment.shift_work", "employment.visa_sponsorship",
+    "requirements.background_check_required", "requirements.portfolio_required", "requirements.reference_check_required"
 }
 
 
@@ -326,17 +314,15 @@ def _is_empty(val: Any) -> bool:
         return len(val.strip()) == 0
     if isinstance(val, (list, tuple, set)):
         return len(val) == 0
+    # Note: bool False is not "empty" for our purposes (treated as provided)
     return False
-
 
 def _priority_for(field: str, is_missing_esco_skill: bool = False) -> str:
     if is_missing_esco_skill:
         return "critical"
     if field in CRITICAL_FIELDS:
         return "critical"
-    # Favor role-relevant extras as normal
     return "normal"
-
 
 def _collect_missing_fields(extracted: Dict[str, Any], fields: List[str]) -> List[str]:
     missing = []
@@ -423,27 +409,15 @@ def generate_followup_questions(
     lang: str = "en",
     use_rag: bool = True,
 ) -> List[Dict[str, Any]]:
-    """Build a small set of high-impact follow-up questions.
-
-    If ``num_questions`` is ``None``, the amount of questions is derived from
-    the importance of the missing fields. Critical fields are prioritised and
-    may be split into sub-questions (e.g. ``qualifications`` yields separate
-    education and experience prompts). The total defaults to between three and
-    seven questions. Each item contains the target field, the localized
-    question, a priority flag, optional suggestions, and a ``prefill`` hint
-    used to prime the answer field in the UI.
-
-    Returns: list of {field, question, priority, suggestions?, prefill?}
-    """
-    # 1) ESCO occupation + essential skills
-    job_title = (extracted.get("job_title") or "").strip()
-    industry = (extracted.get("industry") or "").strip()
+    """Build a set of high-impact follow-up questions for missing fields."""
+    # 1) Determine role-specific fields via ESCO classification
+    job_title = (extracted.get("position.job_title") or "").strip()
+    industry = (extracted.get("company.industry") or "").strip()
     occupation = {}
     essential_skills: List[str] = []
     missing_esco_skills: List[str] = []
     occ_group = ""
     role_questions_cfg: List[Dict[str, str]] = []
-
     if job_title:
         occupation = classify_occupation(job_title, lang=lang) or {}
         occ_group = (occupation.get("group") or "").lower()
@@ -452,228 +426,93 @@ def generate_followup_questions(
     else:
         role_fields = []
         role_questions_cfg = []
-
     occ_uri = occupation.get("uri", "")
     if occ_uri:
         essential_skills = get_essential_skills(occ_uri, lang=lang) or []
-        # text presence check
-        haystack = " ".join(
-            [
-                str(extracted.get("responsibilities") or ""),
-                str(extracted.get("qualifications") or ""),
-                str(extracted.get("hard_skills") or ""),
-                str(extracted.get("soft_skills") or ""),
-                str(extracted.get("tools_and_technologies") or ""),
-            ]
-        ).lower()
-        missing_esco_skills = [s for s in essential_skills if s.lower() not in haystack]
-
-    # 2) Missing fields
-    fields_to_check = list(
-        dict.fromkeys(EXTENDED_FIELDS + role_fields)
-    )  # dedupe keep order
+        # Check which essential skills are not mentioned in any provided skills/requirements text
+        haystack_text = " ".join([
+            str(extracted.get("responsibilities.items") or ""),
+            str(extracted.get("position.role_summary") or ""),
+            str(extracted.get("requirements.hard_skills") or ""),
+            str(extracted.get("requirements.soft_skills") or ""),
+            str(extracted.get("requirements.tools_and_technologies") or "")
+        ]).lower()
+        missing_esco_skills = [s for s in essential_skills if s.lower() not in haystack_text]
+    # 2) Determine which fields are missing
+    fields_to_check = list(CRITICAL_FIELDS)  # start with critical fields
+    # Include role-specific extra fields for this occupation group (not marked critical but should ask if missing)
+    for extra in role_fields:
+        if extra not in fields_to_check:
+            fields_to_check.append(extra)
     missing_fields = _collect_missing_fields(extracted, fields_to_check)
-    role_questions_needed = [
-        q for q in role_questions_cfg if q["field"] in missing_fields
-    ]
-
-    if not missing_fields and not missing_esco_skills:
-        return []
-
+    # If salary fields are missing but salary_provided is True, combine as one "salary" question
+    if "compensation.salary_min" in missing_fields and "compensation.salary_max" in missing_fields:
+        # Remove individual salary fields and ask one question covering both
+        missing_fields = [f for f in missing_fields if not f.startswith("compensation.salary_")]
+        missing_fields.append("compensation.salary_range")
+    # Compute number of questions if not explicitly given
     if num_questions is None:
         critical_missing = [f for f in missing_fields if f in CRITICAL_FIELDS]
         optional_missing = [f for f in missing_fields if f not in CRITICAL_FIELDS]
-        base = len(critical_missing) + min(len(optional_missing), 3)
-        if "qualifications" in critical_missing:
-            base += 1
-        num_questions = min(max(base, 3), 7)
-        num_questions += len(role_questions_needed)
-
-    split_fields: Dict[str, List[str]] = {}
-    if "qualifications" in missing_fields:
-        split_fields["qualifications"] = ["education", "experience"]
-
-    # 3) RAG suggestions (chips)
-    rag_map: Dict[str, List[str]] = {}
-    if use_rag and missing_fields:
-        rag_map = _rag_suggestions(job_title, industry, missing_fields, lang=lang)
-
-    # Merge predefined suggestions for missing fields
-    for f in missing_fields:
-        if f in FIELD_SUGGESTIONS:
-            static = get_field_suggestions(f, lang=lang)
-            existing = rag_map.get(f, [])
-            rag_map[f] = existing + [s for s in static if s not in existing]
-
-    # 4) Build LLM prompt with context (ask LLM to phrase questions & attach priority + suggestions)
-    payload = {
-        "current": {k: extracted.get(k, "") for k in fields_to_check},
-        "language": lang,
-        "missing_fields": missing_fields,
-        "occupation": occupation,
-        "essential_skills": essential_skills[:24],  # budget cap
-        "missing_esco_skills": missing_esco_skills[:12],  # budget cap
-        "rag_suggestions": rag_map,  # may be empty
-        "rules": {
-            "max_questions": num_questions,
-            "priorities": {
-                "critical_fields": sorted(list(CRITICAL_FIELDS)),
-                "isco_group_fields": role_fields,
-            },
-            **({"split_fields": split_fields} if split_fields else {}),
-            "format": {
-                "type": "array",
-                "item": {
-                    "field": "str",
-                    "question": "str",
-                    "priority": "critical|normal|optional",
-                    "suggestions?": "list[str]",
-                },
-            },
-            "language": lang,
-        },
-    }
-
-    # instruction in target language
-    if lang == "de":
-        instruction = (
-            "Analysiere die Felder. Formuliere bis zu N gezielte Nachfragen. "
-            "Kennzeichne jede Frage mit 'priority' (critical/normal/optional). "
-            "Falls 'missing_esco_skills' vorhanden sind, frage nach diesen gezielt. "
-            "Wenn 'rag_suggestions' Einträge für ein Feld enthält, füge sie als 'suggestions' (Array) bei. "
-            "Antworte NUR als JSON-Array der Objekte {field, question, priority, suggestions?}."
-        )
-    else:
-        instruction = (
-            "Review the fields. Ask up to N targeted questions. "
-            "Mark each with 'priority' (critical/normal/optional). "
-            "If 'missing_esco_skills' exist, include explicit questions for them. "
-            "If 'rag_suggestions' has entries for a field, include them as 'suggestions' (array). "
-            "Respond ONLY as a JSON array of {field, question, priority, suggestions?}."
-        )
-
-    user_msg = {
-        "N": num_questions,
-        "context": payload,
-        "instruction": instruction,
-    }
-
-    # Prefer modern Responses+JSON if available (cheaper parsing); fallback to Chat
-    if _HAS_RESPONSES and OPENAI_API_KEY:
+        base_num = len(critical_missing) + min(len(optional_missing), 3)
+        num_questions = min(max(base_num, 3), 7)
+        num_questions += len(role_questions_cfg)  # include predefined role-specific Qs
+    # 3) (Optional) Get suggestions via RAG for missing fields
+    suggestions_map: Dict[str, List[str]] = {}
+    if use_rag and use_rag and (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")):
         try:
-            client = OpenAI()
-            resp = client.responses.create(  # type: ignore[call-overload]
-                model=DEFAULT_LOW_COST_MODEL,
-                input=[
-                    {
-                        "role": "system",
-                        "content": "You are a meticulous recruitment analyst.",
-                    },
-                    {
-                        "role": "user",
-                        "content": json.dumps(user_msg, ensure_ascii=False),
-                    },
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1,
-            )
-            text = getattr(resp, "output_text", None) or "{}"
-            data = json.loads(text)
-            items = (
-                data
-                if isinstance(data, list)
-                else data.get("items") or data.get("questions") or []
-            )
-        except Exception as e:
-            raise RuntimeError(f"OpenAI API error: {e}") from e
-    else:
-        # Chat fallback
-        chat_prompt = f"{instruction}\nN={num_questions}\n\nContext:\n{json.dumps(payload, ensure_ascii=False)}"
-        try:
-            raw = call_chat_api(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a meticulous recruitment analyst.",
-                    },
-                    {"role": "user", "content": chat_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=600,
-            )
-        except Exception as e:  # pragma: no cover - network failure
-            raise RuntimeError(f"OpenAI API error: {e}") from e
-        try:
-            items = json.loads(raw)
+            suggestions_map = _rag_suggestions(job_title, industry, missing_fields, lang=lang)
         except Exception:
-            # ultra-fallback: heuristics from lines with '?'
-            items = []
-            for line in raw.splitlines():
-                if "?" in line:
-                    items.append(
-                        {
-                            "field": "",
-                            "question": line.strip("-*• 0123456789.\t "),
-                            "priority": "normal",
-                        }
-                    )
-
-    # 5) Post-process: default priorities, attach suggestions, cap length
-    out: List[Dict[str, Any]] = []
-    esco_set = {s.lower() for s in missing_esco_skills}
-    for it in items:
-        field = str(it.get("field", "") or "")
-        q = str(it.get("question", "") or "")
-        pr = str(it.get("priority", "") or "").lower()
-        sugg = it.get("suggestions") or []
-        prefill = str(it.get("prefill", "") or "")
-
-        # Default / fixup priority
-        if pr not in {"critical", "normal", "optional"}:
-            pr = _priority_for(
-                field,
-                is_missing_esco_skill=(
-                    q.lower() in esco_set or field in {"hard_skills", "qualifications"}
-                ),
-            )
-
-        if field and rag_map.get(field):
-            combined = list(dict.fromkeys(sugg + rag_map[field]))
-            sugg = combined[:6]
-            if not prefill:
-                prefill = rag_map[field][0]
-
-        # Default prefill for yes/no style questions
-        if field in YES_NO_FIELDS and not prefill:
-            prefill = "Not specified"
-
-        if field or q:
-            out.append(
-                {
-                    "field": field,
-                    "question": q,
-                    "priority": pr,
-                    "suggestions": sugg,
-                    "prefill": prefill,
-                }
-            )
-
-    # Append role-specific predefined questions if still unanswered
-    asked_fields = {item["field"] for item in out if item["field"]}
-    for cfg in role_questions_needed:
-        f = cfg["field"]
-        if f not in asked_fields:
-            out.append(
-                {
-                    "field": f,
-                    "question": cfg["question"],
-                    "priority": _priority_for(f),
-                    "suggestions": [],
-                    "prefill": "",
-                }
-            )
-
-    # Sort: critical → normal → optional, keep original order within tier; cap N
-    rank = {"critical": 0, "normal": 1, "optional": 2}
-    out.sort(key=lambda x: rank.get(x["priority"], 1))
-    return out[:num_questions]
+            suggestions_map = {}
+    # 4) Construct question payloads
+    questions: List[Dict[str, Any]] = []
+    # Predefined role-specific questions (from ROLE_QUESTION_MAP)
+    for cfg in role_questions_cfg:
+        field = cfg.get("field")
+        q_text = cfg.get("question")
+        if field and q_text and _is_empty(extracted.get(field, None)):
+            questions.append({
+                "field": field,
+                "question": q_text + ("?" if not q_text.endswith("?") else ""),
+                "priority": "normal",
+                "suggestions": suggestions_map.get(field, []),
+            })
+    # Questions for each missing field
+    for field in missing_fields:
+        # Skip if already added via role_questions_cfg
+        if any(q.get("field") == field for q in questions):
+            continue
+        # Determine field-specific prompt text
+        if field == "compensation.salary_range":
+            q_text = "What is the salary range (min and max) and currency for this position?"
+        elif field.startswith("responsibilities."):
+            q_text = "Could you list the key responsibilities or tasks for this role?"  # covers responsibilities.items
+        elif field.startswith("requirements.hard_skills"):
+            q_text = "What hard skills or technical competencies are required?"
+        elif field.startswith("requirements.soft_skills"):
+            q_text = "What soft skills or interpersonal skills are important?"
+        elif field.startswith("requirements.tools_and_technologies"):
+            q_text = "Which tools and technologies should the candidate be familiar with?"
+        elif field == "location.primary_city":
+            q_text = "In which city is this position based?"
+        elif field == "location.country":
+            q_text = "In which country is this position located?"
+        else:
+            # Default question format
+            label = field.split(".")[-1].replace("_", " ")
+            q_text = f"Please provide the {label}."
+        priority = _priority_for(field, field in missing_esco_skills)
+        suggestions = suggestions_map.get(field, [])
+        prefill = None
+        if field in YES_NO_FIELDS:
+            prefill = "No"  # default to "No" if not specified (to prompt user to confirm)
+        questions.append({
+            "field": field,
+            "question": (q_text if q_text.endswith("?") else q_text + "?"),
+            "priority": priority,
+            "suggestions": suggestions,
+            **({"prefill": prefill} if prefill is not None else {})
+        })
+    # Sort questions by priority (critical first) and limit to num_questions
+    sorted_questions = sorted(questions, key=lambda q: 0 if q["priority"] == "critical" else 1)
+    return sorted_questions[: num_questions]
