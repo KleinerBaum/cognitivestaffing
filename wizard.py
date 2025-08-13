@@ -152,36 +152,56 @@ def normalise_state(reapply_aliases: bool = True):
     return jd
 
 
-def apply_global_styling() -> None:
+def apply_global_styling(theme: str = "dark") -> None:
     """Apply global styling and background image to the app.
 
-    Injects fonts, colors and a background image into the Streamlit application.
+    Injects fonts and colors into the Streamlit application. When ``theme`` is
+    ``"dark"`` a textured background image and dark palette are used. For
+    ``"light"`` the background image is removed and light colors are applied.
     """
+
     bg_path = Path("images/AdobeStock_506577005.jpeg")
+    if theme == "dark":
+        st.markdown(
+            f"""
+            <style>
+                .stApp {{
+                    background: url("{bg_path.as_posix()}") no-repeat center center fixed;
+                    background-size: cover;
+                }}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        body_styles = "body, .stApp { background-color: #0b0f14; color: #e5e7eb; font-family: 'Comfortaa', sans-serif; }"
+        card_bg = "#111827"
+        heading_color = "#ffffff"
+    else:
+        st.markdown(
+            """
+            <style>
+                .stApp { background: none !important; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        body_styles = "body, .stApp { background-color: #ffffff; color: #111827; font-family: 'Comfortaa', sans-serif; }"
+        card_bg = "#f9fafb"
+        heading_color = "#000000"
+
     st.markdown(
         f"""
         <style>
-            .stApp {{
-                background: url("{bg_path.as_posix()}") no-repeat center center fixed;
-                background-size: cover;
-            }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        """
-        <style>
         @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap');
-        body, .stApp { background-color: #0b0f14; color: #e5e7eb; font-family: 'Comfortaa', sans-serif; }
-        h1,h2,h3,h4 { color: #ffffff; }
-        .card { background-color: #111827; padding: 1rem; border-radius: 12px; margin-bottom: 1.25rem; }
-        .stButton > button { border-radius: 10px; min-height: 2.5rem; }
-        @media (max-width: 768px) {
-            div[data-testid="stHorizontalBlock"] { flex-direction: column; }
-            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { width: 100%; }
-            .stButton > button { width: 100%; }
-        }
+        {body_styles}
+        h1,h2,h3,h4 {{ color: {heading_color}; }}
+        .card {{ background-color: {card_bg}; padding: 1rem; border-radius: 12px; margin-bottom: 1.25rem; }}
+        .stButton > button {{ border-radius: 10px; min-height: 2.5rem; }}
+        @media (max-width: 768px) {{
+            div[data-testid="stHorizontalBlock"] {{ flex-direction: column; }}
+            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {{ width: 100%; }}
+            .stButton > button {{ width: 100%; }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -622,6 +642,14 @@ def company_information_page():
         "Company Website" if lang != "de" else "Webseite",
         st.session_state.get("company_website", ""),
     )
+    st.session_state["company_style_guide"] = st.text_area(
+        (
+            "Style guide (colors, fonts, etc.)"
+            if lang != "de"
+            else "Styleguide (Farben, Schriften, usw.)"
+        ),
+        st.session_state.get("company_style_guide", ""),
+    )
     # Optional: Fetch company info (mission, values, etc.) from website
     if st.button("🔄 Fetch Company Info from Website"):
         with st.spinner("Fetching company information..."):
@@ -970,6 +998,12 @@ def summary_outputs_page():
     st.header(
         "📊 Summary & Outputs" if lang != "de" else "📊 Zusammenfassung & Ergebnisse"
     )
+    if st.session_state.get("company_logo"):
+        st.image(st.session_state["company_logo"], width=150)
+    if st.session_state.get("company_name"):
+        st.subheader(st.session_state["company_name"])
+    if st.session_state.get("company_style_guide"):
+        st.markdown(f"**Style Guide:** {st.session_state['company_style_guide']}")
     # Show ESCO occupation classification if available
     if st.session_state.get("occupation_label"):
         occ_label = st.session_state["occupation_label"]

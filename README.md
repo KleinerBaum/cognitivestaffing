@@ -29,6 +29,7 @@
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations
+- **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
 
 ---
 

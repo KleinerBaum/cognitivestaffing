@@ -21,9 +21,6 @@ st.set_page_config(
     layout="centered",
 )
 
-# Inject Tailwind CSS for styling
-inject_tailwind(theme="dark")
-
 # Initialize session state defaults
 if "skip_intro" not in st.session_state:
     st.session_state["skip_intro"] = False
@@ -35,12 +32,34 @@ if "lang" not in st.session_state:
     st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
 if "llm_model" not in st.session_state:
     st.session_state["llm_model"] = None
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "dark"
+if "company_logo" not in st.session_state:
+    st.session_state["company_logo"] = None
+
+# Sidebar branding options
+logo_file = st.sidebar.file_uploader("Company Logo", type=["png", "jpg", "jpeg"])
+if logo_file:
+    st.session_state["company_logo"] = logo_file.getvalue()
+if st.session_state.get("company_logo"):
+    st.sidebar.image(st.session_state["company_logo"], use_container_width=True)
+else:
+    st.sidebar.image(
+        "images/color1_logo_transparent_background.png", use_container_width=True
+    )
+theme_choice = st.sidebar.selectbox(
+    "Theme",
+    ["Dark", "Light"],
+    0 if st.session_state["theme"] == "dark" else 1,
+)
+st.session_state["theme"] = "dark" if theme_choice == "Dark" else "light"
+
+# Inject Tailwind CSS for styling
+inject_tailwind(theme=st.session_state["theme"])
 
 # Apply global styles
-apply_global_styling()
-st.sidebar.image(
-    "images/color1_logo_transparent_background.png", use_container_width=True
-)
+apply_global_styling(theme=st.session_state["theme"])
+
 # Sidebar language switcher
 lang_choice = st.sidebar.selectbox(
     "Language / Sprache",
