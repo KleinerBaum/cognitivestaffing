@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from core.schema import ALL_FIELDS, LIST_FIELDS, VacalyserJD
+from typing import Any
+
+from core.schema import ALL_FIELDS, VacalyserJD
 
 
 def missing_fields(jd: VacalyserJD) -> list[str]:
@@ -16,13 +18,16 @@ def missing_fields(jd: VacalyserJD) -> list[str]:
         order matches :data:`core.schema.ALL_FIELDS` to ensure determinism.
     """
 
+    defaults = VacalyserJD()
     missing: list[str] = []
     for field in ALL_FIELDS:
-        value = getattr(jd, field)
-        if field in LIST_FIELDS:
-            if not value:
-                missing.append(field)
-        else:
-            if not value:
-                missing.append(field)
+        cursor: Any = jd
+        default_cursor: Any = defaults
+        for part in field.split("."):
+            cursor = getattr(cursor, part)
+            default_cursor = getattr(default_cursor, part)
+        value = cursor
+        default_val = default_cursor
+        if value == default_val:
+            missing.append(field)
     return missing

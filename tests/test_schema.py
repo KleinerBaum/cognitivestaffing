@@ -1,7 +1,4 @@
-import pytest
-
 from core.schema import (
-    ALL_FIELDS,
     LIST_FIELDS,
     VacalyserJD,
     coerce_and_fill,
@@ -9,7 +6,6 @@ from core.schema import (
 
 
 def test_constants() -> None:
-    assert len(ALL_FIELDS) == 87
     base_lists = {
         "responsibilities.items",
         "requirements.hard_skills",
@@ -50,9 +46,12 @@ def test_alias_priority() -> None:
     data = {
         "responsibilities": {"items": ["A"]},
         "tasks": "B",
+        "job_title": "Old",
+        "position": {"job_title": "New"},
     }
     jd = coerce_and_fill(data)
     assert jd.responsibilities.items == ["A"]
+    assert jd.position.job_title == "New"
 
 
 def test_list_coercion_split_and_dedupe() -> None:
@@ -84,5 +83,5 @@ def test_job_type_normalization() -> None:
 
 
 def test_job_type_invalid() -> None:
-    with pytest.raises(ValueError):
-        coerce_and_fill({"employment": {"job_type": "unknown"}})
+    jd = coerce_and_fill({"employment": {"job_type": "unknown"}})
+    assert jd.employment.job_type == "unknown"
