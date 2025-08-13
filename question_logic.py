@@ -33,6 +33,7 @@ from core.esco_utils import (
     get_essential_skills,
     normalize_skills,
 )
+from core import FIELD_SUGGESTIONS, get_field_suggestions
 
 # Generic chat helper (fallback)
 from openai_utils import call_chat_api
@@ -497,6 +498,13 @@ def generate_followup_questions(
     if use_rag and missing_fields:
         rag_map = _rag_suggestions(job_title, industry, missing_fields, lang=lang)
 
+    # Merge predefined suggestions for missing fields
+    for f in missing_fields:
+        if f in FIELD_SUGGESTIONS:
+            static = get_field_suggestions(f, lang=lang)
+            existing = rag_map.get(f, [])
+            rag_map[f] = existing + [s for s in static if s not in existing]
+
     # 4) Build LLM prompt with context (ask LLM to phrase questions & attach priority + suggestions)
     payload = {
         "current": {k: extracted.get(k, "") for k in fields_to_check},
@@ -629,13 +637,11 @@ def generate_followup_questions(
                 ),
             )
 
-        # Merge RAG suggestions if field present and none attached
-        if field and not sugg and rag_map.get(field):
-            sugg = rag_map[field][:6]
-
-        # Use first suggestion as prefill if none provided
-        if field and not prefill and rag_map.get(field):
-            prefill = rag_map[field][0]
+        if field and rag_map.get(field):
+            combined = list(dict.fromkeys(sugg + rag_map[field]))
+            sugg = combined[:6]
+            if not prefill:
+                prefill = rag_map[field][0]
 
         # Default prefill for yes/no style questions
         if field in YES_NO_FIELDS and not prefill:
