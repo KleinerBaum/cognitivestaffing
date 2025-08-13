@@ -22,6 +22,8 @@ from openai_utils import (
     generate_interview_guide,
     generate_job_ad,
     extract_company_info,
+    refine_document,
+    what_happened,
 )
 from llm.context import build_extract_messages
 from llm.client import build_extraction_function
@@ -29,6 +31,7 @@ from question_logic import CRITICAL_FIELDS, generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
 from streamlit_sortables import sort_items
 from nlp.bias import scan_bias_language
+from components.model_selector import model_selector
 
 MODEL_OPTIONS = {
     "GPT-3.5 (fast, cheap)": "gpt-3.5-turbo",
@@ -943,142 +946,186 @@ def summary_outputs_page():
                 if value or is_missing:
                     label = field.replace("_", " ").title()
                     render_summary_input(field, label, is_missing)
-    # Buttons to generate final outputs
-    colA, colB = st.columns(2)
-    with colA:
-        if st.button("🎯 Generate Final Job Ad"):
-            with st.spinner("Generating job advertisement..."):
-                try:
-                    job_ad_text = generate_job_ad(st.session_state)
-                except Exception:  # pragma: no cover - network failure
-                    err = (
-                        "❌ Failed to generate job ad. Please try again later."
-                        if lang != "de"
-                        else "❌ Stellenanzeige konnte nicht erstellt werden. Bitte später erneut versuchen."
-                    )
-                    st.error(err)
-                    job_ad_text = ""
-            if job_ad_text:
-                st.subheader(
-                    (
-                        "Generated Job Advertisement"
-                        if lang != "de"
-                        else "Erstellte Stellenanzeige"
-                    ),
-                )
-                st.write(job_ad_text)
-                findings = scan_bias_language(job_ad_text, lang)
-                if findings:
-                    warn = (
-                        "Potentially biased terms detected:"
-                        if lang != "de"
-                        else "Möglicherweise vorbelastete Begriffe gefunden:"
-                    )
-                    st.warning(warn)
-                    for item in findings:
-                        st.markdown(f"- `{item['term']}` → {item['suggestion']}")
-                # Basic SEO optimization suggestions for the generated ad
-                seo = seo_optimize(job_ad_text)
-                if seo["keywords"]:
-                    st.markdown(f"**SEO Keywords:** `{', '.join(seo['keywords'])}`")
-                if seo["meta_description"]:
-                    st.markdown(f"**Meta Description:** {seo['meta_description']}")
-                fmt_label = "Download format" if lang != "de" else "Download-Format"
-                job_fmt = st.selectbox(
-                    fmt_label,
-                    ["markdown", "docx", "pdf", "json"],
-                    key="job_ad_format",
-                )
-                data, mime, ext = prepare_download_data(
-                    job_ad_text,
-                    job_fmt,
-                    key="job_ad",
-                    title=st.session_state.get("job_title"),
-                )
-                dl_label = (
-                    "💾 Download Job Ad"
-                    if lang != "de"
-                    else "💾 Stellenanzeige herunterladen"
-                )
-                st.download_button(
-                    dl_label,
-                    data=data,
-                    file_name=f"job_ad.{ext}",
-                    mime=mime,
-                )
-                log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
-    with colB:
-        q_label = (
-            "Number of interview questions"
+    # Model selection and document generation
+    model = model_selector()
+
+    if st.button("🎯 Generate Final Job Ad"):
+        with st.spinner(
+            "Generating job advertisement..."
             if lang != "de"
-            else "Anzahl der Interviewfragen"
-        )
-        num_questions = st.slider(
-            q_label,
-            min_value=3,
-            max_value=10,
-            value=5,
-            key="num_questions",
-        )
-        if st.button("📝 Generate Interview Guide"):
-            title = st.session_state.get("job_title", "")
-            tasks = st.session_state.get("tasks", "") or st.session_state.get(
-                "responsibilities",
-                "",
-            )
-            with st.spinner("Generating interview guide..."):
-                try:
-                    guide = generate_interview_guide(
-                        title,
-                        tasks,
-                        audience="hiring managers",
-                        num_questions=num_questions,
-                        lang=lang,
-                        company_culture=st.session_state.get("company_culture", ""),
-                    )
-                except Exception:  # pragma: no cover - network failure
-                    err = (
-                        "❌ Failed to generate interview guide. Please try again later."
-                        if lang != "de"
-                        else "❌ Leitfaden konnte nicht erstellt werden. Bitte später erneut versuchen."
-                    )
-                    st.error(err)
-                    guide = ""
-            if guide:
-                st.subheader(
-                    (
-                        "Interview Guide & Scoring Rubrics"
-                        if lang != "de"
-                        else "Leitfaden für Vorstellungsgespräch & Bewertungsrichtlinien"
-                    ),
-                )
-                st.write(guide)
-                fmt_label = "Download format" if lang != "de" else "Download-Format"
-                guide_fmt = st.selectbox(
-                    fmt_label,
-                    ["markdown", "docx", "pdf", "json"],
-                    key="guide_format",
-                )
-                data, mime, ext = prepare_download_data(
-                    guide,
-                    guide_fmt,
-                    key="interview_guide",
-                    title=st.session_state.get("job_title"),
-                )
-                dl_label = (
-                    "💾 Download Interview Guide"
+            else "Stellenanzeige wird erstellt..."
+        ):
+            try:
+                job_ad_text = generate_job_ad(st.session_state, model=model)
+            except Exception:  # pragma: no cover - network failure
+                err = (
+                    "❌ Failed to generate job ad. Please try again later."
                     if lang != "de"
-                    else "💾 Leitfaden herunterladen"
+                    else "❌ Stellenanzeige konnte nicht erstellt werden. Bitte später erneut versuchen."
                 )
-                st.download_button(
-                    dl_label,
-                    data=data,
-                    file_name=f"interview_guide.{ext}",
-                    mime=mime,
+                st.error(err)
+                job_ad_text = ""
+        if job_ad_text:
+            st.session_state["job_ad_text"] = job_ad_text
+
+    job_ad_text = st.session_state.get("job_ad_text")
+    if job_ad_text:
+        st.subheader(
+            (
+                "Generated Job Advertisement"
+                if lang != "de"
+                else "Erstellte Stellenanzeige"
+            )
+        )
+        st.write(job_ad_text)
+        findings = scan_bias_language(job_ad_text, lang)
+        if findings:
+            warn = (
+                "Potentially biased terms detected:"
+                if lang != "de"
+                else "Möglicherweise vorbelastete Begriffe gefunden:"
+            )
+            st.warning(warn)
+            for item in findings:
+                st.markdown(f"- `{item['term']}` → {item['suggestion']}")
+        seo = seo_optimize(job_ad_text)
+        if seo["keywords"]:
+            st.markdown(f"**SEO Keywords:** `{', '.join(seo['keywords'])}`")
+        if seo["meta_description"]:
+            st.markdown(f"**Meta Description:** {seo['meta_description']}")
+        fmt_label = "Download format" if lang != "de" else "Download-Format"
+        job_fmt = st.selectbox(
+            fmt_label,
+            ["markdown", "docx", "pdf", "json"],
+            key="job_ad_format",
+        )
+        data, mime, ext = prepare_download_data(
+            job_ad_text,
+            job_fmt,
+            key="job_ad",
+            title=st.session_state.get("job_title"),
+        )
+        dl_label = (
+            "💾 Download Job Ad" if lang != "de" else "💾 Stellenanzeige herunterladen"
+        )
+        st.download_button(
+            dl_label,
+            data=data,
+            file_name=f"job_ad.{ext}",
+            mime=mime,
+        )
+        feedback_label = (
+            "Refinement instructions" if lang != "de" else "Anpassungshinweise"
+        )
+        feedback = st.text_input(feedback_label, key="job_ad_feedback")
+        if st.button("🔄 Update Job Ad") and feedback:
+            updated = refine_document(job_ad_text, feedback, model=model)
+            st.session_state["job_ad_text"] = updated
+            st.session_state["job_ad_feedback"] = ""
+        if st.button("❓ What happened?", key="job_ad_what"):
+            explanation = what_happened(
+                st.session_state,
+                st.session_state.get("job_ad_text", ""),
+                doc_type="job ad",
+                model=model,
+            )
+            st.info(explanation)
+        log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
+
+    q_label = (
+        "Number of interview questions"
+        if lang != "de"
+        else "Anzahl der Interviewfragen"
+    )
+    num_questions = st.slider(
+        q_label,
+        min_value=3,
+        max_value=10,
+        value=5,
+        key="num_questions",
+    )
+    if st.button("📝 Generate Interview Guide"):
+        title = st.session_state.get("job_title", "")
+        tasks = st.session_state.get("tasks", "") or st.session_state.get(
+            "responsibilities",
+            "",
+        )
+        with st.spinner(
+            "Generating interview guide..."
+            if lang != "de"
+            else "Leitfaden wird erstellt..."
+        ):
+            try:
+                guide = generate_interview_guide(
+                    title,
+                    tasks,
+                    audience="hiring managers",
+                    num_questions=num_questions,
+                    lang=lang,
+                    company_culture=st.session_state.get("company_culture", ""),
+                    model=model,
                 )
-                log_event(
-                    f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}"
+            except Exception:  # pragma: no cover - network failure
+                err = (
+                    "❌ Failed to generate interview guide. Please try again later."
+                    if lang != "de"
+                    else "❌ Leitfaden konnte nicht erstellt werden. Bitte später erneut versuchen."
                 )
+                st.error(err)
+                guide = ""
+        if guide:
+            st.session_state["interview_guide"] = guide
+
+    guide = st.session_state.get("interview_guide")
+    if guide:
+        st.subheader(
+            (
+                "Interview Guide & Scoring Rubrics"
+                if lang != "de"
+                else "Leitfaden für Vorstellungsgespräch & Bewertungsrichtlinien"
+            )
+        )
+        st.write(guide)
+        fmt_label = "Download format" if lang != "de" else "Download-Format"
+        guide_fmt = st.selectbox(
+            fmt_label,
+            ["markdown", "docx", "pdf", "json"],
+            key="guide_format",
+        )
+        data, mime, ext = prepare_download_data(
+            guide,
+            guide_fmt,
+            key="interview_guide",
+            title=st.session_state.get("job_title"),
+        )
+        dl_label = (
+            "💾 Download Interview Guide"
+            if lang != "de"
+            else "💾 Leitfaden herunterladen"
+        )
+        st.download_button(
+            dl_label,
+            data=data,
+            file_name=f"interview_guide.{ext}",
+            mime=mime,
+        )
+        feedback_label = (
+            "Refinement instructions" if lang != "de" else "Anpassungshinweise"
+        )
+        feedback = st.text_input(feedback_label, key="guide_feedback")
+        if st.button("🔄 Update Interview Guide") and feedback:
+            updated = refine_document(guide, feedback, model=model)
+            st.session_state["interview_guide"] = updated
+            st.session_state["guide_feedback"] = ""
+        if st.button("❓ What happened?", key="guide_what"):
+            explanation = what_happened(
+                st.session_state,
+                st.session_state.get("interview_guide", ""),
+                doc_type="interview guide",
+                model=model,
+            )
+            st.info(explanation)
+        log_event(f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}")
     # Always display a suggested Boolean search query for recruiters
     if st.session_state.get("job_title") or st.session_state.get("hard_skills"):
         skills = (
