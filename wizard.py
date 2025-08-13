@@ -70,24 +70,48 @@ lang = st.session_state.get("lang", "en")
 
 FIELD_SECTION_MAP: dict[str, int] = {
     "position.job_title": 1,
-    "company.name": 2,
-    "company.hq_location": 2,
-    "company.size": 2,
-    "location.primary_city": 2,
-    "location.country": 2,
-    "position.role_summary": 3,
-    "responsibilities.items": 3,
-    "requirements.hard_skills": 5,
-    "requirements.soft_skills": 5,
-    "requirements.tools_and_technologies": 5,
-    "requirements.languages_required": 5,
-    "requirements.certifications": 5,
-    "employment.job_type": 6,
-    "employment.work_policy": 6,
-    "compensation.salary_min": 6,
-    "compensation.salary_max": 6,
+    "company.name": 1,
+    "company.industry": 1,
+    "company.hq_location": 1,
+    "company.size": 1,
+    "location.primary_city": 1,
+    "location.country": 1,
+    "position.role_summary": 2,
+    "responsibilities.items": 2,
+    "requirements.hard_skills": 3,
+    "requirements.soft_skills": 3,
+    "requirements.tools_and_technologies": 3,
+    "requirements.languages_required": 3,
+    "requirements.certifications": 3,
+    "employment.job_type": 4,
+    "employment.work_policy": 4,
+    "compensation.salary_min": 4,
+    "compensation.salary_max": 4,
 }
 """Map critical field names to wizard section indices for navigation."""
+
+
+FIELD_LABELS: dict[str, str] = {
+    "position.job_title": "Job Title",
+    "company.name": "Company Name",
+    "company.industry": "Industry",
+    "company.hq_location": "Headquarters Location",
+    "company.size": "Company Size",
+    "location.primary_city": "City",
+    "location.country": "Country",
+    "position.role_summary": "Role Summary",
+    "responsibilities.items": "Responsibilities",
+    "requirements.hard_skills": "Hard Skills",
+    "requirements.soft_skills": "Soft Skills",
+    "requirements.tools_and_technologies": "Tools & Technologies",
+    "requirements.languages_required": "Languages Required",
+    "requirements.certifications": "Certifications",
+    "employment.job_type": "Employment Type",
+    "employment.work_policy": "Work Policy",
+    "compensation.salary_min": "Salary Minimum",
+    "compensation.salary_max": "Salary Maximum",
+}
+"""Human-friendly labels for critical wizard fields."""
 
 
 class SummaryCategory(TypedDict):
@@ -310,8 +334,10 @@ def show_navigation(current_step: int, total_steps: int) -> None:
             if st.button("Next ➡"):
                 missing = get_missing_critical_fields(current_step)
                 if missing:
+                    labels = [FIELD_LABELS.get(f, f) for f in missing]
                     st.warning(
-                        f"Please fill the required fields before continuing: {', '.join(missing)}"
+                        "Please fill the required fields before continuing: "
+                        + ", ".join(labels)
                     )
                 else:
                     st.session_state["current_section"] += 1
@@ -696,45 +722,45 @@ st.session_state["company.name"] = st.text_input(
     "Company Name" if lang != "de" else "Unternehmensname",
     st.session_state.get("company.name", ""),
 )
+industry_options = [
+    "Information Technology",
+    "Finance",
+    "Healthcare",
+    "Manufacturing",
+    "Retail",
+    "Logistics",
+    "Automotive",
+    "Aerospace",
+    "Telecommunications",
+    "Energy",
+    "Pharmaceuticals",
+    "Education",
+    "Public Sector",
+    "Consulting",
+    "Media & Entertainment",
+    "Hospitality",
+    "Construction",
+    "Real Estate",
+    "Agriculture",
+    "Nonprofit",
+    "Insurance",
+    "Legal",
+    "Biotech",
+    "Chemicals",
+    "Utilities",
+    "Gaming",
+    "E-commerce",
+    "Cybersecurity",
+    "Marketing/Advertising",
+]
+current_industry = st.session_state.get("company.industry", "")
 st.session_state["company.industry"] = st.selectbox(
     "Industry" if lang != "de" else "Branche",
-    [
-        "Information Technology",
-        "Finance",
-        "Healthcare",
-        "Manufacturing",
-        "Retail",
-        "Logistics",
-        "Automotive",
-        "Aerospace",
-        "Telecommunications",
-        "Energy",
-        "Pharmaceuticals",
-        "Education",
-        "Public Sector",
-        "Consulting",
-        "Media & Entertainment",
-        "Hospitality",
-        "Construction",
-        "Real Estate",
-        "Agriculture",
-        "Nonprofit",
-        "Insurance",
-        "Legal",
-        "Biotech",
-        "Chemicals",
-        "Utilities",
-        "Gaming",
-        "E-commerce",
-        "Cybersecurity",
-        "Marketing/Advertising",
-    ],
+    industry_options,
     index=(
-        0
-        if not st.session_state.get("company.industry")  # pre-select if existing
-        else max(
-            0, [i for i, v in enumerate(st.session_state.get("company.industry"))][0]
-        )
+        industry_options.index(current_industry)
+        if current_industry in industry_options
+        else 0
     ),
     key="company.industry",
 )
@@ -914,7 +940,7 @@ with soft_col:
                 try:
                     suggestions = suggest_additional_skills(
                         job_title=title,
-                        tasks=tasks,
+                        responsibilities=tasks,
                         existing_skills=existing_skills,
                         num_suggestions=10,
                         lang="de" if lang == "de" else "en",
@@ -1156,7 +1182,7 @@ if sal_provided:
                 industry = st.session_state.get("company.industry", "")
                 existing = st.session_state.get("compensation.benefits", "")
                 try:
-                    suggestions = suggest_benefits(
+                    benefit_suggestions = suggest_benefits(
                         title,
                         industry,
                         existing_benefits=existing,
@@ -1169,9 +1195,11 @@ if sal_provided:
                         else "⚠️ Konnte keine Benefit-Vorschläge generieren."
                     )
                     st.warning(warn)
-                    suggestions = []
-            if suggestions:
-                st.session_state["suggested_benefits"] = suggestions
+                    benefit_suggestions = []
+            if benefit_suggestions:
+                cast(dict[str, Any], st.session_state)[
+                    "suggested_benefits"
+                ] = benefit_suggestions
                 st.success("✔️ Benefit suggestions generated. Click to add them.")
             else:
                 st.warning("No benefit suggestions available at the moment.")
@@ -1189,7 +1217,7 @@ if sal_provided:
                             f"{current}{sep}{perk}"
                         )
                     # Remove added perk from suggestions list
-                    st.session_state["suggested_benefits"] = [
+                    cast(dict[str, Any], st.session_state)["suggested_benefits"] = [
                         b for b in benefit_suggestions if b != perk
                     ]
                     st.rerun()

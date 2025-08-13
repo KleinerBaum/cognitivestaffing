@@ -9,11 +9,14 @@ def test_section_filtering() -> None:
     """Fields beyond the inspected section should be ignored."""
     st.session_state.clear()
     st.session_state["position.job_title"] = "Engineer"
+    st.session_state["company.name"] = "Acme"
+    st.session_state["location.primary_city"] = "Berlin"
+    st.session_state["location.country"] = "DE"
     st.session_state["followup_questions"] = []
 
     assert get_missing_critical_fields(max_section=1) == []
     missing = get_missing_critical_fields(max_section=2)
-    assert "company.name" in missing
+    assert "position.role_summary" in missing
 
 
 def test_followup_critical_detection() -> None:
