@@ -103,11 +103,6 @@ def apply_global_styling() -> None:
     )
 
 
-def show_progress_bar(current_step: int, total_steps: int):
-    progress = (current_step + 1) / total_steps
-    st.progress(progress, text=f"{int(progress*100)}% complete")
-
-
 def show_navigation(current_step: int, total_steps: int):
     """Render Previous/Next navigation buttons for the wizard."""
     col1, col2, col3 = st.columns([1, 2, 1])
