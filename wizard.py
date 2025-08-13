@@ -67,18 +67,21 @@ TONE_CHOICES = {
 
 
 FIELD_SECTION_MAP: dict[str, int] = {
-    "job_title": 1,
-    "company_name": 2,
-    "location": 2,
-    "role_summary": 3,
-    "responsibilities": 3,
-    "qualifications": 5,
-    "languages_required": 5,
-    "certifications": 5,
-    "tools_and_technologies": 5,
-    "salary_range": 6,
-    "job_type": 6,
-    "remote_policy": 6,
+    "position.job_title": 1,
+    "company.name": 2,
+    "location.primary_city": 2,
+    "location.country": 2,
+    "position.role_summary": 3,
+    "responsibilities.items": 3,
+    "requirements.hard_skills": 5,
+    "requirements.soft_skills": 5,
+    "requirements.tools_and_technologies": 5,
+    "requirements.languages_required": 5,
+    "requirements.certifications": 5,
+    "employment.job_type": 6,
+    "employment.work_policy": 6,
+    "compensation.salary_min": 6,
+    "compensation.salary_max": 6,
 }
 """Map critical field names to wizard section indices for navigation."""
 
@@ -96,58 +99,57 @@ SUMMARY_CATEGORIES: list[SummaryCategory] = [
         "en": "Company & Context",
         "de": "Unternehmen & Kontext",
         "fields": [
-            "company_name",
-            "company_website",
-            "industry",
-            "location",
-            "company_mission",
-            "company_culture",
+            "company.name",
+            "company.website",
+            "company.industry",
+            "location.primary_city",
+            "location.country",
+            "company.mission",
+            "company.culture",
         ],
     },
     {
         "en": "Role Details",
         "de": "Rollenbeschreibung",
         "fields": [
-            "job_title",
-            "role_summary",
-            "responsibilities",
-            "tasks",
-            "department",
-            "team_structure",
-            "reporting_line",
+            "position.job_title",
+            "position.role_summary",
+            "responsibilities.items",
+            "position.department",
+            "position.team_structure",
+            "position.reporting_line",
         ],
     },
     {
         "en": "Requirements",
         "de": "Anforderungen",
         "fields": [
-            "qualifications",
-            "hard_skills",
-            "soft_skills",
-            "tools_and_technologies",
-            "languages_required",
-            "certifications",
-            "seniority_level",
+            "requirements.hard_skills",
+            "requirements.soft_skills",
+            "requirements.tools_and_technologies",
+            "requirements.languages_required",
+            "requirements.certifications",
+            "position.seniority_level",
         ],
     },
     {
         "en": "Benefits & Conditions",
         "de": "Leistungen & Konditionen",
         "fields": [
-            "job_type",
-            "remote_policy",
-            "onsite_requirements",
-            "travel_required",
-            "working_hours",
-            "salary_range",
-            "bonus_compensation",
-            "benefits",
-            "health_benefits",
-            "retirement_benefits",
-            "learning_opportunities",
-            "equity_options",
-            "relocation_assistance",
-            "visa_sponsorship",
+            "employment.job_type",
+            "employment.work_policy",
+            "employment.onsite_days_per_week",
+            "employment.travel_required",
+            "employment.work_hours_per_week",
+            "compensation.salary_min",
+            "compensation.salary_max",
+            "compensation.variable_pay",
+            "compensation.benefits",
+            "compensation.healthcare_plan",
+            "compensation.pension_plan",
+            "compensation.equity_offered",
+            "employment.relocation_support",
+            "employment.visa_sponsorship",
         ],
     },
     {
@@ -667,42 +669,79 @@ def company_information_page():
                 lang=lang,
                 use_rag=st.session_state.get("use_rag", True),
             )
-            if f.get("field") not in {"company_mission", "company_culture"}
+            if f.get("field") not in {"company.mission", "company.culture"}
         ]
     except Exception:  # pragma: no cover - network failure
         pass
-    render_followups_for(["company_name", "industry", "location", "company_website"])
+    render_followups_for(
+        [
+            "company.name",
+            "company.industry",
+            "location.primary_city",
+            "location.country",
+            "company.website",
+        ]
+    )
+
+
 st.session_state["company.name"] = st.text_input(
     "Company Name" if lang != "de" else "Unternehmensname",
-    st.session_state.get("company.name", "")
+    st.session_state.get("company.name", ""),
 )
 st.session_state["company.industry"] = st.selectbox(
     "Industry" if lang != "de" else "Branche",
     [
-        "Information Technology", "Finance", "Healthcare", "Manufacturing", "Retail",
-        "Logistics", "Automotive", "Aerospace", "Telecommunications", "Energy",
-        "Pharmaceuticals", "Education", "Public Sector", "Consulting", "Media & Entertainment",
-        "Hospitality", "Construction", "Real Estate", "Agriculture", "Nonprofit",
-        "Insurance", "Legal", "Biotech", "Chemicals", "Utilities", "Gaming", "E-commerce",
-        "Cybersecurity", "Marketing/Advertising"
+        "Information Technology",
+        "Finance",
+        "Healthcare",
+        "Manufacturing",
+        "Retail",
+        "Logistics",
+        "Automotive",
+        "Aerospace",
+        "Telecommunications",
+        "Energy",
+        "Pharmaceuticals",
+        "Education",
+        "Public Sector",
+        "Consulting",
+        "Media & Entertainment",
+        "Hospitality",
+        "Construction",
+        "Real Estate",
+        "Agriculture",
+        "Nonprofit",
+        "Insurance",
+        "Legal",
+        "Biotech",
+        "Chemicals",
+        "Utilities",
+        "Gaming",
+        "E-commerce",
+        "Cybersecurity",
+        "Marketing/Advertising",
     ],
-    index=0 if not st.session_state.get("company.industry") else  # pre-select if existing
-        max(0, [i for i, v in enumerate(st.session_state.get("company.industry"))][0]),
-    key="company.industry"
+    index=(
+        0
+        if not st.session_state.get("company.industry")  # pre-select if existing
+        else max(
+            0, [i for i, v in enumerate(st.session_state.get("company.industry"))][0]
+        )
+    ),
+    key="company.industry",
 )
 st.session_state["location.primary_city"] = st.text_input(
     "City" if lang != "de" else "Stadt",
-    st.session_state.get("location.primary_city", "")
+    st.session_state.get("location.primary_city", ""),
 )
 st.session_state["location.country"] = st.text_input(
-    "Country" if lang != "de" else "Land",
-    st.session_state.get("location.country", "")
+    "Country" if lang != "de" else "Land", st.session_state.get("location.country", "")
 )
 st.session_state["company.website"] = st.text_input(
     "Company Website" if lang != "de" else "Webseite",
-    st.session_state.get("company.website", "")
+    st.session_state.get("company.website", ""),
 )
-    # Optional: Fetch company info (mission, values, etc.) from website
+# Optional: Fetch company info (mission, values, etc.) from website
 if st.button("🔄 Fetch Company Info from Website"):
     with st.spinner("Fetching company information..."):
         website = st.session_state.get("company.website", "").strip()
@@ -712,12 +751,16 @@ if st.button("🔄 Fetch Company Info from Website"):
         except Exception:
             info = {}
         if info.get("company_mission"):
-            st.session_state["company_mission"] = info["company_mission"]
+            st.session_state["company.mission"] = info["company_mission"]
         if info.get("company_culture"):
-            st.session_state["company_culture"] = info["company_culture"]
+            st.session_state["company.culture"] = info["company_culture"]
 
 # ... (Running extraction, which uses build_extract_messages and build_extraction_function)
-messages = build_extract_messages(combined_text, title=st.session_state.get("position.job_title"), url=st.session_state.get("input_url"))
+messages = build_extract_messages(
+    combined_text,
+    title=st.session_state.get("position.job_title"),
+    url=st.session_state.get("input_url"),
+)
 fn_schema = build_extraction_function()
 try:
     response = call_chat_api(
@@ -729,7 +772,11 @@ try:
     )
 except Exception:
     st.session_state["extraction_success"] = False
-    err_msg = "❌ OpenAI request failed. Please try again later." if lang != "de" else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
+    err_msg = (
+        "❌ OpenAI request failed. Please try again later."
+        if lang != "de"
+        else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
+    )
     st.error(err_msg)
     return
 try:
@@ -739,22 +786,35 @@ try:
     normalise_state()  # apply any alias re-sync for legacy keys
     # Generate follow-up questions based on missing fields
     try:
-        followups = generate_followup_questions(cast(dict[str, Any], st.session_state), lang=lang, use_rag=st.session_state.get("use_rag", True))
+        followups = generate_followup_questions(
+            cast(dict[str, Any], st.session_state),
+            lang=lang,
+            use_rag=st.session_state.get("use_rag", True),
+        )
     except Exception:
-        warn_msg = "⚠️ Unable to generate follow-up questions." if lang != "de" else "⚠️ Folgefragen konnten nicht erstellt werden."
+        warn_msg = (
+            "⚠️ Unable to generate follow-up questions."
+            if lang != "de"
+            else "⚠️ Folgefragen konnten nicht erstellt werden."
+        )
         st.warning(warn_msg)
         followups = []
     st.session_state["followup_questions"] = followups
     # Classify occupation via ESCO for analytics (e.g., occupation_label)
-    occ = esco_utils.classify_occupation(st.session_state.get("position.job_title", ""), lang=lang)
+    occ = esco_utils.classify_occupation(
+        st.session_state.get("position.job_title", ""), lang=lang
+    )
     if occ:
-        st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get("occupation_label", "")
+        st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get(
+            "occupation_label", ""
+        )
         st.session_state["occupation_group"] = occ.get("group", "")
     st.session_state["extraction_success"] = True
 except Exception as e:
     # ... (JSON parsing error handling)
     st.session_state["extraction_success"] = False
     st.error("⚠️ Failed to parse extracted data.")
+
 
 def role_description_page():
     """Role Description page: Summary of the role and key responsibilities."""
@@ -768,19 +828,23 @@ def role_description_page():
         )
     except Exception:  # pragma: no cover - network failure
         pass
-    render_followups_for(["role_summary", "responsibilities"])
+    render_followups_for(["position.role_summary", "responsibilities.items"])
+
+
 # Role Details inputs (Section 2)
 st.session_state["position.job_title"] = st.text_input(
     "Job Title" if lang != "de" else "Stellenbezeichnung",
-    st.session_state.get("position.job_title", "")
+    st.session_state.get("position.job_title", ""),
 )
 # ... (other inputs like department, etc.)
 st.session_state["position.role_summary"] = st.text_area(
     "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
     st.session_state.get("position.role_summary", ""),
-    height=100
+    height=100,
 )
-responsibilities_label = "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
+responsibilities_label = (
+    "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
+)
 editable_draggable_list("responsibilities.items", responsibilities_label)
 
 
@@ -790,14 +854,14 @@ def task_scope_page():
     st.header(
         "🗒️ Project/Task Scope" if lang != "de" else "🗒️ Projekt- / Aufgabenbereich"
     )
-    render_followups_for(["tasks"])
-    st.session_state["tasks"] = st.text_area(
+    render_followups_for(["responsibilities.items"])
+    st.session_state["responsibilities.items"] = st.text_area(
         (
             "Main Tasks or Projects"
             if lang != "de"
             else "Wichtigste Aufgaben oder Projekte"
         ),
-        st.session_state.get("tasks", ""),
+        st.session_state.get("responsibilities.items", ""),
         height=120,
     )
 
@@ -812,11 +876,11 @@ def skills_competencies_page():
     )
     render_followups_for(
         [
-            "hard_skills",
-            "soft_skills",
-            "tools_and_technologies",
-            "languages_required",
-            "certifications",
+            "requirements.hard_skills",
+            "requirements.soft_skills",
+            "requirements.tools_and_technologies",
+            "requirements.languages_required",
+            "requirements.certifications",
         ]
     )
     if not st.session_state.get("hard_skills") and st.session_state.get("requirements"):
@@ -828,16 +892,32 @@ def skills_competencies_page():
     lang_label = "Languages Required" if lang != "de" else "Erforderliche Sprachen"
 
     # Requirements inputs (Section 3 - Skills & Competencies)
+
+
 tech_col, soft_col = st.columns(2)
 with tech_col:
     st.subheader("Technical" if lang != "de" else "Technisch")
-    editable_draggable_list("requirements.hard_skills", "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills")
-    editable_draggable_list("requirements.tools_and_technologies", "Tools & Technologies" if lang != "de" else "Tools und Technologien")
-    editable_draggable_list("requirements.certifications", "Certifications" if lang != "de" else "Zertifizierungen")
+    editable_draggable_list(
+        "requirements.hard_skills",
+        "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
+    )
+    editable_draggable_list(
+        "requirements.tools_and_technologies",
+        "Tools & Technologies" if lang != "de" else "Tools und Technologien",
+    )
+    editable_draggable_list(
+        "requirements.certifications",
+        "Certifications" if lang != "de" else "Zertifizierungen",
+    )
 with soft_col:
     st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
-    editable_draggable_list("requirements.soft_skills", "Soft Skills" if lang != "de" else "Soft Skills")
-    editable_draggable_list("requirements.languages_required", "Languages Required" if lang != "de" else "Erforderliche Sprachen")
+    editable_draggable_list(
+        "requirements.soft_skills", "Soft Skills" if lang != "de" else "Soft Skills"
+    )
+    editable_draggable_list(
+        "requirements.languages_required",
+        "Languages Required" if lang != "de" else "Erforderliche Sprachen",
+    )
 
     hard_skills_text = st.session_state.get("hard_skills", "")
     soft_skills_text = st.session_state.get("soft_skills", "")
@@ -939,50 +1019,86 @@ def benefits_compensation_page():
     )
     render_followups_for(
         [
-            "salary_range",
-            "benefits",
-            "health_benefits",
-            "retirement_benefits",
-            "learning_opportunities",
-            "remote_policy",
-            "travel_required",
+            "compensation.salary_min",
+            "compensation.salary_max",
+            "compensation.benefits",
+            "compensation.healthcare_plan",
+            "compensation.pension_plan",
+            "employment.work_policy",
+            "employment.travel_required",
         ]
     )
+
+
 st.session_state["employment.job_type"] = st.selectbox(
     "Employment Type" if lang != "de" else "Anstellungsart",
-    ["Full-time", "Part-time", "Contract", "Temporary", "Internship", "Apprenticeship", "Freelance", "Fixed-term"],
-    index=0 if not st.session_state.get("employment.job_type") else  # set default or current value
-        max(0, ["Full-time","Part-time","Contract","Temporary","Internship","Apprenticeship","Freelance","Fixed-term"].index(st.session_state["employment.job_type"])),
-    key="employment.job_type"
+    [
+        "Full-time",
+        "Part-time",
+        "Contract",
+        "Temporary",
+        "Internship",
+        "Apprenticeship",
+        "Freelance",
+        "Fixed-term",
+    ],
+    index=(
+        0
+        if not st.session_state.get(
+            "employment.job_type"
+        )  # set default or current value
+        else max(
+            0,
+            [
+                "Full-time",
+                "Part-time",
+                "Contract",
+                "Temporary",
+                "Internship",
+                "Apprenticeship",
+                "Freelance",
+                "Fixed-term",
+            ].index(st.session_state["employment.job_type"]),
+        )
+    ),
+    key="employment.job_type",
 )
 st.session_state["employment.work_policy"] = st.selectbox(
     "Work Policy" if lang != "de" else "Arbeitsmodell",
     ["Onsite", "Hybrid", "Remote"],
-    index=0 if not st.session_state.get("employment.work_policy") else 
-        max(0, ["Onsite","Hybrid","Remote"].index(st.session_state["employment.work_policy"])),
-    key="employment.work_policy"
+    index=(
+        0
+        if not st.session_state.get("employment.work_policy")
+        else max(
+            0,
+            ["Onsite", "Hybrid", "Remote"].index(
+                st.session_state["employment.work_policy"]
+            ),
+        )
+    ),
+    key="employment.work_policy",
 )
 st.session_state["employment.travel_required"] = st.checkbox(
     "Travel required" if lang != "de" else "Reise erforderlich",
     value=bool(st.session_state.get("employment.travel_required", False)),
-    key="employment.travel_required"
+    key="employment.travel_required",
 )
 # Salary fields
 sal_provided = st.checkbox(
     "Salary information provided" if lang != "de" else "Gehaltsspanne angeben",
     value=bool(st.session_state.get("compensation.salary_provided", True)),
-    key="compensation.salary_provided"
+    key="compensation.salary_provided",
 )
 if sal_provided:
     # Show min, max, currency, period inputs
-    cols = st.columns([1,1,1,1])
+    cols = st.columns([1, 1, 1, 1])
     with cols[0]:
         st.session_state["compensation.salary_min"] = st.number_input(
             "Salary Min",
             value=st.session_state.get("compensation.salary_min", 0),
             step=500,
             min_value=0,
-            key="compensation.salary_min"
+            key="compensation.salary_min",
         )
     with cols[1]:
         st.session_state["compensation.salary_max"] = st.number_input(
@@ -990,23 +1106,47 @@ if sal_provided:
             value=st.session_state.get("compensation.salary_max", 0),
             step=500,
             min_value=0,
-            key="compensation.salary_max"
+            key="compensation.salary_max",
         )
     with cols[2]:
         st.session_state["compensation.salary_currency"] = st.selectbox(
             "Currency" if lang != "de" else "Währung",
             ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK"],
-            index=0 if not st.session_state.get("compensation.salary_currency") else 
-                max(0, ["EUR","USD","GBP","CHF","SEK","NOK","DKK","PLN","CZK"].index(st.session_state["compensation.salary_currency"])),
-            key="compensation.salary_currency"
+            index=(
+                0
+                if not st.session_state.get("compensation.salary_currency")
+                else max(
+                    0,
+                    [
+                        "EUR",
+                        "USD",
+                        "GBP",
+                        "CHF",
+                        "SEK",
+                        "NOK",
+                        "DKK",
+                        "PLN",
+                        "CZK",
+                    ].index(st.session_state["compensation.salary_currency"]),
+                )
+            ),
+            key="compensation.salary_currency",
         )
     with cols[3]:
         st.session_state["compensation.salary_period"] = st.selectbox(
             "Period",
             ["year", "month", "day", "hour"],
-            index=0 if not st.session_state.get("compensation.salary_period") else 
-                max(0, ["year","month","day","hour"].index(st.session_state["compensation.salary_period"])),
-            key="compensation.salary_period"
+            index=(
+                0
+                if not st.session_state.get("compensation.salary_period")
+                else max(
+                    0,
+                    ["year", "month", "day", "hour"].index(
+                        st.session_state["compensation.salary_period"]
+                    ),
+                )
+            ),
+            key="compensation.salary_period",
         )
     benefits_label = "Benefits/Perks" if lang != "de" else "Vorteile/Extras"
     health_label = "Healthcare Benefits" if lang != "de" else "Gesundheitsleistungen"
@@ -1044,8 +1184,8 @@ if sal_provided:
             with st.spinner(
                 f"Suggesting common benefits with {benefit_model_label}..."
             ):
-                title = st.session_state.get("job_title", "")
-                industry = st.session_state.get("industry", "")
+                title = st.session_state.get("position.job_title", "")
+                industry = st.session_state.get("company.industry", "")
                 existing = st.session_state.get("benefits", "")
                 try:
                     suggestions = suggest_benefits(
@@ -1124,8 +1264,8 @@ def summary_outputs_page():
     )
     if st.session_state.get("company_logo"):
         st.image(st.session_state["company_logo"], width=150)
-    if st.session_state.get("company_name"):
-        st.subheader(st.session_state["company_name"])
+    if st.session_state.get("company.name"):
+        st.subheader(st.session_state["company.name"])
     if st.session_state.get("company_style_guide"):
         st.markdown(f"**Style Guide:** {st.session_state['company_style_guide']}")
     # Show ESCO occupation classification if available
@@ -1319,7 +1459,7 @@ def summary_outputs_page():
                     audience="hiring managers",
                     num_questions=num_questions,
                     lang=lang,
-                    company_culture=st.session_state.get("company_culture", ""),
+                    company_culture=st.session_state.get("company.culture", ""),
                     tone=st.session_state.get("interview_guide_tone"),
                     model=model,
                 )

@@ -13,15 +13,18 @@ def test_generate_followup_questions(monkeypatch):
     def fake_call_chat_api(
         messages, temperature=0.0, max_tokens=0, model=None
     ) -> str:  # noqa: E501
-        return '[{"field": "salary_range", "question": ' '"What is the salary range?"}]'
+        return (
+            '[{"field": "compensation.salary_min", "question": '
+            '"What is the minimum salary?"}]'
+        )
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
     monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
-    questions = generate_followup_questions({"company_name": "ACME"})
+    questions = generate_followup_questions({"company.name": "ACME"})
     assert questions == [
         {
-            "field": "salary_range",
-            "question": "What is the salary range?",
+            "field": "compensation.salary_min",
+            "question": "What is the minimum salary?",
             "priority": "critical",
             "suggestions": [],
             "prefill": "",
@@ -55,7 +58,7 @@ def test_role_specific_payload(monkeypatch):
     monkeypatch.setattr("question_logic.get_essential_skills", fake_get_skills)
     monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
 
-    generate_followup_questions({"job_title": "Software engineer"})
+    generate_followup_questions({"position.job_title": "Software engineer"})
 
     payload_json = captured["payload"].split("Context:\n", 1)[1]
     data = json.loads(payload_json)
@@ -80,7 +83,7 @@ def test_role_specific_extra_question(monkeypatch):
     monkeypatch.setattr("question_logic.classify_occupation", fake_classify)
     monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
 
-    out = generate_followup_questions({"job_title": "Backend Developer"})
+    out = generate_followup_questions({"position.job_title": "Backend Developer"})
     assert any(q["field"] == "programming_languages" for q in out)
 
 
@@ -106,48 +109,24 @@ def test_optional_field_cap(monkeypatch):
     assert data["rules"]["max_questions"] == 3
 
 
-def test_qualification_split(monkeypatch):
-    """Missing qualifications should trigger split sub-questions."""
-
-    captured = {}
-
-    def fake_call_chat_api(
-        messages, temperature=0.0, max_tokens=0, model=None
-    ) -> str:  # noqa: E501
-        captured["payload"] = messages[1]["content"]
-        return "[]"
-
-    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
-    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
-
-    extracted = {f: "x" for f in CRITICAL_FIELDS if f != "qualifications"}
-    generate_followup_questions(extracted)
-
-    payload_json = captured["payload"].split("Context:\n", 1)[1]
-    data = json.loads(payload_json)
-    assert data["rules"]["max_questions"] == 5
-    assert data["rules"]["split_fields"] == {
-        "qualifications": ["education", "experience"]
-    }
-
-
 def test_prefill_from_rag(monkeypatch):
     """First RAG suggestion should populate prefill value."""
 
     def fake_call_chat_api(
         messages, temperature=0.0, max_tokens=0, model=None
     ) -> str:  # noqa: E501
-        return '[{"field": "location", "question": "Location?"}]'
+        return '[{"field": "location.primary_city", "question": "Location?"}]'
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
     monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
     monkeypatch.setattr(
-        "question_logic._rag_suggestions", lambda *a, **k: {"location": ["Berlin"]}
+        "question_logic._rag_suggestions",
+        lambda *a, **k: {"location.primary_city": ["Berlin"]},
     )
-    out = generate_followup_questions({"company_name": "ACME"})
+    out = generate_followup_questions({"company.name": "ACME"})
     assert out == [
         {
-            "field": "location",
+            "field": "location.primary_city",
             "question": "Location?",
             "priority": "critical",
             "suggestions": ["Berlin"],
@@ -166,7 +145,7 @@ def test_yes_no_default(monkeypatch):
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
     monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
-    out = generate_followup_questions({"company_name": "ACME"})
+    out = generate_followup_questions({"company.name": "ACME"})
     assert out == [
         {
             "field": "visa_sponsorship",
@@ -197,7 +176,7 @@ def test_static_suggestions_merge(monkeypatch):
         "question_logic._rag_suggestions",
         lambda *a, **k: {"programming_languages": ["Python", "Elm"]},
     )
-    out = generate_followup_questions({"job_title": "Backend Developer"})
+    out = generate_followup_questions({"position.job_title": "Backend Developer"})
     item = next(q for q in out if q["field"] == "programming_languages")
     assert item["suggestions"][0:2] == ["Python", "Elm"]
     assert "Java" in item["suggestions"]

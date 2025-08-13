@@ -68,12 +68,12 @@ def _session_list(key: str) -> list[str]:
 def render_salary_dashboard() -> None:
     """Render salary analytics widget in the sidebar."""
 
-    must_skills = _session_list("hard_skills")
-    nice_skills = _session_list("soft_skills")
-    seniority = st.session_state.get("seniority_level", "")
-    location = st.session_state.get("location", "")
-    job_type = st.session_state.get("job_type", "permanent")
-    job_title = st.session_state.get("job_title", "")
+    must_skills = _session_list("requirements.hard_skills")
+    nice_skills = _session_list("requirements.soft_skills")
+    seniority = st.session_state.get("position.seniority_level", "")
+    location = st.session_state.get("location.primary_city", "")
+    job_type = st.session_state.get("employment.job_type", "permanent")
+    job_title = st.session_state.get("position.job_title", "")
 
     value, mode = compute_expected_salary(
         must_skills, nice_skills, seniority, location, job_type
