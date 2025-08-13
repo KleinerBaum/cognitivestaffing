@@ -38,6 +38,33 @@ MODEL_OPTIONS = {
     "GPT-4 (slow, accurate)": "gpt-4",
 }
 
+TONE_CHOICES = {
+    "formal": {
+        "en": "Formal",
+        "de": "Formell",
+        "tone_en": "formal and straightforward",
+        "tone_de": "formal und direkt",
+    },
+    "casual": {
+        "en": "Casual",
+        "de": "Locker",
+        "tone_en": "casual and friendly",
+        "tone_de": "locker und freundlich",
+    },
+    "creative": {
+        "en": "Creative",
+        "de": "Kreativ",
+        "tone_en": "creative and lively",
+        "tone_de": "kreativ und lebendig",
+    },
+    "diversity": {
+        "en": "Diversity-Focused",
+        "de": "Diversitätsbetont",
+        "tone_en": "engaging and inclusive",
+        "tone_de": "ansprechend und inklusiv",
+    },
+}
+
 
 FIELD_SECTION_MAP: dict[str, int] = {
     "job_title": 1,
@@ -1027,6 +1054,31 @@ def summary_outputs_page():
     # Model selection and document generation
     model = model_selector()
 
+    tone_label = "Job ad tone" if lang != "de" else "Tonfall der Stellenanzeige"
+    tone_labels = [
+        choice["en"] if lang != "de" else choice["de"]
+        for choice in TONE_CHOICES.values()
+    ]
+    default_job_tone = (
+        TONE_CHOICES["diversity"]["en"]
+        if lang != "de"
+        else TONE_CHOICES["diversity"]["de"]
+    )
+    selected_job_label = st.selectbox(
+        tone_label,
+        tone_labels,
+        index=tone_labels.index(default_job_tone),
+        key="job_ad_tone_label",
+    )
+    job_tone_key = next(
+        k
+        for k, v in TONE_CHOICES.items()
+        if v["en"] == selected_job_label or v["de"] == selected_job_label
+    )
+    st.session_state["job_ad_tone"] = TONE_CHOICES[job_tone_key][
+        "tone_de" if lang.startswith("de") else "tone_en"
+    ]
+
     if st.button("🎯 Generate Final Job Ad"):
         with st.spinner(
             "Generating job advertisement..."
@@ -1034,7 +1086,11 @@ def summary_outputs_page():
             else "Stellenanzeige wird erstellt..."
         ):
             try:
-                job_ad_text = generate_job_ad(st.session_state, model=model)
+                job_ad_text = generate_job_ad(
+                    st.session_state,
+                    tone=st.session_state.get("job_ad_tone"),
+                    model=model,
+                )
             except Exception:  # pragma: no cover - network failure
                 err = (
                     "❌ Failed to generate job ad. Please try again later."
@@ -1122,6 +1178,32 @@ def summary_outputs_page():
         value=5,
         key="num_questions",
     )
+    guide_tone_label = (
+        "Interview guide tone" if lang != "de" else "Tonfall des Leitfadens"
+    )
+    guide_tone_labels = [
+        choice["en"] if lang != "de" else choice["de"]
+        for choice in TONE_CHOICES.values()
+    ]
+    default_guide_tone = (
+        TONE_CHOICES["diversity"]["en"]
+        if lang != "de"
+        else TONE_CHOICES["diversity"]["de"]
+    )
+    selected_guide_label = st.selectbox(
+        guide_tone_label,
+        guide_tone_labels,
+        index=guide_tone_labels.index(default_guide_tone),
+        key="guide_tone_label",
+    )
+    guide_tone_key = next(
+        k
+        for k, v in TONE_CHOICES.items()
+        if v["en"] == selected_guide_label or v["de"] == selected_guide_label
+    )
+    st.session_state["interview_guide_tone"] = TONE_CHOICES[guide_tone_key][
+        "tone_de" if lang.startswith("de") else "tone_en"
+    ]
     if st.button("📝 Generate Interview Guide"):
         title = st.session_state.get("job_title", "")
         tasks = st.session_state.get("tasks", "") or st.session_state.get(
@@ -1141,6 +1223,7 @@ def summary_outputs_page():
                     num_questions=num_questions,
                     lang=lang,
                     company_culture=st.session_state.get("company_culture", ""),
+                    tone=st.session_state.get("interview_guide_tone"),
                     model=model,
                 )
             except Exception:  # pragma: no cover - network failure
