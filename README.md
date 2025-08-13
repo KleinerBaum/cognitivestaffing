@@ -6,6 +6,7 @@
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with auto-start analysis on upload/URL
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
+- **Instant overview**: review extracted fields in a compact tabbed table before continuing
 - **API helper**: `call_chat_api` supports OpenAI function calls for reliable extraction
 - **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG that dynamically cap the number of questions by field importance, shown inline in relevant steps. Critical questions are highlighted with a red asterisk.
 - **Role-aware extras**: automatically adds occupation-specific questions (e.g., programming languages for developers, campaign types for marketers, board certification for doctors, grade levels for teachers, design tools for designers, shift schedules for nurses, project management methodologies for project managers, machine learning frameworks for data scientists, accounting software for financial analysts).
