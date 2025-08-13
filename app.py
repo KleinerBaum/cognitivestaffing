@@ -34,9 +34,9 @@ if bg_path.exists():
 pg = st.navigation(
     [
         st.Page("wizard.py", title="Home", icon=":material/home:"),  # your main flow
-        st.Page("pages/Advantages.py", title="Advantages", icon=":sparkles:"),
+        st.Page("pages/advantages.py", title="Advantages", icon=":sparkles:"),
         st.Page(
-            "pages/Tech_Overview.py", title="Tech Overview", icon=":material/route:"
+            "pages/tech_overview.py", title="Tech Overview", icon=":material/route:"
         ),
     ]
 )  # st.Page/st.navigation lets you set page labels and icons explicitly.  # :contentReference[oaicite:8]{index=8}
