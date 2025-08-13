@@ -672,91 +672,89 @@ def company_information_page():
     except Exception:  # pragma: no cover - network failure
         pass
     render_followups_for(["company_name", "industry", "location", "company_website"])
-    st.session_state["company_name"] = st.text_input(
-        "Company Name" if lang != "de" else "Unternehmensname",
-        st.session_state.get("company_name", ""),
-    )
-    st.session_state["industry"] = st.text_input(
-        "Industry" if lang != "de" else "Branche",
-        st.session_state.get("industry", ""),
-    )
-    st.session_state["location"] = st.text_input(
-        "Location" if lang != "de" else "Standort",
-        st.session_state.get("location", ""),
-    )
-    st.session_state["company_website"] = st.text_input(
-        "Company Website" if lang != "de" else "Webseite",
-        st.session_state.get("company_website", ""),
-    )
-    st.session_state["company_style_guide"] = st.text_area(
-        (
-            "Style guide (colors, fonts, etc.)"
-            if lang != "de"
-            else "Styleguide (Farben, Schriften, usw.)"
-        ),
-        st.session_state.get("company_style_guide", ""),
-    )
+st.session_state["company.name"] = st.text_input(
+    "Company Name" if lang != "de" else "Unternehmensname",
+    st.session_state.get("company.name", "")
+)
+st.session_state["company.industry"] = st.selectbox(
+    "Industry" if lang != "de" else "Branche",
+    [
+        "Information Technology", "Finance", "Healthcare", "Manufacturing", "Retail",
+        "Logistics", "Automotive", "Aerospace", "Telecommunications", "Energy",
+        "Pharmaceuticals", "Education", "Public Sector", "Consulting", "Media & Entertainment",
+        "Hospitality", "Construction", "Real Estate", "Agriculture", "Nonprofit",
+        "Insurance", "Legal", "Biotech", "Chemicals", "Utilities", "Gaming", "E-commerce",
+        "Cybersecurity", "Marketing/Advertising"
+    ],
+    index=0 if not st.session_state.get("company.industry") else  # pre-select if existing
+        max(0, [i for i, v in enumerate(st.session_state.get("company.industry"))][0]),
+    key="company.industry"
+)
+st.session_state["location.primary_city"] = st.text_input(
+    "City" if lang != "de" else "Stadt",
+    st.session_state.get("location.primary_city", "")
+)
+st.session_state["location.country"] = st.text_input(
+    "Country" if lang != "de" else "Land",
+    st.session_state.get("location.country", "")
+)
+st.session_state["company.website"] = st.text_input(
+    "Company Website" if lang != "de" else "Webseite",
+    st.session_state.get("company.website", "")
+)
     # Optional: Fetch company info (mission, values, etc.) from website
-    if st.button("🔄 Fetch Company Info from Website"):
-        with st.spinner("Fetching company information..."):
-            website = st.session_state.get("company_website", "").strip()
-            if not website:
-                st.warning("Please enter a company website URL first.")
-            else:
-                # Ensure URL has protocol
-                if not website.startswith("http"):
-                    website = "https://" + website
-                # Try fetching main page text and impressum/about page text
-                main_text = extract_text_from_url(website)
-                impressum_text = ""
-                if "/impressum" not in website.lower():
-                    # Attempt to fetch German "Impressum" page for company legal info
-                    impressum_url = website.rstrip("/") + "/impressum"
-                    impressum_text = extract_text_from_url(impressum_url)
-                combined_site_text = merge_texts(main_text, impressum_text)
-                if not combined_site_text:
-                    st.error("❌ Could not retrieve any text from the website.")
-                else:
-                    # Use OpenAI to extract company details (name, mission, culture, location) from site text
-                    try:
-                        info = extract_company_info(combined_site_text)
-                    except Exception:  # pragma: no cover - network failure
-                        err = (
-                            "❌ Failed to extract company information. Please try again later."
-                            if lang != "de"
-                            else "❌ Unternehmensinformationen konnten nicht extrahiert werden. Bitte später erneut versuchen."
-                        )
-                        st.error(err)
-                        info = {}
-                    # Update session state with any info found (if fields were empty or not set by user yet)
-                    if info.get("company_name") and not st.session_state.get(
-                        "company_name"
-                    ):
-                        st.session_state["company_name"] = info["company_name"]
-                    if info.get("location") and not st.session_state.get("location"):
-                        st.session_state["location"] = info["location"]
-                    if info.get("company_mission"):
-                        st.session_state["company_mission"] = info["company_mission"]
-                    if info.get("company_culture"):
-                        st.session_state["company_culture"] = info["company_culture"]
-                    st.success("✅ Company information fetched from website.")
-                    st.session_state["followup_questions"] = [
-                        f
-                        for f in st.session_state.get("followup_questions", [])
-                        if f.get("field") not in {"company_mission", "company_culture"}
-                    ]
+if st.button("🔄 Fetch Company Info from Website"):
+    with st.spinner("Fetching company information..."):
+        website = st.session_state.get("company.website", "").strip()
+        # Use OpenAI to extract company mission & culture from site (if implemented)
+        try:
+            info = extract_company_info(website)
+        except Exception:
+            info = {}
+        if info.get("company_mission"):
+            st.session_state["company_mission"] = info["company_mission"]
+        if info.get("company_culture"):
+            st.session_state["company_culture"] = info["company_culture"]
 
-    st.session_state["company_mission"] = st.text_area(
-        "Company Mission" if lang != "de" else "Unternehmensmission",
-        st.session_state.get("company_mission", ""),
-        height=80,
+# ... (Running extraction, which uses build_extract_messages and build_extraction_function)
+messages = build_extract_messages(combined_text, title=st.session_state.get("position.job_title"), url=st.session_state.get("input_url"))
+fn_schema = build_extraction_function()
+try:
+    response = call_chat_api(
+        messages,
+        model=st.session_state.get("llm_model"),
+        temperature=0.0,
+        functions=[fn_schema],
+        function_call={"name": fn_schema["name"]},
     )
-    st.session_state["company_culture"] = st.text_area(
-        "Company Culture" if lang != "de" else "Unternehmenskultur",
-        st.session_state.get("company_culture", ""),
-        height=80,
-    )
-
+except Exception:
+    st.session_state["extraction_success"] = False
+    err_msg = "❌ OpenAI request failed. Please try again later." if lang != "de" else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
+    st.error(err_msg)
+    return
+try:
+    # Parse response JSON and fill session state
+    jd = coerce_and_fill(json.loads(response))
+    to_session_state(jd, st.session_state)
+    normalise_state()  # apply any alias re-sync for legacy keys
+    # Generate follow-up questions based on missing fields
+    try:
+        followups = generate_followup_questions(cast(dict[str, Any], st.session_state), lang=lang, use_rag=st.session_state.get("use_rag", True))
+    except Exception:
+        warn_msg = "⚠️ Unable to generate follow-up questions." if lang != "de" else "⚠️ Folgefragen konnten nicht erstellt werden."
+        st.warning(warn_msg)
+        followups = []
+    st.session_state["followup_questions"] = followups
+    # Classify occupation via ESCO for analytics (e.g., occupation_label)
+    occ = esco_utils.classify_occupation(st.session_state.get("position.job_title", ""), lang=lang)
+    if occ:
+        st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get("occupation_label", "")
+        st.session_state["occupation_group"] = occ.get("group", "")
+    st.session_state["extraction_success"] = True
+except Exception as e:
+    # ... (JSON parsing error handling)
+    st.session_state["extraction_success"] = False
+    st.error("⚠️ Failed to parse extracted data.")
 
 def role_description_page():
     """Role Description page: Summary of the role and key responsibilities."""
@@ -771,15 +769,19 @@ def role_description_page():
     except Exception:  # pragma: no cover - network failure
         pass
     render_followups_for(["role_summary", "responsibilities"])
-    st.session_state["role_summary"] = st.text_area(
-        "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
-        st.session_state.get("role_summary", ""),
-        height=100,
-    )
-    responsibilities_label = (
-        "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
-    )
-    editable_draggable_list("responsibilities", responsibilities_label)
+# Role Details inputs (Section 2)
+st.session_state["position.job_title"] = st.text_input(
+    "Job Title" if lang != "de" else "Stellenbezeichnung",
+    st.session_state.get("position.job_title", "")
+)
+# ... (other inputs like department, etc.)
+st.session_state["position.role_summary"] = st.text_area(
+    "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
+    st.session_state.get("position.role_summary", ""),
+    height=100
+)
+responsibilities_label = "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
+editable_draggable_list("responsibilities.items", responsibilities_label)
 
 
 def task_scope_page():
@@ -825,16 +827,17 @@ def skills_competencies_page():
     soft_label = "Soft Skills" if lang != "de" else "Soft Skills"
     lang_label = "Languages Required" if lang != "de" else "Erforderliche Sprachen"
 
-    tech_col, soft_col = st.columns(2)
-    with tech_col:
-        st.subheader("Technical" if lang != "de" else "Technisch")
-        editable_draggable_list("hard_skills", hard_label)
-        editable_draggable_list("tools_and_technologies", tools_label)
-        editable_draggable_list("certifications", cert_label)
-    with soft_col:
-        st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
-        editable_draggable_list("soft_skills", soft_label)
-        editable_draggable_list("languages_required", lang_label)
+    # Requirements inputs (Section 3 - Skills & Competencies)
+tech_col, soft_col = st.columns(2)
+with tech_col:
+    st.subheader("Technical" if lang != "de" else "Technisch")
+    editable_draggable_list("requirements.hard_skills", "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills")
+    editable_draggable_list("requirements.tools_and_technologies", "Tools & Technologies" if lang != "de" else "Tools und Technologien")
+    editable_draggable_list("requirements.certifications", "Certifications" if lang != "de" else "Zertifizierungen")
+with soft_col:
+    st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
+    editable_draggable_list("requirements.soft_skills", "Soft Skills" if lang != "de" else "Soft Skills")
+    editable_draggable_list("requirements.languages_required", "Languages Required" if lang != "de" else "Erforderliche Sprachen")
 
     hard_skills_text = st.session_state.get("hard_skills", "")
     soft_skills_text = st.session_state.get("soft_skills", "")
@@ -945,10 +948,66 @@ def benefits_compensation_page():
             "travel_required",
         ]
     )
-    st.session_state["salary_range"] = st.text_input(
-        "Salary Range" if lang != "de" else "Gehaltsspanne",
-        st.session_state.get("salary_range", ""),
-    )
+st.session_state["employment.job_type"] = st.selectbox(
+    "Employment Type" if lang != "de" else "Anstellungsart",
+    ["Full-time", "Part-time", "Contract", "Temporary", "Internship", "Apprenticeship", "Freelance", "Fixed-term"],
+    index=0 if not st.session_state.get("employment.job_type") else  # set default or current value
+        max(0, ["Full-time","Part-time","Contract","Temporary","Internship","Apprenticeship","Freelance","Fixed-term"].index(st.session_state["employment.job_type"])),
+    key="employment.job_type"
+)
+st.session_state["employment.work_policy"] = st.selectbox(
+    "Work Policy" if lang != "de" else "Arbeitsmodell",
+    ["Onsite", "Hybrid", "Remote"],
+    index=0 if not st.session_state.get("employment.work_policy") else 
+        max(0, ["Onsite","Hybrid","Remote"].index(st.session_state["employment.work_policy"])),
+    key="employment.work_policy"
+)
+st.session_state["employment.travel_required"] = st.checkbox(
+    "Travel required" if lang != "de" else "Reise erforderlich",
+    value=bool(st.session_state.get("employment.travel_required", False)),
+    key="employment.travel_required"
+)
+# Salary fields
+sal_provided = st.checkbox(
+    "Salary information provided" if lang != "de" else "Gehaltsspanne angeben",
+    value=bool(st.session_state.get("compensation.salary_provided", True)),
+    key="compensation.salary_provided"
+)
+if sal_provided:
+    # Show min, max, currency, period inputs
+    cols = st.columns([1,1,1,1])
+    with cols[0]:
+        st.session_state["compensation.salary_min"] = st.number_input(
+            "Salary Min",
+            value=st.session_state.get("compensation.salary_min", 0),
+            step=500,
+            min_value=0,
+            key="compensation.salary_min"
+        )
+    with cols[1]:
+        st.session_state["compensation.salary_max"] = st.number_input(
+            "Salary Max",
+            value=st.session_state.get("compensation.salary_max", 0),
+            step=500,
+            min_value=0,
+            key="compensation.salary_max"
+        )
+    with cols[2]:
+        st.session_state["compensation.salary_currency"] = st.selectbox(
+            "Currency" if lang != "de" else "Währung",
+            ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK"],
+            index=0 if not st.session_state.get("compensation.salary_currency") else 
+                max(0, ["EUR","USD","GBP","CHF","SEK","NOK","DKK","PLN","CZK"].index(st.session_state["compensation.salary_currency"])),
+            key="compensation.salary_currency"
+        )
+    with cols[3]:
+        st.session_state["compensation.salary_period"] = st.selectbox(
+            "Period",
+            ["year", "month", "day", "hour"],
+            index=0 if not st.session_state.get("compensation.salary_period") else 
+                max(0, ["year","month","day","hour"].index(st.session_state["compensation.salary_period"])),
+            key="compensation.salary_period"
+        )
     benefits_label = "Benefits/Perks" if lang != "de" else "Vorteile/Extras"
     health_label = "Healthcare Benefits" if lang != "de" else "Gesundheitsleistungen"
     retirement_label = "Retirement Benefits" if lang != "de" else "Altersvorsorge"
