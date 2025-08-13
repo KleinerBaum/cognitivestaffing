@@ -154,8 +154,11 @@ def show_navigation(current_step: int, total_steps: int) -> None:
     """Render Previous/Next navigation buttons for the wizard.
 
     Prevents advancing while any critical field on current or previous pages
-    is left blank.
+    is left blank. The intro page (step 0) hides navigation controls.
     """
+
+    if current_step == 0:
+        return
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
@@ -290,33 +293,33 @@ def intro_page() -> None:
     """Display an introductory page explaining the wizard flow."""
     lang = st.session_state.get("lang", "en")
     if lang == "de":
-        st.title("Willkommen bei Vacalyzer")
+        st.title("Erkennen Sie Ihre Recruiting-Bedürfnisse")
         st.write(
-            "Dieses Tool hilft Ihnen, eine Stellenanzeige zu analysieren und fehlende Informationen zu sammeln."
+            "Vermeiden Sie kostspielige Informationsverluste im ersten Schritt jedes Recruiting-Prozesses, sammeln Sie alle unausgesprochenen Informationen für eine spezifische Vakanz, entdecken Sie verborgene Potenziale und nutzen Sie diese auf vielfältige Weise, um nicht nur Geld und Zeit zu sparen, sondern auch das Frustrationsniveau aller Beteiligten zu senken und nachhaltigen Recruiting-Erfolg sicherzustellen."
         )
         st.subheader("Sie benötigen")
         st.markdown("- Stellenanzeige (URL oder PDF)")
         st.markdown("- Kenntnisse über Unternehmensdetails")
         st.write(
-            "Der Prozess umfasst 9 Schritte und generiert am Ende eine Stellenanzeige sowie einen Interviewleitfaden."
+            "Der Prozess passt sich dynamisch an die von Ihnen bereitgestellten Informationen an und gestaltet die Datenerhebung individuell für Ihre spezifische Vakanz."
         )
         st.checkbox("Intro beim nächsten Mal überspringen", key="skip_intro")
-        if st.button("🚀 Los geht's"):
+        if st.button("🚀 Analyse starten"):
             st.session_state["current_section"] = 1
             st.rerun()
     else:
-        st.title("Welcome to Vacalyzer")
+        st.title("Detect Your Recruitment Needs")
         st.write(
-            "This tool will help you analyze a job ad and gather missing information."
+            "Avoid expensive Information Loss on the 1st Step of every Recruitment-Process, collect all unspoken information for a specific vacancy, detect hidden potentials and use it in various ways in order to not only save money, but also time, reduce the level of frustration of all involved parties and ensure sustainable recruitment-success"
         )
         st.subheader("You'll need")
         st.markdown("- Job description (URL or PDF)")
         st.markdown("- Knowledge of company details")
         st.write(
-            "The process has 9 steps and will generate a job ad and interview guide at the end."
+            "The Process is designed to dynamically adjust to the information you provide and tailor the gathering process to your specific Vacancy."
         )
         st.checkbox("Skip intro next time", key="skip_intro")
-        if st.button("🚀 Get Started"):
+        if st.button("🚀 Start Discovery"):
             st.session_state["current_section"] = 1
             st.rerun()
 
