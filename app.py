@@ -1,89 +1,44 @@
+from pathlib import Path
+import base64
 import streamlit as st
-from config import DEFAULT_LANGUAGE
-from components.tailwind_injector import inject_tailwind
-from components.salary_dashboard import render_salary_dashboard
-from wizard import (
-    apply_global_styling,
-    show_navigation,
-    intro_page,
-    start_discovery_page,
-    company_information_page,
-    role_description_page,
-    task_scope_page,
-    skills_competencies_page,
-    benefits_compensation_page,
-    recruitment_process_page,
-    summary_outputs_page,
-)
 
+# --- Page defaults (title + favicon work across pages) ---
 st.set_page_config(
-    page_title="Vacalyzer - Recruitment Need Analysis",
-    layout="centered",
-)
+    page_title="Vacalyser — AI Recruitment",
+    page_icon="images/logo_icon.png",  # or emoji like "🤖"
+    layout="wide",
+)  # st.set_page_config is the official way to set title/icon/layout.  # :contentReference[oaicite:6]{index=6}
 
-# Initialize session state defaults
-if "skip_intro" not in st.session_state:
-    st.session_state["skip_intro"] = False
-if "current_section" not in st.session_state:
-    st.session_state["current_section"] = 0
-if st.session_state.get("skip_intro") and st.session_state["current_section"] == 0:
-    st.session_state["current_section"] = 1
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "de" if DEFAULT_LANGUAGE.startswith("de") else "en"
-if "llm_model" not in st.session_state:
-    st.session_state["llm_model"] = None
-if "theme" not in st.session_state:
-    st.session_state["theme"] = "dark"
-if "company_logo" not in st.session_state:
-    st.session_state["company_logo"] = None
+# --- Brand: show logo above the navigation (app + sidebar) ---
+st.logo(
+    "images/logo_full.png",  # your horizontal logo
+    icon_image="images/logo_icon.png",  # small square icon when sidebar collapsed
+    link="https://github.com/KleinerBaum/cognitivestaffing",
+)  # st.logo renders in the upper-left of app and sidebar.  # :contentReference[oaicite:7]{index=7}
 
-# Sidebar branding options
-logo_file = st.sidebar.file_uploader("Company Logo", type=["png", "jpg", "jpeg"])
-if logo_file:
-    st.session_state["company_logo"] = logo_file.getvalue()
-if st.session_state.get("company_logo"):
-    st.sidebar.image(st.session_state["company_logo"], use_container_width=True)
-else:
-    st.sidebar.image(
-        "images/color1_logo_transparent_background.png", use_container_width=True
+# --- Load the futuristic CSS ---
+css_path = Path("styles/vacalyser.css")
+st.markdown(css_path.read_text(), unsafe_allow_html=True)
+
+# --- Inject background image as a CSS variable (base64) ---
+bg_path = Path("images/AdobeStock_506577005.jpeg")
+if bg_path.exists():
+    b64 = base64.b64encode(bg_path.read_bytes()).decode()
+    st.markdown(
+        f"<style>:root{{--bg-image: url('data:image/jpeg;base64,{b64}');}}</style>",
+        unsafe_allow_html=True,
     )
-theme_choice = st.sidebar.selectbox(
-    "Theme",
-    ["Dark", "Light"],
-    0 if st.session_state["theme"] == "dark" else 1,
-)
-st.session_state["theme"] = "dark" if theme_choice == "Dark" else "light"
 
-# Inject Tailwind CSS for styling
-inject_tailwind(theme=st.session_state["theme"])
+# --- Define navigation so the first entry is 'Home' and other pages get icons ---
+# Adjust file paths/titles to match your repo's scripts in ./pages
+pg = st.navigation(
+    [
+        st.Page("wizard.py", title="Home", icon=":material/home:"),  # your main flow
+        st.Page("pages/Advantages.py", title="Advantages", icon=":sparkles:"),
+        st.Page(
+            "pages/Tech_Overview.py", title="Tech Overview", icon=":material/route:"
+        ),
+    ]
+)  # st.Page/st.navigation lets you set page labels and icons explicitly.  # :contentReference[oaicite:8]{index=8}
 
-# Apply global styles
-apply_global_styling(theme=st.session_state["theme"])
-
-# Sidebar language switcher
-lang_choice = st.sidebar.selectbox(
-    "Language / Sprache",
-    ["English", "Deutsch"],
-    0 if st.session_state["lang"] == "en" else 1,
-)
-st.session_state["lang"] = "de" if lang_choice == "Deutsch" else "en"
-
-# Define wizard sections and their corresponding page functions
-sections = [
-    {"name": "Intro", "func": intro_page},
-    {"name": "Start", "func": start_discovery_page},
-    {"name": "Company Info", "func": company_information_page},
-    {"name": "Role Description", "func": role_description_page},
-    {"name": "Tasks", "func": task_scope_page},
-    {"name": "Skills", "func": skills_competencies_page},
-    {"name": "Benefits", "func": benefits_compensation_page},
-    {"name": "Process", "func": recruitment_process_page},
-    {"name": "Summary", "func": summary_outputs_page},
-]
-
-# Render current section
-idx = st.session_state["current_section"]
-total = len(sections)
-sections[idx]["func"]()
-show_navigation(idx, total)
-render_salary_dashboard()
+pg.run()
