@@ -364,45 +364,43 @@ def _dedupe_across_fields(jd: VacalyserJD) -> VacalyserJD:
     Field order follows ALL_FIELDS.
     """
 
-    def _norm(text: str) -> str:
-        return re.sub(r"\W+", " ", text).strip().lower()
+    def _norm(text: Any) -> str:
+        """Normalize any value to lowercase alphanumeric string for dedupe."""
+        return re.sub(r"\W+", " ", str(text)).strip().lower()
 
+    def _get(path: str) -> Any:
+        cursor: Any = jd
+        for part in path.split("."):
+            cursor = getattr(cursor, part)
+        return cursor
+
+    def _set(path: str, value: Any) -> None:
+        cursor: Any = jd
+        parts = path.split(".")
+        for part in parts[:-1]:
+            cursor = getattr(cursor, part)
+        setattr(cursor, parts[-1], value)
+
+    defaults = VacalyserJD()
     seen: set[str] = set()
     for field in ALL_FIELDS:
+        val = _get(field)
         if field in LIST_FIELDS:
-            # nested list field
-            if "." in field:
-                group, subfield = field.split(".", 1)
-                list_val: List[str] = getattr(getattr(jd, group), subfield)
-            else:
-                list_val = getattr(jd, field)
             filtered: List[str] = []
-            for item in list_val:
+            for item in val:
                 norm_item = _norm(item)
                 if norm_item and norm_item not in seen:
                     seen.add(norm_item)
                     filtered.append(item)
-            # set the filtered list back
-            if "." in field:
-                group, subfield = field.split(".", 1)
-                setattr(getattr(jd, group), subfield, filtered)
-            else:
-                setattr(jd, field, filtered)
+            _set(field, filtered)
         else:
-            # nested string field
-            if "." in field:
-                group, subfield = field.split(".", 1)
-                val = getattr(getattr(jd, group), subfield)
-            else:
-                val = getattr(jd, field)
             norm_val = _norm(val)
             if norm_val in seen and norm_val:
-                # duplicate found, clear this field
-                if "." in field:
-                    group, subfield = field.split(".", 1)
-                    setattr(getattr(jd, group), subfield, "")
-                else:
-                    setattr(jd, field, "")
+                # duplicate found, reset to default value
+                cursor: Any = defaults
+                for part in field.split("."):
+                    cursor = getattr(cursor, part)
+                _set(field, cursor)
             elif norm_val:
                 seen.add(norm_val)
     return jd
@@ -434,10 +432,16 @@ def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
         if old in flat and new not in flat:
             flat[new] = flat.pop(old)
     data = flat
-    # 2) insert missing keys with defaults
+    # 2) insert missing keys with defaults from the canonical model
+    #    This preserves numeric/boolean defaults instead of generic strings.
+    _defaults = VacalyserJD()
     for key in ALL_FIELDS:
-        if key not in data:
-            data[key] = [] if key in LIST_FIELDS else ""
+        if key in data:
+            continue
+        cursor: Any = _defaults
+        for part in key.split("."):
+            cursor = getattr(cursor, part)
+        data[key] = cursor
     # 3) coerce list fields
     for key in LIST_FIELDS:
         value = data.get(key, [])
