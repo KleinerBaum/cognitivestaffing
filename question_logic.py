@@ -536,7 +536,11 @@ def generate_followup_questions(
         else:
             # Default question format
             label = field.split(".")[-1].replace("_", " ")
-            q_text = f"Please provide the {label}."
+            q_text = (
+                f"Please provide the {label}."
+                if lang != "de"
+                else f"Bitte geben Sie {label} an."
+            )
         priority = _priority_for(field, field in missing_esco_skills)
         suggestions = suggestions_map.get(field, [])
         prefill = None
