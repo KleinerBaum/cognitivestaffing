@@ -240,6 +240,7 @@ def generate_interview_guide(
     num_questions: int = 5,
     lang: str = "en",
     company_culture: str = "",
+    model: str | None = None,
 ) -> str:
     """Generate an interview guide (questions + scoring rubrics) for the role.
 
@@ -277,10 +278,10 @@ def generate_interview_guide(
                 "\nInclude at least one question assessing cultural fit."
             )
     messages = [{"role": "user", "content": prompt}]
-    return call_chat_api(messages, temperature=0.7, max_tokens=1000)
+    return call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
 
 
-def generate_job_ad(session_data: dict) -> str:
+def generate_job_ad(session_data: dict, model: str | None = None) -> str:
     """Generate a compelling job advertisement using the collected session data."""
 
     def _format(value: Any) -> str:
@@ -368,7 +369,53 @@ def generate_job_ad(session_data: dict) -> str:
             prompt += "\n" + "\n".join(lines)
             prompt += "\nInclude a brief statement about the company's mission or values to strengthen employer branding."
     messages = [{"role": "user", "content": prompt}]
-    return call_chat_api(messages, temperature=0.7, max_tokens=600)
+    return call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
+
+
+def refine_document(original: str, feedback: str, model: str | None = None) -> str:
+    """Adjust a generated document using user feedback.
+
+    Args:
+        original: The original generated document.
+        feedback: Instructions from the user describing desired changes.
+        model: Optional OpenAI model override.
+
+    Returns:
+        The revised document text.
+    """
+    prompt = (
+        "Revise the following document based on the user instructions.\n"
+        f"Document:\n{original}\n\n"
+        f"Instructions: {feedback}"
+    )
+    messages = [{"role": "user", "content": prompt}]
+    return call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
+
+
+def what_happened(
+    session_data: dict,
+    output: str,
+    doc_type: str = "document",
+    model: str | None = None,
+) -> str:
+    """Explain how a document was generated and which keys were used.
+
+    Args:
+        session_data: Session state containing source fields.
+        output: The generated document text.
+        doc_type: Human-readable name of the document.
+        model: Optional OpenAI model override.
+
+    Returns:
+        Explanation text summarizing the generation process.
+    """
+    keys_used = [k for k, v in session_data.items() if v]
+    prompt = (
+        f"Explain how the following {doc_type} was generated using the keys: {', '.join(keys_used)}.\n"
+        f"{doc_type.title()}:\n{output}"
+    )
+    messages = [{"role": "user", "content": prompt}]
+    return call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
 
 
 def extract_company_info(text: str) -> dict:
