@@ -304,18 +304,47 @@ def generate_job_ad(
         # (session_key, English Label, German Label)
         ("position.job_title", "Job Title", "Jobtitel"),
         ("company.name", "Company", "Unternehmen"),
+        ("company.size", "Company Size", "Unternehmensgröße"),
         ("location.primary_city", "Location", "Standort"),
         ("company.industry", "Industry", "Branche"),
         ("employment.job_type", "Job Type", "Anstellungsart"),
+        ("employment.employment_term", "Employment Term", "Vertragsart"),
         ("employment.work_policy", "Work Policy", "Arbeitsmodell"),
+        ("employment.work_schedule", "Work Schedule", "Arbeitszeit"),
+        (
+            "employment.work_hours_per_week",
+            "Hours per Week",
+            "Wochenstunden",
+        ),
         ("employment.travel_required", "Travel Required", "Reise erforderlich"),
+        (
+            "employment.relocation_support",
+            "Relocation Assistance",
+            "Umzugsunterstützung",
+        ),
+        (
+            "employment.visa_sponsorship",
+            "Visa Sponsorship",
+            "Visum-Patenschaft",
+        ),
         ("position.role_summary", "Role Summary", "Rollenbeschreibung"),
         ("responsibilities.items", "Key Responsibilities", "Wichtigste Aufgaben"),
         ("requirements.hard_skills", "Hard Skills", "Technische Fähigkeiten"),
         ("requirements.soft_skills", "Soft Skills", "Soziale Fähigkeiten"),
         ("compensation.benefits", "Benefits", "Leistungen"),
+        (
+            "learning_opportunities",
+            "Learning & Development",
+            "Weiterbildung & Entwicklung",
+        ),
+        (
+            "compensation.learning_budget",
+            "Learning Budget",
+            "Weiterbildungsbudget",
+        ),
         ("position.reporting_line", "Reporting Line", "Berichtsweg"),
         ("position.team_structure", "Team Structure", "Teamstruktur"),
+        ("position.team_size", "Team Size", "Teamgröße"),
         ("position.application_deadline", "Application Deadline", "Bewerbungsschluss"),
         ("position.seniority_level", "Seniority Level", "Erfahrungsebene"),
         (
@@ -338,8 +367,13 @@ def generate_job_ad(
         if not formatted:
             continue
         label = label_de if lang.startswith("de") else label_en
-        # For booleans like travel_required, convert to Yes/No text
-        if key == "employment.travel_required":
+        # Convert boolean fields to Yes/No text
+        boolean_fields = {
+            "employment.travel_required",
+            "employment.relocation_support",
+            "employment.visa_sponsorship",
+        }
+        if key in boolean_fields:
             formatted = "Yes" if str(val).lower() in ["true", "yes", "1"] else "No"
         details.append(f"{label}: {formatted}")
     # Handle salary range as a special case
@@ -360,10 +394,8 @@ def generate_job_ad(
                 salary_str = f"{max_sal or min_sal:,} {currency} per {period}"
             details.append(f"{salary_label}: {salary_str}")
     # Add mission or culture if provided (optional context)
-    mission = data.get(
-        "company_mission", ""
-    ).strip()  # company mission is outside schema (additional field)
-    culture = data.get("company_culture", "").strip()
+    mission = (data.get("company_mission") or data.get("company.mission", "")).strip()
+    culture = (data.get("company_culture") or data.get("company.culture", "")).strip()
     if lang.startswith("de"):
         prompt = (
             "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
@@ -371,12 +403,12 @@ def generate_job_ad(
             + f"\nTonfall: {tone}."
         )
         if mission or culture:
-            lines = []
+            lines_de: list[str] = []
             if mission:
-                lines.append(f"Unsere Mission: {mission}")
+                lines_de.append(f"Unternehmensmission: {mission}")
             if culture:
-                lines.append(f"Unternehmenskultur: {culture}")
-            prompt += "\n" + "\n".join(lines)
+                lines_de.append(f"Unternehmenskultur: {culture}")
+            prompt += "\n" + "\n".join(lines_de)
             prompt += "\nFüge einen Satz über Mission oder Werte des Unternehmens hinzu, um das Employer Branding zu stärken."
     else:
         prompt = (
@@ -385,12 +417,12 @@ def generate_job_ad(
             + f"\nTone: {tone}."
         )
         if mission or culture:
-            lines = []
+            lines_en: list[str] = []
             if mission:
-                lines.append(f"Our mission: {mission}")
+                lines_en.append(f"Company Mission: {mission}")
             if culture:
-                lines.append(f"Company culture: {culture}")
-            prompt += "\n" + "\n".join(lines)
+                lines_en.append(f"Company Culture: {culture}")
+            prompt += "\n" + "\n".join(lines_en)
             prompt += "\nInclude a brief statement about the company's mission or values to strengthen employer branding."
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
