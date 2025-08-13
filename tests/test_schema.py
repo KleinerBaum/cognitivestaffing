@@ -60,6 +60,14 @@ def test_list_coercion_split_and_dedupe() -> None:
     assert jd.requirements.hard_skills == ["Python", "Java"]
 
 
+def test_coerce_flat_aliases() -> None:
+    data = {"job_title": "Dev", "company_name": "Acme", "location": "Berlin"}
+    jd = coerce_and_fill(data)
+    assert jd.position.job_title == "Dev"
+    assert jd.company.name == "Acme"
+    assert jd.location.primary_city == "Berlin"
+
+
 def test_cross_field_dedupe() -> None:
     data = {
         "remote_policy": "Fully remote",

@@ -300,6 +300,9 @@ STRING_FIELDS: set[str] = set(ALL_FIELDS) - LIST_FIELDS
 
 # Aliases for backward compatibility (map old keys to new keys)
 ALIASES: Dict[str, str] = {
+    "company_name": "company.name",
+    "job_title": "position.job_title",
+    "location": "location.primary_city",
     "contract_type": "employment.job_type",
     "remote_policy": "employment.work_policy",
     "experience_level": "position.seniority_level",
