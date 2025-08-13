@@ -5,9 +5,8 @@ import streamlit as st
 # --- Page defaults (title + favicon work across pages) ---
 st.set_page_config(
     page_title="Vacalyser — AI Recruitment",
-    page_icon="images/logo_icon.png",  # or emoji like "🤖"
-    layout="wide",
-)  # st.set_page_config is the official way to set title/icon/layout.  # :contentReference[oaicite:6]{index=6}
+    page_icon="images/color1_logo_transparent_background.png",  # or emoji like "🤖"
+    )  # st.set_page_config is the official way to set title/icon/layout.  # :contentReference[oaicite:6]{index=6}
 
 # --- Brand: show logo above the navigation (app + sidebar) ---
 st.logo(
