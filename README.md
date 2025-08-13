@@ -17,7 +17,7 @@
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Categorized summary**: groups related fields under clear headings for faster review
-- **Missing info alerts**: highlights empty critical fields in the summary and lets you jump back to fill them
+- **Missing info alerts**: highlights empty critical fields and blocks navigation until they're filled, letting you jump back to fix them
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions

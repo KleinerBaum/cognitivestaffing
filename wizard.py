@@ -104,8 +104,59 @@ def apply_global_styling() -> None:
     )
 
 
-def show_navigation(current_step: int, total_steps: int):
-    """Render Previous/Next navigation buttons for the wizard."""
+def _is_blank(value: Any) -> bool:
+    """Return ``True`` if a value is empty."""
+
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, (list, tuple, set)):
+        return len(value) == 0
+    return False
+
+
+def get_missing_critical_fields(max_section: int | None = None) -> list[str]:
+    """List critical fields that are still empty up to ``max_section``.
+
+    Args:
+        max_section: Highest wizard section to inspect. ``None`` checks all
+            sections.
+
+    Returns:
+        Sorted list of missing field names.
+    """
+
+    limit = (
+        max_section
+        if max_section is not None
+        else max(FIELD_SECTION_MAP.values(), default=0)
+    )
+    missing: set[str] = set()
+    for field in CRITICAL_FIELDS:
+        section = FIELD_SECTION_MAP.get(field, 0)
+        if section <= limit and _is_blank(st.session_state.get(field)):
+            missing.add(field)
+
+    followups = st.session_state.get("followup_questions", [])
+    for item in followups:
+        field = item.get("field")
+        if not field or item.get("priority") != "critical":
+            continue
+        section = FIELD_SECTION_MAP.get(field, limit)
+        if section <= limit and _is_blank(st.session_state.get(field)):
+            missing.add(field)
+
+    return sorted(missing)
+
+
+def show_navigation(current_step: int, total_steps: int) -> None:
+    """Render Previous/Next navigation buttons for the wizard.
+
+    Prevents advancing while any critical field on current or previous pages
+    is left blank.
+    """
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if current_step > 0:
@@ -115,8 +166,14 @@ def show_navigation(current_step: int, total_steps: int):
     with col3:
         if current_step < total_steps - 1:
             if st.button("Next ➡"):
-                st.session_state["current_section"] += 1
-                st.rerun()
+                missing = get_missing_critical_fields(current_step)
+                if missing:
+                    st.warning(
+                        f"Please fill the required fields before continuing: {', '.join(missing)}"
+                    )
+                else:
+                    st.session_state["current_section"] += 1
+                    st.rerun()
 
 
 def render_followups_for(fields: list[str] | None = None) -> None:
