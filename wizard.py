@@ -1036,13 +1036,21 @@ with soft_col:
             "suggested_soft_skills"
         ):
             st.success(
-                "✔️ Skill suggestions generated. Click on a suggestion to add it."
+                (
+                    "✔️ Skill suggestions generated. Click on a suggestion to add it."
+                    if lang != "de"
+                    else "✔️ Skill-Vorschläge generiert. Klicken Sie auf einen Vorschlag, um ihn hinzuzufügen."
+                )
             )
     # If suggestions are available, display them as chips for selection
     tech_list = st.session_state.get("suggested_tech_skills", [])
     soft_list = st.session_state.get("suggested_soft_skills", [])
     if tech_list:
-        st.caption("**Suggested Technical Skills:**")
+        st.caption(
+            "**Suggested Technical Skills:**"
+            if lang != "de"
+            else "**Vorgeschlagene technische Fähigkeiten:**"
+        )
         cols = st.columns(len(tech_list))
         for i, (col, skill) in enumerate(zip(cols, tech_list)):
             with col:
@@ -1058,7 +1066,11 @@ with soft_col:
                     ]
                     st.rerun()
     if soft_list:
-        st.caption("**Suggested Soft Skills:**")
+        st.caption(
+            "**Suggested Soft Skills:**"
+            if lang != "de"
+            else "**Vorgeschlagene Soft Skills:**"
+        )
         cols = st.columns(len(soft_list))
         for j, (col, skill) in enumerate(zip(cols, soft_list)):
             with col:
