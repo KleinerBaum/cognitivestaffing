@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import streamlit as st
-from typing import Any, cast
+from typing import Any, cast, TypedDict
 
 from core.ss_bridge import from_session_state, to_session_state
 from core.schema import coerce_and_fill
@@ -54,6 +54,87 @@ FIELD_SECTION_MAP: dict[str, int] = {
     "remote_policy": 6,
 }
 """Map critical field names to wizard section indices for navigation."""
+
+
+class SummaryCategory(TypedDict):
+    """Structure for grouping summary fields."""
+
+    en: str
+    de: str
+    fields: list[str]
+
+
+SUMMARY_CATEGORIES: list[SummaryCategory] = [
+    {
+        "en": "Company & Context",
+        "de": "Unternehmen & Kontext",
+        "fields": [
+            "company_name",
+            "company_website",
+            "industry",
+            "location",
+            "company_mission",
+            "company_culture",
+        ],
+    },
+    {
+        "en": "Role Details",
+        "de": "Rollenbeschreibung",
+        "fields": [
+            "job_title",
+            "role_summary",
+            "responsibilities",
+            "tasks",
+            "department",
+            "team_structure",
+            "reporting_line",
+        ],
+    },
+    {
+        "en": "Requirements",
+        "de": "Anforderungen",
+        "fields": [
+            "qualifications",
+            "hard_skills",
+            "soft_skills",
+            "tools_and_technologies",
+            "languages_required",
+            "certifications",
+            "seniority_level",
+        ],
+    },
+    {
+        "en": "Benefits & Conditions",
+        "de": "Leistungen & Konditionen",
+        "fields": [
+            "job_type",
+            "remote_policy",
+            "onsite_requirements",
+            "travel_required",
+            "working_hours",
+            "salary_range",
+            "bonus_compensation",
+            "benefits",
+            "health_benefits",
+            "retirement_benefits",
+            "learning_opportunities",
+            "equity_options",
+            "relocation_assistance",
+            "visa_sponsorship",
+        ],
+    },
+    {
+        "en": "Process",
+        "de": "Prozess",
+        "fields": [
+            "target_start_date",
+            "application_deadline",
+            "performance_metrics",
+            "interview_stages",
+            "process_notes",
+        ],
+    },
+]
 
 
 def normalise_state(reapply_aliases: bool = True):
@@ -406,6 +487,35 @@ def _run_extraction(lang: str) -> None:
         )
 
 
+def render_extraction_summary(lang: str) -> None:
+    """Display extracted fields in a tabbed table."""
+
+    tab_labels = [
+        cat["de"] if lang == "de" else cat["en"] for cat in SUMMARY_CATEGORIES
+    ]
+    tabs = st.tabs(tab_labels)
+    for tab, category in zip(tabs, SUMMARY_CATEGORIES):
+        with tab:
+            rows = [
+                {
+                    ("Field" if lang != "de" else "Feld"): field.replace(
+                        "_", " "
+                    ).title(),
+                    ("Value" if lang != "de" else "Wert"): st.session_state.get(
+                        field, ""
+                    ),
+                }
+                for field in category["fields"]
+                if st.session_state.get(field)
+            ]
+            if rows:
+                st.table(rows)
+            else:
+                st.write(
+                    "No data extracted." if lang != "de" else "Keine Daten extrahiert."
+                )
+
+
 def start_discovery_page():
     """Start page: Input job title and job ad content (URL or file) for analysis."""
     lang = st.session_state.get("lang", "en")
@@ -414,17 +524,20 @@ def start_discovery_page():
         if lang != "de"
         else "🔍 Starten Sie Ihre Analyse mit Vacalyzer"
     )
+    if st.session_state.get("extraction_complete"):
+        st.success("✅ Key information extracted successfully!")
+        render_extraction_summary(lang)
+        label = "Start Discovery" if lang != "de" else "Analyse starten"
+        if st.button(f"🚀 {label}"):
+            st.session_state["current_section"] = 2
+            st.rerun()
+        return
+
     st.caption(
         "Upload a job ad or paste a URL. We’ll extract everything we can — then ask only what’s missing."
         if lang != "de"
         else "Laden Sie eine Stellenanzeige hoch oder fügen Sie eine URL ein. Wir extrahieren alle verfügbaren Informationen und fragen nur fehlende Details ab."
     )
-
-    if st.session_state.get("extraction_success"):
-        st.success("✅ Key information extracted successfully!")
-        st.session_state.pop("extraction_success")
-
-    # Job title and source inputs
     colA, colB = st.columns(2)
     with colA:
         job_title = st.text_input(
@@ -472,7 +585,7 @@ def start_discovery_page():
         with st.spinner("Analyzing the job ad with AI..."):
             _run_extraction(lang)
         if st.session_state.get("extraction_success"):
-            st.session_state["current_section"] = 8
+            st.session_state["extraction_complete"] = True
             st.rerun()
 
 
@@ -865,80 +978,11 @@ def summary_outputs_page():
             st.write(f"**Erkannte ESCO-Berufsgruppe:** {occ_label} ({occ_group})")
         else:
             st.write(f"**Identified ESCO Occupation:** {occ_label} ({occ_group})")
-    categories = [
-        {
-            "en": "Company & Context",
-            "de": "Unternehmen & Kontext",
-            "fields": [
-                "company_name",
-                "company_website",
-                "industry",
-                "location",
-                "company_mission",
-                "company_culture",
-            ],
-        },
-        {
-            "en": "Role Details",
-            "de": "Rollenbeschreibung",
-            "fields": [
-                "job_title",
-                "role_summary",
-                "responsibilities",
-                "tasks",
-                "department",
-                "team_structure",
-                "reporting_line",
-            ],
-        },
-        {
-            "en": "Requirements",
-            "de": "Anforderungen",
-            "fields": [
-                "qualifications",
-                "hard_skills",
-                "soft_skills",
-                "tools_and_technologies",
-                "languages_required",
-                "certifications",
-                "seniority_level",
-            ],
-        },
-        {
-            "en": "Benefits & Conditions",
-            "de": "Leistungen & Konditionen",
-            "fields": [
-                "job_type",
-                "remote_policy",
-                "onsite_requirements",
-                "travel_required",
-                "working_hours",
-                "salary_range",
-                "bonus_compensation",
-                "benefits",
-                "health_benefits",
-                "retirement_benefits",
-                "learning_opportunities",
-                "equity_options",
-                "relocation_assistance",
-                "visa_sponsorship",
-            ],
-        },
-        {
-            "en": "Process",
-            "de": "Prozess",
-            "fields": [
-                "target_start_date",
-                "application_deadline",
-                "performance_metrics",
-                "interview_stages",
-                "process_notes",
-            ],
-        },
+    tab_labels = [
+        cat["de"] if lang == "de" else cat["en"] for cat in SUMMARY_CATEGORIES
     ]
-    tab_labels = [cat["de"] if lang == "de" else cat["en"] for cat in categories]
     tabs = st.tabs(tab_labels)
-    for tab, category in zip(tabs, categories):
+    for tab, category in zip(tabs, SUMMARY_CATEGORIES):
         with tab:
             for field in category["fields"]:
                 value = st.session_state.get(field, "")
