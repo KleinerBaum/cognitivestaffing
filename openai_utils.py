@@ -292,6 +292,35 @@ def generate_job_ad(
     data["qualifications"] = data.get(
         "requirements.qualifications", ""
     )  # (if qualifications existed; not in v2)
+    # Merge any separated benefit fields into a single list so nothing is lost
+    benefit_keys = [
+        "compensation.benefits",
+        "health_benefits",
+        "retirement_benefits",
+    ]
+    combined: list[str] = []
+    for key in benefit_keys:
+        raw = data.get(key)
+        if not raw:
+            continue
+        if isinstance(raw, str):
+            parts = [p.strip() for p in raw.splitlines() if p.strip()]
+        elif isinstance(raw, list):
+            parts = [str(p).strip() for p in raw if str(p).strip()]
+        else:
+            continue
+        combined.extend(parts)
+    if combined:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for perk in combined:
+            lowered = perk.lower()
+            if lowered not in seen:
+                seen.add(lowered)
+                deduped.append(perk)
+        data["compensation.benefits"] = deduped
+    data.pop("health_benefits", None)
+    data.pop("retirement_benefits", None)
     lang = data.get("lang", "en")
     if tone is None:
         tone = (
