@@ -91,7 +91,12 @@ def apply_global_styling() -> None:
         body, .stApp { background-color: #0b0f14; color: #e5e7eb; font-family: 'Comfortaa', sans-serif; }
         h1,h2,h3,h4 { color: #ffffff; }
         .card { background-color: #111827; padding: 1rem; border-radius: 12px; margin-bottom: 1.25rem; }
-        .stButton > button { border-radius: 10px; }
+        .stButton > button { border-radius: 10px; min-height: 2.5rem; }
+        @media (max-width: 768px) {
+            div[data-testid="stHorizontalBlock"] { flex-direction: column; }
+            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { width: 100%; }
+            .stButton > button { width: 100%; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
