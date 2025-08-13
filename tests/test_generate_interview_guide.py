@@ -14,7 +14,9 @@ def test_generate_interview_guide_includes_culture(monkeypatch):
         "Engineer",
         tasks="",
         company_culture="Collaborative and transparent",
+        tone="casual and friendly",
     )
     prompt = captured["prompt"]
     assert "Company culture: Collaborative and transparent" in prompt
     assert "cultural fit" in prompt.lower()
+    assert "Tone: casual and friendly." in prompt

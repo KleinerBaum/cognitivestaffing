@@ -23,6 +23,7 @@
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions
+- **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
 - **Employer branding**: company mission and culture flow into job ads and interview guides
 - **Bias check**: flags potentially discriminatory terms and suggests inclusive alternatives in generated job ads

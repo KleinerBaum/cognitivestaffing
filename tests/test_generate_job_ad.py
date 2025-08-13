@@ -25,10 +25,11 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
         "lang": "en",
     }
 
-    openai_utils.generate_job_ad(session)
+    openai_utils.generate_job_ad(session, tone="formal and straightforward")
     prompt = captured["prompt"]
     assert "Requirements: Python experience" in prompt
     assert "Work Policy: Remote-friendly" in prompt
     assert "Salary Range: €50k-70k" in prompt
     assert "Company Mission: Build the future of collaboration" in prompt
     assert "Company Culture: Inclusive and growth-oriented" in prompt
+    assert "Tone: formal and straightforward." in prompt
