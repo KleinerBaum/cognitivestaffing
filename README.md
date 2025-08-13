@@ -23,6 +23,7 @@
 - **Customizable interview guides**: choose 3–10 questions
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
 - **Employer branding**: company mission and culture flow into job ads and interview guides
+- **Bias check**: flags potentially discriminatory terms and suggests inclusive alternatives in generated job ads
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations

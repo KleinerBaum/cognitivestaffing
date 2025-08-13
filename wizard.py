@@ -28,6 +28,7 @@ from llm.client import build_extraction_function
 from question_logic import CRITICAL_FIELDS, generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
 from streamlit_sortables import sort_items
+from nlp.bias import scan_bias_language
 
 MODEL_OPTIONS = {
     "GPT-3.5 (fast, cheap)": "gpt-3.5-turbo",
@@ -906,6 +907,16 @@ def summary_outputs_page():
                     ),
                 )
                 st.write(job_ad_text)
+                findings = scan_bias_language(job_ad_text, lang)
+                if findings:
+                    warn = (
+                        "Potentially biased terms detected:"
+                        if lang != "de"
+                        else "Möglicherweise vorbelastete Begriffe gefunden:"
+                    )
+                    st.warning(warn)
+                    for item in findings:
+                        st.markdown(f"- `{item['term']}` → {item['suggestion']}")
                 # Basic SEO optimization suggestions for the generated ad
                 seo = seo_optimize(job_ad_text)
                 if seo["keywords"]:
