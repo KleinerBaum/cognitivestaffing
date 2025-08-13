@@ -782,22 +782,44 @@ def task_scope_page():
 
 
 def skills_competencies_page():
-    """Skills page: Required hard and soft skills, with AI suggestions to enrich the list."""
+    """Skills page: capture technical, language, and certification requirements."""
     lang = st.session_state.get("lang", "en")
     st.header(
         "🛠️ Required Skills & Competencies"
         if lang != "de"
         else "🛠️ Erforderliche Fähigkeiten & Kompetenzen"
     )
-    render_followups_for(["hard_skills", "soft_skills"])
+    render_followups_for(
+        [
+            "hard_skills",
+            "soft_skills",
+            "tools_and_technologies",
+            "languages_required",
+            "certifications",
+        ]
+    )
     if not st.session_state.get("hard_skills") and st.session_state.get("requirements"):
         st.session_state["hard_skills"] = st.session_state.get("requirements", "")
     hard_label = "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills"
+    tools_label = "Tools & Technologies" if lang != "de" else "Tools und Technologien"
+    cert_label = "Certifications" if lang != "de" else "Zertifizierungen"
     soft_label = "Soft Skills" if lang != "de" else "Soft Skills"
-    editable_draggable_list("hard_skills", hard_label)
-    editable_draggable_list("soft_skills", soft_label)
+    lang_label = "Languages Required" if lang != "de" else "Erforderliche Sprachen"
+
+    tech_col, soft_col = st.columns(2)
+    with tech_col:
+        st.subheader("Technical" if lang != "de" else "Technisch")
+        editable_draggable_list("hard_skills", hard_label)
+        editable_draggable_list("tools_and_technologies", tools_label)
+        editable_draggable_list("certifications", cert_label)
+    with soft_col:
+        st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
+        editable_draggable_list("soft_skills", soft_label)
+        editable_draggable_list("languages_required", lang_label)
+
     hard_skills_text = st.session_state.get("hard_skills", "")
     soft_skills_text = st.session_state.get("soft_skills", "")
+    tools_text = st.session_state.get("tools_and_technologies", "")
     skill_btn_col, skill_model_col = st.columns([3, 2])
     with skill_model_col:
         skill_model_label = st.selectbox(
@@ -816,15 +838,12 @@ def skills_competencies_page():
                 tasks = st.session_state.get("tasks", "") or st.session_state.get(
                     "responsibilities", ""
                 )
-                existing_skills = []
-                if hard_skills_text:
-                    existing_skills += [
-                        s.strip() for s in hard_skills_text.splitlines() if s.strip()
-                    ]
-                if soft_skills_text:
-                    existing_skills += [
-                        s.strip() for s in soft_skills_text.splitlines() if s.strip()
-                    ]
+                existing_skills: list[str] = []
+                for text in (hard_skills_text, soft_skills_text, tools_text):
+                    if text:
+                        existing_skills.extend(
+                            s.strip() for s in text.splitlines() if s.strip()
+                        )
                 try:
                     suggestions = suggest_additional_skills(
                         job_title=title,

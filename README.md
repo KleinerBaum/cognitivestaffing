@@ -31,6 +31,7 @@
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations
 - **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
+- **Expanded skills section**: enter certifications, language requirements, and tools & technologies alongside hard and soft skills
 
 ---
 
