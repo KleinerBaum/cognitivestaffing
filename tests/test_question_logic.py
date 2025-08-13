@@ -176,3 +176,29 @@ def test_yes_no_default(monkeypatch):
             "prefill": "Not specified",
         }
     ]
+
+
+def test_static_suggestions_merge(monkeypatch):
+    """Static field suggestions should be merged with RAG results."""
+
+    def fake_call_chat_api(
+        messages, temperature=0.0, max_tokens=0, model=None
+    ) -> str:  # noqa: E501
+        return '[{"field": "programming_languages", "question": "Languages?"}]'
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+    monkeypatch.setattr(
+        "question_logic.classify_occupation",
+        lambda jt, lang="en": {"group": "Software developers"},
+    )
+    monkeypatch.setattr("question_logic.get_essential_skills", lambda *a, **k: [])
+    monkeypatch.setattr(
+        "question_logic._rag_suggestions",
+        lambda *a, **k: {"programming_languages": ["Python", "Elm"]},
+    )
+    out = generate_followup_questions({"job_title": "Backend Developer"})
+    item = next(q for q in out if q["field"] == "programming_languages")
+    assert item["suggestions"][0:2] == ["Python", "Elm"]
+    assert "Java" in item["suggestions"]
+    assert item["suggestions"].count("Python") == 1
