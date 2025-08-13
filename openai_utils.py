@@ -243,25 +243,13 @@ def generate_interview_guide(
     tone: str | None = None,
     model: str | None = None,
 ) -> str:
-    """Generate an interview guide (questions + scoring rubrics) for the role.
-
-    Args:
-        job_title: Title of the role to generate questions for.
-        tasks: Key tasks or responsibilities for context.
-        audience: Target interviewers.
-        num_questions: Number of interview questions to include.
-        lang: Two-letter language code (``en`` or ``de``).
-        company_culture: Company culture description used to craft a
-            culture-fit question.
-        tone: Desired tone for the guide (e.g., "casual and friendly").
-        model: Optional OpenAI model override.
-    """
+    """Generate an interview guide (questions + scoring rubrics) for the role."""
     job_title = job_title.strip() or "this position"
     if lang.startswith("de"):
         tone = tone or "professionell und hilfreich"
-        # German prompt for interview guide
         prompt = (
-            f"Erstelle einen Leitfaden für ein Vorstellungsgespräch für die Position {job_title} (für Interviewer: {audience}).\n"
+            f"Erstelle einen Leitfaden für ein Vorstellungsgespräch für die Position {job_title} "
+            f"(für Interviewer: {audience}).\n"
             f"Formuliere {num_questions} Schlüsselfragen für das Interview und gib für jede Frage kurz die idealen Antwortkriterien an.\n"
             f"Wichtige Aufgaben der Rolle: {tasks or 'N/A'}.\n"
             f"Tonfall: {tone}."
@@ -275,7 +263,7 @@ def generate_interview_guide(
         tone = tone or "professional and helpful"
         prompt = (
             f"Generate an interview guide for a {job_title} for {audience} interviewers.\n"
-            f"Include {num_questions} key interview questions and for each question, provide a brief scoring rubric or ideal answer criteria.\n"
+            f"Include {num_questions} key interview questions and, for each question, provide a brief scoring rubric or ideal answer criteria.\n"
             f"Key tasks for the role: {tasks or 'N/A'}.\n"
             f"Tone: {tone}."
         )
@@ -287,89 +275,77 @@ def generate_interview_guide(
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
 
-
-def generate_job_ad(
-    session_data: dict, tone: str | None = None, model: str | None = None
-) -> str:
-    """Generate a compelling job advertisement using the collected session data.
-
-    Args:
-        session_data: All collected vacancy information.
-        tone: Desired tone for the job ad (e.g., "formal and straightforward").
-        model: Optional OpenAI model override.
-
-    Returns:
-        The generated job advertisement text.
-    """
-
+def generate_job_ad(session_data: dict, tone: str | None = None, model: str | None = None) -> str:
+    """Generate a compelling job advertisement using the collected session data."""
     def _format(value: Any) -> str:
-        """Convert list values to a comma-separated string."""
-
         if isinstance(value, list):
             return ", ".join(str(v) for v in value if v)
         return str(value)
-
-    # Normalize aliases and aggregate all fields
-    session_copy = dict(session_data)
-    session_copy["responsibilities"] = (
-        session_data.get("tasks") or session_data.get("responsibilities") or ""
-    )
-    session_copy["qualifications"] = (
-        session_data.get("qualifications") or session_data.get("requirements") or ""
-    )
-    lang = session_copy.get("lang", "en")
+    # Normalize aliases and ensure we have the latest values
+    data = dict(session_data)  # copy to avoid mutating original
+    # In case legacy keys are present or needed for continuity:
+    data["responsibilities"] = data.get("responsibilities") or data.get("responsibilities.items", "")
+    data["qualifications"] = data.get("requirements.qualifications", "")  # (if qualifications existed; not in v2)
+    lang = data.get("lang", "en")
     if tone is None:
-        tone = (
-            "klar, ansprechend und inklusiv"
-            if lang.startswith("de")
-            else "engaging, clear, and inclusive"
-        )
-
-    fields = [
-        ("job_title", "Job Title", "Jobtitel"),
-        ("company_name", "Company", "Unternehmen"),
-        ("location", "Location", "Standort"),
-        ("industry", "Industry", "Branche"),
-        ("job_type", "Job Type", "Anstellungsart"),
-        ("remote_policy", "Work Policy", "Arbeitsmodell"),
-        ("travel_required", "Travel Requirements", "Reisebereitschaft"),
-        ("role_summary", "Role Summary", "Rollenbeschreibung"),
-        ("responsibilities", "Key Responsibilities", "Wichtigste Aufgaben"),
-        ("qualifications", "Requirements", "Anforderungen"),
-        ("hard_skills", "Hard Skills", "Technische Fähigkeiten"),
-        ("soft_skills", "Soft Skills", "Soziale Fähigkeiten"),
-        ("salary_range", "Salary Range", "Gehaltsspanne"),
-        ("benefits", "Benefits", "Vorteile"),
-        ("reporting_line", "Reporting Line", "Berichtsweg"),
-        ("target_start_date", "Target Start Date", "Startdatum"),
-        ("team_structure", "Team Structure", "Teamstruktur"),
-        ("application_deadline", "Application Deadline", "Bewerbungsschluss"),
-        ("seniority_level", "Seniority Level", "Erfahrungsebene"),
-        ("languages_required", "Languages Required", "Erforderliche Sprachen"),
-        ("tools_and_technologies", "Tools and Technologies", "Tools und Technologien"),
-        ("company_mission", "Company Mission", "Unternehmensmission"),
-        ("company_culture", "Company Culture", "Unternehmenskultur"),
+        tone = "klar, ansprechend und inklusiv" if lang.startswith("de") else "engaging, clear, and inclusive"
+    # Define field labels and which session keys to use
+    fields_for_ad = [
+        # (session_key, English Label, German Label)
+        ("position.job_title", "Job Title", "Jobtitel"),
+        ("company.name", "Company", "Unternehmen"),
+        ("location.primary_city", "Location", "Standort"),
+        ("company.industry", "Industry", "Branche"),
+        ("employment.job_type", "Job Type", "Anstellungsart"),
+        ("employment.work_policy", "Work Policy", "Arbeitsmodell"),
+        ("employment.travel_required", "Travel Requirements", "Reisebereitschaft"),
+        ("position.role_summary", "Role Summary", "Rollenbeschreibung"),
+        ("responsibilities", "Key Responsibilities", "Wichtigste Aufgaben"),  # using combined responsibilities text
+        ("requirements.hard_skills", "Hard Skills", "Technische Fähigkeiten"),
+        ("requirements.soft_skills", "Soft Skills", "Soziale Fähigkeiten"),
+        ("compensation.benefits", "Benefits", "Leistungen"),
+        ("position.reporting_line", "Reporting Line", "Berichtsweg"),
+        ("position.team_structure", "Team Structure", "Teamstruktur"),
+        ("position.application_deadline", "Application Deadline", "Bewerbungsschluss"),
+        ("position.seniority_level", "Seniority Level", "Erfahrungsebene"),
+        ("requirements.languages_required", "Languages Required", "Erforderliche Sprachen"),
+        ("requirements.tools_and_technologies", "Tools and Technologies", "Tools und Technologien"),
     ]
-
-    details: list[str] = []
-    for key, label_en, label_de in fields:
-        value = session_copy.get(key)
-        if not value:
+    details: List[str] = []
+    for key, label_en, label_de in fields_for_ad:
+        val = data.get(key, "")
+        if not val:
             continue
-        formatted = _format(value).strip()
+        formatted = _format(val).strip()
         if not formatted:
             continue
         label = label_de if lang.startswith("de") else label_en
+        # For booleans like travel_required, convert to Yes/No text
+        if key == "employment.travel_required":
+            formatted = ("Yes" if str(val).lower() in ["true", "yes", "1"] else "No")
         details.append(f"{label}: {formatted}")
-
-    mission = session_copy.get("company_mission", "").strip()
-    culture = session_copy.get("company_culture", "").strip()
+    # Handle salary range as a special case
+    if data.get("compensation.salary_provided"):
+        try:
+            min_sal = int(data.get("compensation.salary_min", 0))
+            max_sal = int(data.get("compensation.salary_max", 0))
+        except:
+            min_sal = max_sal = 0
+        if min_sal or max_sal:
+            currency = data.get("compensation.salary_currency", "EUR")
+            period = data.get("compensation.salary_period", "year")
+            salary_label = "Gehaltsspanne" if lang.startswith("de") else "Salary Range"
+            if min_sal and max_sal:
+                salary_str = f"{min_sal:,}–{max_sal:,} {currency} per {period}"
+            else:
+                # If only one value provided, use it as fixed or minimum salary
+                salary_str = f"{max_sal or min_sal:,} {currency} per {period}"
+            details.append(f"{salary_label}: {salary_str}")
+    # Add mission or culture if provided (optional context)
+    mission = data.get("company_mission", "").strip()  # company mission is outside schema (additional field)
+    culture = data.get("company_culture", "").strip()
     if lang.startswith("de"):
-        prompt = (
-            "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
-            + "\n".join(details)
-            + f"\nTonfall: {tone}."
-        )
+        prompt = "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n" + "\n".join(details) + f"\nTonfall: {tone}."
         if mission or culture:
             lines = []
             if mission:
@@ -379,11 +355,7 @@ def generate_job_ad(
             prompt += "\n" + "\n".join(lines)
             prompt += "\nFüge einen Satz über Mission oder Werte des Unternehmens hinzu, um das Employer Branding zu stärken."
     else:
-        prompt = (
-            "Create an engaging, professional job advertisement in Markdown format.\n"
-            + "\n".join(details)
-            + f"\nTone: {tone}."
-        )
+        prompt = "Create an engaging, professional job advertisement in Markdown format.\n" + "\n".join(details) + f"\nTone: {tone}."
         if mission or culture:
             lines = []
             if mission:
