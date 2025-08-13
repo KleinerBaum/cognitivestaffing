@@ -45,3 +45,37 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
     assert "Company Mission: Build the future of collaboration" in prompt
     assert "Company Culture: Inclusive and growth-oriented" in prompt
     assert "Tone: formal and straightforward." in prompt
+
+
+def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
+    prompts: list[str] = []
+
+    def fake_call_chat_api(messages, **kwargs):
+        prompts.append(messages[0]["content"])
+        return "ok"
+
+    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+
+    session_en = {
+        "employment.travel_required": True,
+        "travel_required": "Occasional (up to 10%)",
+        "employment.work_policy": "Hybrid",
+        "remote_policy": "3 days remote",
+        "lang": "en",
+    }
+    openai_utils.generate_job_ad(session_en)
+    assert "Travel Requirements: Occasional (up to 10%)" in prompts[0]
+    assert "Work Policy: Hybrid (3 days remote)" in prompts[0]
+
+    session_de = {
+        "employment.travel_required": True,
+        "travel_required": "Gelegentlich (bis zu 10%)",
+        "employment.work_policy": "Hybrid",
+        "remote_policy": "3 Tage remote",
+        "employment.relocation_support": True,
+        "lang": "de",
+    }
+    openai_utils.generate_job_ad(session_de)
+    assert "Reisebereitschaft: Gelegentlich (bis zu 10%)" in prompts[1]
+    assert "Arbeitsmodell: Hybrid (3 Tage remote)" in prompts[1]
+    assert "Umzugsunterstützung: Ja" in prompts[1]
