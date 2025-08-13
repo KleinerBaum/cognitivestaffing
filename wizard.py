@@ -223,7 +223,7 @@ def normalise_state(reapply_aliases: bool = True):
     if reapply_aliases:
         # Keep legacy alias fields in sync for UI (if needed)
         st.session_state["requirements"] = st.session_state.get("qualifications", "")
-        st.session_state["tasks"] = st.session_state.get("responsibilities", "")
+        st.session_state["tasks"] = st.session_state.get("responsibilities.items", "")
         st.session_state["contract_type"] = st.session_state.get("job_type", "")
     st.session_state["validated_json"] = json.dumps(
         jd.model_dump(mode="json"), indent=2, ensure_ascii=False
@@ -553,8 +553,8 @@ def _run_extraction(lang: str) -> None:
             st.warning(warn)
     file_text = st.session_state.get("uploaded_text", "")
     combined_text = merge_texts(url_text, file_text)
-    if st.session_state.get("job_title") and not combined_text:
-        combined_text = st.session_state["job_title"]
+    if st.session_state.get("position.job_title") and not combined_text:
+        combined_text = st.session_state["position.job_title"]
 
     if not combined_text:
         warn = (
@@ -607,7 +607,7 @@ def _run_extraction(lang: str) -> None:
             followups = []
         st.session_state["followup_questions"] = followups
         occ = esco_utils.classify_occupation(
-            st.session_state.get("job_title", ""), lang=lang
+            st.session_state.get("position.job_title", ""), lang=lang
         )
         if occ:
             st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get(
@@ -684,10 +684,10 @@ def start_discovery_page():
     with colA:
         job_title = st.text_input(
             "Job Title" if lang != "de" else "Stellenbezeichnung",
-            st.session_state.get("job_title", ""),
+            st.session_state.get("position.job_title", ""),
         )
         if job_title:
-            st.session_state["job_title"] = job_title
+            st.session_state["position.job_title"] = job_title
         input_url = st.text_input(
             (
                 "Job Ad URL (optional)"
@@ -999,10 +999,8 @@ with soft_col:
                     else f"Skill-Vorschläge werden mit {skill_model_label} generiert..."
                 )
             ):
-                title = st.session_state.get("job_title", "")
-                tasks = st.session_state.get("tasks", "") or st.session_state.get(
-                    "responsibilities", ""
-                )
+                title = st.session_state.get("position.job_title", "")
+                tasks = st.session_state.get("responsibilities.items", "")
                 existing_skills: list[str] = []
                 for text in (hard_skills_text, soft_skills_text, tools_text):
                     if text:
@@ -1476,7 +1474,7 @@ def summary_outputs_page():
             job_ad_text,
             job_fmt,
             key="job_ad",
-            title=st.session_state.get("job_title"),
+            title=st.session_state.get("position.job_title"),
         )
         dl_label = (
             "💾 Download Job Ad" if lang != "de" else "💾 Stellenanzeige herunterladen"
@@ -1553,11 +1551,8 @@ def summary_outputs_page():
         else "📝 Interviewleitfaden erstellen"
     )
     if st.button(generate_label):
-        title = st.session_state.get("job_title", "")
-        tasks = st.session_state.get("tasks", "") or st.session_state.get(
-            "responsibilities",
-            "",
-        )
+        title = st.session_state.get("position.job_title", "")
+        responsibilities = st.session_state.get("responsibilities.items", "")
         with st.spinner(
             "Generating interview guide..."
             if lang != "de"
@@ -1566,7 +1561,7 @@ def summary_outputs_page():
             try:
                 guide = generate_interview_guide(
                     title,
-                    tasks,
+                    responsibilities,
                     audience="hiring managers",
                     num_questions=num_questions,
                     lang=lang,
@@ -1605,7 +1600,7 @@ def summary_outputs_page():
             guide,
             guide_fmt,
             key="interview_guide",
-            title=st.session_state.get("job_title"),
+            title=st.session_state.get("position.job_title"),
         )
         dl_label = (
             "💾 Download Interview Guide"
@@ -1642,7 +1637,9 @@ def summary_outputs_page():
             st.info(explanation)
         log_event(f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}")
     # Always display a suggested Boolean search query for recruiters
-    if st.session_state.get("job_title") or st.session_state.get("hard_skills"):
+    if st.session_state.get("position.job_title") or st.session_state.get(
+        "hard_skills"
+    ):
         skills = (
             st.session_state.get("hard_skills", "")
             + "\n"
@@ -1654,7 +1651,7 @@ def summary_outputs_page():
         ):
             include_title = st.checkbox(
                 "Include job title" if lang != "de" else "Jobtitel einbeziehen",
-                value=bool(st.session_state.get("job_title")),
+                value=bool(st.session_state.get("position.job_title")),
             )
             title_synonyms_input = st.text_input(
                 (
@@ -1669,7 +1666,7 @@ def summary_outputs_page():
                 default=skills,
             )
         bool_query = build_boolean_query(
-            st.session_state.get("job_title", ""),
+            st.session_state.get("position.job_title", ""),
             selected_skills,
             include_title=include_title,
             title_synonyms=[
