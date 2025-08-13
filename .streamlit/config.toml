@@ -1,0 +1,10 @@
+[theme]
+base = "dark"
+primaryColor = "#69E2FF"         # cyan accent
+backgroundColor = "#0B1220"
+secondaryBackgroundColor = "#0F1629"
+textColor = "#E6EDF3"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"          # cleaner top-right menu
