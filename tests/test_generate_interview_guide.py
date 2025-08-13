@@ -12,7 +12,7 @@ def test_generate_interview_guide_includes_culture(monkeypatch):
 
     openai_utils.generate_interview_guide(
         "Engineer",
-        tasks="",
+        responsibilities="",
         company_culture="Collaborative and transparent",
         tone="casual and friendly",
     )
