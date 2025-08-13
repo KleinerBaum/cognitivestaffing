@@ -26,11 +26,15 @@ def test_what_happened_lists_keys(monkeypatch):
         return "explanation"
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
-    session = {"job_title": "Eng", "location": "Berlin", "empty": ""}
+    session = {
+        "position.job_title": "Eng",
+        "location.primary_city": "Berlin",
+        "empty": "",
+    }
     out = openai_utils.what_happened(session, "doc", doc_type="job ad", model="gpt-4")
     assert "job ad" in captured["prompt"]
-    assert "job_title" in captured["prompt"]
-    assert "location" in captured["prompt"]
+    assert "position.job_title" in captured["prompt"]
+    assert "location.primary_city" in captured["prompt"]
     assert "empty" not in captured["prompt"]
     assert captured["model"] == "gpt-4"
     assert out == "explanation"

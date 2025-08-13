@@ -10,13 +10,13 @@ def test_render_followups_updates_state(monkeypatch) -> None:
     st.session_state.clear()
     st.session_state["lang"] = "en"
     st.session_state["followup_questions"] = [
-        {"field": "salary", "question": "Salary?"}
+        {"field": "compensation.salary_min", "question": "Salary?"}
     ]
 
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "100k")
-    render_followups_for(["salary"])
+    render_followups_for(["compensation.salary_min"])
 
-    assert st.session_state["salary"] == "100k"
+    assert st.session_state["compensation.salary_min"] == "100k"
     assert st.session_state["followup_questions"] == []
 
 
@@ -25,7 +25,7 @@ def test_render_followups_prefill(monkeypatch) -> None:
     st.session_state.clear()
     st.session_state["lang"] = "en"
     st.session_state["followup_questions"] = [
-        {"field": "location", "question": "Location?", "prefill": "Berlin"}
+        {"field": "location.primary_city", "question": "Location?", "prefill": "Berlin"}
     ]
 
     def fake_input(label, value="", key=None):
@@ -33,9 +33,9 @@ def test_render_followups_prefill(monkeypatch) -> None:
         return value
 
     monkeypatch.setattr(st, "text_input", fake_input)
-    render_followups_for(["location"])
+    render_followups_for(["location.primary_city"])
 
-    assert st.session_state["location"] == "Berlin"
+    assert st.session_state["location.primary_city"] == "Berlin"
     assert st.session_state["followup_questions"] == []
 
 

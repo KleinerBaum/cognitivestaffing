@@ -8,6 +8,8 @@ from questions.missing import missing_fields  # noqa: E402
 
 
 def test_missing_fields_order():
-    jd = VacalyserJD(job_title="dev")
-    expected = [f for f in ALL_FIELDS if f not in {"schema_version", "job_title"}]
+    jd = VacalyserJD(position={"job_title": "dev"})
+    expected = [
+        f for f in ALL_FIELDS if f not in {"schema_version", "position.job_title"}
+    ]
     assert missing_fields(jd) == expected
