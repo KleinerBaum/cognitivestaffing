@@ -316,7 +316,7 @@ def generate_job_ad(
             "Hours per Week",
             "Wochenstunden",
         ),
-        ("employment.travel_required", "Travel Required", "Reise erforderlich"),
+        ("employment.travel_required", "Travel Requirements", "Reisebereitschaft"),
         (
             "employment.relocation_support",
             "Relocation Assistance",
@@ -359,6 +359,13 @@ def generate_job_ad(
         ),
     ]
     details: List[str] = []
+    yes_no = ("Ja", "Nein") if lang.startswith("de") else ("Yes", "No")
+    boolean_fields = {
+        "employment.travel_required",
+        "employment.relocation_support",
+        "employment.visa_sponsorship",
+    }
+
     for key, label_en, label_de in fields_for_ad:
         val = data.get(key, "")
         if not val:
@@ -367,14 +374,24 @@ def generate_job_ad(
         if not formatted:
             continue
         label = label_de if lang.startswith("de") else label_en
-        # Convert boolean fields to Yes/No text
-        boolean_fields = {
-            "employment.travel_required",
-            "employment.relocation_support",
-            "employment.visa_sponsorship",
-        }
-        if key in boolean_fields:
-            formatted = "Yes" if str(val).lower() in ["true", "yes", "1"] else "No"
+
+        if key == "employment.travel_required":
+            detail = str(data.get("travel_required", "")).strip()
+            if detail:
+                formatted = detail
+            else:
+                formatted = (
+                    yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
+                )
+        elif key == "employment.work_policy":
+            detail = str(data.get("remote_policy", "")).strip()
+            if detail:
+                formatted = f"{formatted} ({detail})"
+        elif key in boolean_fields:
+            formatted = (
+                yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
+            )
+
         details.append(f"{label}: {formatted}")
     # Handle salary range as a special case
     if data.get("compensation.salary_provided"):
