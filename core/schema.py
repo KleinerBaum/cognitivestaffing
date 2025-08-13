@@ -1,298 +1,328 @@
-"""
-Vacalyzer – canonical extraction schema and coercion utilities.
-"""
-
 from __future__ import annotations
-import re
-from typing import Any, Dict, Iterable, List
-
-# --- Pydantic v2/v1 compatibility ---
+from typing import Any, Dict, List
 try:
-    from pydantic import BaseModel, Field  # type: ignore
-    from pydantic import ConfigDict  # v2 compatibility
-
+    from pydantic import BaseModel, Field
+    from pydantic import ConfigDict  # Pydantic v2
     _HAS_V2 = True
-except Exception:
+except ImportError:
     from pydantic import BaseModel, Field  # type: ignore
-
     ConfigDict = None
     _HAS_V2 = False
 
-SCHEMA_VERSION = "v1.0"
+SCHEMA_VERSION = "v2.0"
 
-# Ordered canonical list of schema keys (excluding schema_version).
-# Keep this list authoritative for prompts, validation, and UI wiring.
+# Define nested models for each schema group (priority 1-3 fields only)
+class Company(BaseModel):
+    name: str = ""
+    industry: str = ""
+    hq_location: str = ""
+    size: str = ""
+    website: str = ""
+
+class Compensation(BaseModel):
+    salary_currency: str = "EUR"
+    salary_max: int = 0
+    salary_min: int = 0
+    salary_period: str = "year"
+    salary_provided: bool = True
+    benefits: List[str] = []
+    bonus_target_percent: int = 0
+    variable_pay: bool = False
+    commission_structure: str = ""
+    equity_offered: bool = False
+    equity_range: str = ""
+    equity_type: str = ""
+    healthcare_plan: str = ""
+    paid_time_off_days: int = 0
+    parental_leave_weeks: int = 0
+    pension_plan: str = ""
+    sick_days: int = 0
+
+class ContactPerson(BaseModel):
+    name: str = ""
+    email: str = ""
+    notify_stages: List[str] = []
+
+class Contacts(BaseModel):
+    hiring_manager: ContactPerson = ContactPerson()
+    hr: ContactPerson = ContactPerson()
+    recruiter: ContactPerson = ContactPerson()
+    # We omit phone and additional_notes (priority 4-5) for now
+
+class Employment(BaseModel):
+    job_type: str = ""
+    work_policy: str = "Onsite"
+    employment_term: str = ""
+    onsite_days_per_week: int = 0
+    remote_percentage: int = 0
+    travel_required: bool = False
+    work_schedule: str = ""
+    clearance_level: str = ""
+    office_locations_allowed: List[str] = []
+    overtime_expected: bool = False
+    overtime_policy: str = ""
+    relocation_support: bool = False
+    remote_timezone_overlap_hours: int = 0
+    security_clearance_required: bool = False
+    shift_patterns: List[str] = []
+    shift_work: bool = False
+    travel_frequency: str = ""
+    travel_percentage: int = 0
+    travel_regions: List[str] = []
+    visa_sponsorship: bool = False
+    visa_types_supported: List[str] = []
+    work_hours_per_week: int = 0
+
+class Location(BaseModel):
+    country: str = ""
+    primary_city: str = ""
+    geo_eligibility_countries: List[str] = []
+    region_state: str = ""
+    timezone: str = ""
+
+class Meta(BaseModel):
+    job_posting_url: str = ""
+    date_posted: str = ""
+    date_retrieved: str = ""
+    source_platform: str = ""
+    source_type: str = ""
+    # parsed_by_model and schema_version are not included (schema_version is top-level)
+
+class Position(BaseModel):
+    job_title: str = ""
+    seniority_level: str = ""
+    department: str = ""
+    management_scope: str = ""
+    reporting_line: str = ""
+    role_summary: str = ""
+    application_deadline: str = ""
+    business_unit: str = ""
+    direct_reports_count: int = 0
+    function: str = ""
+    role_objectives: str = ""
+    target_start_date: str = ""
+    team_roles: List[str] = []
+    team_size: int = 0
+    team_structure: str = ""
+    # occupation_esco_code/title and cross_functional, etc. (priority 4-5) are omitted
+
+class Requirements(BaseModel):
+    hard_skills: List[str] = []
+    education_level: str = ""
+    languages_required: List[str] = []
+    soft_skills: List[str] = []
+    tools_and_technologies: List[str] = []
+    years_experience_min: int = 0
+    background_check_required: bool = False
+    certifications: List[str] = []
+    fields_of_study: List[str] = []
+    portfolio_required: bool = False
+    portfolio_url: str = ""
+    reference_check_required: bool = False
+    # language_level_english/german and years_experience_preferred omitted
+
+class Responsibilities(BaseModel):
+    items: List[str] = []
+    top3: List[str] = []
+
+# Base model configuration to ignore unknown fields
+if _HAS_V2:
+    class _BaseModel(BaseModel):
+        model_config = ConfigDict(extra="ignore")
+else:
+    class _BaseModel(BaseModel):
+        class Config:
+            extra = "ignore"
+
+class VacalyserJD(_BaseModel):
+    """Canonical job description model (Vacalyzer v2.0)."""
+    schema_version: str = Field(default=SCHEMA_VERSION)
+    company: Company = Field(default_factory=Company)
+    compensation: Compensation = Field(default_factory=Compensation)
+    contacts: Contacts = Field(default_factory=Contacts)
+    employment: Employment = Field(default_factory=Employment)
+    location: Location = Field(default_factory=Location)
+    meta: Meta = Field(default_factory=Meta)
+    position: Position = Field(default_factory=Position)
+    requirements: Requirements = Field(default_factory=Requirements)
+    responsibilities: Responsibilities = Field(default_factory=Responsibilities)
+    # Note: process and analytics groups omitted for now (to be added later)
+
+# Define list of all fields (dot notation) for priority 1-3 fields
 ALL_FIELDS: List[str] = [
-    "job_title",
-    "company_name",
-    "location",
-    "industry",
-    "job_type",
-    "remote_policy",
-    "travel_required",
-    "role_summary",
-    "responsibilities",
-    "hard_skills",
-    "soft_skills",
-    "qualifications",
-    "certifications",
-    "salary_range",
-    "benefits",
-    "reporting_line",
-    "target_start_date",
-    "team_structure",
-    "application_deadline",
-    "seniority_level",
-    "languages_required",
-    "tools_and_technologies",
+    # Company fields
+    "company.name", "company.industry", "company.hq_location", "company.size", "company.website",
+    # Position fields
+    "position.job_title", "position.seniority_level", "position.department", "position.management_scope",
+    "position.reporting_line", "position.role_summary", "position.application_deadline", "position.business_unit",
+    "position.direct_reports_count", "position.function", "position.role_objectives", "position.target_start_date",
+    "position.team_roles", "position.team_size", "position.team_structure",
+    # Compensation fields
+    "compensation.salary_currency", "compensation.salary_min", "compensation.salary_max", "compensation.salary_period",
+    "compensation.salary_provided", "compensation.benefits", "compensation.bonus_target_percent", "compensation.variable_pay",
+    "compensation.commission_structure", "compensation.equity_offered", "compensation.equity_range", "compensation.equity_type",
+    "compensation.healthcare_plan", "compensation.paid_time_off_days", "compensation.parental_leave_weeks",
+    "compensation.pension_plan", "compensation.sick_days",
+    # Employment fields
+    "employment.job_type", "employment.work_policy", "employment.employment_term", "employment.onsite_days_per_week",
+    "employment.remote_percentage", "employment.travel_required", "employment.work_schedule", "employment.clearance_level",
+    "employment.office_locations_allowed", "employment.overtime_expected", "employment.overtime_policy",
+    "employment.relocation_support", "employment.remote_timezone_overlap_hours", "employment.security_clearance_required",
+    "employment.shift_patterns", "employment.shift_work", "employment.travel_frequency", "employment.travel_percentage",
+    "employment.travel_regions", "employment.visa_sponsorship", "employment.visa_types_supported", "employment.work_hours_per_week",
+    # Location fields
+    "location.country", "location.primary_city", "location.geo_eligibility_countries", "location.region_state", "location.timezone",
+    # Contacts fields
+    "contacts.hiring_manager.name", "contacts.hiring_manager.email", "contacts.hiring_manager.notify_stages",
+    "contacts.hr.name", "contacts.hr.email", "contacts.hr.notify_stages",
+    "contacts.recruiter.name", "contacts.recruiter.email", "contacts.recruiter.notify_stages",
+    # Requirements fields
+    "requirements.hard_skills", "requirements.education_level", "requirements.languages_required", "requirements.soft_skills",
+    "requirements.tools_and_technologies", "requirements.years_experience_min", "requirements.background_check_required",
+    "requirements.certifications", "requirements.fields_of_study", "requirements.portfolio_required", "requirements.portfolio_url",
+    "requirements.reference_check_required",
+    # Responsibilities fields
+    "responsibilities.items", "responsibilities.top3"
 ]
-# Ensure the schema contains the expected number of fields
-assert len(ALL_FIELDS) == 22, "ALL_FIELDS must contain 22 keys."
-
-# List-typed fields in the schema.
-LIST_FIELDS = {
-    "responsibilities",
-    "hard_skills",
-    "soft_skills",
-    "certifications",
-    "benefits",
-    "languages_required",
-    "tools_and_technologies",
-    # role-specific list fields
-    "programming_languages",
-    "frameworks",
-    "tech_stack",
-    "code_quality_practices",
-    "target_markets",
-    "crm_tools",
-    "campaign_types",
-    "digital_marketing_platforms",
-    "required_certifications",
-    "design_software_tools",
-    "project_management_methodologies",
-    "project_management_tools",
-    "stakeholder_types",
-    "machine_learning_frameworks",
-    "data_analysis_tools",
-    "data_visualization_tools",
-    "accounting_software",
-    "professional_certifications",
-    "reporting_standards",
-    "regulatory_frameworks",
-    "hr_software_tools",
-    "recruitment_channels",
-    "employee_engagement_strategies",
-    "engineering_software_tools",
-    "civil_project_types",
-    "cuisine_specialties",
+# List fields set (all keys in ALL_FIELDS that are list-typed)
+LIST_FIELDS: set[str] = {
+    # from Company: (none are lists in pr1-3)
+    # from Position: team_roles is a list
+    "position.team_roles",
+    # from Compensation: benefits is a list
+    "compensation.benefits",
+    # from Contacts: notify_stages lists
+    "contacts.hiring_manager.notify_stages", "contacts.hr.notify_stages", "contacts.recruiter.notify_stages",
+    # from Employment: office_locations_allowed, shift_patterns, travel_regions, visa_types_supported
+    "employment.office_locations_allowed", "employment.shift_patterns", "employment.travel_regions", "employment.visa_types_supported",
+    # from Location: geo_eligibility_countries
+    "location.geo_eligibility_countries",
+    # from Requirements: hard_skills, languages_required, soft_skills, tools_and_technologies, certifications, fields_of_study
+    "requirements.hard_skills", "requirements.languages_required", "requirements.soft_skills",
+    "requirements.tools_and_technologies", "requirements.certifications", "requirements.fields_of_study",
+    # from Responsibilities: items, top3
+    "responsibilities.items", "responsibilities.top3"
 }
+STRING_FIELDS: set[str] = set(ALL_FIELDS) - LIST_FIELDS
 
-# Convenience set of string-typed fields.
-STRING_FIELDS = set(ALL_FIELDS) - set(LIST_FIELDS)
-
-# Backward-compatibility aliases (input normalization only).
+# Aliases for backward compatibility (map old keys to new keys)
 ALIASES: Dict[str, str] = {
-    "requirements": "qualifications",
-    "contract_type": "job_type",
-    "tasks": "responsibilities",
-    "experience_level": "seniority_level",
-    "start_date": "target_start_date",
-    "tools_technologies": "tools_and_technologies",
+    "contract_type": "employment.job_type",
+    "remote_policy": "employment.work_policy",
+    "experience_level": "position.seniority_level",
+    "start_date": "position.target_start_date",
+    "tasks": "responsibilities.items",
+    "tools_technologies": "requirements.tools_and_technologies"
+    # Note: "qualifications" field is removed; no direct alias for "requirements" group as a whole.
 }
 
-# Canonical category mappings.
+# Canonical normalization for job_type values (unchanged from v1)
 JOB_TYPE_CATEGORIES: Dict[str, str] = {
-    "full-time": "Full-time",
-    "full time": "Full-time",
-    "fulltime": "Full-time",
-    "part-time": "Part-time",
-    "part time": "Part-time",
-    "parttime": "Part-time",
-    "contract": "Contract",
-    "contractor": "Contract",
-    "temporary": "Temporary",
-    "temp": "Temporary",
-    "internship": "Internship",
-    "intern": "Internship",
+    "full-time": "Full-time", "full time": "Full-time", "fulltime": "Full-time",
+    "part-time": "Part-time", "part time": "Part-time", "parttime": "Part-time",
+    "contract": "Contract", "contractor": "Contract",
+    "temporary": "Temporary", "temp": "Temporary",
+    "internship": "Internship", "intern": "Internship",
+    "apprenticeship": "Apprenticeship", "freelance": "Freelance"
 }
-
-
 def _normalize_job_type(value: str) -> str:
-    """Normalize job type string to a canonical category.
-
-    Args:
-        value: Raw job type value.
-
-    Returns:
-        Canonical job type with standardized capitalization.
-
-    Raises:
-        ValueError: If the value does not map to a known category.
-    """
-
     key = value.strip().lower().replace("_", "-")
     key = key.replace("\u2011", "-")  # non-breaking hyphen
     key = key.replace("\u2013", "-").replace("\u2014", "-")
     key = key.replace(" ", "-")
     if key in JOB_TYPE_CATEGORIES:
         return JOB_TYPE_CATEGORIES[key]
-    raise ValueError(f"Unknown job type: {value!r}")
+    # If not recognized, return original capitalized
+    return value
 
-
-# Base model configuration for extra fields
-if _HAS_V2:
-
-    class _BaseModel(BaseModel):
-        model_config = ConfigDict(extra="ignore")
-
-else:  # Pydantic v1
-
-    class _BaseModel(BaseModel):
-        class Config:
-            extra = "ignore"
-
-
-class VacalyserJD(_BaseModel):
-    """
-    Canonical job description model (vacancy profile). All string fields default to "",
-    all list fields default to []. Always include every key (even if empty) to keep the shape stable.
-    """
-
-    schema_version: str = Field(default=SCHEMA_VERSION)
-    # String fields
-    job_title: str = ""
-    company_name: str = ""
-    location: str = ""
-    industry: str = ""
-    job_type: str = ""
-    remote_policy: str = ""
-    travel_required: str = ""
-    role_summary: str = ""
-    qualifications: str = ""
-    salary_range: str = ""
-    reporting_line: str = ""
-    target_start_date: str = ""
-    team_structure: str = ""
-    application_deadline: str = ""
-    seniority_level: str = ""
-    # List fields
-    responsibilities: List[str] = []
-    hard_skills: List[str] = []
-    soft_skills: List[str] = []
-    certifications: List[str] = []
-    benefits: List[str] = []
-    languages_required: List[str] = []
-    tools_and_technologies: List[str] = []
-    # Role-specific optional fields
-    programming_languages: List[str] = []
-    frameworks: List[str] = []
-    tech_stack: List[str] = []
-    code_quality_practices: List[str] = []
-    development_methodology: str = ""
-    target_markets: List[str] = []
-    sales_quota: str = ""
-    crm_tools: List[str] = []
-    campaign_types: List[str] = []
-    digital_marketing_platforms: List[str] = []
-    required_certifications: List[str] = []
-    shift_schedule: str = ""
-    patient_ratio: str = ""
-    board_certification: str = ""
-    on_call_requirements: str = ""
-    grade_level: str = ""
-    teaching_license: str = ""
-    design_software_tools: List[str] = []
-    portfolio_url: str = ""
-    project_management_methodologies: List[str] = []
-    project_management_tools: List[str] = []
-    stakeholder_types: List[str] = []
-    budget_responsibility: str = ""
-    machine_learning_frameworks: List[str] = []
-    data_analysis_tools: List[str] = []
-    data_visualization_tools: List[str] = []
-    accounting_software: List[str] = []
-    professional_certifications: List[str] = []
-    reporting_standards: List[str] = []
-    regulatory_frameworks: List[str] = []
-    hr_software_tools: List[str] = []
-    recruitment_channels: List[str] = []
-    employee_engagement_strategies: List[str] = []
-    engineering_software_tools: List[str] = []
-    civil_project_types: List[str] = []
-    site_visit_frequency: str = ""
-    cuisine_specialties: List[str] = []
-    kitchen_environment: str = ""
-    menu_development_responsibility: str = ""
-
-
-def _dedupe_preserve_order(items: Iterable[str]) -> List[str]:
+def _dedupe_preserve_order(items: List[str]) -> List[str]:
     """Remove duplicates from a list while preserving order and stripping whitespace."""
     seen = set()
-    out: List[str] = []
+    result: List[str] = []
     for x in items:
         val = str(x).strip()
         if not val:
             continue
         if val not in seen:
             seen.add(val)
-            out.append(val)
-    return out
-
+            result.append(val)
+    return result
 
 def _dedupe_across_fields(jd: VacalyserJD) -> VacalyserJD:
-    """Remove duplicate content that appears in multiple fields.
-
-    The first occurrence of a normalized text segment is kept and subsequent
-    duplicates in later fields are cleared. Field order is determined by
-    ``ALL_FIELDS`` so more specific fields earlier in the schema take priority.
-
-    Args:
-        jd: The vacancy profile to deduplicate.
-
-    Returns:
-        The deduplicated vacancy profile.
     """
-
+    Remove duplicate text appearing in multiple fields (for nested schema).
+    The first occurrence of a normalized text segment is kept; subsequent occurrences in later fields are cleared.
+    Field order follows ALL_FIELDS.
+    """
     def _norm(text: str) -> str:
         return re.sub(r"\W+", " ", text).strip().lower()
 
     seen: set[str] = set()
     for field in ALL_FIELDS:
-        value = getattr(jd, field)
         if field in LIST_FIELDS:
+            # nested list field
+            if "." in field:
+                group, subfield = field.split(".", 1)
+                list_val: List[str] = getattr(getattr(jd, group), subfield)
+            else:
+                list_val = getattr(jd, field)
             filtered: List[str] = []
-            for item in value:
+            for item in list_val:
                 norm_item = _norm(item)
                 if norm_item and norm_item not in seen:
                     seen.add(norm_item)
                     filtered.append(item)
-            setattr(jd, field, filtered)
+            # set the filtered list back
+            if "." in field:
+                group, subfield = field.split(".", 1)
+                setattr(getattr(jd, group), subfield, filtered)
+            else:
+                setattr(jd, field, filtered)
         else:
-            norm_val = _norm(value)
-            if norm_val in seen:
-                setattr(jd, field, "")
+            # nested string field
+            if "." in field:
+                group, subfield = field.split(".", 1)
+                val = getattr(getattr(jd, group), subfield)
+            else:
+                val = getattr(jd, field)
+            norm_val = _norm(val)
+            if norm_val in seen and norm_val:
+                # duplicate found, clear this field
+                if "." in field:
+                    group, subfield = field.split(".", 1)
+                    setattr(getattr(jd, group), subfield, "")
+                else:
+                    setattr(jd, field, "")
             elif norm_val:
                 seen.add(norm_val)
-
     return jd
-
 
 def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
     """
-    Normalize an arbitrary dict into a validated VacalyserJD.
+    Normalize an arbitrary dict into a validated VacalyserJD instance.
     Steps:
-      1) Apply alias mapping (e.g., "tasks" -> "responsibilities").
-      2) Insert any missing keys ('' for strings, [] for lists).
-      3) Coerce list fields to List[str], splitting strings by common delimiters, and deduplicate.
+      1) Flatten nested dicts into dot keys and apply alias mapping.
+      2) Insert missing keys ('' or [] defaults for each expected field).
+      3) Coerce list fields to List[str], splitting strings on newlines/commas.
       4) Coerce string fields to str and strip whitespace.
-      5) Ignore unknown extra keys.
+      5) Normalize categorical fields (e.g., job_type).
+      6) Build VacalyserJD model and deduplicate overlapping content.
     """
     if data is None:
         data = {}
-    # 1) apply aliases
+    # 1) flatten nested structures and apply aliases
+    flat: Dict[str, Any] = {}
+    for key, val in data.items():
+        if isinstance(val, dict):
+            for subkey, subval in val.items():
+                flat[f"{key}.{subkey}"] = subval
+        else:
+            flat[key] = val
+    # apply alias mapping
     for old, new in ALIASES.items():
-        if old in data and new not in data:
-            data[new] = data.pop(old)
+        if old in flat and new not in flat:
+            flat[new] = flat.pop(old)
+    data = flat
     # 2) insert missing keys with defaults
     for key in ALL_FIELDS:
         if key not in data:
@@ -304,11 +334,15 @@ def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
             # Split on newlines and commas/semicolons for list fields
             parts: List[str] = []
             for chunk in value.replace("\r\n", "\n").split("\n"):
-                parts.extend(chunk.split(","))
+                for piece in chunk.split(","):
+                    if piece:
+                        parts.append(piece.strip())
             value = parts
+        elif value is None:
+            value = []
         elif not isinstance(value, list):
             value = [value]
-        data[key] = _dedupe_preserve_order(value)
+        data[key] = _dedupe_preserve_order([str(x) for x in value])
     # 4) coerce string fields
     for key in STRING_FIELDS:
         val = data.get(key, "")
@@ -316,9 +350,18 @@ def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
             val = ""
         data[key] = str(val).strip()
     # 5) normalize categorical fields
-    job_type_val = data.get("job_type", "")
+    job_type_val = data.get("employment.job_type", "")
     if job_type_val:
-        data["job_type"] = _normalize_job_type(job_type_val)
-    # 6) build model (extra keys ignored by BaseModel config)
-    model = VacalyserJD(**data)
+        data["employment.job_type"] = _normalize_job_type(job_type_val)
+    # 6) build nested model
+    nested: Dict[str, Any] = {}
+    for key, val in data.items():
+        if "." in key:
+            group, subfield = key.split(".", 1)
+            if group not in nested:
+                nested[group] = {}
+            nested[group][subfield] = val
+        else:
+            nested[key] = val
+    model = VacalyserJD(**nested)
     return _dedupe_across_fields(model)
