@@ -11,8 +11,8 @@ st.set_page_config(
 
 # --- Brand: show logo above the navigation (app + sidebar) ---
 st.logo(
-    "images/logo_full.png",  # your horizontal logo
-    icon_image="images/logo_icon.png",  # small square icon when sidebar collapsed
+    "images/color1_logo_transparent_background.png",  # your horizontal logo
+    icon_image="images/color1_logo_transparent_background.png",  # small square icon when sidebar collapsed
     link="https://github.com/KleinerBaum/cognitivestaffing",
 )  # st.logo renders in the upper-left of app and sidebar.  # :contentReference[oaicite:7]{index=7}
 
