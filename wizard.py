@@ -1114,11 +1114,14 @@ if sal_provided:
             key="compensation.salary_period",
         )
     benefits_label = "Benefits/Perks" if lang != "de" else "Vorteile/Extras"
-    health_label = "Healthcare Benefits" if lang != "de" else "Gesundheitsleistungen"
-    retirement_label = "Retirement Benefits" if lang != "de" else "Altersvorsorge"
-    editable_draggable_list("benefits", benefits_label)
-    editable_draggable_list("health_benefits", health_label)
-    editable_draggable_list("retirement_benefits", retirement_label)
+    # Merge deprecated benefit keys into the schema-aligned field.
+    merged = st.session_state.get("compensation.benefits", "")
+    for legacy in ("health_benefits", "retirement_benefits"):
+        extra = st.session_state.pop(legacy, "")
+        if extra:
+            merged = f"{merged}\n{extra}" if merged else extra
+    st.session_state["compensation.benefits"] = merged
+    editable_draggable_list("compensation.benefits", benefits_label)
     st.session_state["learning_opportunities"] = st.text_area(
         (
             "Learning & Development Opportunities"
@@ -1151,7 +1154,7 @@ if sal_provided:
             ):
                 title = st.session_state.get("position.job_title", "")
                 industry = st.session_state.get("company.industry", "")
-                existing = st.session_state.get("benefits", "")
+                existing = st.session_state.get("compensation.benefits", "")
                 try:
                     suggestions = suggest_benefits(
                         title,
@@ -1179,10 +1182,12 @@ if sal_provided:
         for k, (col, perk) in enumerate(zip(cols, benefit_suggestions)):
             with col:
                 if st.button(perk, key=f"benefit_sugg_{k}"):
-                    current = st.session_state.get("benefits", "")
+                    current = st.session_state.get("compensation.benefits", "")
                     sep = "\n" if current else ""
                     if perk not in current:
-                        st.session_state["benefits"] = f"{current}{sep}{perk}"
+                        st.session_state["compensation.benefits"] = (
+                            f"{current}{sep}{perk}"
+                        )
                     # Remove added perk from suggestions list
                     st.session_state["suggested_benefits"] = [
                         b for b in benefit_suggestions if b != perk

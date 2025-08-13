@@ -32,6 +32,7 @@
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations
 - **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
 - **Expanded skills section**: enter certifications, language requirements, and tools & technologies alongside hard and soft skills
+- **Schema-aligned benefits**: benefit inputs bind directly to schema keys so extracted perks appear automatically
 - **Company insights**: specify headquarters location and company size for clearer context
 - **Domain-specific suggestions**: built-in lists of programming languages, frameworks, databases, cloud providers and DevOps tools help guide inputs
 
