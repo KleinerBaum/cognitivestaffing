@@ -210,6 +210,24 @@ def editable_draggable_list(field: str, label: str) -> None:
     st.session_state[field] = "\n".join(items)
 
 
+def render_summary_input(field: str, label: str, highlight_missing: bool) -> None:
+    """Render an editable input for the summary page.
+
+    Uses a text area for multiline content and a text input for shorter values.
+
+    Args:
+        field: Session state key to render.
+        label: Display label for the field.
+        highlight_missing: Whether the field is required but empty.
+    """
+    value = st.session_state.get(field, "")
+    widget = (
+        st.text_area if ("\n" in str(value) or len(str(value)) > 80) else st.text_input
+    )
+    widget_label = f"❗ {label}" if highlight_missing else label
+    widget(widget_label, value, key=field)
+
+
 def intro_page() -> None:
     """Display an introductory page explaining the wizard flow."""
     lang = st.session_state.get("lang", "en")
@@ -853,33 +871,17 @@ def summary_outputs_page():
         },
     ]
     for category in categories:
-        items: list[tuple[str, str, str]] = []
+        rendered_heading = False
         for field in category["fields"]:
-            value = st.session_state.get(field)
-            label = field.replace("_", " ").title()
-            if value:
-                display_val = str(value).replace("\n", "; ")
-                items.append(("filled", label, display_val))
-            elif field in CRITICAL_FIELDS:
-                items.append(("missing", label, field))
-        if items:
-            heading = category["de"] if lang == "de" else category["en"]
-            st.subheader(heading)
-            for status, label, content in items:
-                if status == "filled":
-                    st.write(f"**{label}:** {content}")
-                else:
-                    col1, col2 = st.columns([3, 1])
-                    col1.markdown(
-                        f"<span style='color:red;'>**{label}:** [Not provided]</span>",
-                        unsafe_allow_html=True,
-                    )
-                    add_label = "Add" if lang != "de" else "Hinzufügen"
-                    if col2.button(add_label, key=f"add_{content}"):
-                        st.session_state["current_section"] = FIELD_SECTION_MAP.get(
-                            content, 0
-                        )
-                        st.rerun()
+            value = st.session_state.get(field, "")
+            is_missing = not value and field in CRITICAL_FIELDS
+            if value or is_missing:
+                if not rendered_heading:
+                    heading = category["de"] if lang == "de" else category["en"]
+                    st.subheader(heading)
+                    rendered_heading = True
+                label = field.replace("_", " ").title()
+                render_summary_input(field, label, is_missing)
     # Buttons to generate final outputs
     colA, colB = st.columns(2)
     with colA:
