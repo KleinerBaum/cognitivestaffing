@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 import streamlit as st
+from typing import Any, cast
+
 from core.ss_bridge import from_session_state, to_session_state
 from core.schema import coerce_and_fill
 from utils import (
@@ -25,6 +27,7 @@ from llm.context import build_extract_messages
 from llm.client import build_extraction_function
 from question_logic import CRITICAL_FIELDS, generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
+from streamlit_sortables import sort_items
 
 MODEL_OPTIONS = {
     "GPT-3.5 (fast, cheap)": "gpt-3.5-turbo",
@@ -51,8 +54,8 @@ FIELD_SECTION_MAP: dict[str, int] = {
 
 def normalise_state(reapply_aliases: bool = True):
     """Normalize session state to canonical schema keys and update JSON."""
-    jd = from_session_state(st.session_state)
-    to_session_state(jd, st.session_state)
+    jd = from_session_state(cast(dict[str, Any], st.session_state))
+    to_session_state(jd, cast(dict[str, Any], st.session_state))
     if reapply_aliases:
         # Keep legacy alias fields in sync for UI (if needed)
         st.session_state["requirements"] = st.session_state.get("qualifications", "")
@@ -178,6 +181,33 @@ def render_followups_for(fields: list[str] | None = None) -> None:
         if not f.get("field")
         or not st.session_state.get(f.get("field", ""), "").strip()
     ]
+
+
+def editable_draggable_list(field: str, label: str) -> None:
+    """Render a draggable list for newline-separated session values.
+
+    Args:
+        field: Session state key storing newline-separated values.
+        label: Display label for the list.
+    """
+    raw = st.session_state.get(field, "")
+    items = [s.strip() for s in raw.splitlines() if s.strip()]
+
+    new_item = st.text_input(f"Add {label}", key=f"{field}_new")
+    if st.button("Add", key=f"{field}_add") and new_item:
+        items.append(new_item)
+        st.session_state[f"{field}_new"] = ""
+
+    if items:
+        remove = st.multiselect(f"Remove {label}", items, key=f"{field}_remove")
+        if remove:
+            items = [i for i in items if i not in remove]
+            st.session_state[f"{field}_remove"] = []
+        items = sort_items(
+            items, header=label, direction="vertical", key=f"{field}_sort"
+        )
+
+    st.session_state[field] = "\n".join(items)
 
 
 def intro_page() -> None:
@@ -475,11 +505,10 @@ def role_description_page():
         st.session_state.get("role_summary", ""),
         height=100,
     )
-    st.session_state["responsibilities"] = st.text_area(
-        "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten",
-        st.session_state.get("responsibilities", ""),
-        height=150,
+    responsibilities_label = (
+        "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
     )
+    editable_draggable_list("responsibilities", responsibilities_label)
 
 
 def task_scope_page():
@@ -509,18 +538,14 @@ def skills_competencies_page():
         else "🛠️ Erforderliche Fähigkeiten & Kompetenzen"
     )
     render_followups_for(["hard_skills", "soft_skills"])
-    hard_skills_text = st.text_area(
-        "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
-        st.session_state.get("hard_skills", st.session_state.get("requirements", "")),
-        height=100,
-    )
-    st.session_state["hard_skills"] = hard_skills_text
-    soft_skills_text = st.text_area(
-        "Soft Skills" if lang != "de" else "Soft Skills",
-        st.session_state.get("soft_skills", ""),
-        height=100,
-    )
-    st.session_state["soft_skills"] = soft_skills_text
+    if not st.session_state.get("hard_skills") and st.session_state.get("requirements"):
+        st.session_state["hard_skills"] = st.session_state.get("requirements", "")
+    hard_label = "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills"
+    soft_label = "Soft Skills" if lang != "de" else "Soft Skills"
+    editable_draggable_list("hard_skills", hard_label)
+    editable_draggable_list("soft_skills", soft_label)
+    hard_skills_text = st.session_state.get("hard_skills", "")
+    soft_skills_text = st.session_state.get("soft_skills", "")
     skill_btn_col, skill_model_col = st.columns([3, 2])
     with skill_model_col:
         skill_model_label = st.selectbox(
@@ -624,6 +649,7 @@ def benefits_compensation_page():
             "salary_range",
             "benefits",
             "health_benefits",
+            "retirement_benefits",
             "learning_opportunities",
             "remote_policy",
             "travel_required",
@@ -633,16 +659,12 @@ def benefits_compensation_page():
         "Salary Range" if lang != "de" else "Gehaltsspanne",
         st.session_state.get("salary_range", ""),
     )
-    st.session_state["benefits"] = st.text_area(
-        "Benefits/Perks" if lang != "de" else "Vorteile/Extras",
-        st.session_state.get("benefits", ""),
-        height=100,
-    )
-    st.session_state["health_benefits"] = st.text_area(
-        "Healthcare Benefits" if lang != "de" else "Gesundheitsleistungen",
-        st.session_state.get("health_benefits", ""),
-        height=70,
-    )
+    benefits_label = "Benefits/Perks" if lang != "de" else "Vorteile/Extras"
+    health_label = "Healthcare Benefits" if lang != "de" else "Gesundheitsleistungen"
+    retirement_label = "Retirement Benefits" if lang != "de" else "Altersvorsorge"
+    editable_draggable_list("benefits", benefits_label)
+    editable_draggable_list("health_benefits", health_label)
+    editable_draggable_list("retirement_benefits", retirement_label)
     st.session_state["learning_opportunities"] = st.text_area(
         (
             "Learning & Development Opportunities"

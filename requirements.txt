@@ -10,4 +10,5 @@ lxml>=4.9
 requests>=2.31
 tenacity>=8.2
 typing-extensions>=4.8
+streamlit-sortables>=0.3.1
 
