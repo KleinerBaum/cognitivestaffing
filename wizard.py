@@ -384,17 +384,36 @@ def editable_draggable_list(field: str, label: str) -> None:
     """
     raw = st.session_state.get(field, "")
     items = [s.strip() for s in raw.splitlines() if s.strip()]
+    # Callbacks are used to safely mutate widget state without triggering
+    # ``StreamlitAPIException``. Direct assignment to ``st.session_state`` for
+    # an existing widget key is not allowed once the widget is instantiated.
 
-    new_item = st.text_input(f"Add {label}", key=f"{field}_new")
-    if st.button("Add", key=f"{field}_add") and new_item:
-        items.append(new_item)
-        st.session_state[f"{field}_new"] = ""
+    def _add_item() -> None:
+        """Append the value from the input box to the list of items."""
+        nonlocal items
+        new_item = st.session_state.get(f"{field}_new", "").strip()
+        if new_item:
+            items.append(new_item)
+            st.session_state[f"{field}_new"] = ""
+
+    st.text_input(f"Add {label}", key=f"{field}_new")
+    st.button("Add", key=f"{field}_add", on_click=_add_item)
+
+    def _remove_items() -> None:
+        """Remove selected entries from the list and clear the selection."""
+        nonlocal items
+        selected = st.session_state.get(f"{field}_remove", [])
+        if selected:
+            items = [i for i in items if i not in selected]
+            st.session_state[f"{field}_remove"] = []
 
     if items:
-        remove = st.multiselect(f"Remove {label}", items, key=f"{field}_remove")
-        if remove:
-            items = [i for i in items if i not in remove]
-            st.session_state[f"{field}_remove"] = []
+        st.multiselect(
+            f"Remove {label}",
+            items,
+            key=f"{field}_remove",
+            on_change=_remove_items,
+        )
         items = sort_items(
             items, header=label, direction="vertical", key=f"{field}_sort"
         )

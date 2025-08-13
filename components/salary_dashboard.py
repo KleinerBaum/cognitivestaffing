@@ -1,9 +1,19 @@
 """Sidebar salary analytics dashboard component."""
 
-import streamlit as st
-from typing import Sequence, Tuple
+from typing import Any, Sequence, Tuple
 
-from openai_utils import call_chat_api
+import streamlit as st
+
+
+# ``openai_utils`` is an optional dependency. Import lazily so that the
+# dashboard still renders even if the OpenAI helper is unavailable (e.g.,
+# during tests without the SDK installed).
+def _call_chat_api(messages: list[dict], **kwargs: Any) -> str:
+    """Lazy import wrapper around ``openai_utils.call_chat_api``."""
+    from openai_utils import call_chat_api
+
+    return call_chat_api(messages, **kwargs)
+
 
 SENIORITY_FACTOR = {"junior": 0.8, "mid": 1.0, "senior": 1.3}
 LOCATION_FACTOR = {"berlin": 1.0, "munich": 1.2, "remote": 0.9}
@@ -96,7 +106,7 @@ def render_salary_dashboard() -> None:
             f"{length} explanation."
         )
         try:
-            explanation = call_chat_api(
+            explanation = _call_chat_api(
                 [{"role": "user", "content": prompt}], max_tokens=300
             )
             st.sidebar.info(explanation)
