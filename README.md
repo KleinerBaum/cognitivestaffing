@@ -3,7 +3,7 @@
 **Vacalyser** turns messy job ads into a **complete, structured vacancy profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
 ## Highlights
-- **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs
+- **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with auto-start analysis on upload/URL
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
 - **API helper**: `call_chat_api` supports OpenAI function calls for reliable extraction
@@ -16,7 +16,7 @@
 - **Model toggle**: choose GPT‑3.5 (fast, cheap) or GPT‑4 (accurate) for suggestions
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
-- **Categorized summary**: groups related fields under clear headings for faster review
+- **Tabbed summary**: collected fields are editable in stage-based tabs for faster review
 - **Missing info alerts**: highlights empty critical fields and blocks navigation until they're filled, letting you jump back to fix them
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide

@@ -324,6 +324,85 @@ def intro_page() -> None:
             st.rerun()
 
 
+def _run_extraction(lang: str) -> None:
+    """Run vacancy extraction based on current session inputs."""
+
+    url_text = ""
+    if st.session_state.get("input_url"):
+        url_text = extract_text_from_url(st.session_state["input_url"])
+        if not url_text:
+            st.warning("⚠️ Unable to fetch or parse content from the provided URL.")
+    file_text = st.session_state.get("uploaded_text", "")
+    combined_text = merge_texts(url_text, file_text)
+    if st.session_state.get("job_title") and not combined_text:
+        combined_text = st.session_state["job_title"]
+
+    if not combined_text:
+        st.warning(
+            "⚠️ No text available to analyze. Please provide a job ad URL or upload a document."
+        )
+        return
+
+    messages = build_extract_messages(combined_text)
+    fn_schema = build_extraction_function()
+    try:
+        response = call_chat_api(
+            messages,
+            model=st.session_state.get("llm_model"),
+            temperature=0.0,
+            functions=[fn_schema],
+            function_call={"name": fn_schema["name"]},
+        )
+    except Exception:  # pragma: no cover - network failure
+        st.session_state["extraction_success"] = False
+        err_msg = (
+            "❌ OpenAI request failed. Please try again later."
+            if lang != "de"
+            else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
+        )
+        st.error(err_msg)
+        return
+    try:
+        data = coerce_and_fill(json.loads(response)).model_dump(mode="json")
+        for key, val in data.items():
+            st.session_state[key] = (
+                "\n".join(val) if isinstance(val, list) else str(val)
+            )
+        normalise_state()
+        try:
+            followups = generate_followup_questions(
+                cast(dict[str, Any], st.session_state),
+                lang=lang,
+                use_rag=st.session_state.get("use_rag", True),
+            )
+        except Exception:  # pragma: no cover - network failure
+            warn_msg = (
+                "⚠️ Unable to generate follow-up questions."
+                if lang != "de"
+                else "⚠️ Folgefragen konnten nicht erstellt werden."
+            )
+            st.warning(warn_msg)
+            followups = []
+        st.session_state["followup_questions"] = followups
+        occ = esco_utils.classify_occupation(
+            st.session_state.get("job_title", ""), lang=lang
+        )
+        if occ:
+            st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get(
+                "occupation_label", ""
+            )
+            st.session_state["occupation_group"] = occ.get("group", "")
+        st.session_state["extraction_success"] = True
+        log_event(
+            f"ANALYZE by {st.session_state.get('user', 'anonymous')} title='{st.session_state.get('job_title', '')}'"
+        )
+    except Exception:
+        st.session_state["extraction_success"] = False
+        st.error(
+            "❌ Could not parse AI response as JSON. Please try again or rephrase the input."
+        )
+
+
 def start_discovery_page():
     """Start page: Input job title and job ad content (URL or file) for analysis."""
     lang = st.session_state.get("lang", "en")
@@ -379,95 +458,18 @@ def start_discovery_page():
             else:
                 st.error("❌ Failed to extract text from the file.")
 
-    # Analyze button triggers extraction
-    if st.button("🔎 Analyze"):
-        with st.spinner("Analyzing the job ad with AI..."):  # Spinner for feedback
-            url_text = ""
-            if st.session_state.get("input_url"):
-                url_text = extract_text_from_url(st.session_state["input_url"])
-                if not url_text:
-                    st.warning(
-                        "⚠️ Unable to fetch or parse content from the provided URL."
-                    )
-            file_text = st.session_state.get("uploaded_text", "")
-            combined_text = merge_texts(url_text, file_text)
-            # If no text source but job title is provided, use job title as fallback text
-            if st.session_state.get("job_title") and not combined_text:
-                combined_text = st.session_state["job_title"]
-
-            if not combined_text:
-                st.warning(
-                    "⚠️ No text available to analyze. Please provide a job ad URL or upload a document."
-                )
-                return
-
-            # Build messages and function schema for structured extraction
-            messages = build_extract_messages(combined_text)
-            fn_schema = build_extraction_function()
-            try:
-                response = call_chat_api(
-                    messages,
-                    model=st.session_state.get("llm_model"),
-                    temperature=0.0,
-                    functions=[fn_schema],
-                    function_call={"name": fn_schema["name"]},
-                )
-            except Exception:  # pragma: no cover - network failure
-                st.session_state["extraction_success"] = False
-                err_msg = (
-                    "❌ OpenAI request failed. Please try again later."
-                    if lang != "de"
-                    else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
-                )
-                st.error(err_msg)
-                return
-            try:
-                data = coerce_and_fill(json.loads(response)).model_dump(mode="json")
-                # Update session state with extracted values
-                for key, val in data.items():
-                    # Join lists into newline-separated strings for text areas
-                    st.session_state[key] = (
-                        "\n".join(val) if isinstance(val, list) else str(val)
-                    )
-                normalise_state()  # normalize keys and prepare validated JSON
-                # Generate follow-up questions for missing info
-                try:
-                    followups = generate_followup_questions(
-                        st.session_state,
-                        lang=lang,
-                        use_rag=st.session_state.get("use_rag", True),
-                    )
-                except Exception:  # pragma: no cover - network failure
-                    warn_msg = (
-                        "⚠️ Unable to generate follow-up questions."
-                        if lang != "de"
-                        else "⚠️ Folgefragen konnten nicht erstellt werden."
-                    )
-                    st.warning(warn_msg)
-                    followups = []
-                st.session_state["followup_questions"] = followups
-                # Classify occupation via ESCO and store for later display
-                occ = esco_utils.classify_occupation(
-                    st.session_state.get("job_title", ""), lang=lang
-                )
-                if occ:
-                    st.session_state["occupation_label"] = occ.get(
-                        "preferredLabel"
-                    ) or occ.get("occupation_label", "")
-                    st.session_state["occupation_group"] = occ.get("group", "")
-                st.session_state["extraction_success"] = True
-                # Log event (analytics)
-                log_event(
-                    f"ANALYZE by {st.session_state.get('user', 'anonymous')} title='{st.session_state.get('job_title', '')}'"
-                )
-            except Exception:
-                st.session_state["extraction_success"] = False
-                st.error(
-                    "❌ Could not parse AI response as JSON. Please try again or rephrase the input."
-                )
-        # After processing, move to next section
+    current_source = (
+        st.session_state.get("input_url", ""),
+        st.session_state.get("uploaded_text", ""),
+    )
+    if (
+        st.session_state.get("input_url") or st.session_state.get("uploaded_text")
+    ) and st.session_state.get("last_source") != current_source:
+        st.session_state["last_source"] = current_source
+        with st.spinner("Analyzing the job ad with AI..."):
+            _run_extraction(lang)
         if st.session_state.get("extraction_success"):
-            st.session_state["current_section"] = 1
+            st.session_state["current_section"] = 8
             st.rerun()
 
 
@@ -479,7 +481,7 @@ def company_information_page():
         st.session_state["followup_questions"] = [
             f
             for f in generate_followup_questions(
-                st.session_state,
+                cast(dict[str, Any], st.session_state),
                 lang=lang,
                 use_rag=st.session_state.get("use_rag", True),
             )
@@ -572,7 +574,7 @@ def role_description_page():
     st.header("📋 Role Description" if lang != "de" else "📋 Rollenbeschreibung")
     try:
         st.session_state["followup_questions"] = generate_followup_questions(
-            st.session_state,
+            cast(dict[str, Any], st.session_state),
             lang=lang,
             use_rag=st.session_state.get("use_rag", True),
         )
@@ -931,18 +933,16 @@ def summary_outputs_page():
             ],
         },
     ]
-    for category in categories:
-        rendered_heading = False
-        for field in category["fields"]:
-            value = st.session_state.get(field, "")
-            is_missing = not value and field in CRITICAL_FIELDS
-            if value or is_missing:
-                if not rendered_heading:
-                    heading = category["de"] if lang == "de" else category["en"]
-                    st.subheader(heading)
-                    rendered_heading = True
-                label = field.replace("_", " ").title()
-                render_summary_input(field, label, is_missing)
+    tab_labels = [cat["de"] if lang == "de" else cat["en"] for cat in categories]
+    tabs = st.tabs(tab_labels)
+    for tab, category in zip(tabs, categories):
+        with tab:
+            for field in category["fields"]:
+                value = st.session_state.get(field, "")
+                is_missing = not value and field in CRITICAL_FIELDS
+                if value or is_missing:
+                    label = field.replace("_", " ").title()
+                    render_summary_input(field, label, is_missing)
     # Buttons to generate final outputs
     colA, colB = st.columns(2)
     with colA:
