@@ -65,10 +65,14 @@ TONE_CHOICES = {
     },
 }
 
+lang = st.session_state.get("lang", "en")
+
 
 FIELD_SECTION_MAP: dict[str, int] = {
     "position.job_title": 1,
     "company.name": 2,
+    "company.hq_location": 2,
+    "company.size": 2,
     "location.primary_city": 2,
     "location.country": 2,
     "position.role_summary": 3,
@@ -102,6 +106,8 @@ SUMMARY_CATEGORIES: list[SummaryCategory] = [
             "company.name",
             "company.website",
             "company.industry",
+            "company.hq_location",
+            "company.size",
             "location.primary_city",
             "location.country",
             "company.mission",
@@ -677,6 +683,8 @@ def company_information_page():
         [
             "company.name",
             "company.industry",
+            "company.hq_location",
+            "company.size",
             "location.primary_city",
             "location.country",
             "company.website",
@@ -730,6 +738,28 @@ st.session_state["company.industry"] = st.selectbox(
     ),
     key="company.industry",
 )
+st.session_state["company.hq_location"] = st.text_input(
+    "Headquarters Location" if lang != "de" else "Hauptsitz",
+    st.session_state.get("company.hq_location", ""),
+)
+size_options = [
+    "1-10",
+    "11-50",
+    "51-200",
+    "201-1000",
+    "1001-5000",
+    "5001+",
+]
+st.session_state["company.size"] = st.selectbox(
+    "Company Size" if lang != "de" else "Unternehmensgröße",
+    size_options,
+    index=(
+        size_options.index(st.session_state["company.size"])
+        if st.session_state.get("company.size") in size_options
+        else 0
+    ),
+    key="company.size",
+)
 st.session_state["location.primary_city"] = st.text_input(
     "City" if lang != "de" else "Stadt",
     st.session_state.get("location.primary_city", ""),
@@ -754,66 +784,6 @@ if st.button("🔄 Fetch Company Info from Website"):
             st.session_state["company.mission"] = info["company_mission"]
         if info.get("company_culture"):
             st.session_state["company.culture"] = info["company_culture"]
-
-# ... (Running extraction, which uses build_extract_messages and build_extraction_function)
-messages = build_extract_messages(
-    combined_text,
-    title=st.session_state.get("position.job_title"),
-    url=st.session_state.get("input_url"),
-)
-fn_schema = build_extraction_function()
-try:
-    response = call_chat_api(
-        messages,
-        model=st.session_state.get("llm_model"),
-        temperature=0.0,
-        functions=[fn_schema],
-        function_call={"name": fn_schema["name"]},
-    )
-except Exception:
-    st.session_state["extraction_success"] = False
-    err_msg = (
-        "❌ OpenAI request failed. Please try again later."
-        if lang != "de"
-        else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
-    )
-    st.error(err_msg)
-    return
-try:
-    # Parse response JSON and fill session state
-    jd = coerce_and_fill(json.loads(response))
-    to_session_state(jd, st.session_state)
-    normalise_state()  # apply any alias re-sync for legacy keys
-    # Generate follow-up questions based on missing fields
-    try:
-        followups = generate_followup_questions(
-            cast(dict[str, Any], st.session_state),
-            lang=lang,
-            use_rag=st.session_state.get("use_rag", True),
-        )
-    except Exception:
-        warn_msg = (
-            "⚠️ Unable to generate follow-up questions."
-            if lang != "de"
-            else "⚠️ Folgefragen konnten nicht erstellt werden."
-        )
-        st.warning(warn_msg)
-        followups = []
-    st.session_state["followup_questions"] = followups
-    # Classify occupation via ESCO for analytics (e.g., occupation_label)
-    occ = esco_utils.classify_occupation(
-        st.session_state.get("position.job_title", ""), lang=lang
-    )
-    if occ:
-        st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get(
-            "occupation_label", ""
-        )
-        st.session_state["occupation_group"] = occ.get("group", "")
-    st.session_state["extraction_success"] = True
-except Exception as e:
-    # ... (JSON parsing error handling)
-    st.session_state["extraction_success"] = False
-    st.error("⚠️ Failed to parse extracted data.")
 
 
 def role_description_page():
@@ -885,11 +855,6 @@ def skills_competencies_page():
     )
     if not st.session_state.get("hard_skills") and st.session_state.get("requirements"):
         st.session_state["hard_skills"] = st.session_state.get("requirements", "")
-    hard_label = "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills"
-    tools_label = "Tools & Technologies" if lang != "de" else "Tools und Technologien"
-    cert_label = "Certifications" if lang != "de" else "Zertifizierungen"
-    soft_label = "Soft Skills" if lang != "de" else "Soft Skills"
-    lang_label = "Languages Required" if lang != "de" else "Erforderliche Sprachen"
 
     # Requirements inputs (Section 3 - Skills & Competencies)
 

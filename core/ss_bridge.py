@@ -1,4 +1,7 @@
+from typing import Any
+
 from .schema import ALL_FIELDS, ALIASES, LIST_FIELDS, VacalyserJD, coerce_and_fill
+
 
 def to_session_state(jd: VacalyserJD, ss: dict) -> None:
     """Populate session state dict with values from a VacalyserJD object."""
@@ -16,6 +19,7 @@ def to_session_state(jd: VacalyserJD, ss: dict) -> None:
     # Remove deprecated alias keys to avoid duplicates in form
     for alias in ALIASES:
         ss.pop(alias, None)
+
 
 def from_session_state(ss: dict) -> VacalyserJD:
     """Build a VacalyserJD model from the session state values."""
