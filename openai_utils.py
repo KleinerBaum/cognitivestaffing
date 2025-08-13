@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any, List, cast
 
 from openai import OpenAI
 
@@ -53,7 +53,7 @@ def call_chat_api(
 
 def suggest_additional_skills(
     job_title: str,
-    tasks: str = "",
+    responsibilities: str = "",
     existing_skills: list[str] | None = None,
     num_suggestions: int = 10,
     lang: str = "en",
@@ -63,7 +63,7 @@ def suggest_additional_skills(
 
     Args:
         job_title: Target role title.
-        tasks: Known responsibilities for context.
+        responsibilities: Known responsibilities for context.
         existing_skills: Skills already listed by the user.
         num_suggestions: Total number of skills to request.
         lang: Language of the response ("en" or "de").
@@ -82,8 +82,8 @@ def suggest_additional_skills(
         f"Suggest {half} technical and {half} soft skills for a {job_title} role. "
         "Avoid duplicates or skills already listed. Provide each skill on a separate line, prefixed by '-' or '•'."
     )
-    if tasks:
-        prompt += f" Key tasks: {tasks}. "
+    if responsibilities:
+        prompt += f" Key responsibilities: {responsibilities}. "
     if existing_skills:
         prompt += f" Already listed: {', '.join(existing_skills)}."
     # If language is German, ask in German to get German skill names
@@ -92,8 +92,8 @@ def suggest_additional_skills(
             f"Gib {half} technische und {half} soziale Fähigkeiten für die Position '{job_title}' an. "
             "Vermeide Dubletten oder bereits aufgeführte Fähigkeiten. Nenne jede Fähigkeit in einer neuen Zeile, beginnend mit '-' oder '•'."
         )
-        if tasks:
-            prompt += f" Wichtige Aufgaben: {tasks}. "
+        if responsibilities:
+            prompt += f" Wichtige Aufgaben: {responsibilities}. "
         if existing_skills:
             prompt += f" Bereits aufgelistet: {', '.join(existing_skills)}."
     messages = [{"role": "user", "content": prompt}]
@@ -235,7 +235,7 @@ def suggest_role_tasks(
 
 def generate_interview_guide(
     job_title: str,
-    tasks: str = "",
+    responsibilities: str = "",
     audience: str = "general",
     num_questions: int = 5,
     lang: str = "en",
@@ -251,7 +251,7 @@ def generate_interview_guide(
             f"Erstelle einen Leitfaden für ein Vorstellungsgespräch für die Position {job_title} "
             f"(für Interviewer: {audience}).\n"
             f"Formuliere {num_questions} Schlüsselfragen für das Interview und gib für jede Frage kurz die idealen Antwortkriterien an.\n"
-            f"Wichtige Aufgaben der Rolle: {tasks or 'N/A'}.\n"
+            f"Wichtige Aufgaben der Rolle: {responsibilities or 'N/A'}.\n"
             f"Tonfall: {tone}."
         )
         if company_culture:
@@ -264,7 +264,7 @@ def generate_interview_guide(
         prompt = (
             f"Generate an interview guide for a {job_title} for {audience} interviewers.\n"
             f"Include {num_questions} key interview questions and, for each question, provide a brief scoring rubric or ideal answer criteria.\n"
-            f"Key tasks for the role: {tasks or 'N/A'}.\n"
+            f"Key responsibilities for the role: {responsibilities or 'N/A'}.\n"
             f"Tone: {tone}."
         )
         if company_culture:
@@ -275,20 +275,30 @@ def generate_interview_guide(
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
 
-def generate_job_ad(session_data: dict, tone: str | None = None, model: str | None = None) -> str:
+
+def generate_job_ad(
+    session_data: dict, tone: str | None = None, model: str | None = None
+) -> str:
     """Generate a compelling job advertisement using the collected session data."""
+
     def _format(value: Any) -> str:
         if isinstance(value, list):
             return ", ".join(str(v) for v in value if v)
         return str(value)
+
     # Normalize aliases and ensure we have the latest values
     data = dict(session_data)  # copy to avoid mutating original
     # In case legacy keys are present or needed for continuity:
-    data["responsibilities"] = data.get("responsibilities") or data.get("responsibilities.items", "")
-    data["qualifications"] = data.get("requirements.qualifications", "")  # (if qualifications existed; not in v2)
+    data["qualifications"] = data.get(
+        "requirements.qualifications", ""
+    )  # (if qualifications existed; not in v2)
     lang = data.get("lang", "en")
     if tone is None:
-        tone = "klar, ansprechend und inklusiv" if lang.startswith("de") else "engaging, clear, and inclusive"
+        tone = (
+            "klar, ansprechend und inklusiv"
+            if lang.startswith("de")
+            else "engaging, clear, and inclusive"
+        )
     # Define field labels and which session keys to use
     fields_for_ad = [
         # (session_key, English Label, German Label)
@@ -298,9 +308,9 @@ def generate_job_ad(session_data: dict, tone: str | None = None, model: str | No
         ("company.industry", "Industry", "Branche"),
         ("employment.job_type", "Job Type", "Anstellungsart"),
         ("employment.work_policy", "Work Policy", "Arbeitsmodell"),
-        ("employment.travel_required", "Travel Requirements", "Reisebereitschaft"),
+        ("employment.travel_required", "Travel Required", "Reise erforderlich"),
         ("position.role_summary", "Role Summary", "Rollenbeschreibung"),
-        ("responsibilities", "Key Responsibilities", "Wichtigste Aufgaben"),  # using combined responsibilities text
+        ("responsibilities.items", "Key Responsibilities", "Wichtigste Aufgaben"),
         ("requirements.hard_skills", "Hard Skills", "Technische Fähigkeiten"),
         ("requirements.soft_skills", "Soft Skills", "Soziale Fähigkeiten"),
         ("compensation.benefits", "Benefits", "Leistungen"),
@@ -308,8 +318,16 @@ def generate_job_ad(session_data: dict, tone: str | None = None, model: str | No
         ("position.team_structure", "Team Structure", "Teamstruktur"),
         ("position.application_deadline", "Application Deadline", "Bewerbungsschluss"),
         ("position.seniority_level", "Seniority Level", "Erfahrungsebene"),
-        ("requirements.languages_required", "Languages Required", "Erforderliche Sprachen"),
-        ("requirements.tools_and_technologies", "Tools and Technologies", "Tools und Technologien"),
+        (
+            "requirements.languages_required",
+            "Languages Required",
+            "Erforderliche Sprachen",
+        ),
+        (
+            "requirements.tools_and_technologies",
+            "Tools and Technologies",
+            "Tools und Technologien",
+        ),
     ]
     details: List[str] = []
     for key, label_en, label_de in fields_for_ad:
@@ -322,14 +340,14 @@ def generate_job_ad(session_data: dict, tone: str | None = None, model: str | No
         label = label_de if lang.startswith("de") else label_en
         # For booleans like travel_required, convert to Yes/No text
         if key == "employment.travel_required":
-            formatted = ("Yes" if str(val).lower() in ["true", "yes", "1"] else "No")
+            formatted = "Yes" if str(val).lower() in ["true", "yes", "1"] else "No"
         details.append(f"{label}: {formatted}")
     # Handle salary range as a special case
     if data.get("compensation.salary_provided"):
         try:
             min_sal = int(data.get("compensation.salary_min", 0))
             max_sal = int(data.get("compensation.salary_max", 0))
-        except:
+        except Exception:
             min_sal = max_sal = 0
         if min_sal or max_sal:
             currency = data.get("compensation.salary_currency", "EUR")
@@ -342,10 +360,16 @@ def generate_job_ad(session_data: dict, tone: str | None = None, model: str | No
                 salary_str = f"{max_sal or min_sal:,} {currency} per {period}"
             details.append(f"{salary_label}: {salary_str}")
     # Add mission or culture if provided (optional context)
-    mission = data.get("company_mission", "").strip()  # company mission is outside schema (additional field)
+    mission = data.get(
+        "company_mission", ""
+    ).strip()  # company mission is outside schema (additional field)
     culture = data.get("company_culture", "").strip()
     if lang.startswith("de"):
-        prompt = "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n" + "\n".join(details) + f"\nTonfall: {tone}."
+        prompt = (
+            "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
+            + "\n".join(details)
+            + f"\nTonfall: {tone}."
+        )
         if mission or culture:
             lines = []
             if mission:
@@ -355,7 +379,11 @@ def generate_job_ad(session_data: dict, tone: str | None = None, model: str | No
             prompt += "\n" + "\n".join(lines)
             prompt += "\nFüge einen Satz über Mission oder Werte des Unternehmens hinzu, um das Employer Branding zu stärken."
     else:
-        prompt = "Create an engaging, professional job advertisement in Markdown format.\n" + "\n".join(details) + f"\nTone: {tone}."
+        prompt = (
+            "Create an engaging, professional job advertisement in Markdown format.\n"
+            + "\n".join(details)
+            + f"\nTone: {tone}."
+        )
         if mission or culture:
             lines = []
             if mission:

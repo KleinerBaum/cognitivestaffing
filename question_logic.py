@@ -33,10 +33,8 @@ from core.esco_utils import (
     get_essential_skills,
     normalize_skills,
 )
-from core import FIELD_SUGGESTIONS, get_field_suggestions
 
 # Generic chat helper (fallback)
-from openai_utils import call_chat_api
 from config import OPENAI_API_KEY
 
 # Try modern OpenAI SDK (Responses API)
@@ -68,7 +66,7 @@ EXTENDED_FIELDS: List[str] = [
     # role core
     "job_title",
     "role_summary",
-    "responsibilities",
+    "responsibilities.items",
     "qualifications",
     "hard_skills",
     "soft_skills",
@@ -77,10 +75,10 @@ EXTENDED_FIELDS: List[str] = [
     "languages_required",
     "seniority_level",
     # employment
-    "job_type",
-    "remote_policy",
+    "employment.job_type",
+    "employment.work_policy",
     "onsite_requirements",
-    "travel_required",
+    "employment.travel_required",
     "working_hours",
     "salary_range",
     "bonus_compensation",
@@ -289,21 +287,39 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
 }
 
 CRITICAL_FIELDS: Set[str] = {
-    "position.job_title", "company.name", "location.primary_city",
-    "position.role_summary", "responsibilities.items",
-    "requirements.hard_skills", "requirements.soft_skills", "requirements.tools_and_technologies",
-    "employment.job_type", "employment.work_policy",
-    "compensation.salary_min", "compensation.salary_max",  # treat salary info as critical
-    "requirements.languages_required", "requirements.certifications"
+    "position.job_title",
+    "company.name",
+    "location.primary_city",
+    "position.role_summary",
+    "responsibilities.items",
+    "requirements.hard_skills",
+    "requirements.soft_skills",
+    "requirements.tools_and_technologies",
+    "employment.job_type",
+    "employment.work_policy",
+    "compensation.salary_min",
+    "compensation.salary_max",  # treat salary info as critical
+    "requirements.languages_required",
+    "requirements.certifications",
 }
-SKILL_FIELDS: Set[str] = {"requirements.hard_skills", "requirements.soft_skills", "requirements.tools_and_technologies"}
+SKILL_FIELDS: Set[str] = {
+    "requirements.hard_skills",
+    "requirements.soft_skills",
+    "requirements.tools_and_technologies",
+}
 
 YES_NO_FIELDS: Set[str] = {
-    "compensation.variable_pay", "compensation.equity_offered",
-    "employment.travel_required", "employment.overtime_expected",
-    "employment.relocation_support", "employment.security_clearance_required",
-    "employment.shift_work", "employment.visa_sponsorship",
-    "requirements.background_check_required", "requirements.portfolio_required", "requirements.reference_check_required"
+    "compensation.variable_pay",
+    "compensation.equity_offered",
+    "employment.travel_required",
+    "employment.overtime_expected",
+    "employment.relocation_support",
+    "employment.security_clearance_required",
+    "employment.shift_work",
+    "employment.visa_sponsorship",
+    "requirements.background_check_required",
+    "requirements.portfolio_required",
+    "requirements.reference_check_required",
 }
 
 
@@ -317,12 +333,14 @@ def _is_empty(val: Any) -> bool:
     # Note: bool False is not "empty" for our purposes (treated as provided)
     return False
 
+
 def _priority_for(field: str, is_missing_esco_skill: bool = False) -> str:
     if is_missing_esco_skill:
         return "critical"
     if field in CRITICAL_FIELDS:
         return "critical"
     return "normal"
+
 
 def _collect_missing_fields(extracted: Dict[str, Any], fields: List[str]) -> List[str]:
     missing = []
@@ -430,14 +448,18 @@ def generate_followup_questions(
     if occ_uri:
         essential_skills = get_essential_skills(occ_uri, lang=lang) or []
         # Check which essential skills are not mentioned in any provided skills/requirements text
-        haystack_text = " ".join([
-            str(extracted.get("responsibilities.items") or ""),
-            str(extracted.get("position.role_summary") or ""),
-            str(extracted.get("requirements.hard_skills") or ""),
-            str(extracted.get("requirements.soft_skills") or ""),
-            str(extracted.get("requirements.tools_and_technologies") or "")
-        ]).lower()
-        missing_esco_skills = [s for s in essential_skills if s.lower() not in haystack_text]
+        haystack_text = " ".join(
+            [
+                str(extracted.get("responsibilities.items") or ""),
+                str(extracted.get("position.role_summary") or ""),
+                str(extracted.get("requirements.hard_skills") or ""),
+                str(extracted.get("requirements.soft_skills") or ""),
+                str(extracted.get("requirements.tools_and_technologies") or ""),
+            ]
+        ).lower()
+        missing_esco_skills = [
+            s for s in essential_skills if s.lower() not in haystack_text
+        ]
     # 2) Determine which fields are missing
     fields_to_check = list(CRITICAL_FIELDS)  # start with critical fields
     # Include role-specific extra fields for this occupation group (not marked critical but should ask if missing)
@@ -446,9 +468,14 @@ def generate_followup_questions(
             fields_to_check.append(extra)
     missing_fields = _collect_missing_fields(extracted, fields_to_check)
     # If salary fields are missing but salary_provided is True, combine as one "salary" question
-    if "compensation.salary_min" in missing_fields and "compensation.salary_max" in missing_fields:
+    if (
+        "compensation.salary_min" in missing_fields
+        and "compensation.salary_max" in missing_fields
+    ):
         # Remove individual salary fields and ask one question covering both
-        missing_fields = [f for f in missing_fields if not f.startswith("compensation.salary_")]
+        missing_fields = [
+            f for f in missing_fields if not f.startswith("compensation.salary_")
+        ]
         missing_fields.append("compensation.salary_range")
     # Compute number of questions if not explicitly given
     if num_questions is None:
@@ -461,7 +488,9 @@ def generate_followup_questions(
     suggestions_map: Dict[str, List[str]] = {}
     if use_rag and use_rag and (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")):
         try:
-            suggestions_map = _rag_suggestions(job_title, industry, missing_fields, lang=lang)
+            suggestions_map = _rag_suggestions(
+                job_title, industry, missing_fields, lang=lang
+            )
         except Exception:
             suggestions_map = {}
     # 4) Construct question payloads
@@ -471,12 +500,14 @@ def generate_followup_questions(
         field = cfg.get("field")
         q_text = cfg.get("question")
         if field and q_text and _is_empty(extracted.get(field, None)):
-            questions.append({
-                "field": field,
-                "question": q_text + ("?" if not q_text.endswith("?") else ""),
-                "priority": "normal",
-                "suggestions": suggestions_map.get(field, []),
-            })
+            questions.append(
+                {
+                    "field": field,
+                    "question": q_text + ("?" if not q_text.endswith("?") else ""),
+                    "priority": "normal",
+                    "suggestions": suggestions_map.get(field, []),
+                }
+            )
     # Questions for each missing field
     for field in missing_fields:
         # Skip if already added via role_questions_cfg
@@ -484,7 +515,9 @@ def generate_followup_questions(
             continue
         # Determine field-specific prompt text
         if field == "compensation.salary_range":
-            q_text = "What is the salary range (min and max) and currency for this position?"
+            q_text = (
+                "What is the salary range (min and max) and currency for this position?"
+            )
         elif field.startswith("responsibilities."):
             q_text = "Could you list the key responsibilities or tasks for this role?"  # covers responsibilities.items
         elif field.startswith("requirements.hard_skills"):
@@ -492,7 +525,9 @@ def generate_followup_questions(
         elif field.startswith("requirements.soft_skills"):
             q_text = "What soft skills or interpersonal skills are important?"
         elif field.startswith("requirements.tools_and_technologies"):
-            q_text = "Which tools and technologies should the candidate be familiar with?"
+            q_text = (
+                "Which tools and technologies should the candidate be familiar with?"
+            )
         elif field == "location.primary_city":
             q_text = "In which city is this position based?"
         elif field == "location.country":
@@ -505,14 +540,20 @@ def generate_followup_questions(
         suggestions = suggestions_map.get(field, [])
         prefill = None
         if field in YES_NO_FIELDS:
-            prefill = "No"  # default to "No" if not specified (to prompt user to confirm)
-        questions.append({
-            "field": field,
-            "question": (q_text if q_text.endswith("?") else q_text + "?"),
-            "priority": priority,
-            "suggestions": suggestions,
-            **({"prefill": prefill} if prefill is not None else {})
-        })
+            prefill = (
+                "No"  # default to "No" if not specified (to prompt user to confirm)
+            )
+        questions.append(
+            {
+                "field": field,
+                "question": (q_text if q_text.endswith("?") else q_text + "?"),
+                "priority": priority,
+                "suggestions": suggestions,
+                **({"prefill": prefill} if prefill is not None else {}),
+            }
+        )
     # Sort questions by priority (critical first) and limit to num_questions
-    sorted_questions = sorted(questions, key=lambda q: 0 if q["priority"] == "critical" else 1)
-    return sorted_questions[: num_questions]
+    sorted_questions = sorted(
+        questions, key=lambda q: 0 if q["priority"] == "critical" else 1
+    )
+    return sorted_questions[:num_questions]

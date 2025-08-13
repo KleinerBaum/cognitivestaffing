@@ -1,15 +1,20 @@
 from __future__ import annotations
 from typing import Any, Dict, List
+import re
+
 try:
     from pydantic import BaseModel, Field
     from pydantic import ConfigDict  # Pydantic v2
+
     _HAS_V2 = True
 except ImportError:
     from pydantic import BaseModel, Field  # type: ignore
+
     ConfigDict = None
     _HAS_V2 = False
 
 SCHEMA_VERSION = "v2.0"
+
 
 # Define nested models for each schema group (priority 1-3 fields only)
 class Company(BaseModel):
@@ -18,6 +23,7 @@ class Company(BaseModel):
     hq_location: str = ""
     size: str = ""
     website: str = ""
+
 
 class Compensation(BaseModel):
     salary_currency: str = "EUR"
@@ -38,16 +44,19 @@ class Compensation(BaseModel):
     pension_plan: str = ""
     sick_days: int = 0
 
+
 class ContactPerson(BaseModel):
     name: str = ""
     email: str = ""
     notify_stages: List[str] = []
+
 
 class Contacts(BaseModel):
     hiring_manager: ContactPerson = ContactPerson()
     hr: ContactPerson = ContactPerson()
     recruiter: ContactPerson = ContactPerson()
     # We omit phone and additional_notes (priority 4-5) for now
+
 
 class Employment(BaseModel):
     job_type: str = ""
@@ -73,12 +82,14 @@ class Employment(BaseModel):
     visa_types_supported: List[str] = []
     work_hours_per_week: int = 0
 
+
 class Location(BaseModel):
     country: str = ""
     primary_city: str = ""
     geo_eligibility_countries: List[str] = []
     region_state: str = ""
     timezone: str = ""
+
 
 class Meta(BaseModel):
     job_posting_url: str = ""
@@ -87,6 +98,7 @@ class Meta(BaseModel):
     source_platform: str = ""
     source_type: str = ""
     # parsed_by_model and schema_version are not included (schema_version is top-level)
+
 
 class Position(BaseModel):
     job_title: str = ""
@@ -106,6 +118,7 @@ class Position(BaseModel):
     team_structure: str = ""
     # occupation_esco_code/title and cross_functional, etc. (priority 4-5) are omitted
 
+
 class Requirements(BaseModel):
     hard_skills: List[str] = []
     education_level: str = ""
@@ -121,21 +134,28 @@ class Requirements(BaseModel):
     reference_check_required: bool = False
     # language_level_english/german and years_experience_preferred omitted
 
+
 class Responsibilities(BaseModel):
     items: List[str] = []
     top3: List[str] = []
 
+
 # Base model configuration to ignore unknown fields
 if _HAS_V2:
+
     class _BaseModel(BaseModel):
         model_config = ConfigDict(extra="ignore")
+
 else:
+
     class _BaseModel(BaseModel):
         class Config:
             extra = "ignore"
 
+
 class VacalyserJD(_BaseModel):
     """Canonical job description model (Vacalyzer v2.0)."""
+
     schema_version: str = Field(default=SCHEMA_VERSION)
     company: Company = Field(default_factory=Company)
     compensation: Compensation = Field(default_factory=Compensation)
@@ -148,41 +168,104 @@ class VacalyserJD(_BaseModel):
     responsibilities: Responsibilities = Field(default_factory=Responsibilities)
     # Note: process and analytics groups omitted for now (to be added later)
 
+
 # Define list of all fields (dot notation) for priority 1-3 fields
 ALL_FIELDS: List[str] = [
     # Company fields
-    "company.name", "company.industry", "company.hq_location", "company.size", "company.website",
+    "company.name",
+    "company.industry",
+    "company.hq_location",
+    "company.size",
+    "company.website",
     # Position fields
-    "position.job_title", "position.seniority_level", "position.department", "position.management_scope",
-    "position.reporting_line", "position.role_summary", "position.application_deadline", "position.business_unit",
-    "position.direct_reports_count", "position.function", "position.role_objectives", "position.target_start_date",
-    "position.team_roles", "position.team_size", "position.team_structure",
+    "position.job_title",
+    "position.seniority_level",
+    "position.department",
+    "position.management_scope",
+    "position.reporting_line",
+    "position.role_summary",
+    "position.application_deadline",
+    "position.business_unit",
+    "position.direct_reports_count",
+    "position.function",
+    "position.role_objectives",
+    "position.target_start_date",
+    "position.team_roles",
+    "position.team_size",
+    "position.team_structure",
     # Compensation fields
-    "compensation.salary_currency", "compensation.salary_min", "compensation.salary_max", "compensation.salary_period",
-    "compensation.salary_provided", "compensation.benefits", "compensation.bonus_target_percent", "compensation.variable_pay",
-    "compensation.commission_structure", "compensation.equity_offered", "compensation.equity_range", "compensation.equity_type",
-    "compensation.healthcare_plan", "compensation.paid_time_off_days", "compensation.parental_leave_weeks",
-    "compensation.pension_plan", "compensation.sick_days",
+    "compensation.salary_currency",
+    "compensation.salary_min",
+    "compensation.salary_max",
+    "compensation.salary_period",
+    "compensation.salary_provided",
+    "compensation.benefits",
+    "compensation.bonus_target_percent",
+    "compensation.variable_pay",
+    "compensation.commission_structure",
+    "compensation.equity_offered",
+    "compensation.equity_range",
+    "compensation.equity_type",
+    "compensation.healthcare_plan",
+    "compensation.paid_time_off_days",
+    "compensation.parental_leave_weeks",
+    "compensation.pension_plan",
+    "compensation.sick_days",
     # Employment fields
-    "employment.job_type", "employment.work_policy", "employment.employment_term", "employment.onsite_days_per_week",
-    "employment.remote_percentage", "employment.travel_required", "employment.work_schedule", "employment.clearance_level",
-    "employment.office_locations_allowed", "employment.overtime_expected", "employment.overtime_policy",
-    "employment.relocation_support", "employment.remote_timezone_overlap_hours", "employment.security_clearance_required",
-    "employment.shift_patterns", "employment.shift_work", "employment.travel_frequency", "employment.travel_percentage",
-    "employment.travel_regions", "employment.visa_sponsorship", "employment.visa_types_supported", "employment.work_hours_per_week",
+    "employment.job_type",
+    "employment.work_policy",
+    "employment.employment_term",
+    "employment.onsite_days_per_week",
+    "employment.remote_percentage",
+    "employment.travel_required",
+    "employment.work_schedule",
+    "employment.clearance_level",
+    "employment.office_locations_allowed",
+    "employment.overtime_expected",
+    "employment.overtime_policy",
+    "employment.relocation_support",
+    "employment.remote_timezone_overlap_hours",
+    "employment.security_clearance_required",
+    "employment.shift_patterns",
+    "employment.shift_work",
+    "employment.travel_frequency",
+    "employment.travel_percentage",
+    "employment.travel_regions",
+    "employment.visa_sponsorship",
+    "employment.visa_types_supported",
+    "employment.work_hours_per_week",
     # Location fields
-    "location.country", "location.primary_city", "location.geo_eligibility_countries", "location.region_state", "location.timezone",
+    "location.country",
+    "location.primary_city",
+    "location.geo_eligibility_countries",
+    "location.region_state",
+    "location.timezone",
     # Contacts fields
-    "contacts.hiring_manager.name", "contacts.hiring_manager.email", "contacts.hiring_manager.notify_stages",
-    "contacts.hr.name", "contacts.hr.email", "contacts.hr.notify_stages",
-    "contacts.recruiter.name", "contacts.recruiter.email", "contacts.recruiter.notify_stages",
+    "contacts.hiring_manager.name",
+    "contacts.hiring_manager.email",
+    "contacts.hiring_manager.notify_stages",
+    "contacts.hr.name",
+    "contacts.hr.email",
+    "contacts.hr.notify_stages",
+    "contacts.recruiter.name",
+    "contacts.recruiter.email",
+    "contacts.recruiter.notify_stages",
     # Requirements fields
-    "requirements.hard_skills", "requirements.education_level", "requirements.languages_required", "requirements.soft_skills",
-    "requirements.tools_and_technologies", "requirements.years_experience_min", "requirements.background_check_required",
-    "requirements.certifications", "requirements.fields_of_study", "requirements.portfolio_required", "requirements.portfolio_url",
+    "requirements.hard_skills",
+    "requirements.education_level",
+    "requirements.languages_required",
+    "requirements.soft_skills",
+    "requirements.tools_and_technologies",
+    "requirements.years_experience_min",
+    "requirements.background_check_required",
+    "requirements.certifications",
+    "requirements.fields_of_study",
+    "requirements.portfolio_required",
+    "requirements.portfolio_url",
     "requirements.reference_check_required",
     # Responsibilities fields
-    "responsibilities.items", "responsibilities.top3"
+    "responsibilities.items",
+    "responsibilities.top3",
 ]
 # List fields set (all keys in ALL_FIELDS that are list-typed)
 LIST_FIELDS: set[str] = {
@@ -192,16 +275,26 @@ LIST_FIELDS: set[str] = {
     # from Compensation: benefits is a list
     "compensation.benefits",
     # from Contacts: notify_stages lists
-    "contacts.hiring_manager.notify_stages", "contacts.hr.notify_stages", "contacts.recruiter.notify_stages",
+    "contacts.hiring_manager.notify_stages",
+    "contacts.hr.notify_stages",
+    "contacts.recruiter.notify_stages",
     # from Employment: office_locations_allowed, shift_patterns, travel_regions, visa_types_supported
-    "employment.office_locations_allowed", "employment.shift_patterns", "employment.travel_regions", "employment.visa_types_supported",
+    "employment.office_locations_allowed",
+    "employment.shift_patterns",
+    "employment.travel_regions",
+    "employment.visa_types_supported",
     # from Location: geo_eligibility_countries
     "location.geo_eligibility_countries",
     # from Requirements: hard_skills, languages_required, soft_skills, tools_and_technologies, certifications, fields_of_study
-    "requirements.hard_skills", "requirements.languages_required", "requirements.soft_skills",
-    "requirements.tools_and_technologies", "requirements.certifications", "requirements.fields_of_study",
+    "requirements.hard_skills",
+    "requirements.languages_required",
+    "requirements.soft_skills",
+    "requirements.tools_and_technologies",
+    "requirements.certifications",
+    "requirements.fields_of_study",
     # from Responsibilities: items, top3
-    "responsibilities.items", "responsibilities.top3"
+    "responsibilities.items",
+    "responsibilities.top3",
 }
 STRING_FIELDS: set[str] = set(ALL_FIELDS) - LIST_FIELDS
 
@@ -212,19 +305,30 @@ ALIASES: Dict[str, str] = {
     "experience_level": "position.seniority_level",
     "start_date": "position.target_start_date",
     "tasks": "responsibilities.items",
-    "tools_technologies": "requirements.tools_and_technologies"
+    "travel_required": "employment.travel_required",
+    "tools_technologies": "requirements.tools_and_technologies",
     # Note: "qualifications" field is removed; no direct alias for "requirements" group as a whole.
 }
 
 # Canonical normalization for job_type values (unchanged from v1)
 JOB_TYPE_CATEGORIES: Dict[str, str] = {
-    "full-time": "Full-time", "full time": "Full-time", "fulltime": "Full-time",
-    "part-time": "Part-time", "part time": "Part-time", "parttime": "Part-time",
-    "contract": "Contract", "contractor": "Contract",
-    "temporary": "Temporary", "temp": "Temporary",
-    "internship": "Internship", "intern": "Internship",
-    "apprenticeship": "Apprenticeship", "freelance": "Freelance"
+    "full-time": "Full-time",
+    "full time": "Full-time",
+    "fulltime": "Full-time",
+    "part-time": "Part-time",
+    "part time": "Part-time",
+    "parttime": "Part-time",
+    "contract": "Contract",
+    "contractor": "Contract",
+    "temporary": "Temporary",
+    "temp": "Temporary",
+    "internship": "Internship",
+    "intern": "Internship",
+    "apprenticeship": "Apprenticeship",
+    "freelance": "Freelance",
 }
+
+
 def _normalize_job_type(value: str) -> str:
     key = value.strip().lower().replace("_", "-")
     key = key.replace("\u2011", "-")  # non-breaking hyphen
@@ -234,6 +338,7 @@ def _normalize_job_type(value: str) -> str:
         return JOB_TYPE_CATEGORIES[key]
     # If not recognized, return original capitalized
     return value
+
 
 def _dedupe_preserve_order(items: List[str]) -> List[str]:
     """Remove duplicates from a list while preserving order and stripping whitespace."""
@@ -248,12 +353,14 @@ def _dedupe_preserve_order(items: List[str]) -> List[str]:
             result.append(val)
     return result
 
+
 def _dedupe_across_fields(jd: VacalyserJD) -> VacalyserJD:
     """
     Remove duplicate text appearing in multiple fields (for nested schema).
     The first occurrence of a normalized text segment is kept; subsequent occurrences in later fields are cleared.
     Field order follows ALL_FIELDS.
     """
+
     def _norm(text: str) -> str:
         return re.sub(r"\W+", " ", text).strip().lower()
 
@@ -296,6 +403,7 @@ def _dedupe_across_fields(jd: VacalyserJD) -> VacalyserJD:
             elif norm_val:
                 seen.add(norm_val)
     return jd
+
 
 def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
     """
