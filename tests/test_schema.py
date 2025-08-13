@@ -43,15 +43,38 @@ def test_default_insertion() -> None:
 
 
 def test_alias_priority() -> None:
-    data = {
-        "responsibilities": {"items": ["A"]},
-        "tasks": "B",
-        "job_title": "Old",
-        "position": {"job_title": "New"},
-    }
+    data = {"job_title": "Old", "position": {"job_title": "New"}}
     jd = coerce_and_fill(data)
-    assert jd.responsibilities.items == ["A"]
     assert jd.position.job_title == "New"
+
+
+def test_tasks_merge_without_duplicates() -> None:
+    jd = coerce_and_fill(
+        {
+            "responsibilities": {"items": ["Task A"]},
+            "tasks": "Task B",
+        }
+    )
+    assert jd.responsibilities.items == ["Task A", "Task B"]
+
+    jd2 = coerce_and_fill(
+        {
+            "responsibilities": {"items": ["Task A"]},
+            "tasks": "Task A",
+        }
+    )
+    assert jd2.responsibilities.items == ["Task A"]
+
+
+def test_remote_policy_alias_priority() -> None:
+    jd = coerce_and_fill(
+        {
+            "employment": {"work_policy": "Hybrid"},
+            "remote_policy": "Fully remote",
+        }
+    )
+    assert jd.employment.work_policy == "Hybrid"
+    assert "remote_policy" not in jd.model_dump(mode="json")
 
 
 def test_list_coercion_split_and_dedupe() -> None:

@@ -429,8 +429,24 @@ def coerce_and_fill(data: Dict[str, Any]) -> VacalyserJD:
             flat[key] = val
     # apply alias mapping
     for old, new in ALIASES.items():
-        if old in flat and new not in flat:
-            flat[new] = flat.pop(old)
+        if old not in flat:
+            continue
+        old_val = flat.pop(old)
+        if new in flat:
+            if new in LIST_FIELDS:
+                new_val = flat[new]
+                if not isinstance(new_val, list):
+                    new_val = [new_val]
+                if isinstance(old_val, list):
+                    combined = new_val + old_val
+                else:
+                    combined = new_val + [old_val]
+                flat[new] = combined
+            else:
+                # Canonical value already present; discard alias value
+                pass
+        else:
+            flat[new] = old_val
     data = flat
     # 2) insert missing keys with defaults from the canonical model
     #    This preserves numeric/boolean defaults instead of generic strings.

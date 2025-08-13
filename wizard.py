@@ -224,7 +224,12 @@ def normalise_state(reapply_aliases: bool = True):
         # Keep legacy alias fields in sync for UI (if needed)
         st.session_state["requirements"] = st.session_state.get("qualifications", "")
         st.session_state["tasks"] = st.session_state.get("responsibilities.items", "")
-        st.session_state["contract_type"] = st.session_state.get("job_type", "")
+        st.session_state["contract_type"] = st.session_state.get(
+            "employment.job_type", ""
+        )
+        st.session_state["remote_policy"] = st.session_state.get(
+            "employment.work_policy", ""
+        )
     st.session_state["validated_json"] = json.dumps(
         jd.model_dump(mode="json"), indent=2, ensure_ascii=False
     )
@@ -585,11 +590,8 @@ def _run_extraction(lang: str) -> None:
         st.error(err_msg)
         return
     try:
-        data = coerce_and_fill(json.loads(response)).model_dump(mode="json")
-        for key, val in data.items():
-            st.session_state[key] = (
-                "\n".join(val) if isinstance(val, list) else str(val)
-            )
+        jd = coerce_and_fill(json.loads(response))
+        to_session_state(jd, cast(dict[str, Any], st.session_state))
         normalise_state()
         try:
             followups = generate_followup_questions(
