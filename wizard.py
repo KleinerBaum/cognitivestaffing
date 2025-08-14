@@ -389,7 +389,46 @@ def render_followups_for(fields: list[str] | None = None) -> None:
         fields: List of field names relevant to the current page. If ``None``,
             all follow-up questions are considered.
     """
+    lang = st.session_state.get("lang", "en")
+    auto_label = (
+        "Auto complete missing fields"
+        if lang != "de"
+        else "Automatisch fehlende Felder fragen"
+    )
+    st.session_state["auto_mode"] = st.checkbox(
+        auto_label,
+        value=st.session_state.get("auto_mode", False),
+        key="auto_mode",
+    )
+
     followups = st.session_state.get("followup_questions", [])
+    if st.session_state.get("auto_mode") and not followups:
+        missing = get_missing_critical_fields()
+        if missing:
+            try:
+                followups = generate_followup_questions(
+                    cast(dict[str, Any], st.session_state),
+                    num_questions=1,
+                    lang=lang,
+                    use_rag=st.session_state.get("use_rag", True),
+                )
+            except Exception:  # pragma: no cover - network failure
+                followups = []
+            st.session_state["followup_questions"] = followups
+        else:
+            st.session_state["auto_mode"] = False
+
+    if st.session_state.get("auto_mode") and len(followups) > 1:
+        followups = followups[:1]
+        st.session_state["followup_questions"] = followups
+
+    if st.session_state.get("auto_mode"):
+        st.caption(
+            "Automatic follow-ups enabled..."
+            if lang != "de"
+            else "Automatische Rückfragen aktiviert..."
+        )
+
     if not followups:
         return
 
@@ -627,6 +666,7 @@ def _run_extraction(lang: str) -> None:
         try:
             followups = generate_followup_questions(
                 cast(dict[str, Any], st.session_state),
+                num_questions=1 if st.session_state.get("auto_mode") else None,
                 lang=lang,
                 use_rag=st.session_state.get("use_rag", True),
             )
@@ -638,7 +678,9 @@ def _run_extraction(lang: str) -> None:
             )
             st.warning(warn_msg)
             followups = []
-        st.session_state["followup_questions"] = followups
+        st.session_state["followup_questions"] = (
+            followups[:1] if st.session_state.get("auto_mode") else followups
+        )
         occ = esco_utils.classify_occupation(
             st.session_state.get("position.job_title", ""), lang=lang
         )
@@ -782,6 +824,7 @@ def company_information_page():
             f
             for f in generate_followup_questions(
                 cast(dict[str, Any], st.session_state),
+                num_questions=1 if st.session_state.get("auto_mode") else None,
                 lang=lang,
                 use_rag=st.session_state.get("use_rag", True),
             )
@@ -942,6 +985,7 @@ def role_description_page():
     try:
         st.session_state["followup_questions"] = generate_followup_questions(
             cast(dict[str, Any], st.session_state),
+            num_questions=1 if st.session_state.get("auto_mode") else None,
             lang=lang,
             use_rag=st.session_state.get("use_rag", True),
         )
