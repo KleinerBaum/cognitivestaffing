@@ -17,7 +17,7 @@ st.logo(
 
 # --- Load the futuristic CSS ---
 css_path = Path("styles/vacalyser.css")
-st.markdown(css_path.read_text(), unsafe_allow_html=True)
+st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
 # --- Inject background image as a CSS variable (base64) ---
 bg_path = Path("images/AdobeStock_506577005.jpeg")
