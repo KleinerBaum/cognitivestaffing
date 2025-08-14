@@ -48,6 +48,7 @@ class Compensation(BaseModel):
 class ContactPerson(BaseModel):
     name: str = ""
     email: str = ""
+    phone: str = ""
     notify_stages: List[str] = []
 
 
@@ -55,7 +56,7 @@ class Contacts(BaseModel):
     hiring_manager: ContactPerson = ContactPerson()
     hr: ContactPerson = ContactPerson()
     recruiter: ContactPerson = ContactPerson()
-    # We omit phone and additional_notes (priority 4-5) for now
+    additional_notes: str = ""
 
 
 class Employment(BaseModel):
@@ -116,7 +117,10 @@ class Position(BaseModel):
     team_roles: List[str] = []
     team_size: int = 0
     team_structure: str = ""
-    # occupation_esco_code/title and cross_functional, etc. (priority 4-5) are omitted
+    occupation_esco_code: str = ""
+    occupation_esco_title: str = ""
+    cross_functional: bool = False
+    job_family: str = ""
 
 
 class Requirements(BaseModel):
@@ -132,12 +136,36 @@ class Requirements(BaseModel):
     portfolio_required: bool = False
     portfolio_url: str = ""
     reference_check_required: bool = False
-    # language_level_english/german and years_experience_preferred omitted
+    language_level_english: str = ""
+    language_level_german: str = ""
+    years_experience_preferred: int = 0
 
 
 class Responsibilities(BaseModel):
     items: List[str] = []
     top3: List[str] = []
+
+
+class Process(BaseModel):
+    application_method: str = ""
+    candidate_documents_required: List[str] = []
+    start_date_target: str = ""
+    application_email: str = ""
+    application_url: str = ""
+    has_technical_test: bool = False
+    interviewers_panel: List[str] = []
+    interview_stages: int = 0
+    process_notes: str = ""
+
+
+class Analytics(BaseModel):
+    esco_missing_skill_count: int = 0
+    skill_coverage_percent: int = 0
+    benefits_completeness_score: int = 0
+    inclusive_language_flags: List[str] = []
+    jd_readability_score: float = 0.0
+    legal_risk_notes: str = ""
+    salary_benchmark_percentile: int = 0
 
 
 # Base model configuration to ignore unknown fields
@@ -166,7 +194,8 @@ class VacalyserJD(_BaseModel):
     position: Position = Field(default_factory=Position)
     requirements: Requirements = Field(default_factory=Requirements)
     responsibilities: Responsibilities = Field(default_factory=Responsibilities)
-    # Note: process and analytics groups omitted for now (to be added later)
+    process: Process = Field(default_factory=Process)
+    analytics: Analytics = Field(default_factory=Analytics)
 
 
 # Define list of all fields (dot notation) for priority 1-3 fields

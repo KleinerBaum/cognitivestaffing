@@ -108,3 +108,15 @@ def test_job_type_normalization() -> None:
 def test_job_type_invalid() -> None:
     jd = coerce_and_fill({"employment": {"job_type": "unknown"}})
     assert jd.employment.job_type == "unknown"
+
+
+def test_new_fields_defaults() -> None:
+    jd = VacalyserJD()
+    assert jd.contacts.hiring_manager.phone == ""
+    assert jd.contacts.additional_notes == ""
+    assert jd.position.occupation_esco_code == ""
+    assert jd.position.cross_functional is False
+    assert jd.requirements.language_level_english == ""
+    assert jd.requirements.years_experience_preferred == 0
+    assert jd.process.interview_stages == 0
+    assert jd.analytics.esco_missing_skill_count == 0
