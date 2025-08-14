@@ -113,10 +113,26 @@ def test_job_type_invalid() -> None:
 def test_new_fields_defaults() -> None:
     jd = VacalyserJD()
     assert jd.contacts.hiring_manager.phone == ""
+    assert jd.contacts.hr.phone == ""
+    assert jd.contacts.recruiter.phone == ""
     assert jd.contacts.additional_notes == ""
     assert jd.position.occupation_esco_code == ""
+    assert jd.position.occupation_esco_title == ""
     assert jd.position.cross_functional is False
+    assert jd.position.job_family == ""
     assert jd.requirements.language_level_english == ""
+    assert jd.requirements.language_level_german == ""
     assert jd.requirements.years_experience_preferred == 0
     assert jd.process.interview_stages == 0
     assert jd.analytics.esco_missing_skill_count == 0
+
+
+def test_backward_compat_missing_new_fields() -> None:
+    old_data = {
+        "schema_version": "v2.0",
+        "contacts": {"hiring_manager": {"name": "Alice"}},
+    }
+    jd = coerce_and_fill(old_data)
+    dumped = jd.model_dump()
+    assert dumped["contacts"]["hiring_manager"]["phone"] == ""
+    assert dumped["position"]["occupation_esco_code"] == ""

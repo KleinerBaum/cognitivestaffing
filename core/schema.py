@@ -13,7 +13,7 @@ except ImportError:
     ConfigDict = None
     _HAS_V2 = False
 
-SCHEMA_VERSION = "v2.0"
+SCHEMA_VERSION = "v2.1"
 
 
 # Define nested models for each schema group (priority 1-3 fields only)
@@ -182,7 +182,7 @@ else:
 
 
 class VacalyserJD(_BaseModel):
-    """Canonical job description model (Vacalyzer v2.0)."""
+    """Canonical job description model (Vacalyzer v2.1)."""
 
     schema_version: str = Field(default=SCHEMA_VERSION)
     company: Company = Field(default_factory=Company)
@@ -222,6 +222,10 @@ ALL_FIELDS: List[str] = [
     "position.team_roles",
     "position.team_size",
     "position.team_structure",
+    "position.occupation_esco_code",
+    "position.occupation_esco_title",
+    "position.cross_functional",
+    "position.job_family",
     # Compensation fields
     "compensation.salary_currency",
     "compensation.salary_min",
@@ -272,13 +276,17 @@ ALL_FIELDS: List[str] = [
     # Contacts fields
     "contacts.hiring_manager.name",
     "contacts.hiring_manager.email",
+    "contacts.hiring_manager.phone",
     "contacts.hiring_manager.notify_stages",
     "contacts.hr.name",
     "contacts.hr.email",
+    "contacts.hr.phone",
     "contacts.hr.notify_stages",
     "contacts.recruiter.name",
     "contacts.recruiter.email",
+    "contacts.recruiter.phone",
     "contacts.recruiter.notify_stages",
+    "contacts.additional_notes",
     # Requirements fields
     "requirements.hard_skills",
     "requirements.education_level",
@@ -292,6 +300,9 @@ ALL_FIELDS: List[str] = [
     "requirements.portfolio_required",
     "requirements.portfolio_url",
     "requirements.reference_check_required",
+    "requirements.language_level_english",
+    "requirements.language_level_german",
+    "requirements.years_experience_preferred",
     # Responsibilities fields
     "responsibilities.items",
     "responsibilities.top3",
@@ -339,6 +350,11 @@ ALIASES: Dict[str, str] = {
     "tasks": "responsibilities.items",
     "travel_required": "employment.travel_required",
     "tools_technologies": "requirements.tools_and_technologies",
+    "hiring_manager_phone": "contacts.hiring_manager.phone",
+    "hr_phone": "contacts.hr.phone",
+    "recruiter_phone": "contacts.recruiter.phone",
+    "english_level": "requirements.language_level_english",
+    "german_level": "requirements.language_level_german",
     # Note: "qualifications" field is removed; no direct alias for "requirements" group as a whole.
 }
 

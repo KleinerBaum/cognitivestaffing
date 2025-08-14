@@ -1,4 +1,4 @@
-## Schema (v2.0)
+## Schema (v2.1)
 Vacalyzer's schema is now hierarchical, grouping related fields for a vacancy. Each top-level key represents a category (such as `company`, `position`, `compensation`, etc.), containing sub-fields. We focus on core fields (priority 1–3) to gather essential information first. Below are the groups and example fields:
 - **company:** `name`, `industry`, `hq_location`, `size`, `website`  
 - **position:** `job_title`, `seniority_level`, `department`, `management_scope`, `reporting_line`, `role_summary`, `team_structure`, etc.  
@@ -8,12 +8,12 @@ Vacalyzer's schema is now hierarchical, grouping related fields for a vacancy. E
 - **responsibilities:** `items` (list of key responsibilities), `top3` (the top three responsibilities).  
 *(Other groups like contacts, process, and analytics exist in the schema but may not be fully utilized in the initial extraction.)*
 
-All fields are expected in the JSON output, even if empty (empty string for text, empty list for lists). The `schema_version` is "v2.0" indicating the expanded schema.
+All fields are expected in the JSON output, even if empty (empty string for text, empty list for lists). The `schema_version` is "v2.1" indicating the expanded schema.
 
 Example JSON output from the extractor (abridged):
 ```json
 {
-  "schema_version": "v2.0",
+  "schema_version": "v2.1",
   "company": {
     "name": "TechCorp",
     "industry": "Information Technology",
