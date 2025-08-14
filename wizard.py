@@ -12,7 +12,6 @@ from utils import (
     merge_texts,
     build_boolean_query,
     seo_optimize,
-    ensure_logs_dir,
 )
 from utils.export import prepare_download_data
 from openai_utils import (
@@ -21,7 +20,6 @@ from openai_utils import (
     suggest_benefits,
     generate_interview_guide,
     generate_job_ad,
-    extract_company_info,
     refine_document,
     what_happened,
 )
@@ -643,9 +641,6 @@ def _run_extraction(lang: str) -> None:
             )
             st.session_state["occupation_group"] = occ.get("group", "")
         st.session_state["extraction_success"] = True
-        log_event(
-            f"ANALYZE by {st.session_state.get('user', 'anonymous')} title='{st.session_state.get('position.job_title', '')}'"
-        )
     except Exception:
         st.session_state["extraction_success"] = False
         st.error(
@@ -885,28 +880,6 @@ st.text_input(
     st.session_state.get("company.website", ""),
     key="company.website",
 )
-# Optional: Fetch company info (mission, values, etc.) from website
-fetch_label = (
-    "🔄 Fetch Company Info from Website"
-    if lang != "de"
-    else "🔄 Unternehmensinfos von der Website abrufen"
-)
-if st.button(fetch_label):
-    with st.spinner(
-        "Fetching company information..."
-        if lang != "de"
-        else "Unternehmensinformationen werden abgerufen..."
-    ):
-        website = st.session_state.get("company.website", "").strip()
-        # Use OpenAI to extract company mission & culture from site (if implemented)
-        try:
-            info = extract_company_info(website)
-        except Exception:
-            info = {}
-        if info.get("company_mission"):
-            st.session_state["company.mission"] = info["company_mission"]
-        if info.get("company_culture"):
-            st.session_state["company.culture"] = info["company_culture"]
 
 
 def role_description_page():
@@ -1553,7 +1526,6 @@ def summary_outputs_page():
                 model=model,
             )
             st.info(explanation)
-        log_event(f"JOB_AD by {st.session_state.get('user', 'anonymous')}")
 
     q_label = (
         "Number of interview questions"
@@ -1683,7 +1655,6 @@ def summary_outputs_page():
                 model=model,
             )
             st.info(explanation)
-        log_event(f"INTERVIEW_GUIDE by {st.session_state.get('user', 'anonymous')}")
     # Always display a suggested Boolean search query for recruiters
     if st.session_state.get("position.job_title") or st.session_state.get(
         "hard_skills"
@@ -1723,18 +1694,3 @@ def summary_outputs_page():
         )
         if bool_query:
             st.info(f"**Boolean Search Query:** `{bool_query}`")
-
-
-def log_event(event_text: str):
-    """Append an event entry to the usage log with a timestamp."""
-    ensure_logs_dir()
-    import datetime
-
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    entry = f"[{timestamp}] {event_text}\n"
-    try:
-        with open("logs/usage.log", "a", encoding="utf-8") as f:
-            f.write(entry)
-    except Exception:
-        # If file write fails (e.g., no permission), print to console
-        print(entry)

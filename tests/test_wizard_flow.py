@@ -47,7 +47,6 @@ def test_run_extraction_flow(monkeypatch) -> None:
         "classify_occupation",
         lambda *a, **k: {"preferredLabel": "Engineer", "group": "123"},
     )
-    monkeypatch.setattr(wizard, "log_event", lambda *a, **k: None)
     monkeypatch.setattr(st, "warning", lambda *a, **k: None)
     monkeypatch.setattr(st, "error", lambda *a, **k: None)
 
