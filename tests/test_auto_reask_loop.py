@@ -24,7 +24,8 @@ def test_auto_mode_generates_next_question(monkeypatch) -> None:
 
     monkeypatch.setattr(wizard, "generate_followup_questions", fake_generate)
     monkeypatch.setattr(st, "checkbox", lambda *a, **k: True)
-    monkeypatch.setattr(st, "caption", lambda *a, **k: None)
+    monkeypatch.setattr(st, "info", lambda *a, **k: None)
+    monkeypatch.setattr(st, "button", lambda *a, **k: False)
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
 
     wizard.render_followups_for(["company.name"])
