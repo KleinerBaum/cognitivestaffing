@@ -1,3 +1,4 @@
+import json
 from typing import Any, List, Sequence, cast
 
 from openai import OpenAI
@@ -49,6 +50,72 @@ def call_chat_api(
         return (msg.content or "").strip()
     except Exception as e:
         raise RuntimeError(f"OpenAI API error: {e}") from e
+
+
+def extract_company_info(text: str, model: str | None = None) -> dict:
+    """Extract company details from website text using OpenAI.
+
+    Args:
+        text: Combined textual content of company web pages.
+        model: Optional model override for the OpenAI call.
+
+    Returns:
+        Dictionary with keys ``name``, ``location``, ``mission``, ``culture`` when
+        extraction succeeds. Empty dict if no information could be obtained.
+    """
+
+    text = text.strip()
+    if not text:
+        return {}
+
+    prompt = (
+        "Analyze the following company website text and extract: the official "
+        "company name, the primary location or headquarters, the company's "
+        "mission or mission statement, core values or culture. Respond in JSON "
+        "with keys name, location, mission, culture.\n\n"
+        f"{text}"
+    )
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        answer = call_chat_api(
+            messages,
+            model=model,
+            temperature=0.1,
+            max_tokens=500,
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(answer)
+    except Exception:
+        data = {}
+
+    result: dict[str, str] = {}
+    if isinstance(data, dict):
+        for key in ("name", "location", "mission", "culture"):
+            val = data.get(key, "")
+            if isinstance(val, str):
+                val = val.strip()
+            if val:
+                result[key] = val
+    if result:
+        return result
+
+    # Fallback: simple keyword extraction if the model call fails.
+    try:
+        mission = ""
+        culture = ""
+        for line in text.splitlines():
+            low = line.lower()
+            if not mission and ("mission" in low or "auftrag" in low):
+                mission = line.strip()
+            if not culture and ("culture" in low or "kultur" in low or "werte" in low):
+                culture = line.strip()
+        if mission:
+            result["mission"] = mission
+        if culture:
+            result["culture"] = culture
+    except Exception:
+        pass
+    return result
 
 
 def suggest_additional_skills(

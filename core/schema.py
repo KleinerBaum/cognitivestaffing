@@ -23,6 +23,8 @@ class Company(BaseModel):
     hq_location: str = ""
     size: str = ""
     website: str = ""
+    mission: str = ""
+    culture: str = ""
 
 
 class Compensation(BaseModel):
@@ -206,6 +208,8 @@ ALL_FIELDS: List[str] = [
     "company.hq_location",
     "company.size",
     "company.website",
+    "company.mission",
+    "company.culture",
     # Position fields
     "position.job_title",
     "position.seniority_level",
@@ -355,6 +359,8 @@ ALIASES: Dict[str, str] = {
     "recruiter_phone": "contacts.recruiter.phone",
     "english_level": "requirements.language_level_english",
     "german_level": "requirements.language_level_german",
+    "company_mission": "company.mission",
+    "company_culture": "company.culture",
     # Note: "qualifications" field is removed; no direct alias for "requirements" group as a whole.
 }
 

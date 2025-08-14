@@ -1,7 +1,7 @@
 {
   "schema_version": "v2.1",
   "source_file": "/mnt/data/vacalyser_schema_sheet.xlsx",
-  "field_count": 186,
+  "field_count": 188,
   "fields": [
     {
       "key": "analytics.esco_missing_skill_count",
@@ -226,6 +226,38 @@
       "priority": 3,
       "widget": {
         "kind": "url_input",
+        "options": [],
+        "params": {}
+      },
+      "relation": "—",
+      "group": "company",
+      "required": false,
+      "export_targets": [
+        "job_ad"
+      ]
+    },
+    {
+      "key": "company.mission",
+      "default": null,
+      "priority": 3,
+      "widget": {
+        "kind": "text_area",
+        "options": [],
+        "params": {}
+      },
+      "relation": "—",
+      "group": "company",
+      "required": false,
+      "export_targets": [
+        "job_ad"
+      ]
+    },
+    {
+      "key": "company.culture",
+      "default": null,
+      "priority": 3,
+      "widget": {
+        "kind": "text_area",
         "options": [],
         "params": {}
       },
