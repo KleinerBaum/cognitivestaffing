@@ -66,28 +66,62 @@ TONE_CHOICES = {
 }
 
 lang = st.session_state.get("lang", "en")
+st.session_state.setdefault("current_section", 0)
 
 
+# Mapping of wizard sections to the schema fields they contain.  This drives the
+# navigation flow and validation logic.
+FIELDS_BY_SECTION: dict[int, list[str]] = {
+    1: [
+        "company.name",
+        "company.industry",
+        "company.hq_location",
+        "company.size",
+        "location.primary_city",
+        "location.country",
+    ],
+    2: [
+        "position.job_title",
+        "position.role_summary",
+        "position.department",
+        "position.team_structure",
+        "position.reporting_line",
+    ],
+    3: ["responsibilities.items"],
+    4: [
+        "requirements.hard_skills",
+        "requirements.soft_skills",
+        "requirements.tools_and_technologies",
+        "requirements.languages_required",
+        "requirements.language_level_english",
+        "requirements.certifications",
+        "position.seniority_level",
+    ],
+    5: [
+        "employment.job_type",
+        "employment.work_policy",
+        "compensation.salary_min",
+        "compensation.salary_max",
+        "compensation.variable_pay",
+        "compensation.benefits",
+        "compensation.healthcare_plan",
+        "compensation.pension_plan",
+        "compensation.equity_offered",
+        "employment.relocation_support",
+        "employment.visa_sponsorship",
+    ],
+    6: [
+        "target_start_date",
+        "application_deadline",
+        "performance_metrics",
+        "interview_stages",
+        "process_notes",
+    ],
+}
+
+# Map each field to its corresponding wizard section index
 FIELD_SECTION_MAP: dict[str, int] = {
-    "position.job_title": 1,
-    "company.name": 1,
-    "company.industry": 1,
-    "company.hq_location": 1,
-    "company.size": 1,
-    "location.primary_city": 1,
-    "location.country": 1,
-    "position.role_summary": 2,
-    "responsibilities.items": 2,
-    "requirements.hard_skills": 3,
-    "requirements.soft_skills": 3,
-    "requirements.tools_and_technologies": 3,
-    "requirements.languages_required": 3,
-    "requirements.language_level_english": 3,
-    "requirements.certifications": 3,
-    "employment.job_type": 4,
-    "employment.work_policy": 4,
-    "compensation.salary_min": 4,
-    "compensation.salary_max": 4,
+    field: section for section, fields in FIELDS_BY_SECTION.items() for field in fields
 }
 # Map critical field names to wizard section indices for navigation
 
@@ -223,18 +257,15 @@ SUMMARY_CATEGORIES: list[SummaryCategory] = [
 
 
 def normalise_state(reapply_aliases: bool = True):
-    """Normalize session state to canonical schema keys and update JSON."""
+    """Normalize session state to canonical schema keys and update JSON.
+
+    The ``reapply_aliases`` argument is retained for backward compatibility but
+    no longer has any effect. Legacy alias fields are not written back to
+    ``st.session_state``.
+    """
+
     jd = from_session_state(cast(dict[str, Any], st.session_state))
     to_session_state(jd, cast(dict[str, Any], st.session_state))
-    if reapply_aliases:
-        # Keep legacy alias fields in sync for UI (if needed)
-        st.session_state["tasks"] = st.session_state.get("responsibilities.items", "")
-        st.session_state["contract_type"] = st.session_state.get(
-            "employment.job_type", ""
-        )
-        st.session_state["remote_policy"] = st.session_state.get(
-            "employment.work_policy", ""
-        )
     st.session_state["validated_json"] = json.dumps(
         jd.model_dump(mode="json"), indent=2, ensure_ascii=False
     )
@@ -592,41 +623,6 @@ def render_summary_input(field: str, label: str, highlight_missing: bool) -> Non
     widget(widget_label, value, key=field)
 
 
-def intro_page() -> None:
-    """Display an introductory page explaining the wizard flow."""
-    lang = st.session_state.get("lang", "en")
-    if lang == "de":
-        st.title("Erkennen Sie Ihre Recruiting-Bedürfnisse")
-        st.write(
-            "Vermeiden Sie kostspielige Informationsverluste im ersten Schritt jedes Recruiting-Prozesses, sammeln Sie alle unausgesprochenen Informationen für eine spezifische Vakanz, entdecken Sie verborgene Potenziale und nutzen Sie diese auf vielfältige Weise, um nicht nur Geld und Zeit zu sparen, sondern auch das Frustrationsniveau aller Beteiligten zu senken und nachhaltigen Recruiting-Erfolg sicherzustellen."
-        )
-        st.subheader("Sie benötigen")
-        st.markdown("- Stellenanzeige (URL oder PDF)")
-        st.markdown("- Kenntnisse über Unternehmensdetails")
-        st.write(
-            "Der Prozess passt sich dynamisch an die von Ihnen bereitgestellten Informationen an und gestaltet die Datenerhebung individuell für Ihre spezifische Vakanz."
-        )
-        st.checkbox("Intro beim nächsten Mal überspringen", key="skip_intro")
-        if st.button("🚀 Analyse starten"):
-            st.session_state["current_section"] = 1
-            st.rerun()
-    else:
-        st.title("Detect Your Recruitment Needs")
-        st.write(
-            "Avoid expensive Information Loss on the 1st Step of every Recruitment-Process, collect all unspoken information for a specific vacancy, detect hidden potentials and use it in various ways in order to not only save money, but also time, reduce the level of frustration of all involved parties and ensure sustainable recruitment-success"
-        )
-        st.subheader("You'll need")
-        st.markdown("- Job description (URL or PDF)")
-        st.markdown("- Knowledge of company details")
-        st.write(
-            "The Process is designed to dynamically adjust to the information you provide and tailor the gathering process to your specific Vacancy."
-        )
-        st.checkbox("Skip intro next time", key="skip_intro")
-        if st.button("🚀 Start Discovery"):
-            st.session_state["current_section"] = 1
-            st.rerun()
-
-
 def _run_extraction(lang: str) -> None:
     """Run vacancy extraction based on current session inputs."""
 
@@ -740,50 +736,43 @@ def render_extraction_summary(lang: str) -> None:
                 )
 
 
-def start_discovery_page():
-    """Start page: Input job title and job ad content (URL or file) for analysis."""
+def welcome_page() -> None:
+    """Combined introduction and upload page for starting the wizard."""
+
     lang = st.session_state.get("lang", "en")
     st.header(
         "🔍 Start Your Analysis with Vacalyzer"
         if lang != "de"
         else "🔍 Starten Sie Ihre Analyse mit Vacalyzer"
     )
-    if st.session_state.get("extraction_complete"):
-        st.success(
-            "✅ Key information extracted successfully!"
-            if lang != "de"
-            else "✅ Wichtige Informationen erfolgreich extrahiert!"
-        )
-        render_extraction_summary(lang)
-        label = "Start Discovery" if lang != "de" else "Analyse starten"
-        if st.button(f"🚀 {label}"):
-            st.session_state["current_section"] = 2
-            st.rerun()
-        return
-
+    intro_text = (
+        "Avoid expensive information loss at the start of every recruitment process."
+        if lang != "de"
+        else "Vermeiden Sie kostspielige Informationsverluste zu Beginn jedes Recruiting-Prozesses."
+    )
+    st.write(intro_text)
     st.caption(
-        "Upload a job ad or paste a URL. We’ll extract everything we can — then ask only what’s missing."
+        "Upload a job ad or paste a URL. We'll extract everything we can and ask only what's missing."
         if lang != "de"
         else "Laden Sie eine Stellenanzeige hoch oder fügen Sie eine URL ein. Wir extrahieren alle verfügbaren Informationen und fragen nur fehlende Details ab."
     )
+
     colA, colB = st.columns(2)
     with colA:
-        job_title = st.text_input(
+        st.text_input(
             "Job Title" if lang != "de" else "Stellenbezeichnung",
             st.session_state.get("position.job_title", ""),
+            key="position.job_title",
         )
-        if job_title:
-            st.session_state["position.job_title"] = job_title
-        input_url = st.text_input(
+        st.text_input(
             (
                 "Job Ad URL (optional)"
                 if lang != "de"
                 else "Stellenanzeigen-URL (optional)"
             ),
             st.session_state.get("input_url", ""),
+            key="input_url",
         )
-        if input_url:
-            st.session_state["input_url"] = input_url
     with colB:
         uploaded_file = st.file_uploader(
             (
@@ -810,14 +799,8 @@ def start_discovery_page():
                     else "❌ Text konnte nicht aus der Datei extrahiert werden."
                 )
 
-    current_source = (
-        st.session_state.get("input_url", ""),
-        st.session_state.get("uploaded_text", ""),
-    )
-    if (
-        st.session_state.get("input_url") or st.session_state.get("uploaded_text")
-    ) and st.session_state.get("last_source") != current_source:
-        st.session_state["last_source"] = current_source
+    start_label = "🚀 Start Discovery" if lang != "de" else "🚀 Analyse starten"
+    if st.button(start_label):
         with st.spinner(
             "Analyzing the job ad with AI..."
             if lang != "de"
@@ -826,7 +809,13 @@ def start_discovery_page():
             _run_extraction(lang)
         if st.session_state.get("extraction_success"):
             st.session_state["extraction_complete"] = True
+            st.session_state["current_section"] = 1
             st.rerun()
+
+
+def start_discovery_page() -> None:  # pragma: no cover - compatibility alias
+    """Alias for backward compatibility."""
+    welcome_page()
 
 
 def company_information_page():

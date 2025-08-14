@@ -4,16 +4,16 @@ import streamlit as st
 import wizard
 
 
-def test_normalise_state_populates_aliases() -> None:
+def test_normalise_state_serialises_without_aliases() -> None:
     st.session_state.clear()
     st.session_state["position.job_title"] = "Engineer"
     st.session_state["responsibilities.items"] = "Task A\nTask B"
     st.session_state["employment.job_type"] = "full time"
     st.session_state["employment.work_policy"] = "Remote"
     wizard.normalise_state()
-    assert st.session_state["tasks"] == "Task A\nTask B"
-    assert st.session_state["contract_type"] == "Full-time"
-    assert st.session_state["remote_policy"] == "Remote"
+    assert "tasks" not in st.session_state
+    assert "contract_type" not in st.session_state
+    assert "remote_policy" not in st.session_state
     jd = json.loads(st.session_state["validated_json"])
     assert jd["employment"]["job_type"] == "Full-time"
     assert jd["employment"]["work_policy"] == "Remote"
@@ -56,7 +56,4 @@ def test_run_extraction_flow(monkeypatch) -> None:
     assert st.session_state["position.job_title"] == "Engineer"
     assert st.session_state["employment.work_policy"] == "Remote"
     assert st.session_state["responsibilities.items"] == "Build things"
-    assert st.session_state["tasks"] == "Build things"
-    assert st.session_state["contract_type"] == "Full-time"
-    assert st.session_state["remote_policy"] == "Remote"
     assert st.session_state["extraction_success"] is True
