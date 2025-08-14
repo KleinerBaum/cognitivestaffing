@@ -81,7 +81,7 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
     assert "Umzugsunterstützung: Ja" in prompts[1]
 
 
-def test_generate_job_ad_merges_all_benefits(monkeypatch):
+def test_generate_job_ad_lists_unique_benefits(monkeypatch):
     captured = {}
 
     def fake_call_chat_api(messages, **kwargs):
@@ -91,12 +91,10 @@ def test_generate_job_ad_merges_all_benefits(monkeypatch):
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
     session = {
-        "compensation.benefits": ["Gym membership"],
-        "health_benefits": ["Health insurance"],
-        "retirement_benefits": "401(k) match",
+        "compensation.benefits": ["Gym membership", "Gym membership", "401(k) match"],
         "lang": "en",
     }
 
     openai_utils.generate_job_ad(session)
     prompt = captured["prompt"]
-    assert "Benefits: Gym membership, Health insurance, 401(k) match" in prompt
+    assert "Benefits: Gym membership, 401(k) match" in prompt

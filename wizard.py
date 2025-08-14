@@ -222,7 +222,6 @@ def normalise_state(reapply_aliases: bool = True):
     to_session_state(jd, cast(dict[str, Any], st.session_state))
     if reapply_aliases:
         # Keep legacy alias fields in sync for UI (if needed)
-        st.session_state["requirements"] = st.session_state.get("qualifications", "")
         st.session_state["tasks"] = st.session_state.get("responsibilities.items", "")
         st.session_state["contract_type"] = st.session_state.get(
             "employment.job_type", ""
@@ -618,7 +617,7 @@ def _run_extraction(lang: str) -> None:
             st.session_state["occupation_group"] = occ.get("group", "")
         st.session_state["extraction_success"] = True
         log_event(
-            f"ANALYZE by {st.session_state.get('user', 'anonymous')} title='{st.session_state.get('job_title', '')}'"
+            f"ANALYZE by {st.session_state.get('user', 'anonymous')} title='{st.session_state.get('position.job_title', '')}'"
         )
     except Exception:
         st.session_state["extraction_success"] = False
@@ -1233,13 +1232,6 @@ if sal_provided:
             key="compensation.salary_period",
         )
     benefits_label = "Benefits/Perks" if lang != "de" else "Vorteile/Extras"
-    # Merge deprecated benefit keys into the schema-aligned field.
-    merged = st.session_state.get("compensation.benefits", "")
-    for legacy in ("health_benefits", "retirement_benefits"):
-        extra = st.session_state.pop(legacy, "")
-        if extra:
-            merged = f"{merged}\n{extra}" if merged else extra
-    st.session_state["compensation.benefits"] = merged
     editable_draggable_list("compensation.benefits", benefits_label)
     st.text_area(
         (
