@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from core.schema import VacalyserJD
 
@@ -11,21 +11,34 @@ from question_logic import (
 )
 
 
-def generate_followup_questions(jd: VacalyserJD, lang: str = "en") -> List[str]:
+def generate_followup_questions(
+    jd: VacalyserJD,
+    num_questions: Optional[int] = None,
+    lang: str = "en",
+    use_rag: bool = True,
+) -> List[str]:
     """Return follow-up questions as simple strings.
 
-    This thin wrapper delegates to :func:`question_logic.generate_followup_questions`,
-    which returns rich question objects including priority levels and
-    suggestions. For backwards compatibility, only the ``question`` text is
-    exposed here.
+    This thin wrapper delegates to
+    :func:`question_logic.generate_followup_questions`, which returns rich
+    question objects including priority levels and suggestions. For backwards
+    compatibility, only the ``question`` text is exposed here while the full
+    set of parameters is forwarded to the underlying function.
 
     Args:
         jd: Parsed job description data.
+        num_questions: Optional maximum number of questions to return.
         lang: Language for generated questions.
+        use_rag: Whether to use RAG-based suggestions.
 
     Returns:
         List of follow-up question strings.
     """
 
-    items = _generate_followup_questions(jd.model_dump(), lang=lang)
+    items = _generate_followup_questions(
+        jd.model_dump(),
+        num_questions=num_questions,
+        lang=lang,
+        use_rag=use_rag,
+    )
     return [it["question"] for it in items if it.get("question")]
