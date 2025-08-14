@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(
     page_title="Vacalyser — AI Recruitment",
     page_icon="images/color1_logo_transparent_background.png",  # or emoji like "🤖"
-    )  # st.set_page_config is the official way to set title/icon/layout.  # :contentReference[oaicite:6]{index=6}
+)  # st.set_page_config is the official way to set title/icon/layout.  # :contentReference[oaicite:6]{index=6}
 
 # --- Brand: show logo above the navigation (app + sidebar) ---
 st.logo(
@@ -33,7 +33,7 @@ if bg_path.exists():
 pg = st.navigation(
     [
         st.Page("wizard.py", title="Home", icon=":material/home:"),  # your main flow
-        st.Page("pages/advantages.py", title="Advantages", icon=":sparkles:"),
+        st.Page("pages/advantages.py", title="Advantages", icon="✨"),
         st.Page(
             "pages/tech_overview.py", title="Tech Overview", icon=":material/route:"
         ),
