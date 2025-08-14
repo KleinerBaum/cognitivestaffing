@@ -1588,6 +1588,8 @@ def summary_outputs_page():
                 guide = generate_interview_guide(
                     title,
                     responsibilities,
+                    hard_skills=st.session_state.get("hard_skills", ""),
+                    soft_skills=st.session_state.get("soft_skills", ""),
                     audience="hiring managers",
                     num_questions=num_questions,
                     lang=lang,

@@ -1,4 +1,4 @@
-from typing import Any, List, cast
+from typing import Any, List, Sequence, cast
 
 from openai import OpenAI
 
@@ -236,6 +236,8 @@ def suggest_role_tasks(
 def generate_interview_guide(
     job_title: str,
     responsibilities: str = "",
+    hard_skills: Sequence[str] | str = "",
+    soft_skills: Sequence[str] | str = "",
     audience: str = "general",
     num_questions: int = 5,
     lang: str = "en",
@@ -243,17 +245,54 @@ def generate_interview_guide(
     tone: str | None = None,
     model: str | None = None,
 ) -> str:
-    """Generate an interview guide (questions + scoring rubrics) for the role."""
+    """Generate an interview guide (questions + scoring rubrics) for the role.
+
+    Args:
+        job_title: Target role title.
+        responsibilities: Description of role responsibilities.
+        hard_skills: Technical skills required for the role.
+        soft_skills: Soft skills or competencies for the role.
+        audience: Intended interviewer audience.
+        num_questions: Base number of questions to generate.
+        lang: Output language.
+        company_culture: Optional description of company culture.
+        tone: Desired tone of the guide.
+        model: Optional OpenAI model override.
+
+    Returns:
+        The generated interview guide text.
+    """
+
+    def _normalize(skills: Sequence[str] | str) -> list[str]:
+        if isinstance(skills, str):
+            parts = [p.strip() for p in skills.replace("\n", ",").split(",")]
+        else:
+            parts = [str(s).strip() for s in skills]
+        return [p for p in parts if p]
+
+    hard_list = _normalize(hard_skills)
+    soft_list = _normalize(soft_skills)
+    total_questions = num_questions + len(hard_list) + len(soft_list)
     job_title = job_title.strip() or "this position"
     if lang.startswith("de"):
         tone = tone or "professionell und hilfreich"
         prompt = (
             f"Erstelle einen Leitfaden für ein Vorstellungsgespräch für die Position {job_title} "
             f"(für Interviewer: {audience}).\n"
-            f"Formuliere {num_questions} Schlüsselfragen für das Interview und gib für jede Frage kurz die idealen Antwortkriterien an.\n"
+            f"Formuliere {total_questions} Schlüsselfragen für das Interview und gib für jede Frage kurz die idealen Antwortkriterien an.\n"
             f"Wichtige Aufgaben der Rolle: {responsibilities or 'N/A'}.\n"
             f"Tonfall: {tone}."
         )
+        if hard_list:
+            prompt += (
+                f"\nWichtige technische Fähigkeiten für die Rolle: {', '.join(hard_list)}."
+                "\nFüge für jede dieser Fähigkeiten eine Frage hinzu, um die Expertise des Kandidaten zu bewerten."
+            )
+        if soft_list:
+            prompt += (
+                f"\nWichtige Soft Skills: {', '.join(soft_list)}."
+                "\nFüge Fragen hinzu, die diese Soft Skills evaluieren."
+            )
         if company_culture:
             prompt += (
                 f"\nUnternehmenskultur: {company_culture}."
@@ -263,10 +302,20 @@ def generate_interview_guide(
         tone = tone or "professional and helpful"
         prompt = (
             f"Generate an interview guide for a {job_title} for {audience} interviewers.\n"
-            f"Include {num_questions} key interview questions and, for each question, provide a brief scoring rubric or ideal answer criteria.\n"
+            f"Include {total_questions} key interview questions and, for each question, provide a brief scoring rubric or ideal answer criteria.\n"
             f"Key responsibilities for the role: {responsibilities or 'N/A'}.\n"
             f"Tone: {tone}."
         )
+        if hard_list:
+            prompt += (
+                f"\nKey required hard skills: {', '.join(hard_list)}."
+                "\nInclude one question to assess each of these skills."
+            )
+        if soft_list:
+            prompt += (
+                f"\nImportant soft skills: {', '.join(soft_list)}."
+                "\nInclude questions to evaluate these competencies."
+            )
         if company_culture:
             prompt += (
                 f"\nCompany culture: {company_culture}."

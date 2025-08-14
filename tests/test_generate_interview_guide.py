@@ -36,3 +36,24 @@ def test_generate_interview_guide_uses_responsibilities(monkeypatch):
     prompt = captured["prompt"]
     assert "Design systems" in prompt
     assert "Write code" in prompt
+
+
+def test_generate_interview_guide_includes_skills(monkeypatch):
+    captured = {}
+
+    def fake_call_chat_api(messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return "guide"
+
+    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+
+    openai_utils.generate_interview_guide(
+        "Engineer",
+        responsibilities="",
+        hard_skills=["Python", "SQL"],
+        soft_skills=["Teamwork"],
+    )
+    prompt = captured["prompt"]
+    assert "Python" in prompt and "SQL" in prompt
+    assert "Teamwork" in prompt
+    assert "assess each of these skills" in prompt
