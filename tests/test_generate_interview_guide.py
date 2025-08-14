@@ -22,6 +22,27 @@ def test_generate_interview_guide_includes_culture(monkeypatch):
     assert "Tone: casual and friendly." in prompt
 
 
+def test_generate_interview_guide_adds_culture_question_de(monkeypatch):
+    captured = {}
+
+    def fake_call_chat_api(messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return "guide"
+
+    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+
+    openai_utils.generate_interview_guide(
+        "Engineer",
+        company_culture="Transparente Zusammenarbeit",
+        lang="de",
+        num_questions=2,
+    )
+    prompt = captured["prompt"]
+    assert "Unternehmenskultur: Transparente Zusammenarbeit" in prompt
+    assert "Passung zur Unternehmenskultur" in prompt
+    assert "Formuliere 3 Schlüsselfragen" in prompt
+
+
 def test_generate_interview_guide_uses_responsibilities(monkeypatch):
     captured = {}
 

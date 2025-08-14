@@ -339,7 +339,9 @@ def generate_interview_guide(
 
     hard_list = _normalize(hard_skills)
     soft_list = _normalize(soft_skills)
-    total_questions = num_questions + len(hard_list) + len(soft_list)
+    total_questions = (
+        num_questions + len(hard_list) + len(soft_list) + (1 if company_culture else 0)
+    )
     job_title = job_title.strip() or "this position"
     if lang.startswith("de"):
         tone = tone or "professionell und hilfreich"

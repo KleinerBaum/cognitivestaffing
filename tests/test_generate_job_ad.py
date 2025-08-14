@@ -47,6 +47,27 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
     assert "Tone: formal and straightforward." in prompt
 
 
+def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
+    captured = {}
+
+    def fake_call_chat_api(messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return "ok"
+
+    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+
+    session = {
+        "company.mission": "Weltklasse Produkte bauen",
+        "company.culture": "Teamorientiert und offen",
+        "lang": "de",
+    }
+
+    openai_utils.generate_job_ad(session)
+    prompt = captured["prompt"]
+    assert "Unternehmensmission: Weltklasse Produkte bauen" in prompt
+    assert "Unternehmenskultur: Teamorientiert und offen" in prompt
+
+
 def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
     prompts: list[str] = []
 
