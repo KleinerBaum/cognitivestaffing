@@ -1,5 +1,5 @@
 {
-  "schema_version": "v2.0",
+  "schema_version": "v2.1",
   "source_file": "/mnt/data/vacalyser_schema_sheet.xlsx",
   "field_count": 186,
   "fields": [
@@ -1805,7 +1805,7 @@
     },
     {
       "key": "meta.schema_version",
-      "default": "v2.0",
+      "default": "v2.1",
       "priority": 4,
       "widget": {
         "kind": "read_only",
