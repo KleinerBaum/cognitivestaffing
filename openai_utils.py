@@ -288,39 +288,23 @@ def generate_job_ad(
 
     # Normalize aliases and ensure we have the latest values
     data = dict(session_data)  # copy to avoid mutating original
-    # In case legacy keys are present or needed for continuity:
-    data["qualifications"] = data.get(
-        "requirements.qualifications", ""
-    )  # (if qualifications existed; not in v2)
-    # Merge any separated benefit fields into a single list so nothing is lost
-    benefit_keys = [
-        "compensation.benefits",
-        "health_benefits",
-        "retirement_benefits",
-    ]
-    combined: list[str] = []
-    for key in benefit_keys:
-        raw = data.get(key)
-        if not raw:
-            continue
-        if isinstance(raw, str):
-            parts = [p.strip() for p in raw.splitlines() if p.strip()]
-        elif isinstance(raw, list):
-            parts = [str(p).strip() for p in raw if str(p).strip()]
+    # Clean up benefit entries and deduplicate
+    raw_benefits = data.get("compensation.benefits")
+    if raw_benefits:
+        if isinstance(raw_benefits, str):
+            parts = [p.strip() for p in raw_benefits.splitlines() if p.strip()]
+        elif isinstance(raw_benefits, list):
+            parts = [str(p).strip() for p in raw_benefits if str(p).strip()]
         else:
-            continue
-        combined.extend(parts)
-    if combined:
+            parts = []
         deduped: list[str] = []
         seen: set[str] = set()
-        for perk in combined:
+        for perk in parts:
             lowered = perk.lower()
             if lowered not in seen:
                 seen.add(lowered)
                 deduped.append(perk)
         data["compensation.benefits"] = deduped
-    data.pop("health_benefits", None)
-    data.pop("retirement_benefits", None)
     lang = data.get("lang", "en")
     if tone is None:
         tone = (
