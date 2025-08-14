@@ -26,6 +26,8 @@
 - **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
 - **Employer branding**: company mission and culture flow into job ads and interview guides
+- **Culture-aware interviews**: German guides automatically include a question on cultural fit when a company culture is specified
+- **Mission & culture overview**: summary page highlights company mission and culture for quick reviewer context
 - **Bias check**: flags potentially discriminatory terms and suggests inclusive alternatives in generated job ads
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons

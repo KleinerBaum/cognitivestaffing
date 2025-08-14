@@ -1437,6 +1437,19 @@ def summary_outputs_page():
         st.subheader(st.session_state["company.name"])
     if st.session_state.get("company_style_guide"):
         st.markdown(f"**Style Guide:** {st.session_state['company_style_guide']}")
+    mission = st.session_state.get("company.mission")
+    culture = st.session_state.get("company.culture")
+    if mission or culture:
+        if lang == "de":
+            if mission:
+                st.markdown(f"**Unternehmensmission:** {mission}")
+            if culture:
+                st.markdown(f"**Unternehmenskultur:** {culture}")
+        else:
+            if mission:
+                st.markdown(f"**Company Mission:** {mission}")
+            if culture:
+                st.markdown(f"**Company Culture:** {culture}")
     # Show ESCO occupation classification if available
     if st.session_state.get("occupation_label"):
         occ_label = st.session_state["occupation_label"]
