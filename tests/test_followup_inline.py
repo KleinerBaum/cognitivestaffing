@@ -13,6 +13,7 @@ def test_render_followups_updates_state(monkeypatch) -> None:
         {"field": "compensation.salary_min", "question": "Salary?"}
     ]
 
+    monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "100k")
     render_followups_for(["compensation.salary_min"])
 
@@ -32,6 +33,7 @@ def test_render_followups_prefill(monkeypatch) -> None:
         assert value == "Berlin"
         return value
 
+    monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
     monkeypatch.setattr(st, "text_input", fake_input)
     render_followups_for(["location.primary_city"])
 
@@ -56,6 +58,7 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
         seen["label"] = label
         return "100k"
 
+    monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
     monkeypatch.setattr(st, "markdown", fake_markdown)
     monkeypatch.setattr(st, "text_input", fake_input)
 
