@@ -29,6 +29,7 @@ from llm.context import build_extract_messages
 from llm.client import build_extraction_function
 from question_logic import CRITICAL_FIELDS, generate_followup_questions
 from core import esco_utils  # Added import to use ESCO classification
+from core.field_suggestions import get_field_suggestions
 from streamlit_sortables import sort_items
 from nlp.bias import scan_bias_language
 from components.model_selector import model_selector
@@ -438,12 +439,15 @@ def render_followups_for(fields: list[str] | None = None) -> None:
     ]
 
 
-def editable_draggable_list(field: str, label: str) -> None:
+def editable_draggable_list(
+    field: str, label: str, suggestions: list[str] | None = None
+) -> None:
     """Render a draggable list for newline-separated session values.
 
     Args:
         field: Session state key storing newline-separated values.
         label: Display label for the list.
+        suggestions: Optional dropdown suggestions to add to the list.
     """
     lang = st.session_state.get("lang", "en")
     raw = st.session_state.get(field, "")
@@ -465,6 +469,29 @@ def editable_draggable_list(field: str, label: str) -> None:
     st.button(
         "Add" if lang != "de" else "Hinzufügen", key=f"{field}_add", on_click=_add_item
     )
+
+    if suggestions:
+        available = [s for s in suggestions if s not in items]
+
+        def _add_suggestion() -> None:
+            """Append the selected suggestion to the list of items."""
+            nonlocal items
+            choice = st.session_state.get(f"{field}_suggest", "")
+            if choice:
+                items.append(choice)
+                st.session_state[f"{field}_suggest"] = ""
+
+        select_label = "Choose suggestion" if lang != "de" else "Vorschlag auswählen"
+        st.selectbox(
+            select_label,
+            [""] + available,
+            key=f"{field}_suggest",
+        )
+        st.button(
+            "Add suggestion" if lang != "de" else "Vorschlag hinzufügen",
+            key=f"{field}_suggest_add",
+            on_click=_add_suggestion,
+        )
 
     def _remove_items() -> None:
         """Remove selected entries from the list and clear the selection."""
@@ -954,34 +981,48 @@ def skills_competencies_page():
     )
     if not st.session_state.get("hard_skills") and st.session_state.get("requirements"):
         st.session_state["hard_skills"] = st.session_state.get("requirements", "")
+    tool_fields = [
+        "programming_languages",
+        "frameworks",
+        "databases",
+        "cloud_providers",
+        "devops_tools",
+    ]
+    tool_suggestions: list[str] = []
+    for f in tool_fields:
+        tool_suggestions.extend(get_field_suggestions(f, lang=lang))
+    seen: set[str] = set()
+    tool_suggestions = [
+        s for s in tool_suggestions if not (s.lower() in seen or seen.add(s.lower()))
+    ]
 
     # Requirements inputs (Section 3 - Skills & Competencies)
 
-
-tech_col, soft_col = st.columns(2)
-with tech_col:
-    st.subheader("Technical" if lang != "de" else "Technisch")
-    editable_draggable_list(
-        "requirements.hard_skills",
-        "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
-    )
-    editable_draggable_list(
-        "requirements.tools_and_technologies",
-        "Tools & Technologies" if lang != "de" else "Tools und Technologien",
-    )
-    editable_draggable_list(
-        "requirements.certifications",
-        "Certifications" if lang != "de" else "Zertifizierungen",
-    )
-with soft_col:
-    st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
-    editable_draggable_list(
-        "requirements.soft_skills", "Soft Skills" if lang != "de" else "Soft Skills"
-    )
-    editable_draggable_list(
-        "requirements.languages_required",
-        "Languages Required" if lang != "de" else "Erforderliche Sprachen",
-    )
+    tech_col, soft_col = st.columns(2)
+    with tech_col:
+        st.subheader("Technical" if lang != "de" else "Technisch")
+        editable_draggable_list(
+            "requirements.hard_skills",
+            "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
+        )
+        editable_draggable_list(
+            "requirements.tools_and_technologies",
+            "Tools & Technologies" if lang != "de" else "Tools und Technologien",
+            suggestions=tool_suggestions,
+        )
+        editable_draggable_list(
+            "requirements.certifications",
+            "Certifications" if lang != "de" else "Zertifizierungen",
+        )
+    with soft_col:
+        st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
+        editable_draggable_list(
+            "requirements.soft_skills", "Soft Skills" if lang != "de" else "Soft Skills"
+        )
+        editable_draggable_list(
+            "requirements.languages_required",
+            "Languages Required" if lang != "de" else "Erforderliche Sprachen",
+        )
 
     hard_skills_text = st.session_state.get("hard_skills", "")
     soft_skills_text = st.session_state.get("soft_skills", "")
