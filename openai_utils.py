@@ -502,14 +502,3 @@ def what_happened(
     )
     messages = [{"role": "user", "content": prompt}]
     return call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
-
-
-def extract_company_info(text: str) -> dict:
-    """Extract company information (name, mission/values, culture, location) from given website text."""
-    # ... (no changes in this function) ...
-    try:
-        # (Implementation of extraction using OpenAI, omitted for brevity)
-        result: dict[str, str] = {}
-        return result
-    except Exception:
-        return {}
