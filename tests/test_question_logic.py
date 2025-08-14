@@ -63,3 +63,13 @@ def test_rag_suggestions_merge(monkeypatch) -> None:
     out = generate_followup_questions({}, num_questions=1, use_rag=True)
     assert out[0]["field"] == "location.primary_city"
     assert out[0]["suggestions"] == ["Berlin"]
+
+
+def test_new_field_triggers_question(monkeypatch) -> None:
+    """New schema fields should yield follow-up questions when missing."""
+    monkeypatch.setattr(
+        "question_logic.CRITICAL_FIELDS", {"contacts.hiring_manager.phone"}
+    )
+    out = generate_followup_questions({}, num_questions=1, use_rag=False)
+    assert out[0]["field"] == "contacts.hiring_manager.phone"
+    assert "phone" in out[0]["question"].lower()

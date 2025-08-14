@@ -136,3 +136,24 @@ def test_backward_compat_missing_new_fields() -> None:
     dumped = jd.model_dump()
     assert dumped["contacts"]["hiring_manager"]["phone"] == ""
     assert dumped["position"]["occupation_esco_code"] == ""
+
+
+def test_coerce_and_fill_new_fields_with_aliases() -> None:
+    data = {
+        "contacts": {
+            "hiring_manager": {"phone": "+49 123"},
+            "recruiter": {"phone": "+1 555"},
+        },
+        "english_level": "C1",
+        "german_level": "B2",
+        "process": {"interview_stages": 3},
+        "analytics": {"esco_missing_skill_count": 2},
+    }
+    jd = coerce_and_fill(data)
+    dumped = jd.model_dump()
+    assert dumped["contacts"]["hiring_manager"]["phone"] == "+49 123"
+    assert dumped["contacts"]["recruiter"]["phone"] == "+1 555"
+    assert dumped["requirements"]["language_level_english"] == "C1"
+    assert dumped["requirements"]["language_level_german"] == "B2"
+    assert dumped["process"]["interview_stages"] == 3
+    assert dumped["analytics"]["esco_missing_skill_count"] == 2
