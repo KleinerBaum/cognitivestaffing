@@ -818,6 +818,9 @@ def start_discovery_page() -> None:  # pragma: no cover - compatibility alias
     welcome_page()
 
 
+welcome_page()
+
+
 def company_information_page():
     """Company Info page: Gather basic company information and optionally auto-fetch details from website."""
     lang = st.session_state.get("lang", "en")
