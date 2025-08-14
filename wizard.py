@@ -774,9 +774,10 @@ def company_information_page():
     )
 
 
-st.session_state["company.name"] = st.text_input(
+st.text_input(
     "Company Name" if lang != "de" else "Unternehmensname",
     st.session_state.get("company.name", ""),
+    key="company.name",
 )
 industry_options = [
     "Information Technology",
@@ -810,7 +811,7 @@ industry_options = [
     "Marketing/Advertising",
 ]
 current_industry = st.session_state.get("company.industry", "")
-st.session_state["company.industry"] = st.selectbox(
+st.selectbox(
     "Industry" if lang != "de" else "Branche",
     industry_options,
     index=(
@@ -820,9 +821,10 @@ st.session_state["company.industry"] = st.selectbox(
     ),
     key="company.industry",
 )
-st.session_state["company.hq_location"] = st.text_input(
+st.text_input(
     "Headquarters Location" if lang != "de" else "Hauptsitz",
     st.session_state.get("company.hq_location", ""),
+    key="company.hq_location",
 )
 size_options = [
     "1-10",
@@ -832,7 +834,7 @@ size_options = [
     "1001-5000",
     "5001+",
 ]
-st.session_state["company.size"] = st.selectbox(
+st.selectbox(
     "Company Size" if lang != "de" else "Unternehmensgröße",
     size_options,
     index=(
@@ -842,16 +844,20 @@ st.session_state["company.size"] = st.selectbox(
     ),
     key="company.size",
 )
-st.session_state["location.primary_city"] = st.text_input(
+st.text_input(
     "City" if lang != "de" else "Stadt",
     st.session_state.get("location.primary_city", ""),
+    key="location.primary_city",
 )
-st.session_state["location.country"] = st.text_input(
-    "Country" if lang != "de" else "Land", st.session_state.get("location.country", "")
+st.text_input(
+    "Country" if lang != "de" else "Land",
+    st.session_state.get("location.country", ""),
+    key="location.country",
 )
-st.session_state["company.website"] = st.text_input(
+st.text_input(
     "Company Website" if lang != "de" else "Webseite",
     st.session_state.get("company.website", ""),
+    key="company.website",
 )
 # Optional: Fetch company info (mission, values, etc.) from website
 fetch_label = (
@@ -893,15 +899,17 @@ def role_description_page():
 
 
 # Role Details inputs (Section 2)
-st.session_state["position.job_title"] = st.text_input(
+st.text_input(
     "Job Title" if lang != "de" else "Stellenbezeichnung",
     st.session_state.get("position.job_title", ""),
+    key="position.job_title",
 )
 # ... (other inputs like department, etc.)
-st.session_state["position.role_summary"] = st.text_area(
+st.text_area(
     "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
     st.session_state.get("position.role_summary", ""),
     height=100,
+    key="position.role_summary",
 )
 responsibilities_label = (
     "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
@@ -916,7 +924,7 @@ def task_scope_page():
         "🗒️ Project/Task Scope" if lang != "de" else "🗒️ Projekt- / Aufgabenbereich"
     )
     render_followups_for(["responsibilities.items"])
-    st.session_state["responsibilities.items"] = st.text_area(
+    st.text_area(
         (
             "Main Tasks or Projects"
             if lang != "de"
@@ -924,6 +932,7 @@ def task_scope_page():
         ),
         st.session_state.get("responsibilities.items", ""),
         height=120,
+        key="responsibilities.items",
     )
 
 
@@ -1105,7 +1114,7 @@ def benefits_compensation_page():
     )
 
 
-st.session_state["employment.job_type"] = st.selectbox(
+st.selectbox(
     "Employment Type" if lang != "de" else "Anstellungsart",
     [
         "Full-time",
@@ -1138,7 +1147,7 @@ st.session_state["employment.job_type"] = st.selectbox(
     ),
     key="employment.job_type",
 )
-st.session_state["employment.work_policy"] = st.selectbox(
+st.selectbox(
     "Work Policy" if lang != "de" else "Arbeitsmodell",
     ["Onsite", "Hybrid", "Remote"],
     index=(
@@ -1153,7 +1162,7 @@ st.session_state["employment.work_policy"] = st.selectbox(
     ),
     key="employment.work_policy",
 )
-st.session_state["employment.travel_required"] = st.checkbox(
+st.checkbox(
     "Travel required" if lang != "de" else "Reise erforderlich",
     value=bool(st.session_state.get("employment.travel_required", False)),
     key="employment.travel_required",
@@ -1168,7 +1177,7 @@ if sal_provided:
     # Show min, max, currency, period inputs
     cols = st.columns([1, 1, 1, 1])
     with cols[0]:
-        st.session_state["compensation.salary_min"] = st.number_input(
+        st.number_input(
             "Salary Min",
             value=st.session_state.get("compensation.salary_min", 0),
             step=500,
@@ -1176,7 +1185,7 @@ if sal_provided:
             key="compensation.salary_min",
         )
     with cols[1]:
-        st.session_state["compensation.salary_max"] = st.number_input(
+        st.number_input(
             "Salary Max",
             value=st.session_state.get("compensation.salary_max", 0),
             step=500,
@@ -1184,7 +1193,7 @@ if sal_provided:
             key="compensation.salary_max",
         )
     with cols[2]:
-        st.session_state["compensation.salary_currency"] = st.selectbox(
+        st.selectbox(
             "Currency" if lang != "de" else "Währung",
             ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK"],
             index=(
@@ -1208,7 +1217,7 @@ if sal_provided:
             key="compensation.salary_currency",
         )
     with cols[3]:
-        st.session_state["compensation.salary_period"] = st.selectbox(
+        st.selectbox(
             "Period",
             ["year", "month", "day", "hour"],
             index=(
@@ -1232,7 +1241,7 @@ if sal_provided:
             merged = f"{merged}\n{extra}" if merged else extra
     st.session_state["compensation.benefits"] = merged
     editable_draggable_list("compensation.benefits", benefits_label)
-    st.session_state["learning_opportunities"] = st.text_area(
+    st.text_area(
         (
             "Learning & Development Opportunities"
             if lang != "de"
@@ -1240,14 +1249,17 @@ if sal_provided:
         ),
         st.session_state.get("learning_opportunities", ""),
         height=70,
+        key="learning_opportunities",
     )
-    st.session_state["remote_policy"] = st.text_input(
+    st.text_input(
         "Remote Work Policy" if lang != "de" else "Richtlinie für Fernarbeit",
         st.session_state.get("remote_policy", ""),
+        key="remote_policy",
     )
-    st.session_state["travel_required"] = st.text_input(
+    st.text_input(
         "Travel Requirements" if lang != "de" else "Reisebereitschaft",
         st.session_state.get("travel_required", ""),
+        key="travel_required",
     )
     benefit_btn_col, benefit_model_col = st.columns([3, 2])
     with benefit_model_col:
@@ -1327,19 +1339,19 @@ def recruitment_process_page():
     lang = st.session_state.get("lang", "en")
     st.header("🏁 Recruitment Process" if lang != "de" else "🏁 Einstellungsprozess")
     render_followups_for(["interview_stages", "process_notes"])
-    st.session_state["interview_stages"] = int(
-        st.number_input(
-            (
-                "Number of Interview Rounds"
-                if lang != "de"
-                else "Anzahl der Interviewrunden"
-            ),
-            min_value=0,
-            step=1,
-            value=int(st.session_state.get("interview_stages", 0)),
-        )
+    st.number_input(
+        (
+            "Number of Interview Rounds"
+            if lang != "de"
+            else "Anzahl der Interviewrunden"
+        ),
+        min_value=0,
+        step=1,
+        value=int(st.session_state.get("interview_stages", 0)),
+        key="interview_stages",
+        format="%d",
     )
-    st.session_state["process_notes"] = st.text_area(
+    st.text_area(
         (
             "Additional Hiring Process Notes"
             if lang != "de"
@@ -1347,6 +1359,7 @@ def recruitment_process_page():
         ),
         st.session_state.get("process_notes", ""),
         height=80,
+        key="process_notes",
     )
 
 
