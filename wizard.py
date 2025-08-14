@@ -89,7 +89,7 @@ FIELD_SECTION_MAP: dict[str, int] = {
     "compensation.salary_min": 4,
     "compensation.salary_max": 4,
 }
-"""Map critical field names to wizard section indices for navigation."""
+# Map critical field names to wizard section indices for navigation
 
 
 FIELD_LABELS: dict[str, tuple[str, str]] = {
@@ -122,7 +122,7 @@ FIELD_LABELS: dict[str, tuple[str, str]] = {
     "compensation.salary_min": ("Salary Minimum", "Mindestgehalt"),
     "compensation.salary_max": ("Salary Maximum", "Höchstgehalt"),
 }
-"""Human-friendly labels for critical wizard fields."""
+# Human-friendly labels for critical wizard fields
 
 
 def get_field_label(field: str, lang: str) -> str:
