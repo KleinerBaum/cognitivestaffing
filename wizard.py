@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import streamlit as st
-from typing import Any, cast, TypedDict
+from typing import Any, Callable, cast, TypedDict
 
 from core.ss_bridge import from_session_state, to_session_state
 from core.schema import coerce_and_fill
@@ -818,9 +818,6 @@ def start_discovery_page() -> None:  # pragma: no cover - compatibility alias
     welcome_page()
 
 
-welcome_page()
-
-
 def company_information_page():
     """Company Info page: Gather basic company information and optionally auto-fetch details from website."""
     lang = st.session_state.get("lang", "en")
@@ -999,24 +996,23 @@ def role_description_page():
         pass
     render_followups_for(["position.role_summary", "responsibilities.items"])
 
-
-# Role Details inputs (Section 2)
-st.text_input(
-    "Job Title" if lang != "de" else "Stellenbezeichnung",
-    st.session_state.get("position.job_title", ""),
-    key="position.job_title",
-)
-# ... (other inputs like department, etc.)
-st.text_area(
-    "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
-    st.session_state.get("position.role_summary", ""),
-    height=100,
-    key="position.role_summary",
-)
-responsibilities_label = (
-    "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
-)
-editable_draggable_list("responsibilities.items", responsibilities_label)
+    # Role Details inputs (Section 2)
+    st.text_input(
+        "Job Title" if lang != "de" else "Stellenbezeichnung",
+        st.session_state.get("position.job_title", ""),
+        key="position.job_title",
+    )
+    # ... (other inputs like department, etc.)
+    st.text_area(
+        "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
+        st.session_state.get("position.role_summary", ""),
+        height=100,
+        key="position.role_summary",
+    )
+    responsibilities_label = (
+        "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
+    )
+    editable_draggable_list("responsibilities.items", responsibilities_label)
 
 
 def task_scope_page():
@@ -1812,3 +1808,25 @@ def summary_outputs_page():
         )
         if bool_query:
             st.info(f"**Boolean Search Query:** `{bool_query}`")
+
+
+SECTION_PAGES: dict[int, Callable[[], None]] = {
+    0: welcome_page,
+    1: company_information_page,
+    2: role_description_page,
+    3: task_scope_page,
+    4: skills_competencies_page,
+    5: benefits_compensation_page,
+    6: recruitment_process_page,
+    7: summary_outputs_page,
+}
+
+
+def render_current_section() -> None:
+    """Render the wizard section based on ``current_section`` state."""
+    page = SECTION_PAGES.get(st.session_state["current_section"], welcome_page)
+    page()
+
+
+if __name__ == "__main__":
+    render_current_section()
