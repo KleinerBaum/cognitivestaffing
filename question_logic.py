@@ -73,6 +73,7 @@ EXTENDED_FIELDS: List[str] = [
     "requirements.tools_and_technologies",
     "requirements.certifications",
     "requirements.languages_required",
+    "requirements.language_level_english",
     "position.seniority_level",
     # employment
     "employment.job_type",
@@ -301,6 +302,7 @@ CRITICAL_FIELDS: Set[str] = {
     "compensation.salary_min",
     "compensation.salary_max",  # treat salary info as critical
     "requirements.languages_required",
+    "requirements.language_level_english",
     "requirements.certifications",
 }
 SKILL_FIELDS: Set[str] = {
@@ -529,6 +531,8 @@ def generate_followup_questions(
             q_text = (
                 "Which tools and technologies should the candidate be familiar with?"
             )
+        elif field == "requirements.language_level_english":
+            q_text = "What English proficiency level is required (e.g., B2, C1)?"
         elif field == "location.primary_city":
             q_text = "In which city is this position based?"
         elif field == "location.country":

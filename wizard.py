@@ -81,6 +81,7 @@ FIELD_SECTION_MAP: dict[str, int] = {
     "requirements.soft_skills": 3,
     "requirements.tools_and_technologies": 3,
     "requirements.languages_required": 3,
+    "requirements.language_level_english": 3,
     "requirements.certifications": 3,
     "employment.job_type": 4,
     "employment.work_policy": 4,
@@ -109,6 +110,10 @@ FIELD_LABELS: dict[str, tuple[str, str]] = {
     "requirements.languages_required": (
         "Languages Required",
         "Erforderliche Sprachen",
+    ),
+    "requirements.language_level_english": (
+        "English Proficiency Level",
+        "Englischniveau",
     ),
     "requirements.certifications": ("Certifications", "Zertifizierungen"),
     "employment.job_type": ("Employment Type", "Anstellungsart"),
@@ -177,6 +182,7 @@ SUMMARY_CATEGORIES: list[SummaryCategory] = [
             "requirements.soft_skills",
             "requirements.tools_and_technologies",
             "requirements.languages_required",
+            "requirements.language_level_english",
             "requirements.certifications",
             "position.seniority_level",
         ],
