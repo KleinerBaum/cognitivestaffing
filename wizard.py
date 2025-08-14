@@ -383,7 +383,8 @@ def render_followups_for(fields: list[str] | None = None) -> None:
     """Display follow-up questions inline for specified fields.
 
     Critical questions are prefixed with a red asterisk to signal required
-    input.
+    input. In auto mode questions are generated and shown sequentially,
+    accompanied by a message and a stop button so users keep control.
 
     Args:
         fields: List of field names relevant to the current page. If ``None``,
@@ -417,17 +418,30 @@ def render_followups_for(fields: list[str] | None = None) -> None:
             st.session_state["followup_questions"] = followups
         else:
             st.session_state["auto_mode"] = False
+            done_msg = (
+                "All critical fields are now filled."
+                if lang != "de"
+                else "Alle wichtigen Felder sind nun ausgefüllt."
+            )
+            st.success(done_msg)
+            return
+
+    if st.session_state.get("auto_mode"):
+        info_msg = (
+            "The AI will now ask follow-up questions one by one to collect missing details."
+            if lang != "de"
+            else "Die KI stellt nun der Reihe nach Rückfragen, um alle fehlenden Angaben zu erheben."
+        )
+        st.info(info_msg)
+        stop_label = "⏹ Stop Auto-Ask" if lang != "de" else "⏹ Auto-Modus stoppen"
+        if st.button(stop_label, key="stop_auto_mode"):
+            st.session_state["auto_mode"] = False
+            st.session_state["followup_questions"] = []
+            return
 
     if st.session_state.get("auto_mode") and len(followups) > 1:
         followups = followups[:1]
         st.session_state["followup_questions"] = followups
-
-    if st.session_state.get("auto_mode"):
-        st.caption(
-            "Automatic follow-ups enabled..."
-            if lang != "de"
-            else "Automatische Rückfragen aktiviert..."
-        )
 
     if not followups:
         return
