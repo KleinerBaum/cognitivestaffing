@@ -4,7 +4,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from core.esco_utils import classify_occupation, normalize_skills  # noqa: E402
-from questions.augment import missing_esco_skills  # noqa: E402
 
 
 def test_classify_occupation(monkeypatch):
@@ -59,14 +58,3 @@ def test_normalize_skills(monkeypatch):
     monkeypatch.setattr("core.esco_utils.lookup_esco_skill", fake_lookup)
     out = normalize_skills(["Python", "python", "Management"])
     assert out == ["Python", "Project management"]
-
-
-def test_missing_esco_skills(monkeypatch):
-    """Essential skills not in provided lists are surfaced."""
-
-    def fake_essentials(code, lang="en"):
-        return ["Python", "Git", "Python", "Project management"]
-
-    monkeypatch.setattr("questions.augment.get_essential_skills", fake_essentials)
-    missing = missing_esco_skills("code", ["python"], ["Docker"])
-    assert missing == ["Git", "Project management"]

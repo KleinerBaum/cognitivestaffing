@@ -49,6 +49,7 @@ def test_rag_suggestions_merge(monkeypatch) -> None:
         "question_logic._rag_suggestions",
         lambda *a, **k: {"location.primary_city": ["Berlin"]},
     )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
     out = generate_followup_questions({}, num_questions=1, use_rag=True)
     assert out[0]["field"] == "location.primary_city"
     assert out[0]["suggestions"] == ["Berlin"]
