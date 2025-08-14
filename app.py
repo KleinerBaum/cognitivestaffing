@@ -2,25 +2,31 @@ from pathlib import Path
 import base64
 import streamlit as st
 
+BASE_DIR = Path(__file__).parent
+IMAGES_DIR = BASE_DIR / "images"
+
 # --- Page defaults (title + favicon work across pages) ---
 st.set_page_config(
     page_title="Vacalyser — AI Recruitment",
-    page_icon="images/color1_logo_transparent_background.png",  # or emoji like "🤖"
+    page_icon=str(
+        IMAGES_DIR / "color1_logo_transparent_background.png"
+    ),  # or emoji like "🤖"
 )  # st.set_page_config is the official way to set title/icon/layout.  # :contentReference[oaicite:6]{index=6}
 
 # --- Brand: show logo above the navigation (app + sidebar) ---
+_logo_path = IMAGES_DIR / "color1_logo_transparent_background.png"
 st.logo(
-    "images/color1_logo_transparent_background.png",  # your horizontal logo
-    icon_image="images/color1_logo_transparent_background.png",  # small square icon when sidebar collapsed
+    str(_logo_path),  # your horizontal logo
+    icon_image=str(_logo_path),  # small square icon when sidebar collapsed
     link="https://github.com/KleinerBaum/cognitivestaffing",
 )  # st.logo renders in the upper-left of app and sidebar.  # :contentReference[oaicite:7]{index=7}
 
 # --- Load the futuristic CSS ---
-css_path = Path("styles/vacalyser.css")
+css_path = BASE_DIR / "styles" / "vacalyser.css"
 st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
 # --- Inject background image as a CSS variable (base64) ---
-bg_path = Path("images/AdobeStock_506577005.jpeg")
+bg_path = IMAGES_DIR / "AdobeStock_506577005.jpeg"
 if bg_path.exists():
     b64 = base64.b64encode(bg_path.read_bytes()).decode()
     st.markdown(
