@@ -22,6 +22,7 @@ from openai_utils import (
     generate_job_ad,
     refine_document,
     what_happened,
+    extract_company_info,
 )
 from llm.context import build_extract_messages
 from llm.client import build_extraction_function
@@ -886,6 +887,52 @@ st.text_input(
     st.session_state.get("company.website", ""),
     key="company.website",
 )
+
+fetch_label = (
+    "🔄 Fetch Company Info from Website"
+    if lang != "de"
+    else "🔄 Firmendaten von Website holen"
+)
+if st.button(fetch_label):
+    url = st.session_state.get("company.website", "").strip()
+    if url:
+        with st.spinner(
+            "Fetching company info..."
+            if lang != "de"
+            else "Firmendaten werden geladen..."
+        ):
+            base_text = extract_text_from_url(url)
+            impressum_text = extract_text_from_url(url.rstrip("/") + "/impressum")
+            combined = merge_texts(base_text, impressum_text)
+            info = extract_company_info(combined)
+        if info:
+            mapping = {
+                "name": "company.name",
+                "location": "company.hq_location",
+                "mission": "company.mission",
+                "culture": "company.culture",
+            }
+            for src, dest in mapping.items():
+                value = info.get(src, "")
+                if value and not st.session_state.get(dest):
+                    st.session_state[dest] = value
+            st.success(
+                "✅ Company information updated"
+                if lang != "de"
+                else "✅ Firmeninformationen aktualisiert"
+            )
+        else:
+            st.warning(
+                "No information found, please fill manually."
+                if lang != "de"
+                else "Keine Informationen gefunden, bitte manuell ausfüllen."
+            )
+    else:
+        st.warning(
+            "Please enter a company website URL first."
+            if lang != "de"
+            else "Bitte zuerst die Firmenwebseite eingeben."
+        )
 
 
 def role_description_page():
