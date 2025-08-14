@@ -22,7 +22,7 @@
 - **Missing info alerts**: highlights empty critical fields and blocks navigation until they're filled, letting you jump back to fix them
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
-- **Customizable interview guides**: choose 3–10 questions
+- **Customizable interview guides**: choose 3–10 questions, automatically covering responsibilities, culture, and specified hard and soft skills
 - **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
 - **Employer branding**: company mission and culture flow into job ads and interview guides
