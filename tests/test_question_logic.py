@@ -42,6 +42,16 @@ def test_yes_no_default(monkeypatch) -> None:
     ]
 
 
+def test_language_level_question(monkeypatch) -> None:
+    """Missing English level should trigger a specific question."""
+    monkeypatch.setattr(
+        "question_logic.CRITICAL_FIELDS", {"requirements.language_level_english"}
+    )
+    out = generate_followup_questions({}, num_questions=1, use_rag=False)
+    assert out[0]["field"] == "requirements.language_level_english"
+    assert "English" in out[0]["question"]
+
+
 def test_rag_suggestions_merge(monkeypatch) -> None:
     """RAG suggestions should populate the suggestions list."""
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"location.primary_city"})
