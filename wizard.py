@@ -66,10 +66,9 @@ TONE_CHOICES = {
 }
 
 lang = st.session_state.get("lang", "en")
-if "current_section" not in st.session_state:
-    st.session_state["current_section"] = 0
-    st.session_state["extraction_complete"] = False
-    st.session_state["followup_questions"] = []
+st.session_state.setdefault("current_section", 0)
+st.session_state.setdefault("extraction_complete", False)
+st.session_state.setdefault("followup_questions", [])
 
 
 # Mapping of wizard sections to the schema fields they contain.  This drives the
