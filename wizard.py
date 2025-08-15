@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import streamlit as st
-from typing import Any, Callable, cast, TypedDict
+from typing import Any, cast, TypedDict
 
 from core.ss_bridge import from_session_state, to_session_state
 from core.schema import coerce_and_fill
@@ -66,7 +66,10 @@ TONE_CHOICES = {
 }
 
 lang = st.session_state.get("lang", "en")
-st.session_state.setdefault("current_section", 0)
+if "current_section" not in st.session_state:
+    st.session_state["current_section"] = 0
+    st.session_state["extraction_complete"] = False
+    st.session_state["followup_questions"] = []
 
 
 # Mapping of wizard sections to the schema fields they contain.  This drives the
@@ -623,6 +626,14 @@ def render_summary_input(field: str, label: str, highlight_missing: bool) -> Non
     widget(widget_label, value, key=field)
 
 
+def _reset_wizard() -> None:
+    """Reset session state when new input is provided."""
+
+    for k in ["extraction_complete", "followup_questions"]:
+        st.session_state.pop(k, None)
+    st.session_state["current_section"] = 0
+
+
 def _run_extraction(lang: str) -> None:
     """Run vacancy extraction based on current session inputs."""
 
@@ -772,6 +783,7 @@ def welcome_page() -> None:
             ),
             st.session_state.get("input_url", ""),
             key="input_url",
+            on_change=_reset_wizard,
         )
     with colB:
         uploaded_file = st.file_uploader(
@@ -781,6 +793,8 @@ def welcome_page() -> None:
                 else "Stellenanzeige hochladen (PDF, DOCX, TXT)"
             ),
             type=["pdf", "docx", "txt"],
+            key="uploaded_file",
+            on_change=_reset_wizard,
         )
         if uploaded_file is not None:
             file_bytes = uploaded_file.read()
@@ -1810,23 +1824,29 @@ def summary_outputs_page():
             st.info(f"**Boolean Search Query:** `{bool_query}`")
 
 
-SECTION_PAGES: dict[int, Callable[[], None]] = {
-    0: welcome_page,
-    1: company_information_page,
-    2: role_description_page,
-    3: task_scope_page,
-    4: skills_competencies_page,
-    5: benefits_compensation_page,
-    6: recruitment_process_page,
-    7: summary_outputs_page,
-}
+sec = st.session_state["current_section"]
 
-
-def render_current_section() -> None:
-    """Render the wizard section based on ``current_section`` state."""
-    page = SECTION_PAGES.get(st.session_state["current_section"], welcome_page)
-    page()
-
-
-if __name__ == "__main__":
-    render_current_section()
+if sec == 0:
+    welcome_page()
+    st.stop()
+elif sec == 1:
+    company_information_page()
+    st.stop()
+elif sec == 2:
+    role_description_page()
+    st.stop()
+elif sec == 3:
+    task_scope_page()
+    st.stop()
+elif sec == 4:
+    skills_competencies_page()
+    st.stop()
+elif sec == 5:
+    benefits_compensation_page()
+    st.stop()
+elif sec == 6:
+    recruitment_process_page()
+    st.stop()
+elif sec == 7:
+    summary_outputs_page()
+    st.stop()
