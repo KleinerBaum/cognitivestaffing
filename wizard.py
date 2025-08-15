@@ -121,6 +121,9 @@ FIELDS_BY_SECTION: dict[int, list[str]] = {
     ],
 }
 
+# Total number of steps including welcome and summary pages
+TOTAL_STEPS: int = len(FIELDS_BY_SECTION) + 2
+
 # Map each field to its corresponding wizard section index
 FIELD_SECTION_MAP: dict[str, int] = {
     field: section for section, fields in FIELDS_BY_SECTION.items() for field in fields
@@ -825,6 +828,8 @@ def welcome_page() -> None:
             st.session_state["current_section"] = 1
             st.rerun()
 
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
+
 
 def start_discovery_page() -> None:  # pragma: no cover - compatibility alias
     """Alias for backward compatibility."""
@@ -993,6 +998,8 @@ if st.button(fetch_label):
             else "Bitte zuerst die Firmenwebseite eingeben."
         )
 
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
+
 
 def role_description_page():
     """Role Description page: Summary of the role and key responsibilities."""
@@ -1027,6 +1034,8 @@ def role_description_page():
     )
     editable_draggable_list("responsibilities.items", responsibilities_label)
 
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
+
 
 def task_scope_page():
     """Tasks page: Scope of tasks or projects for the role."""
@@ -1045,6 +1054,8 @@ def task_scope_page():
         height=120,
         key="responsibilities.items",
     )
+
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
 
 
 def skills_competencies_page():
@@ -1218,6 +1229,8 @@ def skills_competencies_page():
                         s for s in soft_list if s != skill
                     ]
                     st.rerun()
+
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
 
 
 def benefits_compensation_page():
@@ -1451,6 +1464,8 @@ if sal_provided:
                     ]
                     st.rerun()
 
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
+
 
 def recruitment_process_page():
     """Process page: Details about the recruitment process (interview rounds, notes)."""
@@ -1479,6 +1494,8 @@ def recruitment_process_page():
         height=80,
         key="process_notes",
     )
+
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
 
 
 def summary_outputs_page():
@@ -1822,30 +1839,26 @@ def summary_outputs_page():
         if bool_query:
             st.info(f"**Boolean Search Query:** `{bool_query}`")
 
+    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
+
 
 sec = st.session_state["current_section"]
 
 if sec == 0:
     welcome_page()
-    st.stop()
 elif sec == 1:
     company_information_page()
-    st.stop()
 elif sec == 2:
     role_description_page()
-    st.stop()
 elif sec == 3:
     task_scope_page()
-    st.stop()
 elif sec == 4:
     skills_competencies_page()
-    st.stop()
 elif sec == 5:
     benefits_compensation_page()
-    st.stop()
 elif sec == 6:
     recruitment_process_page()
-    st.stop()
 elif sec == 7:
     summary_outputs_page()
-    st.stop()
+
+st.stop()
