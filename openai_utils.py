@@ -1,11 +1,160 @@
 import json
-from typing import Any, List, Sequence, cast
+import os
+import re
+from typing import Any, Dict, List, Optional, Sequence, cast
 
 from openai import OpenAI
 
 from config import OPENAI_API_KEY, OPENAI_MODEL
+from core.schema import VacalyserJD
 
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+_CLIENT: OpenAI | None = client
+
+
+def _client() -> OpenAI:
+    """Return a cached OpenAI client instance."""
+
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else OpenAI()
+    return _CLIENT
+
+
+def _vacalyser_json_schema() -> Dict[str, Any]:
+    """Return JSON schema for :class:`VacalyserJD` without extra properties."""
+
+    schema = VacalyserJD.model_json_schema()
+    if isinstance(schema, dict) and schema.get("type") == "object":
+        schema.setdefault("additionalProperties", False)
+    return schema
+
+
+def _safe_json_loads(blob: str) -> Dict[str, Any]:
+    """Safely load JSON from an arbitrary blob of text.
+
+    Args:
+        blob: Raw text that may include code fences, smart quotes or trailing commas.
+
+    Returns:
+        Parsed JSON object.
+    """
+
+    s = blob.strip()
+    s = re.sub(r"^```(?:json)?", "", s, flags=re.IGNORECASE).strip()
+    s = re.sub(r"```$", "", s).strip()
+    left, right = s.find("{"), s.rfind("}")
+    if left != -1 and right != -1 and right > left:
+        s = s[left : right + 1]
+    s = s.replace("“", '"').replace("”", '"').replace("’", "'")
+    s = re.sub(r",\s*([}\]])", r"\1", s)
+    return json.loads(s)
+
+
+def extract_structured_from_text(
+    raw_text: str, *, lang: str = "en", model: Optional[str] = None
+) -> Dict[str, Any]:
+    """Extract vacancy data using a resilient structured parsing cascade.
+
+    Args:
+        raw_text: Source text containing job information.
+        lang: Language hint passed to the model.
+        model: Optional model override.
+
+    Returns:
+        Dictionary matching the :class:`VacalyserJD` schema.
+
+    Raises:
+        RuntimeError: If no valid JSON could be parsed from the model responses.
+    """
+
+    mdl = model if model is not None else os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    sys_msg = (
+        "You are a strict extraction engine. "
+        "Return ONLY structured data matching the provided function schema. "
+        "Never include prose or markdown."
+    )
+    user_msg = (
+        f"Extract all vacancy fields from the following text. Language hint: {lang}.\n\n"
+        f"=== INPUT START ===\n{raw_text}\n=== INPUT END ==="
+    )
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "vacalyser_extract",
+                "description": "Return all fields for VacalyserJD",
+                "parameters": _vacalyser_json_schema(),
+            },
+        }
+    ]
+
+    chat_completions = cast(Any, _client().chat.completions)
+
+    try:
+        r = chat_completions.create(
+            model=mdl,
+            temperature=0,
+            seed=42,
+            messages=[
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            tools=tools,
+            tool_choice={"type": "function", "function": {"name": "vacalyser_extract"}},
+            max_tokens=4096,
+        )
+        msg = r.choices[0].message
+        if getattr(msg, "tool_calls", None):
+            args = msg.tool_calls[0].function.arguments
+            return json.loads(args)
+        if getattr(msg, "function_call", None):
+            args = msg.function_call.arguments
+            return json.loads(args)
+    except Exception as e:  # noqa: PERF203
+        last_err = f"[function_call] {e}"
+
+    try:
+        r2 = chat_completions.create(
+            model=mdl,
+            temperature=0,
+            seed=43,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": sys_msg + " Respond ONLY with a JSON object.",
+                },
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=4096,
+        )
+        payload = r2.choices[0].message.content or ""
+        return _safe_json_loads(payload)
+    except Exception as e2:  # noqa: PERF203
+        last_err = f"{last_err} | [json_mode] {e2}"
+
+    try:
+        r3 = chat_completions.create(
+            model=mdl,
+            temperature=0,
+            seed=44,
+            messages=[
+                {
+                    "role": "system",
+                    "content": sys_msg + " Respond with a single JSON object only.",
+                },
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=4096,
+        )
+        payload = r3.choices[0].message.content or ""
+        return _safe_json_loads(payload)
+    except Exception as e3:  # noqa: PERF203
+        raise RuntimeError(
+            f"Could not parse AI response as JSON. Details: {last_err} | [repair] {e3}"
+        ) from e3
 
 
 def call_chat_api(
