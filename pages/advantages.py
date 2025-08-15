@@ -358,6 +358,13 @@ with tabs[2]:
 st.markdown(finish_de if lang == "Deutsch" else finish_en)
 
 # ---------------------------------------------------------------------------
+# Navigation: Wizard Button
+# ---------------------------------------------------------------------------
+button_label = "🚀 Wizard starten" if lang == "Deutsch" else "🚀 Start Wizard"
+if st.button(button_label):
+    st.switch_page("wizard.py")
+
+# ---------------------------------------------------------------------------
 # Footer Hinweis
 # ---------------------------------------------------------------------------
 footer_de = "Hinweis: Passe die Listen in *pages/advantages.py* frei an, um sie zu kürzen oder zu erweitern."
