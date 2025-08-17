@@ -1,123 +1,44 @@
-"""Utilities for interacting with the ESCO API."""
+# core/esco_utils.py (NEW)
+from __future__ import annotations
+import re, logging, functools
+from typing import Optional, List, Dict
+import httpx, backoff
 
-from functools import lru_cache
-from typing import Dict, List
+_ESO = "https://ec.europa.eu/esco/api"
+_http = httpx.Client(timeout=20.0)
+log = logging.getLogger("vacalyser.esco")
 
-import requests
+def _norm(s: str) -> str: return re.sub(r"\s+", " ", (s or "")).strip().lower()
 
-_ALIAS = {
-  "js": "JavaScript",
-  "py": "Python",
-  "node": "Node.js",
-  "ml": "Machine learning"
-}
+@backoff.on_exception(backoff.expo, (httpx.HTTPError,), max_time=60)
+def _get(path: str, **params) -> dict:
+    r = _http.get(f"{_ESO}/{path.lstrip('/')}", params=params); r.raise_for_status(); return r.json()
 
-__all__ = [
-    "lookup_esco_skill",
-    "normalize_skills",
-    "classify_occupation",
-    "get_essential_skills",
-]
+@functools.lru_cache(maxsize=2048)
+def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
+    if not title: return None
+    data = _get("search", text=title, type="occupation", language=lang)
+    items = (data.get("_embedded", {}).get("results", []) or [])
+    if not items and lang != "en":
+        return classify_occupation(title, "en")
+    if not items: return None
+    q = _norm(title)
+    def score(it):
+        lab = _norm(it.get("preferredLabel", ""))
+        return (int(q in lab) * 2) + (1 if lab.startswith(q) else 0) + (1 if lab == q else 0)
+    best = max(items, key=score)
+    return {
+        "label": best.get("preferredLabel"),
+        "uri": best.get("_links", {}).get("self", {}).get("href"),
+        "group": best.get("groupingLabel"),
+    }
 
-
-@lru_cache(maxsize=256)
-def lookup_esco_skill(skill_name: str, lang: str = "en") -> dict:
-    if not skill_name:
-        return {}
-    try:
-        url = f"https://esco.ec.europa.eu/api/search?type=skill&text={skill_name}&language={lang}&limit=1"
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            results = data.get("_embedded", {}).get("results", [])
-            if results:
-                skill = results[0]
-                preferred = skill.get("preferredLabel", {})
-                label = preferred.get(lang) or preferred.get("en") or skill_name
-                desc = skill.get("description", {}).get(lang) or ""
-                return {
-                    "preferredLabel": label,
-                    "type": skill.get("type", ""),
-                    "description": desc,
-                }
-    except Exception:
-        pass
-    return {}
-
-
-def normalize_skill(name: str) -> str:
-    s = (name or "").strip()
-    return _ALIAS.get(s.lower(), s)
-
-
-@lru_cache(maxsize=256)
-def classify_occupation(job_title: str, lang: str = "en") -> Dict[str, str]:
-    """Return the closest ESCO occupation for a job title.
-
-    The function queries the ESCO search API to find the best matching
-    occupation for ``job_title``. It also resolves the broader ISCO group to
-    provide a general category, which can later be used to tailor
-    questionnaire flows.
-
-    Args:
-        job_title: Raw job title string provided by the user.
-        lang: Preferred language code for labels.
-
-    Returns:
-        A dictionary containing ``preferredLabel``, ``group`` and ``uri`` keys.
-        Empty if no match was found or the API call failed.
-    """
-
-    if not job_title:
-        return {}
-    try:
-        search_url = "https://ec.europa.eu/esco/api/search"
-        params = {"type": "occupation", "text": job_title, "language": lang, "limit": 1}
-        resp = requests.get(search_url, params=params, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            results = data.get("_embedded", {}).get("results", [])
-            if results:
-                occ = results[0]
-                label = occ.get("preferredLabel", {}).get(lang) or occ.get("title", "")
-                uri = occ.get("uri", "")
-                group_uri = (occ.get("broaderIscoGroup") or [None])[0]
-                group_label = ""
-                if group_uri:
-                    group_resp = requests.get(
-                        "https://ec.europa.eu/esco/api/resource",
-                        params={"uri": group_uri},
-                        timeout=5,
-                    )
-                    if group_resp.status_code == 200:
-                        group_label = group_resp.json().get("title", "")
-                return {"preferredLabel": label, "group": group_label, "uri": uri}
-    except Exception:
-        pass
-    return {}
-
-
-@lru_cache(maxsize=256)
+@functools.lru_cache(maxsize=4096)
 def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
-    """Fetch essential ESCO skills for a given occupation URI."""
-
-    if not occupation_uri:
-        return []
-    try:
-        resp = requests.get(
-            "https://ec.europa.eu/esco/api/resource",
-            params={"uri": occupation_uri, "language": lang},
-            timeout=5,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            links = data.get("_links", {})
-            skills: List[str] = []
-            for item in links.get("hasEssentialSkill", []):
-                title = item.get("title", "")
-                if title:
-                    skills.append(title)
-            return skills
-    except Exception:
-        pass
-    return []
+    if not occupation_uri: return []
+    res = _get("resource", uri=occupation_uri, language=lang)
+    skills = []
+    for rel in (res.get("_links", {}) or {}).get("hasEssentialSkill", []):
+        lab = rel.get("title")
+        if lab: skills.append(lab)
+    return sorted(set(skills), key=str.lower)
