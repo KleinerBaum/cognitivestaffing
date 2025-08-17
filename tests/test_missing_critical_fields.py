@@ -30,7 +30,5 @@ def test_followup_critical_detection() -> None:
         {"field": "compensation.variable_pay", "priority": "normal"},
     ]
 
-    missing = get_missing_critical_fields(
-        max_section=FIELD_SECTION_MAP["compensation.salary_min"]
-    )
+    missing = get_missing_critical_fields(max_section=99)
     assert missing == ["compensation.salary_min"]
