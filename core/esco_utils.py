@@ -1,44 +1,118 @@
-# core/esco_utils.py (NEW)
+"""Helpers for interacting with the ESCO taxonomy.
+
+The helpers include lightweight caching and backoff-enabled HTTP
+requests for resilience. They provide occupation classification,
+essential skill lookup and skill normalization utilities.
+"""
+
 from __future__ import annotations
-import re, logging, functools
-from typing import Optional, List, Dict
-import httpx, backoff
+
+import functools
+import logging
+import re
+from typing import Dict, List, Optional
+
+import backoff
+import requests
 
 _ESO = "https://ec.europa.eu/esco/api"
-_http = httpx.Client(timeout=20.0)
 log = logging.getLogger("vacalyser.esco")
 
-def _norm(s: str) -> str: return re.sub(r"\s+", " ", (s or "")).strip().lower()
 
-@backoff.on_exception(backoff.expo, (httpx.HTTPError,), max_time=60)
+def _norm(s: str) -> str:
+    """Normalize whitespace and lowercase a string."""
+
+    return re.sub(r"\s+", " ", (s or "")).strip().lower()
+
+
+@backoff.on_exception(backoff.expo, requests.RequestException, max_time=60)
 def _get(path: str, **params) -> dict:
-    r = _http.get(f"{_ESO}/{path.lstrip('/')}", params=params); r.raise_for_status(); return r.json()
+    """Perform a GET request against the ESCO API."""
+
+    url = path if path.startswith("http") else f"{_ESO}/{path.lstrip('/')}"
+    resp = requests.get(url, params=params, timeout=20)
+    try:  # pragma: no cover - network failures/mocks without method
+        resp.raise_for_status()
+    except AttributeError:
+        pass
+    return resp.json()
+
 
 @functools.lru_cache(maxsize=2048)
 def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
-    if not title: return None
+    """Return best matching ESCO occupation for a job title."""
+
+    if not title:
+        return None
     data = _get("search", text=title, type="occupation", language=lang)
-    items = (data.get("_embedded", {}).get("results", []) or [])
+    items = data.get("_embedded", {}).get("results", []) or []
     if not items and lang != "en":
         return classify_occupation(title, "en")
-    if not items: return None
+    if not items:
+        return None
     q = _norm(title)
-    def score(it):
-        lab = _norm(it.get("preferredLabel", ""))
-        return (int(q in lab) * 2) + (1 if lab.startswith(q) else 0) + (1 if lab == q else 0)
-    best = max(items, key=score)
+
+    def _lab(it: dict) -> str:
+        lab = it.get("preferredLabel", "")
+        if isinstance(lab, dict):
+            return lab.get(lang, "") or next(iter(lab.values()), "")
+        return str(lab)
+
+    best = max(
+        items,
+        key=lambda it: (int(q in _norm(_lab(it))) * 2) + int(_norm(_lab(it)) == q),
+    )
+    group_uri = (best.get("broaderIscoGroup") or [None])[0]
+    group = ""
+    if group_uri:
+        grp = _get(group_uri)
+        group = grp.get("title", "")
     return {
-        "label": best.get("preferredLabel"),
-        "uri": best.get("_links", {}).get("self", {}).get("href"),
-        "group": best.get("groupingLabel"),
+        "preferredLabel": _lab(best),
+        "uri": best.get("uri") or best.get("_links", {}).get("self", {}).get("href"),
+        "group": group,
     }
+
 
 @functools.lru_cache(maxsize=4096)
 def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
-    if not occupation_uri: return []
+    """Return essential skills for a given occupation URI."""
+
+    if not occupation_uri:
+        return []
     res = _get("resource", uri=occupation_uri, language=lang)
-    skills = []
+    skills: List[str] = []
     for rel in (res.get("_links", {}) or {}).get("hasEssentialSkill", []):
-        lab = rel.get("title")
-        if lab: skills.append(lab)
-    return sorted(set(skills), key=str.lower)
+        lab = rel.get("title") or rel.get("preferredLabel")
+        if lab:
+            skills.append(lab)
+    return sorted({s.strip() for s in skills if s})
+
+
+@functools.lru_cache(maxsize=4096)
+def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
+    """Lookup a skill and return its ESCO metadata."""
+
+    if not name:
+        return {}
+    data = _get("search", text=name, type="skill", language=lang)
+    items = data.get("_embedded", {}).get("results", []) or []
+    return items[0] if items else {}
+
+
+def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
+    """Normalize skill labels using ESCO preferred labels and dedupe."""
+
+    seen: set[str] = set()
+    out: List[str] = []
+    for skill in skills:
+        if not skill:
+            continue
+        info = lookup_esco_skill(skill, lang=lang)
+        label = info.get("preferredLabel") or skill.strip()
+        label = label.strip()
+        key = label.lower()
+        if label and key not in seen:
+            seen.add(key)
+            out.append(label)
+    return out

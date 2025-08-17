@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 from typing import Any, Optional
 
 from openai import OpenAI
 
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
-from core.schema import LIST_FIELDS, VacalyserJD
+from core.schema import VacalyserJD
 from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
+
+SCHEMA_PATH = Path(__file__).resolve().parent.parent / "vacalyser_schema.json"
+with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
+    VACALYSER_SCHEMA = json.load(_f)
+VACALYSER_SCHEMA.pop("$schema", None)
+VACALYSER_SCHEMA.pop("title", None)
 
 MODE = os.getenv("LLM_MODE", "plain").lower()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
@@ -22,23 +30,10 @@ OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 def build_extraction_function() -> dict[str, Any]:
     """Return an OpenAI function schema for the vacancy profile."""
 
-    properties: dict[str, Any] = {}
-    for field in FIELDS_ORDER:
-        if field in LIST_FIELDS:
-            properties[field] = {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": field.replace("_", " "),
-            }
-        else:
-            properties[field] = {
-                "type": "string",
-                "description": field.replace("_", " "),
-            }
     return {
         "name": "return_extraction",
         "description": "Return extracted fields",
-        "parameters": {"type": "object", "properties": properties},
+        "parameters": VACALYSER_SCHEMA,
     }
 
 

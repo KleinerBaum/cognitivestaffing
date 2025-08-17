@@ -23,145 +23,31 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 # ESCO helpers (must exist in core/esco_utils.py)
-
-
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
     normalize_skills,
 )
 
-# Generic chat helper (fallback)
+from openai_utils import call_chat_api
 from config import OPENAI_API_KEY
-
-# Try modern OpenAI SDK (Responses API)
-try:
-    from openai import OpenAI  # >=1.30
-
-    _HAS_RESPONSES = True
-except Exception:  # pragma: no cover
-    OpenAI = None  # type: ignore[assignment, misc]
-    _HAS_RESPONSES = False
 
 DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
 RAG_VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
-# Extended coverage: combine legacy and new fields (kept flat for prompts).
-EXTENDED_FIELDS: List[str] = [
-    # company / context
-    "company.name",
-    "company.website",
-    "company.industry",
-    "location.primary_city",
-    "location.country",
-    "company.mission",
-    "company.culture",
-    "position.department",
-    "position.team_structure",
-    "position.reporting_line",
-    # role core
-    "position.job_title",
-    "position.role_summary",
-    "responsibilities.items",
-    "requirements.hard_skills",
-    "requirements.soft_skills",
-    "requirements.tools_and_technologies",
-    "requirements.certifications",
-    "requirements.languages_required",
-    "requirements.language_level_english",
-    "position.seniority_level",
-    # employment
-    "employment.job_type",
-    "employment.work_policy",
-    "employment.onsite_days_per_week",
-    "employment.travel_required",
-    "employment.work_hours_per_week",
-    "compensation.salary_min",
-    "compensation.salary_max",
-    "compensation.variable_pay",
-    "compensation.benefits",
-    "compensation.healthcare_plan",
-    "compensation.pension_plan",
-    "compensation.equity_offered",
-    "employment.relocation_support",
-    "employment.visa_sponsorship",
-    "position.target_start_date",
-    "position.application_deadline",
-    "position.performance_metrics",
-]
-
-# Role-specific extras keyed by ESCO group (lowercased)
-ROLE_FIELD_MAP: Dict[str, List[str]] = {
-    "software developers": [
-        "programming_languages",
-        "frameworks",
-        "tech_stack",
-        "code_quality_practices",
-        "development_methodology",
-    ],
-    "sales, marketing and public relations professionals": [
-        "target_markets",
-        "sales_quota",
-        "crm_tools",
-        "campaign_types",
-        "digital_marketing_platforms",
-    ],
-    "nursing and midwifery professionals": [
-        "required_certifications",
-        "shift_schedule",
-        "patient_ratio",
-    ],
-    "medical doctors": [
-        "board_certification",
-        "on_call_requirements",
-    ],
-    "teaching professionals": [
-        "grade_level",
-        "teaching_license",
-    ],
-    "graphic and multimedia designers": [
-        "design_software_tools",
-        "portfolio_url",
-    ],
-    "business services and administration managers not elsewhere classified": [
-        "project_management_methodologies",
-        "project_management_tools",
-        "stakeholder_types",
-        "budget_responsibility",
-    ],
-    "systems analysts": [
-        "machine_learning_frameworks",
-        "data_analysis_tools",
-        "data_visualization_tools",
-        "programming_languages",
-    ],
-    "accountants": [
-        "accounting_software",
-        "professional_certifications",
-        "reporting_standards",
-        "regulatory_frameworks",
-    ],
-    "human resource professionals": [
-        "hr_software_tools",
-        "recruitment_channels",
-        "employee_engagement_strategies",
-    ],
-    "civil engineers": [
-        "engineering_software_tools",
-        "civil_project_types",
-        "site_visit_frequency",
-    ],
-    "chefs": [
-        "cuisine_specialties",
-        "kitchen_environment",
-        "menu_development_responsibility",
-    ],
-}
+_ROOT = Path(__file__).resolve().parent
+with open(_ROOT / "critical_fields.json", "r", encoding="utf-8") as _f:
+    CRITICAL_FIELDS: Set[str] = set(json.load(_f).get("critical", []))
+with open(_ROOT / "role_field_map.json", "r", encoding="utf-8") as _f:
+    ROLE_FIELD_MAP: Dict[str, List[str]] = {
+        k.lower(): v for k, v in json.load(_f).items()
+    }
 
 # Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
 ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
@@ -287,24 +173,6 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
     ],
 }
 
-CRITICAL_FIELDS: Set[str] = {
-    "position.job_title",
-    "company.name",
-    "location.primary_city",
-    "location.country",
-    "position.role_summary",
-    "responsibilities.items",
-    "requirements.hard_skills",
-    "requirements.soft_skills",
-    "requirements.tools_and_technologies",
-    "employment.job_type",
-    "employment.work_policy",
-    "compensation.salary_min",
-    "compensation.salary_max",  # treat salary info as critical
-    "requirements.languages_required",
-    "requirements.language_level_english",
-    "requirements.certifications",
-}
 SKILL_FIELDS: Set[str] = {
     "requirements.hard_skills",
     "requirements.soft_skills",
@@ -362,20 +230,12 @@ def _rag_suggestions(
     vector_store_id: Optional[str] = None,
     max_items_per_field: int = 6,
 ) -> Dict[str, List[str]]:
-    """Ask OpenAI Responses + File Search for field-specific suggestions.
+    """Ask OpenAI Chat + File Search for field-specific suggestions."""
 
-    Returns a mapping ``field -> [suggestion, ...]``. If ``vector_store_id`` is
-    ``None`` or blank, no lookup is performed and an empty dict is returned.
-    """
-    if not _HAS_RESPONSES:
-        return {}  # fallback handled later
     vector_store_id = vector_store_id or RAG_VECTOR_STORE_ID
     if not vector_store_id:
         return {}
-    client = OpenAI()
     model = model or DEFAULT_LOW_COST_MODEL
-
-    # Keep it deterministic and cheap; ask for JSON only.
     sys = (
         "You provide short, concrete suggestions to help complete a vacancy profile. "
         "Use retrieved context; if none, return empty arrays. Respond as a JSON object "
@@ -388,30 +248,19 @@ def _rag_suggestions(
         "fields": missing_fields,
         "N": max_items_per_field,
     }
+    messages = [
+        {"role": "system", "content": sys},
+        {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
+    ]
     try:
-        resp = client.responses.create(  # type: ignore[call-overload]
+        answer = call_chat_api(
+            messages,
             model=model,
-            input=[
-                {"role": "system", "content": sys},
-                {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
-            ],
-            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
             temperature=0,
-            response_format={"type": "json_object"},
+            json_strict=True,
+            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
         )
-        # Modern SDK helper
-        text = getattr(resp, "output_text", None)
-        if not text:
-            # Fallback: build string from first text output
-            # (robust to SDK variants)
-            text = ""
-            if hasattr(resp, "output") and isinstance(resp.output, list):
-                for node in resp.output:
-                    if "content" in node and node["content"]:
-                        for seg in node["content"]:
-                            if seg.get("type") == "output_text":
-                                text += seg.get("text", "")
-        data = json.loads(text or "{}")
+        data = json.loads(answer or "{}")
         out: Dict[str, List[str]] = {}
         for f in missing_fields:
             vals = data.get(f) or data.get(f.replace("_", " ")) or []
