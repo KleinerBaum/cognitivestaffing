@@ -278,51 +278,60 @@ def _rag_suggestions(
 
 
 def _normalize_chat_content(res: Any) -> str:
+    """Extract content string from various call_chat_api responses.
+
+    Args:
+        res: Response returned by ``call_chat_api``. May be an object with a
+            ``content`` attribute, a raw string, or a dictionary resembling an
+            OpenAI response structure.
+
+    Returns:
+        The extracted content string or an empty string if unavailable.
     """
-    Akzeptiert beliebige call_chat_api-Rückgaben und extrahiert den Textinhalt:
-    - ChatCallResult-ähnlich (mit .content)
-    - Raw-String
-    - Raw-Dict (z. B. openai-py response mit choices[0].message.content)
-    """
-    # 1) bevorzugt: Dataclass/Objekt mit .content
+
     if hasattr(res, "content"):
         return getattr(res, "content") or ""
-
-    # 2) reiner String
     if isinstance(res, str):
         return res
-
-    # 3) Dict-ähnlich: verschiedene Formen abdecken
     if isinstance(res, dict):
-        # a) direkte 'content'-Key
-        if "content" in res and isinstance(res["content"], str):
+        if isinstance(res.get("content"), str):
             return res["content"]
-
-        # b) OpenAI-ähnliche Struktur: choices[0].message.content
         try:
-            choices = res.get("choices", [])
-            if choices:
-                msg = choices[0].get("message", {})
-                if isinstance(msg, dict) and isinstance(msg.get("content"), str):
-                    return msg["content"] or ""
+            ch = res.get("choices", [])
+            if ch:
+                msg = ch[0].get("message", {})
+                c = msg.get("content")
+                if isinstance(c, str):
+                    return c
         except Exception:
             pass
-
-    # Fallback
     return ""
 
 
 def ask_followups(
     payload: dict, *, model: str = "gpt-4o-mini", vector_store_id: Optional[str] = None
 ) -> dict:
+    """Generate follow-up questions via the chat API.
+
+    Args:
+        payload: Vacancy JSON payload to inspect.
+        model: OpenAI model identifier.
+        vector_store_id: Optional vector store ID enabling file search tool usage.
+
+    Returns:
+        Parsed JSON dictionary with follow-up questions. Returns an empty dict if
+        parsing fails or the response is invalid.
+    """
+
     tools: list[Any] = []
     tool_choice: Optional[str] = None
-    extra: dict[str, Any] = {}
     if vector_store_id:
-        tools = [{"type": "custom", "name": "file_search"}]
-        extra = {
-            "tool_resources": {"file_search": {"vector_store_ids": [vector_store_id]}}
-        }
+        tools = [
+            {
+                "type": "file_search",
+                "file_search": {"vector_store_ids": [vector_store_id]},
+            }
+        ]
         tool_choice = "auto"
 
     res = call_chat_api(
@@ -338,24 +347,19 @@ def ask_followups(
         json_strict=True,
         tools=tools or None,
         tool_choice=tool_choice,
-        extra=extra,
         max_tokens=800,
     )
 
     content = _normalize_chat_content(res).strip()
-
-    # Defensive: Falls der Provider trotz json_strict Codefences zurückgibt
     if content.startswith("```"):
         import re
 
         m = re.search(r"```(?:json)?\s*(.*?)```", content, re.S | re.I)
         if m:
             content = m.group(1).strip()
-
     try:
         return json.loads(content or "{}")
     except json.JSONDecodeError:
-        # Hard fallback: leeres Objekt statt Exception (UI bleibt stabil)
         return {}
 
 
