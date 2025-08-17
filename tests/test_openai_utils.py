@@ -39,7 +39,7 @@ def test_call_chat_api_function_call(monkeypatch):
 
     monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
     out = call_chat_api([], functions=[{}], function_call={"name": "fn"})
-    assert out.function_call.arguments == '{"job_title": "x"}'
+    assert out.function_call and out.function_call["arguments"] == '{"job_title": "x"}'
 
 
 def test_extract_with_function(monkeypatch):
