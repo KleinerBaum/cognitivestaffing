@@ -64,3 +64,55 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     _step_source({})
 
     assert st.session_state.data == sample_data
+
+
+def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Essential skills from ESCO are merged into hard skills without dups."""
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.step = 0
+    sample_text = "Job text"
+    sample_data = {
+        "position": {"job_title": "Engineer"},
+        "requirements": {"hard_skills": ["Python"]},
+    }
+
+    # Streamlit stubs
+    monkeypatch.setattr(st, "tabs", lambda labels: (DummyTab(), DummyTab(), DummyTab()))
+    monkeypatch.setattr(st, "subheader", lambda *a, **k: None)
+    monkeypatch.setattr(st, "success", lambda *a, **k: None)
+    monkeypatch.setattr(st, "warning", lambda *a, **k: None)
+    monkeypatch.setattr(st, "error", lambda *a, **k: None)
+    monkeypatch.setattr(st, "rerun", lambda: None)
+    monkeypatch.setattr(st, "button", lambda *a, **k: True)
+    monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
+    monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
+    monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+
+    # Extraction and ESCO helpers
+    monkeypatch.setattr(
+        "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
+    )
+    monkeypatch.setattr(
+        "wizard.classify_occupation",
+        lambda _t, _l: {
+            "preferredLabel": "software developer",
+            "uri": "http://example.com/occ",
+            "group": "Software developers",
+        },
+    )
+    monkeypatch.setattr(
+        "wizard.get_essential_skills",
+        lambda _u, _l: ["Python", "Project management"],
+    )
+
+    _step_source({})
+
+    data = st.session_state.data
+    assert data["position"]["occupation_label"] == "software developer"
+    assert data["position"]["occupation_uri"] == "http://example.com/occ"
+    assert data["requirements"]["hard_skills"] == [
+        "Project management",
+        "Python",
+    ]
