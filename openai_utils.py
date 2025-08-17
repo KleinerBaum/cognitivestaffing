@@ -69,7 +69,7 @@ def extract_structured_from_text(
         RuntimeError: If no valid JSON could be parsed from the model responses.
     """
 
-    mdl = model if model is not None else os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    mdl = model if model is not None else os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
     sys_msg = (
         "You are a strict extraction engine. "
         "Return ONLY structured data matching the provided function schema. "
@@ -160,8 +160,8 @@ def extract_structured_from_text(
 def call_chat_api(
     messages: list[dict],
     model: str | None = None,
-    max_tokens: int = 500,
-    temperature: float = 0.5,
+    max_tokens: int = 800,
+    temperature: float = 0.7,
     *,
     functions: list[dict] | None = None,
     function_call: dict | None = None,

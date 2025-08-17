@@ -15,7 +15,7 @@ from utils.json_parse import parse_extraction
 from utils.retry import retry
 
 MODE = os.getenv("LLM_MODE", "plain").lower()
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 
