@@ -21,7 +21,6 @@ Outputs (for UI sorting and chips):
 
 from __future__ import annotations
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 from openai_utils import call_chat_api
@@ -32,12 +31,12 @@ from core.esco_utils import (
     get_essential_skills,
     normalize_skills,
 )
-from config import OPENAI_API_KEY
+from config import OPENAI_API_KEY, OPENAI_MODEL, VECTOR_STORE_ID
 
-DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+DEFAULT_LOW_COST_MODEL = OPENAI_MODEL
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
-RAG_VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
+RAG_VECTOR_STORE_ID = VECTOR_STORE_ID
 
 _ROOT = Path(__file__).resolve().parent
 with open(_ROOT / "critical_fields.json", "r", encoding="utf-8") as _f:
@@ -428,7 +427,7 @@ def generate_followup_questions(
         num_questions += len(role_questions_cfg)  # include predefined role-specific Qs
     # 3) (Optional) Get suggestions via RAG for missing fields
     suggestions_map: Dict[str, List[str]] = {}
-    if use_rag and (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")):
+    if use_rag and OPENAI_API_KEY:
         try:
             suggestions_map = _rag_suggestions(
                 job_title, industry, missing_fields, lang=lang
