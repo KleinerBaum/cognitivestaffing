@@ -277,7 +277,7 @@ def _step_source(schema: dict):
                     set_in(
                         st.session_state.data,
                         "position.occupation_label",
-                        occ.get("label"),
+                        occ.get("preferredLabel"),
                     )
                     set_in(
                         st.session_state.data,
@@ -296,7 +296,7 @@ def _step_source(schema: dict):
                         get_in(st.session_state.data, "requirements.hard_skills", [])
                         or []
                     )
-                    merged = sorted(current.union(skills))
+                    merged = sorted(current.union(set(skills)))
                     set_in(st.session_state.data, "requirements.hard_skills", merged)
                 st.session_state.step = 2
                 st.rerun()

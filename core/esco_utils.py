@@ -76,17 +76,31 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
 
 @functools.lru_cache(maxsize=4096)
 def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
-    """Return essential skills for a given occupation URI."""
+    """Return essential skill labels for a given occupation.
+
+    Args:
+        occupation_uri: ESCO URI of the occupation.
+        lang: Two-letter language code.
+
+    Returns:
+        Alphabetically sorted list of unique skill labels.
+    """
 
     if not occupation_uri:
         return []
+
     res = _get("resource", uri=occupation_uri, language=lang)
     skills: List[str] = []
-    for rel in (res.get("_links", {}) or {}).get("hasEssentialSkill", []):
-        lab = rel.get("title") or rel.get("preferredLabel")
-        if lab:
-            skills.append(lab)
-    return sorted({s.strip() for s in skills if s})
+    rels = (res.get("_links", {}) or {}).get("hasEssentialSkill", [])
+    for rel in rels:
+        lab = rel.get("title") or rel.get("preferredLabel") or ""
+        if isinstance(lab, dict):
+            lab = lab.get(lang, "") or next(iter(lab.values()), "")
+        label = str(lab).strip()
+        if label:
+            skills.append(label)
+
+    return sorted(set(skills))
 
 
 @functools.lru_cache(maxsize=4096)
