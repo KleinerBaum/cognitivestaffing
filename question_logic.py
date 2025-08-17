@@ -256,7 +256,13 @@ def _rag_suggestions(
             model=model,
             temperature=0,
             json_strict=True,
-            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
+            tools=[
+                {
+                    "type": "file_search",
+                    "file_search": {"vector_store_ids": [vector_store_id]},
+                }
+            ],
+            tool_choice="auto",
         )
         data = json.loads(_normalize_chat_content(res) or "{}")
         out: Dict[str, List[str]] = {}
