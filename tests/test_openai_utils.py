@@ -1,6 +1,7 @@
 import pytest
 
-from openai_utils import call_chat_api
+import openai_utils
+from openai_utils import call_chat_api, extract_with_function
 
 
 def test_call_chat_api_raises_when_no_api_key(monkeypatch):
@@ -13,7 +14,7 @@ def test_call_chat_api_raises_when_no_api_key(monkeypatch):
 
 
 def test_call_chat_api_function_call(monkeypatch):
-    """Function call arguments should be returned when provided."""
+    """Function call arguments should be accessible on the returned message."""
 
     class _FakeFunctionCall:
         def __init__(self, arguments: str | None = None) -> None:
@@ -38,4 +39,22 @@ def test_call_chat_api_function_call(monkeypatch):
 
     monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
     out = call_chat_api([], functions=[{}], function_call={"name": "fn"})
-    assert out == '{"job_title": "x"}'
+    assert out.function_call.arguments == '{"job_title": "x"}'
+
+
+def test_extract_with_function(monkeypatch):
+    """extract_with_function should parse JSON from a function call."""
+
+    class _FakeMessage:
+        def __init__(self) -> None:
+            self.content = None
+            self.function_call = {"arguments": '{"job_title": "Dev"}'}
+
+    monkeypatch.setattr(openai_utils, "call_chat_api", lambda *a, **k: _FakeMessage())
+    from core import schema as cs
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda model, raw: raw)
+    monkeypatch.setattr(cs, "VacalyserJD", object())
+
+    result = extract_with_function("text", {})
+    assert result["job_title"] == "Dev"
