@@ -1,12 +1,12 @@
 # app.py — Vacalyser (clean entrypoint, single source of truth)
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import streamlit as st
 
 from components.salary_dashboard import render_salary_dashboard
+from config_loader import load_json
 from utils.i18n import tr
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
@@ -20,22 +20,12 @@ st.set_page_config(
 ROOT = Path(__file__).parent
 
 
-def _load_json(path: Path, fallback: dict | None = None) -> dict:
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return fallback or {}
-
-
-SCHEMA = _load_json(ROOT / "vacalyser_schema.json", fallback={})
+SCHEMA = load_json("vacalyser_schema.json", fallback={})
 CRITICAL = set(
-    _load_json(ROOT / "critical_fields.json", fallback={"critical": []}).get(
-        "critical", []
-    )
+    load_json("critical_fields.json", fallback={"critical": []}).get("critical", [])
 )
-TONE = _load_json(ROOT / "tone_presets.json", fallback={"en": {}, "de": {}})
-ROLE_FIELD_MAP = _load_json(ROOT / "role_field_map.json", fallback={})
+TONE = load_json("tone_presets.json", fallback={"en": {}, "de": {}})
+ROLE_FIELD_MAP = load_json("role_field_map.json", fallback={})
 
 
 # --- Session Defaults (einheitliche Keys) ---

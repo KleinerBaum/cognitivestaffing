@@ -60,3 +60,10 @@ export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 If `VECTOR_STORE_ID` is unset or empty, Vacalyser runs without RAG.
+
+## Configuration
+
+Core JSON schemas like `vacalyser_schema.json`, `critical_fields.json`,
+`tone_presets.json` and `role_field_map.json` are loaded via
+`config_loader.load_json`, which falls back to safe defaults and logs a warning
+if a file is missing or malformed.
