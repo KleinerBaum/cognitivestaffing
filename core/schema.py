@@ -348,19 +348,15 @@ ALIASES: Dict[str, str] = {
     "job_title": "position.job_title",
     "location": "location.primary_city",
     "contract_type": "employment.job_type",
-    "remote_policy": "employment.work_policy",
     "experience_level": "position.seniority_level",
     "start_date": "position.target_start_date",
     "tasks": "responsibilities.items",
-    "travel_required": "employment.travel_required",
     "tools_technologies": "requirements.tools_and_technologies",
     "hiring_manager_phone": "contacts.hiring_manager.phone",
     "hr_phone": "contacts.hr.phone",
     "recruiter_phone": "contacts.recruiter.phone",
     "english_level": "requirements.language_level_english",
     "german_level": "requirements.language_level_german",
-    "company_mission": "company.mission",
-    "company_culture": "company.culture",
     # Note: "qualifications" field is removed; no direct alias for "requirements" group as a whole.
 }
 

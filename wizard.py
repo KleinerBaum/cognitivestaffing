@@ -1384,13 +1384,13 @@ if sal_provided:
     )
     st.text_input(
         "Remote Work Policy" if lang != "de" else "Richtlinie für Fernarbeit",
-        st.session_state.get("remote_policy", ""),
-        key="remote_policy",
+        st.session_state.get("employment.work_policy_details", ""),
+        key="employment.work_policy_details",
     )
     st.text_input(
         "Travel Requirements" if lang != "de" else "Reisebereitschaft",
-        st.session_state.get("travel_required", ""),
-        key="travel_required",
+        st.session_state.get("employment.travel_details", ""),
+        key="employment.travel_details",
     )
     benefit_btn_col, benefit_model_col = st.columns([3, 2])
     with benefit_model_col:

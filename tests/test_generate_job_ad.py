@@ -79,9 +79,9 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
 
     session_en = {
         "employment.travel_required": True,
-        "travel_required": "Occasional (up to 10%)",
+        "employment.travel_details": "Occasional (up to 10%)",
         "employment.work_policy": "Hybrid",
-        "remote_policy": "3 days remote",
+        "employment.work_policy_details": "3 days remote",
         "lang": "en",
     }
     openai_utils.generate_job_ad(session_en)
@@ -90,9 +90,9 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
 
     session_de = {
         "employment.travel_required": True,
-        "travel_required": "Gelegentlich (bis zu 10%)",
+        "employment.travel_details": "Gelegentlich (bis zu 10%)",
         "employment.work_policy": "Hybrid",
-        "remote_policy": "3 Tage remote",
+        "employment.work_policy_details": "3 Tage remote",
         "employment.relocation_support": True,
         "lang": "de",
     }

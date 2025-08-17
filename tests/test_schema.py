@@ -66,7 +66,7 @@ def test_tasks_merge_without_duplicates() -> None:
     assert jd2.responsibilities.items == ["Task A"]
 
 
-def test_remote_policy_alias_priority() -> None:
+def test_remote_policy_extra_field_ignored() -> None:
     jd = coerce_and_fill(
         {
             "employment": {"work_policy": "Hybrid"},
@@ -92,7 +92,7 @@ def test_coerce_flat_aliases() -> None:
 
 def test_cross_field_dedupe() -> None:
     data = {
-        "remote_policy": "Fully remote",
+        "employment": {"work_policy": "Fully remote"},
         "responsibilities": {"items": ["Develop APIs", "Fully remote"]},
     }
     jd = coerce_and_fill(data)
