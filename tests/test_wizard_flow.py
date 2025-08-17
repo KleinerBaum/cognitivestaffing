@@ -26,9 +26,7 @@ def test_run_extraction_flow(monkeypatch) -> None:
     st.session_state["llm_model"] = "gpt-4"
 
     monkeypatch.setattr(wizard, "build_extract_messages", lambda text: [])
-    monkeypatch.setattr(
-        wizard, "build_extraction_function", lambda: {"name": "extract"}
-    )
+    monkeypatch.setattr(wizard, "build_extraction_function", lambda: {"name": "extract"})
 
     def fake_call_chat_api(*args, **kwargs):
         return json.dumps(
@@ -57,3 +55,22 @@ def test_run_extraction_flow(monkeypatch) -> None:
     assert st.session_state["employment.work_policy"] == "Remote"
     assert st.session_state["responsibilities.items"] == "Build things"
     assert st.session_state["extraction_success"] is True
+
+
+def test_step_process_handles_empty_stages(monkeypatch) -> None:
+    st.session_state.clear()
+    st.session_state.data = {}
+
+    class DummyCol:
+        def number_input(self, label: str, value: int) -> int:
+            assert value == 0
+            return 0
+
+        def text_area(self, label: str, value: str = "") -> str:
+            return ""
+
+    monkeypatch.setattr(st, "columns", lambda *a, **k: (DummyCol(), DummyCol()))
+
+    wizard._step_process()
+
+    assert st.session_state.data["process"]["interview_stages"] == 0
