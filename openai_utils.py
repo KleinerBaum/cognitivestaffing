@@ -656,7 +656,7 @@ def generate_job_ad(
         label = label_de if lang.startswith("de") else label_en
 
         if key == "employment.travel_required":
-            detail = str(data.get("travel_required", "")).strip()
+            detail = str(data.get("employment.travel_details", "")).strip()
             if detail:
                 formatted = detail
             else:
@@ -664,7 +664,7 @@ def generate_job_ad(
                     yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
                 )
         elif key == "employment.work_policy":
-            detail = str(data.get("remote_policy", "")).strip()
+            detail = str(data.get("employment.work_policy_details", "")).strip()
             if detail:
                 formatted = f"{formatted} ({detail})"
         elif key in boolean_fields:
@@ -691,8 +691,8 @@ def generate_job_ad(
                 salary_str = f"{max_sal or min_sal:,} {currency} per {period}"
             details.append(f"{salary_label}: {salary_str}")
     # Add mission or culture if provided (optional context)
-    mission = (data.get("company_mission") or data.get("company.mission", "")).strip()
-    culture = (data.get("company_culture") or data.get("company.culture", "")).strip()
+    mission = data.get("company.mission", "").strip()
+    culture = data.get("company.culture", "").strip()
     if lang.startswith("de"):
         prompt = (
             "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
