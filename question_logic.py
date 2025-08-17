@@ -20,11 +20,11 @@ Outputs (for UI sorting and chips):
 """
 
 from __future__ import annotations
-
 import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
+from openai_utils import call_chat_api
 
 # ESCO helpers (must exist in core/esco_utils.py)
 from core.esco_utils import (
@@ -32,8 +32,6 @@ from core.esco_utils import (
     get_essential_skills,
     normalize_skills,
 )
-
-from openai_utils import call_chat_api
 from config import OPENAI_API_KEY
 
 DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
@@ -212,6 +210,27 @@ def _priority_for(field: str, is_missing_esco_skill: bool = False) -> str:
         return "critical"
     return "normal"
 
+
+def ask_followups(payload: dict, *, model: str = "gpt-4o-mini", vector_store_id: Optional[str] = None) -> dict:
+    tools, tool_choice, extra = [], None, {}
+    if vector_store_id:
+        tools = [{"type": "file_search", "file_search": {"vector_store_ids": [vector_store_id]}}]
+        tool_choice = "auto"
+    res = call_chat_api(
+        [
+            {"role": "system", "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions."},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+        model=model,
+        temperature=0.2,
+        json_strict=True,
+        tools=tools,
+        tool_choice=tool_choice,
+        extra=extra,
+        max_tokens=800,
+    )
+    return json.loads(res.content or "{}")
+  
 
 def _collect_missing_fields(extracted: Dict[str, Any], fields: List[str]) -> List[str]:
     missing = []
