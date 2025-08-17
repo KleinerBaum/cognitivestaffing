@@ -151,6 +151,61 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     return result
 
 
+def extract_with_function(job_text: str, schema: dict, *, model: str = "gpt-4o-mini") -> dict:
+    """
+    Extrahiert strukturiertes Stellenprofil aus unstrukturiertem Jobtext via OpenAI Function-Calling.
+    - Nutzt ein geschlossenes JSON-Schema (additionalProperties: false) für maximale Zuverlässigkeit.
+    - Validiert und coerct das Ergebnis gegen die Pydantic-Modelle (VacalyserJD).
+
+    Args:
+        job_text: Quelltext (Jobbeschreibung) als String.
+        schema: JSON Schema-Dict (entspricht vacalyser_schema.json).
+        model: OpenAI-Model, Default: "gpt-4o-mini".
+
+    Returns:
+        dict: Schema-konformer Datensatz (bereits durch Pydantic gecoaerct).
+
+    Raises:
+        RuntimeError: Wenn das Modell keinen function_call mit arguments liefert.
+        ValueError: Wenn die JSON-Argumente ungültig sind oder die Coercion fehlschlägt.
+    """
+    import json
+
+    fn_name = "vacalyser_extract"
+    messages = [
+        {"role": "system", "content": "Extract ONLY via function_call; content channel may be empty."},
+        {"role": "user", "content": job_text},
+    ]
+
+    # JSON-Extraktion strikt über Function-Calling (keine Freitext-Antworten)
+    res = call_chat_api(
+        messages,
+        model=model,
+        temperature=0.0,
+        functions=build_extraction_function(fn_name, schema, allow_extra=False),
+        function_call={"name": fn_name},
+    )
+
+    # Sicherstellen, dass das Modell wirklich einen Function-Call mit JSON-Argumenten liefert
+    if not res.function_call or not res.function_call.get("arguments"):
+        raise RuntimeError("No function_call with arguments returned")
+
+    # JSON-Argumente parsen
+    try:
+        raw = json.loads(res.function_call["arguments"])
+    except Exception as e:
+        raise ValueError("Model returned invalid JSON in function_call.arguments") from e
+
+    # Gegen Pydantic-Schema validieren & coercten
+    try:
+        from core.schema import VacalyserJD, coerce_and_fill
+        return coerce_and_fill(VacalyserJD, raw)
+    except Exception as e:
+        # Falls deine Coercion-Funktion bereits dict zurückgibt, bleibt das kompatibel.
+        # Andernfalls kannst du hier alternativ raw zurückgeben oder das Exception-Handling anpassen.
+        raise ValueError(f"Schema coercion failed: {e}") from e
+
+
 def suggest_additional_skills(
     job_title: str,
     responsibilities: str = "",
