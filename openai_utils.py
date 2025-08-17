@@ -11,7 +11,7 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 
 from config import OPENAI_API_KEY
-from llm.client import build_extraction_function
+
 
 logger = logging.getLogger("vacalyser.openai")
 
@@ -162,73 +162,80 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     return result
 
 
+def build_extraction_function(
+    name: str, schema: dict, *, allow_extra: bool = False
+) -> list[dict]:
+    """Return an OpenAI function spec for structured extraction.
+
+    Args:
+        name: Name of the function for the model.
+        schema: JSON schema dict that defines the expected output.
+        allow_extra: Whether additional properties are allowed in the output.
+
+    Returns:
+        A list containing a single function specification dictionary.
+    """
+    params = {**schema, "additionalProperties": bool(allow_extra)}
+    return [
+        {
+            "name": name,
+            "description": "Return structured vacancy data that fits the schema exactly.",
+            "parameters": params,
+        }
+    ]
+
+
 def extract_with_function(
     job_text: str, schema: dict, *, model: str = "gpt-4o-mini"
 ) -> dict:
-    """
-    Extrahiert strukturiertes Stellenprofil aus unstrukturiertem Jobtext via OpenAI Function-Calling.
-    - Nutzt ein geschlossenes JSON-Schema (additionalProperties: false) für maximale Zuverlässigkeit.
-    - Validiert und coerct das Ergebnis gegen die Pydantic-Modelle (VacalyserJD).
+    """Extract vacancy data from ``job_text`` using strict function calling.
 
     Args:
-        job_text: Quelltext (Jobbeschreibung) als String.
-        schema: JSON Schema-Dict (entspricht vacalyser_schema.json).
-        model: OpenAI-Model, Default: "gpt-4o-mini".
+        job_text: Source job description text.
+        schema: JSON schema describing the expected structure.
+        model: OpenAI model to use for extraction.
 
     Returns:
-        dict: Schema-konformer Datensatz (bereits durch Pydantic gecoaerct).
+        A dictionary conforming to ``schema``.
 
     Raises:
-        RuntimeError: Wenn das Modell keinen function_call mit arguments liefert.
-        ValueError: Wenn die JSON-Argumente ungültig sind oder die Coercion fehlschlägt.
+        RuntimeError: If the model response lacks ``function_call`` arguments.
+        ValueError: If the function call arguments are not valid JSON.
     """
-    import json
-
-    fn = build_extraction_function()
-    messages = [
+    fn_name = "vacalyser_extract"
+    messages: Sequence[dict] = [
         {
             "role": "system",
             "content": "Extract ONLY via function_call; content channel may be empty.",
         },
         {"role": "user", "content": job_text},
     ]
-
-    # JSON-Extraktion strikt über Function-Calling (keine Freitext-Antworten)
     res = call_chat_api(
         messages,
         model=model,
         temperature=0.0,
-        functions=[fn],
-        function_call={"name": fn["name"]},
+        functions=build_extraction_function(fn_name, schema, allow_extra=False),
+        function_call={"name": fn_name},
     )
-
-    call = getattr(res, "function_call", None)
-    arguments: Optional[str] = None
-    if call is not None:
-        arguments = getattr(call, "arguments", None)
-        if arguments is None and isinstance(call, dict):
-            arguments = call.get("arguments")
+    fc = getattr(res, "function_call", None)
+    arguments: str | None = None
+    if fc is not None:
+        arguments = getattr(fc, "arguments", None)
+        if arguments is None and isinstance(fc, dict):
+            arguments = fc.get("arguments")
     if not arguments:
         raise RuntimeError("No function_call with arguments returned")
-
     try:
         raw = json.loads(arguments)
-    except Exception as e:
+    except Exception as e:  # noqa: PERF203
         raise ValueError(
             "Model returned invalid JSON in function_call.arguments"
         ) from e
 
-    # Gegen Pydantic-Schema validieren & coercten
-    try:
-        from core.schema import coerce_and_fill
-        from typing import cast
+    from core.schema import VacalyserJD, coerce_and_fill
+    from typing import Any, cast
 
-        jd = coerce_and_fill(raw)
-        return cast(
-            Dict[str, Any], jd.model_dump() if hasattr(jd, "model_dump") else jd
-        )
-    except Exception as e:
-        raise ValueError(f"Schema coercion failed: {e}") from e
+    return cast(dict[str, Any], coerce_and_fill(VacalyserJD, raw))  # type: ignore[arg-type, call-arg]
 
 
 def suggest_additional_skills(
