@@ -103,14 +103,17 @@ def call_chat_api(
     for call in getattr(msg, "tool_calls", []) or []:
         if isinstance(call, dict):
             tool_calls.append(call)
+        elif hasattr(call, "model_dump"):
+            tool_calls.append(call.model_dump())
         else:
-            tool_calls.append(
-                getattr(call, "model_dump", getattr(call, "__dict__", lambda: {}))()
-            )
+            tool_calls.append(getattr(call, "__dict__", {}))
 
     fc = getattr(msg, "function_call", None)
     if fc is not None and not isinstance(fc, dict):
-        fc = getattr(fc, "model_dump", getattr(fc, "__dict__", lambda: {}))()
+        if hasattr(fc, "model_dump"):
+            fc = fc.model_dump()
+        else:
+            fc = getattr(fc, "__dict__", {})
 
     usage_obj = getattr(response, "usage", {}) or {}
     usage: dict
