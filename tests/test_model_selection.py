@@ -25,6 +25,6 @@ def test_suggest_benefits_model(monkeypatch):
         return "- BenefitA\n- BenefitB"
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
-    out = openai_utils.suggest_benefits("Engineer", model="gpt-4")
+    out = openai_utils.suggest_benefits("Engineer", lang="en", model="gpt-4")
     assert captured["model"] == "gpt-4"
     assert out == ["BenefitA", "BenefitB"]

@@ -248,6 +248,7 @@ def suggest_benefits(
     job_title: str,
     industry: str = "",
     existing_benefits: str = "",
+    lang: str = "en",
     model: str | None = None,
 ) -> list[str]:
     """Suggest common benefits/perks for the given role.
@@ -256,6 +257,7 @@ def suggest_benefits(
         job_title: Target role title.
         industry: Optional industry context.
         existing_benefits: Benefits already provided by the user.
+        lang: Output language ("en" or "de").
         model: Optional OpenAI model override.
 
     Returns:
@@ -264,29 +266,23 @@ def suggest_benefits(
     job_title = job_title.strip()
     if not job_title:
         return []
-    prompt = f"List 5 benefits or perks commonly offered for a {job_title} role"
-    if industry:
-        prompt += f" in the {industry} industry"
-    prompt += ". Avoid mentioning any benefit that's already listed below.\n"
-    if existing_benefits:
-        prompt += f"Already listed: {existing_benefits}"
-    # If the interface language is German, request output in German
-    # (We infer language from existing_benefits text as a simple heuristic or use a global if set)
-    try:
-        ui_lang = (
-            "de"
-            if "lang" in existing_benefits.lower() or "Vorteil" in existing_benefits
-            else "en"
+    if lang.startswith("de"):
+        prompt = (
+            f"Nenne 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} "
+            "üblich sind"
         )
-    except Exception:
-        ui_lang = "en"
-    if ui_lang == "de":
-        prompt = f"Nenne 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} üblich sind"
         if industry:
             prompt += f" in der Branche {industry}"
         prompt += ". Vermeide Vorteile, die bereits in der Liste unten stehen.\n"
         if existing_benefits:
             prompt += f"Bereits aufgelistet: {existing_benefits}"
+    else:
+        prompt = f"List 5 benefits or perks commonly offered for a {job_title} role"
+        if industry:
+            prompt += f" in the {industry} industry"
+        prompt += ". Avoid mentioning any benefit that's already listed below.\n"
+        if existing_benefits:
+            prompt += f"Already listed: {existing_benefits}"
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "gpt-3.5" in model else 200
     answer = call_chat_api(
