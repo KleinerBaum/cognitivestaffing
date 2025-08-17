@@ -7,7 +7,6 @@ from typing import List
 
 import streamlit as st
 
-from utils import extract_text_from_file, extract_text_from_url, merge_texts
 from utils.i18n import tr
 
 # LLM/ESCO und Follow-ups
@@ -203,115 +202,99 @@ def _step_intro():
 
 
 def _step_source(schema: dict):
-    """Render the source step with text, upload, or URL input.
+    """Render the source step where users choose text, file, or URL."""
 
-    Args:
-        schema: JSON schema used for extraction.
+    st.subheader(tr("Quelle", "Source"))
+    tab_text, tab_file, tab_url = st.tabs(
+        [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
+    )
 
-    Returns:
-        None
-    """
+    with tab_text:
+        jd_text = st.text_area(tr("Jobtext", "Job text"), height=220, key="jd_text")
 
-    st.subheader(tr("Quelle / Anreicherung", "Source / Enrichment"))
-    tabs = st.tabs([tr("Text", "Text"), tr("Upload", "Upload"), tr("URL", "URL")])
-    pasted_text = ""
-    file_text = ""
-    url_text = ""
-    with tabs[0]:
-        pasted_text = st.text_area(
-            tr(
-                "Jobtext (einfügen oder kurz beschreiben)",
-                "Job text (paste or describe briefly)",
-            ),
-            height=220,
-            key="jd_text",
+    with tab_file:
+        up = st.file_uploader(
+            tr("PDF/DOCX auswählen", "Select PDF/DOCX"),
+            type=["pdf", "docx"],
+            key="jd_upload",
         )
-    with tabs[1]:
-        uploaded = st.file_uploader(
-            tr("Datei hochladen", "Upload file"),
-            type=["pdf", "doc", "docx", "txt"],
-            key="jd_file",
-        )
-        if uploaded:
-            file_text = extract_text_from_file(uploaded.getvalue(), uploaded.name)
-    with tabs[2]:
-        url_input = st.text_input(tr("Job-URL", "Job URL"), key="jd_url")
-        if url_input:
-            url_text = extract_text_from_url(url_input)
-    jd_text = merge_texts(file_text, url_text, pasted_text)
-    st.session_state["jd_text"] = jd_text
+        if up and st.button(tr("Datei analysieren", "Analyze file")):
+            from utils.pdf_utils import extract_text_from_file
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.button(
-            tr("🔎 Automatisch analysieren (LLM)", "🔎 Analyze automatically (LLM)"),
-            type="primary",
-        ):
-            if not jd_text.strip():
-                st.warning(
-                    tr(
-                        "Bitte zuerst einen Jobtext einfügen.",
-                        "Please insert a job text first.",
-                    )
+            st.session_state.jd_text = extract_text_from_file(up)
+            st.success(
+                tr(
+                    "Datei gelesen. Text im Text-Tab bearbeitbar.",
+                    "File processed. Text available in Text tab.",
                 )
-            else:
-                try:
-                    data = extract_with_function(
-                        jd_text, schema, model=st.session_state.model
+            )
+
+    with tab_url:
+        url = st.text_input(tr("URL zu Jobanzeige", "Job ad URL"), key="jd_url")
+        if url and st.button(tr("URL analysieren", "Analyze URL")):
+            from utils.url_utils import extract_text_from_url
+
+            st.session_state.jd_text = extract_text_from_url(url)
+            st.success(
+                tr(
+                    "URL gelesen. Text im Text-Tab bearbeitbar.",
+                    "URL processed. Text available in Text tab.",
+                )
+            )
+
+    text_for_extract = st.session_state.get("jd_text") or jd_text
+    if st.button(
+        tr("🔎 Automatisch analysieren (LLM)", "🔎 Analyze automatically (LLM)"),
+        type="primary",
+    ):
+        if not (text_for_extract or "").strip():
+            st.warning(
+                tr(
+                    "Bitte zuerst eine Quelle angeben.",
+                    "Please provide a source first.",
+                )
+            )
+        else:
+            try:
+                data = extract_with_function(
+                    text_for_extract, schema, model=st.session_state.model
+                )
+                st.session_state.data = data
+                title = get_in(st.session_state.data, "position.job_title", "")
+                occ = (
+                    classify_occupation(title, st.session_state.lang or "en")
+                    if title
+                    else None
+                )
+                if occ:
+                    set_in(
+                        st.session_state.data,
+                        "position.occupation_label",
+                        occ.get("label"),
                     )
-                    st.session_state.data = data  # HARTE Zuweisung: Schema-konform
-                    st.success(tr("Extraktion abgeschlossen.", "Extraction completed."))
-                    # ESCO-Klassifikation optional nachziehen
-                    title = get_in(st.session_state.data, "position.job_title", "")
-                    occ = (
-                        classify_occupation(title, st.session_state.lang or "en")
-                        if title
-                        else None
+                    set_in(
+                        st.session_state.data,
+                        "position.occupation_uri",
+                        occ.get("uri"),
                     )
-                    if occ:
-                        set_in(
-                            st.session_state.data,
-                            "position.occupation_label",
-                            occ.get("label"),
-                        )
-                        set_in(
-                            st.session_state.data,
-                            "position.occupation_uri",
-                            occ.get("uri"),
-                        )
-                        set_in(
-                            st.session_state.data,
-                            "position.occupation_group",
-                            occ.get("group"),
-                        )
-                        skills = get_essential_skills(
-                            occ.get("uri"), st.session_state.lang or "en"
-                        )
-                        # Merge in requirements.hard_skills ohne Duplikate
-                        current = set(
-                            get_in(
-                                st.session_state.data, "requirements.hard_skills", []
-                            )
-                            or []
-                        )
-                        merged = sorted(current.union(skills))
-                        set_in(
-                            st.session_state.data, "requirements.hard_skills", merged
-                        )
-                    st.session_state.step = 2  # springe direkt zu Firma
-                    st.rerun()
-                except Exception as e:
-                    st.error(
-                        f"{tr('Extraktion fehlgeschlagen', 'Extraction failed')}: {e}"
+                    set_in(
+                        st.session_state.data,
+                        "position.occupation_group",
+                        occ.get("group"),
                     )
-    with col2:
-        st.info(
-            tr(
-                "Optional: RAG via Vector Store wird bei Follow-ups berücksichtigt, wenn `VECTOR_STORE_ID` gesetzt ist.",
-                "Optional: RAG via vector store is considered for follow-ups when `VECTOR_STORE_ID` is set.",
-            ),
-            icon="ℹ️",
-        )
+                    skills = get_essential_skills(
+                        occ.get("uri"), st.session_state.lang or "en"
+                    )
+                    current = set(
+                        get_in(st.session_state.data, "requirements.hard_skills", [])
+                        or []
+                    )
+                    merged = sorted(current.union(skills))
+                    set_in(st.session_state.data, "requirements.hard_skills", merged)
+                st.session_state.step = 2
+                st.rerun()
+            except Exception as e:
+                st.error(f"{tr('Extraktion fehlgeschlagen', 'Extraction failed')}: {e}")
 
 
 def _step_company():
