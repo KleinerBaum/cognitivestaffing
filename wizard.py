@@ -199,6 +199,15 @@ def _step_intro():
             "This assistant guides you in a few steps to a complete, structured job profile.",
         )
     )
+    with st.expander("Vorteile / Advantages"):
+        st.markdown(
+            """
+- Schnellere, vollständigere Anforderungsaufnahme
+- ESCO-gestützte Skill-Vervollständigung
+- Strukturierte Daten → bessere Suche & Matching
+- Klarere Ausschreibungen → bessere Candidate Experience
+"""
+        )
 
 
 def _step_source(schema: dict):
