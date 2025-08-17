@@ -8,3 +8,10 @@ font = "sans serif"
 
 [client]
 toolbarMode = "minimal"          # cleaner top-right menu
+
+[browser]
+gatherUsageStats = false         # disable telemetry for privacy
+
+[server]
+enableCORS = false               # allow cross-origin access (needed for cloud dev environments)
+enableXsrfProtection = false     # disable CSRF checks for simpler embedding
