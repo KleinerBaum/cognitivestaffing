@@ -5,6 +5,13 @@ from typing import Dict, List
 
 import requests
 
+_ALIAS = {
+  "js": "JavaScript",
+  "py": "Python",
+  "node": "Node.js",
+  "ml": "Machine learning"
+}
+
 __all__ = [
     "lookup_esco_skill",
     "normalize_skills",
@@ -38,22 +45,9 @@ def lookup_esco_skill(skill_name: str, lang: str = "en") -> dict:
     return {}
 
 
-def normalize_skills(skills: list[str], lang: str = "en") -> list[str]:
-    """Return ESCO preferred labels for ``skills`` without duplicates."""
-
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for skill in skills:
-        if not skill:
-            continue
-        res = lookup_esco_skill(skill, lang=lang)
-        label = res.get("preferredLabel") or skill
-        norm = label.strip()
-        key = norm.lower()
-        if key not in seen:
-            seen.add(key)
-            normalized.append(norm)
-    return normalized
+def normalize_skill(name: str) -> str:
+    s = (name or "").strip()
+    return _ALIAS.get(s.lower(), s)
 
 
 @lru_cache(maxsize=256)
