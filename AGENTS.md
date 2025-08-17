@@ -1,13 +1,13 @@
 # Vacalyser — Autonomous Agents
 
-This doc lists all current and planned autonomous agents in Vacalyser. Each agent is small, focused, and composable.
+This document lists all current and planned autonomous agents in Vacalyser, along with their roles and interfaces. Each agent is small, focused, and composable. *Note: “GPT‑4o” and “GPT‑4o‑mini” refer to internal cost-optimized variants of OpenAI’s GPT-4 model used in this project.*
 
 ---
 
 ## 1) Follow‑Up Question Generator (FQG)
 
 **Purpose**  
-Turn partially filled vacancy JSON into a minimal, targeted list of questions that closes all gaps with the fewest user interactions.
+Turn a partially filled vacancy JSON into a minimal, targeted list of follow-up questions that close all information gaps with the fewest user interactions.
 
 **Inputs**  
 - `extracted`: dict (current vacancy JSON)  
@@ -16,109 +16,113 @@ Turn partially filled vacancy JSON into a minimal, targeted list of questions th
 - RAG suggestions (per field, optional)
 
 **Outputs**  
-- `questions`: list of objects  
-  - `field`: schema key (or "")
-  - `question`: localized string
-  - `priority`: "critical" | "normal" | "optional"
-  - `suggestions`: list[str] (optional; to render as chips)
+- `questions`: list of objects, each with:  
+  - `field`: schema key (or "")  
+  - `question`: localized string  
+  - `priority`: "critical" | "normal" | "optional"  
+  - `suggestions`: list[str] (optional, to render as answer chips)
 
 **Model / APIs**  
-- OpenAI GPT‑4o / 4o‑mini (Responses or Chat)  
-- ESCO (occupation + essential skills)  
-- OpenAI File Search (vector store RAG)
+- OpenAI GPT‑4o / 4o‑mini (OpenAI Chat Completion API)  
+- ESCO API (occupation + essential skills lookup)  
+- OpenAI File Search (Vector Store RAG for context)
 
 **When**  
 - After initial extraction  
-- After each user update (optional re‑ask)
+- After each user update (optional re‑ask triggered)
 
 ---
 
 ## 2) ESCO Enricher
 
 **Purpose**  
-Normalize role context and surface **missing essential skills** by ESCO; standardize skill labels.
+Normalize the role context and surface **missing essential skills** via ESCO; also standardize skill labels.
 
 **Inputs**  
 - `job_title`, `lang`  
-- existing lists (requirements/responsibilities/tools)
+- Existing lists (requirements, responsibilities, tools)
 
 **Outputs**  
 - `occupation`: {preferredLabel, group, uri}  
 - `essential_skills`: list[str]  
 - `missing_esco_skills`: list[str]  
-- normalized labels for suggested skills
+- Normalized labels for suggested skills
 
 **Model / APIs**  
-- ESCO REST: occupation match + skill relations
+- ESCO REST API (occupation match + skill relations)
 
 **When**  
-- During extraction & FQG  
-- When suggesting skills/tasks
+- During initial extraction & FQG  
+- When suggesting skills/tasks in later steps
 
 ---
 
 ## 3) RAG Completion Agent
 
-**Purpose**
-Fill or propose values for missing fields using your **OpenAI vector store** (set via the `VECTOR_STORE_ID` env var; omit to disable).
+**Purpose**  
+Fill or propose values for missing fields using your **OpenAI vector store** (set via the `VECTOR_STORE_ID` env var; omit or leave empty to disable).
 
 **Inputs**  
-- job context (title + industry + current JSON)  
-- `missing_fields` set
+- Job context (title, industry, current JSON)  
+- `missing_fields`: set of field names
 
 **Outputs**  
-- `rag_suggestions`: dict[field] -> list[str]
-- (optionally) short rationales or source snippets
+- `rag_suggestions`: dict mapping field -> list[str] suggestions  
+- (Optionally) short rationales or source snippets for each suggestion
 
 **Model / APIs**  
-- OpenAI Responses + File Search (`vector_store_ids=[…]`)
+- OpenAI GPT‑4o / 4o‑mini (for completion)  
+- OpenAI File Search API (`vector_store_id=[…]` for retrieval)
 
 **When**  
-- Before FQG (to seed “suggestions”)  
-- On-demand enrichment (skills/benefits/tech stacks)
+- Before FQG (to seed “suggestions” in questions)  
+- On-demand enrichment (e.g. to suggest skills, benefits, tech stacks)
 
 ---
 
 ## 4) Company Info Agent
 
 **Purpose**  
-Extract company name, location, mission/values, culture from a given website (home + /impressum if present).
+Extract company name, location, mission/values, and culture from a given company website (homepage and `/impressum` or equivalent if present).
 
 **Inputs**  
-- `company_url`  
-- page text (via ingestion utils)
+- `company_url` (string)  
+- Page text content (fetched via ingestion utils)
 
 **Outputs**  
-- `company_name`, `location`, `company_mission`, `company_culture`
+- `company_name`  
+- `location`  
+- `company_mission`  
+- `company_culture`
 
 **Model / APIs**  
-- OpenAI GPT‑4o / 4o‑mini for structured extraction
+- OpenAI GPT‑4o / 4o‑mini for structured text extraction
 
 **When**  
-- Company info step (“Fetch from website”)
+- Company info step (“Fetch from website” action in the UI)
 
 ---
 
 ## 5) Suggestion Agents (Helpers)
 
-- **Task Suggester**: propose top responsibilities for a role  
-- **Skill Suggester**: propose technical + soft skills; ESCO‑normalize  
-- **Benefit Suggester**: propose perks by role/industry  
-- **Boolean Builder**: compose sourcing string from title + skills  
-- **Interview Guide**: generate Qs + scoring rubrics  
-- **Job‑Ad Writer**: craft SEO‑aware job ad in Markdown
+- **Task Suggester** – Propose top responsibilities/tasks for the role  
+- **Skill Suggester** – Suggest technical and soft skills (with ESCO normalization)  
+- **Benefit Suggester** – Suggest common perks/benefits given the role/industry  
+- **Boolean Builder** – Compose a candidate search string from title + skills  
+- **Interview Guide Generator** – Generate interview questions & scoring rubrics  
+- **Job‑Ad Writer** – Draft a polished, SEO-aware job ad in Markdown format
 
 **Models**  
-- GPT‑4o / 4o‑mini
+- OpenAI GPT‑4o / 4o‑mini (for all suggestion generators)
 
 ---
 
 ## 6) Planned Agents
 
-- **Tech‑Stack Miner** (industry + role patterns via RAG/ESCO)  
-- **Compliance Checker** (bias/EEO/GDPR boilerplate check)  
-- **DEI Language Auditor** (inclusive language hints)  
-- **Content Cost Router** (auto choose 4o‑mini vs 4o vs 3.5)  
-- **Automatic Re‑ask Loop** (close remaining gaps without UI clicks)
+*(Planned enhancements and future autonomous agents)*
 
----
+- **Tech‑Stack Miner** – Identify prevalent tech stack elements for the role/industry via RAG + ESCO patterns  
+- **Compliance Checker** – Check outputs for bias, EEO/GDPR compliance, add boilerplate as needed  
+- **DEI Language Auditor** – Provide inclusive language suggestions (flag potentially discriminatory phrasing)  
+- **Content Cost Router** – Auto-select between GPT‑4o, 4o‑mini, or GPT-3.5 based on content complexity to manage cost  
+- **Automatic Re‑ask Loop** – Automate iterative questioning to close remaining field gaps without user clicks (continuously ask follow-ups until all critical fields are filled)
