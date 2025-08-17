@@ -95,13 +95,15 @@ def test_rag_suggestions_tool_payload(monkeypatch) -> None:
     def fake_call(messages, **kwargs):
         captured["tools"] = kwargs.get("tools")
         captured["tool_choice"] = kwargs.get("tool_choice")
+        captured["extra"] = kwargs.get("extra")
         return _Fake()
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call)
 
     _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id="vs123")
 
-    assert captured["tools"] == [
-        {"type": "file_search", "file_search": {"vector_store_ids": ["vs123"]}}
-    ]
+    assert captured["tools"] == [{"type": "custom", "name": "file_search"}]
     assert captured["tool_choice"] == "auto"
+    assert captured["extra"] == {
+        "tool_resources": {"file_search": {"vector_store_ids": ["vs123"]}}
+    }

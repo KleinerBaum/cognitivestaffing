@@ -256,13 +256,13 @@ def _rag_suggestions(
             model=model,
             temperature=0,
             json_strict=True,
-            tools=[
-                {
-                    "type": "file_search",
-                    "file_search": {"vector_store_ids": [vector_store_id]},
-                }
-            ],
+            tools=[{"type": "custom", "name": "file_search"}],
             tool_choice="auto",
+            extra={
+                "tool_resources": {
+                    "file_search": {"vector_store_ids": [vector_store_id]}
+                }
+            },
         )
         data = json.loads(_normalize_chat_content(res) or "{}")
         out: Dict[str, List[str]] = {}
@@ -319,13 +319,10 @@ def ask_followups(
     tool_choice: Optional[str] = None
     extra: dict[str, Any] = {}
     if vector_store_id:
-        # Hinweis: Nur aktivieren, wenn deine call_chat_api/Backend diese Tool-Form unterstützt
-        tools = [
-            {
-                "type": "file_search",
-                "file_search": {"vector_store_ids": [vector_store_id]},
-            }
-        ]
+        tools = [{"type": "custom", "name": "file_search"}]
+        extra = {
+            "tool_resources": {"file_search": {"vector_store_ids": [vector_store_id]}}
+        }
         tool_choice = "auto"
 
     res = call_chat_api(

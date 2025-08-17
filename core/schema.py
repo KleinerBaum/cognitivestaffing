@@ -145,19 +145,34 @@ class VacalyserJD(BaseModel):
 
 
 # Hilfsfunktion: „coerce_and_fill“ wie in deiner Extraktion referenziert
-def coerce_and_fill(model: type[BaseModel], data: dict) -> dict:
-    """Validate and coerce ``data`` into ``model`` and return a clean dict.
+def _deep_merge(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge ``updates`` into ``base`` and return the result."""
+
+    merged = dict(base)
+    for key, value in updates.items():
+        if isinstance(value, dict) and key in merged and isinstance(merged[key], dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def coerce_and_fill(data: dict[str, Any]) -> VacalyserJD:
+    """Validate ``data`` and ensure required fields are present.
+
+    The function inserts minimal default structures (e.g. empty company name and
+    job title) before validating the payload against :class:`VacalyserJD`.
 
     Args:
-        model: The Pydantic model class used for validation.
-        data: Raw data to validate.
+        data: Raw dictionary returned from the LLM.
 
     Returns:
-        dict: The validated data with ``None`` values removed.
+        VacalyserJD: Validated model instance with defaults applied.
     """
 
-    obj = model.model_validate(data)
-    return obj.model_dump(exclude_none=True)
+    defaults: dict[str, Any] = {"company": {"name": ""}, "position": {"job_title": ""}}
+    merged = _deep_merge(defaults, data or {})
+    return VacalyserJD.model_validate(merged)
 
 
 def _strip_optional(tp: Any) -> Any:
