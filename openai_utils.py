@@ -110,7 +110,11 @@ def call_chat_api(
 
     fc = getattr(msg, "function_call", None)
     if fc is not None and not isinstance(fc, dict):
-        fc = getattr(fc, "model_dump", getattr(fc, "__dict__", lambda: {}))()
+        convert = getattr(fc, "model_dump", None)
+        if callable(convert):
+            fc = convert()
+        else:
+            fc = getattr(fc, "__dict__", {})
 
     usage_obj = getattr(response, "usage", {}) or {}
     usage: dict
