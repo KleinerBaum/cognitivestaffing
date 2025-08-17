@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
 
+from jsonschema import Draft7Validator
 from openai import OpenAI
 
 from .context import build_extract_messages
@@ -16,11 +18,79 @@ from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
 
+logger = logging.getLogger("vacalyser.llm")
+
+
+def _assert_closed_schema(schema: dict[str, Any]) -> None:
+    """Ensure the JSON schema is self-contained.
+
+    Args:
+        schema: Schema to inspect.
+
+    Raises:
+        ValueError: If forbidden ``$ref`` keys are present.
+    """
+
+    refs: list[str] = []
+
+    def _walk(obj: Any, path: str = "") -> None:
+        if isinstance(obj, dict):
+            if "$ref" in obj:
+                ref = obj["$ref"]
+                loc = path or "$"
+                refs.append(f"{loc} -> {ref}")
+            for key, value in obj.items():
+                _walk(value, f"{path}/{key}" if path else key)
+        elif isinstance(obj, list):
+            for idx, item in enumerate(obj):
+                _walk(item, f"{path}[{idx}]")
+
+    _walk(schema)
+    if refs:
+        report = "\n".join(refs)
+        raise ValueError(
+            "Foreign key references are not allowed in function-calling schema:\n"
+            + report
+        )
+
+
+def _generate_error_report(instance: dict[str, Any]) -> str:
+    """Return detailed validation errors for ``instance``.
+
+    Args:
+        instance: Data to validate against ``VACALYSER_SCHEMA``.
+
+    Returns:
+        Multiline error report or an empty string if validation passes.
+    """
+
+    validator = Draft7Validator(VACALYSER_SCHEMA)
+    lines = []
+    for err in validator.iter_errors(instance):
+        path = "/".join(str(p) for p in err.path) or "$"
+        lines.append(f"{path}: {err.message}")
+    return "\n".join(lines)
+
+
+def _log_schema_errors(raw: str) -> None:
+    """Validate raw JSON and log any schema inconsistencies."""
+
+    try:
+        instance = json.loads(raw)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Failed to decode JSON for validation: %s", exc)
+        return
+    report = _generate_error_report(instance)
+    if report:
+        logger.error("Schema validation errors:\n%s", report)
+
+
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "vacalyser_schema.json"
 with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
     VACALYSER_SCHEMA = json.load(_f)
 VACALYSER_SCHEMA.pop("$schema", None)
 VACALYSER_SCHEMA.pop("title", None)
+_assert_closed_schema(VACALYSER_SCHEMA)
 
 MODE = os.getenv("LLM_MODE", "plain").lower()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
@@ -118,6 +188,7 @@ def extract_and_parse(
     """
 
     raw = extract_json(text, title, url)
+    _log_schema_errors(raw)
     try:
         return parse_extraction(raw)
     except JsonInvalid:
@@ -126,6 +197,7 @@ def extract_and_parse(
             return extract_json(text, title, url, minimal=True)
 
         raw_retry = retry(second_call)
+        _log_schema_errors(raw_retry)
         try:
             return parse_extraction(raw_retry)
         except JsonInvalid as exc:  # pragma: no cover - defensive
