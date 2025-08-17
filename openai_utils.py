@@ -1,8 +1,10 @@
-import json
+# openai_utils.py 
+from __future__ import annotations
+import json, logging, httpx, backoff
 import os
 import re
 from typing import Any, Dict, List, Optional, Sequence, cast
-
+from dataclasses import dataclass
 from openai import OpenAI
 
 from config import OPENAI_API_KEY, OPENAI_MODEL
@@ -10,196 +12,84 @@ from core.schema import VacalyserJD
 
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-_CLIENT: OpenAI | None = client
+logger = logging.getLogger("vacalyser.openai")
 
+@dataclass
+class ChatCallResult:
+    content: Optional[str]
+    tool_calls: list[dict]
+    function_call: Optional[dict]
+    usage: dict
 
-def _client() -> OpenAI:
-    """Return a cached OpenAI client instance."""
+class OpenAIClient:
+    def __init__(self, api_key: str, base_url: str | None = None, timeout_s: int = 45):
+        self._base = (base_url or "https://api.openai.com").rstrip("/")
+        self._http = httpx.Client(timeout=timeout_s)
+        self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
+    def close(self):
+        try: self._http.close()
+        except Exception: pass
+
+    @backoff.on_exception(backoff.expo, (httpx.HTTPError, TimeoutError), max_time=60)
+    def chat(self, *, model: str, messages: Sequence[dict], temperature: float = 0.2,
+             max_tokens: int | None = None, response_format: Optional[dict] = None,
+             tools: Optional[list] = None, tool_choice: Optional[Any] = None,
+             functions: Optional[list] = None, function_call: Optional[Any] = None,
+             seed: Optional[int] = None, extra: Optional[dict] = None) -> ChatCallResult:
+
+        payload = {"model": model, "messages": messages, "temperature": temperature}
+        if max_tokens is not None: payload["max_tokens"] = max_tokens
+        if response_format: payload["response_format"] = response_format
+        if tools is not None:
+            payload["tools"] = tools
+            if tool_choice is not None: payload["tool_choice"] = tool_choice
+        if functions is not None:
+            payload["functions"] = functions
+            if function_call is not None: payload["function_call"] = function_call
+        if seed is not None: payload["seed"] = seed
+        if extra: payload.update(extra)
+
+        r = self._http.post(f"{self._base}/v1/chat/completions", headers=self._headers, json=payload)
+        r.raise_for_status()
+        data = r.json()
+        ch = data["choices"][0]
+        msg = ch.get("message", {})
+        res = ChatCallResult(
+            content=msg.get("content"),
+            tool_calls=msg.get("tool_calls") or [],
+            function_call=msg.get("function_call"),
+            usage=data.get("usage", {}),
+        )
+        logger.debug("OpenAI usage: %s", res.usage)
+        return res
+
+_CLIENT: OpenAIClient | None = None
+
+def get_client() -> OpenAIClient:
     global _CLIENT
     if _CLIENT is None:
-        _CLIENT = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else OpenAI()
+        import os
+        key = os.getenv("OPENAI_API_KEY") or ""
+        if not key:
+            raise RuntimeError("OPENAI_API_KEY not configured")
+        base = os.getenv("OPENAI_BASE_URL") or None
+        _CLIENT = OpenAIClient(key, base_url=base)
     return _CLIENT
 
-
-def _vacalyser_json_schema() -> Dict[str, Any]:
-    """Return JSON schema for :class:`VacalyserJD` without extra properties."""
-
-    schema = VacalyserJD.model_json_schema()
-    if isinstance(schema, dict) and schema.get("type") == "object":
-        schema.setdefault("additionalProperties", False)
-    return schema
-
-
-def _safe_json_loads(blob: str) -> Dict[str, Any]:
-    """Safely load JSON from an arbitrary blob of text.
-
-    Args:
-        blob: Raw text that may include code fences, smart quotes or trailing commas.
-
-    Returns:
-        Parsed JSON object.
-    """
-
-    s = blob.strip()
-    s = re.sub(r"^```(?:json)?", "", s, flags=re.IGNORECASE).strip()
-    s = re.sub(r"```$", "", s).strip()
-    left, right = s.find("{"), s.rfind("}")
-    if left != -1 and right != -1 and right > left:
-        s = s[left : right + 1]
-    s = s.replace("“", '"').replace("”", '"').replace("’", "'")
-    s = re.sub(r",\s*([}\]])", r"\1", s)
-    return json.loads(s)
-
-
-def extract_structured_from_text(
-    raw_text: str, *, lang: str = "en", model: Optional[str] = None
-) -> Dict[str, Any]:
-    """Extract vacancy data using a resilient structured parsing cascade.
-
-    Args:
-        raw_text: Source text containing job information.
-        lang: Language hint passed to the model.
-        model: Optional model override.
-
-    Returns:
-        Dictionary matching the :class:`VacalyserJD` schema.
-
-    Raises:
-        RuntimeError: If no valid JSON could be parsed from the model responses.
-    """
-
-    mdl = model if model is not None else os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
-    sys_msg = (
-        "You are a strict extraction engine. "
-        "Return ONLY structured data matching the provided function schema. "
-        "Never include prose or markdown."
+def call_chat_api(messages: Sequence[dict], *, model: str = "gpt-4o-mini",
+                  temperature: float = 0.2, max_tokens: int | None = None,
+                  json_strict: bool = False, tools: Optional[list] = None,
+                  tool_choice: Optional[Any] = None,
+                  functions: Optional[list] = None, function_call: Optional[Any] = None,
+                  seed: Optional[int] = None, extra: Optional[dict] = None) -> ChatCallResult:
+    # Unified chat endpoint with optional JSON-strict mode and tools/functions support.
+    fmt = {"type": "json_object"} if json_strict else None
+    return get_client().chat(
+        model=model, messages=messages, temperature=temperature, max_tokens=max_tokens,
+        response_format=fmt, tools=tools, tool_choice=tool_choice,
+        functions=functions, function_call=function_call, seed=seed, extra=extra,
     )
-    user_msg = (
-        f"Extract all vacancy fields from the following text. Language hint: {lang}.\n\n"
-        f"=== INPUT START ===\n{raw_text}\n=== INPUT END ==="
-    )
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "vacalyser_extract",
-                "description": "Return all fields for VacalyserJD",
-                "parameters": _vacalyser_json_schema(),
-            },
-        }
-    ]
-
-    chat_completions = cast(Any, _client().chat.completions)
-
-    try:
-        r = chat_completions.create(
-            model=mdl,
-            temperature=0,
-            seed=42,
-            messages=[
-                {"role": "system", "content": sys_msg},
-                {"role": "user", "content": user_msg},
-            ],
-            tools=tools,
-            tool_choice={"type": "function", "function": {"name": "vacalyser_extract"}},
-            max_tokens=4096,
-        )
-        msg = r.choices[0].message
-        if getattr(msg, "tool_calls", None):
-            args = msg.tool_calls[0].function.arguments
-            return json.loads(args)
-        if getattr(msg, "function_call", None):
-            args = msg.function_call.arguments
-            return json.loads(args)
-    except Exception as e:  # noqa: PERF203
-        last_err = f"[function_call] {e}"
-
-    try:
-        r2 = chat_completions.create(
-            model=mdl,
-            temperature=0,
-            seed=43,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": sys_msg + " Respond ONLY with a JSON object.",
-                },
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=4096,
-        )
-        payload = r2.choices[0].message.content or ""
-        return _safe_json_loads(payload)
-    except Exception as e2:  # noqa: PERF203
-        last_err = f"{last_err} | [json_mode] {e2}"
-
-    try:
-        r3 = chat_completions.create(
-            model=mdl,
-            temperature=0,
-            seed=44,
-            messages=[
-                {
-                    "role": "system",
-                    "content": sys_msg + " Respond with a single JSON object only.",
-                },
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=4096,
-        )
-        payload = r3.choices[0].message.content or ""
-        return _safe_json_loads(payload)
-    except Exception as e3:  # noqa: PERF203
-        raise RuntimeError(
-            f"Could not parse AI response as JSON. Details: {last_err} | [repair] {e3}"
-        ) from e3
-
-
-def call_chat_api(
-    messages: list[dict],
-    model: str | None = None,
-    max_tokens: int = 800,
-    temperature: float = 0.7,
-    *,
-    functions: list[dict] | None = None,
-    function_call: dict | None = None,
-    response_format: dict | None = None,
-) -> str:
-    """Call OpenAI's chat completion endpoint and return text or function args.
-
-    The helper now supports OpenAI function calling. If ``functions`` are
-    provided and the model chooses to invoke one, the function call arguments
-    string is returned. Otherwise, the plain message content is returned.
-
-    Raises:
-        RuntimeError: If the OpenAI API key is missing or the API request fails.
-    """
-    if model is None:
-        model = OPENAI_MODEL
-    if client is None:
-        raise RuntimeError(
-            "OpenAI API key is not set. Set the OPENAI_API_KEY environment variable or add it to Streamlit secrets."
-        )
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=cast(list[Any], messages),
-            temperature=temperature,
-            max_tokens=max_tokens,
-            functions=cast(Any, functions),
-            function_call=cast(Any, function_call),
-            response_format=cast(Any, response_format),
-        )
-        msg = response.choices[0].message
-        func = getattr(msg, "function_call", None)
-        if func and getattr(func, "arguments", None):
-            return (func.arguments or "").strip()
-        return (msg.content or "").strip()
-    except Exception as e:
-        raise RuntimeError(f"OpenAI API error: {e}") from e
-
 
 def extract_company_info(text: str, model: str | None = None) -> dict:
     """Extract company details from website text using OpenAI.
