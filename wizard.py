@@ -7,6 +7,7 @@ from typing import List
 
 import streamlit as st
 
+from utils import extract_text_from_file, extract_text_from_url, merge_texts
 from utils.i18n import tr
 
 # LLM/ESCO und Follow-ups
@@ -202,7 +203,7 @@ def _step_intro():
 
 
 def _step_source(schema: dict):
-    """Render the source step and optionally extract structured data.
+    """Render the source step with text, upload, or URL input.
 
     Args:
         schema: JSON schema used for extraction.
@@ -212,14 +213,33 @@ def _step_source(schema: dict):
     """
 
     st.subheader(tr("Quelle / Anreicherung", "Source / Enrichment"))
-    jd_text = st.text_area(
-        tr(
-            "Jobtext (einfügen oder kurz beschreiben)",
-            "Job text (paste or describe briefly)",
-        ),
-        height=220,
-        key="jd_text",
-    )
+    tabs = st.tabs([tr("Text", "Text"), tr("Upload", "Upload"), tr("URL", "URL")])
+    pasted_text = ""
+    file_text = ""
+    url_text = ""
+    with tabs[0]:
+        pasted_text = st.text_area(
+            tr(
+                "Jobtext (einfügen oder kurz beschreiben)",
+                "Job text (paste or describe briefly)",
+            ),
+            height=220,
+            key="jd_text",
+        )
+    with tabs[1]:
+        uploaded = st.file_uploader(
+            tr("Datei hochladen", "Upload file"),
+            type=["pdf", "doc", "docx", "txt"],
+            key="jd_file",
+        )
+        if uploaded:
+            file_text = extract_text_from_file(uploaded.getvalue(), uploaded.name)
+    with tabs[2]:
+        url_input = st.text_input(tr("Job-URL", "Job URL"), key="jd_url")
+        if url_input:
+            url_text = extract_text_from_url(url_input)
+    jd_text = merge_texts(file_text, url_text, pasted_text)
+    st.session_state["jd_text"] = jd_text
 
     col1, col2 = st.columns([1, 1])
     with col1:

@@ -3,7 +3,7 @@
 **Vacalyser** turns messy job ads into a **complete, structured vacancy profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
 ## Highlights
-- **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with auto-start analysis on upload/URL
+- **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
