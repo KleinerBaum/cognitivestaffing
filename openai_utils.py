@@ -4,13 +4,14 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import backoff
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 
 from config import OPENAI_API_KEY
+from core.schema import VacalyserJD, coerce_and_fill
 
 
 logger = logging.getLogger("vacalyser.openai")
@@ -232,7 +233,6 @@ def extract_with_function(
             "Model returned invalid JSON in function_call.arguments"
         ) from e
 
-    from core.schema import VacalyserJD, coerce_and_fill
     from typing import Any, cast
 
     return cast(dict[str, Any], coerce_and_fill(VacalyserJD, raw))  # type: ignore[arg-type, call-arg]
@@ -604,7 +604,7 @@ def generate_job_ad(
             "Tools und Technologien",
         ),
     ]
-    details: List[str] = []
+    details: list[str] = []
     yes_no = ("Ja", "Nein") if lang.startswith("de") else ("Yes", "No")
     boolean_fields = {
         "employment.travel_required",
