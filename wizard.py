@@ -751,6 +751,23 @@ def _step_summary(schema: dict, critical: list[str]):
         mime="application/json",
     )
 
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        if st.button(
+            tr("📝 Stellenanzeige (Entwurf)", "📝 Job Ad (Draft)"),
+        ):
+            st.info(tr("Noch nicht implementiert.", "Not implemented yet."))
+    with col_b:
+        if st.button(
+            tr("🔎 Boolean String", "🔎 Boolean String"),
+        ):
+            st.info(tr("Noch nicht implementiert.", "Not implemented yet."))
+    with col_c:
+        if st.button(
+            tr("🗂️ Interviewleitfaden", "🗂️ Interview Guide"),
+        ):
+            st.info(tr("Noch nicht implementiert.", "Not implemented yet."))
+
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button(
