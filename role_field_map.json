@@ -1,0 +1,12 @@
+{
+  "Information and communications technology professionals": [
+    "requirements.tools_and_technologies",
+    "requirements.hard_skills"
+  ],
+  "Sales, marketing and public relations professionals": [
+    "requirements.soft_skills"
+  ],
+  "Health professionals": [
+    "requirements.certifications"
+  ]
+}
