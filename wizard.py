@@ -7,6 +7,8 @@ from typing import List
 
 import streamlit as st
 
+from utils.i18n import tr
+
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
@@ -192,7 +194,10 @@ def _step_intro():
 
     st.title("Vacalyser — Wizard")
     st.write(
-        "Dieser Assistent führt dich in wenigen Schritten zu einem vollständigen, strukturierten Stellenprofil."
+        tr(
+            "Dieser Assistent führt dich in wenigen Schritten zu einem vollständigen, strukturierten Stellenprofil.",
+            "This assistant guides you in a few steps to a complete, structured job profile.",
+        )
     )
 
 
@@ -206,23 +211,36 @@ def _step_source(schema: dict):
         None
     """
 
-    st.subheader("Quelle / Anreicherung")
+    st.subheader(tr("Quelle / Anreicherung", "Source / Enrichment"))
     jd_text = st.text_area(
-        "Jobtext (einfügen oder kurz beschreiben)", height=220, key="jd_text"
+        tr(
+            "Jobtext (einfügen oder kurz beschreiben)",
+            "Job text (paste or describe briefly)",
+        ),
+        height=220,
+        key="jd_text",
     )
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        if st.button("🔎 Automatisch analysieren (LLM)", type="primary"):
+        if st.button(
+            tr("🔎 Automatisch analysieren (LLM)", "🔎 Analyze automatically (LLM)"),
+            type="primary",
+        ):
             if not jd_text.strip():
-                st.warning("Bitte zuerst einen Jobtext einfügen.")
+                st.warning(
+                    tr(
+                        "Bitte zuerst einen Jobtext einfügen.",
+                        "Please insert a job text first.",
+                    )
+                )
             else:
                 try:
                     data = extract_with_function(
                         jd_text, schema, model=st.session_state.model
                     )
                     st.session_state.data = data  # HARTE Zuweisung: Schema-konform
-                    st.success("Extraktion abgeschlossen.")
+                    st.success(tr("Extraktion abgeschlossen.", "Extraction completed."))
                     # ESCO-Klassifikation optional nachziehen
                     title = get_in(st.session_state.data, "position.job_title", "")
                     occ = (
@@ -263,10 +281,15 @@ def _step_source(schema: dict):
                     st.session_state.step = 2  # springe direkt zu Firma
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Extraktion fehlgeschlagen: {e}")
+                    st.error(
+                        f"{tr('Extraktion fehlgeschlagen', 'Extraction failed')}: {e}"
+                    )
     with col2:
         st.info(
-            "Optional: RAG via Vector Store wird bei Follow-ups berücksichtigt, wenn `VECTOR_STORE_ID` gesetzt ist.",
+            tr(
+                "Optional: RAG via Vector Store wird bei Follow-ups berücksichtigt, wenn `VECTOR_STORE_ID` gesetzt ist.",
+                "Optional: RAG via vector store is considered for follow-ups when `VECTOR_STORE_ID` is set.",
+            ),
             icon="ℹ️",
         )
 
@@ -278,7 +301,7 @@ def _step_company():
         None
     """
 
-    st.subheader("Unternehmen")
+    st.subheader(tr("Unternehmen", "Company"))
     data = st.session_state.data
     ensure_path(data, "company.name")
     ensure_path(data, "company.industry")
@@ -292,42 +315,55 @@ def _step_company():
     set_in(
         data,
         "company.name",
-        c1.text_input("Firma *", value=get_in(data, "company.name", "")),
+        c1.text_input(
+            tr("Firma *", "Company *"), value=get_in(data, "company.name", "")
+        ),
     )
     set_in(
         data,
         "company.industry",
-        c2.text_input("Branche", value=get_in(data, "company.industry", "")),
+        c2.text_input(
+            tr("Branche", "Industry"), value=get_in(data, "company.industry", "")
+        ),
     )
 
     c3, c4 = st.columns(2)
     set_in(
         data,
         "company.hq_location",
-        c3.text_input("Hauptsitz", value=get_in(data, "company.hq_location", "")),
+        c3.text_input(
+            tr("Hauptsitz", "Headquarters"),
+            value=get_in(data, "company.hq_location", ""),
+        ),
     )
     set_in(
         data,
         "company.size",
-        c4.text_input("Größe", value=get_in(data, "company.size", "")),
+        c4.text_input(tr("Größe", "Size"), value=get_in(data, "company.size", "")),
     )
 
     c5, c6 = st.columns(2)
     set_in(
         data,
         "company.website",
-        c5.text_input("Website", value=get_in(data, "company.website", "")),
+        c5.text_input(
+            tr("Website", "Website"), value=get_in(data, "company.website", "")
+        ),
     )
     set_in(
         data,
         "company.mission",
-        c6.text_input("Mission", value=get_in(data, "company.mission", "")),
+        c6.text_input(
+            tr("Mission", "Mission"), value=get_in(data, "company.mission", "")
+        ),
     )
 
     set_in(
         data,
         "company.culture",
-        st.text_area("Kultur", value=get_in(data, "company.culture", "")),
+        st.text_area(
+            tr("Kultur", "Culture"), value=get_in(data, "company.culture", "")
+        ),
     )
 
 
@@ -338,7 +374,7 @@ def _step_position():
         None
     """
 
-    st.subheader("Position")
+    st.subheader(tr("Position", "Position"))
     data = st.session_state.data
     ensure_path(data, "position.job_title")
     ensure_path(data, "position.seniority_level")
@@ -351,25 +387,34 @@ def _step_position():
     set_in(
         data,
         "position.job_title",
-        c1.text_input("Jobtitel *", value=get_in(data, "position.job_title", "")),
+        c1.text_input(
+            tr("Jobtitel *", "Job title *"),
+            value=get_in(data, "position.job_title", ""),
+        ),
     )
     set_in(
         data,
         "position.seniority_level",
-        c2.text_input("Seniorität", value=get_in(data, "position.seniority_level", "")),
+        c2.text_input(
+            tr("Seniorität", "Seniority"),
+            value=get_in(data, "position.seniority_level", ""),
+        ),
     )
 
     c3, c4 = st.columns(2)
     set_in(
         data,
         "position.department",
-        c3.text_input("Abteilung", value=get_in(data, "position.department", "")),
+        c3.text_input(
+            tr("Abteilung", "Department"), value=get_in(data, "position.department", "")
+        ),
     )
     set_in(
         data,
         "position.team_structure",
         c4.text_input(
-            "Teamstruktur", value=get_in(data, "position.team_structure", "")
+            tr("Teamstruktur", "Team structure"),
+            value=get_in(data, "position.team_structure", ""),
         ),
     )
 
@@ -377,13 +422,16 @@ def _step_position():
     set_in(
         data,
         "position.reporting_line",
-        c5.text_input("Reports an", value=get_in(data, "position.reporting_line", "")),
+        c5.text_input(
+            tr("Reports an", "Reports to"),
+            value=get_in(data, "position.reporting_line", ""),
+        ),
     )
     set_in(
         data,
         "position.role_summary",
         c6.text_area(
-            "Rollen-Summary *",
+            tr("Rollen-Summary *", "Role summary *"),
             value=get_in(data, "position.role_summary", ""),
             height=120,
         ),
@@ -397,7 +445,7 @@ def _step_requirements():
         None
     """
 
-    st.subheader("Anforderungen")
+    st.subheader(tr("Anforderungen", "Requirements"))
     data = st.session_state.data
     ensure_path(data, "requirements.hard_skills")
     ensure_path(data, "requirements.soft_skills")
@@ -436,7 +484,7 @@ def _step_requirements():
         data,
         "requirements.languages_required",
         _chip_multiselect(
-            "Sprachen",
+            tr("Sprachen", "Languages"),
             options=get_in(data, "requirements.languages_required", []) or [],
             values=get_in(data, "requirements.languages_required", []) or [],
         ),
@@ -445,7 +493,7 @@ def _step_requirements():
         data,
         "requirements.certifications",
         _chip_multiselect(
-            "Zertifizierungen",
+            tr("Zertifizierungen", "Certifications"),
             options=get_in(data, "requirements.certifications", []) or [],
             values=get_in(data, "requirements.certifications", []) or [],
         ),
@@ -459,7 +507,7 @@ def _step_employment():
         None
     """
 
-    st.subheader("Beschäftigung")
+    st.subheader(tr("Beschäftigung", "Employment"))
     data = st.session_state.data
     ensure_path(data, "employment.job_type")
     ensure_path(data, "employment.work_policy")
@@ -472,7 +520,7 @@ def _step_employment():
         data,
         "employment.job_type",
         c1.selectbox(
-            "Art",
+            tr("Art", "Type"),
             options=[
                 "full_time",
                 "part_time",
@@ -499,7 +547,7 @@ def _step_employment():
         data,
         "employment.work_policy",
         c2.selectbox(
-            "Policy",
+            tr("Policy", "Policy"),
             options=["onsite", "hybrid", "remote"],
             index=(
                 0
@@ -516,7 +564,7 @@ def _step_employment():
         data,
         "employment.travel_required",
         c3.toggle(
-            "Reisetätigkeit?",
+            tr("Reisetätigkeit?", "Travel required?"),
             value=bool(get_in(data, "employment.travel_required", False)),
         ),
     )
@@ -524,7 +572,7 @@ def _step_employment():
         data,
         "employment.relocation_support",
         c4.toggle(
-            "Relocation?",
+            tr("Relocation?", "Relocation?"),
             value=bool(get_in(data, "employment.relocation_support", False)),
         ),
     )
@@ -532,7 +580,7 @@ def _step_employment():
         data,
         "employment.visa_sponsorship",
         c5.toggle(
-            "Visum-Sponsoring?",
+            tr("Visum-Sponsoring?", "Visa sponsorship?"),
             value=bool(get_in(data, "employment.visa_sponsorship", False)),
         ),
     )
@@ -545,7 +593,7 @@ def _step_compensation():
         None
     """
 
-    st.subheader("Vergütung & Benefits")
+    st.subheader(tr("Vergütung & Benefits", "Compensation & Benefits"))
     data = st.session_state.data
     ensure_path(data, "compensation.salary_min")
     ensure_path(data, "compensation.salary_max")
@@ -560,7 +608,7 @@ def _step_compensation():
         data,
         "compensation.salary_min",
         c1.number_input(
-            "Gehalt min",
+            tr("Gehalt min", "Salary min"),
             value=(
                 float(get_in(data, "compensation.salary_min", 0))
                 if get_in(data, "compensation.salary_min") is not None
@@ -572,7 +620,7 @@ def _step_compensation():
         data,
         "compensation.salary_max",
         c2.number_input(
-            "Gehalt max",
+            tr("Gehalt max", "Salary max"),
             value=(
                 float(get_in(data, "compensation.salary_max", 0))
                 if get_in(data, "compensation.salary_max") is not None
@@ -583,7 +631,9 @@ def _step_compensation():
     set_in(
         data,
         "compensation.currency",
-        c3.text_input("Währung", value=get_in(data, "compensation.currency", "")),
+        c3.text_input(
+            tr("Währung", "Currency"), value=get_in(data, "compensation.currency", "")
+        ),
     )
 
     c4, c5 = st.columns(2)
@@ -591,7 +641,7 @@ def _step_compensation():
         data,
         "compensation.period",
         c4.selectbox(
-            "Periode",
+            tr("Periode", "Period"),
             options=["year", "month", "day", "hour"],
             index=(
                 0
@@ -606,7 +656,7 @@ def _step_compensation():
         data,
         "compensation.variable_pay",
         c5.toggle(
-            "Variable Vergütung?",
+            tr("Variable Vergütung?", "Variable pay?"),
             value=bool(get_in(data, "compensation.variable_pay", False)),
         ),
     )
@@ -637,7 +687,7 @@ def _step_process():
         None
     """
 
-    st.subheader("Prozess")
+    st.subheader(tr("Prozess", "Process"))
     data = st.session_state.data
     ensure_path(data, "process.interview_stages")
     ensure_path(data, "process.process_notes")
@@ -649,14 +699,17 @@ def _step_process():
         "process.interview_stages",
         int(
             c1.number_input(
-                "Stages", value=int(init_val) if init_val is not None else 0
+                tr("Phasen", "Stages"),
+                value=int(init_val) if init_val is not None else 0,
             )
         ),
     )
     set_in(
         data,
         "process.process_notes",
-        c2.text_area("Notizen", value=get_in(data, "process.process_notes", "")),
+        c2.text_area(
+            tr("Notizen", "Notes"), value=get_in(data, "process.process_notes", "")
+        ),
     )
 
 
@@ -671,17 +724,22 @@ def _step_summary(schema: dict, critical: list[str]):
         None
     """
 
-    st.subheader("Zusammenfassung")
+    st.subheader(tr("Zusammenfassung", "Summary"))
     data = st.session_state.data
     missing = missing_keys(data, critical)
     if missing:
-        st.warning(f"Es fehlen noch kritische Felder: {', '.join(missing)}")
+        st.warning(
+            f"{tr('Es fehlen noch kritische Felder', 'Critical fields are still missing')}: {', '.join(missing)}"
+        )
 
     st.json(data)
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        if st.button("💡 Follow-ups vorschlagen (LLM)", type="primary"):
+        if st.button(
+            tr("💡 Follow-ups vorschlagen (LLM)", "💡 Suggest follow-ups (LLM)"),
+            type="primary",
+        ):
             payload = {"lang": st.session_state.lang, "data": data, "missing": missing}
             try:
                 res = ask_followups(
@@ -690,13 +748,15 @@ def _step_summary(schema: dict, critical: list[str]):
                     vector_store_id=st.session_state.vector_store_id or None,
                 )
                 st.session_state["followups"] = res
-                st.success("Follow-ups aktualisiert.")
+                st.success(
+                    tr("Follow-ups aktualisiert.", "Follow-up questions updated.")
+                )
             except Exception as e:
-                st.error(f"Follow-ups fehlgeschlagen: {e}")
+                st.error(f"{tr('Follow-ups fehlgeschlagen', 'Follow-ups failed')}: {e}")
 
     with col2:
         if st.session_state.get("followups"):
-            st.write("**Vorgeschlagene Fragen:**")
+            st.write(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
             fu = st.session_state["followups"]
             for item in fu.get("questions", []):
                 key = item.get("key")  # dot key, z.B. "requirements.hard_skills"
@@ -704,15 +764,26 @@ def _step_summary(schema: dict, critical: list[str]):
                 if not key or not q:
                     continue
                 st.markdown(f"**{q}**")
-                val = st.text_input(f"Antwort für {key}", key=f"fu_{key}")
+                label = tr("Antwort für", "Answer for")
+                val = st.text_input(f"{label} {key}", key=f"fu_{key}")
                 if val:
                     set_in(data, key, val)
 
     st.divider()
     if missing:
-        st.info("Bitte fülle die fehlenden kritischen Felder, um abzuschließen.")
+        st.info(
+            tr(
+                "Bitte fülle die fehlenden kritischen Felder, um abzuschließen.",
+                "Please fill in the remaining critical fields to finish.",
+            )
+        )
     else:
-        st.success("Alle kritischen Felder sind befüllt.")
+        st.success(
+            tr(
+                "Alle kritischen Felder sind befüllt.",
+                "All critical fields have been filled.",
+            )
+        )
 
 
 # --- Haupt-Wizard-Runner ---
@@ -743,15 +814,15 @@ def run_wizard():
 
     # Stepbar
     steps = [
-        ("Intro", _step_intro),
-        ("Quelle", lambda: _step_source(schema)),
-        ("Unternehmen", _step_company),
-        ("Position", _step_position),
-        ("Anforderungen", _step_requirements),
-        ("Beschäftigung", _step_employment),
-        ("Vergütung", _step_compensation),
-        ("Prozess", _step_process),
-        ("Summary", lambda: _step_summary(schema, critical)),
+        (tr("Intro", "Intro"), _step_intro),
+        (tr("Quelle", "Source"), lambda: _step_source(schema)),
+        (tr("Unternehmen", "Company"), _step_company),
+        (tr("Position", "Position"), _step_position),
+        (tr("Anforderungen", "Requirements"), _step_requirements),
+        (tr("Beschäftigung", "Employment"), _step_employment),
+        (tr("Vergütung", "Compensation"), _step_compensation),
+        (tr("Prozess", "Process"), _step_process),
+        (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
     ]
 
     # Headline
@@ -759,28 +830,37 @@ def run_wizard():
 
     # Step Navigation (oben)
     st.progress((st.session_state.step + 1) / len(steps))
-    st.caption("Klicke auf „Weiter“ oder navigiere direkt zu einem Schritt.")
+    st.caption(
+        tr(
+            "Klicke auf 'Weiter' oder navigiere direkt zu einem Schritt.",
+            "Click 'Next' or navigate directly to a step.",
+        )
+    )
 
     # Render current step
     label, renderer = steps[st.session_state.step]
-    st.markdown(f"#### Schritt {st.session_state.step + 1} — {label}")
+    step_word = tr("Schritt", "Step")
+    st.markdown(f"#### {step_word} {st.session_state.step + 1} — {label}")
     renderer()
 
     # Bottom nav
     col_prev, col_next = st.columns([1, 1])
     with col_prev:
         if st.session_state.step > 0 and st.button(
-            "◀︎ Zurück", use_container_width=True
+            tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True
         ):
             st.session_state.step -= 1
             st.rerun()
     with col_next:
         # Gating: auf Summary erst, ansonsten immer weiter
         if st.session_state.step < len(steps) - 1:
-            if st.button("Weiter ▶︎", type="primary", use_container_width=True):
+            if st.button(
+                tr("Weiter ▶︎", "Next ▶︎"), type="primary", use_container_width=True
+            ):
                 st.session_state.step += 1
                 st.rerun()
         else:
             st.button(
-                "Fertig", disabled=bool(missing_keys(st.session_state.data, critical))
+                tr("Fertig", "Done"),
+                disabled=bool(missing_keys(st.session_state.data, critical)),
             )
