@@ -1,95 +1,89 @@
-# openai_utils.py 
+# openai_utils.py
 from __future__ import annotations
-import json, logging, httpx, backoff
+
+import json
+import logging
 import os
-import re
-from typing import Any, Dict, List, Optional, Sequence, cast
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Sequence
+
+import backoff
 from openai import OpenAI
 
-from config import OPENAI_API_KEY, OPENAI_MODEL
-from core.schema import VacalyserJD
-
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+from config import OPENAI_API_KEY
 
 logger = logging.getLogger("vacalyser.openai")
 
-@dataclass
-class ChatCallResult:
-    content: Optional[str]
-    tool_calls: list[dict]
-    function_call: Optional[dict]
-    usage: dict
+# Global client instance (monkeypatchable in tests)
+client: OpenAI | None = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-class OpenAIClient:
-    def __init__(self, api_key: str, base_url: str | None = None, timeout_s: int = 45):
-        self._base = (base_url or "https://api.openai.com").rstrip("/")
-        self._http = httpx.Client(timeout=timeout_s)
-        self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    def close(self):
-        try: self._http.close()
-        except Exception: pass
+def get_client() -> OpenAI:
+    """Return a configured OpenAI client."""
 
-    @backoff.on_exception(backoff.expo, (httpx.HTTPError, TimeoutError), max_time=60)
-    def chat(self, *, model: str, messages: Sequence[dict], temperature: float = 0.2,
-             max_tokens: int | None = None, response_format: Optional[dict] = None,
-             tools: Optional[list] = None, tool_choice: Optional[Any] = None,
-             functions: Optional[list] = None, function_call: Optional[Any] = None,
-             seed: Optional[int] = None, extra: Optional[dict] = None) -> ChatCallResult:
-
-        payload = {"model": model, "messages": messages, "temperature": temperature}
-        if max_tokens is not None: payload["max_tokens"] = max_tokens
-        if response_format: payload["response_format"] = response_format
-        if tools is not None:
-            payload["tools"] = tools
-            if tool_choice is not None: payload["tool_choice"] = tool_choice
-        if functions is not None:
-            payload["functions"] = functions
-            if function_call is not None: payload["function_call"] = function_call
-        if seed is not None: payload["seed"] = seed
-        if extra: payload.update(extra)
-
-        r = self._http.post(f"{self._base}/v1/chat/completions", headers=self._headers, json=payload)
-        r.raise_for_status()
-        data = r.json()
-        ch = data["choices"][0]
-        msg = ch.get("message", {})
-        res = ChatCallResult(
-            content=msg.get("content"),
-            tool_calls=msg.get("tool_calls") or [],
-            function_call=msg.get("function_call"),
-            usage=data.get("usage", {}),
-        )
-        logger.debug("OpenAI usage: %s", res.usage)
-        return res
-
-_CLIENT: OpenAIClient | None = None
-
-def get_client() -> OpenAIClient:
-    global _CLIENT
-    if _CLIENT is None:
-        import os
-        key = os.getenv("OPENAI_API_KEY") or ""
+    global client
+    if client is None:
+        key = OPENAI_API_KEY
         if not key:
             raise RuntimeError("OPENAI_API_KEY not configured")
         base = os.getenv("OPENAI_BASE_URL") or None
-        _CLIENT = OpenAIClient(key, base_url=base)
-    return _CLIENT
+        client = OpenAI(api_key=key, base_url=base)
+    return client
 
-def call_chat_api(messages: Sequence[dict], *, model: str = "gpt-4o-mini",
-                  temperature: float = 0.2, max_tokens: int | None = None,
-                  json_strict: bool = False, tools: Optional[list] = None,
-                  tool_choice: Optional[Any] = None,
-                  functions: Optional[list] = None, function_call: Optional[Any] = None,
-                  seed: Optional[int] = None, extra: Optional[dict] = None) -> ChatCallResult:
-    # Unified chat endpoint with optional JSON-strict mode and tools/functions support.
-    fmt = {"type": "json_object"} if json_strict else None
-    return get_client().chat(
-        model=model, messages=messages, temperature=temperature, max_tokens=max_tokens,
-        response_format=fmt, tools=tools, tool_choice=tool_choice,
-        functions=functions, function_call=function_call, seed=seed, extra=extra,
-    )
+
+@backoff.on_exception(backoff.expo, Exception, max_time=60)
+def call_chat_api(
+    messages: Sequence[dict],
+    *,
+    model: str | None = "gpt-4o-mini",
+    temperature: float = 0.2,
+    max_tokens: int | None = None,
+    json_strict: bool = False,
+    tools: Optional[list] = None,
+    tool_choice: Optional[Any] = None,
+    functions: Optional[list] = None,
+    function_call: Optional[Any] = None,
+    seed: Optional[int] = None,
+    extra: Optional[dict] = None,
+) -> str:
+    """Call the OpenAI chat completion API."""
+
+    payload: Dict[str, Any] = {
+        "model": model or "gpt-4o-mini",
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    if json_strict:
+        payload["response_format"] = {"type": "json_object"}
+    if tools is not None:
+        payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+    if functions is not None:
+        payload["functions"] = functions
+        if function_call is not None:
+            payload["function_call"] = function_call
+    if seed is not None:
+        payload["seed"] = seed
+    if extra:
+        payload.update(extra)
+
+    response = get_client().chat.completions.create(**payload)
+    message = response.choices[0].message
+    if getattr(message, "content", None):
+        return message.content or ""
+    function_call = getattr(message, "function_call", None)
+    if function_call and getattr(function_call, "arguments", None):
+        return function_call.arguments or ""
+    tool_calls = getattr(message, "tool_calls", None)
+    if tool_calls:
+        first = tool_calls[0]
+        func = getattr(first, "function", None)
+        if func and getattr(func, "arguments", None):
+            return func.arguments or ""
+    return ""
+
 
 def extract_company_info(text: str, model: str | None = None) -> dict:
     """Extract company details from website text using OpenAI.
@@ -121,7 +115,7 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
             model=model,
             temperature=0.1,
             max_tokens=500,
-            response_format={"type": "json_object"},
+            json_strict=True,
         )
         data = json.loads(answer)
     except Exception:
