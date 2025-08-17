@@ -1,4 +1,13 @@
-from question_logic import CRITICAL_FIELDS, generate_followup_questions
+from typing import Any
+from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from question_logic import (
+    CRITICAL_FIELDS,
+    _rag_suggestions,
+    generate_followup_questions,
+)
 
 
 def test_generate_followup_questions() -> None:
@@ -73,3 +82,26 @@ def test_new_field_triggers_question(monkeypatch) -> None:
     out = generate_followup_questions({}, num_questions=1, use_rag=False)
     assert out[0]["field"] == "contacts.hiring_manager.phone"
     assert "phone" in out[0]["question"].lower()
+
+
+def test_rag_suggestions_tool_payload(monkeypatch) -> None:
+    """_rag_suggestions should pass nested file_search tool payload."""
+
+    captured: dict[str, Any] = {}
+
+    class _Fake:
+        content = "{}"
+
+    def fake_call(messages, **kwargs):
+        captured["tools"] = kwargs.get("tools")
+        captured["tool_choice"] = kwargs.get("tool_choice")
+        return _Fake()
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call)
+
+    _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id="vs123")
+
+    assert captured["tools"] == [
+        {"type": "file_search", "file_search": {"vector_store_ids": ["vs123"]}}
+    ]
+    assert captured["tool_choice"] == "auto"
