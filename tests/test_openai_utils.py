@@ -53,8 +53,14 @@ def test_extract_with_function(monkeypatch):
     monkeypatch.setattr(openai_utils, "call_chat_api", lambda *a, **k: _FakeMessage())
     from core import schema as cs
 
-    monkeypatch.setattr(cs, "coerce_and_fill", lambda model, raw: raw)
-    monkeypatch.setattr(cs, "VacalyserJD", object())
+    class _FakeJD:
+        def __init__(self, data: dict[str, str]) -> None:
+            self._data = data
+
+        def model_dump(self) -> dict[str, str]:
+            return self._data
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeJD(data))
 
     result = extract_with_function("text", {})
     assert result["job_title"] == "Dev"

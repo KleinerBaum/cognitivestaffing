@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import backoff
 from openai import OpenAI
@@ -187,7 +187,7 @@ def build_extraction_function(
 
 def extract_with_function(
     job_text: str, schema: dict, *, model: str = "gpt-4o-mini"
-) -> dict:
+) -> Mapping[str, Any]:
     """Extract vacancy data from ``job_text`` using strict function calling.
 
     Args:
@@ -196,7 +196,7 @@ def extract_with_function(
         model: OpenAI model to use for extraction.
 
     Returns:
-        A dictionary conforming to ``schema``.
+        Mapping[str, Any]: A dictionary conforming to ``schema``.
 
     Raises:
         RuntimeError: If the model response lacks ``function_call`` arguments.
@@ -226,16 +226,16 @@ def extract_with_function(
     if not arguments:
         raise RuntimeError("No function_call with arguments returned")
     try:
-        raw = json.loads(arguments)
+        raw: dict[str, Any] = json.loads(arguments)
     except Exception as e:  # noqa: PERF203
         raise ValueError(
             "Model returned invalid JSON in function_call.arguments"
         ) from e
 
     from core.schema import VacalyserJD, coerce_and_fill
-    from typing import Any, cast
 
-    return cast(dict[str, Any], coerce_and_fill(VacalyserJD, raw))  # type: ignore[arg-type, call-arg]
+    jd: VacalyserJD = coerce_and_fill(raw)
+    return jd.model_dump()
 
 
 def suggest_additional_skills(
