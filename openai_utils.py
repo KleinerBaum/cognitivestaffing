@@ -104,13 +104,19 @@ def call_chat_api(
         if isinstance(call, dict):
             tool_calls.append(call)
         else:
-            tool_calls.append(
-                getattr(call, "model_dump", getattr(call, "__dict__", lambda: {}))()
-            )
+            dump = getattr(call, "model_dump", None)
+            if callable(dump):
+                tool_calls.append(dump())
+            else:
+                tool_calls.append(getattr(call, "__dict__", {}))
 
     fc = getattr(msg, "function_call", None)
     if fc is not None and not isinstance(fc, dict):
-        fc = getattr(fc, "model_dump", getattr(fc, "__dict__", lambda: {}))()
+        dump = getattr(fc, "model_dump", None)
+        if callable(dump):
+            fc = dump()
+        else:
+            fc = getattr(fc, "__dict__", {})
 
     usage_obj = getattr(response, "usage", {}) or {}
     usage: dict
