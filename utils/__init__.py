@@ -6,14 +6,11 @@ from io import BytesIO
 
 import fitz  # PyMuPDF
 
-from core.ocr_backends import extract_text as ocr_extract_text
-
 
 def extract_text_from_file(file_bytes: bytes, file_name: str) -> str:
     """Extract text content from an uploaded file.
 
-    Supports PDFs (with optional OCR for scanned pages), DOCX/DOC documents
-    and plain text files.
+    Supports PDFs, DOCX/DOC documents and plain text files.
 
     Args:
         file_bytes: Raw file data.
@@ -34,12 +31,6 @@ def extract_text_from_file(file_bytes: bytes, file_name: str) -> str:
                     page_text = page.get_text().strip()
                     if page_text:
                         text += page_text + "\n"
-                    else:  # fallback to OCR for scanned pages
-                        try:
-                            pix = page.get_pixmap()
-                            text += ocr_extract_text(pix.tobytes("png")) + "\n"
-                        except Exception:
-                            pass
         elif file_name.endswith(".docx") or file_name.endswith(".doc"):
             import docx
 

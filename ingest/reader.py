@@ -10,8 +10,6 @@ from bs4 import BeautifulSoup
 from docx import Document
 import requests
 
-from .ocr import ocr_pdf
-
 
 def _clean(text: str) -> str:
     """Collapse whitespace and strip surrounding spaces."""
@@ -45,8 +43,6 @@ def read_job_text(
     files: list[str],
     url: str | None = None,
     pasted: str | None = None,
-    *,
-    use_ocr: bool = False,
 ) -> str:
     """Merge text from files, URL and pasted snippets.
 
@@ -54,7 +50,6 @@ def read_job_text(
         files: Paths to local files (PDF, DOCX, TXT).
         url: Optional web URL to fetch.
         pasted: Additional pasted text.
-        use_ocr: Whether to OCR PDFs lacking extractable text.
 
     Returns:
         Cleaned and de-duplicated text.
@@ -67,8 +62,6 @@ def read_job_text(
         content = ""
         if suffix == ".pdf":
             content = _read_pdf(path)
-            if use_ocr and not content.strip():
-                content = ocr_pdf(str(path))
         elif suffix == ".docx":
             content = _read_docx(path)
         elif suffix == ".txt":
