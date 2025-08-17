@@ -211,27 +211,6 @@ def _priority_for(field: str, is_missing_esco_skill: bool = False) -> str:
     return "normal"
 
 
-def ask_followups(payload: dict, *, model: str = "gpt-4o-mini", vector_store_id: Optional[str] = None) -> dict:
-    tools, tool_choice, extra = [], None, {}
-    if vector_store_id:
-        tools = [{"type": "file_search", "file_search": {"vector_store_ids": [vector_store_id]}}]
-        tool_choice = "auto"
-    res = call_chat_api(
-        [
-            {"role": "system", "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions."},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        model=model,
-        temperature=0.2,
-        json_strict=True,
-        tools=tools,
-        tool_choice=tool_choice,
-        extra=extra,
-        max_tokens=800,
-    )
-    return json.loads(res.content or "{}")
-  
-
 def _collect_missing_fields(extracted: Dict[str, Any], fields: List[str]) -> List[str]:
     missing = []
     for f in fields:
@@ -277,7 +256,13 @@ def _rag_suggestions(
             model=model,
             temperature=0,
             json_strict=True,
-            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
+            tools=[
+                {
+                    "type": "file_search",
+                    "file_search": {"vector_store_ids": [vector_store_id]},
+                }
+            ],
+            tool_choice="auto",
         )
         data = json.loads(answer or "{}")
         out: Dict[str, List[str]] = {}
@@ -326,16 +311,29 @@ def _normalize_chat_content(res: Any) -> str:
     # Fallback
     return ""
 
-def ask_followups(payload: dict, *, model: str = "gpt-4o-mini", vector_store_id: Optional[str] = None) -> dict:
-    tools, tool_choice, extra = [], None, {}
+
+def ask_followups(
+    payload: dict, *, model: str = "gpt-4o-mini", vector_store_id: Optional[str] = None
+) -> dict:
+    tools: List[dict] = []
+    tool_choice: Optional[str] = None
+    extra: Dict[str, Any] = {}
     if vector_store_id:
         # Hinweis: Nur aktivieren, wenn deine call_chat_api/Backend diese Tool-Form unterstützt
-        tools = [{"type": "file_search", "file_search": {"vector_store_ids": [vector_store_id]}}]
+        tools = [
+            {
+                "type": "file_search",
+                "file_search": {"vector_store_ids": [vector_store_id]},
+            }
+        ]
         tool_choice = "auto"
 
     res = call_chat_api(
         [
-            {"role": "system", "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions."},
+            {
+                "role": "system",
+                "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions.",
+            },
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         model=model,
@@ -352,6 +350,7 @@ def ask_followups(payload: dict, *, model: str = "gpt-4o-mini", vector_store_id:
     # Defensive: Falls der Provider trotz json_strict Codefences zurückgibt
     if content.startswith("```"):
         import re
+
         m = re.search(r"```(?:json)?\s*(.*?)```", content, re.S | re.I)
         if m:
             content = m.group(1).strip()
@@ -361,8 +360,8 @@ def ask_followups(payload: dict, *, model: str = "gpt-4o-mini", vector_store_id:
     except json.JSONDecodeError:
         # Hard fallback: leeres Objekt statt Exception (UI bleibt stabil)
         return {}
-      
-  
+
+
 def generate_followup_questions(
     extracted: Dict[str, Any],
     num_questions: Optional[int] = None,
@@ -373,7 +372,7 @@ def generate_followup_questions(
     # 1) Determine role-specific fields via ESCO classification
     job_title = (extracted.get("position.job_title") or "").strip()
     industry = (extracted.get("company.industry") or "").strip()
-    occupation = {}
+    occupation: Dict[str, Any] = {}
     essential_skills: List[str] = []
     missing_esco_skills: List[str] = []
     occ_group = ""
