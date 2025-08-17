@@ -1,1864 +1,318 @@
+# wizard.py — Vacalyser Wizard (clean flow, schema-aligned)
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
-from typing import Any, cast, TypedDict
 
-from core.ss_bridge import from_session_state, to_session_state
-from core.schema import coerce_and_fill
-from utils import (
-    extract_text_from_file,
-    extract_text_from_url,
-    merge_texts,
-    build_boolean_query,
-    seo_optimize,
-)
-from utils.export import prepare_download_data
-from openai_utils import (
-    call_chat_api,
-    suggest_additional_skills,
-    suggest_benefits,
-    generate_interview_guide,
-    generate_job_ad,
-    refine_document,
-    what_happened,
-    extract_company_info,
-)
-from llm.context import build_extract_messages
-from llm.client import build_extraction_function
-from question_logic import CRITICAL_FIELDS, generate_followup_questions
-from core import esco_utils  # Added import to use ESCO classification
-from core.field_suggestions import get_field_suggestions
-from streamlit_sortables import sort_items
-from nlp.bias import scan_bias_language
-from components.model_selector import model_selector
+# LLM/ESCO und Follow-ups
+from openai_utils import extract_with_function  # nutzt deine neue Definition
+from question_logic import ask_followups        # nutzt deine neue Definition
+from core.esco_utils import classify_occupation, get_essential_skills
 
-MODEL_OPTIONS = {
-    "GPT-3.5 (fast, cheap)": "gpt-3.5-turbo",
-    "GPT-4 (slow, accurate)": "gpt-4",
-}
+ROOT = Path(__file__).parent
 
-TONE_CHOICES = {
-    "formal": {
-        "en": "Formal",
-        "de": "Formell",
-        "tone_en": "formal and straightforward",
-        "tone_de": "formal und direkt",
-    },
-    "casual": {
-        "en": "Casual",
-        "de": "Locker",
-        "tone_en": "casual and friendly",
-        "tone_de": "locker und freundlich",
-    },
-    "creative": {
-        "en": "Creative",
-        "de": "Kreativ",
-        "tone_en": "creative and lively",
-        "tone_de": "kreativ und lebendig",
-    },
-    "diversity": {
-        "en": "Diversity-Focused",
-        "de": "Diversitätsbetont",
-        "tone_en": "engaging and inclusive",
-        "tone_de": "ansprechend und inklusiv",
-    },
-}
+# --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
+def get_in(d: dict, path: str, default=None):
+    cur = d
+    for p in path.split("."):
+        if not isinstance(cur, dict) or p not in cur:
+            return default
+        cur = cur[p]
+    return cur
 
-lang = st.session_state.get("lang", "en")
-st.session_state.setdefault("current_section", 0)
-st.session_state.setdefault("extraction_complete", False)
-st.session_state.setdefault("followup_questions", [])
+def set_in(d: dict, path: str, value):
+    cur = d
+    parts = path.split(".")
+    for p in parts[:-1]:
+        if p not in cur or not isinstance(cur[p], dict):
+            cur[p] = {}
+        cur = cur[p]
+    cur[parts[-1]] = value
 
+def ensure_path(d: dict, path: str):
+    set_in(d, path, get_in(d, path, None))
 
-# Mapping of wizard sections to the schema fields they contain.  This drives the
-# navigation flow and validation logic.
-FIELDS_BY_SECTION: dict[int, list[str]] = {
-    1: [
-        "company.name",
-        "company.industry",
-        "company.hq_location",
-        "company.size",
-        "location.primary_city",
-        "location.country",
-    ],
-    2: [
-        "position.job_title",
-        "position.role_summary",
-        "position.department",
-        "position.team_structure",
-        "position.reporting_line",
-    ],
-    3: ["responsibilities.items"],
-    4: [
-        "requirements.hard_skills",
-        "requirements.soft_skills",
-        "requirements.tools_and_technologies",
-        "requirements.languages_required",
-        "requirements.language_level_english",
-        "requirements.certifications",
-        "position.seniority_level",
-    ],
-    5: [
-        "employment.job_type",
-        "employment.work_policy",
-        "compensation.salary_min",
-        "compensation.salary_max",
-        "compensation.variable_pay",
-        "compensation.benefits",
-        "compensation.healthcare_plan",
-        "compensation.pension_plan",
-        "compensation.equity_offered",
-        "employment.relocation_support",
-        "employment.visa_sponsorship",
-    ],
-    6: [
-        "target_start_date",
-        "application_deadline",
-        "performance_metrics",
-        "interview_stages",
-        "process_notes",
-    ],
-}
+def flatten(d: dict, prefix=""):
+    out = {}
+    for k, v in (d or {}).items():
+        key = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict):
+            out.update(flatten(v, key))
+        else:
+            out[key] = v
+    return out
 
-# Total number of steps including welcome and summary pages
-TOTAL_STEPS: int = len(FIELDS_BY_SECTION) + 2
+def missing_keys(data: dict, critical: List[str]) -> List[str]:
+    flat = flatten(data)
+    return [k for k in critical if (k not in flat) or (flat[k] in (None, "", [], {}))]
 
-# Map each field to its corresponding wizard section index
-FIELD_SECTION_MAP: dict[str, int] = {
-    field: section for section, fields in FIELDS_BY_SECTION.items() for field in fields
-}
-# Map critical field names to wizard section indices for navigation
+# --- UI-Komponenten ---
+def _chip_multiselect(label: str, options: List[str], values: List[str]) -> List[str]:
+    # Einfache, robuste Multiselect-Variante
+    return st.multiselect(label, options=options, default=values, key=f"ms_{label}")
 
+# --- Step-Renderers ---
+def _step_intro():
+    st.title("Vacalyser — Wizard")
+    st.write("Dieser Assistent führt dich in wenigen Schritten zu einem vollständigen, strukturierten Stellenprofil.")
 
-FIELD_LABELS: dict[str, tuple[str, str]] = {
-    "position.job_title": ("Job Title", "Stellenbezeichnung"),
-    "company.name": ("Company Name", "Unternehmensname"),
-    "company.industry": ("Industry", "Branche"),
-    "company.hq_location": ("Headquarters Location", "Hauptsitz"),
-    "company.size": ("Company Size", "Unternehmensgröße"),
-    "location.primary_city": ("City", "Stadt"),
-    "location.country": ("Country", "Land"),
-    "position.role_summary": ("Role Summary", "Rollenübersicht"),
-    "responsibilities.items": ("Responsibilities", "Verantwortlichkeiten"),
-    "requirements.hard_skills": ("Hard Skills", "Technische Fähigkeiten"),
-    "requirements.soft_skills": ("Soft Skills", "Soziale Fähigkeiten"),
-    "requirements.tools_and_technologies": (
-        "Tools & Technologies",
-        "Tools & Technologien",
-    ),
-    "requirements.languages_required": (
-        "Languages Required",
-        "Erforderliche Sprachen",
-    ),
-    "requirements.language_level_english": (
-        "English Proficiency Level",
-        "Englischniveau",
-    ),
-    "requirements.certifications": ("Certifications", "Zertifizierungen"),
-    "employment.job_type": ("Employment Type", "Anstellungsart"),
-    "employment.work_policy": ("Work Policy", "Arbeitsmodell"),
-    "compensation.salary_min": ("Salary Minimum", "Mindestgehalt"),
-    "compensation.salary_max": ("Salary Maximum", "Höchstgehalt"),
-}
-# Human-friendly labels for critical wizard fields
+def _step_source(schema: dict):
+    st.subheader("Quelle / Anreicherung")
+    jd_text = st.text_area("Jobtext (einfügen oder kurz beschreiben)", height=220, key="jd_text")
 
-
-def get_field_label(field: str, lang: str) -> str:
-    """Return the localized label for a given field name.
-
-    Args:
-        field: Internal field identifier.
-        lang: Language code, e.g. ``"en"`` or ``"de"``.
-
-    Returns:
-        Localized label for ``field``.
-    """
-    en, de = FIELD_LABELS.get(field, (field, field))
-    return en if lang != "de" else de
-
-
-class SummaryCategory(TypedDict):
-    """Structure for grouping summary fields."""
-
-    en: str
-    de: str
-    fields: list[str]
-
-
-SUMMARY_CATEGORIES: list[SummaryCategory] = [
-    {
-        "en": "Company & Context",
-        "de": "Unternehmen & Kontext",
-        "fields": [
-            "company.name",
-            "company.website",
-            "company.industry",
-            "company.hq_location",
-            "company.size",
-            "location.primary_city",
-            "location.country",
-            "company.mission",
-            "company.culture",
-        ],
-    },
-    {
-        "en": "Role Details",
-        "de": "Rollenbeschreibung",
-        "fields": [
-            "position.job_title",
-            "position.role_summary",
-            "responsibilities.items",
-            "position.department",
-            "position.team_structure",
-            "position.reporting_line",
-        ],
-    },
-    {
-        "en": "Requirements",
-        "de": "Anforderungen",
-        "fields": [
-            "requirements.hard_skills",
-            "requirements.soft_skills",
-            "requirements.tools_and_technologies",
-            "requirements.languages_required",
-            "requirements.language_level_english",
-            "requirements.certifications",
-            "position.seniority_level",
-        ],
-    },
-    {
-        "en": "Benefits & Conditions",
-        "de": "Leistungen & Konditionen",
-        "fields": [
-            "employment.job_type",
-            "employment.work_policy",
-            "employment.onsite_days_per_week",
-            "employment.travel_required",
-            "employment.work_hours_per_week",
-            "compensation.salary_min",
-            "compensation.salary_max",
-            "compensation.variable_pay",
-            "compensation.benefits",
-            "compensation.healthcare_plan",
-            "compensation.pension_plan",
-            "compensation.equity_offered",
-            "employment.relocation_support",
-            "employment.visa_sponsorship",
-        ],
-    },
-    {
-        "en": "Process",
-        "de": "Prozess",
-        "fields": [
-            "target_start_date",
-            "application_deadline",
-            "performance_metrics",
-            "interview_stages",
-            "process_notes",
-        ],
-    },
-]
-
-
-def normalise_state(reapply_aliases: bool = True):
-    """Normalize session state to canonical schema keys and update JSON.
-
-    The ``reapply_aliases`` argument is retained for backward compatibility but
-    no longer has any effect. Legacy alias fields are not written back to
-    ``st.session_state``.
-    """
-
-    jd = from_session_state(cast(dict[str, Any], st.session_state))
-    to_session_state(jd, cast(dict[str, Any], st.session_state))
-    st.session_state["validated_json"] = json.dumps(
-        jd.model_dump(mode="json"), indent=2, ensure_ascii=False
-    )
-    return jd
-
-
-def apply_global_styling(theme: str = "dark") -> None:
-    """Apply global styling and background image to the app.
-
-    Injects fonts and colors into the Streamlit application. When ``theme`` is
-    ``"dark"`` a textured background image and dark palette are used. For
-    ``"light"`` the background image is removed and light colors are applied.
-    """
-
-    bg_path = Path("images/AdobeStock_506577005.jpeg")
-    if theme == "dark":
-        st.markdown(
-            f"""
-            <style>
-                .stApp {{
-                    background: url("{bg_path.as_posix()}") no-repeat center center fixed;
-                    background-size: cover;
-                }}
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-        body_styles = "body, .stApp { background-color: #0b0f14; color: #e5e7eb; font-family: 'Comfortaa', sans-serif; }"
-        card_bg = "#111827"
-        heading_color = "#ffffff"
-    else:
-        st.markdown(
-            """
-            <style>
-                .stApp { background: none !important; }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-        body_styles = "body, .stApp { background-color: #ffffff; color: #111827; font-family: 'Comfortaa', sans-serif; }"
-        card_bg = "#f9fafb"
-        heading_color = "#000000"
-
-    st.markdown(
-        f"""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap');
-        {body_styles}
-        h1,h2,h3,h4 {{ color: {heading_color}; }}
-        .card {{ background-color: {card_bg}; padding: 1rem; border-radius: 12px; margin-bottom: 1.25rem; }}
-        .stButton > button {{ border-radius: 10px; min-height: 2.5rem; }}
-        @media (max-width: 768px) {{
-            div[data-testid="stHorizontalBlock"] {{ flex-direction: column; }}
-            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {{ width: 100%; }}
-            .stButton > button {{ width: 100%; }}
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def _is_blank(value: Any) -> bool:
-    """Return ``True`` if a value is empty."""
-
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return not value.strip()
-    if isinstance(value, (list, tuple, set)):
-        return len(value) == 0
-    return False
-
-
-def get_missing_critical_fields(max_section: int | None = None) -> list[str]:
-    """List critical fields that are still empty up to ``max_section``.
-
-    Args:
-        max_section: Highest wizard section to inspect. ``None`` checks all
-            sections.
-
-    Returns:
-        Sorted list of missing field names.
-    """
-
-    limit = (
-        max_section
-        if max_section is not None
-        else max(FIELD_SECTION_MAP.values(), default=0)
-    )
-    missing: set[str] = set()
-    for field in CRITICAL_FIELDS:
-        section = FIELD_SECTION_MAP.get(field, 0)
-        if section <= limit and _is_blank(st.session_state.get(field)):
-            missing.add(field)
-
-    followups = st.session_state.get("followup_questions", [])
-    for item in followups:
-        field = item.get("field")
-        if not field or item.get("priority") != "critical":
-            continue
-        section = FIELD_SECTION_MAP.get(field, limit)
-        if section <= limit and _is_blank(st.session_state.get(field)):
-            missing.add(field)
-
-    return sorted(missing)
-
-
-def show_navigation(current_step: int, total_steps: int) -> None:
-    """Render Previous/Next navigation buttons for the wizard.
-
-    Prevents advancing while any critical field on current or previous pages
-    is left blank. The intro page (step 0) hides navigation controls.
-    """
-
-    lang = st.session_state.get("lang", "en")
-    if current_step == 0:
-        return
-
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2 = st.columns([1,1])
     with col1:
-        if current_step > 0:
-            prev_label = "⬅ Previous" if lang != "de" else "⬅ Zurück"
-            if st.button(prev_label):
-                st.session_state["current_section"] -= 1
-                st.rerun()
-    with col3:
-        if current_step < total_steps - 1:
-            next_label = "Next ➡" if lang != "de" else "Weiter ➡"
-            if st.button(next_label):
-                missing = get_missing_critical_fields(current_step)
-                if missing:
-                    labels = [get_field_label(f, lang) for f in missing]
-                    warn = (
-                        "Please fill the required fields before continuing: "
-                        if lang != "de"
-                        else "Bitte füllen Sie die Pflichtfelder aus, bevor Sie fortfahren: "
-                    )
-                    st.warning(warn + ", ".join(labels))
-                else:
-                    st.session_state["current_section"] += 1
+        if st.button("🔎 Automatisch analysieren (LLM)", type="primary"):
+            if not jd_text.strip():
+                st.warning("Bitte zuerst einen Jobtext einfügen.")
+            else:
+                try:
+                    data = extract_with_function(jd_text, schema, model=st.session_state.model)
+                    st.session_state.data = data  # HARTE Zuweisung: Schema-konform
+                    st.success("Extraktion abgeschlossen.")
+                    # ESCO-Klassifikation optional nachziehen
+                    title = get_in(st.session_state.data, "position.job_title", "")
+                    occ = classify_occupation(title, st.session_state.lang or "en") if title else None
+                    if occ:
+                        set_in(st.session_state.data, "position.occupation_label", occ.get("label"))
+                        set_in(st.session_state.data, "position.occupation_uri", occ.get("uri"))
+                        set_in(st.session_state.data, "position.occupation_group", occ.get("group"))
+                        skills = get_essential_skills(occ.get("uri"), st.session_state.lang or "en")
+                        # Merge in requirements.hard_skills ohne Duplikate
+                        current = set(get_in(st.session_state.data, "requirements.hard_skills", []) or [])
+                        merged = sorted(current.union(skills))
+                        set_in(st.session_state.data, "requirements.hard_skills", merged)
+                    st.session_state.step = 2  # springe direkt zu Firma
                     st.rerun()
+                except Exception as e:
+                    st.error(f"Extraktion fehlgeschlagen: {e}")
+    with col2:
+        st.info("Optional: RAG via Vector Store wird bei Follow-ups berücksichtigt, wenn `VECTOR_STORE_ID` gesetzt ist.", icon="ℹ️")
 
+def _step_company():
+    st.subheader("Unternehmen")
+    data = st.session_state.data
+    ensure_path(data, "company.name")
+    ensure_path(data, "company.industry")
+    ensure_path(data, "company.hq_location")
+    ensure_path(data, "company.size")
+    ensure_path(data, "company.website")
+    ensure_path(data, "company.mission")
+    ensure_path(data, "company.culture")
 
-def render_followups_for(fields: list[str] | None = None) -> None:
-    """Display follow-up questions inline for specified fields.
+    c1, c2 = st.columns(2)
+    set_in(data, "company.name", c1.text_input("Firma *", value=get_in(data, "company.name", "")))
+    set_in(data, "company.industry", c2.text_input("Branche", value=get_in(data, "company.industry", "")))
 
-    Critical questions are prefixed with a red asterisk to signal required
-    input. In auto mode questions are generated and shown sequentially,
-    accompanied by a message and a stop button so users keep control.
+    c3, c4 = st.columns(2)
+    set_in(data, "company.hq_location", c3.text_input("Hauptsitz", value=get_in(data, "company.hq_location", "")))
+    set_in(data, "company.size", c4.text_input("Größe", value=get_in(data, "company.size", "")))
 
-    Args:
-        fields: List of field names relevant to the current page. If ``None``,
-            all follow-up questions are considered.
-    """
-    lang = st.session_state.get("lang", "en")
-    auto_label = (
-        "Auto complete missing fields"
-        if lang != "de"
-        else "Automatisch fehlende Felder fragen"
-    )
-    st.session_state["auto_mode"] = st.checkbox(
-        auto_label,
-        value=st.session_state.get("auto_mode", False),
-        key="auto_mode",
-    )
+    c5, c6 = st.columns(2)
+    set_in(data, "company.website", c5.text_input("Website", value=get_in(data, "company.website", "")))
+    set_in(data, "company.mission", c6.text_input("Mission", value=get_in(data, "company.mission", "")))
 
-    followups = st.session_state.get("followup_questions", [])
-    if st.session_state.get("auto_mode") and not followups:
-        missing = get_missing_critical_fields()
-        if missing:
-            try:
-                followups = generate_followup_questions(
-                    cast(dict[str, Any], st.session_state),
-                    num_questions=1,
-                    lang=lang,
-                    use_rag=st.session_state.get("use_rag", True),
-                )
-            except Exception:  # pragma: no cover - network failure
-                followups = []
-            st.session_state["followup_questions"] = followups
-        else:
-            st.session_state["auto_mode"] = False
-            done_msg = (
-                "All critical fields are now filled."
-                if lang != "de"
-                else "Alle wichtigen Felder sind nun ausgefüllt."
-            )
-            st.success(done_msg)
-            return
+    set_in(data, "company.culture", st.text_area("Kultur", value=get_in(data, "company.culture", "")))
 
-    if st.session_state.get("auto_mode"):
-        info_msg = (
-            "The AI will now ask follow-up questions one by one to collect missing details."
-            if lang != "de"
-            else "Die KI stellt nun der Reihe nach Rückfragen, um alle fehlenden Angaben zu erheben."
-        )
-        st.info(info_msg)
-        stop_label = "⏹ Stop Auto-Ask" if lang != "de" else "⏹ Auto-Modus stoppen"
-        if st.button(stop_label, key="stop_auto_mode"):
-            st.session_state["auto_mode"] = False
-            st.session_state["followup_questions"] = []
-            return
+def _step_position():
+    st.subheader("Position")
+    data = st.session_state.data
+    ensure_path(data, "position.job_title")
+    ensure_path(data, "position.seniority_level")
+    ensure_path(data, "position.department")
+    ensure_path(data, "position.team_structure")
+    ensure_path(data, "position.reporting_line")
+    ensure_path(data, "position.role_summary")
 
-    if st.session_state.get("auto_mode") and len(followups) > 1:
-        followups = followups[:1]
-        st.session_state["followup_questions"] = followups
+    c1, c2 = st.columns(2)
+    set_in(data, "position.job_title", c1.text_input("Jobtitel *", value=get_in(data, "position.job_title", "")))
+    set_in(data, "position.seniority_level", c2.text_input("Seniorität", value=get_in(data, "position.seniority_level", "")))
 
-    if not followups:
-        return
+    c3, c4 = st.columns(2)
+    set_in(data, "position.department", c3.text_input("Abteilung", value=get_in(data, "position.department", "")))
+    set_in(data, "position.team_structure", c4.text_input("Teamstruktur", value=get_in(data, "position.team_structure", "")))
 
-    allowed = set(fields) if fields else None
-    rank = {"critical": 0, "normal": 1, "optional": 2}
-    relevant = [
-        f
-        for f in followups
-        if not allowed or f.get("field") in allowed or not f.get("field")
-    ]
-    if not relevant:
-        return
+    c5, c6 = st.columns(2)
+    set_in(data, "position.reporting_line", c5.text_input("Reports an", value=get_in(data, "position.reporting_line", "")))
+    set_in(data, "position.role_summary", c6.text_area("Rollen-Summary *", value=get_in(data, "position.role_summary", ""), height=120))
 
-    relevant.sort(key=lambda item: rank.get(item.get("priority", "normal"), 1))
+def _step_requirements():
+    st.subheader("Anforderungen")
+    data = st.session_state.data
+    ensure_path(data, "requirements.hard_skills")
+    ensure_path(data, "requirements.soft_skills")
+    ensure_path(data, "requirements.tools_and_technologies")
+    ensure_path(data, "requirements.languages_required")
+    ensure_path(data, "requirements.certifications")
 
-    for item in relevant:
-        field = item.get("field", "")
-        question = item.get("question", "")
-        key = field or question
-        is_critical = item.get("priority") == "critical"
+    set_in(data, "requirements.hard_skills",
+          _chip_multiselect("Hard Skills", options=get_in(data, "requirements.hard_skills", []) or [], values=get_in(data, "requirements.hard_skills", []) or []))
+    set_in(data, "requirements.soft_skills",
+          _chip_multiselect("Soft Skills", options=get_in(data, "requirements.soft_skills", []) or [], values=get_in(data, "requirements.soft_skills", []) or []))
+    set_in(data, "requirements.tools_and_technologies",
+          _chip_multiselect("Tools & Tech", options=get_in(data, "requirements.tools_and_technologies", []) or [], values=get_in(data, "requirements.tools_and_technologies", []) or []))
+    set_in(data, "requirements.languages_required",
+          _chip_multiselect("Sprachen", options=get_in(data, "requirements.languages_required", []) or [], values=get_in(data, "requirements.languages_required", []) or []))
+    set_in(data, "requirements.certifications",
+          _chip_multiselect("Zertifizierungen", options=get_in(data, "requirements.certifications", []) or [], values=get_in(data, "requirements.certifications", []) or []))
 
-        label = ""
-        if is_critical:
-            st.markdown(
-                f"<span style='color:red'>* {question}</span>", unsafe_allow_html=True
-            )
-        else:
-            label = question
+def _step_employment():
+    st.subheader("Beschäftigung")
+    data = st.session_state.data
+    ensure_path(data, "employment.job_type")
+    ensure_path(data, "employment.work_policy")
+    ensure_path(data, "employment.travel_required")
+    ensure_path(data, "employment.relocation_support")
+    ensure_path(data, "employment.visa_sponsorship")
 
-        if field:
-            default_val = st.session_state.get(field) or item.get("prefill", "")
-            st.session_state[field] = st.text_input(label, default_val, key=key)
-        else:
-            _ = st.text_input(label, "", key=key)
+    c1, c2 = st.columns(2)
+    set_in(data, "employment.job_type", c1.selectbox("Art", options=["full_time","part_time","contract","internship","temporary","other"], index=0 if not get_in(data,"employment.job_type") else ["full_time","part_time","contract","internship","temporary","other"].index(get_in(data,"employment.job_type"))))
+    set_in(data, "employment.work_policy", c2.selectbox("Policy", options=["onsite","hybrid","remote"], index=0 if not get_in(data,"employment.work_policy") else ["onsite","hybrid","remote"].index(get_in(data,"employment.work_policy"))))
 
-        suggestions = item.get("suggestions") or []
-        if suggestions and field:
-            cols = st.columns(len(suggestions))
-            for idx, (col, sugg) in enumerate(zip(cols, suggestions)):
-                with col:
-                    if st.button(sugg, key=f"{key}_sugg_{idx}"):
-                        existing = st.session_state.get(field, "")
-                        sep = "\n" if existing else ""
-                        st.session_state[field] = f"{existing}{sep}{sugg}"
-                        st.rerun()
+    c3, c4, c5 = st.columns(3)
+    set_in(data, "employment.travel_required", c3.toggle("Reisetätigkeit?", value=bool(get_in(data, "employment.travel_required", False))))
+    set_in(data, "employment.relocation_support", c4.toggle("Relocation?", value=bool(get_in(data, "employment.relocation_support", False))))
+    set_in(data, "employment.visa_sponsorship", c5.toggle("Visum-Sponsoring?", value=bool(get_in(data, "employment.visa_sponsorship", False))))
 
-    st.session_state["followup_questions"] = [
-        f
-        for f in followups
-        if not f.get("field")
-        or not st.session_state.get(f.get("field", ""), "").strip()
-    ]
+def _step_compensation():
+    st.subheader("Vergütung & Benefits")
+    data = st.session_state.data
+    ensure_path(data, "compensation.salary_min")
+    ensure_path(data, "compensation.salary_max")
+    ensure_path(data, "compensation.currency")
+    ensure_path(data, "compensation.period")
+    ensure_path(data, "compensation.variable_pay")
+    ensure_path(data, "compensation.equity_offered")
+    ensure_path(data, "compensation.benefits")
 
+    c1, c2, c3 = st.columns(3)
+    set_in(data, "compensation.salary_min", c1.number_input("Gehalt min", value=float(get_in(data, "compensation.salary_min", 0)) if get_in(data, "compensation.salary_min") is not None else 0.0))
+    set_in(data, "compensation.salary_max", c2.number_input("Gehalt max", value=float(get_in(data, "compensation.salary_max", 0)) if get_in(data, "compensation.salary_max") is not None else 0.0))
+    set_in(data, "compensation.currency", c3.text_input("Währung", value=get_in(data, "compensation.currency", "")))
 
-def editable_draggable_list(
-    field: str, label: str, suggestions: list[str] | None = None
-) -> None:
-    """Render a draggable list for newline-separated session values.
+    c4, c5 = st.columns(2)
+    set_in(data, "compensation.period", c4.selectbox("Periode", options=["year","month","day","hour"], index=0 if not get_in(data,"compensation.period") else ["year","month","day","hour"].index(get_in(data,"compensation.period"))))
+    set_in(data, "compensation.variable_pay", c5.toggle("Variable Vergütung?", value=bool(get_in(data, "compensation.variable_pay", False))))
 
-    Args:
-        field: Session state key storing newline-separated values.
-        label: Display label for the list.
-        suggestions: Optional dropdown suggestions to add to the list.
-    """
-    lang = st.session_state.get("lang", "en")
-    raw = st.session_state.get(field, "")
-    items = [s.strip() for s in raw.splitlines() if s.strip()]
-    # Callbacks are used to safely mutate widget state without triggering
-    # ``StreamlitAPIException``. Direct assignment to ``st.session_state`` for
-    # an existing widget key is not allowed once the widget is instantiated.
+    c6, c7 = st.columns(2)
+    set_in(data, "compensation.equity_offered", c6.toggle("Equity?", value=bool(get_in(data, "compensation.equity_offered", False))))
+    set_in(data, "compensation.benefits",
+          _chip_multiselect("Benefits", options=get_in(data, "compensation.benefits", []) or [], values=get_in(data, "compensation.benefits", []) or []))
 
-    def _add_item() -> None:
-        """Append the value from the input box to the list of items."""
-        nonlocal items
-        new_item = st.session_state.get(f"{field}_new", "").strip()
-        if new_item:
-            items.append(new_item)
-            st.session_state[f"{field}_new"] = ""
+def _step_process():
+    st.subheader("Prozess")
+    data = st.session_state.data
+    ensure_path(data, "process.interview_stages")
+    ensure_path(data, "process.process_notes")
 
-    add_label = f"Add {label}" if lang != "de" else f"{label} hinzufügen"
-    st.text_input(add_label, key=f"{field}_new")
-    st.button(
-        "Add" if lang != "de" else "Hinzufügen", key=f"{field}_add", on_click=_add_item
-    )
+    c1, c2 = st.columns([1,2])
+    set_in(data, "process.interview_stages", int(c1.number_input("Stages", value=int(get_in(data, "process.interview_stages", 0)))))
+    set_in(data, "process.process_notes", c2.text_area("Notizen", value=get_in(data, "process.process_notes", "")))
 
-    if suggestions:
-        available = [s for s in suggestions if s not in items]
+def _step_summary(schema: dict, critical: list[str]):
+    st.subheader("Zusammenfassung")
+    data = st.session_state.data
+    missing = missing_keys(data, critical)
+    if missing:
+        st.warning(f"Es fehlen noch kritische Felder: {', '.join(missing)}")
 
-        def _add_suggestion() -> None:
-            """Append the selected suggestion to the list of items."""
-            nonlocal items
-            choice = st.session_state.get(f"{field}_suggest", "")
-            if choice:
-                items.append(choice)
-                st.session_state[f"{field}_suggest"] = ""
+    st.json(data)
 
-        select_label = "Choose suggestion" if lang != "de" else "Vorschlag auswählen"
-        st.selectbox(
-            select_label,
-            [""] + available,
-            key=f"{field}_suggest",
-        )
-        st.button(
-            "Add suggestion" if lang != "de" else "Vorschlag hinzufügen",
-            key=f"{field}_suggest_add",
-            on_click=_add_suggestion,
-        )
-
-    def _remove_items() -> None:
-        """Remove selected entries from the list and clear the selection."""
-        nonlocal items
-        selected = st.session_state.get(f"{field}_remove", [])
-        if selected:
-            items = [i for i in items if i not in selected]
-            st.session_state[f"{field}_remove"] = []
-
-    if items:
-        remove_label = f"Remove {label}" if lang != "de" else f"{label} entfernen"
-        st.multiselect(
-            remove_label,
-            items,
-            key=f"{field}_remove",
-            on_change=_remove_items,
-        )
-        items = sort_items(
-            items, header=label, direction="vertical", key=f"{field}_sort"
-        )
-
-    st.session_state[field] = "\n".join(items)
-
-
-def render_summary_input(field: str, label: str, highlight_missing: bool) -> None:
-    """Render an editable input for the summary page.
-
-    Uses a text area for multiline content and a text input for shorter values.
-
-    Args:
-        field: Session state key to render.
-        label: Display label for the field.
-        highlight_missing: Whether the field is required but empty.
-    """
-    value = st.session_state.get(field, "")
-    widget = (
-        st.text_area if ("\n" in str(value) or len(str(value)) > 80) else st.text_input
-    )
-    widget_label = f"❗ {label}" if highlight_missing else label
-    widget(widget_label, value, key=field)
-
-
-def _reset_wizard() -> None:
-    """Reset session state when new input is provided."""
-
-    for k in ["extraction_complete", "followup_questions"]:
-        st.session_state.pop(k, None)
-    st.session_state["current_section"] = 0
-
-
-def _run_extraction(lang: str) -> None:
-    """Run vacancy extraction based on current session inputs."""
-
-    url_text = ""
-    if st.session_state.get("input_url"):
-        url_text = extract_text_from_url(st.session_state["input_url"])
-        if not url_text:
-            warn = (
-                "⚠️ Unable to fetch or parse content from the provided URL."
-                if lang != "de"
-                else "⚠️ Die bereitgestellte URL konnte nicht abgerufen oder verarbeitet werden."
-            )
-            st.warning(warn)
-    file_text = st.session_state.get("uploaded_text", "")
-    combined_text = merge_texts(url_text, file_text)
-    if st.session_state.get("position.job_title") and not combined_text:
-        combined_text = st.session_state["position.job_title"]
-
-    if not combined_text:
-        warn = (
-            "⚠️ No text available to analyze. Please provide a job ad URL or upload a document."
-            if lang != "de"
-            else "⚠️ Kein Text zur Analyse verfügbar. Bitte geben Sie eine Stellenanzeigen-URL an oder laden Sie ein Dokument hoch."
-        )
-        st.warning(warn)
-        return
-
-    messages = build_extract_messages(combined_text)
-    fn_schema = build_extraction_function()
-    try:
-        response = call_chat_api(
-            messages,
-            model=st.session_state.get("llm_model"),
-            temperature=0.0,
-            functions=[fn_schema],
-            function_call={"name": fn_schema["name"]},
-        )
-    except Exception:  # pragma: no cover - network failure
-        st.session_state["extraction_success"] = False
-        err_msg = (
-            "❌ OpenAI request failed. Please try again later."
-            if lang != "de"
-            else "❌ OpenAI-Anfrage fehlgeschlagen. Bitte später erneut versuchen."
-        )
-        st.error(err_msg)
-        return
-    try:
-        jd = coerce_and_fill(json.loads(response))
-        to_session_state(jd, cast(dict[str, Any], st.session_state))
-        normalise_state()
-        try:
-            followups = generate_followup_questions(
-                cast(dict[str, Any], st.session_state),
-                num_questions=1 if st.session_state.get("auto_mode") else None,
-                lang=lang,
-                use_rag=st.session_state.get("use_rag", True),
-            )
-        except Exception:  # pragma: no cover - network failure
-            warn_msg = (
-                "⚠️ Unable to generate follow-up questions."
-                if lang != "de"
-                else "⚠️ Folgefragen konnten nicht erstellt werden."
-            )
-            st.warning(warn_msg)
-            followups = []
-        st.session_state["followup_questions"] = (
-            followups[:1] if st.session_state.get("auto_mode") else followups
-        )
-        occ = esco_utils.classify_occupation(
-            st.session_state.get("position.job_title", ""), lang=lang
-        )
-        if occ:
-            st.session_state["occupation_label"] = occ.get("preferredLabel") or occ.get(
-                "occupation_label", ""
-            )
-            st.session_state["occupation_group"] = occ.get("group", "")
-        st.session_state["extraction_success"] = True
-    except Exception:
-        st.session_state["extraction_success"] = False
-        st.error(
-            "❌ Could not parse AI response as JSON. Please try again or rephrase the input."
-        )
-
-
-def render_extraction_summary(lang: str) -> None:
-    """Display extracted fields in a tabbed table."""
-
-    tab_labels = [
-        cat["de"] if lang == "de" else cat["en"] for cat in SUMMARY_CATEGORIES
-    ]
-    tabs = st.tabs(tab_labels)
-    for tab, category in zip(tabs, SUMMARY_CATEGORIES):
-        with tab:
-            rows = [
-                {
-                    ("Field" if lang != "de" else "Feld"): field.replace(
-                        "_", " "
-                    ).title(),
-                    ("Value" if lang != "de" else "Wert"): st.session_state.get(
-                        field, ""
-                    ),
-                }
-                for field in category["fields"]
-                if st.session_state.get(field)
-            ]
-            if rows:
-                st.table(rows)
-            else:
-                st.write(
-                    "No data extracted." if lang != "de" else "Keine Daten extrahiert."
-                )
-
-
-def welcome_page() -> None:
-    """Combined introduction and upload page for starting the wizard."""
-
-    lang = st.session_state.get("lang", "en")
-    st.header(
-        "🔍 Start Your Analysis with Vacalyzer"
-        if lang != "de"
-        else "🔍 Starten Sie Ihre Analyse mit Vacalyzer"
-    )
-    intro_text = (
-        "Avoid expensive information loss at the start of every recruitment process."
-        if lang != "de"
-        else "Vermeiden Sie kostspielige Informationsverluste zu Beginn jedes Recruiting-Prozesses."
-    )
-    st.write(intro_text)
-    st.caption(
-        "Upload a job ad or paste a URL. We'll extract everything we can and ask only what's missing."
-        if lang != "de"
-        else "Laden Sie eine Stellenanzeige hoch oder fügen Sie eine URL ein. Wir extrahieren alle verfügbaren Informationen und fragen nur fehlende Details ab."
-    )
-
-    colA, colB = st.columns(2)
-    with colA:
-        st.text_input(
-            "Job Title" if lang != "de" else "Stellenbezeichnung",
-            st.session_state.get("position.job_title", ""),
-            key="position.job_title",
-        )
-        st.text_input(
-            (
-                "Job Ad URL (optional)"
-                if lang != "de"
-                else "Stellenanzeigen-URL (optional)"
-            ),
-            st.session_state.get("input_url", ""),
-            key="input_url",
-            on_change=_reset_wizard,
-        )
-    with colB:
-        uploaded_file = st.file_uploader(
-            (
-                "Upload Job Ad (PDF, DOCX, TXT)"
-                if lang != "de"
-                else "Stellenanzeige hochladen (PDF, DOCX, TXT)"
-            ),
-            type=["pdf", "docx", "txt"],
-            key="uploaded_file",
-            on_change=_reset_wizard,
-        )
-        if uploaded_file is not None:
-            file_bytes = uploaded_file.read()
-            text = extract_text_from_file(file_bytes, uploaded_file.name)
-            if text:
-                st.session_state["uploaded_text"] = text
-                st.success(
-                    "✅ File uploaded and text extracted."
-                    if lang != "de"
-                    else "✅ Datei hochgeladen und Text extrahiert."
-                )
-            else:
-                st.error(
-                    "❌ Failed to extract text from the file."
-                    if lang != "de"
-                    else "❌ Text konnte nicht aus der Datei extrahiert werden."
-                )
-
-    start_label = "🚀 Start Discovery" if lang != "de" else "🚀 Analyse starten"
-    if st.button(start_label):
-        with st.spinner(
-            "Analyzing the job ad with AI..."
-            if lang != "de"
-            else "Stellenanzeige wird mit KI analysiert..."
-        ):
-            _run_extraction(lang)
-        if st.session_state.get("extraction_success"):
-            st.session_state["extraction_complete"] = True
-            st.session_state["current_section"] = 1
-            st.rerun()
-
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-def start_discovery_page() -> None:  # pragma: no cover - compatibility alias
-    """Alias for backward compatibility."""
-    welcome_page()
-
-
-def company_information_page():
-    """Company Info page: Gather basic company information and optionally auto-fetch details from website."""
-    lang = st.session_state.get("lang", "en")
-    st.header("🏢 Company Information" if lang != "de" else "🏢 Firmeninformationen")
-    try:
-        st.session_state["followup_questions"] = [
-            f
-            for f in generate_followup_questions(
-                cast(dict[str, Any], st.session_state),
-                num_questions=1 if st.session_state.get("auto_mode") else None,
-                lang=lang,
-                use_rag=st.session_state.get("use_rag", True),
-            )
-            if f.get("field") not in {"company.mission", "company.culture"}
-        ]
-    except Exception:  # pragma: no cover - network failure
-        pass
-    render_followups_for(
-        [
-            "company.name",
-            "company.industry",
-            "company.hq_location",
-            "company.size",
-            "location.primary_city",
-            "location.country",
-            "company.website",
-        ]
-    )
-
-
-st.text_input(
-    "Company Name" if lang != "de" else "Unternehmensname",
-    st.session_state.get("company.name", ""),
-    key="company.name",
-)
-industry_options = [
-    "Information Technology",
-    "Finance",
-    "Healthcare",
-    "Manufacturing",
-    "Retail",
-    "Logistics",
-    "Automotive",
-    "Aerospace",
-    "Telecommunications",
-    "Energy",
-    "Pharmaceuticals",
-    "Education",
-    "Public Sector",
-    "Consulting",
-    "Media & Entertainment",
-    "Hospitality",
-    "Construction",
-    "Real Estate",
-    "Agriculture",
-    "Nonprofit",
-    "Insurance",
-    "Legal",
-    "Biotech",
-    "Chemicals",
-    "Utilities",
-    "Gaming",
-    "E-commerce",
-    "Cybersecurity",
-    "Marketing/Advertising",
-]
-current_industry = st.session_state.get("company.industry", "")
-st.selectbox(
-    "Industry" if lang != "de" else "Branche",
-    industry_options,
-    index=(
-        industry_options.index(current_industry)
-        if current_industry in industry_options
-        else 0
-    ),
-    key="company.industry",
-)
-st.text_input(
-    "Headquarters Location" if lang != "de" else "Hauptsitz",
-    st.session_state.get("company.hq_location", ""),
-    key="company.hq_location",
-)
-size_options = [
-    "1-10",
-    "11-50",
-    "51-200",
-    "201-1000",
-    "1001-5000",
-    "5001+",
-]
-st.selectbox(
-    "Company Size" if lang != "de" else "Unternehmensgröße",
-    size_options,
-    index=(
-        size_options.index(st.session_state["company.size"])
-        if st.session_state.get("company.size") in size_options
-        else 0
-    ),
-    key="company.size",
-)
-st.text_input(
-    "City" if lang != "de" else "Stadt",
-    st.session_state.get("location.primary_city", ""),
-    key="location.primary_city",
-)
-st.text_input(
-    "Country" if lang != "de" else "Land",
-    st.session_state.get("location.country", ""),
-    key="location.country",
-)
-st.text_input(
-    "Company Website" if lang != "de" else "Webseite",
-    st.session_state.get("company.website", ""),
-    key="company.website",
-)
-
-fetch_label = (
-    "🔄 Fetch Company Info from Website"
-    if lang != "de"
-    else "🔄 Firmendaten von Website holen"
-)
-if st.button(fetch_label):
-    url = st.session_state.get("company.website", "").strip()
-    if url:
-        with st.spinner(
-            "Fetching company info..."
-            if lang != "de"
-            else "Firmendaten werden geladen..."
-        ):
-            base_text = extract_text_from_url(url)
-            impressum_text = extract_text_from_url(url.rstrip("/") + "/impressum")
-            combined = merge_texts(base_text, impressum_text)
-            info = extract_company_info(combined)
-        if info:
-            mapping = {
-                "name": "company.name",
-                "location": "company.hq_location",
-                "mission": "company.mission",
-                "culture": "company.culture",
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("💡 Follow-ups vorschlagen (LLM)", type="primary"):
+            payload = {
+                "lang": st.session_state.lang,
+                "data": data,
+                "missing": missing
             }
-            for src, dest in mapping.items():
-                value = info.get(src, "")
-                if value and not st.session_state.get(dest):
-                    st.session_state[dest] = value
-            st.success(
-                "✅ Company information updated"
-                if lang != "de"
-                else "✅ Firmeninformationen aktualisiert"
-            )
-        else:
-            st.warning(
-                "No information found, please fill manually."
-                if lang != "de"
-                else "Keine Informationen gefunden, bitte manuell ausfüllen."
-            )
+            try:
+                res = ask_followups(payload, model=st.session_state.model, vector_store_id=st.session_state.vector_store_id or None)
+                st.session_state["followups"] = res
+                st.success("Follow-ups aktualisiert.")
+            except Exception as e:
+                st.error(f"Follow-ups fehlgeschlagen: {e}")
+
+    with col2:
+        if st.session_state.get("followups"):
+            st.write("**Vorgeschlagene Fragen:**")
+            fu = st.session_state["followups"]
+            for item in fu.get("questions", []):
+                key = item.get("key")  # dot key, z.B. "requirements.hard_skills"
+                q = item.get("question")
+                if not key or not q:
+                    continue
+                st.markdown(f"**{q}**")
+                val = st.text_input(f"Antwort für {key}", key=f"fu_{key}")
+                if val:
+                    set_in(data, key, val)
+
+    st.divider()
+    if missing:
+        st.info("Bitte fülle die fehlenden kritischen Felder, um abzuschließen.")
     else:
-        st.warning(
-            "Please enter a company website URL first."
-            if lang != "de"
-            else "Bitte zuerst die Firmenwebseite eingeben."
-        )
+        st.success("Alle kritischen Felder sind befüllt.")
 
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
+# --- Haupt-Wizard-Runner ---
+def run_wizard():
+    # Schema/Config aus app.py Session übernehmen
+    schema: dict = st.session_state.get("_schema") or {}
+    critical: list[str] = st.session_state.get("_critical_list") or []
 
+    # Falls nicht durch app.py injiziert, lokal nachladen (failsafe)
+    if not schema:
+        try:
+            with (ROOT / "vacalyser_schema.json").open("r", encoding="utf-8") as f:
+                schema = json.load(f)
+        except Exception:
+            schema = {}
+    if not critical:
+        try:
+            with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as f:
+                critical = json.load(f).get("critical", [])
+        except Exception:
+            critical = []
 
-def role_description_page():
-    """Role Description page: Summary of the role and key responsibilities."""
-    lang = st.session_state.get("lang", "en")
-    st.header("📋 Role Description" if lang != "de" else "📋 Rollenbeschreibung")
-    try:
-        st.session_state["followup_questions"] = generate_followup_questions(
-            cast(dict[str, Any], st.session_state),
-            num_questions=1 if st.session_state.get("auto_mode") else None,
-            lang=lang,
-            use_rag=st.session_state.get("use_rag", True),
-        )
-    except Exception:  # pragma: no cover - network failure
-        pass
-    render_followups_for(["position.role_summary", "responsibilities.items"])
-
-    # Role Details inputs (Section 2)
-    st.text_input(
-        "Job Title" if lang != "de" else "Stellenbezeichnung",
-        st.session_state.get("position.job_title", ""),
-        key="position.job_title",
-    )
-    # ... (other inputs like department, etc.)
-    st.text_area(
-        "Role Summary / Objective" if lang != "de" else "Rollenübersicht / Ziel",
-        st.session_state.get("position.role_summary", ""),
-        height=100,
-        key="position.role_summary",
-    )
-    responsibilities_label = (
-        "Key Responsibilities" if lang != "de" else "Hauptverantwortlichkeiten"
-    )
-    editable_draggable_list("responsibilities.items", responsibilities_label)
-
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-def task_scope_page():
-    """Tasks page: Scope of tasks or projects for the role."""
-    lang = st.session_state.get("lang", "en")
-    st.header(
-        "🗒️ Project/Task Scope" if lang != "de" else "🗒️ Projekt- / Aufgabenbereich"
-    )
-    render_followups_for(["responsibilities.items"])
-    st.text_area(
-        (
-            "Main Tasks or Projects"
-            if lang != "de"
-            else "Wichtigste Aufgaben oder Projekte"
-        ),
-        st.session_state.get("responsibilities.items", ""),
-        height=120,
-        key="responsibilities.items",
-    )
-
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-def skills_competencies_page():
-    """Skills page: capture technical, language, and certification requirements."""
-    lang = st.session_state.get("lang", "en")
-    st.header(
-        "🛠️ Required Skills & Competencies"
-        if lang != "de"
-        else "🛠️ Erforderliche Fähigkeiten & Kompetenzen"
-    )
-    render_followups_for(
-        [
-            "requirements.hard_skills",
-            "requirements.soft_skills",
-            "requirements.tools_and_technologies",
-            "requirements.languages_required",
-            "requirements.certifications",
-        ]
-    )
-    if not st.session_state.get("hard_skills") and st.session_state.get("requirements"):
-        st.session_state["hard_skills"] = st.session_state.get("requirements", "")
-    tool_fields = [
-        "programming_languages",
-        "frameworks",
-        "databases",
-        "cloud_providers",
-        "devops_tools",
-    ]
-    tool_suggestions: list[str] = []
-    for f in tool_fields:
-        tool_suggestions.extend(get_field_suggestions(f, lang=lang))
-    seen: set[str] = set()
-    tool_suggestions = [
-        s for s in tool_suggestions if not (s.lower() in seen or seen.add(s.lower()))
+    # Stepbar
+    steps = [
+        ("Intro", _step_intro),
+        ("Quelle", lambda: _step_source(schema)),
+        ("Unternehmen", _step_company),
+        ("Position", _step_position),
+        ("Anforderungen", _step_requirements),
+        ("Beschäftigung", _step_employment),
+        ("Vergütung", _step_compensation),
+        ("Prozess", _step_process),
+        ("Summary", lambda: _step_summary(schema, critical)),
     ]
 
-    # Requirements inputs (Section 3 - Skills & Competencies)
+    # Headline
+    st.markdown("### 🧭 Wizard")
 
-    tech_col, soft_col = st.columns(2)
-    with tech_col:
-        st.subheader("Technical" if lang != "de" else "Technisch")
-        editable_draggable_list(
-            "requirements.hard_skills",
-            "Hard/Technical Skills" if lang != "de" else "Fachliche (Hard) Skills",
-        )
-        editable_draggable_list(
-            "requirements.tools_and_technologies",
-            "Tools & Technologies" if lang != "de" else "Tools und Technologien",
-            suggestions=tool_suggestions,
-        )
-        editable_draggable_list(
-            "requirements.certifications",
-            "Certifications" if lang != "de" else "Zertifizierungen",
-        )
-    with soft_col:
-        st.subheader("Soft & Language" if lang != "de" else "Soziale & Sprache")
-        editable_draggable_list(
-            "requirements.soft_skills", "Soft Skills" if lang != "de" else "Soft Skills"
-        )
-        editable_draggable_list(
-            "requirements.languages_required",
-            "Languages Required" if lang != "de" else "Erforderliche Sprachen",
-        )
+    # Step Navigation (oben)
+    st.progress((st.session_state.step + 1) / len(steps))
+    tabs = [label for label, _ in steps]
+    st.caption("Klicke auf „Weiter“ oder navigiere direkt zu einem Schritt.")
 
-    hard_skills_text = st.session_state.get("hard_skills", "")
-    soft_skills_text = st.session_state.get("soft_skills", "")
-    tools_text = st.session_state.get("tools_and_technologies", "")
-    skill_btn_col, skill_model_col = st.columns([3, 2])
-    with skill_model_col:
-        skill_model_label = st.selectbox(
-            "Model",
-            list(MODEL_OPTIONS.keys()),
-            key="skill_model",
-        )
-    with skill_btn_col:
-        suggest_label = (
-            "💡 Suggest Additional Skills"
-            if lang != "de"
-            else "💡 Zusätzliche Skills vorschlagen"
-        )
-        if st.button(suggest_label):
-            model_name = MODEL_OPTIONS[skill_model_label]
-            # Use AI to suggest additional technical and soft skills
-            with st.spinner(
-                (
-                    f"Generating skill suggestions with {skill_model_label}..."
-                    if lang != "de"
-                    else f"Skill-Vorschläge werden mit {skill_model_label} generiert..."
-                )
-            ):
-                title = st.session_state.get("position.job_title", "")
-                tasks = st.session_state.get("responsibilities.items", "")
-                existing_skills: list[str] = []
-                for text in (hard_skills_text, soft_skills_text, tools_text):
-                    if text:
-                        existing_skills.extend(
-                            s.strip() for s in text.splitlines() if s.strip()
-                        )
-                try:
-                    suggestions = suggest_additional_skills(
-                        job_title=title,
-                        responsibilities=tasks,
-                        existing_skills=existing_skills,
-                        num_suggestions=10,
-                        lang="de" if lang == "de" else "en",
-                        model=model_name,
-                    )
-                except Exception:  # pragma: no cover - network failure
-                    warn = (
-                        "⚠️ Could not generate skill suggestions."
-                        if lang != "de"
-                        else "⚠️ Konnte keine Skill-Vorschläge generieren."
-                    )
-                    st.warning(warn)
-                    suggestions = {"technical": [], "soft": []}
-                tech_suggestions = suggestions.get("technical", [])
-                soft_suggestions = suggestions.get("soft", [])
-                # Store suggestions in session state to display as chips
-                st.session_state["suggested_tech_skills"] = tech_suggestions
-                st.session_state["suggested_soft_skills"] = soft_suggestions
-        # Notify user to pick from suggestions
-        if st.session_state.get("suggested_tech_skills") or st.session_state.get(
-            "suggested_soft_skills"
-        ):
-            st.success(
-                (
-                    "✔️ Skill suggestions generated. Click on a suggestion to add it."
-                    if lang != "de"
-                    else "✔️ Skill-Vorschläge generiert. Klicken Sie auf einen Vorschlag, um ihn hinzuzufügen."
-                )
-            )
-    # If suggestions are available, display them as chips for selection
-    tech_list = st.session_state.get("suggested_tech_skills", [])
-    soft_list = st.session_state.get("suggested_soft_skills", [])
-    if tech_list:
-        st.caption(
-            "**Suggested Technical Skills:**"
-            if lang != "de"
-            else "**Vorgeschlagene technische Fähigkeiten:**"
-        )
-        cols = st.columns(len(tech_list))
-        for i, (col, skill) in enumerate(zip(cols, tech_list)):
-            with col:
-                if st.button(skill, key=f"tech_sugg_{i}"):
-                    # Append to hard skills
-                    current = st.session_state.get("hard_skills", "")
-                    sep = "\n" if current else ""
-                    if skill not in current:
-                        st.session_state["hard_skills"] = f"{current}{sep}{skill}"
-                    # Remove the added skill from suggestions
-                    st.session_state["suggested_tech_skills"] = [
-                        s for s in tech_list if s != skill
-                    ]
-                    st.rerun()
-    if soft_list:
-        st.caption(
-            "**Suggested Soft Skills:**"
-            if lang != "de"
-            else "**Vorgeschlagene Soft Skills:**"
-        )
-        cols = st.columns(len(soft_list))
-        for j, (col, skill) in enumerate(zip(cols, soft_list)):
-            with col:
-                if st.button(skill, key=f"soft_sugg_{j}"):
-                    # Append to soft skills
-                    current = st.session_state.get("soft_skills", "")
-                    sep = "\n" if current else ""
-                    if skill not in current:
-                        st.session_state["soft_skills"] = f"{current}{sep}{skill}"
-                    st.session_state["suggested_soft_skills"] = [
-                        s for s in soft_list if s != skill
-                    ]
-                    st.rerun()
+    # Render current step
+    label, renderer = steps[st.session_state.step]
+    st.markdown(f"#### Schritt {st.session_state.step + 1} — {label}")
+    renderer()
 
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-def benefits_compensation_page():
-    """Benefits page: Compensation and benefits details, with suggestions for perks."""
-    lang = st.session_state.get("lang", "en")
-    st.header(
-        "💰 Benefits & Compensation" if lang != "de" else "💰 Vergütung & Vorteile"
-    )
-    render_followups_for(
-        [
-            "compensation.salary_min",
-            "compensation.salary_max",
-            "compensation.benefits",
-            "compensation.healthcare_plan",
-            "compensation.pension_plan",
-            "employment.work_policy",
-            "employment.travel_required",
-        ]
-    )
-
-
-st.selectbox(
-    "Employment Type" if lang != "de" else "Anstellungsart",
-    [
-        "Full-time",
-        "Part-time",
-        "Contract",
-        "Temporary",
-        "Internship",
-        "Apprenticeship",
-        "Freelance",
-        "Fixed-term",
-    ],
-    index=(
-        0
-        if not st.session_state.get(
-            "employment.job_type"
-        )  # set default or current value
-        else max(
-            0,
-            [
-                "Full-time",
-                "Part-time",
-                "Contract",
-                "Temporary",
-                "Internship",
-                "Apprenticeship",
-                "Freelance",
-                "Fixed-term",
-            ].index(st.session_state["employment.job_type"]),
-        )
-    ),
-    key="employment.job_type",
-)
-st.selectbox(
-    "Work Policy" if lang != "de" else "Arbeitsmodell",
-    ["Onsite", "Hybrid", "Remote"],
-    index=(
-        0
-        if not st.session_state.get("employment.work_policy")
-        else max(
-            0,
-            ["Onsite", "Hybrid", "Remote"].index(
-                st.session_state["employment.work_policy"]
-            ),
-        )
-    ),
-    key="employment.work_policy",
-)
-st.checkbox(
-    "Travel required" if lang != "de" else "Reise erforderlich",
-    value=bool(st.session_state.get("employment.travel_required", False)),
-    key="employment.travel_required",
-)
-# Salary fields
-sal_provided = st.checkbox(
-    "Salary information provided" if lang != "de" else "Gehaltsspanne angeben",
-    value=bool(st.session_state.get("compensation.salary_provided", True)),
-    key="compensation.salary_provided",
-)
-if sal_provided:
-    # Show min, max, currency, period inputs
-    cols = st.columns([1, 1, 1, 1])
-    with cols[0]:
-        st.number_input(
-            "Salary Min",
-            value=st.session_state.get("compensation.salary_min", 0),
-            step=500,
-            min_value=0,
-            key="compensation.salary_min",
-        )
-    with cols[1]:
-        st.number_input(
-            "Salary Max",
-            value=st.session_state.get("compensation.salary_max", 0),
-            step=500,
-            min_value=0,
-            key="compensation.salary_max",
-        )
-    with cols[2]:
-        st.selectbox(
-            "Currency" if lang != "de" else "Währung",
-            ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK"],
-            index=(
-                0
-                if not st.session_state.get("compensation.salary_currency")
-                else max(
-                    0,
-                    [
-                        "EUR",
-                        "USD",
-                        "GBP",
-                        "CHF",
-                        "SEK",
-                        "NOK",
-                        "DKK",
-                        "PLN",
-                        "CZK",
-                    ].index(st.session_state["compensation.salary_currency"]),
-                )
-            ),
-            key="compensation.salary_currency",
-        )
-    with cols[3]:
-        st.selectbox(
-            "Period",
-            ["year", "month", "day", "hour"],
-            index=(
-                0
-                if not st.session_state.get("compensation.salary_period")
-                else max(
-                    0,
-                    ["year", "month", "day", "hour"].index(
-                        st.session_state["compensation.salary_period"]
-                    ),
-                )
-            ),
-            key="compensation.salary_period",
-        )
-    benefits_label = "Benefits/Perks" if lang != "de" else "Vorteile/Extras"
-    editable_draggable_list("compensation.benefits", benefits_label)
-    st.text_area(
-        (
-            "Learning & Development Opportunities"
-            if lang != "de"
-            else "Weiterbildungs- und Entwicklungsmöglichkeiten"
-        ),
-        st.session_state.get("learning_opportunities", ""),
-        height=70,
-        key="learning_opportunities",
-    )
-    st.text_input(
-        "Remote Work Policy" if lang != "de" else "Richtlinie für Fernarbeit",
-        st.session_state.get("employment.work_policy_details", ""),
-        key="employment.work_policy_details",
-    )
-    st.text_input(
-        "Travel Requirements" if lang != "de" else "Reisebereitschaft",
-        st.session_state.get("employment.travel_details", ""),
-        key="employment.travel_details",
-    )
-    benefit_btn_col, benefit_model_col = st.columns([3, 2])
-    with benefit_model_col:
-        benefit_model_label = st.selectbox(
-            "Model",
-            list(MODEL_OPTIONS.keys()),
-            key="benefit_model",
-        )
-    with benefit_btn_col:
-        suggest_label = (
-            "💡 Suggest Benefits" if lang != "de" else "💡 Benefits vorschlagen"
-        )
-        if st.button(suggest_label):
-            model_name = MODEL_OPTIONS[benefit_model_label]
-            with st.spinner(
-                (
-                    f"Suggesting common benefits with {benefit_model_label}..."
-                    if lang != "de"
-                    else f"Gängige Benefits werden mit {benefit_model_label} vorgeschlagen..."
-                )
-            ):
-                title = st.session_state.get("position.job_title", "")
-                industry = st.session_state.get("company.industry", "")
-                existing = st.session_state.get("compensation.benefits", "")
-                try:
-                    benefit_suggestions = suggest_benefits(
-                        title,
-                        industry,
-                        existing_benefits=existing,
-                        model=model_name,
-                    )
-                except Exception:  # pragma: no cover - network failure
-                    warn = (
-                        "⚠️ Could not generate benefit suggestions."
-                        if lang != "de"
-                        else "⚠️ Konnte keine Benefit-Vorschläge generieren."
-                    )
-                    st.warning(warn)
-                    benefit_suggestions = []
-            if benefit_suggestions:
-                cast(dict[str, Any], st.session_state)[
-                    "suggested_benefits"
-                ] = benefit_suggestions
-                st.success(
-                    "✔️ Benefit suggestions generated. Click to add them."
-                    if lang != "de"
-                    else "✔️ Benefit-Vorschläge generiert. Klicken Sie, um sie hinzuzufügen."
-                )
-            else:
-                st.warning(
-                    "No benefit suggestions available at the moment."
-                    if lang != "de"
-                    else "Derzeit keine Benefit-Vorschläge verfügbar."
-                )
-    # Display benefit suggestions as chips if available
-    benefit_suggestions = st.session_state.get("suggested_benefits", [])
-    if benefit_suggestions:
-        cols = st.columns(len(benefit_suggestions))
-        for k, (col, perk) in enumerate(zip(cols, benefit_suggestions)):
-            with col:
-                if st.button(perk, key=f"benefit_sugg_{k}"):
-                    current = st.session_state.get("compensation.benefits", "")
-                    sep = "\n" if current else ""
-                    if perk not in current:
-                        st.session_state["compensation.benefits"] = (
-                            f"{current}{sep}{perk}"
-                        )
-                    # Remove added perk from suggestions list
-                    cast(dict[str, Any], st.session_state)["suggested_benefits"] = [
-                        b for b in benefit_suggestions if b != perk
-                    ]
-                    st.rerun()
-
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-def recruitment_process_page():
-    """Process page: Details about the recruitment process (interview rounds, notes)."""
-    lang = st.session_state.get("lang", "en")
-    st.header("🏁 Recruitment Process" if lang != "de" else "🏁 Einstellungsprozess")
-    render_followups_for(["interview_stages", "process_notes"])
-    st.number_input(
-        (
-            "Number of Interview Rounds"
-            if lang != "de"
-            else "Anzahl der Interviewrunden"
-        ),
-        min_value=0,
-        step=1,
-        value=int(st.session_state.get("interview_stages", 0)),
-        key="interview_stages",
-        format="%d",
-    )
-    st.text_area(
-        (
-            "Additional Hiring Process Notes"
-            if lang != "de"
-            else "Weitere Hinweise zum Prozess"
-        ),
-        st.session_state.get("process_notes", ""),
-        height=80,
-        key="process_notes",
-    )
-
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-def summary_outputs_page():
-    """Summary page: Display a summary of collected fields and provide output generation (job ad, interview guide, boolean query)."""
-    lang = st.session_state.get("lang", "en")
-    normalise_state(
-        reapply_aliases=False
-    )  # Final normalization (do not reapply alias values here)
-    st.header(
-        "📊 Summary & Outputs" if lang != "de" else "📊 Zusammenfassung & Ergebnisse"
-    )
-    if st.session_state.get("company_logo"):
-        st.image(st.session_state["company_logo"], width=150)
-    if st.session_state.get("company.name"):
-        st.subheader(st.session_state["company.name"])
-    if st.session_state.get("company_style_guide"):
-        st.markdown(f"**Style Guide:** {st.session_state['company_style_guide']}")
-    mission = st.session_state.get("company.mission")
-    culture = st.session_state.get("company.culture")
-    if mission or culture:
-        if lang == "de":
-            if mission:
-                st.markdown(f"**Unternehmensmission:** {mission}")
-            if culture:
-                st.markdown(f"**Unternehmenskultur:** {culture}")
+    # Bottom nav
+    col_prev, col_next = st.columns([1, 1])
+    with col_prev:
+        if st.session_state.step > 0 and st.button("◀︎ Zurück", use_container_width=True):
+            st.session_state.step -= 1
+            st.rerun()
+    with col_next:
+        # Gating: auf Summary erst, ansonsten immer weiter
+        if st.session_state.step < len(steps) - 1:
+            if st.button("Weiter ▶︎", type="primary", use_container_width=True):
+                st.session_state.step += 1
+                st.rerun()
         else:
-            if mission:
-                st.markdown(f"**Company Mission:** {mission}")
-            if culture:
-                st.markdown(f"**Company Culture:** {culture}")
-    # Show ESCO occupation classification if available
-    if st.session_state.get("occupation_label"):
-        occ_label = st.session_state["occupation_label"]
-        occ_group = st.session_state.get("occupation_group", "")
-        if lang == "de":
-            st.write(f"**Erkannte ESCO-Berufsgruppe:** {occ_label} ({occ_group})")
-        else:
-            st.write(f"**Identified ESCO Occupation:** {occ_label} ({occ_group})")
-    tab_labels = [
-        cat["de"] if lang == "de" else cat["en"] for cat in SUMMARY_CATEGORIES
-    ]
-    tabs = st.tabs(tab_labels)
-    for tab, category in zip(tabs, SUMMARY_CATEGORIES):
-        with tab:
-            for field in category["fields"]:
-                value = st.session_state.get(field, "")
-                is_missing = not value and field in CRITICAL_FIELDS
-                if value or is_missing:
-                    label = field.replace("_", " ").title()
-                    render_summary_input(field, label, is_missing)
-    # Model selection and document generation
-    model = model_selector()
-
-    tone_label = "Job ad tone" if lang != "de" else "Tonfall der Stellenanzeige"
-    tone_labels = [
-        choice["en"] if lang != "de" else choice["de"]
-        for choice in TONE_CHOICES.values()
-    ]
-    default_job_tone = (
-        TONE_CHOICES["diversity"]["en"]
-        if lang != "de"
-        else TONE_CHOICES["diversity"]["de"]
-    )
-    selected_job_label = st.selectbox(
-        tone_label,
-        tone_labels,
-        index=tone_labels.index(default_job_tone),
-        key="job_ad_tone_label",
-    )
-    job_tone_key = next(
-        k
-        for k, v in TONE_CHOICES.items()
-        if v["en"] == selected_job_label or v["de"] == selected_job_label
-    )
-    st.session_state["job_ad_tone"] = TONE_CHOICES[job_tone_key][
-        "tone_de" if lang.startswith("de") else "tone_en"
-    ]
-
-    generate_label = (
-        "🎯 Generate Final Job Ad"
-        if lang != "de"
-        else "🎯 Finale Stellenanzeige erstellen"
-    )
-    if st.button(generate_label):
-        with st.spinner(
-            "Generating job advertisement..."
-            if lang != "de"
-            else "Stellenanzeige wird erstellt..."
-        ):
-            try:
-                job_ad_text = generate_job_ad(
-                    st.session_state,
-                    tone=st.session_state.get("job_ad_tone"),
-                    model=model,
-                )
-            except Exception:  # pragma: no cover - network failure
-                err = (
-                    "❌ Failed to generate job ad. Please try again later."
-                    if lang != "de"
-                    else "❌ Stellenanzeige konnte nicht erstellt werden. Bitte später erneut versuchen."
-                )
-                st.error(err)
-                job_ad_text = ""
-        if job_ad_text:
-            st.session_state["job_ad_text"] = job_ad_text
-
-    job_ad_text = st.session_state.get("job_ad_text")
-    if job_ad_text:
-        st.subheader(
-            (
-                "Generated Job Advertisement"
-                if lang != "de"
-                else "Erstellte Stellenanzeige"
-            )
-        )
-        st.write(job_ad_text)
-        findings = scan_bias_language(job_ad_text, lang)
-        if findings:
-            warn = (
-                "Potentially biased terms detected:"
-                if lang != "de"
-                else "Möglicherweise vorbelastete Begriffe gefunden:"
-            )
-            st.warning(warn)
-            for item in findings:
-                st.markdown(f"- `{item['term']}` → {item['suggestion']}")
-        seo = seo_optimize(job_ad_text)
-        if seo["keywords"]:
-            st.markdown(f"**SEO Keywords:** `{', '.join(seo['keywords'])}`")
-        if seo["meta_description"]:
-            st.markdown(f"**Meta Description:** {seo['meta_description']}")
-        fmt_label = "Download format" if lang != "de" else "Download-Format"
-        job_fmt = st.selectbox(
-            fmt_label,
-            ["markdown", "docx", "pdf", "json"],
-            key="job_ad_format",
-        )
-        data, mime, ext = prepare_download_data(
-            job_ad_text,
-            job_fmt,
-            key="job_ad",
-            title=st.session_state.get("position.job_title"),
-        )
-        dl_label = (
-            "💾 Download Job Ad" if lang != "de" else "💾 Stellenanzeige herunterladen"
-        )
-        st.download_button(
-            dl_label,
-            data=data,
-            file_name=f"job_ad.{ext}",
-            mime=mime,
-        )
-        feedback_label = (
-            "Refinement instructions" if lang != "de" else "Anpassungshinweise"
-        )
-        feedback = st.text_input(feedback_label, key="job_ad_feedback")
-        update_label = (
-            "🔄 Update Job Ad" if lang != "de" else "🔄 Stellenanzeige aktualisieren"
-        )
-        if st.button(update_label) and feedback:
-            updated = refine_document(job_ad_text, feedback, model=model)
-            st.session_state["job_ad_text"] = updated
-            st.session_state["job_ad_feedback"] = ""
-        what_label = "❓ What happened?" if lang != "de" else "❓ Was ist passiert?"
-        if st.button(what_label, key="job_ad_what"):
-            explanation = what_happened(
-                st.session_state,
-                st.session_state.get("job_ad_text", ""),
-                doc_type="job ad",
-                model=model,
-            )
-            st.info(explanation)
-
-    q_label = (
-        "Number of interview questions"
-        if lang != "de"
-        else "Anzahl der Interviewfragen"
-    )
-    num_questions = st.slider(
-        q_label,
-        min_value=3,
-        max_value=10,
-        value=5,
-        key="num_questions",
-    )
-    guide_tone_label = (
-        "Interview guide tone" if lang != "de" else "Tonfall des Leitfadens"
-    )
-    guide_tone_labels = [
-        choice["en"] if lang != "de" else choice["de"]
-        for choice in TONE_CHOICES.values()
-    ]
-    default_guide_tone = (
-        TONE_CHOICES["diversity"]["en"]
-        if lang != "de"
-        else TONE_CHOICES["diversity"]["de"]
-    )
-    selected_guide_label = st.selectbox(
-        guide_tone_label,
-        guide_tone_labels,
-        index=guide_tone_labels.index(default_guide_tone),
-        key="guide_tone_label",
-    )
-    guide_tone_key = next(
-        k
-        for k, v in TONE_CHOICES.items()
-        if v["en"] == selected_guide_label or v["de"] == selected_guide_label
-    )
-    st.session_state["interview_guide_tone"] = TONE_CHOICES[guide_tone_key][
-        "tone_de" if lang.startswith("de") else "tone_en"
-    ]
-    generate_label = (
-        "📝 Generate Interview Guide"
-        if lang != "de"
-        else "📝 Interviewleitfaden erstellen"
-    )
-    if st.button(generate_label):
-        title = st.session_state.get("position.job_title", "")
-        responsibilities = st.session_state.get("responsibilities.items", "")
-        with st.spinner(
-            "Generating interview guide..."
-            if lang != "de"
-            else "Leitfaden wird erstellt..."
-        ):
-            try:
-                guide = generate_interview_guide(
-                    title,
-                    responsibilities,
-                    hard_skills=st.session_state.get("hard_skills", ""),
-                    soft_skills=st.session_state.get("soft_skills", ""),
-                    audience="hiring managers",
-                    num_questions=num_questions,
-                    lang=lang,
-                    company_culture=st.session_state.get("company.culture", ""),
-                    tone=st.session_state.get("interview_guide_tone"),
-                    model=model,
-                )
-            except Exception:  # pragma: no cover - network failure
-                err = (
-                    "❌ Failed to generate interview guide. Please try again later."
-                    if lang != "de"
-                    else "❌ Leitfaden konnte nicht erstellt werden. Bitte später erneut versuchen."
-                )
-                st.error(err)
-                guide = ""
-        if guide:
-            st.session_state["interview_guide"] = guide
-
-    guide = st.session_state.get("interview_guide")
-    if guide:
-        st.subheader(
-            (
-                "Interview Guide & Scoring Rubrics"
-                if lang != "de"
-                else "Leitfaden für Vorstellungsgespräch & Bewertungsrichtlinien"
-            )
-        )
-        st.write(guide)
-        fmt_label = "Download format" if lang != "de" else "Download-Format"
-        guide_fmt = st.selectbox(
-            fmt_label,
-            ["markdown", "docx", "pdf", "json"],
-            key="guide_format",
-        )
-        data, mime, ext = prepare_download_data(
-            guide,
-            guide_fmt,
-            key="interview_guide",
-            title=st.session_state.get("position.job_title"),
-        )
-        dl_label = (
-            "💾 Download Interview Guide"
-            if lang != "de"
-            else "💾 Leitfaden herunterladen"
-        )
-        st.download_button(
-            dl_label,
-            data=data,
-            file_name=f"interview_guide.{ext}",
-            mime=mime,
-        )
-        feedback_label = (
-            "Refinement instructions" if lang != "de" else "Anpassungshinweise"
-        )
-        feedback = st.text_input(feedback_label, key="guide_feedback")
-        update_label = (
-            "🔄 Update Interview Guide"
-            if lang != "de"
-            else "🔄 Interviewleitfaden aktualisieren"
-        )
-        if st.button(update_label) and feedback:
-            updated = refine_document(guide, feedback, model=model)
-            st.session_state["interview_guide"] = updated
-            st.session_state["guide_feedback"] = ""
-        what_label = "❓ What happened?" if lang != "de" else "❓ Was ist passiert?"
-        if st.button(what_label, key="guide_what"):
-            explanation = what_happened(
-                st.session_state,
-                st.session_state.get("interview_guide", ""),
-                doc_type="interview guide",
-                model=model,
-            )
-            st.info(explanation)
-    # Always display a suggested Boolean search query for recruiters
-    if st.session_state.get("position.job_title") or st.session_state.get(
-        "hard_skills"
-    ):
-        skills = (
-            st.session_state.get("hard_skills", "")
-            + "\n"
-            + st.session_state.get("soft_skills", "")
-        ).splitlines()
-        skills = [s.strip() for s in skills if s.strip()]
-        with st.expander(
-            "Customize Boolean Search" if lang != "de" else "Boolean-Suche anpassen"
-        ):
-            include_title = st.checkbox(
-                "Include job title" if lang != "de" else "Jobtitel einbeziehen",
-                value=bool(st.session_state.get("position.job_title")),
-            )
-            title_synonyms_input = st.text_input(
-                (
-                    "Title synonyms (comma-separated)"
-                    if lang != "de"
-                    else "Titel-Synonyme (durch Komma getrennt)"
-                ),
-            )
-            selected_skills = st.multiselect(
-                "Skills to include" if lang != "de" else "Skills einbeziehen",
-                options=skills,
-                default=skills,
-            )
-        bool_query = build_boolean_query(
-            st.session_state.get("position.job_title", ""),
-            selected_skills,
-            include_title=include_title,
-            title_synonyms=[
-                s.strip() for s in title_synonyms_input.split(",") if s.strip()
-            ],
-        )
-        if bool_query:
-            st.info(f"**Boolean Search Query:** `{bool_query}`")
-
-    show_navigation(st.session_state["current_section"], TOTAL_STEPS)
-
-
-sec = st.session_state["current_section"]
-
-if sec == 0:
-    welcome_page()
-elif sec == 1:
-    company_information_page()
-elif sec == 2:
-    role_description_page()
-elif sec == 3:
-    task_scope_page()
-elif sec == 4:
-    skills_competencies_page()
-elif sec == 5:
-    benefits_compensation_page()
-elif sec == 6:
-    recruitment_process_page()
-elif sec == 7:
-    summary_outputs_page()
-
-st.stop()
+            st.button("Fertig", disabled=bool(missing_keys(st.session_state.data, critical)))
