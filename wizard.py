@@ -8,6 +8,7 @@ from typing import List
 import streamlit as st
 
 from utils.i18n import tr
+from i18n import t
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
@@ -192,7 +193,7 @@ def _step_intro():
         None
     """
 
-    st.title("Vacalyser — Wizard")
+    st.title(t("intro_title", st.session_state.lang))
     st.write(
         tr(
             "Dieser Assistent führt dich in wenigen Schritten zu einem vollständigen, strukturierten Stellenprofil.",
@@ -213,7 +214,7 @@ def _step_intro():
 def _step_source(schema: dict):
     """Render the source step where users choose text, file, or URL."""
 
-    st.subheader(tr("Quelle", "Source"))
+    st.subheader(t("source", st.session_state.lang))
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
     )
@@ -252,10 +253,7 @@ def _step_source(schema: dict):
             )
 
     text_for_extract = st.session_state.get("jd_text") or jd_text
-    if st.button(
-        tr("🔎 Automatisch analysieren (LLM)", "🔎 Analyze automatically (LLM)"),
-        type="primary",
-    ):
+    if st.button(t("analyze", st.session_state.lang), type="primary"):
         if not (text_for_extract or "").strip():
             st.warning(
                 tr(
@@ -740,9 +738,7 @@ def _step_summary(schema: dict, critical: list[str]):
     data = st.session_state.data
     missing = missing_keys(data, critical)
     if missing:
-        st.warning(
-            f"{tr('Es fehlen noch kritische Felder', 'Critical fields are still missing')}: {', '.join(missing)}"
-        )
+        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
 
     st.json(data)
 

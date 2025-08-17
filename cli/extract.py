@@ -40,7 +40,8 @@ def main() -> None:
     if not file_path.exists():
         raise SystemExit(f"File not found: {file_path}")
 
-    text = extract_text_from_file(file_path.read_bytes(), file_path.name)
+    with file_path.open("rb") as fh:
+        text = extract_text_from_file(fh)
     if not text:
         raise SystemExit("No text could be extracted from the file.")
 
