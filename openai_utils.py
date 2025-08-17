@@ -1,4 +1,10 @@
-# openai_utils.py
+"""Helpers for interacting with the OpenAI API.
+
+This module centralizes client configuration and common operations such as
+``call_chat_api`` for chat completions, ``extract_company_info`` for website
+analysis, and utilities for structured extraction and suggestion tasks.
+"""
+
 from __future__ import annotations
 
 import json
