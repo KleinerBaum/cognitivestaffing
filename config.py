@@ -16,11 +16,13 @@ DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-3.5-turbo")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)
+VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
     openai_secrets = st.secrets["openai"]
     OPENAI_API_KEY = openai_secrets.get("OPENAI_API_KEY", OPENAI_API_KEY)
     OPENAI_MODEL = openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)
+    VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
 except Exception:
     openai_secrets = None
 
