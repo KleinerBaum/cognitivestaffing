@@ -9,10 +9,43 @@ import streamlit as st
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
-from question_logic import ask_followups  # nutzt deine neue Definition
+from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from core.esco_utils import classify_occupation, get_essential_skills
 
 ROOT = Path(__file__).parent
+
+# Mapping from schema field paths to wizard section numbers
+FIELD_SECTION_MAP = {
+    "company.name": 1,
+    "position.job_title": 1,
+    "position.role_summary": 2,
+    "location.country": 2,
+    "requirements.hard_skills": 3,
+    "requirements.soft_skills": 3,
+}
+
+
+def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
+    """Return critical fields missing from ``st.session_state``.
+
+    Args:
+        max_section: Optional highest section number to inspect.
+
+    Returns:
+        List of missing critical field paths.
+    """
+
+    missing: list[str] = []
+    for field in CRITICAL_FIELDS:
+        if max_section is not None and FIELD_SECTION_MAP.get(field, 0) > max_section:
+            continue
+        if not st.session_state.get(field):
+            missing.append(field)
+
+    for q in st.session_state.get("followup_questions", []):
+        if q.get("priority") == "critical":
+            missing.append(q.get("field", ""))
+    return missing
 
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
@@ -55,6 +88,29 @@ def set_in(d: dict, path: str, value):
             cur[p] = {}
         cur = cur[p]
     cur[parts[-1]] = value
+
+
+def render_followups_for(fields: list[str]) -> None:
+    """Render follow-up questions for the given ``fields`` and update state."""
+
+    remaining: list[dict] = []
+    for q in st.session_state.get("followup_questions", []):
+        field = q.get("field")
+        if field not in fields:
+            remaining.append(q)
+            continue
+        question = q.get("question", "")
+        prefill = q.get("prefill", "")
+        if q.get("priority") == "critical":
+            st.markdown(
+                "<span style='color:red'>*</span> " + question,
+                unsafe_allow_html=True,
+            )
+            answer = st.text_input("", value=prefill, key=field)
+        else:
+            answer = st.text_input(question, value=prefill, key=field)
+        st.session_state[field] = answer
+    st.session_state["followup_questions"] = remaining
 
 
 def ensure_path(d: dict, path: str):
