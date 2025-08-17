@@ -10,13 +10,30 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import backoff
 from openai import OpenAI
-from openai.types.chat import ChatCompletionMessage
 
 from config import OPENAI_API_KEY
+
+
+@dataclass
+class ChatCallResult:
+    """Unified return type for ``call_chat_api``.
+
+    Attributes:
+        content: Text content returned by the model, if any.
+        tool_calls: List of tool call payloads.
+        function_call: Function call payload, if present.
+        usage: Token usage information.
+    """
+
+    content: Optional[str]
+    tool_calls: list[dict]
+    function_call: Optional[dict]
+    usage: dict
 
 
 logger = logging.getLogger("vacalyser.openai")
@@ -52,8 +69,8 @@ def call_chat_api(
     function_call: Optional[Any] = None,
     seed: Optional[int] = None,
     extra: Optional[dict] = None,
-) -> ChatCompletionMessage:
-    """Call the OpenAI chat completion API and return the full message."""
+) -> ChatCallResult:
+    """Call the OpenAI chat completion API and return a :class:`ChatCallResult`."""
 
     payload: Dict[str, Any] = {
         "model": model or "gpt-4o-mini",
@@ -78,7 +95,33 @@ def call_chat_api(
         payload.update(extra)
 
     response = get_client().chat.completions.create(**payload)
-    return response.choices[0].message
+    msg = response.choices[0].message
+
+    content = getattr(msg, "content", None)
+
+    tool_calls: list[dict] = []
+    for call in getattr(msg, "tool_calls", []) or []:
+        if isinstance(call, dict):
+            tool_calls.append(call)
+        else:
+            tool_calls.append(
+                getattr(call, "model_dump", getattr(call, "__dict__", lambda: {}))()
+            )
+
+    fc = getattr(msg, "function_call", None)
+    if fc is not None and not isinstance(fc, dict):
+        fc = getattr(fc, "model_dump", getattr(fc, "__dict__", lambda: {}))()
+
+    usage_obj = getattr(response, "usage", {}) or {}
+    usage: dict
+    if usage_obj and not isinstance(usage_obj, dict):
+        usage = getattr(
+            usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
+        )()
+    else:
+        usage = usage_obj if isinstance(usage_obj, dict) else {}
+
+    return ChatCallResult(content, tool_calls, fc, usage)
 
 
 def _chat_content(res: Any) -> str:
