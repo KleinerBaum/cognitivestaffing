@@ -14,7 +14,6 @@
 - **Role-aware extras**: automatically adds occupation-specific questions (e.g., programming languages for developers, campaign types for marketers, board certification for doctors, grade levels for teachers, design tools for designers, shift schedules for nurses, project management methodologies for project managers, machine learning frameworks for data scientists, accounting software for financial analysts, HR software for human resource professionals, engineering tools for civil engineers, cuisine specialties for chefs).
 - **ESCO‑Power**: occupation classification + essential skill gaps
 - **RAG‑Assist**: use your vector store to fill/contextualize
-- **No system OCR deps**: uses **OpenAI Vision** (set `OCR_BACKEND=none` to disable)
 - **Cost‑aware**: GPT‑3.5 by default and minimal re‑asks
 - **Model**: optimized for GPT‑3.5 for suggestions and outputs
 - **Inline refinement**: adjust generated documents with custom instructions and instantly update the view

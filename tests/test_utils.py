@@ -23,19 +23,6 @@ def test_extract_text_from_file_docx():
     assert "Hello DOCX" in text
 
 
-def test_extract_text_from_file_pdf_ocr(monkeypatch):
-    doc = fitz.open()
-    doc.new_page()
-    pdf_bytes = doc.tobytes()
-
-    def fake_ocr(_img: bytes) -> str:
-        return "SCANNED TEXT"
-
-    monkeypatch.setattr(utils, "ocr_extract_text", fake_ocr)
-    text = utils.extract_text_from_file(pdf_bytes, "scan.pdf")
-    assert "SCANNED TEXT" in text
-
-
 def test_extract_text_from_url(monkeypatch):
     html = (
         "<html><body><h1>Title</h1><p>Hello URL</p>"
