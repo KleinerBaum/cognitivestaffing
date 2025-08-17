@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import streamlit as st
 
+from components.salary_dashboard import render_salary_dashboard
 from utils.i18n import tr
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
@@ -94,6 +95,8 @@ with st.sidebar:
                 del st.session_state[k]
         _init_state()
         st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
+
+render_salary_dashboard(st.session_state)
 
 # --- Wizard einbinden als einzelne Page via st.navigation (verhindert pages/-Konflikte) ---
 from wizard import run_wizard  # unsere neue Wizard-Funktion (siehe unten)  # noqa: E402
