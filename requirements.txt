@@ -14,4 +14,4 @@ streamlit-sortables>=0.3.1
 types-requests
 jsonschema>=4.0
 backoff>=2.2
-httpx
+httpx>=0.24
