@@ -43,9 +43,16 @@
 
 ## Quick Start
 
+Requires **Python 3.11 or 3.12**.
+
 ```bash
 git clone https://github.com/KleinerBaum/cognitivestaffing
 cd cognitivestaffing
+
+# create and activate a virtual environment (pick one Python version)
+python3.11 -m venv .venv  # or: python3.12 -m venv .venv
+source .venv/bin/activate
+
 pip install -r requirements.txt  # or: pip install -e .
 streamlit run app.py
 ```
