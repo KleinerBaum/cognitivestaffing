@@ -12,7 +12,8 @@ def _call_chat_api(messages: list[dict], **kwargs: Any) -> str:
     """Lazy import wrapper around ``openai_utils.call_chat_api``."""
     from openai_utils import call_chat_api
 
-    return call_chat_api(messages, **kwargs)
+    res = call_chat_api(messages, **kwargs)
+    return (res.content or "") if hasattr(res, "content") else str(res)
 
 
 SENIORITY_FACTOR = {"junior": 0.8, "mid": 1.0, "senior": 1.3}

@@ -8,8 +8,10 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import backoff
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessage
 
 from config import OPENAI_API_KEY
+from llm.client import build_extraction_function
 
 logger = logging.getLogger("vacalyser.openai")
 
@@ -44,8 +46,8 @@ def call_chat_api(
     function_call: Optional[Any] = None,
     seed: Optional[int] = None,
     extra: Optional[dict] = None,
-) -> str:
-    """Call the OpenAI chat completion API."""
+) -> ChatCompletionMessage:
+    """Call the OpenAI chat completion API and return the full message."""
 
     payload: Dict[str, Any] = {
         "model": model or "gpt-4o-mini",
@@ -70,18 +72,27 @@ def call_chat_api(
         payload.update(extra)
 
     response = get_client().chat.completions.create(**payload)
-    message = response.choices[0].message
-    if getattr(message, "content", None):
-        return message.content or ""
-    function_call = getattr(message, "function_call", None)
-    if function_call and getattr(function_call, "arguments", None):
-        return function_call.arguments or ""
-    tool_calls = getattr(message, "tool_calls", None)
-    if tool_calls:
-        first = tool_calls[0]
-        func = getattr(first, "function", None)
-        if func and getattr(func, "arguments", None):
-            return func.arguments or ""
+    return response.choices[0].message
+
+
+def _chat_content(res: Any) -> str:
+    """Return the textual content from a chat API result."""
+
+    if hasattr(res, "content"):
+        return getattr(res, "content") or ""
+    if isinstance(res, str):
+        return res
+    if isinstance(res, dict):
+        if isinstance(res.get("content"), str):
+            return res["content"]
+        try:
+            choices = res.get("choices", [])
+            if choices:
+                msg = choices[0].get("message", {})
+                if isinstance(msg.get("content"), str):
+                    return msg["content"] or ""
+        except Exception:
+            pass
     return ""
 
 
@@ -110,14 +121,14 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     )
     messages = [{"role": "user", "content": prompt}]
     try:
-        answer = call_chat_api(
+        res = call_chat_api(
             messages,
             model=model,
             temperature=0.1,
             max_tokens=500,
             json_strict=True,
         )
-        data = json.loads(answer)
+        data = json.loads(_chat_content(res))
     except Exception:
         data = {}
 
@@ -151,7 +162,9 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     return result
 
 
-def extract_with_function(job_text: str, schema: dict, *, model: str = "gpt-4o-mini") -> dict:
+def extract_with_function(
+    job_text: str, schema: dict, *, model: str = "gpt-4o-mini"
+) -> dict:
     """
     Extrahiert strukturiertes Stellenprofil aus unstrukturiertem Jobtext via OpenAI Function-Calling.
     - Nutzt ein geschlossenes JSON-Schema (additionalProperties: false) für maximale Zuverlässigkeit.
@@ -171,9 +184,12 @@ def extract_with_function(job_text: str, schema: dict, *, model: str = "gpt-4o-m
     """
     import json
 
-    fn_name = "vacalyser_extract"
+    fn = build_extraction_function()
     messages = [
-        {"role": "system", "content": "Extract ONLY via function_call; content channel may be empty."},
+        {
+            "role": "system",
+            "content": "Extract ONLY via function_call; content channel may be empty.",
+        },
         {"role": "user", "content": job_text},
     ]
 
@@ -182,27 +198,36 @@ def extract_with_function(job_text: str, schema: dict, *, model: str = "gpt-4o-m
         messages,
         model=model,
         temperature=0.0,
-        functions=build_extraction_function(fn_name, schema, allow_extra=False),
-        function_call={"name": fn_name},
+        functions=[fn],
+        function_call={"name": fn["name"]},
     )
 
-    # Sicherstellen, dass das Modell wirklich einen Function-Call mit JSON-Argumenten liefert
-    if not res.function_call or not res.function_call.get("arguments"):
+    call = getattr(res, "function_call", None)
+    arguments: Optional[str] = None
+    if call is not None:
+        arguments = getattr(call, "arguments", None)
+        if arguments is None and isinstance(call, dict):
+            arguments = call.get("arguments")
+    if not arguments:
         raise RuntimeError("No function_call with arguments returned")
 
-    # JSON-Argumente parsen
     try:
-        raw = json.loads(res.function_call["arguments"])
+        raw = json.loads(arguments)
     except Exception as e:
-        raise ValueError("Model returned invalid JSON in function_call.arguments") from e
+        raise ValueError(
+            "Model returned invalid JSON in function_call.arguments"
+        ) from e
 
     # Gegen Pydantic-Schema validieren & coercten
     try:
-        from core.schema import VacalyserJD, coerce_and_fill
-        return coerce_and_fill(VacalyserJD, raw)
+        from core.schema import coerce_and_fill
+        from typing import cast
+
+        jd = coerce_and_fill(raw)
+        return cast(
+            Dict[str, Any], jd.model_dump() if hasattr(jd, "model_dump") else jd
+        )
     except Exception as e:
-        # Falls deine Coercion-Funktion bereits dict zurückgibt, bleibt das kompatibel.
-        # Andernfalls kannst du hier alternativ raw zurückgeben oder das Exception-Handling anpassen.
         raise ValueError(f"Schema coercion failed: {e}") from e
 
 
@@ -253,9 +278,8 @@ def suggest_additional_skills(
             prompt += f" Bereits aufgelistet: {', '.join(existing_skills)}."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 220 if not model or "gpt-3.5" in model else 300
-    answer = call_chat_api(
-        messages, model=model, temperature=0.4, max_tokens=max_tokens
-    )
+    res = call_chat_api(messages, model=model, temperature=0.4, max_tokens=max_tokens)
+    answer = _chat_content(res)
     tech_skills, soft_skills = [], []
     bucket = "tech"
     for line in answer.splitlines():
@@ -340,9 +364,8 @@ def suggest_benefits(
             prompt += f"Already listed: {existing_benefits}"
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "gpt-3.5" in model else 200
-    answer = call_chat_api(
-        messages, model=model, temperature=0.5, max_tokens=max_tokens
-    )
+    res = call_chat_api(messages, model=model, temperature=0.5, max_tokens=max_tokens)
+    answer = _chat_content(res)
     benefits = []
     for line in answer.splitlines():
         perk = line.strip("-•* \t")
@@ -373,9 +396,8 @@ def suggest_role_tasks(
     prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 180 if not model or "gpt-3.5" in model else 250
-    answer = call_chat_api(
-        messages, model=model, temperature=0.5, max_tokens=max_tokens
-    )
+    res = call_chat_api(messages, model=model, temperature=0.5, max_tokens=max_tokens)
+    answer = _chat_content(res)
     tasks = []
     for line in answer.splitlines():
         task = line.strip("-•* \t")
@@ -475,7 +497,9 @@ def generate_interview_guide(
                 "\nInclude at least one question assessing cultural fit."
             )
     messages = [{"role": "user", "content": prompt}]
-    return call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
+    return _chat_content(
+        call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
+    )
 
 
 def generate_job_ad(
@@ -657,7 +681,9 @@ def generate_job_ad(
             prompt += "\n" + "\n".join(lines_en)
             prompt += "\nInclude a brief statement about the company's mission or values to strengthen employer branding."
     messages = [{"role": "user", "content": prompt}]
-    return call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
+    return _chat_content(
+        call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
+    )
 
 
 def refine_document(original: str, feedback: str, model: str | None = None) -> str:
@@ -677,7 +703,9 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
         f"Instructions: {feedback}"
     )
     messages = [{"role": "user", "content": prompt}]
-    return call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
+    return _chat_content(
+        call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
+    )
 
 
 def what_happened(
@@ -703,4 +731,6 @@ def what_happened(
         f"{doc_type.title()}:\n{output}"
     )
     messages = [{"role": "user", "content": prompt}]
-    return call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
+    return _chat_content(
+        call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
+    )
