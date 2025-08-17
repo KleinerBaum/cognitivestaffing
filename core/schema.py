@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple, Union, get_args, get_origin
+from typing import Any, List, Optional, Tuple, Union, get_args, get_origin, Mapping
+
+from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -211,4 +213,5 @@ def _collect_fields(
 ALL_FIELDS, LIST_FIELDS = _collect_fields(VacalyserJD)
 
 # Empty alias map retained for compatibility with older code paths
-ALIASES: dict[str, str] = {}
+# Using MappingProxyType to prevent accidental mutation.
+ALIASES: Mapping[str, str] = MappingProxyType({})
