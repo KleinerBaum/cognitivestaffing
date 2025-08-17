@@ -427,7 +427,7 @@ def generate_followup_questions(
         num_questions += len(role_questions_cfg)  # include predefined role-specific Qs
     # 3) (Optional) Get suggestions via RAG for missing fields
     suggestions_map: Dict[str, List[str]] = {}
-    if use_rag and use_rag and (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")):
+    if use_rag and (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")):
         try:
             suggestions_map = _rag_suggestions(
                 job_title, industry, missing_fields, lang=lang
