@@ -1,6 +1,7 @@
 # wizard.py — Vacalyser Wizard (clean flow, schema-aligned)
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from typing import List
@@ -741,6 +742,14 @@ def _step_summary(schema: dict, critical: list[str]):
         st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
 
     st.json(data)
+
+    buff = io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
+    st.download_button(
+        "⬇️ Download JSON",
+        data=buff,
+        file_name="vacalyser_profile.json",
+        mime="application/json",
+    )
 
     col1, col2 = st.columns([1, 1])
     with col1:
