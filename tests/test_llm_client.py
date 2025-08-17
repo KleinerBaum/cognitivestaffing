@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 import llm.client as client
 
 
@@ -53,3 +55,17 @@ def test_extract_json_smoke(monkeypatch):
     monkeypatch.setattr(client.OPENAI_CLIENT.chat.completions, "create", fake_create)
     out = client.extract_json("text")
     assert isinstance(out, str) and out != ""
+
+
+def test_assert_closed_schema_raises() -> None:
+    """The helper should detect foreign key references."""
+
+    with pytest.raises(ValueError):
+        client._assert_closed_schema({"$ref": "#/foo"})
+
+
+def test_generate_error_report_missing_required() -> None:
+    """Missing required fields should appear in the error report."""
+
+    report = client._generate_error_report({"position": {"job_title": "x"}})
+    assert "company" in report
