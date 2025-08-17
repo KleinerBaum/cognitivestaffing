@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List
 
 import streamlit as st
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
-from question_logic import ask_followups        # nutzt deine neue Definition
+from question_logic import ask_followups  # nutzt deine neue Definition
 from core.esco_utils import classify_occupation, get_essential_skills
 
 ROOT = Path(__file__).parent
+
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
 def get_in(d: dict, path: str, default=None):
@@ -23,6 +24,7 @@ def get_in(d: dict, path: str, default=None):
         cur = cur[p]
     return cur
 
+
 def set_in(d: dict, path: str, value):
     cur = d
     parts = path.split(".")
@@ -32,8 +34,10 @@ def set_in(d: dict, path: str, value):
         cur = cur[p]
     cur[parts[-1]] = value
 
+
 def ensure_path(d: dict, path: str):
     set_in(d, path, get_in(d, path, None))
+
 
 def flatten(d: dict, prefix=""):
     out = {}
@@ -45,25 +49,29 @@ def flatten(d: dict, prefix=""):
             out[key] = v
     return out
 
+
 def missing_keys(data: dict, critical: List[str]) -> List[str]:
     flat = flatten(data)
     return [k for k in critical if (k not in flat) or (flat[k] in (None, "", [], {}))]
+
 
 # --- UI-Komponenten ---
 def _chip_multiselect(label: str, options: List[str], values: List[str]) -> List[str]:
     # Einfache, robuste Multiselect-Variante
     return st.multiselect(label, options=options, default=values, key=f"ms_{label}")
 
+
 # --- Step-Renderers ---
 def _step_intro():
     st.title("Vacalyser — Wizard")
     st.write("Dieser Assistent führt dich in wenigen Schritten zu einem vollständigen, strukturierten Stellenprofil.")
 
+
 def _step_source(schema: dict):
     st.subheader("Quelle / Anreicherung")
     jd_text = st.text_area("Jobtext (einfügen oder kurz beschreiben)", height=220, key="jd_text")
 
-    col1, col2 = st.columns([1,1])
+    col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("🔎 Automatisch analysieren (LLM)", type="primary"):
             if not jd_text.strip():
@@ -90,7 +98,11 @@ def _step_source(schema: dict):
                 except Exception as e:
                     st.error(f"Extraktion fehlgeschlagen: {e}")
     with col2:
-        st.info("Optional: RAG via Vector Store wird bei Follow-ups berücksichtigt, wenn `VECTOR_STORE_ID` gesetzt ist.", icon="ℹ️")
+        st.info(
+            "Optional: RAG via Vector Store wird bei Follow-ups berücksichtigt, wenn `VECTOR_STORE_ID` gesetzt ist.",
+            icon="ℹ️",
+        )
+
 
 def _step_company():
     st.subheader("Unternehmen")
@@ -117,6 +129,7 @@ def _step_company():
 
     set_in(data, "company.culture", st.text_area("Kultur", value=get_in(data, "company.culture", "")))
 
+
 def _step_position():
     st.subheader("Position")
     data = st.session_state.data
@@ -129,15 +142,30 @@ def _step_position():
 
     c1, c2 = st.columns(2)
     set_in(data, "position.job_title", c1.text_input("Jobtitel *", value=get_in(data, "position.job_title", "")))
-    set_in(data, "position.seniority_level", c2.text_input("Seniorität", value=get_in(data, "position.seniority_level", "")))
+    set_in(
+        data,
+        "position.seniority_level",
+        c2.text_input("Seniorität", value=get_in(data, "position.seniority_level", "")),
+    )
 
     c3, c4 = st.columns(2)
     set_in(data, "position.department", c3.text_input("Abteilung", value=get_in(data, "position.department", "")))
-    set_in(data, "position.team_structure", c4.text_input("Teamstruktur", value=get_in(data, "position.team_structure", "")))
+    set_in(
+        data,
+        "position.team_structure",
+        c4.text_input("Teamstruktur", value=get_in(data, "position.team_structure", "")),
+    )
 
     c5, c6 = st.columns(2)
-    set_in(data, "position.reporting_line", c5.text_input("Reports an", value=get_in(data, "position.reporting_line", "")))
-    set_in(data, "position.role_summary", c6.text_area("Rollen-Summary *", value=get_in(data, "position.role_summary", ""), height=120))
+    set_in(
+        data, "position.reporting_line", c5.text_input("Reports an", value=get_in(data, "position.reporting_line", ""))
+    )
+    set_in(
+        data,
+        "position.role_summary",
+        c6.text_area("Rollen-Summary *", value=get_in(data, "position.role_summary", ""), height=120),
+    )
+
 
 def _step_requirements():
     st.subheader("Anforderungen")
@@ -148,16 +176,52 @@ def _step_requirements():
     ensure_path(data, "requirements.languages_required")
     ensure_path(data, "requirements.certifications")
 
-    set_in(data, "requirements.hard_skills",
-          _chip_multiselect("Hard Skills", options=get_in(data, "requirements.hard_skills", []) or [], values=get_in(data, "requirements.hard_skills", []) or []))
-    set_in(data, "requirements.soft_skills",
-          _chip_multiselect("Soft Skills", options=get_in(data, "requirements.soft_skills", []) or [], values=get_in(data, "requirements.soft_skills", []) or []))
-    set_in(data, "requirements.tools_and_technologies",
-          _chip_multiselect("Tools & Tech", options=get_in(data, "requirements.tools_and_technologies", []) or [], values=get_in(data, "requirements.tools_and_technologies", []) or []))
-    set_in(data, "requirements.languages_required",
-          _chip_multiselect("Sprachen", options=get_in(data, "requirements.languages_required", []) or [], values=get_in(data, "requirements.languages_required", []) or []))
-    set_in(data, "requirements.certifications",
-          _chip_multiselect("Zertifizierungen", options=get_in(data, "requirements.certifications", []) or [], values=get_in(data, "requirements.certifications", []) or []))
+    set_in(
+        data,
+        "requirements.hard_skills",
+        _chip_multiselect(
+            "Hard Skills",
+            options=get_in(data, "requirements.hard_skills", []) or [],
+            values=get_in(data, "requirements.hard_skills", []) or [],
+        ),
+    )
+    set_in(
+        data,
+        "requirements.soft_skills",
+        _chip_multiselect(
+            "Soft Skills",
+            options=get_in(data, "requirements.soft_skills", []) or [],
+            values=get_in(data, "requirements.soft_skills", []) or [],
+        ),
+    )
+    set_in(
+        data,
+        "requirements.tools_and_technologies",
+        _chip_multiselect(
+            "Tools & Tech",
+            options=get_in(data, "requirements.tools_and_technologies", []) or [],
+            values=get_in(data, "requirements.tools_and_technologies", []) or [],
+        ),
+    )
+    set_in(
+        data,
+        "requirements.languages_required",
+        _chip_multiselect(
+            "Sprachen",
+            options=get_in(data, "requirements.languages_required", []) or [],
+            values=get_in(data, "requirements.languages_required", []) or [],
+        ),
+    )
+    set_in(
+        data,
+        "requirements.certifications",
+        _chip_multiselect(
+            "Zertifizierungen",
+            options=get_in(data, "requirements.certifications", []) or [],
+            values=get_in(data, "requirements.certifications", []) or [],
+        ),
+    )
+
 
 def _step_employment():
     st.subheader("Beschäftigung")
@@ -169,13 +233,52 @@ def _step_employment():
     ensure_path(data, "employment.visa_sponsorship")
 
     c1, c2 = st.columns(2)
-    set_in(data, "employment.job_type", c1.selectbox("Art", options=["full_time","part_time","contract","internship","temporary","other"], index=0 if not get_in(data,"employment.job_type") else ["full_time","part_time","contract","internship","temporary","other"].index(get_in(data,"employment.job_type"))))
-    set_in(data, "employment.work_policy", c2.selectbox("Policy", options=["onsite","hybrid","remote"], index=0 if not get_in(data,"employment.work_policy") else ["onsite","hybrid","remote"].index(get_in(data,"employment.work_policy"))))
+    set_in(
+        data,
+        "employment.job_type",
+        c1.selectbox(
+            "Art",
+            options=["full_time", "part_time", "contract", "internship", "temporary", "other"],
+            index=(
+                0
+                if not get_in(data, "employment.job_type")
+                else ["full_time", "part_time", "contract", "internship", "temporary", "other"].index(
+                    get_in(data, "employment.job_type")
+                )
+            ),
+        ),
+    )
+    set_in(
+        data,
+        "employment.work_policy",
+        c2.selectbox(
+            "Policy",
+            options=["onsite", "hybrid", "remote"],
+            index=(
+                0
+                if not get_in(data, "employment.work_policy")
+                else ["onsite", "hybrid", "remote"].index(get_in(data, "employment.work_policy"))
+            ),
+        ),
+    )
 
     c3, c4, c5 = st.columns(3)
-    set_in(data, "employment.travel_required", c3.toggle("Reisetätigkeit?", value=bool(get_in(data, "employment.travel_required", False))))
-    set_in(data, "employment.relocation_support", c4.toggle("Relocation?", value=bool(get_in(data, "employment.relocation_support", False))))
-    set_in(data, "employment.visa_sponsorship", c5.toggle("Visum-Sponsoring?", value=bool(get_in(data, "employment.visa_sponsorship", False))))
+    set_in(
+        data,
+        "employment.travel_required",
+        c3.toggle("Reisetätigkeit?", value=bool(get_in(data, "employment.travel_required", False))),
+    )
+    set_in(
+        data,
+        "employment.relocation_support",
+        c4.toggle("Relocation?", value=bool(get_in(data, "employment.relocation_support", False))),
+    )
+    set_in(
+        data,
+        "employment.visa_sponsorship",
+        c5.toggle("Visum-Sponsoring?", value=bool(get_in(data, "employment.visa_sponsorship", False))),
+    )
+
 
 def _step_compensation():
     st.subheader("Vergütung & Benefits")
@@ -189,18 +292,68 @@ def _step_compensation():
     ensure_path(data, "compensation.benefits")
 
     c1, c2, c3 = st.columns(3)
-    set_in(data, "compensation.salary_min", c1.number_input("Gehalt min", value=float(get_in(data, "compensation.salary_min", 0)) if get_in(data, "compensation.salary_min") is not None else 0.0))
-    set_in(data, "compensation.salary_max", c2.number_input("Gehalt max", value=float(get_in(data, "compensation.salary_max", 0)) if get_in(data, "compensation.salary_max") is not None else 0.0))
+    set_in(
+        data,
+        "compensation.salary_min",
+        c1.number_input(
+            "Gehalt min",
+            value=(
+                float(get_in(data, "compensation.salary_min", 0))
+                if get_in(data, "compensation.salary_min") is not None
+                else 0.0
+            ),
+        ),
+    )
+    set_in(
+        data,
+        "compensation.salary_max",
+        c2.number_input(
+            "Gehalt max",
+            value=(
+                float(get_in(data, "compensation.salary_max", 0))
+                if get_in(data, "compensation.salary_max") is not None
+                else 0.0
+            ),
+        ),
+    )
     set_in(data, "compensation.currency", c3.text_input("Währung", value=get_in(data, "compensation.currency", "")))
 
     c4, c5 = st.columns(2)
-    set_in(data, "compensation.period", c4.selectbox("Periode", options=["year","month","day","hour"], index=0 if not get_in(data,"compensation.period") else ["year","month","day","hour"].index(get_in(data,"compensation.period"))))
-    set_in(data, "compensation.variable_pay", c5.toggle("Variable Vergütung?", value=bool(get_in(data, "compensation.variable_pay", False))))
+    set_in(
+        data,
+        "compensation.period",
+        c4.selectbox(
+            "Periode",
+            options=["year", "month", "day", "hour"],
+            index=(
+                0
+                if not get_in(data, "compensation.period")
+                else ["year", "month", "day", "hour"].index(get_in(data, "compensation.period"))
+            ),
+        ),
+    )
+    set_in(
+        data,
+        "compensation.variable_pay",
+        c5.toggle("Variable Vergütung?", value=bool(get_in(data, "compensation.variable_pay", False))),
+    )
 
     c6, c7 = st.columns(2)
-    set_in(data, "compensation.equity_offered", c6.toggle("Equity?", value=bool(get_in(data, "compensation.equity_offered", False))))
-    set_in(data, "compensation.benefits",
-          _chip_multiselect("Benefits", options=get_in(data, "compensation.benefits", []) or [], values=get_in(data, "compensation.benefits", []) or []))
+    set_in(
+        data,
+        "compensation.equity_offered",
+        c6.toggle("Equity?", value=bool(get_in(data, "compensation.equity_offered", False))),
+    )
+    set_in(
+        data,
+        "compensation.benefits",
+        _chip_multiselect(
+            "Benefits",
+            options=get_in(data, "compensation.benefits", []) or [],
+            values=get_in(data, "compensation.benefits", []) or [],
+        ),
+    )
+
 
 def _step_process():
     st.subheader("Prozess")
@@ -208,9 +361,15 @@ def _step_process():
     ensure_path(data, "process.interview_stages")
     ensure_path(data, "process.process_notes")
 
-    c1, c2 = st.columns([1,2])
-    set_in(data, "process.interview_stages", int(c1.number_input("Stages", value=int(get_in(data, "process.interview_stages", 0)))))
+    c1, c2 = st.columns([1, 2])
+    init_val = get_in(data, "process.interview_stages")
+    set_in(
+        data,
+        "process.interview_stages",
+        int(c1.number_input("Stages", value=int(init_val) if init_val is not None else 0)),
+    )
     set_in(data, "process.process_notes", c2.text_area("Notizen", value=get_in(data, "process.process_notes", "")))
+
 
 def _step_summary(schema: dict, critical: list[str]):
     st.subheader("Zusammenfassung")
@@ -221,16 +380,14 @@ def _step_summary(schema: dict, critical: list[str]):
 
     st.json(data)
 
-    col1, col2 = st.columns([1,1])
+    col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("💡 Follow-ups vorschlagen (LLM)", type="primary"):
-            payload = {
-                "lang": st.session_state.lang,
-                "data": data,
-                "missing": missing
-            }
+            payload = {"lang": st.session_state.lang, "data": data, "missing": missing}
             try:
-                res = ask_followups(payload, model=st.session_state.model, vector_store_id=st.session_state.vector_store_id or None)
+                res = ask_followups(
+                    payload, model=st.session_state.model, vector_store_id=st.session_state.vector_store_id or None
+                )
                 st.session_state["followups"] = res
                 st.success("Follow-ups aktualisiert.")
             except Exception as e:
@@ -255,6 +412,7 @@ def _step_summary(schema: dict, critical: list[str]):
         st.info("Bitte fülle die fehlenden kritischen Felder, um abzuschließen.")
     else:
         st.success("Alle kritischen Felder sind befüllt.")
+
 
 # --- Haupt-Wizard-Runner ---
 def run_wizard():
@@ -294,7 +452,6 @@ def run_wizard():
 
     # Step Navigation (oben)
     st.progress((st.session_state.step + 1) / len(steps))
-    tabs = [label for label, _ in steps]
     st.caption("Klicke auf „Weiter“ oder navigiere direkt zu einem Schritt.")
 
     # Render current step
