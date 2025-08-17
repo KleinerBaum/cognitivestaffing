@@ -46,7 +46,7 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore[assignment, misc]
     _HAS_RESPONSES = False
 
-DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+DEFAULT_LOW_COST_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
 RAG_VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
@@ -485,7 +485,7 @@ def generate_followup_questions(
         critical_missing = [f for f in missing_fields if f in CRITICAL_FIELDS]
         optional_missing = [f for f in missing_fields if f not in CRITICAL_FIELDS]
         base_num = len(critical_missing) + min(len(optional_missing), 3)
-        num_questions = min(max(base_num, 3), 7)
+        num_questions = min(max(base_num, 3), 12)
         num_questions += len(role_questions_cfg)  # include predefined role-specific Qs
     # 3) (Optional) Get suggestions via RAG for missing fields
     suggestions_map: Dict[str, List[str]] = {}

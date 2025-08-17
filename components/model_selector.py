@@ -16,7 +16,7 @@ def model_selector(key: str = "llm_model") -> str:
     Returns:
         The chosen model identifier.
     """
-    models = ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]
+    models = ["gpt-3.5-turbo"]
     default = st.session_state.get(key, OPENAI_MODEL)
     if default not in models:
         default = models[0]
