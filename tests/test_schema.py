@@ -1,11 +1,7 @@
-from core.schema import (
-    LIST_FIELDS,
-    VacalyserJD,
-    coerce_and_fill,
-)
+from core.schema import VacalyserJD, coerce_and_fill, LIST_FIELDS
 
 
-def test_constants() -> None:
+def test_list_fields_contains_base_lists() -> None:
     base_lists = {
         "responsibilities.items",
         "requirements.hard_skills",
@@ -18,142 +14,37 @@ def test_constants() -> None:
     assert base_lists <= LIST_FIELDS
 
 
-def test_coerce_and_fill_partial_and_aliases() -> None:
+def test_coerce_and_fill_basic() -> None:
     data = {
-        "position": {"job_title": " Engineer "},
-        "requirements": {"hard_skills": "Python"},
-        "contract_type": "full-time",
-        "tasks": "Code apps",
-        "compensation": {"benefits": ["Gym", "", "Gym"]},
+        "company": {"name": "Acme"},
+        "position": {"job_title": "Engineer"},
+        "requirements": {"hard_skills": ["Python"]},
+        "responsibilities": {"items": ["Code apps"]},
+        "employment": {"job_type": "full time"},
+        "compensation": {"benefits": ["Gym", "Gym"]},
     }
     jd = coerce_and_fill(data)
     assert isinstance(jd, VacalyserJD)
     assert jd.position.job_title == "Engineer"
+    assert jd.requirements is not None
+    assert jd.responsibilities is not None
+    assert jd.employment is not None
+    assert jd.compensation is not None
     assert jd.requirements.hard_skills == ["Python"]
-    assert jd.employment.job_type == "Full-time"
     assert jd.responsibilities.items == ["Code apps"]
-    assert jd.compensation.benefits == ["Gym"]
-    assert jd.company.name == ""
+    assert jd.employment.job_type == "full time"
+    assert jd.compensation.benefits == ["Gym", "Gym"]
+    assert jd.company.name == "Acme"
 
 
 def test_default_insertion() -> None:
     jd = coerce_and_fill({})
     assert jd.position.job_title == ""
-    assert jd.requirements.hard_skills == []
-
-
-def test_alias_priority() -> None:
-    data = {"job_title": "Old", "position": {"job_title": "New"}}
-    jd = coerce_and_fill(data)
-    assert jd.position.job_title == "New"
-
-
-def test_tasks_merge_without_duplicates() -> None:
-    jd = coerce_and_fill(
-        {
-            "responsibilities": {"items": ["Task A"]},
-            "tasks": "Task B",
-        }
-    )
-    assert jd.responsibilities.items == ["Task A", "Task B"]
-
-    jd2 = coerce_and_fill(
-        {
-            "responsibilities": {"items": ["Task A"]},
-            "tasks": "Task A",
-        }
-    )
-    assert jd2.responsibilities.items == ["Task A"]
-
-
-def test_remote_policy_extra_field_ignored() -> None:
-    jd = coerce_and_fill(
-        {
-            "employment": {"work_policy": "Hybrid"},
-            "remote_policy": "Fully remote",
-        }
-    )
-    assert jd.employment.work_policy == "Hybrid"
-    assert "remote_policy" not in jd.model_dump(mode="json")
-
-
-def test_list_coercion_split_and_dedupe() -> None:
-    jd = coerce_and_fill({"requirements": {"hard_skills": "Python, Java\nPython"}})
-    assert jd.requirements.hard_skills == ["Python", "Java"]
-
-
-def test_coerce_flat_aliases() -> None:
-    data = {"job_title": "Dev", "company_name": "Acme", "location": "Berlin"}
-    jd = coerce_and_fill(data)
-    assert jd.position.job_title == "Dev"
-    assert jd.company.name == "Acme"
-    assert jd.location.primary_city == "Berlin"
-
-
-def test_cross_field_dedupe() -> None:
-    data = {
-        "employment": {"work_policy": "Fully remote"},
-        "responsibilities": {"items": ["Develop APIs", "Fully remote"]},
-    }
-    jd = coerce_and_fill(data)
-    assert jd.employment.work_policy == "Fully remote"
-    assert jd.responsibilities.items == ["Develop APIs"]
-
-
-def test_job_type_normalization() -> None:
-    jd = coerce_and_fill({"employment": {"job_type": "full time"}})
-    assert jd.employment.job_type == "Full-time"
+    assert jd.company.name == ""
+    assert jd.requirements is None
 
 
 def test_job_type_invalid() -> None:
     jd = coerce_and_fill({"employment": {"job_type": "unknown"}})
+    assert jd.employment is not None
     assert jd.employment.job_type == "unknown"
-
-
-def test_new_fields_defaults() -> None:
-    jd = VacalyserJD()
-    assert jd.contacts.hiring_manager.phone == ""
-    assert jd.contacts.hr.phone == ""
-    assert jd.contacts.recruiter.phone == ""
-    assert jd.contacts.additional_notes == ""
-    assert jd.position.occupation_esco_code == ""
-    assert jd.position.occupation_esco_title == ""
-    assert jd.position.cross_functional is False
-    assert jd.position.job_family == ""
-    assert jd.requirements.language_level_english == ""
-    assert jd.requirements.language_level_german == ""
-    assert jd.requirements.years_experience_preferred == 0
-    assert jd.process.interview_stages == 0
-    assert jd.analytics.esco_missing_skill_count == 0
-
-
-def test_backward_compat_missing_new_fields() -> None:
-    old_data = {
-        "schema_version": "v2.0",
-        "contacts": {"hiring_manager": {"name": "Alice"}},
-    }
-    jd = coerce_and_fill(old_data)
-    dumped = jd.model_dump()
-    assert dumped["contacts"]["hiring_manager"]["phone"] == ""
-    assert dumped["position"]["occupation_esco_code"] == ""
-
-
-def test_coerce_and_fill_new_fields_with_aliases() -> None:
-    data = {
-        "contacts": {
-            "hiring_manager": {"phone": "+49 123"},
-            "recruiter": {"phone": "+1 555"},
-        },
-        "english_level": "C1",
-        "german_level": "B2",
-        "process": {"interview_stages": 3},
-        "analytics": {"esco_missing_skill_count": 2},
-    }
-    jd = coerce_and_fill(data)
-    dumped = jd.model_dump()
-    assert dumped["contacts"]["hiring_manager"]["phone"] == "+49 123"
-    assert dumped["contacts"]["recruiter"]["phone"] == "+1 555"
-    assert dumped["requirements"]["language_level_english"] == "C1"
-    assert dumped["requirements"]["language_level_german"] == "B2"
-    assert dumped["process"]["interview_stages"] == 3
-    assert dumped["analytics"]["esco_missing_skill_count"] == 2

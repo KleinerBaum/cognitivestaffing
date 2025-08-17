@@ -11,9 +11,9 @@ from llm.client import extract_and_parse  # noqa: E402
 @pytest.mark.parametrize(
     "raw",
     [
-        '{"position": {"job_title": "Dev"}}',
-        '```json\n{"position": {"job_title": "Dev"}}\n```',
-        'Noise {"position": {"job_title": "Dev"}} tail',
+        '{"position": {"job_title": "Dev"}, "location": {}, "responsibilities": {}, "requirements": {}, "employment": {}, "compensation": {}, "process": {}, "meta": {}}',
+        '```json\n{"position": {"job_title": "Dev"}, "location": {}, "responsibilities": {}, "requirements": {}, "employment": {}, "compensation": {}, "process": {}, "meta": {}}\n```',
+        'Noise {"position": {"job_title": "Dev"}, "location": {}, "responsibilities": {}, "requirements": {}, "employment": {}, "compensation": {}, "process": {}, "meta": {}} tail',
     ],
 )
 def test_e2e_to_session_state(monkeypatch, raw: str) -> None:

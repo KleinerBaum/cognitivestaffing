@@ -28,7 +28,7 @@ def test_generate_followups_wrapper(monkeypatch):
         "questions.generate._generate_followup_questions", fake_generate
     )
 
-    jd = VacalyserJD(position={"job_title": "Dev"})
+    jd = VacalyserJD(company={"name": ""}, position={"job_title": "Dev"})
     questions = generate_followup_questions(
         jd, num_questions=2, lang="de", use_rag=False
     )
@@ -47,5 +47,5 @@ def test_generate_followups_wrapper_empty(monkeypatch):
         "questions.generate._generate_followup_questions", fake_generate
     )
 
-    jd = VacalyserJD(position={"job_title": "Dev"})
+    jd = VacalyserJD(company={"name": ""}, position={"job_title": "Dev"})
     assert generate_followup_questions(jd) == []
