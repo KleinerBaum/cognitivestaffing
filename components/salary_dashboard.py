@@ -55,10 +55,18 @@ def compute_expected_salary(
     return round(value), "annual"
 
 
-def _session_list(key: str) -> list[str]:
-    """Extract a clean list of strings from ``st.session_state``."""
+def _session_list(session_state: Any, key: str) -> list[str]:
+    """Extract a clean list of strings from session state.
 
-    raw = st.session_state.get(key, "")
+    Args:
+        session_state: Session state or mapping containing stored values.
+        key: Target key in the mapping.
+
+    Returns:
+        List of non-empty, stripped strings.
+    """
+
+    raw = session_state.get(key, "")
     if isinstance(raw, str):
         return [s.strip() for s in raw.splitlines() if s.strip()]
     if isinstance(raw, list):
@@ -66,15 +74,19 @@ def _session_list(key: str) -> list[str]:
     return []
 
 
-def render_salary_dashboard() -> None:
-    """Render salary analytics widget in the sidebar."""
+def render_salary_dashboard(session_state: Any) -> None:
+    """Render salary analytics widget in the sidebar.
 
-    must_skills = _session_list("requirements.hard_skills")
-    nice_skills = _session_list("requirements.soft_skills")
-    seniority = st.session_state.get("position.seniority_level", "")
-    location = st.session_state.get("location.primary_city", "")
-    job_type = st.session_state.get("employment.job_type", "permanent")
-    job_title = st.session_state.get("position.job_title", "")
+    Args:
+        session_state: Streamlit session state used to fetch vacancy data.
+    """
+
+    must_skills = _session_list(session_state, "requirements.hard_skills")
+    nice_skills = _session_list(session_state, "requirements.soft_skills")
+    seniority = session_state.get("position.seniority_level", "")
+    location = session_state.get("location.primary_city", "")
+    job_type = session_state.get("employment.job_type", "permanent")
+    job_title = session_state.get("position.job_title", "")
 
     value, mode = compute_expected_salary(
         must_skills, nice_skills, seniority, location, job_type
