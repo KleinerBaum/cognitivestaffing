@@ -32,9 +32,18 @@ def _read_pdf(path: Path) -> str:
         return "".join(page.get_text() for page in doc)
 
 
+_URL_RE = re.compile(r"^https?://[\w./-]+$")
+_HEADERS = {"User-Agent": "Vacalyser/1.0"}
+
+
 def _read_url(url: str) -> str:
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
+    if not url or not _URL_RE.match(url):
+        raise ValueError("Invalid URL")
+    try:
+        response = requests.get(url, timeout=15, headers=_HEADERS)
+        response.raise_for_status()
+    except requests.RequestException as exc:  # pragma: no cover - network
+        raise ValueError(f"Failed to fetch URL: {url}") from exc
     soup = BeautifulSoup(response.text, "html.parser")
     return soup.get_text(" ")
 

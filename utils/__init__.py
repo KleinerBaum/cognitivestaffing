@@ -7,6 +7,7 @@ import re
 
 from .pdf_utils import extract_text_from_file as extract_text_from_file
 from .url_utils import extract_text_from_url as extract_text_from_url
+from .errors import display_error as display_error
 
 
 def merge_texts(*parts: str) -> str:

@@ -43,7 +43,7 @@ def test_extract_text_from_url(monkeypatch):
         def raise_for_status(self) -> None:  # pragma: no cover - noop
             return None
 
-    def fake_get(_url, timeout):  # pragma: no cover - test stub
+    def fake_get(_url, timeout, headers=None):  # pragma: no cover - test stub
         return Resp()
 
     import requests

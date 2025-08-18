@@ -9,7 +9,7 @@ from core.esco_utils import classify_occupation, normalize_skills  # noqa: E402
 def test_classify_occupation(monkeypatch):
     """Should return label, code and group from ESCO."""
 
-    def fake_get(url, params=None, timeout=5):
+    def fake_get(url, params=None, timeout=5, headers=None):
         class Resp:
             status_code = 200
 
