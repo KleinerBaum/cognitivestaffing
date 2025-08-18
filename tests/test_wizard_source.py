@@ -1,7 +1,7 @@
 import pytest
 import streamlit as st
 
-from wizard import _step_source, on_file_uploaded, on_url_changed
+from wizard import _autodetect_lang, _step_source, on_file_uploaded, on_url_changed
 from constants.keys import StateKeys, UIKeys
 from utils.session import bootstrap_session
 
@@ -60,6 +60,20 @@ def test_on_url_changed_populates_text(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
     assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
+
+
+def test_on_url_changed_handles_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """on_url_changed should handle None text gracefully."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    _setup_common(monkeypatch)
+    monkeypatch.setattr("wizard.extract_text_from_url", lambda _u: None)
+    st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
+
+    on_url_changed()
+
+    assert st.session_state.get(StateKeys.RAW_TEXT) == ""
 
 
 @pytest.mark.parametrize("mode", ["text", "file", "url"])
@@ -175,3 +189,14 @@ def test_on_change_handles_extraction_errors(
 
     assert st.session_state.get(StateKeys.RAW_TEXT, "") == ""
     assert errors, "Expected st.error to be called"
+
+
+def test_autodetect_lang_sets_en() -> None:
+    """_autodetect_lang should switch language based on text content."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+
+    _autodetect_lang("This is an English job description.")
+
+    assert st.session_state.lang == "en"

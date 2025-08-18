@@ -82,13 +82,32 @@ def on_url_changed() -> None:
             str(e),
         )
         return
-    if not txt.strip():
+    if not txt or not txt.strip():
         display_error(
             tr("Keine Textinhalte gefunden", "No text content found"),
         )
         return
     st.session_state[StateKeys.RAW_TEXT] = txt
     st.session_state[UIKeys.JD_TEXT_INPUT] = txt
+
+
+def _autodetect_lang(text: str) -> None:
+    """Detect language from ``text`` and set session state if default."""
+
+    if (
+        "lang_auto" in st.session_state
+        or st.session_state.get("lang") != "de"
+        or not text
+    ):
+        return
+    try:
+        from langdetect import detect  # type: ignore[import-untyped]
+
+        if detect(text).startswith("en"):
+            st.session_state["lang"] = "en"
+    except Exception:  # pragma: no cover - best effort
+        pass
+    st.session_state["lang_auto"] = True
 
 
 # Mapping from schema field paths to wizard section numbers
@@ -284,6 +303,7 @@ def _step_source(schema: dict) -> None:
                 )
             )
         else:
+            _autodetect_lang(text_for_extract)
             try:
                 extracted = extract_with_function(
                     text_for_extract, schema, model=st.session_state.model
