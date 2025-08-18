@@ -16,6 +16,7 @@ from utils.session import bind_textarea
 from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from utils.errors import display_error
+from models.need_analysis import NeedAnalysisProfile
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
@@ -125,37 +126,8 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
 
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
-def get_in(d: dict, path: str, default=None):
-    """Retrieve a nested value from a dict using dot notation.
-
-    Args:
-        d: Dictionary to traverse.
-        path: Dot-separated key path.
-        default: Value returned if the path is missing.
-
-    Returns:
-        The value at the given path or ``default`` if not found.
-    """
-
-    cur = d
-    for p in path.split("."):
-        if not isinstance(cur, dict) or p not in cur:
-            return default
-        cur = cur[p]
-    return cur
-
-
-def set_in(d: dict, path: str, value):
-    """Assign a value in a nested dict via dot-separated path.
-
-    Args:
-        d: Dictionary to modify.
-        path: Dot-separated key path.
-        value: Value to set at the path.
-
-    Returns:
-        None
-    """
+def set_in(d: dict, path: str, value) -> None:
+    """Assign a value in a nested dict via dot-separated path."""
 
     cur = d
     parts = path.split(".")
@@ -189,23 +161,7 @@ def render_followups_for(fields: list[str]) -> None:
     st.session_state["followup_questions"] = remaining
 
 
-def ensure_path(d: dict, path: str):
-    """Ensure that a nested path exists in a dict.
-
-    Missing segments are created with ``None`` values.
-
-    Args:
-        d: Dictionary to update.
-        path: Dot-separated key path.
-
-    Returns:
-        None
-    """
-
-    set_in(d, path, get_in(d, path, None))
-
-
-def flatten(d: dict, prefix: str = ""):
+def flatten(d: dict, prefix: str = "") -> dict:
     """Convert a nested dict into dot-separated keys.
 
     Args:
@@ -318,9 +274,9 @@ def _step_source(schema: dict) -> None:
             on_change=on_url_changed,
         )
 
-    text_for_extract = st.session_state.get(StateKeys.RAW_TEXT, "")
+    text_for_extract = st.session_state.get(StateKeys.RAW_TEXT, "").strip()
     if st.button(t("analyze", st.session_state.lang), type="primary"):
-        if not (text_for_extract or "").strip():
+        if not text_for_extract:
             st.warning(
                 tr(
                     "Bitte zuerst eine Quelle angeben.",
@@ -329,51 +285,28 @@ def _step_source(schema: dict) -> None:
             )
         else:
             try:
-                data = extract_with_function(
+                extracted = extract_with_function(
                     text_for_extract, schema, model=st.session_state.model
                 )
-                st.session_state[StateKeys.PROFILE] = data
-                title = get_in(
-                    st.session_state[StateKeys.PROFILE], "position.job_title", ""
-                )
+                profile = NeedAnalysisProfile.model_validate(extracted)
+                st.session_state[StateKeys.PROFILE] = profile.model_dump()
+                title = profile.position.job_title or ""
                 occ = (
                     classify_occupation(title, st.session_state.lang or "en")
                     if title
                     else None
                 )
                 if occ:
-                    set_in(
-                        st.session_state[StateKeys.PROFILE],
-                        "position.occupation_label",
-                        occ.get("preferredLabel"),
-                    )
-                    set_in(
-                        st.session_state[StateKeys.PROFILE],
-                        "position.occupation_uri",
-                        occ.get("uri"),
-                    )
-                    set_in(
-                        st.session_state[StateKeys.PROFILE],
-                        "position.occupation_group",
-                        occ.get("group"),
-                    )
+                    profile.position.occupation_label = occ.get("preferredLabel") or ""
+                    profile.position.occupation_uri = occ.get("uri") or ""
+                    profile.position.occupation_group = occ.get("group") or ""
                     skills = get_essential_skills(
                         occ.get("uri"), st.session_state.lang or "en"
                     )
-                    current = set(
-                        get_in(
-                            st.session_state[StateKeys.PROFILE],
-                            "requirements.hard_skills",
-                            [],
-                        )
-                        or []
-                    )
-                    merged = sorted(current.union(set(skills)))
-                    set_in(
-                        st.session_state[StateKeys.PROFILE],
-                        "requirements.hard_skills",
-                        merged,
-                    )
+                    current_skills = set(profile.requirements.hard_skills or [])
+                    merged = sorted(current_skills.union(skills or []))
+                    profile.requirements.hard_skills = merged
+                st.session_state[StateKeys.PROFILE] = profile.model_dump()
                 st.session_state[StateKeys.STEP] = 2
                 st.rerun()
             except Exception as e:
@@ -392,67 +325,34 @@ def _step_company():
 
     st.subheader(tr("Unternehmen", "Company"))
     data = st.session_state[StateKeys.PROFILE]
-    ensure_path(data, "company.name")
-    ensure_path(data, "company.industry")
-    ensure_path(data, "company.hq_location")
-    ensure_path(data, "company.size")
-    ensure_path(data, "company.website")
-    ensure_path(data, "company.mission")
-    ensure_path(data, "company.culture")
 
     c1, c2 = st.columns(2)
-    set_in(
-        data,
-        "company.name",
-        c1.text_input(
-            tr("Firma *", "Company *"), value=get_in(data, "company.name", "")
-        ),
+    data["company"]["name"] = c1.text_input(
+        tr("Firma *", "Company *"), value=data["company"].get("name", "")
     )
-    set_in(
-        data,
-        "company.industry",
-        c2.text_input(
-            tr("Branche", "Industry"), value=get_in(data, "company.industry", "")
-        ),
+    data["company"]["industry"] = c2.text_input(
+        tr("Branche", "Industry"), value=data["company"].get("industry", "")
     )
 
     c3, c4 = st.columns(2)
-    set_in(
-        data,
-        "company.hq_location",
-        c3.text_input(
-            tr("Hauptsitz", "Headquarters"),
-            value=get_in(data, "company.hq_location", ""),
-        ),
+    data["company"]["hq_location"] = c3.text_input(
+        tr("Hauptsitz", "Headquarters"),
+        value=data["company"].get("hq_location", ""),
     )
-    set_in(
-        data,
-        "company.size",
-        c4.text_input(tr("Größe", "Size"), value=get_in(data, "company.size", "")),
+    data["company"]["size"] = c4.text_input(
+        tr("Größe", "Size"), value=data["company"].get("size", "")
     )
 
     c5, c6 = st.columns(2)
-    set_in(
-        data,
-        "company.website",
-        c5.text_input(
-            tr("Website", "Website"), value=get_in(data, "company.website", "")
-        ),
+    data["company"]["website"] = c5.text_input(
+        tr("Website", "Website"), value=data["company"].get("website", "")
     )
-    set_in(
-        data,
-        "company.mission",
-        c6.text_input(
-            tr("Mission", "Mission"), value=get_in(data, "company.mission", "")
-        ),
+    data["company"]["mission"] = c6.text_input(
+        tr("Mission", "Mission"), value=data["company"].get("mission", "")
     )
 
-    set_in(
-        data,
-        "company.culture",
-        st.text_area(
-            tr("Kultur", "Culture"), value=get_in(data, "company.culture", "")
-        ),
+    data["company"]["culture"] = st.text_area(
+        tr("Kultur", "Culture"), value=data["company"].get("culture", "")
     )
 
 
@@ -465,65 +365,32 @@ def _step_position():
 
     st.subheader(tr("Position", "Position"))
     data = st.session_state[StateKeys.PROFILE]
-    ensure_path(data, "position.job_title")
-    ensure_path(data, "position.seniority_level")
-    ensure_path(data, "position.department")
-    ensure_path(data, "position.team_structure")
-    ensure_path(data, "position.reporting_line")
-    ensure_path(data, "position.role_summary")
 
     c1, c2 = st.columns(2)
-    set_in(
-        data,
-        "position.job_title",
-        c1.text_input(
-            tr("Jobtitel *", "Job title *"),
-            value=get_in(data, "position.job_title", ""),
-        ),
+    data["position"]["job_title"] = c1.text_input(
+        tr("Jobtitel *", "Job title *"), value=data["position"].get("job_title", "")
     )
-    set_in(
-        data,
-        "position.seniority_level",
-        c2.text_input(
-            tr("Seniorität", "Seniority"),
-            value=get_in(data, "position.seniority_level", ""),
-        ),
+    data["position"]["seniority_level"] = c2.text_input(
+        tr("Seniorität", "Seniority"), value=data["position"].get("seniority_level", "")
     )
 
     c3, c4 = st.columns(2)
-    set_in(
-        data,
-        "position.department",
-        c3.text_input(
-            tr("Abteilung", "Department"), value=get_in(data, "position.department", "")
-        ),
+    data["position"]["department"] = c3.text_input(
+        tr("Abteilung", "Department"), value=data["position"].get("department", "")
     )
-    set_in(
-        data,
-        "position.team_structure",
-        c4.text_input(
-            tr("Teamstruktur", "Team structure"),
-            value=get_in(data, "position.team_structure", ""),
-        ),
+    data["position"]["team_structure"] = c4.text_input(
+        tr("Teamstruktur", "Team structure"),
+        value=data["position"].get("team_structure", ""),
     )
 
     c5, c6 = st.columns(2)
-    set_in(
-        data,
-        "position.reporting_line",
-        c5.text_input(
-            tr("Reports an", "Reports to"),
-            value=get_in(data, "position.reporting_line", ""),
-        ),
+    data["position"]["reporting_line"] = c5.text_input(
+        tr("Reports an", "Reports to"), value=data["position"].get("reporting_line", "")
     )
-    set_in(
-        data,
-        "position.role_summary",
-        c6.text_area(
-            tr("Rollen-Summary *", "Role summary *"),
-            value=get_in(data, "position.role_summary", ""),
-            height=120,
-        ),
+    data["position"]["role_summary"] = c6.text_area(
+        tr("Rollen-Summary *", "Role summary *"),
+        value=data["position"].get("role_summary", ""),
+        height=120,
     )
 
 
@@ -536,56 +403,31 @@ def _step_requirements():
 
     st.subheader(tr("Anforderungen", "Requirements"))
     data = st.session_state[StateKeys.PROFILE]
-    ensure_path(data, "requirements.hard_skills")
-    ensure_path(data, "requirements.soft_skills")
-    ensure_path(data, "requirements.tools_and_technologies")
-    ensure_path(data, "requirements.languages_required")
-    ensure_path(data, "requirements.certifications")
 
-    set_in(
-        data,
-        "requirements.hard_skills",
-        _chip_multiselect(
-            "Hard Skills",
-            options=get_in(data, "requirements.hard_skills", []) or [],
-            values=get_in(data, "requirements.hard_skills", []) or [],
-        ),
+    data["requirements"]["hard_skills"] = _chip_multiselect(
+        "Hard Skills",
+        options=data["requirements"].get("hard_skills", []),
+        values=data["requirements"].get("hard_skills", []),
     )
-    set_in(
-        data,
-        "requirements.soft_skills",
-        _chip_multiselect(
-            "Soft Skills",
-            options=get_in(data, "requirements.soft_skills", []) or [],
-            values=get_in(data, "requirements.soft_skills", []) or [],
-        ),
+    data["requirements"]["soft_skills"] = _chip_multiselect(
+        "Soft Skills",
+        options=data["requirements"].get("soft_skills", []),
+        values=data["requirements"].get("soft_skills", []),
     )
-    set_in(
-        data,
-        "requirements.tools_and_technologies",
-        _chip_multiselect(
-            "Tools & Tech",
-            options=get_in(data, "requirements.tools_and_technologies", []) or [],
-            values=get_in(data, "requirements.tools_and_technologies", []) or [],
-        ),
+    data["requirements"]["tools_and_technologies"] = _chip_multiselect(
+        "Tools & Tech",
+        options=data["requirements"].get("tools_and_technologies", []),
+        values=data["requirements"].get("tools_and_technologies", []),
     )
-    set_in(
-        data,
-        "requirements.languages_required",
-        _chip_multiselect(
-            tr("Sprachen", "Languages"),
-            options=get_in(data, "requirements.languages_required", []) or [],
-            values=get_in(data, "requirements.languages_required", []) or [],
-        ),
+    data["requirements"]["languages_required"] = _chip_multiselect(
+        tr("Sprachen", "Languages"),
+        options=data["requirements"].get("languages_required", []),
+        values=data["requirements"].get("languages_required", []),
     )
-    set_in(
-        data,
-        "requirements.certifications",
-        _chip_multiselect(
-            tr("Zertifizierungen", "Certifications"),
-            options=get_in(data, "requirements.certifications", []) or [],
-            values=get_in(data, "requirements.certifications", []) or [],
-        ),
+    data["requirements"]["certifications"] = _chip_multiselect(
+        tr("Zertifizierungen", "Certifications"),
+        options=data["requirements"].get("certifications", []),
+        values=data["requirements"].get("certifications", []),
     )
 
 
@@ -598,80 +440,46 @@ def _step_employment():
 
     st.subheader(tr("Beschäftigung", "Employment"))
     data = st.session_state[StateKeys.PROFILE]
-    ensure_path(data, "employment.job_type")
-    ensure_path(data, "employment.work_policy")
-    ensure_path(data, "employment.travel_required")
-    ensure_path(data, "employment.relocation_support")
-    ensure_path(data, "employment.visa_sponsorship")
 
     c1, c2 = st.columns(2)
-    set_in(
-        data,
-        "employment.job_type",
-        c1.selectbox(
-            tr("Art", "Type"),
-            options=[
-                "full_time",
-                "part_time",
-                "contract",
-                "internship",
-                "temporary",
-                "other",
-            ],
-            index=(
-                0
-                if not get_in(data, "employment.job_type")
-                else [
-                    "full_time",
-                    "part_time",
-                    "contract",
-                    "internship",
-                    "temporary",
-                    "other",
-                ].index(get_in(data, "employment.job_type"))
-            ),
-        ),
+    job_options = [
+        "full_time",
+        "part_time",
+        "contract",
+        "internship",
+        "temporary",
+        "other",
+    ]
+    current_job = data["employment"].get("job_type")
+    data["employment"]["job_type"] = c1.selectbox(
+        tr("Art", "Type"),
+        options=job_options,
+        index=job_options.index(current_job) if current_job in job_options else 0,
     )
-    set_in(
-        data,
-        "employment.work_policy",
-        c2.selectbox(
-            tr("Policy", "Policy"),
-            options=["onsite", "hybrid", "remote"],
-            index=(
-                0
-                if not get_in(data, "employment.work_policy")
-                else ["onsite", "hybrid", "remote"].index(
-                    get_in(data, "employment.work_policy")
-                )
-            ),
+    policy_options = ["onsite", "hybrid", "remote"]
+    current_policy = data["employment"].get("work_policy")
+    data["employment"]["work_policy"] = c2.selectbox(
+        tr("Policy", "Policy"),
+        options=policy_options,
+        index=(
+            policy_options.index(current_policy)
+            if current_policy in policy_options
+            else 0
         ),
     )
 
     c3, c4, c5 = st.columns(3)
-    set_in(
-        data,
-        "employment.travel_required",
-        c3.toggle(
-            tr("Reisetätigkeit?", "Travel required?"),
-            value=bool(get_in(data, "employment.travel_required", False)),
-        ),
+    data["employment"]["travel_required"] = c3.toggle(
+        tr("Reisetätigkeit?", "Travel required?"),
+        value=bool(data["employment"].get("travel_required")),
     )
-    set_in(
-        data,
-        "employment.relocation_support",
-        c4.toggle(
-            tr("Relocation?", "Relocation?"),
-            value=bool(get_in(data, "employment.relocation_support", False)),
-        ),
+    data["employment"]["relocation_support"] = c4.toggle(
+        tr("Relocation?", "Relocation?"),
+        value=bool(data["employment"].get("relocation_support")),
     )
-    set_in(
-        data,
-        "employment.visa_sponsorship",
-        c5.toggle(
-            tr("Visum-Sponsoring?", "Visa sponsorship?"),
-            value=bool(get_in(data, "employment.visa_sponsorship", False)),
-        ),
+    data["employment"]["visa_sponsorship"] = c5.toggle(
+        tr("Visum-Sponsoring?", "Visa sponsorship?"),
+        value=bool(data["employment"].get("visa_sponsorship")),
     )
 
 
@@ -684,88 +492,45 @@ def _step_compensation():
 
     st.subheader(tr("Vergütung & Benefits", "Compensation & Benefits"))
     data = st.session_state[StateKeys.PROFILE]
-    ensure_path(data, "compensation.salary_min")
-    ensure_path(data, "compensation.salary_max")
-    ensure_path(data, "compensation.currency")
-    ensure_path(data, "compensation.period")
-    ensure_path(data, "compensation.variable_pay")
-    ensure_path(data, "compensation.equity_offered")
-    ensure_path(data, "compensation.benefits")
 
     c1, c2, c3 = st.columns(3)
-    set_in(
-        data,
-        "compensation.salary_min",
-        c1.number_input(
-            tr("Gehalt min", "Salary min"),
-            value=(
-                float(get_in(data, "compensation.salary_min", 0))
-                if get_in(data, "compensation.salary_min") is not None
-                else 0.0
-            ),
-        ),
+    data["compensation"]["salary_min"] = c1.number_input(
+        tr("Gehalt min", "Salary min"),
+        value=float(data["compensation"].get("salary_min") or 0.0),
     )
-    set_in(
-        data,
-        "compensation.salary_max",
-        c2.number_input(
-            tr("Gehalt max", "Salary max"),
-            value=(
-                float(get_in(data, "compensation.salary_max", 0))
-                if get_in(data, "compensation.salary_max") is not None
-                else 0.0
-            ),
-        ),
+    data["compensation"]["salary_max"] = c2.number_input(
+        tr("Gehalt max", "Salary max"),
+        value=float(data["compensation"].get("salary_max") or 0.0),
     )
-    set_in(
-        data,
-        "compensation.currency",
-        c3.text_input(
-            tr("Währung", "Currency"), value=get_in(data, "compensation.currency", "")
-        ),
+    data["compensation"]["currency"] = c3.text_input(
+        tr("Währung", "Currency"), value=data["compensation"].get("currency", "")
     )
 
     c4, c5 = st.columns(2)
-    set_in(
-        data,
-        "compensation.period",
-        c4.selectbox(
-            tr("Periode", "Period"),
-            options=["year", "month", "day", "hour"],
-            index=(
-                0
-                if not get_in(data, "compensation.period")
-                else ["year", "month", "day", "hour"].index(
-                    get_in(data, "compensation.period")
-                )
-            ),
+    period_options = ["year", "month", "day", "hour"]
+    current_period = data["compensation"].get("period")
+    data["compensation"]["period"] = c4.selectbox(
+        tr("Periode", "Period"),
+        options=period_options,
+        index=(
+            period_options.index(current_period)
+            if current_period in period_options
+            else 0
         ),
     )
-    set_in(
-        data,
-        "compensation.variable_pay",
-        c5.toggle(
-            tr("Variable Vergütung?", "Variable pay?"),
-            value=bool(get_in(data, "compensation.variable_pay", False)),
-        ),
+    data["compensation"]["variable_pay"] = c5.toggle(
+        tr("Variable Vergütung?", "Variable pay?"),
+        value=bool(data["compensation"].get("variable_pay")),
     )
 
     c6, c7 = st.columns(2)
-    set_in(
-        data,
-        "compensation.equity_offered",
-        c6.toggle(
-            "Equity?", value=bool(get_in(data, "compensation.equity_offered", False))
-        ),
+    data["compensation"]["equity_offered"] = c6.toggle(
+        "Equity?", value=bool(data["compensation"].get("equity_offered"))
     )
-    set_in(
-        data,
-        "compensation.benefits",
-        _chip_multiselect(
-            "Benefits",
-            options=get_in(data, "compensation.benefits", []) or [],
-            values=get_in(data, "compensation.benefits", []) or [],
-        ),
+    data["compensation"]["benefits"] = _chip_multiselect(
+        "Benefits",
+        options=data["compensation"].get("benefits", []),
+        values=data["compensation"].get("benefits", []),
     )
 
 
@@ -778,27 +543,17 @@ def _step_process():
 
     st.subheader(tr("Prozess", "Process"))
     data = st.session_state[StateKeys.PROFILE]
-    ensure_path(data, "process.interview_stages")
-    ensure_path(data, "process.process_notes")
 
     c1, c2 = st.columns([1, 2])
-    init_val = get_in(data, "process.interview_stages")
-    set_in(
-        data,
-        "process.interview_stages",
-        int(
-            c1.number_input(
-                tr("Phasen", "Stages"),
-                value=int(init_val) if init_val is not None else 0,
-            )
-        ),
+    init_val = data["process"].get("interview_stages")
+    data["process"]["interview_stages"] = int(
+        c1.number_input(
+            tr("Phasen", "Stages"),
+            value=int(init_val) if init_val is not None else 0,
+        )
     )
-    set_in(
-        data,
-        "process.process_notes",
-        c2.text_area(
-            tr("Notizen", "Notes"), value=get_in(data, "process.process_notes", "")
-        ),
+    data["process"]["process_notes"] = c2.text_area(
+        tr("Notizen", "Notes"), value=data["process"].get("process_notes", "")
     )
 
 

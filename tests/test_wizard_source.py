@@ -96,7 +96,8 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
 
     _step_source({})
 
-    assert st.session_state[StateKeys.PROFILE] == sample_data
+    data = st.session_state[StateKeys.PROFILE]
+    assert data["position"]["job_title"] == "Engineer"
 
 
 def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
