@@ -16,6 +16,7 @@ import backoff
 import requests
 
 _ESO = "https://ec.europa.eu/esco/api"
+_HEADERS = {"User-Agent": "Vacalyser/1.0"}
 log = logging.getLogger("vacalyser.esco")
 
 
@@ -30,7 +31,7 @@ def _get(path: str, **params) -> dict:
     """Perform a GET request against the ESCO API."""
 
     url = path if path.startswith("http") else f"{_ESO}/{path.lstrip('/')}"
-    resp = requests.get(url, params=params, timeout=20)
+    resp = requests.get(url, params=params, timeout=20, headers=_HEADERS)
     try:  # pragma: no cover - network failures/mocks without method
         resp.raise_for_status()
     except AttributeError:
@@ -44,7 +45,11 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
 
     if not title:
         return None
-    data = _get("search", text=title, type="occupation", language=lang)
+    try:
+        data = _get("search", text=title, type="occupation", language=lang)
+    except requests.RequestException as exc:  # pragma: no cover - network
+        log.warning("ESCO classify failed: %s", exc)
+        return None
     items = data.get("_embedded", {}).get("results", []) or []
     if not items and lang != "en":
         return classify_occupation(title, "en")
@@ -89,7 +94,11 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     if not occupation_uri:
         return []
 
-    res = _get("resource", uri=occupation_uri, language=lang)
+    try:
+        res = _get("resource", uri=occupation_uri, language=lang)
+    except requests.RequestException as exc:  # pragma: no cover - network
+        log.warning("ESCO essential skills failed: %s", exc)
+        return []
     skills: List[str] = []
     rels = (res.get("_links", {}) or {}).get("hasEssentialSkill", [])
     for rel in rels:
@@ -109,7 +118,11 @@ def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
 
     if not name:
         return {}
-    data = _get("search", text=name, type="skill", language=lang)
+    try:
+        data = _get("search", text=name, type="skill", language=lang)
+    except requests.RequestException as exc:  # pragma: no cover - network
+        log.warning("ESCO lookup failed: %s", exc)
+        return {}
     items = data.get("_embedded", {}).get("results", []) or []
     return items[0] if items else {}
 

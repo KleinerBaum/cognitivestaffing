@@ -9,7 +9,7 @@ from core.esco_utils import classify_occupation, get_essential_skills  # noqa: E
 def test_classify_occupation(monkeypatch):
     """Classification should return label and group from ESCO."""
 
-    def fake_get(url, params=None, timeout=5):
+    def fake_get(url, params=None, timeout=5, headers=None):
         class Resp:
             status_code = 200
 
@@ -49,7 +49,7 @@ def test_classify_occupation(monkeypatch):
 def test_get_essential_skills(monkeypatch):
     """Essential skills are extracted from ESCO resource payload."""
 
-    def fake_get(url, params=None, timeout=5):
+    def fake_get(url, params=None, timeout=5, headers=None):
         class Resp:
             status_code = 200
 

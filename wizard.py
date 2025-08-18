@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import List
 
+import re
 import streamlit as st
 
 from utils.i18n import tr
@@ -18,6 +19,7 @@ from utils.session import (
     migrate_legacy_keys,
 )
 from ingest.extractors import extract_text_from_file, extract_text_from_url
+from utils.errors import display_error
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
@@ -52,8 +54,14 @@ def on_file_uploaded() -> None:
     try:
         txt = extract_text_from_file(f)
     except Exception as e:  # pragma: no cover - defensive
-        st.error(
-            f"{tr('Datei konnte nicht gelesen werden', 'Failed to read file')}: {e}"
+        display_error(
+            tr("Datei konnte nicht gelesen werden", "Failed to read file"),
+            str(e),
+        )
+        return
+    if not txt.strip():
+        display_error(
+            tr("Datei enthält keinen Text", "File contains no text"),
         )
         return
     st.session_state[DataKeys.JD_TEXT] = txt
@@ -66,10 +74,21 @@ def on_url_changed() -> None:
     url = st.session_state.get(UIKeys.JD_URL_INPUT, "").strip()
     if not url:
         return
+    if not re.match(r"^https?://[\w./-]+$", url):
+        display_error(tr("Ungültige URL", "Invalid URL"))
+        return
     try:
         txt = extract_text_from_url(url)
     except Exception as e:  # pragma: no cover - defensive
-        st.error(f"{tr('URL konnte nicht geladen werden', 'Failed to fetch URL')}: {e}")
+        display_error(
+            tr("URL konnte nicht geladen werden", "Failed to fetch URL"),
+            str(e),
+        )
+        return
+    if not txt.strip():
+        display_error(
+            tr("Keine Textinhalte gefunden", "No text content found"),
+        )
         return
     st.session_state[DataKeys.JD_TEXT] = txt
     st.session_state[UIKeys.JD_TEXT_INPUT] = txt
@@ -352,7 +371,10 @@ def _step_source(schema: dict) -> None:
                 st.session_state[DataKeys.STEP] = 2
                 st.rerun()
             except Exception as e:
-                st.error(f"{tr('Extraktion fehlgeschlagen', 'Extraction failed')}: {e}")
+                display_error(
+                    tr("Extraktion fehlgeschlagen", "Extraction failed"),
+                    str(e),
+                )
 
 
 def _step_company():
@@ -836,7 +858,10 @@ def _step_summary(schema: dict, critical: list[str]):
                     tr("Follow-ups aktualisiert.", "Follow-up questions updated.")
                 )
             except Exception as e:
-                st.error(f"{tr('Follow-ups fehlgeschlagen', 'Follow-ups failed')}: {e}")
+                display_error(
+                    tr("Follow-ups fehlgeschlagen", "Follow-ups failed"),
+                    str(e),
+                )
 
     with col2:
         if st.session_state.get("followups"):
