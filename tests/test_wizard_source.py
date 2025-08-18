@@ -19,10 +19,10 @@ class DummyTab:
         return False
 
 
-def test_step_source_file_upload_sets_jd_text(
+def test_step_source_file_upload_sets_jd_text_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Uploading a file should set ``jd_text`` and populate the text area."""
+    """Uploading a file should set ``jd_text_input`` and populate the text area."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -38,7 +38,7 @@ def test_step_source_file_upload_sets_jd_text(
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: object())
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get("jd_text", "")
+        st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
     )
     monkeypatch.setattr(
         "utils.pdf_utils.extract_text_from_file", lambda _f: sample_text
@@ -52,7 +52,7 @@ def test_step_source_file_upload_sets_jd_text(
     except StreamlitAPIException as e:  # pragma: no cover - defensive
         pytest.fail(f"StreamlitAPIException raised: {e}")
 
-    assert st.session_state["jd_text"] == sample_text
+    assert st.session_state["jd_text_input"] == sample_text
     assert reran["called"]
 
     button_calls = iter([False])
@@ -63,7 +63,7 @@ def test_step_source_file_upload_sets_jd_text(
     captured: dict[str, str] = {}
 
     def text_area_capture(*_a, **_k):
-        captured["value"] = st.session_state.get("jd_text", "")
+        captured["value"] = st.session_state.get("jd_text_input", "")
         return captured["value"]
 
     monkeypatch.setattr(st, "text_area", text_area_capture)
@@ -71,12 +71,13 @@ def test_step_source_file_upload_sets_jd_text(
     _step_source({})
 
     assert captured["value"] == sample_text
+    assert st.session_state["jd_text"] == sample_text
 
 
-def test_step_source_url_upload_sets_jd_text(
+def test_step_source_url_upload_sets_jd_text_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Uploading via URL should set ``jd_text`` and populate the text area."""
+    """Uploading via URL should set ``jd_text_input`` and populate the text area."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -92,7 +93,7 @@ def test_step_source_url_upload_sets_jd_text(
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "https://example.com")
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get("jd_text", "")
+        st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
     )
     monkeypatch.setattr("utils.url_utils.extract_text_from_url", lambda _u: sample_text)
 
@@ -104,7 +105,7 @@ def test_step_source_url_upload_sets_jd_text(
     except StreamlitAPIException as e:  # pragma: no cover - defensive
         pytest.fail(f"StreamlitAPIException raised: {e}")
 
-    assert st.session_state["jd_text"] == sample_text
+    assert st.session_state["jd_text_input"] == sample_text
     assert reran["called"]
 
     button_calls = iter([False])
@@ -115,7 +116,7 @@ def test_step_source_url_upload_sets_jd_text(
     captured: dict[str, str] = {}
 
     def text_area_capture(*_a, **_k):
-        captured["value"] = st.session_state.get("jd_text", "")
+        captured["value"] = st.session_state.get("jd_text_input", "")
         return captured["value"]
 
     monkeypatch.setattr(st, "text_area", text_area_capture)
@@ -123,6 +124,7 @@ def test_step_source_url_upload_sets_jd_text(
     _step_source({})
 
     assert captured["value"] == sample_text
+    assert st.session_state["jd_text"] == sample_text
 
 
 @pytest.mark.parametrize("mode", ["text", "file", "url"])
@@ -141,26 +143,6 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     monkeypatch.setattr(st, "warning", lambda *a, **k: None)
     monkeypatch.setattr(st, "error", lambda *a, **k: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
-    monkeypatch.setattr(st, "button", lambda *a, **k: True)
-
-    if mode == "text":
-        monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
-        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
-        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
-    elif mode == "file":
-        monkeypatch.setattr(st, "text_area", lambda *a, **k: "")
-        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: object())
-        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
-        monkeypatch.setattr(
-            "utils.pdf_utils.extract_text_from_file", lambda _f: sample_text
-        )
-    else:  # url
-        monkeypatch.setattr(st, "text_area", lambda *a, **k: "")
-        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
-        monkeypatch.setattr(st, "text_input", lambda *a, **k: "https://example.com")
-        monkeypatch.setattr(
-            "utils.url_utils.extract_text_from_url", lambda _u: sample_text
-        )
 
     # Extraction helpers
     monkeypatch.setattr(
@@ -168,7 +150,50 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     )
     monkeypatch.setattr("wizard.classify_occupation", lambda _t, _l: None)
 
-    _step_source({})
+    if mode == "text":
+        monkeypatch.setattr(st, "button", lambda *a, **k: True)
+        monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+        _step_source({})
+    elif mode == "file":
+        button_calls = iter([True, False])
+        monkeypatch.setattr(st, "button", lambda *a, **k: next(button_calls))
+        monkeypatch.setattr(st, "text_area", lambda *a, **k: "")
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: object())
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+        monkeypatch.setattr(
+            "utils.pdf_utils.extract_text_from_file", lambda _f: sample_text
+        )
+        _step_source({})
+
+        button_calls = iter([True])
+        monkeypatch.setattr(st, "button", lambda *a, **k: next(button_calls, False))
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+        monkeypatch.setattr(
+            st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
+        )
+        _step_source({})
+    else:  # url
+        button_calls = iter([True, False])
+        monkeypatch.setattr(st, "button", lambda *a, **k: next(button_calls))
+        monkeypatch.setattr(st, "text_area", lambda *a, **k: "")
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "https://example.com")
+        monkeypatch.setattr(
+            "utils.url_utils.extract_text_from_url", lambda _u: sample_text
+        )
+        _step_source({})
+
+        button_calls = iter([True])
+        monkeypatch.setattr(st, "button", lambda *a, **k: next(button_calls, False))
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+        monkeypatch.setattr(
+            st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
+        )
+        _step_source({})
 
     assert st.session_state.data == sample_data
 
