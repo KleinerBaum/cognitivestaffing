@@ -23,7 +23,7 @@ ROOT = Path(__file__).parent
 bootstrap_session()
 migrate_legacy_keys()
 
-SCHEMA = load_json("vacalyser_schema.json", fallback={})
+SCHEMA = load_json("schema/need_analysis.schema.json", fallback={})
 CRITICAL = set(
     load_json("critical_fields.json", fallback={"critical": []}).get("critical", [])
 )
@@ -34,7 +34,7 @@ ROLE_FIELD_MAP = load_json("role_field_map.json", fallback={})
 # --- Session Defaults (einheitliche Keys) ---
 def _init_state():
     ss = st.session_state
-    ss.setdefault("data", {})  # entspricht vacalyser_schema.json
+    ss.setdefault("data", {})  # entspricht need_analysis.schema.json
     ss.setdefault("lang", "de")  # "de" | "en"
     ss.setdefault("model", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     ss.setdefault("vector_store_id", os.getenv("VECTOR_STORE_ID") or "")

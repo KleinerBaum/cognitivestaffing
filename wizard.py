@@ -910,7 +910,9 @@ def run_wizard():
     # Falls nicht durch app.py injiziert, lokal nachladen (failsafe)
     if not schema:
         try:
-            with (ROOT / "vacalyser_schema.json").open("r", encoding="utf-8") as f:
+            with (ROOT / "schema" / "need_analysis.schema.json").open(
+                "r", encoding="utf-8"
+            ) as f:
                 schema = json.load(f)
         except Exception:
             schema = {}

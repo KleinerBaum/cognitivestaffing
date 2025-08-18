@@ -13,7 +13,7 @@ from openai import OpenAI
 
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
-from core.schema import VacalyserJD
+from models.need_analysis import NeedAnalysisProfile
 from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
@@ -58,13 +58,13 @@ def _generate_error_report(instance: dict[str, Any]) -> str:
     """Return detailed validation errors for ``instance``.
 
     Args:
-        instance: Data to validate against ``VACALYSER_SCHEMA``.
+        instance: Data to validate against ``NEED_ANALYSIS_SCHEMA``.
 
     Returns:
         Multiline error report or an empty string if validation passes.
     """
 
-    validator = Draft7Validator(VACALYSER_SCHEMA)
+    validator = Draft7Validator(NEED_ANALYSIS_SCHEMA)
     lines = []
     for err in validator.iter_errors(instance):
         path = "/".join(str(p) for p in err.path) or "$"
@@ -85,12 +85,14 @@ def _log_schema_errors(raw: str) -> None:
         logger.error("Schema validation errors:\n%s", report)
 
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent / "vacalyser_schema.json"
+SCHEMA_PATH = (
+    Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
+)
 with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
-    VACALYSER_SCHEMA = json.load(_f)
-VACALYSER_SCHEMA.pop("$schema", None)
-VACALYSER_SCHEMA.pop("title", None)
-_assert_closed_schema(VACALYSER_SCHEMA)
+    NEED_ANALYSIS_SCHEMA = json.load(_f)
+NEED_ANALYSIS_SCHEMA.pop("$schema", None)
+NEED_ANALYSIS_SCHEMA.pop("title", None)
+_assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
 MODE = os.getenv("LLM_MODE", "plain").lower()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
@@ -103,7 +105,7 @@ def build_extraction_function() -> dict[str, Any]:
     return {
         "name": "return_extraction",
         "description": "Return extracted fields",
-        "parameters": VACALYSER_SCHEMA,
+        "parameters": NEED_ANALYSIS_SCHEMA,
     }
 
 
@@ -180,8 +182,8 @@ def extract_json(
 
 def extract_and_parse(
     text: str, title: Optional[str] = None, url: Optional[str] = None
-) -> VacalyserJD:
-    """Extract fields and return a parsed :class:`VacalyserJD`.
+) -> NeedAnalysisProfile:
+    """Extract fields and return a parsed :class:`NeedAnalysisProfile`.
 
     The function performs a second minimal-prompt attempt if the first
     response cannot be parsed as JSON.

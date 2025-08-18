@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from core.schema import VacalyserJD  # noqa: E402
+from models.need_analysis import NeedAnalysisProfile  # noqa: E402
 from questions.generate import generate_followup_questions  # noqa: E402
 
 
@@ -28,7 +28,7 @@ def test_generate_followups_wrapper(monkeypatch):
         "questions.generate._generate_followup_questions", fake_generate
     )
 
-    jd = VacalyserJD(company={"name": ""}, position={"job_title": "Dev"})
+    jd = NeedAnalysisProfile()
     questions = generate_followup_questions(
         jd, num_questions=2, lang="de", use_rag=False
     )
@@ -47,5 +47,5 @@ def test_generate_followups_wrapper_empty(monkeypatch):
         "questions.generate._generate_followup_questions", fake_generate
     )
 
-    jd = VacalyserJD(company={"name": ""}, position={"job_title": "Dev"})
+    jd = NeedAnalysisProfile()
     assert generate_followup_questions(jd) == []
