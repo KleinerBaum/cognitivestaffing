@@ -233,16 +233,28 @@ def _step_source(schema: dict):
         if up and st.button(tr("Datei analysieren", "Analyze file")):
             from utils.pdf_utils import extract_text_from_file
 
-            st.session_state["jd_text"] = extract_text_from_file(up)
-            st.rerun()
+            try:
+                st.session_state["jd_text"] = extract_text_from_file(up)
+            except ValueError as e:
+                st.error(
+                    f"{tr('Datei konnte nicht gelesen werden', 'Failed to read file')}: {e}"
+                )
+            else:
+                st.rerun()
 
     with tab_url:
         url = st.text_input(tr("URL zu Jobanzeige", "Job ad URL"), key="jd_url")
         if url and st.button(tr("URL analysieren", "Analyze URL")):
             from utils.url_utils import extract_text_from_url
 
-            st.session_state["jd_text"] = extract_text_from_url(url)
-            st.rerun()
+            try:
+                st.session_state["jd_text"] = extract_text_from_url(url)
+            except ValueError as e:
+                st.error(
+                    f"{tr('URL konnte nicht geladen werden', 'Failed to fetch URL')}: {e}"
+                )
+            else:
+                st.rerun()
 
     text_for_extract = st.session_state.get("jd_text") or jd_text
     if st.button(t("analyze", st.session_state.lang), type="primary"):
