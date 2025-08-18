@@ -2,6 +2,7 @@ import io
 import re
 import requests
 from requests import Response
+import chardet
 
 
 def _fetch_url(url: str, timeout: float = 15.0) -> str:
@@ -60,6 +61,8 @@ def extract_text_from_file(file) -> str:
     name = getattr(file, "name", "").lower()
     data = file.read()
     file.seek(0)
+    if not data:
+        return ""
     if name.endswith(".pdf"):
         from pypdf import PdfReader
 
@@ -71,6 +74,14 @@ def extract_text_from_file(file) -> str:
         doc = docx.Document(io.BytesIO(data))
         return "\n".join([p.text for p in doc.paragraphs]).strip()
     try:
-        return data.decode("utf-8", errors="ignore")
-    except Exception:
-        return ""
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        detected = chardet.detect(data)
+        enc = detected["encoding"] or "utf-8"
+        try:
+            text = data.decode(enc, errors="ignore")
+        except Exception:
+            text = data.decode("utf-8", errors="ignore")
+    text = re.sub(r"\r\n?", "\n", text)
+    text = re.sub(r"\s+$", "", text, flags=re.MULTILINE)
+    return text
