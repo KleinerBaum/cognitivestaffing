@@ -1,4 +1,5 @@
-from core.schema import VacalyserJD, coerce_and_fill, LIST_FIELDS
+from models.need_analysis import NeedAnalysisProfile
+from core.schema import coerce_and_fill, LIST_FIELDS
 
 
 def test_list_fields_contains_base_lists() -> None:
@@ -24,7 +25,7 @@ def test_coerce_and_fill_basic() -> None:
         "compensation": {"benefits": ["Gym", "Gym"]},
     }
     jd = coerce_and_fill(data)
-    assert isinstance(jd, VacalyserJD)
+    assert isinstance(jd, NeedAnalysisProfile)
     assert jd.position.job_title == "Engineer"
     assert jd.requirements is not None
     assert jd.responsibilities is not None
@@ -41,7 +42,7 @@ def test_default_insertion() -> None:
     jd = coerce_and_fill({})
     assert jd.position.job_title == ""
     assert jd.company.name == ""
-    assert jd.requirements is None
+    assert jd.requirements.hard_skills == []
 
 
 def test_job_type_invalid() -> None:

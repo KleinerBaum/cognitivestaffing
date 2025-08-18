@@ -287,9 +287,10 @@ def extract_with_function(
             "Model returned invalid JSON in function_call.arguments"
         ) from e
 
-    from core.schema import VacalyserJD, coerce_and_fill
+    from models.need_analysis import NeedAnalysisProfile
+    from core.schema import coerce_and_fill
 
-    jd: VacalyserJD = coerce_and_fill(raw)
+    jd: NeedAnalysisProfile = coerce_and_fill(raw)
     return jd.model_dump()
 
 

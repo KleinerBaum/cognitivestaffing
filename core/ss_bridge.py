@@ -1,10 +1,11 @@
 from typing import Any
 
-from .schema import ALL_FIELDS, ALIASES, LIST_FIELDS, VacalyserJD, coerce_and_fill
+from models.need_analysis import NeedAnalysisProfile
+from .schema import ALL_FIELDS, ALIASES, LIST_FIELDS, coerce_and_fill
 
 
-def to_session_state(jd: VacalyserJD, ss: dict) -> None:
-    """Populate session state dict with values from a VacalyserJD object."""
+def to_session_state(jd: NeedAnalysisProfile, ss: dict) -> None:
+    """Populate session state dict with values from a NeedAnalysisProfile object."""
 
     def _get(path: str) -> Any:
         cursor: Any = jd
@@ -23,8 +24,8 @@ def to_session_state(jd: VacalyserJD, ss: dict) -> None:
         ss.pop(alias, None)
 
 
-def from_session_state(ss: dict) -> VacalyserJD:
-    """Build a VacalyserJD model from the session state values."""
+def from_session_state(ss: dict) -> NeedAnalysisProfile:
+    """Build a NeedAnalysisProfile model from the session state values."""
     data: dict[str, Any] = {}
     for key, value in ss.items():
         target = ALIASES.get(key, key)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from core.schema import VacalyserJD
+from models.need_analysis import NeedAnalysisProfile
 
 from question_logic import (
     generate_followup_questions as _generate_followup_questions,
@@ -12,7 +12,7 @@ from question_logic import (
 
 
 def generate_followup_questions(
-    jd: VacalyserJD,
+    jd: NeedAnalysisProfile,
     num_questions: Optional[int] = None,
     lang: str = "en",
     use_rag: bool = True,

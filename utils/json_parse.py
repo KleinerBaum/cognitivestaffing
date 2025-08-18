@@ -11,7 +11,7 @@ import json
 import re
 from typing import Optional
 
-from core.schema import VacalyserJD, coerce_and_fill
+from models.need_analysis import NeedAnalysisProfile
 
 
 _CODE_FENCE_RE = re.compile(
@@ -73,9 +73,9 @@ def _first_balanced_json(s: str) -> Optional[str]:
     return None
 
 
-def parse_extraction(raw: str) -> VacalyserJD:
+def parse_extraction(raw: str) -> NeedAnalysisProfile:
     """
-    Parse LLM output into a validated VacalyserJD.
+    Parse LLM output into a validated NeedAnalysisProfile.
 
     Strategy:
       1) Try strict json.loads(raw).
@@ -83,21 +83,21 @@ def parse_extraction(raw: str) -> VacalyserJD:
       3) Extract first balanced {...} block and json.loads it.
       4) If all fail, re-raise the last JSONDecodeError.
 
-    Always returns an object filtered through coerce_and_fill to ensure
-    all expected keys exist (with ''/[] defaults).
+    Always returns an object validated against :class:`NeedAnalysisProfile`
+    to ensure all expected keys exist (with ``""``/``[]`` defaults).
     """
     last_err = None
 
     # 1) direct parse
     try:
-        return coerce_and_fill(json.loads(raw))
+        return NeedAnalysisProfile.model_validate(json.loads(raw))
     except Exception as e:
         last_err = e
 
     # 2) sanitize and retry
     try:
         sanitized = _strip_code_fences(raw).strip()
-        return coerce_and_fill(json.loads(sanitized))
+        return NeedAnalysisProfile.model_validate(json.loads(sanitized))
     except Exception as e:
         last_err = e
 
@@ -105,7 +105,7 @@ def parse_extraction(raw: str) -> VacalyserJD:
     block = _first_balanced_json(sanitized if "sanitized" in locals() else raw)
     if block:
         try:
-            return coerce_and_fill(json.loads(block))
+            return NeedAnalysisProfile.model_validate(json.loads(block))
         except Exception as e:
             last_err = e
 
