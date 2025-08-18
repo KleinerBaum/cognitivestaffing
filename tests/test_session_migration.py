@@ -1,15 +1,16 @@
 import streamlit as st
 
-from utils.session import bootstrap_session, migrate_legacy_keys, DataKeys, UIKeys
+from constants.keys import StateKeys, UIKeys
+from utils.session import bootstrap_session, migrate_legacy_keys
 
 
 def test_migrate_legacy_jd_text() -> None:
-    """Legacy ``jd_text`` key is moved to ``data.jd_text``."""
+    """Legacy ``jd_text`` key is moved to ``jd_raw_text``."""
     st.session_state.clear()
     st.session_state["jd_text"] = "legacy"
     bootstrap_session()
     migrate_legacy_keys()
-    assert st.session_state.get(DataKeys.JD_TEXT) == "legacy"
+    assert st.session_state.get(StateKeys.RAW_TEXT) == "legacy"
     assert "jd_text" not in st.session_state
 
 

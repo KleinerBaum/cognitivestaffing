@@ -9,6 +9,7 @@ from components.salary_dashboard import render_salary_dashboard
 from config_loader import load_json
 from utils.i18n import tr
 from utils.session import bootstrap_session, migrate_legacy_keys
+from constants.keys import StateKeys
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -34,13 +35,13 @@ ROLE_FIELD_MAP = load_json("role_field_map.json", fallback={})
 # --- Session Defaults (einheitliche Keys) ---
 def _init_state():
     ss = st.session_state
-    ss.setdefault("data", {})  # entspricht need_analysis.schema.json
-    ss.setdefault("lang", "de")  # "de" | "en"
-    ss.setdefault("model", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
-    ss.setdefault("vector_store_id", os.getenv("VECTOR_STORE_ID") or "")
-    ss.setdefault("auto_reask", True)  # auto Follow-ups?
-    ss.setdefault("step", 0)  # Wizard step index
-    ss.setdefault("usage", {"input_tokens": 0, "output_tokens": 0})
+    ss.setdefault(StateKeys.PROFILE, {})  # will hold the vacancy profile data (dict)
+    ss.setdefault("lang", "de")
+    ss.setdefault("model", os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"))
+    ss.setdefault("vector_store_id", os.getenv("VECTOR_STORE_ID", ""))
+    ss.setdefault("auto_reask", True)
+    ss.setdefault(StateKeys.STEP, 0)
+    ss.setdefault(StateKeys.USAGE, {"input_tokens": 0, "output_tokens": 0})
 
 
 _init_state()

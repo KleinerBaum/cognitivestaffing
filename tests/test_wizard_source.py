@@ -2,7 +2,8 @@ import pytest
 import streamlit as st
 
 from wizard import _step_source, on_file_uploaded, on_url_changed
-from utils.session import DataKeys, UIKeys
+from constants.keys import StateKeys, UIKeys
+from utils.session import bootstrap_session
 
 
 class DummyTab:
@@ -26,7 +27,7 @@ def _setup_common(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "warning", lambda *a, **k: None)
     monkeypatch.setattr(st, "error", lambda *a, **k: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
-    st.session_state.setdefault("data", {})
+    bootstrap_session()
 
 
 def test_on_file_uploaded_populates_text(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -41,7 +42,7 @@ def test_on_file_uploaded_populates_text(monkeypatch: pytest.MonkeyPatch) -> Non
 
     on_file_uploaded()
 
-    assert st.session_state.get(DataKeys.JD_TEXT) == sample_text
+    assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
     assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
 
 
@@ -57,13 +58,13 @@ def test_on_url_changed_populates_text(monkeypatch: pytest.MonkeyPatch) -> None:
 
     on_url_changed()
 
-    assert st.session_state.get(DataKeys.JD_TEXT) == sample_text
+    assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
     assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
 
 
 @pytest.mark.parametrize("mode", ["text", "file", "url"])
 def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) -> None:
-    """The source step should fill ``session_state.data`` after analysis."""
+    """The source step should fill ``session_state[StateKeys.PROFILE]`` after analysis."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -86,7 +87,7 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
         st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
         on_url_changed()
     else:
-        st.session_state[DataKeys.JD_TEXT] = sample_text
+        st.session_state[StateKeys.RAW_TEXT] = sample_text
         st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
 
     monkeypatch.setattr(
@@ -95,7 +96,7 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
 
     _step_source({})
 
-    assert st.session_state.data == sample_data
+    assert st.session_state[StateKeys.PROFILE] == sample_data
 
 
 def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,9 +105,9 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state.model = "gpt"
-    st.session_state[DataKeys.STEP] = 0
+    st.session_state[StateKeys.STEP] = 0
     sample_text = "Job text"
-    st.session_state[DataKeys.JD_TEXT] = sample_text
+    st.session_state[StateKeys.RAW_TEXT] = sample_text
     st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
     sample_data = {
         "position": {"job_title": "Engineer"},
@@ -133,7 +134,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
 
     _step_source({})
 
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     assert data["position"]["occupation_label"] == "software developer"
     assert data["position"]["occupation_uri"] == "http://example.com/occ"
     assert data["requirements"]["hard_skills"] == [
@@ -171,5 +172,5 @@ def test_on_change_handles_extraction_errors(
         st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
         on_url_changed()
 
-    assert st.session_state.get(DataKeys.JD_TEXT, "") == ""
+    assert st.session_state.get(StateKeys.RAW_TEXT, "") == ""
     assert errors, "Expected st.error to be called"
