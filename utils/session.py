@@ -15,7 +15,7 @@ __all__ = [
 DEFAULTS: Dict[str, Any] = {
     DataKeys.JD_TEXT: "",
     DataKeys.PROFILE: {},
-    DataKeys.STEP: 1,
+    DataKeys.STEP: 0,
 }
 
 

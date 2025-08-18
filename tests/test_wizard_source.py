@@ -104,7 +104,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state.model = "gpt"
-    st.session_state.step = 0
+    st.session_state[DataKeys.STEP] = 0
     sample_text = "Job text"
     st.session_state[DataKeys.JD_TEXT] = sample_text
     st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
