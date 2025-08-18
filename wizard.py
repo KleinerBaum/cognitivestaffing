@@ -23,11 +23,24 @@ from ingest.extractors import extract_text_from_file, extract_text_from_url
 from openai_utils import extract_with_function  # nutzt deine neue Definition
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from core.esco_utils import classify_occupation, get_essential_skills
+from components.stepper import render_stepper
 
 ROOT = Path(__file__).parent
 
 bootstrap_session()
 migrate_legacy_keys()
+
+
+def next_step() -> None:
+    """Advance the wizard to the next step."""
+
+    st.session_state[DataKeys.STEP] = st.session_state.get(DataKeys.STEP, 0) + 1
+
+
+def prev_step() -> None:
+    """Return to the previous wizard step."""
+
+    st.session_state[DataKeys.STEP] = max(0, st.session_state.get(DataKeys.STEP, 0) - 1)
 
 
 def on_file_uploaded() -> None:
@@ -336,7 +349,7 @@ def _step_source(schema: dict) -> None:
                     )
                     merged = sorted(current.union(set(skills)))
                     set_in(st.session_state.data, "requirements.hard_skills", merged)
-                st.session_state.step = 2
+                st.session_state[DataKeys.STEP] = 2
                 st.rerun()
             except Exception as e:
                 st.error(f"{tr('Extraktion fehlgeschlagen', 'Extraction failed')}: {e}")
@@ -900,7 +913,7 @@ def run_wizard():
     st.markdown("### 🧭 Wizard")
 
     # Step Navigation (oben)
-    st.progress((st.session_state.step + 1) / len(steps))
+    render_stepper(st.session_state[DataKeys.STEP], len(steps))
     st.caption(
         tr(
             "Klicke auf 'Weiter' oder navigiere direkt zu einem Schritt.",
@@ -909,27 +922,36 @@ def run_wizard():
     )
 
     # Render current step
-    label, renderer = steps[st.session_state.step]
+    current = st.session_state[DataKeys.STEP]
+    label, renderer = steps[current]
     step_word = tr("Schritt", "Step")
-    st.markdown(f"#### {step_word} {st.session_state.step + 1} — {label}")
+    st.markdown(f"#### {step_word} {current + 1} — {label}")
     renderer()
 
     # Bottom nav
     col_prev, col_next = st.columns([1, 1])
     with col_prev:
-        if st.session_state.step > 0 and st.button(
+        if current > 0 and st.button(
             tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True
         ):
-            st.session_state.step -= 1
+            prev_step()
             st.rerun()
     with col_next:
-        # Gating: auf Summary erst, ansonsten immer weiter
-        if st.session_state.step < len(steps) - 1:
+        if current < len(steps) - 1:
             if st.button(
                 tr("Weiter ▶︎", "Next ▶︎"), type="primary", use_container_width=True
             ):
-                st.session_state.step += 1
-                st.rerun()
+                crit_until_now = [
+                    f for f in critical if FIELD_SECTION_MAP.get(f, 0) <= current + 1
+                ]
+                missing = missing_keys(st.session_state.data, crit_until_now)
+                if missing:
+                    st.warning(
+                        f"{t('missing', st.session_state.lang)} {', '.join(missing)}"
+                    )
+                else:
+                    next_step()
+                    st.rerun()
         else:
             st.button(
                 tr("Fertig", "Done"),
