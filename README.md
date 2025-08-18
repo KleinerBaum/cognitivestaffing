@@ -77,8 +77,8 @@ if a file is missing or malformed.
 
 ## Session State & Migration
 
-Streamlit session keys are now namespaced to keep business data separate from
-UI widget state. Values under `data.*` hold the vacancy profile, while `ui.*`
-keys act as "shadow" keys for widgets. Older sessions that used plain keys like
-`jd_text` or `jd_text_input` are automatically migrated on startup so existing
-drafts remain intact.
+Session keys are centralized in `constants/keys.py`. Business data uses flat
+keys from `StateKeys` such as `profile_data` or `jd_raw_text`, while widget
+"shadow" keys come from `UIKeys` like `ui.jd_text_input`. Legacy entries like
+`data.jd_text` or plain `jd_text` are migrated to the new schema on startup so
+existing drafts remain intact.

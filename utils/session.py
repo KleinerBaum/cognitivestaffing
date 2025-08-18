@@ -1,11 +1,12 @@
 from typing import Any, Dict
+
 import streamlit as st
 
-from config import DataKeys, UIKeys
+from constants.keys import StateKeys, UIKeys
 
 __all__ = [
     "UIKeys",
-    "DataKeys",
+    "StateKeys",
     "bootstrap_session",
     "bind_textarea",
     "migrate_legacy_keys",
@@ -13,14 +14,14 @@ __all__ = [
 
 
 DEFAULTS: Dict[str, Any] = {
-    DataKeys.JD_TEXT: "",
-    DataKeys.PROFILE: {},
-    DataKeys.STEP: 0,
+    StateKeys.RAW_TEXT: "",
+    StateKeys.PROFILE: {},
+    StateKeys.STEP: 0,
 }
 
 
 def bootstrap_session() -> None:
-    """Initialize data keys before any widget is created."""
+    """Initialize state keys before any widget is created."""
     for k, v in DEFAULTS.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -29,7 +30,7 @@ def bootstrap_session() -> None:
 def bind_textarea(
     label: str, ui_key: str, data_key: str, placeholder: str = ""
 ) -> None:
-    """Render a text area bound to a data key.
+    """Render a text area bound to a state key.
 
     The UI key mirrors the data key only on first run; subsequent updates go
     through the `on_change` callback.
@@ -48,18 +49,39 @@ def migrate_legacy_keys() -> None:
     """Migrate legacy session keys for backward compatibility.
 
     Older versions stored widget and data values under plain keys like
-    ``jd_text`` or ``jd_text_input``.  Newer releases namespace these keys under
-    ``data.*`` for business data and ``ui.*`` for widget "shadow" keys.  This
-    function promotes old keys to their new counterparts and removes the
-    deprecated entries to prevent collisions.
+    ``jd_text`` or nested structures such as ``data.jd_text``. Newer releases
+    use flat, descriptive keys defined in :class:`StateKeys`. This function
+    promotes old keys to their new counterparts and removes the deprecated
+    entries to prevent collisions.
     """
 
     ss = st.session_state
 
-    # --- Data key migration ---
-    if "jd_text" in ss and not ss.get(DataKeys.JD_TEXT):
-        ss[DataKeys.JD_TEXT] = ss["jd_text"]
+    # --- Data key migrations ---
+    if "jd_text" in ss and not ss.get(StateKeys.RAW_TEXT):
+        ss[StateKeys.RAW_TEXT] = ss["jd_text"]
+    if "data.jd_text" in ss and not ss.get(StateKeys.RAW_TEXT):
+        ss[StateKeys.RAW_TEXT] = ss["data.jd_text"]
     ss.pop("jd_text", None)
+    ss.pop("data.jd_text", None)
+
+    if "data.profile" in ss and not ss.get(StateKeys.PROFILE):
+        ss[StateKeys.PROFILE] = ss["data.profile"]
+    if "data" in ss and not ss.get(StateKeys.PROFILE):
+        ss[StateKeys.PROFILE] = ss["data"]
+    ss.pop("data.profile", None)
+    ss.pop("data", None)
+
+    if "step" in ss and StateKeys.STEP not in ss:
+        ss[StateKeys.STEP] = ss["step"]
+    if "data.step" in ss and StateKeys.STEP not in ss:
+        ss[StateKeys.STEP] = ss["data.step"]
+    ss.pop("step", None)
+    ss.pop("data.step", None)
+
+    if "usage" in ss and StateKeys.USAGE not in ss:
+        ss[StateKeys.USAGE] = ss["usage"]
+    ss.pop("usage", None)
 
     # --- UI key migrations ---
     legacy_ui_map: Dict[str, str] = {

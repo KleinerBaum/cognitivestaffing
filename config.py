@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 
-EMBED_MODEL = "text-embedding-3-small" # RAG
+EMBED_MODEL = "text-embedding-3-small"  # RAG
 STRICT_JSON = True
 CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
@@ -46,19 +46,4 @@ else:
     )
 
 SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
-
-
-class UIKeys:
-    """Session keys for UI widgets."""
-
-    JD_TEXT_INPUT = "ui.jd_text_input"
-    JD_FILE_UPLOADER = "ui.jd_file_uploader"
-    JD_URL_INPUT = "ui.jd_url_input"
-
-
-class DataKeys:
-    """Session keys for business data."""
-
-    JD_TEXT = "data.jd_text"
-    PROFILE = "data.profile"
-    STEP = "data.step"
+# (Moved UIKeys and DataKeys to constants/keys.py; import if needed)

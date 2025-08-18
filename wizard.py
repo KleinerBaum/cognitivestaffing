@@ -11,13 +11,8 @@ import streamlit as st
 
 from utils.i18n import tr
 from i18n import t
-from utils.session import (
-    UIKeys,
-    DataKeys,
-    bind_textarea,
-    bootstrap_session,
-    migrate_legacy_keys,
-)
+from constants.keys import UIKeys, StateKeys
+from utils.session import bind_textarea, bootstrap_session, migrate_legacy_keys
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from utils.errors import display_error
 
@@ -36,13 +31,15 @@ migrate_legacy_keys()
 def next_step() -> None:
     """Advance the wizard to the next step."""
 
-    st.session_state[DataKeys.STEP] = st.session_state.get(DataKeys.STEP, 0) + 1
+    st.session_state[StateKeys.STEP] = st.session_state.get(StateKeys.STEP, 0) + 1
 
 
 def prev_step() -> None:
     """Return to the previous wizard step."""
 
-    st.session_state[DataKeys.STEP] = max(0, st.session_state.get(DataKeys.STEP, 0) - 1)
+    st.session_state[StateKeys.STEP] = max(
+        0, st.session_state.get(StateKeys.STEP, 0) - 1
+    )
 
 
 def on_file_uploaded() -> None:
@@ -64,7 +61,7 @@ def on_file_uploaded() -> None:
             tr("Datei enthält keinen Text", "File contains no text"),
         )
         return
-    st.session_state[DataKeys.JD_TEXT] = txt
+    st.session_state[StateKeys.RAW_TEXT] = txt
     st.session_state[UIKeys.JD_TEXT_INPUT] = txt
 
 
@@ -90,7 +87,7 @@ def on_url_changed() -> None:
             tr("Keine Textinhalte gefunden", "No text content found"),
         )
         return
-    st.session_state[DataKeys.JD_TEXT] = txt
+    st.session_state[StateKeys.RAW_TEXT] = txt
     st.session_state[UIKeys.JD_TEXT_INPUT] = txt
 
 
@@ -300,7 +297,7 @@ def _step_source(schema: dict) -> None:
         bind_textarea(
             tr("Jobtext", "Job text"),
             UIKeys.JD_TEXT_INPUT,
-            DataKeys.JD_TEXT,
+            StateKeys.RAW_TEXT,
             placeholder=tr(
                 "Bitte JD-Text einfügen oder Datei/URL wählen...",
                 "Paste JD text here or upload a file / enter URL...",
@@ -322,7 +319,7 @@ def _step_source(schema: dict) -> None:
             on_change=on_url_changed,
         )
 
-    text_for_extract = st.session_state.get(DataKeys.JD_TEXT, "")
+    text_for_extract = st.session_state.get(StateKeys.RAW_TEXT, "")
     if st.button(t("analyze", st.session_state.lang), type="primary"):
         if not (text_for_extract or "").strip():
             st.warning(
@@ -336,8 +333,10 @@ def _step_source(schema: dict) -> None:
                 data = extract_with_function(
                     text_for_extract, schema, model=st.session_state.model
                 )
-                st.session_state.data = data
-                title = get_in(st.session_state.data, "position.job_title", "")
+                st.session_state[StateKeys.PROFILE] = data
+                title = get_in(
+                    st.session_state[StateKeys.PROFILE], "position.job_title", ""
+                )
                 occ = (
                     classify_occupation(title, st.session_state.lang or "en")
                     if title
@@ -345,17 +344,17 @@ def _step_source(schema: dict) -> None:
                 )
                 if occ:
                     set_in(
-                        st.session_state.data,
+                        st.session_state[StateKeys.PROFILE],
                         "position.occupation_label",
                         occ.get("preferredLabel"),
                     )
                     set_in(
-                        st.session_state.data,
+                        st.session_state[StateKeys.PROFILE],
                         "position.occupation_uri",
                         occ.get("uri"),
                     )
                     set_in(
-                        st.session_state.data,
+                        st.session_state[StateKeys.PROFILE],
                         "position.occupation_group",
                         occ.get("group"),
                     )
@@ -363,12 +362,20 @@ def _step_source(schema: dict) -> None:
                         occ.get("uri"), st.session_state.lang or "en"
                     )
                     current = set(
-                        get_in(st.session_state.data, "requirements.hard_skills", [])
+                        get_in(
+                            st.session_state[StateKeys.PROFILE],
+                            "requirements.hard_skills",
+                            [],
+                        )
                         or []
                     )
                     merged = sorted(current.union(set(skills)))
-                    set_in(st.session_state.data, "requirements.hard_skills", merged)
-                st.session_state[DataKeys.STEP] = 2
+                    set_in(
+                        st.session_state[StateKeys.PROFILE],
+                        "requirements.hard_skills",
+                        merged,
+                    )
+                st.session_state[StateKeys.STEP] = 2
                 st.rerun()
             except Exception as e:
                 display_error(
@@ -385,7 +392,7 @@ def _step_company():
     """
 
     st.subheader(tr("Unternehmen", "Company"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     ensure_path(data, "company.name")
     ensure_path(data, "company.industry")
     ensure_path(data, "company.hq_location")
@@ -458,7 +465,7 @@ def _step_position():
     """
 
     st.subheader(tr("Position", "Position"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     ensure_path(data, "position.job_title")
     ensure_path(data, "position.seniority_level")
     ensure_path(data, "position.department")
@@ -529,7 +536,7 @@ def _step_requirements():
     """
 
     st.subheader(tr("Anforderungen", "Requirements"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     ensure_path(data, "requirements.hard_skills")
     ensure_path(data, "requirements.soft_skills")
     ensure_path(data, "requirements.tools_and_technologies")
@@ -591,7 +598,7 @@ def _step_employment():
     """
 
     st.subheader(tr("Beschäftigung", "Employment"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     ensure_path(data, "employment.job_type")
     ensure_path(data, "employment.work_policy")
     ensure_path(data, "employment.travel_required")
@@ -677,7 +684,7 @@ def _step_compensation():
     """
 
     st.subheader(tr("Vergütung & Benefits", "Compensation & Benefits"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     ensure_path(data, "compensation.salary_min")
     ensure_path(data, "compensation.salary_max")
     ensure_path(data, "compensation.currency")
@@ -771,7 +778,7 @@ def _step_process():
     """
 
     st.subheader(tr("Prozess", "Process"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     ensure_path(data, "process.interview_stages")
     ensure_path(data, "process.process_notes")
 
@@ -808,7 +815,7 @@ def _step_summary(schema: dict, critical: list[str]):
     """
 
     st.subheader(tr("Zusammenfassung", "Summary"))
-    data = st.session_state.data
+    data = st.session_state[StateKeys.PROFILE]
     missing = missing_keys(data, critical)
     if missing:
         st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
@@ -940,7 +947,7 @@ def run_wizard():
     st.markdown("### 🧭 Wizard")
 
     # Step Navigation (oben)
-    render_stepper(st.session_state[DataKeys.STEP], len(steps))
+    render_stepper(st.session_state[StateKeys.STEP], len(steps))
     st.caption(
         tr(
             "Klicke auf 'Weiter' oder navigiere direkt zu einem Schritt.",
@@ -949,7 +956,7 @@ def run_wizard():
     )
 
     # Render current step
-    current = st.session_state[DataKeys.STEP]
+    current = st.session_state[StateKeys.STEP]
     label, renderer = steps[current]
     step_word = tr("Schritt", "Step")
     st.markdown(f"#### {step_word} {current + 1} — {label}")
@@ -971,7 +978,9 @@ def run_wizard():
                 crit_until_now = [
                     f for f in critical if FIELD_SECTION_MAP.get(f, 0) <= current + 1
                 ]
-                missing = missing_keys(st.session_state.data, crit_until_now)
+                missing = missing_keys(
+                    st.session_state[StateKeys.PROFILE], crit_until_now
+                )
                 if missing:
                     st.warning(
                         f"{t('missing', st.session_state.lang)} {', '.join(missing)}"
@@ -982,5 +991,7 @@ def run_wizard():
         else:
             st.button(
                 tr("Fertig", "Done"),
-                disabled=bool(missing_keys(st.session_state.data, critical)),
+                disabled=bool(
+                    missing_keys(st.session_state[StateKeys.PROFILE], critical)
+                ),
             )
