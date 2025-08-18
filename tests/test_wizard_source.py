@@ -90,7 +90,7 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     monkeypatch.setattr(
         "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
     )
-    monkeypatch.setattr("wizard.classify_occupation", lambda _t, _l: None)
+    monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
 
     if mode == "file":
         monkeypatch.setattr("wizard.extract_text_from_file", lambda _f: sample_text)
@@ -135,7 +135,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
         "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
     )
     monkeypatch.setattr(
-        "wizard.classify_occupation",
+        "wizard.search_occupation",
         lambda _t, _l: {
             "preferredLabel": "software developer",
             "uri": "http://example.com/occ",
@@ -143,7 +143,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
         },
     )
     monkeypatch.setattr(
-        "wizard.get_essential_skills",
+        "wizard.enrich_skills",
         lambda _u, _l: ["Python", "Project management"],
     )
 

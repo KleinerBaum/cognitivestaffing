@@ -21,7 +21,7 @@ from models.need_analysis import NeedAnalysisProfile
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
-from core.esco_utils import classify_occupation, get_essential_skills
+from integrations.esco import search_occupation, enrich_skills
 from components.stepper import render_stepper
 
 ROOT = Path(__file__).parent
@@ -312,7 +312,7 @@ def _step_source(schema: dict) -> None:
                 st.session_state[StateKeys.PROFILE] = profile.model_dump()
                 title = profile.position.job_title or ""
                 occ = (
-                    classify_occupation(title, st.session_state.lang or "en")
+                    search_occupation(title, st.session_state.lang or "en")
                     if title
                     else None
                 )
@@ -320,8 +320,9 @@ def _step_source(schema: dict) -> None:
                     profile.position.occupation_label = occ.get("preferredLabel") or ""
                     profile.position.occupation_uri = occ.get("uri") or ""
                     profile.position.occupation_group = occ.get("group") or ""
-                    skills = get_essential_skills(
-                        occ.get("uri"), st.session_state.lang or "en"
+                    skills = enrich_skills(
+                        occ.get("uri") or "",
+                        st.session_state.lang or "en",
                     )
                     current_skills = set(profile.requirements.hard_skills or [])
                     merged = sorted(current_skills.union(skills or []))
