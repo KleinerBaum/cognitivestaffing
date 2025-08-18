@@ -15,8 +15,10 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import backoff
 from openai import OpenAI
+import streamlit as st
 
 from config import OPENAI_API_KEY
+from constants.keys import StateKeys
 
 
 @dataclass
@@ -126,6 +128,14 @@ def call_chat_api(
         )()
     else:
         usage = usage_obj if isinstance(usage_obj, dict) else {}
+
+    if StateKeys.USAGE in st.session_state:
+        st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get(
+            "prompt_tokens", 0
+        )
+        st.session_state[StateKeys.USAGE]["output_tokens"] += usage.get(
+            "completion_tokens", 0
+        )
 
     return ChatCallResult(content, tool_calls, fc, usage)
 

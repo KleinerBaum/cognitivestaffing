@@ -7,13 +7,13 @@ essential skill lookup and skill normalization utilities.
 
 from __future__ import annotations
 
-import functools
 import logging
 import re
 from typing import Dict, List, Optional
 
 import backoff
 import requests
+import streamlit as st
 
 _ESO = "https://ec.europa.eu/esco/api"
 _HEADERS = {"User-Agent": "Vacalyser/1.0"}
@@ -39,7 +39,7 @@ def _get(path: str, **params) -> dict:
     return resp.json()
 
 
-@functools.lru_cache(maxsize=2048)
+@st.cache_data(show_spinner=False, max_entries=2048)
 def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
     """Return best matching ESCO occupation for a job title."""
 
@@ -79,7 +79,7 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
     }
 
 
-@functools.lru_cache(maxsize=4096)
+@st.cache_data(show_spinner=False, max_entries=4096)
 def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     """Return essential skill labels for a given occupation.
 
@@ -112,7 +112,7 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     return sorted(set(skills))
 
 
-@functools.lru_cache(maxsize=4096)
+@st.cache_data(show_spinner=False, max_entries=4096)
 def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
     """Lookup a skill and return its ESCO metadata."""
 
