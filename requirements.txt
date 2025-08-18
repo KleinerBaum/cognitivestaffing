@@ -14,3 +14,5 @@ types-requests
 jsonschema>=4.0
 backoff>=2.2
 httpx>=0.24
+trafilatura>=1.0
+pypdf>=4.0

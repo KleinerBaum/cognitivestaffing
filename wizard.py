@@ -17,6 +17,7 @@ from utils.session import (
     bootstrap_session,
     migrate_legacy_keys,
 )
+from ingest.extractors import extract_text_from_file, extract_text_from_url
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
@@ -27,6 +28,39 @@ ROOT = Path(__file__).parent
 
 bootstrap_session()
 migrate_legacy_keys()
+
+
+def on_file_uploaded() -> None:
+    """Handle file uploads and populate job description text."""
+
+    f = st.session_state.get(UIKeys.JD_FILE_UPLOADER)
+    if not f:
+        return
+    try:
+        txt = extract_text_from_file(f)
+    except Exception as e:  # pragma: no cover - defensive
+        st.error(
+            f"{tr('Datei konnte nicht gelesen werden', 'Failed to read file')}: {e}"
+        )
+        return
+    st.session_state[DataKeys.JD_TEXT] = txt
+    st.session_state[UIKeys.JD_TEXT_INPUT] = txt
+
+
+def on_url_changed() -> None:
+    """Fetch text from URL and populate job description text."""
+
+    url = st.session_state.get(UIKeys.JD_URL_INPUT, "").strip()
+    if not url:
+        return
+    try:
+        txt = extract_text_from_url(url)
+    except Exception as e:  # pragma: no cover - defensive
+        st.error(f"{tr('URL konnte nicht geladen werden', 'Failed to fetch URL')}: {e}")
+        return
+    st.session_state[DataKeys.JD_TEXT] = txt
+    st.session_state[UIKeys.JD_TEXT_INPUT] = txt
+
 
 # Mapping from schema field paths to wizard section numbers
 FIELD_SECTION_MAP = {
@@ -242,42 +276,19 @@ def _step_source(schema: dict) -> None:
         )
 
     with tab_file:
-        up = st.file_uploader(
-            tr("PDF/DOCX auswählen", "Select PDF/DOCX"),
-            type=["pdf", "docx"],
+        st.file_uploader(
+            tr("JD hochladen (PDF/DOCX/TXT)", "Upload JD (PDF/DOCX/TXT)"),
+            type=["pdf", "docx", "txt"],
             key=UIKeys.JD_FILE_UPLOADER,
+            on_change=on_file_uploaded,
         )
-        if up and st.button(tr("Datei analysieren", "Analyze file")):
-            from utils.pdf_utils import extract_text_from_file
-
-            try:
-                st.session_state[DataKeys.JD_TEXT] = extract_text_from_file(up)
-                if UIKeys.JD_TEXT_INPUT in st.session_state:
-                    del st.session_state[UIKeys.JD_TEXT_INPUT]
-            except ValueError as e:
-                st.error(
-                    f"{tr('Datei konnte nicht gelesen werden', 'Failed to read file')}: {e}"
-                )
-            else:
-                st.rerun()
 
     with tab_url:
-        url = st.text_input(
-            tr("URL zu Jobanzeige", "Job ad URL"), key=UIKeys.JD_URL_INPUT
+        st.text_input(
+            tr("oder eine Job-URL eingeben", "or enter a Job URL"),
+            key=UIKeys.JD_URL_INPUT,
+            on_change=on_url_changed,
         )
-        if url and st.button(tr("URL analysieren", "Analyze URL")):
-            from utils.url_utils import extract_text_from_url
-
-            try:
-                st.session_state[DataKeys.JD_TEXT] = extract_text_from_url(url)
-                if UIKeys.JD_TEXT_INPUT in st.session_state:
-                    del st.session_state[UIKeys.JD_TEXT_INPUT]
-            except ValueError as e:
-                st.error(
-                    f"{tr('URL konnte nicht geladen werden', 'Failed to fetch URL')}: {e}"
-                )
-            else:
-                st.rerun()
 
     text_for_extract = st.session_state.get(DataKeys.JD_TEXT, "")
     if st.button(t("analyze", st.session_state.lang), type="primary"):
