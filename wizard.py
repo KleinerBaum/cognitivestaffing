@@ -328,6 +328,28 @@ def _step_source(schema: dict) -> None:
                     merged = sorted(current_skills.union(skills or []))
                     profile.requirements.hard_skills = merged
                 st.session_state[StateKeys.PROFILE] = profile.model_dump()
+                # If Auto-reask is enabled, generate follow-up questions now
+                if st.session_state.get("auto_reask"):
+                    try:
+                        payload = {
+                            "data": profile.model_dump(),
+                            "lang": st.session_state.lang,
+                        }
+                        followup_res = ask_followups(
+                            payload,
+                            model=st.session_state.model,
+                            vector_store_id=st.session_state.vector_store_id or None,
+                        )
+                        st.session_state[StateKeys.FOLLOWUPS] = followup_res.get(
+                            "questions", []
+                        )
+                    except Exception:
+                        st.warning(
+                            tr(
+                                "Konnte keine Anschlussfragen erzeugen.",
+                                "Could not generate follow-ups automatically.",
+                            )
+                        )
                 st.session_state[StateKeys.STEP] = 2
                 st.rerun()
             except Exception as e:
@@ -376,6 +398,24 @@ def _step_company():
         tr("Kultur", "Culture"), value=data["company"].get("culture", "")
     )
 
+    # Inline follow-up questions for Company section
+    if StateKeys.FOLLOWUPS in st.session_state:
+        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
+            field = q.get("field", "")
+            if field.startswith("company."):
+                prompt = q.get("question", "")
+                if q.get("priority") == "critical":
+                    st.markdown(
+                        f"<span style='color:red'>*</span> **{prompt}**",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"**{prompt}**")
+                ans = st.text_input("", key=f"fu_{field}")
+                if ans:
+                    set_in(data, field, ans)
+                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+
 
 def _step_position():
     """Render the position details step.
@@ -414,6 +454,24 @@ def _step_position():
         height=120,
     )
 
+    # Inline follow-up questions for Position and Location section
+    if StateKeys.FOLLOWUPS in st.session_state:
+        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
+            field = q.get("field", "")
+            if field.startswith("position.") or field.startswith("location."):
+                prompt = q.get("question", "")
+                if q.get("priority") == "critical":
+                    st.markdown(
+                        f"<span style='color:red'>*</span> **{prompt}**",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"**{prompt}**")
+                ans = st.text_input("", key=f"fu_{field}")
+                if ans:
+                    set_in(data, field, ans)
+                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+
 
 def _step_requirements():
     """Render the requirements step for skills and certifications.
@@ -450,6 +508,24 @@ def _step_requirements():
         options=data["requirements"].get("certifications", []),
         values=data["requirements"].get("certifications", []),
     )
+
+    # Inline follow-up questions for Requirements section
+    if StateKeys.FOLLOWUPS in st.session_state:
+        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
+            field = q.get("field", "")
+            if field.startswith("requirements."):
+                prompt = q.get("question", "")
+                if q.get("priority") == "critical":
+                    st.markdown(
+                        f"<span style='color:red'>*</span> **{prompt}**",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"**{prompt}**")
+                ans = st.text_input("", key=f"fu_{field}")
+                if ans:
+                    set_in(data, field, ans)
+                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
 def _step_employment():
@@ -503,6 +579,24 @@ def _step_employment():
         value=bool(data["employment"].get("visa_sponsorship")),
     )
 
+    # Inline follow-up questions for Employment section
+    if StateKeys.FOLLOWUPS in st.session_state:
+        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
+            field = q.get("field", "")
+            if field.startswith("employment."):
+                prompt = q.get("question", "")
+                if q.get("priority") == "critical":
+                    st.markdown(
+                        f"<span style='color:red'>*</span> **{prompt}**",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"**{prompt}**")
+                ans = st.text_input("", key=f"fu_{field}")
+                if ans:
+                    set_in(data, field, ans)
+                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+
 
 def _step_compensation():
     """Render the compensation and benefits step.
@@ -554,6 +648,24 @@ def _step_compensation():
         values=data["compensation"].get("benefits", []),
     )
 
+    # Inline follow-up questions for Compensation section
+    if StateKeys.FOLLOWUPS in st.session_state:
+        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
+            field = q.get("field", "")
+            if field.startswith("compensation."):
+                prompt = q.get("question", "")
+                if q.get("priority") == "critical":
+                    st.markdown(
+                        f"<span style='color:red'>*</span> **{prompt}**",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"**{prompt}**")
+                ans = st.text_input("", key=f"fu_{field}")
+                if ans:
+                    set_in(data, field, ans)
+                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+
 
 def _step_process():
     """Render the hiring process step.
@@ -576,6 +688,24 @@ def _step_process():
     data["process"]["process_notes"] = c2.text_area(
         tr("Notizen", "Notes"), value=data["process"].get("process_notes", "")
     )
+
+    # Inline follow-up questions for Process section
+    if StateKeys.FOLLOWUPS in st.session_state:
+        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
+            field = q.get("field", "")
+            if field.startswith("process."):
+                prompt = q.get("question", "")
+                if q.get("priority") == "critical":
+                    st.markdown(
+                        f"<span style='color:red'>*</span> **{prompt}**",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"**{prompt}**")
+                ans = st.text_input("", key=f"fu_{field}")
+                if ans:
+                    set_in(data, field, ans)
+                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
 def _step_summary(schema: dict, critical: list[str]):
