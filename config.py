@@ -12,7 +12,7 @@ except ImportError:
 
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-3.5-turbo")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "o4-mini")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)

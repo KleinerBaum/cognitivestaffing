@@ -74,3 +74,6 @@ Core JSON schemas like `vacalyser_schema.json`, `critical_fields.json`,
 `tone_presets.json` and `role_field_map.json` are loaded via
 `config_loader.load_json`, which falls back to safe defaults and logs a warning
 if a file is missing or malformed.
+
+The OpenAI model can be overridden with the `OPENAI_MODEL` environment
+variable; by default the project uses `o4-mini`.

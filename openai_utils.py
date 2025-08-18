@@ -59,7 +59,7 @@ def get_client() -> OpenAI:
 def call_chat_api(
     messages: Sequence[dict],
     *,
-    model: str | None = "gpt-4o-mini",
+    model: str | None = "o4-mini",
     temperature: float = 0.2,
     max_tokens: int | None = None,
     json_strict: bool = False,
@@ -70,64 +70,72 @@ def call_chat_api(
     seed: Optional[int] = None,
     extra: Optional[dict] = None,
 ) -> ChatCallResult:
-    """Call the OpenAI chat completion API and return a :class:`ChatCallResult`."""
+    """Call the OpenAI Responses API and return a :class:`ChatCallResult`."""
 
     payload: Dict[str, Any] = {
-        "model": model or "gpt-4o-mini",
-        "messages": messages,
+        "model": model or "o4-mini",
+        "input": messages,
         "temperature": temperature,
     }
     if max_tokens is not None:
-        payload["max_tokens"] = max_tokens
+        payload["max_output_tokens"] = max_tokens
     if json_strict:
         payload["response_format"] = {"type": "json_object"}
+
+    tool_defs: list[Any] = []
     if tools is not None:
-        payload["tools"] = tools
+        tool_defs.extend(tools)
+    if functions is not None:
+        tool_defs.extend({"type": "function", "function": fn} for fn in functions)
+    if tool_defs:
+        payload["tools"] = tool_defs
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
-    if functions is not None:
-        payload["functions"] = functions
-        if function_call is not None:
-            payload["function_call"] = function_call
+        elif function_call is not None:
+            name = (
+                function_call.get("name")
+                if isinstance(function_call, dict)
+                else function_call
+            )
+            payload["tool_choice"] = {"type": "function", "function": {"name": name}}
+
     if seed is not None:
         payload["seed"] = seed
     if extra:
         payload.update(extra)
 
-    response = get_client().chat.completions.create(**payload)
-    msg = response.choices[0].message
+    response = get_client().responses.create(**payload)
 
-    content = getattr(msg, "content", None)
-
+    content: Optional[str] = None
     tool_calls: list[dict] = []
-    for call in getattr(msg, "tool_calls", []) or []:
-        if isinstance(call, dict):
-            tool_calls.append(call)
-        else:
-            dump = getattr(call, "model_dump", None)
-            if callable(dump):
-                tool_calls.append(dump())
-            else:
-                tool_calls.append(getattr(call, "__dict__", {}))
+    fn_call: Optional[dict] = None
 
-    fc = getattr(msg, "function_call", None)
-    if fc is not None and not isinstance(fc, dict):
-        dump = getattr(fc, "model_dump", None)
-        if callable(dump):
-            fc = dump()
-        else:
-            fc = getattr(fc, "__dict__", {})
+    for item in getattr(response, "output", []) or []:
+        if getattr(item, "type", "") != "message":
+            continue
+        for part in getattr(item, "content", []) or []:
+            if getattr(part, "type", "") == "text":
+                text_obj = getattr(part, "text", None)
+                value = getattr(text_obj, "value", None)
+                if value:
+                    content = (content or "") + value
+            elif getattr(part, "type", "") == "tool_call":
+                tc = part.tool_call
+                if hasattr(tc, "model_dump"):
+                    tc_dump = tc.model_dump()
+                else:
+                    tc_dump = getattr(tc, "__dict__", {})
+                tool_calls.append(tc_dump)
+                if tc_dump.get("type") == "function":
+                    fn_call = tc_dump.get("function")
+        break
 
-    usage_obj = getattr(response, "usage", {}) or {}
-    usage: dict
-    if usage_obj and not isinstance(usage_obj, dict):
-        usage = getattr(
-            usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-        )()
-    else:
-        usage = usage_obj if isinstance(usage_obj, dict) else {}
+    usage = getattr(response, "usage", {}) or {}
+    if usage and not isinstance(usage, dict):
+        dump = getattr(usage, "model_dump", None)
+        usage = dump() if callable(dump) else {}
 
-    return ChatCallResult(content, tool_calls, fc, usage)
+    return ChatCallResult(content, tool_calls, fn_call, usage)
 
 
 def _chat_content(res: Any) -> str:
@@ -241,7 +249,7 @@ def build_extraction_function(
 
 
 def extract_with_function(
-    job_text: str, schema: dict, *, model: str = "gpt-4o-mini"
+    job_text: str, schema: dict, *, model: str = "o4-mini"
 ) -> Mapping[str, Any]:
     """Extract vacancy data from ``job_text`` using strict function calling.
 

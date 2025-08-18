@@ -16,26 +16,45 @@ def test_call_chat_api_raises_when_no_api_key(monkeypatch):
 def test_call_chat_api_function_call(monkeypatch):
     """Function call arguments should be accessible on the returned message."""
 
-    class _FakeFunctionCall:
-        def __init__(self, arguments: str | None = None) -> None:
-            self.arguments = arguments
+    class _FakeFunction:
+        def __init__(self) -> None:
+            self.name = "fn"
+            self.arguments = '{"job_title": "x"}'
+
+        def model_dump(self) -> dict[str, str]:
+            return {"name": self.name, "arguments": self.arguments}
+
+    class _FakeToolCall:
+        type = "function"
+
+        def __init__(self) -> None:
+            self.function = _FakeFunction()
+
+        def model_dump(self):
+            return {"type": "function", "function": self.function.model_dump()}
+
+    class _FakeContent:
+        def __init__(self) -> None:
+            self.type = "tool_call"
+            self.tool_call = _FakeToolCall()
 
     class _FakeMessage:
         def __init__(self) -> None:
-            self.content = None
-            self.function_call = _FakeFunctionCall('{"job_title": "x"}')
+            self.type = "message"
+            self.content = [_FakeContent()]
 
     class _FakeResponse:
         def __init__(self) -> None:
-            self.choices = [type("Choice", (), {"message": _FakeMessage()})()]
+            self.output = [_FakeMessage()]
+            self.usage: dict = {}
 
-    class _FakeCompletions:
+    class _FakeResponses:
         @staticmethod
         def create(**kwargs):
             return _FakeResponse()
 
     class _FakeClient:
-        chat = type("Chat", (), {"completions": _FakeCompletions()})()
+        responses = _FakeResponses()
 
     monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
     out = call_chat_api([], functions=[{}], function_call={"name": "fn"})
