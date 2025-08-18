@@ -11,6 +11,11 @@ Stakeholder (Allgemein verständlich/General public) optimal angepasst werden.
 
 import streamlit as st
 
+from utils.session import bootstrap_session, migrate_legacy_keys
+
+bootstrap_session()
+migrate_legacy_keys()
+
 # ---------------------------------------------------------------------------
 # Language & audience toggle
 # ---------------------------------------------------------------------------

@@ -10,6 +10,13 @@ import streamlit as st
 
 from utils.i18n import tr
 from i18n import t
+from utils.session import (
+    UIKeys,
+    DataKeys,
+    bind_textarea,
+    bootstrap_session,
+    migrate_legacy_keys,
+)
 
 # LLM/ESCO und Follow-ups
 from openai_utils import extract_with_function  # nutzt deine neue Definition
@@ -17,6 +24,9 @@ from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue De
 from core.esco_utils import classify_occupation, get_essential_skills
 
 ROOT = Path(__file__).parent
+
+bootstrap_session()
+migrate_legacy_keys()
 
 # Mapping from schema field paths to wizard section numbers
 FIELD_SECTION_MAP = {
@@ -212,33 +222,38 @@ def _step_intro():
         )
 
 
-def _step_source(schema: dict):
+def _step_source(schema: dict) -> None:
     """Render the source step where users choose text, file, or URL."""
 
-    st.session_state.setdefault("jd_text_input", st.session_state.get("jd_text", ""))
     st.subheader(t("source", st.session_state.lang))
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
     )
 
     with tab_text:
-        jd_text = st.text_area(
-            tr("Jobtext", "Job text"), height=220, key="jd_text_input"
+        bind_textarea(
+            tr("Jobtext", "Job text"),
+            UIKeys.JD_TEXT_INPUT,
+            DataKeys.JD_TEXT,
+            placeholder=tr(
+                "Bitte JD-Text einfügen oder Datei/URL wählen...",
+                "Paste JD text here or upload a file / enter URL...",
+            ),
         )
-
-    st.session_state["jd_text"] = st.session_state.get("jd_text_input", "")
 
     with tab_file:
         up = st.file_uploader(
             tr("PDF/DOCX auswählen", "Select PDF/DOCX"),
             type=["pdf", "docx"],
-            key="jd_upload",
+            key=UIKeys.JD_FILE_UPLOADER,
         )
         if up and st.button(tr("Datei analysieren", "Analyze file")):
             from utils.pdf_utils import extract_text_from_file
 
             try:
-                st.session_state["jd_text_input"] = extract_text_from_file(up)
+                st.session_state[DataKeys.JD_TEXT] = extract_text_from_file(up)
+                if UIKeys.JD_TEXT_INPUT in st.session_state:
+                    del st.session_state[UIKeys.JD_TEXT_INPUT]
             except ValueError as e:
                 st.error(
                     f"{tr('Datei konnte nicht gelesen werden', 'Failed to read file')}: {e}"
@@ -247,12 +262,16 @@ def _step_source(schema: dict):
                 st.rerun()
 
     with tab_url:
-        url = st.text_input(tr("URL zu Jobanzeige", "Job ad URL"), key="jd_url")
+        url = st.text_input(
+            tr("URL zu Jobanzeige", "Job ad URL"), key=UIKeys.JD_URL_INPUT
+        )
         if url and st.button(tr("URL analysieren", "Analyze URL")):
             from utils.url_utils import extract_text_from_url
 
             try:
-                st.session_state["jd_text_input"] = extract_text_from_url(url)
+                st.session_state[DataKeys.JD_TEXT] = extract_text_from_url(url)
+                if UIKeys.JD_TEXT_INPUT in st.session_state:
+                    del st.session_state[UIKeys.JD_TEXT_INPUT]
             except ValueError as e:
                 st.error(
                     f"{tr('URL konnte nicht geladen werden', 'Failed to fetch URL')}: {e}"
@@ -260,7 +279,7 @@ def _step_source(schema: dict):
             else:
                 st.rerun()
 
-    text_for_extract = st.session_state.get("jd_text") or jd_text
+    text_for_extract = st.session_state.get(DataKeys.JD_TEXT, "")
     if st.button(t("analyze", st.session_state.lang), type="primary"):
         if not (text_for_extract or "").strip():
             st.warning(

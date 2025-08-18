@@ -7,6 +7,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
 from wizard import _step_source
+from utils.session import DataKeys, UIKeys
 
 
 class DummyTab:
@@ -19,10 +20,10 @@ class DummyTab:
         return False
 
 
-def test_step_source_file_upload_sets_jd_text_input(
+def test_step_source_file_upload_sets_jd_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Uploading a file should set ``jd_text_input`` and populate the text area."""
+    """Uploading a file should set ``data.jd_text`` and populate the text area."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -38,7 +39,9 @@ def test_step_source_file_upload_sets_jd_text_input(
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: object())
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
+        st,
+        "text_area",
+        lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, ""),
     )
     monkeypatch.setattr(
         "utils.pdf_utils.extract_text_from_file", lambda _f: sample_text
@@ -52,7 +55,8 @@ def test_step_source_file_upload_sets_jd_text_input(
     except StreamlitAPIException as e:  # pragma: no cover - defensive
         pytest.fail(f"StreamlitAPIException raised: {e}")
 
-    assert st.session_state["jd_text_input"] == sample_text
+    assert st.session_state[DataKeys.JD_TEXT] == sample_text
+    assert UIKeys.JD_TEXT_INPUT not in st.session_state
     assert reran["called"]
 
     button_calls = iter([False])
@@ -63,7 +67,7 @@ def test_step_source_file_upload_sets_jd_text_input(
     captured: dict[str, str] = {}
 
     def text_area_capture(*_a, **_k):
-        captured["value"] = st.session_state.get("jd_text_input", "")
+        captured["value"] = st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
         return captured["value"]
 
     monkeypatch.setattr(st, "text_area", text_area_capture)
@@ -71,13 +75,13 @@ def test_step_source_file_upload_sets_jd_text_input(
     _step_source({})
 
     assert captured["value"] == sample_text
-    assert st.session_state["jd_text"] == sample_text
+    assert st.session_state[DataKeys.JD_TEXT] == sample_text
 
 
-def test_step_source_url_upload_sets_jd_text_input(
+def test_step_source_url_upload_sets_jd_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Uploading via URL should set ``jd_text_input`` and populate the text area."""
+    """Uploading via URL should set ``data.jd_text`` and populate the text area."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -93,7 +97,9 @@ def test_step_source_url_upload_sets_jd_text_input(
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "https://example.com")
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
+        st,
+        "text_area",
+        lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, ""),
     )
     monkeypatch.setattr("utils.url_utils.extract_text_from_url", lambda _u: sample_text)
 
@@ -105,7 +111,8 @@ def test_step_source_url_upload_sets_jd_text_input(
     except StreamlitAPIException as e:  # pragma: no cover - defensive
         pytest.fail(f"StreamlitAPIException raised: {e}")
 
-    assert st.session_state["jd_text_input"] == sample_text
+    assert st.session_state[DataKeys.JD_TEXT] == sample_text
+    assert UIKeys.JD_TEXT_INPUT not in st.session_state
     assert reran["called"]
 
     button_calls = iter([False])
@@ -116,7 +123,7 @@ def test_step_source_url_upload_sets_jd_text_input(
     captured: dict[str, str] = {}
 
     def text_area_capture(*_a, **_k):
-        captured["value"] = st.session_state.get("jd_text_input", "")
+        captured["value"] = st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
         return captured["value"]
 
     monkeypatch.setattr(st, "text_area", text_area_capture)
@@ -124,7 +131,7 @@ def test_step_source_url_upload_sets_jd_text_input(
     _step_source({})
 
     assert captured["value"] == sample_text
-    assert st.session_state["jd_text"] == sample_text
+    assert st.session_state[DataKeys.JD_TEXT] == sample_text
 
 
 @pytest.mark.parametrize("mode", ["text", "file", "url"])
@@ -151,6 +158,7 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     monkeypatch.setattr("wizard.classify_occupation", lambda _t, _l: None)
 
     if mode == "text":
+        st.session_state[DataKeys.JD_TEXT] = sample_text
         monkeypatch.setattr(st, "button", lambda *a, **k: True)
         monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
         monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
@@ -172,7 +180,9 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
         monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
         monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
         monkeypatch.setattr(
-            st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
+            st,
+            "text_area",
+            lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, ""),
         )
         _step_source({})
     else:  # url
@@ -191,7 +201,9 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
         monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
         monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
         monkeypatch.setattr(
-            st, "text_area", lambda *a, **k: st.session_state.get("jd_text_input", "")
+            st,
+            "text_area",
+            lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, ""),
         )
         _step_source({})
 
@@ -205,6 +217,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.model = "gpt"
     st.session_state.step = 0
     sample_text = "Job text"
+    st.session_state[DataKeys.JD_TEXT] = sample_text
     sample_data = {
         "position": {"job_title": "Engineer"},
         "requirements": {"hard_skills": ["Python"]},
@@ -254,12 +267,12 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
 def test_step_source_handles_extraction_errors(
     monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    """Extraction errors should show a message and keep ``jd_text`` unchanged."""
+    """Extraction errors should show a message and keep ``data.jd_text`` unchanged."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state.model = "gpt"
-    st.session_state.jd_text = ""
+    st.session_state[DataKeys.JD_TEXT] = ""
     errors: list[str] = []
 
     monkeypatch.setattr(st, "tabs", lambda labels: (DummyTab(), DummyTab(), DummyTab()))
@@ -293,5 +306,5 @@ def test_step_source_handles_extraction_errors(
 
     _step_source({})
 
-    assert st.session_state.jd_text == ""
+    assert st.session_state[DataKeys.JD_TEXT] == ""
     assert errors, "Expected st.error to be called"

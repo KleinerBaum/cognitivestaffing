@@ -8,7 +8,12 @@ entsprechenden Listen unten anpasst.
 """
 
 import streamlit as st
-from typing import List, Dict
+from typing import Dict, List
+
+from utils.session import bootstrap_session, migrate_legacy_keys
+
+bootstrap_session()
+migrate_legacy_keys()
 
 # ---------------------------------------------------------------------------
 # Page‑Config

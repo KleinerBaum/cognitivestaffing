@@ -8,6 +8,7 @@ import streamlit as st
 from components.salary_dashboard import render_salary_dashboard
 from config_loader import load_json
 from utils.i18n import tr
+from utils.session import bootstrap_session, migrate_legacy_keys
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -19,6 +20,8 @@ st.set_page_config(
 # --- Helpers zum Laden lokaler JSON-Configs ---
 ROOT = Path(__file__).parent
 
+bootstrap_session()
+migrate_legacy_keys()
 
 SCHEMA = load_json("vacalyser_schema.json", fallback={})
 CRITICAL = set(
