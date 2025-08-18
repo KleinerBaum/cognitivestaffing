@@ -12,7 +12,8 @@ import streamlit as st
 from utils.i18n import tr
 from i18n import t
 from constants.keys import UIKeys, StateKeys
-from utils.session import bind_textarea, bootstrap_session, migrate_legacy_keys
+from utils.session import bind_textarea
+from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from utils.errors import display_error
 
@@ -23,9 +24,7 @@ from core.esco_utils import classify_occupation, get_essential_skills
 from components.stepper import render_stepper
 
 ROOT = Path(__file__).parent
-
-bootstrap_session()
-migrate_legacy_keys()
+ensure_state()
 
 
 def next_step() -> None:
