@@ -45,10 +45,29 @@ def bind_textarea(
 
 
 def migrate_legacy_keys() -> None:
-    """Migrate legacy session keys for backward compatibility."""
-    if "jd_text" in st.session_state and DataKeys.JD_TEXT not in st.session_state:
-        st.session_state[DataKeys.JD_TEXT] = st.session_state["jd_text"]
-        try:
-            del st.session_state["jd_text"]
-        except Exception:  # pragma: no cover - defensive
-            pass
+    """Migrate legacy session keys for backward compatibility.
+
+    Older versions stored widget and data values under plain keys like
+    ``jd_text`` or ``jd_text_input``.  Newer releases namespace these keys under
+    ``data.*`` for business data and ``ui.*`` for widget "shadow" keys.  This
+    function promotes old keys to their new counterparts and removes the
+    deprecated entries to prevent collisions.
+    """
+
+    ss = st.session_state
+
+    # --- Data key migration ---
+    if "jd_text" in ss and not ss.get(DataKeys.JD_TEXT):
+        ss[DataKeys.JD_TEXT] = ss["jd_text"]
+    ss.pop("jd_text", None)
+
+    # --- UI key migrations ---
+    legacy_ui_map: Dict[str, str] = {
+        "jd_text_input": UIKeys.JD_TEXT_INPUT,
+        "jd_file_uploader": UIKeys.JD_FILE_UPLOADER,
+        "jd_url_input": UIKeys.JD_URL_INPUT,
+    }
+    for old, new in legacy_ui_map.items():
+        if old in ss and not ss.get(new):
+            ss[new] = ss[old]
+        ss.pop(old, None)
