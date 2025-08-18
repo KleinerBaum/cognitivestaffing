@@ -1,15 +1,14 @@
 # app.py — Vacalyser (clean entrypoint, single source of truth)
 from __future__ import annotations
 
-import os
 from pathlib import Path
+
 import streamlit as st
 
 from components.salary_dashboard import render_salary_dashboard
 from config_loader import load_json
 from utils.i18n import tr
-from utils.session import bootstrap_session, migrate_legacy_keys
-from constants.keys import StateKeys
+from state.ensure_state import ensure_state
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -20,9 +19,7 @@ st.set_page_config(
 
 # --- Helpers zum Laden lokaler JSON-Configs ---
 ROOT = Path(__file__).parent
-
-bootstrap_session()
-migrate_legacy_keys()
+ensure_state()
 
 SCHEMA = load_json("schema/need_analysis.schema.json", fallback={})
 CRITICAL = set(
@@ -31,20 +28,6 @@ CRITICAL = set(
 TONE = load_json("tone_presets.json", fallback={"en": {}, "de": {}})
 ROLE_FIELD_MAP = load_json("role_field_map.json", fallback={})
 
-
-# --- Session Defaults (einheitliche Keys) ---
-def _init_state():
-    ss = st.session_state
-    ss.setdefault(StateKeys.PROFILE, {})  # will hold the vacancy profile data (dict)
-    ss.setdefault("lang", "de")
-    ss.setdefault("model", os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"))
-    ss.setdefault("vector_store_id", os.getenv("VECTOR_STORE_ID", ""))
-    ss.setdefault("auto_reask", True)
-    ss.setdefault(StateKeys.STEP, 0)
-    ss.setdefault(StateKeys.USAGE, {"input_tokens": 0, "output_tokens": 0})
-
-
-_init_state()
 
 # --- Headbar / Branding minimal & konfliktfrei ---
 st.markdown(
@@ -87,7 +70,7 @@ with st.sidebar:
         for k in list(st.session_state.keys()):
             if k not in ("lang", "model", "vector_store_id", "auto_reask"):
                 del st.session_state[k]
-        _init_state()
+        ensure_state()
         st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
 
 render_salary_dashboard(st.session_state)
