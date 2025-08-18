@@ -41,3 +41,19 @@ else:
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
+
+
+class UIKeys:
+    """Session keys for UI widgets."""
+
+    JD_TEXT_INPUT = "ui.jd_text_input"
+    JD_FILE_UPLOADER = "ui.jd_file_uploader"
+    JD_URL_INPUT = "ui.jd_url_input"
+
+
+class DataKeys:
+    """Session keys for business data."""
+
+    JD_TEXT = "data.jd_text"
+    PROFILE = "data.profile"
+    STEP = "data.step"
