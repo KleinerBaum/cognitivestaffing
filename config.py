@@ -10,6 +10,12 @@ try:
 except ImportError:
     pass
 
+
+EMBED_MODEL = "text-embedding-3-small" # RAG
+STRICT_JSON = True
+CHUNK_TOKENS = 600
+CHUNK_OVERLAP = 0.1
+
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-3.5-turbo")
@@ -39,7 +45,6 @@ else:
         RuntimeWarning,
     )
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
 SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
 
 
