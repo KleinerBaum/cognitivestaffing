@@ -101,7 +101,7 @@ def _autodetect_lang(text: str) -> None:
     ):
         return
     try:
-        from langdetect import detect  # type: ignore[import-untyped]
+        from langdetect import detect
 
         if detect(text).startswith("en"):
             st.session_state["lang"] = "en"

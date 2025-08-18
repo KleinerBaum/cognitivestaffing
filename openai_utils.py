@@ -245,6 +245,10 @@ def extract_with_function(
 ) -> Mapping[str, Any]:
     """Extract vacancy data from ``job_text`` using strict function calling.
 
+    The function first requests a structured ``function_call``; if none is
+    returned, it retries the extraction with ``json`` output. Any malformed
+    JSON is best-effort repaired before validation.
+
     Args:
         job_text: Source job description text.
         schema: JSON schema describing the expected structure.
@@ -254,8 +258,8 @@ def extract_with_function(
         Mapping[str, Any]: A dictionary conforming to ``schema``.
 
     Raises:
-        RuntimeError: If the model response lacks ``function_call`` arguments.
-        ValueError: If the function call arguments are not valid JSON.
+        RuntimeError: If no structured data can be obtained from the LLM.
+        ValueError: If the returned JSON cannot be parsed even after fixes.
     """
     fn_name = "vacalyser_extract"
     messages: Sequence[dict] = [
@@ -279,13 +283,34 @@ def extract_with_function(
         if arguments is None and isinstance(fc, dict):
             arguments = fc.get("arguments")
     if not arguments:
-        raise RuntimeError("No function_call with arguments returned")
+        # If no function call was returned, attempt a second try with JSON output
+        res2 = call_chat_api(
+            messages,
+            model=model,
+            temperature=0.0,
+            json_strict=True,
+            max_tokens=1000,
+        )
+        arguments = _chat_content(res2)
+    if not arguments or not str(arguments).strip():
+        raise RuntimeError(
+            "Extraction failed: no structured data received from LLM.",
+        )
     try:
         raw: dict[str, Any] = json.loads(arguments)
-    except Exception as e:  # noqa: PERF203
-        raise ValueError(
-            "Model returned invalid JSON in function_call.arguments"
-        ) from e
+    except Exception:  # noqa: PERF203
+        # The model returned invalid JSON (e.g., trailing commas or text); attempt to fix common issues
+        fixed = arguments
+        if isinstance(arguments, str):
+            import re
+
+            match = re.search(r"\{.*\}", arguments, re.S)
+            if match:
+                fixed = match.group(0)
+        try:
+            raw = json.loads(fixed)
+        except Exception as e2:  # noqa: PERF203
+            raise ValueError("Model returned invalid JSON") from e2
 
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import coerce_and_fill
