@@ -215,6 +215,7 @@ def _step_intro():
 def _step_source(schema: dict):
     """Render the source step where users choose text, file, or URL."""
 
+    st.session_state.setdefault("jd_text", "")
     st.subheader(t("source", st.session_state.lang))
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
@@ -232,26 +233,16 @@ def _step_source(schema: dict):
         if up and st.button(tr("Datei analysieren", "Analyze file")):
             from utils.pdf_utils import extract_text_from_file
 
-            st.session_state.jd_text = extract_text_from_file(up)
-            st.success(
-                tr(
-                    "Datei gelesen. Text im Text-Tab bearbeitbar.",
-                    "File processed. Text available in Text tab.",
-                )
-            )
+            st.session_state["jd_text"] = extract_text_from_file(up)
+            st.rerun()
 
     with tab_url:
         url = st.text_input(tr("URL zu Jobanzeige", "Job ad URL"), key="jd_url")
         if url and st.button(tr("URL analysieren", "Analyze URL")):
             from utils.url_utils import extract_text_from_url
 
-            st.session_state.jd_text = extract_text_from_url(url)
-            st.success(
-                tr(
-                    "URL gelesen. Text im Text-Tab bearbeitbar.",
-                    "URL processed. Text available in Text tab.",
-                )
-            )
+            st.session_state["jd_text"] = extract_text_from_url(url)
+            st.rerun()
 
     text_for_extract = st.session_state.get("jd_text") or jd_text
     if st.button(t("analyze", st.session_state.lang), type="primary"):
