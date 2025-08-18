@@ -215,14 +215,18 @@ def _step_intro():
 def _step_source(schema: dict):
     """Render the source step where users choose text, file, or URL."""
 
-    st.session_state.setdefault("jd_text", "")
+    st.session_state.setdefault("jd_text_input", st.session_state.get("jd_text", ""))
     st.subheader(t("source", st.session_state.lang))
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
     )
 
     with tab_text:
-        jd_text = st.text_area(tr("Jobtext", "Job text"), height=220, key="jd_text")
+        jd_text = st.text_area(
+            tr("Jobtext", "Job text"), height=220, key="jd_text_input"
+        )
+
+    st.session_state["jd_text"] = st.session_state.get("jd_text_input", "")
 
     with tab_file:
         up = st.file_uploader(
@@ -234,7 +238,7 @@ def _step_source(schema: dict):
             from utils.pdf_utils import extract_text_from_file
 
             try:
-                st.session_state["jd_text"] = extract_text_from_file(up)
+                st.session_state["jd_text_input"] = extract_text_from_file(up)
             except ValueError as e:
                 st.error(
                     f"{tr('Datei konnte nicht gelesen werden', 'Failed to read file')}: {e}"
@@ -248,7 +252,7 @@ def _step_source(schema: dict):
             from utils.url_utils import extract_text_from_url
 
             try:
-                st.session_state["jd_text"] = extract_text_from_url(url)
+                st.session_state["jd_text_input"] = extract_text_from_url(url)
             except ValueError as e:
                 st.error(
                     f"{tr('URL konnte nicht geladen werden', 'Failed to fetch URL')}: {e}"
