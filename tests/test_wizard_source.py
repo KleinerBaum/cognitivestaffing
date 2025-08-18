@@ -116,3 +116,50 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
         "Project management",
         "Python",
     ]
+
+
+@pytest.mark.parametrize("mode", ["file", "url"])
+def test_step_source_handles_extraction_errors(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """Extraction errors should show a message and keep ``jd_text`` unchanged."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.jd_text = ""
+    errors: list[str] = []
+
+    monkeypatch.setattr(st, "tabs", lambda labels: (DummyTab(), DummyTab(), DummyTab()))
+    monkeypatch.setattr(st, "subheader", lambda *a, **k: None)
+    monkeypatch.setattr(st, "warning", lambda *a, **k: None)
+    monkeypatch.setattr(st, "rerun", lambda: None)
+    monkeypatch.setattr(st, "button", lambda *a, **k: True)
+    monkeypatch.setattr(st, "error", lambda msg, *a, **k: errors.append(str(msg)))
+
+    if mode == "file":
+        monkeypatch.setattr(st, "text_area", lambda *a, **k: "")
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: object())
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+
+        def raise_value_error(_f):  # pragma: no cover - test stub
+            raise ValueError("bad file")
+
+        monkeypatch.setattr("utils.pdf_utils.extract_text_from_file", raise_value_error)
+    else:  # url
+        monkeypatch.setattr(st, "text_area", lambda *a, **k: "")
+        monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
+        monkeypatch.setattr(st, "text_input", lambda *a, **k: "https://example.com")
+
+        def raise_value_error(_u):  # pragma: no cover - test stub
+            raise ValueError("bad url")
+
+        monkeypatch.setattr("utils.url_utils.extract_text_from_url", raise_value_error)
+
+    monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
+    monkeypatch.setattr("wizard.classify_occupation", lambda _t, _l: None)
+
+    _step_source({})
+
+    assert st.session_state.jd_text == ""
+    assert errors, "Expected st.error to be called"
