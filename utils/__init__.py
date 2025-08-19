@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any, Mapping
 
 from .pdf_utils import extract_text_from_file as extract_text_from_file
 from .url_utils import extract_text_from_url as extract_text_from_url
 from .errors import display_error as display_error
+from models import NeedAnalysisProfile
 
 
 def merge_texts(*parts: str) -> str:
@@ -68,6 +70,36 @@ def build_boolean_query(
     if title_query and skills_query:
         return f"({title_query}) AND ({skills_query})"
     return title_query or skills_query
+
+
+def build_boolean_search(data: Mapping[str, Any] | NeedAnalysisProfile) -> str:
+    """Build a Boolean search string from profile data.
+
+    Args:
+        data: Profile mapping or :class:`NeedAnalysisProfile` instance.
+
+    Returns:
+        Boolean search string combining the job title and gathered skills.
+    """
+
+    profile = (
+        data if isinstance(data, NeedAnalysisProfile) else NeedAnalysisProfile(**data)
+    )
+    job_title = profile.position.job_title
+    combined = (
+        profile.requirements.hard_skills
+        + profile.requirements.soft_skills
+        + profile.requirements.tools_and_technologies
+    )
+    skills: list[str] = []
+    seen: set[str] = set()
+    for s in combined:
+        key = s.strip()
+        low = key.lower()
+        if low and low not in seen:
+            seen.add(low)
+            skills.append(key)
+    return build_boolean_query(job_title, skills)
 
 
 def seo_optimize(text: str, max_keywords: int = 5) -> dict:

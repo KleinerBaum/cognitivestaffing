@@ -14,3 +14,6 @@ class StateKeys:
     STEP = "current_step"
     FOLLOWUPS = "followup_questions"
     USAGE = "api_usage"
+    JOB_AD_MD = "data.job_ad_md"
+    BOOLEAN_STR = "data.boolean_str"
+    INTERVIEW_GUIDE_MD = "data.interview_md"

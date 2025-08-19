@@ -32,3 +32,10 @@ def ensure_state() -> None:
         st.session_state["auto_reask"] = True
     if StateKeys.USAGE not in st.session_state:
         st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
+    for key in (
+        StateKeys.JOB_AD_MD,
+        StateKeys.BOOLEAN_STR,
+        StateKeys.INTERVIEW_GUIDE_MD,
+    ):
+        if key not in st.session_state:
+            st.session_state[key] = ""

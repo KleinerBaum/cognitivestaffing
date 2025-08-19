@@ -19,10 +19,16 @@ from utils.errors import display_error
 from models.need_analysis import NeedAnalysisProfile
 
 # LLM/ESCO und Follow-ups
-from openai_utils import extract_with_function  # nutzt deine neue Definition
+from openai_utils import (
+    extract_with_function,  # nutzt deine neue Definition
+    generate_interview_guide,
+    generate_job_ad,
+)
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import search_occupation, enrich_skills
 from components.stepper import render_stepper
+from utils import build_boolean_search
+from nlp.bias import scan_bias_language
 
 ROOT = Path(__file__).parent
 ensure_state()
@@ -737,20 +743,62 @@ def _step_summary(schema: dict, critical: list[str]):
 
     col_a, col_b, col_c = st.columns(3)
     with col_a:
-        if st.button(
-            tr("📝 Stellenanzeige (Entwurf)", "📝 Job Ad (Draft)"),
-        ):
-            st.info(tr("Noch nicht implementiert.", "Not implemented yet."))
+        if st.button(tr("📝 Stellenanzeige (Entwurf)", "📝 Job Ad (Draft)")):
+            try:
+                job_ad_md = generate_job_ad(data, tone=st.session_state.get("tone"))
+                st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
+                findings = scan_bias_language(job_ad_md, st.session_state.lang)
+                for f in findings:
+                    st.warning(
+                        tr(
+                            f"⚠️ Begriff '{f['term']}' erkannt. Vorschlag: {f['suggestion']}",
+                            f"⚠️ Term '{f['term']}' detected. Suggestion: {f['suggestion']}",
+                        )
+                    )
+            except Exception as e:
+                st.error(
+                    tr(
+                        "Job Ad Generierung fehlgeschlagen",
+                        "Job ad generation failed",
+                    )
+                    + f": {e}"
+                )
+    if st.session_state.get(StateKeys.JOB_AD_MD):
+        st.markdown("**Job Ad Draft:**")
+        st.markdown(st.session_state[StateKeys.JOB_AD_MD])
+
     with col_b:
-        if st.button(
-            tr("🔎 Boolean String", "🔎 Boolean String"),
-        ):
-            st.info(tr("Noch nicht implementiert.", "Not implemented yet."))
+        if st.button(tr("🔎 Boolean String", "🔎 Boolean String")):
+            st.session_state[StateKeys.BOOLEAN_STR] = build_boolean_search(data)
+    if st.session_state.get(StateKeys.BOOLEAN_STR):
+        st.write(tr("**Boolean Search String:**", "**Boolean Search String:**"))
+        st.code(st.session_state[StateKeys.BOOLEAN_STR])
+
     with col_c:
-        if st.button(
-            tr("🗂️ Interviewleitfaden", "🗂️ Interview Guide"),
-        ):
-            st.info(tr("Noch nicht implementiert.", "Not implemented yet."))
+        if st.button(tr("🗂️ Interviewleitfaden", "🗂️ Interview Guide")):
+            try:
+                profile = NeedAnalysisProfile(**data)
+                guide_md = generate_interview_guide(
+                    job_title=profile.position.job_title,
+                    responsibilities="\n".join(profile.responsibilities.items),
+                    hard_skills=profile.requirements.hard_skills,
+                    soft_skills=profile.requirements.soft_skills,
+                    lang=st.session_state.lang,
+                    tone=st.session_state.get("tone"),
+                    num_questions=5,
+                )
+                st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide_md
+            except Exception as e:
+                st.error(
+                    tr(
+                        "Interviewleitfaden Generierung fehlgeschlagen",
+                        "Interview guide generation failed",
+                    )
+                    + f": {e}"
+                )
+    if st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD):
+        st.markdown("**Interview Guide:**")
+        st.markdown(st.session_state[StateKeys.INTERVIEW_GUIDE_MD])
 
     col1, col2 = st.columns([1, 1])
     with col1:
