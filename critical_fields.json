@@ -1,8 +1,4 @@
 {
   "critical": [
-    "position.role_summary",
-    "location.country",
-    "requirements.hard_skills",
-    "requirements.soft_skills"
   ]
 }
