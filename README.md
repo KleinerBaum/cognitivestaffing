@@ -77,6 +77,9 @@ Core JSON schemas like `schema/need_analysis.schema.json`, `critical_fields.json
 `config_loader.load_json`, which falls back to safe defaults and logs a warning
 if a file is missing or malformed.
 
+The vacancy profile schema does not enforce any required properties; every field
+is optional and may be omitted.
+
 ## Session State & Migration
 
 Session keys are centralized in `constants/keys.py`. Business data uses flat

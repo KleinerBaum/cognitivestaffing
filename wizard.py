@@ -779,7 +779,7 @@ def _step_summary(schema: dict, critical: list[str]):
             try:
                 profile = NeedAnalysisProfile(**data)
                 guide_md = generate_interview_guide(
-                    job_title=profile.position.job_title,
+                    job_title=profile.position.job_title or "",
                     responsibilities="\n".join(profile.responsibilities.items),
                     hard_skills=profile.requirements.hard_skills,
                     soft_skills=profile.requirements.soft_skills,
