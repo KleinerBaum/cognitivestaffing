@@ -13,7 +13,7 @@ class Company(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = ""
+    name: Optional[str] = None
     industry: Optional[str] = None
     hq_location: Optional[str] = None
     size: Optional[str] = None
@@ -27,7 +27,7 @@ class Position(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    job_title: str = ""
+    job_title: Optional[str] = None
     seniority_level: Optional[str] = None
     department: Optional[str] = None
     team_structure: Optional[str] = None
@@ -133,6 +133,6 @@ class NeedAnalysisProfile(BaseModel):
 
     @field_validator("company", "position", mode="before")
     @classmethod
-    def _ensure_required(cls, value: Any) -> dict | Company | Position:
-        """Ensure required nested objects are present."""
+    def _ensure_present(cls, value: Any) -> dict | Company | Position:
+        """Ensure nested objects are present."""
         return {} if value is None else value

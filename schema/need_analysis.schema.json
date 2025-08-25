@@ -14,8 +14,7 @@
         "website": {"type": "string"},
         "mission": {"type": "string"},
         "culture": {"type": "string"}
-      },
-      "required": ["name"]
+      }
     },
     "position": {
       "type": "object", "additionalProperties": false,
@@ -29,8 +28,7 @@
         "occupation_label": {"type": "string"},
         "occupation_uri": {"type": "string"},
         "occupation_group": {"type": "string"}
-      },
-      "required": ["job_title"]
+      }
     },
     "location": {
       "type": "object", "additionalProperties": false,
@@ -96,6 +94,5 @@
         "application_deadline": {"type": "string"}
       }
     }
-  },
-  "required": ["company", "position"]
+  }
 }

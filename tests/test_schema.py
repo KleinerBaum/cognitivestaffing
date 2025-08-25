@@ -40,8 +40,8 @@ def test_coerce_and_fill_basic() -> None:
 
 def test_default_insertion() -> None:
     jd = coerce_and_fill({})
-    assert jd.position.job_title == ""
-    assert jd.company.name == ""
+    assert jd.position.job_title is None
+    assert jd.company.name is None
     assert jd.requirements.hard_skills == []
 
 

@@ -65,7 +65,7 @@ def test_assert_closed_schema_raises() -> None:
 
 
 def test_generate_error_report_missing_required() -> None:
-    """Missing required fields should appear in the error report."""
+    """With no mandatory fields, the report should be empty."""
 
     report = client._generate_error_report({"position": {"job_title": "x"}})
-    assert "company" in report
+    assert report == ""
