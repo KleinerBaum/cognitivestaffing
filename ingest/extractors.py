@@ -67,7 +67,26 @@ def extract_text_from_file(file) -> str:
         from pypdf import PdfReader
 
         reader = PdfReader(io.BytesIO(data))
-        return "\n".join([p.extract_text() or "" for p in reader.pages]).strip()
+        pages = []
+        for idx, page in enumerate(reader.pages, start=1):
+            page_text = page.extract_text() or ""
+            if not page_text.strip():
+                try:
+                    from pdf2image import convert_from_bytes
+                    import pytesseract
+
+                    images = convert_from_bytes(
+                        data, fmt="png", first_page=idx, last_page=idx
+                    )
+                    ocr_text = "\n".join(
+                        pytesseract.image_to_string(img) for img in images
+                    )
+                    page_text = (page_text + "\n" + ocr_text).strip()
+                except Exception:  # pragma: no cover - optional OCR
+                    page_text = page_text.strip()
+            page_text = page_text.strip()
+            pages.append(page_text)
+        return "\n".join(pages).strip()
     if name.endswith(".docx"):
         import docx
 

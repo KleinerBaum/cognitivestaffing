@@ -59,6 +59,17 @@ pip install -r requirements.txt  # or: pip install -e .
 streamlit run app.py
 ```
 
+### Optional: OCR for scanned PDFs
+
+Vacalyser can perform OCR on PDF pages without embedded text. Install the
+dependencies and corresponding system packages:
+
+```bash
+pip install pdf2image pytesseract
+# Debian/Ubuntu
+sudo apt-get install poppler-utils tesseract-ocr
+```
+
 ### Optional: RAG vector store
 
 To enable retrieval-augmented suggestions, create an OpenAI vector store and
