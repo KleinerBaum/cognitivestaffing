@@ -263,15 +263,22 @@ def _step_intro():
             ),
         )
     )
-    with st.expander("Vorteile / Advantages"):
-        st.markdown(
-            """
-- Schnellere, vollständigere Anforderungsaufnahme
-- ESCO-gestützte Skill-Vervollständigung
-- Strukturierte Daten → bessere Suche & Matching
-- Klarere Ausschreibungen → bessere Candidate Experience
-"""
-        )
+    st.markdown("#### " + tr("Vorteile", "Advantages"))
+    advantages_md = tr(
+        (
+            "- Schnellere, vollständigere Anforderungsaufnahme\n"
+            "- ESCO-gestützte Skill-Vervollständigung\n"
+            "- Strukturierte Daten → bessere Suche & Matching\n"
+            "- Klarere Ausschreibungen → bessere Candidate Experience"
+        ),
+        (
+            "- Faster, more complete requirements capture\n"
+            "- ESCO-assisted skill completion\n"
+            "- Structured data → better search & matching\n"
+            "- Clearer job ads → better candidate experience"
+        ),
+    )
+    st.markdown(advantages_md)
 
 
 def _step_source(schema: dict) -> None:
@@ -995,24 +1002,17 @@ def run_wizard():
     renderer()
 
     # Bottom nav
-    col_prev, col_next = st.columns([1, 1])
-    with col_prev:
-        if current > 0 and st.button(
-            tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True
-        ):
-            prev_step()
-            st.rerun()
-    with col_next:
-        if current < len(steps) - 1:
-            if st.button(
-                tr("Weiter ▶︎", "Next ▶︎"), type="primary", use_container_width=True
+    crit_until_now = [f for f in critical if FIELD_SECTION_MAP.get(f, 0) <= current + 1]
+    missing = missing_keys(st.session_state[StateKeys.PROFILE], crit_until_now)
+
+    if current == 0:
+        _, col_next, _ = st.columns([1, 1, 1])
+        with col_next:
+            if current < len(steps) - 1 and st.button(
+                tr("Weiter ▶︎", "Next ▶︎"),
+                type="primary",
+                use_container_width=True,
             ):
-                crit_until_now = [
-                    f for f in critical if FIELD_SECTION_MAP.get(f, 0) <= current + 1
-                ]
-                missing = missing_keys(
-                    st.session_state[StateKeys.PROFILE], crit_until_now
-                )
                 if missing:
                     st.warning(
                         f"{t('missing', st.session_state.lang)} {', '.join(missing)}"
@@ -1020,10 +1020,30 @@ def run_wizard():
                 else:
                     next_step()
                     st.rerun()
-        else:
-            st.button(
-                tr("Fertig", "Done"),
-                disabled=bool(
-                    missing_keys(st.session_state[StateKeys.PROFILE], critical)
-                ),
-            )
+    else:
+        col_prev, col_next = st.columns([1, 1])
+        with col_prev:
+            if st.button(tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True):
+                prev_step()
+                st.rerun()
+        with col_next:
+            if current < len(steps) - 1:
+                if st.button(
+                    tr("Weiter ▶︎", "Next ▶︎"),
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    if missing:
+                        st.warning(
+                            f"{t('missing', st.session_state.lang)} {', '.join(missing)}"
+                        )
+                    else:
+                        next_step()
+                        st.rerun()
+            else:
+                st.button(
+                    tr("Fertig", "Done"),
+                    disabled=bool(
+                        missing_keys(st.session_state[StateKeys.PROFILE], critical)
+                    ),
+                )
