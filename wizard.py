@@ -885,7 +885,17 @@ def run_wizard():
 
     # Stepbar
     steps = [
-        (tr("Intro", "Intro"), _step_intro),
+        (
+            tr(
+                "Erstellen Sie eine umfassende Informationssammlung zu Ihrer Vakanz "
+                "und nutzen Sie diese Informationen zur Optimierung aller folgenden "
+                "Schritte Ihres Recruitment-Prozesses",
+                "Create a comprehensive information collection for your vacancy and "
+                "use this information to optimize all subsequent steps of your "
+                "recruitment process",
+            ),
+            _step_intro,
+        ),
         (tr("Quelle", "Source"), lambda: _step_source(schema)),
         (tr("Unternehmen", "Company"), _step_company),
         (tr("Position", "Position"), _step_position),
