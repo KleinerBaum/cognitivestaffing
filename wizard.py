@@ -250,8 +250,16 @@ def _step_intro():
     st.title(t("intro_title", st.session_state.lang))
     st.write(
         tr(
-            "Dieser Assistent führt dich in wenigen Schritten zu einem vollständigen, strukturierten Stellenprofil.",
-            "This assistant guides you in a few steps to a complete, structured job profile.",
+            (
+                "Spare Zeit, Nerven und Geld, vermeide Informationsverlust im ersten Schritt eines jeden "
+                "Recruiting-Prozesses und starte durch Bereitstellung einer Stellenanzeige den auf minimalen "
+                "Input ausgelegten Informationsgewinnungsprozess."
+            ),
+            (
+                "Save time, nerves, and money, avoid information loss in the first step of any recruiting "
+                "process, and kick off the information-gathering process designed for minimal input by "
+                "providing a job posting."
+            ),
         )
     )
     with st.expander("Vorteile / Advantages"):
