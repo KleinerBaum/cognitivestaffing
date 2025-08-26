@@ -36,6 +36,7 @@
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations
 - **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
+- **Glassmorphic theme**: browser-optimized design with a hero background
 - **Expanded skills section**: enter certifications, language requirements, and tools & technologies alongside hard and soft skills
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
 - **Company insights**: specify headquarters location and company size for clearer context

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from base64 import b64encode
 
 import streamlit as st
 
@@ -20,6 +21,25 @@ st.set_page_config(
 # --- Helpers zum Laden lokaler JSON-Configs ---
 ROOT = Path(__file__).parent
 ensure_state()
+
+
+def inject_global_css() -> None:
+    """Inject the global stylesheet and background image.
+
+    Reads the CSS theme and background image, encodes the image in base64,
+    and sets the `--bg-image` variable so the app renders a hero background.
+    """
+
+    css = (ROOT / "styles" / "vacalyser.css").read_text(encoding="utf-8")
+    bg_bytes = (ROOT / "images" / "AdobeStock_506577005.jpeg").read_bytes()
+    encoded_bg = b64encode(bg_bytes).decode()
+    st.markdown(
+        f"<style>{css}\n:root {{ --bg-image: url('data:image/jpeg;base64,{encoded_bg}'); }}</style>",
+        unsafe_allow_html=True,
+    )
+
+
+inject_global_css()
 
 SCHEMA = load_json("schema/need_analysis.schema.json", fallback={})
 CRITICAL = set(
