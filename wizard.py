@@ -164,6 +164,38 @@ def set_in(d: dict, path: str, value) -> None:
     cur[parts[-1]] = value
 
 
+def get_in(d: dict, path: str, default=None):
+    """Retrieve a value from a nested dict via dot-separated path."""
+
+    cur = d
+    for p in path.split("."):
+        if isinstance(cur, dict) and p in cur:
+            cur = cur[p]
+        else:
+            return default
+    return cur
+
+
+def _clear_generated() -> None:
+    """Remove cached generated outputs from ``st.session_state``."""
+
+    for key in (
+        StateKeys.JOB_AD_MD,
+        StateKeys.BOOLEAN_STR,
+        StateKeys.INTERVIEW_GUIDE_MD,
+    ):
+        st.session_state.pop(key, None)
+
+
+def _update_profile(path: str, value) -> None:
+    """Update profile data and clear derived outputs if changed."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    if get_in(data, path) != value:
+        set_in(data, path, value)
+        _clear_generated()
+
+
 def render_followups_for(fields: list[str]) -> None:
     """Render follow-up questions for the given ``fields`` and update state."""
 
@@ -790,6 +822,305 @@ def _step_process():
                     st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
+def _summary_company() -> None:
+    """Editable summary tab for company information."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    c1, c2 = st.columns(2)
+    name = c1.text_input(
+        tr("Firma *", "Company *"),
+        value=data["company"].get("name", ""),
+        key="ui.summary.company.name",
+    )
+    industry = c2.text_input(
+        tr("Branche", "Industry"),
+        value=data["company"].get("industry", ""),
+        key="ui.summary.company.industry",
+    )
+    hq = c1.text_input(
+        tr("Hauptsitz", "Headquarters"),
+        value=data["company"].get("hq_location", ""),
+        key="ui.summary.company.hq_location",
+    )
+    size = c2.text_input(
+        tr("Größe", "Size"),
+        value=data["company"].get("size", ""),
+        key="ui.summary.company.size",
+    )
+    website = c1.text_input(
+        tr("Website", "Website"),
+        value=data["company"].get("website", ""),
+        key="ui.summary.company.website",
+    )
+    mission = c2.text_input(
+        tr("Mission", "Mission"),
+        value=data["company"].get("mission", ""),
+        key="ui.summary.company.mission",
+    )
+    culture = st.text_area(
+        tr("Kultur", "Culture"),
+        value=data["company"].get("culture", ""),
+        key="ui.summary.company.culture",
+    )
+
+    _update_profile("company.name", name)
+    _update_profile("company.industry", industry)
+    _update_profile("company.hq_location", hq)
+    _update_profile("company.size", size)
+    _update_profile("company.website", website)
+    _update_profile("company.mission", mission)
+    _update_profile("company.culture", culture)
+
+
+def _summary_position() -> None:
+    """Editable summary tab for position details."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    c1, c2 = st.columns(2)
+    job_title = c1.text_input(
+        tr("Jobtitel *", "Job title *"),
+        value=data["position"].get("job_title", ""),
+        key="ui.summary.position.job_title",
+    )
+    seniority = c2.text_input(
+        tr("Seniorität", "Seniority"),
+        value=data["position"].get("seniority_level", ""),
+        key="ui.summary.position.seniority",
+    )
+    department = c1.text_input(
+        tr("Abteilung", "Department"),
+        value=data["position"].get("department", ""),
+        key="ui.summary.position.department",
+    )
+    team = c2.text_input(
+        tr("Teamstruktur", "Team structure"),
+        value=data["position"].get("team_structure", ""),
+        key="ui.summary.position.team_structure",
+    )
+    reporting = c1.text_input(
+        tr("Reports an", "Reports to"),
+        value=data["position"].get("reporting_line", ""),
+        key="ui.summary.position.reporting_line",
+    )
+    role_summary = c2.text_area(
+        tr("Rollen-Summary *", "Role summary *"),
+        value=data["position"].get("role_summary", ""),
+        height=120,
+        key="ui.summary.position.role_summary",
+    )
+    loc_city = c1.text_input(
+        tr("Stadt", "City"),
+        value=data.get("location", {}).get("primary_city", ""),
+        key="ui.summary.location.primary_city",
+    )
+    loc_country = c2.text_input(
+        tr("Land", "Country"),
+        value=data.get("location", {}).get("country", ""),
+        key="ui.summary.location.country",
+    )
+
+    _update_profile("position.job_title", job_title)
+    _update_profile("position.seniority_level", seniority)
+    _update_profile("position.department", department)
+    _update_profile("position.team_structure", team)
+    _update_profile("position.reporting_line", reporting)
+    _update_profile("position.role_summary", role_summary)
+    _update_profile("location.primary_city", loc_city)
+    _update_profile("location.country", loc_country)
+
+
+def _summary_requirements() -> None:
+    """Editable summary tab for requirements."""
+
+    data = st.session_state[StateKeys.PROFILE]
+
+    hard = st.text_area(
+        "Hard Skills",
+        value=", ".join(data["requirements"].get("hard_skills", [])),
+        key="ui.summary.requirements.hard_skills",
+    )
+    soft = st.text_area(
+        "Soft Skills",
+        value=", ".join(data["requirements"].get("soft_skills", [])),
+        key="ui.summary.requirements.soft_skills",
+    )
+    tools = st.text_area(
+        "Tools & Tech",
+        value=", ".join(data["requirements"].get("tools_and_technologies", [])),
+        key="ui.summary.requirements.tools",
+    )
+    languages = st.text_area(
+        tr("Sprachen", "Languages"),
+        value=", ".join(data["requirements"].get("languages_required", [])),
+        key="ui.summary.requirements.languages",
+    )
+    certs = st.text_area(
+        tr("Zertifizierungen", "Certifications"),
+        value=", ".join(data["requirements"].get("certifications", [])),
+        key="ui.summary.requirements.certs",
+    )
+
+    _update_profile(
+        "requirements.hard_skills",
+        [s.strip() for s in hard.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.soft_skills",
+        [s.strip() for s in soft.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.tools_and_technologies",
+        [s.strip() for s in tools.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.languages_required",
+        [s.strip() for s in languages.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.certifications",
+        [s.strip() for s in certs.split(",") if s.strip()],
+    )
+
+
+def _summary_employment() -> None:
+    """Editable summary tab for employment details."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    c1, c2 = st.columns(2)
+    job_options = [
+        "full_time",
+        "part_time",
+        "contract",
+        "internship",
+        "temporary",
+        "other",
+    ]
+    job_type = c1.selectbox(
+        tr("Art", "Type"),
+        options=job_options,
+        index=(
+            job_options.index(data["employment"].get("job_type"))
+            if data["employment"].get("job_type") in job_options
+            else 0
+        ),
+        key="ui.summary.employment.job_type",
+    )
+    policy_options = ["onsite", "hybrid", "remote"]
+    work_policy = c2.selectbox(
+        tr("Policy", "Policy"),
+        options=policy_options,
+        index=(
+            policy_options.index(data["employment"].get("work_policy"))
+            if data["employment"].get("work_policy") in policy_options
+            else 0
+        ),
+        key="ui.summary.employment.work_policy",
+    )
+    c3, c4, c5 = st.columns(3)
+    travel = c3.toggle(
+        tr("Reisetätigkeit?", "Travel required?"),
+        value=bool(data["employment"].get("travel_required")),
+        key="ui.summary.employment.travel_required",
+    )
+    relocation = c4.toggle(
+        tr("Relocation?", "Relocation?"),
+        value=bool(data["employment"].get("relocation_support")),
+        key="ui.summary.employment.relocation_support",
+    )
+    visa = c5.toggle(
+        tr("Visum-Sponsoring?", "Visa sponsorship?"),
+        value=bool(data["employment"].get("visa_sponsorship")),
+        key="ui.summary.employment.visa_sponsorship",
+    )
+
+    _update_profile("employment.job_type", job_type)
+    _update_profile("employment.work_policy", work_policy)
+    _update_profile("employment.travel_required", travel)
+    _update_profile("employment.relocation_support", relocation)
+    _update_profile("employment.visa_sponsorship", visa)
+
+
+def _summary_compensation() -> None:
+    """Editable summary tab for compensation details."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    c1, c2, c3 = st.columns(3)
+    salary_min = c1.number_input(
+        tr("Gehalt min", "Salary min"),
+        value=float(data["compensation"].get("salary_min") or 0.0),
+        key="ui.summary.compensation.salary_min",
+    )
+    salary_max = c2.number_input(
+        tr("Gehalt max", "Salary max"),
+        value=float(data["compensation"].get("salary_max") or 0.0),
+        key="ui.summary.compensation.salary_max",
+    )
+    currency = c3.text_input(
+        tr("Währung", "Currency"),
+        value=data["compensation"].get("currency", ""),
+        key="ui.summary.compensation.currency",
+    )
+    c4, c5 = st.columns(2)
+    period_options = ["year", "month", "day", "hour"]
+    period = c4.selectbox(
+        tr("Periode", "Period"),
+        options=period_options,
+        index=(
+            period_options.index(data["compensation"].get("period"))
+            if data["compensation"].get("period") in period_options
+            else 0
+        ),
+        key="ui.summary.compensation.period",
+    )
+    variable = c5.toggle(
+        tr("Variable Vergütung?", "Variable pay?"),
+        value=bool(data["compensation"].get("variable_pay")),
+        key="ui.summary.compensation.variable_pay",
+    )
+    c6, c7 = st.columns(2)
+    equity = c6.toggle(
+        "Equity?",
+        value=bool(data["compensation"].get("equity_offered")),
+        key="ui.summary.compensation.equity_offered",
+    )
+    benefits = st.text_area(
+        "Benefits",
+        value=", ".join(data["compensation"].get("benefits", [])),
+        key="ui.summary.compensation.benefits",
+    )
+
+    _update_profile("compensation.salary_min", salary_min)
+    _update_profile("compensation.salary_max", salary_max)
+    _update_profile("compensation.currency", currency)
+    _update_profile("compensation.period", period)
+    _update_profile("compensation.variable_pay", variable)
+    _update_profile("compensation.equity_offered", equity)
+    _update_profile(
+        "compensation.benefits",
+        [s.strip() for s in benefits.split(",") if s.strip()],
+    )
+
+
+def _summary_process() -> None:
+    """Editable summary tab for hiring process details."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    c1, c2 = st.columns([1, 2])
+    stages = c1.number_input(
+        tr("Phasen", "Stages"),
+        value=int(data["process"].get("interview_stages") or 0),
+        key="ui.summary.process.interview_stages",
+    )
+    notes = c2.text_area(
+        tr("Notizen", "Notes"),
+        value=data["process"].get("process_notes", ""),
+        key="ui.summary.process.process_notes",
+    )
+
+    _update_profile("process.interview_stages", int(stages))
+    _update_profile("process.process_notes", notes)
+
+
 def _step_summary(schema: dict, critical: list[str]):
     """Render the summary step and offer follow-up questions.
 
@@ -807,7 +1138,28 @@ def _step_summary(schema: dict, critical: list[str]):
     if missing:
         st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
 
-    st.json(data)
+    tabs = st.tabs(
+        [
+            tr("Unternehmen", "Company"),
+            tr("Position", "Position"),
+            tr("Anforderungen", "Requirements"),
+            tr("Beschäftigung", "Employment"),
+            tr("Vergütung", "Compensation"),
+            tr("Prozess", "Process"),
+        ]
+    )
+    with tabs[0]:
+        _summary_company()
+    with tabs[1]:
+        _summary_position()
+    with tabs[2]:
+        _summary_requirements()
+    with tabs[3]:
+        _summary_employment()
+    with tabs[4]:
+        _summary_compensation()
+    with tabs[5]:
+        _summary_process()
 
     buff = io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
     st.download_button(

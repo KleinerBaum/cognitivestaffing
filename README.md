@@ -21,7 +21,7 @@
 - **Inline refinement**: adjust generated documents with custom instructions and instantly update the view
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
-- **Tabbed summary**: collected fields are editable in stage-based tabs for faster review
+- **Tabbed summary**: finalize all sections in inline-editable tabs and regenerate outputs instantly
 - **Missing info alerts**: highlights empty critical fields and blocks navigation until they're filled, letting you jump back to fix them
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide

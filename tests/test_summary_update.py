@@ -1,0 +1,22 @@
+"""Tests for editable summary helpers."""
+
+import streamlit as st
+
+from constants.keys import StateKeys
+from wizard import _update_profile
+
+
+def test_update_profile_clears_generated() -> None:
+    """Updating profile fields clears derived outputs."""
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE] = {"company": {"name": "Old"}}
+    st.session_state[StateKeys.JOB_AD_MD] = "old"
+    st.session_state[StateKeys.BOOLEAN_STR] = "old"
+    st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = "old"
+
+    _update_profile("company.name", "New")
+
+    assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "New"
+    assert StateKeys.JOB_AD_MD not in st.session_state
+    assert StateKeys.BOOLEAN_STR not in st.session_state
+    assert StateKeys.INTERVIEW_GUIDE_MD not in st.session_state
