@@ -4,13 +4,13 @@ from __future__ import annotations
 
 STR = {
     "de": {
-        "intro_title": "Vacalyser — Wizard",
+        "intro_title": "Identifiziere ALLE recruiting-relevanten Informationen Deiner Vakanz!",
         "source": "Quelle",
         "analyze": "🔎 Automatisch analysieren (LLM)",
         "missing": "Es fehlen noch kritische Felder:",
     },
     "en": {
-        "intro_title": "Vacalyser — Wizard",
+        "intro_title": "Identify ALL recruiting-relevant information about your vacancy!",
         "source": "Source",
         "analyze": "🔎 Analyze automatically (LLM)",
         "missing": "Critical fields still missing:",
