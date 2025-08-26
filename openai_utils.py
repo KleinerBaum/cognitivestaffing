@@ -421,6 +421,99 @@ def suggest_additional_skills(
     return {"technical": tech_skills, "soft": soft_skills}
 
 
+def suggest_skills_for_role(
+    job_title: str,
+    *,
+    lang: str = "en",
+    model: str | None = None,
+) -> dict[str, list[str]]:
+    """Suggest tools, hard skills and soft skills for a job title.
+
+    Args:
+        job_title: Target role title.
+        lang: Output language ("en" or "de").
+        model: Optional OpenAI model override.
+
+    Returns:
+        Dict with keys ``tools_and_technologies``, ``hard_skills`` and
+        ``soft_skills`` each containing up to 10 suggestions.
+    """
+
+    job_title = job_title.strip()
+    if not job_title:
+        return {
+            "tools_and_technologies": [],
+            "hard_skills": [],
+            "soft_skills": [],
+        }
+
+    if lang.startswith("de"):
+        prompt = (
+            "Gib exakt 10 IT-Technologien, 10 Hard Skills und 10 Soft Skills für "
+            f"den Jobtitel '{job_title}'. Antworte als JSON mit den Schlüsseln "
+            "'tools_and_technologies', 'hard_skills' und 'soft_skills'."
+        )
+    else:
+        prompt = (
+            "List exactly 10 IT technologies, 10 hard skills and 10 soft skills "
+            f"relevant for the job title '{job_title}'. Respond with JSON using "
+            "the keys 'tools_and_technologies', 'hard_skills' and 'soft_skills'."
+        )
+
+    messages = [{"role": "user", "content": prompt}]
+    res = call_chat_api(
+        messages,
+        model=model,
+        json_strict=True,
+        max_tokens=400,
+    )
+    raw = _chat_content(res)
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {}
+
+    def _clean(items: Any) -> list[str]:
+        if not isinstance(items, list):
+            return []
+        cleaned = [
+            str(it).strip() for it in items if isinstance(it, str) and it.strip()
+        ]
+        return cleaned[:10]
+
+    tools = _clean(data.get("tools_and_technologies"))
+    hard = _clean(data.get("hard_skills"))
+    soft = _clean(data.get("soft_skills"))
+
+    try:  # Normalize via ESCO
+        from core.esco_utils import normalize_skills
+
+        tools = normalize_skills(tools, lang=lang)
+        hard = normalize_skills(hard, lang=lang)
+        soft = normalize_skills(soft, lang=lang)
+    except Exception:
+        pass
+
+    def _unique(seq: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for item in seq:
+            low = item.lower()
+            if low in seen:
+                continue
+            seen.add(low)
+            out.append(item)
+            if len(out) == 10:
+                break
+        return out
+
+    return {
+        "tools_and_technologies": _unique(tools),
+        "hard_skills": _unique(hard),
+        "soft_skills": _unique(soft),
+    }
+
+
 def suggest_benefits(
     job_title: str,
     industry: str = "",

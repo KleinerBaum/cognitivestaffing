@@ -23,6 +23,7 @@ from openai_utils import (
     extract_with_function,  # nutzt deine neue Definition
     generate_interview_guide,
     generate_job_ad,
+    suggest_skills_for_role,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import search_occupation, enrich_skills
@@ -497,6 +498,18 @@ def _step_requirements():
     st.subheader(tr("Anforderungen", "Requirements"))
     data = st.session_state[StateKeys.PROFILE]
 
+    # LLM-basierte Skill-Vorschläge abrufen
+    job_title = (data.get("position", {}).get("job_title", "") or "").strip()
+    stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+    if job_title and stored.get("_title") != job_title:
+        sugg = suggest_skills_for_role(
+            job_title,
+            lang=st.session_state.get("lang", "en"),
+        )
+        stored = {"_title": job_title, **sugg}
+        st.session_state[StateKeys.SKILL_SUGGESTIONS] = stored
+    suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+
     data["requirements"]["hard_skills"] = _chip_multiselect(
         "Hard Skills",
         options=data["requirements"].get("hard_skills", []),
@@ -522,6 +535,54 @@ def _step_requirements():
         options=data["requirements"].get("certifications", []),
         values=data["requirements"].get("certifications", []),
     )
+
+    # Vorschlagslisten
+    sugg_tools = st.multiselect(
+        tr("Vorgeschlagene Tools & Tech", "Suggested Tools & Tech"),
+        options=[
+            s
+            for s in suggestions.get("tools_and_technologies", [])
+            if s not in data["requirements"].get("tools_and_technologies", [])
+        ],
+        key="ms_sugg_tools",
+    )
+    if sugg_tools:
+        merged = sorted(
+            set(data["requirements"].get("tools_and_technologies", [])).union(
+                sugg_tools
+            )
+        )
+        data["requirements"]["tools_and_technologies"] = merged
+
+    sugg_hard = st.multiselect(
+        tr("Vorgeschlagene Hard Skills", "Suggested Hard Skills"),
+        options=[
+            s
+            for s in suggestions.get("hard_skills", [])
+            if s not in data["requirements"].get("hard_skills", [])
+        ],
+        key="ms_sugg_hard",
+    )
+    if sugg_hard:
+        merged = sorted(
+            set(data["requirements"].get("hard_skills", [])).union(sugg_hard)
+        )
+        data["requirements"]["hard_skills"] = merged
+
+    sugg_soft = st.multiselect(
+        tr("Vorgeschlagene Soft Skills", "Suggested Soft Skills"),
+        options=[
+            s
+            for s in suggestions.get("soft_skills", [])
+            if s not in data["requirements"].get("soft_skills", [])
+        ],
+        key="ms_sugg_soft",
+    )
+    if sugg_soft:
+        merged = sorted(
+            set(data["requirements"].get("soft_skills", [])).union(sugg_soft)
+        )
+        data["requirements"]["soft_skills"] = merged
 
     # Inline follow-up questions for Requirements section
     if StateKeys.FOLLOWUPS in st.session_state:

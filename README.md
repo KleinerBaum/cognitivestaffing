@@ -41,6 +41,7 @@
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
 - **Company insights**: specify headquarters location and company size for clearer context
 - **Domain-specific suggestions**: built-in lists of programming languages, frameworks, databases, cloud providers and DevOps tools help guide inputs
+- **LLM skill proposals**: AI suggests relevant hard skills, soft skills and IT technologies based on the job title
 
 ---
 
