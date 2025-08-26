@@ -1,4 +1,8 @@
 {
   "critical": [
+    "company.name",
+    "position.job_title",
+    "position.role_summary",
+    "location.country"
   ]
 }
