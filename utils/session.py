@@ -28,7 +28,11 @@ def bootstrap_session() -> None:
 
 
 def bind_textarea(
-    label: str, ui_key: str, data_key: str, placeholder: str = ""
+    label: str,
+    ui_key: str,
+    data_key: str,
+    placeholder: str = "",
+    help: str | None = None,
 ) -> None:
     """Render a text area bound to a state key.
 
@@ -42,7 +46,13 @@ def bind_textarea(
     def _on_change() -> None:
         st.session_state[data_key] = st.session_state[ui_key]
 
-    st.text_area(label, key=ui_key, placeholder=placeholder, on_change=_on_change)
+    st.text_area(
+        label,
+        key=ui_key,
+        placeholder=placeholder,
+        help=help,
+        on_change=_on_change,
+    )
 
 
 def migrate_legacy_keys() -> None:

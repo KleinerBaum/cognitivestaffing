@@ -317,6 +317,12 @@ def _step_source(schema: dict) -> None:
     """Render the source step where users choose text, file, or URL."""
 
     st.subheader(t("source", st.session_state.lang))
+    st.caption(
+        tr(
+            "Stellenbeschreibung laden oder diesen Schritt überspringen, um Daten manuell einzugeben.",
+            "Load a job description or skip to enter data manually.",
+        )
+    )
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
     )
@@ -330,6 +336,10 @@ def _step_source(schema: dict) -> None:
                 "Bitte JD-Text einfügen oder Datei/URL wählen...",
                 "Paste JD text here or upload a file / enter URL...",
             ),
+            help=tr(
+                "Fügen Sie den reinen Text Ihrer Stellenanzeige ein.",
+                "Paste the plain text of your job posting.",
+            ),
         )
 
     with tab_file:
@@ -338,6 +348,10 @@ def _step_source(schema: dict) -> None:
             type=["pdf", "docx", "txt"],
             key=UIKeys.JD_FILE_UPLOADER,
             on_change=on_file_uploaded,
+            help=tr(
+                "Unterstützte Formate: PDF, DOCX oder TXT.",
+                "Supported formats: PDF, DOCX or TXT.",
+            ),
         )
 
     with tab_url:
@@ -345,6 +359,11 @@ def _step_source(schema: dict) -> None:
             tr("oder eine Job-URL eingeben", "or enter a Job URL"),
             key=UIKeys.JD_URL_INPUT,
             on_change=on_url_changed,
+            placeholder="https://example.com/job",
+            help=tr(
+                "Die Seite muss öffentlich erreichbar sein.",
+                "The page must be publicly accessible.",
+            ),
         )
 
     text_for_extract = st.session_state.get(StateKeys.RAW_TEXT, "").strip()
@@ -421,35 +440,61 @@ def _step_company():
     """
 
     st.subheader(tr("Unternehmen", "Company"))
+    st.caption(
+        tr(
+            "Basisinformationen zum Unternehmen angeben.",
+            "Provide basic information about the company.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
 
     c1, c2 = st.columns(2)
     data["company"]["name"] = c1.text_input(
-        tr("Firma *", "Company *"), value=data["company"].get("name", "")
+        tr("Firma *", "Company *"),
+        value=data["company"].get("name", ""),
+        placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
+        help=tr("Offizieller Firmenname", "Official company name"),
     )
     data["company"]["industry"] = c2.text_input(
-        tr("Branche", "Industry"), value=data["company"].get("industry", "")
+        tr("Branche", "Industry"),
+        value=data["company"].get("industry", ""),
+        placeholder=tr("z. B. IT-Services", "e.g., IT services"),
     )
 
     c3, c4 = st.columns(2)
     data["company"]["hq_location"] = c3.text_input(
         tr("Hauptsitz", "Headquarters"),
         value=data["company"].get("hq_location", ""),
+        placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
     )
     data["company"]["size"] = c4.text_input(
-        tr("Größe", "Size"), value=data["company"].get("size", "")
+        tr("Größe", "Size"),
+        value=data["company"].get("size", ""),
+        placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
 
     c5, c6 = st.columns(2)
     data["company"]["website"] = c5.text_input(
-        tr("Website", "Website"), value=data["company"].get("website", "")
+        tr("Website", "Website"),
+        value=data["company"].get("website", ""),
+        placeholder="https://example.com",
     )
     data["company"]["mission"] = c6.text_input(
-        tr("Mission", "Mission"), value=data["company"].get("mission", "")
+        tr("Mission", "Mission"),
+        value=data["company"].get("mission", ""),
+        placeholder=tr(
+            "z. B. Nachhaltige Mobilität fördern",
+            "e.g., Promote sustainable mobility",
+        ),
     )
 
     data["company"]["culture"] = st.text_area(
-        tr("Kultur", "Culture"), value=data["company"].get("culture", "")
+        tr("Kultur", "Culture"),
+        value=data["company"].get("culture", ""),
+        placeholder=tr(
+            "z. B. flache Hierarchien, Remote-First",
+            "e.g., flat hierarchies, remote-first",
+        ),
     )
 
     # Inline follow-up questions for Company section
@@ -479,28 +524,45 @@ def _step_position():
     """
 
     st.subheader(tr("Position", "Position"))
+    st.caption(
+        tr(
+            "Details zur Rolle eingeben, z. B. Titel und Seniorität.",
+            "Provide role details such as title and seniority.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
 
     c1, c2 = st.columns(2)
     data["position"]["job_title"] = c1.text_input(
-        tr("Jobtitel *", "Job title *"), value=data["position"].get("job_title", "")
+        tr("Jobtitel *", "Job title *"),
+        value=data["position"].get("job_title", ""),
+        placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
     )
     data["position"]["seniority_level"] = c2.text_input(
-        tr("Seniorität", "Seniority"), value=data["position"].get("seniority_level", "")
+        tr("Seniorität", "Seniority"),
+        value=data["position"].get("seniority_level", ""),
+        placeholder=tr("z. B. Junior", "e.g., Junior"),
     )
 
     c3, c4 = st.columns(2)
     data["position"]["department"] = c3.text_input(
-        tr("Abteilung", "Department"), value=data["position"].get("department", "")
+        tr("Abteilung", "Department"),
+        value=data["position"].get("department", ""),
+        placeholder=tr("z. B. Entwicklung", "e.g., Engineering"),
     )
     data["position"]["team_structure"] = c4.text_input(
         tr("Teamstruktur", "Team structure"),
         value=data["position"].get("team_structure", ""),
+        placeholder=tr(
+            "z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"
+        ),
     )
 
     c5, c6 = st.columns(2)
     data["position"]["reporting_line"] = c5.text_input(
-        tr("Reports an", "Reports to"), value=data["position"].get("reporting_line", "")
+        tr("Reports an", "Reports to"),
+        value=data["position"].get("reporting_line", ""),
+        placeholder=tr("z. B. CTO", "e.g., CTO"),
     )
     data["position"]["role_summary"] = c6.text_area(
         tr("Rollen-Summary *", "Role summary *"),
@@ -535,6 +597,12 @@ def _step_requirements():
     """
 
     st.subheader(tr("Anforderungen", "Requirements"))
+    st.caption(
+        tr(
+            "Geforderte Fähigkeiten und Qualifikationen festhalten.",
+            "Specify required skills and qualifications.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
 
     # LLM-basierte Skill-Vorschläge abrufen
@@ -650,6 +718,12 @@ def _step_employment():
     """
 
     st.subheader(tr("Beschäftigung", "Employment"))
+    st.caption(
+        tr(
+            "Rahmenbedingungen der Anstellung festlegen.",
+            "Define employment conditions.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
 
     c1, c2 = st.columns(2)
@@ -720,6 +794,12 @@ def _step_compensation():
     """
 
     st.subheader(tr("Vergütung & Benefits", "Compensation & Benefits"))
+    st.caption(
+        tr(
+            "Gehaltsspanne und Zusatzleistungen erfassen.",
+            "Capture salary range and benefits.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
 
     c1, c2, c3 = st.columns(3)
@@ -789,6 +869,12 @@ def _step_process():
     """
 
     st.subheader(tr("Prozess", "Process"))
+    st.caption(
+        tr(
+            "Ablauf des Bewerbungsprozesses skizzieren.",
+            "Outline the hiring process steps.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
 
     c1, c2 = st.columns([1, 2])
@@ -1133,6 +1219,12 @@ def _step_summary(schema: dict, critical: list[str]):
     """
 
     st.subheader(tr("Zusammenfassung", "Summary"))
+    st.caption(
+        tr(
+            "Überprüfen Sie Ihre Angaben und laden Sie das Profil herunter.",
+            "Review your entries and download the profile.",
+        )
+    )
     data = st.session_state[StateKeys.PROFILE]
     missing = missing_keys(data, critical)
     if missing:
@@ -1357,6 +1449,9 @@ def run_wizard():
     crit_until_now = [f for f in critical if FIELD_SECTION_MAP.get(f, 0) <= current + 1]
     missing = missing_keys(st.session_state[StateKeys.PROFILE], crit_until_now)
 
+    if missing:
+        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
+
     if current == 0:
         _, col_next, _ = st.columns([1, 1, 1])
         with col_next:
@@ -1364,14 +1459,29 @@ def run_wizard():
                 tr("Weiter ▶︎", "Next ▶︎"),
                 type="primary",
                 use_container_width=True,
+                disabled=bool(missing),
             ):
-                if missing:
-                    st.warning(
-                        f"{t('missing', st.session_state.lang)} {', '.join(missing)}"
-                    )
-                else:
-                    next_step()
-                    st.rerun()
+                next_step()
+                st.rerun()
+    elif current == 1:
+        col_prev, col_skip, col_next = st.columns([1, 1, 1])
+        with col_prev:
+            if st.button(tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True):
+                prev_step()
+                st.rerun()
+        with col_skip:
+            if st.button(tr("Überspringen", "Skip"), use_container_width=True):
+                next_step()
+                st.rerun()
+        with col_next:
+            if st.button(
+                tr("Weiter ▶︎", "Next ▶︎"),
+                type="primary",
+                use_container_width=True,
+                disabled=bool(missing),
+            ):
+                next_step()
+                st.rerun()
     else:
         col_prev, col_next = st.columns([1, 1])
         with col_prev:
@@ -1384,14 +1494,10 @@ def run_wizard():
                     tr("Weiter ▶︎", "Next ▶︎"),
                     type="primary",
                     use_container_width=True,
+                    disabled=bool(missing),
                 ):
-                    if missing:
-                        st.warning(
-                            f"{t('missing', st.session_state.lang)} {', '.join(missing)}"
-                        )
-                    else:
-                        next_step()
-                        st.rerun()
+                    next_step()
+                    st.rerun()
             else:
                 st.button(
                     tr("Fertig", "Done"),
