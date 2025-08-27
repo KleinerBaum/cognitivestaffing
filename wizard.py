@@ -532,7 +532,7 @@ def _step_company():
         help=tr("Offizieller Firmenname", "Official company name"),
     )
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     data["company"]["brand_name"] = c1.text_input(
         tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
         value=data["company"].get("brand_name", ""),
@@ -635,7 +635,7 @@ def _step_position():
     )
     data = st.session_state[StateKeys.PROFILE]
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     data["position"]["job_title"] = c1.text_input(
         tr("Jobtitel *", "Job title *"),
         value=data["position"].get("job_title", ""),
@@ -673,11 +673,45 @@ def _step_position():
         height=120,
     )
 
+    c7, c8 = st.columns(2)
+    data["meta"]["target_start_date"] = c7.text_input(
+        tr("Gewünschtes Startdatum", "Desired start date"),
+        value=data["meta"].get("target_start_date", ""),
+        placeholder="YYYY-MM-DD",
+    )
+    data["position"]["supervises"] = c8.number_input(
+        tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
+        min_value=0,
+        value=data["position"].get("supervises", 0),
+        step=1,
+    )
+
+    with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
+        data["position"]["performance_indicators"] = st.text_area(
+            tr("Leistungskennzahlen", "Performance indicators"),
+            value=data["position"].get("performance_indicators", ""),
+            height=80,
+        )
+        data["position"]["decision_authority"] = st.text_area(
+            tr("Entscheidungsbefugnisse", "Decision-making authority"),
+            value=data["position"].get("decision_authority", ""),
+            height=80,
+        )
+        data["position"]["key_projects"] = st.text_area(
+            tr("Schlüsselprojekte", "Key projects"),
+            value=data["position"].get("key_projects", ""),
+            height=80,
+        )
+
     # Inline follow-up questions for Position and Location section
     if StateKeys.FOLLOWUPS in st.session_state:
         for q in list(st.session_state[StateKeys.FOLLOWUPS]):
             field = q.get("field", "")
-            if field.startswith("position.") or field.startswith("location."):
+            if (
+                field.startswith("position.")
+                or field.startswith("location.")
+                or field.startswith("meta.")
+            ):
                 prompt = q.get("question", "")
                 if q.get("priority") == "critical":
                     st.markdown(
@@ -829,7 +863,7 @@ def _step_employment():
     )
     data = st.session_state[StateKeys.PROFILE]
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     job_options = [
         "full_time",
         "part_time",
@@ -856,16 +890,34 @@ def _step_employment():
         ),
     )
 
-    c3, c4, c5 = st.columns(3)
-    data["employment"]["travel_required"] = c3.toggle(
+    contract_options = {
+        "permanent": tr("Unbefristet", "Permanent"),
+        "fixed_term": tr("Befristet", "Fixed term"),
+        "contract": tr("Werkvertrag", "Contract"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    current_contract = data["employment"].get("contract_type")
+    data["employment"]["contract_type"] = c3.selectbox(
+        tr("Vertragsart", "Contract type"),
+        options=list(contract_options.keys()),
+        format_func=lambda x: contract_options[x],
+        index=(
+            list(contract_options.keys()).index(current_contract)
+            if current_contract in contract_options
+            else 0
+        ),
+    )
+
+    c4, c5, c6 = st.columns(3)
+    data["employment"]["travel_required"] = c4.toggle(
         tr("Reisetätigkeit?", "Travel required?"),
         value=bool(data["employment"].get("travel_required")),
     )
-    data["employment"]["relocation_support"] = c4.toggle(
+    data["employment"]["relocation_support"] = c5.toggle(
         tr("Relocation?", "Relocation?"),
         value=bool(data["employment"].get("relocation_support")),
     )
-    data["employment"]["visa_sponsorship"] = c5.toggle(
+    data["employment"]["visa_sponsorship"] = c6.toggle(
         tr("Visum-Sponsoring?", "Visa sponsorship?"),
         value=bool(data["employment"].get("visa_sponsorship")),
     )

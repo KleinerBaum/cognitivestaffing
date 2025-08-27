@@ -46,9 +46,11 @@ def _collect_fields(
 
 ALL_FIELDS, LIST_FIELDS = _collect_fields(NeedAnalysisProfile)
 
-# Empty alias map retained for compatibility with older code paths
+# Alias map for backward compatibility with legacy field names
 # Using MappingProxyType to prevent accidental mutation.
-ALIASES: Mapping[str, str] = MappingProxyType({})
+ALIASES: Mapping[str, str] = MappingProxyType(
+    {"date_of_employment_start": "meta.target_start_date"}
+)
 
 
 def coerce_and_fill(data: dict[str, Any]) -> NeedAnalysisProfile:
