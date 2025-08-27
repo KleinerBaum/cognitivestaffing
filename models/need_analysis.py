@@ -40,6 +40,10 @@ class Position(BaseModel):
     occupation_label: Optional[str] = None
     occupation_uri: Optional[str] = None
     occupation_group: Optional[str] = None
+    supervises: Optional[int] = None
+    performance_indicators: Optional[str] = None
+    decision_authority: Optional[str] = None
+    key_projects: Optional[str] = None
 
 
 class Location(BaseModel):
@@ -80,6 +84,7 @@ class Employment(BaseModel):
 
     job_type: Optional[str] = None
     work_policy: Optional[str] = None
+    contract_type: Optional[str] = None
     travel_required: Optional[bool] = None
     overtime_expected: Optional[bool] = None
     relocation_support: Optional[bool] = None

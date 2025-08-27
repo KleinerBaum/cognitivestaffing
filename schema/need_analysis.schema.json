@@ -27,7 +27,11 @@
         "role_summary": {"type": "string"},
         "occupation_label": {"type": "string"},
         "occupation_uri": {"type": "string"},
-        "occupation_group": {"type": "string"}
+        "occupation_group": {"type": "string"},
+        "supervises": {"type": "integer"},
+        "performance_indicators": {"type": "string"},
+        "decision_authority": {"type": "string"},
+        "key_projects": {"type": "string"}
       }
     },
     "location": {
@@ -60,6 +64,7 @@
       "properties": {
         "job_type": {"type": "string"},
         "work_policy": {"type": "string"},
+        "contract_type": {"type": "string"},
         "travel_required": {"type": "boolean"},
         "overtime_expected": {"type": "boolean"},
         "relocation_support": {"type": "boolean"},

@@ -44,6 +44,7 @@
 - **Expanded skills section**: enter certifications, language requirements, and tools & technologies alongside hard and soft skills
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
 - **Company insights**: specify headquarters location, company size, brand and contact details for clearer context
+- **Detailed role setup**: capture desired start date, direct reports, contract type and optional KPIs or key projects via an expandable section
 - **Domain-specific suggestions**: built-in lists of programming languages, frameworks, databases, cloud providers and DevOps tools help guide inputs
 - **LLM skill proposals**: AI suggests relevant hard skills, soft skills and IT technologies based on the job title
 
