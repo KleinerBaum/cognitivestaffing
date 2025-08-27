@@ -4,6 +4,8 @@ import streamlit as st
 from wizard import _autodetect_lang, _step_source, on_file_uploaded, on_url_changed
 from constants.keys import StateKeys, UIKeys
 from utils.session import bootstrap_session
+from i18n import t
+from models.need_analysis import NeedAnalysisProfile
 
 
 class DummyTab:
@@ -26,6 +28,7 @@ def _setup_common(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "success", lambda *a, **k: None)
     monkeypatch.setattr(st, "warning", lambda *a, **k: None)
     monkeypatch.setattr(st, "error", lambda *a, **k: None)
+    monkeypatch.setattr(st, "write", lambda *a, **k: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
     bootstrap_session()
 
@@ -86,7 +89,12 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     sample_text = "Job text"
     sample_data = {"position": {"job_title": "Engineer"}}
     _setup_common(monkeypatch)
-    monkeypatch.setattr(st, "button", lambda *a, **k: True)
+    analyze_label = t("analyze", st.session_state.lang)
+
+    def fake_button(label: str, *a, **k) -> bool:
+        return label == analyze_label
+
+    monkeypatch.setattr(st, "button", fake_button)
     monkeypatch.setattr(
         "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
     )
@@ -129,7 +137,12 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
         "requirements": {"hard_skills": ["Python"]},
     }
     _setup_common(monkeypatch)
-    monkeypatch.setattr(st, "button", lambda *a, **k: True)
+    analyze_label = t("analyze", st.session_state.lang)
+
+    def fake_button(label: str, *a, **k) -> bool:
+        return label == analyze_label
+
+    monkeypatch.setattr(st, "button", fake_button)
     monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
     monkeypatch.setattr(
         "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
@@ -156,6 +169,34 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
         "Project management",
         "Python",
     ]
+
+
+def test_step_source_skip_creates_empty_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipping analysis should create an empty profile and advance the step."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    _setup_common(monkeypatch)
+
+    monkeypatch.setattr(
+        st,
+        "text_area",
+        lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, ""),
+    )
+
+    skip_label = "Continue without template"
+
+    def fake_button(label: str, *a, **k) -> bool:
+        return label == skip_label
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    _step_source({})
+
+    assert st.session_state[StateKeys.STEP] == 2
+    assert st.session_state[StateKeys.PROFILE] == NeedAnalysisProfile().model_dump()
 
 
 @pytest.mark.parametrize("mode", ["file", "url"])

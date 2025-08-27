@@ -59,13 +59,19 @@ def on_file_uploaded() -> None:
         txt = extract_text_from_file(f)
     except Exception as e:  # pragma: no cover - defensive
         display_error(
-            tr("Datei konnte nicht gelesen werden", "Failed to read file"),
+            tr(
+                "Datei konnte nicht gelesen werden – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                "Failed to read file – you can also enter the information manually in the following steps.",
+            ),
             str(e),
         )
         return
     if not txt.strip():
         display_error(
-            tr("Datei enthält keinen Text", "File contains no text"),
+            tr(
+                "Datei enthält keinen Text – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                "File contains no text – you can also enter the information manually in the following steps.",
+            ),
         )
         return
     st.session_state[StateKeys.RAW_TEXT] = txt
@@ -79,19 +85,30 @@ def on_url_changed() -> None:
     if not url:
         return
     if not re.match(r"^https?://[\w./-]+$", url):
-        display_error(tr("Ungültige URL", "Invalid URL"))
+        display_error(
+            tr(
+                "Ungültige URL – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                "Invalid URL – you can also enter the information manually in the following steps.",
+            )
+        )
         return
     try:
         txt = extract_text_from_url(url)
     except Exception as e:  # pragma: no cover - defensive
         display_error(
-            tr("URL konnte nicht geladen werden", "Failed to fetch URL"),
+            tr(
+                "URL konnte nicht geladen werden – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                "Failed to fetch URL – you can also enter the information manually in the following steps.",
+            ),
             str(e),
         )
         return
     if not txt or not txt.strip():
         display_error(
-            tr("Keine Textinhalte gefunden", "No text content found"),
+            tr(
+                "Keine Textinhalte gefunden – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                "No text content found – you can also enter the information manually in the following steps.",
+            ),
         )
         return
     st.session_state[StateKeys.RAW_TEXT] = txt
@@ -398,12 +415,14 @@ def _step_source(schema: dict) -> None:
         )
 
     text_for_extract = st.session_state.get(StateKeys.RAW_TEXT, "").strip()
-    if st.button(t("analyze", st.session_state.lang), type="primary"):
+    analyze_clicked = st.button(t("analyze", st.session_state.lang), type="primary")
+    skip_clicked = st.button(tr("Ohne Vorlage fortfahren", "Continue without template"))
+    if analyze_clicked:
         if not text_for_extract:
             st.warning(
                 tr(
-                    "Bitte zuerst eine Quelle angeben.",
-                    "Please provide a source first.",
+                    "Keine Daten erkannt – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                    "No data detected – you can also enter the information manually in the following steps.",
                 )
             )
         else:
@@ -432,6 +451,14 @@ def _step_source(schema: dict) -> None:
                     merged = sorted(current_skills.union(skills or []))
                     profile.requirements.hard_skills = merged
                 st.session_state[StateKeys.PROFILE] = profile.model_dump()
+                summary = {}
+                if profile.position.job_title:
+                    summary[tr("Jobtitel", "Job title")] = profile.position.job_title
+                if profile.company.name:
+                    summary[tr("Firma", "Company")] = profile.company.name
+                if profile.location.primary_city:
+                    summary[tr("Ort", "Location")] = profile.location.primary_city
+                st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
                 # If Auto-reask is enabled, generate follow-up questions now
                 if st.session_state.get("auto_reask"):
                     try:
@@ -454,13 +481,32 @@ def _step_source(schema: dict) -> None:
                                 "Could not generate follow-ups automatically.",
                             )
                         )
-                st.session_state[StateKeys.STEP] = 2
-                st.rerun()
             except Exception as e:
                 display_error(
                     tr("Extraktion fehlgeschlagen", "Extraction failed"),
                     str(e),
                 )
+    if skip_clicked:
+        st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+        st.session_state[StateKeys.RAW_TEXT] = ""
+        st.session_state[UIKeys.JD_TEXT_INPUT] = ""
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+        st.session_state[StateKeys.STEP] = 2
+        st.rerun()
+    summary_data = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
+    if summary_data:
+        st.success(
+            tr(
+                "Analyse abgeschlossen. Folgende Felder wurden automatisch ausgefüllt:",
+                "Analysis complete. The following fields were auto-filled:",
+            )
+        )
+        for label, value in summary_data.items():
+            st.write(f"- {label}: {value}")
+        if st.button(tr("Weiter", "Continue"), type="primary"):
+            st.session_state[StateKeys.STEP] = 2
+            st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+            st.rerun()
 
 
 def _step_company():

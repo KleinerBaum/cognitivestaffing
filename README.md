@@ -4,6 +4,9 @@
 
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
+- **Manual entry option**: skip the upload step and start with an empty profile
+- **Extraction feedback**: review detected base data before continuing
+- **Guided error messages**: clear hints when uploads or URLs fail
 - **Upfront language switch**: choose German or English before entering any data
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
