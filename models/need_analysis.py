@@ -14,12 +14,16 @@ class Company(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: Optional[str] = None
+    brand_name: Optional[str] = None
     industry: Optional[str] = None
     hq_location: Optional[str] = None
     size: Optional[str] = None
     website: Optional[str] = None
     mission: Optional[str] = None
     culture: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 
 class Position(BaseModel):
