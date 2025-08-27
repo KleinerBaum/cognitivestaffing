@@ -279,8 +279,39 @@ def _step_intro():
     Returns:
         None
     """
+    lang_labels = {"Deutsch": "de", "English": "en"}
+    if UIKeys.LANG_SELECT not in st.session_state:
+        st.session_state[UIKeys.LANG_SELECT] = (
+            "Deutsch" if st.session_state.get("lang", "de") == "de" else "English"
+        )
 
-    st.title(t("intro_title", st.session_state.lang))
+    def _on_lang_change() -> None:
+        st.session_state["lang"] = lang_labels[st.session_state[UIKeys.LANG_SELECT]]
+
+    st.radio(
+        "🌐 Sprache / Language",
+        list(lang_labels.keys()),
+        key=UIKeys.LANG_SELECT,
+        horizontal=True,
+        on_change=_on_lang_change,
+    )
+
+    st.header(
+        tr("Willkommen zum Recruiting-Wizard", "Welcome to the Recruiting Wizard")
+    )
+    st.write(
+        tr(
+            (
+                "Dieser Wizard hilft Ihnen, alle relevanten Stellenanforderungen zu sammeln und aufzubereiten. "
+                "Am Ende erhalten Sie ein strukturiertes Profil Ihrer Vakanz."
+            ),
+            (
+                "This wizard helps you collect and organize all relevant job requirements. "
+                "In the end, you'll receive a structured profile of your vacancy."
+            ),
+        )
+    )
+    st.subheader(t("intro_title", st.session_state.lang))
     st.write(
         tr(
             (

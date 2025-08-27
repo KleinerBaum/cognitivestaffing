@@ -4,6 +4,7 @@
 
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
+- **Upfront language switch**: choose German or English before entering any data
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
