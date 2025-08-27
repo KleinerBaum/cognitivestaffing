@@ -525,12 +525,18 @@ def _step_company():
     )
     data = st.session_state[StateKeys.PROFILE]
 
-    c1, c2 = st.columns(2)
-    data["company"]["name"] = c1.text_input(
+    data["company"]["name"] = st.text_input(
         tr("Firma *", "Company *"),
         value=data["company"].get("name", ""),
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
         help=tr("Offizieller Firmenname", "Official company name"),
+    )
+
+    c1, c2 = st.columns(2)
+    data["company"]["brand_name"] = c1.text_input(
+        tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
+        value=data["company"].get("brand_name", ""),
+        placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
     )
     data["company"]["industry"] = c2.text_input(
         tr("Branche", "Industry"),
@@ -550,29 +556,49 @@ def _step_company():
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
 
-    c5, c6 = st.columns(2)
-    data["company"]["website"] = c5.text_input(
-        tr("Website", "Website"),
-        value=data["company"].get("website", ""),
-        placeholder="https://example.com",
-    )
-    data["company"]["mission"] = c6.text_input(
-        tr("Mission", "Mission"),
-        value=data["company"].get("mission", ""),
-        placeholder=tr(
-            "z. B. Nachhaltige Mobilität fördern",
-            "e.g., Promote sustainable mobility",
-        ),
-    )
+    with st.expander(tr("Weitere Unternehmensdetails", "Additional company details")):
+        c5, c6 = st.columns(2)
+        data["company"]["website"] = c5.text_input(
+            tr("Website", "Website"),
+            value=data["company"].get("website", ""),
+            placeholder="https://example.com",
+        )
+        data["company"]["mission"] = c6.text_input(
+            tr("Mission", "Mission"),
+            value=data["company"].get("mission", ""),
+            placeholder=tr(
+                "z. B. Nachhaltige Mobilität fördern",
+                "e.g., Promote sustainable mobility",
+            ),
+        )
 
-    data["company"]["culture"] = st.text_area(
-        tr("Kultur", "Culture"),
-        value=data["company"].get("culture", ""),
-        placeholder=tr(
-            "z. B. flache Hierarchien, Remote-First",
-            "e.g., flat hierarchies, remote-first",
-        ),
-    )
+        data["company"]["culture"] = st.text_area(
+            tr("Kultur", "Culture"),
+            value=data["company"].get("culture", ""),
+            placeholder=tr(
+                "z. B. flache Hierarchien, Remote-First",
+                "e.g., flat hierarchies, remote-first",
+            ),
+        )
+
+        st.markdown("---")
+        st.markdown(tr("Kontakt", "Contact"))
+        c7, c8 = st.columns(2)
+        data["company"]["contact_name"] = c7.text_input(
+            tr("Ansprechpartner", "Contact Name"),
+            value=data["company"].get("contact_name", ""),
+            placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+        )
+        data["company"]["contact_email"] = c8.text_input(
+            tr("Kontakt-E-Mail", "Contact Email"),
+            value=data["company"].get("contact_email", ""),
+            placeholder="email@example.com",
+        )
+        data["company"]["contact_phone"] = st.text_input(
+            tr("Kontakt-Telefon", "Contact Phone"),
+            value=data["company"].get("contact_phone", ""),
+            placeholder="+49 30 1234567",
+        )
 
     # Inline follow-up questions for Company section
     if StateKeys.FOLLOWUPS in st.session_state:
