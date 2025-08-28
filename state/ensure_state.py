@@ -35,6 +35,10 @@ def ensure_state() -> None:
         st.session_state["auto_reask"] = True
     if "reasoning_effort" not in st.session_state:
         st.session_state["reasoning_effort"] = REASONING_EFFORT
+    if "dark_mode" not in st.session_state:
+        st.session_state["dark_mode"] = True
+    if "skip_intro" not in st.session_state:
+        st.session_state["skip_intro"] = False
     if StateKeys.USAGE not in st.session_state:
         st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
     for key in (

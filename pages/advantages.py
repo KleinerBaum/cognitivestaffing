@@ -9,25 +9,7 @@ entsprechenden Listen unten anpasst.
 
 import streamlit as st
 from typing import Dict, List
-
-from utils.session import bootstrap_session, migrate_legacy_keys
-
-bootstrap_session()
-migrate_legacy_keys()
-
-# ---------------------------------------------------------------------------
-# Page‑Config
-# ---------------------------------------------------------------------------
-st.set_page_config(
-    page_title="Vacalyser – Vorteile / Advantages",
-    page_icon="💡",
-    layout="wide",
-)
-
-# ---------------------------------------------------------------------------
-# Sprachumschalter
-# ---------------------------------------------------------------------------
-lang: str = st.radio("🌐 Sprache / Language", ("Deutsch", "English"), horizontal=True)
+from constants.keys import StateKeys
 
 # ---------------------------------------------------------------------------
 # Daten: Benefits in DE & EN
@@ -334,47 +316,41 @@ finish_en = (
     "calculator helps define must-have and nice-to-have skills."
 )
 
-st.title(title_de if lang == "Deutsch" else title_en)
-
-st.markdown(intro_de if lang == "Deutsch" else intro_en)
-
 # ---------------------------------------------------------------------------
-# Layout: Tabs
+# Layout & Navigation
 # ---------------------------------------------------------------------------
 
 tab_labels_de = ["👩‍💼 Line Manager", "🧑‍💻 Recruiter", "🏢 Unternehmen"]
-
 tab_labels_en = ["👩‍💼 Line Manager", "🧑‍💻 Recruiter", "🏢 Company"]
 
-labels = tab_labels_de if lang == "Deutsch" else tab_labels_en
 
-tabs = st.tabs(labels)
+def run() -> None:
+    """Render the Advantages information page."""
 
-with tabs[0]:
-    render_benefits(labels[0], benefits[lang]["Line Manager"])
+    lang: str = st.radio(
+        "🌐 Sprache / Language", ("Deutsch", "English"), horizontal=True
+    )
+    st.markdown(title_de if lang == "Deutsch" else title_en)
+    st.write(intro_de if lang == "Deutsch" else intro_en)
 
-with tabs[1]:
-    render_benefits(labels[1], benefits[lang]["Recruiter"])
+    labels = tab_labels_de if lang == "Deutsch" else tab_labels_en
+    tabs = st.tabs(labels)
 
-with tabs[2]:
-    label_key = "Unternehmen" if lang == "Deutsch" else "Company"
-    render_benefits(labels[2], benefits[lang][label_key])
+    with tabs[0]:
+        render_benefits(labels[0], benefits[lang]["Line Manager"])
 
-st.markdown(finish_de if lang == "Deutsch" else finish_en)
+    with tabs[1]:
+        render_benefits(labels[1], benefits[lang]["Recruiter"])
 
-# ---------------------------------------------------------------------------
-# Navigation: Wizard Button
-# ---------------------------------------------------------------------------
-button_label = "🚀 Wizard starten" if lang == "Deutsch" else "🚀 Start Wizard"
-if st.button(button_label):
-    st.switch_page("wizard.py")
+    with tabs[2]:
+        label_key = "Unternehmen" if lang == "Deutsch" else "Company"
+        render_benefits(labels[2], benefits[lang][label_key])
 
-# ---------------------------------------------------------------------------
-# Footer Hinweis
-# ---------------------------------------------------------------------------
-footer_de = "Hinweis: Passe die Listen in *pages/advantages.py* frei an, um sie zu kürzen oder zu erweitern."
-footer_en = (
-    "Note: Adjust the lists in *pages/advantages.py* freely to shorten or extend them."
-)
+    st.markdown(finish_de if lang == "Deutsch" else finish_en)
+    button_label = "🚀 Wizard starten" if lang == "Deutsch" else "🚀 Start Wizard"
+    if st.button(button_label):
+        st.session_state[StateKeys.STEP] = 0
 
-st.caption(footer_de if lang == "Deutsch" else footer_en)
+    footer_de = "Hinweis: Passe die Listen in *pages/advantages.py* frei an, um sie zu kürzen oder zu erweitern."
+    footer_en = "Note: Adjust the lists in *pages/advantages.py* freely to shorten or extend them."
+    st.caption(footer_de if lang == "Deutsch" else footer_en)

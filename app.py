@@ -26,13 +26,14 @@ ensure_state()
 
 
 def inject_global_css() -> None:
-    """Inject the global stylesheet and background image.
+    """Inject the global stylesheet and background image."""
 
-    Reads the CSS theme and background image, encodes the image in base64,
-    and sets the `--bg-image` variable so the app renders a hero background.
-    """
-
-    css = (ROOT / "styles" / "vacalyser.css").read_text(encoding="utf-8")
+    theme = (
+        "vacalyser.css"
+        if st.session_state.get("dark_mode", True)
+        else "vacalyser_light.css"
+    )
+    css = (ROOT / "styles" / theme).read_text(encoding="utf-8")
     bg_bytes = (ROOT / "images" / "AdobeStock_506577005.jpeg").read_bytes()
     encoded_bg = b64encode(bg_bytes).decode()
     st.markdown(
@@ -83,6 +84,13 @@ with st.sidebar:
     st.session_state.auto_reask = st.toggle(
         "Auto Follow-ups", value=st.session_state.auto_reask
     )
+    if "ui.dark_mode" not in st.session_state:
+        st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
+
+    def _on_theme_toggle() -> None:
+        st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
+
+    st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
     model_selector()
     reasoning_selector()
     st.session_state.vector_store_id = st.text_input(
@@ -99,13 +107,12 @@ with st.sidebar:
 
 render_salary_dashboard(st.session_state)
 
-# --- Wizard einbinden als einzelne Page via st.navigation (verhindert pages/-Konflikte) ---
-from wizard import run_wizard  # unsere neue Wizard-Funktion (siehe unten)  # noqa: E402
+# --- Wizard einbinden + Advantages Page via st.navigation ---
+from wizard import run_wizard  # noqa: E402
+from pages import advantages  # noqa: E402
 
 wizard_page = st.Page(run_wizard, title="Wizard", icon=":material/auto_awesome:")
+advantages_page = st.Page(advantages.run, title="Advantages", icon="💡")
 
-# Optional: später weitere Pages (z. B. „About“) hinzufügen:
-# about_page = st.Page(about.run, title="About", icon=":material/info:")
-
-pg = st.navigation([wizard_page])  # Sidebar/Topbar Navigation (nur 1 Page)
+pg = st.navigation([wizard_page, advantages_page])
 pg.run()
