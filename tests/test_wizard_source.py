@@ -193,6 +193,29 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     ]
 
 
+def test_step_source_flags_missing_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing critical fields should be reported after extraction."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    sample_text = "random text without info"
+    _setup_common(monkeypatch)
+    st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
+    analyze_label = t("analyze", st.session_state.lang)
+
+    monkeypatch.setattr(st, "button", lambda label, *a, **k: label == analyze_label)
+    monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
+    monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
+    monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
+
+    _step_source({})
+
+    missing = st.session_state.get(StateKeys.EXTRACTION_MISSING, [])
+    assert "company.name" in missing
+    assert "position.job_title" not in missing
+
+
 def test_step_source_skip_creates_empty_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
