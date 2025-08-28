@@ -1,10 +1,14 @@
 import io
+import logging
 import re
 from pathlib import Path
 
 import requests
 from requests import Response
 import chardet
+
+
+logger = logging.getLogger(__name__)
 
 
 def _fetch_url(url: str, timeout: float = 15.0) -> str:
@@ -18,14 +22,19 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
         The response body as text.
 
     Raises:
-        AssertionError: If the URL is invalid.
-        requests.RequestException: If the request fails.
+        ValueError: If the URL is invalid or cannot be fetched.
     """
-    assert url and re.match(r"^https?://", url), "Invalid URL"
-    resp: Response = requests.get(
-        url, timeout=timeout, headers={"User-Agent": "Vacalyser/1.0"}
-    )
-    resp.raise_for_status()
+    if not url or not re.match(r"^https?://", url):
+        raise ValueError("Invalid URL")
+    try:
+        resp: Response = requests.get(
+            url, timeout=timeout, headers={"User-Agent": "Vacalyser/1.0"}
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:  # pragma: no cover - network
+        status = getattr(getattr(exc, "response", None), "status_code", "unknown")
+        logger.warning("Failed to fetch %s (status %s)", url, status)
+        raise ValueError(f"failed to fetch URL (status {status})") from exc
     return resp.text
 
 
@@ -37,6 +46,9 @@ def extract_text_from_url(url: str) -> str:
 
     Returns:
         Extracted text without markup.
+
+    Raises:
+        ValueError: If no text could be extracted.
     """
     try:
         import trafilatura
@@ -45,10 +57,17 @@ def extract_text_from_url(url: str) -> str:
 
         html = _fetch_url(url)
         soup = BeautifulSoup(html, "lxml")
-        return soup.get_text("\n", strip=True)
-    html = _fetch_url(url)
-    text = trafilatura.extract(html, include_comments=False, include_tables=False) or ""
-    return text.strip()
+        text = soup.get_text("\n", strip=True)
+    else:
+        html = _fetch_url(url)
+        text = (
+            trafilatura.extract(html, include_comments=False, include_tables=False)
+            or ""
+        )
+    text = re.sub(r"\n{2,}", "\n\n", text.strip())
+    if not text:
+        raise ValueError("URL contains no extractable text")
+    return text
 
 
 def extract_text_from_file(file) -> str:

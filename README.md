@@ -16,6 +16,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Critical field checks**: wizard blocks navigation until essential fields are filled and highlights missing inputs inline
 - **Extraction feedback**: review detected base data before continuing
 - **Guided error messages**: clear hints when uploads or URLs fail
+- **Improved URL parsing**: reports HTTP status on failures and trims boilerplate
 - **Upfront language switch**: choose German or English before entering any data
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
