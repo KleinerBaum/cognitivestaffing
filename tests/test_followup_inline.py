@@ -47,7 +47,7 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
     monkeypatch.setattr(st, "button", lambda *a, **k: False)
     _render_followup_question(q, data)
     assert seen["markdown"] is not None
-    assert seen["markdown"].lstrip().startswith("<span style='color:red'>*")
+    assert seen["markdown"].lstrip().startswith(":red[*]")
     assert seen["label"] == ""
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert data["meta"]["followups_answered"] == ["salary"]
