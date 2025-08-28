@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from models.need_analysis import NeedAnalysisProfile
 
@@ -98,6 +98,71 @@ _SALARY_RANGE_RE = re.compile(
 )
 _BONUS_PERCENT_RE = re.compile(r"(\d{1,3})\s*%\s*(?:variable|bonus)", re.IGNORECASE)
 _BONUS_TEXT_RE = re.compile(r"bonus[^\n]*", re.IGNORECASE)
+
+# Responsibility extraction helpers
+_BULLET_CHARS = set("•-–—*▪◦●·▶▷▸»✓→➤")
+_RESP_HEADINGS = {
+    "dein spielfeld",
+    "deine aufgaben",
+    "dein aufgabengebiet",
+    "was dich erwartet",
+    "was dich bei uns erwartet",
+    "aufgaben",
+    "responsibilities",
+    "your tasks",
+    "what you'll do",
+    "duties",
+}
+
+
+def _is_bullet_line(line: str) -> bool:
+    """Return True if ``line`` begins with a bullet or enumerator."""
+    stripped = line.lstrip()
+    if not stripped:
+        return False
+    first = stripped[0]
+    if first in _BULLET_CHARS:
+        return True
+    return bool(re.match(r"^\d+[.)]\s*", stripped))
+
+
+def _clean_bullet(line: str) -> str:
+    """Strip bullet markers and surrounding whitespace from ``line``."""
+    stripped = line.lstrip()
+    stripped = re.sub(r"^\d+[.)]\s*", "", stripped)
+    stripped = stripped.lstrip("".join(_BULLET_CHARS))
+    return stripped.strip()
+
+
+def extract_responsibilities(text: str) -> List[str]:
+    """Extract responsibility bullet points from ``text``.
+
+    The function searches for common responsibility section headings and
+    collects subsequent bullet-point lines until the section ends.
+    """
+
+    lines = text.splitlines()
+    items: List[str] = []
+    in_section = False
+    for raw_line in lines:
+        line = raw_line.strip()
+        lower = line.lower().rstrip(":")
+        if in_section:
+            if not line:
+                if items:
+                    break
+                continue
+            if (lower in _RESP_HEADINGS or line.endswith(":")) and not _is_bullet_line(
+                line
+            ):
+                break
+            if _is_bullet_line(line):
+                items.append(_clean_bullet(raw_line))
+            elif items:
+                items[-1] += f" {line}"
+        elif lower in _RESP_HEADINGS:
+            in_section = True
+    return [i for i in items if i]
 
 
 def guess_job_title(text: str) -> str:
@@ -247,6 +312,12 @@ def apply_basic_fallbacks(
         start = guess_start_date(text)
         if start:
             profile.meta.target_start_date = start
+    if not profile.responsibilities.items:
+        tasks = extract_responsibilities(text)
+        if tasks:
+            profile.responsibilities.items = tasks
+    if not profile.position.role_summary and profile.responsibilities.items:
+        profile.position.role_summary = profile.responsibilities.items[0]
     # Compensation heuristics
     if not (profile.compensation.salary_min and profile.compensation.salary_max):
         m = _SALARY_RANGE_RE.search(text)

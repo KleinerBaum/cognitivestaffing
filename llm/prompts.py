@@ -32,6 +32,7 @@ SYSTEM_JSON_EXTRACTOR: str = (
     "Extract salary ranges like '65.000–85.000 €' into numeric compensation.salary_min and compensation.salary_max and set compensation.currency to an ISO code (e.g. EUR). "
     "If variable pay or bonuses such as '10% Variable' are mentioned, set compensation.variable_pay=true and capture the percentage in compensation.bonus_percentage. "
     "List every benefit/perk separately in compensation.benefits as a JSON array of strings. "
+    "Collect each key task or responsibility (especially bullet points) in responsibilities.items as a JSON array of strings. "
     "Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
 )
 
@@ -58,7 +59,7 @@ def USER_JSON_EXTRACT_TEMPLATE(
 
     instructions = (
         "Extract the following fields and respond with a JSON object containing these keys. "
-        "If data for a key is missing, use an empty string or empty list. Use position.job_title for the main job title without gender markers and map the employer name to company.name and the primary city to location.primary_city.\n"
+        "If data for a key is missing, use an empty string or empty list. Use position.job_title for the main job title without gender markers and map the employer name to company.name and the primary city to location.primary_city. List each responsibility/task separately in responsibilities.items.\n"
         f"Fields:\n{field_lines}"
     )
 
