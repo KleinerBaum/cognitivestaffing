@@ -83,7 +83,9 @@ def extract_text_from_file(file) -> str:
         Extracted text content.
 
     Raises:
-        ValueError: If the file is empty or has an unsupported extension.
+        ValueError: If the file is empty, too large or has an unsupported
+            extension. ``RuntimeError`` is raised when OCR dependencies are
+            missing for scanned PDFs.
     """
     name = getattr(file, "name", "").lower()
     data = file.read()
@@ -91,11 +93,19 @@ def extract_text_from_file(file) -> str:
     if not data:
         raise ValueError("empty file")
 
+    if len(data) > 20 * 1024 * 1024:
+        raise ValueError("file too large")
+
     suffix = Path(name).suffix.lower()
     if suffix == ".pdf":
         from pypdf import PdfReader
+        from pypdf.errors import PdfReadError
 
-        reader = PdfReader(io.BytesIO(data))
+        try:
+            reader = PdfReader(io.BytesIO(data))
+        except PdfReadError as exc:  # pragma: no cover - invalid PDFs
+            raise ValueError("invalid pdf") from exc
+
         pages = []
         for idx, page in enumerate(reader.pages, start=1):
             page_text = page.extract_text() or ""
@@ -103,7 +113,9 @@ def extract_text_from_file(file) -> str:
                 try:
                     from pdf2image import convert_from_bytes
                     import pytesseract
-
+                except ImportError as err:  # pragma: no cover - optional OCR
+                    raise RuntimeError("ocr dependencies missing") from err
+                try:
                     images = convert_from_bytes(
                         data, fmt="png", first_page=idx, last_page=idx
                     )
@@ -111,8 +123,8 @@ def extract_text_from_file(file) -> str:
                         pytesseract.image_to_string(img) for img in images
                     )
                     page_text = (page_text + "\n" + ocr_text).strip()
-                except Exception:  # pragma: no cover - optional OCR
-                    page_text = page_text.strip()
+                except Exception as err:  # pragma: no cover - OCR failure
+                    raise RuntimeError("ocr failed") from err
             page_text = page_text.strip()
             pages.append(page_text)
         return "\n".join(pages).strip()

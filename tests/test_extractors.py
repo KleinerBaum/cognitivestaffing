@@ -52,3 +52,34 @@ def test_extract_unsupported_type() -> None:
     f.name = "e.png"
     with pytest.raises(ValueError, match="unsupported file type"):
         extract_text_from_file(f)
+
+
+def test_extract_invalid_pdf() -> None:
+    f = io.BytesIO(b"not a pdf")
+    f.name = "f.pdf"
+    with pytest.raises(ValueError, match="invalid pdf"):
+        extract_text_from_file(f)
+
+
+def test_extract_file_too_large() -> None:
+    big = io.BytesIO(b"x" * (21 * 1024 * 1024))
+    big.name = "g.txt"
+    with pytest.raises(ValueError, match="file too large"):
+        extract_text_from_file(big)
+
+
+def test_extract_pdf_missing_ocr(monkeypatch) -> None:
+    f = _blank_pdf()
+    import builtins
+
+    orig_import = builtins.__import__
+
+    def fake_import(name, *a, **k):
+        if name in {"pdf2image", "pytesseract"}:
+            raise ImportError("missing")
+        return orig_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with pytest.raises(RuntimeError, match="ocr dependencies"):
+        extract_text_from_file(f)

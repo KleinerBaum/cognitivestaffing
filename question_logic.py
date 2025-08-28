@@ -21,10 +21,12 @@ Outputs (for UI sorting and chips):
 
 from __future__ import annotations
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 import streamlit as st
 from openai_utils import call_chat_api
+from utils.i18n import tr
 
 # ESCO helpers (must exist in core/esco_utils.py)
 from core.esco_utils import (
@@ -37,6 +39,8 @@ from config import OPENAI_API_KEY, OPENAI_MODEL, VECTOR_STORE_ID
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
 RAG_VECTOR_STORE_ID = VECTOR_STORE_ID
+
+logger = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parent
 with open(_ROOT / "critical_fields.json", "r", encoding="utf-8") as _f:
@@ -296,7 +300,17 @@ def _rag_suggestions(
                 sanitized = normalize_skills(sanitized, lang=lang)
             out[f] = sanitized
         return out
-    except Exception:
+    except Exception as err:  # pragma: no cover - network/AI
+        logger.warning("RAG suggestions failed: %s", err)
+        try:  # pragma: no cover - UI warning
+            st.warning(
+                tr(
+                    "Konnte keine Kontextvorschläge abrufen.",
+                    "Could not retrieve contextual suggestions.",
+                )
+            )
+        except Exception:
+            pass
         return {}
 
 
@@ -487,16 +501,13 @@ def generate_followup_questions(
     # 3) (Optional) Get suggestions via RAG for missing fields
     suggestions_map: Dict[str, List[str]] = {}
     if use_rag and OPENAI_API_KEY:
-        try:
-            suggestions_map = _rag_suggestions(
-                job_title,
-                industry,
-                missing_fields,
-                lang=lang,
-                vector_store_id=st.session_state.get("vector_store_id"),
-            )
-        except Exception:
-            suggestions_map = {}
+        suggestions_map = _rag_suggestions(
+            job_title,
+            industry,
+            missing_fields,
+            lang=lang,
+            vector_store_id=st.session_state.get("vector_store_id"),
+        )
     # 4) Construct question payloads
     questions: List[Dict[str, Any]] = []
     # Predefined role-specific questions (from ROLE_QUESTION_MAP)
