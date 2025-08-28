@@ -16,7 +16,9 @@ import backoff
 from openai import (
     APIConnectionError,
     APIError,
+    APITimeoutError,
     AuthenticationError,
+    BadRequestError,
     OpenAI,
     OpenAIError,
     RateLimitError,
@@ -76,29 +78,56 @@ def _handle_openai_error(error: OpenAIError) -> None:
     """
 
     if isinstance(error, AuthenticationError):
-        msg = "OpenAI API key invalid or quota exceeded."
+        user_msg = "OpenAI API key invalid or quota exceeded."
     elif isinstance(error, RateLimitError):
-        msg = "OpenAI API rate limit exceeded. Please retry later."
-    elif isinstance(error, APIConnectionError):
-        msg = (
+        user_msg = "OpenAI API rate limit exceeded. Please retry later."
+    elif isinstance(error, (APIConnectionError, APITimeoutError)):
+        user_msg = (
             "Network error communicating with OpenAI. Please check your "
             "connection and retry."
         )
+    elif (
+        isinstance(error, BadRequestError)
+        or getattr(error, "type", "") == "invalid_request_error"
+    ):
+        detail = getattr(error, "message", str(error))
+        log_msg = f"OpenAI invalid request: {detail}"
+        user_msg = (
+            "❌ An internal error occurred while processing your request. "
+            "(The app made an invalid request to the AI model.)"
+        )
     elif isinstance(error, APIError):
         detail = getattr(error, "message", str(error))
-        msg = f"OpenAI API error: {detail}"
+        user_msg = f"OpenAI API error: {detail}"
     else:
-        msg = f"Unexpected OpenAI error: {error}"
+        user_msg = f"Unexpected OpenAI error: {error}"
 
-    logger.error(msg, exc_info=error)
+    log_msg = locals().get("log_msg", user_msg)
+    logger.error(log_msg, exc_info=error)
     try:  # pragma: no cover - Streamlit may not be initialised in tests
-        st.error(msg)
+        st.error(user_msg)
     except Exception:  # noqa: BLE001
         pass
-    raise RuntimeError(msg) from error
+    raise RuntimeError(user_msg) from error
 
 
-@backoff.on_exception(backoff.expo, Exception, max_time=60)
+def _on_api_giveup(details: Any) -> None:
+    """Handle a final API error after retries have been exhausted.
+
+    Args:
+        details: Backoff retry details containing the ``exception`` key.
+    """
+
+    _handle_openai_error(details["exception"])
+
+
+@backoff.on_exception(
+    backoff.expo,
+    APIError,
+    max_time=60,
+    giveup=lambda e: getattr(e, "status_code", 500) < 500,
+    on_giveup=_on_api_giveup,
+)
 def call_chat_api(
     messages: Sequence[dict],
     *,
@@ -160,10 +189,7 @@ def call_chat_api(
     if extra:
         payload.update(extra)
 
-    try:
-        response = get_client().responses.create(**payload)
-    except OpenAIError as error:  # pragma: no cover - handled in helper
-        _handle_openai_error(error)
+    response = get_client().responses.create(**payload)
 
     content = getattr(response, "output_text", None)
 
@@ -225,10 +251,7 @@ def call_chat_api(
         if executed:
             payload["input"] = messages_list
             payload.pop("tool_choice", None)
-            try:
-                response = get_client().responses.create(**payload)
-            except OpenAIError as error:  # pragma: no cover - handled in helper
-                _handle_openai_error(error)
+            response = get_client().responses.create(**payload)
             content = getattr(response, "output_text", None)
             extra_calls: list[dict] = []
             for item in getattr(response, "output", []) or []:
