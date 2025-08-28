@@ -375,7 +375,7 @@ def suggest_additional_skills(
         if existing_skills:
             prompt += f" Bereits aufgelistet: {', '.join(existing_skills)}."
     messages = [{"role": "user", "content": prompt}]
-    max_tokens = 220 if not model or "gpt-3.5" in model else 300
+    max_tokens = 220 if not model or "nano" in model else 300
     res = call_chat_api(messages, model=model, temperature=0.4, max_tokens=max_tokens)
     answer = _chat_content(res)
     tech_skills, soft_skills = [], []
@@ -554,7 +554,7 @@ def suggest_benefits(
         if existing_benefits:
             prompt += f"Already listed: {existing_benefits}"
     messages = [{"role": "user", "content": prompt}]
-    max_tokens = 150 if not model or "gpt-3.5" in model else 200
+    max_tokens = 150 if not model or "nano" in model else 200
     res = call_chat_api(messages, model=model, temperature=0.5, max_tokens=max_tokens)
     answer = _chat_content(res)
     benefits = []
@@ -586,7 +586,7 @@ def suggest_role_tasks(
         return []
     prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role."
     messages = [{"role": "user", "content": prompt}]
-    max_tokens = 180 if not model or "gpt-3.5" in model else 250
+    max_tokens = 180 if not model or "nano" in model else 250
     res = call_chat_api(messages, model=model, temperature=0.5, max_tokens=max_tokens)
     answer = _chat_content(res)
     tasks = []

@@ -27,7 +27,7 @@ def ensure_state() -> None:
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:
-        st.session_state["model"] = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        st.session_state["model"] = os.getenv("OPENAI_MODEL", "gpt-5-nano")
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "auto_reask" not in st.session_state:

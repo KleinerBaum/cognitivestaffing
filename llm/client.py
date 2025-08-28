@@ -95,7 +95,7 @@ NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
 MODE = os.getenv("LLM_MODE", "plain").lower()
-MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 

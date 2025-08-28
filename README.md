@@ -20,8 +20,8 @@
 - **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
 - **RAG‑Assist**: use your vector store to fill/contextualize
-- **Cost‑aware**: GPT‑3.5 by default and minimal re‑asks
-- **Model**: optimized for GPT‑3.5 for suggestions and outputs
+- **Cost‑aware**: GPT‑5-nano by default and minimal re‑asks
+- **Model**: optimized for GPT‑5-nano for suggestions and outputs
 - **Inline refinement**: adjust generated documents with custom instructions and instantly update the view
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
