@@ -6,6 +6,7 @@ class UIKeys:
     JD_URL_INPUT = "ui.jd_url_input"
     LANG_SELECT = "ui.lang_select"
     MODEL_SELECT = "ui.model_select"
+    REASONING_SELECT = "ui.reasoning_select"
 
 
 class StateKeys:

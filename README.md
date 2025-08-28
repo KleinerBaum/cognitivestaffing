@@ -15,6 +15,7 @@
 - **API helper**: `call_chat_api` now returns a unified `ChatCallResult` and supports OpenAI function calls for reliable extraction
 - **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG that dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Critical questions are highlighted with a red asterisk.
 - **Auto re‑ask loop**: optional toggle that keeps asking follow-up questions automatically until all critical fields are filled, with clear progress messages and a stop button for user control.
+- **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.
 - **Role-aware extras**: automatically adds occupation-specific questions (e.g., programming languages for developers, campaign types for marketers, board certification for doctors, grade levels for teachers, design tools for designers, shift schedules for nurses, project management methodologies for project managers, machine learning frameworks for data scientists, accounting software for financial analysts, HR software for human resource professionals, engineering tools for civil engineers, cuisine specialties for chefs).
 - **ESCO‑Power**: occupation classification + essential skill gaps
 - **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls

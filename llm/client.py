@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from jsonschema import Draft7Validator
 from openai import OpenAI
+import streamlit as st
 
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
@@ -17,6 +18,7 @@ from models.need_analysis import NeedAnalysisProfile
 from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
+from config import REASONING_EFFORT
 
 logger = logging.getLogger("vacalyser.llm")
 
@@ -143,7 +145,13 @@ def extract_json(
     messages = (
         _minimal_messages(text) if minimal else build_extract_messages(text, title, url)
     )
-    common: dict[str, Any] = {"model": MODEL, "messages": messages, "temperature": 0}
+    effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+    common: dict[str, Any] = {
+        "model": MODEL,
+        "messages": messages,
+        "temperature": 0,
+        "reasoning": {"effort": effort},
+    }
     # Some SDKs support deterministic seeds
     common["seed"] = 42
 
