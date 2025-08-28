@@ -12,6 +12,7 @@ def test_render_followup_updates_state(monkeypatch) -> None:
     q = {"field": "compensation.salary_min", "question": "Salary?"}
     st.session_state[StateKeys.FOLLOWUPS] = [q]
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
+    monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
     def fake_input(label, key=None):
         st.session_state[key] = "100k"
@@ -32,10 +33,11 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
     data: dict = {"meta": {"followups_answered": []}}
     q = {"field": "salary", "question": "Salary?", "priority": "critical"}
     st.session_state[StateKeys.FOLLOWUPS] = [q]
-    seen = {"markdown": None, "label": None}
+    seen_markdown: list[str] = []
+    seen = {"label": None}
 
     def fake_markdown(text, **_):
-        seen["markdown"] = text
+        seen_markdown.append(text)
 
     def fake_input(label, key=None):
         seen["label"] = label
@@ -43,11 +45,11 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
         return "100k"
 
     monkeypatch.setattr(st, "markdown", fake_markdown)
+    monkeypatch.setattr(st, "toast", lambda *a, **k: None)
     monkeypatch.setattr(st, "text_input", fake_input)
     monkeypatch.setattr(st, "button", lambda *a, **k: False)
     _render_followup_question(q, data)
-    assert seen["markdown"] is not None
-    assert seen["markdown"].lstrip().startswith(":red[*]")
+    assert any(m.lstrip().startswith(":red[*]") for m in seen_markdown)
     assert seen["label"] == ""
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert data["meta"]["followups_answered"] == ["salary"]
@@ -62,6 +64,7 @@ def test_skip_followup(monkeypatch) -> None:
     st.session_state[StateKeys.FOLLOWUPS] = [q]
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
+    monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
     def fake_button(label, key=None):
         return key.endswith("_skip")
