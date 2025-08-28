@@ -72,6 +72,20 @@ def test_coerce_and_fill_employment_details() -> None:
     assert jd.employment.relocation_details == "Budget provided"
 
 
+def test_coerce_and_fill_alias_mapping() -> None:
+    """Alias keys should map to their canonical schema paths."""
+
+    data = {
+        "requirements": {"hard_skills": ["Python"]},
+        "city": "Berlin",
+        "date_of_employment_start": "2024-01-01",
+    }
+    jd = coerce_and_fill(data)
+    assert jd.requirements.hard_skills_required == ["Python"]
+    assert jd.location.primary_city == "Berlin"
+    assert jd.meta.target_start_date == "2024-01-01"
+
+
 def test_default_insertion() -> None:
     jd = coerce_and_fill({})
     assert jd.position.job_title is None

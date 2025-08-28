@@ -66,10 +66,37 @@ ALIASES: Mapping[str, str] = MappingProxyType(
 )
 
 
-def coerce_and_fill(data: dict[str, Any]) -> NeedAnalysisProfile:
-    """Validate ``data`` and ensure required fields are present."""
+def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
+    """Validate ``data`` and ensure required fields are present.
 
-    return NeedAnalysisProfile.model_validate(data or {})
+    The function also maps legacy alias keys defined in ``ALIASES`` to the
+    current schema paths before validation. Nested paths use dot-notation and
+    are created on demand.
+    """
+
+    def _pop_path(obj: dict[str, Any], path: str, default: Any) -> Any:
+        parts = path.split(".")
+        cursor: Any = obj
+        for part in parts[:-1]:
+            if not isinstance(cursor, dict) or part not in cursor:
+                return default
+            cursor = cursor[part]
+        return cursor.pop(parts[-1], default)
+
+    def _set_path(obj: dict[str, Any], path: str, value: Any) -> None:
+        parts = path.split(".")
+        cursor: Any = obj
+        for part in parts[:-1]:
+            cursor = cursor.setdefault(part, {})
+        cursor[parts[-1]] = value
+
+    data = {**(data or {})}
+    sentinel = object()
+    for alias, target in ALIASES.items():
+        val = _pop_path(data, alias, sentinel)
+        if val is not sentinel:
+            _set_path(data, target, val)
+    return NeedAnalysisProfile.model_validate(data)
 
 
 # Backwards compatibility alias
