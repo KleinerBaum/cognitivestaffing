@@ -38,3 +38,26 @@ def test_parse_benefits_string() -> None:
         "Sabbatical-Option",
         "1.000€ Lernbudget",
     ]
+
+
+def test_parse_brand_name_alias() -> None:
+    jd = parse_extraction('{"Brand Name": "Acme"}')
+    assert jd.company.brand_name == "Acme"
+
+
+def test_parse_application_deadline_alias() -> None:
+    jd = parse_extraction('{"Application Deadline": "2024-12-31"}')
+    assert jd.meta.application_deadline == "2024-12-31"
+
+
+def test_parse_type_coercion() -> None:
+    raw = (
+        '{"employment": {"remote_percentage": "50%", "travel_required": "yes"},'
+        ' "compensation": {"equity_offered": "false"},'
+        ' "requirements": {"hard_skills_required": "Python, SQL"}}'
+    )
+    jd = parse_extraction(raw)
+    assert jd.employment.remote_percentage == 50
+    assert jd.employment.travel_required is True
+    assert jd.compensation.equity_offered is False
+    assert jd.requirements.hard_skills_required == ["Python", "SQL"]
