@@ -99,6 +99,61 @@ _SALARY_RANGE_RE = re.compile(
 _BONUS_PERCENT_RE = re.compile(r"(\d{1,3})\s*%\s*(?:variable|bonus)", re.IGNORECASE)
 _BONUS_TEXT_RE = re.compile(r"bonus[^\n]*", re.IGNORECASE)
 
+# Requirement extraction helpers
+_REQ_REQUIRED_HEADINGS = {
+    "must-haves",
+    "must have",
+    "requirements",
+    "qualifications",
+    "must haves",
+    "was du mitbringst",
+    "what you bring",
+}
+_REQ_OPTIONAL_HEADINGS = {
+    "nice-to-haves",
+    "nice to have",
+    "optional",
+    "wünschenswert",
+    "von vorteil",
+}
+_OPTIONAL_HINTS = {
+    "nice-to-have",
+    "nice to have",
+    "wünschenswert",
+    "optional",
+    "von vorteil",
+}
+_SOFT_SKILL_KEYWORDS = {
+    "communication",
+    "kommunikation",
+    "team",
+    "collabor",
+    "leadership",
+    "analytical",
+    "analytisch",
+    "organised",
+    "organized",
+    "struktur",
+    "problem",
+}
+_LANGUAGE_MAP = {
+    "English": ["english", "englisch"],
+    "German": ["german", "deutsch"],
+    "French": ["french", "französisch"],
+    "Spanish": ["spanish", "spanisch"],
+}
+_TECH_KEYWORDS = {
+    "python",
+    "docker",
+    "aws",
+    "faiss",
+    "sql",
+}
+_CERT_RE = re.compile(
+    r"\b([A-Za-z0-9 .()+/\-]*?(?:certification|certificate|Zertifikat|Zertifizierung)[^\n,;]*)",
+    re.IGNORECASE,
+)
+
 # Responsibility extraction helpers
 _BULLET_CHARS = set("•-–—*▪◦●·▶▷▸»✓→➤")
 _RESP_HEADINGS = {
@@ -132,6 +187,163 @@ def _clean_bullet(line: str) -> str:
     stripped = re.sub(r"^\d+[.)]\s*", "", stripped)
     stripped = stripped.lstrip("".join(_BULLET_CHARS))
     return stripped.strip()
+
+
+def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
+    """Return ``base`` extended by ``extras`` without duplicates."""
+
+    existing = set(base)
+    for item in extras:
+        if item not in existing:
+            base.append(item)
+            existing.add(item)
+    return base
+
+
+def _is_soft_skill(text: str) -> bool:
+    """Return True if ``text`` appears to describe a soft skill."""
+
+    lower = text.lower()
+    return any(keyword in lower for keyword in _SOFT_SKILL_KEYWORDS)
+
+
+def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
+    """Extract required and optional requirement bullet points from ``text``."""
+
+    lines = text.splitlines()
+    required: List[str] = []
+    optional: List[str] = []
+    mode: Optional[str] = None
+    for raw in lines:
+        line = raw.strip()
+        lower = line.lower().rstrip(":")
+        if not line:
+            continue
+        if lower in _REQ_REQUIRED_HEADINGS:
+            mode = "req"
+            continue
+        if lower in _REQ_OPTIONAL_HEADINGS:
+            mode = "opt"
+            continue
+        if mode and _is_bullet_line(line):
+            cleaned = _clean_bullet(raw)
+            if mode == "req":
+                required.append(cleaned)
+            else:
+                optional.append(cleaned)
+        elif (
+            mode
+            and _is_bullet_line(line) is False
+            and line
+            and (required if mode == "req" else optional)
+        ):
+            if mode == "req":
+                required[-1] += f" {line}"
+            else:
+                optional[-1] += f" {line}"
+    return required, optional
+
+
+def _split_soft_from_hard(req: NeedAnalysisProfile) -> None:
+    """Move soft skills from hard skill lists to soft skill lists."""
+
+    r = req.requirements
+    for source_name, target_name in [
+        ("hard_skills_required", "soft_skills_required"),
+        ("hard_skills_optional", "soft_skills_optional"),
+    ]:
+        source = getattr(r, source_name)
+        keep: List[str] = []
+        for item in source:
+            if _is_soft_skill(item):
+                target = getattr(r, target_name)
+                if item not in target:
+                    target.append(item)
+            else:
+                keep.append(item)
+        setattr(r, source_name, keep)
+
+
+def _extract_tools_from_lists(req: NeedAnalysisProfile) -> None:
+    """Populate ``tools_and_technologies`` from known tech keywords."""
+
+    techs = set(req.requirements.tools_and_technologies)
+    for field in [
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+    ]:
+        for item in getattr(req.requirements, field):
+            lower = item.lower()
+            for tech in _TECH_KEYWORDS:
+                if re.search(rf"\b{re.escape(tech)}\b", lower):
+                    techs.add(tech)
+    req.requirements.tools_and_technologies = list(techs)
+
+
+def _extract_languages(text: str) -> Tuple[List[str], List[str]]:
+    """Return required and optional languages mentioned in ``text``."""
+
+    req: List[str] = []
+    opt: List[str] = []
+    lower = text.lower()
+    for canon, variants in _LANGUAGE_MAP.items():
+        for variant in variants:
+            for m in re.finditer(rf"\b{re.escape(variant)}\b", lower):
+                window = lower[max(0, m.start() - 20) : m.end() + 20]
+                if any(h in window for h in _OPTIONAL_HINTS):
+                    if canon not in opt:
+                        opt.append(canon)
+                else:
+                    if canon not in req:
+                        req.append(canon)
+    return req, opt
+
+
+def _extract_certifications(text: str) -> List[str]:
+    """Extract certification phrases from ``text``."""
+
+    return [m.group(0).strip() for m in _CERT_RE.finditer(text)]
+
+
+def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysisProfile:
+    """Enrich ``profile.requirements`` using heuristics from ``text``."""
+
+    _split_soft_from_hard(profile)
+    _extract_tools_from_lists(profile)
+
+    req_bullets, opt_bullets = _extract_requirement_bullets(text)
+    hard_req: List[str] = []
+    soft_req: List[str] = []
+    hard_opt: List[str] = []
+    soft_opt: List[str] = []
+    for item in req_bullets:
+        if _is_soft_skill(item):
+            soft_req.append(item)
+        else:
+            hard_req.append(item)
+    for item in opt_bullets:
+        if _is_soft_skill(item):
+            soft_opt.append(item)
+        else:
+            hard_opt.append(item)
+
+    r = profile.requirements
+    r.hard_skills_required = _merge_unique(r.hard_skills_required, hard_req)
+    r.hard_skills_optional = _merge_unique(r.hard_skills_optional, hard_opt)
+    r.soft_skills_required = _merge_unique(r.soft_skills_required, soft_req)
+    r.soft_skills_optional = _merge_unique(r.soft_skills_optional, soft_opt)
+
+    _extract_tools_from_lists(profile)
+
+    langs_req, langs_opt = _extract_languages(text)
+    r.languages_required = _merge_unique(r.languages_required, langs_req)
+    r.languages_optional = _merge_unique(r.languages_optional, langs_opt)
+
+    certs = _extract_certifications(text)
+    r.certifications = _merge_unique(r.certifications, certs)
+    return profile
 
 
 def extract_responsibilities(text: str) -> List[str]:
@@ -341,4 +553,4 @@ def apply_basic_fallbacks(
             btxt = _BONUS_TEXT_RE.search(text)
             if btxt:
                 profile.compensation.commission_structure = btxt.group(0).strip()
-    return profile
+    return refine_requirements(profile, text)

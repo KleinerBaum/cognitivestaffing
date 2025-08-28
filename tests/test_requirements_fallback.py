@@ -1,0 +1,31 @@
+"""Tests for requirement heuristics fallback."""
+
+from models.need_analysis import NeedAnalysisProfile
+from ingest.heuristics import apply_basic_fallbacks
+
+
+def test_requirements_split_and_languages() -> None:
+    text = (
+        "Must-haves:\n"
+        "- Python & Data Science Erfahrung\n"
+        "- Du arbeitest analytisch und strukturiert\n"
+        "- AWS ML Specialty certification\n"
+        "- Englisch (Team language)\n"
+        "\n"
+        "Nice-to-haves:\n"
+        "- Docker\n"
+        "- Kommunikationsstärke\n"
+        "- Deutsch nice-to-have\n"
+    )
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    r = profile.requirements
+    assert "Python & Data Science Erfahrung" in r.hard_skills_required
+    assert "Docker" in r.hard_skills_optional
+    assert "Du arbeitest analytisch und strukturiert" in r.soft_skills_required
+    assert "Kommunikationsstärke" in r.soft_skills_optional
+    assert "English" in r.languages_required
+    assert "German" in r.languages_optional
+    assert any("aws ml specialty" in c.lower() for c in r.certifications)
+    tools = {t.lower() for t in r.tools_and_technologies}
+    assert "python" in tools and "docker" in tools
