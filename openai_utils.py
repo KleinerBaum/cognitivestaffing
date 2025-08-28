@@ -100,9 +100,7 @@ def call_chat_api(
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
-        payload["text"] = {
-            "format": {"type": "json_schema", **json_schema}
-        }
+        payload["text"] = {"format": {"type": "json_schema", **json_schema}}
     if tools is not None:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -387,47 +385,81 @@ def suggest_additional_skills(
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
     half = num_suggestions // 2
-    prompt = (
-        f"Suggest {half} technical and {half} soft skills for a {job_title} role. "
-        "Avoid duplicates or skills already listed. Provide each skill on a separate line, prefixed by '-' or '•'."
-    )
-    if responsibilities:
-        prompt += f" Key responsibilities: {responsibilities}. "
-    if existing_skills:
-        prompt += f" Already listed: {', '.join(existing_skills)}."
-    # If language is German, ask in German to get German skill names
     if lang.startswith("de"):
         prompt = (
-            f"Gib {half} technische und {half} soziale Fähigkeiten für die Position '{job_title}' an. "
-            "Vermeide Dubletten oder bereits aufgeführte Fähigkeiten. Nenne jede Fähigkeit in einer neuen Zeile, beginnend mit '-' oder '•'."
+            f"Gib {half} technische und {half} soziale Fähigkeiten für die Position '{job_title}'. "
+            "Antworte als JSON mit den Schlüsseln 'technical' und 'soft'. Vermeide Dubletten oder bereits aufgeführte Fähigkeiten."
         )
         if responsibilities:
-            prompt += f" Wichtige Aufgaben: {responsibilities}. "
+            prompt += f" Wichtige Aufgaben: {responsibilities}."
         if existing_skills:
             prompt += f" Bereits aufgelistet: {', '.join(existing_skills)}."
+    else:
+        prompt = (
+            f"Suggest {half} technical and {half} soft skills for a {job_title} role. "
+            "Respond in JSON using keys 'technical' and 'soft'. Avoid duplicates or skills already listed."
+        )
+        if responsibilities:
+            prompt += f" Key responsibilities: {responsibilities}."
+        if existing_skills:
+            prompt += f" Already listed: {', '.join(existing_skills)}."
+
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 220 if not model or "nano" in model else 300
-    res = call_chat_api(messages, model=model, temperature=0.4, max_tokens=max_tokens)
+    res = call_chat_api(
+        messages,
+        model=model,
+        temperature=0.4,
+        max_tokens=max_tokens,
+        json_schema={
+            "name": "skill_mix",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "technical": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "soft": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["technical", "soft"],
+                "additionalProperties": False,
+            },
+        },
+    )
     answer = _chat_content(res)
-    tech_skills, soft_skills = [], []
-    bucket = "tech"
-    for line in answer.splitlines():
-        skill = line.strip("-•* \t")
-        if not skill:
-            continue
-        # Switch bucket if the answer explicitly labels sections
-        if skill.lower().startswith("soft"):
-            bucket = "soft"
-            continue
-        if skill.lower().startswith("technical") or skill.lower().startswith(
-            "technische"
-        ):
-            bucket = "tech"
-            continue
-        if bucket == "tech":
-            tech_skills.append(skill)
-        else:
-            soft_skills.append(skill)
+    tech_skills: list[str] = []
+    soft_skills: list[str] = []
+    try:
+        data = json.loads(answer)
+        if isinstance(data, dict):
+            tech_skills = [
+                str(s).strip() for s in data.get("technical", []) if str(s).strip()
+            ]
+            soft_skills = [
+                str(s).strip() for s in data.get("soft", []) if str(s).strip()
+            ]
+    except Exception:
+        bucket = "tech"
+        for line in answer.splitlines():
+            skill = line.strip("-•* \t")
+            if not skill:
+                continue
+            if skill.lower().startswith("soft"):
+                bucket = "soft"
+                continue
+            if skill.lower().startswith("technical") or skill.lower().startswith(
+                "technische"
+            ):
+                bucket = "tech"
+                continue
+            if bucket == "tech":
+                tech_skills.append(skill)
+            else:
+                soft_skills.append(skill)
     # Normalize skill labels via ESCO and drop duplicates against existing skills
     try:
         from core.esco_utils import normalize_skills
@@ -597,32 +629,48 @@ def suggest_benefits(
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
     if lang.startswith("de"):
-        prompt = (
-            f"Nenne 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} "
-            "üblich sind"
-        )
+        prompt = f"Nenne bis zu 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} üblich sind"
         if industry:
             prompt += f" in der Branche {industry}"
-        prompt += ". Vermeide Vorteile, die bereits in der Liste unten stehen.\n"
+        prompt += ". Antworte als JSON-Liste und vermeide Vorteile, die bereits in der Liste unten stehen.\n"
         if existing_benefits:
             prompt += f"Bereits aufgelistet: {existing_benefits}"
     else:
-        prompt = f"List 5 benefits or perks commonly offered for a {job_title} role"
+        prompt = (
+            f"List up to 5 benefits or perks commonly offered for a {job_title} role"
+        )
         if industry:
             prompt += f" in the {industry} industry"
-        prompt += ". Avoid mentioning any benefit that's already listed below.\n"
+        prompt += ". Respond as a JSON array and avoid mentioning any benefit already listed below.\n"
         if existing_benefits:
             prompt += f"Already listed: {existing_benefits}"
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "nano" in model else 200
-    res = call_chat_api(messages, model=model, temperature=0.5, max_tokens=max_tokens)
+    res = call_chat_api(
+        messages,
+        model=model,
+        temperature=0.5,
+        max_tokens=max_tokens,
+        json_schema={
+            "name": "benefit_suggestions",
+            "schema": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 5,
+            },
+        },
+    )
     answer = _chat_content(res)
-    benefits = []
-    for line in answer.splitlines():
-        perk = line.strip("-•* \t")
-        if perk:
-            benefits.append(perk)
-    # Filter out any benefits that were already present (case-insensitive match)
+    benefits: list[str] = []
+    try:
+        data = json.loads(answer)
+        if isinstance(data, list):
+            benefits = [str(b).strip() for b in data if str(b).strip()]
+    except Exception:
+        for line in answer.splitlines():
+            perk = line.strip("-•* \t")
+            if perk:
+                benefits.append(perk)
     existing_set = {b.strip().lower() for b in existing_benefits.splitlines()}
     benefits = [b for b in benefits if b.strip().lower() not in existing_set]
     return benefits
@@ -646,16 +694,34 @@ def suggest_role_tasks(
         return []
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
-    prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role."
+    prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role as a JSON array."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 180 if not model or "nano" in model else 250
-    res = call_chat_api(messages, model=model, temperature=0.5, max_tokens=max_tokens)
+    res = call_chat_api(
+        messages,
+        model=model,
+        temperature=0.5,
+        max_tokens=max_tokens,
+        json_schema={
+            "name": "task_suggestions",
+            "schema": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": num_tasks,
+            },
+        },
+    )
     answer = _chat_content(res)
-    tasks = []
-    for line in answer.splitlines():
-        task = line.strip("-•* \t")
-        if task:
-            tasks.append(task)
+    tasks: list[str] = []
+    try:
+        data = json.loads(answer)
+        if isinstance(data, list):
+            tasks = [str(t).strip() for t in data if str(t).strip()][:num_tasks]
+    except Exception:
+        for line in answer.splitlines():
+            task = line.strip("-•* \t")
+            if task:
+                tasks.append(task)
     return tasks[:num_tasks]
 
 
