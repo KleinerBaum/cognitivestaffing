@@ -81,11 +81,12 @@ def on_file_uploaded() -> None:
     except Exception as e:  # pragma: no cover - defensive
         display_error(
             tr(
-                "Datei konnte nicht gelesen werden – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
-                "Failed to read file – you can also enter the information manually in the following steps.",
+                "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
+                "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
             ),
             str(e),
         )
+        st.session_state["source_error"] = True
         return
     if not txt.strip():
         display_error(
@@ -94,6 +95,7 @@ def on_file_uploaded() -> None:
                 "File contains no text – you can also enter the information manually in the following steps.",
             ),
         )
+        st.session_state["source_error"] = True
         return
     st.session_state["__prefill_jd_text__"] = txt
     st.session_state["__run_extraction__"] = True
@@ -113,17 +115,19 @@ def on_url_changed() -> None:
                 "Invalid URL – you can also enter the information manually in the following steps.",
             )
         )
+        st.session_state["source_error"] = True
         return
     try:
         txt = extract_text_from_url(url)
     except Exception as e:  # pragma: no cover - defensive
         display_error(
             tr(
-                "URL konnte nicht geladen werden – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
-                "Failed to fetch URL – you can also enter the information manually in the following steps.",
+                "URL konnte nicht geladen werden. Prüfen Sie Erreichbarkeit oder Firewall-Einstellungen.",
+                "Failed to fetch URL. Check if the site is reachable or if access is blocked.",
             ),
             str(e),
         )
+        st.session_state["source_error"] = True
         return
     if not txt or not txt.strip():
         display_error(
@@ -132,6 +136,7 @@ def on_url_changed() -> None:
                 "No text content found – you can also enter the information manually in the following steps.",
             ),
         )
+        st.session_state["source_error"] = True
         return
     st.session_state["__prefill_jd_text__"] = txt
     st.session_state["__run_extraction__"] = True
@@ -472,6 +477,13 @@ def _step_source(schema: dict) -> None:
             "Load a job description or skip to enter data manually.",
         )
     )
+    if st.session_state.pop("source_error", False):
+        st.info(
+            tr(
+                "Sie können die Informationen auch manuell in den nächsten Schritten eingeben.",
+                "You can still fill in the info manually in the next steps.",
+            )
+        )
     prefill = st.session_state.pop("__prefill_jd_text__", None)
     if prefill is not None:
         st.session_state[UIKeys.JD_TEXT_INPUT] = prefill
@@ -983,10 +995,28 @@ def _step_requirements():
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
     stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
     if job_title and stored.get("_title") != job_title:
-        sugg = suggest_skills_for_role(
-            job_title,
-            lang=st.session_state.get("lang", "en"),
-        )
+        try:
+            sugg = suggest_skills_for_role(
+                job_title,
+                lang=st.session_state.get("lang", "en"),
+            )
+            if not any(sugg.values()):
+                st.warning(
+                    tr(
+                        "Skill-Vorschläge nicht verfügbar (API-Fehler)",
+                        "Skill suggestions not available (API error)",
+                    )
+                )
+        except Exception as e:
+            st.warning(
+                tr(
+                    "Skill-Vorschläge nicht verfügbar (API-Fehler)",
+                    "Skill suggestions not available (API error)",
+                )
+            )
+            if st.session_state.get("debug"):
+                st.session_state["skill_suggest_error"] = str(e)
+            sugg = {}
         stored = {"_title": job_title, **sugg}
         st.session_state[StateKeys.SKILL_SUGGESTIONS] = stored
     suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
@@ -1385,7 +1415,22 @@ def _step_compensation():
                 existing,
                 lang=lang,
             )
-        except Exception:
+            if not new_sugg:
+                st.warning(
+                    tr(
+                        "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
+                        "Benefit suggestions not available (API error)",
+                    )
+                )
+        except Exception as e:
+            st.warning(
+                tr(
+                    "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
+                    "Benefit suggestions not available (API error)",
+                )
+            )
+            if st.session_state.get("debug"):
+                st.session_state["benefit_suggest_error"] = str(e)
             new_sugg = []
         if new_sugg:
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = sorted(
