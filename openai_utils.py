@@ -392,11 +392,9 @@ def build_extraction_tool(
     return [
         {
             "type": "function",
-            "function": {
-                "name": name,
-                "description": "Return structured profile data that fits the schema exactly.",
-                "parameters": params,
-            },
+            "name": name,
+            "description": "Return structured profile data that fits the schema exactly.",
+            "parameters": params,
             "strict": not allow_extra,
         }
     ]

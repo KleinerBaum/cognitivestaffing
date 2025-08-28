@@ -46,7 +46,7 @@ def test_call_chat_api_tool_call(monkeypatch):
     monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
     out = call_chat_api(
         [],
-        tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
+        tools=[{"type": "function", "name": "fn", "parameters": {}}],
         tool_choice={"type": "function", "name": "fn"},
     )
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
@@ -58,8 +58,8 @@ def test_build_extraction_tool_has_name_and_parameters():
     schema = {"type": "object", "properties": {}}
     tool = openai_utils.build_extraction_tool("vacalyser_extract", schema)
     spec = tool[0]
-    assert spec["function"]["name"] == "vacalyser_extract"
-    assert spec["function"]["parameters"]["type"] == "object"
+    assert spec["name"] == "vacalyser_extract"
+    assert spec["parameters"]["type"] == "object"
 
 
 def test_call_chat_api_passes_reasoning(monkeypatch):
