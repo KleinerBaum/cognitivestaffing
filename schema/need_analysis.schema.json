@@ -251,7 +251,47 @@
                 "interview_stages": {
                     "type": "integer"
                 },
+                "stakeholders": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "name": {"type": "string"},
+                            "role": {"type": "string"},
+                            "email": {"type": "string"},
+                            "primary": {"type": "boolean"}
+                        }
+                    }
+                },
+                "phases": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "name": {"type": "string"},
+                            "interview_format": {"type": "string"},
+                            "participants": {
+                                "type": "array",
+                                "items": {"type": "string"}
+                            },
+                            "docs_required": {"type": "string"},
+                            "assessment_tests": {"type": "boolean"},
+                            "timeframe": {"type": "string"}
+                        }
+                    }
+                },
+                "recruitment_timeline": {
+                    "type": "string"
+                },
                 "process_notes": {
+                    "type": "string"
+                },
+                "application_instructions": {
+                    "type": "string"
+                },
+                "onboarding_process": {
                     "type": "string"
                 }
             }

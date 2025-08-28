@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import Any
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class Company(BaseModel):
@@ -117,13 +116,41 @@ class Compensation(BaseModel):
     benefits: List[str] = Field(default_factory=list)
 
 
+class Stakeholder(BaseModel):
+    """Person involved in the hiring process."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    role: str
+    email: EmailStr
+    primary: bool = False
+
+
+class Phase(BaseModel):
+    """Single phase of the hiring process."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    interview_format: Optional[str] = None
+    participants: List[str] = Field(default_factory=list)
+    docs_required: Optional[str] = None
+    assessment_tests: Optional[bool] = None
+    timeframe: Optional[str] = None
+
+
 class Process(BaseModel):
     """Information about the hiring process."""
 
     model_config = ConfigDict(extra="forbid")
-
     interview_stages: Optional[int] = None
+    stakeholders: List[Stakeholder] = Field(default_factory=list)
+    phases: List[Phase] = Field(default_factory=list)
+    recruitment_timeline: Optional[str] = None
     process_notes: Optional[str] = None
+    application_instructions: Optional[str] = None
+    onboarding_process: Optional[str] = None
 
 
 class Meta(BaseModel):
