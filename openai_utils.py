@@ -392,9 +392,11 @@ def build_extraction_tool(
     return [
         {
             "type": "function",
-            "name": name,
-            "description": "Return structured vacancy data that fits the schema exactly.",
-            "parameters": params,
+            "function": {
+                "name": name,
+                "description": "Return structured vacancy data that fits the schema exactly.",
+                "parameters": params,
+            },
             "strict": not allow_extra,
         }
     ]
