@@ -12,7 +12,14 @@ import re
 from typing import Any, Optional
 
 from models.need_analysis import NeedAnalysisProfile
-from core.schema import ALIASES
+from core.schema import (
+    ALIASES,
+    ALL_FIELDS,
+    BOOL_FIELDS,
+    FLOAT_FIELDS,
+    INT_FIELDS,
+    LIST_FIELDS,
+)
 
 
 _CODE_FENCE_RE = re.compile(
@@ -74,44 +81,106 @@ def _first_balanced_json(s: str) -> Optional[str]:
     return None
 
 
+def _find_key_ci(d: dict[str, Any], key: str) -> Optional[str]:
+    """Return the actual dict key matching ``key`` case-insensitively."""
+
+    key_lower = key.lower()
+    for k in d.keys():
+        if k.lower() == key_lower:
+            return k
+    return None
+
+
 def _apply_aliases(data: dict[str, Any]) -> dict[str, Any]:
     """Map alias keys in ``data`` to schema paths."""
+
     for alias, target in ALIASES.items():
         src_parts = alias.split(".")
         cursor = data
-        parent = None
+        parents: list[dict[str, Any]] = []
+        keys: list[str] = []
         for part in src_parts:
-            if not isinstance(cursor, dict) or part not in cursor:
+            if not isinstance(cursor, dict):
                 break
-            parent = cursor
-            cursor = cursor[part]
+            actual = _find_key_ci(cursor, part)
+            if actual is None:
+                break
+            parents.append(cursor)
+            keys.append(actual)
+            cursor = cursor[actual]
         else:
             value = cursor
-            if parent is not None:
-                del parent[src_parts[-1]]
+            parent = parents[-1]
+            del parent[keys[-1]]
             tgt_parts = target.split(".")
             cursor = data
             for part in tgt_parts[:-1]:
                 cursor = cursor.setdefault(part, {})
             cursor[tgt_parts[-1]] = value
+
     for k, v in list(data.items()):
         if isinstance(v, dict):
             _apply_aliases(v)
     return data
 
 
-_BENEFIT_SPLIT_RE = re.compile(r"[,\n;•]+")
+_LIST_SPLIT_RE = re.compile(r"[,\n;•]+")
+TRUE_VALUES = {"true", "yes", "1", "ja"}
+FALSE_VALUES = {"false", "no", "0", "nein"}
 
 
-def _normalize_compensation_fields(data: dict[str, Any]) -> dict[str, Any]:
-    """Ensure compensation subfields have proper types."""
-    comp = data.get("compensation")
-    if isinstance(comp, dict):
-        benefits = comp.get("benefits")
-        if isinstance(benefits, str):
-            cleaned = re.sub(r"^[^:]*:\s*", "", benefits)
-            parts = [p.strip() for p in _BENEFIT_SPLIT_RE.split(cleaned) if p.strip()]
-            comp["benefits"] = parts
+def _filter_unknown_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Remove keys not present in the schema to avoid validation errors."""
+
+    def _walk(d: dict[str, Any], prefix: str = "") -> None:
+        for key in list(d.keys()):
+            path = f"{prefix}{key}" if prefix else key
+            value = d[key]
+            if isinstance(value, dict):
+                if any(f.startswith(path + ".") for f in ALL_FIELDS):
+                    _walk(value, path + ".")
+                    if not value and path not in ALL_FIELDS:
+                        del d[key]
+                elif path not in ALL_FIELDS:
+                    del d[key]
+            else:
+                if path not in ALL_FIELDS:
+                    del d[key]
+
+    _walk(data)
+    return data
+
+
+def _coerce_types(data: dict[str, Any]) -> dict[str, Any]:
+    """Convert obvious mismatched types based on the schema."""
+
+    def _walk(d: dict[str, Any], prefix: str = "") -> None:
+        for key, value in list(d.items()):
+            path = f"{prefix}{key}" if prefix else key
+            if isinstance(value, dict):
+                _walk(value, path + ".")
+                continue
+
+            if path in LIST_FIELDS and isinstance(value, str):
+                cleaned = re.sub(r"^[^:]*:\s*", "", value)
+                parts = [p.strip() for p in _LIST_SPLIT_RE.split(cleaned) if p.strip()]
+                d[key] = parts
+            elif path in BOOL_FIELDS and isinstance(value, str):
+                lower = value.strip().lower()
+                if lower in TRUE_VALUES:
+                    d[key] = True
+                elif lower in FALSE_VALUES:
+                    d[key] = False
+            elif path in INT_FIELDS and isinstance(value, str):
+                match = re.search(r"-?\d+", value)
+                if match:
+                    d[key] = int(match.group())
+            elif path in FLOAT_FIELDS and isinstance(value, str):
+                match = re.search(r"-?\d+(?:\.\d+)?", value.replace(",", "."))
+                if match:
+                    d[key] = float(match.group())
+
+    _walk(data)
     return data
 
 
@@ -130,18 +199,22 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
     """
     last_err = None
 
+    def _process(payload: str) -> NeedAnalysisProfile:
+        data = _coerce_types(
+            _filter_unknown_fields(_apply_aliases(json.loads(payload)))
+        )
+        return NeedAnalysisProfile.model_validate(data)
+
     # 1) direct parse
     try:
-        data = _normalize_compensation_fields(_apply_aliases(json.loads(raw)))
-        return NeedAnalysisProfile.model_validate(data)
+        return _process(raw)
     except Exception as e:
         last_err = e
 
     # 2) sanitize and retry
     try:
         sanitized = _strip_code_fences(raw).strip()
-        data = _normalize_compensation_fields(_apply_aliases(json.loads(sanitized)))
-        return NeedAnalysisProfile.model_validate(data)
+        return _process(sanitized)
     except Exception as e:
         last_err = e
 
@@ -149,8 +222,7 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
     block = _first_balanced_json(sanitized if "sanitized" in locals() else raw)
     if block:
         try:
-            data = _normalize_compensation_fields(_apply_aliases(json.loads(block)))
-            return NeedAnalysisProfile.model_validate(data)
+            return _process(block)
         except Exception as e:
             last_err = e
 

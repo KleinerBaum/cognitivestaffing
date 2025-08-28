@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Tuple, Union, get_args, get_origin
+from typing import Any, Dict, List, Mapping, Tuple, Union, get_args, get_origin
 
 from types import MappingProxyType
 
@@ -24,27 +24,33 @@ def _strip_optional(tp: Any) -> Any:
 
 def _collect_fields(
     model: type[BaseModel], prefix: str = ""
-) -> Tuple[List[str], set[str]]:
-    """Recursively collect field paths and list-typed fields."""
+) -> Tuple[List[str], set[str], Dict[str, Any]]:
+    """Recursively collect field paths, list-typed fields and types."""
 
     paths: List[str] = []
     list_fields: set[str] = set()
+    types: Dict[str, Any] = {}
     for name, field in model.model_fields.items():
         tp = _strip_optional(field.annotation)
         path = f"{prefix}{name}"
         origin = get_origin(tp)
         if isinstance(tp, type) and issubclass(tp, BaseModel):
-            sub_paths, sub_lists = _collect_fields(tp, f"{path}.")
+            sub_paths, sub_lists, sub_types = _collect_fields(tp, f"{path}.")
             paths.extend(sub_paths)
             list_fields.update(sub_lists)
+            types.update(sub_types)
         else:
             paths.append(path)
+            types[path] = tp
             if origin in (list, List):
                 list_fields.add(path)
-    return paths, list_fields
+    return paths, list_fields, types
 
 
-ALL_FIELDS, LIST_FIELDS = _collect_fields(NeedAnalysisProfile)
+ALL_FIELDS, LIST_FIELDS, FIELD_TYPES = _collect_fields(NeedAnalysisProfile)
+BOOL_FIELDS = {p for p, t in FIELD_TYPES.items() if t is bool}
+INT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is int}
+FLOAT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is float}
 
 # Alias map for backward compatibility with legacy field names
 # Using MappingProxyType to prevent accidental mutation.
@@ -54,6 +60,8 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "requirements.hard_skills": "requirements.hard_skills_required",
         "requirements.soft_skills": "requirements.soft_skills_required",
         "city": "location.primary_city",
+        "brand name": "company.brand_name",
+        "application deadline": "meta.application_deadline",
     }
 )
 
