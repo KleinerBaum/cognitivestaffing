@@ -25,7 +25,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
 - **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`
 - **Analysis tools**: built-in `get_salary_benchmark` and `get_skill_definition` functions can be invoked by the model for richer need analysis
-- **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG that dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Critical questions are highlighted with a red asterisk.
+- **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG that dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Required fields are consistently marked with a red asterisk.
 - **Persistent follow-up tracking**: answered or skipped questions are remembered and won't reappear when navigating back through the wizard.
 - **Follow-up suggestion chips**: if the assistant proposes possible answers, they appear as one-click chips above the input field.
 - **AI-powered benefit suggestions**: fetch common perks for the role/industry and add them to the profile with a single click.

@@ -39,6 +39,9 @@ from core.esco_utils import normalize_skills
 ROOT = Path(__file__).parent
 ensure_state()
 
+REQUIRED_SUFFIX = " :red[*]"
+REQUIRED_PREFIX = ":red[*] "
+
 
 def next_step() -> None:
     """Advance the wizard to the next step."""
@@ -317,9 +320,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     if key not in st.session_state:
         st.session_state[key] = ""
     if q.get("priority") == "critical":
-        st.markdown(
-            f"<span style='color:red'>*</span> **{prompt}**", unsafe_allow_html=True
-        )
+        st.markdown(f"{REQUIRED_PREFIX}**{prompt}**")
     else:
         st.markdown(f"**{prompt}**")
     if suggestions:
@@ -686,7 +687,7 @@ def _step_company():
 
     label_company = tr("Firma", "Company")
     if "company.name" in missing_here:
-        label_company += " *"
+        label_company += REQUIRED_SUFFIX
     data["company"]["name"] = st.text_input(
         label_company,
         value=data["company"].get("name", ""),
@@ -940,7 +941,7 @@ def _step_position():
     c1, c2 = st.columns(2)
     label_title = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:
-        label_title += " *"
+        label_title += REQUIRED_SUFFIX
     data["position"]["job_title"] = c1.text_input(
         label_title,
         value=data["position"].get("job_title", ""),
@@ -977,7 +978,7 @@ def _step_position():
     )
     label_summary = tr("Rollen-Summary", "Role summary")
     if "position.role_summary" in missing_here:
-        label_summary += " *"
+        label_summary += REQUIRED_SUFFIX
     data["position"]["role_summary"] = c6.text_area(
         label_summary,
         value=data["position"].get("role_summary", ""),
@@ -994,7 +995,7 @@ def _step_position():
     )
     label_country = tr("Land", "Country")
     if "location.country" in missing_here:
-        label_country += " *"
+        label_country += REQUIRED_SUFFIX
     data["location"]["country"] = c8.text_input(
         label_country,
         value=data.get("location", {}).get("country", ""),
@@ -1101,7 +1102,7 @@ def _step_requirements():
 
     label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
     if "requirements.hard_skills_required" in missing_here:
-        label_hard_req += " *"
+        label_hard_req += REQUIRED_SUFFIX
     data["requirements"]["hard_skills_required"] = _chip_multiselect(
         label_hard_req,
         options=data["requirements"].get("hard_skills_required", []),
@@ -1119,7 +1120,7 @@ def _step_requirements():
     )
     label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
     if "requirements.soft_skills_required" in missing_here:
-        label_soft_req += " *"
+        label_soft_req += REQUIRED_SUFFIX
     data["requirements"]["soft_skills_required"] = _chip_multiselect(
         label_soft_req,
         options=data["requirements"].get("soft_skills_required", []),
@@ -1622,9 +1623,10 @@ def _summary_company() -> None:
     data = st.session_state[StateKeys.PROFILE]
     c1, c2 = st.columns(2)
     name = c1.text_input(
-        tr("Firma *", "Company *"),
+        tr("Firma", "Company") + REQUIRED_SUFFIX,
         value=data["company"].get("name", ""),
         key="ui.summary.company.name",
+        help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
     industry = c2.text_input(
         tr("Branche", "Industry"),
@@ -1681,9 +1683,10 @@ def _summary_position() -> None:
     data = st.session_state[StateKeys.PROFILE]
     c1, c2 = st.columns(2)
     job_title = c1.text_input(
-        tr("Jobtitel *", "Job title *"),
+        tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
         value=data["position"].get("job_title", ""),
         key="ui.summary.position.job_title",
+        help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
     seniority = c2.text_input(
         tr("Seniorität", "Seniority"),
@@ -1706,10 +1709,11 @@ def _summary_position() -> None:
         key="ui.summary.position.reporting_line",
     )
     role_summary = c2.text_area(
-        tr("Rollen-Summary *", "Role summary *"),
+        tr("Rollen-Summary", "Role summary") + REQUIRED_SUFFIX,
         value=data["position"].get("role_summary", ""),
         height=120,
         key="ui.summary.position.role_summary",
+        help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
     loc_city = c1.text_input(
         tr("Stadt", "City"),
