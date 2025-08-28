@@ -93,8 +93,9 @@ def on_file_uploaded() -> None:
             ),
         )
         return
-    st.session_state[StateKeys.RAW_TEXT] = txt
-    st.session_state[UIKeys.JD_TEXT_INPUT] = txt
+    st.session_state["__prefill_jd_text__"] = txt
+    st.session_state["__run_extraction__"] = True
+    st.rerun()
 
 
 def on_url_changed() -> None:
@@ -130,8 +131,9 @@ def on_url_changed() -> None:
             ),
         )
         return
-    st.session_state[StateKeys.RAW_TEXT] = txt
-    st.session_state[UIKeys.JD_TEXT_INPUT] = txt
+    st.session_state["__prefill_jd_text__"] = txt
+    st.session_state["__run_extraction__"] = True
+    st.rerun()
 
 
 def _autodetect_lang(text: str) -> None:
@@ -148,12 +150,57 @@ def _autodetect_lang(text: str) -> None:
         pass
 
 
+def _extract_and_summarize(text: str, schema: dict) -> None:
+    """Run extraction on ``text`` and store profile and summary."""
+
+    extracted = extract_with_function(text, schema, model=st.session_state.model)
+    profile = NeedAnalysisProfile.model_validate(extracted)
+    st.session_state[StateKeys.PROFILE] = profile.model_dump()
+    title = profile.position.job_title or ""
+    occ = search_occupation(title, st.session_state.lang or "en") if title else None
+    if occ:
+        profile.position.occupation_label = occ.get("preferredLabel") or ""
+        profile.position.occupation_uri = occ.get("uri") or ""
+        profile.position.occupation_group = occ.get("group") or ""
+        skills = enrich_skills(occ.get("uri") or "", st.session_state.lang or "en")
+        current_skills = set(profile.requirements.hard_skills_required or [])
+        merged = sorted(current_skills.union(skills or []))
+        profile.requirements.hard_skills_required = merged
+    st.session_state[StateKeys.PROFILE] = profile.model_dump()
+    summary: dict[str, str] = {}
+    if profile.position.job_title:
+        summary[tr("Jobtitel", "Job title")] = profile.position.job_title
+    if profile.company.name:
+        summary[tr("Firma", "Company")] = profile.company.name
+    if profile.location.primary_city:
+        summary[tr("Ort", "Location")] = profile.location.primary_city
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
+    if st.session_state.get("auto_reask"):
+        try:
+            payload = {
+                "data": profile.model_dump(),
+                "lang": st.session_state.lang,
+            }
+            followup_res = ask_followups(
+                payload,
+                model=st.session_state.model,
+                vector_store_id=st.session_state.vector_store_id or None,
+            )
+            st.session_state[StateKeys.FOLLOWUPS] = followup_res.get("questions", [])
+        except Exception:
+            st.warning(
+                tr(
+                    "Konnte keine Anschlussfragen erzeugen.",
+                    "Could not generate follow-ups automatically.",
+                )
+            )
+
+
 def _skip_source() -> None:
     """Skip source step and initialize an empty profile."""
 
     st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
     st.session_state[StateKeys.RAW_TEXT] = ""
-    st.session_state[UIKeys.JD_TEXT_INPUT] = ""
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     st.session_state[StateKeys.STEP] = 2
     st.rerun()
@@ -423,6 +470,28 @@ def _step_source(schema: dict) -> None:
             "Load a job description or skip to enter data manually.",
         )
     )
+    prefill = st.session_state.pop("__prefill_jd_text__", None)
+    if prefill is not None:
+        st.session_state[UIKeys.JD_TEXT_INPUT] = prefill
+        st.session_state[StateKeys.RAW_TEXT] = prefill
+    if st.session_state.pop("__run_extraction__", False) and st.session_state.get(
+        StateKeys.RAW_TEXT
+    ):
+        raw_auto = st.session_state[StateKeys.RAW_TEXT]
+        st.session_state["_analyze_attempted"] = True
+        _autodetect_lang(raw_auto)
+        try:
+            _extract_and_summarize(raw_auto, schema)
+            st.session_state[StateKeys.STEP] = 2
+            st.rerun()
+        except Exception as e:
+            display_error(
+                tr(
+                    "Automatische Extraktion fehlgeschlagen",
+                    "Automatic extraction failed",
+                ),
+                str(e),
+            )
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
     )
@@ -466,11 +535,12 @@ def _step_source(schema: dict) -> None:
             ),
         )
 
-    text_for_extract = st.session_state.get(StateKeys.RAW_TEXT, "").strip()
     analyze_clicked = st.button(t("analyze", st.session_state.lang), type="primary")
     skip_clicked = st.button(tr("Ohne Vorlage fortfahren", "Continue without template"))
     if analyze_clicked:
-        if not text_for_extract:
+        raw = (st.session_state.get(UIKeys.JD_TEXT_INPUT, "") or "").strip()
+        st.session_state["_analyze_attempted"] = True
+        if not raw:
             st.warning(
                 tr(
                     "Keine Daten erkannt – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
@@ -478,63 +548,12 @@ def _step_source(schema: dict) -> None:
                 )
             )
         else:
-            _autodetect_lang(text_for_extract)
+            st.session_state[StateKeys.RAW_TEXT] = raw
+            _autodetect_lang(raw)
             try:
-                extracted = extract_with_function(
-                    text_for_extract, schema, model=st.session_state.model
-                )
-                profile = NeedAnalysisProfile.model_validate(extracted)
-                st.session_state[StateKeys.PROFILE] = profile.model_dump()
-                title = profile.position.job_title or ""
-                occ = (
-                    search_occupation(title, st.session_state.lang or "en")
-                    if title
-                    else None
-                )
-                if occ:
-                    profile.position.occupation_label = occ.get("preferredLabel") or ""
-                    profile.position.occupation_uri = occ.get("uri") or ""
-                    profile.position.occupation_group = occ.get("group") or ""
-                    skills = enrich_skills(
-                        occ.get("uri") or "",
-                        st.session_state.lang or "en",
-                    )
-                    current_skills = set(
-                        profile.requirements.hard_skills_required or []
-                    )
-                    merged = sorted(current_skills.union(skills or []))
-                    profile.requirements.hard_skills_required = merged
-                st.session_state[StateKeys.PROFILE] = profile.model_dump()
-                summary = {}
-                if profile.position.job_title:
-                    summary[tr("Jobtitel", "Job title")] = profile.position.job_title
-                if profile.company.name:
-                    summary[tr("Firma", "Company")] = profile.company.name
-                if profile.location.primary_city:
-                    summary[tr("Ort", "Location")] = profile.location.primary_city
-                st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
-                # If Auto-reask is enabled, generate follow-up questions now
-                if st.session_state.get("auto_reask"):
-                    try:
-                        payload = {
-                            "data": profile.model_dump(),
-                            "lang": st.session_state.lang,
-                        }
-                        followup_res = ask_followups(
-                            payload,
-                            model=st.session_state.model,
-                            vector_store_id=st.session_state.vector_store_id or None,
-                        )
-                        st.session_state[StateKeys.FOLLOWUPS] = followup_res.get(
-                            "questions", []
-                        )
-                    except Exception:
-                        st.warning(
-                            tr(
-                                "Konnte keine Anschlussfragen erzeugen.",
-                                "Could not generate follow-ups automatically.",
-                            )
-                        )
+                _extract_and_summarize(raw, schema)
+                st.session_state[StateKeys.STEP] = 2
+                st.rerun()
             except Exception as e:
                 display_error(
                     tr("Extraktion fehlgeschlagen", "Extraction failed"),
@@ -542,6 +561,15 @@ def _step_source(schema: dict) -> None:
                 )
     if skip_clicked:
         _skip_source()
+    if st.session_state.get("_analyze_attempted") and not st.session_state.get(
+        StateKeys.EXTRACTION_SUMMARY
+    ):
+        st.info(
+            tr(
+                "Keine Daten erkannt – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                "No data detected – you can also enter the information manually in the following steps.",
+            )
+        )
     summary_data = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
     if summary_data:
         st.success(
