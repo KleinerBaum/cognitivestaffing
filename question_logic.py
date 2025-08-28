@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
+import streamlit as st
 from openai_utils import call_chat_api
 
 # ESCO helpers (must exist in core/esco_utils.py)
@@ -310,13 +311,17 @@ def _normalize_chat_content(res: Any) -> str:
 
 
 def ask_followups(
-    payload: dict, *, model: str = "gpt-4o-mini", vector_store_id: Optional[str] = None
+    payload: dict,
+    *,
+    model: str | None = None,
+    vector_store_id: Optional[str] = None,
 ) -> dict:
     """Generate follow-up questions via the chat API.
 
     Args:
         payload: Vacancy JSON payload to inspect.
-        model: OpenAI model identifier.
+        model: Optional OpenAI model identifier. Uses the globally selected
+            model when ``None``.
         vector_store_id: Optional vector store ID enabling file search tool usage.
 
     Returns:
@@ -324,6 +329,8 @@ def ask_followups(
         parsing fails or the response is invalid.
     """
 
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     tools: list[Any] = []
     tool_choice: Optional[str] = None
     if vector_store_id:
