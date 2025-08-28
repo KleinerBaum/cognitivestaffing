@@ -2,13 +2,14 @@
 
 import streamlit as st
 
+from constants.keys import StateKeys
 from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
 
 
 def test_section_filtering() -> None:
     """Fields beyond the inspected section should be ignored."""
     st.session_state.clear()
-    st.session_state["followup_questions"] = []
+    st.session_state[StateKeys.FOLLOWUPS] = []
 
     # Section 1 only requires the company name
     assert get_missing_critical_fields(max_section=1) == ["company.name"]
@@ -39,7 +40,7 @@ def test_followup_critical_detection() -> None:
     for field in FIELD_SECTION_MAP:
         st.session_state[field] = "filled"
     st.session_state["compensation.salary_min"] = ""
-    st.session_state["followup_questions"] = [
+    st.session_state[StateKeys.FOLLOWUPS] = [
         {"field": "compensation.salary_min", "priority": "critical"},
         {"field": "compensation.variable_pay", "priority": "normal"},
     ]

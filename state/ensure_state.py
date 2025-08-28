@@ -27,6 +27,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     if StateKeys.EXTRACTION_MISSING not in st.session_state:
         st.session_state[StateKeys.EXTRACTION_MISSING] = []
+    if StateKeys.FOLLOWUPS not in st.session_state:
+        st.session_state[StateKeys.FOLLOWUPS] = []
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:
@@ -50,3 +52,18 @@ def ensure_state() -> None:
     ):
         if key not in st.session_state:
             st.session_state[key] = ""
+
+
+def reset_state() -> None:
+    """Reset ``st.session_state`` while preserving basic user settings.
+
+    Keeps language, model, vector store ID and auto-reask flag, then
+    reinitializes defaults via :func:`ensure_state`.
+    """
+
+    preserve = {"lang", "model", "vector_store_id", "auto_reask"}
+    for key in list(st.session_state.keys()):
+        if key not in preserve:
+            del st.session_state[key]
+    st.cache_data.clear()
+    ensure_state()
