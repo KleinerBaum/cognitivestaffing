@@ -68,6 +68,8 @@ def enrich_skills(occupation_uri: str, lang: str = "en") -> list[str]:
         return []
     if OFFLINE:
         skills = _OFFLINE_SKILLS.get(occupation_uri, [])
+        if not skills:
+            log.warning("No offline ESCO skills for '%s'", occupation_uri)
     else:
         skills = esco_utils.get_essential_skills(occupation_uri, lang)
     return [s for s in skills if s.lower() not in GENERIC_SKILLS]

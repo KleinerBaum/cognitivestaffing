@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from difflib import SequenceMatcher
 
@@ -20,6 +20,8 @@ import streamlit as st
 _ESO = "https://ec.europa.eu/esco/api"
 _HEADERS = {"User-Agent": "Vacalyser/1.0"}
 log = logging.getLogger("vacalyser.esco")
+
+_SKILL_CACHE: Dict[Tuple[str, str], Dict[str, str]] = {}
 
 
 def _norm(s: str) -> str:
@@ -124,19 +126,27 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     return sorted(set(skills))
 
 
-@st.cache_data(show_spinner=False, max_entries=4096)
 def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
-    """Lookup a skill and return its ESCO metadata."""
+    """Lookup a skill and return its ESCO metadata.
+
+    Results are cached in-memory to avoid repeated HTTP requests within a
+    process. Keys are normalized by lowercasing and collapsing whitespace.
+    """
 
     if not name:
         return {}
+    key = (_norm(name), lang)
+    if key in _SKILL_CACHE:
+        return _SKILL_CACHE[key]
     try:
         data = _get("search", text=name, type="skill", language=lang)
     except requests.RequestException as exc:  # pragma: no cover - network
         log.warning("ESCO lookup failed: %s", exc)
         return {}
     items = data.get("_embedded", {}).get("results", []) or []
-    return items[0] if items else {}
+    res = items[0] if items else {}
+    _SKILL_CACHE[key] = res
+    return res
 
 
 def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
