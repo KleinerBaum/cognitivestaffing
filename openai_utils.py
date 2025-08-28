@@ -17,7 +17,7 @@ import backoff
 from openai import OpenAI
 import streamlit as st
 
-from config import OPENAI_API_KEY, OPENAI_MODEL
+from config import OPENAI_API_KEY, OPENAI_MODEL, REASONING_EFFORT
 from constants.keys import StateKeys
 
 
@@ -70,17 +70,39 @@ def call_chat_api(
     functions: Optional[list] = None,
     function_call: Optional[Any] = None,
     seed: Optional[int] = None,
+    reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
 ) -> ChatCallResult:
-    """Call the OpenAI chat completion API and return a :class:`ChatCallResult`."""
+    """Call the OpenAI chat completion API and return a :class:`ChatCallResult`.
+
+    Args:
+        messages: Conversation messages.
+        model: Optional model override.
+        temperature: Sampling temperature.
+        max_tokens: Response token limit.
+        json_strict: Enforce JSON output.
+        tools: Tool definitions for tool calling.
+        tool_choice: Requested tool to call.
+        functions: Function definitions.
+        function_call: Forced function call.
+        seed: Optional deterministic seed.
+        reasoning_effort: Reasoning level to pass to the API.
+        extra: Additional payload fields.
+
+    Returns:
+        Parsed result from the OpenAI API.
+    """
 
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
+    if reasoning_effort is None:
+        reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
     payload: Dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
     }
+    payload["reasoning"] = {"effort": reasoning_effort}
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     if json_strict:

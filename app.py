@@ -8,6 +8,7 @@ import streamlit as st
 
 from components.salary_dashboard import render_salary_dashboard
 from components.model_selector import model_selector
+from components.reasoning_selector import reasoning_selector
 from config_loader import load_json
 from utils.i18n import tr
 from state.ensure_state import ensure_state
@@ -83,6 +84,7 @@ with st.sidebar:
         "Auto Follow-ups", value=st.session_state.auto_reask
     )
     model_selector()
+    reasoning_selector()
     st.session_state.vector_store_id = st.text_input(
         "Vector Store ID (optional)", value=st.session_state.vector_store_id
     )

@@ -7,6 +7,7 @@ import os
 import streamlit as st
 
 from constants.keys import StateKeys
+from config import REASONING_EFFORT
 from models.need_analysis import NeedAnalysisProfile
 
 
@@ -32,6 +33,8 @@ def ensure_state() -> None:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "auto_reask" not in st.session_state:
         st.session_state["auto_reask"] = True
+    if "reasoning_effort" not in st.session_state:
+        st.session_state["reasoning_effort"] = REASONING_EFFORT
     if StateKeys.USAGE not in st.session_state:
         st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
     for key in (
