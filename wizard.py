@@ -16,6 +16,7 @@ from constants.keys import UIKeys, StateKeys
 from utils.session import bind_textarea
 from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
+from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from models.need_analysis import NeedAnalysisProfile
 from config_loader import load_json
@@ -176,10 +177,11 @@ def _autodetect_lang(text: str) -> None:
 
 
 def _extract_and_summarize(text: str, schema: dict) -> None:
-    """Run extraction on ``text`` and store profile and summary."""
+    """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
     extracted = extract_with_function(text, schema, model=st.session_state.model)
     profile = NeedAnalysisProfile.model_validate(extracted)
+    profile = apply_basic_fallbacks(profile, text)
     st.session_state[StateKeys.PROFILE] = profile.model_dump()
     title = profile.position.job_title or ""
     occ = search_occupation(title, st.session_state.lang or "en") if title else None
@@ -191,7 +193,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         current_skills = set(profile.requirements.hard_skills_required or [])
         merged = sorted(current_skills.union(skills or []))
         profile.requirements.hard_skills_required = merged
-    st.session_state[StateKeys.PROFILE] = profile.model_dump()
+    data = profile.model_dump()
+    st.session_state[StateKeys.PROFILE] = data
     summary: dict[str, str] = {}
     if profile.position.job_title:
         summary[tr("Jobtitel", "Job title")] = profile.position.job_title
@@ -200,7 +203,13 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     if profile.location.primary_city:
         summary[tr("Ort", "Location")] = profile.location.primary_city
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
+    missing: list[str] = []
+    for field in CRITICAL_FIELDS:
+        if not get_in(data, field, None):
+            missing.append(field)
+    st.session_state[StateKeys.EXTRACTION_MISSING] = missing
     if st.session_state.get("auto_reask"):
+
         try:
             payload = {
                 "data": profile.model_dump(),
@@ -227,6 +236,7 @@ def _skip_source() -> None:
     st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
     st.session_state[StateKeys.RAW_TEXT] = ""
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+    st.session_state[StateKeys.EXTRACTION_MISSING] = []
     st.session_state[StateKeys.STEP] = 2
     st.rerun()
 
@@ -242,8 +252,25 @@ FIELD_SECTION_MAP = {
 }
 
 
+def _field_label(path: str) -> str:
+    """Return localized label for a schema field path."""
+    labels = {
+        "company.name": tr("Firmenname", "Company name"),
+        "position.job_title": tr("Jobtitel", "Job title"),
+        "position.role_summary": tr("Rollenbeschreibung", "Role summary"),
+        "location.country": tr("Land", "Country"),
+        "requirements.hard_skills_required": tr(
+            "Pflicht-Hard-Skills", "Required hard skills"
+        ),
+        "requirements.soft_skills_required": tr(
+            "Pflicht-Soft-Skills", "Required soft skills"
+        ),
+    }
+    return labels.get(path, path)
+
+
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
-    """Return critical fields missing from ``st.session_state``.
+    """Return critical fields missing from ``st.session_state`` or profile data.
 
     Args:
         max_section: Optional highest section number to inspect.
@@ -253,10 +280,14 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     """
 
     missing: list[str] = []
+    profile_data = st.session_state.get(StateKeys.PROFILE, {})
     for field in CRITICAL_FIELDS:
         if max_section is not None and FIELD_SECTION_MAP.get(field, 0) > max_section:
             continue
-        if not st.session_state.get(field):
+        value = st.session_state.get(field)
+        if not value:
+            value = get_in(profile_data, field, None)
+        if not value:
             missing.append(field)
 
     for q in st.session_state.get("followup_questions", []):
@@ -614,8 +645,12 @@ def _step_source(schema: dict) -> None:
                 )
     if skip_clicked:
         _skip_source()
-    if st.session_state.get("_analyze_attempted") and not st.session_state.get(
-        StateKeys.EXTRACTION_SUMMARY
+    summary_data = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
+    missing_fields = st.session_state.get(StateKeys.EXTRACTION_MISSING, [])
+    if (
+        st.session_state.get("_analyze_attempted")
+        and not summary_data
+        and not missing_fields
     ):
         st.info(
             tr(
@@ -623,7 +658,6 @@ def _step_source(schema: dict) -> None:
                 "No data detected – you can also enter the information manually in the following steps.",
             )
         )
-    summary_data = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
     if summary_data:
         st.success(
             tr(
@@ -633,9 +667,20 @@ def _step_source(schema: dict) -> None:
         )
         for label, value in summary_data.items():
             st.write(f"- {label}: {value}")
+    if missing_fields:
+        st.warning(
+            tr(
+                "Folgende Schlüsselfelder konnten nicht erkannt werden:",
+                "The following key fields could not be inferred:",
+            )
+        )
+        for field in missing_fields:
+            st.write(f"- {_field_label(field)}")
+    if summary_data or missing_fields:
         if st.button(tr("Weiter", "Continue"), type="primary"):
             st.session_state[StateKeys.STEP] = 2
             st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+            st.session_state[StateKeys.EXTRACTION_MISSING] = []
             st.rerun()
 
 

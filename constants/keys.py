@@ -28,4 +28,5 @@ class StateKeys:
     SKILL_SUGGESTIONS = "skill_suggestions"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     EXTRACTION_SUMMARY = "extraction_summary"
+    EXTRACTION_MISSING = "extraction_missing"
     BIAS_FINDINGS = "data.bias_findings"

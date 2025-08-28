@@ -25,6 +25,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.STEP] = 0
     if StateKeys.EXTRACTION_SUMMARY not in st.session_state:
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+    if StateKeys.EXTRACTION_MISSING not in st.session_state:
+        st.session_state[StateKeys.EXTRACTION_MISSING] = []
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:
