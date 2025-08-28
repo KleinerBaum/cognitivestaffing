@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -18,7 +17,7 @@ from models.need_analysis import NeedAnalysisProfile
 from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
-from config import REASONING_EFFORT
+from config import OPENAI_API_KEY, OPENAI_MODEL, REASONING_EFFORT
 
 logger = logging.getLogger("vacalyser.llm")
 
@@ -96,21 +95,8 @@ NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
-MODE = os.getenv("LLM_MODE", "plain").lower()
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
-OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
-
-
-def build_extraction_tool() -> dict[str, Any]:
-    """Return an OpenAI tool schema for the vacancy profile."""
-
-    return {
-        "type": "function",
-        "name": "return_extraction",
-        "description": "Return extracted fields",
-        "parameters": NEED_ANALYSIS_SCHEMA,
-        "strict": True,
-    }
+MODEL = OPENAI_MODEL
+OPENAI_CLIENT = OpenAI(api_key=OPENAI_API_KEY)
 
 
 def _minimal_messages(text: str) -> list[dict[str, str]]:
@@ -130,10 +116,7 @@ def extract_json(
     *,
     minimal: bool = False,
 ) -> str:
-    """Extract schema fields via the configured LLM mode.
-
-    Structured output modes (JSON or function calls) are attempted first to
-    reduce downstream parsing errors.
+    """Extract schema fields via JSON mode with optional plain fallback.
 
     Args:
         text: Input job description.
@@ -148,53 +131,32 @@ def extract_json(
         _minimal_messages(text) if minimal else build_extract_messages(text, title, url)
     )
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
-    common: dict[str, Any] = {
-        "model": MODEL,
-        "input": messages,
-        "temperature": 0,
-        "reasoning": {"effort": effort},
-    }
-
-    modes: list[str]
-    if MODE == "plain":
-        modes = ["json", "function", "plain"]
-    else:
-        modes = [MODE, "plain"] if MODE != "plain" else ["plain"]
-
-    last_exc: Exception | None = None
-    for mode in modes:
+    try:
+        response = OPENAI_CLIENT.responses.create(
+            model=MODEL,
+            input=messages,
+            temperature=0,
+            reasoning={"effort": effort},
+            response_format={
+                "type": "json_schema",
+                "json_schema": NEED_ANALYSIS_SCHEMA,
+            },
+        )  # type: ignore[call-overload]
+        return response.output_text.strip()
+    except Exception as exc:  # pragma: no cover - network/SDK issues
+        logger.warning(
+            "Structured extraction failed, falling back to plain text: %s", exc
+        )
         try:
-            if mode == "json":
-                response = OPENAI_CLIENT.responses.create(
-                    **common,
-                    text={
-                        "format": {
-                            "type": "json_schema",
-                            "name": "vacancy_profile",
-                            "schema": NEED_ANALYSIS_SCHEMA,
-                        }
-                    },
-                )
-                return response.output_text.strip()
-            if mode == "function":
-                response = OPENAI_CLIENT.responses.create(  # type: ignore[call-overload]
-                    **common,
-                    tools=[build_extraction_tool()],
-                    tool_choice={"type": "function", "name": "return_extraction"},
-                )
-                for item in getattr(response, "output", []) or []:
-                    if getattr(item, "type", None) == "function_call" and getattr(
-                        item, "arguments", None
-                    ):
-                        return item.arguments
-                continue
-            response = OPENAI_CLIENT.responses.create(**common)
+            response = OPENAI_CLIENT.responses.create(
+                model=MODEL,
+                input=messages,
+                temperature=0,
+                reasoning={"effort": effort},
+            )  # type: ignore[call-overload]
             return response.output_text.strip()
-        except Exception as exc:  # pragma: no cover - network/SDK issues
-            last_exc = exc
-            continue
-
-    raise ExtractionError("LLM call failed") from last_exc
+        except Exception as exc2:  # pragma: no cover - network/SDK issues
+            raise ExtractionError("LLM call failed") from exc2
 
 
 def extract_and_parse(

@@ -1,7 +1,5 @@
 """Tests for the OpenAI LLM client helper."""
 
-import json
-
 import pytest
 
 import llm.client as client
@@ -10,25 +8,14 @@ import llm.client as client
 class _FakeResponse:
     """Minimal stand-in for an OpenAI Responses API result."""
 
-    def __init__(self, text: str = "{}", arguments: str | None = None) -> None:
+    def __init__(self, text: str = "{}") -> None:
         self.output_text = text
-        self.output: list[dict[str, str]] = []
-        if arguments is not None:
-            self.output.append(
-                {
-                    "type": "function_call",
-                    "name": "return_extraction",
-                    "arguments": arguments,
-                }
-            )
         self.usage: dict[str, int] = {}
 
 
 def fake_create(**kwargs):  # noqa: D401
     """Return a fake OpenAI response object."""
 
-    if client.MODE == "function":
-        return _FakeResponse(arguments=json.dumps({"job_title": "x"}))
     return _FakeResponse(text="{}")
 
 
