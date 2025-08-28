@@ -301,7 +301,7 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
         if not value:
             missing.append(field)
 
-    for q in st.session_state.get("followup_questions", []):
+    for q in st.session_state.get(StateKeys.FOLLOWUPS, []):
         if q.get("priority") == "critical":
             missing.append(q.get("field", ""))
     return missing
@@ -2313,7 +2313,7 @@ def _step_summary(schema: dict, critical: list[str]):
                     model=st.session_state.model,
                     vector_store_id=st.session_state.vector_store_id or None,
                 )
-                st.session_state["followups"] = res
+                st.session_state[StateKeys.FOLLOWUPS] = res.get("questions", [])
                 st.success(
                     tr("Follow-ups aktualisiert.", "Follow-up questions updated.")
                 )
@@ -2324,10 +2324,9 @@ def _step_summary(schema: dict, critical: list[str]):
                 )
 
     with col2:
-        if st.session_state.get("followups"):
+        if st.session_state.get(StateKeys.FOLLOWUPS):
             st.write(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
-            fu = st.session_state["followups"]
-            for item in fu.get("questions", []):
+            for item in st.session_state[StateKeys.FOLLOWUPS]:
                 key = item.get(
                     "key"
                 )  # dot key, z.B. "requirements.hard_skills_required"

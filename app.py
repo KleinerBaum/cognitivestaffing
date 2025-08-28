@@ -11,7 +11,7 @@ from components.model_selector import model_selector
 from components.reasoning_selector import reasoning_selector
 from config_loader import load_json
 from utils.i18n import tr
-from state.ensure_state import ensure_state
+from state import ensure_state, reset_state
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -98,11 +98,7 @@ with st.sidebar:
     )
 
     if st.button("🔁 Reset Wizard", type="secondary"):
-        for k in list(st.session_state.keys()):
-            if k not in ("lang", "model", "vector_store_id", "auto_reask"):
-                del st.session_state[k]
-        st.cache_data.clear()
-        ensure_state()
+        reset_state()
         st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
 
 render_salary_dashboard(st.session_state)
