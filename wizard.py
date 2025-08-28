@@ -140,7 +140,6 @@ def on_url_changed() -> None:
         return
     st.session_state["__prefill_jd_text__"] = txt
     st.session_state["__run_extraction__"] = True
-    st.rerun()
 
 
 def _autodetect_lang(text: str) -> None:
