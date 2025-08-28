@@ -93,6 +93,7 @@ with st.sidebar:
         for k in list(st.session_state.keys()):
             if k not in ("lang", "model", "vector_store_id", "auto_reask"):
                 del st.session_state[k]
+        st.cache_data.clear()
         ensure_state()
         st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
 
