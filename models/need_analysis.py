@@ -21,7 +21,7 @@ class Company(BaseModel):
     mission: Optional[str] = None
     culture: Optional[str] = None
     contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
+    contact_email: EmailStr | None = None
     contact_phone: Optional[str] = None
 
 
