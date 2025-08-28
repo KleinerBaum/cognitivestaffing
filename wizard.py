@@ -2075,7 +2075,6 @@ def run_wizard():
                 tr("Weiter ▶︎", "Next ▶︎"),
                 type="primary",
                 use_container_width=True,
-                disabled=bool(missing),
             ):
                 next_step()
                 st.rerun()
@@ -2094,7 +2093,6 @@ def run_wizard():
                 tr("Weiter ▶︎", "Next ▶︎"),
                 type="primary",
                 use_container_width=True,
-                disabled=bool(missing),
             ):
                 next_step()
                 st.rerun()
@@ -2110,14 +2108,8 @@ def run_wizard():
                     tr("Weiter ▶︎", "Next ▶︎"),
                     type="primary",
                     use_container_width=True,
-                    disabled=bool(missing),
                 ):
                     next_step()
                     st.rerun()
             else:
-                st.button(
-                    tr("Fertig", "Done"),
-                    disabled=bool(
-                        missing_keys(st.session_state[StateKeys.PROFILE], critical)
-                    ),
-                )
+                st.button(tr("Fertig", "Done"))
