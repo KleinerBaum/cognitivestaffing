@@ -102,6 +102,24 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
     assert "Umzugsunterstützung: Ja" in prompts[1]
 
 
+def test_generate_job_ad_uses_remote_percentage(monkeypatch):
+    prompts: list[str] = []
+
+    def fake_call_chat_api(messages, **kwargs):
+        prompts.append(messages[0]["content"])
+        return "ok"
+
+    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+
+    session = {
+        "employment.work_policy": "Hybrid",
+        "employment.remote_percentage": 60,
+        "lang": "en",
+    }
+    openai_utils.generate_job_ad(session)
+    assert "Work Policy: Hybrid (60% remote)" in prompts[0]
+
+
 def test_generate_job_ad_lists_unique_benefits(monkeypatch):
     captured = {}
 
