@@ -23,7 +23,8 @@ def render_field_bullets() -> str:
 
 SYSTEM_JSON_EXTRACTOR: str = (
     "You are an extractor. Return ONLY a JSON object with the exact keys provided. "
-    "Use empty strings for missing values and empty lists for missing arrays. No prose."
+    "Use empty strings for missing values and empty lists for missing arrays. No prose. "
+    "Provide the main job title without gender markers in position.job_title, the company's legal name in company.name, and the primary city in location.primary_city."
 )
 
 
@@ -49,7 +50,7 @@ def USER_JSON_EXTRACT_TEMPLATE(
 
     instructions = (
         "Extract the following fields and respond with a JSON object containing these keys. "
-        "If data for a key is missing, use an empty string or empty list.\n"
+        "If data for a key is missing, use an empty string or empty list. Use position.job_title for the main job title without gender markers and map the employer name to company.name and the primary city to location.primary_city.\n"
         f"Fields:\n{field_lines}"
     )
 

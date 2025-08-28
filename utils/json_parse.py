@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from models.need_analysis import NeedAnalysisProfile
+from core.schema import ALIASES
 
 
 _CODE_FENCE_RE = re.compile(
@@ -73,6 +74,32 @@ def _first_balanced_json(s: str) -> Optional[str]:
     return None
 
 
+def _apply_aliases(data: dict[str, Any]) -> dict[str, Any]:
+    """Map alias keys in ``data`` to schema paths."""
+    for alias, target in ALIASES.items():
+        src_parts = alias.split(".")
+        cursor = data
+        parent = None
+        for part in src_parts:
+            if not isinstance(cursor, dict) or part not in cursor:
+                break
+            parent = cursor
+            cursor = cursor[part]
+        else:
+            value = cursor
+            if parent is not None:
+                del parent[src_parts[-1]]
+            tgt_parts = target.split(".")
+            cursor = data
+            for part in tgt_parts[:-1]:
+                cursor = cursor.setdefault(part, {})
+            cursor[tgt_parts[-1]] = value
+    for k, v in list(data.items()):
+        if isinstance(v, dict):
+            _apply_aliases(v)
+    return data
+
+
 def parse_extraction(raw: str) -> NeedAnalysisProfile:
     """
     Parse LLM output into a validated NeedAnalysisProfile.
@@ -90,14 +117,14 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
 
     # 1) direct parse
     try:
-        return NeedAnalysisProfile.model_validate(json.loads(raw))
+        return NeedAnalysisProfile.model_validate(_apply_aliases(json.loads(raw)))
     except Exception as e:
         last_err = e
 
     # 2) sanitize and retry
     try:
         sanitized = _strip_code_fences(raw).strip()
-        return NeedAnalysisProfile.model_validate(json.loads(sanitized))
+        return NeedAnalysisProfile.model_validate(_apply_aliases(json.loads(sanitized)))
     except Exception as e:
         last_err = e
 
@@ -105,7 +132,7 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
     block = _first_balanced_json(sanitized if "sanitized" in locals() else raw)
     if block:
         try:
-            return NeedAnalysisProfile.model_validate(json.loads(block))
+            return NeedAnalysisProfile.model_validate(_apply_aliases(json.loads(block)))
         except Exception as e:
             last_err = e
 
