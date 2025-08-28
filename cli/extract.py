@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 
 
@@ -13,7 +12,7 @@ def main() -> None:
     The command reads a local job description file, extracts text, and runs the
     LLM pipeline without requiring Streamlit. Example::
 
-        python -m cli.extract --file jd.pdf --title "..." --url "..." --mode json
+        python -m cli.extract --file jd.pdf --title "..." --url "..."
     """
 
     parser = argparse.ArgumentParser(description="Vacalyser JSON extractor")
@@ -22,16 +21,7 @@ def main() -> None:
     )
     parser.add_argument("--title", help="Optional job title for context")
     parser.add_argument("--url", help="Optional source URL for context")
-    parser.add_argument(
-        "--mode",
-        choices=["plain", "json", "function"],
-        default=os.getenv("LLM_MODE", "plain"),
-        help="LLM mode: plain, json, or function",
-    )
     args = parser.parse_args()
-
-    # Ensure mode is respected by the client module
-    os.environ["LLM_MODE"] = args.mode
 
     from utils import extract_text_from_file
     from llm.client import extract_and_parse

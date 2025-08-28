@@ -78,9 +78,10 @@ source .venv/bin/activate
 
 pip install -r requirements.txt  # or: pip install -e .
 
-# optional: choose model and reasoning depth
-export OPENAI_MODEL=gpt-4.1-nano  # default: gpt-5-nano
-export REASONING_EFFORT=high      # low|medium|high (default: medium)
+# optional: choose model, reasoning depth, and custom endpoint
+export OPENAI_MODEL=gpt-4.1-nano           # default: gpt-5-nano
+export REASONING_EFFORT=high               # low|medium|high (default: medium)
+export OPENAI_BASE_URL=http://localhost:8080/v1  # optional custom endpoint
 
 streamlit run app.py
 ```
@@ -97,7 +98,9 @@ export OPENAI_MODEL=gpt-4.1-nano
 export REASONING_EFFORT=low
 ```
 
-The legacy `LLM_MODE` variable is no longer used.
+Set `OPENAI_BASE_URL` to point to a compatible endpoint if you are not using
+the default OpenAI API URL.
+
 
 ### Optional: OCR for scanned PDFs
 
@@ -158,6 +161,6 @@ existing drafts remain intact.
 
 The project was refactored from the deprecated Chat Completions endpoint to
 `responses.create`. This brings JSON schema validation and explicit
-function/tool calling. Legacy model flags and the `LLM_MODE` environment
-variable were removed, and older model options are no longer supported.
+function/tool calling. Legacy model flags were removed, and older model options
+are no longer supported.
 Prompt behaviours may differ slightly due to the new reasoning models.

@@ -229,9 +229,27 @@ def _rag_suggestions(
     vector_store_id: Optional[str] = None,
     max_items_per_field: int = 6,
 ) -> Dict[str, List[str]]:
-    """Ask OpenAI Chat + File Search for field-specific suggestions."""
+    """Ask OpenAI Chat + File Search for field-specific suggestions.
 
-    vector_store_id = vector_store_id or RAG_VECTOR_STORE_ID
+    Args:
+        job_title: Role title for context.
+        industry: Industry for additional context.
+        missing_fields: Fields to generate suggestions for.
+        lang: Language code (``"en"`` or ``"de"``).
+        model: Optional model override.
+        vector_store_id: Optional vector store ID for retrieval. Falls back to
+            ``st.session_state['vector_store_id']`` or the configured default.
+        max_items_per_field: Maximum number of suggestions per field.
+
+    Returns:
+        Mapping of field name to suggestion list.
+    """
+
+    vector_store_id = (
+        vector_store_id
+        or st.session_state.get("vector_store_id")
+        or RAG_VECTOR_STORE_ID
+    )
     if not vector_store_id:
         return {}
     model = model or st.session_state.get("model", OPENAI_MODEL)
@@ -326,6 +344,7 @@ def ask_followups(
         model: Optional OpenAI model identifier. Uses the globally selected
             model when ``None``.
         vector_store_id: Optional vector store ID enabling file search tool usage.
+            Uses ``st.session_state['vector_store_id']`` when not provided.
 
     Returns:
         Parsed JSON dictionary with follow-up questions. Returns an empty dict if
@@ -334,6 +353,11 @@ def ask_followups(
 
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
+    vector_store_id = (
+        vector_store_id
+        or st.session_state.get("vector_store_id")
+        or RAG_VECTOR_STORE_ID
+    )
     tools: list[Any] = []
     tool_choice: Optional[str] = None
     if vector_store_id:
@@ -465,7 +489,11 @@ def generate_followup_questions(
     if use_rag and OPENAI_API_KEY:
         try:
             suggestions_map = _rag_suggestions(
-                job_title, industry, missing_fields, lang=lang
+                job_title,
+                industry,
+                missing_fields,
+                lang=lang,
+                vector_store_id=st.session_state.get("vector_store_id"),
             )
         except Exception:
             suggestions_map = {}

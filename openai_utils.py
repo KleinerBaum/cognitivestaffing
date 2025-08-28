@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
@@ -17,7 +16,7 @@ import backoff
 from openai import OpenAI
 import streamlit as st
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, REASONING_EFFORT
+from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, REASONING_EFFORT
 from constants.keys import StateKeys
 
 
@@ -39,7 +38,7 @@ class ChatCallResult:
 logger = logging.getLogger("vacalyser.openai")
 
 # Global client instance (monkeypatchable in tests)
-client: OpenAI | None = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+client: OpenAI | None = None
 
 
 def get_client() -> OpenAI:
@@ -50,7 +49,7 @@ def get_client() -> OpenAI:
         key = OPENAI_API_KEY
         if not key:
             raise RuntimeError("OPENAI_API_KEY not configured")
-        base = os.getenv("OPENAI_BASE_URL") or None
+        base = OPENAI_BASE_URL or None
         client = OpenAI(api_key=key, base_url=base)
     return client
 

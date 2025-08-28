@@ -31,12 +31,14 @@ REASONING_EFFORT = os.getenv("REASONING_EFFORT", "medium")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
     openai_secrets = st.secrets["openai"]
     OPENAI_API_KEY = openai_secrets.get("OPENAI_API_KEY", OPENAI_API_KEY)
     OPENAI_MODEL = openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)
+    OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
     VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
 except Exception:
     openai_secrets = None
@@ -51,6 +53,8 @@ if OPENAI_API_KEY:
         import openai
 
         openai.api_key = OPENAI_API_KEY
+        if OPENAI_BASE_URL:
+            openai.base_url = OPENAI_BASE_URL
     except ImportError:
         pass
 else:

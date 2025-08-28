@@ -17,7 +17,7 @@ from models.need_analysis import NeedAnalysisProfile
 from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
-from config import OPENAI_API_KEY, OPENAI_MODEL, REASONING_EFFORT
+from config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, REASONING_EFFORT
 
 logger = logging.getLogger("vacalyser.llm")
 
@@ -95,8 +95,7 @@ NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
-MODEL = OPENAI_MODEL
-OPENAI_CLIENT = OpenAI(api_key=OPENAI_API_KEY)
+OPENAI_CLIENT = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL or None)
 
 
 def _minimal_messages(text: str) -> list[dict[str, str]]:
@@ -131,9 +130,10 @@ def extract_json(
         _minimal_messages(text) if minimal else build_extract_messages(text, title, url)
     )
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+    model = st.session_state.get("model", OPENAI_MODEL)
     try:
         response = OPENAI_CLIENT.responses.create(
-            model=MODEL,
+            model=model,
             input=messages,
             temperature=0,
             reasoning={"effort": effort},
@@ -149,7 +149,7 @@ def extract_json(
         )
         try:
             response = OPENAI_CLIENT.responses.create(
-                model=MODEL,
+                model=model,
                 input=messages,
                 temperature=0,
                 reasoning={"effort": effort},
