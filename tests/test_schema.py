@@ -44,6 +44,26 @@ def test_coerce_and_fill_basic() -> None:
     assert jd.company.name == "Acme"
 
 
+def test_coerce_and_fill_employment_details() -> None:
+    data = {
+        "employment": {
+            "contract_type": "fixed_term",
+            "contract_end": "2025-12-31",
+            "work_schedule": "flexitime",
+            "remote_percentage": 50,
+            "travel_required": True,
+            "travel_details": "20% international",
+            "relocation_support": True,
+            "relocation_details": "Budget provided",
+        }
+    }
+    jd = coerce_and_fill(data)
+    assert jd.employment.contract_end == "2025-12-31"
+    assert jd.employment.remote_percentage == 50
+    assert jd.employment.travel_details == "20% international"
+    assert jd.employment.relocation_details == "Budget provided"
+
+
 def test_default_insertion() -> None:
     jd = coerce_and_fill({})
     assert jd.position.job_title is None

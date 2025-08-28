@@ -810,7 +810,6 @@ def generate_job_ad(
     yes_no = ("Ja", "Nein") if lang.startswith("de") else ("Yes", "No")
     boolean_fields = {
         "employment.travel_required",
-        "employment.relocation_support",
         "employment.visa_sponsorship",
     }
 
@@ -833,8 +832,24 @@ def generate_job_ad(
                 )
         elif key == "employment.work_policy":
             detail = str(data.get("employment.work_policy_details", "")).strip()
+            if not detail:
+                perc = data.get("employment.remote_percentage")
+                if perc:
+                    detail = (
+                        f"{perc}% remote"
+                        if not lang.startswith("de")
+                        else f"{perc}% Home-Office"
+                    )
             if detail:
                 formatted = f"{formatted} ({detail})"
+        elif key == "employment.relocation_support":
+            detail = str(data.get("employment.relocation_details", "")).strip()
+            if detail:
+                formatted = detail
+            else:
+                formatted = (
+                    yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
+                )
         elif key in boolean_fields:
             formatted = (
                 yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]

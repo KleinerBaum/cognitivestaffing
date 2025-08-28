@@ -88,9 +88,14 @@ class Employment(BaseModel):
     job_type: Optional[str] = None
     work_policy: Optional[str] = None
     contract_type: Optional[str] = None
+    work_schedule: Optional[str] = None
+    remote_percentage: Optional[int] = None
+    contract_end: Optional[str] = None
     travel_required: Optional[bool] = None
+    travel_details: Optional[str] = None
     overtime_expected: Optional[bool] = None
     relocation_support: Optional[bool] = None
+    relocation_details: Optional[str] = None
     visa_sponsorship: Optional[bool] = None
     security_clearance_required: Optional[bool] = None
     shift_work: Optional[bool] = None

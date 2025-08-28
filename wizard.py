@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+from datetime import date
 from pathlib import Path
 from typing import List
 
@@ -925,6 +926,47 @@ def _step_employment():
         ),
     )
 
+    schedule_options = {
+        "standard": tr("Standard", "Standard"),
+        "flexitime": tr("Gleitzeit", "Flexitime"),
+        "shift": tr("Schichtarbeit", "Shift work"),
+        "weekend": tr("Wochenendarbeit", "Weekend work"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    current_schedule = data["employment"].get("work_schedule")
+    data["employment"]["work_schedule"] = st.selectbox(
+        tr("Arbeitszeitmodell", "Work schedule"),
+        options=list(schedule_options.keys()),
+        format_func=lambda x: schedule_options[x],
+        index=(
+            list(schedule_options.keys()).index(current_schedule)
+            if current_schedule in schedule_options
+            else 0
+        ),
+    )
+
+    if data["employment"].get("work_policy") in ["hybrid", "remote"]:
+        data["employment"]["remote_percentage"] = st.number_input(
+            tr("Remote-Anteil (%)", "Remote share (%)"),
+            min_value=0,
+            max_value=100,
+            value=int(data["employment"].get("remote_percentage") or 0),
+        )
+    else:
+        data["employment"].pop("remote_percentage", None)
+
+    if data["employment"].get("contract_type") == "fixed_term":
+        contract_end_str = data["employment"].get("contract_end")
+        default_end = (
+            date.fromisoformat(contract_end_str) if contract_end_str else date.today()
+        )
+        data["employment"]["contract_end"] = st.date_input(
+            tr("Vertragsende", "Contract end"),
+            value=default_end,
+        ).isoformat()
+    else:
+        data["employment"].pop("contract_end", None)
+
     c4, c5, c6 = st.columns(3)
     data["employment"]["travel_required"] = c4.toggle(
         tr("Reisetätigkeit?", "Travel required?"),
@@ -938,6 +980,22 @@ def _step_employment():
         tr("Visum-Sponsoring?", "Visa sponsorship?"),
         value=bool(data["employment"].get("visa_sponsorship")),
     )
+
+    if data["employment"].get("travel_required"):
+        data["employment"]["travel_details"] = st.text_input(
+            tr("Reisedetails", "Travel details"),
+            value=data["employment"].get("travel_details", ""),
+        )
+    else:
+        data["employment"].pop("travel_details", None)
+
+    if data["employment"].get("relocation_support"):
+        data["employment"]["relocation_details"] = st.text_input(
+            tr("Umzugsunterstützung", "Relocation details"),
+            value=data["employment"].get("relocation_details", ""),
+        )
+    else:
+        data["employment"].pop("relocation_details", None)
 
     # Inline follow-up questions for Employment section
     if StateKeys.FOLLOWUPS in st.session_state:
@@ -1301,28 +1359,117 @@ def _summary_employment() -> None:
         ),
         key="ui.summary.employment.work_policy",
     )
-    c3, c4, c5 = st.columns(3)
-    travel = c3.toggle(
+
+    c3, c4 = st.columns(2)
+    contract_options = {
+        "permanent": tr("Unbefristet", "Permanent"),
+        "fixed_term": tr("Befristet", "Fixed term"),
+        "contract": tr("Werkvertrag", "Contract"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    contract_type = c3.selectbox(
+        tr("Vertragsart", "Contract type"),
+        options=list(contract_options.keys()),
+        format_func=lambda x: contract_options[x],
+        index=(
+            list(contract_options.keys()).index(data["employment"].get("contract_type"))
+            if data["employment"].get("contract_type") in contract_options
+            else 0
+        ),
+        key="ui.summary.employment.contract_type",
+    )
+    schedule_options = {
+        "standard": tr("Standard", "Standard"),
+        "flexitime": tr("Gleitzeit", "Flexitime"),
+        "shift": tr("Schichtarbeit", "Shift work"),
+        "weekend": tr("Wochenendarbeit", "Weekend work"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    work_schedule = c4.selectbox(
+        tr("Arbeitszeitmodell", "Work schedule"),
+        options=list(schedule_options.keys()),
+        format_func=lambda x: schedule_options[x],
+        index=(
+            list(schedule_options.keys()).index(data["employment"].get("work_schedule"))
+            if data["employment"].get("work_schedule") in schedule_options
+            else 0
+        ),
+        key="ui.summary.employment.work_schedule",
+    )
+
+    if work_policy in ["hybrid", "remote"]:
+        remote_percentage = st.number_input(
+            tr("Remote-Anteil (%)", "Remote share (%)"),
+            min_value=0,
+            max_value=100,
+            value=int(data["employment"].get("remote_percentage") or 0),
+            key="ui.summary.employment.remote_percentage",
+        )
+    else:
+        remote_percentage = None
+
+    if contract_type == "fixed_term":
+        contract_end_str = data["employment"].get("contract_end")
+        default_end = (
+            date.fromisoformat(contract_end_str) if contract_end_str else date.today()
+        )
+        contract_end = st.date_input(
+            tr("Vertragsende", "Contract end"),
+            value=default_end,
+            key="ui.summary.employment.contract_end",
+        )
+    else:
+        contract_end = None
+
+    c5, c6, c7 = st.columns(3)
+    travel = c5.toggle(
         tr("Reisetätigkeit?", "Travel required?"),
         value=bool(data["employment"].get("travel_required")),
         key="ui.summary.employment.travel_required",
     )
-    relocation = c4.toggle(
+    relocation = c6.toggle(
         tr("Relocation?", "Relocation?"),
         value=bool(data["employment"].get("relocation_support")),
         key="ui.summary.employment.relocation_support",
     )
-    visa = c5.toggle(
+    visa = c7.toggle(
         tr("Visum-Sponsoring?", "Visa sponsorship?"),
         value=bool(data["employment"].get("visa_sponsorship")),
         key="ui.summary.employment.visa_sponsorship",
     )
 
+    if travel:
+        travel_details = st.text_input(
+            tr("Reisedetails", "Travel details"),
+            value=data["employment"].get("travel_details", ""),
+            key="ui.summary.employment.travel_details",
+        )
+    else:
+        travel_details = None
+
+    if relocation:
+        relocation_details = st.text_input(
+            tr("Umzugsunterstützung", "Relocation details"),
+            value=data["employment"].get("relocation_details", ""),
+            key="ui.summary.employment.relocation_details",
+        )
+    else:
+        relocation_details = None
+
     _update_profile("employment.job_type", job_type)
     _update_profile("employment.work_policy", work_policy)
+    _update_profile("employment.contract_type", contract_type)
+    _update_profile("employment.work_schedule", work_schedule)
+    _update_profile("employment.remote_percentage", remote_percentage)
+    _update_profile(
+        "employment.contract_end",
+        contract_end.isoformat() if contract_end else None,
+    )
     _update_profile("employment.travel_required", travel)
     _update_profile("employment.relocation_support", relocation)
     _update_profile("employment.visa_sponsorship", visa)
+    _update_profile("employment.travel_details", travel_details)
+    _update_profile("employment.relocation_details", relocation_details)
 
 
 def _summary_compensation() -> None:
