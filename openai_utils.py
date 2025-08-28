@@ -1,7 +1,7 @@
 """Helpers for interacting with the OpenAI API.
 
 This module centralizes client configuration and common operations such as
-``call_chat_api`` for chat completions, ``extract_company_info`` for website
+``call_chat_api`` for Responses API calls, ``extract_company_info`` for website
 analysis, and utilities for structured extraction and suggestion tasks.
 """
 
@@ -64,28 +64,22 @@ def call_chat_api(
     model: str | None = None,
     temperature: float = 0.2,
     max_tokens: int | None = None,
-    json_strict: bool = False,
+    json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
     tool_choice: Optional[Any] = None,
-    functions: Optional[list] = None,
-    function_call: Optional[Any] = None,
-    seed: Optional[int] = None,
     reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
 ) -> ChatCallResult:
-    """Call the OpenAI chat completion API and return a :class:`ChatCallResult`.
+    """Call the OpenAI Responses API and return a :class:`ChatCallResult`.
 
     Args:
         messages: Conversation messages.
         model: Optional model override.
         temperature: Sampling temperature.
         max_tokens: Response token limit.
-        json_strict: Enforce JSON output.
+        json_schema: Optional JSON schema enforcing structured output.
         tools: Tool definitions for tool calling.
         tool_choice: Requested tool to call.
-        functions: Function definitions.
-        function_call: Forced function call.
-        seed: Optional deterministic seed.
         reasoning_effort: Reasoning level to pass to the API.
         extra: Additional payload fields.
 
@@ -99,50 +93,42 @@ def call_chat_api(
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
     payload: Dict[str, Any] = {
         "model": model,
-        "messages": messages,
+        "input": messages,
         "temperature": temperature,
     }
     payload["reasoning"] = {"effort": reasoning_effort}
     if max_tokens is not None:
-        payload["max_tokens"] = max_tokens
-    if json_strict:
-        payload["response_format"] = {"type": "json_object"}
+        payload["max_output_tokens"] = max_tokens
+    if json_schema is not None:
+        payload["text"] = {
+            "format": {"type": "json_schema", **json_schema}
+        }
     if tools is not None:
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
-    if functions is not None:
-        payload["functions"] = functions
-        if function_call is not None:
-            payload["function_call"] = function_call
-    if seed is not None:
-        payload["seed"] = seed
     if extra:
         payload.update(extra)
 
-    response = get_client().chat.completions.create(**payload)
-    msg = response.choices[0].message
+    response = get_client().responses.create(**payload)
 
-    content = getattr(msg, "content", None)
+    content = getattr(response, "output_text", None)
 
     tool_calls: list[dict] = []
-    for call in getattr(msg, "tool_calls", []) or []:
-        if isinstance(call, dict):
-            tool_calls.append(call)
-        else:
-            dump = getattr(call, "model_dump", None)
-            if callable(dump):
-                tool_calls.append(dump())
+    fc: Optional[dict] = None
+    for item in getattr(response, "output", []) or []:
+        typ = getattr(item, "type", None)
+        if not typ:
+            typ = item.get("type") if isinstance(item, dict) else None
+        if typ and "call" in str(typ):
+            if isinstance(item, dict):
+                data = item
             else:
-                tool_calls.append(getattr(call, "__dict__", {}))
-
-    fc = getattr(msg, "function_call", None)
-    if fc is not None and not isinstance(fc, dict):
-        dump = getattr(fc, "model_dump", None)
-        if callable(dump):
-            fc = dump()
-        else:
-            fc = getattr(fc, "__dict__", {})
+                dump = getattr(item, "model_dump", None)
+                data = dump() if callable(dump) else getattr(item, "__dict__", {})
+            tool_calls.append(data)
+            if typ == "function_call":
+                fc = data
 
     usage_obj = getattr(response, "usage", {}) or {}
     usage: dict
@@ -155,10 +141,10 @@ def call_chat_api(
 
     if StateKeys.USAGE in st.session_state:
         st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get(
-            "prompt_tokens", 0
+            "input_tokens", 0
         )
         st.session_state[StateKeys.USAGE]["output_tokens"] += usage.get(
-            "completion_tokens", 0
+            "output_tokens", 0
         )
 
     return ChatCallResult(content, tool_calls, fc, usage)
@@ -217,7 +203,19 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
             model=model,
             temperature=0.1,
             max_tokens=500,
-            json_strict=True,
+            json_schema={
+                "name": "company_info",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "location": {"type": "string"},
+                        "mission": {"type": "string"},
+                        "culture": {"type": "string"},
+                    },
+                    "additionalProperties": False,
+                },
+            },
         )
         data = json.loads(_chat_content(res))
     except Exception:
@@ -253,25 +251,27 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     return result
 
 
-def build_extraction_function(
+def build_extraction_tool(
     name: str, schema: dict, *, allow_extra: bool = False
 ) -> list[dict]:
-    """Return an OpenAI function spec for structured extraction.
+    """Return an OpenAI tool spec for structured extraction.
 
     Args:
-        name: Name of the function for the model.
+        name: Name of the tool for the model.
         schema: JSON schema dict that defines the expected output.
         allow_extra: Whether additional properties are allowed in the output.
 
     Returns:
-        A list containing a single function specification dictionary.
+        A list containing a single tool specification dictionary.
     """
     params = {**schema, "additionalProperties": bool(allow_extra)}
     return [
         {
+            "type": "function",
             "name": name,
             "description": "Return structured vacancy data that fits the schema exactly.",
             "parameters": params,
+            "strict": not allow_extra,
         }
     ]
 
@@ -312,8 +312,8 @@ def extract_with_function(
         messages,
         model=model,
         temperature=0.0,
-        functions=build_extraction_function(fn_name, schema, allow_extra=False),
-        function_call={"name": fn_name},
+        tools=build_extraction_tool(fn_name, schema, allow_extra=False),
+        tool_choice={"type": "function", "name": fn_name},
     )
     fc = getattr(res, "function_call", None)
     arguments: str | None = None
@@ -327,7 +327,7 @@ def extract_with_function(
             messages,
             model=model,
             temperature=0.0,
-            json_strict=True,
+            json_schema={"name": fn_name, "schema": schema},
             max_tokens=1000,
         )
         arguments = _chat_content(res2)
@@ -497,7 +497,32 @@ def suggest_skills_for_role(
     res = call_chat_api(
         messages,
         model=model,
-        json_strict=True,
+        json_schema={
+            "name": "skill_suggestions",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "tools_and_technologies": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "hard_skills": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "soft_skills": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "tools_and_technologies",
+                    "hard_skills",
+                    "soft_skills",
+                ],
+                "additionalProperties": False,
+            },
+        },
         max_tokens=400,
     )
     raw = _chat_content(res)

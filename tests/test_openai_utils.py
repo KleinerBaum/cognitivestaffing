@@ -1,7 +1,7 @@
 import pytest
 
 import openai_utils
-from openai_utils import call_chat_api, extract_with_function
+from openai_utils import ChatCallResult, call_chat_api, extract_with_function
 
 
 def test_call_chat_api_raises_when_no_api_key(monkeypatch):
@@ -16,41 +16,45 @@ def test_call_chat_api_raises_when_no_api_key(monkeypatch):
 def test_call_chat_api_function_call(monkeypatch):
     """Function call arguments should be accessible on the returned message."""
 
-    class _FakeFunctionCall:
-        def __init__(self, arguments: str | None = None) -> None:
-            self.arguments = arguments
-
-    class _FakeMessage:
-        def __init__(self) -> None:
-            self.content = None
-            self.function_call = _FakeFunctionCall('{"job_title": "x"}')
-
     class _FakeResponse:
         def __init__(self) -> None:
-            self.choices = [type("Choice", (), {"message": _FakeMessage()})()]
+            self.output: list[dict[str, str]] = [
+                {
+                    "type": "function_call",
+                    "name": "fn",
+                    "arguments": '{"job_title": "x"}',
+                }
+            ]
+            self.output_text = ""
+            self.usage: dict[str, int] = {}
 
-    class _FakeCompletions:
+    class _FakeResponses:
         @staticmethod
         def create(**kwargs):
             return _FakeResponse()
 
     class _FakeClient:
-        chat = type("Chat", (), {"completions": _FakeCompletions()})()
+        responses = _FakeResponses()
 
     monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
-    out = call_chat_api([], functions=[{}], function_call={"name": "fn"})
+    out = call_chat_api(
+        [],
+        tools=[{"type": "function", "name": "fn", "parameters": {}}],
+        tool_choice={"type": "function", "name": "fn"},
+    )
     assert out.function_call and out.function_call["arguments"] == '{"job_title": "x"}'
 
 
 def test_extract_with_function(monkeypatch):
     """extract_with_function should parse JSON from a function call."""
 
-    class _FakeMessage:
-        def __init__(self) -> None:
-            self.content = None
-            self.function_call = {"arguments": '{"job_title": "Dev"}'}
-
-    monkeypatch.setattr(openai_utils, "call_chat_api", lambda *a, **k: _FakeMessage())
+    monkeypatch.setattr(
+        openai_utils,
+        "call_chat_api",
+        lambda *a, **k: ChatCallResult(
+            None, [], {"arguments": '{"job_title": "Dev"}'}, {}
+        ),
+    )
     from core import schema as cs
 
     class _FakeJD:

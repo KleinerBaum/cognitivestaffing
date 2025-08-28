@@ -1,30 +1,21 @@
 import json
-from llm.client import extract_and_parse, OPENAI_CLIENT
+from llm.client import OPENAI_CLIENT, extract_and_parse
 
 
-class _Msg:
-    def __init__(self, content: str) -> None:
-        self.content = content
-        self.function_call = None
-
-
-class _Choice:
-    def __init__(self, msg: _Msg) -> None:
-        self.message = msg
-
-
-class _Resp:
-    def __init__(self, msg: _Msg) -> None:
-        self.choices = [_Choice(msg)]
+class _FakeResponse:
+    def __init__(self, text: str) -> None:
+        self.output_text = text
+        self.output: list[dict[str, str]] = []
+        self.usage: dict[str, int] = {}
 
 
 def fake_create(**kwargs):
     payload = {"company": {"name": "Acme"}, "position": {"job_title": "Dev"}}
-    return _Resp(_Msg(json.dumps(payload)))
+    return _FakeResponse(json.dumps(payload))
 
 
 def test_extract_and_parse(monkeypatch) -> None:
-    monkeypatch.setattr(OPENAI_CLIENT.chat.completions, "create", fake_create)
+    monkeypatch.setattr(OPENAI_CLIENT.responses, "create", fake_create)
     out = extract_and_parse("text")
     assert out.company.name == "Acme"
     assert out.position.job_title == "Dev"

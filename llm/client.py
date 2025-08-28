@@ -101,13 +101,15 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 
-def build_extraction_function() -> dict[str, Any]:
-    """Return an OpenAI function schema for the vacancy profile."""
+def build_extraction_tool() -> dict[str, Any]:
+    """Return an OpenAI tool schema for the vacancy profile."""
 
     return {
+        "type": "function",
         "name": "return_extraction",
         "description": "Return extracted fields",
         "parameters": NEED_ANALYSIS_SCHEMA,
+        "strict": True,
     }
 
 
@@ -148,12 +150,10 @@ def extract_json(
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
     common: dict[str, Any] = {
         "model": MODEL,
-        "messages": messages,
+        "input": messages,
         "temperature": 0,
         "reasoning": {"effort": effort},
     }
-    # Some SDKs support deterministic seeds
-    common["seed"] = 42
 
     modes: list[str]
     if MODE == "plain":
@@ -165,22 +165,31 @@ def extract_json(
     for mode in modes:
         try:
             if mode == "json":
-                response = OPENAI_CLIENT.chat.completions.create(
-                    **common, response_format={"type": "json_object"}
-                )
-                return response.choices[0].message.content.strip()
-            if mode == "function":
-                response = OPENAI_CLIENT.chat.completions.create(  # type: ignore[call-overload]
+                response = OPENAI_CLIENT.responses.create(
                     **common,
-                    functions=[build_extraction_function()],
-                    function_call={"name": "return_extraction"},
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "vacancy_profile",
+                            "schema": NEED_ANALYSIS_SCHEMA,
+                        }
+                    },
                 )
-                call = response.choices[0].message.function_call
-                if call and getattr(call, "arguments", None):
-                    return call.arguments
+                return response.output_text.strip()
+            if mode == "function":
+                response = OPENAI_CLIENT.responses.create(  # type: ignore[call-overload]
+                    **common,
+                    tools=[build_extraction_tool()],
+                    tool_choice={"type": "function", "name": "return_extraction"},
+                )
+                for item in getattr(response, "output", []) or []:
+                    if getattr(item, "type", None) == "function_call" and getattr(
+                        item, "arguments", None
+                    ):
+                        return item.arguments
                 continue
-            response = OPENAI_CLIENT.chat.completions.create(**common)
-            return response.choices[0].message.content.strip()
+            response = OPENAI_CLIENT.responses.create(**common)
+            return response.output_text.strip()
         except Exception as exc:  # pragma: no cover - network/SDK issues
             last_exc = exc
             continue
