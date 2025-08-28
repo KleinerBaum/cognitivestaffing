@@ -249,6 +249,22 @@ def _skip_source() -> None:
     st.rerun()
 
 
+FIELD_LABELS: dict[str, tuple[str, str]] = {
+    "company.name": ("Firmenname", "Company Name"),
+    "position.job_title": ("Jobtitel", "Job Title"),
+    "position.role_summary": ("Rollenbeschreibung", "Role Summary"),
+    "location.country": ("Land", "Country"),
+    "requirements.hard_skills_required": (
+        "Pflicht-Hard-Skills",
+        "Required Hard Skills",
+    ),
+    "requirements.soft_skills_required": (
+        "Pflicht-Soft-Skills",
+        "Required Soft Skills",
+    ),
+}
+
+
 def _field_label(path: str) -> str:
     """Return localized label for a schema field path.
 
@@ -259,20 +275,9 @@ def _field_label(path: str) -> str:
         Localized label if known, otherwise a humanized version of ``path``.
     """
 
-    labels = {
-        "company.name": tr("Firmenname", "Company name"),
-        "position.job_title": tr("Jobtitel", "Job title"),
-        "position.role_summary": tr("Rollenbeschreibung", "Role summary"),
-        "location.country": tr("Land", "Country"),
-        "requirements.hard_skills_required": tr(
-            "Pflicht-Hard-Skills", "Required hard skills"
-        ),
-        "requirements.soft_skills_required": tr(
-            "Pflicht-Soft-Skills", "Required soft skills"
-        ),
-    }
-    if path in labels:
-        return labels[path]
+    if path in FIELD_LABELS:
+        de, en = FIELD_LABELS[path]
+        return tr(de, en)
     auto = path.replace(".", " ").replace("_", " ")
     return tr(auto.title(), auto.title())
 
