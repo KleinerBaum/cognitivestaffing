@@ -17,7 +17,7 @@ import backoff
 from openai import OpenAI
 import streamlit as st
 
-from config import OPENAI_API_KEY
+from config import OPENAI_API_KEY, OPENAI_MODEL
 from constants.keys import StateKeys
 
 
@@ -61,7 +61,7 @@ def get_client() -> OpenAI:
 def call_chat_api(
     messages: Sequence[dict],
     *,
-    model: str | None = "gpt-4o-mini",
+    model: str | None = None,
     temperature: float = 0.2,
     max_tokens: int | None = None,
     json_strict: bool = False,
@@ -74,8 +74,10 @@ def call_chat_api(
 ) -> ChatCallResult:
     """Call the OpenAI chat completion API and return a :class:`ChatCallResult`."""
 
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     payload: Dict[str, Any] = {
-        "model": model or "gpt-4o-mini",
+        "model": model,
         "messages": messages,
         "temperature": temperature,
     }
@@ -176,6 +178,8 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     text = text.strip()
     if not text:
         return {}
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
 
     prompt = (
         "Analyze the following company website text and extract: the official "
@@ -251,7 +255,7 @@ def build_extraction_function(
 
 
 def extract_with_function(
-    job_text: str, schema: dict, *, model: str = "gpt-4o-mini"
+    job_text: str, schema: dict, *, model: str | None = None
 ) -> Mapping[str, Any]:
     """Extract vacancy data from ``job_text`` using strict function calling.
 
@@ -262,7 +266,8 @@ def extract_with_function(
     Args:
         job_text: Source job description text.
         schema: JSON schema describing the expected structure.
-        model: OpenAI model to use for extraction.
+        model: Optional OpenAI model to use for extraction. Falls back to the
+            globally selected model in ``st.session_state``.
 
     Returns:
         Mapping[str, Any]: A dictionary conforming to ``schema``.
@@ -271,6 +276,8 @@ def extract_with_function(
         RuntimeError: If no structured data can be obtained from the LLM.
         ValueError: If the returned JSON cannot be parsed even after fixes.
     """
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     fn_name = "vacalyser_extract"
     messages: Sequence[dict] = [
         {
@@ -355,6 +362,8 @@ def suggest_additional_skills(
     job_title = job_title.strip()
     if not job_title:
         return {"technical": [], "soft": []}
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     half = num_suggestions // 2
     prompt = (
         f"Suggest {half} technical and {half} soft skills for a {job_title} role. "
@@ -446,6 +455,8 @@ def suggest_skills_for_role(
             "hard_skills": [],
             "soft_skills": [],
         }
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
 
     if lang.startswith("de"):
         prompt = (
@@ -536,6 +547,8 @@ def suggest_benefits(
     job_title = job_title.strip()
     if not job_title:
         return []
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     if lang.startswith("de"):
         prompt = (
             f"Nenne 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} "
@@ -584,6 +597,8 @@ def suggest_role_tasks(
     job_title = job_title.strip()
     if not job_title:
         return []
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 180 if not model or "nano" in model else 250
@@ -639,6 +654,8 @@ def generate_interview_guide(
     total_questions = (
         num_questions + len(hard_list) + len(soft_list) + (1 if company_culture else 0)
     )
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     job_title = job_title.strip() or "this position"
     if lang.startswith("de"):
         tone = tone or "professionell und hilfreich"
@@ -723,6 +740,8 @@ def generate_job_ad(
                 deduped.append(perk)
         data["compensation.benefits"] = deduped
     lang = data.get("lang", "en")
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     if tone is None:
         tone = (
             "klar, ansprechend und inklusiv"
@@ -921,6 +940,8 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
     Returns:
         The revised document text.
     """
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     prompt = (
         "Revise the following document based on the user instructions.\n"
         f"Document:\n{original}\n\n"
@@ -949,6 +970,8 @@ def what_happened(
     Returns:
         Explanation text summarizing the generation process.
     """
+    if model is None:
+        model = st.session_state.get("model", OPENAI_MODEL)
     keys_used = [k for k, v in session_data.items() if v]
     prompt = (
         f"Explain how the following {doc_type} was generated using the keys: {', '.join(keys_used)}.\n"

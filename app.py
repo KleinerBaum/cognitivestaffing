@@ -7,6 +7,7 @@ from base64 import b64encode
 import streamlit as st
 
 from components.salary_dashboard import render_salary_dashboard
+from components.model_selector import model_selector
 from config_loader import load_json
 from utils.i18n import tr
 from state.ensure_state import ensure_state
@@ -81,7 +82,7 @@ with st.sidebar:
     st.session_state.auto_reask = st.toggle(
         "Auto Follow-ups", value=st.session_state.auto_reask
     )
-    st.session_state.model = st.text_input("OpenAI Model", value=st.session_state.model)
+    model_selector()
     st.session_state.vector_store_id = st.text_input(
         "Vector Store ID (optional)", value=st.session_state.vector_store_id
     )

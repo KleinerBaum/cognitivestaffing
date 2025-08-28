@@ -5,6 +5,7 @@ class UIKeys:
     JD_FILE_UPLOADER = "ui.jd_file_uploader"
     JD_URL_INPUT = "ui.jd_url_input"
     LANG_SELECT = "ui.lang_select"
+    MODEL_SELECT = "ui.model_select"
 
 
 class StateKeys:

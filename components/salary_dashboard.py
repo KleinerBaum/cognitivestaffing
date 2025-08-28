@@ -3,6 +3,7 @@
 from typing import Any, Sequence, Tuple
 
 import streamlit as st
+from config import OPENAI_MODEL
 
 
 # ``openai_utils`` is an optional dependency. Import lazily so that the
@@ -12,6 +13,8 @@ def _call_chat_api(messages: list[dict], **kwargs: Any) -> str:
     """Lazy import wrapper around ``openai_utils.call_chat_api``."""
     from openai_utils import call_chat_api
 
+    if "model" not in kwargs:
+        kwargs["model"] = st.session_state.get("model", OPENAI_MODEL)
     res = call_chat_api(messages, **kwargs)
     return (res.content or "") if hasattr(res, "content") else str(res)
 
