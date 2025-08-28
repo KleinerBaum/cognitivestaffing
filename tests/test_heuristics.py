@@ -56,3 +56,36 @@ def test_compensation_fallbacks() -> None:
     assert profile.compensation.bonus_percentage == 10.0
     assert profile.compensation.commission_structure
     assert profile.compensation.commission_structure.lower().startswith("bonus")
+
+
+def test_responsibility_fallbacks() -> None:
+    text = (
+        "Dein Spielfeld:\n"
+        "- Features entwickeln\n"
+        "- Team unterstützen\n\n"
+        "Was du mitbringst:\n"
+        "- Python Erfahrung\n"
+    )
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.responsibilities.items == [
+        "Features entwickeln",
+        "Team unterstützen",
+    ]
+    assert profile.position.role_summary == "Features entwickeln"
+
+
+def test_responsibility_heading_variants() -> None:
+    text = (
+        "Was dich erwartet:\n"
+        "• Kunden beraten\n"
+        "• Angebote erstellen\n"
+        "Dein Profil:\n"
+        "• Kommunikationsstärke\n"
+    )
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.responsibilities.items == [
+        "Kunden beraten",
+        "Angebote erstellen",
+    ]
