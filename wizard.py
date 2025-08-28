@@ -622,6 +622,133 @@ def _step_company():
                     st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
+def _render_stakeholders(process: dict, key_prefix: str) -> None:
+    """Render stakeholder inputs and update ``process`` in place."""
+
+    stakeholders = process.setdefault(
+        "stakeholders",
+        [
+            {
+                "name": "",
+                "role": "",
+                "email": "",
+                "primary": True,
+            }
+        ],
+    )
+    if st.button(
+        tr("+ weiteren Stakeholder hinzufügen", "+ add stakeholder"),
+        key=f"{key_prefix}.add",
+    ):
+        stakeholders.append({"name": "", "role": "", "email": "", "primary": False})
+
+    for idx, person in enumerate(stakeholders):
+        c1, c2, c3 = st.columns([2, 2, 3])
+        person["name"] = c1.text_input(
+            tr("Name", "Name"),
+            value=person.get("name", ""),
+            key=f"{key_prefix}.{idx}.name",
+        )
+        person["role"] = c2.text_input(
+            tr("Funktion/Rolle", "Role"),
+            value=person.get("role", ""),
+            key=f"{key_prefix}.{idx}.role",
+        )
+        person["email"] = c3.text_input(
+            "E-Mail",
+            value=person.get("email", ""),
+            key=f"{key_prefix}.{idx}.email",
+        )
+
+    primary_idx = st.radio(
+        tr("Primärer Kontakt", "Primary contact"),
+        options=list(range(len(stakeholders))),
+        index=next((i for i, p in enumerate(stakeholders) if p.get("primary")), 0),
+        format_func=lambda i: stakeholders[i].get("name") or f"#{i + 1}",
+        key=f"{key_prefix}.primary",
+    )
+    for i, p in enumerate(stakeholders):
+        p["primary"] = i == primary_idx
+
+
+def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> None:
+    """Render phase inputs based on ``interview_stages``."""
+
+    phases = process.setdefault("phases", [])
+    stages = st.number_input(
+        tr("Phasen", "Stages"),
+        value=len(phases),
+        key=f"{key_prefix}.count",
+        min_value=0,
+    )
+    process["interview_stages"] = int(stages)
+
+    while len(phases) < stages:
+        phases.append(
+            {
+                "name": "",
+                "interview_format": "phone",
+                "participants": [],
+                "docs_required": "",
+                "assessment_tests": False,
+                "timeframe": "",
+            }
+        )
+    while len(phases) > stages:
+        phases.pop()
+
+    format_options = [
+        ("phone", tr("Telefon", "Phone")),
+        ("video", tr("Videocall", "Video call")),
+        ("on_site", tr("Vor Ort", "On-site")),
+        ("other", tr("Sonstiges", "Other")),
+    ]
+
+    stakeholder_names = [s.get("name", "") for s in stakeholders if s.get("name")]
+
+    for idx, phase in enumerate(phases):
+        with st.expander(f"{tr('Phase', 'Phase')} {idx + 1}", expanded=True):
+            phase["name"] = st.text_input(
+                tr("Phasen-Name", "Phase name"),
+                value=phase.get("name", ""),
+                key=f"{key_prefix}.{idx}.name",
+            )
+            value_options = [v for v, _ in format_options]
+            format_index = (
+                value_options.index(phase.get("interview_format", "phone"))
+                if phase.get("interview_format") in value_options
+                else 0
+            )
+            phase["interview_format"] = st.selectbox(
+                tr("Interview-Format", "Interview format"),
+                options=value_options,
+                index=format_index,
+                format_func=dict(format_options).__getitem__,
+                key=f"{key_prefix}.{idx}.format",
+            )
+            phase["participants"] = st.multiselect(
+                tr("Beteiligte", "Participants"),
+                stakeholder_names,
+                default=phase.get("participants", []),
+                key=f"{key_prefix}.{idx}.participants",
+            )
+            phase["docs_required"] = st.text_input(
+                tr("Benötigte Unterlagen/Assignments", "Required docs/assignments"),
+                value=phase.get("docs_required", ""),
+                key=f"{key_prefix}.{idx}.docs",
+            )
+            phase["assessment_tests"] = st.checkbox(
+                tr("Assessment/Test", "Assessment/test"),
+                value=phase.get("assessment_tests", False),
+                key=f"{key_prefix}.{idx}.assessment",
+            )
+            phase["timeframe"] = st.text_input(
+                tr("Geplanter Zeitrahmen", "Timeframe"),
+                value=phase.get("timeframe", ""),
+                key=f"{key_prefix}.{idx}.timeframe",
+            )
+
+
 def _step_position():
     """Render the position details step.
 
@@ -1142,11 +1269,7 @@ def _step_compensation():
 
 
 def _step_process():
-    """Render the hiring process step.
-
-    Returns:
-        None
-    """
+    """Render the hiring process step."""
 
     st.subheader(tr("Prozess", "Process"))
     st.caption(
@@ -1155,19 +1278,33 @@ def _step_process():
             "Outline the hiring process steps.",
         )
     )
-    data = st.session_state[StateKeys.PROFILE]
+    data = st.session_state[StateKeys.PROFILE]["process"]
 
-    c1, c2 = st.columns([1, 2])
-    init_val = data["process"].get("interview_stages")
-    data["process"]["interview_stages"] = int(
-        c1.number_input(
-            tr("Phasen", "Stages"),
-            value=int(init_val) if init_val is not None else 0,
+    _render_stakeholders(data, "ui.process.stakeholders")
+    _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
+
+    c1, c2 = st.columns(2)
+    data["recruitment_timeline"] = c1.text_area(
+        tr("Gesamt-Timeline", "Overall timeline"),
+        value=data.get("recruitment_timeline", ""),
+        key="ui.process.recruitment_timeline",
+    )
+    data["process_notes"] = c2.text_area(
+        tr("Notizen", "Notes"),
+        value=data.get("process_notes", ""),
+        key="ui.process.notes",
+    )
+    data["application_instructions"] = st.text_area(
+        tr("Bewerbungsinstruktionen", "Application instructions"),
+        value=data.get("application_instructions", ""),
+        key="ui.process.application_instructions",
+    )
+    with st.expander(tr("Onboarding (nach Einstellung)", "Onboarding (post-hire)")):
+        data["onboarding_process"] = st.text_area(
+            tr("Onboarding-Prozess", "Onboarding process"),
+            value=data.get("onboarding_process", ""),
+            key="ui.process.onboarding_process",
         )
-    )
-    data["process"]["process_notes"] = c2.text_area(
-        tr("Notizen", "Notes"), value=data["process"].get("process_notes", "")
-    )
 
     # Inline follow-up questions for Process section
     if StateKeys.FOLLOWUPS in st.session_state:
@@ -1184,7 +1321,7 @@ def _step_process():
                     st.markdown(f"**{prompt}**")
                 ans = st.text_input("", key=f"fu_{field}")
                 if ans:
-                    set_in(data, field, ans)
+                    set_in(st.session_state[StateKeys.PROFILE], field, ans)
                     st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
@@ -1638,21 +1775,48 @@ def _summary_compensation() -> None:
 def _summary_process() -> None:
     """Editable summary tab for hiring process details."""
 
-    data = st.session_state[StateKeys.PROFILE]
-    c1, c2 = st.columns([1, 2])
-    stages = c1.number_input(
-        tr("Phasen", "Stages"),
-        value=int(data["process"].get("interview_stages") or 0),
-        key="ui.summary.process.interview_stages",
+    process = st.session_state[StateKeys.PROFILE]["process"]
+
+    _render_stakeholders(process, "ui.summary.process.stakeholders")
+    _update_profile("process.stakeholders", process.get("stakeholders", []))
+
+    _render_phases(
+        process,
+        process.get("stakeholders", []),
+        "ui.summary.process.phases",
+    )
+    _update_profile("process.phases", process.get("phases", []))
+    _update_profile(
+        "process.interview_stages", int(process.get("interview_stages") or 0)
+    )
+
+    c1, c2 = st.columns(2)
+    timeline = c1.text_area(
+        tr("Gesamt-Timeline", "Overall timeline"),
+        value=process.get("recruitment_timeline", ""),
+        key="ui.summary.process.recruitment_timeline",
     )
     notes = c2.text_area(
         tr("Notizen", "Notes"),
-        value=data["process"].get("process_notes", ""),
+        value=process.get("process_notes", ""),
         key="ui.summary.process.process_notes",
     )
+    instructions = st.text_area(
+        tr("Bewerbungsinstruktionen", "Application instructions"),
+        value=process.get("application_instructions", ""),
+        key="ui.summary.process.application_instructions",
+    )
+    with st.expander(tr("Onboarding (nach Einstellung)", "Onboarding (post-hire)")):
+        onboarding = st.text_area(
+            tr("Onboarding-Prozess", "Onboarding process"),
+            value=process.get("onboarding_process", ""),
+            key="ui.summary.process.onboarding_process",
+        )
 
-    _update_profile("process.interview_stages", int(stages))
+    _update_profile("process.recruitment_timeline", timeline)
     _update_profile("process.process_notes", notes)
+    _update_profile("process.application_instructions", instructions)
+    _update_profile("process.onboarding_process", onboarding)
 
 
 def _step_summary(schema: dict, critical: list[str]):
