@@ -25,6 +25,7 @@ from openai_utils import (
     extract_with_function,  # nutzt deine neue Definition
     generate_interview_guide,
     generate_job_ad,
+    refine_document,
     suggest_skills_for_role,
     suggest_benefits,
 )
@@ -1288,6 +1289,7 @@ def _step_compensation():
     )
     data["compensation"]["salary_min"] = salary_min
     data["compensation"]["salary_max"] = salary_max
+    data["compensation"]["salary_provided"] = bool(salary_min or salary_max)
 
     c1, c2, c3 = st.columns(3)
     currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
@@ -2042,13 +2044,7 @@ def _step_summary(schema: dict, critical: list[str]):
                 job_ad_md = generate_job_ad(data, tone=st.session_state.get("tone"))
                 st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
                 findings = scan_bias_language(job_ad_md, st.session_state.lang)
-                for f in findings:
-                    st.warning(
-                        tr(
-                            f"⚠️ Begriff '{f['term']}' erkannt. Vorschlag: {f['suggestion']}",
-                            f"⚠️ Term '{f['term']}' detected. Suggestion: {f['suggestion']}",
-                        )
-                    )
+                st.session_state[StateKeys.BIAS_FINDINGS] = findings
             except Exception as e:
                 st.error(
                     tr(
@@ -2060,6 +2056,38 @@ def _step_summary(schema: dict, critical: list[str]):
     if st.session_state.get(StateKeys.JOB_AD_MD):
         st.markdown("**Job Ad Draft:**")
         st.markdown(st.session_state[StateKeys.JOB_AD_MD])
+        findings = st.session_state.get(StateKeys.BIAS_FINDINGS, [])
+        for f in findings:
+            st.warning(
+                tr(
+                    f"⚠️ Begriff '{f['term']}' erkannt. Vorschlag: {f['suggestion']}",
+                    f"⚠️ Term '{f['term']}' detected. Suggestion: {f['suggestion']}",
+                )
+            )
+        feedback = st.text_area(
+            tr("Feedback zur Anzeige", "Ad refinement feedback"),
+            key=UIKeys.JOB_AD_FEEDBACK,
+        )
+        if st.button(
+            tr("🔄 Stellenanzeige verfeinern", "🔄 Refine Job Ad"),
+            key=UIKeys.REFINE_JOB_AD,
+        ):
+            try:
+                refined = refine_document(
+                    st.session_state[StateKeys.JOB_AD_MD], feedback
+                )
+                st.session_state[StateKeys.JOB_AD_MD] = refined
+                findings = scan_bias_language(refined, st.session_state.lang)
+                st.session_state[StateKeys.BIAS_FINDINGS] = findings
+                st.rerun()
+            except Exception as e:
+                st.error(
+                    tr(
+                        "Verfeinerung fehlgeschlagen",
+                        "Refinement failed",
+                    )
+                    + f": {e}"
+                )
 
     with col_b:
         if st.button(tr("🔎 Boolean String", "🔎 Boolean String")):

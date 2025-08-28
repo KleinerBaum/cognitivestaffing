@@ -65,11 +65,15 @@ def build_boolean_query(
 
     skill_terms = [f'"{s.strip()}"' for s in skills if s.strip()]
     title_query = " OR ".join(title_terms)
-    skills_query = " OR ".join(skill_terms)
 
-    if title_query and skills_query:
-        return f"({title_query}) AND ({skills_query})"
-    return title_query or skills_query
+    if title_query and skill_terms:
+        skill_clause = ") AND (".join(skill_terms)
+        return f"({title_query}) AND ({skill_clause})"
+    if title_query:
+        return f"({title_query})"
+    if skill_terms:
+        return " AND ".join(f"({term})" for term in skill_terms)
+    return ""
 
 
 def build_boolean_search(data: Mapping[str, Any] | NeedAnalysisProfile) -> str:
