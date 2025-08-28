@@ -1,16 +1,11 @@
-import importlib.util
-import pathlib
-from utils.json_parse import parse_extraction
-
-spec = importlib.util.spec_from_file_location(
-    "heuristics", pathlib.Path("ingest/heuristics.py")
+from ingest.heuristics import (
+    apply_basic_fallbacks,
+    guess_city,
+    guess_company,
+    guess_job_title,
 )
-heuristics = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(heuristics)
-
-guess_job_title = heuristics.guess_job_title
-guess_company = heuristics.guess_company
-guess_city = heuristics.guess_city
+from models.need_analysis import NeedAnalysisProfile
+from utils.json_parse import parse_extraction
 
 
 def test_guess_job_title_strip_gender() -> None:
@@ -33,3 +28,18 @@ def test_guess_city_from_header() -> None:
 def test_parse_extraction_city_alias() -> None:
     jd = parse_extraction('{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}')
     assert jd.location.primary_city == "Düsseldorf"
+
+
+def test_employment_and_start_date_fallbacks() -> None:
+    text = (
+        "Festanstellung | Vollzeit\n"
+        "Hybrid (2-3 Tage/Woche im Office)\n"
+        "Start ab 01.10.2024"
+    )
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.employment.job_type == "full_time"
+    assert profile.employment.contract_type == "permanent"
+    assert profile.employment.work_policy == "hybrid"
+    assert profile.employment.remote_percentage == 50
+    assert profile.meta.target_start_date == "2024-10-01"

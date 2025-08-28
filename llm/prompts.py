@@ -24,7 +24,12 @@ def render_field_bullets() -> str:
 SYSTEM_JSON_EXTRACTOR: str = (
     "You are an extractor. Return ONLY a JSON object with the exact keys provided. "
     "Use empty strings for missing values and empty lists for missing arrays. No prose. "
-    "Provide the main job title without gender markers in position.job_title, the company's legal name in company.name, and the primary city in location.primary_city."
+    "Provide the main job title without gender markers in position.job_title, the company's legal name in company.name, and the primary city in location.primary_city. "
+    "Map common terms: 'Vollzeit' or 'Full-time' -> employment.job_type='full_time', 'Teilzeit' -> 'part_time', "
+    "'Festanstellung' or 'Permanent' -> employment.contract_type='permanent', 'Befristet' or 'Fixed term' -> employment.contract_type='fixed_term'. "
+    "Detect work policy keywords like 'Remote', 'Home-Office', or 'Hybrid' and map them to employment.work_policy. "
+    "If office days per week or remote percentages are mentioned, estimate employment.remote_percentage using a 5-day work week. "
+    "Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
 )
 
 
