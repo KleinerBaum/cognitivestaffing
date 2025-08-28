@@ -379,29 +379,6 @@ def _update_profile(path: str, value) -> None:
         _clear_generated()
 
 
-def render_followups_for(fields: list[str]) -> None:
-    """Render follow-up questions for the given ``fields`` and update state."""
-
-    remaining: list[dict] = []
-    for q in st.session_state.get("followup_questions", []):
-        field = q.get("field")
-        if field not in fields:
-            remaining.append(q)
-            continue
-        question = q.get("question", "")
-        prefill = q.get("prefill", "")
-        if q.get("priority") == "critical":
-            st.markdown(
-                "<span style='color:red'>*</span> " + question,
-                unsafe_allow_html=True,
-            )
-            answer = st.text_input("", value=prefill, key=field)
-        else:
-            answer = st.text_input(question, value=prefill, key=field)
-        st.session_state[field] = answer
-    st.session_state["followup_questions"] = remaining
-
-
 def flatten(d: dict, prefix: str = "") -> dict:
     """Convert a nested dict into dot-separated keys.
 

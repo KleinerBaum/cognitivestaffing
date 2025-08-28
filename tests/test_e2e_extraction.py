@@ -1,29 +1,19 @@
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-import pytest  # noqa: E402
-from core.ss_bridge import to_session_state  # noqa: E402
-from llm.client import extract_and_parse  # noqa: E402
+import openai_utils
+from core.ss_bridge import to_session_state
+from models.need_analysis import NeedAnalysisProfile
 
 
-@pytest.mark.parametrize(
-    "raw",
-    [
-        '{"position": {"job_title": "Dev"}, "location": {}, "responsibilities": {}, "requirements": {}, "employment": {}, "compensation": {}, "process": {}, "meta": {}}',
-        '```json\n{"position": {"job_title": "Dev"}, "location": {}, "responsibilities": {}, "requirements": {}, "employment": {}, "compensation": {}, "process": {}, "meta": {}}\n```',
-        'Noise {"position": {"job_title": "Dev"}, "location": {}, "responsibilities": {}, "requirements": {}, "employment": {}, "compensation": {}, "process": {}, "meta": {}} tail',
-    ],
-)
-def test_e2e_to_session_state(monkeypatch, raw: str) -> None:
+def test_e2e_to_session_state(monkeypatch) -> None:
     """End-to-end extraction should populate session state."""
 
-    def fake_extract_json(text, title=None, url=None, minimal=False):
-        return raw
+    def fake_extract_with_function(text: str, schema: dict, model=None):
+        return {"position": {"job_title": "Dev"}}
 
-    monkeypatch.setattr("llm.client.extract_json", fake_extract_json)
-    jd = extract_and_parse("input")
+    monkeypatch.setattr(
+        openai_utils, "extract_with_function", fake_extract_with_function
+    )
+    jd_dict = openai_utils.extract_with_function("input", {})
+    jd = NeedAnalysisProfile.model_validate(jd_dict)
     ss: dict = {}
     to_session_state(jd, ss)
     assert ss["position.job_title"] == "Dev"

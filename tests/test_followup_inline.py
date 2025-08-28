@@ -1,69 +1,49 @@
-"""Tests for inline rendering of follow-up questions."""
-
 import streamlit as st
 
-from wizard import render_followups_for
+from constants.keys import StateKeys
+from wizard import _render_followup_question
 
 
-def test_render_followups_updates_state(monkeypatch) -> None:
+def test_render_followup_updates_state(monkeypatch) -> None:
     """Entering a response should update the corresponding field."""
     st.session_state.clear()
     st.session_state["lang"] = "en"
-    st.session_state["followup_questions"] = [
-        {"field": "compensation.salary_min", "question": "Salary?"}
-    ]
+    data: dict = {}
+    q = {"field": "compensation.salary_min", "question": "Salary?"}
+    st.session_state[StateKeys.FOLLOWUPS] = [q]
+    monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
 
-    monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
-    monkeypatch.setattr(st, "text_input", lambda *a, **k: "100k")
-    render_followups_for(["compensation.salary_min"])
+    def fake_input(label, key=None):
+        st.session_state[key] = "100k"
+        return "100k"
 
-    assert st.session_state["compensation.salary_min"] == "100k"
-    assert st.session_state["followup_questions"] == []
-
-
-def test_render_followups_prefill(monkeypatch) -> None:
-    """Prefill values should appear as default text."""
-    st.session_state.clear()
-    st.session_state["lang"] = "en"
-    st.session_state["followup_questions"] = [
-        {"field": "location.primary_city", "question": "Location?", "prefill": "Berlin"}
-    ]
-
-    def fake_input(label, value="", key=None):
-        assert value == "Berlin"
-        return value
-
-    monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
     monkeypatch.setattr(st, "text_input", fake_input)
-    render_followups_for(["location.primary_city"])
-
-    assert st.session_state["location.primary_city"] == "Berlin"
-    assert st.session_state["followup_questions"] == []
+    _render_followup_question(q, data)
+    assert data["compensation"]["salary_min"] == "100k"
+    assert st.session_state[StateKeys.FOLLOWUPS] == []
 
 
 def test_render_followups_critical_prefix(monkeypatch) -> None:
     """Critical questions should be prefixed with a red asterisk."""
     st.session_state.clear()
     st.session_state["lang"] = "en"
-    st.session_state["followup_questions"] = [
-        {"field": "salary", "question": "Salary?", "priority": "critical"}
-    ]
-
+    data: dict = {}
+    q = {"field": "salary", "question": "Salary?", "priority": "critical"}
+    st.session_state[StateKeys.FOLLOWUPS] = [q]
     seen = {"markdown": None, "label": None}
 
     def fake_markdown(text, **_):
         seen["markdown"] = text
 
-    def fake_input(label, value="", key=None):
+    def fake_input(label, key=None):
         seen["label"] = label
+        st.session_state[key] = "100k"
         return "100k"
 
-    monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
     monkeypatch.setattr(st, "markdown", fake_markdown)
     monkeypatch.setattr(st, "text_input", fake_input)
-
-    render_followups_for(["salary"])
-
+    _render_followup_question(q, data)
     assert seen["markdown"] is not None
     assert seen["markdown"].lstrip().startswith("<span style='color:red'>*")
     assert seen["label"] == ""
+    assert st.session_state[StateKeys.FOLLOWUPS] == []

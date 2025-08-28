@@ -18,23 +18,19 @@ def test_cli_uses_ingest_extractor(
         called["used"] = True
         return "TEXT"
 
-    class Dummy:
-        def model_dump_json(self, indent: int = 2) -> str:
-            return '{"ok": true}'
-
-    def fake_extract_and_parse(
-        text: str, title: str | None = None, url: str | None = None
-    ) -> Dummy:
+    def fake_extract_with_function(text: str, schema: dict, model=None):
         assert text == "TEXT"
-        return Dummy()
+        return {"ok": True}
 
     monkeypatch.setattr(
         "ingest.extractors.extract_text_from_file", fake_extract_text_from_file
     )
-    monkeypatch.setattr("llm.client.extract_and_parse", fake_extract_and_parse)
+    monkeypatch.setattr(
+        "openai_utils.extract_with_function", fake_extract_with_function
+    )
     monkeypatch.setattr(sys, "argv", ["prog", "--file", str(sample)])
 
     cli_extract.main()
 
     assert called["used"]
-    assert capsys.readouterr().out.strip() == '{"ok": true}'
+    assert capsys.readouterr().out.strip() == '{\n  "ok": true\n}'

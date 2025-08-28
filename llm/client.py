@@ -14,11 +14,7 @@ import streamlit as st
 
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
-from models.need_analysis import NeedAnalysisProfile
-from core.errors import ExtractionError, JsonInvalid
-from utils.json_parse import parse_extraction
-from utils.retry import retry
-from ingest.heuristics import apply_basic_fallbacks
+from core.errors import ExtractionError
 from config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, REASONING_EFFORT
 
 logger = logging.getLogger("vacalyser.llm")
@@ -73,19 +69,6 @@ def _generate_error_report(instance: dict[str, Any]) -> str:
         path = "/".join(str(p) for p in err.path) or "$"
         lines.append(f"{path}: {err.message}")
     return "\n".join(lines)
-
-
-def _log_schema_errors(raw: str) -> None:
-    """Validate raw JSON and log any schema inconsistencies."""
-
-    try:
-        instance = json.loads(raw)
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error("Failed to decode JSON for validation: %s", exc)
-        return
-    report = _generate_error_report(instance)
-    if report:
-        logger.error("Schema validation errors:\n%s", report)
 
 
 SCHEMA_PATH = (
@@ -161,31 +144,3 @@ def extract_json(
             return response.output_text.strip()
         except Exception as exc2:  # pragma: no cover - network/SDK issues
             raise ExtractionError("LLM call failed") from exc2
-
-
-def extract_and_parse(
-    text: str, title: Optional[str] = None, url: Optional[str] = None
-) -> NeedAnalysisProfile:
-    """Extract fields and return a parsed :class:`NeedAnalysisProfile`.
-
-    The function performs a second minimal-prompt attempt if the first
-    response cannot be parsed as JSON.
-    """
-
-    raw = extract_json(text, title, url)
-    _log_schema_errors(raw)
-    try:
-        profile = parse_extraction(raw)
-    except JsonInvalid:
-
-        def second_call() -> str:
-            return extract_json(text, title, url, minimal=True)
-
-        raw_retry = retry(second_call)
-        _log_schema_errors(raw_retry)
-        try:
-            profile = parse_extraction(raw_retry)
-        except JsonInvalid as exc:  # pragma: no cover - defensive
-            raise ExtractionError("Failed to parse AI response as JSON") from exc
-
-    return apply_basic_fallbacks(profile, text)
