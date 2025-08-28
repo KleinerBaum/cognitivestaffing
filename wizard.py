@@ -478,6 +478,18 @@ def _step_intro():
             ),
         )
     )
+    st.write(
+        tr(
+            (
+                "Im nächsten Schritt können Sie eine Datei hochladen, Text einfügen oder eine URL eingeben, "
+                "um vorhandene Angaben automatisch zu übernehmen."
+            ),
+            (
+                "In the next step you can upload a file, paste text or enter a URL to automatically pre-fill "
+                "available details."
+            ),
+        )
+    )
     st.markdown("#### " + tr("Vorteile", "Advantages"))
     st.write(
         tr(
@@ -546,7 +558,6 @@ def _step_source(schema: dict) -> None:
         _autodetect_lang(raw_auto)
         try:
             _extract_and_summarize(raw_auto, schema)
-            st.session_state[StateKeys.STEP] = 2
             st.rerun()
         except Exception as e:
             display_error(
@@ -616,7 +627,6 @@ def _step_source(schema: dict) -> None:
             _autodetect_lang(raw)
             try:
                 _extract_and_summarize(raw, schema)
-                st.session_state[StateKeys.STEP] = 2
                 st.rerun()
             except Exception as e:
                 display_error(
@@ -638,25 +648,35 @@ def _step_source(schema: dict) -> None:
                 "No data detected – you can also enter the information manually in the following steps.",
             )
         )
-    if summary_data:
-        st.success(
-            tr(
-                "Analyse abgeschlossen. Folgende Felder wurden automatisch ausgefüllt:",
-                "Analysis complete. The following fields were auto-filled:",
-            )
+    summary_rows: list[dict[str, str]] = []
+    for label, value in summary_data.items():
+        summary_rows.append({"Field": label, "Value": value, "Status": "✅"})
+    for field in missing_fields:
+        summary_rows.append(
+            {
+                "Field": _field_label(field),
+                "Value": tr("—", "—"),
+                "Status": "⚠️",
+            }
         )
-        for label, value in summary_data.items():
-            st.write(f"- {label}: {value}")
-    if missing_fields:
-        st.warning(
-            tr(
-                "Folgende Schlüsselfelder konnten nicht erkannt werden:",
-                "The following key fields could not be inferred:",
+    if summary_rows:
+        with st.sidebar:
+            st.markdown("### " + tr("Erkannte Felder", "Detected fields"))
+            st.table(summary_rows)
+        if missing_fields:
+            st.warning(
+                tr(
+                    "Einige Felder konnten nicht erkannt werden. Sie sind in der Seitenleiste markiert.",
+                    "Some fields could not be detected. They are highlighted in the sidebar.",
+                )
             )
-        )
-        for field in missing_fields:
-            st.write(f"- {_field_label(field)}")
-    if summary_data or missing_fields:
+        else:
+            st.success(
+                tr(
+                    "Analyse abgeschlossen. Überprüfen Sie die Seitenleiste und fahren Sie fort.",
+                    "Analysis complete. Review the sidebar and continue.",
+                )
+            )
         if st.button(tr("Weiter", "Continue"), type="primary"):
             st.session_state[StateKeys.STEP] = 2
             st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
