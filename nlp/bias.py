@@ -10,11 +10,15 @@ BIAS_TERMS: Dict[str, Dict[str, str]] = {
         "young": "Specify required experience instead of age.",
         "recent grad": "Use 'entry-level candidate' instead of age-specific terms.",
         "digital native": "Focus on specific technical skills rather than age-related terms.",
+        "native speaker": "Specify language proficiency instead of native status.",
+        "energetic young team": "Describe team culture without age-related language.",
     },
     "de": {
         "jung": "Beschreiben Sie das notwendige Erfahrungsniveau statt des Alters.",
         "berufsanfänger": "Verwenden Sie 'Einsteiger' oder geben Sie die Erfahrungsebene an.",
         "digital native": "Nennen Sie konkrete digitale Fähigkeiten statt altersbezogener Begriffe.",
+        "muttersprachler": "Geben Sie das erforderliche Sprachniveau an statt Muttersprache.",
+        "junges, dynamisches team": "Beschreiben Sie die Teamkultur ohne Altersbezug.",
     },
 }
 

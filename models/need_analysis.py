@@ -43,6 +43,7 @@ class Position(BaseModel):
     performance_indicators: Optional[str] = None
     decision_authority: Optional[str] = None
     key_projects: Optional[str] = None
+    team_size: Optional[int] = None
 
 
 class Location(BaseModel):
@@ -104,7 +105,7 @@ class Compensation(BaseModel):
     """Salary and compensation information."""
 
     model_config = ConfigDict(extra="forbid")
-
+    salary_provided: bool = False
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
     currency: Optional[str] = None

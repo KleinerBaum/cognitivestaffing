@@ -10,6 +10,8 @@ class UIKeys:
     TONE_SELECT = "ui.summary.tone"
     NUM_QUESTIONS = "ui.summary.num_questions"
     AUDIENCE_SELECT = "ui.summary.audience"
+    JOB_AD_FEEDBACK = "ui.job_ad.feedback"
+    REFINE_JOB_AD = "ui.job_ad.refine"
 
 
 class StateKeys:
@@ -26,3 +28,4 @@ class StateKeys:
     SKILL_SUGGESTIONS = "skill_suggestions"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     EXTRACTION_SUMMARY = "extraction_summary"
+    BIAS_FINDINGS = "data.bias_findings"

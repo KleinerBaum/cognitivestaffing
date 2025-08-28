@@ -16,6 +16,7 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
         "company.name": "Acme Corp",
         "location.primary_city": "Berlin",
         "position.role_summary": "Build web apps",
+        "position.key_projects": "Platform overhaul",
         "responsibilities.items": ["Develop features"],
         "compensation.benefits": ["Stock options"],
         "learning_opportunities": "Annual training budget",
@@ -42,6 +43,7 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
     assert "Visa Sponsorship: Yes" in prompt
     assert "Learning & Development: Annual training budget" in prompt
     assert "Team Size: 5" in prompt
+    assert "Key Projects: Platform overhaul" in prompt
     assert "Salary Range: 50,000–70,000 EUR per year" in prompt
     assert "Company Mission: Build the future of collaboration" in prompt
     assert "Company Culture: Inclusive and growth-oriented" in prompt

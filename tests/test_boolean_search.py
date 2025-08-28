@@ -12,4 +12,6 @@ def test_build_boolean_search() -> None:
         ),
     )
     query = build_boolean_search(profile.model_dump())
-    assert query == '("Data Scientist") AND ("Python" OR "Communication" OR "SQL")'
+    assert (
+        query == '("Data Scientist") AND ("Python") AND ("Communication") AND ("SQL")'
+    )

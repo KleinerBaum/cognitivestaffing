@@ -1004,7 +1004,8 @@ def generate_job_ad(
         ("position.reporting_line", "Reporting Line", "Berichtsweg"),
         ("position.team_structure", "Team Structure", "Teamstruktur"),
         ("position.team_size", "Team Size", "Teamgröße"),
-        ("position.application_deadline", "Application Deadline", "Bewerbungsschluss"),
+        ("position.key_projects", "Key Projects", "Schlüsselprojekte"),
+        ("meta.application_deadline", "Application Deadline", "Bewerbungsschluss"),
         ("position.seniority_level", "Seniority Level", "Erfahrungsebene"),
         (
             "requirements.languages_required",

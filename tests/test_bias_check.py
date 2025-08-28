@@ -17,3 +17,11 @@ def test_scan_bias_language_flags_terms() -> None:
 def test_scan_bias_language_no_terms() -> None:
     text = "We welcome applicants with diverse backgrounds."
     assert scan_bias_language(text) == []
+
+
+def test_scan_bias_language_additional_terms() -> None:
+    text = "Join our energetic young team. Native speaker required."
+    findings = scan_bias_language(text, lang="en")
+    terms = {item["term"] for item in findings}
+    assert "energetic young team" in terms
+    assert "native speaker" in terms

@@ -20,7 +20,7 @@ def test_list_fields_contains_base_lists() -> None:
 def test_coerce_and_fill_basic() -> None:
     data = {
         "company": {"name": "Acme"},
-        "position": {"job_title": "Engineer", "supervises": 3},
+        "position": {"job_title": "Engineer", "supervises": 3, "team_size": 10},
         "requirements": {"hard_skills_required": ["Python"]},
         "responsibilities": {"items": ["Code apps"]},
         "employment": {"job_type": "full time", "contract_type": "permanent"},
@@ -43,10 +43,12 @@ def test_coerce_and_fill_basic() -> None:
     assert jd.employment.job_type == "full time"
     assert jd.employment.contract_type == "permanent"
     assert jd.position.supervises == 3
+    assert jd.position.team_size == 10
     assert jd.meta.target_start_date == "2024-01-01"
     assert jd.compensation.benefits == ["Gym", "Gym"]
     assert jd.compensation.bonus_percentage == 10.0
     assert jd.compensation.commission_structure == "10% of sales"
+    assert jd.compensation.salary_provided is False
     assert jd.company.name == "Acme"
 
 
