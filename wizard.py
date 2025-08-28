@@ -18,8 +18,9 @@ from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
-from models.need_analysis import NeedAnalysisProfile
 from config_loader import load_json
+from models.need_analysis import NeedAnalysisProfile
+from core.schema import coerce_and_fill
 
 # LLM/ESCO und Follow-ups
 from openai_utils import (
@@ -208,7 +209,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
     extracted = extract_with_function(text, schema, model=st.session_state.model)
-    profile = NeedAnalysisProfile.model_validate(extracted)
+    profile = coerce_and_fill(extracted)
     profile = apply_basic_fallbacks(profile, text)
     st.session_state[StateKeys.PROFILE] = profile.model_dump()
     title = profile.position.job_title or ""
