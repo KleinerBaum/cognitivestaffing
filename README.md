@@ -171,3 +171,7 @@ The project was refactored from the deprecated Chat Completions endpoint to
 function/tool calling. Legacy model flags were removed, and older model options
 are no longer supported.
 Prompt behaviours may differ slightly due to the new reasoning models.
+
+## Changelog
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for recent changes.

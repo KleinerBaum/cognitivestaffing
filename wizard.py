@@ -215,7 +215,7 @@ def _skip_source() -> None:
 # Mapping from schema field paths to wizard section numbers
 FIELD_SECTION_MAP = {
     "company.name": 1,
-    "position.job_title": 1,
+    "position.job_title": 2,
     "position.role_summary": 2,
     "location.country": 2,
     "requirements.hard_skills_required": 3,
