@@ -24,6 +24,21 @@ st.set_page_config(
 ROOT = Path(__file__).parent
 ensure_state()
 
+if st.session_state.get("openai_api_key_missing"):
+    st.warning(
+        tr(
+            "⚠️ OpenAI-API-Schlüssel nicht gesetzt. Bitte in der Umgebung konfigurieren, um KI-Funktionen zu nutzen.",
+            "⚠️ OpenAI API key not set. Please configure it in the environment to use AI features.",
+        )
+    )
+if st.session_state.get("openai_base_url_invalid"):
+    st.warning(
+        tr(
+            "⚠️ OPENAI_BASE_URL scheint ungültig zu sein und wird ignoriert.",
+            "⚠️ OPENAI_BASE_URL appears invalid and will be ignored.",
+        )
+    )
+
 
 def inject_global_css() -> None:
     """Inject the global stylesheet and background image."""

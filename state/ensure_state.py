@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import urlparse
 
 import streamlit as st
 
 from constants.keys import StateKeys
-from config import REASONING_EFFORT
+from config import OPENAI_API_KEY, OPENAI_BASE_URL, REASONING_EFFORT
 from models.need_analysis import NeedAnalysisProfile
 
 
@@ -35,6 +36,16 @@ def ensure_state() -> None:
         st.session_state["model"] = os.getenv("OPENAI_MODEL", "gpt-5-nano")
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
+    if "openai_api_key_missing" not in st.session_state:
+        st.session_state["openai_api_key_missing"] = not OPENAI_API_KEY
+    if "openai_base_url_invalid" not in st.session_state:
+        if OPENAI_BASE_URL:
+            parsed = urlparse(OPENAI_BASE_URL)
+            st.session_state["openai_base_url_invalid"] = not (
+                parsed.scheme and parsed.netloc
+            )
+        else:
+            st.session_state["openai_base_url_invalid"] = False
     if "auto_reask" not in st.session_state:
         st.session_state["auto_reask"] = True
     if "auto_reask_round" not in st.session_state:
