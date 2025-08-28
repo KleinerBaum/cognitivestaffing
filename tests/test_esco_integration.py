@@ -33,6 +33,17 @@ def test_offline_unknown_title(monkeypatch):
     assert occ == {}
 
 
+def test_offline_missing_skills_warning(monkeypatch, caplog):
+    """Missing offline skills trigger a warning and return empty list."""
+    monkeypatch.setenv("VACAYSER_OFFLINE", "1")
+    module = importlib.import_module("integrations.esco")
+    importlib.reload(module)
+    with caplog.at_level("WARNING"):
+        skills = module.enrich_skills("unknown-uri")
+    assert skills == []
+    assert any("No offline ESCO skills" in r.message for r in caplog.records)
+
+
 def test_online_delegation(monkeypatch):
     """Wrapper delegates to core.esco_utils when not offline."""
     monkeypatch.delenv("VACAYSER_OFFLINE", raising=False)

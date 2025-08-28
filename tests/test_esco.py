@@ -49,3 +49,17 @@ def test_normalize_skills(monkeypatch) -> None:
     monkeypatch.setattr(esco, "lookup_esco_skill", fake_lookup)
     out = esco.normalize_skills(["python", "Python ", "docker", ""])
     assert out == ["Python", "Docker"]
+
+
+def test_lookup_esco_skill_caches(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    def fake_get(path, **params):
+        calls["count"] += 1
+        return {"_embedded": {"results": [{"preferredLabel": "Python"}]}}
+
+    esco._SKILL_CACHE.clear()
+    monkeypatch.setattr(esco, "_get", fake_get)
+    esco.lookup_esco_skill("python")
+    esco.lookup_esco_skill("python")
+    assert calls["count"] == 1
