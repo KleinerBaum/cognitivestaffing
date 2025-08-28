@@ -231,6 +231,26 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         summary[tr("Firma", "Company")] = profile.company.name
     if profile.location.primary_city:
         summary[tr("Ort", "Location")] = profile.location.primary_city
+    sal_min = profile.compensation.salary_min
+    sal_max = profile.compensation.salary_max
+    if sal_min is not None or sal_max is not None:
+        currency = profile.compensation.currency or ""
+        if sal_min is not None and sal_max is not None:
+            salary_str = f"{int(sal_min)}–{int(sal_max)} {currency}"
+        else:
+            value = sal_min if sal_min is not None else sal_max
+            salary_str = f"{int(value)} {currency}" if value is not None else currency
+        summary[tr("Gehaltsspanne", "Salary range")] = salary_str.strip()
+    hard_total = len(profile.requirements.hard_skills_required) + len(
+        profile.requirements.hard_skills_optional
+    )
+    if hard_total:
+        summary[tr("Hard Skills", "Hard skills")] = str(hard_total)
+    soft_total = len(profile.requirements.soft_skills_required) + len(
+        profile.requirements.soft_skills_optional
+    )
+    if soft_total:
+        summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
     for field in CRITICAL_FIELDS:
