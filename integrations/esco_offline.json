@@ -1,0 +1,57 @@
+{
+  "occupations": {
+    "software engineer": {
+      "preferredLabel": "Software developers",
+      "uri": "http://data.europa.eu/esco/occupation/12345",
+      "group": "Information and communications technology professionals"
+    },
+    "project manager": {
+      "preferredLabel": "Project managers",
+      "uri": "http://data.europa.eu/esco/occupation/pm",
+      "group": "Business services managers"
+    },
+    "nurse": {
+      "preferredLabel": "Nursing professionals",
+      "uri": "http://data.europa.eu/esco/occupation/nurse",
+      "group": "Health professionals"
+    },
+    "sales representative": {
+      "preferredLabel": "Sales representatives",
+      "uri": "http://data.europa.eu/esco/occupation/sales_rep",
+      "group": "Sales workers"
+    },
+    "data scientist": {
+      "preferredLabel": "Data scientists",
+      "uri": "http://data.europa.eu/esco/occupation/data_scientist",
+      "group": "Information and communications technology professionals"
+    }
+  },
+  "skills": {
+    "http://data.europa.eu/esco/occupation/12345": [
+      "Python",
+      "Agile methodologies",
+      "Version control"
+    ],
+    "http://data.europa.eu/esco/occupation/pm": [
+      "Project management",
+      "Risk management",
+      "Stakeholder communication"
+    ],
+    "http://data.europa.eu/esco/occupation/nurse": [
+      "Patient care",
+      "Medical record keeping",
+      "Infection control"
+    ],
+    "http://data.europa.eu/esco/occupation/sales_rep": [
+      "Communication",
+      "Customer relationship management",
+      "Negotiation",
+      "Sales forecasting"
+    ],
+    "http://data.europa.eu/esco/occupation/data_scientist": [
+      "Machine learning",
+      "Data analysis",
+      "Python"
+    ]
+  }
+}

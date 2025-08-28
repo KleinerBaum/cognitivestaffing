@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import logging
 from pathlib import Path
 from typing import Any, Optional
@@ -90,7 +91,9 @@ SCHEMA_PATH = (
     Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
 )
 with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
-    NEED_ANALYSIS_SCHEMA = json.load(_f)
+    raw = _f.read()
+    cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
+    NEED_ANALYSIS_SCHEMA = json.loads(cleaned)
 NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)

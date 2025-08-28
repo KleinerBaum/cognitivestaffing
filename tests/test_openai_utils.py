@@ -101,8 +101,6 @@ def test_extract_with_function(monkeypatch):
 def test_call_chat_api_executes_tool(monkeypatch):
     """call_chat_api should execute mapped tools and return final content."""
 
-    from core import analysis_tools
-
     class _FirstResponse:
         def __init__(self) -> None:
             self.output = [
@@ -110,8 +108,8 @@ def test_call_chat_api_executes_tool(monkeypatch):
                     "type": "tool_call",
                     "id": "1",
                     "function": {
-                        "name": "get_salary_benchmark",
-                        "arguments": '{"role": "software developer", "country": "US"}',
+                        "name": "get_skill_definition",
+                        "arguments": '{"skill": "Python"}',
                     },
                 }
             ]
@@ -139,11 +137,6 @@ def test_call_chat_api_executes_tool(monkeypatch):
         responses = _FakeResponses()
 
     monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
-    tools, funcs = analysis_tools.build_analysis_tools()
-    res = call_chat_api(
-        [{"role": "user", "content": "hi"}],
-        tools=tools,
-        tool_functions=funcs,
-    )
+    res = call_chat_api([{"role": "user", "content": "hi"}])
     assert res.content == "done"
-    assert res.tool_calls[0]["function"]["name"] == "get_salary_benchmark"
+    assert res.tool_calls[0]["function"]["name"] == "get_skill_definition"

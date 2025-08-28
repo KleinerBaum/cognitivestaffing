@@ -30,8 +30,9 @@ API, enabling JSON schema validation and function/tool calling.
 - **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.
 - **Role-aware extras**: automatically adds occupation-specific questions (e.g., programming languages for developers, campaign types for marketers, board certification for doctors, grade levels for teachers, design tools for designers, shift schedules for nurses, project management methodologies for project managers, machine learning frameworks for data scientists, accounting software for financial analysts, HR software for human resource professionals, engineering tools for civil engineers, cuisine specialties for chefs).
 - **ESCO‑Power**: occupation classification + essential skill gaps
-- **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls
+- **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls; data comes from `integrations/esco_offline.json` and covers common roles, unmatched titles simply skip enrichment
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
+- **Auto-filled skills**: essential ESCO skills merge into required skills; generic entries like "Communication" are ignored so follow-ups stay relevant
 - **RAG‑Assist**: use your vector store to fill/contextualize
 - **Reasoning models**: GPT‑5-nano by default (switchable to GPT‑4.1-nano) via
   the Responses API for better reasoning, JSON mode and tool calling at lower

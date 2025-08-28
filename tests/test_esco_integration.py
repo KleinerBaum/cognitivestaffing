@@ -4,7 +4,7 @@ import importlib
 
 
 def test_offline_fallback(monkeypatch):
-    """search_occupation and enrich_skills use fixtures when VACAYSER_OFFLINE is set."""
+    """search_occupation and enrich_skills use offline JSON when enabled."""
     monkeypatch.setenv("VACAYSER_OFFLINE", "1")
     module = importlib.import_module("integrations.esco")
     importlib.reload(module)
@@ -12,6 +12,25 @@ def test_offline_fallback(monkeypatch):
     assert occ["uri"] == "http://data.europa.eu/esco/occupation/12345"
     skills = module.enrich_skills(occ["uri"])
     assert "Python" in skills
+
+
+def test_offline_generic_skills_filtered(monkeypatch):
+    """Generic skills like 'Communication' are filtered out."""
+    monkeypatch.setenv("VACAYSER_OFFLINE", "1")
+    module = importlib.import_module("integrations.esco")
+    importlib.reload(module)
+    occ = module.search_occupation("Sales Representative")
+    skills = module.enrich_skills(occ["uri"])
+    assert "Communication" not in skills
+
+
+def test_offline_unknown_title(monkeypatch):
+    """Unknown titles return empty dict and no crash."""
+    monkeypatch.setenv("VACAYSER_OFFLINE", "1")
+    module = importlib.import_module("integrations.esco")
+    importlib.reload(module)
+    occ = module.search_occupation("Unknown Role")
+    assert occ == {}
 
 
 def test_online_delegation(monkeypatch):

@@ -1,9 +1,35 @@
 """ESCO integration wrapper with offline fallbacks."""
 
+from __future__ import annotations
+
+import json
+import logging
 import os
+from pathlib import Path
+from typing import Dict, List
+
 from core import esco_utils
 
+log = logging.getLogger("vacalyser.esco")
+
 OFFLINE = bool(os.getenv("VACAYSER_OFFLINE", False))
+
+_OFFLINE_OCCUPATIONS: Dict[str, Dict[str, str]] = {}
+_OFFLINE_SKILLS: Dict[str, List[str]] = {}
+
+if OFFLINE:
+    data_file = Path(__file__).with_name("esco_offline.json")
+    try:
+        with data_file.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+            _OFFLINE_OCCUPATIONS = {
+                k.lower(): v for k, v in data.get("occupations", {}).items()
+            }
+            _OFFLINE_SKILLS = data.get("skills", {})
+    except FileNotFoundError:
+        log.warning("Offline ESCO data file missing: %s", data_file)
+
+GENERIC_SKILLS = {"communication"}
 
 
 def search_occupation(title: str, lang: str = "en") -> dict[str, str]:
@@ -19,9 +45,10 @@ def search_occupation(title: str, lang: str = "en") -> dict[str, str]:
     if not title:
         return {}
     if OFFLINE:
-        # Fallback: simple mapping for common titles (this would be loaded from a local JSON or hardcoded)
         title_key = title.strip().lower()
         data = _OFFLINE_OCCUPATIONS.get(title_key) or {}
+        if not data:
+            log.warning("No offline ESCO match for '%s'", title)
         return data
     # Online mode: call actual ESCO API
     return esco_utils.classify_occupation(title, lang) or {}
@@ -40,22 +67,7 @@ def enrich_skills(occupation_uri: str, lang: str = "en") -> list[str]:
     if not occupation_uri:
         return []
     if OFFLINE:
-        return _OFFLINE_SKILLS.get(occupation_uri, [])
-    return esco_utils.get_essential_skills(occupation_uri, lang)
-
-
-# Example offline fixture data (to be replaced with actual data or loaded from file)
-_OFFLINE_OCCUPATIONS = {
-    "software engineer": {
-        "preferredLabel": "Software developers",
-        "uri": "http://data.europa.eu/esco/occupation/12345",
-        "group": "Information and communications technology professionals",
-    }
-}
-_OFFLINE_SKILLS = {
-    "http://data.europa.eu/esco/occupation/12345": [
-        "Python",
-        "Agile methodologies",
-        "Version control",
-    ]
-}
+        skills = _OFFLINE_SKILLS.get(occupation_uri, [])
+    else:
+        skills = esco_utils.get_essential_skills(occupation_uri, lang)
+    return [s for s in skills if s.lower() not in GENERIC_SKILLS]
