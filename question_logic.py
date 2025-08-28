@@ -258,7 +258,7 @@ def _rag_suggestions(
         return {}
     model = model or st.session_state.get("model", OPENAI_MODEL)
     sys = (
-        "You provide short, concrete suggestions to help complete a vacancy profile. "
+        "You provide short, concrete suggestions to help complete a profile. "
         "Use retrieved context; if none, return empty arrays. Respond as a JSON object "
         "mapping each requested field to an array of up to N concise suggestions (no explanations)."
     )

@@ -28,9 +28,9 @@ def test_generate_followups_wrapper(monkeypatch):
         "questions.generate._generate_followup_questions", fake_generate
     )
 
-    jd = NeedAnalysisProfile()
+    profile = NeedAnalysisProfile()
     questions = generate_followup_questions(
-        jd, num_questions=2, lang="de", use_rag=False
+        profile, num_questions=2, lang="de", use_rag=False
     )
 
     assert questions == ["Company name?", "Location?"]
@@ -47,5 +47,5 @@ def test_generate_followups_wrapper_empty(monkeypatch):
         "questions.generate._generate_followup_questions", fake_generate
     )
 
-    jd = NeedAnalysisProfile()
-    assert generate_followup_questions(jd) == []
+    profile = NeedAnalysisProfile()
+    assert generate_followup_questions(profile) == []

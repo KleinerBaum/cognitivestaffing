@@ -99,5 +99,6 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     return NeedAnalysisProfile.model_validate(data)
 
 
-# Backwards compatibility alias
-VacalyserJD = NeedAnalysisProfile
+# Backwards compatibility aliases
+VacalyserProfile = NeedAnalysisProfile
+VacalyserJD = NeedAnalysisProfile  # pragma: no cover - legacy alias

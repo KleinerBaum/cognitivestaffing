@@ -12,8 +12,8 @@ def test_e2e_to_session_state(monkeypatch) -> None:
     monkeypatch.setattr(
         openai_utils, "extract_with_function", fake_extract_with_function
     )
-    jd_dict = openai_utils.extract_with_function("input", {})
-    jd = NeedAnalysisProfile.model_validate(jd_dict)
+    profile_dict = openai_utils.extract_with_function("input", {})
+    profile = NeedAnalysisProfile.model_validate(profile_dict)
     ss: dict = {}
-    to_session_state(jd, ss)
+    to_session_state(profile, ss)
     assert ss["position.job_title"] == "Dev"

@@ -1,4 +1,4 @@
-"""Pydantic models for vacancy need analysis."""
+"""Pydantic models for profile need analysis."""
 
 from .need_analysis import NeedAnalysisProfile
 

@@ -394,7 +394,7 @@ def build_extraction_tool(
             "type": "function",
             "function": {
                 "name": name,
-                "description": "Return structured vacancy data that fits the schema exactly.",
+                "description": "Return structured profile data that fits the schema exactly.",
                 "parameters": params,
             },
             "strict": not allow_extra,
@@ -405,14 +405,14 @@ def build_extraction_tool(
 def extract_with_function(
     job_text: str, schema: dict, *, model: str | None = None
 ) -> Mapping[str, Any]:
-    """Extract vacancy data from ``job_text`` using strict function calling.
+    """Extract profile data from ``job_text`` using strict function calling.
 
     The function first requests a structured ``function_call``; if none is
     returned, it retries the extraction with ``json`` output. Any malformed
     JSON is best-effort repaired before validation.
 
     Args:
-        job_text: Source job description text.
+        job_text: Source job posting text.
         schema: JSON schema describing the expected structure.
         model: Optional OpenAI model to use for extraction. Falls back to the
             globally selected model in ``st.session_state``.
@@ -482,8 +482,8 @@ def extract_with_function(
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import coerce_and_fill
 
-    jd: NeedAnalysisProfile = coerce_and_fill(raw)
-    return jd.model_dump()
+    profile: NeedAnalysisProfile = coerce_and_fill(raw)
+    return profile.model_dump()
 
 
 def suggest_additional_skills(

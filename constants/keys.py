@@ -1,9 +1,9 @@
 class UIKeys:
     """Keys for UI widgets in ``st.session_state``."""
 
-    JD_TEXT_INPUT = "ui.jd_text_input"
-    JD_FILE_UPLOADER = "ui.jd_file_uploader"
-    JD_URL_INPUT = "ui.jd_url_input"
+    PROFILE_TEXT_INPUT = "ui.profile_text_input"
+    PROFILE_FILE_UPLOADER = "ui.profile_file_uploader"
+    PROFILE_URL_INPUT = "ui.profile_url_input"
     LANG_SELECT = "ui.lang_select"
     MODEL_SELECT = "ui.model_select"
     REASONING_SELECT = "ui.reasoning_select"
@@ -18,7 +18,7 @@ class StateKeys:
     """Keys for data stored in ``st.session_state``."""
 
     PROFILE = "profile_data"
-    RAW_TEXT = "jd_raw_text"
+    RAW_TEXT = "profile_raw_text"
     STEP = "current_step"
     FOLLOWUPS = "followup_questions"
     USAGE = "api_usage"

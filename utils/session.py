@@ -59,10 +59,11 @@ def migrate_legacy_keys() -> None:
     """Migrate legacy session keys for backward compatibility.
 
     Older versions stored widget and data values under plain keys like
-    ``jd_text`` or nested structures such as ``data.jd_text``. Newer releases
-    use flat, descriptive keys defined in :class:`StateKeys`. This function
-    promotes old keys to their new counterparts and removes the deprecated
-    entries to prevent collisions.
+    ``jd_text`` or nested structures such as ``data.jd_text``. Later revisions
+    renamed ``jd_raw_text`` to ``profile_raw_text``. Newer releases use flat,
+    descriptive keys defined in :class:`StateKeys`. This function promotes old
+    keys to their new counterparts and removes the deprecated entries to prevent
+    collisions.
     """
 
     ss = st.session_state
@@ -72,8 +73,11 @@ def migrate_legacy_keys() -> None:
         ss[StateKeys.RAW_TEXT] = ss["jd_text"]
     if "data.jd_text" in ss and not ss.get(StateKeys.RAW_TEXT):
         ss[StateKeys.RAW_TEXT] = ss["data.jd_text"]
+    if "jd_raw_text" in ss and not ss.get(StateKeys.RAW_TEXT):
+        ss[StateKeys.RAW_TEXT] = ss["jd_raw_text"]
     ss.pop("jd_text", None)
     ss.pop("data.jd_text", None)
+    ss.pop("jd_raw_text", None)
 
     if "data.profile" in ss and not ss.get(StateKeys.PROFILE):
         ss[StateKeys.PROFILE] = ss["data.profile"]
@@ -95,11 +99,16 @@ def migrate_legacy_keys() -> None:
 
     # --- UI key migrations ---
     legacy_ui_map: Dict[str, str] = {
-        "jd_text_input": UIKeys.JD_TEXT_INPUT,
-        "jd_file_uploader": UIKeys.JD_FILE_UPLOADER,
-        "jd_url_input": UIKeys.JD_URL_INPUT,
+        "ui.jd_text_input": UIKeys.PROFILE_TEXT_INPUT,
+        "ui.jd_file_uploader": UIKeys.PROFILE_FILE_UPLOADER,
+        "ui.jd_url_input": UIKeys.PROFILE_URL_INPUT,
+        "jd_text_input": UIKeys.PROFILE_TEXT_INPUT,
+        "jd_file_uploader": UIKeys.PROFILE_FILE_UPLOADER,
+        "jd_url_input": UIKeys.PROFILE_URL_INPUT,
     }
     for old, new in legacy_ui_map.items():
-        if old in ss and not ss.get(new):
+        if old in ss and old.startswith("ui."):
+            ss[new] = ss[old]
+        elif old in ss and not ss.get(new):
             ss[new] = ss[old]
         ss.pop(old, None)

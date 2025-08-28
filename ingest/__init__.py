@@ -1,4 +1,4 @@
-"""Utilities for ingesting job description text."""
+"""Utilities for ingesting job posting text."""
 
 from .extractors import extract_text_from_file, extract_text_from_url
 from .reader import read_job_text

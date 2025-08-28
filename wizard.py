@@ -75,9 +75,9 @@ def prev_step() -> None:
 
 
 def on_file_uploaded() -> None:
-    """Handle file uploads and populate job description text."""
+    """Handle file uploads and populate job posting text."""
 
-    f = st.session_state.get(UIKeys.JD_FILE_UPLOADER)
+    f = st.session_state.get(UIKeys.PROFILE_FILE_UPLOADER)
     if not f:
         return
     try:
@@ -146,15 +146,15 @@ def on_file_uploaded() -> None:
         )
         st.session_state["source_error"] = True
         return
-    st.session_state["__prefill_jd_text__"] = txt
+    st.session_state["__prefill_profile_text__"] = txt
     st.session_state["__run_extraction__"] = True
     st.rerun()
 
 
 def on_url_changed() -> None:
-    """Fetch text from URL and populate job description text."""
+    """Fetch text from URL and populate job posting text."""
 
-    url = st.session_state.get(UIKeys.JD_URL_INPUT, "").strip()
+    url = st.session_state.get(UIKeys.PROFILE_URL_INPUT, "").strip()
     if not url:
         return
     if not re.match(r"^https?://[\w./-]+$", url):
@@ -187,7 +187,7 @@ def on_url_changed() -> None:
         )
         st.session_state["source_error"] = True
         return
-    st.session_state["__prefill_jd_text__"] = txt
+    st.session_state["__prefill_profile_text__"] = txt
     st.session_state["__run_extraction__"] = True
 
 
@@ -520,11 +520,11 @@ def _step_intro():
         tr(
             (
                 "Dieser Wizard hilft Ihnen, alle relevanten Stellenanforderungen zu sammeln und aufzubereiten. "
-                "Am Ende erhalten Sie ein strukturiertes Profil Ihrer Vakanz."
+                "Am Ende erhalten Sie ein strukturiertes Stellenprofil."
             ),
             (
                 "This wizard helps you collect and organize all relevant job requirements. "
-                "In the end, you'll receive a structured profile of your vacancy."
+                "In the end, you'll receive a structured job profile."
             ),
         )
     )
@@ -601,7 +601,7 @@ def _step_source(schema: dict) -> None:
     st.caption(
         tr(
             "Stellenbeschreibung laden oder diesen Schritt überspringen, um Daten manuell einzugeben.",
-            "Load a job description or skip to enter data manually.",
+            "Load a job posting or skip to enter data manually.",
         )
     )
     if st.session_state.pop("source_error", False):
@@ -611,9 +611,9 @@ def _step_source(schema: dict) -> None:
                 "You can still fill in the info manually in the next steps.",
             )
         )
-    prefill = st.session_state.pop("__prefill_jd_text__", None)
+    prefill = st.session_state.pop("__prefill_profile_text__", None)
     if prefill is not None:
-        st.session_state[UIKeys.JD_TEXT_INPUT] = prefill
+        st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
         st.session_state[StateKeys.RAW_TEXT] = prefill
     if st.session_state.pop("__run_extraction__", False) and st.session_state.get(
         StateKeys.RAW_TEXT
@@ -639,11 +639,11 @@ def _step_source(schema: dict) -> None:
     with tab_text:
         bind_textarea(
             tr("Jobtext", "Job text"),
-            UIKeys.JD_TEXT_INPUT,
+            UIKeys.PROFILE_TEXT_INPUT,
             StateKeys.RAW_TEXT,
             placeholder=tr(
-                "Bitte JD-Text einfügen oder Datei/URL wählen...",
-                "Paste JD text here or upload a file / enter URL...",
+                "Bitte Stellenanzeigentext einfügen oder Datei/URL wählen...",
+                "Paste job posting text here or upload a file / enter URL...",
             ),
             help=tr(
                 "Fügen Sie den reinen Text Ihrer Stellenanzeige ein.",
@@ -653,9 +653,12 @@ def _step_source(schema: dict) -> None:
 
     with tab_file:
         st.file_uploader(
-            tr("JD hochladen (PDF/DOCX/TXT)", "Upload JD (PDF/DOCX/TXT)"),
+            tr(
+                "Stellenanzeige hochladen (PDF/DOCX/TXT)",
+                "Upload job posting (PDF/DOCX/TXT)",
+            ),
             type=["pdf", "docx", "txt"],
-            key=UIKeys.JD_FILE_UPLOADER,
+            key=UIKeys.PROFILE_FILE_UPLOADER,
             on_change=on_file_uploaded,
             help=tr(
                 "Unterstützte Formate: PDF, DOCX oder TXT.",
@@ -665,8 +668,8 @@ def _step_source(schema: dict) -> None:
 
     with tab_url:
         st.text_input(
-            tr("oder eine Job-URL eingeben", "or enter a Job URL"),
-            key=UIKeys.JD_URL_INPUT,
+            tr("oder eine Stellenanzeige-URL eingeben", "or enter a job posting URL"),
+            key=UIKeys.PROFILE_URL_INPUT,
             on_change=on_url_changed,
             placeholder="https://example.com/job",
             help=tr(
@@ -678,7 +681,7 @@ def _step_source(schema: dict) -> None:
     analyze_clicked = st.button(t("analyze", st.session_state.lang), type="primary")
     skip_clicked = st.button(tr("Ohne Vorlage fortfahren", "Continue without template"))
     if analyze_clicked:
-        raw = (st.session_state.get(UIKeys.JD_TEXT_INPUT, "") or "").strip()
+        raw = (st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, "") or "").strip()
         st.session_state["_analyze_attempted"] = True
         if not raw:
             st.warning(
@@ -2493,7 +2496,7 @@ def _step_summary(schema: dict, critical: list[str]):
 
 # --- Haupt-Wizard-Runner ---
 def run_wizard():
-    """Run the multi-step vacancy creation wizard.
+    """Run the multi-step profile creation wizard.
 
     Returns:
         None

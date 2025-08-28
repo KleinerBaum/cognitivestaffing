@@ -3,7 +3,7 @@ from core.ss_bridge import from_session_state, to_session_state
 
 
 def test_round_trip_session_state():
-    jd = coerce_and_fill(
+    profile = coerce_and_fill(
         {
             "position": {"job_title": "Dev"},
             "responsibilities": {"items": ["Code", "Review"]},
@@ -16,7 +16,7 @@ def test_round_trip_session_state():
         }
     )
     ss = {}
-    to_session_state(jd, ss)
-    jd2 = from_session_state(ss)
-    assert jd2 == jd
+    to_session_state(profile, ss)
+    profile2 = from_session_state(ss)
+    assert profile2 == profile
     assert ss["responsibilities.items"] == "Code\nReview"

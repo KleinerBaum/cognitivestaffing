@@ -35,57 +35,61 @@ def _setup_common(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_on_file_uploaded_populates_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Uploading a file populates JD text and text input state."""
+    """Uploading a file populates profile text and text input state."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
     sample_text = "from file"
     _setup_common(monkeypatch)
     monkeypatch.setattr("wizard.extract_text_from_file", lambda _f: sample_text)
-    st.session_state[UIKeys.JD_FILE_UPLOADER] = object()
+    st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
 
     on_file_uploaded()
 
-    assert st.session_state.get("__prefill_jd_text__") == sample_text
+    assert st.session_state.get("__prefill_profile_text__") == sample_text
     assert st.session_state.get("__run_extraction__") is True
 
     monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
     monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
+        st,
+        "text_area",
+        lambda *a, **k: st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, ""),
     )
 
     _step_source({})
 
     assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
-    assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
+    assert st.session_state.get(UIKeys.PROFILE_TEXT_INPUT) == sample_text
 
 
 def test_on_url_changed_populates_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Entering a URL populates JD text and text input state."""
+    """Entering a URL populates profile text and text input state."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
     sample_text = "from url"
     _setup_common(monkeypatch)
     monkeypatch.setattr("wizard.extract_text_from_url", lambda _u: sample_text)
-    st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
 
     on_url_changed()
 
-    assert st.session_state.get("__prefill_jd_text__") == sample_text
+    assert st.session_state.get("__prefill_profile_text__") == sample_text
     assert st.session_state.get("__run_extraction__") is True
 
     monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
     monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
+        st,
+        "text_area",
+        lambda *a, **k: st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, ""),
     )
 
     _step_source({})
 
     assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
-    assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
+    assert st.session_state.get(UIKeys.PROFILE_TEXT_INPUT) == sample_text
 
 
 def test_on_url_changed_handles_none(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -95,12 +99,12 @@ def test_on_url_changed_handles_none(monkeypatch: pytest.MonkeyPatch) -> None:
     st.session_state.lang = "en"
     _setup_common(monkeypatch)
     monkeypatch.setattr("wizard.extract_text_from_url", lambda _u: None)
-    st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
 
     on_url_changed()
 
     assert st.session_state.get(StateKeys.RAW_TEXT) == ""
-    assert "__prefill_jd_text__" not in st.session_state
+    assert "__prefill_profile_text__" not in st.session_state
 
 
 @pytest.mark.parametrize("mode", ["text", "file", "url"])
@@ -126,17 +130,19 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
 
     if mode == "file":
         monkeypatch.setattr("wizard.extract_text_from_file", lambda _f: sample_text)
-        st.session_state[UIKeys.JD_FILE_UPLOADER] = object()
+        st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
         on_file_uploaded()
     elif mode == "url":
         monkeypatch.setattr("wizard.extract_text_from_url", lambda _u: sample_text)
-        st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
+        st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
         on_url_changed()
     else:
-        st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
+        st.session_state[UIKeys.PROFILE_TEXT_INPUT] = sample_text
 
     monkeypatch.setattr(
-        st, "text_area", lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
+        st,
+        "text_area",
+        lambda *a, **k: st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, ""),
     )
 
     _step_source({})
@@ -153,7 +159,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.model = "gpt"
     st.session_state[StateKeys.STEP] = 0
     sample_text = "Job text"
-    st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
+    st.session_state[UIKeys.PROFILE_TEXT_INPUT] = sample_text
     sample_data = {
         "position": {"job_title": "Engineer"},
         "requirements": {"hard_skills_required": ["Python"]},
@@ -201,7 +207,7 @@ def test_step_source_flags_missing_fields(monkeypatch: pytest.MonkeyPatch) -> No
     st.session_state.model = "gpt"
     sample_text = "random text without info"
     _setup_common(monkeypatch)
-    st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
+    st.session_state[UIKeys.PROFILE_TEXT_INPUT] = sample_text
     analyze_label = t("analyze", st.session_state.lang)
 
     monkeypatch.setattr(st, "button", lambda label, *a, **k: label == analyze_label)
@@ -228,7 +234,7 @@ def test_step_source_skip_creates_empty_profile(
     monkeypatch.setattr(
         st,
         "text_area",
-        lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, ""),
+        lambda *a, **k: st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, ""),
     )
 
     skip_label = "Continue without template"
@@ -248,7 +254,7 @@ def test_step_source_skip_creates_empty_profile(
 def test_on_change_handles_extraction_errors(
     monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    """Extraction errors should show a message and keep JD text unchanged."""
+    """Extraction errors should show a message and keep profile text unchanged."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -262,7 +268,7 @@ def test_on_change_handles_extraction_errors(
             raise ValueError("bad file")
 
         monkeypatch.setattr("wizard.extract_text_from_file", raise_err)
-        st.session_state[UIKeys.JD_FILE_UPLOADER] = object()
+        st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
         on_file_uploaded()
     else:
 
@@ -270,7 +276,7 @@ def test_on_change_handles_extraction_errors(
             raise ValueError("bad url")
 
         monkeypatch.setattr("wizard.extract_text_from_url", raise_err)
-        st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
+        st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
         on_url_changed()
 
     assert st.session_state.get(StateKeys.RAW_TEXT, "") == ""
@@ -283,6 +289,6 @@ def test_autodetect_lang_sets_en() -> None:
     st.session_state.clear()
     st.session_state.lang = "de"
 
-    _autodetect_lang("This is an English job description.")
+    _autodetect_lang("This is an English job posting.")
 
     assert st.session_state.lang == "en"

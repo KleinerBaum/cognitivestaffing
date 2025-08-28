@@ -156,7 +156,7 @@ class Process(BaseModel):
 
 
 class Meta(BaseModel):
-    """Miscellaneous metadata about the vacancy."""
+    """Miscellaneous metadata about the profile."""
 
     model_config = ConfigDict(extra="forbid")
 

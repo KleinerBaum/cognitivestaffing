@@ -31,25 +31,25 @@ def test_coerce_and_fill_basic() -> None:
         },
         "meta": {"target_start_date": "2024-01-01"},
     }
-    jd = coerce_and_fill(data)
-    assert isinstance(jd, NeedAnalysisProfile)
-    assert jd.position.job_title == "Engineer"
-    assert jd.requirements is not None
-    assert jd.responsibilities is not None
-    assert jd.employment is not None
-    assert jd.compensation is not None
-    assert jd.requirements.hard_skills_required == ["Python"]
-    assert jd.responsibilities.items == ["Code apps"]
-    assert jd.employment.job_type == "full time"
-    assert jd.employment.contract_type == "permanent"
-    assert jd.position.supervises == 3
-    assert jd.position.team_size == 10
-    assert jd.meta.target_start_date == "2024-01-01"
-    assert jd.compensation.benefits == ["Gym", "Gym"]
-    assert jd.compensation.bonus_percentage == 10.0
-    assert jd.compensation.commission_structure == "10% of sales"
-    assert jd.compensation.salary_provided is False
-    assert jd.company.name == "Acme"
+    profile = coerce_and_fill(data)
+    assert isinstance(profile, NeedAnalysisProfile)
+    assert profile.position.job_title == "Engineer"
+    assert profile.requirements is not None
+    assert profile.responsibilities is not None
+    assert profile.employment is not None
+    assert profile.compensation is not None
+    assert profile.requirements.hard_skills_required == ["Python"]
+    assert profile.responsibilities.items == ["Code apps"]
+    assert profile.employment.job_type == "full time"
+    assert profile.employment.contract_type == "permanent"
+    assert profile.position.supervises == 3
+    assert profile.position.team_size == 10
+    assert profile.meta.target_start_date == "2024-01-01"
+    assert profile.compensation.benefits == ["Gym", "Gym"]
+    assert profile.compensation.bonus_percentage == 10.0
+    assert profile.compensation.commission_structure == "10% of sales"
+    assert profile.compensation.salary_provided is False
+    assert profile.company.name == "Acme"
 
 
 def test_coerce_and_fill_employment_details() -> None:
@@ -65,11 +65,11 @@ def test_coerce_and_fill_employment_details() -> None:
             "relocation_details": "Budget provided",
         }
     }
-    jd = coerce_and_fill(data)
-    assert jd.employment.contract_end == "2025-12-31"
-    assert jd.employment.remote_percentage == 50
-    assert jd.employment.travel_details == "20% international"
-    assert jd.employment.relocation_details == "Budget provided"
+    profile = coerce_and_fill(data)
+    assert profile.employment.contract_end == "2025-12-31"
+    assert profile.employment.remote_percentage == 50
+    assert profile.employment.travel_details == "20% international"
+    assert profile.employment.relocation_details == "Budget provided"
 
 
 def test_coerce_and_fill_alias_mapping() -> None:
@@ -80,20 +80,20 @@ def test_coerce_and_fill_alias_mapping() -> None:
         "city": "Berlin",
         "date_of_employment_start": "2024-01-01",
     }
-    jd = coerce_and_fill(data)
-    assert jd.requirements.hard_skills_required == ["Python"]
-    assert jd.location.primary_city == "Berlin"
-    assert jd.meta.target_start_date == "2024-01-01"
+    profile = coerce_and_fill(data)
+    assert profile.requirements.hard_skills_required == ["Python"]
+    assert profile.location.primary_city == "Berlin"
+    assert profile.meta.target_start_date == "2024-01-01"
 
 
 def test_default_insertion() -> None:
-    jd = coerce_and_fill({})
-    assert jd.position.job_title is None
-    assert jd.company.name is None
-    assert jd.requirements.hard_skills_required == []
+    profile = coerce_and_fill({})
+    assert profile.position.job_title is None
+    assert profile.company.name is None
+    assert profile.requirements.hard_skills_required == []
 
 
 def test_job_type_invalid() -> None:
-    jd = coerce_and_fill({"employment": {"job_type": "unknown"}})
-    assert jd.employment is not None
-    assert jd.employment.job_type == "unknown"
+    profile = coerce_and_fill({"employment": {"job_type": "unknown"}})
+    assert profile.employment is not None
+    assert profile.employment.job_type == "unknown"
