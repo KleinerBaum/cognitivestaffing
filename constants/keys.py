@@ -7,6 +7,9 @@ class UIKeys:
     LANG_SELECT = "ui.lang_select"
     MODEL_SELECT = "ui.model_select"
     REASONING_SELECT = "ui.reasoning_select"
+    TONE_SELECT = "ui.summary.tone"
+    NUM_QUESTIONS = "ui.summary.num_questions"
+    AUDIENCE_SELECT = "ui.summary.audience"
 
 
 class StateKeys:
