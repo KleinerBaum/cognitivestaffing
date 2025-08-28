@@ -39,6 +39,7 @@
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations
+- **Enhanced compensation step**: slider-based salary range, preset currency choices, bonus/commission details and common benefit suggestions
 - **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
 - **Glassmorphic theme**: browser-optimized design with a hero background
 - **Expanded skills section**: distinguish must-have and nice-to-have hard/soft skills, plus certifications, language requirements, and tools & technologies

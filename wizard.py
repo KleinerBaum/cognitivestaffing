@@ -1032,23 +1032,40 @@ def _step_compensation():
     )
     data = st.session_state[StateKeys.PROFILE]
 
-    c1, c2, c3 = st.columns(3)
-    data["compensation"]["salary_min"] = c1.number_input(
-        tr("Gehalt min", "Salary min"),
-        value=float(data["compensation"].get("salary_min") or 0.0),
+    salary_min = float(data["compensation"].get("salary_min") or 0.0)
+    salary_max = float(data["compensation"].get("salary_max") or 0.0)
+    salary_min, salary_max = st.slider(
+        tr("Gehaltsspanne", "Salary range"),
+        min_value=0.0,
+        max_value=500000.0,
+        value=(salary_min, salary_max),
+        step=1000.0,
     )
-    data["compensation"]["salary_max"] = c2.number_input(
-        tr("Gehalt max", "Salary max"),
-        value=float(data["compensation"].get("salary_max") or 0.0),
-    )
-    data["compensation"]["currency"] = c3.text_input(
-        tr("Währung", "Currency"), value=data["compensation"].get("currency", "")
-    )
+    data["compensation"]["salary_min"] = salary_min
+    data["compensation"]["salary_max"] = salary_max
 
-    c4, c5 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
+    currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
+    current_currency = data["compensation"].get("currency", "EUR")
+    idx = (
+        currency_options.index(current_currency)
+        if current_currency in currency_options
+        else currency_options.index("Other")
+    )
+    choice = c1.selectbox(
+        tr("Währung", "Currency"), options=currency_options, index=idx
+    )
+    if choice == "Other":
+        data["compensation"]["currency"] = c1.text_input(
+            tr("Andere Währung", "Other currency"),
+            value=("" if current_currency in currency_options else current_currency),
+        )
+    else:
+        data["compensation"]["currency"] = choice
+
     period_options = ["year", "month", "day", "hour"]
     current_period = data["compensation"].get("period")
-    data["compensation"]["period"] = c4.selectbox(
+    data["compensation"]["period"] = c2.selectbox(
         tr("Periode", "Period"),
         options=period_options,
         index=(
@@ -1057,18 +1074,51 @@ def _step_compensation():
             else 0
         ),
     )
-    data["compensation"]["variable_pay"] = c5.toggle(
+    data["compensation"]["variable_pay"] = c3.toggle(
         tr("Variable Vergütung?", "Variable pay?"),
         value=bool(data["compensation"].get("variable_pay")),
     )
+
+    if data["compensation"]["variable_pay"]:
+        c4, c5 = st.columns(2)
+        data["compensation"]["bonus_percentage"] = c4.number_input(
+            tr("Bonus %", "Bonus %"),
+            min_value=0.0,
+            max_value=100.0,
+            value=float(data["compensation"].get("bonus_percentage") or 0.0),
+        )
+        data["compensation"]["commission_structure"] = c5.text_input(
+            tr("Provisionsmodell", "Commission structure"),
+            value=data["compensation"].get("commission_structure", ""),
+        )
 
     c6, c7 = st.columns(2)
     data["compensation"]["equity_offered"] = c6.toggle(
         "Equity?", value=bool(data["compensation"].get("equity_offered"))
     )
+    lang = st.session_state.get("lang", "de")
+    preset_benefits = {
+        "de": [
+            "Firmenwagen",
+            "Home-Office",
+            "Weiterbildungsbudget",
+            "Betriebliche Altersvorsorge",
+            "Team-Events",
+        ],
+        "en": [
+            "Company car",
+            "Home office",
+            "Training budget",
+            "Pension plan",
+            "Team events",
+        ],
+    }
+    benefit_options = sorted(
+        set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", []))
+    )
     data["compensation"]["benefits"] = _chip_multiselect(
         "Benefits",
-        options=data["compensation"].get("benefits", []),
+        options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
 
@@ -1476,25 +1526,40 @@ def _summary_compensation() -> None:
     """Editable summary tab for compensation details."""
 
     data = st.session_state[StateKeys.PROFILE]
+    salary_min = float(data["compensation"].get("salary_min") or 0.0)
+    salary_max = float(data["compensation"].get("salary_max") or 0.0)
+    salary_min, salary_max = st.slider(
+        tr("Gehaltsspanne", "Salary range"),
+        min_value=0.0,
+        max_value=500000.0,
+        value=(salary_min, salary_max),
+        step=1000.0,
+        key="ui.summary.compensation.salary_range",
+    )
     c1, c2, c3 = st.columns(3)
-    salary_min = c1.number_input(
-        tr("Gehalt min", "Salary min"),
-        value=float(data["compensation"].get("salary_min") or 0.0),
-        key="ui.summary.compensation.salary_min",
+    currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
+    current_currency = data["compensation"].get("currency", "EUR")
+    idx = (
+        currency_options.index(current_currency)
+        if current_currency in currency_options
+        else currency_options.index("Other")
     )
-    salary_max = c2.number_input(
-        tr("Gehalt max", "Salary max"),
-        value=float(data["compensation"].get("salary_max") or 0.0),
-        key="ui.summary.compensation.salary_max",
-    )
-    currency = c3.text_input(
+    choice = c1.selectbox(
         tr("Währung", "Currency"),
-        value=data["compensation"].get("currency", ""),
-        key="ui.summary.compensation.currency",
+        options=currency_options,
+        index=idx,
+        key="ui.summary.compensation.currency_select",
     )
-    c4, c5 = st.columns(2)
+    if choice == "Other":
+        currency = c1.text_input(
+            tr("Andere Währung", "Other currency"),
+            value=("" if current_currency in currency_options else current_currency),
+            key="ui.summary.compensation.currency_other",
+        )
+    else:
+        currency = choice
     period_options = ["year", "month", "day", "hour"]
-    period = c4.selectbox(
+    period = c2.selectbox(
         tr("Periode", "Period"),
         options=period_options,
         index=(
@@ -1504,21 +1569,59 @@ def _summary_compensation() -> None:
         ),
         key="ui.summary.compensation.period",
     )
-    variable = c5.toggle(
+    variable = c3.toggle(
         tr("Variable Vergütung?", "Variable pay?"),
         value=bool(data["compensation"].get("variable_pay")),
         key="ui.summary.compensation.variable_pay",
     )
+    if variable:
+        c4, c5 = st.columns(2)
+        bonus_percentage = c4.number_input(
+            tr("Bonus %", "Bonus %"),
+            min_value=0.0,
+            max_value=100.0,
+            value=float(data["compensation"].get("bonus_percentage") or 0.0),
+            key="ui.summary.compensation.bonus_percentage",
+        )
+        commission_structure = c5.text_input(
+            tr("Provisionsmodell", "Commission structure"),
+            value=data["compensation"].get("commission_structure", ""),
+            key="ui.summary.compensation.commission_structure",
+        )
+    else:
+        bonus_percentage = data["compensation"].get("bonus_percentage")
+        commission_structure = data["compensation"].get("commission_structure")
+
     c6, c7 = st.columns(2)
     equity = c6.toggle(
         "Equity?",
         value=bool(data["compensation"].get("equity_offered")),
         key="ui.summary.compensation.equity_offered",
     )
-    benefits = st.text_area(
+    lang = st.session_state.get("lang", "de")
+    preset_benefits = {
+        "de": [
+            "Firmenwagen",
+            "Home-Office",
+            "Weiterbildungsbudget",
+            "Betriebliche Altersvorsorge",
+            "Team-Events",
+        ],
+        "en": [
+            "Company car",
+            "Home office",
+            "Training budget",
+            "Pension plan",
+            "Team events",
+        ],
+    }
+    benefit_options = sorted(
+        set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", []))
+    )
+    benefits = _chip_multiselect(
         "Benefits",
-        value=", ".join(data["compensation"].get("benefits", [])),
-        key="ui.summary.compensation.benefits",
+        options=benefit_options,
+        values=data["compensation"].get("benefits", []),
     )
 
     _update_profile("compensation.salary_min", salary_min)
@@ -1526,11 +1629,10 @@ def _summary_compensation() -> None:
     _update_profile("compensation.currency", currency)
     _update_profile("compensation.period", period)
     _update_profile("compensation.variable_pay", variable)
+    _update_profile("compensation.bonus_percentage", bonus_percentage)
+    _update_profile("compensation.commission_structure", commission_structure)
     _update_profile("compensation.equity_offered", equity)
-    _update_profile(
-        "compensation.benefits",
-        [s.strip() for s in benefits.split(",") if s.strip()],
-    )
+    _update_profile("compensation.benefits", benefits)
 
 
 def _summary_process() -> None:

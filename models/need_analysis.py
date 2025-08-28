@@ -111,6 +111,8 @@ class Compensation(BaseModel):
     currency: Optional[str] = None
     period: Optional[str] = None
     variable_pay: Optional[bool] = None
+    bonus_percentage: Optional[float] = None
+    commission_structure: Optional[str] = None
     equity_offered: Optional[bool] = None
     benefits: List[str] = Field(default_factory=list)
 
