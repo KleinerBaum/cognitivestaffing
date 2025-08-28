@@ -5,7 +5,7 @@ import io
 import json
 from datetime import date
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import re
 import streamlit as st
@@ -219,7 +219,16 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
                 model=st.session_state.model,
                 vector_store_id=st.session_state.vector_store_id or None,
             )
-            st.session_state[StateKeys.FOLLOWUPS] = followup_res.get("questions", [])
+            done = set(
+                st.session_state[StateKeys.PROFILE]
+                .get("meta", {})
+                .get("followups_answered", [])
+            )
+            st.session_state[StateKeys.FOLLOWUPS] = [
+                q
+                for q in followup_res.get("questions", [])
+                if q.get("field") not in done
+            ]
         except Exception:
             st.warning(
                 tr(
@@ -317,6 +326,14 @@ def _render_followup_question(q: dict, data: dict) -> None:
     ans = st.session_state.get(key, "")
     if ans:
         set_in(data, field, ans)
+        completed = data.setdefault("meta", {}).setdefault("followups_answered", [])
+        if field not in completed:
+            completed.append(field)
+        st.session_state[StateKeys.FOLLOWUPS].remove(q)
+    elif st.button(tr("Überspringen", "Skip"), key=f"{key}_skip"):
+        completed = data.setdefault("meta", {}).setdefault("followups_answered", [])
+        if field not in completed:
+            completed.append(field)
         st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
@@ -361,19 +378,27 @@ def flatten(d: dict, prefix: str = "") -> dict:
     return out
 
 
-def missing_keys(data: dict, critical: List[str]) -> List[str]:
+def missing_keys(
+    data: dict, critical: List[str], ignore: Optional[set[str]] = None
+) -> List[str]:
     """Identify required keys that are missing or empty.
 
     Args:
         data: Vacancy data to inspect.
         critical: List of required dot-separated keys.
+        ignore: Optional set of keys to exclude from the result.
 
     Returns:
         List of keys that are absent or have empty values.
     """
 
     flat = flatten(data)
-    return [k for k in critical if (k not in flat) or (flat[k] in (None, "", [], {}))]
+    ignore = ignore or set()
+    return [
+        k
+        for k in critical
+        if k not in ignore and ((k not in flat) or (flat[k] in (None, "", [], {})))
+    ]
 
 
 # --- UI-Komponenten ---
@@ -756,7 +781,7 @@ def _step_company():
                 _render_followup_question(q, data)
 
 
-_step_company.handled_fields = ["company.name"]
+_step_company.handled_fields = ["company.name"]  # type: ignore[attr-defined]
 
 
 def _render_stakeholders(process: dict, key_prefix: str) -> None:
@@ -1020,7 +1045,7 @@ def _step_position():
                 _render_followup_question(q, data)
 
 
-_step_position.handled_fields = [
+_step_position.handled_fields = [  # type: ignore[attr-defined]
     "position.job_title",
     "position.role_summary",
     "location.country",
@@ -1186,7 +1211,7 @@ def _step_requirements():
                 _render_followup_question(q, data)
 
 
-_step_requirements.handled_fields = [
+_step_requirements.handled_fields = [  # type: ignore[attr-defined]
     "requirements.hard_skills_required",
     "requirements.soft_skills_required",
 ]
@@ -2108,7 +2133,8 @@ def _step_summary(schema: dict, critical: list[str]):
         )
     )
     data = st.session_state[StateKeys.PROFILE]
-    missing = missing_keys(data, critical)
+    completed = set(data.get("meta", {}).get("followups_answered", []))
+    missing = missing_keys(data, critical, ignore=completed)
     if missing:
         labels = [_field_label(f) for f in missing]
         st.warning(f"{t('missing', st.session_state.lang)} {', '.join(labels)}")
@@ -2321,7 +2347,14 @@ def _step_summary(schema: dict, critical: list[str]):
                     model=st.session_state.model,
                     vector_store_id=st.session_state.vector_store_id or None,
                 )
-                st.session_state[StateKeys.FOLLOWUPS] = res.get("questions", [])
+                done = set(
+                    st.session_state[StateKeys.PROFILE]
+                    .get("meta", {})
+                    .get("followups_answered", [])
+                )
+                st.session_state[StateKeys.FOLLOWUPS] = [
+                    q for q in res.get("questions", []) if q.get("field") not in done
+                ]
                 st.success(
                     tr("Follow-ups aktualisiert.", "Follow-up questions updated.")
                 )
