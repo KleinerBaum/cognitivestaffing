@@ -5,8 +5,10 @@ from core.schema import coerce_and_fill, LIST_FIELDS
 def test_list_fields_contains_base_lists() -> None:
     base_lists = {
         "responsibilities.items",
-        "requirements.hard_skills",
-        "requirements.soft_skills",
+        "requirements.hard_skills_required",
+        "requirements.hard_skills_optional",
+        "requirements.soft_skills_required",
+        "requirements.soft_skills_optional",
         "requirements.certifications",
         "compensation.benefits",
         "requirements.languages_required",
@@ -19,7 +21,7 @@ def test_coerce_and_fill_basic() -> None:
     data = {
         "company": {"name": "Acme"},
         "position": {"job_title": "Engineer", "supervises": 3},
-        "requirements": {"hard_skills": ["Python"]},
+        "requirements": {"hard_skills_required": ["Python"]},
         "responsibilities": {"items": ["Code apps"]},
         "employment": {"job_type": "full time", "contract_type": "permanent"},
         "compensation": {"benefits": ["Gym", "Gym"]},
@@ -32,7 +34,7 @@ def test_coerce_and_fill_basic() -> None:
     assert jd.responsibilities is not None
     assert jd.employment is not None
     assert jd.compensation is not None
-    assert jd.requirements.hard_skills == ["Python"]
+    assert jd.requirements.hard_skills_required == ["Python"]
     assert jd.responsibilities.items == ["Code apps"]
     assert jd.employment.job_type == "full time"
     assert jd.employment.contract_type == "permanent"
@@ -46,7 +48,7 @@ def test_default_insertion() -> None:
     jd = coerce_and_fill({})
     assert jd.position.job_title is None
     assert jd.company.name is None
-    assert jd.requirements.hard_skills == []
+    assert jd.requirements.hard_skills_required == []
 
 
 def test_job_type_invalid() -> None:

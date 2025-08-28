@@ -134,7 +134,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
     sample_data = {
         "position": {"job_title": "Engineer"},
-        "requirements": {"hard_skills": ["Python"]},
+        "requirements": {"hard_skills_required": ["Python"]},
     }
     _setup_common(monkeypatch)
     analyze_label = t("analyze", st.session_state.lang)
@@ -165,7 +165,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     data = st.session_state[StateKeys.PROFILE]
     assert data["position"]["occupation_label"] == "software developer"
     assert data["position"]["occupation_uri"] == "http://example.com/occ"
-    assert data["requirements"]["hard_skills"] == [
+    assert data["requirements"]["hard_skills_required"] == [
         "Project management",
         "Python",
     ]

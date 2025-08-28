@@ -65,14 +65,17 @@ class Responsibilities(BaseModel):
 
 
 class Requirements(BaseModel):
-    """Required skills and qualifications."""
+    """Required and optional skills and qualifications."""
 
     model_config = ConfigDict(extra="forbid")
 
-    hard_skills: List[str] = Field(default_factory=list)
-    soft_skills: List[str] = Field(default_factory=list)
+    hard_skills_required: List[str] = Field(default_factory=list)
+    hard_skills_optional: List[str] = Field(default_factory=list)
+    soft_skills_required: List[str] = Field(default_factory=list)
+    soft_skills_optional: List[str] = Field(default_factory=list)
     tools_and_technologies: List[str] = Field(default_factory=list)
     languages_required: List[str] = Field(default_factory=list)
+    languages_optional: List[str] = Field(default_factory=list)
     certifications: List[str] = Field(default_factory=list)
     language_level_english: Optional[str] = None
 

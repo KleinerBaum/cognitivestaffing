@@ -759,8 +759,26 @@ def generate_job_ad(
         ),
         ("position.role_summary", "Role Summary", "Rollenbeschreibung"),
         ("responsibilities.items", "Key Responsibilities", "Wichtigste Aufgaben"),
-        ("requirements.hard_skills", "Hard Skills", "Technische Fähigkeiten"),
-        ("requirements.soft_skills", "Soft Skills", "Soziale Fähigkeiten"),
+        (
+            "requirements.hard_skills_required",
+            "Hard Skills (Must-have)",
+            "Technische Fähigkeiten (Muss)",
+        ),
+        (
+            "requirements.hard_skills_optional",
+            "Hard Skills (Nice-to-have)",
+            "Technische Fähigkeiten (Optional)",
+        ),
+        (
+            "requirements.soft_skills_required",
+            "Soft Skills (Must-have)",
+            "Soziale Fähigkeiten (Muss)",
+        ),
+        (
+            "requirements.soft_skills_optional",
+            "Soft Skills (Nice-to-have)",
+            "Soziale Fähigkeiten (Optional)",
+        ),
         ("compensation.benefits", "Benefits", "Leistungen"),
         (
             "learning_opportunities",

@@ -140,8 +140,8 @@ FIELD_SECTION_MAP = {
     "position.job_title": 1,
     "position.role_summary": 2,
     "location.country": 2,
-    "requirements.hard_skills": 3,
-    "requirements.soft_skills": 3,
+    "requirements.hard_skills_required": 3,
+    "requirements.soft_skills_required": 3,
 }
 
 
@@ -447,9 +447,11 @@ def _step_source(schema: dict) -> None:
                         occ.get("uri") or "",
                         st.session_state.lang or "en",
                     )
-                    current_skills = set(profile.requirements.hard_skills or [])
+                    current_skills = set(
+                        profile.requirements.hard_skills_required or []
+                    )
                     merged = sorted(current_skills.union(skills or []))
-                    profile.requirements.hard_skills = merged
+                    profile.requirements.hard_skills_required = merged
                 st.session_state[StateKeys.PROFILE] = profile.model_dump()
                 summary = {}
                 if profile.position.job_title:
@@ -754,15 +756,25 @@ def _step_requirements():
         st.session_state[StateKeys.SKILL_SUGGESTIONS] = stored
     suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
 
-    data["requirements"]["hard_skills"] = _chip_multiselect(
-        "Hard Skills",
-        options=data["requirements"].get("hard_skills", []),
-        values=data["requirements"].get("hard_skills", []),
+    data["requirements"]["hard_skills_required"] = _chip_multiselect(
+        "Hard Skills (Must-have)",
+        options=data["requirements"].get("hard_skills_required", []),
+        values=data["requirements"].get("hard_skills_required", []),
     )
-    data["requirements"]["soft_skills"] = _chip_multiselect(
-        "Soft Skills",
-        options=data["requirements"].get("soft_skills", []),
-        values=data["requirements"].get("soft_skills", []),
+    data["requirements"]["hard_skills_optional"] = _chip_multiselect(
+        "Hard Skills (Nice-to-have)",
+        options=data["requirements"].get("hard_skills_optional", []),
+        values=data["requirements"].get("hard_skills_optional", []),
+    )
+    data["requirements"]["soft_skills_required"] = _chip_multiselect(
+        "Soft Skills (Must-have)",
+        options=data["requirements"].get("soft_skills_required", []),
+        values=data["requirements"].get("soft_skills_required", []),
+    )
+    data["requirements"]["soft_skills_optional"] = _chip_multiselect(
+        "Soft Skills (Nice-to-have)",
+        options=data["requirements"].get("soft_skills_optional", []),
+        values=data["requirements"].get("soft_skills_optional", []),
     )
     data["requirements"]["tools_and_technologies"] = _chip_multiselect(
         "Tools & Tech",
@@ -773,6 +785,11 @@ def _step_requirements():
         tr("Sprachen", "Languages"),
         options=data["requirements"].get("languages_required", []),
         values=data["requirements"].get("languages_required", []),
+    )
+    data["requirements"]["languages_optional"] = _chip_multiselect(
+        tr("Optionale Sprachen", "Optional languages"),
+        options=data["requirements"].get("languages_optional", []),
+        values=data["requirements"].get("languages_optional", []),
     )
     data["requirements"]["certifications"] = _chip_multiselect(
         tr("Zertifizierungen", "Certifications"),
@@ -803,30 +820,30 @@ def _step_requirements():
         options=[
             s
             for s in suggestions.get("hard_skills", [])
-            if s not in data["requirements"].get("hard_skills", [])
+            if s not in data["requirements"].get("hard_skills_required", [])
         ],
         key="ms_sugg_hard",
     )
     if sugg_hard:
         merged = sorted(
-            set(data["requirements"].get("hard_skills", [])).union(sugg_hard)
+            set(data["requirements"].get("hard_skills_required", [])).union(sugg_hard)
         )
-        data["requirements"]["hard_skills"] = merged
+        data["requirements"]["hard_skills_required"] = merged
 
     sugg_soft = st.multiselect(
         tr("Vorgeschlagene Soft Skills", "Suggested Soft Skills"),
         options=[
             s
             for s in suggestions.get("soft_skills", [])
-            if s not in data["requirements"].get("soft_skills", [])
+            if s not in data["requirements"].get("soft_skills_required", [])
         ],
         key="ms_sugg_soft",
     )
     if sugg_soft:
         merged = sorted(
-            set(data["requirements"].get("soft_skills", [])).union(sugg_soft)
+            set(data["requirements"].get("soft_skills_required", [])).union(sugg_soft)
         )
-        data["requirements"]["soft_skills"] = merged
+        data["requirements"]["soft_skills_required"] = merged
 
     # Inline follow-up questions for Requirements section
     if StateKeys.FOLLOWUPS in st.session_state:
@@ -1175,25 +1192,40 @@ def _summary_requirements() -> None:
 
     data = st.session_state[StateKeys.PROFILE]
 
-    hard = st.text_area(
-        "Hard Skills",
-        value=", ".join(data["requirements"].get("hard_skills", [])),
-        key="ui.summary.requirements.hard_skills",
+    hard_req = st.text_area(
+        "Hard Skills (Must-have)",
+        value=", ".join(data["requirements"].get("hard_skills_required", [])),
+        key="ui.summary.requirements.hard_skills_required",
     )
-    soft = st.text_area(
-        "Soft Skills",
-        value=", ".join(data["requirements"].get("soft_skills", [])),
-        key="ui.summary.requirements.soft_skills",
+    hard_opt = st.text_area(
+        "Hard Skills (Nice-to-have)",
+        value=", ".join(data["requirements"].get("hard_skills_optional", [])),
+        key="ui.summary.requirements.hard_skills_optional",
+    )
+    soft_req = st.text_area(
+        "Soft Skills (Must-have)",
+        value=", ".join(data["requirements"].get("soft_skills_required", [])),
+        key="ui.summary.requirements.soft_skills_required",
+    )
+    soft_opt = st.text_area(
+        "Soft Skills (Nice-to-have)",
+        value=", ".join(data["requirements"].get("soft_skills_optional", [])),
+        key="ui.summary.requirements.soft_skills_optional",
     )
     tools = st.text_area(
         "Tools & Tech",
         value=", ".join(data["requirements"].get("tools_and_technologies", [])),
         key="ui.summary.requirements.tools",
     )
-    languages = st.text_area(
+    languages_req = st.text_area(
         tr("Sprachen", "Languages"),
         value=", ".join(data["requirements"].get("languages_required", [])),
-        key="ui.summary.requirements.languages",
+        key="ui.summary.requirements.languages_required",
+    )
+    languages_opt = st.text_area(
+        tr("Optionale Sprachen", "Optional languages"),
+        value=", ".join(data["requirements"].get("languages_optional", [])),
+        key="ui.summary.requirements.languages_optional",
     )
     certs = st.text_area(
         tr("Zertifizierungen", "Certifications"),
@@ -1202,12 +1234,20 @@ def _summary_requirements() -> None:
     )
 
     _update_profile(
-        "requirements.hard_skills",
-        [s.strip() for s in hard.split(",") if s.strip()],
+        "requirements.hard_skills_required",
+        [s.strip() for s in hard_req.split(",") if s.strip()],
     )
     _update_profile(
-        "requirements.soft_skills",
-        [s.strip() for s in soft.split(",") if s.strip()],
+        "requirements.hard_skills_optional",
+        [s.strip() for s in hard_opt.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.soft_skills_required",
+        [s.strip() for s in soft_req.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.soft_skills_optional",
+        [s.strip() for s in soft_opt.split(",") if s.strip()],
     )
     _update_profile(
         "requirements.tools_and_technologies",
@@ -1215,7 +1255,11 @@ def _summary_requirements() -> None:
     )
     _update_profile(
         "requirements.languages_required",
-        [s.strip() for s in languages.split(",") if s.strip()],
+        [s.strip() for s in languages_req.split(",") if s.strip()],
+    )
+    _update_profile(
+        "requirements.languages_optional",
+        [s.strip() for s in languages_opt.split(",") if s.strip()],
     )
     _update_profile(
         "requirements.certifications",
@@ -1456,8 +1500,10 @@ def _step_summary(schema: dict, critical: list[str]):
                 guide_md = generate_interview_guide(
                     job_title=profile.position.job_title or "",
                     responsibilities="\n".join(profile.responsibilities.items),
-                    hard_skills=profile.requirements.hard_skills,
-                    soft_skills=profile.requirements.soft_skills,
+                    hard_skills=profile.requirements.hard_skills_required
+                    + profile.requirements.hard_skills_optional,
+                    soft_skills=profile.requirements.soft_skills_required
+                    + profile.requirements.soft_skills_optional,
                     lang=st.session_state.lang,
                     tone=st.session_state.get("tone"),
                     num_questions=5,
@@ -1503,7 +1549,9 @@ def _step_summary(schema: dict, critical: list[str]):
             st.write(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
             fu = st.session_state["followups"]
             for item in fu.get("questions", []):
-                key = item.get("key")  # dot key, z.B. "requirements.hard_skills"
+                key = item.get(
+                    "key"
+                )  # dot key, z.B. "requirements.hard_skills_required"
                 q = item.get("question")
                 if not key or not q:
                     continue

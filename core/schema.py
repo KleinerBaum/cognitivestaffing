@@ -49,7 +49,11 @@ ALL_FIELDS, LIST_FIELDS = _collect_fields(NeedAnalysisProfile)
 # Alias map for backward compatibility with legacy field names
 # Using MappingProxyType to prevent accidental mutation.
 ALIASES: Mapping[str, str] = MappingProxyType(
-    {"date_of_employment_start": "meta.target_start_date"}
+    {
+        "date_of_employment_start": "meta.target_start_date",
+        "requirements.hard_skills": "requirements.hard_skills_required",
+        "requirements.soft_skills": "requirements.soft_skills_required",
+    }
 )
 
 
