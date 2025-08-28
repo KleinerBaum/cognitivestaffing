@@ -13,6 +13,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
 - **Restart option**: clicking "Done" returns to the first step to begin another profile
 - **Manual entry option**: skip the upload step and start with an empty profile
+- **Critical field checks**: wizard blocks navigation until essential fields are filled and highlights missing inputs inline
 - **Extraction feedback**: review detected base data before continuing
 - **Guided error messages**: clear hints when uploads or URLs fail
 - **Upfront language switch**: choose German or English before entering any data

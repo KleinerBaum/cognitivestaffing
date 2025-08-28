@@ -1,6 +1,10 @@
 {
-  "critical": [
-    "position.role_summary",
-    "location.country"
-  ]
+    "critical": [
+        "company.name",
+        "position.job_title",
+        "position.role_summary",
+        "location.country",
+        "requirements.hard_skills_required",
+        "requirements.soft_skills_required"
+    ]
 }

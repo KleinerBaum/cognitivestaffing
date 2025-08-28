@@ -117,13 +117,9 @@ def on_url_changed() -> None:
 
 
 def _autodetect_lang(text: str) -> None:
-    """Detect language from ``text`` and set session state if default."""
+    """Detect language from ``text`` and update session language."""
 
-    if (
-        "lang_auto" in st.session_state
-        or st.session_state.get("lang") != "de"
-        or not text
-    ):
+    if not text:
         return
     try:
         from langdetect import detect
@@ -132,7 +128,17 @@ def _autodetect_lang(text: str) -> None:
             st.session_state["lang"] = "en"
     except Exception:  # pragma: no cover - best effort
         pass
-    st.session_state["lang_auto"] = True
+
+
+def _skip_source() -> None:
+    """Skip source step and initialize an empty profile."""
+
+    st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+    st.session_state[StateKeys.RAW_TEXT] = ""
+    st.session_state[UIKeys.JD_TEXT_INPUT] = ""
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+    st.session_state[StateKeys.STEP] = 2
+    st.rerun()
 
 
 # Mapping from schema field paths to wizard section numbers
@@ -490,12 +496,7 @@ def _step_source(schema: dict) -> None:
                     str(e),
                 )
     if skip_clicked:
-        st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
-        st.session_state[StateKeys.RAW_TEXT] = ""
-        st.session_state[UIKeys.JD_TEXT_INPUT] = ""
-        st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
-        st.session_state[StateKeys.STEP] = 2
-        st.rerun()
+        _skip_source()
     summary_data = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
     if summary_data:
         st.success(
@@ -527,13 +528,23 @@ def _step_company():
         )
     )
     data = st.session_state[StateKeys.PROFILE]
+    missing_here = [
+        f
+        for f in get_missing_critical_fields(max_section=1)
+        if FIELD_SECTION_MAP.get(f) == 1
+    ]
 
+    label_company = tr("Firma", "Company")
+    if "company.name" in missing_here:
+        label_company += " *"
     data["company"]["name"] = st.text_input(
-        tr("Firma *", "Company *"),
+        label_company,
         value=data["company"].get("name", ""),
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
         help=tr("Offizieller Firmenname", "Official company name"),
     )
+    if "company.name" in missing_here and not data["company"]["name"]:
+        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     c1, c2, c3 = st.columns(3)
     data["company"]["brand_name"] = c1.text_input(
@@ -764,13 +775,24 @@ def _step_position():
         )
     )
     data = st.session_state[StateKeys.PROFILE]
+    missing_here = [
+        f
+        for f in get_missing_critical_fields(max_section=2)
+        if FIELD_SECTION_MAP.get(f) == 2
+    ]
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
+    label_title = tr("Jobtitel", "Job title")
+    if "position.job_title" in missing_here:
+        label_title += " *"
     data["position"]["job_title"] = c1.text_input(
-        tr("Jobtitel *", "Job title *"),
+        label_title,
         value=data["position"].get("job_title", ""),
         placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
     )
+    if "position.job_title" in missing_here and not data["position"]["job_title"]:
+        c1.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
     data["position"]["seniority_level"] = c2.text_input(
         tr("Seniorität", "Seniority"),
         value=data["position"].get("seniority_level", ""),
@@ -797,19 +819,46 @@ def _step_position():
         value=data["position"].get("reporting_line", ""),
         placeholder=tr("z. B. CTO", "e.g., CTO"),
     )
+    label_summary = tr("Rollen-Summary", "Role summary")
+    if "position.role_summary" in missing_here:
+        label_summary += " *"
     data["position"]["role_summary"] = c6.text_area(
-        tr("Rollen-Summary *", "Role summary *"),
+        label_summary,
         value=data["position"].get("role_summary", ""),
         height=120,
     )
+    if "position.role_summary" in missing_here and not data["position"]["role_summary"]:
+        c6.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     c7, c8 = st.columns(2)
-    data["meta"]["target_start_date"] = c7.text_input(
+    data["location"]["primary_city"] = c7.text_input(
+        tr("Stadt", "City"),
+        value=data.get("location", {}).get("primary_city", ""),
+        placeholder=tr("z. B. Berlin", "e.g., Berlin"),
+    )
+    label_country = tr("Land", "Country")
+    if "location.country" in missing_here:
+        label_country += " *"
+    data["location"]["country"] = c8.text_input(
+        label_country,
+        value=data.get("location", {}).get("country", ""),
+        placeholder=tr("z. B. DE", "e.g., DE"),
+    )
+    if "location.country" in missing_here and not data["location"].get("country"):
+        c8.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+    c9, c10, c11 = st.columns(3)
+    data["meta"]["target_start_date"] = c9.text_input(
         tr("Gewünschtes Startdatum", "Desired start date"),
         value=data["meta"].get("target_start_date", ""),
         placeholder="YYYY-MM-DD",
     )
-    data["position"]["supervises"] = c8.number_input(
+    data["meta"]["application_deadline"] = c10.text_input(
+        tr("Bewerbungsschluss", "Application deadline"),
+        value=data["meta"].get("application_deadline", ""),
+        placeholder="YYYY-MM-DD",
+    )
+    data["position"]["supervises"] = c11.number_input(
         tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
         min_value=0,
         value=data["position"].get("supervises", 0),
@@ -871,6 +920,11 @@ def _step_requirements():
         )
     )
     data = st.session_state[StateKeys.PROFILE]
+    missing_here = [
+        f
+        for f in get_missing_critical_fields(max_section=3)
+        if FIELD_SECTION_MAP.get(f) == 3
+    ]
 
     # LLM-basierte Skill-Vorschläge abrufen
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
@@ -884,28 +938,44 @@ def _step_requirements():
         st.session_state[StateKeys.SKILL_SUGGESTIONS] = stored
     suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
 
+    label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
+    if "requirements.hard_skills_required" in missing_here:
+        label_hard_req += " *"
     data["requirements"]["hard_skills_required"] = _chip_multiselect(
-        "Hard Skills (Must-have)",
+        label_hard_req,
         options=data["requirements"].get("hard_skills_required", []),
         values=data["requirements"].get("hard_skills_required", []),
     )
+    if "requirements.hard_skills_required" in missing_here and not data[
+        "requirements"
+    ].get("hard_skills_required"):
+        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
     data["requirements"]["hard_skills_optional"] = _chip_multiselect(
-        "Hard Skills (Nice-to-have)",
+        tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
         options=data["requirements"].get("hard_skills_optional", []),
         values=data["requirements"].get("hard_skills_optional", []),
     )
+    label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
+    if "requirements.soft_skills_required" in missing_here:
+        label_soft_req += " *"
     data["requirements"]["soft_skills_required"] = _chip_multiselect(
-        "Soft Skills (Must-have)",
+        label_soft_req,
         options=data["requirements"].get("soft_skills_required", []),
         values=data["requirements"].get("soft_skills_required", []),
     )
+    if "requirements.soft_skills_required" in missing_here and not data[
+        "requirements"
+    ].get("soft_skills_required"):
+        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
     data["requirements"]["soft_skills_optional"] = _chip_multiselect(
-        "Soft Skills (Nice-to-have)",
+        tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
         options=data["requirements"].get("soft_skills_optional", []),
         values=data["requirements"].get("soft_skills_optional", []),
     )
     data["requirements"]["tools_and_technologies"] = _chip_multiselect(
-        "Tools & Tech",
+        tr("Tools & Tech", "Tools & Tech"),
         options=data["requirements"].get("tools_and_technologies", []),
         values=data["requirements"].get("tools_and_technologies", []),
     )
@@ -918,6 +988,10 @@ def _step_requirements():
         tr("Optionale Sprachen", "Optional languages"),
         options=data["requirements"].get("languages_optional", []),
         values=data["requirements"].get("languages_optional", []),
+    )
+    data["requirements"]["language_level_english"] = st.text_input(
+        tr("Englischniveau", "English level"),
+        value=data["requirements"].get("language_level_english", ""),
     )
     data["requirements"]["certifications"] = _chip_multiselect(
         tr("Zertifizierungen", "Certifications"),
@@ -1106,6 +1180,20 @@ def _step_employment():
     data["employment"]["visa_sponsorship"] = c6.toggle(
         tr("Visum-Sponsoring?", "Visa sponsorship?"),
         value=bool(data["employment"].get("visa_sponsorship")),
+    )
+
+    c7, c8, c9 = st.columns(3)
+    data["employment"]["overtime_expected"] = c7.toggle(
+        tr("Überstunden?", "Overtime expected?"),
+        value=bool(data["employment"].get("overtime_expected")),
+    )
+    data["employment"]["security_clearance_required"] = c8.toggle(
+        tr("Sicherheitsüberprüfung?", "Security clearance required?"),
+        value=bool(data["employment"].get("security_clearance_required")),
+    )
+    data["employment"]["shift_work"] = c9.toggle(
+        tr("Schichtarbeit?", "Shift work?"),
+        value=bool(data["employment"].get("shift_work")),
     )
 
     if data["employment"].get("travel_required"):
@@ -2052,9 +2140,8 @@ def run_wizard():
     renderer()
 
     # Bottom nav
-    crit_until_now = [f for f in critical if FIELD_SECTION_MAP.get(f, 0) <= current + 1]
-    missing = missing_keys(st.session_state[StateKeys.PROFILE], crit_until_now)
-
+    section = current - 1
+    missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
     if missing:
         st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
 
@@ -2065,6 +2152,7 @@ def run_wizard():
                 tr("Weiter ▶︎", "Next ▶︎"),
                 type="primary",
                 use_container_width=True,
+                disabled=bool(missing),
             ):
                 next_step()
                 st.rerun()
@@ -2076,13 +2164,13 @@ def run_wizard():
                 st.rerun()
         with col_skip:
             if st.button(tr("Überspringen", "Skip"), use_container_width=True):
-                next_step()
-                st.rerun()
+                _skip_source()
         with col_next:
             if st.button(
                 tr("Weiter ▶︎", "Next ▶︎"),
                 type="primary",
                 use_container_width=True,
+                disabled=bool(missing),
             ):
                 next_step()
                 st.rerun()
@@ -2098,12 +2186,16 @@ def run_wizard():
                     tr("Weiter ▶︎", "Next ▶︎"),
                     type="primary",
                     use_container_width=True,
+                    disabled=bool(missing),
                 ):
                     next_step()
                     st.rerun()
             else:
                 if st.button(
-                    tr("Fertig", "Done"), type="primary", use_container_width=True
+                    tr("Fertig", "Done"),
+                    type="primary",
+                    use_container_width=True,
+                    disabled=bool(missing),
                 ):
                     st.session_state[StateKeys.STEP] = 0
                     st.rerun()
