@@ -18,7 +18,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Guided error messages**: clear hints when uploads or URLs fail
 - **Upfront language switch**: choose German or English before entering any data
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
-- **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
+- **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
 - **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
 - **Structured output**: function calling/JSON mode ensures valid responses
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing

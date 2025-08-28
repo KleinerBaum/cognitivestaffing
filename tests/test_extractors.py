@@ -1,6 +1,8 @@
 import io
 import sys
 import types
+
+import pytest
 from pypdf import PdfWriter
 
 from ingest.extractors import extract_text_from_file
@@ -36,3 +38,17 @@ def test_extract_pdf_with_ocr(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "pdf2image", pdf2image)
     monkeypatch.setitem(sys.modules, "pytesseract", pytesseract)
     assert extract_text_from_file(f) == "OCR TEXT"
+
+
+def test_extract_empty_file() -> None:
+    f = io.BytesIO(b"")
+    f.name = "d.txt"
+    with pytest.raises(ValueError, match="empty file"):
+        extract_text_from_file(f)
+
+
+def test_extract_unsupported_type() -> None:
+    f = io.BytesIO(b"data")
+    f.name = "e.png"
+    with pytest.raises(ValueError, match="unsupported file type"):
+        extract_text_from_file(f)

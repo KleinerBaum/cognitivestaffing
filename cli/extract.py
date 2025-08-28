@@ -33,7 +33,10 @@ def main() -> None:
         raise SystemExit(f"File not found: {file_path}")
 
     with file_path.open("rb") as fh:
-        text = extract_text_from_file(fh)
+        try:
+            text = extract_text_from_file(fh)
+        except ValueError as e:
+            raise SystemExit(str(e))
     if not text:
         raise SystemExit("No text could be extracted from the file.")
 
