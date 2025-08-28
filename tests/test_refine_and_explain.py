@@ -1,4 +1,5 @@
 import openai_utils
+from openai_utils import ChatCallResult
 
 
 def test_refine_document_passes_model(monkeypatch):
@@ -7,13 +8,13 @@ def test_refine_document_passes_model(monkeypatch):
     def fake_call_chat_api(messages, model=None, **kwargs):
         captured["prompt"] = messages[0]["content"]
         captured["model"] = model
-        return "updated"
+        return ChatCallResult("updated", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
-    out = openai_utils.refine_document("orig", "shorter", model="gpt-4")
+    out = openai_utils.refine_document("orig", "shorter", model="gpt-4.1-nano")
     assert "orig" in captured["prompt"]
     assert "shorter" in captured["prompt"]
-    assert captured["model"] == "gpt-4"
+    assert captured["model"] == "gpt-4.1-nano"
     assert out == "updated"
 
 
@@ -23,7 +24,7 @@ def test_what_happened_lists_keys(monkeypatch):
     def fake_call_chat_api(messages, model=None, **kwargs):
         captured["prompt"] = messages[0]["content"]
         captured["model"] = model
-        return "explanation"
+        return ChatCallResult("explanation", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
     session = {
@@ -31,10 +32,12 @@ def test_what_happened_lists_keys(monkeypatch):
         "location.primary_city": "Berlin",
         "empty": "",
     }
-    out = openai_utils.what_happened(session, "doc", doc_type="job ad", model="gpt-4")
+    out = openai_utils.what_happened(
+        session, "doc", doc_type="job ad", model="gpt-4.1-nano"
+    )
     assert "job ad" in captured["prompt"]
     assert "position.job_title" in captured["prompt"]
     assert "location.primary_city" in captured["prompt"]
     assert "empty" not in captured["prompt"]
-    assert captured["model"] == "gpt-4"
+    assert captured["model"] == "gpt-4.1-nano"
     assert out == "explanation"

@@ -1,4 +1,5 @@
 import openai_utils
+from openai_utils import ChatCallResult
 
 
 def test_generate_job_ad_includes_optional_fields(monkeypatch):
@@ -6,7 +7,7 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "ok"
+        return ChatCallResult("ok", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -52,7 +53,7 @@ def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "ok"
+        return ChatCallResult("ok", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -73,7 +74,7 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         prompts.append(messages[0]["content"])
-        return "ok"
+        return ChatCallResult("ok", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -107,7 +108,7 @@ def test_generate_job_ad_uses_remote_percentage(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         prompts.append(messages[0]["content"])
-        return "ok"
+        return ChatCallResult("ok", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -125,7 +126,7 @@ def test_generate_job_ad_lists_unique_benefits(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "ok"
+        return ChatCallResult("ok", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 

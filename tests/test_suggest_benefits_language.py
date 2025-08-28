@@ -1,4 +1,5 @@
 import openai_utils
+from openai_utils import ChatCallResult
 
 
 def test_suggest_benefits_english(monkeypatch):
@@ -6,7 +7,7 @@ def test_suggest_benefits_english(monkeypatch):
 
     def fake_call_chat_api(messages, model=None, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "- Health insurance\n- Gym membership"
+        return ChatCallResult("- Health insurance\n- Gym membership", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer", lang="en")
@@ -19,7 +20,7 @@ def test_suggest_benefits_german(monkeypatch):
 
     def fake_call_chat_api(messages, model=None, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "- Gesundheitsversicherung\n- Firmenwagen"
+        return ChatCallResult("- Gesundheitsversicherung\n- Firmenwagen", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Ingenieur", lang="de")

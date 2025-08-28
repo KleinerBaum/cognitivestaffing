@@ -1,4 +1,5 @@
 import openai_utils
+from openai_utils import ChatCallResult
 
 
 def test_generate_interview_guide_includes_culture(monkeypatch):
@@ -6,7 +7,7 @@ def test_generate_interview_guide_includes_culture(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "guide"
+        return ChatCallResult("guide", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -27,7 +28,7 @@ def test_generate_interview_guide_adds_culture_question_de(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "guide"
+        return ChatCallResult("guide", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -48,7 +49,7 @@ def test_generate_interview_guide_uses_responsibilities(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "guide"
+        return ChatCallResult("guide", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 
@@ -64,7 +65,7 @@ def test_generate_interview_guide_includes_skills(monkeypatch):
 
     def fake_call_chat_api(messages, **kwargs):
         captured["prompt"] = messages[0]["content"]
-        return "guide"
+        return ChatCallResult("guide", [], {})
 
     monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
 

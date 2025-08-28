@@ -8,6 +8,7 @@ from question_logic import (
     _rag_suggestions,
     generate_followup_questions,
 )
+from openai_utils import ChatCallResult
 
 
 def test_generate_followup_questions() -> None:
@@ -89,21 +90,16 @@ def test_rag_suggestions_tool_payload(monkeypatch) -> None:
 
     captured: dict[str, Any] = {}
 
-    class _Fake:
-        content = "{}"
-
     def fake_call(messages, **kwargs):
         captured["tools"] = kwargs.get("tools")
         captured["tool_choice"] = kwargs.get("tool_choice")
         captured["extra"] = kwargs.get("extra")
-        return _Fake()
+        return ChatCallResult("{}", [], {})
 
     monkeypatch.setattr("question_logic.call_chat_api", fake_call)
 
     _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id="vs123")
 
-    assert captured["tools"] == [
-        {"type": "file_search", "vector_store_ids": ["vs123"]}
-    ]
+    assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["vs123"]}]
     assert captured["tool_choice"] == "auto"
     assert captured.get("extra") in (None, {})
