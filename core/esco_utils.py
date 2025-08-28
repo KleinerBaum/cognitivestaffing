@@ -11,6 +11,8 @@ import logging
 import re
 from typing import Dict, List, Optional
 
+from difflib import SequenceMatcher
+
 import backoff
 import requests
 import streamlit as st
@@ -63,15 +65,25 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
             return lab.get(lang, "") or next(iter(lab.values()), "")
         return str(lab)
 
-    best = max(
-        items,
-        key=lambda it: (int(q in _norm(_lab(it))) * 2) + int(_norm(_lab(it)) == q),
-    )
+    def _score(it: dict) -> float:
+        label = _norm(_lab(it))
+        # Base ratio covers partial matches; bonuses favor substring/exact
+        score = SequenceMatcher(None, q, label).ratio()
+        if q in label:
+            score += 0.1
+        if q == label:
+            score += 0.1
+        return score
+
+    best = max(items, key=_score)
     group_uri = (best.get("broaderIscoGroup") or [None])[0]
     group = ""
     if group_uri:
-        grp = _get(group_uri)
-        group = grp.get("title", "")
+        try:
+            grp = _get(group_uri)
+            group = grp.get("title", "")
+        except requests.RequestException as exc:  # pragma: no cover - network
+            log.warning("ESCO group lookup failed: %s", exc)
     return {
         "preferredLabel": _lab(best),
         "uri": best.get("uri") or best.get("_links", {}).get("self", {}).get("href"),

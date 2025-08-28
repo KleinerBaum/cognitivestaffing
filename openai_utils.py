@@ -88,10 +88,17 @@ def call_chat_api(
         Parsed result from the OpenAI API.
     """
 
+    from core import analysis_tools
+
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+
+    base_tools, base_funcs = analysis_tools.build_analysis_tools()
+    tools = (tools or []) + base_tools
+    tool_functions = {**base_funcs, **(tool_functions or {})}
+
     payload: Dict[str, Any] = {
         "model": model,
         "input": messages,
@@ -102,7 +109,7 @@ def call_chat_api(
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
         payload["text"] = {"format": {"type": "json_schema", **json_schema}}
-    if tools is not None:
+    if tools:
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
