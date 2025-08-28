@@ -9,13 +9,18 @@
             "additionalProperties": false,
             "properties": {
                 "name": {"type": "string"},
+                "brand_name": {"type": "string"},
                 "industry": {"type": "string"},
                 "hq_location": {"type": "string"},
                 "size": {"type": "string"},
                 "website": {"type": "string"},
                 "mission": {"type": "string"},
                 "culture": {"type": "string"},
-            },
+                "contact_name": {"type": "string"},
+                "contact_email": {"type": "string", "format": "email"},
+                "contact_phone": {"type": "string"},
+                "brand_keywords": {"type": "string"}
+            }
         },
         "position": {
             "type": "object",
@@ -34,8 +39,8 @@
                 "performance_indicators": {"type": "string"},
                 "decision_authority": {"type": "string"},
                 "key_projects": {"type": "string"},
-                "team_size": {"type": "integer"},
-            },
+                "team_size": {"type": "integer"}
+            }
         },
         "location": {
             "type": "object",
@@ -43,13 +48,15 @@
             "properties": {
                 "primary_city": {"type": "string"},
                 "country": {"type": "string"},
-                "onsite_ratio": {"type": "string"},
-            },
+                "onsite_ratio": {"type": "string"}
+            }
         },
         "responsibilities": {
             "type": "object",
             "additionalProperties": false,
-            "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+            "properties": {
+                "items": {"type": "array", "items": {"type": "string"}}
+            }
         },
         "requirements": {
             "type": "object",
@@ -61,13 +68,13 @@
                 "soft_skills_optional": {"type": "array", "items": {"type": "string"}},
                 "tools_and_technologies": {
                     "type": "array",
-                    "items": {"type": "string"},
+                    "items": {"type": "string"}
                 },
                 "languages_required": {"type": "array", "items": {"type": "string"}},
                 "languages_optional": {"type": "array", "items": {"type": "string"}},
                 "certifications": {"type": "array", "items": {"type": "string"}},
-                "language_level_english": {"type": "string"},
-            },
+                "language_level_english": {"type": "string"}
+            }
         },
         "employment": {
             "type": "object",
@@ -77,7 +84,7 @@
                 "work_policy": {"type": "string"},
                 "contract_type": {"type": "string"},
                 "work_schedule": {"type": "string"},
-                "remote_percentage": {"type": "number"},
+                "remote_percentage": {"type": "integer"},
                 "contract_end": {"type": "string"},
                 "travel_required": {"type": "boolean"},
                 "travel_details": {"type": "string"},
@@ -86,8 +93,8 @@
                 "relocation_details": {"type": "string"},
                 "visa_sponsorship": {"type": "boolean"},
                 "security_clearance_required": {"type": "boolean"},
-                "shift_work": {"type": "boolean"},
-            },
+                "shift_work": {"type": "boolean"}
+            }
         },
         "compensation": {
             "type": "object",
@@ -102,8 +109,8 @@
                 "bonus_percentage": {"type": "number"},
                 "commission_structure": {"type": "string"},
                 "equity_offered": {"type": "boolean"},
-                "benefits": {"type": "array", "items": {"type": "string"}},
-            },
+                "benefits": {"type": "array", "items": {"type": "string"}}
+            }
         },
         "process": {
             "type": "object",
@@ -118,10 +125,10 @@
                         "properties": {
                             "name": {"type": "string"},
                             "role": {"type": "string"},
-                            "email": {"type": "string"},
-                            "primary": {"type": "boolean"},
-                        },
-                    },
+                            "email": {"type": "string", "format": "email"},
+                            "primary": {"type": "boolean"}
+                        }
+                    }
                 },
                 "phases": {
                     "type": "array",
@@ -133,19 +140,19 @@
                             "interview_format": {"type": "string"},
                             "participants": {
                                 "type": "array",
-                                "items": {"type": "string"},
+                                "items": {"type": "string"}
                             },
                             "docs_required": {"type": "string"},
                             "assessment_tests": {"type": "boolean"},
-                            "timeframe": {"type": "string"},
-                        },
-                    },
+                            "timeframe": {"type": "string"}
+                        }
+                    }
                 },
                 "recruitment_timeline": {"type": "string"},
                 "process_notes": {"type": "string"},
                 "application_instructions": {"type": "string"},
-                "onboarding_process": {"type": "string"},
-            },
+                "onboarding_process": {"type": "string"}
+            }
         },
         "meta": {
             "type": "object",
@@ -153,7 +160,8 @@
             "properties": {
                 "target_start_date": {"type": "string"},
                 "application_deadline": {"type": "string"},
-            },
-        },
-    },
+                "followups_answered": {"type": "array", "items": {"type": "string"}}
+            }
+        }
+    }
 }
