@@ -34,7 +34,6 @@ from core.esco_utils import (
 )
 from config import OPENAI_API_KEY, OPENAI_MODEL, VECTOR_STORE_ID
 
-DEFAULT_LOW_COST_MODEL = OPENAI_MODEL
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
 RAG_VECTOR_STORE_ID = VECTOR_STORE_ID
@@ -235,7 +234,7 @@ def _rag_suggestions(
     vector_store_id = vector_store_id or RAG_VECTOR_STORE_ID
     if not vector_store_id:
         return {}
-    model = model or DEFAULT_LOW_COST_MODEL
+    model = model or st.session_state.get("model", OPENAI_MODEL)
     sys = (
         "You provide short, concrete suggestions to help complete a vacancy profile. "
         "Use retrieved context; if none, return empty arrays. Respond as a JSON object "
