@@ -28,3 +28,13 @@ def test_parse_with_sanitization(raw: str) -> None:
 def test_parse_mismatched_quotes() -> None:
     with pytest.raises(json.JSONDecodeError):
         parse_extraction('{"position": {"job_title": "Dev"}')
+
+
+def test_parse_benefits_string() -> None:
+    raw = '{"compensation": {"benefits": "30 Urlaubstage, Sabbatical-Option, 1.000€ Lernbudget"}}'
+    jd = parse_extraction(raw)
+    assert jd.compensation.benefits == [
+        "30 Urlaubstage",
+        "Sabbatical-Option",
+        "1.000€ Lernbudget",
+    ]

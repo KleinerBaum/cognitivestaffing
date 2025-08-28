@@ -92,6 +92,13 @@ _SEASON_MONTH = {
 
 _IMMEDIATE_RE = re.compile(r"ab\s+(sofort|immediately|asap)", re.IGNORECASE)
 
+_SALARY_RANGE_RE = re.compile(
+    r"(\d+[.,]?\d*)\s*[-–]\s*(\d+[.,]?\d*)\s*€",
+    re.IGNORECASE,
+)
+_BONUS_PERCENT_RE = re.compile(r"(\d{1,3})\s*%\s*(?:variable|bonus)", re.IGNORECASE)
+_BONUS_TEXT_RE = re.compile(r"bonus[^\n]*", re.IGNORECASE)
+
 
 def guess_job_title(text: str) -> str:
     """Return a basic job title guess from ``text``."""
@@ -240,4 +247,27 @@ def apply_basic_fallbacks(
         start = guess_start_date(text)
         if start:
             profile.meta.target_start_date = start
+    # Compensation heuristics
+    if not (profile.compensation.salary_min and profile.compensation.salary_max):
+        m = _SALARY_RANGE_RE.search(text)
+        if m:
+
+            def _to_float(val: str) -> float:
+                return float(val.replace(".", "").replace(",", "."))
+
+            profile.compensation.salary_min = _to_float(m.group(1))
+            profile.compensation.salary_max = _to_float(m.group(2))
+            profile.compensation.currency = "EUR"
+            profile.compensation.salary_provided = True
+    if not profile.compensation.variable_pay:
+        if re.search(r"variable|bonus", text, re.IGNORECASE):
+            profile.compensation.variable_pay = True
+        pct = _BONUS_PERCENT_RE.search(text)
+        if pct:
+            profile.compensation.bonus_percentage = float(pct.group(1))
+            profile.compensation.variable_pay = True
+        if profile.compensation.variable_pay:
+            btxt = _BONUS_TEXT_RE.search(text)
+            if btxt:
+                profile.compensation.commission_structure = btxt.group(0).strip()
     return profile

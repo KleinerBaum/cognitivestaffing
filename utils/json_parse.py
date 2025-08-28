@@ -100,6 +100,21 @@ def _apply_aliases(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+_BENEFIT_SPLIT_RE = re.compile(r"[,\n;•]+")
+
+
+def _normalize_compensation_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Ensure compensation subfields have proper types."""
+    comp = data.get("compensation")
+    if isinstance(comp, dict):
+        benefits = comp.get("benefits")
+        if isinstance(benefits, str):
+            cleaned = re.sub(r"^[^:]*:\s*", "", benefits)
+            parts = [p.strip() for p in _BENEFIT_SPLIT_RE.split(cleaned) if p.strip()]
+            comp["benefits"] = parts
+    return data
+
+
 def parse_extraction(raw: str) -> NeedAnalysisProfile:
     """
     Parse LLM output into a validated NeedAnalysisProfile.
@@ -117,14 +132,16 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
 
     # 1) direct parse
     try:
-        return NeedAnalysisProfile.model_validate(_apply_aliases(json.loads(raw)))
+        data = _normalize_compensation_fields(_apply_aliases(json.loads(raw)))
+        return NeedAnalysisProfile.model_validate(data)
     except Exception as e:
         last_err = e
 
     # 2) sanitize and retry
     try:
         sanitized = _strip_code_fences(raw).strip()
-        return NeedAnalysisProfile.model_validate(_apply_aliases(json.loads(sanitized)))
+        data = _normalize_compensation_fields(_apply_aliases(json.loads(sanitized)))
+        return NeedAnalysisProfile.model_validate(data)
     except Exception as e:
         last_err = e
 
@@ -132,7 +149,8 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
     block = _first_balanced_json(sanitized if "sanitized" in locals() else raw)
     if block:
         try:
-            return NeedAnalysisProfile.model_validate(_apply_aliases(json.loads(block)))
+            data = _normalize_compensation_fields(_apply_aliases(json.loads(block)))
+            return NeedAnalysisProfile.model_validate(data)
         except Exception as e:
             last_err = e
 

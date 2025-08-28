@@ -43,3 +43,16 @@ def test_employment_and_start_date_fallbacks() -> None:
     assert profile.employment.work_policy == "hybrid"
     assert profile.employment.remote_percentage == 50
     assert profile.meta.target_start_date == "2024-10-01"
+
+
+def test_compensation_fallbacks() -> None:
+    text = "💰 Gehalt: 65.000–85.000 € + 10% Variable + Bonus quartalsweise"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.compensation.salary_min == 65000.0
+    assert profile.compensation.salary_max == 85000.0
+    assert profile.compensation.currency == "EUR"
+    assert profile.compensation.variable_pay is True
+    assert profile.compensation.bonus_percentage == 10.0
+    assert profile.compensation.commission_structure
+    assert profile.compensation.commission_structure.lower().startswith("bonus")
