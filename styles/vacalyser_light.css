@@ -90,9 +90,18 @@ a:hover { text-decoration: none; filter: drop-shadow(0 0 10px rgba(6,182,212,.25
 :where(input, textarea, select):focus { outline: 2px solid rgba(6,182,212,.35) !important; }
 
 @media (max-width: 768px) {
-  [data-testid="stHorizontalBlock"] > div {
+  [data-testid="stHorizontalBlock"] {
+    flex-direction: column !important;
+  }
+
+  [data-testid="column"] {
     flex-basis: 100% !important;
+    width: 100% !important;
     padding-right: 0 !important;
+  }
+
+  .stButton > button {
+    width: 100%;
   }
 }
 
