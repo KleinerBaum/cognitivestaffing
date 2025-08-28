@@ -55,7 +55,9 @@ def get_client() -> OpenAI:
     if client is None:
         key = OPENAI_API_KEY
         if not key:
-            raise RuntimeError("OPENAI_API_KEY not configured")
+            raise RuntimeError(
+                "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
+            )
         base = OPENAI_BASE_URL or None
         client = OpenAI(api_key=key, base_url=base)
     return client
