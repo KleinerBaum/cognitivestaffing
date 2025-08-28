@@ -2022,14 +2022,7 @@ def run_wizard():
     # Stepbar
     steps = [
         (
-            tr(
-                "Erstellen Sie eine umfassende Informationssammlung zu Ihrer Vakanz "
-                "und nutzen Sie diese Informationen zur Optimierung aller folgenden "
-                "Schritte Ihres Recruitment-Prozesses",
-                "Create a comprehensive information collection for your vacancy and "
-                "use this information to optimize all subsequent steps of your "
-                "recruitment process",
-            ),
+            "",
             _step_intro,
         ),
         (tr("Quelle", "Source"), lambda: _step_source(schema)),
@@ -2047,18 +2040,15 @@ def run_wizard():
 
     # Step Navigation (oben)
     render_stepper(st.session_state[StateKeys.STEP], len(steps))
-    st.caption(
-        tr(
-            "Klicke auf 'Weiter' oder navigiere direkt zu einem Schritt.",
-            "Click 'Next' or navigate directly to a step.",
-        )
-    )
 
     # Render current step
     current = st.session_state[StateKeys.STEP]
     label, renderer = steps[current]
     step_word = tr("Schritt", "Step")
-    st.markdown(f"#### {step_word} {current + 1} — {label}")
+    if label:
+        st.markdown(f"#### {step_word} {current + 1} — {label}")
+    else:
+        st.markdown(f"#### {step_word} {current + 1}")
     renderer()
 
     # Bottom nav
