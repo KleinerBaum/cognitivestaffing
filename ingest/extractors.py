@@ -1,5 +1,7 @@
 import io
 import re
+from pathlib import Path
+
 import requests
 from requests import Response
 import chardet
@@ -50,20 +52,28 @@ def extract_text_from_url(url: str) -> str:
 
 
 def extract_text_from_file(file) -> str:
-    """Extract text from an uploaded file (PDF, DOCX, or TXT).
+    """Extract text from an uploaded file.
+
+    Supports PDF, DOCX and several common text formats. Unsupported binary
+    files raise a ``ValueError`` so the caller can show a friendly warning.
 
     Args:
         file: File-like object supporting ``read`` and ``seek``.
 
     Returns:
         Extracted text content.
+
+    Raises:
+        ValueError: If the file is empty or has an unsupported extension.
     """
     name = getattr(file, "name", "").lower()
     data = file.read()
     file.seek(0)
     if not data:
-        return ""
-    if name.endswith(".pdf"):
+        raise ValueError("empty file")
+
+    suffix = Path(name).suffix.lower()
+    if suffix == ".pdf":
         from pypdf import PdfReader
 
         reader = PdfReader(io.BytesIO(data))
@@ -87,11 +97,23 @@ def extract_text_from_file(file) -> str:
             page_text = page_text.strip()
             pages.append(page_text)
         return "\n".join(pages).strip()
-    if name.endswith(".docx"):
+    if suffix == ".docx":
         import docx
 
         doc = docx.Document(io.BytesIO(data))
         return "\n".join([p.text for p in doc.paragraphs]).strip()
+    text_suffixes = {
+        ".txt",
+        ".md",
+        ".rtf",
+        ".csv",
+        ".json",
+        ".yaml",
+        ".yml",
+    }
+    if suffix and suffix not in text_suffixes:
+        raise ValueError(f"unsupported file type: {suffix}")
+
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:

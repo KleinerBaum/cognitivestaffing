@@ -78,6 +78,25 @@ def on_file_uploaded() -> None:
         return
     try:
         txt = extract_text_from_file(f)
+    except ValueError as e:
+        msg = str(e).lower()
+        if "unsupported file type" in msg:
+            display_error(
+                tr(
+                    "Dieser Dateityp wird nicht unterstützt. Bitte laden Sie eine PDF-, DOCX- oder Textdatei hoch.",
+                    "Unsupported file type. Please upload a PDF, DOCX, or text file.",
+                ),
+                str(e),
+            )
+        else:
+            display_error(
+                tr(
+                    "Datei enthält keinen Text – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                    "File contains no text – you can also enter the information manually in the following steps.",
+                ),
+            )
+        st.session_state["source_error"] = True
+        return
     except Exception as e:  # pragma: no cover - defensive
         display_error(
             tr(
