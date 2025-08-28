@@ -27,9 +27,8 @@ from openai_utils import (
     generate_interview_guide,
     generate_job_ad,
     refine_document,
-    suggest_skills_for_role,
-    suggest_benefits,
 )
+from core.suggestions import get_benefit_suggestions, get_skill_suggestions
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import search_occupation, enrich_skills
 from components.stepper import render_stepper
@@ -1081,28 +1080,19 @@ def _step_requirements():
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
     stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
     if job_title and stored.get("_title") != job_title:
-        try:
-            sugg = suggest_skills_for_role(
-                job_title,
-                lang=st.session_state.get("lang", "en"),
-            )
-            if not any(sugg.values()):
-                st.warning(
-                    tr(
-                        "Skill-Vorschläge nicht verfügbar (API-Fehler)",
-                        "Skill suggestions not available (API error)",
-                    )
-                )
-        except Exception as e:
+        sugg, err = get_skill_suggestions(
+            job_title,
+            lang=st.session_state.get("lang", "en"),
+        )
+        if err or not any(sugg.values()):
             st.warning(
                 tr(
                     "Skill-Vorschläge nicht verfügbar (API-Fehler)",
                     "Skill suggestions not available (API error)",
                 )
             )
-            if st.session_state.get("debug"):
-                st.session_state["skill_suggest_error"] = str(e)
-            sugg = {}
+            if err and st.session_state.get("debug"):
+                st.session_state["skill_suggest_error"] = err
         stored = {"_title": job_title, **sugg}
         st.session_state[StateKeys.SKILL_SUGGESTIONS] = stored
     suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
@@ -1494,30 +1484,21 @@ def _step_compensation():
         job_title = data.get("position", {}).get("job_title", "")
         industry = data.get("company", {}).get("industry", "")
         existing = "\n".join(data["compensation"].get("benefits", []))
-        try:
-            new_sugg = suggest_benefits(
-                job_title,
-                industry,
-                existing,
-                lang=lang,
-            )
-            if not new_sugg:
-                st.warning(
-                    tr(
-                        "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
-                        "Benefit suggestions not available (API error)",
-                    )
-                )
-        except Exception as e:
+        new_sugg, err = get_benefit_suggestions(
+            job_title,
+            industry,
+            existing,
+            lang=lang,
+        )
+        if err or not new_sugg:
             st.warning(
                 tr(
                     "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
                     "Benefit suggestions not available (API error)",
                 )
             )
-            if st.session_state.get("debug"):
-                st.session_state["benefit_suggest_error"] = str(e)
-            new_sugg = []
+            if err and st.session_state.get("debug"):
+                st.session_state["benefit_suggest_error"] = err
         if new_sugg:
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = sorted(
                 set(sugg_benefits + new_sugg)
