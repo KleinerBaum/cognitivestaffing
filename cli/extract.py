@@ -9,8 +9,10 @@ from pathlib import Path
 def main() -> None:
     """Parse arguments and print validated JSON to stdout.
 
-    The command reads a local job description file, extracts text, and runs the
-    LLM pipeline without requiring Streamlit. Example::
+    The command reads a local job description file (PDF, DOCX or text), extracts
+    text using the same logic as the Streamlit app – including optional OCR for
+    scanned PDFs – and runs the LLM pipeline without requiring Streamlit.
+    Example::
 
         python -m cli.extract --file jd.pdf --title "..." --url "..."
     """
@@ -23,7 +25,7 @@ def main() -> None:
     parser.add_argument("--url", help="Optional source URL for context")
     args = parser.parse_args()
 
-    from utils import extract_text_from_file
+    from ingest.extractors import extract_text_from_file
     from llm.client import extract_and_parse
 
     file_path = Path(args.file)

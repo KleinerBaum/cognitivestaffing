@@ -6,7 +6,6 @@ import os
 import re
 from typing import Any, Mapping
 
-from .pdf_utils import extract_text_from_file as extract_text_from_file
 from .url_utils import extract_text_from_url as extract_text_from_url
 from .errors import display_error as display_error
 from models import NeedAnalysisProfile
