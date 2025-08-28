@@ -112,3 +112,12 @@ footer, #MainMenu { visibility: hidden; }
 *::-webkit-scrollbar { height: 12px; width: 12px; }
 *::-webkit-scrollbar-track { background: rgba(0,0,0,.2); }
 *::-webkit-scrollbar-thumb { background: rgba(0,0,0,.25); border-radius: 20px; border: 2px solid rgba(255,255,255,.25); }
+
+/* Flash highlight for critical follow-up questions */
+.fu-highlight {
+  animation: fu-flash 2s ease-in-out 2;
+}
+@keyframes fu-flash {
+  0%,100% { background: transparent; }
+  50% { background: rgba(255, 255, 0, 0.2); }
+}

@@ -37,6 +37,10 @@ def ensure_state() -> None:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "auto_reask" not in st.session_state:
         st.session_state["auto_reask"] = True
+    if "auto_reask_round" not in st.session_state:
+        st.session_state["auto_reask_round"] = 0
+    if "auto_reask_total" not in st.session_state:
+        st.session_state["auto_reask_total"] = 0
     if "reasoning_effort" not in st.session_state:
         st.session_state["reasoning_effort"] = REASONING_EFFORT
     if "dark_mode" not in st.session_state:

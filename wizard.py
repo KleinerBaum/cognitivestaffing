@@ -211,17 +211,25 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             missing.append(field)
     st.session_state[StateKeys.EXTRACTION_MISSING] = missing
     if st.session_state.get("auto_reask"):
-
         try:
-            payload = {
-                "data": profile.model_dump(),
-                "lang": st.session_state.lang,
-            }
-            followup_res = ask_followups(
-                payload,
-                model=st.session_state.model,
-                vector_store_id=st.session_state.vector_store_id or None,
+            round_num = st.session_state.get("auto_reask_round", 0) + 1
+            st.session_state["auto_reask_round"] = round_num
+            total_rounds = st.session_state.get("auto_reask_total", len(missing))
+            st.session_state["auto_reask_total"] = total_rounds
+            msg = tr(
+                f"Generiere automatisch Anschlussfrage {round_num} von {total_rounds}...",
+                f"Automatically generating follow-up {round_num} of {total_rounds}...",
             )
+            with st.spinner(msg):
+                payload = {
+                    "data": profile.model_dump(),
+                    "lang": st.session_state.lang,
+                }
+                followup_res = ask_followups(
+                    payload,
+                    model=st.session_state.model,
+                    vector_store_id=st.session_state.vector_store_id or None,
+                )
             done = set(
                 st.session_state[StateKeys.PROFILE]
                 .get("meta", {})
@@ -317,6 +325,8 @@ def _render_followup_question(q: dict, data: dict) -> None:
     prompt = q.get("question", "")
     suggestions = q.get("suggestions") or []
     key = f"fu_{field}"
+    anchor = f"anchor_{key}"
+    st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
     if key not in st.session_state:
         st.session_state[key] = ""
     if q.get("priority") == "critical":
@@ -329,6 +339,14 @@ def _render_followup_question(q: dict, data: dict) -> None:
             if col.button(sug, key=f"{key}_opt_{i}"):
                 st.session_state[key] = sug
     st.text_input("", key=key)
+    if q.get("priority") == "critical":
+        st.toast(
+            tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️"
+        )
+        st.markdown(
+            f"<script>var el=document.getElementById('{anchor}').nextElementSibling;el.classList.add('fu-highlight');el.scrollIntoView({{behavior:'smooth',block:'center'}});</script>",
+            unsafe_allow_html=True,
+        )
     ans = st.session_state.get(key, "")
     if ans:
         set_in(data, field, ans)
