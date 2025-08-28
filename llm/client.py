@@ -136,7 +136,7 @@ def extract_json(
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
     model = st.session_state.get("model", OPENAI_MODEL)
     try:
-        response = OPENAI_CLIENT.responses.create(
+        response = OPENAI_CLIENT.responses.create(  # type: ignore[call-overload]
             model=model,
             input=messages,
             temperature=0,
@@ -152,7 +152,7 @@ def extract_json(
             "Structured extraction failed, falling back to plain text: %s", exc
         )
         try:
-            response = OPENAI_CLIENT.responses.create(
+            response = OPENAI_CLIENT.responses.create(  # type: ignore[call-overload]
                 model=model,
                 input=messages,
                 temperature=0,
