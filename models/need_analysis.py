@@ -23,6 +23,7 @@ class Company(BaseModel):
     contact_name: Optional[str] = None
     contact_email: EmailStr | None = None
     contact_phone: Optional[str] = None
+    brand_keywords: Optional[str] = None
 
 
 class Position(BaseModel):

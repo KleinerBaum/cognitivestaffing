@@ -450,6 +450,12 @@ def _step_intro():
         )
     )
     st.markdown("#### " + tr("Vorteile", "Advantages"))
+    st.write(
+        tr(
+            "Sie durchlaufen 7 kurze Abschnitte: Unternehmen, Position, Anforderungen, Beschäftigung, Vergütung, Prozess und eine Zusammenfassung.",
+            "You'll go through 7 short sections covering Company, Position, Requirements, Employment, Compensation, Process and a final Summary.",
+        )
+    )
     advantages_md = tr(
         (
             "- Schnellere, vollständigere Anforderungsaufnahme\n"
@@ -465,6 +471,21 @@ def _step_intro():
         ),
     )
     st.markdown(advantages_md)
+    if "ui.skip_intro" not in st.session_state:
+        st.session_state["ui.skip_intro"] = st.session_state.get("skip_intro", False)
+
+    def _on_skip_intro() -> None:
+        st.session_state["skip_intro"] = st.session_state["ui.skip_intro"]
+
+    st.checkbox(
+        tr("Intro künftig überspringen", "Don't show this intro again"),
+        key="ui.skip_intro",
+        on_change=_on_skip_intro,
+    )
+
+    if st.button(tr("🚀 Start", "🚀 Start")):
+        next_step()
+        st.rerun()
 
 
 def _step_source(schema: dict) -> None:
@@ -680,6 +701,20 @@ def _step_company():
                 "z. B. flache Hierarchien, Remote-First",
                 "e.g., flat hierarchies, remote-first",
             ),
+        )
+
+        logo_file = st.file_uploader(
+            tr("Firmenlogo", "Company Logo"),
+            type=["png", "jpg"],
+            key="ui.company_logo",
+        )
+        if logo_file:
+            st.session_state["company_logo"] = logo_file.getvalue()
+            st.image(logo_file)
+        data["company"]["brand_keywords"] = st.text_input(
+            tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
+            value=data["company"].get("brand_keywords", ""),
+            key="ui.company.brand_keywords",
         )
 
         st.markdown("---")
@@ -1532,6 +1567,14 @@ def _summary_company() -> None:
         value=data["company"].get("culture", ""),
         key="ui.summary.company.culture",
     )
+    brand = st.text_input(
+        tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
+        value=data["company"].get("brand_keywords", ""),
+        key="ui.summary.company.brand_keywords",
+    )
+    logo_bytes = st.session_state.get("company_logo")
+    if logo_bytes:
+        st.image(logo_bytes, width=120)
 
     _update_profile("company.name", name)
     _update_profile("company.industry", industry)
@@ -1540,6 +1583,7 @@ def _summary_company() -> None:
     _update_profile("company.website", website)
     _update_profile("company.mission", mission)
     _update_profile("company.culture", culture)
+    _update_profile("company.brand_keywords", brand)
 
 
 def _summary_position() -> None:
@@ -2008,6 +2052,13 @@ def _step_summary(schema: dict, critical: list[str]):
     missing = missing_keys(data, critical)
     if missing:
         st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
+    else:
+        st.success(
+            tr(
+                "Alle Pflichtfelder sind ausgefüllt. Nutzen Sie die Buttons unten, um Job Ad, Boolean String und Interviewleitfaden zu generieren.",
+                "All critical fields are filled. Use the buttons below to generate the Job Ad, Boolean String, and Interview Guide.",
+            )
+        )
 
     tabs = st.tabs(
         [
@@ -2098,48 +2149,10 @@ def _step_summary(schema: dict, critical: list[str]):
                     )
                     + f": {e}"
                 )
-    if st.session_state.get(StateKeys.JOB_AD_MD):
-        st.markdown("**Job Ad Draft:**")
-        st.markdown(st.session_state[StateKeys.JOB_AD_MD])
-        findings = st.session_state.get(StateKeys.BIAS_FINDINGS, [])
-        for f in findings:
-            st.warning(
-                tr(
-                    f"⚠️ Begriff '{f['term']}' erkannt. Vorschlag: {f['suggestion']}",
-                    f"⚠️ Term '{f['term']}' detected. Suggestion: {f['suggestion']}",
-                )
-            )
-        feedback = st.text_area(
-            tr("Feedback zur Anzeige", "Ad refinement feedback"),
-            key=UIKeys.JOB_AD_FEEDBACK,
-        )
-        if st.button(
-            tr("🔄 Stellenanzeige verfeinern", "🔄 Refine Job Ad"),
-            key=UIKeys.REFINE_JOB_AD,
-        ):
-            try:
-                refined = refine_document(
-                    st.session_state[StateKeys.JOB_AD_MD], feedback
-                )
-                st.session_state[StateKeys.JOB_AD_MD] = refined
-                findings = scan_bias_language(refined, st.session_state.lang)
-                st.session_state[StateKeys.BIAS_FINDINGS] = findings
-                st.rerun()
-            except Exception as e:
-                st.error(
-                    tr(
-                        "Verfeinerung fehlgeschlagen",
-                        "Refinement failed",
-                    )
-                    + f": {e}"
-                )
 
     with col_b:
         if st.button(tr("🔎 Boolean String", "🔎 Boolean String")):
             st.session_state[StateKeys.BOOLEAN_STR] = build_boolean_search(data)
-    if st.session_state.get(StateKeys.BOOLEAN_STR):
-        st.write(tr("**Boolean Search String:**", "**Boolean Search String:**"))
-        st.code(st.session_state[StateKeys.BOOLEAN_STR])
 
     with col_c:
         selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
@@ -2182,9 +2195,58 @@ def _step_summary(schema: dict, critical: list[str]):
                         "Interview guide generation failed: {error}. Please try again.",
                     ).format(error=e)
                 )
-    if st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD):
-        st.markdown("**Interview Guide:**")
-        st.markdown(st.session_state[StateKeys.INTERVIEW_GUIDE_MD])
+
+    output_tabs = st.tabs(
+        [
+            tr("Job Ad", "Job Ad"),
+            tr("Boolean String", "Boolean String"),
+            tr("Interview Guide", "Interview Guide"),
+        ]
+    )
+    with output_tabs[0]:
+        if st.session_state.get(StateKeys.JOB_AD_MD):
+            st.markdown("**Job Ad Draft:**")
+            st.markdown(st.session_state[StateKeys.JOB_AD_MD])
+            findings = st.session_state.get(StateKeys.BIAS_FINDINGS, [])
+            for f in findings:
+                st.warning(
+                    tr(
+                        f"⚠️ Begriff '{f['term']}' erkannt. Vorschlag: {f['suggestion']}",
+                        f"⚠️ Term '{f['term']}' detected. Suggestion: {f['suggestion']}",
+                    )
+                )
+            feedback = st.text_area(
+                tr("Feedback zur Anzeige", "Ad refinement feedback"),
+                key=UIKeys.JOB_AD_FEEDBACK,
+            )
+            if st.button(
+                tr("🔄 Stellenanzeige verfeinern", "🔄 Refine Job Ad"),
+                key=UIKeys.REFINE_JOB_AD,
+            ):
+                try:
+                    refined = refine_document(
+                        st.session_state[StateKeys.JOB_AD_MD], feedback
+                    )
+                    st.session_state[StateKeys.JOB_AD_MD] = refined
+                    findings = scan_bias_language(refined, st.session_state.lang)
+                    st.session_state[StateKeys.BIAS_FINDINGS] = findings
+                    st.rerun()
+                except Exception as e:
+                    st.error(
+                        tr(
+                            "Verfeinerung fehlgeschlagen",
+                            "Refinement failed",
+                        )
+                        + f": {e}"
+                    )
+    with output_tabs[1]:
+        if st.session_state.get(StateKeys.BOOLEAN_STR):
+            st.write(tr("**Boolean Search String:**", "**Boolean Search String:**"))
+            st.code(st.session_state[StateKeys.BOOLEAN_STR])
+    with output_tabs[2]:
+        if st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD):
+            st.markdown("**Interview Guide:**")
+            st.markdown(st.session_state[StateKeys.INTERVIEW_GUIDE_MD])
 
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -2270,6 +2332,9 @@ def run_wizard():
                 critical = json.load(f).get("critical", [])
         except Exception:
             critical = []
+
+    if st.session_state.get("skip_intro") and st.session_state[StateKeys.STEP] == 0:
+        st.session_state[StateKeys.STEP] = 1
 
     # Stepbar
     steps = [

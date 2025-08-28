@@ -42,6 +42,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Tabbed summary**: finalize all sections in inline-editable tabs and regenerate outputs instantly
+- **Output tabs**: generated Job Ad, Boolean String and Interview Guide are organized in dedicated tabs
 - **Missing info alerts**: highlights empty critical fields while allowing navigation so you can fix them later
 - **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
