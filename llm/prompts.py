@@ -29,6 +29,9 @@ SYSTEM_JSON_EXTRACTOR: str = (
     "'Festanstellung' or 'Permanent' -> employment.contract_type='permanent', 'Befristet' or 'Fixed term' -> employment.contract_type='fixed_term'. "
     "Detect work policy keywords like 'Remote', 'Home-Office', or 'Hybrid' and map them to employment.work_policy. "
     "If office days per week or remote percentages are mentioned, estimate employment.remote_percentage using a 5-day work week. "
+    "Extract salary ranges like '65.000–85.000 €' into numeric compensation.salary_min and compensation.salary_max and set compensation.currency to an ISO code (e.g. EUR). "
+    "If variable pay or bonuses such as '10% Variable' are mentioned, set compensation.variable_pay=true and capture the percentage in compensation.bonus_percentage. "
+    "List every benefit/perk separately in compensation.benefits as a JSON array of strings. "
     "Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
 )
 
