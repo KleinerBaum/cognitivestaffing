@@ -1,6 +1,7 @@
 from typing import Any
 from pathlib import Path
 import sys
+import types
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from question_logic import (
@@ -103,3 +104,27 @@ def test_rag_suggestions_tool_payload(monkeypatch) -> None:
     assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["vs123"]}]
     assert captured["tool_choice"] == "auto"
     assert captured.get("extra") in (None, {})
+
+
+def test_rag_suggestions_failure(monkeypatch) -> None:
+    """Failures during RAG retrieval should warn and return empty suggestions."""
+
+    def fail_call(*_a, **_k):
+        raise RuntimeError("boom")
+
+    warnings: dict[str, str] = {}
+    monkeypatch.setattr("question_logic.call_chat_api", fail_call)
+    monkeypatch.setattr(
+        "question_logic.logger",
+        types.SimpleNamespace(warning=lambda msg, *a: warnings.setdefault("log", msg)),
+    )
+
+    def capture(msg):
+        warnings["ui"] = str(msg)
+
+    monkeypatch.setattr("question_logic.st.warning", capture)
+
+    out = _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id="vs123")
+
+    assert out == {}
+    assert "ui" in warnings
