@@ -11,7 +11,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 import backoff
 from openai import OpenAI
@@ -28,13 +28,11 @@ class ChatCallResult:
     Attributes:
         content: Text content returned by the model, if any.
         tool_calls: List of tool call payloads.
-        function_call: Function call payload, if present.
         usage: Token usage information.
     """
 
     content: Optional[str]
     tool_calls: list[dict]
-    function_call: Optional[dict]
     usage: dict
 
 
@@ -67,6 +65,7 @@ def call_chat_api(
     json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
     tool_choice: Optional[Any] = None,
+    tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
     reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
 ) -> ChatCallResult:
@@ -80,6 +79,9 @@ def call_chat_api(
         json_schema: Optional JSON schema enforcing structured output.
         tools: Tool definitions for tool calling.
         tool_choice: Requested tool to call.
+        tool_functions: Mapping of tool names to callables executed when the
+            model requests a function tool. Each callable must accept keyword
+            arguments matching the tool schema and return serializable data.
         reasoning_effort: Reasoning level to pass to the API.
         extra: Additional payload fields.
 
@@ -113,20 +115,26 @@ def call_chat_api(
     content = getattr(response, "output_text", None)
 
     tool_calls: list[dict] = []
-    fc: Optional[dict] = None
     for item in getattr(response, "output", []) or []:
-        typ = getattr(item, "type", None)
-        if not typ:
-            typ = item.get("type") if isinstance(item, dict) else None
+        typ = getattr(item, "type", None) or (
+            item.get("type") if isinstance(item, dict) else None
+        )
         if typ and "call" in str(typ):
             if isinstance(item, dict):
                 data = item
             else:
                 dump = getattr(item, "model_dump", None)
                 data = dump() if callable(dump) else getattr(item, "__dict__", {})
+            # Normalise function payload
+            fn = data.get("function") if isinstance(data, dict) else None
+            if fn is None and isinstance(data, dict):
+                name = data.get("name")
+                arg_str = data.get("arguments")
+                data = {
+                    **data,
+                    "function": {"name": name, "arguments": arg_str},
+                }
             tool_calls.append(data)
-            if typ == "function_call":
-                fc = data
 
     usage_obj = getattr(response, "usage", {}) or {}
     usage: dict
@@ -137,6 +145,68 @@ def call_chat_api(
     else:
         usage = usage_obj if isinstance(usage_obj, dict) else {}
 
+    executed = False
+    if tool_calls and tool_functions:
+        messages_list = list(messages)
+        for call in tool_calls:
+            func_info = call.get("function", {})
+            name = func_info.get("name")
+            if not name or name not in tool_functions:
+                continue
+            args_raw = func_info.get("arguments", "{}") or "{}"
+            try:
+                parsed: Any = json.loads(args_raw)
+                args: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
+            except Exception:  # pragma: no cover - defensive
+                args = {}
+            result = tool_functions[name](**args)
+            messages_list.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.get("id", name),
+                    "content": json.dumps(result),
+                }
+            )
+            executed = True
+
+        if executed:
+            payload["input"] = messages_list
+            payload.pop("tool_choice", None)
+            response = get_client().responses.create(**payload)
+            content = getattr(response, "output_text", None)
+            extra_calls: list[dict] = []
+            for item in getattr(response, "output", []) or []:
+                typ = getattr(item, "type", None) or (
+                    item.get("type") if isinstance(item, dict) else None
+                )
+                if typ and "call" in str(typ):
+                    if isinstance(item, dict):
+                        data = item
+                    else:
+                        dump = getattr(item, "model_dump", None)
+                        data = (
+                            dump() if callable(dump) else getattr(item, "__dict__", {})
+                        )
+                    fn = data.get("function") if isinstance(data, dict) else None
+                    if fn is None and isinstance(data, dict):
+                        name = data.get("name")
+                        arg_str = data.get("arguments")
+                        data = {
+                            **data,
+                            "function": {"name": name, "arguments": arg_str},
+                        }
+                    extra_calls.append(data)
+            tool_calls.extend(extra_calls)
+            usage_obj = getattr(response, "usage", {}) or {}
+            if usage_obj and not isinstance(usage_obj, dict):
+                usage_extra: dict = getattr(
+                    usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
+                )()
+            else:
+                usage_extra = usage_obj if isinstance(usage_obj, dict) else {}
+            for key in ("input_tokens", "output_tokens"):
+                usage[key] = usage.get(key, 0) + usage_extra.get(key, 0)
+
     if StateKeys.USAGE in st.session_state:
         st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get(
             "input_tokens", 0
@@ -145,7 +215,7 @@ def call_chat_api(
             "output_tokens", 0
         )
 
-    return ChatCallResult(content, tool_calls, fc, usage)
+    return ChatCallResult(content, tool_calls, usage)
 
 
 def _chat_content(res: Any) -> str:
@@ -313,10 +383,12 @@ def extract_with_function(
         tools=build_extraction_tool(fn_name, schema, allow_extra=False),
         tool_choice={"type": "function", "name": fn_name},
     )
-    fc = getattr(res, "function_call", None)
     arguments: str | None = None
-    if fc is not None:
-        arguments = getattr(fc, "arguments", None)
+    if res.tool_calls:
+        fc = res.tool_calls[0]
+        func = fc.get("function") if isinstance(fc, dict) else None
+        if func is not None:
+            arguments = func.get("arguments")
         if arguments is None and isinstance(fc, dict):
             arguments = fc.get("arguments")
     if not arguments:

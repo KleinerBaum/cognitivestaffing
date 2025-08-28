@@ -12,7 +12,8 @@
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
 - **Structured output**: function calling/JSON mode ensures valid responses
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
-- **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, returning a unified `ChatCallResult`
+- **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`
+- **Analysis tools**: built-in `get_salary_benchmark` and `get_skill_definition` functions can be invoked by the model for richer need analysis
 - **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG that dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Critical questions are highlighted with a red asterisk.
 - **Auto re‑ask loop**: optional toggle that keeps asking follow-up questions automatically until all critical fields are filled, with clear progress messages and a stop button for user control.
 - **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.

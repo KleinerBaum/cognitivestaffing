@@ -16,7 +16,7 @@ def fake_call(messages, **kwargs):
             "soft_skills": ["S1", "S2"],
         }
     )
-    return ChatCallResult(payload, [], None, {})
+    return ChatCallResult(payload, [], {})
 
 
 def test_suggest_skills_for_role(monkeypatch):
