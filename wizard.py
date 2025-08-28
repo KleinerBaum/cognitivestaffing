@@ -253,7 +253,15 @@ FIELD_SECTION_MAP = {
 
 
 def _field_label(path: str) -> str:
-    """Return localized label for a schema field path."""
+    """Return localized label for a schema field path.
+
+    Args:
+        path: Dot-separated schema field path.
+
+    Returns:
+        Localized label if known, otherwise a humanized version of ``path``.
+    """
+
     labels = {
         "company.name": tr("Firmenname", "Company name"),
         "position.job_title": tr("Jobtitel", "Job title"),
@@ -266,7 +274,10 @@ def _field_label(path: str) -> str:
             "Pflicht-Soft-Skills", "Required soft skills"
         ),
     }
-    return labels.get(path, path)
+    if path in labels:
+        return labels[path]
+    auto = path.replace(".", " ").replace("_", " ")
+    return tr(auto.title(), auto.title())
 
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
@@ -2114,7 +2125,8 @@ def _step_summary(schema: dict, critical: list[str]):
     data = st.session_state[StateKeys.PROFILE]
     missing = missing_keys(data, critical)
     if missing:
-        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
+        labels = [_field_label(f) for f in missing]
+        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(labels)}")
     else:
         st.success(
             tr(
@@ -2435,7 +2447,8 @@ def run_wizard():
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
     if missing:
-        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(missing)}")
+        labels = [_field_label(f) for f in missing]
+        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(labels)}")
 
     if current == 0:
         _, col_next, _ = st.columns([1, 1, 1])
