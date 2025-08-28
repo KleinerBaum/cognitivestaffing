@@ -1,3 +1,11 @@
+"""Central configuration for Vacalyser's Responses API client.
+
+The application defaults to the lightweight ``gpt-5-nano`` model. Set
+``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to ``gpt-4.1-nano`` to switch models and
+use ``REASONING_EFFORT`` (``low`` | ``medium`` | ``high``) to control how much
+reasoning the model performs by default.
+"""
+
 import os
 import warnings
 
