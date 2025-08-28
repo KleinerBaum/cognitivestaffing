@@ -24,7 +24,11 @@ def test_coerce_and_fill_basic() -> None:
         "requirements": {"hard_skills_required": ["Python"]},
         "responsibilities": {"items": ["Code apps"]},
         "employment": {"job_type": "full time", "contract_type": "permanent"},
-        "compensation": {"benefits": ["Gym", "Gym"]},
+        "compensation": {
+            "benefits": ["Gym", "Gym"],
+            "bonus_percentage": 10.0,
+            "commission_structure": "10% of sales",
+        },
         "meta": {"target_start_date": "2024-01-01"},
     }
     jd = coerce_and_fill(data)
@@ -41,6 +45,8 @@ def test_coerce_and_fill_basic() -> None:
     assert jd.position.supervises == 3
     assert jd.meta.target_start_date == "2024-01-01"
     assert jd.compensation.benefits == ["Gym", "Gym"]
+    assert jd.compensation.bonus_percentage == 10.0
+    assert jd.compensation.commission_structure == "10% of sales"
     assert jd.company.name == "Acme"
 
 
