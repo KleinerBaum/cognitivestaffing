@@ -50,6 +50,29 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
 
 
+def test_call_chat_api_passes_reasoning(monkeypatch):
+    """Reasoning effort should be forwarded to the API payload."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = ""
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
+    call_chat_api([{"role": "user", "content": "hi"}], reasoning_effort="high")
+    assert captured["reasoning"] == {"effort": "high"}
+
+
 def test_extract_with_function(monkeypatch):
     """extract_with_function should parse JSON from a function call."""
 
