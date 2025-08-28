@@ -2,6 +2,13 @@
 
 **Vacalyser** turns messy job ads into a **complete, structured vacancy profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
+Vacalyser now defaults to OpenAI’s reasoning-friendly `gpt-5-nano` model and can
+optionally run on `gpt-4.1-nano`. These lightweight models improve reasoning,
+support JSON-mode structured output and tool calls, and deliver lower cost and
+latency. They trade off a shorter context window and slightly lower language
+fluency compared to full GPT‑4. The app communicates via the `responses.create`
+API, enabling JSON schema validation and function/tool calling.
+
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
 - **Manual entry option**: skip the upload step and start with an empty profile
@@ -22,8 +29,10 @@
 - **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
 - **RAG‑Assist**: use your vector store to fill/contextualize
-- **Cost‑aware**: GPT‑5-nano by default and minimal re‑asks
-- **Model**: optimized for GPT‑5-nano for suggestions and outputs
+- **Reasoning models**: GPT‑5-nano by default (switchable to GPT‑4.1-nano) via
+  the Responses API for better reasoning, JSON mode and tool calling at lower
+  cost/latency, albeit with shorter context and slightly lower fluency than full
+  GPT‑4
 - **Inline refinement**: adjust generated documents with custom instructions and instantly update the view
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
@@ -67,8 +76,27 @@ python3.11 -m venv .venv  # or: python3.12 -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt  # or: pip install -e .
+
+# optional: choose model and reasoning depth
+export OPENAI_MODEL=gpt-4.1-nano  # default: gpt-5-nano
+export REASONING_EFFORT=high      # low|medium|high (default: medium)
+
 streamlit run app.py
 ```
+
+### Model selection & reasoning effort
+
+Vacalyser defaults to `gpt-5-nano` with medium reasoning. Set `OPENAI_MODEL` or
+`DEFAULT_MODEL` to `gpt-4.1-nano` to switch models, and adjust
+`REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less deliberate
+thinking:
+
+```bash
+export OPENAI_MODEL=gpt-4.1-nano
+export REASONING_EFFORT=low
+```
+
+The legacy `LLM_MODE` variable is no longer used.
 
 ### Optional: OCR for scanned PDFs
 
@@ -102,6 +130,19 @@ if a file is missing or malformed.
 The vacancy profile schema does not enforce any required properties; every field
 is optional and may be omitted.
 
+## Built-in Analysis Tools
+
+Vacalyser registers light-weight tools that the model can call via the
+Responses API:
+
+- `get_salary_benchmark(role, country="US")` – returns an illustrative annual
+  salary range for a role and country. No external API keys are required.
+- `get_skill_definition(skill)` – provides a short definition for a given skill
+  to help clarify requirements.
+
+These tools enrich extraction and follow‑up questions during the need analysis
+process.
+
 ## Session State & Migration
 
 Session keys are centralized in `constants/keys.py`. Business data uses flat
@@ -109,3 +150,13 @@ keys from `StateKeys` such as `profile_data` or `jd_raw_text`, while widget
 "shadow" keys come from `UIKeys` like `ui.jd_text_input`. Legacy entries like
 `data.jd_text` or plain `jd_text` are migrated to the new schema on startup so
 existing drafts remain intact.
+
+## Development Notes
+
+### Migration to the Responses API
+
+The project was refactored from the deprecated Chat Completions endpoint to
+`responses.create`. This brings JSON schema validation and explicit
+function/tool calling. Legacy model flags and the `LLM_MODE` environment
+variable were removed, and older model options are no longer supported.
+Prompt behaviours may differ slightly due to the new reasoning models.
