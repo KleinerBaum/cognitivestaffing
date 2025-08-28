@@ -257,14 +257,18 @@ def _rag_suggestions(
             messages,
             model=model,
             temperature=0,
-            json_strict=True,
-            tools=[{"type": "custom", "name": "file_search"}],
-            tool_choice="auto",
-            extra={
-                "tool_resources": {
-                    "file_search": {"vector_store_ids": [vector_store_id]}
-                }
+            json_schema={
+                "name": "rag_suggestions",
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
             },
+            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
+            tool_choice="auto",
         )
         data = json.loads(_normalize_chat_content(res) or "{}")
         out: Dict[str, List[str]] = {}
@@ -334,12 +338,7 @@ def ask_followups(
     tools: list[Any] = []
     tool_choice: Optional[str] = None
     if vector_store_id:
-        tools = [
-            {
-                "type": "file_search",
-                "file_search": {"vector_store_ids": [vector_store_id]},
-            }
-        ]
+        tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
         tool_choice = "auto"
 
     res = call_chat_api(
@@ -352,7 +351,33 @@ def ask_followups(
         ],
         model=model,
         temperature=0.2,
-        json_strict=True,
+        json_schema={
+            "name": "followup_questions",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "field": {"type": "string"},
+                                "question": {"type": "string"},
+                                "priority": {"type": "string"},
+                                "suggestions": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                            },
+                            "required": ["field", "question", "priority"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
+                "required": ["questions"],
+                "additionalProperties": False,
+            },
+        },
         tools=tools or None,
         tool_choice=tool_choice,
         max_tokens=800,

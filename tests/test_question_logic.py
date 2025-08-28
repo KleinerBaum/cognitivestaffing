@@ -102,8 +102,8 @@ def test_rag_suggestions_tool_payload(monkeypatch) -> None:
 
     _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id="vs123")
 
-    assert captured["tools"] == [{"type": "custom", "name": "file_search"}]
+    assert captured["tools"] == [
+        {"type": "file_search", "vector_store_ids": ["vs123"]}
+    ]
     assert captured["tool_choice"] == "auto"
-    assert captured["extra"] == {
-        "tool_resources": {"file_search": {"vector_store_ids": ["vs123"]}}
-    }
+    assert captured.get("extra") in (None, {})
