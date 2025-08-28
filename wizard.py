@@ -18,6 +18,7 @@ from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from utils.errors import display_error
 from models.need_analysis import NeedAnalysisProfile
+from config_loader import load_json
 
 # LLM/ESCO und Follow-ups
 from openai_utils import (
@@ -1992,6 +1993,48 @@ def _step_summary(schema: dict, critical: list[str]):
         mime="application/json",
     )
 
+    tone_presets = load_json("tone_presets.json", {}) or {}
+    tone_options = tone_presets.get(st.session_state.lang, {})
+    tone_labels = {
+        "formal": tr("Formell", "Formal"),
+        "casual": tr("Locker", "Casual"),
+        "creative": tr("Kreativ", "Creative"),
+        "diversity_focused": tr("Diversität im Fokus", "Diversity-Focused"),
+    }
+    if UIKeys.TONE_SELECT not in st.session_state:
+        st.session_state[UIKeys.TONE_SELECT] = "formal"
+    selected_tone = st.selectbox(
+        tr("Interviewleitfaden-Ton", "Interview Guide Tone"),
+        options=list(tone_options.keys()),
+        format_func=lambda k: tone_labels.get(k, k),
+        key=UIKeys.TONE_SELECT,
+    )
+    st.session_state["tone"] = tone_options.get(selected_tone)
+
+    if UIKeys.NUM_QUESTIONS not in st.session_state:
+        st.session_state[UIKeys.NUM_QUESTIONS] = 5
+    st.slider(
+        tr("Anzahl Interviewfragen", "Number of Interview Questions"),
+        min_value=3,
+        max_value=10,
+        key=UIKeys.NUM_QUESTIONS,
+    )
+
+    with st.expander(tr("Erweiterte Optionen", "Advanced Options")):
+        audience_labels = {
+            "general": tr("Allgemein", "General"),
+            "technical": tr("Technisch", "Technical"),
+            "HR": "HR",
+        }
+        if UIKeys.AUDIENCE_SELECT not in st.session_state:
+            st.session_state[UIKeys.AUDIENCE_SELECT] = "general"
+        st.selectbox(
+            tr("Zielgruppe", "Guide Audience"),
+            list(audience_labels.keys()),
+            format_func=lambda k: audience_labels[k],
+            key=UIKeys.AUDIENCE_SELECT,
+        )
+
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         if st.button(tr("📝 Stellenanzeige (Entwurf)", "📝 Job Ad (Draft)")):
@@ -2026,9 +2069,25 @@ def _step_summary(schema: dict, critical: list[str]):
         st.code(st.session_state[StateKeys.BOOLEAN_STR])
 
     with col_c:
+        selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
+        audience = st.session_state.get(UIKeys.AUDIENCE_SELECT, "general")
         if st.button(tr("🗂️ Interviewleitfaden", "🗂️ Interview Guide")):
             try:
                 profile = NeedAnalysisProfile(**data)
+                extras = (
+                    len(profile.requirements.hard_skills_required)
+                    + len(profile.requirements.hard_skills_optional)
+                    + len(profile.requirements.soft_skills_required)
+                    + len(profile.requirements.soft_skills_optional)
+                    + (1 if profile.company.culture else 0)
+                )
+                if selected_num + extras > 15:
+                    st.warning(
+                        tr(
+                            "Viele Fragen könnten zu hohen Token-Kosten führen.",
+                            "A high number of questions may increase token usage.",
+                        )
+                    )
                 guide_md = generate_interview_guide(
                     job_title=profile.position.job_title or "",
                     responsibilities="\n".join(profile.responsibilities.items),
@@ -2036,18 +2095,19 @@ def _step_summary(schema: dict, critical: list[str]):
                     + profile.requirements.hard_skills_optional,
                     soft_skills=profile.requirements.soft_skills_required
                     + profile.requirements.soft_skills_optional,
+                    company_culture=profile.company.culture or "",
+                    audience=audience,
                     lang=st.session_state.lang,
                     tone=st.session_state.get("tone"),
-                    num_questions=5,
+                    num_questions=selected_num,
                 )
                 st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide_md
             except Exception as e:
                 st.error(
                     tr(
-                        "Interviewleitfaden Generierung fehlgeschlagen",
-                        "Interview guide generation failed",
-                    )
-                    + f": {e}"
+                        "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
+                        "Interview guide generation failed: {error}. Please try again.",
+                    ).format(error=e)
                 )
     if st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD):
         st.markdown("**Interview Guide:**")

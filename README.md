@@ -46,6 +46,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions, automatically covering responsibilities, culture, and specified hard and soft skills
 - **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
+- **Audience-specific guides**: tailor interview guides for general, technical, or HR interviewers
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
 - **Employer branding**: company mission and culture flow into job ads and interview guides
 - **Culture-aware interviews**: German guides automatically include a question on cultural fit when a company culture is specified

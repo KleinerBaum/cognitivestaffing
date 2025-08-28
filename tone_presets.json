@@ -1,14 +1,14 @@
 {
-  "en": {
-    "formal": "clear, professional, and concise",
-    "casual": "friendly, approachable, and direct",
-    "creative": "engaging, vivid, and persuasive",
-    "diversity_focused": "inclusive, welcoming, and bias-aware"
-  },
-  "de": {
-    "formal": "klar, professionell und prägnant",
-    "casual": "freundlich, nahbar und direkt",
-    "creative": "ansprechend, lebendig und überzeugend",
-    "diversity_focused": "inklusiv, einladend und vorurteilsbewusst"
-  }
+    "en": {
+        "formal": "professional and helpful",
+        "casual": "friendly, approachable, and direct",
+        "creative": "creative and engaging",
+        "diversity_focused": "inclusive, welcoming, and bias-aware",
+    },
+    "de": {
+        "formal": "professionell und hilfreich",
+        "casual": "freundlich, nahbar und direkt",
+        "creative": "kreativ und inspirierend",
+        "diversity_focused": "inklusiv, einladend und vorurteilsbewusst",
+    },
 }
