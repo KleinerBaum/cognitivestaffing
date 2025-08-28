@@ -1,103 +1,251 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "NeedAnalysisProfile",
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "company": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "name": {"type": "string"},
-        "industry": {"type": "string"},
-        "hq_location": {"type": "string"},
-        "size": {"type": "string"},
-        "website": {"type": "string"},
-        "mission": {"type": "string"},
-        "culture": {"type": "string"}
-      }
-    },
-    "position": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "job_title": {"type": "string"},
-        "seniority_level": {"type": "string"},
-        "department": {"type": "string"},
-        "team_structure": {"type": "string"},
-        "reporting_line": {"type": "string"},
-        "role_summary": {"type": "string"},
-        "occupation_label": {"type": "string"},
-        "occupation_uri": {"type": "string"},
-        "occupation_group": {"type": "string"},
-        "supervises": {"type": "integer"},
-        "performance_indicators": {"type": "string"},
-        "decision_authority": {"type": "string"},
-        "key_projects": {"type": "string"}
-      }
-    },
-    "location": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "primary_city": {"type": "string"},
-        "country": {"type": "string"},
-        "onsite_ratio": {"type": "string"}
-      }
-    },
-    "responsibilities": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "items": {"type": "array", "items": {"type": "string"}}
-      }
-    },
-    "requirements": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "hard_skills": {"type": "array", "items": {"type": "string"}},
-        "soft_skills": {"type": "array", "items": {"type": "string"}},
-        "tools_and_technologies": {"type": "array", "items": {"type": "string"}},
-        "languages_required": {"type": "array", "items": {"type": "string"}},
-        "certifications": {"type": "array", "items": {"type": "string"}},
-        "language_level_english": {"type": "string"}
-      }
-    },
-    "employment": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "job_type": {"type": "string"},
-        "work_policy": {"type": "string"},
-        "contract_type": {"type": "string"},
-        "travel_required": {"type": "boolean"},
-        "overtime_expected": {"type": "boolean"},
-        "relocation_support": {"type": "boolean"},
-        "visa_sponsorship": {"type": "boolean"},
-        "security_clearance_required": {"type": "boolean"},
-        "shift_work": {"type": "boolean"}
-      }
-    },
-    "compensation": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "salary_min": {"type": "number"},
-        "salary_max": {"type": "number"},
-        "currency": {"type": "string"},
-        "period": {"type": "string"},
-        "variable_pay": {"type": "boolean"},
-        "equity_offered": {"type": "boolean"},
-        "benefits": {"type": "array", "items": {"type": "string"}}
-      }
-    },
-    "process": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "interview_stages": {"type": "integer"},
-        "process_notes": {"type": "string"}
-      }
-    },
-    "meta": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "target_start_date": {"type": "string"},
-        "application_deadline": {"type": "string"}
-      }
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "NeedAnalysisProfile",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "company": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "industry": {
+                    "type": "string"
+                },
+                "hq_location": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                },
+                "mission": {
+                    "type": "string"
+                },
+                "culture": {
+                    "type": "string"
+                }
+            }
+        },
+        "position": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "job_title": {
+                    "type": "string"
+                },
+                "seniority_level": {
+                    "type": "string"
+                },
+                "department": {
+                    "type": "string"
+                },
+                "team_structure": {
+                    "type": "string"
+                },
+                "reporting_line": {
+                    "type": "string"
+                },
+                "role_summary": {
+                    "type": "string"
+                },
+                "occupation_label": {
+                    "type": "string"
+                },
+                "occupation_uri": {
+                    "type": "string"
+                },
+                "occupation_group": {
+                    "type": "string"
+                },
+                "supervises": {
+                    "type": "integer"
+                },
+                "performance_indicators": {
+                    "type": "string"
+                },
+                "decision_authority": {
+                    "type": "string"
+                },
+                "key_projects": {
+                    "type": "string"
+                }
+            }
+        },
+        "location": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "primary_city": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "onsite_ratio": {
+                    "type": "string"
+                }
+            }
+        },
+        "responsibilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "requirements": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "hard_skills_required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "hard_skills_optional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "soft_skills_required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "soft_skills_optional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tools_and_technologies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "languages_required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "languages_optional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "certifications": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "language_level_english": {
+                    "type": "string"
+                }
+            }
+        },
+        "employment": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "job_type": {
+                    "type": "string"
+                },
+                "work_policy": {
+                    "type": "string"
+                },
+                "contract_type": {
+                    "type": "string"
+                },
+                "travel_required": {
+                    "type": "boolean"
+                },
+                "overtime_expected": {
+                    "type": "boolean"
+                },
+                "relocation_support": {
+                    "type": "boolean"
+                },
+                "visa_sponsorship": {
+                    "type": "boolean"
+                },
+                "security_clearance_required": {
+                    "type": "boolean"
+                },
+                "shift_work": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "compensation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "salary_min": {
+                    "type": "number"
+                },
+                "salary_max": {
+                    "type": "number"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "variable_pay": {
+                    "type": "boolean"
+                },
+                "equity_offered": {
+                    "type": "boolean"
+                },
+                "benefits": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "process": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "interview_stages": {
+                    "type": "integer"
+                },
+                "process_notes": {
+                    "type": "string"
+                }
+            }
+        },
+        "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "target_start_date": {
+                    "type": "string"
+                },
+                "application_deadline": {
+                    "type": "string"
+                }
+            }
+        }
     }
-  }
 }

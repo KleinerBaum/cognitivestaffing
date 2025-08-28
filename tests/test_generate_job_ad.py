@@ -18,7 +18,7 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
         "responsibilities.items": ["Develop features"],
         "compensation.benefits": ["Stock options"],
         "learning_opportunities": "Annual training budget",
-        "requirements.hard_skills": ["Python experience"],
+        "requirements.hard_skills_required": ["Python experience"],
         "employment.work_policy": "Remote",
         "employment.work_schedule": "Mon-Fri",
         "employment.relocation_support": True,
@@ -34,7 +34,7 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
 
     openai_utils.generate_job_ad(session, tone="formal and straightforward")
     prompt = captured["prompt"]
-    assert "Hard Skills: Python experience" in prompt
+    assert "Hard Skills (Must-have): Python experience" in prompt
     assert "Work Policy: Remote" in prompt
     assert "Work Schedule: Mon-Fri" in prompt
     assert "Relocation Assistance: Yes" in prompt

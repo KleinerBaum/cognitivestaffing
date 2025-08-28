@@ -171,8 +171,10 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
 }
 
 SKILL_FIELDS: Set[str] = {
-    "requirements.hard_skills",
-    "requirements.soft_skills",
+    "requirements.hard_skills_required",
+    "requirements.hard_skills_optional",
+    "requirements.soft_skills_required",
+    "requirements.soft_skills_optional",
     "requirements.tools_and_technologies",
 }
 
@@ -393,8 +395,10 @@ def generate_followup_questions(
             [
                 str(extracted.get("responsibilities.items") or ""),
                 str(extracted.get("position.role_summary") or ""),
-                str(extracted.get("requirements.hard_skills") or ""),
-                str(extracted.get("requirements.soft_skills") or ""),
+                str(extracted.get("requirements.hard_skills_required") or ""),
+                str(extracted.get("requirements.hard_skills_optional") or ""),
+                str(extracted.get("requirements.soft_skills_required") or ""),
+                str(extracted.get("requirements.soft_skills_optional") or ""),
                 str(extracted.get("requirements.tools_and_technologies") or ""),
             ]
         ).lower()

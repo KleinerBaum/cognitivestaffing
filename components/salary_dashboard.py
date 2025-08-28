@@ -81,8 +81,12 @@ def render_salary_dashboard(session_state: Any) -> None:
         session_state: Streamlit session state used to fetch vacancy data.
     """
 
-    must_skills = _session_list(session_state, "requirements.hard_skills")
-    nice_skills = _session_list(session_state, "requirements.soft_skills")
+    must_skills = _session_list(
+        session_state, "requirements.hard_skills_required"
+    ) + _session_list(session_state, "requirements.soft_skills_required")
+    nice_skills = _session_list(
+        session_state, "requirements.hard_skills_optional"
+    ) + _session_list(session_state, "requirements.soft_skills_optional")
     seniority = session_state.get("position.seniority_level", "")
     location = session_state.get("location.primary_city", "")
     job_type = session_state.get("employment.job_type", "permanent")

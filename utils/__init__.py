@@ -87,8 +87,10 @@ def build_boolean_search(data: Mapping[str, Any] | NeedAnalysisProfile) -> str:
     )
     job_title = profile.position.job_title or ""
     combined = (
-        profile.requirements.hard_skills
-        + profile.requirements.soft_skills
+        profile.requirements.hard_skills_required
+        + profile.requirements.hard_skills_optional
+        + profile.requirements.soft_skills_required
+        + profile.requirements.soft_skills_optional
         + profile.requirements.tools_and_technologies
     )
     skills: list[str] = []

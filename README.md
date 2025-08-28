@@ -41,7 +41,7 @@
 - **Salary analytics dashboard**: live sidebar estimate with optional factor explanations
 - **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
 - **Glassmorphic theme**: browser-optimized design with a hero background
-- **Expanded skills section**: enter certifications, language requirements, and tools & technologies alongside hard and soft skills
+- **Expanded skills section**: distinguish must-have and nice-to-have hard/soft skills, plus certifications, language requirements, and tools & technologies
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
 - **Company insights**: specify headquarters location, company size, brand and contact details for clearer context
 - **Detailed role setup**: capture desired start date, direct reports, contract type and optional KPIs or key projects via an expandable section
