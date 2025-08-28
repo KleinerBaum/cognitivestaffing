@@ -3,12 +3,12 @@
         "formal": "professional and helpful",
         "casual": "friendly, approachable, and direct",
         "creative": "creative and engaging",
-        "diversity_focused": "inclusive, welcoming, and bias-aware",
+        "diversity_focused": "inclusive, welcoming, and bias-aware"
     },
     "de": {
         "formal": "professionell und hilfreich",
         "casual": "freundlich, nahbar und direkt",
         "creative": "kreativ und inspirierend",
-        "diversity_focused": "inklusiv, einladend und vorurteilsbewusst",
-    },
+        "diversity_focused": "inklusiv, einladend und vorurteilsbewusst"
+    }
 }
