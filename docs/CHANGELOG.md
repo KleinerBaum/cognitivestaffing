@@ -4,3 +4,4 @@
 - fix: prevent wizard navigation deadlock when job title is missing
 - feat: route CLI file extraction through ingest.extractors for OCR and text support
 - fix: show user-friendly labels for missing critical fields
+- fix: stack columns and buttons on small screens for mobile usability
