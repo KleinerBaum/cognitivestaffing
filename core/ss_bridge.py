@@ -4,11 +4,11 @@ from models.need_analysis import NeedAnalysisProfile
 from .schema import ALL_FIELDS, ALIASES, LIST_FIELDS, coerce_and_fill
 
 
-def to_session_state(jd: NeedAnalysisProfile, ss: dict) -> None:
+def to_session_state(profile: NeedAnalysisProfile, ss: dict) -> None:
     """Populate session state dict with values from a NeedAnalysisProfile object."""
 
     def _get(path: str) -> Any:
-        cursor: Any = jd
+        cursor: Any = profile
         for part in path.split("."):
             cursor = getattr(cursor, part)
         return cursor

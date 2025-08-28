@@ -1,6 +1,6 @@
 # Vacalyser — AI Recruitment Need Analysis (Streamlit)
 
-**Vacalyser** turns messy job ads into a **complete, structured vacancy profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
+**Vacalyser** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
 Vacalyser now defaults to OpenAI’s reasoning-friendly `gpt-5-nano` model and can
 optionally run on `gpt-4.1-nano`. These lightweight models improve reasoning,
@@ -140,7 +140,7 @@ Core JSON schemas like `schema/need_analysis.schema.json`, `critical_fields.json
 `config_loader.load_json`, which falls back to safe defaults and logs a warning
 if a file is missing or malformed.
 
-The vacancy profile schema does not enforce any required properties; every field
+The profile schema does not enforce any required properties; every field
 is optional and may be omitted.
 
 ## Built-in Analysis Tools
@@ -159,8 +159,8 @@ process.
 ## Session State & Migration
 
 Session keys are centralized in `constants/keys.py`. Business data uses flat
-keys from `StateKeys` such as `profile_data` or `jd_raw_text`, while widget
-"shadow" keys come from `UIKeys` like `ui.jd_text_input`. Legacy entries like
+keys from `StateKeys` such as `profile_data` or `profile_raw_text`, while widget
+"shadow" keys come from `UIKeys` like `ui.profile_text_input`. Legacy entries like
 `data.jd_text` or plain `jd_text` are migrated to the new schema on startup so
 existing drafts remain intact.
 

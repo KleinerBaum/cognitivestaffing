@@ -50,7 +50,7 @@ benefits: BenefitsDict = {
             "Gamifizierte Completion‑Tracker zur Motivation",
         ],
         "Recruiter": [
-            "Automatisches Parsing von JD‑Entwürfen, CVs & Links",
+            "Automatisches Parsing von Stellenanzeigen‑Entwürfen, CVs & Links",
             "Datenbank‑Vernetzung (ATS, CRM, LinkedIn Recruiter, GitHub)",
             "KPIs in Echtzeit (Sourcing‑Conversion‑Rate, Pipeline‑Velocity)",
             'KI‑basierte Suchstrings generieren ("Boolean‑Builder 2.0")',
@@ -87,7 +87,7 @@ benefits: BenefitsDict = {
             "Kosten‑Transparenz pro Cost‑Center & Hire‑Kategorie",
             "Einhaltung globaler Policies (DE&I, Remote‑First, Comp‑Ratio)",
             "Predictive‑Hiring‑Modelle für saisonale Peaks",
-            "Reduziertes Time‑to‑Productivity durch passgenaue JD",
+            "Reduziertes Time‑to‑Productivity durch passgenaue Stellenprofile",
             "Weniger Fehlbesetzungen dank Skill‑Validierung vor Ausschreibung",
             "Employer‑Brand‑Stärkung durch konsistente, ansprechende Jobpages",
             "Revisionssichere Dokumentation aller Hiring‑Entscheidungen",
@@ -173,7 +173,7 @@ benefits: BenefitsDict = {
             "Gamified completion tracker for motivation",
         ],
         "Recruiter": [
-            "Automatic parsing of JD drafts, CVs & links",
+            "Automatic parsing of job posting drafts, CVs & links",
             "Database connectivity (ATS, CRM, LinkedIn Recruiter, GitHub)",
             "Real‑time KPIs (sourcing conversion rate, pipeline velocity)",
             'AI‑generated search strings ("Boolean Builder 2.0")',
@@ -210,7 +210,7 @@ benefits: BenefitsDict = {
             "Cost transparency per cost centre & hire category",
             "Compliance with global policies (DE&I, remote first, comp ratio)",
             "Predictive hiring models for seasonal peaks",
-            "Reduced time‑to‑productivity through precise JD",
+            "Reduced time‑to‑productivity through precise job profiles",
             "Fewer mis‑hires thanks to skill validation before posting",
             "Employer brand strengthening via consistent, appealing job pages",
             "Audit‑proof documentation of all hiring decisions",
@@ -298,7 +298,7 @@ intro_de = (
 
 title_en = "🚀 Advantages of **Vacancy Need Analysis**"
 intro_en = (
-    "Our Vacancy Need Analysis helps you nail the first step of any hiring process – describing the vacancy. "
+    "Our Need Analysis helps you nail the first step of any hiring process – describing the role. "
     "Upload your material and let dynamic OpenAI questions uncover missing details. "
     "The result is a complete profile that prevents information loss, saves time and gives candidates a clear picture."
 )

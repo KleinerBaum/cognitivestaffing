@@ -81,7 +81,7 @@ def render_salary_dashboard(session_state: Any) -> None:
     """Render salary analytics widget in the sidebar.
 
     Args:
-        session_state: Streamlit session state used to fetch vacancy data.
+        session_state: Streamlit session state used to fetch profile data.
     """
 
     must_skills = _session_list(

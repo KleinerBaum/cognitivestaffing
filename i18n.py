@@ -10,7 +10,7 @@ STR = {
         "missing": "Es fehlen noch kritische Felder:",
     },
     "en": {
-        "intro_title": "Identify ALL recruiting-relevant information about your vacancy!",
+        "intro_title": "Identify ALL recruiting-relevant information about your profile!",
         "source": "Source",
         "analyze": "🔎 Analyze automatically (LLM)",
         "missing": "Critical fields still missing:",

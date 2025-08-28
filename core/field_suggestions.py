@@ -1,4 +1,4 @@
-"""Predefined suggestion lists for common vacancy fields."""
+"""Predefined suggestion lists for common profile fields."""
 
 from typing import Dict, List
 
@@ -58,7 +58,7 @@ __all__ = ["FIELD_SUGGESTIONS", "get_field_suggestions"]
 
 
 def get_field_suggestions(field: str, lang: str = "en") -> List[str]:
-    """Return normalized suggestions for a vacancy field.
+    """Return normalized suggestions for a profile field.
 
     Args:
         field: Field name such as ``"programming_languages"``.

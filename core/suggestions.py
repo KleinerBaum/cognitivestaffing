@@ -1,4 +1,4 @@
-"""Helpers for generating vacancy suggestions via LLM calls."""
+"""Helpers for generating profile suggestions via LLM calls."""
 
 from __future__ import annotations
 

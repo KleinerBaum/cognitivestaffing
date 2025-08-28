@@ -105,7 +105,7 @@ def extract_json(
     """Extract schema fields via JSON mode with optional plain fallback.
 
     Args:
-        text: Input job description.
+        text: Input job posting.
         title: Optional job title for context.
         url: Optional source URL.
 

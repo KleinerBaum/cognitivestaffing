@@ -12,7 +12,7 @@ from question_logic import (
 
 
 def generate_followup_questions(
-    jd: NeedAnalysisProfile,
+    profile: NeedAnalysisProfile,
     num_questions: Optional[int] = None,
     lang: str = "en",
     use_rag: bool = True,
@@ -26,7 +26,7 @@ def generate_followup_questions(
     set of parameters is forwarded to the underlying function.
 
     Args:
-        jd: Parsed job description data.
+        profile: Parsed profile data.
         num_questions: Optional maximum number of questions to return.
         lang: Language for generated questions.
         use_rag: Whether to use RAG-based suggestions.
@@ -36,7 +36,7 @@ def generate_followup_questions(
     """
 
     items = _generate_followup_questions(
-        jd.model_dump(),
+        profile.model_dump(),
         num_questions=num_questions,
         lang=lang,
         use_rag=use_rag,

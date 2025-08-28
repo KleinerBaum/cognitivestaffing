@@ -1,5 +1,5 @@
 ## Schema (v2.1)
-Vacalyzer's schema is now hierarchical, grouping related fields for a vacancy. Each top-level key represents a category (such as `company`, `position`, `compensation`, etc.), containing sub-fields. We focus on core fields (priority 1–3) to gather essential information first. Below are the groups and example fields:
+Vacalyzer's schema is now hierarchical, grouping related fields for a profile. Each top-level key represents a category (such as `company`, `position`, `compensation`, etc.), containing sub-fields. We focus on core fields (priority 1–3) to gather essential information first. Below are the groups and example fields:
 - **company:** `name`, `industry`, `hq_location`, `size`, `website`  
 - **position:** `job_title`, `seniority_level`, `department`, `management_scope`, `reporting_line`, `role_summary`, `team_structure`, etc.  
 - **employment:** `job_type`, `work_policy` (Onsite/Hybrid/Remote), `travel_required`, `work_schedule`, etc.  

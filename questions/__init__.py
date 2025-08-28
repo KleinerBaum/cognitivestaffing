@@ -1,4 +1,4 @@
-"""Question utilities for vacancy completeness."""
+"""Question utilities for profile completeness."""
 
 from .generate import generate_followup_questions
 

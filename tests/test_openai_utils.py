@@ -97,14 +97,14 @@ def test_extract_with_function(monkeypatch):
     )
     from core import schema as cs
 
-    class _FakeJD:
+    class _FakeProfile:
         def __init__(self, data: dict[str, str]) -> None:
             self._data = data
 
         def model_dump(self) -> dict[str, str]:
             return self._data
 
-    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeJD(data))
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
 
     result = extract_with_function("text", {})
     assert result["job_title"] == "Dev"

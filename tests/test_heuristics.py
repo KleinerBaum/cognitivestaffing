@@ -26,8 +26,10 @@ def test_guess_city_from_header() -> None:
 
 
 def test_parse_extraction_city_alias() -> None:
-    jd = parse_extraction('{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}')
-    assert jd.location.primary_city == "Düsseldorf"
+    profile = parse_extraction(
+        '{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}'
+    )
+    assert profile.location.primary_city == "Düsseldorf"
 
 
 def test_employment_and_start_date_fallbacks() -> None:
