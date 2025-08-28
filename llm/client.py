@@ -18,6 +18,7 @@ from models.need_analysis import NeedAnalysisProfile
 from core.errors import ExtractionError, JsonInvalid
 from utils.json_parse import parse_extraction
 from utils.retry import retry
+from ingest.heuristics import apply_basic_fallbacks
 from config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, REASONING_EFFORT
 
 logger = logging.getLogger("vacalyser.llm")
@@ -144,7 +145,7 @@ def extract_json(
                 "type": "json_schema",
                 "json_schema": NEED_ANALYSIS_SCHEMA,
             },
-        )  # type: ignore[call-overload]
+        )
         return response.output_text.strip()
     except Exception as exc:  # pragma: no cover - network/SDK issues
         logger.warning(
@@ -156,7 +157,7 @@ def extract_json(
                 input=messages,
                 temperature=0,
                 reasoning={"effort": effort},
-            )  # type: ignore[call-overload]
+            )
             return response.output_text.strip()
         except Exception as exc2:  # pragma: no cover - network/SDK issues
             raise ExtractionError("LLM call failed") from exc2
@@ -174,7 +175,7 @@ def extract_and_parse(
     raw = extract_json(text, title, url)
     _log_schema_errors(raw)
     try:
-        return parse_extraction(raw)
+        profile = parse_extraction(raw)
     except JsonInvalid:
 
         def second_call() -> str:
@@ -183,6 +184,8 @@ def extract_and_parse(
         raw_retry = retry(second_call)
         _log_schema_errors(raw_retry)
         try:
-            return parse_extraction(raw_retry)
+            profile = parse_extraction(raw_retry)
         except JsonInvalid as exc:  # pragma: no cover - defensive
             raise ExtractionError("Failed to parse AI response as JSON") from exc
+
+    return apply_basic_fallbacks(profile, text)

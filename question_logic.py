@@ -429,7 +429,7 @@ def generate_followup_questions(
     # 1) Determine role-specific fields via ESCO classification
     job_title = (extracted.get("position.job_title") or "").strip()
     industry = (extracted.get("company.industry") or "").strip()
-    occupation = {}
+    occupation: Dict[str, Any] = {}
     essential_skills: List[str] = []
     missing_esco_skills: List[str] = []
     occ_group = ""

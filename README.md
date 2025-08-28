@@ -19,6 +19,7 @@ API, enabling JSON schema validation and function/tool calling.
 - **Upfront language switch**: choose German or English before entering any data
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **One‑hop extraction**: Parse PDFs/DOCX/URLs into 20+ fields
+- **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
 - **Structured output**: function calling/JSON mode ensures valid responses
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
 - **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`
