@@ -11,6 +11,7 @@ API, enabling JSON schema validation and function/tool calling.
 
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
+- **Restart option**: clicking "Done" returns to the first step to begin another profile
 - **Manual entry option**: skip the upload step and start with an empty profile
 - **Extraction feedback**: review detected base data before continuing
 - **Guided error messages**: clear hints when uploads or URLs fail
