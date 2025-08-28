@@ -29,6 +29,7 @@ def _setup_common(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "warning", lambda *a, **k: None)
     monkeypatch.setattr(st, "error", lambda *a, **k: None)
     monkeypatch.setattr(st, "write", lambda *a, **k: None)
+    monkeypatch.setattr(st, "info", lambda *a, **k: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
     bootstrap_session()
 
@@ -44,6 +45,17 @@ def test_on_file_uploaded_populates_text(monkeypatch: pytest.MonkeyPatch) -> Non
     st.session_state[UIKeys.JD_FILE_UPLOADER] = object()
 
     on_file_uploaded()
+
+    assert st.session_state.get("__prefill_jd_text__") == sample_text
+    assert st.session_state.get("__run_extraction__") is True
+
+    monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
+    monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
+    monkeypatch.setattr(
+        st, "text_area", lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
+    )
+
+    _step_source({})
 
     assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
     assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
@@ -61,6 +73,17 @@ def test_on_url_changed_populates_text(monkeypatch: pytest.MonkeyPatch) -> None:
 
     on_url_changed()
 
+    assert st.session_state.get("__prefill_jd_text__") == sample_text
+    assert st.session_state.get("__run_extraction__") is True
+
+    monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
+    monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
+    monkeypatch.setattr(
+        st, "text_area", lambda *a, **k: st.session_state.get(UIKeys.JD_TEXT_INPUT, "")
+    )
+
+    _step_source({})
+
     assert st.session_state.get(StateKeys.RAW_TEXT) == sample_text
     assert st.session_state.get(UIKeys.JD_TEXT_INPUT) == sample_text
 
@@ -77,6 +100,7 @@ def test_on_url_changed_handles_none(monkeypatch: pytest.MonkeyPatch) -> None:
     on_url_changed()
 
     assert st.session_state.get(StateKeys.RAW_TEXT) == ""
+    assert "__prefill_jd_text__" not in st.session_state
 
 
 @pytest.mark.parametrize("mode", ["text", "file", "url"])
@@ -92,7 +116,7 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     analyze_label = t("analyze", st.session_state.lang)
 
     def fake_button(label: str, *a, **k) -> bool:
-        return label == analyze_label
+        return mode == "text" and label == analyze_label
 
     monkeypatch.setattr(st, "button", fake_button)
     monkeypatch.setattr(
@@ -109,7 +133,6 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
         st.session_state[UIKeys.JD_URL_INPUT] = "https://example.com"
         on_url_changed()
     else:
-        st.session_state[StateKeys.RAW_TEXT] = sample_text
         st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
 
     monkeypatch.setattr(
@@ -130,7 +153,6 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.model = "gpt"
     st.session_state[StateKeys.STEP] = 0
     sample_text = "Job text"
-    st.session_state[StateKeys.RAW_TEXT] = sample_text
     st.session_state[UIKeys.JD_TEXT_INPUT] = sample_text
     sample_data = {
         "position": {"job_title": "Engineer"},
