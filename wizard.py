@@ -240,17 +240,6 @@ def _skip_source() -> None:
     st.rerun()
 
 
-# Mapping from schema field paths to wizard section numbers
-FIELD_SECTION_MAP = {
-    "company.name": 1,
-    "position.job_title": 2,
-    "position.role_summary": 2,
-    "location.country": 2,
-    "requirements.hard_skills_required": 3,
-    "requirements.soft_skills_required": 3,
-}
-
-
 def _field_label(path: str) -> str:
     """Return localized label for a schema field path.
 
@@ -277,33 +266,6 @@ def _field_label(path: str) -> str:
         return labels[path]
     auto = path.replace(".", " ").replace("_", " ")
     return tr(auto.title(), auto.title())
-
-
-def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
-    """Return critical fields missing from ``st.session_state`` or profile data.
-
-    Args:
-        max_section: Optional highest section number to inspect.
-
-    Returns:
-        List of missing critical field paths.
-    """
-
-    missing: list[str] = []
-    profile_data = st.session_state.get(StateKeys.PROFILE, {})
-    for field in CRITICAL_FIELDS:
-        if max_section is not None and FIELD_SECTION_MAP.get(field, 0) > max_section:
-            continue
-        value = st.session_state.get(field)
-        if not value:
-            value = get_in(profile_data, field, None)
-        if not value:
-            missing.append(field)
-
-    for q in st.session_state.get(StateKeys.FOLLOWUPS, []):
-        if q.get("priority") == "critical":
-            missing.append(q.get("field", ""))
-    return missing
 
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
@@ -794,6 +756,9 @@ def _step_company():
                 _render_followup_question(q, data)
 
 
+_step_company.handled_fields = ["company.name"]
+
+
 def _render_stakeholders(process: dict, key_prefix: str) -> None:
     """Render stakeholder inputs and update ``process`` in place."""
 
@@ -1055,6 +1020,13 @@ def _step_position():
                 _render_followup_question(q, data)
 
 
+_step_position.handled_fields = [
+    "position.job_title",
+    "position.role_summary",
+    "location.country",
+]
+
+
 def _step_requirements():
     """Render the requirements step for skills and certifications.
 
@@ -1212,6 +1184,61 @@ def _step_requirements():
             field = q.get("field", "")
             if field.startswith("requirements."):
                 _render_followup_question(q, data)
+
+
+_step_requirements.handled_fields = [
+    "requirements.hard_skills_required",
+    "requirements.soft_skills_required",
+]
+
+
+def _build_field_section_map() -> dict[str, int]:
+    """Derive mapping of schema fields to wizard sections.
+
+    Each step declares the fields it handles via ``handled_fields``. This
+    function iterates over the step order and builds a reverse lookup to avoid
+    mismatches between UI steps and critical field checks.
+
+    Returns:
+        Mapping of field paths to section numbers.
+    """
+
+    ordered_steps = [_step_company, _step_position, _step_requirements]
+    mapping: dict[str, int] = {}
+    for idx, step in enumerate(ordered_steps, start=1):
+        for field in getattr(step, "handled_fields", []):
+            mapping[field] = idx
+    return mapping
+
+
+FIELD_SECTION_MAP = _build_field_section_map()
+
+
+def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
+    """Return critical fields missing from state or profile data.
+
+    Args:
+        max_section: Optional highest section number to inspect.
+
+    Returns:
+        List of missing critical field paths.
+    """
+
+    missing: list[str] = []
+    profile_data = st.session_state.get(StateKeys.PROFILE, {})
+    for field in CRITICAL_FIELDS:
+        if max_section is not None and FIELD_SECTION_MAP.get(field, 0) > max_section:
+            continue
+        value = st.session_state.get(field)
+        if not value:
+            value = get_in(profile_data, field, None)
+        if not value:
+            missing.append(field)
+
+    for q in st.session_state.get(StateKeys.FOLLOWUPS, []):
+        if q.get("priority") == "critical":
+            missing.append(q.get("field", ""))
+    return missing
 
 
 def _step_employment():
