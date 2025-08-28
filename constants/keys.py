@@ -21,4 +21,5 @@ class StateKeys:
     BOOLEAN_STR = "data.boolean_str"
     INTERVIEW_GUIDE_MD = "data.interview_md"
     SKILL_SUGGESTIONS = "skill_suggestions"
+    BENEFIT_SUGGESTIONS = "benefit_suggestions"
     EXTRACTION_SUMMARY = "extraction_summary"

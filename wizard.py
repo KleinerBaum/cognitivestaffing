@@ -25,12 +25,14 @@ from openai_utils import (
     generate_interview_guide,
     generate_job_ad,
     suggest_skills_for_role,
+    suggest_benefits,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import search_occupation, enrich_skills
 from components.stepper import render_stepper
 from utils import build_boolean_search
 from nlp.bias import scan_bias_language
+from core.esco_utils import normalize_skills
 
 ROOT = Path(__file__).parent
 ensure_state()
@@ -39,7 +41,23 @@ ensure_state()
 def next_step() -> None:
     """Advance the wizard to the next step."""
 
-    st.session_state[StateKeys.STEP] = st.session_state.get(StateKeys.STEP, 0) + 1
+    current = st.session_state.get(StateKeys.STEP, 0)
+    if current == 4:
+        try:
+            lang = st.session_state.get("lang", "en")
+            reqs = st.session_state[StateKeys.PROFILE].get("requirements", {})
+            for key in [
+                "hard_skills_required",
+                "hard_skills_optional",
+                "soft_skills_required",
+                "soft_skills_optional",
+                "tools_and_technologies",
+            ]:
+                if key in reqs:
+                    reqs[key] = normalize_skills(reqs.get(key, []), lang=lang)
+        except Exception:
+            pass
+    st.session_state[StateKeys.STEP] = current + 1
 
 
 def prev_step() -> None:
@@ -198,6 +216,33 @@ def get_in(d: dict, path: str, default=None):
         else:
             return default
     return cur
+
+
+def _render_followup_question(q: dict, data: dict) -> None:
+    """Render a follow-up question with optional suggestion chips."""
+
+    field = q.get("field", "")
+    prompt = q.get("question", "")
+    suggestions = q.get("suggestions") or []
+    key = f"fu_{field}"
+    if key not in st.session_state:
+        st.session_state[key] = ""
+    if q.get("priority") == "critical":
+        st.markdown(
+            f"<span style='color:red'>*</span> **{prompt}**", unsafe_allow_html=True
+        )
+    else:
+        st.markdown(f"**{prompt}**")
+    if suggestions:
+        cols = st.columns(len(suggestions))
+        for i, (col, sug) in enumerate(zip(cols, suggestions)):
+            if col.button(sug, key=f"{key}_opt_{i}"):
+                st.session_state[key] = sug
+    st.text_input("", key=key)
+    ans = st.session_state.get(key, "")
+    if ans:
+        set_in(data, field, ans)
+        st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
 def _clear_generated() -> None:
@@ -619,18 +664,7 @@ def _step_company():
         for q in list(st.session_state[StateKeys.FOLLOWUPS]):
             field = q.get("field", "")
             if field.startswith("company."):
-                prompt = q.get("question", "")
-                if q.get("priority") == "critical":
-                    st.markdown(
-                        f"<span style='color:red'>*</span> **{prompt}**",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"**{prompt}**")
-                ans = st.text_input("", key=f"fu_{field}")
-                if ans:
-                    set_in(data, field, ans)
-                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+                _render_followup_question(q, data)
 
 
 def _render_stakeholders(process: dict, key_prefix: str) -> None:
@@ -891,18 +925,7 @@ def _step_position():
                 or field.startswith("location.")
                 or field.startswith("meta.")
             ):
-                prompt = q.get("question", "")
-                if q.get("priority") == "critical":
-                    st.markdown(
-                        f"<span style='color:red'>*</span> **{prompt}**",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"**{prompt}**")
-                ans = st.text_input("", key=f"fu_{field}")
-                if ans:
-                    set_in(data, field, ans)
-                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+                _render_followup_question(q, data)
 
 
 def _step_requirements():
@@ -1052,18 +1075,7 @@ def _step_requirements():
         for q in list(st.session_state[StateKeys.FOLLOWUPS]):
             field = q.get("field", "")
             if field.startswith("requirements."):
-                prompt = q.get("question", "")
-                if q.get("priority") == "critical":
-                    st.markdown(
-                        f"<span style='color:red'>*</span> **{prompt}**",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"**{prompt}**")
-                ans = st.text_input("", key=f"fu_{field}")
-                if ans:
-                    set_in(data, field, ans)
-                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+                _render_followup_question(q, data)
 
 
 def _step_employment():
@@ -1217,18 +1229,7 @@ def _step_employment():
         for q in list(st.session_state[StateKeys.FOLLOWUPS]):
             field = q.get("field", "")
             if field.startswith("employment."):
-                prompt = q.get("question", "")
-                if q.get("priority") == "critical":
-                    st.markdown(
-                        f"<span style='color:red'>*</span> **{prompt}**",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"**{prompt}**")
-                ans = st.text_input("", key=f"fu_{field}")
-                if ans:
-                    set_in(data, field, ans)
-                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+                _render_followup_question(q, data)
 
 
 def _step_compensation():
@@ -1328,8 +1329,13 @@ def _step_compensation():
             "Team events",
         ],
     }
+    sugg_benefits = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, [])
     benefit_options = sorted(
-        set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", []))
+        set(
+            preset_benefits.get(lang, [])
+            + data["compensation"].get("benefits", [])
+            + sugg_benefits
+        )
     )
     data["compensation"]["benefits"] = _chip_multiselect(
         "Benefits",
@@ -1337,23 +1343,31 @@ def _step_compensation():
         values=data["compensation"].get("benefits", []),
     )
 
+    if st.button("💡 " + tr("Benefits vorschlagen", "Suggest Benefits")):
+        job_title = data.get("position", {}).get("job_title", "")
+        industry = data.get("company", {}).get("industry", "")
+        existing = "\n".join(data["compensation"].get("benefits", []))
+        try:
+            new_sugg = suggest_benefits(
+                job_title,
+                industry,
+                existing,
+                lang=lang,
+            )
+        except Exception:
+            new_sugg = []
+        if new_sugg:
+            st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = sorted(
+                set(sugg_benefits + new_sugg)
+            )
+            st.rerun()
+
     # Inline follow-up questions for Compensation section
     if StateKeys.FOLLOWUPS in st.session_state:
         for q in list(st.session_state[StateKeys.FOLLOWUPS]):
             field = q.get("field", "")
             if field.startswith("compensation."):
-                prompt = q.get("question", "")
-                if q.get("priority") == "critical":
-                    st.markdown(
-                        f"<span style='color:red'>*</span> **{prompt}**",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"**{prompt}**")
-                ans = st.text_input("", key=f"fu_{field}")
-                if ans:
-                    set_in(data, field, ans)
-                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+                _render_followup_question(q, data)
 
 
 def _step_process():
@@ -1399,18 +1413,7 @@ def _step_process():
         for q in list(st.session_state[StateKeys.FOLLOWUPS]):
             field = q.get("field", "")
             if field.startswith("process."):
-                prompt = q.get("question", "")
-                if q.get("priority") == "critical":
-                    st.markdown(
-                        f"<span style='color:red'>*</span> **{prompt}**",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"**{prompt}**")
-                ans = st.text_input("", key=f"fu_{field}")
-                if ans:
-                    set_in(st.session_state[StateKeys.PROFILE], field, ans)
-                    st.session_state[StateKeys.FOLLOWUPS].remove(q)
+                _render_followup_question(q, st.session_state[StateKeys.PROFILE])
 
 
 def _summary_company() -> None:

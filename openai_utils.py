@@ -743,8 +743,16 @@ def suggest_benefits(
             if perk:
                 benefits.append(perk)
     existing_set = {b.strip().lower() for b in existing_benefits.splitlines()}
-    benefits = [b for b in benefits if b.strip().lower() not in existing_set]
-    return benefits
+    filtered = [b for b in benefits if b.strip().lower() not in existing_set]
+    seen: set[str] = set()
+    unique: list[str] = []
+    for b in filtered:
+        key = b.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(b)
+    return unique
 
 
 def suggest_role_tasks(
