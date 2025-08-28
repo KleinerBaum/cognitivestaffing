@@ -2112,4 +2112,8 @@ def run_wizard():
                     next_step()
                     st.rerun()
             else:
-                st.button(tr("Fertig", "Done"))
+                if st.button(
+                    tr("Fertig", "Done"), type="primary", use_container_width=True
+                ):
+                    st.session_state[StateKeys.STEP] = 0
+                    st.rerun()
