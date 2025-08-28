@@ -13,7 +13,14 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 import backoff
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APIError,
+    AuthenticationError,
+    OpenAI,
+    OpenAIError,
+    RateLimitError,
+)
 import streamlit as st
 
 from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, REASONING_EFFORT
@@ -52,6 +59,41 @@ def get_client() -> OpenAI:
         base = OPENAI_BASE_URL or None
         client = OpenAI(api_key=key, base_url=base)
     return client
+
+
+def _handle_openai_error(error: OpenAIError) -> None:
+    """Raise a user-friendly ``RuntimeError`` for OpenAI failures.
+
+    Args:
+        error: The original :class:`openai.OpenAIError` instance.
+
+    Raises:
+        RuntimeError: With a human readable message that differentiates common
+            failure modes such as authentication issues, rate limits, or
+            network problems.
+    """
+
+    if isinstance(error, AuthenticationError):
+        msg = "OpenAI API key invalid or quota exceeded."
+    elif isinstance(error, RateLimitError):
+        msg = "OpenAI API rate limit exceeded. Please retry later."
+    elif isinstance(error, APIConnectionError):
+        msg = (
+            "Network error communicating with OpenAI. Please check your "
+            "connection and retry."
+        )
+    elif isinstance(error, APIError):
+        detail = getattr(error, "message", str(error))
+        msg = f"OpenAI API error: {detail}"
+    else:
+        msg = f"Unexpected OpenAI error: {error}"
+
+    logger.error(msg, exc_info=error)
+    try:  # pragma: no cover - Streamlit may not be initialised in tests
+        st.error(msg)
+    except Exception:  # noqa: BLE001
+        pass
+    raise RuntimeError(msg) from error
 
 
 @backoff.on_exception(backoff.expo, Exception, max_time=60)
@@ -116,7 +158,10 @@ def call_chat_api(
     if extra:
         payload.update(extra)
 
-    response = get_client().responses.create(**payload)
+    try:
+        response = get_client().responses.create(**payload)
+    except OpenAIError as error:  # pragma: no cover - handled in helper
+        _handle_openai_error(error)
 
     content = getattr(response, "output_text", None)
 
@@ -178,7 +223,10 @@ def call_chat_api(
         if executed:
             payload["input"] = messages_list
             payload.pop("tool_choice", None)
-            response = get_client().responses.create(**payload)
+            try:
+                response = get_client().responses.create(**payload)
+            except OpenAIError as error:  # pragma: no cover - handled in helper
+                _handle_openai_error(error)
             content = getattr(response, "output_text", None)
             extra_calls: list[dict] = []
             for item in getattr(response, "output", []) or []:
