@@ -63,31 +63,27 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
     tools = [
         {
             "type": "function",
-            "function": {
-                "name": "get_salary_benchmark",
-                "description": "Fetch a rough annual salary range for a role in a country.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "role": {"type": "string"},
-                        "country": {"type": "string"},
-                    },
-                    "required": ["role"],
+            "name": "get_salary_benchmark",
+            "description": "Fetch a rough annual salary range for a role in a country.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "role": {"type": "string"},
+                    "country": {"type": "string"},
                 },
+                "required": ["role"],
             },
         },
         {
             "type": "function",
-            "function": {
-                "name": "get_skill_definition",
-                "description": "Return a concise definition for a skill.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "skill": {"type": "string"},
-                    },
-                    "required": ["skill"],
+            "name": "get_skill_definition",
+            "description": "Return a concise definition for a skill.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "skill": {"type": "string"},
                 },
+                "required": ["skill"],
             },
         },
     ]
