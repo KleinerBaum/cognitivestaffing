@@ -40,7 +40,7 @@ OpenAI accounts.
 - **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls; data comes from `integrations/esco_offline.json` and covers common roles. Unknown titles log a warning and skip enrichment—update the JSON or unset the env var to fall back to the live ESCO API
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
 - **Auto-filled skills**: essential ESCO skills merge into required skills; generic entries like "Communication" are ignored so follow-ups stay relevant
-- **RAG‑Assist**: use your vector store to fill/contextualize
+- **RAG‑Assist**: use your vector store to fill/contextualize *(requires setting `VECTOR_STORE_ID` and a populated vector store)*
 - **Reasoning models**: uses cost-optimized `gpt-5-nano`/`gpt-4.1-nano` on
   supported endpoints, falling back to `gpt-3.5-turbo` by default for the public
   API. The Responses API enables JSON mode and tool calling at lower cost/latency,
@@ -81,24 +81,45 @@ OpenAI accounts.
 
 Requires **Python 3.11 or 3.12**.
 
-```bash
-git clone https://github.com/KleinerBaum/cognitivestaffing
-cd cognitivestaffing
+1. **Clone the repository and enter it**
 
-# create and activate a virtual environment (pick one Python version)
-python3.11 -m venv .venv  # or: python3.12 -m venv .venv
-source .venv/bin/activate
+   ```bash
+   git clone https://github.com/KleinerBaum/cognitivestaffing
+   cd cognitivestaffing
+   ```
 
-pip install -r requirements.txt  # or: pip install -e .
-# configure your OpenAI credentials
-export OPENAI_API_KEY=sk-your-key
-# optional: choose model, reasoning depth, and custom endpoint
-export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4.1-nano
-export REASONING_EFFORT=high               # low|medium|high (default: medium)
-export OPENAI_BASE_URL=http://localhost:8080/v1  # optional custom endpoint
+2. **Create and activate a virtual environment**
 
-streamlit run app.py
-```
+   ```bash
+   python3.11 -m venv .venv  # or: python3.12 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. **Install dependencies**
+
+   ```bash
+   pip install -r requirements.txt  # or: pip install -e .
+   ```
+
+4. **Configure environment variables**
+
+   ```bash
+   export OPENAI_API_KEY=sk-your-key
+   # optional overrides
+   export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4.1-nano
+   export REASONING_EFFORT=high               # low|medium|high (default: medium)
+   export OPENAI_BASE_URL=http://localhost:8080/v1  # custom endpoint
+   # optional: enable RAG suggestions via vector store
+   export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
+   ```
+
+5. **Launch the app**
+
+   ```bash
+   streamlit run app.py
+   ```
+
+Run `streamlit run app.py` to start the app locally and open the URL shown in your terminal.
 
 If you run the app with a standard OpenAI API key, it will default to
 `gpt-3.5-turbo`. Set `OPENAI_MODEL=gpt-4` for full GPT‑4 access. The
@@ -173,6 +194,18 @@ export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 If `VECTOR_STORE_ID` is unset or empty, Vacalyser runs without RAG.
+
+## Troubleshooting
+
+- **"Missing OPENAI_API_KEY"** – ensure the environment variable is set or add it to `.streamlit/secrets.toml`.
+- **"Model not found"** – check that `OPENAI_MODEL` is available on your endpoint.
+- **Vector store errors** – set `VECTOR_STORE_ID` to a valid store ID and make sure the store contains documents.
+
+## Known Limitations
+
+- Relies on the OpenAI Responses API; accounts without access cannot run the app.
+- `gpt-5-nano`/`gpt-4.1-nano` models require specialized OpenAI or Azure endpoints.
+- RAG suggestions only work when a populated OpenAI vector store is configured.
 
 ## Config Files
 
