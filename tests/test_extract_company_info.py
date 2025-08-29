@@ -20,7 +20,7 @@ def test_extract_company_info_parses_json(monkeypatch):
         )
         return ChatCallResult(payload, [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     result = openai_utils.extract_company_info("dummy text")
     assert result == {

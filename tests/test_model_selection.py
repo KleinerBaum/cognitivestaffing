@@ -11,7 +11,7 @@ def test_suggest_additional_skills_model(monkeypatch):
         captured["model"] = model
         return ChatCallResult("- Tech1\n- Tech2\nSoft skills:\n- Communication", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     monkeypatch.setattr(esco_utils, "normalize_skills", lambda skills, **_: skills)
     out = openai_utils.suggest_additional_skills("Engineer", model="gpt-4.1-nano")
     assert captured["model"] == "gpt-4.1-nano"
@@ -26,7 +26,7 @@ def test_suggest_benefits_model(monkeypatch):
         captured["model"] = model
         return ChatCallResult("- BenefitA\n- BenefitB", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer", lang="en", model="gpt-4.1-nano")
     assert captured["model"] == "gpt-4.1-nano"
     assert out == ["BenefitA", "BenefitB"]
@@ -41,7 +41,7 @@ def test_session_state_model_default(monkeypatch):
         captured["model"] = model
         return ChatCallResult("- BenefitA\n- BenefitB", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
     assert captured["model"] == "gpt-4.1-nano"
     assert out == ["BenefitA", "BenefitB"]

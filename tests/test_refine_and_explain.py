@@ -10,7 +10,7 @@ def test_refine_document_passes_model(monkeypatch):
         captured["model"] = model
         return ChatCallResult("updated", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.refine_document("orig", "shorter", model="gpt-4.1-nano")
     assert "orig" in captured["prompt"]
     assert "shorter" in captured["prompt"]
@@ -26,7 +26,7 @@ def test_what_happened_lists_keys(monkeypatch):
         captured["model"] = model
         return ChatCallResult("explanation", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     session = {
         "position.job_title": "Eng",
         "location.primary_city": "Berlin",

@@ -1,321 +1,16 @@
-"""Helpers for interacting with the OpenAI API.
-
-This module centralizes client configuration and common operations such as
-``call_chat_api`` for Responses API calls, ``extract_company_info`` for website
-analysis, and utilities for structured extraction and suggestion tasks.
-"""
+"""High-level extraction and suggestion helpers built on the OpenAI API."""
 
 from __future__ import annotations
 
 import json
-import logging
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Mapping, Sequence
 
-import backoff
-from openai import (
-    APIConnectionError,
-    APIError,
-    APITimeoutError,
-    AuthenticationError,
-    BadRequestError,
-    OpenAI,
-    OpenAIError,
-    RateLimitError,
-)
 import streamlit as st
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, REASONING_EFFORT
-from constants.keys import StateKeys
-
-
-@dataclass
-class ChatCallResult:
-    """Unified return type for ``call_chat_api``.
-
-    Attributes:
-        content: Text content returned by the model, if any.
-        tool_calls: List of tool call payloads.
-        usage: Token usage information.
-    """
-
-    content: Optional[str]
-    tool_calls: list[dict]
-    usage: dict
-
-
-logger = logging.getLogger("vacalyser.openai")
-
-# Global client instance (monkeypatchable in tests)
-client: OpenAI | None = None
-
-
-def get_client() -> OpenAI:
-    """Return a configured OpenAI client."""
-
-    global client
-    if client is None:
-        key = OPENAI_API_KEY
-        if not key:
-            raise RuntimeError(
-                "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
-            )
-        base = OPENAI_BASE_URL or None
-        client = OpenAI(api_key=key, base_url=base)
-    return client
-
-
-def _handle_openai_error(error: OpenAIError) -> None:
-    """Raise a user-friendly ``RuntimeError`` for OpenAI failures.
-
-    Args:
-        error: The original :class:`openai.OpenAIError` instance.
-
-    Raises:
-        RuntimeError: With a human readable message that differentiates common
-            failure modes such as authentication issues, rate limits, or
-            network problems.
-    """
-
-    if isinstance(error, AuthenticationError):
-        user_msg = "OpenAI API key invalid or quota exceeded."
-    elif isinstance(error, RateLimitError):
-        user_msg = "OpenAI API rate limit exceeded. Please retry later."
-    elif isinstance(error, (APIConnectionError, APITimeoutError)):
-        user_msg = (
-            "Network error communicating with OpenAI. Please check your "
-            "connection and retry."
-        )
-    elif (
-        isinstance(error, BadRequestError)
-        or getattr(error, "type", "") == "invalid_request_error"
-    ):
-        detail = getattr(error, "message", str(error))
-        log_msg = f"OpenAI invalid request: {detail}"
-        user_msg = (
-            "❌ An internal error occurred while processing your request. "
-            "(The app made an invalid request to the AI model.)"
-        )
-    elif isinstance(error, APIError):
-        detail = getattr(error, "message", str(error))
-        user_msg = f"OpenAI API error: {detail}"
-    else:
-        user_msg = f"Unexpected OpenAI error: {error}"
-
-    log_msg = locals().get("log_msg", user_msg)
-    logger.error(log_msg, exc_info=error)
-    try:  # pragma: no cover - Streamlit may not be initialised in tests
-        st.error(user_msg)
-    except Exception:  # noqa: BLE001
-        pass
-    raise RuntimeError(user_msg) from error
-
-
-def _on_api_giveup(details: Any) -> None:
-    """Handle a final API error after retries have been exhausted.
-
-    Args:
-        details: Backoff retry details containing the ``exception`` key.
-    """
-
-    _handle_openai_error(details["exception"])
-
-
-@backoff.on_exception(
-    backoff.expo,
-    APIError,
-    max_time=60,
-    giveup=lambda e: getattr(e, "status_code", 500) < 500,
-    on_giveup=_on_api_giveup,
-)
-def call_chat_api(
-    messages: Sequence[dict],
-    *,
-    model: str | None = None,
-    temperature: float = 0.2,
-    max_tokens: int | None = None,
-    json_schema: Optional[dict] = None,
-    tools: Optional[list] = None,
-    tool_choice: Optional[Any] = None,
-    tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
-    reasoning_effort: str | None = None,
-    extra: Optional[dict] = None,
-) -> ChatCallResult:
-    """Call the OpenAI Responses API and return a :class:`ChatCallResult`.
-
-    Args:
-        messages: Conversation messages.
-        model: Optional model override.
-        temperature: Sampling temperature.
-        max_tokens: Response token limit.
-        json_schema: Optional JSON schema enforcing structured output.
-        tools: Tool definitions for tool calling.
-        tool_choice: Requested tool to call.
-        tool_functions: Mapping of tool names to callables executed when the
-            model requests a function tool. Each callable must accept keyword
-            arguments matching the tool schema and return serializable data.
-        reasoning_effort: Reasoning level to pass to the API.
-        extra: Additional payload fields.
-
-    Returns:
-        Parsed result from the OpenAI API.
-    """
-
-    from core import analysis_tools
-
-    if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
-    if reasoning_effort is None:
-        reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
-
-    base_tools, base_funcs = analysis_tools.build_analysis_tools()
-    tools = (tools or []) + base_tools
-    tool_functions = {**base_funcs, **(tool_functions or {})}
-
-    payload: Dict[str, Any] = {
-        "model": model,
-        "input": messages,
-        "temperature": temperature,
-    }
-    payload["reasoning"] = {"effort": reasoning_effort}
-    if max_tokens is not None:
-        payload["max_output_tokens"] = max_tokens
-    if json_schema is not None:
-        payload["text"] = {"format": {"type": "json_schema", **json_schema}}
-    if tools:
-        payload["tools"] = tools
-        if tool_choice is not None:
-            payload["tool_choice"] = tool_choice
-    if extra:
-        payload.update(extra)
-
-    response = get_client().responses.create(**payload)
-
-    content = getattr(response, "output_text", None)
-
-    tool_calls: list[dict] = []
-    for item in getattr(response, "output", []) or []:
-        typ = getattr(item, "type", None) or (
-            item.get("type") if isinstance(item, dict) else None
-        )
-        if typ and "call" in str(typ):
-            if isinstance(item, dict):
-                data = item
-            else:
-                dump = getattr(item, "model_dump", None)
-                data = dump() if callable(dump) else getattr(item, "__dict__", {})
-            # Normalise function payload
-            fn = data.get("function") if isinstance(data, dict) else None
-            if fn is None and isinstance(data, dict):
-                name = data.get("name")
-                arg_str = data.get("arguments")
-                data = {
-                    **data,
-                    "function": {"name": name, "arguments": arg_str},
-                }
-            tool_calls.append(data)
-
-    usage_obj = getattr(response, "usage", {}) or {}
-    usage: dict
-    if usage_obj and not isinstance(usage_obj, dict):
-        usage = getattr(
-            usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-        )()
-    else:
-        usage = usage_obj if isinstance(usage_obj, dict) else {}
-
-    executed = False
-    if tool_calls and tool_functions:
-        messages_list = list(messages)
-        for call in tool_calls:
-            func_info = call.get("function", {})
-            name = func_info.get("name")
-            if not name or name not in tool_functions:
-                continue
-            args_raw = func_info.get("arguments", "{}") or "{}"
-            try:
-                parsed: Any = json.loads(args_raw)
-                args: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
-            except Exception:  # pragma: no cover - defensive
-                args = {}
-            result = tool_functions[name](**args)
-            messages_list.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.get("id", name),
-                    "content": json.dumps(result),
-                }
-            )
-            executed = True
-
-        if executed:
-            payload["input"] = messages_list
-            payload.pop("tool_choice", None)
-            response = get_client().responses.create(**payload)
-            content = getattr(response, "output_text", None)
-            extra_calls: list[dict] = []
-            for item in getattr(response, "output", []) or []:
-                typ = getattr(item, "type", None) or (
-                    item.get("type") if isinstance(item, dict) else None
-                )
-                if typ and "call" in str(typ):
-                    if isinstance(item, dict):
-                        data = item
-                    else:
-                        dump = getattr(item, "model_dump", None)
-                        data = (
-                            dump() if callable(dump) else getattr(item, "__dict__", {})
-                        )
-                    fn = data.get("function") if isinstance(data, dict) else None
-                    if fn is None and isinstance(data, dict):
-                        name = data.get("name")
-                        arg_str = data.get("arguments")
-                        data = {
-                            **data,
-                            "function": {"name": name, "arguments": arg_str},
-                        }
-                    extra_calls.append(data)
-            tool_calls.extend(extra_calls)
-            usage_obj = getattr(response, "usage", {}) or {}
-            if usage_obj and not isinstance(usage_obj, dict):
-                usage_extra: dict = getattr(
-                    usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-                )()
-            else:
-                usage_extra = usage_obj if isinstance(usage_obj, dict) else {}
-            for key in ("input_tokens", "output_tokens"):
-                usage[key] = usage.get(key, 0) + usage_extra.get(key, 0)
-
-    if StateKeys.USAGE in st.session_state:
-        st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get(
-            "input_tokens", 0
-        )
-        st.session_state[StateKeys.USAGE]["output_tokens"] += usage.get(
-            "output_tokens", 0
-        )
-
-    return ChatCallResult(content, tool_calls, usage)
-
-
-def _chat_content(res: Any) -> str:
-    """Return the textual content from a chat API result."""
-
-    if hasattr(res, "content"):
-        return getattr(res, "content") or ""
-    if isinstance(res, str):
-        return res
-    if isinstance(res, dict):
-        if isinstance(res.get("content"), str):
-            return res["content"]
-        try:
-            choices = res.get("choices", [])
-            if choices:
-                msg = choices[0].get("message", {})
-                if isinstance(msg.get("content"), str):
-                    return msg["content"] or ""
-        except Exception:
-            pass
-    return ""
+from config import OPENAI_MODEL
+from . import api
+from .api import _chat_content
+from .tools import build_extraction_tool
 
 
 def extract_company_info(text: str, model: str | None = None) -> dict:
@@ -345,7 +40,7 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     )
     messages = [{"role": "user", "content": prompt}]
     try:
-        res = call_chat_api(
+        res = api.call_chat_api(
             messages,
             model=model,
             temperature=0.1,
@@ -398,31 +93,6 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     return result
 
 
-def build_extraction_tool(
-    name: str, schema: dict, *, allow_extra: bool = False
-) -> list[dict]:
-    """Return an OpenAI tool spec for structured extraction.
-
-    Args:
-        name: Name of the tool for the model.
-        schema: JSON schema dict that defines the expected output.
-        allow_extra: Whether additional properties are allowed in the output.
-
-    Returns:
-        A list containing a single tool specification dictionary.
-    """
-    params = {**schema, "additionalProperties": bool(allow_extra)}
-    return [
-        {
-            "type": "function",
-            "name": name,
-            "description": "Return structured profile data that fits the schema exactly.",
-            "parameters": params,
-            "strict": not allow_extra,
-        }
-    ]
-
-
 def extract_with_function(
     job_text: str, schema: dict, *, model: str | None = None
 ) -> Mapping[str, Any]:
@@ -455,7 +125,7 @@ def extract_with_function(
         },
         {"role": "user", "content": job_text},
     ]
-    res = call_chat_api(
+    res = api.call_chat_api(
         messages,
         model=model,
         temperature=0.0,
@@ -472,7 +142,7 @@ def extract_with_function(
             arguments = fc.get("arguments")
     if not arguments:
         # If no function call was returned, attempt a second try with JSON output
-        res2 = call_chat_api(
+        res2 = api.call_chat_api(
             messages,
             model=model,
             temperature=0.0,
@@ -557,7 +227,7 @@ def suggest_additional_skills(
 
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 220 if not model or "nano" in model else 300
-    res = call_chat_api(
+    res = api.call_chat_api(
         messages,
         model=model,
         temperature=0.4,
@@ -677,7 +347,7 @@ def suggest_skills_for_role(
         )
 
     messages = [{"role": "user", "content": prompt}]
-    res = call_chat_api(
+    res = api.call_chat_api(
         messages,
         model=model,
         json_schema={
@@ -797,7 +467,7 @@ def suggest_benefits(
             prompt += f"Already listed: {existing_benefits}"
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "nano" in model else 200
-    res = call_chat_api(
+    res = api.call_chat_api(
         messages,
         model=model,
         temperature=0.5,
@@ -856,7 +526,7 @@ def suggest_role_tasks(
     prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role as a JSON array."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 180 if not model or "nano" in model else 250
-    res = call_chat_api(
+    res = api.call_chat_api(
         messages,
         model=model,
         temperature=0.5,
@@ -978,7 +648,7 @@ def generate_interview_guide(
             )
     messages = [{"role": "user", "content": prompt}]
     return _chat_content(
-        call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
+        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
     )
 
 
@@ -1098,7 +768,7 @@ def generate_job_ad(
             "Tools und Technologien",
         ),
     ]
-    details: List[str] = []
+    details: list[str] = []
     yes_no = ("Ja", "Nein") if lang.startswith("de") else ("Yes", "No")
     boolean_fields = {
         "employment.travel_required",
@@ -1198,7 +868,7 @@ def generate_job_ad(
             prompt += "\nInclude a brief statement about the company's mission or values to strengthen employer branding."
     messages = [{"role": "user", "content": prompt}]
     return _chat_content(
-        call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
+        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
     )
 
 
@@ -1222,7 +892,7 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
     )
     messages = [{"role": "user", "content": prompt}]
     return _chat_content(
-        call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
+        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
     )
 
 
@@ -1252,5 +922,19 @@ def what_happened(
     )
     messages = [{"role": "user", "content": prompt}]
     return _chat_content(
-        call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
+        api.call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
     )
+
+
+__all__ = [
+    "extract_company_info",
+    "extract_with_function",
+    "suggest_additional_skills",
+    "suggest_skills_for_role",
+    "suggest_benefits",
+    "suggest_role_tasks",
+    "generate_interview_guide",
+    "generate_job_ad",
+    "refine_document",
+    "what_happened",
+]

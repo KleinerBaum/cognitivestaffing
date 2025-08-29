@@ -10,8 +10,8 @@ from openai import AuthenticationError, RateLimitError
 
 def test_call_chat_api_raises_when_no_api_key(monkeypatch):
     """call_chat_api should raise if OpenAI API key is missing."""
-    monkeypatch.setattr("openai_utils.OPENAI_API_KEY", "")
-    monkeypatch.setattr("openai_utils.client", None, raising=False)
+    monkeypatch.setattr("openai_utils.api.OPENAI_API_KEY", "")
+    monkeypatch.setattr("openai_utils.api.client", None, raising=False)
 
     with pytest.raises(RuntimeError):
         call_chat_api([{"role": "user", "content": "hi"}])
@@ -43,7 +43,7 @@ def test_call_chat_api_tool_call(monkeypatch):
     class _FakeClient:
         responses = _FakeResponses()
 
-    monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     out = call_chat_api(
         [],
         tools=[{"type": "function", "name": "fn", "parameters": {}}],
@@ -80,7 +80,7 @@ def test_call_chat_api_passes_reasoning(monkeypatch):
     class _FakeClient:
         responses = _FakeResponses()
 
-    monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     call_chat_api([{"role": "user", "content": "hi"}], reasoning_effort="high")
     assert captured["reasoning"] == {"effort": "high"}
 
@@ -89,7 +89,7 @@ def test_extract_with_function(monkeypatch):
     """extract_with_function should parse JSON from a function call."""
 
     monkeypatch.setattr(
-        openai_utils,
+        openai_utils.api,
         "call_chat_api",
         lambda *a, **k: ChatCallResult(
             None, [{"function": {"arguments": '{"job_title": "Dev"}'}}], {}
@@ -148,7 +148,7 @@ def test_call_chat_api_executes_tool(monkeypatch):
     class _FakeClient:
         responses = _FakeResponses()
 
-    monkeypatch.setattr("openai_utils.client", _FakeClient(), raising=False)
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     res = call_chat_api([{"role": "user", "content": "hi"}])
     assert res.content == "done"
     assert res.tool_calls[0]["function"]["name"] == "get_skill_definition"
@@ -171,7 +171,7 @@ def test_call_chat_api_authentication_error(monkeypatch):
     class _Client:
         responses = _Resp()
 
-    monkeypatch.setattr("openai_utils.client", _Client(), raising=False)
+    monkeypatch.setattr("openai_utils.api.client", _Client(), raising=False)
     with pytest.raises(RuntimeError, match="API key invalid"):
         call_chat_api([{"role": "user", "content": "hi"}])
 
@@ -186,6 +186,6 @@ def test_call_chat_api_rate_limit(monkeypatch):
     class _Client:
         responses = _Resp()
 
-    monkeypatch.setattr("openai_utils.client", _Client(), raising=False)
+    monkeypatch.setattr("openai_utils.api.client", _Client(), raising=False)
     with pytest.raises(RuntimeError, match="rate limit"):
         call_chat_api([{"role": "user", "content": "hi"}])

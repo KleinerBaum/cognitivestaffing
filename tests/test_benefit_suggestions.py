@@ -14,7 +14,7 @@ def fake_call(messages, **kwargs):
 
 
 def test_suggest_benefits(monkeypatch):
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
     out = suggest_benefits("Engineer", existing_benefits="B")
     assert out == ["A"]
 

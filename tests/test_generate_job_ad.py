@@ -9,7 +9,7 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("ok", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
         "position.job_title": "Software Engineer",
@@ -57,7 +57,7 @@ def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("ok", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
         "company.mission": "Weltklasse Produkte bauen",
@@ -78,7 +78,7 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
         prompts.append(messages[0]["content"])
         return ChatCallResult("ok", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session_en = {
         "employment.travel_required": True,
@@ -112,7 +112,7 @@ def test_generate_job_ad_uses_remote_percentage(monkeypatch):
         prompts.append(messages[0]["content"])
         return ChatCallResult("ok", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
         "employment.work_policy": "Hybrid",
@@ -130,7 +130,7 @@ def test_generate_job_ad_lists_unique_benefits(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("ok", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
         "compensation.benefits": ["Gym membership", "Gym membership", "401(k) match"],
