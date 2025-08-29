@@ -5,7 +5,7 @@ import io
 import json
 from datetime import date
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import re
 import streamlit as st
@@ -303,6 +303,7 @@ def _skip_source() -> None:
     st.session_state[StateKeys.RAW_TEXT] = ""
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     st.session_state[StateKeys.EXTRACTION_MISSING] = []
+    st.session_state.pop("_analyze_attempted", None)
     st.session_state[StateKeys.STEP] = 2
     st.rerun()
 
@@ -406,6 +407,25 @@ def _render_followup_question(q: dict, data: dict) -> None:
         if field not in completed:
             completed.append(field)
         st.session_state[StateKeys.FOLLOWUPS].remove(q)
+
+
+def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
+    """Render heading and follow-up questions matching ``prefixes``."""
+
+    followups = [
+        q
+        for q in st.session_state.get(StateKeys.FOLLOWUPS, [])
+        if any(q.get("field", "").startswith(p) for p in prefixes)
+    ]
+    if followups:
+        st.markdown(
+            tr(
+                "Der Assistent hat Anschlussfragen, um fehlende Angaben zu ergänzen:",
+                "The assistant has generated follow-up questions to help fill in missing info:",
+            )
+        )
+        for q in list(followups):
+            _render_followup_question(q, data)
 
 
 def _clear_generated() -> None:
@@ -679,7 +699,13 @@ def _step_source(schema: dict) -> None:
         )
 
     analyze_clicked = st.button(t("analyze", st.session_state.lang), type="primary")
-    skip_clicked = st.button(tr("Ohne Vorlage fortfahren", "Continue without template"))
+    skip_clicked = st.button(
+        tr("Ohne Vorlage fortfahren", "Continue without template"),
+        help=tr(
+            "Alle Felder starten leer.",
+            "All fields will start blank.",
+        ),
+    )
     if analyze_clicked:
         raw = (st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, "") or "").strip()
         st.session_state["_analyze_attempted"] = True
@@ -868,11 +894,7 @@ def _step_company():
         )
 
     # Inline follow-up questions for Company section
-    if StateKeys.FOLLOWUPS in st.session_state:
-        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
-            field = q.get("field", "")
-            if field.startswith("company."):
-                _render_followup_question(q, data)
+    _render_followups_for_section(("company.",), data)
 
 
 _step_company.handled_fields = ["company.name"]  # type: ignore[attr-defined]
@@ -1128,15 +1150,7 @@ def _step_position():
         )
 
     # Inline follow-up questions for Position and Location section
-    if StateKeys.FOLLOWUPS in st.session_state:
-        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
-            field = q.get("field", "")
-            if (
-                field.startswith("position.")
-                or field.startswith("location.")
-                or field.startswith("meta.")
-            ):
-                _render_followup_question(q, data)
+    _render_followups_for_section(("position.", "location.", "meta."), data)
 
 
 _step_position.handled_fields = [  # type: ignore[attr-defined]
@@ -1298,11 +1312,7 @@ def _step_requirements():
         data["requirements"]["soft_skills_required"] = merged
 
     # Inline follow-up questions for Requirements section
-    if StateKeys.FOLLOWUPS in st.session_state:
-        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
-            field = q.get("field", "")
-            if field.startswith("requirements."):
-                _render_followup_question(q, data)
+    _render_followups_for_section(("requirements.",), data)
 
 
 _step_requirements.handled_fields = [  # type: ignore[attr-defined]
@@ -1507,11 +1517,7 @@ def _step_employment():
         data["employment"].pop("relocation_details", None)
 
     # Inline follow-up questions for Employment section
-    if StateKeys.FOLLOWUPS in st.session_state:
-        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
-            field = q.get("field", "")
-            if field.startswith("employment."):
-                _render_followup_question(q, data)
+    _render_followups_for_section(("employment.",), data)
 
 
 def _step_compensation():
@@ -1652,11 +1658,7 @@ def _step_compensation():
             st.rerun()
 
     # Inline follow-up questions for Compensation section
-    if StateKeys.FOLLOWUPS in st.session_state:
-        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
-            field = q.get("field", "")
-            if field.startswith("compensation."):
-                _render_followup_question(q, data)
+    _render_followups_for_section(("compensation.",), data)
 
 
 def _step_process():
@@ -1698,11 +1700,7 @@ def _step_process():
         )
 
     # Inline follow-up questions for Process section
-    if StateKeys.FOLLOWUPS in st.session_state:
-        for q in list(st.session_state[StateKeys.FOLLOWUPS]):
-            field = q.get("field", "")
-            if field.startswith("process."):
-                _render_followup_question(q, st.session_state[StateKeys.PROFILE])
+    _render_followups_for_section(("process.",), st.session_state[StateKeys.PROFILE])
 
 
 def _summary_company() -> None:
@@ -2273,6 +2271,14 @@ def _step_summary(schema: dict, critical: list[str]):
         file_name="vacalyser_profile.json",
         mime="application/json",
     )
+
+    usage = st.session_state.get(StateKeys.USAGE)
+    if usage:
+        in_tok = usage.get("input_tokens", 0)
+        out_tok = usage.get("output_tokens", 0)
+        total_tok = in_tok + out_tok
+        label = tr("Verbrauchte Tokens", "Tokens used")
+        st.caption(f"{label}: {in_tok} + {out_tok} = {total_tok}")
 
     tone_presets = load_json("tone_presets.json", {}) or {}
     tone_options = tone_presets.get(st.session_state.lang, {})
