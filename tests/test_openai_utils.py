@@ -78,6 +78,26 @@ def test_build_extraction_tool_has_name_and_parameters():
     assert spec["parameters"]["type"] == "object"
 
 
+def test_build_extraction_tool_marks_required_recursively() -> None:
+    """Nested objects should receive required arrays and nullable types."""
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "outer": {
+                "type": "object",
+                "properties": {"inner": {"type": "string"}},
+            }
+        },
+    }
+    tool = openai_utils.build_extraction_tool("extract", schema)
+    params = tool[0]["parameters"]
+    assert params["required"] == ["outer"]
+    outer = params["properties"]["outer"]
+    assert outer["required"] == ["inner"]
+    assert outer["properties"]["inner"]["type"] == ["string", "null"]
+
+
 def test_call_chat_api_passes_reasoning(monkeypatch):
     """Reasoning effort should be forwarded to the API payload."""
 
