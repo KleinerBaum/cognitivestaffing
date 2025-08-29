@@ -33,6 +33,7 @@ OpenAI accounts.
 - **Follow-up suggestion chips**: if the assistant proposes possible answers, they appear as one-click chips above the input field.
 - **AI-powered benefit suggestions**: fetch common perks for the role/industry and add them to the profile with a single click.
 - **Auto re‑ask loop**: optional toggle that keeps asking follow-up questions automatically until all critical fields are filled, with clear progress messages and a stop button for user control.
+- **Token usage tracker**: displays input/output token counts in the summary step.
 - **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.
 - **Role-aware extras**: automatically adds occupation-specific questions (e.g., programming languages for developers, campaign types for marketers, board certification for doctors, grade levels for teachers, design tools for designers, shift schedules for nurses, project management methodologies for project managers, machine learning frameworks for data scientists, accounting software for financial analysts, HR software for human resource professionals, engineering tools for civil engineers, cuisine specialties for chefs).
 - **ESCO‑Power**: occupation classification + essential skill gaps
