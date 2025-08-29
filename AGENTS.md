@@ -4,6 +4,21 @@ This document lists all current and planned autonomous agents in Vacalyser, alon
 
 ---
 
+## Configuration
+
+All agents depend on OpenAI credentials provided via environment variables or
+`st.secrets["openai"]`:
+
+- `OPENAI_API_KEY` – required API key for all LLM calls.
+- `OPENAI_BASE_URL` – optional custom endpoint (e.g., Azure or Responses API).
+- `OPENAI_MODEL` – optional default model override.
+- `VECTOR_STORE_ID` – required for the RAG Completion Agent to query an OpenAI
+  vector store via File Search.
+- `VACAYSER_OFFLINE` – set to `1` to use the cached ESCO dataset and skip
+  network calls.
+
+---
+
 ## 1) Follow‑Up Question Generator (FQG)
 
 **Purpose**  

@@ -89,7 +89,8 @@ python3.11 -m venv .venv  # or: python3.12 -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt  # or: pip install -e .
-
+# configure your OpenAI credentials
+export OPENAI_API_KEY=sk-your-key
 # optional: choose model, reasoning depth, and custom endpoint
 export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4.1-nano
 export REASONING_EFFORT=high               # low|medium|high (default: medium)
@@ -119,6 +120,36 @@ export REASONING_EFFORT=low
 Set `OPENAI_BASE_URL` to point to a compatible endpoint if you are not using
 the default OpenAI API URL.
 
+### Configuration
+
+Vacalyser reads API credentials from environment variables or [Streamlit
+secrets](https://docs.streamlit.io/streamlit-community-cloud/get-started/deploy-an-app/secrets-management). At minimum,
+define `OPENAI_API_KEY` before launching the app:
+
+```bash
+export OPENAI_API_KEY=sk-your-key
+# optional overrides
+export OPENAI_BASE_URL=https://api.openai.com/v1  # e.g., Azure/OpenAI responses endpoint
+export OPENAI_MODEL=gpt-4
+```
+
+You can also place these values in `.streamlit/secrets.toml` under an `openai`
+section, which the app reads automatically:
+
+```toml
+[openai]
+OPENAI_API_KEY = "sk-your-key"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+OPENAI_MODEL = "gpt-4"
+```
+
+Other environment flags:
+
+- `VACAYSER_OFFLINE=1` – use cached ESCO data from `integrations/esco_offline.json`
+  to run without internet access to the ESCO API.
+- `VECTOR_STORE_ID=vs_…` – enable OpenAI File Search for RAG (leave unset to
+  disable).
+
 
 ### Optional: OCR for scanned PDFs
 
@@ -142,7 +173,7 @@ export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
 
 If `VECTOR_STORE_ID` is unset or empty, Vacalyser runs without RAG.
 
-## Configuration
+## Config Files
 
 Core JSON schemas like `schema/need_analysis.schema.json`, `critical_fields.json`,
 `tone_presets.json` and `role_field_map.json` are loaded via
