@@ -2,12 +2,15 @@
 
 **Vacalyser** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
-Vacalyser now defaults to OpenAI’s reasoning-friendly `gpt-5-nano` model and can
-optionally run on `gpt-4.1-nano`. These lightweight models improve reasoning,
+Vacalyser supports OpenAI’s cost-optimized `gpt-5-nano` and `gpt-4.1-nano`
+models on compatible endpoints and falls back to the widely available
+`gpt-3.5-turbo` by default. These lightweight models improve reasoning,
 support JSON-mode structured output and tool calls, and deliver lower cost and
 latency. They trade off a shorter context window and slightly lower language
 fluency compared to full GPT‑4. The app communicates via the `responses.create`
-API, enabling JSON schema validation and function/tool calling.
+API, enabling JSON schema validation and function/tool calling. The nano models
+require a specialized OpenAI/Azure endpoint and are not available on standard
+OpenAI accounts.
 
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
@@ -37,10 +40,10 @@ API, enabling JSON schema validation and function/tool calling.
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
 - **Auto-filled skills**: essential ESCO skills merge into required skills; generic entries like "Communication" are ignored so follow-ups stay relevant
 - **RAG‑Assist**: use your vector store to fill/contextualize
-- **Reasoning models**: GPT‑5-nano by default (switchable to GPT‑4.1-nano) via
-  the Responses API for better reasoning, JSON mode and tool calling at lower
-  cost/latency, albeit with shorter context and slightly lower fluency than full
-  GPT‑4
+- **Reasoning models**: uses cost-optimized `gpt-5-nano`/`gpt-4.1-nano` on
+  supported endpoints, falling back to `gpt-3.5-turbo` by default for the public
+  API. The Responses API enables JSON mode and tool calling at lower cost/latency,
+  albeit with shorter context and slightly lower fluency than full GPT‑4
 - **Inline refinement**: adjust generated documents with custom instructions and instantly update the view
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
@@ -88,22 +91,28 @@ source .venv/bin/activate
 pip install -r requirements.txt  # or: pip install -e .
 
 # optional: choose model, reasoning depth, and custom endpoint
-export OPENAI_MODEL=gpt-4.1-nano           # default: gpt-5-nano
+export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4.1-nano
 export REASONING_EFFORT=high               # low|medium|high (default: medium)
 export OPENAI_BASE_URL=http://localhost:8080/v1  # optional custom endpoint
 
 streamlit run app.py
 ```
 
+If you run the app with a standard OpenAI API key, it will default to
+`gpt-3.5-turbo`. Set `OPENAI_MODEL=gpt-4` for full GPT‑4 access. The
+`gpt-5-nano` and `gpt-4.1-nano` models require a compatible OpenAI or Azure
+endpoint.
+
 ### Model selection & reasoning effort
 
-Vacalyser defaults to `gpt-5-nano` with medium reasoning. Set `OPENAI_MODEL` or
-`DEFAULT_MODEL` to `gpt-4.1-nano` to switch models, and adjust
-`REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less deliberate
-thinking:
+Vacalyser auto-detects the endpoint: it uses `gpt-5-nano` on compatible custom
+deployments and `gpt-3.5-turbo` on the public API. Set `OPENAI_MODEL` or
+`DEFAULT_MODEL` to `gpt-4.1-nano`, `gpt-4`, or any other supported model, and
+adjust `REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less
+deliberate thinking:
 
 ```bash
-export OPENAI_MODEL=gpt-4.1-nano
+export OPENAI_MODEL=gpt-4
 export REASONING_EFFORT=low
 ```
 

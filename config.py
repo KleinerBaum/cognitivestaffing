@@ -1,9 +1,11 @@
 """Central configuration for Vacalyser's Responses API client.
 
-The application defaults to the lightweight ``gpt-5-nano`` model. Set
-``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to ``gpt-4.1-nano`` to switch models and
-use ``REASONING_EFFORT`` (``low`` | ``medium`` | ``high``) to control how much
-reasoning the model performs by default.
+The application uses cost-optimized ``gpt-5-nano`` / ``gpt-4.1-nano`` models on
+endpoints that support them and falls back to the widely available
+``gpt-3.5-turbo`` for the public OpenAI API. Set ``DEFAULT_MODEL`` or
+``OPENAI_MODEL`` to override the choice and use ``REASONING_EFFORT`` (``low`` |
+``medium`` | ``high``) to control how much reasoning the model performs by
+default.
 """
 
 import os
@@ -26,7 +28,26 @@ CHUNK_OVERLAP = 0.1
 
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-5-nano")
+
+
+def _detect_default_model() -> str:
+    """Determine a sensible default model based on the endpoint.
+
+    ``DEFAULT_MODEL`` takes precedence if provided. Otherwise, the function
+    selects ``gpt-5-nano`` for known custom endpoints (Azure or OpenRouter) and
+    ``gpt-3.5-turbo`` for the standard OpenAI API.
+    """
+
+    env_default = os.getenv("DEFAULT_MODEL")
+    if env_default:
+        return env_default
+    base_url = os.getenv("OPENAI_BASE_URL", "").lower()
+    if any(host in base_url for host in ("openrouter.ai", "azure")):
+        return "gpt-5-nano"
+    return "gpt-3.5-turbo"
+
+
+DEFAULT_MODEL = _detect_default_model()
 REASONING_EFFORT = os.getenv("REASONING_EFFORT", "medium")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
