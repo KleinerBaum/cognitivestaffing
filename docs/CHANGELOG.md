@@ -6,3 +6,4 @@
 - fix: show user-friendly labels for missing critical fields
 - fix: stack columns and buttons on small screens for mobile usability
 - fix: send valid OpenAI tool definitions to avoid missing name errors
+- feat: inject required arrays and nullable fields into extraction schema
