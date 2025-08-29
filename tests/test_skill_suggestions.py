@@ -20,7 +20,7 @@ def fake_call(messages, **kwargs):
 
 
 def test_suggest_skills_for_role(monkeypatch):
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
     monkeypatch.setattr(
         "core.esco_utils.normalize_skills", lambda skills, lang="en": skills
     )

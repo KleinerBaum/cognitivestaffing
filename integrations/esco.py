@@ -12,6 +12,8 @@ from core import esco_utils
 
 log = logging.getLogger("vacalyser.esco")
 
+# Environment flag intentionally named ``VACAYSER_OFFLINE`` (without an ``l``)
+# to match historical "Vacayser" naming used in earlier deployments.
 OFFLINE = bool(os.getenv("VACAYSER_OFFLINE", False))
 
 _OFFLINE_OCCUPATIONS: Dict[str, Dict[str, str]] = {}

@@ -9,7 +9,7 @@ def test_generate_interview_guide_includes_culture(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("guide", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     openai_utils.generate_interview_guide(
         "Engineer",
@@ -30,7 +30,7 @@ def test_generate_interview_guide_adds_culture_question_de(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("guide", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     openai_utils.generate_interview_guide(
         "Engineer",
@@ -51,7 +51,7 @@ def test_generate_interview_guide_uses_responsibilities(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("guide", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     responsibilities = "Design systems\nWrite code"
     openai_utils.generate_interview_guide("Engineer", responsibilities=responsibilities)
@@ -67,7 +67,7 @@ def test_generate_interview_guide_includes_skills(monkeypatch):
         captured["prompt"] = messages[0]["content"]
         return ChatCallResult("guide", [], {})
 
-    monkeypatch.setattr(openai_utils, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     openai_utils.generate_interview_guide(
         "Engineer",
