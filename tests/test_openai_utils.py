@@ -52,6 +52,22 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
 
 
+def test_call_chat_api_includes_tool_name(monkeypatch):
+    """Each tool spec passed to the API must include a top-level name."""
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            for tool in kwargs.get("tools", []):
+                assert "name" in tool, "tool missing name"
+            return type("R", (), {"output": [], "output_text": "", "usage": {}})()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    call_chat_api([], tools=[{"type": "function", "name": "fn", "parameters": {}}])
+
+
 def test_build_extraction_tool_has_name_and_parameters():
     """build_extraction_tool should include function name and parameters."""
 
