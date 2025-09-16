@@ -28,12 +28,9 @@ import streamlit as st
 from openai_utils import call_chat_api
 from utils.i18n import tr
 
-# ESCO helpers (must exist in core/esco_utils.py)
-from core.esco_utils import (
-    classify_occupation,
-    get_essential_skills,
-    normalize_skills,
-)
+# ESCO helpers (core utils + offline-aware wrapper)
+from core.esco_utils import normalize_skills
+from integrations.esco import enrich_skills, search_occupation
 from config import OPENAI_API_KEY, OPENAI_MODEL, VECTOR_STORE_ID
 
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
@@ -449,7 +446,7 @@ def generate_followup_questions(
     occ_group = ""
     role_questions_cfg: List[Dict[str, str]] = []
     if job_title:
-        occupation = classify_occupation(job_title, lang=lang) or {}
+        occupation = search_occupation(job_title, lang=lang) or {}
         occ_group = (occupation.get("group") or "").lower()
         role_fields = ROLE_FIELD_MAP.get(occ_group, [])
         role_questions_cfg = ROLE_QUESTION_MAP.get(occ_group, [])
@@ -458,7 +455,7 @@ def generate_followup_questions(
         role_questions_cfg = []
     occ_uri = occupation.get("uri", "")
     if occ_uri:
-        essential_skills = get_essential_skills(occ_uri, lang=lang) or []
+        essential_skills = enrich_skills(occ_uri, lang=lang) or []
         # Check which essential skills are not mentioned in any provided skills/requirements text
         haystack_text = " ".join(
             [
@@ -524,6 +521,7 @@ def generate_followup_questions(
                 }
             )
     # Questions for each missing field
+    has_esco_gap = bool(missing_esco_skills)
     for field in missing_fields:
         # Skip if already added via role_questions_cfg
         if any(q.get("field") == field for q in questions):
@@ -557,7 +555,14 @@ def generate_followup_questions(
                 if lang != "de"
                 else f"Bitte geben Sie {label} an."
             )
-        priority = _priority_for(field, field in missing_esco_skills)
+        priority = _priority_for(
+            field,
+            has_esco_gap
+            and (
+                field.startswith("requirements.hard_skills")
+                or field.startswith("requirements.tools_and_technologies")
+            ),
+        )
         suggestions = suggestions_map.get(field, [])
         prefill = None
         if field in YES_NO_FIELDS:
