@@ -1,17 +1,24 @@
 # app.py — Cognitive Needs (clean entrypoint, single source of truth)
 from __future__ import annotations
 
-from pathlib import Path
 from base64 import b64encode
+from pathlib import Path
+import sys
 
 import streamlit as st
 
-from components.salary_dashboard import render_salary_dashboard
-from components.model_selector import model_selector
-from components.reasoning_selector import reasoning_selector
-from config_loader import load_json
-from utils.i18n import tr
-from state import ensure_state, reset_state
+APP_ROOT = Path(__file__).resolve().parent
+for candidate in (APP_ROOT, APP_ROOT.parent):
+    candidate_str = str(candidate)
+    if candidate_str not in sys.path:
+        sys.path.append(candidate_str)
+
+from components.salary_dashboard import render_salary_dashboard  # noqa: E402
+from components.model_selector import model_selector  # noqa: E402
+from components.reasoning_selector import reasoning_selector  # noqa: E402
+from config_loader import load_json  # noqa: E402
+from utils.i18n import tr  # noqa: E402
+from state import ensure_state, reset_state  # noqa: E402
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -21,7 +28,7 @@ st.set_page_config(
 )
 
 # --- Helpers zum Laden lokaler JSON-Configs ---
-ROOT = Path(__file__).parent
+ROOT = APP_ROOT
 ensure_state()
 
 if st.session_state.get("openai_api_key_missing"):
