@@ -12,7 +12,7 @@ from jsonschema import Draft7Validator
 from openai import OpenAI
 import streamlit as st
 
-from openai_utils import model_supports_temperature
+from openai_utils import model_supports_reasoning, model_supports_temperature
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
@@ -123,12 +123,13 @@ def extract_json(
         request: dict[str, Any] = {
             "model": model,
             "input": messages,
-            "reasoning": {"effort": effort},
             "response_format": {
                 "type": "json_schema",
                 "json_schema": NEED_ANALYSIS_SCHEMA,
             },
         }
+        if model_supports_reasoning(model):
+            request["reasoning"] = {"effort": effort}
         if model_supports_temperature(model):
             request["temperature"] = 0
         response = OPENAI_CLIENT.responses.create(**request)
@@ -141,8 +142,9 @@ def extract_json(
             request = {
                 "model": model,
                 "input": messages,
-                "reasoning": {"effort": effort},
             }
+            if model_supports_reasoning(model):
+                request["reasoning"] = {"effort": effort}
             if model_supports_temperature(model):
                 request["temperature"] = 0
             response = OPENAI_CLIENT.responses.create(**request)

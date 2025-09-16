@@ -39,6 +39,25 @@ client: OpenAI | None = None
 _REASONING_MODEL_PATTERN = re.compile(r"^o\d")
 
 
+def model_supports_reasoning(model: Optional[str]) -> bool:
+    """Return ``True`` if ``model`` accepts a reasoning payload.
+
+    OpenAI exposes the explicit ``reasoning`` parameter only on the dedicated
+    reasoning-capable families (``o1`` variants and names containing the
+    ``reasoning`` suffix). We heuristically detect those models to avoid
+    sending the parameter to regular chat models that would reject it.
+    """
+
+    if not model:
+        return False
+    normalized = model.strip().lower()
+    if not normalized:
+        return False
+    if _REASONING_MODEL_PATTERN.match(normalized):
+        return True
+    return "reasoning" in normalized
+
+
 def model_supports_temperature(model: Optional[str]) -> bool:
     """Return ``True`` if ``model`` accepts a temperature parameter.
 
@@ -52,7 +71,7 @@ def model_supports_temperature(model: Optional[str]) -> bool:
     normalized = model.strip().lower()
     if not normalized:
         return True
-    if _REASONING_MODEL_PATTERN.match(normalized):
+    if model_supports_reasoning(model):
         return False
     return "reasoning" not in normalized
 
@@ -172,7 +191,8 @@ def call_chat_api(
     }
     if temperature is not None and model_supports_temperature(model):
         payload["temperature"] = temperature
-    payload["reasoning"] = {"effort": reasoning_effort}
+    if model_supports_reasoning(model):
+        payload["reasoning"] = {"effort": reasoning_effort}
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
@@ -316,6 +336,7 @@ __all__ = [
     "call_chat_api",
     "get_client",
     "client",
+    "model_supports_reasoning",
     "model_supports_temperature",
     "_chat_content",
 ]
