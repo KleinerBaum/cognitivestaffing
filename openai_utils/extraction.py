@@ -515,9 +515,16 @@ def suggest_benefits(
         json_schema={
             "name": "benefit_suggestions",
             "schema": {
-                "type": "array",
-                "items": {"type": "string"},
-                "maxItems": 5,
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 5,
+                    }
+                },
+                "required": ["items"],
+                "additionalProperties": False,
             },
         },
     )
@@ -525,9 +532,30 @@ def suggest_benefits(
     benefits: list[str] = []
     try:
         data = json.loads(answer)
-        if isinstance(data, list):
-            benefits = [str(b).strip() for b in data if str(b).strip()]
     except Exception:
+        data = None
+
+    def _clean_list(items: Any) -> list[str]:
+        if not isinstance(items, list):
+            return []
+        cleaned = [str(b).strip() for b in items if str(b).strip()]
+        return cleaned[:5]
+
+    def _extract_benefits(payload: Any) -> list[str]:
+        if isinstance(payload, list):
+            return _clean_list(payload)
+        if isinstance(payload, dict):
+            for key in ("items", "benefits", "values"):
+                if key in payload:
+                    extracted = _extract_benefits(payload.get(key))
+                    if extracted:
+                        return extracted
+        return []
+
+    if data is not None:
+        benefits = _extract_benefits(data)
+
+    if not benefits:
         for line in answer.splitlines():
             perk = line.strip("-•* \t")
             if perk:
