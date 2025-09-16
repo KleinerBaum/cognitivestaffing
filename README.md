@@ -2,15 +2,15 @@
 
 **Vacalyser** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
-Vacalyser supports OpenAI’s cost-optimized `gpt-5-nano` and `gpt-4.1-nano`
-models on compatible endpoints and falls back to the widely available
-`gpt-3.5-turbo` by default. These lightweight models improve reasoning,
-support JSON-mode structured output and tool calls, and deliver lower cost and
+Vacalyser supports OpenAI’s cost-optimized `gpt-4o-mini` and flagship
+`gpt-4o` models on compatible endpoints and falls back to the widely available
+`gpt-3.5-turbo` by default. These newer models improve reasoning, support
+JSON-mode structured output and tool calls, and deliver lower cost and
 latency. They trade off a shorter context window and slightly lower language
 fluency compared to full GPT‑4. The app communicates via the `responses.create`
-API, enabling JSON schema validation and function/tool calling. The nano models
-require a specialized OpenAI/Azure endpoint and are not available on standard
-OpenAI accounts.
+API, enabling JSON schema validation and function/tool calling. Custom models
+such as `gpt-4o-mini` require a specialized OpenAI/Azure endpoint and are not
+available on standard OpenAI accounts.
 
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
@@ -41,7 +41,7 @@ OpenAI accounts.
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
 - **Auto-filled skills**: essential ESCO skills merge into required skills; generic entries like "Communication" are ignored so follow-ups stay relevant
 - **RAG‑Assist**: use your vector store to fill/contextualize *(requires setting `VECTOR_STORE_ID` and a populated vector store)*
-- **Reasoning models**: uses cost-optimized `gpt-5-nano`/`gpt-4.1-nano` on
+- **Reasoning models**: uses cost-optimized `gpt-4o-mini`/`gpt-4o` on
   supported endpoints, falling back to `gpt-3.5-turbo` by default for the public
   API. The Responses API enables JSON mode and tool calling at lower cost/latency,
   albeit with shorter context and slightly lower fluency than full GPT‑4
@@ -106,7 +106,7 @@ Requires **Python 3.11 or 3.12**.
    ```bash
    export OPENAI_API_KEY=sk-your-key
    # optional overrides
-   export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4.1-nano
+   export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4o-mini
    export REASONING_EFFORT=high               # low|medium|high (default: medium)
    export OPENAI_BASE_URL=http://localhost:8080/v1  # custom endpoint
    # optional: enable RAG suggestions via vector store
@@ -122,22 +122,26 @@ Requires **Python 3.11 or 3.12**.
 Run `streamlit run app.py` to start the app locally and open the URL shown in your terminal.
 
 If you run the app with a standard OpenAI API key, it will default to
-`gpt-3.5-turbo`. Set `OPENAI_MODEL=gpt-4` for full GPT‑4 access. The
-`gpt-5-nano` and `gpt-4.1-nano` models require a compatible OpenAI or Azure
-endpoint.
+`gpt-3.5-turbo`. Set `OPENAI_MODEL=gpt-4` for full GPT‑4 access. Custom mini
+models such as `gpt-4o-mini` require a compatible OpenAI or Azure endpoint.
 
 ### Model selection & reasoning effort
 
-Vacalyser auto-detects the endpoint: it uses `gpt-5-nano` on compatible custom
+Vacalyser auto-detects the endpoint: it uses `gpt-4o-mini` on compatible custom
 deployments and `gpt-3.5-turbo` on the public API. Set `OPENAI_MODEL` or
-`DEFAULT_MODEL` to `gpt-4.1-nano`, `gpt-4`, or any other supported model, and
-adjust `REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less
+`DEFAULT_MODEL` to `gpt-4o`, `gpt-4`, or any other supported model, and adjust
+`REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less
 deliberate thinking:
 
 ```bash
 export OPENAI_MODEL=gpt-4
 export REASONING_EFFORT=low
 ```
+
+The in-app selector lists currently supported Responses API chat models:
+`gpt-4o-mini`, `gpt-4o`, `gpt-4.1-mini`, `gpt-4.1`, and `gpt-3.5-turbo`.
+Legacy names such as `gpt-3.5-turbo-16k` or `gpt-5-nano` are no longer
+available.
 
 Set `OPENAI_BASE_URL` to point to a compatible endpoint if you are not using
 the default OpenAI API URL.
@@ -204,7 +208,7 @@ If `VECTOR_STORE_ID` is unset or empty, Vacalyser runs without RAG.
 ## Known Limitations
 
 - Relies on the OpenAI Responses API; accounts without access cannot run the app.
-- `gpt-5-nano`/`gpt-4.1-nano` models require specialized OpenAI or Azure endpoints.
+- `gpt-4o-mini` and other custom models require specialized OpenAI or Azure endpoints.
 - RAG suggestions only work when a populated OpenAI vector store is configured.
 
 ## Config Files

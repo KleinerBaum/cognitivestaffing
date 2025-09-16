@@ -1,6 +1,6 @@
 """Central configuration for Vacalyser's Responses API client.
 
-The application uses cost-optimized ``gpt-5-nano`` / ``gpt-4.1-nano`` models on
+The application uses cost-optimized ``gpt-4o-mini``/``gpt-4o`` models on
 endpoints that support them and falls back to the widely available
 ``gpt-3.5-turbo`` for the public OpenAI API. Set ``DEFAULT_MODEL`` or
 ``OPENAI_MODEL`` to override the choice and use ``REASONING_EFFORT`` (``low`` |
@@ -34,17 +34,25 @@ def _detect_default_model() -> str:
     """Determine a sensible default model based on the endpoint.
 
     ``DEFAULT_MODEL`` takes precedence if provided. Otherwise, the function
-    selects ``gpt-5-nano`` for known custom endpoints (Azure or OpenRouter) and
-    ``gpt-3.5-turbo`` for the standard OpenAI API.
+    selects ``gpt-4o-mini`` for known custom endpoints (Azure, OpenRouter or
+    other non-public gateways) and ``gpt-3.5-turbo`` for the standard OpenAI
+    API.
     """
 
     env_default = os.getenv("DEFAULT_MODEL")
     if env_default:
         return env_default
-    base_url = os.getenv("OPENAI_BASE_URL", "").lower()
-    if any(host in base_url for host in ("openrouter.ai", "azure")):
-        return "gpt-5-nano"
-    return "gpt-3.5-turbo"
+
+    base_url = os.getenv("OPENAI_BASE_URL", "")
+    normalized_url = base_url.strip().lower()
+    if not normalized_url:
+        return "gpt-3.5-turbo"
+
+    if any(host in normalized_url for host in ("openrouter.ai", "azure")):
+        return "gpt-4o-mini"
+    if "api.openai.com" in normalized_url:
+        return "gpt-3.5-turbo"
+    return "gpt-4o-mini"
 
 
 DEFAULT_MODEL = _detect_default_model()
