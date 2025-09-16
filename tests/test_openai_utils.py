@@ -1,6 +1,6 @@
 import pytest
 
-from typing import Any
+from typing import Any, Sequence
 
 import httpx
 import openai_utils
@@ -224,6 +224,70 @@ def test_extract_with_function(monkeypatch):
 
     result = extract_with_function("text", {})
     assert result["job_title"] == "Dev"
+
+
+def test_extract_with_function_falls_back_to_json_mode(monkeypatch):
+    """If no function call is produced the helper should retry with JSON mode."""
+
+    calls: list[dict[str, Any]] = []
+
+    def _fake_call(messages: Sequence[dict[str, str]], **kwargs: Any) -> ChatCallResult:
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return ChatCallResult("no structured output", [], {})
+        return ChatCallResult('{"job_title": "Lead"}', [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+
+    from core import schema as cs
+
+    class _FakeProfile:
+        def __init__(self, data: dict[str, Any]) -> None:
+            self._data = data
+
+        def model_dump(self) -> dict[str, Any]:
+            return self._data
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
+
+    result = extract_with_function("text", {})
+    assert len(calls) == 2
+    assert "json_schema" in calls[1]
+    assert result["job_title"] == "Lead"
+
+
+def test_extract_with_function_repairs_json_payload(monkeypatch):
+    """Trailing explanations around JSON should be stripped before parsing."""
+
+    monkeypatch.setattr(
+        openai_utils.api,
+        "call_chat_api",
+        lambda *a, **k: ChatCallResult(
+            None,
+            [
+                {
+                    "function": {
+                        "arguments": 'Here you go: {"job_title": "QA"}!',
+                    }
+                }
+            ],
+            {},
+        ),
+    )
+
+    from core import schema as cs
+
+    class _FakeProfile:
+        def __init__(self, data: dict[str, Any]) -> None:
+            self._data = data
+
+        def model_dump(self) -> dict[str, Any]:
+            return self._data
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
+
+    result = extract_with_function("text", {})
+    assert result["job_title"] == "QA"
 
 
 def test_call_chat_api_executes_tool(monkeypatch):
