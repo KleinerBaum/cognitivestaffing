@@ -125,8 +125,17 @@ class Stakeholder(BaseModel):
 
     name: str
     role: str
-    email: EmailStr
+    email: EmailStr | None = None
     primary: bool = False
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _blank_email_to_none(cls, value: str | None) -> str | None:
+        """Coerce blank email strings to ``None`` for optional storage."""
+
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 class Phase(BaseModel):
