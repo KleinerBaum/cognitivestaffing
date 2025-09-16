@@ -18,11 +18,11 @@ def model_selector(key: str = "model") -> str:
         The chosen model identifier.
     """
     models = [
-        "gpt-5-nano",
-        "gpt-4.1-nano",
-        "gpt-4",
+        "gpt-4o-mini",
+        "gpt-4o",
+        "gpt-4.1-mini",
+        "gpt-4.1",
         "gpt-3.5-turbo",
-        "gpt-3.5-turbo-16k",
     ]
     default = st.session_state.get(key, OPENAI_MODEL)
     if default not in models:
