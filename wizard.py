@@ -448,6 +448,48 @@ def _update_profile(path: str, value) -> None:
         _clear_generated()
 
 
+def _slugify_label(label: str) -> str:
+    """Convert a widget label into a slug suitable for state keys.
+
+    Args:
+        label: Original widget label.
+
+    Returns:
+        Slugified representation of the label.
+    """
+
+    cleaned = re.sub(r"[^0-9a-zA-Z]+", "_", label).strip("_").lower()
+    return cleaned or "field"
+
+
+def _unique_normalized(values: Iterable[str] | None) -> list[str]:
+    """Return values without duplicates, normalized for comparison.
+
+    Args:
+        values: Iterable of strings that may include duplicates or blanks.
+
+    Returns:
+        List of trimmed values without case-insensitive duplicates.
+    """
+
+    seen: set[str] = set()
+    result: list[str] = []
+    if not values:
+        return result
+    for value in values:
+        if value is None:
+            continue
+        cleaned = value.strip()
+        if not cleaned:
+            continue
+        marker = cleaned.casefold()
+        if marker in seen:
+            continue
+        seen.add(marker)
+        result.append(cleaned)
+    return result
+
+
 def flatten(d: dict, prefix: str = "") -> dict:
     """Convert a nested dict into dot-separated keys.
 
@@ -494,19 +536,67 @@ def missing_keys(
 
 # --- UI-Komponenten ---
 def _chip_multiselect(label: str, options: List[str], values: List[str]) -> List[str]:
-    """Render a multiselect component with stable keys.
+    """Render a multiselect with chip-like UX and free-text additions.
 
     Args:
         label: UI label for the widget.
-        options: Available options.
+        options: Available options coming from profile data or suggestions.
         values: Initially selected options.
 
     Returns:
-        The list of selections from the user.
+        Updated list of selections from the user.
     """
 
-    # Einfache, robuste Multiselect-Variante
-    return st.multiselect(label, options=options, default=values, key=f"ms_{label}")
+    slug = _slugify_label(label)
+    ms_key = f"ms_{label}"
+    options_key = f"ui.chip_options.{slug}"
+    input_key = f"ui.chip_input.{slug}"
+    button_key = f"ui.chip_add_btn.{slug}"
+
+    base_options = _unique_normalized(options)
+    base_values = _unique_normalized(values)
+
+    current_selection = _unique_normalized(st.session_state.get(ms_key, []))
+    if current_selection:
+        base_values = current_selection
+
+    stored_options = _unique_normalized(st.session_state.get(options_key, []))
+    available_options = _unique_normalized(stored_options + base_options + base_values)
+    available_options = sorted(available_options, key=str.casefold)
+    st.session_state[options_key] = available_options
+
+    input_col, button_col = st.columns([3, 1])
+    new_entry = input_col.text_input(
+        tr("Neuen Wert hinzufügen", "Add new value"),
+        key=input_key,
+        placeholder=tr("Neuen Wert hinzufügen …", "Add new value …"),
+        label_visibility="collapsed",
+    )
+    add_clicked = button_col.button(
+        tr("Hinzufügen", "Add"),
+        key=button_key,
+        use_container_width=True,
+    )
+
+    if add_clicked:
+        candidate = new_entry.strip()
+        if candidate:
+            available_options = sorted(
+                _unique_normalized(available_options + [candidate]),
+                key=str.casefold,
+            )
+            st.session_state[options_key] = available_options
+            base_values = _unique_normalized(base_values + [candidate])
+            st.session_state[ms_key] = base_values
+
+    default_selection = _unique_normalized(st.session_state.get(ms_key, base_values))
+    selection = st.multiselect(
+        label,
+        options=available_options,
+        default=default_selection,
+        key=ms_key,
+    )
+    return _unique_normalized(selection)
 
 
 # --- Step-Renderers ---
