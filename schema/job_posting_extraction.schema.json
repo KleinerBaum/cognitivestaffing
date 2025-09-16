@@ -1,0 +1,564 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "JobPostingExtraction",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "job_reference_code": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "job_title": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "job_alternative_titles": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "job_summary": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_name": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_legal_name": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_website": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "format": "uri"
+        },
+        "company_industry": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_size": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_mission": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_culture": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "company_overview": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "headquarters_location": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "primary_location": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "additional_locations": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "remote_policy": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "workplace_type": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "employment_type": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "work_schedule": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "working_hours": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "contract_duration": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "seniority_level": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "experience_level": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "department": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "team_structure": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "reporting_line": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "role_objectives": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "responsibilities": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "key_projects": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "required_hard_skills": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "preferred_hard_skills": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "soft_skills": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "tools_and_technologies": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "methodologies": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "languages": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "proficiency": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "name",
+                    "proficiency"
+                ]
+            }
+        },
+        "certifications": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "education_requirements": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "experience_requirements": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "candidate_profile": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "salary_currency": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "salary_min": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "salary_max": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "salary_interval": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "compensation_details": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "bonus_information": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "equity_information": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "benefits": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "perks_highlights": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "relocation_support": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "travel_requirements": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "start_date": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "probation_period": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "application_deadline": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "application_instructions": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "application_channels": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "application_portal_url": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "format": "uri"
+        },
+        "interview_process": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "interview_stages": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
+        "assessment_details": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "decision_timeline": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "hiring_manager_name": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "hiring_manager_role": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "reporting_manager_name": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "hr_contact_name": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "hr_contact_email": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "format": "email"
+        },
+        "hr_contact_phone": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "preferred_contact_method": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "employer_value_proposition": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "diversity_statement": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "additional_notes": {
+            "type": [
+                "string",
+                "null"
+            ]
+        }
+    },
+    "required": [
+        "job_reference_code",
+        "job_title",
+        "job_alternative_titles",
+        "job_summary",
+        "company_name",
+        "company_legal_name",
+        "company_website",
+        "company_industry",
+        "company_size",
+        "company_mission",
+        "company_culture",
+        "company_overview",
+        "headquarters_location",
+        "primary_location",
+        "additional_locations",
+        "remote_policy",
+        "workplace_type",
+        "employment_type",
+        "work_schedule",
+        "working_hours",
+        "contract_duration",
+        "seniority_level",
+        "experience_level",
+        "department",
+        "team_structure",
+        "reporting_line",
+        "role_objectives",
+        "responsibilities",
+        "key_projects",
+        "required_hard_skills",
+        "preferred_hard_skills",
+        "soft_skills",
+        "tools_and_technologies",
+        "methodologies",
+        "languages",
+        "certifications",
+        "education_requirements",
+        "experience_requirements",
+        "candidate_profile",
+        "salary_currency",
+        "salary_min",
+        "salary_max",
+        "salary_interval",
+        "compensation_details",
+        "bonus_information",
+        "equity_information",
+        "benefits",
+        "perks_highlights",
+        "relocation_support",
+        "travel_requirements",
+        "start_date",
+        "probation_period",
+        "application_deadline",
+        "application_instructions",
+        "application_channels",
+        "application_portal_url",
+        "interview_process",
+        "interview_stages",
+        "assessment_details",
+        "decision_timeline",
+        "hiring_manager_name",
+        "hiring_manager_role",
+        "reporting_manager_name",
+        "hr_contact_name",
+        "hr_contact_email",
+        "hr_contact_phone",
+        "preferred_contact_method",
+        "employer_value_proposition",
+        "diversity_statement",
+        "additional_notes"
+    ]
+}

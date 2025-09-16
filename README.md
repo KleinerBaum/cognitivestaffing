@@ -25,6 +25,7 @@ available on standard OpenAI accounts.
 - **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
 - **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
 - **Structured output**: function calling/JSON mode ensures valid responses
+- **Job posting schema**: `schema/job_posting_extraction.schema.json` validates 20+ required vacancy fields for consistent LLM outputs
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
 - **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`
 - **Analysis tools**: built-in `get_salary_benchmark` and `get_skill_definition` functions can be invoked by the model for richer need analysis
