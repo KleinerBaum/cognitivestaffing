@@ -93,82 +93,122 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     return result
 
 
+FUNCTION_NAME = "cognitive_needs_extract"
+
+
+def _extract_tool_arguments(result: api.ChatCallResult) -> str | None:
+    """Return the raw ``arguments`` string from the first tool call."""
+
+    for call in result.tool_calls or []:
+        func = call.get("function") if isinstance(call, dict) else None
+        if func is None and isinstance(call, dict):
+            # ``call_chat_api`` normalises responses, but keep a fallback.
+            func = {
+                "arguments": call.get("arguments"),
+            }
+        if not func:
+            continue
+        args = func.get("arguments")
+        if isinstance(args, str) and args.strip():
+            return args
+    return None
+
+
+def _load_json_payload(payload: Any) -> dict[str, Any]:
+    """Parse ``payload`` into a dictionary, repairing simple syntax issues."""
+
+    if isinstance(payload, Mapping):
+        return dict(payload)
+    if not isinstance(payload, str):
+        raise ValueError("Structured extraction payload must be a JSON string.")
+
+    text = payload.strip()
+    if not text:
+        raise ValueError("Structured extraction payload is empty.")
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise
+        fragment = text[start : end + 1]
+        data = json.loads(fragment)
+
+    if not isinstance(data, dict):
+        raise ValueError("Model returned JSON that is not an object.")
+    return data
+
+
 def extract_with_function(
     job_text: str, schema: dict, *, model: str | None = None
 ) -> Mapping[str, Any]:
-    """Extract profile data from ``job_text`` using strict function calling.
+    """Extract profile data from ``job_text`` using OpenAI function calling.
 
-    The function first requests a structured ``function_call``; if none is
-    returned, it retries the extraction with ``json`` output. Any malformed
-    JSON is best-effort repaired before validation.
+    The helper performs two attempts:
 
-    Args:
-        job_text: Source job posting text.
-        schema: JSON schema describing the expected structure.
-        model: Optional OpenAI model to use for extraction. Falls back to the
-            globally selected model in ``st.session_state``.
+    1. Request a ``function_call`` using ``build_extraction_tool``. When the
+       model obeys, its arguments are parsed directly.
+    2. If no tool call is produced, retry with ``json_mode`` that forces a
+       strict JSON response.
 
-    Returns:
-        Mapping[str, Any]: A dictionary conforming to ``schema``.
-
-    Raises:
-        RuntimeError: If no structured data can be obtained from the LLM.
-        ValueError: If the returned JSON cannot be parsed even after fixes.
+    Minor JSON syntax issues (e.g., explanatory text around the object) are
+    repaired heuristically before the data is validated against the
+    ``NeedAnalysisProfile`` schema.
     """
+
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
-    fn_name = "cognitive_needs_extract"
-    messages: Sequence[dict] = [
-        {
-            "role": "system",
-            "content": "Extract ONLY via function_call; content channel may be empty.",
-        },
+
+    system_prompt = (
+        "You are a vacancy extraction engine. Analyse the job advertisement "
+        "and return the structured vacancy profile by calling the provided "
+        f"function {FUNCTION_NAME}. Do not return free-form text."
+    )
+    messages: Sequence[dict[str, str]] = [
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": job_text},
     ]
-    res = api.call_chat_api(
+
+    response = api.call_chat_api(
         messages,
         model=model,
         temperature=0.0,
-        tools=build_extraction_tool(fn_name, schema, allow_extra=False),
-        tool_choice={"type": "function", "name": fn_name},
+        tools=build_extraction_tool(FUNCTION_NAME, schema, allow_extra=False),
+        tool_choice={"type": "function", "name": FUNCTION_NAME},
     )
-    arguments: str | None = None
-    if res.tool_calls:
-        fc = res.tool_calls[0]
-        func = fc.get("function") if isinstance(fc, dict) else None
-        if func is not None:
-            arguments = func.get("arguments")
-        if arguments is None and isinstance(fc, dict):
-            arguments = fc.get("arguments")
+
+    arguments = _extract_tool_arguments(response)
     if not arguments:
-        # If no function call was returned, attempt a second try with JSON output
-        res2 = api.call_chat_api(
-            messages,
+        # Some models ignore the tool request and emit plain text. Retry forcing
+        # JSON mode to keep the pipeline deterministic.
+        retry_messages: Sequence[dict[str, str]] = [
+            {
+                "role": "system",
+                "content": (
+                    "Return only valid JSON that conforms exactly to the "
+                    "provided schema."
+                ),
+            },
+            {"role": "user", "content": job_text},
+        ]
+        second = api.call_chat_api(
+            retry_messages,
             model=model,
             temperature=0.0,
-            json_schema={"name": fn_name, "schema": schema},
-            max_tokens=1000,
+            json_schema={"name": FUNCTION_NAME, "schema": schema},
+            max_tokens=1200,
         )
-        arguments = _chat_content(res2)
-    if not arguments or not str(arguments).strip():
-        raise RuntimeError(
-            "Extraction failed: no structured data received from LLM.",
-        )
-    try:
-        raw: dict[str, Any] = json.loads(arguments)
-    except Exception:  # noqa: PERF203
-        # The model returned invalid JSON (e.g., trailing commas or text); attempt to fix common issues
-        fixed = arguments
-        if isinstance(arguments, str):
-            import re
+        arguments = _chat_content(second)
 
-            match = re.search(r"\{.*\}", arguments, re.S)
-            if match:
-                fixed = match.group(0)
-        try:
-            raw = json.loads(fixed)
-        except Exception as e2:  # noqa: PERF203
-            raise ValueError("Model returned invalid JSON") from e2
+    if not arguments or not str(arguments).strip():
+        raise RuntimeError("Extraction failed: no structured data received from LLM.")
+
+    try:
+        raw = _load_json_payload(arguments)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("Model returned invalid JSON") from exc
 
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import coerce_and_fill
