@@ -17,7 +17,7 @@ _COMPANY_FORM_RE = re.compile(
 )
 _WE_ARE_RE = re.compile(r"wir sind\s+([A-ZÄÖÜ][\w& ]+)", re.IGNORECASE)
 _CITY_HINT_RE = re.compile(
-    r"(?:city|ort|location)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
+    r"(?:city|ort|location|standort|arbeitsort)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
     re.IGNORECASE,
 )
 _COMMON_CITIES = [
@@ -47,24 +47,61 @@ _COMMON_CITIES = [
 _JOB_TYPE_MAP = {
     "full_time": ["vollzeit", "full-time", "full time"],
     "part_time": ["teilzeit", "part-time", "part time"],
+    "internship": ["praktikum", "internship"],
+    "working_student": [
+        "werkstudent",
+        "werkstudentin",
+        "werkstudent*",
+        "werkstudent:in",
+        "working student",
+    ],
 }
 
 _CONTRACT_TYPE_MAP = {
     "permanent": ["festanstellung", "permanent", "unbefristet"],
     "fixed_term": ["befristet", "fixed-term", "temporary"],
+    "freelance": ["freelance", "freelancer", "contractor", "selbstständig"],
 }
 
 _WORK_POLICY_MAP = {
-    "remote": ["remote", "home office", "home-office", "homeoffice"],
-    "hybrid": ["hybrid"],
+    "remote": [
+        "remote",
+        "home office",
+        "home-office",
+        "homeoffice",
+        "remote-first",
+        "remote first",
+        "fully remote",
+        "work from home",
+        "work-from-home",
+        "mobile work",
+        "mobiles arbeiten",
+        "ortsunabhängig",
+    ],
+    "hybrid": ["hybrid", "teilremote", "teil-remote", "mixed remote", "flexible work"],
+    "onsite": [
+        "vor ort",
+        "onsite",
+        "on-site",
+        "im büro",
+        "office-first",
+        "büropräsenz",
+    ],
 }
 
 _REMOTE_PERCENT_RE = re.compile(
-    r"(\d{1,2})\s*%\s*(?:remote|home|home\s*office)", re.IGNORECASE
+    r"(\d{1,3})\s*(?:%|prozent)\s*(?:remote|home[-\s]*office|mobile(?:s)?\s+arbeiten?)",
+    re.IGNORECASE,
 )
-_REMOTE_DAYS_RE = re.compile(
-    r"(\d)[–-](\d)\s*(?:Tage|days)\/Woche.*?(?:Office|Büro)|"
-    r"(\d)\s*(?:Tage|days)\/Woche.*?(?:Office|Büro)",
+_REMOTE_DAYS_OFFICE_RE = re.compile(
+    r"(?:(?P<min>\d{1,2})[–-](?P<max>\d{1,2})|(?P<single>\d{1,2}))\s*"
+    r"(?:Tag(?:e)?|day(?:s)?)\s*/\s*Woche[^\n]*?(?:im\s+(?:Office|Büro|HQ)|vor\s+Ort)",
+    re.IGNORECASE,
+)
+_REMOTE_DAYS_REMOTE_RE = re.compile(
+    r"(?:(?P<min>\d{1,2})[–-](?P<max>\d{1,2})|(?P<single>\d{1,2}))\s*"
+    r"(?:Tag(?:e)?|day(?:s)?)\s*/\s*Woche[^\n]*?(?:remote|Home[-\s]*Office|von\s+zu\s+Hause|"
+    r"mobile\s+work|mobiles?\s+Arbeiten?)",
     re.IGNORECASE,
 )
 
@@ -90,23 +127,40 @@ _SEASON_MONTH = {
     "winter": 12,
 }
 
-_IMMEDIATE_RE = re.compile(r"ab\s+(sofort|immediately|asap)", re.IGNORECASE)
+_IMMEDIATE_RE = re.compile(
+    r"(ab\s+sofort|zum\s+nächstmöglichen\s+zeitpunkt|zum\s+frühestmöglichen\s+zeitpunkt|"
+    r"asap|as\s+soon\s+as\s+possible|immediately)",
+    re.IGNORECASE,
+)
 
 _SALARY_RANGE_RE = re.compile(
-    r"(\d+[.,]?\d*)\s*[-–]\s*(\d+[.,]?\d*)\s*€",
+    r"(\d[\d.,\s]*(?:k)?)\s*(?:[-–]|bis)\s*(\d[\d.,\s]*(?:k)?)\s*(?:€|eur|euro)",
+    re.IGNORECASE,
+)
+_SALARY_SINGLE_RE = re.compile(
+    r"(?:€|eur|euro)\s*(\d[\d.,\s]*(?:k)?)|(\d[\d.,\s]*(?:k)?)\s*(?:€|eur|euro)",
     re.IGNORECASE,
 )
 _BONUS_PERCENT_RE = re.compile(r"(\d{1,3})\s*%\s*(?:variable|bonus)", re.IGNORECASE)
-_BONUS_TEXT_RE = re.compile(r"bonus[^\n]*", re.IGNORECASE)
+_BONUS_TEXT_RE = re.compile(
+    r"(?:bonus|provision|pr[aä]mie|commission)[^\n]*",
+    re.IGNORECASE,
+)
 
 # Requirement extraction helpers
 _REQ_REQUIRED_HEADINGS = {
+    "anforderungen",
+    "dein profil",
+    "ihr profil",
     "must-haves",
     "must have",
+    "must haves",
     "requirements",
     "qualifications",
-    "must haves",
+    "skills & experience",
     "was du mitbringst",
+    "was sie mitbringen",
+    "was wir erwarten",
     "what you bring",
 }
 _REQ_OPTIONAL_HEADINGS = {
@@ -115,10 +169,12 @@ _REQ_OPTIONAL_HEADINGS = {
     "optional",
     "wünschenswert",
     "von vorteil",
+    "was wir uns wünschen",
 }
 _OPTIONAL_HINTS = {
     "nice-to-have",
     "nice to have",
+    "ein plus",
     "wünschenswert",
     "optional",
     "von vorteil",
@@ -157,13 +213,20 @@ _CERT_RE = re.compile(
 # Responsibility extraction helpers
 _BULLET_CHARS = set("•-–—*▪◦●·▶▷▸»✓→➤")
 _RESP_HEADINGS = {
+    "aufgabengebiet",
+    "aufgaben",
     "dein spielfeld",
     "deine aufgaben",
-    "dein aufgabengebiet",
-    "was dich erwartet",
-    "was dich bei uns erwartet",
-    "aufgaben",
+    "deine mission",
+    "hauptaufgaben",
+    "ihre aufgaben",
+    "ihre verantwortlichkeiten",
+    "key responsibilities",
+    "main tasks",
     "responsibilities",
+    "was dich bei uns erwartet",
+    "was dich erwartet",
+    "your responsibilities",
     "your tasks",
     "what you'll do",
     "duties",
@@ -200,6 +263,72 @@ def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
     return base
 
 
+def _parse_salary_value(raw: str) -> Optional[float]:
+    """Return a numeric salary value extracted from ``raw``."""
+
+    cleaned = raw.strip().lower().replace(" ", "")
+    multiplier = 1.0
+    if cleaned.endswith("k"):
+        multiplier = 1000.0
+        cleaned = cleaned[:-1]
+    cleaned = cleaned.replace(".", "").replace(",", ".")
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None
+    return value * multiplier
+
+
+def _normalize_percentage(value: float) -> int:
+    """Clamp ``value`` to the 0-100 range and round to an integer."""
+
+    return max(0, min(100, int(round(value))))
+
+
+def _extract_average_days(match: re.Match[str]) -> Optional[float]:
+    """Return the average number of days described by ``match``."""
+
+    start = match.group("min")
+    end = match.group("max")
+    single = match.group("single")
+    numbers: List[float] = []
+    try:
+        if start and end:
+            numbers = [float(start), float(end)]
+        elif single:
+            numbers = [float(single)]
+    except ValueError:
+        return None
+    if not numbers:
+        return None
+    return sum(numbers) / len(numbers)
+
+
+def _infer_remote_percentage(text: str) -> Optional[int]:
+    """Infer remote percentage from textual hints in ``text``."""
+
+    percent_match = _REMOTE_PERCENT_RE.search(text)
+    if percent_match:
+        try:
+            return _normalize_percentage(float(percent_match.group(1)))
+        except ValueError:
+            return None
+
+    remote_days = _REMOTE_DAYS_REMOTE_RE.search(text)
+    if remote_days:
+        days = _extract_average_days(remote_days)
+        if days is not None:
+            return _normalize_percentage(min(days, 5.0) / 5.0 * 100)
+
+    office_days = _REMOTE_DAYS_OFFICE_RE.search(text)
+    if office_days:
+        days = _extract_average_days(office_days)
+        if days is not None:
+            return _normalize_percentage((1 - min(days, 5.0) / 5.0) * 100)
+
+    return None
+
+
 def _is_soft_skill(text: str) -> bool:
     """Return True if ``text`` appears to describe a soft skill."""
 
@@ -225,16 +354,22 @@ def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
         if lower in _REQ_OPTIONAL_HEADINGS:
             mode = "opt"
             continue
+        if mode and lower in _RESP_HEADINGS:
+            mode = None
+            continue
         if mode and _is_bullet_line(line):
             cleaned = _clean_bullet(raw)
             if mode == "req":
                 required.append(cleaned)
             else:
                 optional.append(cleaned)
+        elif mode and line.endswith(":") and not _is_bullet_line(line):
+            mode = None
         elif (
             mode
-            and _is_bullet_line(line) is False
+            and not _is_bullet_line(line)
             and line
+            and not line.endswith(":")
             and (required if mode == "req" else optional)
         ):
             if mode == "req":
@@ -446,20 +581,16 @@ def guess_employment_details(
     contract_type = _find(_CONTRACT_TYPE_MAP)
     work_policy = _find(_WORK_POLICY_MAP)
 
-    remote_percentage: Optional[int] = None
-    m = _REMOTE_PERCENT_RE.search(text)
-    if m:
-        remote_percentage = int(m.group(1))
-    else:
-        m = _REMOTE_DAYS_RE.search(text)
-        if m:
-            if m.group(3):
-                office_days = float(m.group(3))
-            else:
-                day_a = int(m.group(1))
-                day_b = int(m.group(2))
-                office_days = (day_a + day_b) / 2
-            remote_percentage = int(round((1 - office_days / 5) * 100))
+    remote_percentage = _infer_remote_percentage(text)
+    if remote_percentage is not None:
+        if remote_percentage >= 80:
+            inferred_policy = "remote"
+        elif remote_percentage <= 20:
+            inferred_policy = "onsite"
+        else:
+            inferred_policy = "hybrid"
+        if not work_policy or work_policy != inferred_policy:
+            work_policy = inferred_policy
 
     return job_type, contract_type, work_policy, remote_percentage
 
@@ -485,7 +616,19 @@ def guess_start_date(text: str) -> str:
         return m.group(0)
     m = _IMMEDIATE_RE.search(text)
     if m:
-        return m.group(1).lower()
+        value = m.group(1).lower()
+        if "sofort" in value:
+            return "sofort"
+        if "immediately" in value:
+            return "immediately"
+        if (
+            "asap" in value
+            or "as soon as possible" in value
+            or "nächstmöglichen" in value
+            or "frühestmöglichen" in value
+        ):
+            return "asap"
+        return value
     return ""
 
 
@@ -514,11 +657,7 @@ def apply_basic_fallbacks(
         profile.employment.contract_type = contract
     if not profile.employment.work_policy and policy:
         profile.employment.work_policy = policy
-    if (
-        remote_pct is not None
-        and profile.employment.remote_percentage is None
-        and profile.employment.work_policy in {"remote", "hybrid"}
-    ):
+    if remote_pct is not None and profile.employment.remote_percentage is None:
         profile.employment.remote_percentage = remote_pct
     if not profile.meta.target_start_date:
         start = guess_start_date(text)
@@ -531,26 +670,41 @@ def apply_basic_fallbacks(
     if not profile.position.role_summary and profile.responsibilities.items:
         profile.position.role_summary = profile.responsibilities.items[0]
     # Compensation heuristics
-    if not (profile.compensation.salary_min and profile.compensation.salary_max):
-        m = _SALARY_RANGE_RE.search(text)
-        if m:
-
-            def _to_float(val: str) -> float:
-                return float(val.replace(".", "").replace(",", "."))
-
-            profile.compensation.salary_min = _to_float(m.group(1))
-            profile.compensation.salary_max = _to_float(m.group(2))
-            profile.compensation.currency = "EUR"
-            profile.compensation.salary_provided = True
-    if not profile.compensation.variable_pay:
-        if re.search(r"variable|bonus", text, re.IGNORECASE):
-            profile.compensation.variable_pay = True
+    compensation = profile.compensation
+    if not (compensation.salary_min and compensation.salary_max):
+        range_match = _SALARY_RANGE_RE.search(text)
+        if range_match:
+            minimum = _parse_salary_value(range_match.group(1))
+            maximum = _parse_salary_value(range_match.group(2))
+            if minimum is not None and maximum is not None:
+                compensation.salary_min = minimum
+                compensation.salary_max = maximum
+                if not compensation.currency:
+                    compensation.currency = "EUR"
+                compensation.salary_provided = True
+    if not (compensation.salary_min and compensation.salary_max):
+        single_match = _SALARY_SINGLE_RE.search(text)
+        if single_match:
+            raw = single_match.group(1) or single_match.group(2)
+            if raw:
+                value = _parse_salary_value(raw)
+                if value is not None:
+                    compensation.salary_min = value
+                    compensation.salary_max = value
+                    if not compensation.currency:
+                        compensation.currency = "EUR"
+                    compensation.salary_provided = True
+    if not compensation.variable_pay:
+        if re.search(
+            r"variable|bonus|provision|prämie|commission", text, re.IGNORECASE
+        ):
+            compensation.variable_pay = True
         pct = _BONUS_PERCENT_RE.search(text)
         if pct:
-            profile.compensation.bonus_percentage = float(pct.group(1))
-            profile.compensation.variable_pay = True
-        if profile.compensation.variable_pay:
+            compensation.bonus_percentage = float(pct.group(1))
+            compensation.variable_pay = True
+        if compensation.variable_pay and not compensation.commission_structure:
             btxt = _BONUS_TEXT_RE.search(text)
             if btxt:
-                profile.compensation.commission_structure = btxt.group(0).strip()
+                compensation.commission_structure = btxt.group(0).strip()
     return refine_requirements(profile, text)
