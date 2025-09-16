@@ -29,3 +29,20 @@ def test_requirements_split_and_languages() -> None:
     assert any("aws ml specialty" in c.lower() for c in r.certifications)
     tools = {t.lower() for t in r.tools_and_technologies}
     assert "python" in tools and "docker" in tools
+
+
+def test_requirements_formal_heading_variant() -> None:
+    text = (
+        "Was Sie mitbringen:\n"
+        "• Kommunikationsstärke\n"
+        "• Erfahrung im Vertrieb\n"
+        "\n"
+        "Ihre Aufgaben:\n"
+        "• Kunden beraten\n"
+    )
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    r = profile.requirements
+    assert "Erfahrung im Vertrieb" in r.hard_skills_required
+    assert "Kommunikationsstärke" in r.soft_skills_required
+    assert profile.responsibilities.items == ["Kunden beraten"]

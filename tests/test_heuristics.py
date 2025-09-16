@@ -25,6 +25,12 @@ def test_guess_city_from_header() -> None:
     assert guess_city(text) == "Berlin"
 
 
+def test_guess_city_from_standort_hint() -> None:
+    text = "Standort: Stuttgart"
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+    assert profile.location.primary_city == "Stuttgart"
+
+
 def test_parse_extraction_city_alias() -> None:
     profile = parse_extraction(
         '{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}'
@@ -45,6 +51,25 @@ def test_employment_and_start_date_fallbacks() -> None:
     assert profile.employment.work_policy == "hybrid"
     assert profile.employment.remote_percentage == 50
     assert profile.meta.target_start_date == "2024-10-01"
+
+
+def test_remote_days_remote_percentage_inference() -> None:
+    text = (
+        "Werkstudent (m/w/d) Data Team\n"
+        "Arbeitsmodell: 3 Tage/Woche remote, 2 Tage im Büro"
+    )
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.employment.job_type == "working_student"
+    assert profile.employment.work_policy == "hybrid"
+    assert profile.employment.remote_percentage == 60
+
+
+def test_immediate_start_phrases() -> None:
+    text = "Start zum nächstmöglichen Zeitpunkt (ASAP)"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.meta.target_start_date == "asap"
 
 
 def test_compensation_fallbacks() -> None:
@@ -91,3 +116,13 @@ def test_responsibility_heading_variants() -> None:
         "Kunden beraten",
         "Angebote erstellen",
     ]
+
+
+def test_salary_single_value_detection() -> None:
+    text = "Gehalt ab 75.000 € brutto"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.compensation.salary_min == 75000.0
+    assert profile.compensation.salary_max == 75000.0
+    assert profile.compensation.currency == "EUR"
+    assert profile.compensation.salary_provided is True
