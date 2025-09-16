@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
@@ -33,6 +34,27 @@ logger = logging.getLogger("vacalyser.openai")
 
 # Global client instance (monkeypatchable in tests)
 client: OpenAI | None = None
+
+
+_REASONING_MODEL_PATTERN = re.compile(r"^o\d")
+
+
+def model_supports_temperature(model: Optional[str]) -> bool:
+    """Return ``True`` if ``model`` accepts a temperature parameter.
+
+    The OpenAI reasoning models (``o1`` family and related previews) reject the
+    ``temperature`` argument. To keep compatibility across models, we detect
+    those names heuristically and omit the parameter when necessary.
+    """
+
+    if not model:
+        return True
+    normalized = model.strip().lower()
+    if not normalized:
+        return True
+    if _REASONING_MODEL_PATTERN.match(normalized):
+        return False
+    return "reasoning" not in normalized
 
 
 @dataclass
@@ -116,7 +138,7 @@ def call_chat_api(
     messages: Sequence[dict],
     *,
     model: str | None = None,
-    temperature: float = 0.2,
+    temperature: float | None = 0.2,
     max_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
@@ -147,8 +169,9 @@ def call_chat_api(
     payload: Dict[str, Any] = {
         "model": model,
         "input": messages,
-        "temperature": temperature,
     }
+    if temperature is not None and model_supports_temperature(model):
+        payload["temperature"] = temperature
     payload["reasoning"] = {"effort": reasoning_effort}
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
@@ -293,5 +316,6 @@ __all__ = [
     "call_chat_api",
     "get_client",
     "client",
+    "model_supports_temperature",
     "_chat_content",
 ]
