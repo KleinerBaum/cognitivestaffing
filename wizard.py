@@ -16,6 +16,7 @@ from constants.keys import UIKeys, StateKeys
 from utils.session import bind_textarea
 from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
+from ingest.reader import clean_job_text
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from config_loader import load_json
@@ -104,7 +105,8 @@ def on_file_uploaded() -> None:
     if not f:
         return
     try:
-        txt = extract_text_from_file(f)
+        txt_raw = extract_text_from_file(f)
+        txt = clean_job_text(txt_raw)
     except ValueError as e:
         msg = str(e).lower()
         if "unsupported file type" in msg:
@@ -190,7 +192,8 @@ def on_url_changed() -> None:
         st.session_state["source_error"] = True
         return
     try:
-        txt = extract_text_from_url(url)
+        txt_raw = extract_text_from_url(url)
+        txt = clean_job_text(txt_raw or "")
     except Exception as e:  # pragma: no cover - defensive
         display_error(
             tr(
@@ -819,7 +822,8 @@ def _step_source(schema: dict) -> None:
         ),
     )
     if analyze_clicked:
-        raw = (st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, "") or "").strip()
+        raw_input = st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, "") or ""
+        raw = clean_job_text(raw_input)
         st.session_state["_analyze_attempted"] = True
         if not raw:
             st.warning(

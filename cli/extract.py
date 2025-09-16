@@ -25,6 +25,7 @@ def main() -> None:
     args = parser.parse_args()
 
     from ingest.extractors import extract_text_from_file
+    from ingest.reader import clean_job_text
     from config_loader import load_json
     from openai_utils import extract_with_function
     from config import OPENAI_MODEL
@@ -35,7 +36,7 @@ def main() -> None:
 
     with file_path.open("rb") as fh:
         try:
-            text = extract_text_from_file(fh)
+            text = clean_job_text(extract_text_from_file(fh))
         except ValueError as e:
             raise SystemExit(str(e))
     if not text:
