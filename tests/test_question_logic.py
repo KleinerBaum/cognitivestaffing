@@ -1,3 +1,4 @@
+import json
 from typing import Any
 from pathlib import Path
 import sys
@@ -7,6 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from question_logic import (
     CRITICAL_FIELDS,
     _rag_suggestions,
+    ask_followups,
     generate_followup_questions,
 )
 from openai_utils import ChatCallResult
@@ -128,3 +130,36 @@ def test_rag_suggestions_failure(monkeypatch) -> None:
 
     assert out == {}
     assert "ui" in warnings
+
+
+def test_followup_normalizes_missing_suggestions(monkeypatch) -> None:
+    """ask_followups should backfill missing suggestions arrays."""
+
+    class _FakeMessage:
+        def __init__(self) -> None:
+            self.content = json.dumps(
+                {
+                    "questions": [
+                        {
+                            "field": "position.job_title",
+                            "question": "What is the job title?",
+                            "priority": "critical",
+                        }
+                    ]
+                }
+            )
+
+    monkeypatch.setattr("question_logic.call_chat_api", lambda *a, **k: _FakeMessage())
+
+    out = ask_followups({})
+
+    assert out == {
+        "questions": [
+            {
+                "field": "position.job_title",
+                "question": "What is the job title?",
+                "priority": "critical",
+                "suggestions": [],
+            }
+        ]
+    }
