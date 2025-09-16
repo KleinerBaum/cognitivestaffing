@@ -8,6 +8,7 @@ from openai_utils import (
     ChatCallResult,
     call_chat_api,
     extract_with_function,
+    model_supports_reasoning,
     model_supports_temperature,
 )
 from openai import AuthenticationError, RateLimitError
@@ -103,8 +104,8 @@ def test_build_extraction_tool_marks_required_recursively() -> None:
     assert outer["properties"]["inner"]["type"] == ["string", "null"]
 
 
-def test_call_chat_api_passes_reasoning(monkeypatch):
-    """Reasoning effort should be forwarded to the API payload."""
+def test_call_chat_api_includes_reasoning_for_supported_models(monkeypatch):
+    """Reasoning effort should be forwarded when the model accepts it."""
 
     captured: dict[str, Any] = {}
 
@@ -122,8 +123,39 @@ def test_call_chat_api_passes_reasoning(monkeypatch):
         responses = _FakeResponses()
 
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
-    call_chat_api([{"role": "user", "content": "hi"}], reasoning_effort="high")
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="o1-mini",
+        reasoning_effort="high",
+    )
     assert captured["reasoning"] == {"effort": "high"}
+
+
+def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
+    """Regular chat models should not receive the reasoning parameter."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = ""
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="gpt-4.1-nano",
+        reasoning_effort="high",
+    )
+    assert "reasoning" not in captured
 
 
 def test_call_chat_api_skips_temperature_for_reasoning_model(monkeypatch):
@@ -159,6 +191,14 @@ def test_model_supports_temperature_detection() -> None:
     assert not model_supports_temperature("o1-mini")
     assert not model_supports_temperature("gpt-4o-reasoning")
     assert model_supports_temperature("gpt-4o-mini")
+
+
+def test_model_supports_reasoning_detection() -> None:
+    """The reasoning helper should match known reasoning model patterns."""
+
+    assert model_supports_reasoning("o1-mini")
+    assert model_supports_reasoning("gpt-4o-reasoning")
+    assert not model_supports_reasoning("gpt-4.1-nano")
 
 
 def test_extract_with_function(monkeypatch):

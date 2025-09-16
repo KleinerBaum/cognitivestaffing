@@ -17,6 +17,7 @@ from .api import (
     call_chat_api,
     get_client,
     client,
+    model_supports_reasoning,
     model_supports_temperature,
 )
 from .tools import build_extraction_tool
@@ -28,6 +29,7 @@ __all__ = [
     "call_chat_api",
     "client",
     "get_client",
+    "model_supports_reasoning",
     "model_supports_temperature",
     "build_extraction_tool",
 ] + _extraction_all
