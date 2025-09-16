@@ -13,8 +13,22 @@ def test_ask_followups_parses_message(monkeypatch):
 
     class _FakeMessage:
         def __init__(self) -> None:
-            self.content = json.dumps({"questions": [{"field": "f", "question": "?"}]})
+            self.content = json.dumps(
+                {
+                    "questions": [
+                        {
+                            "field": "f",
+                            "question": "?",
+                            "priority": "normal",
+                        }
+                    ]
+                }
+            )
 
     monkeypatch.setattr(question_logic, "call_chat_api", lambda *a, **k: _FakeMessage())
     out = ask_followups({})
-    assert out == {"questions": [{"field": "f", "question": "?"}]}
+    assert out == {
+        "questions": [
+            {"field": "f", "question": "?", "priority": "normal", "suggestions": []}
+        ]
+    }

@@ -401,9 +401,15 @@ def ask_followups(
                                 "suggestions": {
                                     "type": "array",
                                     "items": {"type": "string"},
+                                    "default": [],
                                 },
                             },
-                            "required": ["field", "question", "priority"],
+                            "required": [
+                                "field",
+                                "question",
+                                "priority",
+                                "suggestions",
+                            ],
                             "additionalProperties": False,
                         },
                     }
@@ -425,9 +431,34 @@ def ask_followups(
         if m:
             content = m.group(1).strip()
     try:
-        return json.loads(content or "{}")
+        parsed = json.loads(content or "{}")
     except json.JSONDecodeError:
         return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    questions = parsed.get("questions")
+    if not isinstance(questions, list):
+        parsed["questions"] = []
+        return parsed
+
+    normalized_questions: List[Dict[str, Any]] = []
+    for item in questions:
+        if not isinstance(item, dict):
+            continue
+        normalized = dict(item)
+        suggestions = normalized.get("suggestions")
+        if isinstance(suggestions, list):
+            normalized["suggestions"] = [
+                str(s) for s in suggestions if isinstance(s, str)
+            ]
+        else:
+            normalized["suggestions"] = []
+        normalized_questions.append(normalized)
+
+    parsed["questions"] = normalized_questions
+    return parsed
 
 
 def generate_followup_questions(
