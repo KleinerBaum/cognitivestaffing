@@ -23,13 +23,14 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 import streamlit as st
 from openai_utils import call_chat_api
 from utils.i18n import tr
 
 # ESCO helpers (core utils + offline-aware wrapper)
 from core.esco_utils import normalize_skills
+from core.suggestions import get_benefit_suggestions
 from integrations.esco import enrich_skills, search_occupation
 from config import OPENAI_API_KEY, OPENAI_MODEL, VECTOR_STORE_ID
 
@@ -193,6 +194,225 @@ YES_NO_FIELDS: Set[str] = {
     "requirements.reference_check_required",
 }
 
+PLACEHOLDER_STRINGS: Set[str] = {
+    "tbd",
+    "to be defined",
+    "n/a",
+    "na",
+    "keine",
+    "kein",
+    "none",
+    "unknown",
+    "?",
+    "-",
+}
+
+DEFAULT_BENEFIT_SUGGESTIONS: Dict[str, List[str]] = {
+    "en": [
+        "Health insurance",
+        "Retirement plan",
+        "Company car",
+        "Annual bonus",
+        "Training budget",
+        "Hybrid work setup",
+    ],
+    "de": [
+        "Betriebliche Altersvorsorge",
+        "Dienstwagen",
+        "Jährlicher Bonus",
+        "Weiterbildungsbudget",
+        "Mobiles Arbeiten",
+        "ÖPNV-Zuschuss",
+    ],
+}
+
+MAX_FOLLOWUP_QUESTIONS = 12
+
+
+def _normalize_str(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip().lower()
+    return str(value).strip().lower()
+
+
+def _value_to_text(value: Any) -> str:
+    if isinstance(value, (list, tuple, set)):
+        return " ".join(str(v).strip() for v in value if str(v).strip())
+    return str(value or "")
+
+
+def _get_field_value(extracted: Dict[str, Any], path: str, default: Any = None) -> Any:
+    if path in extracted:
+        return extracted[path]
+    cursor: Any = extracted
+    for part in path.split("."):
+        if isinstance(cursor, dict) and part in cursor:
+            cursor = cursor[part]
+        else:
+            return default
+    return cursor
+
+
+def _existing_value_keys(extracted: Dict[str, Any], path: str) -> Set[str]:
+    raw = _get_field_value(extracted, path, None)
+    values: Iterable[Any]
+    if isinstance(raw, (list, tuple, set)):
+        values = raw
+    elif raw is None:
+        values = []
+    else:
+        values = [raw]
+    normalized: Set[str] = set()
+    for item in values:
+        text = str(item).strip()
+        if text:
+            normalized.add(text.lower())
+    return normalized
+
+
+def _merge_suggestions(
+    *iterables: Iterable[str], existing: Optional[Set[str]] = None
+) -> List[str]:
+    seen = set(existing or set())
+    merged: List[str] = []
+    for iterable in iterables:
+        for item in iterable or []:
+            text = str(item).strip()
+            if not text:
+                continue
+            key = text.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(text)
+    return merged
+
+
+def _coerce_to_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, str):
+            cleaned = value.replace(",", ".").strip()
+            if not cleaned:
+                return None
+            return float(cleaned)
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_placeholder(value: Any) -> bool:
+    if isinstance(value, str):
+        return _normalize_str(value) in PLACEHOLDER_STRINGS
+    return False
+
+
+def _detect_implausible(field: str, value: Any) -> Optional[Tuple[str, Any]]:
+    if _is_empty(value):
+        return None
+    if isinstance(value, (list, tuple, set)):
+        items = [str(v).strip() for v in value if str(v).strip()]
+        if items and all(_is_placeholder(v) for v in items):
+            return ("placeholder", items)
+        return None
+    if isinstance(value, str) and _is_placeholder(value):
+        return ("placeholder", value)
+    if field.startswith("compensation.salary"):
+        numeric = _coerce_to_float(value)
+        if numeric is not None and numeric <= 0:
+            return ("salary_unrealistic", numeric)
+    return None
+
+
+def _question_text_for_field(
+    field: str, lang: str, reason: Optional[Tuple[str, Any]]
+) -> str:
+    label = field.split(".")[-1].replace("_", " ")
+    if field == "compensation.salary_range":
+        if reason and reason[0] == "salary_unrealistic":
+            base = tr(
+                "Die bisherige Gehaltsangabe wirkt ungewöhnlich. Wie lautet die realistische Gehaltsspanne (Min/Max) inklusive Währung?",
+                "The current salary details look unusual. What is the accurate salary range (min/max) including currency?",
+                lang=lang,
+            )
+        else:
+            base = tr(
+                "Wie lautet die Gehaltsspanne (Min/Max) und die Währung für diese Position?",
+                "What is the salary range (min and max) and currency for this position?",
+                lang=lang,
+            )
+    elif field.startswith("responsibilities."):
+        base = tr(
+            "Welche zentralen Aufgaben oder Verantwortlichkeiten hat die Rolle?",
+            "Could you list the key responsibilities or tasks for this role?",
+            lang=lang,
+        )
+    elif field.startswith("requirements.hard_skills"):
+        base = tr(
+            "Welche Hard Skills oder technischen Kompetenzen werden benötigt?",
+            "What hard skills or technical competencies are required?",
+            lang=lang,
+        )
+    elif field.startswith("requirements.soft_skills"):
+        base = tr(
+            "Welche Soft Skills oder zwischenmenschlichen Fähigkeiten sind wichtig?",
+            "What soft skills or interpersonal skills are important?",
+            lang=lang,
+        )
+    elif field.startswith("requirements.tools_and_technologies"):
+        base = tr(
+            "Mit welchen Tools und Technologien sollte der Kandidat vertraut sein?",
+            "Which tools and technologies should the candidate be familiar with?",
+            lang=lang,
+        )
+    elif field == "requirements.language_level_english":
+        base = tr(
+            "Welches Englischniveau wird benötigt (z. B. B2, C1)?",
+            "What English proficiency level is required (e.g., B2, C1)?",
+            lang=lang,
+        )
+    elif field == "location.primary_city":
+        base = tr(
+            "In welcher Stadt ist die Position angesiedelt?",
+            "In which city is this position based?",
+            lang=lang,
+        )
+    elif field == "location.country":
+        base = tr(
+            "In welchem Land ist die Position angesiedelt?",
+            "In which country is this position located?",
+            lang=lang,
+        )
+    elif field == "compensation.benefits":
+        base = tr(
+            "Welche Zusatzleistungen bietet das Unternehmen (z. B. betriebliche Altersvorsorge, Dienstwagen)?",
+            "Which benefits does the company offer (e.g., retirement plan, company car)?",
+            lang=lang,
+        )
+    else:
+        base = tr(
+            "Bitte geben Sie {label} an.",
+            "Please provide the {label}.",
+            lang=lang,
+        ).format(label=label)
+    if reason and reason[0] == "placeholder" and field != "compensation.salary_range":
+        base = tr(
+            "Die aktuelle Angabe wirkt wie ein Platzhalter. Bitte ergänzen Sie {label}.",
+            "The current entry looks like a placeholder. Please provide the {label}.",
+            lang=lang,
+        ).format(label=label)
+    return base if base.endswith("?") else base + "?"
+
+
+def _get_followups_answered(extracted: Dict[str, Any]) -> List[str]:
+    raw = _get_field_value(extracted, "meta.followups_answered", [])
+    if isinstance(raw, list):
+        return [str(item) for item in raw if isinstance(item, str)]
+    if isinstance(raw, str):
+        return [raw]
+    return []
+
 
 def _is_empty(val: Any) -> bool:
     if val is None:
@@ -205,7 +425,13 @@ def _is_empty(val: Any) -> bool:
     return False
 
 
-def _priority_for(field: str, is_missing_esco_skill: bool = False) -> str:
+def _priority_for(
+    field: str,
+    is_missing_esco_skill: bool = False,
+    reason: Optional[Tuple[str, Any]] = None,
+) -> str:
+    if reason and reason[0] == "salary_unrealistic":
+        return "critical"
     if is_missing_esco_skill:
         return "critical"
     if field in CRITICAL_FIELDS:
@@ -213,12 +439,27 @@ def _priority_for(field: str, is_missing_esco_skill: bool = False) -> str:
     return "normal"
 
 
-def _collect_missing_fields(extracted: Dict[str, Any], fields: List[str]) -> List[str]:
-    missing = []
+def _collect_missing_fields(
+    extracted: Dict[str, Any],
+    fields: List[str],
+    *,
+    answered: Optional[Set[str]] = None,
+) -> Tuple[List[str], Dict[str, Tuple[str, Any]]]:
+    missing: List[str] = []
+    implausible: Dict[str, Tuple[str, Any]] = {}
+    answered = answered or set()
     for f in fields:
-        if _is_empty(extracted.get(f)):
+        if f in answered:
+            continue
+        value = _get_field_value(extracted, f, None)
+        if _is_empty(value):
             missing.append(f)
-    return missing
+            continue
+        reason = _detect_implausible(f, value)
+        if reason:
+            missing.append(f)
+            implausible[f] = reason
+    return missing, implausible
 
 
 def _rag_suggestions(
@@ -468,67 +709,65 @@ def generate_followup_questions(
     use_rag: bool = True,
 ) -> List[Dict[str, Any]]:
     """Build a set of high-impact follow-up questions for missing fields."""
-    # 1) Determine role-specific fields via ESCO classification
-    job_title = (extracted.get("position.job_title") or "").strip()
-    industry = (extracted.get("company.industry") or "").strip()
+    job_title = str(_get_field_value(extracted, "position.job_title", "") or "").strip()
+    industry = str(_get_field_value(extracted, "company.industry", "") or "").strip()
     occupation: Dict[str, Any] = {}
     essential_skills: List[str] = []
     missing_esco_skills: List[str] = []
-    occ_group = ""
+    role_fields: List[str] = []
     role_questions_cfg: List[Dict[str, str]] = []
     if job_title:
         occupation = search_occupation(job_title, lang=lang) or {}
         occ_group = (occupation.get("group") or "").lower()
-        role_fields = ROLE_FIELD_MAP.get(occ_group, [])
-        role_questions_cfg = ROLE_QUESTION_MAP.get(occ_group, [])
-    else:
-        role_fields = []
-        role_questions_cfg = []
+        role_fields = ROLE_FIELD_MAP.get(occ_group, []) or []
+        role_questions_cfg = ROLE_QUESTION_MAP.get(occ_group, []) or []
     occ_uri = occupation.get("uri", "")
     if occ_uri:
         essential_skills = enrich_skills(occ_uri, lang=lang) or []
-        # Check which essential skills are not mentioned in any provided skills/requirements text
+        haystack_paths = [
+            "responsibilities.items",
+            "position.role_summary",
+            "requirements.hard_skills_required",
+            "requirements.hard_skills_optional",
+            "requirements.soft_skills_required",
+            "requirements.soft_skills_optional",
+            "requirements.tools_and_technologies",
+        ]
         haystack_text = " ".join(
-            [
-                str(extracted.get("responsibilities.items") or ""),
-                str(extracted.get("position.role_summary") or ""),
-                str(extracted.get("requirements.hard_skills_required") or ""),
-                str(extracted.get("requirements.hard_skills_optional") or ""),
-                str(extracted.get("requirements.soft_skills_required") or ""),
-                str(extracted.get("requirements.soft_skills_optional") or ""),
-                str(extracted.get("requirements.tools_and_technologies") or ""),
-            ]
+            _value_to_text(_get_field_value(extracted, path, ""))
+            for path in haystack_paths
         ).lower()
         missing_esco_skills = [
-            s for s in essential_skills if s.lower() not in haystack_text
+            s
+            for s in essential_skills
+            if isinstance(s, str) and s.lower() not in haystack_text
         ]
-    # 2) Determine which fields are missing
-    fields_to_check = list(CRITICAL_FIELDS)  # start with critical fields
-    # Include role-specific extra fields for this occupation group (not marked critical but should ask if missing)
+
+    answered_fields = set(_get_followups_answered(extracted))
+    fields_to_check = list(CRITICAL_FIELDS)
     for extra in role_fields:
         if extra not in fields_to_check:
             fields_to_check.append(extra)
-    missing_fields = _collect_missing_fields(extracted, fields_to_check)
-    # If salary fields are missing but salary_provided is True, combine as one "salary" question
+    missing_fields, implausible_map = _collect_missing_fields(
+        extracted, fields_to_check, answered=answered_fields
+    )
+
     if (
         "compensation.salary_min" in missing_fields
         and "compensation.salary_max" in missing_fields
     ):
-        # Remove individual salary fields and ask one question covering both
         missing_fields = [
             f for f in missing_fields if not f.startswith("compensation.salary_")
         ]
+        combined_reason = implausible_map.pop(
+            "compensation.salary_min", None
+        ) or implausible_map.pop("compensation.salary_max", None)
         missing_fields.append("compensation.salary_range")
-    # Compute number of questions if not explicitly given
-    if num_questions is None:
-        critical_missing = [f for f in missing_fields if f in CRITICAL_FIELDS]
-        optional_missing = [f for f in missing_fields if f not in CRITICAL_FIELDS]
-        base_num = len(critical_missing) + min(len(optional_missing), 3)
-        num_questions = min(max(base_num, 3), 12)
-        num_questions += len(role_questions_cfg)  # include predefined role-specific Qs
-    # 3) (Optional) Get suggestions via RAG for missing fields
+        if combined_reason:
+            implausible_map["compensation.salary_range"] = combined_reason
+
     suggestions_map: Dict[str, List[str]] = {}
-    if use_rag and OPENAI_API_KEY:
+    if use_rag and OPENAI_API_KEY and missing_fields:
         suggestions_map = _rag_suggestions(
             job_title,
             industry,
@@ -536,56 +775,73 @@ def generate_followup_questions(
             lang=lang,
             vector_store_id=st.session_state.get("vector_store_id"),
         )
-    # 4) Construct question payloads
+    if suggestions_map:
+        for key, values in list(suggestions_map.items()):
+            suggestions_map[key] = _merge_suggestions(
+                values, existing=_existing_value_keys(extracted, key)
+            )
+
+    if missing_esco_skills and "requirements.hard_skills_required" in missing_fields:
+        existing_keys = _existing_value_keys(
+            extracted, "requirements.hard_skills_required"
+        )
+        normalized_esco = normalize_skills(missing_esco_skills, lang=lang)
+        suggestions_map["requirements.hard_skills_required"] = _merge_suggestions(
+            suggestions_map.get("requirements.hard_skills_required", []),
+            normalized_esco,
+            existing=existing_keys,
+        )
+
+    if "compensation.benefits" in missing_fields:
+        existing_keys = _existing_value_keys(extracted, "compensation.benefits")
+        existing_raw = _get_field_value(extracted, "compensation.benefits", [])
+        if isinstance(existing_raw, list):
+            existing_text = "\n".join(
+                str(item) for item in existing_raw if str(item).strip()
+            )
+        else:
+            existing_text = str(existing_raw or "")
+        benefit_suggestions: List[str] = []
+        if OPENAI_API_KEY and job_title:
+            benefit_suggestions, _err = get_benefit_suggestions(
+                job_title,
+                industry=industry,
+                existing_benefits=existing_text,
+                lang=lang,
+            )
+        if not benefit_suggestions:
+            benefit_suggestions = DEFAULT_BENEFIT_SUGGESTIONS.get(
+                lang, DEFAULT_BENEFIT_SUGGESTIONS["en"]
+            )
+        suggestions_map["compensation.benefits"] = _merge_suggestions(
+            suggestions_map.get("compensation.benefits", []),
+            benefit_suggestions,
+            existing=existing_keys,
+        )
+
     questions: List[Dict[str, Any]] = []
-    # Predefined role-specific questions (from ROLE_QUESTION_MAP)
     for cfg in role_questions_cfg:
         field = cfg.get("field")
         q_text = cfg.get("question")
-        if field and q_text and _is_empty(extracted.get(field, None)):
-            questions.append(
-                {
-                    "field": field,
-                    "question": q_text + ("?" if not q_text.endswith("?") else ""),
-                    "priority": "normal",
-                    "suggestions": suggestions_map.get(field, []),
-                }
-            )
-    # Questions for each missing field
+        if not field or not q_text or field in answered_fields:
+            continue
+        if not _is_empty(_get_field_value(extracted, field, None)):
+            continue
+        questions.append(
+            {
+                "field": field,
+                "question": q_text if q_text.endswith("?") else q_text + "?",
+                "priority": "normal",
+                "suggestions": suggestions_map.get(field, []),
+            }
+        )
+
     has_esco_gap = bool(missing_esco_skills)
     for field in missing_fields:
-        # Skip if already added via role_questions_cfg
         if any(q.get("field") == field for q in questions):
             continue
-        # Determine field-specific prompt text
-        if field == "compensation.salary_range":
-            q_text = (
-                "What is the salary range (min and max) and currency for this position?"
-            )
-        elif field.startswith("responsibilities."):
-            q_text = "Could you list the key responsibilities or tasks for this role?"  # covers responsibilities.items
-        elif field.startswith("requirements.hard_skills"):
-            q_text = "What hard skills or technical competencies are required?"
-        elif field.startswith("requirements.soft_skills"):
-            q_text = "What soft skills or interpersonal skills are important?"
-        elif field.startswith("requirements.tools_and_technologies"):
-            q_text = (
-                "Which tools and technologies should the candidate be familiar with?"
-            )
-        elif field == "requirements.language_level_english":
-            q_text = "What English proficiency level is required (e.g., B2, C1)?"
-        elif field == "location.primary_city":
-            q_text = "In which city is this position based?"
-        elif field == "location.country":
-            q_text = "In which country is this position located?"
-        else:
-            # Default question format
-            label = field.split(".")[-1].replace("_", " ")
-            q_text = (
-                f"Please provide the {label}."
-                if lang != "de"
-                else f"Bitte geben Sie {label} an."
-            )
+        reason = implausible_map.get(field)
+        q_text = _question_text_for_field(field, lang, reason)
         priority = _priority_for(
             field,
             has_esco_gap
@@ -593,24 +849,51 @@ def generate_followup_questions(
                 field.startswith("requirements.hard_skills")
                 or field.startswith("requirements.tools_and_technologies")
             ),
+            reason,
         )
         suggestions = suggestions_map.get(field, [])
-        prefill = None
         if field in YES_NO_FIELDS:
-            prefill = (
-                "No"  # default to "No" if not specified (to prompt user to confirm)
-            )
-        questions.append(
-            {
+            prefill_value = "Nein" if lang == "de" else "No"
+            question = {
                 "field": field,
-                "question": (q_text if q_text.endswith("?") else q_text + "?"),
+                "question": q_text,
                 "priority": priority,
                 "suggestions": suggestions,
-                **({"prefill": prefill} if prefill is not None else {}),
+                "prefill": prefill_value,
             }
-        )
-    # Sort questions by priority (critical first) and limit to num_questions
-    sorted_questions = sorted(
-        questions, key=lambda q: 0 if q["priority"] == "critical" else 1
+        else:
+            question = {
+                "field": field,
+                "question": q_text,
+                "priority": priority,
+                "suggestions": suggestions,
+            }
+        questions.append(question)
+
+    if not questions:
+        return []
+
+    priority_order = {"critical": 0, "normal": 1, "optional": 2}
+    ordered = sorted(
+        enumerate(questions),
+        key=lambda item: (
+            priority_order.get(item[1].get("priority", "normal"), 1),
+            item[0],
+        ),
     )
-    return sorted_questions[:num_questions]
+    sorted_questions = [item[1] for item in ordered]
+
+    if num_questions is None:
+        critical_count = sum(
+            1 for q in sorted_questions if q.get("priority") == "critical"
+        )
+        normal_count = len(sorted_questions) - critical_count
+        limit = critical_count + min(normal_count, 3)
+        if sorted_questions:
+            limit = max(limit, 1)
+    else:
+        limit = max(num_questions, 0)
+    limit = min(limit, MAX_FOLLOWUP_QUESTIONS)
+    if limit <= 0:
+        return []
+    return sorted_questions[:limit]
