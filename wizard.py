@@ -1,4 +1,4 @@
-# wizard.py — Vacalyser Wizard (clean flow, schema-aligned)
+# wizard.py — Cognitive Needs Wizard (clean flow, schema-aligned)
 from __future__ import annotations
 
 import io
@@ -39,6 +39,10 @@ from core.esco_utils import normalize_skills
 
 ROOT = Path(__file__).parent
 ensure_state()
+
+WIZARD_TITLE = (
+    "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
+)
 
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
@@ -623,9 +627,8 @@ def _step_intro():
         on_change=_on_lang_change,
     )
 
-    st.header(
-        tr("Willkommen zum Recruiting-Wizard", "Welcome to the Recruiting Wizard")
-    )
+    st.header(WIZARD_TITLE)
+    st.subheader(WIZARD_TITLE)
     st.write(
         tr(
             (
@@ -638,7 +641,7 @@ def _step_intro():
             ),
         )
     )
-    st.subheader(t("intro_title", st.session_state.lang))
+    st.markdown("#### " + t("intro_title", st.session_state.lang))
     st.write(
         tr(
             (
@@ -2358,7 +2361,7 @@ def _step_summary(schema: dict, critical: list[str]):
     st.download_button(
         "⬇️ Download JSON",
         data=buff,
-        file_name="vacalyser_profile.json",
+        file_name="cognitive_needs_profile.json",
         mime="application/json",
     )
 

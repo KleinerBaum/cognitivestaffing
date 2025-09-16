@@ -117,7 +117,7 @@ def extract_with_function(
     """
     if model is None:
         model = st.session_state.get("model", OPENAI_MODEL)
-    fn_name = "vacalyser_extract"
+    fn_name = "cognitive_needs_extract"
     messages: Sequence[dict] = [
         {
             "role": "system",

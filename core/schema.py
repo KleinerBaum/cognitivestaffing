@@ -100,5 +100,5 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
 
 
 # Backwards compatibility aliases
-VacalyserProfile = NeedAnalysisProfile
-VacalyserJD = NeedAnalysisProfile  # pragma: no cover - legacy alias
+CognitiveNeedsProfile = NeedAnalysisProfile
+CognitiveNeedsJD = NeedAnalysisProfile  # pragma: no cover - legacy alias

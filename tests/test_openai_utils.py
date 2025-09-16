@@ -78,9 +78,9 @@ def test_build_extraction_tool_has_name_and_parameters():
     """build_extraction_tool should include function name and parameters."""
 
     schema = {"type": "object", "properties": {}}
-    tool = openai_utils.build_extraction_tool("vacalyser_extract", schema)
+    tool = openai_utils.build_extraction_tool("cognitive_needs_extract", schema)
     spec = tool[0]
-    assert spec["name"] == "vacalyser_extract"
+    assert spec["name"] == "cognitive_needs_extract"
     assert spec["parameters"]["type"] == "object"
 
 

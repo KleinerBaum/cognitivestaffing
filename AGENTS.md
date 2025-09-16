@@ -1,6 +1,6 @@
-# Vacalyser — Autonomous Agents
+# Cognitive Needs — Autonomous Agents
 
-This document lists all current and planned autonomous agents in Vacalyser, along with their roles and interfaces. Each agent is small, focused, and composable. *Note: earlier docs used the labels “GPT‑4o” and “GPT‑4o‑mini”; in code these map to OpenAI’s cost-optimized `gpt-5-nano` and `gpt-4.1-nano` models respectively.*
+This document lists all current and planned autonomous agents in Cognitive Needs, along with their roles and interfaces. Each agent is small, focused, and composable. *Note: earlier docs used the labels “GPT‑4o” and “GPT‑4o‑mini”; in code these map to OpenAI’s cost-optimized `gpt-5-nano` and `gpt-4.1-nano` models respectively.*
 
 ---
 

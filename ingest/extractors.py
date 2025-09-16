@@ -28,7 +28,7 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
         raise ValueError("Invalid URL")
     try:
         resp: Response = requests.get(
-            url, timeout=timeout, headers={"User-Agent": "Vacalyser/1.0"}
+            url, timeout=timeout, headers={"User-Agent": "CognitiveNeeds/1.0"}
         )
         resp.raise_for_status()
     except requests.RequestException as exc:  # pragma: no cover - network

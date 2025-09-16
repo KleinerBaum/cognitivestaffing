@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 
 _URL_RE = re.compile(r"^https?://[\w./-]+$")
-_HEADERS = {"User-Agent": "Vacalyser/1.0"}
+_HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
 
 
 def extract_text_from_url(url: str) -> str:

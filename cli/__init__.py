@@ -1,1 +1,1 @@
-"""Command line interfaces for Vacalyser."""
+"""Command line interfaces for Cognitive Needs."""

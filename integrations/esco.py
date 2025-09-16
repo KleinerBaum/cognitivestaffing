@@ -10,7 +10,7 @@ from typing import Dict, List
 
 from core import esco_utils
 
-log = logging.getLogger("vacalyser.esco")
+log = logging.getLogger("cognitive_needs.esco")
 
 # Environment flag intentionally named ``VACAYSER_OFFLINE`` (without an ``l``)
 # to match historical "Vacayser" naming used in earlier deployments.

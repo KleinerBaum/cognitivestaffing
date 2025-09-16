@@ -18,7 +18,7 @@ from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
 from config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, REASONING_EFFORT
 
-logger = logging.getLogger("vacalyser.llm")
+logger = logging.getLogger("cognitive_needs.llm")
 
 
 def _assert_closed_schema(schema: dict[str, Any]) -> None:
