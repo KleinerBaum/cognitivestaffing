@@ -1050,7 +1050,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
         )
         person["email"] = c3.text_input(
             "E-Mail",
-            value=person.get("email", ""),
+            value=person.get("email") or "",
             key=f"{key_prefix}.{idx}.email",
         )
 

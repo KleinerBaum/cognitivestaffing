@@ -14,6 +14,8 @@ def test_process_model_supports_stakeholders_and_phases():
                 name="Alice", role="Recruiter", email="alice@example.com", primary=True
             ),
             Stakeholder(name="Bob", role="Manager", email="bob@example.com"),
+            Stakeholder(name="Carol", role="HR"),
+            Stakeholder(name="Dana", role="Coordinator", email=""),
         ],
         phases=[
             Phase(
@@ -41,4 +43,12 @@ def test_process_model_supports_stakeholders_and_phases():
     profile = NeedAnalysisProfile(process=process)
     assert profile.process.interview_stages == 2
     assert profile.process.stakeholders[0].primary is True
+    assert profile.process.stakeholders[2].email is None
+    assert profile.process.stakeholders[3].email is None
     assert profile.process.phases[1].participants == ["Bob"]
+
+
+def test_stakeholder_blank_email_coerced_to_none():
+    stakeholder = Stakeholder(name="Eve", role="HR", email="   ")
+    assert stakeholder.email is None
+    assert stakeholder.model_dump()["email"] is None
