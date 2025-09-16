@@ -26,7 +26,7 @@ def test_generate_followup_questions() -> None:
 def test_role_specific_extra_question(monkeypatch) -> None:
     """Role classification should add role-specific questions."""
     monkeypatch.setattr(
-        "question_logic.classify_occupation",
+        "question_logic.search_occupation",
         lambda jt, lang="en": {"group": "Software developers"},
     )
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"position.job_title"})
