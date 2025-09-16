@@ -43,6 +43,25 @@ ensure_state()
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
 
+CEFR_LANGUAGE_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2", "Native"]
+
+
+def _format_language_level_option(option: str) -> str:
+    """Return a localized label for the English level select box.
+
+    Args:
+        option: Raw option value from the CEFR options list.
+
+    Returns:
+        Translated label to render in the select box.
+    """
+
+    if option == "":
+        return tr("Bitte Level wählen …", "Select level …")
+    if option.lower() == "native":
+        return tr("Muttersprachlich", "Native")
+    return option
+
 
 def next_step() -> None:
     """Advance the wizard to the next step."""
@@ -1343,9 +1362,19 @@ def _step_requirements():
         options=data["requirements"].get("languages_optional", []),
         values=data["requirements"].get("languages_optional", []),
     )
-    data["requirements"]["language_level_english"] = st.text_input(
+    current_language_level = data["requirements"].get("language_level_english") or ""
+    language_level_options = list(CEFR_LANGUAGE_LEVELS)
+    if current_language_level and current_language_level not in language_level_options:
+        language_level_options.append(current_language_level)
+    data["requirements"]["language_level_english"] = st.selectbox(
         tr("Englischniveau", "English level"),
-        value=data["requirements"].get("language_level_english", ""),
+        options=language_level_options,
+        index=(
+            language_level_options.index(current_language_level)
+            if current_language_level in language_level_options
+            else 0
+        ),
+        format_func=_format_language_level_option,
     )
     data["requirements"]["certifications"] = _chip_multiselect(
         tr("Zertifizierungen", "Certifications"),
