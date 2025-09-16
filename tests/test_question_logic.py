@@ -163,3 +163,76 @@ def test_followup_normalizes_missing_suggestions(monkeypatch) -> None:
             }
         ]
     }
+
+
+def test_generate_followups_skip_answered(monkeypatch) -> None:
+    """Fields marked as answered should not be re-asked."""
+
+    monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"position.job_title"})
+    data = {
+        "position": {"job_title": ""},
+        "meta": {"followups_answered": ["position.job_title"]},
+    }
+
+    out = generate_followup_questions(data, num_questions=2, use_rag=False)
+
+    assert out == []
+
+
+def test_generate_followups_salary_implausible(monkeypatch) -> None:
+    """Implausible salary values should trigger a combined salary range question."""
+
+    monkeypatch.setattr(
+        "question_logic.CRITICAL_FIELDS",
+        {"compensation.salary_min", "compensation.salary_max"},
+    )
+    data = {"compensation": {"salary_min": 0, "salary_max": "0", "currency": "EUR"}}
+
+    out = generate_followup_questions(data, use_rag=False)
+
+    assert out[0]["field"] == "compensation.salary_range"
+    assert "salary" in out[0]["question"].lower()
+    assert "unusual" in out[0]["question"].lower()
+
+
+def test_generate_followups_esco_suggestions(monkeypatch) -> None:
+    """Missing ESCO skills should surface as suggestions for hard skills."""
+
+    monkeypatch.setattr(
+        "question_logic.CRITICAL_FIELDS", {"requirements.hard_skills_required"}
+    )
+    monkeypatch.setattr(
+        "question_logic.search_occupation",
+        lambda *_a, **_k: {"group": "Software developers", "uri": "uri123"},
+    )
+    monkeypatch.setattr(
+        "question_logic.enrich_skills",
+        lambda *_a, **_k: ["Kubernetes"],
+    )
+
+    data = {
+        "position": {"job_title": "Backend Developer"},
+        "requirements": {"hard_skills_required": []},
+    }
+
+    out = generate_followup_questions(data, use_rag=False, lang="en")
+
+    assert out[0]["field"] == "requirements.hard_skills_required"
+    assert "kubernetes" in {s.lower() for s in out[0]["suggestions"]}
+
+
+def test_generate_followups_benefit_defaults(monkeypatch) -> None:
+    """Benefit follow-ups should provide default suggestions when no API key is set."""
+
+    monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"compensation.benefits"})
+    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+
+    data = {
+        "position": {"job_title": "Engineer"},
+        "compensation": {"benefits": []},
+    }
+
+    out = generate_followup_questions(data, use_rag=False, lang="en")
+
+    assert out[0]["field"] == "compensation.benefits"
+    assert out[0]["suggestions"]
