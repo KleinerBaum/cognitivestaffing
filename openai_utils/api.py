@@ -30,7 +30,7 @@ import streamlit as st
 from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, REASONING_EFFORT
 from constants.keys import StateKeys
 
-logger = logging.getLogger("vacalyser.openai")
+logger = logging.getLogger("cognitive_needs.openai")
 
 # Global client instance (monkeypatchable in tests)
 client: OpenAI | None = None

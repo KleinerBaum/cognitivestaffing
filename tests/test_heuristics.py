@@ -14,10 +14,10 @@ def test_guess_job_title_strip_gender() -> None:
 
 
 def test_guess_company_brand() -> None:
-    text = "Wir sind Vacalyser, ein Tech-Brand der Example GmbH"
+    text = "Wir sind Cognitive Needs, ein Tech-Brand der Example GmbH"
     name, brand = guess_company(text)
     assert name == "Example GmbH"
-    assert brand == "Vacalyser"
+    assert brand == "Cognitive Needs"
 
 
 def test_guess_city_from_header() -> None:

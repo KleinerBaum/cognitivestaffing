@@ -18,8 +18,8 @@ import requests
 import streamlit as st
 
 _ESO = "https://ec.europa.eu/esco/api"
-_HEADERS = {"User-Agent": "Vacalyser/1.0"}
-log = logging.getLogger("vacalyser.esco")
+_HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
+log = logging.getLogger("cognitive_needs.esco")
 
 _SKILL_CACHE: Dict[Tuple[str, str], Dict[str, str]] = {}
 

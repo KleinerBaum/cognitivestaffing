@@ -1,4 +1,4 @@
-/* === Vacalyser Futuristic Theme ===========================================
+/* === Cognitive Needs Futuristic Theme ===========================================
    This stylesheet assumes dark base colors from .streamlit/config.toml.
    It adds a glassmorphic layout, consistent buttons, and a global background.
    The background image is provided at runtime via :root { --bg-image: url(...); }

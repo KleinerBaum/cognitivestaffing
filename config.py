@@ -1,4 +1,4 @@
-"""Central configuration for Vacalyser's Responses API client.
+"""Central configuration for the Cognitive Needs Responses API client.
 
 The application uses cost-optimized ``gpt-4o-mini``/``gpt-4o`` models on
 endpoints that support them and falls back to the widely available

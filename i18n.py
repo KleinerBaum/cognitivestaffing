@@ -1,4 +1,4 @@
-"""Core translation utilities for Vacalyser."""
+"""Core translation utilities for Cognitive Needs."""
 
 from __future__ import annotations
 

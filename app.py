@@ -1,4 +1,4 @@
-# app.py — Vacalyser (clean entrypoint, single source of truth)
+# app.py — Cognitive Needs (clean entrypoint, single source of truth)
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,7 +15,7 @@ from state import ensure_state, reset_state
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
-    page_title="Vacalyser — AI Recruitment Need Analysis",
+    page_title="Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool",
     page_icon="🧭",
     layout="wide",
 )
@@ -44,9 +44,9 @@ def inject_global_css() -> None:
     """Inject the global stylesheet and background image."""
 
     theme = (
-        "vacalyser.css"
+        "cognitive_needs.css"
         if st.session_state.get("dark_mode", True)
-        else "vacalyser_light.css"
+        else "cognitive_needs_light.css"
     )
     css = (ROOT / "styles" / theme).read_text(encoding="utf-8")
     bg_bytes = (ROOT / "images" / "AdobeStock_506577005.jpeg").read_bytes()

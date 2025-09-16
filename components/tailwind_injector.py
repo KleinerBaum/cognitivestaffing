@@ -92,7 +92,7 @@ def inject_tailwind(theme: str = "dark") -> None:
         parentDoc.head.appendChild(s);
       }}
       parentDoc.documentElement.classList.toggle('dark', '{theme}' === 'dark');
-      const styleId = 'vacalyser-theme-vars';
+      const styleId = 'cognitive-needs-theme-vars';
       let st = parentDoc.getElementById(styleId);
       if (!st) {{
         st = parentDoc.createElement('style');

@@ -1,8 +1,8 @@
-# Vacalyser — AI Recruitment Need Analysis (Streamlit)
+# Cognitive Needs — AI Recruitment Need Analysis (Streamlit)
 
-**Vacalyser** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
+**Cognitive Needs** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
-Vacalyser supports OpenAI’s cost-optimized `gpt-4o-mini` and flagship
+Cognitive Needs supports OpenAI’s cost-optimized `gpt-4o-mini` and flagship
 `gpt-4o` models on compatible endpoints and falls back to the widely available
 `gpt-3.5-turbo` by default. These newer models improve reasoning, support
 JSON-mode structured output and tool calls, and deliver lower cost and
@@ -127,7 +127,7 @@ models such as `gpt-4o-mini` require a compatible OpenAI or Azure endpoint.
 
 ### Model selection & reasoning effort
 
-Vacalyser auto-detects the endpoint: it uses `gpt-4o-mini` on compatible custom
+Cognitive Needs auto-detects the endpoint: it uses `gpt-4o-mini` on compatible custom
 deployments and `gpt-3.5-turbo` on the public API. Set `OPENAI_MODEL` or
 `DEFAULT_MODEL` to `gpt-4o`, `gpt-4`, or any other supported model, and adjust
 `REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less
@@ -148,7 +148,7 @@ the default OpenAI API URL.
 
 ### Configuration
 
-Vacalyser reads API credentials from environment variables or [Streamlit
+Cognitive Needs reads API credentials from environment variables or [Streamlit
 secrets](https://docs.streamlit.io/streamlit-community-cloud/get-started/deploy-an-app/secrets-management). At minimum,
 define `OPENAI_API_KEY` before launching the app:
 
@@ -179,7 +179,7 @@ Other environment flags:
 
 ### Optional: OCR for scanned PDFs
 
-Vacalyser can perform OCR on PDF pages without embedded text. Install the
+Cognitive Needs can perform OCR on PDF pages without embedded text. Install the
 dependencies and corresponding system packages:
 
 ```bash
@@ -197,7 +197,7 @@ set the environment variable `VECTOR_STORE_ID` to its ID:
 export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
-If `VECTOR_STORE_ID` is unset or empty, Vacalyser runs without RAG.
+If `VECTOR_STORE_ID` is unset or empty, Cognitive Needs runs without RAG.
 
 ## Troubleshooting
 
@@ -224,7 +224,7 @@ missing.
 
 ## Built-in Analysis Tools
 
-Vacalyser registers light-weight tools that the model can call via the
+Cognitive Needs registers light-weight tools that the model can call via the
 Responses API:
 
 - `get_salary_benchmark(role, country="US")` – returns an illustrative annual

@@ -2,7 +2,7 @@
 """Streamlit-Seite: Technology Deep Dive & Wizard Flow
 
 Für IT‑Spezialisten und Entscheider bietet diese Seite einen kompakten, aber
-technisch fundierten Überblick über den *Vacalyser*-Stack sowie eine visuelle
+technisch fundierten Überblick über den *Cognitive Needs*-Stack sowie eine visuelle
 Darstellung des mehrstufigen Wizard‑Flows (Discovery‑Process).
 Ein Sprach‑ und Zielgruppenumschalter sorgt dafür, dass Texte sowohl für ein
 Fach‑Publikum (Tech‑interessiert/Tech‑savvy) als auch für nicht‑technische
@@ -85,7 +85,7 @@ tech_info = {
         "Allgemein verständlich": [
             (
                 "Künstliche Intelligenz",
-                "Vacalyser nutzt modernste KI, um Stellenanforderungen präzise zu verstehen und passende Kompetenzen vorzuschlagen.",
+                "Cognitive Needs nutzt modernste KI, um Stellenanforderungen präzise zu verstehen und passende Kompetenzen vorzuschlagen.",
             ),
             (
                 "Schlaue Suche",
@@ -147,7 +147,7 @@ tech_info = {
         "General public": [
             (
                 "Artificial Intelligence",
-                "Vacalyser uses cutting‑edge AI to understand job requirements and suggest matching skills.",
+                "Cognitive Needs uses cutting‑edge AI to understand job requirements and suggest matching skills.",
             ),
             (
                 "Smart Search",
@@ -209,10 +209,10 @@ else:
 st.title(title)
 
 intro = (
-    "Nachfolgend findest du die Schlüsseltechnologien, die Vacalyser antreiben, "
+    "Nachfolgend findest du die Schlüsseltechnologien, die Cognitive Needs antreiben, "
     "sowie eine Grafik, die den Discovery‑Prozess Schritt für Schritt veranschaulicht."
     if lang == "de"
-    else "Below you can explore the core technologies powering Vacalyser together with a graph "
+    else "Below you can explore the core technologies powering Cognitive Needs together with a graph "
     "illustrating each step of the discovery process."
 )
 

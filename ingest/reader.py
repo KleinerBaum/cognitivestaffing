@@ -33,7 +33,7 @@ def _read_pdf(path: Path) -> str:
 
 
 _URL_RE = re.compile(r"^https?://[\w./-]+$")
-_HEADERS = {"User-Agent": "Vacalyser/1.0"}
+_HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
 
 
 def _read_url(url: str) -> str:

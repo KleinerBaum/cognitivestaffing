@@ -1,4 +1,4 @@
-"""Utility helpers for the Vacalyser app."""
+"""Utility helpers for the Cognitive Needs app."""
 
 from __future__ import annotations
 

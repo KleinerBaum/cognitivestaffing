@@ -1,4 +1,4 @@
-"""Core package for Vacalyser models and utilities."""
+"""Core package for Cognitive Needs models and utilities."""
 
 from .field_suggestions import FIELD_SUGGESTIONS, get_field_suggestions
 

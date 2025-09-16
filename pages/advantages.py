@@ -1,5 +1,5 @@
 # pages/advantages.py
-"""Streamlit-Seite: Vorteile / Advantages von Vacalyser
+"""Streamlit-Seite: Vorteile / Advantages von Cognitive Needs
 
 Bietet einen Sprachumschalter (Deutsch ↔ English) und drei Tabs für die
 Zielgruppen Line Manager, Recruiter und Unternehmen.
@@ -305,14 +305,14 @@ intro_en = (
 
 finish_de = (
     "Auf Basis dieser Daten kannst du DSGVO-geprüfte Stellenanzeigen, Boolean-Suchstrings, "
-    "Verträge oder Interviewleitfäden erstellen. Vacalyser lässt sich lokal betreiben, um "
+    "Verträge oder Interviewleitfäden erstellen. Cognitive Needs lässt sich lokal betreiben, um "
     "sensible Daten zu schützen, und der Gehaltsrechner unterstützt bei der Definition von "
     "Must- und Nice-to-have-Skills."
 )
 
 finish_en = (
     "Use the collected data to create GDPR-safe job ads, boolean search strings, contracts "
-    "or interview guides. Run Vacalyser locally to keep information secure while the salary "
+    "or interview guides. Run Cognitive Needs locally to keep information secure while the salary "
     "calculator helps define must-have and nice-to-have skills."
 )
 

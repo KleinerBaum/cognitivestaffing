@@ -18,7 +18,7 @@ def main() -> None:
         python -m cli.extract --file profile.pdf --title "..." --url "..."
     """
 
-    parser = argparse.ArgumentParser(description="Vacalyser JSON extractor")
+    parser = argparse.ArgumentParser(description="Cognitive Needs JSON extractor")
     parser.add_argument("--file", required=True, help="Path to the job posting file")
     parser.add_argument("--title", help="Optional job title for context")
     parser.add_argument("--url", help="Optional source URL for context")
