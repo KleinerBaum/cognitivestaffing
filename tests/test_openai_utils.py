@@ -4,7 +4,12 @@ from typing import Any
 
 import httpx
 import openai_utils
-from openai_utils import ChatCallResult, call_chat_api, extract_with_function
+from openai_utils import (
+    ChatCallResult,
+    call_chat_api,
+    extract_with_function,
+    model_supports_temperature,
+)
 from openai import AuthenticationError, RateLimitError
 
 
@@ -119,6 +124,41 @@ def test_call_chat_api_passes_reasoning(monkeypatch):
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     call_chat_api([{"role": "user", "content": "hi"}], reasoning_effort="high")
     assert captured["reasoning"] == {"effort": "high"}
+
+
+def test_call_chat_api_skips_temperature_for_reasoning_model(monkeypatch):
+    """Reasoning models should not receive an unsupported temperature parameter."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = ""
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="o1-mini",
+        temperature=0.7,
+    )
+    assert "temperature" not in captured
+
+
+def test_model_supports_temperature_detection() -> None:
+    """The helper should detect reasoning models and allow regular ones."""
+
+    assert not model_supports_temperature("o1-mini")
+    assert not model_supports_temperature("gpt-4o-reasoning")
+    assert model_supports_temperature("gpt-4o-mini")
 
 
 def test_extract_with_function(monkeypatch):

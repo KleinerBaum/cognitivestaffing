@@ -12,6 +12,7 @@ from jsonschema import Draft7Validator
 from openai import OpenAI
 import streamlit as st
 
+from openai_utils import model_supports_temperature
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
@@ -119,28 +120,32 @@ def extract_json(
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
     model = st.session_state.get("model", OPENAI_MODEL)
     try:
-        response = OPENAI_CLIENT.responses.create(  # type: ignore[call-overload]
-            model=model,
-            input=messages,
-            temperature=0,
-            reasoning={"effort": effort},
-            response_format={
+        request: dict[str, Any] = {
+            "model": model,
+            "input": messages,
+            "reasoning": {"effort": effort},
+            "response_format": {
                 "type": "json_schema",
                 "json_schema": NEED_ANALYSIS_SCHEMA,
             },
-        )
+        }
+        if model_supports_temperature(model):
+            request["temperature"] = 0
+        response = OPENAI_CLIENT.responses.create(**request)
         return response.output_text.strip()
     except Exception as exc:  # pragma: no cover - network/SDK issues
         logger.warning(
             "Structured extraction failed, falling back to plain text: %s", exc
         )
         try:
-            response = OPENAI_CLIENT.responses.create(  # type: ignore[call-overload]
-                model=model,
-                input=messages,
-                temperature=0,
-                reasoning={"effort": effort},
-            )
+            request = {
+                "model": model,
+                "input": messages,
+                "reasoning": {"effort": effort},
+            }
+            if model_supports_temperature(model):
+                request["temperature"] = 0
+            response = OPENAI_CLIENT.responses.create(**request)
             return response.output_text.strip()
         except Exception as exc2:  # pragma: no cover - network/SDK issues
             raise ExtractionError("LLM call failed") from exc2

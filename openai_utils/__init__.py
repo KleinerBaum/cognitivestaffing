@@ -12,7 +12,13 @@ Most existing code imports directly from ``openai_utils``; the symbols below are
 re-exported for backward compatibility.
 """
 
-from .api import ChatCallResult, call_chat_api, get_client, client
+from .api import (
+    ChatCallResult,
+    call_chat_api,
+    get_client,
+    client,
+    model_supports_temperature,
+)
 from .tools import build_extraction_tool
 from .extraction import *  # noqa: F401,F403
 from .extraction import __all__ as _extraction_all
@@ -22,5 +28,6 @@ __all__ = [
     "call_chat_api",
     "client",
     "get_client",
+    "model_supports_temperature",
     "build_extraction_tool",
 ] + _extraction_all
