@@ -5,6 +5,8 @@ class UIKeys:
     PROFILE_FILE_UPLOADER = "ui.profile_file_uploader"
     PROFILE_URL_INPUT = "ui.profile_url_input"
     LANG_SELECT = "ui.lang_select"
+    INPUT_METHOD = "ui.input_method"
+    COMPANY_LOGO = "ui.company_logo"
     MODEL_SELECT = "ui.model_select"
     REASONING_SELECT = "ui.reasoning_select"
     TONE_SELECT = "ui.summary.tone"
