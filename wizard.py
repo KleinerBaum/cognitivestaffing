@@ -1754,17 +1754,30 @@ def _step_compensation():
     )
     data = st.session_state[StateKeys.PROFILE]
 
-    salary_min = float(data["compensation"].get("salary_min") or 0.0)
-    salary_max = float(data["compensation"].get("salary_max") or 0.0)
-    salary_min, salary_max = st.slider(
-        tr("Gehaltsspanne", "Salary range"),
-        min_value=0.0,
-        max_value=500000.0,
-        value=(salary_min, salary_max),
-        step=1000.0,
+    stored_min = data["compensation"].get("salary_min")
+    stored_max = data["compensation"].get("salary_max")
+    default_min = int(stored_min) if stored_min else 50000
+    default_max = int(stored_max) if stored_max else 70000
+
+    c_salary_min, c_salary_max = st.columns(2)
+    salary_min = c_salary_min.number_input(
+        tr("Gehalt von", "Salary from"),
+        min_value=0,
+        max_value=500000,
+        value=default_min,
+        step=1000,
+        format="%i",
     )
-    data["compensation"]["salary_min"] = salary_min
-    data["compensation"]["salary_max"] = salary_max
+    salary_max = c_salary_max.number_input(
+        tr("Gehalt bis", "Salary to"),
+        min_value=0,
+        max_value=500000,
+        value=default_max,
+        step=1000,
+        format="%i",
+    )
+    data["compensation"]["salary_min"] = int(salary_min)
+    data["compensation"]["salary_max"] = int(salary_max)
     data["compensation"]["salary_provided"] = bool(salary_min or salary_max)
 
     c1, c2, c3 = st.columns(3)
