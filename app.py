@@ -16,6 +16,7 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
 from components.salary_dashboard import render_salary_dashboard  # noqa: E402
 from components.model_selector import model_selector  # noqa: E402
 from components.reasoning_selector import reasoning_selector  # noqa: E402
+from constants.keys import UIKeys  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state, reset_state  # noqa: E402
@@ -25,6 +26,7 @@ st.set_page_config(
     page_title="Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool",
     page_icon="🧭",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 # --- Helpers zum Laden lokaler JSON-Configs ---
@@ -66,6 +68,45 @@ def inject_global_css() -> None:
 
 inject_global_css()
 
+SIDEBAR_CONTAINER_SELECTOR = "section[data-testid='stSidebar']"
+SIDEBAR_COLLAPSE_SELECTORS = (
+    "div[data-testid='collapsedControl']",
+    "div[data-testid='stSidebarCollapsedControl']",
+)
+
+
+def apply_sidebar_visibility(visible: bool) -> None:
+    """Apply CSS rules to enforce the preferred sidebar visibility.
+
+    Args:
+        visible: Whether the sidebar should be shown.
+    """
+
+    hidden_selectors = list(SIDEBAR_COLLAPSE_SELECTORS)
+    if not visible:
+        hidden_selectors.append(SIDEBAR_CONTAINER_SELECTOR)
+    css_rules = "\n".join(
+        f"{selector} {{ display: none; }}" for selector in hidden_selectors
+    )
+    st.markdown(f"<style>{css_rules}</style>", unsafe_allow_html=True)
+
+
+sidebar_visible = st.session_state.get(UIKeys.SIDEBAR_VISIBLE, True)
+apply_sidebar_visibility(sidebar_visible)
+
+toggle_placeholder = st.container()
+
+if not sidebar_visible:
+    with toggle_placeholder:
+        _, button_col = st.columns([1, 0.22])
+        with button_col:
+            if st.button(
+                tr("➡️ Sidebar einblenden", "➡️ Show sidebar"),
+                key=UIKeys.SIDEBAR_SHOW,
+            ):
+                st.session_state[UIKeys.SIDEBAR_VISIBLE] = True
+                st.rerun()
+
 SCHEMA = load_json("schema/need_analysis.schema.json", fallback={})
 CRITICAL = set(
     load_json("critical_fields.json", fallback={"critical": []}).get("critical", [])
@@ -86,28 +127,37 @@ st.markdown(
 )
 
 # --- Sidebar: globale Controls ---
-with st.sidebar:
-    st.markdown(tr("### ⚙️ Einstellungen", "### ⚙️ Settings"))
-    st.session_state.lang = st.selectbox(
-        tr("Sprache", "Language"),
-        ["de", "en"],
-        index=(0 if st.session_state.lang == "de" else 1),
-    )
-    if "ui.dark_mode" not in st.session_state:
-        st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
+if sidebar_visible:
+    with st.sidebar:
+        if st.button(
+            tr("⬅️ Sidebar ausblenden", "⬅️ Hide sidebar"),
+            key=UIKeys.SIDEBAR_HIDE,
+            use_container_width=True,
+        ):
+            st.session_state[UIKeys.SIDEBAR_VISIBLE] = False
+            st.rerun()
 
-    def _on_theme_toggle() -> None:
-        st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
+        st.markdown(tr("### ⚙️ Einstellungen", "### ⚙️ Settings"))
+        st.session_state.lang = st.selectbox(
+            tr("Sprache", "Language"),
+            ["de", "en"],
+            index=(0 if st.session_state.lang == "de" else 1),
+        )
+        if "ui.dark_mode" not in st.session_state:
+            st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
 
-    st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
-    model_selector()
-    reasoning_selector()
+        def _on_theme_toggle() -> None:
+            st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
-    if st.button("🔁 Reset Wizard", type="secondary"):
-        reset_state()
-        st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
+        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
+        model_selector()
+        reasoning_selector()
 
-render_salary_dashboard(st.session_state)
+        if st.button("🔁 Reset Wizard", type="secondary"):
+            reset_state()
+            st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
+
+    render_salary_dashboard(st.session_state)
 
 # --- Wizard einbinden + Advantages Page via st.navigation ---
 from wizard import run_wizard  # noqa: E402
