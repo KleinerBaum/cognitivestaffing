@@ -93,6 +93,10 @@ class Employment(BaseModel):
     remote_percentage: Optional[int] = None
     contract_end: Optional[str] = None
     travel_required: Optional[bool] = None
+    travel_share: Optional[int] = None
+    travel_region_scope: Optional[str] = None
+    travel_regions: List[str] = Field(default_factory=list)
+    travel_continents: List[str] = Field(default_factory=list)
     travel_details: Optional[str] = None
     overtime_expected: Optional[bool] = None
     relocation_support: Optional[bool] = None

@@ -364,6 +364,32 @@
                         "null"
                     ]
                 },
+                "travel_share": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "travel_region_scope": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "travel_regions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                },
+                "travel_continents": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                },
                 "travel_details": {
                     "type": [
                         "string",
@@ -415,6 +441,10 @@
                 "remote_percentage",
                 "contract_end",
                 "travel_required",
+                "travel_share",
+                "travel_region_scope",
+                "travel_regions",
+                "travel_continents",
                 "travel_details",
                 "overtime_expected",
                 "relocation_support",
