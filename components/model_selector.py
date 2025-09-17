@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from config import OPENAI_MODEL
+from config import GPT5_MINI, GPT5_NANO, OPENAI_MODEL
 from constants.keys import UIKeys
 
 
@@ -17,18 +17,31 @@ def model_selector(key: str = "model") -> str:
     Returns:
         The chosen model identifier.
     """
-    models = [
-        "gpt-4o-mini",
-        "gpt-4o",
-        "gpt-4.1-mini",
-        "gpt-4.1",
-        "gpt-3.5-turbo",
-    ]
-    default = st.session_state.get(key, OPENAI_MODEL)
-    if default not in models:
-        models.insert(0, default)
-    model = st.selectbox(
-        "Model", models, index=models.index(default), key=UIKeys.MODEL_SELECT
+    option_map = {
+        "Automatisch: GPT-5 (empfohlen)": "",
+        "Force GPT-5 mini": GPT5_MINI,
+        "Force GPT-5 nano": GPT5_NANO,
+    }
+    override = st.session_state.get("model_override", "")
+    default_label = next(
+        (label for label, value in option_map.items() if value == override),
+        next(iter(option_map)),
     )
-    st.session_state[key] = model
-    return model
+    selection = st.selectbox(
+        "Basismodell",
+        list(option_map.keys()),
+        index=list(option_map.keys()).index(default_label),
+        key=UIKeys.MODEL_SELECT,
+    )
+    chosen = option_map[selection]
+    st.session_state["model_override"] = chosen
+    resolved = chosen or OPENAI_MODEL
+    st.session_state[key] = resolved
+    st.session_state["model"] = resolved
+    if not chosen:
+        st.caption(
+            "Die App wählt automatisch zwischen GPT-5-mini und GPT-5-nano je nach Aufgabe."
+        )
+    else:
+        st.caption("Override aktiv – alle Aufrufe verwenden das ausgewählte Modell.")
+    return resolved

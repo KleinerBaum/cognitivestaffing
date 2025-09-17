@@ -3,7 +3,7 @@
 from typing import Any, Final, Sequence, Tuple
 
 import streamlit as st
-from config import OPENAI_MODEL
+from config import ModelTask, get_model_for
 
 
 # ``openai_utils`` is an optional dependency. Import lazily so that the
@@ -14,7 +14,7 @@ def _call_chat_api(messages: list[dict], **kwargs: Any) -> str:
     from openai_utils import call_chat_api
 
     if "model" not in kwargs:
-        kwargs["model"] = st.session_state.get("model", OPENAI_MODEL)
+        kwargs["model"] = get_model_for(ModelTask.DEFAULT)
     res = call_chat_api(messages, **kwargs)
     return (res.content or "") if hasattr(res, "content") else str(res)
 

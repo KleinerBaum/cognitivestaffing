@@ -189,7 +189,9 @@ _HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
 
 _EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 _PHONE_RE = re.compile(r"\+?\d[\d\s().\-/]{5,}\d")
-_CONTACT_LABEL_RE = re.compile(r"(kontakt|contact|homepage|telefon|phone|e-?mail)\s*[:–—-]")
+_CONTACT_LABEL_RE = re.compile(
+    r"(kontakt|contact|homepage|telefon|phone|e-?mail)\s*[:–—-]"
+)
 
 
 def _read_url(url: str) -> str:

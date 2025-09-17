@@ -16,7 +16,13 @@ from openai_utils import model_supports_reasoning, model_supports_temperature
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
-from config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, REASONING_EFFORT
+from config import (
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    REASONING_EFFORT,
+    ModelTask,
+    get_model_for,
+)
 
 logger = logging.getLogger("cognitive_needs.llm")
 
@@ -118,7 +124,7 @@ def extract_json(
         _minimal_messages(text) if minimal else build_extract_messages(text, title, url)
     )
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
-    model = st.session_state.get("model", OPENAI_MODEL)
+    model = get_model_for(ModelTask.EXTRACTION)
     try:
         request: dict[str, Any] = {
             "model": model,

@@ -40,6 +40,8 @@ def ensure_state() -> None:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:
         st.session_state["model"] = OPENAI_MODEL
+    if "model_override" not in st.session_state:
+        st.session_state["model_override"] = ""
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "openai_api_key_missing" not in st.session_state:
@@ -84,7 +86,7 @@ def reset_state() -> None:
     reinitializes defaults via :func:`ensure_state`.
     """
 
-    preserve = {"lang", "model", "vector_store_id", "auto_reask"}
+    preserve = {"lang", "model", "model_override", "vector_store_id", "auto_reask"}
     for key in list(st.session_state.keys()):
         if key not in preserve:
             del st.session_state[key]

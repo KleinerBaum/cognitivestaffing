@@ -2,15 +2,13 @@
 
 **Cognitive Needs** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
-Cognitive Needs supports OpenAI’s cost-optimized `gpt-4o-mini` and flagship
-`gpt-4o` models on compatible endpoints and falls back to the widely available
-`gpt-3.5-turbo` by default. These newer models improve reasoning, support
-JSON-mode structured output and tool calls, and deliver lower cost and
-latency. They trade off a shorter context window and slightly lower language
-fluency compared to full GPT‑4. The app communicates via the `responses.create`
-API, enabling JSON schema validation and function/tool calling. Custom models
-such as `gpt-4o-mini` require a specialized OpenAI/Azure endpoint and are not
-available on standard OpenAI accounts.
+Cognitive Needs routes tasks across OpenAI’s GPT‑5 family to balance quality
+and cost. `gpt-5-mini` powers extraction, document generation and other
+reasoning-heavy flows, while `gpt-5-nano` handles fast list suggestions and
+heuristics. Embeddings and vector search use `text-embedding-3-small`. All LLM
+calls use the Responses API (`responses.create`) with JSON schema validation
+and function/tool calling. Set `OPENAI_MODEL` or the in-app selector to override
+the base model if needed.
 
 ## Highlights
 - **Dynamic Wizard**: multi‑step, bilingual (EN/DE), low‑friction inputs with tabbed text/upload/URL choices and auto-start analysis
@@ -42,10 +40,11 @@ available on standard OpenAI accounts.
 - **Cached ESCO calls**: Streamlit caching avoids repeated API requests
 - **Auto-filled skills**: essential ESCO skills merge into required skills; generic entries like "Communication" are ignored so follow-ups stay relevant
 - **RAG‑Assist**: use your vector store to fill/contextualize *(requires setting `VECTOR_STORE_ID` and a populated vector store)*
-- **Reasoning models**: uses cost-optimized `gpt-4o-mini`/`gpt-4o` on
-  supported endpoints, falling back to `gpt-3.5-turbo` by default for the public
-  API. The Responses API enables JSON mode and tool calling at lower cost/latency,
-  albeit with shorter context and slightly lower fluency than full GPT‑4
+- **Model routing**: automatically dispatches calls to `gpt-5-mini` for
+  extraction, job ads, interview guides and refinements, and to `gpt-5-nano`
+  for cost-sensitive suggestion flows. Embeddings rely on
+  `text-embedding-3-small`, all via the OpenAI Responses API with JSON schema
+  and tool support.
 - **Inline refinement**: adjust generated documents with custom instructions and instantly update the view
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
@@ -107,7 +106,7 @@ Requires **Python 3.11 or 3.12**.
    ```bash
    export OPENAI_API_KEY=sk-your-key
    # optional overrides
-   export OPENAI_MODEL=gpt-4                  # e.g., gpt-3.5-turbo, gpt-4, gpt-4o-mini
+   export OPENAI_MODEL=gpt-5-mini             # e.g., gpt-5-mini, gpt-5-nano
    export REASONING_EFFORT=high               # low|medium|high (default: medium)
    export OPENAI_BASE_URL=http://localhost:8080/v1  # custom endpoint
    # optional: enable RAG suggestions via vector store
@@ -122,27 +121,30 @@ Requires **Python 3.11 or 3.12**.
 
 Run `streamlit run app.py` to start the app locally and open the URL shown in your terminal.
 
-If you run the app with a standard OpenAI API key, it will default to
-`gpt-3.5-turbo`. Set `OPENAI_MODEL=gpt-4` for full GPT‑4 access. Custom mini
-models such as `gpt-4o-mini` require a compatible OpenAI or Azure endpoint.
+With a standard OpenAI API key, the app defaults to `gpt-5-mini`. Set
+`OPENAI_MODEL` to another Responses-compatible chat model if you need to force
+an alternative.
 
 ### Model selection & reasoning effort
 
-Cognitive Needs auto-detects the endpoint: it uses `gpt-4o-mini` on compatible custom
-deployments and `gpt-3.5-turbo` on the public API. Set `OPENAI_MODEL` or
-`DEFAULT_MODEL` to `gpt-4o`, `gpt-4`, or any other supported model, and adjust
-`REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less
-deliberate thinking:
+Cognitive Needs now routes calls through a dispatcher: `gpt-5-mini` powers
+extraction, refinements and content generation, while `gpt-5-nano` handles
+cost-sensitive suggestion flows. Set `OPENAI_MODEL` or `DEFAULT_MODEL` if you
+need to force a different Responses-compatible chat model, and adjust
+`REASONING_EFFORT` (`low`, `medium`, or `high`) for more or less deliberate
+thinking:
 
 ```bash
-export OPENAI_MODEL=gpt-4
+export OPENAI_MODEL=gpt-5-mini
 export REASONING_EFFORT=low
 ```
 
-The in-app selector lists currently supported Responses API chat models:
-`gpt-4o-mini`, `gpt-4o`, `gpt-4.1-mini`, `gpt-4.1`, and `gpt-3.5-turbo`.
-Legacy names such as `gpt-3.5-turbo-16k` or `gpt-5-nano` are no longer
-available.
+The in-app selector offers three options:
+
+- **Automatisch: GPT-5 (empfohlen)** – uses the dispatcher to pick `gpt-5-mini`
+  or `gpt-5-nano` per task.
+- **Force GPT-5 mini** – forces `gpt-5-mini` for every request.
+- **Force GPT-5 nano** – forces `gpt-5-nano` for every request.
 
 Set `OPENAI_BASE_URL` to point to a compatible endpoint if you are not using
 the default OpenAI API URL.
@@ -157,7 +159,7 @@ define `OPENAI_API_KEY` before launching the app:
 export OPENAI_API_KEY=sk-your-key
 # optional overrides
 export OPENAI_BASE_URL=https://api.openai.com/v1  # e.g., Azure/OpenAI responses endpoint
-export OPENAI_MODEL=gpt-4
+export OPENAI_MODEL=gpt-5-mini
 ```
 
 You can also place these values in `.streamlit/secrets.toml` under an `openai`
@@ -167,7 +169,7 @@ section, which the app reads automatically:
 [openai]
 OPENAI_API_KEY = "sk-your-key"
 OPENAI_BASE_URL = "https://api.openai.com/v1"
-OPENAI_MODEL = "gpt-4"
+OPENAI_MODEL = "gpt-5-mini"
 ```
 
 Other environment flags:
@@ -209,7 +211,7 @@ If `VECTOR_STORE_ID` is unset or empty, Cognitive Needs runs without RAG.
 ## Known Limitations
 
 - Relies on the OpenAI Responses API; accounts without access cannot run the app.
-- `gpt-4o-mini` and other custom models require specialized OpenAI or Azure endpoints.
+- `gpt-5-mini` and `gpt-5-nano` require the OpenAI Responses API (or Azure equivalents).
 - RAG suggestions only work when a populated OpenAI vector store is configured.
 
 ## Config Files

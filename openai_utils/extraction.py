@@ -5,9 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Sequence
 
-import streamlit as st
-
-from config import OPENAI_MODEL
+from config import ModelTask, get_model_for
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
@@ -29,7 +27,7 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     if not text:
         return {}
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.COMPANY_INFO)
 
     prompt = (
         "Analyze the following company website text and extract: the official "
@@ -159,7 +157,7 @@ def extract_with_function(
     """
 
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.EXTRACTION)
 
     system_prompt = (
         "You are a vacancy extraction engine. Analyse the job advertisement "
@@ -244,7 +242,7 @@ def suggest_additional_skills(
     if not job_title:
         return {"technical": [], "soft": []}
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.SKILL_SUGGESTION)
     half = num_suggestions // 2
     if lang.startswith("de"):
         prompt = (
@@ -371,7 +369,7 @@ def suggest_skills_for_role(
             "soft_skills": [],
         }
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.SKILL_SUGGESTION)
 
     if lang.startswith("de"):
         prompt = (
@@ -488,7 +486,7 @@ def suggest_benefits(
     if not job_title:
         return []
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.BENEFIT_SUGGESTION)
     if lang.startswith("de"):
         prompt = f"Nenne bis zu 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} üblich sind"
         if industry:
@@ -590,7 +588,7 @@ def suggest_role_tasks(
     if not job_title:
         return []
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.TASK_SUGGESTION)
     prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role as a JSON array."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 180 if not model or "nano" in model else 250
@@ -665,7 +663,7 @@ def generate_interview_guide(
         num_questions + len(hard_list) + len(soft_list) + (1 if company_culture else 0)
     )
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.INTERVIEW_GUIDE)
     job_title = job_title.strip() or "this position"
     if lang.startswith("de"):
         tone = tone or "professionell und hilfreich"
@@ -751,7 +749,7 @@ def generate_job_ad(
         data["compensation.benefits"] = deduped
     lang = data.get("lang", "en")
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.JOB_AD)
     if tone is None:
         tone = (
             "klar, ansprechend und inklusiv"
@@ -952,7 +950,7 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
         The revised document text.
     """
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.DOCUMENT_REFINEMENT)
     prompt = (
         "Revise the following document based on the user instructions.\n"
         f"Document:\n{original}\n\n"
@@ -982,7 +980,7 @@ def what_happened(
         Explanation text summarizing the generation process.
     """
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.EXPLANATION)
     keys_used = [k for k, v in session_data.items() if v]
     prompt = (
         f"Explain how the following {doc_type} was generated using the keys: {', '.join(keys_used)}.\n"

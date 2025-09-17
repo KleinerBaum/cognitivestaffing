@@ -32,7 +32,7 @@ from utils.i18n import tr
 from core.esco_utils import normalize_skills
 from core.suggestions import get_benefit_suggestions
 from integrations.esco import enrich_skills, search_occupation
-from config import OPENAI_API_KEY, OPENAI_MODEL, VECTOR_STORE_ID
+from config import OPENAI_API_KEY, VECTOR_STORE_ID, ModelTask, get_model_for
 
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
@@ -494,7 +494,7 @@ def _rag_suggestions(
     )
     if not vector_store_id:
         return {}
-    model = model or st.session_state.get("model", OPENAI_MODEL)
+    model = get_model_for(ModelTask.RAG_SUGGESTIONS, override=model)
     sys = (
         "You provide short, concrete suggestions to help complete a profile. "
         "Use retrieved context; if none, return empty arrays. Respond as a JSON object "
@@ -603,8 +603,7 @@ def ask_followups(
         parsing fails or the response is invalid.
     """
 
-    if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+    model = get_model_for(ModelTask.FOLLOW_UP_QUESTIONS, override=model)
     vector_store_id = (
         vector_store_id
         or st.session_state.get("vector_store_id")
