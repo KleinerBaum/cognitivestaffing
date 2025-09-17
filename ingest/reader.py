@@ -187,6 +187,10 @@ def _read_pdf(path: Path) -> str:
 _URL_RE = re.compile(r"^https?://[\w./-]+$")
 _HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
 
+_EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+_PHONE_RE = re.compile(r"\+?\d[\d\s().\-/]{5,}\d")
+_CONTACT_LABEL_RE = re.compile(r"(kontakt|contact|homepage|telefon|phone|e-?mail)\s*[:–—-]")
+
 
 def _read_url(url: str) -> str:
     if not url or not _URL_RE.match(url):
@@ -230,7 +234,12 @@ def _looks_like_navigation(line: str) -> bool:
         and len(normalized) <= 160
     ):
         return True
+    has_email = bool(_EMAIL_RE.search(stripped))
+    has_phone = bool(_PHONE_RE.search(stripped))
+    has_contact_label = bool(_CONTACT_LABEL_RE.search(normalized))
     if re.search(r"https?://|www\.\w", normalized):
+        if has_contact_label or has_email or has_phone:
+            return False
         return True
 
     tokens = _WORD_RE.findall(normalized)

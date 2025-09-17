@@ -21,3 +21,14 @@ def test_clean_job_text_preserves_bullets():
     cleaned = clean_job_text(raw)
     assert cleaned.startswith("- Verantwortung übernehmen")
     assert "Analysieren" in cleaned
+
+
+def test_clean_job_text_preserves_contact_lines():
+    raw = (
+        "Deine Aufgaben\n"
+        "Kontakt: recruiting@example.com | https://example.com/kontakt\n"
+        "Homepage: https://example.com/jobs\n"
+    )
+    cleaned = clean_job_text(raw)
+    assert "Kontakt: recruiting@example.com | https://example.com/kontakt" in cleaned
+    assert "Homepage: https://example.com/jobs" in cleaned
