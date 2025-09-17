@@ -2664,8 +2664,6 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
     data = st.session_state[StateKeys.PROFILE]
-    completed = set(data.get("meta", {}).get("followups_answered", []))
-    missing = missing_keys(data, _critical, ignore=completed)
 
     tabs = st.tabs(
         [
@@ -2863,51 +2861,18 @@ def _step_summary(schema: dict, _critical: list[str]):
             st.markdown("**Interview Guide:**")
             st.markdown(st.session_state[StateKeys.INTERVIEW_GUIDE_MD])
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.button(
-            tr("💡 Follow-ups vorschlagen (LLM)", "💡 Suggest follow-ups (LLM)"),
-            type="primary",
-        ):
-            payload = {"lang": st.session_state.lang, "data": data, "missing": missing}
-            try:
-                res = ask_followups(
-                    payload,
-                    model=st.session_state.model,
-                    vector_store_id=st.session_state.vector_store_id or None,
-                )
-                done = set(
-                    st.session_state[StateKeys.PROFILE]
-                    .get("meta", {})
-                    .get("followups_answered", [])
-                )
-                st.session_state[StateKeys.FOLLOWUPS] = [
-                    q for q in res.get("questions", []) if q.get("field") not in done
-                ]
-                st.success(
-                    tr("Follow-ups aktualisiert.", "Follow-up questions updated.")
-                )
-            except Exception as e:
-                display_error(
-                    tr("Follow-ups fehlgeschlagen", "Follow-ups failed"),
-                    str(e),
-                )
-
-    with col2:
-        if st.session_state.get(StateKeys.FOLLOWUPS):
-            st.write(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
-            for item in st.session_state[StateKeys.FOLLOWUPS]:
-                key = item.get(
-                    "key"
-                )  # dot key, z.B. "requirements.hard_skills_required"
-                q = item.get("question")
-                if not key or not q:
-                    continue
-                st.markdown(f"**{q}**")
-                label = tr("Antwort für", "Answer for")
-                val = st.text_input(f"{label} {key}", key=f"fu_{key}")
-                if val:
-                    set_in(data, key, val)
+    if st.session_state.get(StateKeys.FOLLOWUPS):
+        st.write(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
+        for item in st.session_state[StateKeys.FOLLOWUPS]:
+            key = item.get("key")  # dot key, z.B. "requirements.hard_skills_required"
+            q = item.get("question")
+            if not key or not q:
+                continue
+            st.markdown(f"**{q}**")
+            label = tr("Antwort für", "Answer for")
+            val = st.text_input(f"{label} {key}", key=f"fu_{key}")
+            if val:
+                set_in(data, key, val)
 
     st.divider()
 
