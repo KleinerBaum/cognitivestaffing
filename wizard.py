@@ -506,7 +506,10 @@ def _maybe_run_extraction(schema: dict) -> None:
     if not should_run:
         return
 
-    raw_input = st.session_state.get(StateKeys.RAW_TEXT, "") or ""
+    raw_input = st.session_state.get(StateKeys.RAW_TEXT, "")
+    if not raw_input:
+        raw_input = st.session_state.get("__prefill_profile_text__", "")
+    raw_input = raw_input or ""
     raw_clean = clean_job_text(raw_input)
     if not raw_clean.strip():
         st.session_state["_analyze_attempted"] = True
