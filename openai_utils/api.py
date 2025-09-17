@@ -43,6 +43,23 @@ client: OpenAI | None = None
 
 
 _REASONING_MODEL_PATTERN = re.compile(r"^o\d")
+_MODELS_WITHOUT_TEMPERATURE: set[str] = set()
+
+
+def _normalise_model_name(model: Optional[str]) -> str:
+    """Return ``model`` as a lower-cased identifier without surrounding whitespace."""
+
+    if not model:
+        return ""
+    return model.strip().lower()
+
+
+def _mark_model_without_temperature(model: Optional[str]) -> None:
+    """Remember that ``model`` rejects the ``temperature`` parameter."""
+
+    normalized = _normalise_model_name(model)
+    if normalized:
+        _MODELS_WITHOUT_TEMPERATURE.add(normalized)
 
 
 def model_supports_reasoning(model: Optional[str]) -> bool:
@@ -72,14 +89,35 @@ def model_supports_temperature(model: Optional[str]) -> bool:
     those names heuristically and omit the parameter when necessary.
     """
 
-    if not model:
-        return True
-    normalized = model.strip().lower()
+    normalized = _normalise_model_name(model)
     if not normalized:
         return True
+    if normalized in _MODELS_WITHOUT_TEMPERATURE:
+        return False
     if model_supports_reasoning(model):
         return False
     return "reasoning" not in normalized
+
+
+def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
+    """Return ``True`` if ``error`` indicates the model rejected ``temperature``."""
+
+    message = getattr(error, "message", str(error)).lower()
+    return "unsupported parameter" in message and "temperature" in message
+
+
+def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
+    """Send ``payload`` to the Responses API and retry without temperature if needed."""
+
+    try:
+        return get_client().responses.create(**payload)
+    except BadRequestError as err:
+        if "temperature" in payload and _is_temperature_unsupported_error(err):
+            _mark_model_without_temperature(model)
+            payload.pop("temperature", None)
+            cleaned_payload = dict(payload)
+            return get_client().responses.create(**cleaned_payload)
+        raise
 
 
 @dataclass
@@ -210,7 +248,7 @@ def call_chat_api(
     if extra:
         payload.update(extra)
 
-    response = get_client().responses.create(**payload)
+    response = _execute_response(payload, model)
 
     content = getattr(response, "output_text", None)
 
@@ -270,7 +308,7 @@ def call_chat_api(
         if executed:
             payload["input"] = messages_list
             payload.pop("tool_choice", None)
-            response = get_client().responses.create(**payload)
+            response = _execute_response(payload, model)
             content = getattr(response, "output_text", None)
             extra_calls: list[dict] = []
             for item in getattr(response, "output", []) or []:
