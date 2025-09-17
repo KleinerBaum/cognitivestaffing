@@ -14,6 +14,16 @@ from openai_utils import (
 from openai import AuthenticationError, RateLimitError
 
 
+@pytest.fixture(autouse=True)
+def reset_temperature_cache(monkeypatch):
+    """Ensure temperature capability cache is cleared between tests."""
+
+    monkeypatch.setattr(
+        openai_utils.api, "_MODELS_WITHOUT_TEMPERATURE", set(), raising=False
+    )
+    yield
+
+
 def test_call_chat_api_raises_when_no_api_key(monkeypatch):
     """call_chat_api should raise if OpenAI API key is missing."""
     monkeypatch.setattr("openai_utils.api.OPENAI_API_KEY", "")
@@ -183,6 +193,44 @@ def test_call_chat_api_skips_temperature_for_reasoning_model(monkeypatch):
         temperature=0.7,
     )
     assert "temperature" not in captured
+
+
+def test_call_chat_api_retries_without_temperature(monkeypatch):
+    """The client should retry without temperature when the model rejects it."""
+
+    calls: list[dict[str, Any]] = []
+
+    class _FakeBadRequestError(Exception):
+        def __init__(self, message: str) -> None:
+            super().__init__(message)
+            self.message = message
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise _FakeBadRequestError(
+                    "Unsupported parameter: 'temperature' is not supported with this model."
+                )
+            return type("R", (), {"output": [], "output_text": "", "usage": {}})()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    monkeypatch.setattr("openai_utils.api.BadRequestError", _FakeBadRequestError)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="gpt-5-mini",
+        temperature=0.5,
+    )
+
+    assert len(calls) == 2
+    assert "temperature" in calls[0]
+    assert "temperature" not in calls[1]
+    assert result.tool_calls == []
+    assert not model_supports_temperature("gpt-5-mini")
 
 
 def test_model_supports_temperature_detection() -> None:
