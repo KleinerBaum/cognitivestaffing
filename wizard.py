@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import hashlib
-import html
 import io
 import json
 from datetime import date
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 
 import re
 import streamlit as st
@@ -428,6 +427,24 @@ def _field_label(path: str) -> str:
     return tr(auto.title(), auto.title())
 
 
+def _has_value(value) -> bool:
+    """Return ``True`` if a flattened value should be shown in the overview."""
+
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, list):
+        return any(_has_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(_has_value(item) for item in value.values())
+    return True
+
+
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
 def set_in(d: dict, path: str, value) -> None:
     """Assign a value in a nested dict via dot-separated path."""
@@ -451,6 +468,126 @@ def get_in(d: dict, path: str, default=None):
         else:
             return default
     return cur
+
+
+def _render_overview_field(path: str, data: dict) -> None:
+    """Render an editable field for the overview step."""
+
+    current_value = get_in(data, path)
+    label = _field_label(path)
+    schema_hint = tr("Schema-Schlüssel: {}", "Schema key: {}").format(path)
+    key_base = f"ui.overview.{path}"
+
+    if isinstance(current_value, bool):
+        checked = st.checkbox(
+            label,
+            value=bool(current_value),
+            key=key_base,
+            help=schema_hint,
+        )
+        if checked != current_value:
+            _update_profile(path, checked)
+        st.caption(schema_hint)
+        return
+
+    if isinstance(current_value, list):
+        if all(isinstance(item, str) for item in current_value):
+            serialized = "\n".join(item for item in current_value if item is not None)
+            text_value = st.text_area(
+                label,
+                value=serialized,
+                key=key_base,
+                help=tr(
+                    "Ein Eintrag pro Zeile. {}",
+                    "One entry per line. {}",
+                ).format(schema_hint),
+            )
+            new_items = [
+                line.strip() for line in text_value.splitlines() if line.strip()
+            ]
+            if new_items != current_value:
+                _update_profile(path, new_items)
+        else:
+            serialized = json.dumps(current_value, ensure_ascii=False, indent=2)
+            text_value = st.text_area(
+                label,
+                value=serialized,
+                key=key_base,
+                help=tr(
+                    "Komplexe Werte im JSON-Format bearbeiten. {}",
+                    "Edit complex values using JSON syntax. {}",
+                ).format(schema_hint),
+            )
+            stripped = text_value.strip()
+            if not stripped:
+                empty_list: list[Any] = []
+                if empty_list != current_value:
+                    _update_profile(path, empty_list)
+            else:
+                try:
+                    parsed_value = json.loads(stripped)
+                except json.JSONDecodeError:
+                    st.warning(
+                        tr(
+                            "Ungültiges JSON – Änderungen wurden nicht übernommen.",
+                            "Invalid JSON input – changes were not applied.",
+                        ),
+                        icon="⚠️",
+                    )
+                else:
+                    if parsed_value != current_value:
+                        _update_profile(path, parsed_value)
+        st.caption(schema_hint)
+        return
+
+    if isinstance(current_value, (int, float)) and not isinstance(current_value, bool):
+        text_value = st.text_input(
+            label,
+            value=str(current_value),
+            key=key_base,
+            help=schema_hint,
+        )
+        stripped = text_value.strip()
+        if not stripped:
+            if current_value is not None:
+                _update_profile(path, None)
+        else:
+            target_type = int if isinstance(current_value, int) else float
+            try:
+                parsed = target_type(stripped)
+            except ValueError:
+                st.warning(
+                    tr(
+                        "Ungültige Zahl – bitte prüfen Sie Ihre Eingabe.",
+                        "Invalid number – please check your input.",
+                    ),
+                    icon="⚠️",
+                )
+            else:
+                if parsed != current_value:
+                    _update_profile(path, parsed)
+        st.caption(schema_hint)
+        return
+
+    text_widget = (
+        st.text_area
+        if isinstance(current_value, str)
+        and (len(current_value) > 120 or "\n" in current_value)
+        else st.text_input
+    )
+    text_value = text_widget(
+        label,
+        value=current_value if isinstance(current_value, str) else str(current_value),
+        key=key_base,
+        help=schema_hint,
+    )
+    if isinstance(current_value, str):
+        candidate = text_value if text_value.strip() else None
+    else:
+        candidate = text_value.strip() if text_value.strip() else None
+    if candidate != current_value:
+        _update_profile(path, candidate)
+    st.caption(schema_hint)
 
 
 def _render_followup_question(q: dict, data: dict) -> None:
@@ -877,8 +1014,8 @@ def _step_onboarding(schema: dict) -> None:
         )
 
 
-def _step_overview(schema: dict, critical: list[str]) -> None:
-    """Display a tabular overview of extracted and missing fields."""
+def _step_overview(_schema: dict, critical: list[str]) -> None:
+    """Display an editable overview of populated fields."""
 
     st.subheader(tr("Übersicht", "Overview"))
     st.caption(
@@ -887,42 +1024,17 @@ def _step_overview(schema: dict, critical: list[str]) -> None:
             "Required fields without a value are highlighted in red. Complete them in the next steps.",
         )
     )
+    st.caption(
+        tr(
+            "Bearbeiten Sie vorhandene Werte direkt hier. Änderungen werden automatisch übernommen.",
+            "Edit existing values directly here. Changes are applied across the wizard.",
+        )
+    )
 
     data = st.session_state.get(StateKeys.PROFILE, {}) or {}
     flat = flatten(data)
-    all_fields = set(flat.keys()) | set(critical)
-    rows: list[dict[str, str]] = []
     missing = missing_keys(data, critical, ignore=set())
     missing_labels = [_field_label(f) for f in missing]
-
-    for field in sorted(all_fields):
-        if field.startswith("meta."):
-            continue
-        value = flat.get(field)
-        is_required = field in critical
-        is_missing = field in missing
-        if isinstance(value, list):
-            display_value = ", ".join(str(v) for v in value if str(v).strip())
-        elif isinstance(value, bool):
-            display_value = tr("Ja", "Yes") if value else tr("Nein", "No")
-        elif value is None:
-            display_value = ""
-        else:
-            display_value = str(value)
-        status_label = (
-            tr("Fehlt", "Missing")
-            if is_missing and is_required
-            else tr("Erfasst", "Captured") if display_value else tr("Leer", "Empty")
-        )
-        rows.append(
-            {
-                "field": _field_label(field),
-                "value": display_value or tr("—", "—"),
-                "required": tr("Ja", "Yes") if is_required else tr("Nein", "No"),
-                "status": status_label,
-                "status_code": "missing" if is_missing and is_required else "ok",
-            }
-        )
 
     if missing_labels:
         st.error(
@@ -940,7 +1052,13 @@ def _step_overview(schema: dict, critical: list[str]) -> None:
             )
         )
 
-    if not rows:
+    filled_fields = [
+        field
+        for field, value in sorted(flat.items())
+        if not field.startswith("meta.") and _has_value(value)
+    ]
+
+    if not filled_fields:
         st.info(
             tr(
                 "Noch keine Daten vorhanden – starten Sie mit einer Vorlage oder füllen Sie die nächsten Schritte manuell aus.",
@@ -949,41 +1067,10 @@ def _step_overview(schema: dict, critical: list[str]) -> None:
         )
         return
 
-    header = (
-        f"<thead><tr>"
-        f"<th>{tr('Feld', 'Field')}</th>"
-        f"<th>{tr('Wert', 'Value')}</th>"
-        f"<th>{tr('Pflicht', 'Required')}</th>"
-        f"<th>{tr('Status', 'Status')}</th>"
-        "</tr></thead>"
-    )
-    body_rows: list[str] = []
-    for row in rows:
-        style = (
-            "background-color:#fee2e2;color:#991b1b;"
-            if row["status_code"] == "missing"
-            else ""
-        )
-        value_html = html.escape(row["value"]).replace("\n", "<br>")
-        body_rows.append(
-            "<tr style='{}'><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
-                style,
-                html.escape(row["field"]),
-                value_html,
-                html.escape(row["required"]),
-                html.escape(row["status"]),
-            )
-        )
-    body = "<tbody>" + "".join(body_rows) + "</tbody>"
-    table_html = (
-        "<style>"
-        ".overview-table {width:100%;border-collapse:collapse;margin-top:0.5rem;}"
-        ".overview-table th, .overview-table td {border:1px solid rgba(148,163,184,0.4);padding:0.5rem;text-align:left;}"
-        ".overview-table tbody tr:nth-child(even) {background-color: rgba(148, 163, 184, 0.15);}"
-        "</style>"
-        f"<table class='overview-table'>{header}{body}</table>"
-    )
-    st.markdown(table_html, unsafe_allow_html=True)
+    for index, field in enumerate(filled_fields):
+        _render_overview_field(field, data)
+        if index < len(filled_fields) - 1:
+            st.divider()
 
 
 def _step_company():
