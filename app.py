@@ -85,16 +85,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Warnung bei vorhandenem pages/-Ordner (wird trotzdem ignoriert, da st.navigation aktiv ist) ---
-if (ROOT / "pages").exists():
-    st.sidebar.info(
-        tr(
-            "Hinweis: Ein 'pages/'-Ordner wurde erkannt. Diese App nutzt `st.navigation`, daher wird 'pages/' ignoriert.",
-            "Note: A 'pages/' directory was detected. This app uses `st.navigation`, so 'pages/' is ignored.",
-        ),
-        icon="ℹ️",
-    )
-
 # --- Sidebar: globale Controls ---
 with st.sidebar:
     st.markdown(tr("### ⚙️ Einstellungen", "### ⚙️ Settings"))
@@ -102,9 +92,6 @@ with st.sidebar:
         tr("Sprache", "Language"),
         ["de", "en"],
         index=(0 if st.session_state.lang == "de" else 1),
-    )
-    st.session_state.auto_reask = st.toggle(
-        "Auto Follow-ups", value=st.session_state.auto_reask
     )
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
@@ -115,9 +102,6 @@ with st.sidebar:
     st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
     model_selector()
     reasoning_selector()
-    st.session_state.vector_store_id = st.text_input(
-        "Vector Store ID (optional)", value=st.session_state.vector_store_id
-    )
 
     if st.button("🔁 Reset Wizard", type="secondary"):
         reset_state()
