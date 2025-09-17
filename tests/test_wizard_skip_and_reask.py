@@ -14,6 +14,14 @@ def test_skip_source_resets_session(monkeypatch: pytest.MonkeyPatch) -> None:
     st.session_state[StateKeys.PROFILE] = {"position": {"job_title": "X"}}
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {"foo": "bar"}
     st.session_state[StateKeys.EXTRACTION_MISSING] = ["company.name"]
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {
+        "requirements": {"hard_skills_required": ["Python"]}
+    }
+    st.session_state[StateKeys.ESCO_SKILLS] = ["Data Analysis"]
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": ["Python"],
+        "nice": ["Excel"],
+    }
     st.session_state[StateKeys.STEP] = 1
     st.session_state["_analyze_attempted"] = True
     monkeypatch.setattr(st, "rerun", lambda: None)
@@ -24,6 +32,9 @@ def test_skip_source_resets_session(monkeypatch: pytest.MonkeyPatch) -> None:
     assert st.session_state[StateKeys.RAW_TEXT] == ""
     assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == {}
     assert st.session_state[StateKeys.EXTRACTION_MISSING] == []
+    assert st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] == {}
+    assert st.session_state[StateKeys.ESCO_SKILLS] == []
+    assert st.session_state[StateKeys.SKILL_BUCKETS] == {"must": [], "nice": []}
     assert st.session_state[StateKeys.PROFILE] == NeedAnalysisProfile().model_dump()
     assert "_analyze_attempted" not in st.session_state
 
@@ -72,3 +83,5 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
     assert st.session_state[StateKeys.FOLLOWUPS] == [
         {"field": "company.name", "question": "?", "priority": "critical"}
     ]
+    assert StateKeys.EXTRACTION_RAW_PROFILE in st.session_state
+    assert StateKeys.SKILL_BUCKETS in st.session_state

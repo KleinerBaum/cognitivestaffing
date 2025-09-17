@@ -10,6 +10,7 @@ from typing import Any, Iterable, List, Optional
 
 import re
 import streamlit as st
+from streamlit_sortables import sort_items
 
 from utils.i18n import tr
 from constants.keys import UIKeys, StateKeys
@@ -50,6 +51,36 @@ COMPANY_STEP_INDEX = 1
 
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
+
+SKILL_SORTABLE_STYLE = """
+.sortable-component {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.sortable-container {
+    flex: 1 1 220px;
+    min-width: 220px;
+    min-height: 180px;
+    background: var(--background-secondary-color, #f6f6f9);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+}
+.sortable-container-header {
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    font-size: 0.9rem;
+}
+.sortable-item {
+    background: var(--background-color, #ffffff);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+}
+"""
 
 CEFR_LANGUAGE_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2", "Native"]
 
@@ -364,19 +395,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     extracted = extract_with_function(text, schema, model=st.session_state.model)
     profile = coerce_and_fill(extracted)
     profile = apply_basic_fallbacks(profile, text)
-    st.session_state[StateKeys.PROFILE] = profile.model_dump()
-    title = profile.position.job_title or ""
-    occ = search_occupation(title, st.session_state.lang or "en") if title else None
-    if occ:
-        profile.position.occupation_label = occ.get("preferredLabel") or ""
-        profile.position.occupation_uri = occ.get("uri") or ""
-        profile.position.occupation_group = occ.get("group") or ""
-        skills = enrich_skills(occ.get("uri") or "", st.session_state.lang or "en")
-        current_skills = set(profile.requirements.hard_skills_required or [])
-        merged = sorted(current_skills.union(skills or []))
-        profile.requirements.hard_skills_required = merged
-    data = profile.model_dump()
-    st.session_state[StateKeys.PROFILE] = data
+    raw_profile = profile.model_dump()
+    st.session_state[StateKeys.PROFILE] = raw_profile
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
     summary: dict[str, str] = {}
     if profile.position.job_title:
         summary[tr("Jobtitel", "Job title")] = profile.position.job_title
@@ -404,6 +425,35 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     )
     if soft_total:
         summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": _unique_normalized(
+            raw_profile.get("requirements", {}).get("hard_skills_required", [])
+        ),
+        "nice": _unique_normalized(
+            raw_profile.get("requirements", {}).get("hard_skills_optional", [])
+        ),
+    }
+    title = profile.position.job_title or ""
+    occ = search_occupation(title, st.session_state.lang or "en") if title else None
+    st.session_state[StateKeys.ESCO_SKILLS] = []
+    if occ:
+        profile.position.occupation_label = occ.get("preferredLabel") or ""
+        profile.position.occupation_uri = occ.get("uri") or ""
+        profile.position.occupation_group = occ.get("group") or ""
+        skills = enrich_skills(occ.get("uri") or "", st.session_state.lang or "en")
+        current_list = profile.requirements.hard_skills_required or []
+        skills_clean = _unique_normalized(skills or [])
+        original_markers = {item.casefold() for item in current_list}
+        esco_only = [
+            item for item in skills_clean if item.casefold() not in original_markers
+        ]
+        st.session_state[StateKeys.ESCO_SKILLS] = esco_only
+        merged = _unique_normalized(current_list + skills_clean)
+        profile.requirements.hard_skills_required = sorted(
+            merged, key=lambda item: item.casefold()
+        )
+    data = profile.model_dump()
+    st.session_state[StateKeys.PROFILE] = data
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
     for field in CRITICAL_FIELDS:
@@ -501,6 +551,9 @@ def _skip_source() -> None:
     st.session_state[StateKeys.RAW_TEXT] = ""
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     st.session_state[StateKeys.EXTRACTION_MISSING] = []
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {}
+    st.session_state[StateKeys.ESCO_SKILLS] = []
+    st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
     st.session_state.pop("_analyze_attempted", None)
     st.session_state.pop("__last_extracted_hash__", None)
     st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
@@ -598,8 +651,12 @@ def _render_preview_value(value: Any) -> None:
 def _render_prefilled_preview() -> None:
     """Render tabs with all fields that already contain values."""
 
-    profile = st.session_state.get(StateKeys.PROFILE) or {}
-    flat = flatten(profile)
+    raw_profile = (
+        st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
+        or st.session_state.get(StateKeys.PROFILE)
+        or {}
+    )
+    flat = flatten(raw_profile)
     filled = {
         path: value
         for path, value in flat.items()
@@ -652,11 +709,163 @@ def _render_prefilled_preview() -> None:
     tabs = st.tabs([label for label, _ in section_entries])
     for tab, (_, entries) in zip(tabs, section_entries):
         with tab:
-            for index, (path, value) in enumerate(entries):
-                st.markdown(f"**{_field_label(path)}**")
-                _render_preview_value(value)
-                if index < len(entries) - 1:
-                    st.markdown("---")
+            for path, value in entries:
+                col_label, col_value = st.columns([1, 2], vertical_alignment="top")
+                with col_label:
+                    st.markdown(f"**{_field_label(path)}**")
+                with col_value:
+                    _render_preview_value(value)
+                st.markdown(
+                    "<div style='margin-bottom:0.6rem'></div>", unsafe_allow_html=True
+                )
+
+    _render_skill_triage(raw_profile)
+
+
+def _ensure_skill_suggestions(
+    job_title: str, lang: str
+) -> tuple[dict[str, list[str]], str | None]:
+    """Load skill suggestions for ``job_title`` into session state if needed."""
+
+    if not job_title:
+        return {}, None
+    stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+    if stored.get("_title") == job_title and stored.get("_lang") == lang:
+        suggestions = {
+            key: stored.get(key, [])
+            for key in ("hard_skills", "soft_skills", "tools_and_technologies")
+        }
+        return suggestions, None
+    suggestions, error = get_skill_suggestions(job_title, lang=lang)
+    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
+        "_title": job_title,
+        "_lang": lang,
+        **suggestions,
+    }
+    if error and st.session_state.get("debug"):
+        st.session_state["skill_suggest_error"] = error
+    return suggestions, error
+
+
+def _skill_marker_set(values: Iterable[str]) -> set[str]:
+    """Return a casefolded set for quick membership tests."""
+
+    markers: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        cleaned = value.strip()
+        if cleaned:
+            markers.add(cleaned.casefold())
+    return markers
+
+
+def _extract_skill_values(profile: dict) -> list[str]:
+    """Collect unique skill labels from the extracted profile."""
+
+    requirements = profile.get("requirements", {}) if isinstance(profile, dict) else {}
+    combined: list[str] = []
+    for key in (
+        "hard_skills_required",
+        "hard_skills_optional",
+        "tools_and_technologies",
+    ):
+        combined.extend(requirements.get(key, []))
+    return _unique_normalized(combined)
+
+
+def _render_skill_triage(raw_profile: dict) -> None:
+    """Render drag & drop skill buckets for must-have and nice-to-have skills."""
+
+    extracted_skills = _extract_skill_values(raw_profile)
+    esco_skills = _unique_normalized(
+        st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
+    )
+    job_title = (raw_profile.get("position", {}).get("job_title", "") or "").strip()
+    lang = st.session_state.get("lang", "en")
+    if job_title:
+        _ensure_skill_suggestions(job_title, lang)
+    suggestions_state = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+    llm_candidates: list[str] = []
+    for key in ("hard_skills", "soft_skills", "tools_and_technologies"):
+        llm_candidates.extend(suggestions_state.get(key, []))
+    llm_suggestions = _unique_normalized(llm_candidates)
+    extracted_markers = _skill_marker_set(extracted_skills)
+    esco_markers = _skill_marker_set(esco_skills)
+    llm_suggestions = [
+        item
+        for item in llm_suggestions
+        if item.casefold() not in extracted_markers
+        and item.casefold() not in esco_markers
+    ][:5]
+
+    buckets = st.session_state.get(StateKeys.SKILL_BUCKETS) or {"must": [], "nice": []}
+    must_default = _unique_normalized(buckets.get("must", []))
+    nice_default = _unique_normalized(buckets.get("nice", []))
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": must_default,
+        "nice": nice_default,
+    }
+
+    assigned_markers = _skill_marker_set(must_default + nice_default)
+    available_extracted = [
+        item for item in extracted_skills if item.casefold() not in assigned_markers
+    ]
+    available_esco = [
+        item for item in esco_skills if item.casefold() not in assigned_markers
+    ]
+    available_llm = [
+        item for item in llm_suggestions if item.casefold() not in assigned_markers
+    ]
+
+    if not (
+        available_extracted
+        or available_esco
+        or available_llm
+        or must_default
+        or nice_default
+    ):
+        return
+
+    st.markdown(tr("#### Skills priorisieren", "#### Prioritise skills"))
+    st.caption(
+        tr(
+            "Ziehe die Skills per Drag & Drop in die passende Box.",
+            "Drag each skill into the appropriate bucket.",
+        )
+    )
+
+    label_extracted = tr("Extrahierte Skills", "Extracted skills")
+    label_esco = tr("ESCO Vorschläge", "ESCO suggestions")
+    label_llm = tr("LLM Vorschläge", "LLM suggestions")
+    label_must = tr("Must-have", "Must-have")
+    label_nice = tr("Nice-to-have", "Nice-to-have")
+
+    containers = [
+        {"header": label_extracted, "items": available_extracted},
+        {"header": label_esco, "items": available_esco},
+        {"header": label_llm, "items": available_llm},
+        {"header": label_must, "items": must_default},
+        {"header": label_nice, "items": nice_default},
+    ]
+
+    result = sort_items(
+        containers,
+        multi_containers=True,
+        direction="horizontal",
+        custom_style=SKILL_SORTABLE_STYLE,
+        key="skill_triage",
+    )
+    if not result:
+        return
+
+    container_map = {item.get("header"): item.get("items", []) for item in result}
+    must_list = _unique_normalized(container_map.get(label_must, []))
+    nice_list = _unique_normalized(container_map.get(label_nice, []))
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": must_list,
+        "nice": nice_list,
+    }
 
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
@@ -759,6 +968,17 @@ def _update_profile(path: str, value) -> None:
     if get_in(data, path) != value:
         set_in(data, path, value)
         _clear_generated()
+
+
+def _apply_skill_buckets_to_profile() -> None:
+    """Persist the drag-and-drop skill buckets into the profile."""
+
+    buckets = st.session_state.get(StateKeys.SKILL_BUCKETS, {}) or {}
+    must = _unique_normalized(buckets.get("must", []))
+    nice = _unique_normalized(buckets.get("nice", []))
+    st.session_state[StateKeys.SKILL_BUCKETS] = {"must": must, "nice": nice}
+    _update_profile("requirements.hard_skills_required", must)
+    _update_profile("requirements.hard_skills_optional", nice)
 
 
 def _slugify_label(label: str) -> str:
@@ -1089,6 +1309,7 @@ def _step_onboarding(schema: dict) -> None:
             type="primary",
             use_container_width=True,
         ):
+            _apply_skill_buckets_to_profile()
             st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
             st.rerun()
 
@@ -1498,23 +1719,18 @@ def _step_requirements():
 
     # LLM-basierte Skill-Vorschläge abrufen
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
-    stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
-    if job_title and stored.get("_title") != job_title:
-        sugg, err = get_skill_suggestions(
-            job_title,
-            lang=st.session_state.get("lang", "en"),
+    suggestions: dict[str, list[str]] = {}
+    if job_title:
+        suggestions, err = _ensure_skill_suggestions(
+            job_title, st.session_state.get("lang", "en")
         )
-        if err or not any(sugg.values()):
+        if err or not any(suggestions.values()):
             st.warning(
                 tr(
                     "Skill-Vorschläge nicht verfügbar (API-Fehler)",
                     "Skill suggestions not available (API error)",
                 )
             )
-            if err and st.session_state.get("debug"):
-                st.session_state["skill_suggest_error"] = err
-        stored = {"_title": job_title, **sugg}
-        st.session_state[StateKeys.SKILL_SUGGESTIONS] = stored
     suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
 
     label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
@@ -1635,6 +1851,15 @@ def _step_requirements():
             set(data["requirements"].get("soft_skills_required", [])).union(sugg_soft)
         )
         data["requirements"]["soft_skills_required"] = merged
+
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": _unique_normalized(
+            data["requirements"].get("hard_skills_required", [])
+        ),
+        "nice": _unique_normalized(
+            data["requirements"].get("hard_skills_optional", [])
+        ),
+    }
 
     # Inline follow-up questions for Requirements section
     _render_followups_for_section(("requirements.",), data)

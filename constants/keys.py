@@ -34,4 +34,7 @@ class StateKeys:
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     EXTRACTION_SUMMARY = "extraction_summary"
     EXTRACTION_MISSING = "extraction_missing"
+    EXTRACTION_RAW_PROFILE = "extraction_raw_profile"
+    ESCO_SKILLS = "extraction_esco_skills"
     BIAS_FINDINGS = "data.bias_findings"
+    SKILL_BUCKETS = "skill_buckets"
