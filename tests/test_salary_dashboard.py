@@ -15,9 +15,10 @@ def test_compute_salary_permanent() -> None:
             "Deploy ML services",
         ],
         ["English"],
+        "Technology",
     )
     assert mode == "annual"
-    assert salary == 111364
+    assert salary == 128068
 
 
 def test_compute_salary_contract() -> None:
@@ -30,9 +31,10 @@ def test_compute_salary_contract() -> None:
         "Data Engineer",
         ["Maintain data pipelines", "Support business stakeholders"],
         ["English", "German"],
+        "Consulting",
     )
     assert mode == "hourly"
-    assert rate == 46.23
+    assert rate == 49.93
 
 
 def test_additional_languages_raise_salary() -> None:
@@ -45,6 +47,7 @@ def test_additional_languages_raise_salary() -> None:
         "Software Engineer",
         ["Ship features", "Maintain codebase"],
         ["English"],
+        "Technology",
     )
     multi_language_salary, _ = compute_expected_salary(
         ["Python"],
@@ -55,5 +58,32 @@ def test_additional_languages_raise_salary() -> None:
         "Software Engineer",
         ["Ship features", "Maintain codebase"],
         ["English", "German"],
+        "Technology",
     )
     assert multi_language_salary > base_salary
+
+
+def test_industry_impacts_salary() -> None:
+    tech_salary, _ = compute_expected_salary(
+        ["Python"],
+        [],
+        "Mid",
+        "Berlin",
+        "permanent",
+        "Software Engineer",
+        ["Ship features"],
+        ["English"],
+        "Technology",
+    )
+    nonprofit_salary, _ = compute_expected_salary(
+        ["Python"],
+        [],
+        "Mid",
+        "Berlin",
+        "permanent",
+        "Software Engineer",
+        ["Ship features"],
+        ["English"],
+        "Nonprofit",
+    )
+    assert tech_salary > nonprofit_salary

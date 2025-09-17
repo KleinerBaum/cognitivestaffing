@@ -52,6 +52,131 @@ REQUIRED_PREFIX = ":red[*] "
 
 CEFR_LANGUAGE_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2", "Native"]
 
+GERMAN_STATES = [
+    "Baden-Württemberg",
+    "Bayern",
+    "Berlin",
+    "Brandenburg",
+    "Bremen",
+    "Hamburg",
+    "Hessen",
+    "Mecklenburg-Vorpommern",
+    "Niedersachsen",
+    "Nordrhein-Westfalen",
+    "Rheinland-Pfalz",
+    "Saarland",
+    "Sachsen",
+    "Sachsen-Anhalt",
+    "Schleswig-Holstein",
+    "Thüringen",
+]
+
+EUROPEAN_COUNTRIES = [
+    "Albania",
+    "Andorra",
+    "Austria",
+    "Belarus",
+    "Belgium",
+    "Bosnia and Herzegovina",
+    "Bulgaria",
+    "Croatia",
+    "Cyprus",
+    "Czech Republic",
+    "Denmark",
+    "Estonia",
+    "Finland",
+    "France",
+    "Germany",
+    "Greece",
+    "Hungary",
+    "Iceland",
+    "Ireland",
+    "Italy",
+    "Kosovo",
+    "Latvia",
+    "Liechtenstein",
+    "Lithuania",
+    "Luxembourg",
+    "Malta",
+    "Moldova",
+    "Monaco",
+    "Montenegro",
+    "Netherlands",
+    "North Macedonia",
+    "Norway",
+    "Poland",
+    "Portugal",
+    "Romania",
+    "San Marino",
+    "Serbia",
+    "Slovakia",
+    "Slovenia",
+    "Spain",
+    "Sweden",
+    "Switzerland",
+    "Ukraine",
+    "United Kingdom",
+    "Vatican City",
+]
+
+CONTINENT_COUNTRIES = {
+    "Africa": [
+        "Algeria",
+        "Angola",
+        "Egypt",
+        "Ethiopia",
+        "Ghana",
+        "Kenya",
+        "Morocco",
+        "Nigeria",
+        "South Africa",
+        "Tanzania",
+        "Tunisia",
+        "Uganda",
+    ],
+    "Asia": [
+        "China",
+        "India",
+        "Indonesia",
+        "Japan",
+        "Malaysia",
+        "Philippines",
+        "Singapore",
+        "South Korea",
+        "Thailand",
+        "Vietnam",
+    ],
+    "Europe": EUROPEAN_COUNTRIES,
+    "North America": [
+        "Canada",
+        "Mexico",
+        "United States",
+    ],
+    "South America": [
+        "Argentina",
+        "Brazil",
+        "Chile",
+        "Colombia",
+        "Peru",
+    ],
+    "Oceania": [
+        "Australia",
+        "Fiji",
+        "New Zealand",
+        "Papua New Guinea",
+    ],
+    "Middle East": [
+        "Bahrain",
+        "Israel",
+        "Jordan",
+        "Kuwait",
+        "Oman",
+        "Qatar",
+        "Saudi Arabia",
+        "United Arab Emirates",
+    ],
+}
+
 
 def _format_language_level_option(option: str) -> str:
     """Return a localized label for the English level select box.
@@ -1781,12 +1906,110 @@ def _step_employment():
     )
 
     if data["employment"].get("travel_required"):
-        data["employment"]["travel_details"] = st.text_input(
+        col_share, col_region, col_details = st.columns((1, 2, 2))
+        share_default = int(data["employment"].get("travel_share") or 0)
+        data["employment"]["travel_share"] = col_share.number_input(
+            tr("Reiseanteil (%)", "Travel share (%)"),
+            min_value=0,
+            max_value=100,
+            step=5,
+            value=share_default,
+        )
+
+        scope_options = [
+            ("germany", tr("Deutschland", "Germany")),
+            ("europe", tr("Europa", "Europe")),
+            ("worldwide", tr("Weltweit", "Worldwide")),
+        ]
+        scope_lookup = {value: label for value, label in scope_options}
+        current_scope = data["employment"].get("travel_region_scope", "germany")
+        scope_index = next(
+            (
+                idx
+                for idx, (value, _) in enumerate(scope_options)
+                if value == current_scope
+            ),
+            0,
+        )
+        selected_scope = col_region.selectbox(
+            tr("Reiseregion", "Travel region"),
+            options=[value for value, _ in scope_options],
+            format_func=lambda opt: scope_lookup[opt],
+            index=scope_index,
+        )
+        data["employment"]["travel_region_scope"] = selected_scope
+
+        stored_regions = data["employment"].get("travel_regions", [])
+        stored_continents = data["employment"].get("travel_continents", [])
+
+        if selected_scope == "germany":
+            selected_regions = col_region.multiselect(
+                tr("Bundesländer", "Federal states"),
+                options=GERMAN_STATES,
+                default=[
+                    region for region in stored_regions if region in GERMAN_STATES
+                ],
+            )
+            data["employment"]["travel_regions"] = selected_regions
+            data["employment"].pop("travel_continents", None)
+        elif selected_scope == "europe":
+            selected_regions = col_region.multiselect(
+                tr("Länder (Europa)", "Countries (Europe)"),
+                options=EUROPEAN_COUNTRIES,
+                default=[
+                    region for region in stored_regions if region in EUROPEAN_COUNTRIES
+                ],
+            )
+            data["employment"]["travel_regions"] = selected_regions
+            data["employment"].pop("travel_continents", None)
+        else:
+            selected_continents = col_region.multiselect(
+                tr("Kontinente", "Continents"),
+                options=list(CONTINENT_COUNTRIES.keys()),
+                default=[
+                    continent
+                    for continent in stored_continents
+                    if continent in CONTINENT_COUNTRIES
+                ],
+            )
+            data["employment"]["travel_continents"] = selected_continents
+            available_countries = sorted(
+                {
+                    country
+                    for continent in selected_continents
+                    for country in CONTINENT_COUNTRIES.get(continent, [])
+                }
+            )
+            if not available_countries:
+                available_countries = sorted(
+                    {
+                        country
+                        for countries in CONTINENT_COUNTRIES.values()
+                        for country in countries
+                    }
+                )
+            selected_countries = col_region.multiselect(
+                tr("Länder", "Countries"),
+                options=available_countries,
+                default=[
+                    region for region in stored_regions if region in available_countries
+                ],
+            )
+            data["employment"]["travel_regions"] = selected_countries
+
+        data["employment"]["travel_details"] = col_details.text_input(
             tr("Reisedetails", "Travel details"),
             value=data["employment"].get("travel_details", ""),
         )
     else:
-        data["employment"].pop("travel_details", None)
+        for field_name in [
+            "travel_details",
+            "travel_share",
+            "travel_region_scope",
+            "travel_regions",
+            "travel_continents",
+        ]:
+            data["employment"].pop(field_name, None)
 
     if data["employment"].get("relocation_support"):
         data["employment"]["relocation_details"] = st.text_input(

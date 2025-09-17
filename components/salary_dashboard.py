@@ -41,6 +41,17 @@ LOCATION_FACTOR: Final[dict[str, float]] = {
     "remote": 0.95,
 }
 
+INDUSTRY_MULTIPLIERS: Final[tuple[tuple[tuple[str, ...], float], ...]] = (
+    (("technology", "software", "tech"), 1.15),
+    (("finance", "bank", "insurance", "fintech"), 1.12),
+    (("consulting", "professional services"), 1.08),
+    (("pharma", "biotech", "medical"), 1.1),
+    (("manufacturing", "industrial"), 0.95),
+    (("nonprofit", "ngo", "charity"), 0.85),
+    (("education", "academia"), 0.9),
+    (("retail", "hospitality"), 0.9),
+)
+
 JOB_TITLE_BASELINES: Final[tuple[tuple[tuple[str, ...], float], ...]] = (
     (("data", "scientist"), 78000.0),
     (("machine", "learning"), 82000.0),
@@ -122,6 +133,18 @@ def _location_multiplier(location: str) -> float:
     return 1.0
 
 
+def _industry_multiplier(industry: str) -> float:
+    """Return a multiplier based on the hiring company's industry."""
+
+    normalized = _normalize_text(industry)
+    if not normalized:
+        return 1.0
+    for keywords, multiplier in INDUSTRY_MULTIPLIERS:
+        if any(keyword in normalized for keyword in keywords):
+            return multiplier
+    return 1.0
+
+
 def _skill_multiplier(must_skills: Sequence[str], nice_skills: Sequence[str]) -> float:
     """Compute a multiplier based on required and optional skills."""
 
@@ -162,6 +185,7 @@ def compute_expected_salary(
     job_title: str,
     tasks: Sequence[str],
     languages: Sequence[str],
+    company_industry: str,
 ) -> Tuple[float, str]:
     """Estimate expected salary or hourly rate.
 
@@ -174,6 +198,7 @@ def compute_expected_salary(
         job_title: Job title or role name.
         tasks: Responsibilities associated with the role.
         languages: Languages required or optional for the role.
+        company_industry: Industry classification of the employer.
 
     Returns:
         Tuple containing the numeric value and mode ("annual" or "hourly").
@@ -182,6 +207,7 @@ def compute_expected_salary(
     base_salary = _base_salary_for_job_title(job_title)
     seniority_factor = _seniority_multiplier(seniority, job_title)
     location_factor = _location_multiplier(location)
+    industry_factor = _industry_multiplier(company_industry)
     skill_factor = _skill_multiplier(must_skills, nice_skills)
     task_factor = _task_multiplier(tasks)
     language_factor = _language_multiplier(languages)
@@ -193,6 +219,7 @@ def compute_expected_salary(
         * skill_factor
         * task_factor
         * language_factor
+        * industry_factor
     )
 
     if _is_contract_job(job_type):
@@ -242,6 +269,7 @@ def render_salary_dashboard(session_state: Any) -> None:
     languages = _session_list(
         session_state, "requirements.languages_required"
     ) + _session_list(session_state, "requirements.languages_optional")
+    company_industry = session_state.get("company.industry", "")
 
     value, mode = compute_expected_salary(
         must_skills,
@@ -252,6 +280,7 @@ def render_salary_dashboard(session_state: Any) -> None:
         job_title,
         tasks,
         languages,
+        company_industry,
     )
     unit = "€/year" if mode == "annual" else "€/hour"
 
