@@ -6,6 +6,7 @@ from models.need_analysis import NeedAnalysisProfile
 from wizard import (
     on_file_uploaded,
     on_url_changed,
+    _maybe_run_extraction,
     _step_onboarding,
     _extract_and_summarize,
 )
@@ -109,6 +110,38 @@ def test_onboarding_transfers_prefill_to_raw_text(
 
     assert st.session_state[StateKeys.RAW_TEXT] == "prefilled"
     assert called is False
+
+
+def test_maybe_run_extraction_uses_prefill_before_raw_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Extraction uses prefilled text when RAW_TEXT is still empty."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state[StateKeys.RAW_TEXT] = ""
+    st.session_state["__prefill_profile_text__"] = "prefilled"
+    st.session_state["__run_extraction__"] = True
+
+    captured: dict[str, str] = {}
+
+    def fake_extract(text: str, schema: dict) -> None:
+        captured["text"] = text
+
+    monkeypatch.setattr("wizard._extract_and_summarize", fake_extract)
+    monkeypatch.setattr("wizard._autodetect_lang", lambda _t: None)
+    monkeypatch.setattr(st, "rerun", lambda: None)
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        st, "warning", lambda message, *a, **k: warnings.append(message)
+    )
+
+    _maybe_run_extraction({})
+
+    assert captured["text"] == "prefilled"
+    assert st.session_state[StateKeys.RAW_TEXT] == "prefilled"
+    assert warnings == []
 
 
 def test_onboarding_triggers_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
