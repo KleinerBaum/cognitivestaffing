@@ -18,8 +18,8 @@ def test_field_label_fallback() -> None:
     assert _field_label("compensation.salary_min") == "Compensation Salary Min"
 
 
-def test_summary_warning_uses_labels(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Summary step warning should display human-friendly labels."""
+def test_summary_omits_missing_field_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Summary step no longer surfaces warnings for missing fields."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -47,7 +47,4 @@ def test_summary_warning_uses_labels(monkeypatch: pytest.MonkeyPatch) -> None:
 
     _step_summary({}, list(CRITICAL_FIELDS))
 
-    msg = captured.get("msg", "")
-    assert "Company Name" in msg
-    assert "Job Title" in msg
-    assert "company.name" not in msg
+    assert "msg" not in captured

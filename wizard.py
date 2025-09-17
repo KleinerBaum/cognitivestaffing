@@ -12,7 +12,6 @@ import re
 import streamlit as st
 
 from utils.i18n import tr
-from i18n import t
 from constants.keys import UIKeys, StateKeys
 from utils.session import bind_textarea
 from state.ensure_state import ensure_state
@@ -864,8 +863,8 @@ def _step_onboarding(schema: dict) -> None:
     if show_intro:
         st.write(
             tr(
-                "Laden Sie eine Stellenanzeige oder geben Sie die wichtigsten Informationen manuell ein. Fehlende Pflichtfelder werden im Verlauf markiert und können nicht übersprungen werden.",
-                "Upload an existing job post or enter the most important information manually. Missing required fields are highlighted during the process and cannot be skipped.",
+                "Laden Sie eine Stellenanzeige oder geben Sie die wichtigsten Informationen manuell ein.",
+                "Upload an existing job post or enter the most important information manually.",
             )
         )
         advantages_md = tr(
@@ -1014,16 +1013,10 @@ def _step_onboarding(schema: dict) -> None:
         )
 
 
-def _step_overview(_schema: dict, critical: list[str]) -> None:
+def _step_overview(_schema: dict, _critical: list[str]) -> None:
     """Display an editable overview of populated fields."""
 
     st.subheader(tr("Übersicht", "Overview"))
-    st.caption(
-        tr(
-            "Pflichtfelder ohne Wert werden rot markiert. Sie können in den folgenden Schritten ergänzt werden.",
-            "Required fields without a value are highlighted in red. Complete them in the next steps.",
-        )
-    )
     st.caption(
         tr(
             "Bearbeiten Sie vorhandene Werte direkt hier. Änderungen werden automatisch übernommen.",
@@ -1033,24 +1026,6 @@ def _step_overview(_schema: dict, critical: list[str]) -> None:
 
     data = st.session_state.get(StateKeys.PROFILE, {}) or {}
     flat = flatten(data)
-    missing = missing_keys(data, critical, ignore=set())
-    missing_labels = [_field_label(f) for f in missing]
-
-    if missing_labels:
-        st.error(
-            tr(
-                "Folgende Pflichtfelder fehlen noch: ",
-                "The following required fields are still missing: ",
-            )
-            + ", ".join(missing_labels)
-        )
-    else:
-        st.success(
-            tr(
-                "Alle Pflichtfelder wurden erkannt oder bereits ausgefüllt.",
-                "All required fields are detected or already filled in.",
-            )
-        )
 
     filled_fields = [
         field
@@ -2527,7 +2502,7 @@ def _summary_process() -> None:
     _update_profile("process.onboarding_process", onboarding)
 
 
-def _step_summary(schema: dict, critical: list[str]):
+def _step_summary(schema: dict, _critical: list[str]):
     """Render the summary step and offer follow-up questions.
 
     Args:
@@ -2547,17 +2522,7 @@ def _step_summary(schema: dict, critical: list[str]):
     )
     data = st.session_state[StateKeys.PROFILE]
     completed = set(data.get("meta", {}).get("followups_answered", []))
-    missing = missing_keys(data, critical, ignore=completed)
-    if missing:
-        labels = [_field_label(f) for f in missing]
-        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(labels)}")
-    else:
-        st.success(
-            tr(
-                "Alle Pflichtfelder sind ausgefüllt. Nutzen Sie die Buttons unten, um Job Ad, Boolean String und Interviewleitfaden zu generieren.",
-                "All critical fields are filled. Use the buttons below to generate the Job Ad, Boolean String, and Interview Guide.",
-            )
-        )
+    missing = missing_keys(data, _critical, ignore=completed)
 
     tabs = st.tabs(
         [
@@ -2802,20 +2767,6 @@ def _step_summary(schema: dict, critical: list[str]):
                     set_in(data, key, val)
 
     st.divider()
-    if missing:
-        st.info(
-            tr(
-                "Bitte fülle die fehlenden kritischen Felder, um abzuschließen.",
-                "Please fill in the remaining critical fields to finish.",
-            )
-        )
-    else:
-        st.success(
-            tr(
-                "Alle kritischen Felder sind befüllt.",
-                "All critical fields have been filled.",
-            )
-        )
 
 
 # --- Haupt-Wizard-Runner ---
@@ -2866,20 +2817,12 @@ def run_wizard():
 
     # Render current step
     current = st.session_state[StateKeys.STEP]
-    label, renderer = steps[current]
-    step_word = tr("Schritt", "Step")
-    if label:
-        st.markdown(f"#### {step_word} {current + 1} — {label}")
-    else:
-        st.markdown(f"#### {step_word} {current + 1}")
+    _label, renderer = steps[current]
     renderer()
 
     # Bottom nav
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
-    if missing:
-        labels = [_field_label(f) for f in missing]
-        st.warning(f"{t('missing', st.session_state.lang)} {', '.join(labels)}")
 
     if current == 0:
         _, col_next, _ = st.columns([1, 1, 1])
