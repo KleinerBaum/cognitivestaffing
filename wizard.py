@@ -45,7 +45,8 @@ WIZARD_TITLE = (
     "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
 )
 
-OVERVIEW_STEP_INDEX = 1
+# Index of the first data entry step ("Unternehmen" / "Company")
+COMPANY_STEP_INDEX = 1
 
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
@@ -470,7 +471,6 @@ def _maybe_run_extraction(schema: dict) -> None:
 
     digest = hashlib.sha256(raw_clean.encode("utf-8")).hexdigest()
     if digest == st.session_state.get("__last_extracted_hash__"):
-        st.session_state[StateKeys.STEP] = OVERVIEW_STEP_INDEX
         st.rerun()
         return
 
@@ -480,7 +480,6 @@ def _maybe_run_extraction(schema: dict) -> None:
     _autodetect_lang(raw_clean)
     try:
         _extract_and_summarize(raw_clean, schema)
-        st.session_state[StateKeys.STEP] = OVERVIEW_STEP_INDEX
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
         st.session_state[StateKeys.EXTRACTION_MISSING] = []
         st.rerun()
@@ -504,18 +503,8 @@ def _skip_source() -> None:
     st.session_state[StateKeys.EXTRACTION_MISSING] = []
     st.session_state.pop("_analyze_attempted", None)
     st.session_state.pop("__last_extracted_hash__", None)
-    st.session_state[StateKeys.STEP] = OVERVIEW_STEP_INDEX
+    st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
     st.rerun()
-
-
-def _on_logo_uploaded() -> None:
-    """Persist the uploaded company logo in session state."""
-
-    uploader = st.session_state.get(UIKeys.COMPANY_LOGO)
-    if uploader is None:
-        st.session_state.pop("company_logo", None)
-        return
-    st.session_state["company_logo"] = uploader.read()
 
 
 FIELD_LABELS: dict[str, tuple[str, str]] = {
@@ -569,6 +558,107 @@ def _has_value(value) -> bool:
     return True
 
 
+def _humanize_fragment(fragment: str) -> str:
+    """Return a human readable label for nested fragments."""
+
+    cleaned = fragment.replace("_", " ").replace(".", " ")
+    return cleaned.strip().title() if cleaned else fragment
+
+
+def _render_preview_value(value: Any) -> None:
+    """Display detected values in a compact, readable format."""
+
+    if isinstance(value, list):
+        items = [str(item) for item in value if _has_value(item)]
+        if items:
+            st.markdown("\n".join(f"- {item}" for item in items))
+        else:
+            st.caption(tr("Keine Angaben", "No entries"))
+        return
+
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for key, val in value.items():
+            if not _has_value(val):
+                continue
+            if isinstance(val, list):
+                formatted = ", ".join(str(item) for item in val if _has_value(item))
+            else:
+                formatted = val
+            lines.append(f"- **{_humanize_fragment(key)}:** {formatted}")
+        if lines:
+            st.markdown("\n".join(lines))
+        else:
+            st.caption(tr("Keine Angaben", "No entries"))
+        return
+
+    st.write(value)
+
+
+def _render_prefilled_preview() -> None:
+    """Render tabs with all fields that already contain values."""
+
+    profile = st.session_state.get(StateKeys.PROFILE) or {}
+    flat = flatten(profile)
+    filled = {
+        path: value
+        for path, value in flat.items()
+        if not path.startswith("meta.") and _has_value(value)
+    }
+    if not filled:
+        return
+
+    sections: list[tuple[str, tuple[str, ...]]] = [
+        (tr("Unternehmen", "Company"), ("company.",)),
+        (
+            tr("Basisdaten", "Basic info"),
+            ("position.", "location.", "responsibilities."),
+        ),
+        (tr("Anforderungen", "Requirements"), ("requirements.",)),
+        (tr("Beschäftigung", "Employment"), ("employment.",)),
+        (
+            tr("Leistungen & Benefits", "Rewards & Benefits"),
+            ("compensation.",),
+        ),
+        (tr("Prozess", "Process"), ("process.",)),
+    ]
+
+    section_entries: list[tuple[str, list[tuple[str, Any]]]] = []
+    for label, prefixes in sections:
+        entries = [
+            (path, filled[path])
+            for path in sorted(filled)
+            if any(path.startswith(prefix) for prefix in prefixes)
+        ]
+        if entries:
+            section_entries.append((label, entries))
+
+    if not section_entries:
+        return
+
+    st.markdown(
+        tr(
+            "#### Automatisch erkannte Informationen",
+            "#### Automatically detected information",
+        )
+    )
+    st.caption(
+        tr(
+            "Alle Felder lassen sich später weiterhin bearbeiten.",
+            "You can still adjust every field later on.",
+        )
+    )
+
+    tabs = st.tabs([label for label, _ in section_entries])
+    for tab, (_, entries) in zip(tabs, section_entries):
+        with tab:
+            for index, (path, value) in enumerate(entries):
+                st.markdown(f"**{_field_label(path)}**")
+                _render_preview_value(value)
+                if index < len(entries) - 1:
+                    st.markdown("---")
+
+
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
 def set_in(d: dict, path: str, value) -> None:
     """Assign a value in a nested dict via dot-separated path."""
@@ -592,126 +682,6 @@ def get_in(d: dict, path: str, default=None):
         else:
             return default
     return cur
-
-
-def _render_overview_field(path: str, data: dict) -> None:
-    """Render an editable field for the overview step."""
-
-    current_value = get_in(data, path)
-    label = _field_label(path)
-    schema_hint = tr("Schema-Schlüssel: {}", "Schema key: {}").format(path)
-    key_base = f"ui.overview.{path}"
-
-    if isinstance(current_value, bool):
-        checked = st.checkbox(
-            label,
-            value=bool(current_value),
-            key=key_base,
-            help=schema_hint,
-        )
-        if checked != current_value:
-            _update_profile(path, checked)
-        st.caption(schema_hint)
-        return
-
-    if isinstance(current_value, list):
-        if all(isinstance(item, str) for item in current_value):
-            serialized = "\n".join(item for item in current_value if item is not None)
-            text_value = st.text_area(
-                label,
-                value=serialized,
-                key=key_base,
-                help=tr(
-                    "Ein Eintrag pro Zeile. {}",
-                    "One entry per line. {}",
-                ).format(schema_hint),
-            )
-            new_items = [
-                line.strip() for line in text_value.splitlines() if line.strip()
-            ]
-            if new_items != current_value:
-                _update_profile(path, new_items)
-        else:
-            serialized = json.dumps(current_value, ensure_ascii=False, indent=2)
-            text_value = st.text_area(
-                label,
-                value=serialized,
-                key=key_base,
-                help=tr(
-                    "Komplexe Werte im JSON-Format bearbeiten. {}",
-                    "Edit complex values using JSON syntax. {}",
-                ).format(schema_hint),
-            )
-            stripped = text_value.strip()
-            if not stripped:
-                empty_list: list[Any] = []
-                if empty_list != current_value:
-                    _update_profile(path, empty_list)
-            else:
-                try:
-                    parsed_value = json.loads(stripped)
-                except json.JSONDecodeError:
-                    st.warning(
-                        tr(
-                            "Ungültiges JSON – Änderungen wurden nicht übernommen.",
-                            "Invalid JSON input – changes were not applied.",
-                        ),
-                        icon="⚠️",
-                    )
-                else:
-                    if parsed_value != current_value:
-                        _update_profile(path, parsed_value)
-        st.caption(schema_hint)
-        return
-
-    if isinstance(current_value, (int, float)) and not isinstance(current_value, bool):
-        text_value = st.text_input(
-            label,
-            value=str(current_value),
-            key=key_base,
-            help=schema_hint,
-        )
-        stripped = text_value.strip()
-        if not stripped:
-            if current_value is not None:
-                _update_profile(path, None)
-        else:
-            target_type = int if isinstance(current_value, int) else float
-            try:
-                parsed = target_type(stripped)
-            except ValueError:
-                st.warning(
-                    tr(
-                        "Ungültige Zahl – bitte prüfen Sie Ihre Eingabe.",
-                        "Invalid number – please check your input.",
-                    ),
-                    icon="⚠️",
-                )
-            else:
-                if parsed != current_value:
-                    _update_profile(path, parsed)
-        st.caption(schema_hint)
-        return
-
-    text_widget = (
-        st.text_area
-        if isinstance(current_value, str)
-        and (len(current_value) > 120 or "\n" in current_value)
-        else st.text_input
-    )
-    text_value = text_widget(
-        label,
-        value=current_value if isinstance(current_value, str) else str(current_value),
-        key=key_base,
-        help=schema_hint,
-    )
-    if isinstance(current_value, str):
-        candidate = text_value if text_value.strip() else None
-    else:
-        candidate = text_value.strip() if text_value.strip() else None
-    if candidate != current_value:
-        _update_profile(path, candidate)
-    st.caption(schema_hint)
 
 
 def _render_followup_question(q: dict, data: dict) -> None:
@@ -944,73 +914,70 @@ def _chip_multiselect(label: str, options: List[str], values: List[str]) -> List
 
 # --- Step-Renderers ---
 def _step_onboarding(schema: dict) -> None:
-    """Render onboarding with language choice and ingestion options."""
+    """Render onboarding with language toggle, intro, and ingestion options."""
 
     _maybe_run_extraction(schema)
 
-    lang_options = {"de": "Deutsch", "en": "English"}
+    lang_options = {"de": "DE", "en": "EN"}
     if UIKeys.LANG_SELECT not in st.session_state:
         st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
 
     def _on_lang_change() -> None:
         st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
-    st.radio(
-        "🌐 Sprache / Language",
-        options=list(lang_options.keys()),
-        key=UIKeys.LANG_SELECT,
-        horizontal=True,
-        format_func=lambda key: lang_options[key],
-        on_change=_on_lang_change,
+    _, col_toggle = st.columns([5, 1])
+    with col_toggle:
+        st.radio(
+            tr("Sprache", "Language"),
+            options=list(lang_options.keys()),
+            key=UIKeys.LANG_SELECT,
+            horizontal=True,
+            label_visibility="collapsed",
+            format_func=lambda key: lang_options[key],
+            on_change=_on_lang_change,
+        )
+
+    welcome_headline = tr(
+        "Willkommen zum Onboarding",
+        "Welcome to onboarding",
+    )
+    welcome_text = tr(
+        "Wir freuen uns, dich zu begleiten.",
+        "We are excited to guide you through the process.",
+    )
+    advantage_text = tr(
+        (
+            "Mache den ersten Schritt jedes Recruiting-Prozesses mit einer "
+            "kompletten Sammlung an Informationen, die im Verlauf wichtig "
+            "werden könnten, und spare viel Geld, Zeit und Mühe – so legst du "
+            "die Basis für eine langfristig funktionierende Kooperation."
+        ),
+        (
+            "Take the first step of every recruiting process with a complete "
+            "collection of information that might become important later on "
+            "and save money, time, and effort – creating the foundation for a "
+            "long-term collaboration that works."
+        ),
+    )
+    dynamic_text = tr(
+        (
+            "Auf Basis deiner Stellenbeschreibung passen wir den Fragenprozess "
+            "dynamisch an und reduzieren so Schreibarbeit auf das Nötigste."
+        ),
+        (
+            "Based on your job description we dynamically adapt the question "
+            "flow so that you only need to provide the essentials."
+        ),
     )
 
     st.markdown(
-        "### "
-        + tr(
-            "Willkommen beim Cognitive Needs Wizard",
-            "Welcome to the Cognitive Needs wizard",
-        )
-    )
-    st.write(
-        tr(
-            "Dieser Assistent begleitet Sie Schritt für Schritt durch die Erstellung eines strukturierten Stellenprofils.",
-            "This assistant guides you step by step towards a structured job profile.",
-        )
-    )
-
-    if "ui.skip_intro" not in st.session_state:
-        st.session_state["ui.skip_intro"] = st.session_state.get("skip_intro", False)
-
-    def _on_skip_intro() -> None:
-        st.session_state["skip_intro"] = st.session_state["ui.skip_intro"]
-
-    show_intro = not st.session_state.get("skip_intro", False)
-    if show_intro:
-        st.write(
-            tr(
-                "Laden Sie eine Stellenanzeige oder geben Sie die wichtigsten Informationen manuell ein.",
-                "Upload an existing job post or enter the most important information manually.",
-            )
-        )
-        advantages_md = tr(
-            (
-                "- Strukturierte Datenerfassung ohne Informationsverlust\n"
-                "- Automatische Vorbefüllung aus Text, Datei oder URL\n"
-                "- Mehrsprachige Oberfläche (DE/EN)\n"
-                "- Direkter Zugriff auf Benefits, Prozesse und Folgefragen"
-            ),
-            (
-                "- Structured data capture without information loss\n"
-                "- Automatic prefill from text, files or URLs\n"
-                "- Bilingual interface (DE/EN)\n"
-                "- Direct access to benefits, processes and follow-ups"
-            ),
-        )
-        st.markdown(advantages_md)
-    st.checkbox(
-        tr("Intro künftig überspringen", "Don't show this intro again"),
-        key="ui.skip_intro",
-        on_change=_on_skip_intro,
+        f"<div style='text-align:center; margin-top: 1.5rem;'>"
+        f"<h2>{welcome_headline}</h2>"
+        f"<p>{welcome_text}</p>"
+        f"<p>{advantage_text}</p>"
+        f"<p>{dynamic_text}</p>"
+        "</div>",
+        unsafe_allow_html=True,
     )
 
     method_options = [
@@ -1022,155 +989,108 @@ def _step_onboarding(schema: dict) -> None:
     if UIKeys.INPUT_METHOD not in st.session_state:
         st.session_state[UIKeys.INPUT_METHOD] = "text"
 
-    col_main, col_side = st.columns((3, 2))
-
-    with col_main:
-        st.markdown("#### " + tr("Eingabemethode wählen", "Choose your input method"))
-        st.radio(
-            tr("Wie möchten Sie starten?", "How would you like to start?"),
-            options=list(method_labels.keys()),
-            key=UIKeys.INPUT_METHOD,
-            format_func=method_labels.__getitem__,
-            horizontal=True,
-        )
-
-        if st.session_state.pop("source_error", False):
-            st.info(
-                tr(
-                    "Es gab ein Problem beim Import. Sie können die Angaben auch manuell ergänzen.",
-                    "There was an issue with the import. You can still fill in the details manually.",
-                )
-            )
-
-        prefill = st.session_state.pop("__prefill_profile_text__", None)
-        if prefill is not None:
-            st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
-            st.session_state[StateKeys.RAW_TEXT] = prefill
-
-        method = st.session_state[UIKeys.INPUT_METHOD]
-        if method == "text":
-            bind_textarea(
-                tr("Jobtext", "Job text"),
-                UIKeys.PROFILE_TEXT_INPUT,
-                StateKeys.RAW_TEXT,
-                placeholder=tr(
-                    "Fügen Sie den Text Ihrer Stellenanzeige ein …",
-                    "Paste the text of your job posting …",
-                ),
-                help=tr(
-                    "Der Text wird analysiert und relevante Felder automatisch befüllt.",
-                    "The text will be analysed to prefill relevant fields automatically.",
-                ),
-            )
-            analyze_disabled = not bool(
-                (st.session_state.get(StateKeys.RAW_TEXT, "") or "").strip()
-            )
-            if st.button(
-                tr("Analyse starten", "Start analysis"),
-                type="primary",
-                disabled=analyze_disabled,
-            ):
-                st.session_state["__run_extraction__"] = True
-                st.rerun()
-            if analyze_disabled:
-                st.caption(
-                    tr(
-                        "Bitte geben Sie zunächst Text ein.",
-                        "Please enter some text first.",
-                    )
-                )
-        elif method == "file":
-            st.file_uploader(
-                tr(
-                    "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-                    "Upload job posting (PDF/DOCX/TXT)",
-                ),
-                type=["pdf", "docx", "txt"],
-                key=UIKeys.PROFILE_FILE_UPLOADER,
-                on_change=on_file_uploaded,
-                help=tr(
-                    "Nach dem Upload startet die Analyse automatisch.",
-                    "Analysis starts automatically after the upload finishes.",
-                ),
-            )
-        else:
-            st.text_input(
-                tr("Öffentliche Stellenanzeigen-URL", "Public job posting URL"),
-                key=UIKeys.PROFILE_URL_INPUT,
-                on_change=on_url_changed,
-                placeholder="https://example.com/job",
-                help=tr(
-                    "Die URL muss ohne Login erreichbar sein.",
-                    "The URL must be accessible without authentication.",
-                ),
-            )
-
-        skip_clicked = st.button(
-            tr("Ohne Vorlage fortfahren", "Continue without template"),
-            type="secondary",
-        )
-        if skip_clicked:
-            _skip_source()
-
-        st.info(
-            tr(
-                "Nach erfolgreichem Import gelangen Sie automatisch zur Übersicht aller erkannten Felder.",
-                "After a successful import you'll be redirected to the overview of all detected fields.",
-            )
-        )
-
-    with col_side:
-        st.markdown("#### " + tr("Branding", "Branding"))
-        st.file_uploader(
-            tr("Optional: Firmenlogo", "Optional: Company logo"),
-            type=["png", "jpg", "jpeg", "svg", "webp"],
-            key=UIKeys.COMPANY_LOGO,
-            on_change=_on_logo_uploaded,
-        )
-        logo_bytes = st.session_state.get("company_logo")
-        if logo_bytes:
-            st.image(logo_bytes, width=160)
-        st.caption(
-            tr(
-                "Logo und Theme wirken sich auf exportierte Inhalte aus. Den Dark Mode können Sie in der Seitenleiste umschalten.",
-                "Logo and theme impact exported artefacts. Toggle dark mode via the sidebar controls.",
-            )
-        )
-
-
-def _step_overview(_schema: dict, _critical: list[str]) -> None:
-    """Display an editable overview of populated fields."""
-
-    st.subheader(tr("Übersicht", "Overview"))
+    st.divider()
+    st.subheader(tr("Wie möchtest du starten?", "How would you like to begin?"))
     st.caption(
         tr(
-            "Bearbeiten Sie vorhandene Werte direkt hier. Änderungen werden automatisch übernommen.",
-            "Edit existing values directly here. Changes are applied across the wizard.",
+            "Du kannst jederzeit zwischen den Eingabemethoden wechseln. Die Analyse startet automatisch, sobald Inhalte vorliegen.",
+            "Feel free to switch methods at any time. Analysis starts automatically as soon as content is available.",
         )
     )
 
-    data = st.session_state.get(StateKeys.PROFILE, {}) or {}
-    flat = flatten(data)
+    st.radio(
+        tr("Eingabemethode", "Input method"),
+        options=list(method_labels.keys()),
+        key=UIKeys.INPUT_METHOD,
+        format_func=method_labels.__getitem__,
+        horizontal=True,
+    )
 
-    filled_fields = [
-        field
-        for field, value in sorted(flat.items())
-        if not field.startswith("meta.") and _has_value(value)
-    ]
-
-    if not filled_fields:
+    if st.session_state.pop("source_error", False):
         st.info(
             tr(
-                "Noch keine Daten vorhanden – starten Sie mit einer Vorlage oder füllen Sie die nächsten Schritte manuell aus.",
-                "No data available yet – upload a template or continue with the next steps to fill the fields manually.",
+                "Es gab ein Problem beim Import. Du kannst die Angaben auch manuell ergänzen.",
+                "There was an issue while importing the content. You can still fill in the details manually.",
             )
         )
-        return
 
-    for index, field in enumerate(filled_fields):
-        _render_overview_field(field, data)
-        if index < len(filled_fields) - 1:
-            st.divider()
+    prefill = st.session_state.pop("__prefill_profile_text__", None)
+    if prefill is not None:
+        st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
+        st.session_state[StateKeys.RAW_TEXT] = prefill
+
+    def _queue_extraction_if_ready() -> None:
+        raw_text = st.session_state.get(StateKeys.RAW_TEXT, "")
+        if raw_text and raw_text.strip():
+            st.session_state["__run_extraction__"] = True
+
+    method = st.session_state[UIKeys.INPUT_METHOD]
+    if method == "text":
+        bind_textarea(
+            tr("Jobtext", "Job text"),
+            UIKeys.PROFILE_TEXT_INPUT,
+            StateKeys.RAW_TEXT,
+            placeholder=tr(
+                "Füge hier den Text deiner Stellenanzeige ein …",
+                "Paste the text of your job posting here …",
+            ),
+            help=tr(
+                "Wir analysieren den Text automatisch und befüllen alle passenden Felder.",
+                "We automatically analyse the text and prefill all relevant fields.",
+            ),
+            on_change=_queue_extraction_if_ready,
+        )
+        st.caption(
+            tr(
+                "Sobald du Text ergänzt oder änderst, startet die Analyse ohne weiteren Klick.",
+                "As soon as you add or change the text, the analysis starts automatically.",
+            )
+        )
+    elif method == "file":
+        st.file_uploader(
+            tr(
+                "Stellenanzeige hochladen (PDF/DOCX/TXT)",
+                "Upload job posting (PDF/DOCX/TXT)",
+            ),
+            type=["pdf", "docx", "txt"],
+            key=UIKeys.PROFILE_FILE_UPLOADER,
+            on_change=on_file_uploaded,
+            help=tr(
+                "Direkt nach dem Upload beginnen wir mit der Analyse.",
+                "We start analysing immediately after the upload finishes.",
+            ),
+        )
+    else:
+        st.text_input(
+            tr("Öffentliche Stellenanzeigen-URL", "Public job posting URL"),
+            key=UIKeys.PROFILE_URL_INPUT,
+            on_change=on_url_changed,
+            placeholder="https://example.com/job",
+            help=tr(
+                "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
+                "The URL needs to be accessible without authentication. We will fetch the content automatically.",
+            ),
+        )
+
+    _render_prefilled_preview()
+
+    col_skip, col_next = st.columns(2)
+    with col_skip:
+        if st.button(
+            tr("Ohne Vorlage fortfahren", "Continue without template"),
+            type="secondary",
+            use_container_width=True,
+        ):
+            _skip_source()
+
+    with col_next:
+        if st.button(
+            tr("Weiter", "Next"),
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
+            st.rerun()
 
 
 def _step_company():
@@ -3022,7 +2942,6 @@ def run_wizard():
 
     steps = [
         (tr("Onboarding", "Onboarding"), lambda: _step_onboarding(schema)),
-        (tr("Übersicht", "Overview"), lambda: _step_overview(schema, critical)),
         (tr("Unternehmen", "Company"), _step_company),
         (tr("Basisdaten", "Basic info"), _step_position),
         (tr("Anforderungen", "Requirements"), _step_requirements),
@@ -3047,18 +2966,7 @@ def run_wizard():
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
 
-    if current == 0:
-        _, col_next, _ = st.columns([1, 1, 1])
-        with col_next:
-            if current < len(steps) - 1 and st.button(
-                tr("Weiter ▶︎", "Next ▶︎"),
-                type="primary",
-                use_container_width=True,
-                disabled=bool(missing),
-            ):
-                next_step()
-                st.rerun()
-    else:
+    if current > 0:
         col_prev, col_next = st.columns([1, 1])
         with col_prev:
             if st.button(tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True):
