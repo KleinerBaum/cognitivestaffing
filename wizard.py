@@ -177,7 +177,6 @@ def on_file_uploaded() -> None:
         return
     st.session_state["__prefill_profile_text__"] = txt
     st.session_state["__run_extraction__"] = True
-    st.rerun()
 
 
 def on_url_changed() -> None:
