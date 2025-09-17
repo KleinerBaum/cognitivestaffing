@@ -152,7 +152,7 @@ def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     call_chat_api(
         [{"role": "user", "content": "hi"}],
-        model="gpt-4.1-nano",
+        model="gpt-5-nano",
         reasoning_effort="high",
     )
     assert "reasoning" not in captured
@@ -189,16 +189,16 @@ def test_model_supports_temperature_detection() -> None:
     """The helper should detect reasoning models and allow regular ones."""
 
     assert not model_supports_temperature("o1-mini")
-    assert not model_supports_temperature("gpt-4o-reasoning")
-    assert model_supports_temperature("gpt-4o-mini")
+    assert not model_supports_temperature("gpt-5-reasoning")
+    assert model_supports_temperature("gpt-5-mini")
 
 
 def test_model_supports_reasoning_detection() -> None:
     """The reasoning helper should match known reasoning model patterns."""
 
     assert model_supports_reasoning("o1-mini")
-    assert model_supports_reasoning("gpt-4o-reasoning")
-    assert not model_supports_reasoning("gpt-4.1-nano")
+    assert model_supports_reasoning("gpt-5-reasoning")
+    assert not model_supports_reasoning("gpt-5-nano")
 
 
 def test_extract_with_function(monkeypatch):

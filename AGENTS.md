@@ -1,6 +1,6 @@
 # Cognitive Needs — Autonomous Agents
 
-This document lists all current and planned autonomous agents in Cognitive Needs, along with their roles and interfaces. Each agent is small, focused, and composable. *Note: earlier docs used the labels “GPT‑4o” and “GPT‑4o‑mini”; in code these map to OpenAI’s cost-optimized `gpt-5-nano` and `gpt-4.1-nano` models respectively.*
+This document lists all current and planned autonomous agents in Cognitive Needs, along with their roles and interfaces. Each agent is small, focused, and composable. *Note: earlier docs used the labels “GPT‑4o” and “GPT‑4o‑mini”; the new router maps these to OpenAI’s `gpt-5-mini` and `gpt-5-nano` models respectively.*
 
 ---
 
@@ -38,7 +38,7 @@ Turn a partially filled vacancy JSON into a minimal, targeted list of follow-up 
   - `suggestions`: list[str] (optional, to render as answer chips)
 
 **Model / APIs**
-- OpenAI Responses API with `gpt-5-nano` / `gpt-4.1-nano` (JSON schema + tool calling)
+- OpenAI Responses API with `gpt-5-nano` (JSON schema + tool calling)
 - ESCO API (occupation + essential skills lookup)
 - Optional File Search tool using `vector_store_id` for context suggestions
 
@@ -86,7 +86,7 @@ Fill or propose values for missing fields using your **OpenAI vector store** (se
 - (Optionally) short rationales or source snippets for each suggestion
 
 **Model / APIs**
-- OpenAI Responses API with `gpt-5-nano` / `gpt-4.1-nano`
+- OpenAI Responses API with `gpt-5-nano`
 - File Search tool driven by `vector_store_id` (no separate API call)
 
 **When**  
@@ -111,7 +111,7 @@ Extract company name, location, mission/values, and culture from a given company
 - `company_culture`
 
 **Model / APIs**
-- OpenAI Responses API with `gpt-5-nano` / `gpt-4.1-nano` for structured text extraction
+- OpenAI Responses API with `gpt-5-mini` for structured text extraction
 - Uses `ingest.extractors` to fetch website content
 
 **When**
@@ -129,7 +129,8 @@ Extract company name, location, mission/values, and culture from a given company
 - **Job‑Ad Writer** – Draft a polished, SEO-aware job ad in Markdown format
 
 **Models**
-- OpenAI Responses API with `gpt-5-nano` / `gpt-4.1-nano`
+- OpenAI Responses API with `gpt-5-mini` for job-ad, interview and boolean generation
+- OpenAI Responses API with `gpt-5-nano` for skill, benefit and task suggestions
 
 ---
 
@@ -147,7 +148,7 @@ Automatically invoke the FQG until all critical fields are answered, reducing ma
 - Updated follow-up questions (same schema as FQG)
 
 **Model / APIs**
-- Delegates to FQG, thus OpenAI Responses API with `gpt-5-nano` / `gpt-4.1-nano` and optional File Search tool
+- Delegates to FQG, thus OpenAI Responses API with `gpt-5-nano` and optional File Search tool
 
 **When**
 - After extraction when the user enables **Auto Follow-ups**; implemented in `_extract_and_summarize`
@@ -161,4 +162,4 @@ Automatically invoke the FQG until all critical fields are answered, reducing ma
 - **Tech‑Stack Miner** – Identify prevalent tech stack elements for the role/industry via RAG + ESCO patterns
 - **Compliance Checker** – Check outputs for bias, EEO/GDPR compliance, add boilerplate as needed
 - **DEI Language Auditor** – Provide inclusive language suggestions (flag potentially discriminatory phrasing)
-- **Content Cost Router** – Auto-select between `gpt-5-nano`, `gpt-4.1-nano`, or `gpt-3.5-turbo` based on content complexity to manage cost
+- **Content Cost Router** – Auto-select between `gpt-5-mini` and `gpt-5-nano` based on content complexity to manage cost

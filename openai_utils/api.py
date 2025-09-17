@@ -27,7 +27,13 @@ from openai import (
 )
 import streamlit as st
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, REASONING_EFFORT
+from config import (
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    REASONING_EFFORT,
+    ModelTask,
+    get_model_for,
+)
 from constants.keys import StateKeys
 
 logger = logging.getLogger("cognitive_needs.openai")
@@ -177,7 +183,7 @@ def call_chat_api(
     from core import analysis_tools
 
     if model is None:
-        model = st.session_state.get("model", OPENAI_MODEL)
+        model = get_model_for(ModelTask.DEFAULT)
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
 

@@ -13,8 +13,8 @@ def test_suggest_additional_skills_model(monkeypatch):
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     monkeypatch.setattr(esco_utils, "normalize_skills", lambda skills, **_: skills)
-    out = openai_utils.suggest_additional_skills("Engineer", model="gpt-4.1-nano")
-    assert captured["model"] == "gpt-4.1-nano"
+    out = openai_utils.suggest_additional_skills("Engineer", model="gpt-5-mini")
+    assert captured["model"] == "gpt-5-mini"
     assert out["technical"] == ["Tech1", "Tech2"]
     assert out["soft"] == ["Communication"]
 
@@ -27,15 +27,14 @@ def test_suggest_benefits_model(monkeypatch):
         return ChatCallResult("- BenefitA\n- BenefitB", [], {})
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-    out = openai_utils.suggest_benefits("Engineer", lang="en", model="gpt-4.1-nano")
-    assert captured["model"] == "gpt-4.1-nano"
+    out = openai_utils.suggest_benefits("Engineer", lang="en", model="gpt-5-nano")
+    assert captured["model"] == "gpt-5-nano"
     assert out == ["BenefitA", "BenefitB"]
 
 
-def test_session_state_model_default(monkeypatch):
+def test_suggest_benefits_dispatch_default(monkeypatch):
     captured = {}
     st.session_state.clear()
-    st.session_state["model"] = "gpt-4.1-nano"
 
     def fake_call_chat_api(messages, model=None, **kwargs):
         captured["model"] = model
@@ -43,5 +42,20 @@ def test_session_state_model_default(monkeypatch):
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == "gpt-4.1-nano"
+    assert captured["model"] == "gpt-5-nano"
+    assert out == ["BenefitA", "BenefitB"]
+
+
+def test_manual_override_reroutes_all_tasks(monkeypatch):
+    captured = {}
+    st.session_state.clear()
+    st.session_state["model_override"] = "gpt-5-mini"
+
+    def fake_call_chat_api(messages, model=None, **kwargs):
+        captured["model"] = model
+        return ChatCallResult("- BenefitA\n- BenefitB", [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+    out = openai_utils.suggest_benefits("Engineer")
+    assert captured["model"] == "gpt-5-mini"
     assert out == ["BenefitA", "BenefitB"]
