@@ -55,8 +55,8 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
     assert data["meta"]["followups_answered"] == ["salary"]
 
 
-def test_skip_followup(monkeypatch) -> None:
-    """Skipping a question should mark it as completed without storing a value."""
+def test_followup_requires_answer(monkeypatch) -> None:
+    """Follow-up questions remain until an explicit answer is provided."""
     st.session_state.clear()
     st.session_state["lang"] = "en"
     data: dict = {"meta": {"followups_answered": []}}
@@ -66,11 +66,14 @@ def test_skip_followup(monkeypatch) -> None:
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
     monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
+    seen_keys: list[str | None] = []
+
     def fake_button(label, key=None):
-        return key.endswith("_skip")
+        seen_keys.append(key)
+        return False
 
     monkeypatch.setattr(st, "button", fake_button)
     _render_followup_question(q, data)
-    assert st.session_state[StateKeys.FOLLOWUPS] == []
-    assert data["meta"]["followups_answered"] == ["employment.travel_required"]
-    assert "employment" not in data
+    assert not any(k and k.endswith("_skip") for k in seen_keys)
+    assert st.session_state[StateKeys.FOLLOWUPS] == [q]
+    assert data["meta"].get("followups_answered") == []

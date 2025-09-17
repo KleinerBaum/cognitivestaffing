@@ -1,6 +1,7 @@
 # wizard.py — Cognitive Needs Wizard (clean flow, schema-aligned)
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 from datetime import date
@@ -428,11 +429,6 @@ def _render_followup_question(q: dict, data: dict) -> None:
         if field not in completed:
             completed.append(field)
         st.session_state[StateKeys.FOLLOWUPS].remove(q)
-    elif st.button(tr("Überspringen", "Skip"), key=f"{key}_skip"):
-        completed = data.setdefault("meta", {}).setdefault("followups_answered", [])
-        if field not in completed:
-            completed.append(field)
-        st.session_state[StateKeys.FOLLOWUPS].remove(q)
 
 
 def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
@@ -750,16 +746,35 @@ def _step_source(schema: dict) -> None:
     if prefill is not None:
         st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
         st.session_state[StateKeys.RAW_TEXT] = prefill
-    if st.session_state.pop("__run_extraction__", False) and st.session_state.get(
-        StateKeys.RAW_TEXT
-    ):
-        raw_auto = st.session_state[StateKeys.RAW_TEXT]
+
+    def _run_pending_extraction() -> None:
+        should_run = st.session_state.pop("__run_extraction__", False)
+        if not should_run:
+            return
+        raw_input = st.session_state.get(StateKeys.RAW_TEXT, "") or ""
+        raw_clean = clean_job_text(raw_input)
+        if not raw_clean.strip():
+            st.session_state["_analyze_attempted"] = True
+            st.session_state.pop("__last_extracted_hash__", None)
+            st.warning(
+                tr(
+                    "Keine Daten erkannt – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
+                    "No data detected – you can also enter the information manually in the following steps.",
+                )
+            )
+            return
+        digest = hashlib.sha256(raw_clean.encode("utf-8")).hexdigest()
+        if digest == st.session_state.get("__last_extracted_hash__"):
+            return
         st.session_state["_analyze_attempted"] = True
-        _autodetect_lang(raw_auto)
+        st.session_state[StateKeys.RAW_TEXT] = raw_clean
+        st.session_state["__last_extracted_hash__"] = digest
+        _autodetect_lang(raw_clean)
         try:
-            _extract_and_summarize(raw_auto, schema)
+            _extract_and_summarize(raw_clean, schema)
             st.rerun()
         except Exception as e:
+            st.session_state.pop("__last_extracted_hash__", None)
             display_error(
                 tr(
                     "Automatische Extraktion fehlgeschlagen",
@@ -767,11 +782,17 @@ def _step_source(schema: dict) -> None:
                 ),
                 str(e),
             )
+
+    _run_pending_extraction()
     tab_text, tab_file, tab_url = st.tabs(
         [tr("Text", "Text"), tr("Datei", "File"), tr("URL", "URL")]
     )
 
     with tab_text:
+
+        def _on_text_changed() -> None:
+            st.session_state["__run_extraction__"] = True
+
         bind_textarea(
             tr("Jobtext", "Job text"),
             UIKeys.PROFILE_TEXT_INPUT,
@@ -784,6 +805,7 @@ def _step_source(schema: dict) -> None:
                 "Fügen Sie den reinen Text Ihrer Stellenanzeige ein.",
                 "Paste the plain text of your job posting.",
             ),
+            on_change=_on_text_changed,
         )
 
     with tab_file:
@@ -813,7 +835,8 @@ def _step_source(schema: dict) -> None:
             ),
         )
 
-    analyze_clicked = st.button(t("analyze", st.session_state.lang), type="primary")
+    _run_pending_extraction()
+
     skip_clicked = st.button(
         tr("Ohne Vorlage fortfahren", "Continue without template"),
         help=tr(
@@ -821,28 +844,6 @@ def _step_source(schema: dict) -> None:
             "All fields will start blank.",
         ),
     )
-    if analyze_clicked:
-        raw_input = st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, "") or ""
-        raw = clean_job_text(raw_input)
-        st.session_state["_analyze_attempted"] = True
-        if not raw:
-            st.warning(
-                tr(
-                    "Keine Daten erkannt – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
-                    "No data detected – you can also enter the information manually in the following steps.",
-                )
-            )
-        else:
-            st.session_state[StateKeys.RAW_TEXT] = raw
-            _autodetect_lang(raw)
-            try:
-                _extract_and_summarize(raw, schema)
-                st.rerun()
-            except Exception as e:
-                display_error(
-                    tr("Extraktion fehlgeschlagen", "Extraction failed"),
-                    str(e),
-                )
     if skip_clicked:
         _skip_source()
     summary_data = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})

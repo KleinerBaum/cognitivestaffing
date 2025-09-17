@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 import streamlit as st
 
@@ -33,6 +33,7 @@ def bind_textarea(
     data_key: str,
     placeholder: str = "",
     help: str | None = None,
+    on_change: Callable[[], None] | None = None,
 ) -> None:
     """Render a text area bound to a state key.
 
@@ -45,14 +46,22 @@ def bind_textarea(
 
     def _on_change() -> None:
         st.session_state[data_key] = st.session_state[ui_key]
+        if on_change is not None:
+            on_change()
 
-    st.text_area(
+    value = st.text_area(
         label,
         key=ui_key,
         placeholder=placeholder,
         help=help,
         on_change=_on_change,
     )
+
+    current_value = st.session_state.get(ui_key, value)
+    if st.session_state.get(data_key) != current_value:
+        st.session_state[data_key] = current_value
+        if on_change is not None:
+            on_change()
 
 
 def migrate_legacy_keys() -> None:

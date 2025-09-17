@@ -4,7 +4,6 @@ import streamlit as st
 from wizard import _autodetect_lang, _step_source, on_file_uploaded, on_url_changed
 from constants.keys import StateKeys, UIKeys
 from utils.session import bootstrap_session
-from i18n import t
 from models.need_analysis import NeedAnalysisProfile
 
 
@@ -117,12 +116,7 @@ def test_step_source_populates_data(monkeypatch: pytest.MonkeyPatch, mode: str) 
     sample_text = "Job text"
     sample_data = {"position": {"job_title": "Engineer"}}
     _setup_common(monkeypatch)
-    analyze_label = t("analyze", st.session_state.lang)
-
-    def fake_button(label: str, *a, **k) -> bool:
-        return mode == "text" and label == analyze_label
-
-    monkeypatch.setattr(st, "button", fake_button)
+    monkeypatch.setattr(st, "button", lambda *a, **k: False)
     monkeypatch.setattr(
         "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
     )
@@ -165,12 +159,7 @@ def test_step_source_merges_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None
         "requirements": {"hard_skills_required": ["Python"]},
     }
     _setup_common(monkeypatch)
-    analyze_label = t("analyze", st.session_state.lang)
-
-    def fake_button(label: str, *a, **k) -> bool:
-        return label == analyze_label
-
-    monkeypatch.setattr(st, "button", fake_button)
+    monkeypatch.setattr(st, "button", lambda *a, **k: False)
     monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
     monkeypatch.setattr(
         "wizard.extract_with_function", lambda _t, _s, model=None: sample_data
@@ -208,9 +197,7 @@ def test_step_source_flags_missing_fields(monkeypatch: pytest.MonkeyPatch) -> No
     sample_text = "random text without info"
     _setup_common(monkeypatch)
     st.session_state[UIKeys.PROFILE_TEXT_INPUT] = sample_text
-    analyze_label = t("analyze", st.session_state.lang)
-
-    monkeypatch.setattr(st, "button", lambda label, *a, **k: label == analyze_label)
+    monkeypatch.setattr(st, "button", lambda *a, **k: False)
     monkeypatch.setattr(st, "text_area", lambda *a, **k: sample_text)
     monkeypatch.setattr("wizard.extract_with_function", lambda _t, _s, model=None: {})
     monkeypatch.setattr("wizard.search_occupation", lambda _t, _l: None)
