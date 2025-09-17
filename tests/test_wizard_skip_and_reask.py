@@ -1,7 +1,7 @@
 import streamlit as st
 import pytest
 
-from wizard import _skip_source, _extract_and_summarize
+from wizard import _skip_source, _extract_and_summarize, OVERVIEW_STEP_INDEX
 from constants.keys import StateKeys
 from models.need_analysis import NeedAnalysisProfile
 
@@ -20,7 +20,7 @@ def test_skip_source_resets_session(monkeypatch: pytest.MonkeyPatch) -> None:
 
     _skip_source()
 
-    assert st.session_state[StateKeys.STEP] == 2
+    assert st.session_state[StateKeys.STEP] == OVERVIEW_STEP_INDEX
     assert st.session_state[StateKeys.RAW_TEXT] == ""
     assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == {}
     assert st.session_state[StateKeys.EXTRACTION_MISSING] == []
