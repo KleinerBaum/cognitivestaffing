@@ -622,6 +622,103 @@ def suggest_role_tasks(
     return tasks[:num_tasks]
 
 
+def suggest_onboarding_plans(
+    job_title: str,
+    *,
+    company_name: str = "",
+    industry: str = "",
+    culture: str = "",
+    lang: str = "en",
+    model: str | None = None,
+) -> list[str]:
+    """Generate onboarding program suggestions tailored to the role context."""
+
+    job_title = job_title.strip()
+    if not job_title:
+        return []
+    company_name = company_name.strip()
+    industry = industry.strip()
+    culture = culture.strip()
+    if model is None:
+        model = get_model_for(ModelTask.ONBOARDING_SUGGESTION)
+
+    is_de = lang.lower().startswith("de")
+    if is_de:
+        prompt = (
+            "Du bist ein HR-Experte. Entwickle fünf kurze, konkrekte Vorschläge "
+            "für den Onboarding-Prozess einer neuen Fachkraft."
+        )
+        prompt += f"\nRolle: {job_title}."
+        if company_name:
+            prompt += f"\nUnternehmen: {company_name}."
+        if industry:
+            prompt += f"\nBranche: {industry}."
+        if culture:
+            prompt += f"\nUnternehmenskultur oder Werte: {culture}."
+        prompt += (
+            "\nJeder Vorschlag sollte eine eigenständige Maßnahme mit Fokus auf "
+            "Kommunikation, Wissensaufbau oder Integration sein."
+            "\nFormatiere die Ausgabe als JSON-Array mit genau fünf String-Elementen."
+        )
+    else:
+        prompt = (
+            "You are an HR expert. Devise five concise, actionable onboarding "
+            "initiatives for a new hire."
+        )
+        prompt += f"\nRole: {job_title}."
+        if company_name:
+            prompt += f"\nCompany: {company_name}."
+        if industry:
+            prompt += f"\nIndustry: {industry}."
+        if culture:
+            prompt += f"\nCompany culture or values: {culture}."
+        prompt += (
+            "\nEach suggestion should describe a single activity focusing on "
+            "communication, knowledge transfer, or integration."
+            "\nReturn the result as a JSON array with exactly five string items."
+        )
+
+    messages = [{"role": "user", "content": prompt}]
+    res = api.call_chat_api(
+        messages,
+        model=model,
+        temperature=0.4,
+        max_tokens=220,
+        json_schema={
+            "name": "onboarding_suggestions",
+            "schema": {
+                "type": "array",
+                "items": {"type": "string"},
+                "minItems": 5,
+                "maxItems": 5,
+            },
+        },
+    )
+    answer = _chat_content(res)
+    suggestions: list[str] = []
+    try:
+        data = json.loads(answer)
+        if isinstance(data, list):
+            suggestions = [str(item).strip() for item in data if str(item).strip()]
+    except Exception:
+        for line in answer.splitlines():
+            item = line.strip("-•* \t")
+            if item:
+                suggestions.append(item)
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for suggestion in suggestions:
+        key = suggestion.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(suggestion)
+        if len(unique) == 5:
+            break
+    return unique
+
+
 def generate_interview_guide(
     job_title: str,
     responsibilities: str = "",
@@ -1052,6 +1149,7 @@ __all__ = [
     "suggest_skills_for_role",
     "suggest_benefits",
     "suggest_role_tasks",
+    "suggest_onboarding_plans",
     "generate_interview_guide",
     "generate_job_ad",
     "summarize_company_page",

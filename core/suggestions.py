@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-from openai_utils import suggest_benefits, suggest_skills_for_role
+from openai_utils import (
+    suggest_benefits,
+    suggest_onboarding_plans,
+    suggest_skills_for_role,
+)
 
-__all__ = ["get_skill_suggestions", "get_benefit_suggestions"]
+__all__ = [
+    "get_skill_suggestions",
+    "get_benefit_suggestions",
+    "get_onboarding_suggestions",
+]
 
 
 def get_skill_suggestions(
@@ -55,4 +63,27 @@ def get_benefit_suggestions(
             None,
         )
     except Exception as err:  # pragma: no cover - error path is tested
+        return [], str(err)
+
+
+def get_onboarding_suggestions(
+    job_title: str,
+    *,
+    company_name: str = "",
+    industry: str = "",
+    culture: str = "",
+    lang: str = "en",
+) -> Tuple[List[str], str | None]:
+    """Fetch onboarding process suggestions for the given role context."""
+
+    try:
+        suggestions = suggest_onboarding_plans(
+            job_title,
+            company_name=company_name,
+            industry=industry,
+            culture=culture,
+            lang=lang,
+        )
+        return suggestions, None
+    except Exception as err:  # pragma: no cover - API failure path
         return [], str(err)

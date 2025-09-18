@@ -48,6 +48,7 @@ class StateKeys:
     INTERVIEW_GUIDE_MD = "data.interview_md"
     SKILL_SUGGESTIONS = "skill_suggestions"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
+    ONBOARDING_SUGGESTIONS = "onboarding_suggestions"
     EXTRACTION_SUMMARY = "extraction_summary"
     EXTRACTION_MISSING = "extraction_missing"
     EXTRACTION_RAW_PROFILE = "extraction_raw_profile"

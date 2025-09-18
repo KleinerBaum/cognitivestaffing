@@ -8,7 +8,17 @@ import textwrap
 from copy import deepcopy
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, List, Literal, Mapping, Optional, Sequence, TypedDict
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    TypedDict,
+)
 from urllib.parse import urljoin, urlparse
 
 import re
@@ -35,7 +45,11 @@ from openai_utils import (
     refine_document,
     summarize_company_page,
 )
-from core.suggestions import get_benefit_suggestions, get_skill_suggestions
+from core.suggestions import (
+    get_benefit_suggestions,
+    get_onboarding_suggestions,
+    get_skill_suggestions,
+)
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import (
     search_occupation,
@@ -2149,6 +2163,132 @@ def _step_company():
 _step_company.handled_fields = ["company.name"]  # type: ignore[attr-defined]
 
 
+def _phase_display_labels(phases: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Return display labels for ``phases`` preserving order."""
+
+    labels: list[str] = []
+    for index, phase in enumerate(phases):
+        name = ""
+        if isinstance(phase, Mapping):
+            raw = phase.get("name", "")
+            if isinstance(raw, str):
+                name = raw.strip()
+        labels.append(name or f"{tr('Phase', 'Phase')} {index + 1}")
+    return labels
+
+
+def _phase_label_formatter(labels: Sequence[str]) -> Callable[[int], str]:
+    """Return a formatter for phase indices used in multi-select widgets."""
+
+    def _format(index: int) -> str:
+        if 0 <= index < len(labels):
+            return labels[index]
+        return f"{tr('Phase', 'Phase')} {index + 1}"
+
+    return _format
+
+
+def _filter_phase_indices(selected: Sequence[Any], total: int) -> list[int]:
+    """Clean phase indices ensuring they are within ``total``."""
+
+    cleaned: list[int] = []
+    seen: set[int] = set()
+    for value in selected:
+        candidate: int | None = None
+        if isinstance(value, int):
+            candidate = value
+        elif isinstance(value, str) and value.isdigit():
+            candidate = int(value)
+        if candidate is None or candidate in seen:
+            continue
+        if 0 <= candidate < total:
+            cleaned.append(candidate)
+            seen.add(candidate)
+    return cleaned
+
+
+def _parse_timeline_range(value: str | None) -> tuple[date | None, date | None]:
+    """Extract ISO date range from ``value`` if present."""
+
+    if not value:
+        return (None, None)
+    matches = re.findall(r"(\d{4}-\d{2}-\d{2})", value)
+    if not matches:
+        return (None, None)
+    try:
+        start = date.fromisoformat(matches[0])
+    except ValueError:
+        start = None
+    end: date | None
+    if len(matches) >= 2:
+        try:
+            end = date.fromisoformat(matches[1])
+        except ValueError:
+            end = None
+    else:
+        end = start
+    return (start, end)
+
+
+def _timeline_default_range(value: str | None) -> tuple[date, date]:
+    """Return default start/end dates for the recruitment timeline widget."""
+
+    start, end = _parse_timeline_range(value)
+    today = date.today()
+    start = start or today
+    end = end or start
+    if end < start:
+        start, end = end, start
+    return start, end
+
+
+def _normalize_date_selection(value: Any) -> tuple[date | None, date | None]:
+    """Normalize ``st.date_input`` return value to a ``(start, end)`` tuple."""
+
+    if isinstance(value, date):
+        return value, value
+    if isinstance(value, (list, tuple)):
+        dates = [item for item in value if isinstance(item, date)]
+        if len(dates) >= 2:
+            return dates[0], dates[1]
+        if dates:
+            return dates[0], dates[0]
+    return (None, None)
+
+
+def _format_timeline_string(start: date | None, end: date | None) -> str:
+    """Format ``start`` and ``end`` dates into a persisted string."""
+
+    if not start:
+        return ""
+    end = end or start
+    if end < start:
+        start, end = end, start
+    if end == start:
+        return start.isoformat()
+    return f"{start.isoformat()} – {end.isoformat()}"
+
+
+def _split_onboarding_entries(value: Any) -> list[str]:
+    """Return onboarding entries from stored value as a clean list."""
+
+    if isinstance(value, str):
+        items = [line.strip() for line in value.splitlines() if line.strip()]
+        return items
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        items = [str(item).strip() for item in value if str(item).strip()]
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for entry in items:
+            low = entry.lower()
+            if low in seen:
+                continue
+            seen.add(low)
+            deduped.append(entry)
+        return deduped
+    return []
+
+
 def _render_stakeholders(process: dict, key_prefix: str) -> None:
     """Render stakeholder inputs and update ``process`` in place."""
 
@@ -2163,6 +2303,8 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
             }
         ],
     )
+    phase_labels = _phase_display_labels(process.get("phases", []))
+    phase_indices = list(range(len(phase_labels)))
     if st.button(
         tr("+ weiteren Stakeholder hinzufügen", "+ add stakeholder"),
         key=f"{key_prefix}.add",
@@ -2186,6 +2328,31 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
             value=person.get("email") or "",
             key=f"{key_prefix}.{idx}.email",
         )
+
+        existing_selection = _filter_phase_indices(
+            person.get("information_loop_phases", []), len(phase_indices)
+        )
+        if existing_selection != person.get("information_loop_phases"):
+            person["information_loop_phases"] = existing_selection
+        person["information_loop_phases"] = st.multiselect(
+            tr("Informationsloop-Phasen", "Information loop phases"),
+            options=phase_indices,
+            default=existing_selection,
+            format_func=_phase_label_formatter(phase_labels),
+            key=f"{key_prefix}.{idx}.loop",
+            help=tr(
+                "Wähle die Phasen, in denen dieser Kontakt informiert wird.",
+                "Select the process phases where this contact stays in the loop.",
+            ),
+            disabled=not phase_indices,
+        )
+        if not phase_indices:
+            st.caption(
+                tr(
+                    "Füge unten Phasen hinzu, um Kontakte dem Informationsloop zuzuordnen.",
+                    "Add process phases below to assign contacts to the information loop.",
+                )
+            )
 
     primary_idx = st.radio(
         tr("Primärer Kontakt", "Primary contact"),
@@ -2252,7 +2419,7 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
     stakeholder_names = [s.get("name", "") for s in stakeholders if s.get("name")]
 
     for idx, phase in enumerate(phases):
-        with st.expander(f"{tr('Phase', 'Phase')} {idx + 1}", expanded=True):
+        with st.expander(f"{tr('Phase', 'Phase')} {idx + 1}", expanded=False):
             phase["name"] = st.text_input(
                 tr("Phasen-Name", "Phase name"),
                 value=phase.get("name", ""),
@@ -2295,6 +2462,86 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 value=phase.get("timeframe", ""),
                 key=f"{key_prefix}.{idx}.timeframe",
             )
+
+
+def _render_onboarding_section(
+    process: dict, key_prefix: str, *, allow_generate: bool = True
+) -> None:
+    """Render onboarding suggestions with optional LLM generation."""
+
+    lang = st.session_state.get("lang", "de")
+    profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
+    existing_entries = _split_onboarding_entries(process.get("onboarding_process", ""))
+
+    if allow_generate:
+        if st.button(
+            "🤖 "
+            + tr("Onboarding-Vorschläge generieren", "Generate onboarding suggestions"),
+            key=f"{key_prefix}.generate",
+        ):
+            job_title = (
+                (profile.get("position") or {}).get("job_title")
+                if isinstance(profile, Mapping)
+                else ""
+            ) or ""
+            company_data = (
+                profile.get("company") if isinstance(profile, Mapping) else {}
+            )
+            company_name = ""
+            industry = ""
+            culture = ""
+            if isinstance(company_data, Mapping):
+                company_name = str(company_data.get("name") or "").strip()
+                industry = str(company_data.get("industry") or "").strip()
+                culture = str(company_data.get("culture") or "").strip()
+            suggestions, err = get_onboarding_suggestions(
+                job_title,
+                company_name=company_name,
+                industry=industry,
+                culture=culture,
+                lang=lang,
+            )
+            if err or not suggestions:
+                st.warning(
+                    tr(
+                        "Onboarding-Vorschläge nicht verfügbar (API-Fehler)",
+                        "Onboarding suggestions not available (API error)",
+                    )
+                )
+                if err and st.session_state.get("debug"):
+                    st.session_state["onboarding_suggestions_error"] = err
+            else:
+                st.session_state[StateKeys.ONBOARDING_SUGGESTIONS] = suggestions
+                st.rerun()
+
+    current_suggestions = (
+        st.session_state.get(StateKeys.ONBOARDING_SUGGESTIONS, []) or []
+    )
+    options = list(dict.fromkeys(current_suggestions + existing_entries))
+    defaults = [opt for opt in options if opt in existing_entries]
+    selected = st.multiselect(
+        tr("Onboarding-Prozess", "Onboarding process"),
+        options=options,
+        default=defaults,
+        key=f"{key_prefix}.selection",
+        help=tr(
+            "Wähle die Vorschläge aus, die in den Onboarding-Prozess übernommen werden sollen.",
+            "Select the suggestions you want to include in the onboarding process.",
+        ),
+        placeholder=tr(
+            "Vorschläge auswählen oder generieren", "Select or generate suggestions"
+        ),
+    )
+    if not options:
+        st.info(
+            tr(
+                "Klicke auf den Button, um passende Onboarding-Vorschläge zu erstellen.",
+                "Click the button to generate tailored onboarding suggestions.",
+            )
+        )
+
+    cleaned = [item.strip() for item in selected if item.strip()]
+    process["onboarding_process"] = "\n".join(cleaned)
 
 
 def _step_position():
@@ -3107,11 +3354,23 @@ def _step_process():
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
 
     c1, c2 = st.columns(2)
-    data["recruitment_timeline"] = c1.text_area(
+    original_timeline = data.get("recruitment_timeline", "")
+    default_start, default_end = _timeline_default_range(original_timeline)
+    timeline_selection = c1.date_input(
         tr("Gesamt-Timeline", "Overall timeline"),
-        value=data.get("recruitment_timeline", ""),
+        value=(default_start, default_end),
         key="ui.process.recruitment_timeline",
     )
+    start_date, end_date = _normalize_date_selection(timeline_selection)
+    changed = (start_date, end_date) != (default_start, default_end)
+    if (
+        original_timeline
+        and not _parse_timeline_range(str(original_timeline))[0]
+        and not changed
+    ):
+        data["recruitment_timeline"] = str(original_timeline)
+    else:
+        data["recruitment_timeline"] = _format_timeline_string(start_date, end_date)
     data["process_notes"] = c2.text_area(
         tr("Notizen", "Notes"),
         value=data.get("process_notes", ""),
@@ -3123,11 +3382,7 @@ def _step_process():
         key="ui.process.application_instructions",
     )
     with st.expander(tr("Onboarding (nach Einstellung)", "Onboarding (post-hire)")):
-        data["onboarding_process"] = st.text_area(
-            tr("Onboarding-Prozess", "Onboarding process"),
-            value=data.get("onboarding_process", ""),
-            key="ui.process.onboarding_process",
-        )
+        _render_onboarding_section(data, "ui.process.onboarding")
 
     # Inline follow-up questions for Process section
     _render_followups_for_section(("process.",), st.session_state[StateKeys.PROFILE])
@@ -3611,11 +3866,23 @@ def _summary_process() -> None:
     )
 
     c1, c2 = st.columns(2)
-    timeline = c1.text_area(
+    original_timeline = process.get("recruitment_timeline", "")
+    default_start, default_end = _timeline_default_range(original_timeline)
+    summary_selection = c1.date_input(
         tr("Gesamt-Timeline", "Overall timeline"),
-        value=process.get("recruitment_timeline", ""),
+        value=(default_start, default_end),
         key="ui.summary.process.recruitment_timeline",
     )
+    start_date, end_date = _normalize_date_selection(summary_selection)
+    changed = (start_date, end_date) != (default_start, default_end)
+    if (
+        original_timeline
+        and not _parse_timeline_range(str(original_timeline))[0]
+        and not changed
+    ):
+        timeline = str(original_timeline)
+    else:
+        timeline = _format_timeline_string(start_date, end_date)
     notes = c2.text_area(
         tr("Notizen", "Notes"),
         value=process.get("process_notes", ""),
@@ -3627,11 +3894,10 @@ def _summary_process() -> None:
         key="ui.summary.process.application_instructions",
     )
     with st.expander(tr("Onboarding (nach Einstellung)", "Onboarding (post-hire)")):
-        onboarding = st.text_area(
-            tr("Onboarding-Prozess", "Onboarding process"),
-            value=process.get("onboarding_process", ""),
-            key="ui.summary.process.onboarding_process",
+        _render_onboarding_section(
+            process, "ui.summary.process.onboarding", allow_generate=False
         )
+        onboarding = process.get("onboarding_process", "")
 
     _update_profile("process.recruitment_timeline", timeline)
     _update_profile("process.process_notes", notes)
