@@ -13,9 +13,11 @@ from utils.export import (
 
 
 def test_text_to_docx() -> None:
-    data = text_to_docx("Hello")
+    data = text_to_docx("Hello", font="Georgia", company_name="Acme")
     document = docx.Document(BytesIO(data))
-    assert document.paragraphs[0].text == "Hello"
+    texts = [p.text for p in document.paragraphs if p.text]
+    assert "Acme" in texts
+    assert "Hello" in texts
 
 
 def test_text_to_pdf() -> None:
@@ -31,8 +33,14 @@ def test_text_to_json() -> None:
 
 
 def test_prepare_download_data_docx() -> None:
-    data, mime, ext = prepare_download_data("Hello", "docx", key="test")
+    data, mime, ext = prepare_download_data(
+        "Hello",
+        "docx",
+        key="test",
+        font="Arial",
+        company_name="Acme",
+    )
     assert ext == "docx"
     assert mime.startswith("application/vnd")
     document = docx.Document(BytesIO(data))
-    assert document.paragraphs[0].text == "Hello"
+    assert document.paragraphs[0].text == "Acme"

@@ -7,7 +7,7 @@ import json
 import textwrap
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, List, Literal, Optional, Sequence, TypedDict
+from typing import Any, Iterable, List, Literal, Mapping, Optional, Sequence, TypedDict
 from urllib.parse import urljoin, urlparse
 
 import re
@@ -39,9 +39,16 @@ from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue De
 from integrations.esco import search_occupation, enrich_skills
 from components.stepper import render_stepper
 from components.salary_dashboard import render_salary_insights
-from utils import build_boolean_search
+from utils import build_boolean_search, seo_optimize
+from utils.export import prepare_download_data
 from nlp.bias import scan_bias_language
 from core.esco_utils import normalize_skills
+from core.job_ad import (
+    JOB_AD_FIELDS,
+    JOB_AD_GROUP_LABELS,
+    iter_field_keys,
+    suggest_target_audiences,
+)
 
 ROOT = Path(__file__).parent
 ensure_state()
@@ -107,6 +114,8 @@ section.main > div.block-container [data-testid="stTextArea"] textarea {
 }
 </style>
 """
+
+FONT_CHOICES = ["Helvetica", "Arial", "Times New Roman", "Georgia", "Calibri"]
 
 CEFR_LANGUAGE_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2", "Native"]
 
@@ -1164,6 +1173,164 @@ def get_in(d: dict, path: str, default=None):
         else:
             return default
     return cur
+
+
+def _job_ad_get_value(data: Mapping[str, Any], key: str) -> Any:
+    """Return a value for ``key`` supporting both nested and dotted lookups."""
+
+    if isinstance(data, Mapping) and key in data:
+        return data[key]
+    return get_in(dict(data), key) if isinstance(data, Mapping) else None
+
+
+def _normalize_list(value: Any) -> list[str]:
+    """Normalise raw list or string inputs into a clean list of strings."""
+
+    if isinstance(value, list):
+        cleaned = [str(item).strip() for item in value if str(item).strip()]
+        return cleaned
+    if isinstance(value, str):
+        return [part.strip() for part in value.splitlines() if part.strip()]
+    return []
+
+
+def _job_ad_field_value(data: Mapping[str, Any], key: str, lang: str) -> str:
+    """Format a field value for display within the job-ad selection UI."""
+
+    is_de = lang.lower().startswith("de")
+    yes_no = ("Ja", "Nein") if is_de else ("Yes", "No")
+
+    if key == "compensation.salary":
+        provided = bool(_job_ad_get_value(data, "compensation.salary_provided"))
+        if not provided:
+            return ""
+        min_val = _job_ad_get_value(data, "compensation.salary_min") or 0
+        max_val = _job_ad_get_value(data, "compensation.salary_max") or 0
+        currency = _job_ad_get_value(data, "compensation.currency") or "EUR"
+        period = _job_ad_get_value(data, "compensation.period") or (
+            "Jahr" if is_de else "year"
+        )
+        try:
+            min_num = int(min_val)
+            max_num = int(max_val)
+        except (TypeError, ValueError):
+            return ""
+        if not min_num and not max_num:
+            return ""
+        if min_num and max_num:
+            return f"{min_num:,}–{max_num:,} {currency} / {period}"
+        amount = max_num or min_num
+        return f"{amount:,} {currency} / {period}"
+
+    raw = _job_ad_get_value(data, key)
+    if raw in (None, "", []):
+        return ""
+
+    if key == "employment.travel_required":
+        detail = _job_ad_get_value(data, "employment.travel_details")
+        if detail:
+            raw = detail
+        else:
+            raw = bool(raw)
+    elif key == "employment.relocation_support":
+        detail = _job_ad_get_value(data, "employment.relocation_details")
+        if detail:
+            raw = detail
+        else:
+            raw = bool(raw)
+    elif key == "employment.work_policy":
+        details_text = _job_ad_get_value(data, "employment.work_policy_details")
+        if not details_text:
+            percentage = _job_ad_get_value(data, "employment.remote_percentage")
+            if percentage:
+                details_text = (
+                    f"{percentage}% Home-Office" if is_de else f"{percentage}% remote"
+                )
+        if details_text and isinstance(raw, str):
+            return f"{raw.strip()} ({details_text})"
+    elif key == "employment.remote_percentage":
+        return f"{raw}% Home-Office" if is_de else f"{raw}% remote"
+
+    if isinstance(raw, bool):
+        return yes_no[0] if raw else yes_no[1]
+    if isinstance(raw, list):
+        items = _normalize_list(raw)
+        if key == "compensation.benefits":
+            deduped: list[str] = []
+            seen: set[str] = set()
+            for entry in items:
+                lowered = entry.lower()
+                if lowered not in seen:
+                    seen.add(lowered)
+                    deduped.append(entry)
+            items = deduped
+        return ", ".join(items)
+    if isinstance(raw, str):
+        return raw.strip()
+    return str(raw)
+
+
+def _job_ad_field_display(
+    data: Mapping[str, Any],
+    field_key: str,
+    lang: str,
+) -> tuple[str, str] | None:
+    """Return the translated label and formatted value for ``field_key``."""
+
+    value = _job_ad_field_value(data, field_key, lang)
+    if not value:
+        return None
+    is_de = lang.lower().startswith("de")
+    label = next(
+        (
+            field.label_de if is_de else field.label_en
+            for field in JOB_AD_FIELDS
+            if field.key == field_key
+        ),
+        field_key,
+    )
+    return label, value
+
+
+def _set_job_ad_field(field_key: str, enabled: bool) -> None:
+    """Update the selected job-ad fields set."""
+
+    current = set(st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS, set()))
+    if enabled:
+        current.add(field_key)
+    else:
+        current.discard(field_key)
+    st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = current
+
+
+def _toggle_job_ad_field(field_key: str, widget_key: str) -> None:
+    """Sync checkbox widgets with the stored job-ad field selection."""
+
+    checked = bool(st.session_state.get(widget_key))
+    _set_job_ad_field(field_key, checked)
+
+
+def _update_job_ad_font() -> None:
+    """Persist the selected export font in session state."""
+
+    selected = st.session_state.get(UIKeys.JOB_AD_FONT)
+    if selected:
+        st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = selected
+
+
+def _job_ad_style_reference(data: Mapping[str, Any], base_url: str | None) -> str:
+    """Compose a short style reference string for the job ad prompt."""
+
+    parts: list[str] = []
+    brand_keywords = _job_ad_get_value(data, "company.brand_keywords")
+    if brand_keywords:
+        parts.append(str(brand_keywords))
+    mission = _job_ad_get_value(data, "company.mission")
+    if mission:
+        parts.append(str(mission))
+    if base_url:
+        parts.append(base_url)
+    return " | ".join(parts)
 
 
 def _render_followup_question(q: dict, data: dict) -> None:
@@ -3279,14 +3446,184 @@ def _step_summary(schema: dict, _critical: list[str]):
             key=UIKeys.AUDIENCE_SELECT,
         )
 
+    try:
+        profile = NeedAnalysisProfile.model_validate(data)
+    except Exception:
+        profile = NeedAnalysisProfile()
+
+    lang = st.session_state.get("lang", "de")
+    current_selection = set(
+        iter_field_keys(st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS, set()))
+    )
+    st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = current_selection
+
+    if not current_selection:
+        defaults: set[str] = set()
+        for field in JOB_AD_FIELDS:
+            display = _job_ad_field_display(data, field.key, lang)
+            if display:
+                defaults.add(field.key)
+        current_selection = defaults
+        st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = current_selection
+
+    st.markdown(tr("### Stellenanzeige vorbereiten", "### Prepare job ad"))
+
+    group_order: list[str] = []
+    grouped_fields: dict[str, list[tuple[str, str, str]]] = {}
+    for field in JOB_AD_FIELDS:
+        if field.group not in group_order:
+            group_order.append(field.group)
+        display = _job_ad_field_display(data, field.key, lang)
+        if not display:
+            continue
+        label, value = display
+        grouped_fields.setdefault(field.group, []).append((field.key, label, value))
+
+    for group in group_order:
+        items = grouped_fields.get(group, [])
+        if not items:
+            continue
+        label_de, label_en = JOB_AD_GROUP_LABELS.get(group, (group, group))
+        group_label = label_de if lang.lower().startswith("de") else label_en
+        expanded = group in {"basic", "company"}
+        with st.expander(group_label, expanded=expanded):
+            for key, label, value in items:
+                widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{key}"
+                desired = key in current_selection
+                if (
+                    widget_key not in st.session_state
+                    or st.session_state[widget_key] != desired
+                ):
+                    st.session_state[widget_key] = desired
+                st.checkbox(
+                    label,
+                    key=widget_key,
+                    on_change=_toggle_job_ad_field,
+                    kwargs={"field_key": key, "widget_key": widget_key},
+                )
+                st.caption(value)
+
+    available_groups = [g for g in group_order if grouped_fields.get(g)]
+    if available_groups:
+        st.markdown(tr("#### Schrittweise Auswahl", "#### Step-by-step selection"))
+        if UIKeys.JOB_AD_STEP_SELECT not in st.session_state:
+            st.session_state[UIKeys.JOB_AD_STEP_SELECT] = available_groups[0]
+        step_choice = st.selectbox(
+            tr("Wizard-Schritt", "Wizard step"),
+            options=available_groups,
+            format_func=lambda g: (
+                JOB_AD_GROUP_LABELS.get(g, (g, g))[0]
+                if lang.lower().startswith("de")
+                else JOB_AD_GROUP_LABELS.get(g, (g, g))[1]
+            ),
+            key=UIKeys.JOB_AD_STEP_SELECT,
+        )
+        for key, label, value in grouped_fields.get(step_choice, []):
+            st.markdown(f"**{label}**")
+            st.caption(value)
+            is_selected = key in st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS]
+            action_label = (
+                tr("Aus Auswahl entfernen", "Remove from selection")
+                if is_selected
+                else tr("Zur Auswahl hinzufügen", "Add to selection")
+            )
+            button_key = f"{UIKeys.JOB_AD_STEP_FIELD_PREFIX}{key}.{int(is_selected)}"
+            if st.button(action_label, key=button_key):
+                _set_job_ad_field(key, not is_selected)
+                st.rerun()
+
+    st.markdown(tr("#### Manuelle Ergänzungen", "#### Manual additions"))
+    manual_entries: list[dict[str, str]] = list(
+        st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, [])
+    )
+    manual_title = st.text_input(
+        tr("Titel (optional)", "Title (optional)"),
+        key=UIKeys.JOB_AD_MANUAL_TITLE,
+    )
+    manual_text = st.text_area(
+        tr("Freitext", "Free text"),
+        key=UIKeys.JOB_AD_MANUAL_TEXT,
+    )
+    if st.button(tr("➕ Eintrag hinzufügen", "➕ Add entry")):
+        if manual_text.strip():
+            entry = {"title": manual_title.strip(), "content": manual_text.strip()}
+            manual_entries.append(entry)
+            st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = manual_entries
+            st.success(tr("Eintrag ergänzt.", "Entry added."))
+        else:
+            st.warning(
+                tr(
+                    "Bitte Text für den manuellen Eintrag angeben.",
+                    "Please provide text for the manual entry.",
+                )
+            )
+
+    if manual_entries:
+        for idx, entry in enumerate(manual_entries):
+            title = entry.get("title") or tr(
+                "Zusätzliche Information", "Additional information"
+            )
+            st.markdown(f"**{title}**")
+            st.write(entry.get("content", ""))
+            if st.button(
+                tr("Entfernen", "Remove"),
+                key=f"{UIKeys.JOB_AD_MANUAL_TEXT}.remove.{idx}",
+            ):
+                manual_entries.pop(idx)
+                st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = manual_entries
+                st.rerun()
+
+    suggestions = suggest_target_audiences(profile, lang)
+    target_value = ""
+    if suggestions:
+        st.markdown(
+            tr("#### Zielgruppen-Vorschläge", "#### Target audience suggestions")
+        )
+        option_map = {s.key: s for s in suggestions}
+        option_keys = list(option_map.keys())
+        if UIKeys.JOB_AD_TARGET_SELECT not in st.session_state or (
+            st.session_state[UIKeys.JOB_AD_TARGET_SELECT] not in option_keys
+        ):
+            st.session_state[UIKeys.JOB_AD_TARGET_SELECT] = option_keys[0]
+        selected_option = st.radio(
+            tr("Empfehlungen", "Recommendations"),
+            option_keys,
+            format_func=lambda k: f"{option_map[k].title} – {option_map[k].description}",
+            key=UIKeys.JOB_AD_TARGET_SELECT,
+        )
+        chosen = option_map.get(selected_option, suggestions[0])
+        target_value = f"{chosen.title} – {chosen.description}"
+    custom_target = st.text_input(
+        tr("Eigene Zielgruppe", "Custom target audience"),
+        key=UIKeys.JOB_AD_CUSTOM_TARGET,
+    ).strip()
+    if custom_target:
+        target_value = custom_target
+    st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
+
+    base_url = st.session_state.get(StateKeys.COMPANY_PAGE_BASE) or ""
+    style_reference = _job_ad_style_reference(data, base_url or None)
+
     col_a, col_b, col_c = st.columns(3)
     with col_a:
-        if st.button(tr("📝 Stellenanzeige (Entwurf)", "📝 Job Ad (Draft)")):
+        disabled = not current_selection or not target_value
+        if st.button(
+            tr("📝 Stellenanzeige generieren", "📝 Generate job ad"),
+            disabled=disabled,
+        ):
             try:
-                job_ad_md = generate_job_ad(data, tone=st.session_state.get("tone"))
+                job_ad_md = generate_job_ad(
+                    data,
+                    sorted(current_selection),
+                    target_audience=target_value,
+                    manual_sections=list(manual_entries),
+                    style_reference=style_reference,
+                    lang=lang,
+                )
                 st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
-                findings = scan_bias_language(job_ad_md, st.session_state.lang)
+                findings = scan_bias_language(job_ad_md, lang)
                 st.session_state[StateKeys.BIAS_FINDINGS] = findings
+                st.success(tr("Stellenanzeige erstellt.", "Job ad created."))
             except Exception as e:
                 st.error(
                     tr(
@@ -3305,7 +3642,6 @@ def _step_summary(schema: dict, _critical: list[str]):
         audience = st.session_state.get(UIKeys.AUDIENCE_SELECT, "general")
         if st.button(tr("🗂️ Interviewleitfaden", "🗂️ Interview Guide")):
             try:
-                profile = NeedAnalysisProfile(**data)
                 extras = (
                     len(profile.requirements.hard_skills_required)
                     + len(profile.requirements.hard_skills_optional)
@@ -3350,17 +3686,168 @@ def _step_summary(schema: dict, _critical: list[str]):
         ]
     )
     with output_tabs[0]:
-        if st.session_state.get(StateKeys.JOB_AD_MD):
+        job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD, "")
+        if job_ad_text:
             st.markdown("**Job Ad Draft:**")
-            st.markdown(st.session_state[StateKeys.JOB_AD_MD])
+            st.markdown(job_ad_text)
+
+            st.success(
+                tr(
+                    "Die Anzeige wurde DSGVO-konform formuliert und SEO-optimiert. Bitte prüfe die Inhalte vor der Veröffentlichung.",
+                    "The job ad has been written with GDPR compliance and SEO optimisation in mind. Please review before publishing.",
+                )
+            )
+
+            seo_data = seo_optimize(job_ad_text)
+            keywords: list[str] = list(seo_data.get("keywords", []))
+            meta_description: str = str(seo_data.get("meta_description", ""))
+            if keywords or meta_description:
+                with st.expander(
+                    tr("SEO-Empfehlungen", "SEO insights"), expanded=False
+                ):
+                    if keywords:
+                        st.markdown(
+                            tr("**Top-Schlüsselbegriffe:**", "**Top keywords:**")
+                        )
+                        st.write(", ".join(keywords))
+                    if meta_description:
+                        st.markdown(
+                            tr("**Meta-Beschreibung:**", "**Meta description:**")
+                        )
+                        st.write(meta_description)
+
             findings = st.session_state.get(StateKeys.BIAS_FINDINGS, [])
-            for f in findings:
+            for finding in findings:
                 st.warning(
                     tr(
-                        f"⚠️ Begriff '{f['term']}' erkannt. Vorschlag: {f['suggestion']}",
-                        f"⚠️ Term '{f['term']}' detected. Suggestion: {f['suggestion']}",
+                        f"⚠️ Begriff '{finding['term']}' erkannt. Vorschlag: {finding['suggestion']}",
+                        f"⚠️ Term '{finding['term']}' detected. Suggestion: {finding['suggestion']}",
                     )
                 )
+
+            target_focus = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
+            if target_focus:
+                st.caption(
+                    tr(
+                        "Fokus der Anzeige: {audience}",
+                        "Ad focus: {audience}",
+                    ).format(audience=target_focus)
+                )
+
+            st.markdown(tr("#### Ausgabe & Branding", "#### Output & branding"))
+            if style_reference:
+                st.caption(
+                    tr(
+                        "Styleguide-Hinweise wurden automatisch aus den Unternehmensinformationen berücksichtigt.",
+                        "Style guide hints were applied automatically based on the company information.",
+                    )
+                )
+            else:
+                st.caption(
+                    tr(
+                        "Kein Styleguide verfügbar? Wähle eine Schriftart und lade optional ein Logo hoch.",
+                        "No style guide available? Choose a font and optionally upload a logo.",
+                    )
+                )
+
+            format_labels = {
+                "docx": tr("Word (.docx)", "Word (.docx)"),
+                "pdf": tr("PDF (.pdf)", "PDF (.pdf)"),
+            }
+            if UIKeys.JOB_AD_FORMAT not in st.session_state:
+                st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
+            format_choice = st.radio(
+                tr("Download-Format", "Download format"),
+                list(format_labels.keys()),
+                key=UIKeys.JOB_AD_FORMAT,
+                format_func=lambda value: format_labels[value],
+                horizontal=True,
+            )
+
+            font_default = st.session_state.get(
+                StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0]
+            )
+            if font_default not in FONT_CHOICES:
+                font_default = FONT_CHOICES[0]
+                st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = font_default
+            font_index = FONT_CHOICES.index(font_default)
+            st.selectbox(
+                tr("Schriftart für Export", "Export font"),
+                FONT_CHOICES,
+                index=font_index,
+                key=UIKeys.JOB_AD_FONT,
+                on_change=_update_job_ad_font,
+            )
+            font_choice = st.session_state.get(
+                StateKeys.JOB_AD_FONT_CHOICE, font_default
+            )
+
+            logo_file = st.file_uploader(
+                tr("Logo hochladen (optional)", "Upload logo (optional)"),
+                type=["png", "jpg", "jpeg", "svg"],
+                key=UIKeys.JOB_AD_LOGO_UPLOAD,
+            )
+            if logo_file is not None:
+                st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_file.getvalue()
+
+            logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+            if logo_bytes:
+                try:
+                    st.image(
+                        logo_bytes,
+                        caption=tr("Aktuelles Logo", "Current logo"),
+                        width=180,
+                    )
+                except Exception:
+                    st.caption(
+                        tr(
+                            "Logo erfolgreich geladen.",
+                            "Logo uploaded successfully.",
+                        )
+                    )
+                if st.button(
+                    tr("Logo entfernen", "Remove logo"),
+                    key=f"{UIKeys.JOB_AD_LOGO_UPLOAD}.remove",
+                ):
+                    st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
+                    st.rerun()
+
+            company_name = (
+                profile.company.brand_name
+                or profile.company.name
+                or str(_job_ad_get_value(data, "company.name") or "").strip()
+                or None
+            )
+            job_title = (
+                profile.position.job_title
+                or str(_job_ad_get_value(data, "position.job_title") or "").strip()
+                or "job-ad"
+            )
+            safe_stem = (
+                re.sub(r"[^A-Za-z0-9_-]+", "-", job_title).strip("-") or "job-ad"
+            )
+            export_font = font_choice if format_choice in {"docx", "pdf"} else None
+            export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
+            payload, mime, ext = prepare_download_data(
+                job_ad_text,
+                format_choice,
+                key="job_ad",
+                title=job_title,
+                font=export_font,
+                logo=export_logo,
+                company_name=company_name,
+            )
+            st.download_button(
+                tr("⬇️ Als Datei herunterladen", "⬇️ Download file"),
+                payload,
+                file_name=f"{safe_stem}.{ext}",
+                mime=mime,
+                key="download_job_ad",
+            )
+
+            st.markdown(
+                tr("#### Feedback & Überarbeitung", "#### Feedback & refinement")
+            )
             feedback = st.text_area(
                 tr("Feedback zur Anzeige", "Ad refinement feedback"),
                 key=UIKeys.JOB_AD_FEEDBACK,
@@ -3370,9 +3857,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 key=UIKeys.REFINE_JOB_AD,
             ):
                 try:
-                    refined = refine_document(
-                        st.session_state[StateKeys.JOB_AD_MD], feedback
-                    )
+                    refined = refine_document(job_ad_text, feedback)
                     st.session_state[StateKeys.JOB_AD_MD] = refined
                     findings = scan_bias_language(refined, st.session_state.lang)
                     st.session_state[StateKeys.BIAS_FINDINGS] = findings
