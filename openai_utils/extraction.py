@@ -693,10 +693,17 @@ def suggest_onboarding_plans(
         json_schema={
             "name": "onboarding_suggestions",
             "schema": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 5,
-                "maxItems": 5,
+                "type": "object",
+                "properties": {
+                    "suggestions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 5,
+                        "maxItems": 5,
+                    }
+                },
+                "required": ["suggestions"],
+                "additionalProperties": False,
             },
         },
     )
@@ -704,8 +711,16 @@ def suggest_onboarding_plans(
     suggestions: list[str] = []
     try:
         data = json.loads(answer)
-        if isinstance(data, list):
-            suggestions = [str(item).strip() for item in data if str(item).strip()]
+        suggestions_payload: Sequence[Any]
+        if isinstance(data, dict):
+            suggestions_payload = data.get("suggestions", [])
+        elif isinstance(data, list):
+            suggestions_payload = data
+        else:
+            suggestions_payload = []
+        suggestions = [
+            str(item).strip() for item in suggestions_payload if str(item).strip()
+        ]
     except Exception:
         for line in answer.splitlines():
             item = line.strip("-•* \t")
