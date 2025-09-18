@@ -82,10 +82,21 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
     group = ""
     if group_uri:
         try:
-            grp = _get(group_uri)
-            group = grp.get("title", "")
+            grp = _get("resource", uri=group_uri, language=lang)
         except requests.RequestException as exc:  # pragma: no cover - network
             log.warning("ESCO group lookup failed: %s", exc)
+        else:
+            label = (
+                grp.get("title")
+                or grp.get("preferredLabel")
+                or grp.get("label")
+                or ""
+            )
+            if isinstance(label, dict):
+                group = label.get(lang, "") or next(iter(label.values()), "")
+            else:
+                group = str(label)
+            group = group.strip()
     return {
         "preferredLabel": _lab(best),
         "uri": best.get("uri") or best.get("_links", {}).get("self", {}).get("href"),
