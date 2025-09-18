@@ -1,6 +1,7 @@
 # wizard.py — Cognitive Needs Wizard (clean flow, schema-aligned)
 from __future__ import annotations
 
+import html
 import hashlib
 import io
 import json
@@ -4166,15 +4167,27 @@ def _step_summary(schema: dict, _critical: list[str]):
     )
     st.markdown(f"### {overview_title}")
     entry_label = tr("Einträge", "Entries")
-    for chunk in _chunked(list(zip(group_keys, tab_labels)), 3):
-        cols = st.columns(len(chunk))
-        for col, (group, label) in zip(cols, chunk):
-            count = overview_counts.get(group, 0)
-            col.metric(label=label, value=count)
-            if count:
-                col.caption(f"{count} {entry_label}")
-            else:
-                col.caption(tr("Noch keine Angaben", "No entries yet"))
+    empty_label = tr("Noch keine Angaben", "No entries yet")
+    card_markup: list[str] = []
+    for group, label in zip(group_keys, tab_labels):
+        count = overview_counts.get(group, 0)
+        subtitle = f"{count} {entry_label}" if count else empty_label
+        card_markup.append(
+            "\n".join(
+                [
+                    '<div class="values-overview-card">',
+                    f'  <div class="values-overview-count">{count}</div>',
+                    f'  <div class="values-overview-label">{html.escape(label)}</div>',
+                    f'  <div class="values-overview-subtitle">{html.escape(subtitle)}</div>',
+                    "</div>",
+                ]
+            )
+        )
+
+    st.markdown(
+        '<div class="values-overview-grid">' + "".join(card_markup) + "</div>",
+        unsafe_allow_html=True,
+    )
 
     tabs = st.tabs(tab_labels)
     for tab, group in zip(tabs, group_keys):
