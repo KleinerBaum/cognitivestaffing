@@ -13,13 +13,11 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
     if candidate_str not in sys.path:
         sys.path.append(candidate_str)
 
-from components.salary_dashboard import render_salary_dashboard  # noqa: E402
 from components.model_selector import model_selector  # noqa: E402
-from components.reasoning_selector import reasoning_selector  # noqa: E402
 from constants.keys import UIKeys  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
-from state import ensure_state, reset_state  # noqa: E402
+from state import ensure_state  # noqa: E402
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -68,44 +66,140 @@ def inject_global_css() -> None:
 
 inject_global_css()
 
-SIDEBAR_CONTAINER_SELECTOR = "section[data-testid='stSidebar']"
-SIDEBAR_COLLAPSE_SELECTORS = (
-    "div[data-testid='collapsedControl']",
-    "div[data-testid='stSidebarCollapsedControl']",
-)
+SIDEBAR_STYLE = """
+<style>
+[data-testid="stSidebar"] .block-container {
+    padding-top: 1.4rem;
+}
+.sidebar-hero {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+    padding: 1.1rem 1.2rem;
+    border-radius: 1.2rem;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.92), rgba(236, 72, 153, 0.85));
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+    margin-bottom: 1.3rem;
+}
+.sidebar-hero__icon {
+    font-size: 2.4rem;
+}
+.sidebar-hero__eyebrow {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    opacity: 0.8;
+    margin: 0 0 0.2rem 0;
+}
+.sidebar-hero__title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.sidebar-hero__subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+.sidebar-hero * {
+    color: #ffffff !important;
+}
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stToggle label {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+[data-testid="stSidebar"] .stButton button {
+    border-radius: 999px;
+}
+.sidebar-note {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.85rem;
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    margin-top: 0.8rem;
+}
+</style>
+"""
+
+st.markdown(SIDEBAR_STYLE, unsafe_allow_html=True)
 
 
-def apply_sidebar_visibility(visible: bool) -> None:
-    """Apply CSS rules to enforce the preferred sidebar visibility.
+def render_primary_sidebar() -> None:
+    """Render the redesigned global sidebar."""
 
-    Args:
-        visible: Whether the sidebar should be shown.
-    """
+    if UIKeys.LANG_SELECT not in st.session_state:
+        st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
+    if "ui.dark_mode" not in st.session_state:
+        st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
 
-    hidden_selectors = list(SIDEBAR_COLLAPSE_SELECTORS)
-    if not visible:
-        hidden_selectors.append(SIDEBAR_CONTAINER_SELECTOR)
-    css_rules = "\n".join(
-        f"{selector} {{ display: none; }}" for selector in hidden_selectors
+    def _on_language_change() -> None:
+        st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
+
+    def _on_theme_toggle() -> None:
+        st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
+
+    language_labels = {"de": "Deutsch", "en": "English"}
+    hero_title = tr("Dein Recruiting-Co-Pilot", "Your recruiting co-pilot")
+    hero_subtitle = tr(
+        "Verwalte Einstellungen wie im vertrauten ATS – klar, fokussiert, jederzeit erreichbar.",
+        "Manage your essentials like in your familiar ATS – clear, focused and always within reach.",
     )
-    st.markdown(f"<style>{css_rules}</style>", unsafe_allow_html=True)
+    status_label = tr("Wizard-Status", "Wizard status")
 
+    with st.sidebar:
+        st.markdown(
+            f"""
+            <div class="sidebar-hero">
+              <div class="sidebar-hero__icon">🧭</div>
+              <div>
+                <p class="sidebar-hero__eyebrow">{status_label}</p>
+                <h2 class="sidebar-hero__title">{hero_title}</h2>
+                <p class="sidebar-hero__subtitle">{hero_subtitle}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-sidebar_visible = st.session_state.get(UIKeys.SIDEBAR_VISIBLE, True)
-apply_sidebar_visibility(sidebar_visible)
+        st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
+        st.selectbox(
+            tr("Sprache", "Language"),
+            options=list(language_labels.keys()),
+            format_func=lambda value: language_labels[value],
+            key=UIKeys.LANG_SELECT,
+            on_change=_on_language_change,
+        )
+        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
 
-toggle_placeholder = st.container()
+        st.markdown(f"### 🤖 {tr('KI-Konfiguration', 'AI configuration')}")
+        model_selector()
+        st.caption(
+            tr(
+                "Passe das Modell flexibel an Extraktion, Analyse oder Generierung an.",
+                "Adjust the model flexibly for extraction, analysis or generation tasks.",
+            )
+        )
 
-if not sidebar_visible:
-    with toggle_placeholder:
-        _, button_col = st.columns([1, 0.22])
-        with button_col:
-            if st.button(
-                tr("➡️ Sidebar einblenden", "➡️ Show sidebar"),
-                key=UIKeys.SIDEBAR_SHOW,
-            ):
-                st.session_state[UIKeys.SIDEBAR_VISIBLE] = True
-                st.rerun()
+        st.divider()
+        st.markdown(f"### 💡 {tr('Tipps aus der Praxis', 'Practical tips')}")
+        st.markdown(
+            tr(
+                "- Durchlaufe den Wizard Schritt für Schritt – deine Eingaben bleiben erhalten.\n"
+                "- Nutze die Gehaltsprognose in den Detail-Schritten, um Budgetentscheidungen abzusichern.\n"
+                "- Alle KI-Ergebnisse findest du gesammelt in der Summary.",
+                "- Move through the wizard step by step – your inputs remain persistent.\n"
+                "- Use the salary outlook inside the detailed steps to validate budget decisions.\n"
+                "- Find every AI result again in the summary view.",
+            )
+        )
+        st.markdown(
+            f"<div class='sidebar-note'>{tr('Hinweis: Änderungen werden automatisch gespeichert – nutze den Aktualisieren-Button in den Detail-Schritten für eine frische Prognose.', 'Note: Changes are saved automatically – use the refresh button in the detailed steps for an up-to-date salary estimate.')}</div>",
+            unsafe_allow_html=True,
+        )
+
 
 SCHEMA = load_json("schema/need_analysis.schema.json", fallback={})
 CRITICAL = set(
@@ -126,38 +220,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Sidebar: globale Controls ---
-if sidebar_visible:
-    with st.sidebar:
-        if st.button(
-            tr("⬅️ Sidebar ausblenden", "⬅️ Hide sidebar"),
-            key=UIKeys.SIDEBAR_HIDE,
-            use_container_width=True,
-        ):
-            st.session_state[UIKeys.SIDEBAR_VISIBLE] = False
-            st.rerun()
-
-        st.markdown(tr("### ⚙️ Einstellungen", "### ⚙️ Settings"))
-        st.session_state.lang = st.selectbox(
-            tr("Sprache", "Language"),
-            ["de", "en"],
-            index=(0 if st.session_state.lang == "de" else 1),
-        )
-        if "ui.dark_mode" not in st.session_state:
-            st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
-
-        def _on_theme_toggle() -> None:
-            st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
-
-        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
-        model_selector()
-        reasoning_selector()
-
-        if st.button("🔁 Reset Wizard", type="secondary"):
-            reset_state()
-            st.success(tr("Wizard wurde zurückgesetzt.", "Wizard has been reset."))
-
-    render_salary_dashboard(st.session_state)
+render_primary_sidebar()
 
 # --- Wizard einbinden + Advantages Page via st.navigation ---
 from wizard import run_wizard  # noqa: E402

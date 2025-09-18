@@ -87,10 +87,7 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
             log.warning("ESCO group lookup failed: %s", exc)
         else:
             label = (
-                grp.get("title")
-                or grp.get("preferredLabel")
-                or grp.get("label")
-                or ""
+                grp.get("title") or grp.get("preferredLabel") or grp.get("label") or ""
             )
             if isinstance(label, dict):
                 group = label.get(lang, "") or next(iter(label.values()), "")

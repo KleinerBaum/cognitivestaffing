@@ -38,6 +38,7 @@ from core.suggestions import get_benefit_suggestions, get_skill_suggestions
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import search_occupation, enrich_skills
 from components.stepper import render_stepper
+from components.salary_dashboard import render_salary_insights
 from utils import build_boolean_search
 from nlp.bias import scan_bias_language
 from core.esco_utils import normalize_skills
@@ -3473,7 +3474,15 @@ def run_wizard():
     # Render current step
     current = st.session_state[StateKeys.STEP]
     _label, renderer = steps[current]
-    renderer()
+
+    if current in {2, 3, 4, 5}:
+        main_col, insight_col = st.columns((2.2, 1), gap="large")
+        with main_col:
+            renderer()
+        with insight_col:
+            render_salary_insights(st.session_state)
+    else:
+        renderer()
 
     # Bottom nav
     section = current - 1
