@@ -7,6 +7,7 @@ import textwrap
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for
+from core.job_ad import JOB_AD_FIELDS, iter_field_keys
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
@@ -720,222 +721,218 @@ def generate_interview_guide(
 
 
 def generate_job_ad(
-    session_data: dict, tone: str | None = None, model: str | None = None
+    session_data: Mapping[str, Any],
+    selected_fields: Sequence[str],
+    *,
+    target_audience: str,
+    manual_sections: Sequence[Mapping[str, str]] | None = None,
+    style_reference: str | None = None,
+    lang: str | None = None,
+    model: str | None = None,
 ) -> str:
-    """Generate a compelling job advertisement using the collected session data."""
+    """Generate a job advertisement tailored to the selected audience."""
 
-    def _format(value: Any) -> str:
+    if not selected_fields:
+        raise ValueError("No fields selected for job ad generation.")
+    audience_text = (target_audience or "").strip()
+    if not audience_text:
+        raise ValueError("Target audience is required for job ad generation.")
+
+    data = dict(session_data)
+
+    def _resolve(path: str) -> Any:
+        if path in data:
+            return data[path]
+        parts = path.split(".")
+        cursor: Any = data
+        for part in parts:
+            if isinstance(cursor, Mapping) and part in cursor:
+                cursor = cursor[part]
+            else:
+                return None
+        return cursor
+
+    def _normalize_benefits(raw: Any) -> list[str]:
+        if isinstance(raw, list):
+            items = [str(item).strip() for item in raw if str(item).strip()]
+        elif isinstance(raw, str):
+            items = [p.strip() for p in raw.splitlines() if p.strip()]
+        else:
+            return []
+        seen: set[str] = set()
+        result: list[str] = []
+        for perk in items:
+            low = perk.lower()
+            if low not in seen:
+                seen.add(low)
+                result.append(perk)
+        return result
+
+    lang_code = (lang or data.get("lang") or "de").lower()
+    is_de = lang_code.startswith("de")
+    yes_no = ("Ja", "Nein") if is_de else ("Yes", "No")
+
+    selected = set(iter_field_keys(selected_fields))
+    details: list[str] = []
+
+    def _format_value(key: str, value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+        if key == "compensation.benefits":
+            perks = _normalize_benefits(value)
+            if not perks:
+                return None
+            return ", ".join(perks)
         if isinstance(value, list):
-            return ", ".join(str(v) for v in value if v)
+            cleaned = [str(item).strip() for item in value if str(item).strip()]
+            return ", ".join(cleaned) if cleaned else None
+        if isinstance(value, bool):
+            return yes_no[0] if value else yes_no[1]
         return str(value)
 
-    # Normalize aliases and ensure we have the latest values
-    data = dict(session_data)  # copy to avoid mutating original
-    # Clean up benefit entries and deduplicate
-    raw_benefits = data.get("compensation.benefits")
-    if raw_benefits:
-        if isinstance(raw_benefits, str):
-            parts = [p.strip() for p in raw_benefits.splitlines() if p.strip()]
-        elif isinstance(raw_benefits, list):
-            parts = [str(p).strip() for p in raw_benefits if str(p).strip()]
+    def _format_detail(field_key: str) -> None:
+        if field_key == "compensation.salary":
+            salary_enabled = bool(_resolve("compensation.salary_provided"))
+            if not salary_enabled:
+                return
+            min_val = _resolve("compensation.salary_min")
+            max_val = _resolve("compensation.salary_max")
+            currency = _resolve("compensation.currency") or "EUR"
+            period = _resolve("compensation.period") or ("Jahr" if is_de else "year")
+            if not min_val and not max_val:
+                return
+            if min_val and max_val:
+                salary_text = f"{int(min_val):,}–{int(max_val):,} {currency} / {period}"
+            else:
+                amount = int(max_val or min_val or 0)
+                salary_text = f"{amount:,} {currency} / {period}"
+            label = next(
+                (
+                    field.label_de if is_de else field.label_en
+                    for field in JOB_AD_FIELDS
+                    if field.key == field_key
+                ),
+                "Salary",
+            )
+            details.append(f"{label}: {salary_text}")
+            return
+
+        raw_value = _resolve(field_key)
+        if field_key == "employment.travel_required":
+            detail = _resolve("employment.travel_details")
+            if detail:
+                raw_value = detail
+            elif raw_value is not None:
+                raw_value = bool(raw_value)
+        elif field_key == "employment.relocation_support":
+            detail = _resolve("employment.relocation_details")
+            if detail:
+                raw_value = detail
+            elif raw_value is not None:
+                raw_value = bool(raw_value)
+        elif field_key == "employment.work_policy":
+            details_text = _resolve("employment.work_policy_details")
+            if not details_text:
+                percentage = _resolve("employment.remote_percentage")
+                if percentage:
+                    details_text = (
+                        f"{percentage}% Home-Office"
+                        if is_de
+                        else f"{percentage}% remote"
+                    )
+            if details_text and isinstance(raw_value, str):
+                raw_value = f"{raw_value.strip()} ({details_text})"
+        elif field_key == "employment.remote_percentage" and raw_value:
+            suffix = "% Home-Office" if is_de else "% remote"
+            raw_value = f"{raw_value}{suffix}"
+
+        formatted = _format_value(field_key, raw_value)
+        if not formatted:
+            return
+        label = next(
+            (
+                field.label_de if is_de else field.label_en
+                for field in JOB_AD_FIELDS
+                if field.key == field_key
+            ),
+            field_key,
+        )
+        details.append(f"{label}: {formatted}")
+
+    for field in JOB_AD_FIELDS:
+        if field.key not in selected:
+            continue
+        _format_detail(field.key)
+
+    extra_sections = manual_sections or []
+    for section in extra_sections:
+        content = str(section.get("content", "")).strip()
+        if not content:
+            continue
+        title = str(section.get("title", "")).strip()
+        if title:
+            details.append(f"{title}: {content}")
         else:
-            parts = []
-        deduped: list[str] = []
-        seen: set[str] = set()
-        for perk in parts:
-            lowered = perk.lower()
-            if lowered not in seen:
-                seen.add(lowered)
-                deduped.append(perk)
-        data["compensation.benefits"] = deduped
-    lang = data.get("lang", "en")
+            details.append(content)
+
+    if not details:
+        raise ValueError("No usable data available for the job ad.")
+
+    style_text = (style_reference or "").strip()
+    intro = (
+        "Erstelle eine vollständige, SEO-optimierte Stellenanzeige im Markdown-Format."
+        if is_de
+        else "Create a complete, SEO-optimised job advertisement in Markdown format."
+    )
+    compliance = (
+        "Achte auf inklusive, diskriminierungsfreie Sprache und erfülle die DSGVO."
+        if is_de
+        else "Use inclusive, non-discriminatory language and ensure GDPR compliance."
+    )
+    structure = (
+        "Nutze klare Überschriften, eine motivierende Einleitung und einen eindeutigen Call-to-Action am Ende."
+        if is_de
+        else "Use clear headings, an engaging introduction and end with a precise call to action."
+    )
+    audience_line = (
+        f"Zielgruppe: {audience_text}."
+        if is_de
+        else f"Target audience: {audience_text}."
+    )
+    if style_text:
+        style_line = (
+            f"Berücksichtige Marken-/Styleguide-Hinweise: {style_text}."
+            if is_de
+            else f"Incorporate these brand/style guidelines: {style_text}."
+        )
+    else:
+        style_line = ""
+
+    prompt_parts = [intro, audience_line, compliance, structure]
+    if style_line:
+        prompt_parts.append(style_line)
+    prompt_parts.append(
+        "Relevante Informationen:" if is_de else "Relevant information:"
+    )
+    prompt_parts.extend(details)
+    prompt_parts.append(
+        "Schließe mit einem prägnanten Abschnitt zu Benefits, Datenschutz und Bewerbungsprozess."
+        if is_de
+        else "Conclude with a concise section covering benefits, data privacy and how to apply."
+    )
+
+    prompt = "\n".join(prompt_parts)
+
     if model is None:
         model = get_model_for(ModelTask.JOB_AD)
-    if tone is None:
-        tone = (
-            "klar, ansprechend und inklusiv"
-            if lang.startswith("de")
-            else "engaging, clear, and inclusive"
-        )
-    # Define field labels and which session keys to use
-    fields_for_ad = [
-        # (session_key, English Label, German Label)
-        ("position.job_title", "Job Title", "Jobtitel"),
-        ("company.name", "Company", "Unternehmen"),
-        ("company.size", "Company Size", "Unternehmensgröße"),
-        ("location.primary_city", "Location", "Standort"),
-        ("company.industry", "Industry", "Branche"),
-        ("employment.job_type", "Job Type", "Anstellungsart"),
-        ("employment.employment_term", "Employment Term", "Vertragsart"),
-        ("employment.work_policy", "Work Policy", "Arbeitsmodell"),
-        ("employment.work_schedule", "Work Schedule", "Arbeitszeit"),
-        (
-            "employment.work_hours_per_week",
-            "Hours per Week",
-            "Wochenstunden",
-        ),
-        ("employment.travel_required", "Travel Requirements", "Reisebereitschaft"),
-        (
-            "employment.relocation_support",
-            "Relocation Assistance",
-            "Umzugsunterstützung",
-        ),
-        (
-            "employment.visa_sponsorship",
-            "Visa Sponsorship",
-            "Visum-Patenschaft",
-        ),
-        ("position.role_summary", "Role Summary", "Rollenbeschreibung"),
-        ("responsibilities.items", "Key Responsibilities", "Wichtigste Aufgaben"),
-        (
-            "requirements.hard_skills_required",
-            "Hard Skills (Must-have)",
-            "Technische Fähigkeiten (Muss)",
-        ),
-        (
-            "requirements.hard_skills_optional",
-            "Hard Skills (Nice-to-have)",
-            "Technische Fähigkeiten (Optional)",
-        ),
-        (
-            "requirements.soft_skills_required",
-            "Soft Skills (Must-have)",
-            "Soziale Fähigkeiten (Muss)",
-        ),
-        (
-            "requirements.soft_skills_optional",
-            "Soft Skills (Nice-to-have)",
-            "Soziale Fähigkeiten (Optional)",
-        ),
-        ("compensation.benefits", "Benefits", "Leistungen"),
-        (
-            "learning_opportunities",
-            "Learning & Development",
-            "Weiterbildung & Entwicklung",
-        ),
-        (
-            "compensation.learning_budget",
-            "Learning Budget",
-            "Weiterbildungsbudget",
-        ),
-        ("position.reporting_line", "Reporting Line", "Berichtsweg"),
-        ("position.team_structure", "Team Structure", "Teamstruktur"),
-        ("position.team_size", "Team Size", "Teamgröße"),
-        ("position.key_projects", "Key Projects", "Schlüsselprojekte"),
-        ("meta.application_deadline", "Application Deadline", "Bewerbungsschluss"),
-        ("position.seniority_level", "Seniority Level", "Erfahrungsebene"),
-        (
-            "requirements.languages_required",
-            "Languages Required",
-            "Erforderliche Sprachen",
-        ),
-        (
-            "requirements.tools_and_technologies",
-            "Tools and Technologies",
-            "Tools und Technologien",
-        ),
-    ]
-    details: list[str] = []
-    yes_no = ("Ja", "Nein") if lang.startswith("de") else ("Yes", "No")
-    boolean_fields = {
-        "employment.travel_required",
-        "employment.visa_sponsorship",
-    }
 
-    for key, label_en, label_de in fields_for_ad:
-        val = data.get(key, "")
-        if not val:
-            continue
-        formatted = _format(val).strip()
-        if not formatted:
-            continue
-        label = label_de if lang.startswith("de") else label_en
-
-        if key == "employment.travel_required":
-            detail = str(data.get("employment.travel_details", "")).strip()
-            if detail:
-                formatted = detail
-            else:
-                formatted = (
-                    yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
-                )
-        elif key == "employment.work_policy":
-            detail = str(data.get("employment.work_policy_details", "")).strip()
-            if not detail:
-                perc = data.get("employment.remote_percentage")
-                if perc:
-                    detail = (
-                        f"{perc}% remote"
-                        if not lang.startswith("de")
-                        else f"{perc}% Home-Office"
-                    )
-            if detail:
-                formatted = f"{formatted} ({detail})"
-        elif key == "employment.relocation_support":
-            detail = str(data.get("employment.relocation_details", "")).strip()
-            if detail:
-                formatted = detail
-            else:
-                formatted = (
-                    yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
-                )
-        elif key in boolean_fields:
-            formatted = (
-                yes_no[0] if str(val).lower() in ["true", "yes", "1"] else yes_no[1]
-            )
-
-        details.append(f"{label}: {formatted}")
-    # Handle salary range as a special case
-    if data.get("compensation.salary_provided"):
-        try:
-            min_sal = int(data.get("compensation.salary_min", 0))
-            max_sal = int(data.get("compensation.salary_max", 0))
-        except Exception:
-            min_sal = max_sal = 0
-        if min_sal or max_sal:
-            currency = data.get("compensation.salary_currency", "EUR")
-            period = data.get("compensation.salary_period", "year")
-            salary_label = "Gehaltsspanne" if lang.startswith("de") else "Salary Range"
-            if min_sal and max_sal:
-                salary_str = f"{min_sal:,}–{max_sal:,} {currency} per {period}"
-            else:
-                # If only one value provided, use it as fixed or minimum salary
-                salary_str = f"{max_sal or min_sal:,} {currency} per {period}"
-            details.append(f"{salary_label}: {salary_str}")
-    # Add mission or culture if provided (optional context)
-    mission = data.get("company.mission", "").strip()
-    culture = data.get("company.culture", "").strip()
-    if lang.startswith("de"):
-        prompt = (
-            "Erstelle eine ansprechende, professionelle Stellenanzeige in Markdown-Format.\n"
-            + "\n".join(details)
-            + f"\nTonfall: {tone}."
-        )
-        if mission or culture:
-            lines_de: list[str] = []
-            if mission:
-                lines_de.append(f"Unternehmensmission: {mission}")
-            if culture:
-                lines_de.append(f"Unternehmenskultur: {culture}")
-            prompt += "\n" + "\n".join(lines_de)
-            prompt += "\nFüge einen Satz über Mission oder Werte des Unternehmens hinzu, um das Employer Branding zu stärken."
-    else:
-        prompt = (
-            "Create an engaging, professional job advertisement in Markdown format.\n"
-            + "\n".join(details)
-            + f"\nTone: {tone}."
-        )
-        if mission or culture:
-            lines_en: list[str] = []
-            if mission:
-                lines_en.append(f"Company Mission: {mission}")
-            if culture:
-                lines_en.append(f"Company Culture: {culture}")
-            prompt += "\n" + "\n".join(lines_en)
-            prompt += "\nInclude a brief statement about the company's mission or values to strengthen employer branding."
     messages = [{"role": "user", "content": prompt}]
     return _chat_content(
-        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=600)
+        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=700)
     )
 
 
