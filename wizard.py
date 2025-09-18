@@ -40,6 +40,7 @@ from core.schema import coerce_and_fill
 
 # LLM/ESCO und Follow-ups
 from openai_utils import (
+    extract_company_info,
     extract_with_function,  # nutzt deine neue Definition
     generate_interview_guide,
     generate_job_ad,
@@ -285,6 +286,15 @@ class _CompanySectionConfig(TypedDict):
     slugs: Sequence[str]
 
 
+_SIZE_REGEX = re.compile(
+    r"((?:über|mehr als|rund|circa|ca\.?|etwa|ungefähr|around|approx(?:\.?|imately)?|knapp|more than)\s+)?"
+    r"(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?)"
+    r"(?:\s*(?:[-–]\s*)\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?)?"
+    r"\s*(Mitarbeiter(?:innen)?|Mitarbeitende|Beschäftigte[n]?|Angestellte|Menschen|people|employees|staff)",
+    re.IGNORECASE,
+)
+
+
 def _normalise_company_base_url(url: str) -> str | None:
     """Return the normalised base URL for the company website."""
 
@@ -355,6 +365,59 @@ def _sync_company_page_base(base_url: str | None) -> None:
         storage.clear()
 
 
+def _extract_company_size(text: str) -> str | None:
+    """Return a human-readable size snippet from ``text`` if present."""
+
+    if not text:
+        return None
+    cleaned = text.replace("\xa0", " ")
+    normalised = re.sub(r"\s+", " ", cleaned)
+    match = _SIZE_REGEX.search(normalised)
+    if not match:
+        return None
+    value = match.group(0)
+    return re.sub(r"\s+", " ", value).strip(" .,;") or None
+
+
+def _enrich_company_profile_from_about(text: str) -> None:
+    """Populate missing company fields from an about-page text."""
+
+    if not text.strip():
+        return
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if not isinstance(profile, dict):
+        return
+    company = profile.get("company")
+    if not isinstance(company, dict):
+        return
+
+    sample = text.strip()
+    if len(sample) > 12000:
+        sample = sample[:12000]
+
+    try:
+        extracted = extract_company_info(sample)
+    except Exception:
+        extracted = {}
+
+    if isinstance(extracted, dict):
+        mapping = {
+            "name": "name",
+            "location": "hq_location",
+            "mission": "mission",
+        }
+        for source, target in mapping.items():
+            if target not in company or not str(company.get(target, "")).strip():
+                value = extracted.get(source)
+                if isinstance(value, str) and value.strip():
+                    company[target] = value.strip()
+
+    if "size" not in company or not str(company.get("size", "")).strip():
+        size_value = _extract_company_size(text)
+        if size_value:
+            company["size"] = size_value
+
+
 def _load_company_page_section(
     section_key: str,
     base_url: str,
@@ -391,6 +454,8 @@ def _load_company_page_section(
         StateKeys.COMPANY_PAGE_SUMMARIES
     ]
     summaries[section_key] = {"url": url, "summary": summary}
+    if section_key == "about":
+        _enrich_company_profile_from_about(text)
     st.success(tr("Zusammenfassung aktualisiert.", "Summary updated."))
 
 
@@ -2050,18 +2115,37 @@ def _step_company():
     """
 
     st.subheader(tr("Unternehmen", "Company"))
-    st.caption(
-        tr(
-            "Basisinformationen zum Unternehmen angeben.",
-            "Provide basic information about the company.",
-        )
-    )
     data = st.session_state[StateKeys.PROFILE]
     missing_here = [
         f
         for f in get_missing_critical_fields(max_section=1)
         if FIELD_SECTION_MAP.get(f) == 1
     ]
+
+    data["company"]["website"] = st.text_input(
+        tr("Website", "Website"),
+        value=data["company"].get("website", ""),
+        placeholder="https://example.com",
+        key="ui.company.website",
+    )
+    data["company"]["mission"] = st.text_input(
+        tr("Mission", "Mission"),
+        value=data["company"].get("mission", ""),
+        placeholder=tr(
+            "z. B. Nachhaltige Mobilität fördern",
+            "e.g., Promote sustainable mobility",
+        ),
+        key="ui.company.mission",
+    )
+
+    _render_company_research_tools(data["company"].get("website", ""))
+
+    st.caption(
+        tr(
+            "Basisinformationen zum Unternehmen angeben.",
+            "Provide basic information about the company.",
+        )
+    )
 
     label_company = tr("Firma", "Company")
     if "company.name" in missing_here:
@@ -2098,66 +2182,6 @@ def _step_company():
         value=data["company"].get("size", ""),
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
-
-    with st.expander(tr("Weitere Unternehmensdetails", "Additional company details")):
-        c5, c6 = st.columns(2)
-        data["company"]["website"] = c5.text_input(
-            tr("Website", "Website"),
-            value=data["company"].get("website", ""),
-            placeholder="https://example.com",
-        )
-        data["company"]["mission"] = c6.text_input(
-            tr("Mission", "Mission"),
-            value=data["company"].get("mission", ""),
-            placeholder=tr(
-                "z. B. Nachhaltige Mobilität fördern",
-                "e.g., Promote sustainable mobility",
-            ),
-        )
-
-        _render_company_research_tools(data["company"].get("website", ""))
-
-        data["company"]["culture"] = st.text_area(
-            tr("Kultur", "Culture"),
-            value=data["company"].get("culture", ""),
-            placeholder=tr(
-                "z. B. flache Hierarchien, Remote-First",
-                "e.g., flat hierarchies, remote-first",
-            ),
-        )
-
-        logo_file = st.file_uploader(
-            tr("Firmenlogo", "Company Logo"),
-            type=["png", "jpg"],
-            key="ui.company_logo",
-        )
-        if logo_file:
-            st.session_state["company_logo"] = logo_file.getvalue()
-            st.image(logo_file)
-        data["company"]["brand_keywords"] = st.text_input(
-            tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-            value=data["company"].get("brand_keywords", ""),
-            key="ui.company.brand_keywords",
-        )
-
-        st.markdown("---")
-        st.markdown(tr("Kontakt", "Contact"))
-        c7, c8 = st.columns(2)
-        data["company"]["contact_name"] = c7.text_input(
-            tr("Ansprechpartner", "Contact Name"),
-            value=data["company"].get("contact_name", ""),
-            placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
-        )
-        data["company"]["contact_email"] = c8.text_input(
-            tr("Kontakt-E-Mail", "Contact Email"),
-            value=data["company"].get("contact_email", ""),
-            placeholder="email@example.com",
-        )
-        data["company"]["contact_phone"] = st.text_input(
-            tr("Kontakt-Telefon", "Contact Phone"),
-            value=data["company"].get("contact_phone", ""),
-            placeholder="+49 30 1234567",
-        )
 
     # Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
