@@ -2714,105 +2714,124 @@ def _step_requirements():
 
     # LLM-basierte Skill-Vorschläge abrufen
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
+    lang = st.session_state.get("lang", "en")
     suggestions: dict[str, list[str]] = {}
-    if job_title:
-        suggestions, err = _ensure_skill_suggestions(
-            job_title, st.session_state.get("lang", "en")
-        )
-        if err or not any(suggestions.values()):
-            if st.session_state.get("openai_api_key_missing"):
-                st.info(
-                    tr(
-                        "Skill-Vorschläge erfordern einen gültigen OpenAI API Key in den Einstellungen.",
-                        "Skill suggestions require a valid OpenAI API key in the settings.",
-                    )
+    suggestions_error: str | None = None
+    has_missing_key = bool(st.session_state.get("openai_api_key_missing"))
+    suggestion_hint: str | None = None
+    if job_title and not has_missing_key:
+        suggestions, suggestions_error = _ensure_skill_suggestions(job_title, lang)
+    elif has_missing_key:
+        suggestion_hint = "missing_key"
+    else:
+        suggestion_hint = "missing_title"
+
+    if suggestions_error and st.session_state.get("debug"):
+        st.session_state["skill_suggest_error"] = suggestions_error
+    if not suggestions:
+        stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+        if stored.get("_title") == job_title and stored.get("_lang") == lang:
+            suggestions = {
+                key: stored.get(key, [])
+                for key in (
+                    "hard_skills",
+                    "soft_skills",
+                    "tools_and_technologies",
                 )
-            else:
-                st.warning(
-                    tr(
-                        "Skill-Vorschläge nicht verfügbar (API-Fehler)",
-                        "Skill suggestions not available (API error)",
-                    )
-                )
-    suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+            }
 
-    label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
-    if "requirements.hard_skills_required" in missing_here:
-        label_hard_req += REQUIRED_SUFFIX
-    col_hard_req, col_hard_opt = st.columns(2, gap="large")
-    with col_hard_req:
-        data["requirements"]["hard_skills_required"] = _chip_multiselect(
-            label_hard_req,
-            options=data["requirements"].get("hard_skills_required", []),
-            values=data["requirements"].get("hard_skills_required", []),
-        )
-        if "requirements.hard_skills_required" in missing_here and not data[
-            "requirements"
-        ].get("hard_skills_required"):
+    def _render_required_caption(condition: bool) -> None:
+        if condition:
             st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    with col_hard_opt:
-        data["requirements"]["hard_skills_optional"] = _chip_multiselect(
-            tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
-            options=data["requirements"].get("hard_skills_optional", []),
-            values=data["requirements"].get("hard_skills_optional", []),
-        )
 
-    label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
-    if "requirements.soft_skills_required" in missing_here:
-        label_soft_req += REQUIRED_SUFFIX
-    col_soft_req, col_soft_opt = st.columns(2, gap="large")
-    with col_soft_req:
-        data["requirements"]["soft_skills_required"] = _chip_multiselect(
-            label_soft_req,
-            options=data["requirements"].get("soft_skills_required", []),
-            values=data["requirements"].get("soft_skills_required", []),
-        )
-        if "requirements.soft_skills_required" in missing_here and not data[
-            "requirements"
-        ].get("soft_skills_required"):
-            st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    with col_soft_opt:
-        data["requirements"]["soft_skills_optional"] = _chip_multiselect(
-            tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
-            options=data["requirements"].get("soft_skills_optional", []),
-            values=data["requirements"].get("soft_skills_optional", []),
-        )
+    main_col, side_col = st.columns([3, 2], gap="large")
 
-    col_tools, col_certs = st.columns(2, gap="large")
-    with col_tools:
-        data["requirements"]["tools_and_technologies"] = _chip_multiselect(
-            tr("Tools & Tech", "Tools & Tech"),
-            options=data["requirements"].get("tools_and_technologies", []),
-            values=data["requirements"].get("tools_and_technologies", []),
-        )
-    with col_certs:
-        data["requirements"]["certifications"] = _chip_multiselect(
-            tr("Zertifizierungen", "Certifications"),
-            options=data["requirements"].get("certifications", []),
-            values=data["requirements"].get("certifications", []),
-        )
+    with main_col:
+        st.markdown(tr("### Muss-Anforderungen", "### Must-have requirements"))
+        must_col_left, must_col_right = st.columns(2, gap="large")
+        label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
+        if "requirements.hard_skills_required" in missing_here:
+            label_hard_req += REQUIRED_SUFFIX
+        with must_col_left:
+            data["requirements"]["hard_skills_required"] = _chip_multiselect(
+                label_hard_req,
+                options=data["requirements"].get("hard_skills_required", []),
+                values=data["requirements"].get("hard_skills_required", []),
+            )
+            _render_required_caption(
+                "requirements.hard_skills_required" in missing_here
+                and not data["requirements"].get("hard_skills_required")
+            )
+        label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
+        if "requirements.soft_skills_required" in missing_here:
+            label_soft_req += REQUIRED_SUFFIX
+        with must_col_right:
+            data["requirements"]["soft_skills_required"] = _chip_multiselect(
+                label_soft_req,
+                options=data["requirements"].get("soft_skills_required", []),
+                values=data["requirements"].get("soft_skills_required", []),
+            )
+            _render_required_caption(
+                "requirements.soft_skills_required" in missing_here
+                and not data["requirements"].get("soft_skills_required")
+            )
 
-    col_lang_req, col_lang_opt = st.columns(2, gap="large")
-    with col_lang_req:
-        data["requirements"]["languages_required"] = _chip_multiselect(
-            tr("Sprachen", "Languages"),
-            options=data["requirements"].get("languages_required", []),
-            values=data["requirements"].get("languages_required", []),
-        )
-    with col_lang_opt:
-        data["requirements"]["languages_optional"] = _chip_multiselect(
-            tr("Optionale Sprachen", "Optional languages"),
-            options=data["requirements"].get("languages_optional", []),
-            values=data["requirements"].get("languages_optional", []),
-        )
+        st.markdown(tr("### Tools & Zertifizierungen", "### Tools & certifications"))
+        tools_col, certs_col = st.columns(2, gap="large")
+        with tools_col:
+            data["requirements"]["tools_and_technologies"] = _chip_multiselect(
+                tr("Tools & Tech", "Tools & Tech"),
+                options=data["requirements"].get("tools_and_technologies", []),
+                values=data["requirements"].get("tools_and_technologies", []),
+            )
+        with certs_col:
+            data["requirements"]["certifications"] = _chip_multiselect(
+                tr("Zertifizierungen", "Certifications"),
+                options=data["requirements"].get("certifications", []),
+                values=data["requirements"].get("certifications", []),
+            )
 
-    current_language_level = data["requirements"].get("language_level_english") or ""
-    language_level_options = list(CEFR_LANGUAGE_LEVELS)
-    if current_language_level and current_language_level not in language_level_options:
-        language_level_options.append(current_language_level)
-    col_level, _ = st.columns([1, 1], gap="large")
-    with col_level:
-        data["requirements"]["language_level_english"] = st.selectbox(
+    with side_col:
+        st.markdown(tr("### Nice-to-have", "### Nice-to-have"))
+        nice_col_left, nice_col_right = st.columns(2, gap="large")
+        with nice_col_left:
+            data["requirements"]["hard_skills_optional"] = _chip_multiselect(
+                tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
+                options=data["requirements"].get("hard_skills_optional", []),
+                values=data["requirements"].get("hard_skills_optional", []),
+            )
+        with nice_col_right:
+            data["requirements"]["soft_skills_optional"] = _chip_multiselect(
+                tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
+                options=data["requirements"].get("soft_skills_optional", []),
+                values=data["requirements"].get("soft_skills_optional", []),
+            )
+
+        st.markdown(tr("### Sprachen & Level", "### Languages & level"))
+        lang_req_col, lang_opt_col = st.columns(2, gap="large")
+        with lang_req_col:
+            data["requirements"]["languages_required"] = _chip_multiselect(
+                tr("Sprachen", "Languages"),
+                options=data["requirements"].get("languages_required", []),
+                values=data["requirements"].get("languages_required", []),
+            )
+        with lang_opt_col:
+            data["requirements"]["languages_optional"] = _chip_multiselect(
+                tr("Optionale Sprachen", "Optional languages"),
+                options=data["requirements"].get("languages_optional", []),
+                values=data["requirements"].get("languages_optional", []),
+            )
+
+        current_language_level = (
+            data["requirements"].get("language_level_english") or ""
+        )
+        language_level_options = list(CEFR_LANGUAGE_LEVELS)
+        if (
+            current_language_level
+            and current_language_level not in language_level_options
+        ):
+            language_level_options.append(current_language_level)
+        selected_level = st.selectbox(
             tr("Englischniveau", "English level"),
             options=language_level_options,
             index=(
@@ -2822,54 +2841,76 @@ def _step_requirements():
             ),
             format_func=_format_language_level_option,
         )
+        data["requirements"]["language_level_english"] = selected_level
 
-    # Vorschlagslisten
-    sugg_tools = st.multiselect(
-        tr("Vorgeschlagene Tools & Tech", "Suggested Tools & Tech"),
-        options=[
-            s
-            for s in suggestions.get("tools_and_technologies", [])
-            if s not in data["requirements"].get("tools_and_technologies", [])
-        ],
-        key="ms_sugg_tools",
-    )
-    if sugg_tools:
-        merged = sorted(
-            set(data["requirements"].get("tools_and_technologies", [])).union(
-                sugg_tools
+    st.divider()
+    st.markdown(tr("### KI-Vorschläge", "### AI suggestions"))
+
+    if suggestion_hint == "missing_key":
+        st.info(
+            tr(
+                "Skill-Vorschläge erfordern einen gültigen OpenAI API Key in den Einstellungen.",
+                "Skill suggestions require a valid OpenAI API key in the settings.",
             )
         )
-        data["requirements"]["tools_and_technologies"] = merged
-
-    sugg_hard = st.multiselect(
-        tr("Vorgeschlagene Hard Skills", "Suggested Hard Skills"),
-        options=[
-            s
-            for s in suggestions.get("hard_skills", [])
-            if s not in data["requirements"].get("hard_skills_required", [])
-        ],
-        key="ms_sugg_hard",
-    )
-    if sugg_hard:
-        merged = sorted(
-            set(data["requirements"].get("hard_skills_required", [])).union(sugg_hard)
+    elif suggestion_hint == "missing_title":
+        st.info(
+            tr(
+                "Füge einen Jobtitel hinzu, um KI-Vorschläge zu erhalten.",
+                "Add a job title to unlock AI suggestions.",
+            )
         )
-        data["requirements"]["hard_skills_required"] = merged
 
-    sugg_soft = st.multiselect(
-        tr("Vorgeschlagene Soft Skills", "Suggested Soft Skills"),
-        options=[
-            s
-            for s in suggestions.get("soft_skills", [])
-            if s not in data["requirements"].get("soft_skills_required", [])
-        ],
-        key="ms_sugg_soft",
-    )
-    if sugg_soft:
-        merged = sorted(
-            set(data["requirements"].get("soft_skills_required", [])).union(sugg_soft)
+    def _apply_suggestion(
+        label: str,
+        source_key: str,
+        target_key: str,
+        widget_key: str,
+    ) -> None:
+        available = [
+            item
+            for item in suggestions.get(source_key, [])
+            if item not in data["requirements"].get(target_key, [])
+        ]
+        if not available:
+            st.caption(tr("Keine Vorschläge verfügbar", "No suggestions available"))
+            return
+        picked = st.multiselect(label, options=available, key=widget_key)
+        if picked:
+            merged = sorted(set(data["requirements"].get(target_key, [])).union(picked))
+            data["requirements"][target_key] = merged
+
+    if suggestion_hint:
+        pass
+    elif not any(suggestions.values()):
+        st.caption(
+            tr(
+                "Aktuell keine Vorschläge verfügbar.",
+                "No suggestions available right now.",
+            )
         )
-        data["requirements"]["soft_skills_required"] = merged
+    else:
+        sugg_left, sugg_right = st.columns(2, gap="large")
+        with sugg_left:
+            _apply_suggestion(
+                tr("Vorgeschlagene Hard Skills", "Suggested hard skills"),
+                "hard_skills",
+                "hard_skills_required",
+                "ms_sugg_hard",
+            )
+            _apply_suggestion(
+                tr("Vorgeschlagene Soft Skills", "Suggested soft skills"),
+                "soft_skills",
+                "soft_skills_required",
+                "ms_sugg_soft",
+            )
+        with sugg_right:
+            _apply_suggestion(
+                tr("Vorgeschlagene Tools & Tech", "Suggested tools & tech"),
+                "tools_and_technologies",
+                "tools_and_technologies",
+                "ms_sugg_tools",
+            )
 
     st.session_state[StateKeys.SKILL_BUCKETS] = {
         "must": _unique_normalized(
