@@ -39,6 +39,7 @@ from utils.errors import display_error
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
+from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 
 # LLM/ESCO und Follow-ups
 from openai_utils import (
@@ -870,8 +871,38 @@ def _autodetect_lang(text: str) -> None:
 def _extract_and_summarize(text: str, schema: dict) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
+    raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
+    rule_matches = apply_rules(raw_blocks)
+    if rule_matches:
+        rule_patch = matches_to_patch(rule_matches)
+        st.session_state[StateKeys.PROFILE] = rule_patch
+        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = rule_patch
+        existing_meta = dict(st.session_state.get(StateKeys.PROFILE_METADATA, {}))
+        new_meta = build_rule_metadata(rule_matches)
+        combined_rules = {**existing_meta.get("rules", {}), **new_meta.get("rules", {})}
+        locked = set(existing_meta.get("locked_fields", [])) | set(
+            new_meta.get("locked_fields", [])
+        )
+        high_conf = set(existing_meta.get("high_confidence_fields", [])) | set(
+            new_meta.get("high_confidence_fields", [])
+        )
+        st.session_state[StateKeys.PROFILE_METADATA] = {
+            "rules": combined_rules,
+            "locked_fields": sorted(locked),
+            "high_confidence_fields": sorted(high_conf),
+        }
+    else:
+        st.session_state.setdefault(
+            StateKeys.PROFILE_METADATA,
+            {"rules": {}, "locked_fields": [], "high_confidence_fields": []},
+        )
+
     extracted = extract_with_function(text, schema, model=st.session_state.model)
-    profile = coerce_and_fill(extracted)
+    extracted_data = dict(extracted)
+    for field, match in rule_matches.items():
+        set_in(extracted_data, field, match.value)
+
+    profile = coerce_and_fill(extracted_data)
     profile = apply_basic_fallbacks(profile, text)
     raw_profile = profile.model_dump()
     st.session_state[StateKeys.PROFILE] = raw_profile
