@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import streamlit as st
 
-from constants.keys import StateKeys, UIKeys
+from constants.keys import StateKeys
 from config import OPENAI_API_KEY, OPENAI_BASE_URL, REASONING_EFFORT, OPENAI_MODEL
 from models.need_analysis import NeedAnalysisProfile
 
@@ -70,8 +70,6 @@ def ensure_state() -> None:
         st.session_state["dark_mode"] = True
     if "skip_intro" not in st.session_state:
         st.session_state["skip_intro"] = False
-    if UIKeys.SIDEBAR_VISIBLE not in st.session_state:
-        st.session_state[UIKeys.SIDEBAR_VISIBLE] = True
     if StateKeys.USAGE not in st.session_state:
         st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
     for key in (

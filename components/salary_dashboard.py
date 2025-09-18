@@ -1,9 +1,12 @@
 """Sidebar salary analytics dashboard component."""
 
+from datetime import datetime
 from typing import Any, Final, Sequence, Tuple
 
 import streamlit as st
 from config import ModelTask, get_model_for
+from constants.keys import UIKeys
+from utils.i18n import tr
 
 
 # ``openai_utils`` is an optional dependency. Import lazily so that the
@@ -248,12 +251,8 @@ def _session_list(session_state: Any, key: str) -> list[str]:
     return []
 
 
-def render_salary_dashboard(session_state: Any) -> None:
-    """Render salary analytics widget in the sidebar.
-
-    Args:
-        session_state: Streamlit session state used to fetch profile data.
-    """
+def _collect_profile_snapshot(session_state: Any) -> dict[str, Any]:
+    """Collect profile attributes that influence the salary estimate."""
 
     must_skills = _session_list(
         session_state, "requirements.hard_skills_required"
@@ -261,76 +260,255 @@ def render_salary_dashboard(session_state: Any) -> None:
     nice_skills = _session_list(
         session_state, "requirements.hard_skills_optional"
     ) + _session_list(session_state, "requirements.soft_skills_optional")
-    seniority = session_state.get("position.seniority_level", "")
-    location = session_state.get("location.primary_city", "")
-    job_type = session_state.get("employment.job_type", "permanent")
-    job_title = session_state.get("position.job_title", "")
     tasks = _session_list(session_state, "responsibilities.items")
     languages = _session_list(
         session_state, "requirements.languages_required"
     ) + _session_list(session_state, "requirements.languages_optional")
-    company_industry = session_state.get("company.industry", "")
 
-    value, mode = compute_expected_salary(
-        must_skills,
-        nice_skills,
-        seniority,
-        location,
-        job_type,
-        job_title,
-        tasks,
-        languages,
-        company_industry,
-    )
-    unit = "€/year" if mode == "annual" else "€/hour"
+    snapshot = {
+        "must_skills": must_skills,
+        "nice_skills": nice_skills,
+        "seniority": session_state.get("position.seniority_level", ""),
+        "location": session_state.get("location.primary_city", ""),
+        "job_type": session_state.get("employment.job_type", "permanent"),
+        "job_title": session_state.get("position.job_title", ""),
+        "tasks": tasks,
+        "languages": languages,
+        "company_industry": session_state.get("company.industry", ""),
+    }
+    return snapshot
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown(
-        f"<div style='text-align:center;font-size:3rem'>💰</div>"  # noqa: E501
-        f"<div style='text-align:center;font-size:1.5rem;font-weight:bold'>"
-        f"{value:,.2f} {unit}</div>",
+
+def _ensure_salary_style() -> None:
+    """Inject one-off CSS for the salary insight section."""
+
+    if st.session_state.get("ui.salary.style_injected"):
+        return
+    st.session_state["ui.salary.style_injected"] = True
+    st.markdown(
+        """
+        <style>
+        .salary-card {
+            background: linear-gradient(145deg, rgba(79,70,229,0.08), rgba(236,72,153,0.08));
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 1rem;
+            padding: 1.2rem 1.4rem;
+            box-shadow: 0 14px 38px rgba(15, 23, 42, 0.08);
+        }
+        .salary-card h4 {
+            margin-top: 0;
+            margin-bottom: 0.8rem;
+            font-size: 1.05rem;
+            letter-spacing: 0.01em;
+        }
+        .salary-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .salary-unit {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-left: 0.35rem;
+        }
+        .salary-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            background: rgba(15,23,42,0.05);
+            margin: 0 0.35rem 0.35rem 0;
+        }
+        .salary-explanation {
+            background: rgba(15,23,42,0.04);
+            border-radius: 0.8rem;
+            padding: 0.75rem 0.9rem;
+            font-size: 0.9rem;
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
 
-    st.sidebar.caption(
-        "Prognose basierend auf {context}. Aufgaben: {tasks}, Skills: {skills}, Sprachen: {languages}.".format(
-            context=", ".join(
-                [
-                    value
-                    for value in [job_title, seniority, location]
-                    if value and value.strip()
-                ]
-            )
-            or "verfügbaren Angaben",
-            tasks=len(tasks),
-            skills=len(must_skills) + len(nice_skills),
-            languages=len(languages),
+
+def _update_salary_estimate(
+    session_state: Any, snapshot: dict[str, Any]
+) -> dict[str, Any]:
+    """Compute and persist the salary estimate for the current profile."""
+
+    value, mode = compute_expected_salary(
+        snapshot["must_skills"],
+        snapshot["nice_skills"],
+        snapshot["seniority"],
+        snapshot["location"],
+        snapshot["job_type"],
+        snapshot["job_title"],
+        snapshot["tasks"],
+        snapshot["languages"],
+        snapshot["company_industry"],
+    )
+    lang = session_state.get("lang", "de")
+    timestamp = datetime.now()
+    last_updated = (
+        timestamp.strftime("%d.%m.%Y %H:%M")
+        if lang == "de"
+        else timestamp.strftime("%Y-%m-%d %H:%M")
+    )
+    estimate = {
+        "value": value,
+        "mode": mode,
+        "snapshot": snapshot,
+        "last_updated": last_updated,
+    }
+    session_state[UIKeys.SALARY_ESTIMATE] = estimate
+    return estimate
+
+
+def _format_currency(value: float, mode: str, lang: str) -> str:
+    """Format numeric salary value according to the current language."""
+
+    if mode == "annual":
+        pattern = "{value:,.0f}"
+    else:
+        pattern = "{value:,.2f}"
+    formatted = pattern.format(value=value)
+    if lang == "de":
+        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+    return formatted
+
+
+def _render_context_pills(snapshot: dict[str, Any]) -> str:
+    """Render HTML pills summarising input drivers."""
+
+    pills: list[str] = []
+    if snapshot["job_title"]:
+        pills.append(f"<span class='salary-pill'>🧑‍💼 {snapshot['job_title']}</span>")
+    if snapshot["seniority"]:
+        pills.append(f"<span class='salary-pill'>🎯 {snapshot['seniority']}</span>")
+    if snapshot["location"]:
+        pills.append(f"<span class='salary-pill'>📍 {snapshot['location']}</span>")
+    pills.append(
+        f"<span class='salary-pill'>🛠️ {len(snapshot['must_skills']) + len(snapshot['nice_skills'])} Skills</span>"
+    )
+    pills.append(f"<span class='salary-pill'>🗒️ {len(snapshot['tasks'])} Tasks</span>")
+    if snapshot["languages"]:
+        pills.append(
+            f"<span class='salary-pill'>🗣️ {len(snapshot['languages'])} Languages</span>"
         )
+    return "".join(pills)
+
+
+def render_salary_insights(session_state: Any) -> None:
+    """Render the salary insight card within wizard steps.
+
+    Args:
+        session_state: Streamlit session state used to fetch profile data.
+    """
+
+    _ensure_salary_style()
+    snapshot = _collect_profile_snapshot(session_state)
+
+    estimate: dict[str, Any] = session_state.get(UIKeys.SALARY_ESTIMATE, {})
+    if not estimate:
+        estimate = _update_salary_estimate(session_state, snapshot)
+
+    lang = session_state.get("lang", "de")
+    refresh_label = tr("🔄 Prognose aktualisieren", "🔄 Refresh estimate")
+    explain_label = tr(
+        "🧠 Einflussfaktoren analysieren",
+        "🧠 Explain salary drivers",
+    )
+    section_title = tr("💰 Gehaltsprognose", "💰 Salary outlook")
+    unit = (
+        tr("€/Jahr", "€/year")
+        if estimate.get("mode") == "annual"
+        else tr("€/Stunde", "€/hour")
     )
 
-    length = st.sidebar.selectbox(
-        "Explanation length",
-        ["short", "medium", "long"],
-        key="salary_explanation_length",
+    if st.button(refresh_label, key=UIKeys.SALARY_REFRESH, use_container_width=True):
+        estimate = _update_salary_estimate(session_state, snapshot)
+        st.toast(tr("Gehaltsprognose aktualisiert", "Salary estimate refreshed"))
+
+    estimate_snapshot = estimate.get("snapshot", snapshot)
+    if snapshot != estimate_snapshot:
+        st.caption(
+            tr(
+                "Neue Angaben erkannt – aktualisiere die Prognose, um sie zu berücksichtigen.",
+                "New inputs detected – refresh the estimate to include them.",
+            )
+        )
+
+    formatted_value = _format_currency(
+        estimate.get("value", 0.0),
+        estimate.get("mode", "annual"),
+        lang,
     )
-    if st.sidebar.button("Explain factors"):
+    pills_html = _render_context_pills(estimate_snapshot)
+
+    st.markdown(
+        f"<div class='salary-card'><h4>{section_title}</h4>"
+        f"<div class='salary-value'>{formatted_value}<span class='salary-unit'>{unit}</span></div>"
+        f"<div>{pills_html}</div>"
+        f"<div style='margin-top:0.75rem;font-size:0.85rem;opacity:0.7;'>"
+        + tr(
+            "Basis: aktuelle Angaben zu Rolle, Standort, Skills und Aufgaben.",
+            "Based on the current role, location, skill and task inputs.",
+        )
+        + "</div></div>",
+        unsafe_allow_html=True,
+    )
+
+    if estimate.get("last_updated"):
+        st.caption(
+            tr(
+                f"Zuletzt aktualisiert um {estimate['last_updated']}",
+                f"Last refreshed at {estimate['last_updated']}",
+            )
+        )
+
+    explain_clicked = st.button(
+        explain_label,
+        key=UIKeys.SALARY_EXPLANATION_BUTTON,
+        use_container_width=True,
+    )
+
+    explanation_state: str = session_state.get(UIKeys.SALARY_EXPLANATION, "")
+
+    if explain_clicked:
+        prompt_lang = "German" if lang == "de" else "English"
         prompt = (
-            "You are a compensation analyst.\n"
-            + f"Job title: {job_title or 'N/A'}\n"
-            + f"Location: {location or 'N/A'}\n"
-            + f"Seniority: {seniority or 'N/A'}\n"
-            + f"Contract type: {job_type or 'N/A'}\n"
-            + f"Must-have skills: {', '.join(must_skills) or 'none'}\n"
-            + f"Nice-to-have skills: {', '.join(nice_skills) or 'none'}\n"
-            + f"Key responsibilities: {', '.join(tasks) or 'none'}\n"
-            + f"Languages: {', '.join(languages) or 'none'}\n"
-            + "Explain the factors affecting the expected salary in a "
-            f"{length} explanation."
+            "You are an experienced compensation analyst."
+            " Analyse the biggest positive and negative drivers for the following salary estimate and"
+            " suggest concrete cost-saving alternatives."
+            f" Respond in {prompt_lang}."
+            "\n---\n"
+            f"Current salary estimate: {formatted_value} {unit}\n"
+            f"Contract type: {estimate_snapshot['job_type'] or 'n/a'}\n"
+            f"Job title: {estimate_snapshot['job_title'] or 'n/a'}\n"
+            f"Seniority: {estimate_snapshot['seniority'] or 'n/a'}\n"
+            f"Location: {estimate_snapshot['location'] or 'n/a'}\n"
+            f"Industry: {estimate_snapshot['company_industry'] or 'n/a'}\n"
+            f"Must-have skills: {', '.join(estimate_snapshot['must_skills']) or 'none'}\n"
+            f"Nice-to-have skills: {', '.join(estimate_snapshot['nice_skills']) or 'none'}\n"
+            f"Key responsibilities: {', '.join(estimate_snapshot['tasks']) or 'none'}\n"
+            f"Languages: {', '.join(estimate_snapshot['languages']) or 'none'}\n"
+            "Structure the answer with a short intro, a bullet list of the top 3 cost drivers"
+            " and a bullet list with at least 3 pragmatic, cost-saving alternatives."
         )
         try:
-            explanation = _call_chat_api(
-                [{"role": "user", "content": prompt}], max_tokens=300
+            explanation_state = _call_chat_api(
+                [{"role": "user", "content": prompt}],
+                max_tokens=350,
             )
-            st.sidebar.info(explanation)
+            session_state[UIKeys.SALARY_EXPLANATION] = explanation_state
         except Exception as exc:  # pragma: no cover - network failure
-            st.sidebar.error(str(exc))
+            st.error(str(exc))
+            explanation_state = ""
+
+    if explanation_state:
+        st.markdown(
+            f"<div class='salary-explanation'>{explanation_state}</div>",
+            unsafe_allow_html=True,
+        )
