@@ -400,6 +400,23 @@ def _render_context_pills(snapshot: dict[str, Any]) -> str:
     return "".join(pills)
 
 
+def _has_salary_signals(snapshot: dict[str, Any]) -> bool:
+    """Return whether the snapshot contains meaningful salary drivers."""
+
+    return any(
+        (
+            snapshot.get("job_title"),
+            snapshot.get("seniority"),
+            snapshot.get("location"),
+            snapshot.get("company_industry"),
+            snapshot.get("must_skills"),
+            snapshot.get("nice_skills"),
+            snapshot.get("tasks"),
+            snapshot.get("languages"),
+        )
+    )
+
+
 def render_salary_insights(session_state: Any) -> None:
     """Render the salary insight card within wizard steps.
 
@@ -407,8 +424,19 @@ def render_salary_insights(session_state: Any) -> None:
         session_state: Streamlit session state used to fetch profile data.
     """
 
-    _ensure_salary_style()
     snapshot = _collect_profile_snapshot(session_state)
+
+    if not _has_salary_signals(snapshot):
+        session_state.pop(UIKeys.SALARY_ESTIMATE, None)
+        st.info(
+            tr(
+                "Gib zuerst Jobtitel, Standort oder Anforderungen an, um eine Gehaltsprognose zu erhalten.",
+                "Provide a job title, location or requirements to see a salary estimate.",
+            )
+        )
+        return
+
+    _ensure_salary_style()
 
     estimate: dict[str, Any] = session_state.get(UIKeys.SALARY_ESTIMATE, {})
     if not estimate:
