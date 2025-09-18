@@ -3,6 +3,7 @@ import pytest
 
 from constants.keys import StateKeys, UIKeys
 from models.need_analysis import NeedAnalysisProfile
+from ingest.types import ContentBlock, StructuredDocument
 from wizard import (
     on_file_uploaded,
     on_url_changed,
@@ -65,11 +66,19 @@ def test_on_file_uploaded_populates_state(monkeypatch: pytest.MonkeyPatch) -> No
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
-    monkeypatch.setattr("wizard.extract_text_from_file", lambda _f: "file text")
+    monkeypatch.setattr(
+        "wizard.extract_text_from_file",
+        lambda _f: StructuredDocument(
+            text="file text",
+            blocks=[ContentBlock(type="paragraph", text="file text")],
+        ),
+    )
 
     on_file_uploaded()
 
     assert st.session_state["__prefill_profile_text__"] == "file text"
+    assert st.session_state["__prefill_profile_doc__"].text == "file text"
+    assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "file text"
     assert st.session_state["__run_extraction__"] is True
 
 
@@ -79,11 +88,19 @@ def test_on_url_changed_populates_state(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
-    monkeypatch.setattr("wizard.extract_text_from_url", lambda _u: "url text")
+    monkeypatch.setattr(
+        "wizard.extract_text_from_url",
+        lambda _u: StructuredDocument(
+            text="url text",
+            blocks=[ContentBlock(type="paragraph", text="url text")],
+        ),
+    )
 
     on_url_changed()
 
     assert st.session_state["__prefill_profile_text__"] == "url text"
+    assert st.session_state["__prefill_profile_doc__"].text == "url text"
+    assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "url text"
     assert st.session_state["__run_extraction__"] is True
 
 
@@ -141,6 +158,8 @@ def test_maybe_run_extraction_uses_prefill_before_raw_text(
 
     assert captured["text"] == "prefilled"
     assert st.session_state[StateKeys.RAW_TEXT] == "prefilled"
+    assert st.session_state[StateKeys.RAW_BLOCKS]
+    assert st.session_state[StateKeys.RAW_BLOCKS][0].type == "paragraph"
     assert warnings == []
 
 

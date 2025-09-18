@@ -5,10 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import fitz
-from bs4 import BeautifulSoup
-from docx import Document
-import requests
+from ingest.extractors import extract_text_from_file, extract_text_from_url
+from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
 
 
 _SPACE_RE = re.compile(r"\s+")
@@ -168,42 +166,11 @@ _BOILERPLATE_CONTAINS = {
     "jetzt bewerben",
 }
 
-
-def _read_txt(path: Path) -> str:
-    with path.open("r", encoding="utf-8") as f:
-        return f.read()
-
-
-def _read_docx(path: Path) -> str:
-    doc = Document(str(path))
-    return "\n".join(p.text for p in doc.paragraphs)
-
-
-def _read_pdf(path: Path) -> str:
-    with fitz.open(path) as doc:
-        return "".join(page.get_text() for page in doc)
-
-
-_URL_RE = re.compile(r"^https?://[\w./-]+$")
-_HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
-
 _EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 _PHONE_RE = re.compile(r"\+?\d[\d\s().\-/]{5,}\d")
 _CONTACT_LABEL_RE = re.compile(
     r"(kontakt|contact|homepage|telefon|phone|e-?mail)\s*[:–—-]"
 )
-
-
-def _read_url(url: str) -> str:
-    if not url or not _URL_RE.match(url):
-        raise ValueError("Invalid URL")
-    try:
-        response = requests.get(url, timeout=15, headers=_HEADERS)
-        response.raise_for_status()
-    except requests.RequestException as exc:  # pragma: no cover - network
-        raise ValueError(f"Failed to fetch URL: {url}") from exc
-    soup = BeautifulSoup(response.text, "html.parser")
-    return soup.get_text(" ")
 
 
 def _normalize_for_check(text: str) -> str:
@@ -327,46 +294,136 @@ def clean_job_text(text: str) -> str:
     return normalized.strip()
 
 
+def _normalize_block_text(text: str) -> str:
+    cleaned = strip_boilerplate(text or "")
+    cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    return cleaned.strip()
+
+
+def _normalize_inline_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _clean_table_block(block: ContentBlock) -> ContentBlock | None:
+    metadata = block.metadata or {}
+    rows = metadata.get("rows", [])
+    cleaned_rows: list[list[str]] = []
+    for row in rows:
+        cleaned_row = [_normalize_inline_text(cell) for cell in row]
+        if any(cell for cell in cleaned_row):
+            cleaned_rows.append(cleaned_row)
+    if not cleaned_rows:
+        return None
+    new_meta = dict(metadata)
+    new_meta["rows"] = cleaned_rows
+    table_text = "\n".join(" | ".join(row) for row in cleaned_rows)
+    return ContentBlock(
+        type="table",
+        text=table_text,
+        level=block.level,
+        metadata=new_meta,
+    )
+
+
+def clean_structured_document(doc: StructuredDocument) -> StructuredDocument:
+    """Apply :func:`clean_job_text` rules to a structured document."""
+
+    if not doc.text and not doc.blocks:
+        return StructuredDocument(text="", blocks=[], source=doc.source)
+
+    cleaned_text = clean_job_text(doc.text)
+    cleaned_blocks: list[ContentBlock] = []
+    for block in doc.blocks:
+        if block.type == "table":
+            cleaned = _clean_table_block(block)
+            if cleaned:
+                cleaned_blocks.append(cleaned)
+            continue
+        normalized = _normalize_block_text(block.text)
+        if not normalized:
+            continue
+        metadata = dict(block.metadata) if block.metadata else None
+        cleaned_blocks.append(
+            ContentBlock(
+                type=block.type,
+                text=normalized,
+                level=block.level,
+                metadata=metadata,
+            )
+        )
+
+    if not cleaned_blocks:
+        return StructuredDocument(text=cleaned_text, blocks=[], source=doc.source)
+
+    combined = StructuredDocument.from_blocks(cleaned_blocks, source=doc.source)
+    if cleaned_text and cleaned_text != combined.text:
+        return StructuredDocument(
+            text=cleaned_text,
+            blocks=combined.blocks,
+            source=doc.source,
+        )
+    return combined
+
+
 def read_job_text(
     files: list[str],
     url: str | None = None,
     pasted: str | None = None,
-) -> str:
-    """Merge text from files, URL and pasted snippets.
+) -> StructuredDocument:
+    """Merge text from files, URL and pasted snippets."""
 
-    Args:
-        files: Paths to local files (PDF, DOCX, TXT).
-        url: Optional web URL to fetch.
-        pasted: Additional pasted text.
+    documents: list[StructuredDocument] = []
 
-    Returns:
-        Cleaned and de-duplicated text.
-    """
-
-    texts: list[str] = []
     for name in files:
         path = Path(name)
-        suffix = path.suffix.lower()
-        content = ""
-        if suffix == ".pdf":
-            content = _read_pdf(path)
-        elif suffix == ".docx":
-            content = _read_docx(path)
-        elif suffix == ".txt":
-            content = _read_txt(path)
-        if content:
-            cleaned = clean_job_text(content)
-            if cleaned:
-                texts.append(cleaned)
+        if not path.exists():
+            continue
+        try:
+            with path.open("rb") as handle:
+                doc = extract_text_from_file(handle)
+        except ValueError:
+            continue
+        documents.append(clean_structured_document(doc))
 
     if url:
-        cleaned = clean_job_text(_read_url(url))
-        if cleaned:
-            texts.append(cleaned)
-    if pasted:
-        cleaned = clean_job_text(pasted)
-        if cleaned:
-            texts.append(cleaned)
+        try:
+            documents.append(clean_structured_document(extract_text_from_url(url)))
+        except ValueError:
+            pass
 
-    unique = list(dict.fromkeys(texts))
-    return "\n\n".join(unique)
+    if pasted:
+        documents.append(
+            clean_structured_document(
+                build_plain_text_document(pasted, source="pasted"),
+            )
+        )
+
+    seen_texts: set[str] = set()
+    ordered: list[StructuredDocument] = []
+    for doc in documents:
+        key = doc.text.strip()
+        if not key or key in seen_texts:
+            continue
+        seen_texts.add(key)
+        ordered.append(doc)
+
+    combined_blocks: list[ContentBlock] = []
+    for doc in ordered:
+        combined_blocks.extend(doc.blocks)
+
+    if not combined_blocks:
+        combined_text = "\n\n".join(doc.text for doc in ordered).strip()
+        return StructuredDocument(text=combined_text, blocks=[], source="merged")
+
+    combined = StructuredDocument.from_blocks(combined_blocks, source="merged")
+    if ordered:
+        combined_text = "\n\n".join(doc.text for doc in ordered).strip()
+        if combined_text and combined_text != combined.text:
+            combined = StructuredDocument(
+                text=combined_text,
+                blocks=combined.blocks,
+                source="merged",
+            )
+    return combined

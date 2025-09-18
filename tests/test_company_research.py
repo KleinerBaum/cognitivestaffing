@@ -7,6 +7,7 @@ import contextlib
 import streamlit as st
 
 from constants.keys import StateKeys
+from ingest.types import build_plain_text_document
 from wizard import (
     _candidate_company_page_urls,
     _enrich_company_profile_from_about,
@@ -49,10 +50,10 @@ def test_fetch_company_page_tries_candidates(monkeypatch) -> None:
 
     calls: list[str] = []
 
-    def fake_extract(url: str) -> str:
+    def fake_extract(url: str):
         calls.append(url)
         if url.endswith("ueber-uns"):
-            return "Über uns"
+            return build_plain_text_document("Über uns", source=url)
         raise ValueError("missing")
 
     monkeypatch.setattr("wizard.extract_text_from_url", fake_extract)
@@ -77,7 +78,10 @@ def test_load_company_page_section_updates_state(monkeypatch) -> None:
     st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
     st.session_state["lang"] = "de"
 
-    monkeypatch.setattr("wizard.extract_text_from_url", lambda url: "Inhalt")
+    monkeypatch.setattr(
+        "wizard.extract_text_from_url",
+        lambda url: build_plain_text_document("Inhalt", source=url),
+    )
     monkeypatch.setattr(
         "wizard.summarize_company_page",
         lambda text, label, lang="de": f"{label} :: {lang}",

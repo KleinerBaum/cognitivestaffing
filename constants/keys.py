@@ -41,6 +41,7 @@ class StateKeys:
 
     PROFILE = "profile_data"
     RAW_TEXT = "profile_raw_text"
+    RAW_BLOCKS = "profile_raw_blocks"
     STEP = "current_step"
     FOLLOWUPS = "followup_questions"
     USAGE = "api_usage"

@@ -26,8 +26,9 @@ def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
     monkeypatch.setitem(sys.modules, "trafilatura", fake_traf)
 
-    text = extract_text_from_url("http://example.com")
-    assert text == "Hello\n\nWorld"
+    doc = extract_text_from_url("http://example.com")
+    assert doc.text == "Hello URL"
+    assert doc.blocks and doc.blocks[0].type == "paragraph"
 
 
 def test_extract_text_from_url_http_error(monkeypatch: pytest.MonkeyPatch) -> None:

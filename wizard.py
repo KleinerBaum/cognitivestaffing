@@ -32,7 +32,8 @@ from constants.keys import UIKeys, StateKeys
 from utils.session import bind_textarea
 from state.ensure_state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
-from ingest.reader import clean_job_text
+from ingest.reader import clean_structured_document
+from ingest.types import StructuredDocument, build_plain_text_document
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from config_loader import load_json
@@ -458,10 +459,10 @@ def _fetch_company_page(base_url: str, slugs: Sequence[str]) -> tuple[str, str] 
 
     for candidate in _candidate_company_page_urls(base_url, slugs):
         try:
-            text = extract_text_from_url(candidate)
+            document = extract_text_from_url(candidate)
         except ValueError:
             continue
-        content = text.strip()
+        content = document.text.strip()
         if content:
             return candidate, content
     return None
@@ -725,9 +726,11 @@ def on_file_uploaded() -> None:
     if not f:
         return
     try:
-        txt_raw = extract_text_from_file(f)
-        txt = clean_job_text(txt_raw)
+        doc = clean_structured_document(extract_text_from_file(f))
+        txt = doc.text
     except ValueError as e:
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         msg = str(e).lower()
         if "unsupported file type" in msg:
             display_error(
@@ -763,6 +766,8 @@ def on_file_uploaded() -> None:
         st.session_state["source_error"] = True
         return
     except RuntimeError as e:  # pragma: no cover - OCR
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         display_error(
             tr(
                 "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
@@ -773,6 +778,8 @@ def on_file_uploaded() -> None:
         st.session_state["source_error"] = True
         return
     except Exception as e:  # pragma: no cover - defensive
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         display_error(
             tr(
                 "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
@@ -790,8 +797,12 @@ def on_file_uploaded() -> None:
             ),
         )
         st.session_state["source_error"] = True
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         return
     st.session_state["__prefill_profile_text__"] = txt
+    st.session_state["__prefill_profile_doc__"] = doc
+    st.session_state[StateKeys.RAW_BLOCKS] = doc.blocks
     st.session_state["__run_extraction__"] = True
 
 
@@ -811,9 +822,11 @@ def on_url_changed() -> None:
         st.session_state["source_error"] = True
         return
     try:
-        txt_raw = extract_text_from_url(url)
-        txt = clean_job_text(txt_raw or "")
+        doc = clean_structured_document(extract_text_from_url(url))
+        txt = doc.text
     except Exception as e:  # pragma: no cover - defensive
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         display_error(
             tr(
                 "URL konnte nicht geladen werden. Prüfen Sie Erreichbarkeit oder Firewall-Einstellungen.",
@@ -831,8 +844,12 @@ def on_url_changed() -> None:
             ),
         )
         st.session_state["source_error"] = True
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         return
     st.session_state["__prefill_profile_text__"] = txt
+    st.session_state["__prefill_profile_doc__"] = doc
+    st.session_state[StateKeys.RAW_BLOCKS] = doc.blocks
     st.session_state["__run_extraction__"] = True
 
 
@@ -967,14 +984,28 @@ def _maybe_run_extraction(schema: dict) -> None:
     if not should_run:
         return
 
+    doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
     raw_input = st.session_state.get(StateKeys.RAW_TEXT, "")
     if not raw_input:
         raw_input = st.session_state.get("__prefill_profile_text__", "")
     raw_input = raw_input or ""
-    raw_clean = clean_job_text(raw_input)
+    if (
+        doc
+        and raw_input
+        and raw_input.strip()
+        and raw_input.strip() != doc.text.strip()
+    ):
+        doc = None
+    if not raw_input and doc:
+        raw_input = doc.text
+    if doc is None:
+        doc = build_plain_text_document(raw_input, source="manual")
+    cleaned_doc = clean_structured_document(doc)
+    raw_clean = cleaned_doc.text
     if not raw_clean.strip():
         st.session_state["_analyze_attempted"] = True
         st.session_state.pop("__last_extracted_hash__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
         st.warning(
             tr(
                 "Keine Daten erkannt – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
@@ -990,6 +1021,8 @@ def _maybe_run_extraction(schema: dict) -> None:
 
     st.session_state["_analyze_attempted"] = True
     st.session_state[StateKeys.RAW_TEXT] = raw_clean
+    st.session_state[StateKeys.RAW_BLOCKS] = cleaned_doc.blocks
+    st.session_state["__prefill_profile_doc__"] = cleaned_doc
     st.session_state["__last_extracted_hash__"] = digest
     _autodetect_lang(raw_clean)
     try:
@@ -1013,6 +1046,7 @@ def _skip_source() -> None:
 
     st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
     st.session_state[StateKeys.RAW_TEXT] = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     st.session_state[StateKeys.EXTRACTION_MISSING] = []
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {}
@@ -1020,6 +1054,7 @@ def _skip_source() -> None:
     st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
     st.session_state.pop("_analyze_attempted", None)
     st.session_state.pop("__last_extracted_hash__", None)
+    st.session_state.pop("__prefill_profile_doc__", None)
     st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
     st.rerun()
 
@@ -2434,6 +2469,9 @@ def _step_onboarding(schema: dict) -> None:
     if prefill is not None:
         st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
         st.session_state[StateKeys.RAW_TEXT] = prefill
+        doc_prefill = st.session_state.get("__prefill_profile_doc__")
+        if doc_prefill:
+            st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
 
     def _queue_extraction_if_ready() -> None:
         raw_text = st.session_state.get(StateKeys.RAW_TEXT, "")
