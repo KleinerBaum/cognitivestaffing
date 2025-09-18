@@ -18,6 +18,7 @@ from typing import (
     Optional,
     Sequence,
     TypedDict,
+    TypeVar,
 )
 from urllib.parse import urljoin, urlparse
 
@@ -75,6 +76,8 @@ ensure_state()
 WIZARD_TITLE = (
     "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
 )
+
+T = TypeVar("T")
 
 # Index of the first data entry step ("Unternehmen" / "Company")
 COMPANY_STEP_INDEX = 1
@@ -3905,6 +3908,27 @@ def _summary_process() -> None:
     _update_profile("process.onboarding_process", onboarding)
 
 
+def _chunked(sequence: Sequence[T], size: int) -> Iterable[Sequence[T]]:
+    """Yield ``sequence`` slices with ``size`` elements each."""
+
+    if size <= 0:
+        raise ValueError("size must be positive")
+    for start in range(0, len(sequence), size):
+        yield sequence[start : start + size]
+
+
+def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:
+    """Return the number of collected entries per summary tab group."""
+
+    counts: dict[str, int] = {}
+    for field in JOB_AD_FIELDS:
+        entries = _job_ad_field_entries(data, field, lang)
+        if not entries:
+            continue
+        counts[field.group] = counts.get(field.group, 0) + len(entries)
+    return counts
+
+
 def _render_summary_group_with_checkboxes(
     group: str,
     data: Mapping[str, Any],
@@ -3917,30 +3941,33 @@ def _render_summary_group_with_checkboxes(
     )
     has_content = False
     is_de = lang.lower().startswith("de")
-    rendered_any = False
 
-    for field in JOB_AD_FIELDS:
-        if field.group != group:
-            continue
+    group_fields = [field for field in JOB_AD_FIELDS if field.group == group]
+    field_entries: dict[str, list[tuple[str, str]]] = {}
+    for field in group_fields:
         entries = _job_ad_field_entries(data, field, lang)
-        if not entries:
+        if entries:
+            field_entries[field.key] = entries
+        else:
             value_selection.pop(field.key, None)
             _set_job_ad_field(field.key, False)
-            continue
 
+    def render_field(
+        container: Any,
+        field_def: JobAdFieldDefinition,
+        entries: list[tuple[str, str]],
+    ) -> None:
+        nonlocal has_content
         has_content = True
-        if rendered_any:
-            st.divider()
-        rendered_any = True
 
-        label = field.label_de if is_de else field.label_en
-        st.markdown(f"**{label}**")
-        description = field.description_de if is_de else field.description_en
+        label = field_def.label_de if is_de else field_def.label_en
+        container.markdown(f"**{label}**")
+        description = field_def.description_de if is_de else field_def.description_en
         if description:
-            st.caption(description)
+            container.caption(description)
 
         entry_ids = [entry_id for entry_id, _ in entries]
-        stored_ids = value_selection.get(field.key)
+        stored_ids = value_selection.get(field_def.key)
         if stored_ids is None:
             selected_ids: set[str] = set(entry_ids)
         else:
@@ -3954,16 +3981,56 @@ def _render_summary_group_with_checkboxes(
         for entry_id, entry_text in entries:
             widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{entry_id}"
             default_checked = entry_id in selected_ids
-            checked = st.checkbox(entry_text, value=default_checked, key=widget_key)
+            checked = container.checkbox(
+                entry_text,
+                value=default_checked,
+                key=widget_key,
+            )
             if checked:
                 selected_ids.add(entry_id)
             else:
                 selected_ids.discard(entry_id)
 
-        value_selection[field.key] = [
+        value_selection[field_def.key] = [
             entry_id for entry_id, _ in entries if entry_id in selected_ids
         ]
-        _set_job_ad_field(field.key, bool(selected_ids))
+        _set_job_ad_field(field_def.key, bool(selected_ids))
+
+    skill_keys = [
+        "requirements.hard_skills_required",
+        "requirements.hard_skills_optional",
+        "requirements.soft_skills_required",
+        "requirements.soft_skills_optional",
+    ]
+    available_skill_keys = (
+        [key for key in skill_keys if key in field_entries]
+        if group == "requirements"
+        else []
+    )
+
+    sections_rendered = 0
+    if available_skill_keys:
+        st.markdown(
+            f"**{tr('Fähigkeiten-Übersicht', 'Skill overview')}**",
+        )
+        skill_cols = st.columns(len(available_skill_keys))
+        for col, key in zip(skill_cols, available_skill_keys):
+            field_def = next(field for field in group_fields if field.key == key)
+            render_field(col, field_def, field_entries[key])
+            field_entries.pop(key, None)
+        sections_rendered += 1
+
+    remaining_keys = [field.key for field in group_fields if field.key in field_entries]
+
+    for idx, chunk in enumerate(_chunked(remaining_keys, 2)):
+        if sections_rendered > 0 or idx > 0:
+            st.divider()
+        cols = st.columns(len(chunk))
+        for col, key in zip(cols, chunk):
+            field_def = next(field for field in group_fields if field.key == key)
+            render_field(col, field_def, field_entries[key])
+            field_entries.pop(key, None)
+        sections_rendered += 1
 
     if not has_content:
         st.info(
@@ -4004,19 +4071,16 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
     data = st.session_state[StateKeys.PROFILE]
-
-    tabs = st.tabs(
-        [
-            tr("Unternehmen", "Company"),
-            tr("Basisdaten", "Basic info"),
-            tr("Anforderungen", "Requirements"),
-            tr("Beschäftigung", "Employment"),
-            tr("Leistungen & Benefits", "Rewards & Benefits"),
-            tr("Prozess", "Process"),
-        ]
-    )
-
     lang = st.session_state.get("lang", "de")
+
+    tab_labels = [
+        tr("Unternehmen", "Company"),
+        tr("Basisdaten", "Basic info"),
+        tr("Anforderungen", "Requirements"),
+        tr("Beschäftigung", "Employment"),
+        tr("Leistungen & Benefits", "Rewards & Benefits"),
+        tr("Prozess", "Process"),
+    ]
     group_keys = [
         "company",
         "basic",
@@ -4025,6 +4089,25 @@ def _step_summary(schema: dict, _critical: list[str]):
         "compensation",
         "process",
     ]
+
+    overview_counts = _summary_group_counts(data, lang)
+    overview_title = tr(
+        "Überblick über erfasste Angaben",
+        "Overview of captured entries",
+    )
+    st.markdown(f"### {overview_title}")
+    entry_label = tr("Einträge", "Entries")
+    for chunk in _chunked(list(zip(group_keys, tab_labels)), 3):
+        cols = st.columns(len(chunk))
+        for col, (group, label) in zip(cols, chunk):
+            count = overview_counts.get(group, 0)
+            col.metric(label=label, value=count)
+            if count:
+                col.caption(f"{count} {entry_label}")
+            else:
+                col.caption(tr("Noch keine Angaben", "No entries yet"))
+
+    tabs = st.tabs(tab_labels)
     for tab, group in zip(tabs, group_keys):
         with tab:
             _render_summary_group_with_checkboxes(group, data, lang)
