@@ -4434,7 +4434,6 @@ def _render_summary_group_with_checkboxes(
     value_selection = dict(
         st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}) or {}
     )
-    has_content = False
     is_de = lang.lower().startswith("de")
 
     group_fields = [field for field in JOB_AD_FIELDS if field.group == group]
@@ -4447,24 +4446,40 @@ def _render_summary_group_with_checkboxes(
             value_selection.pop(field.key, None)
             _set_job_ad_field(field.key, False)
 
-    def render_field(
-        container: Any,
-        field_def: JobAdFieldDefinition,
-        entries: list[tuple[str, str]],
-    ) -> None:
-        nonlocal has_content
-        has_content = True
+    ordered_fields = [field for field in group_fields if field.key in field_entries]
+
+    if not ordered_fields:
+        st.info(
+            tr(
+                "Für diesen Abschnitt liegen keine Angaben vor.",
+                "No entries available for this section.",
+            )
+        )
+        st.session_state[StateKeys.JOB_AD_SELECTED_VALUES] = value_selection
+        return
+
+    for index, field_def in enumerate(ordered_fields):
+        entries = field_entries[field_def.key]
 
         label = field_def.label_de if is_de else field_def.label_en
-        container.markdown(f"**{label}**")
         description = field_def.description_de if is_de else field_def.description_en
+
+        field_box = st.container()
+        field_box.markdown("<div class='summary-field-card'>", unsafe_allow_html=True)
+        field_box.markdown(
+            f"<div class='summary-field-title'>{html.escape(label)}</div>",
+            unsafe_allow_html=True,
+        )
         if description:
-            container.caption(description)
+            field_box.markdown(
+                f"<div class='summary-field-description'>{html.escape(description)}</div>",
+                unsafe_allow_html=True,
+            )
 
         entry_ids = [entry_id for entry_id, _ in entries]
         stored_ids = value_selection.get(field_def.key)
         if stored_ids is None:
-            selected_ids: set[str] = set(entry_ids)
+            selected_ids = set(entry_ids)
         else:
             stored_set = set(stored_ids)
             selected_ids = stored_set & set(entry_ids)
@@ -4476,7 +4491,7 @@ def _render_summary_group_with_checkboxes(
         for entry_id, entry_text in entries:
             widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{entry_id}"
             default_checked = entry_id in selected_ids
-            checked = container.checkbox(
+            checked = field_box.checkbox(
                 entry_text,
                 value=default_checked,
                 key=widget_key,
@@ -4486,54 +4501,15 @@ def _render_summary_group_with_checkboxes(
             else:
                 selected_ids.discard(entry_id)
 
+        field_box.markdown("</div>", unsafe_allow_html=True)
+
         value_selection[field_def.key] = [
             entry_id for entry_id, _ in entries if entry_id in selected_ids
         ]
         _set_job_ad_field(field_def.key, bool(selected_ids))
 
-    skill_keys = [
-        "requirements.hard_skills_required",
-        "requirements.hard_skills_optional",
-        "requirements.soft_skills_required",
-        "requirements.soft_skills_optional",
-    ]
-    available_skill_keys = (
-        [key for key in skill_keys if key in field_entries]
-        if group == "requirements"
-        else []
-    )
-
-    sections_rendered = 0
-    if available_skill_keys:
-        st.markdown(
-            f"**{tr('Fähigkeiten-Übersicht', 'Skill overview')}**",
-        )
-        skill_cols = st.columns(len(available_skill_keys))
-        for col, key in zip(skill_cols, available_skill_keys):
-            field_def = next(field for field in group_fields if field.key == key)
-            render_field(col, field_def, field_entries[key])
-            field_entries.pop(key, None)
-        sections_rendered += 1
-
-    remaining_keys = [field.key for field in group_fields if field.key in field_entries]
-
-    for idx, chunk in enumerate(_chunked(remaining_keys, 2)):
-        if sections_rendered > 0 or idx > 0:
-            st.divider()
-        cols = st.columns(len(chunk))
-        for col, key in zip(cols, chunk):
-            field_def = next(field for field in group_fields if field.key == key)
-            render_field(col, field_def, field_entries[key])
-            field_entries.pop(key, None)
-        sections_rendered += 1
-
-    if not has_content:
-        st.info(
-            tr(
-                "Für diesen Abschnitt liegen keine Angaben vor.",
-                "No entries available for this section.",
-            )
-        )
+        if index < len(ordered_fields) - 1:
+            st.markdown("<div class='summary-field-gap'></div>", unsafe_allow_html=True)
 
     st.session_state[StateKeys.JOB_AD_SELECTED_VALUES] = value_selection
 
@@ -4593,31 +4569,39 @@ def _step_summary(schema: dict, _critical: list[str]):
     st.markdown(f"### {overview_title}")
     entry_label = tr("Einträge", "Entries")
     empty_label = tr("Noch keine Angaben", "No entries yet")
-    card_markup: list[str] = []
-    for group, label in zip(group_keys, tab_labels):
-        count = overview_counts.get(group, 0)
-        subtitle = f"{count} {entry_label}" if count else empty_label
-        card_markup.append(
-            "\n".join(
-                [
-                    '<div class="values-overview-card">',
-                    f'  <div class="values-overview-count">{count}</div>',
-                    f'  <div class="values-overview-label">{html.escape(label)}</div>',
-                    f'  <div class="values-overview-subtitle">{html.escape(subtitle)}</div>',
-                    "</div>",
-                ]
-            )
+    selected_group = st.session_state.get(UIKeys.SUMMARY_SELECTED_GROUP)
+    if selected_group not in group_keys:
+        selected_group = next(
+            (group for group in group_keys if overview_counts.get(group, 0)),
+            group_keys[0],
         )
+    st.session_state[UIKeys.SUMMARY_SELECTED_GROUP] = selected_group
+    selected_label = tab_labels[group_keys.index(selected_group)]
 
-    st.markdown(
-        '<div class="values-overview-grid">' + "".join(card_markup) + "</div>",
-        unsafe_allow_html=True,
-    )
-
-    tabs = st.tabs(tab_labels)
-    for tab, group in zip(tabs, group_keys):
-        with tab:
-            _render_summary_group_with_checkboxes(group, data, lang)
+    for chunk in _chunked(list(zip(group_keys, tab_labels)), 3):
+        cols = st.columns(len(chunk))
+        for col, (group, label) in zip(cols, chunk):
+            count = overview_counts.get(group, 0)
+            subtitle = f"{count} {entry_label}" if count else empty_label
+            button_label = f"{count} {label}\n{subtitle}"
+            button_type: Literal["primary", "secondary"] = (
+                "primary" if group == selected_group else "secondary"
+            )
+            with col:
+                st.markdown(
+                    "<div class='summary-overview-button'>",
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    button_label,
+                    key=f"summary-group-{group}",
+                    use_container_width=True,
+                    type=button_type,
+                ):
+                    selected_group = group
+                    st.session_state[UIKeys.SUMMARY_SELECTED_GROUP] = group
+                    selected_label = label
+                st.markdown("</div>", unsafe_allow_html=True)
 
     try:
         profile = NeedAnalysisProfile.model_validate(data)
@@ -4644,17 +4628,29 @@ def _step_summary(schema: dict, _critical: list[str]):
     style_reference = _job_ad_style_reference(data, base_url or None)
 
     suggestions = suggest_target_audiences(profile, lang)
-    first_row_cols = st.columns((1, 1.4))
-    with first_row_cols[0]:
+    content_col, tools_col = st.columns((1.75, 1.25), gap="large")
+
+    with content_col:
+        st.markdown(f"#### {selected_label}")
+        st.caption(
+            tr(
+                "Markieren Sie die Inhalte, die in die finale Darstellung übernommen werden sollen.",
+                "Check the items that should be included in the final output.",
+            )
+        )
+        _render_summary_group_with_checkboxes(selected_group, data, lang)
+
+    target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
+
+    with tools_col:
+        st.markdown(tr("#### Weiterverarbeitung", "#### Next steps"))
         brand_value = st.text_input(
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
             value=data["company"].get("brand_keywords", ""),
             key="ui.summary.company.brand_keywords",
         )
-    _update_profile("company.brand_keywords", brand_value)
+        _update_profile("company.brand_keywords", brand_value)
 
-    target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
-    with first_row_cols[1]:
         if suggestions:
             option_map = {s.key: s for s in suggestions}
             option_keys = list(option_map.keys())
@@ -4670,24 +4666,23 @@ def _step_summary(schema: dict, _critical: list[str]):
             )
             chosen = option_map.get(selected_option, suggestions[0])
             target_value = f"{chosen.title} – {chosen.description}"
+
         custom_target = st.text_input(
             tr("Eigene Zielgruppe", "Custom target audience"),
             key=UIKeys.JOB_AD_CUSTOM_TARGET,
         ).strip()
         if custom_target:
             target_value = custom_target
+
         st.caption(
             tr(
                 "Nur markierte Inhalte und die gewählte Zielgruppe fließen in die Anzeige.",
                 "Only checked items and the chosen audience are used for the job ad.",
             )
         )
-    st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
-    export_col, font_col, _spacer1, _spacer2, logo_col = st.columns(
-        (1, 1, 0.2, 0.2, 1.2)
-    )
-    with export_col:
+        st.divider()
+
         if UIKeys.JOB_AD_FORMAT not in st.session_state:
             st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
         format_options = {
@@ -4702,7 +4697,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             format_func=lambda k: format_options[k],
             key=UIKeys.JOB_AD_FORMAT,
         )
-    with font_col:
+
         font_default = st.session_state.get(
             StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0]
         )
@@ -4728,7 +4723,9 @@ def _step_summary(schema: dict, _critical: list[str]):
                 "Selection applies to job ad and interview guide when supported.",
             )
         )
-    with logo_col:
+
+        st.divider()
+
         logo_file = st.file_uploader(
             tr("Logo hochladen (optional)", "Upload logo (optional)"),
             type=["png", "jpg", "jpeg", "svg"],
@@ -4750,7 +4747,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
                 st.rerun()
 
-    target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
+    st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
     current_selection = set(
         iter_field_keys(st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS, set()))
