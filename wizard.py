@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import textwrap
 from copy import deepcopy
@@ -4181,29 +4180,6 @@ def _step_summary(schema: dict, _critical: list[str]):
         with tab:
             _render_summary_group_with_checkboxes(group, data, lang)
 
-    brand_value = st.text_input(
-        tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-        value=data["company"].get("brand_keywords", ""),
-        key="ui.summary.company.brand_keywords",
-    )
-    _update_profile("company.brand_keywords", brand_value)
-
-    buff = io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
-    st.download_button(
-        "⬇️ Download JSON",
-        data=buff,
-        file_name="cognitive_needs_profile.json",
-        mime="application/json",
-    )
-
-    usage = st.session_state.get(StateKeys.USAGE)
-    if usage:
-        in_tok = usage.get("input_tokens", 0)
-        out_tok = usage.get("output_tokens", 0)
-        total_tok = in_tok + out_tok
-        label = tr("Verbrauchte Tokens", "Tokens used")
-        st.caption(f"{label}: {in_tok} + {out_tok} = {total_tok}")
-
     try:
         profile = NeedAnalysisProfile.model_validate(data)
     except Exception:
@@ -4225,20 +4201,21 @@ def _step_summary(schema: dict, _critical: list[str]):
     if UIKeys.TONE_SELECT not in st.session_state:
         st.session_state[UIKeys.TONE_SELECT] = "formal"
 
-    job_ad_tabs = st.tabs(
-        [
-            tr("Zielgruppe", "Target audience"),
-            tr("Logo", "Logo"),
-            tr("Download-Format", "Download format"),
-        ]
-    )
-
     base_url = st.session_state.get(StateKeys.COMPANY_PAGE_BASE) or ""
     style_reference = _job_ad_style_reference(data, base_url or None)
 
     suggestions = suggest_target_audiences(profile, lang)
-    with job_ad_tabs[0]:
-        target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
+    first_row_cols = st.columns((1, 1.4))
+    with first_row_cols[0]:
+        brand_value = st.text_input(
+            tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
+            value=data["company"].get("brand_keywords", ""),
+            key="ui.summary.company.brand_keywords",
+        )
+    _update_profile("company.brand_keywords", brand_value)
+
+    target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
+    with first_row_cols[1]:
         if suggestions:
             option_map = {s.key: s for s in suggestions}
             option_keys = list(option_map.keys())
@@ -4260,37 +4237,18 @@ def _step_summary(schema: dict, _critical: list[str]):
         ).strip()
         if custom_target:
             target_value = custom_target
-        st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
         st.caption(
             tr(
                 "Nur markierte Inhalte und die gewählte Zielgruppe fließen in die Anzeige.",
                 "Only checked items and the chosen audience are used for the job ad.",
             )
         )
+    st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
-    with job_ad_tabs[1]:
-        logo_file = st.file_uploader(
-            tr("Logo hochladen (optional)", "Upload logo (optional)"),
-            type=["png", "jpg", "jpeg", "svg"],
-            key=UIKeys.JOB_AD_LOGO_UPLOAD,
-        )
-        if logo_file is not None:
-            st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_file.getvalue()
-        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
-        if logo_bytes:
-            try:
-                st.image(
-                    logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180
-                )
-            except Exception:
-                st.caption(
-                    tr("Logo erfolgreich geladen.", "Logo uploaded successfully.")
-                )
-            if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
-                st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
-                st.rerun()
-
-    with job_ad_tabs[2]:
+    export_col, font_col, _spacer1, _spacer2, logo_col = st.columns(
+        (1, 1, 0.2, 0.2, 1.2)
+    )
+    with export_col:
         if UIKeys.JOB_AD_FORMAT not in st.session_state:
             st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
         format_options = {
@@ -4305,6 +4263,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             format_func=lambda k: format_options[k],
             key=UIKeys.JOB_AD_FORMAT,
         )
+    with font_col:
         font_default = st.session_state.get(
             StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0]
         )
@@ -4330,6 +4289,27 @@ def _step_summary(schema: dict, _critical: list[str]):
                 "Selection applies to job ad and interview guide when supported.",
             )
         )
+    with logo_col:
+        logo_file = st.file_uploader(
+            tr("Logo hochladen (optional)", "Upload logo (optional)"),
+            type=["png", "jpg", "jpeg", "svg"],
+            key=UIKeys.JOB_AD_LOGO_UPLOAD,
+        )
+        if logo_file is not None:
+            st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_file.getvalue()
+        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+        if logo_bytes:
+            try:
+                st.image(
+                    logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180
+                )
+            except Exception:
+                st.caption(
+                    tr("Logo erfolgreich geladen.", "Logo uploaded successfully.")
+                )
+            if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
+                st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
+                st.rerun()
 
     target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
 
@@ -4506,48 +4486,30 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     with interview_col:
         st.markdown(tr("#### Interviewleitfaden", "#### Interview guide"))
-        selected_tone = st.selectbox(
-            tr("Interviewleitfaden-Ton", "Interview guide tone"),
-            options=list(tone_options.keys()),
-            format_func=lambda k: tone_labels.get(k, k),
-            key=UIKeys.TONE_SELECT,
-        )
-        st.session_state["tone"] = tone_options.get(selected_tone)
+        tone_col, question_col = st.columns((1, 1))
+        with tone_col:
+            selected_tone = st.selectbox(
+                tr("Interviewleitfaden-Ton", "Interview guide tone"),
+                options=list(tone_options.keys()),
+                format_func=lambda k: tone_labels.get(k, k),
+                key=UIKeys.TONE_SELECT,
+            )
+            st.session_state["tone"] = tone_options.get(selected_tone)
 
-        if UIKeys.NUM_QUESTIONS not in st.session_state:
-            st.session_state[UIKeys.NUM_QUESTIONS] = 5
-        st.slider(
-            tr("Anzahl Interviewfragen", "Number of interview questions"),
-            min_value=3,
-            max_value=10,
-            key=UIKeys.NUM_QUESTIONS,
-        )
+        with question_col:
+            if UIKeys.NUM_QUESTIONS not in st.session_state:
+                st.session_state[UIKeys.NUM_QUESTIONS] = 5
+            st.slider(
+                tr("Anzahl Interviewfragen", "Number of interview questions"),
+                min_value=3,
+                max_value=10,
+                key=UIKeys.NUM_QUESTIONS,
+            )
 
-        audience_labels = {
-            "general": tr("Allgemein", "General"),
-            "technical": tr("Fachbereich", "Technical"),
-            "HR": "HR",
-        }
-        if UIKeys.AUDIENCE_SELECT not in st.session_state:
-            st.session_state[UIKeys.AUDIENCE_SELECT] = "general"
-        st.selectbox(
-            tr("Zielgruppe", "Audience"),
-            list(audience_labels.keys()),
-            format_func=lambda k: audience_labels[k],
-            key=UIKeys.AUDIENCE_SELECT,
-        )
-
-        if UIKeys.INTERVIEW_FORMAT not in st.session_state:
-            st.session_state[UIKeys.INTERVIEW_FORMAT] = "docx"
-        st.selectbox(
-            tr("Download-Format", "Download format"),
-            options=list(format_options.keys()),
-            format_func=lambda k: format_options[k],
-            key=UIKeys.INTERVIEW_FORMAT,
-        )
+        st.session_state[UIKeys.AUDIENCE_SELECT] = "general"
 
         selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
-        audience = st.session_state.get(UIKeys.AUDIENCE_SELECT, "general")
+        audience = "general"
         if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
             try:
                 extras = (
@@ -4594,7 +4556,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 height=_textarea_height(guide_text),
                 key="interview_output",
             )
-            guide_format = st.session_state.get(UIKeys.INTERVIEW_FORMAT, "markdown")
+            guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
             font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
             logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
             guide_title = profile.position.job_title or "interview-guide"
@@ -4634,24 +4596,6 @@ def _step_summary(schema: dict, _critical: list[str]):
             val = st.text_input(f"{label} {key}", key=f"fu_{key}")
             if val:
                 set_in(data, key, val)
-
-    st.divider()
-
-    col_home, col_donate = st.columns(2)
-    if col_home.button("🏠 Home", key="summary_home"):
-        st.session_state[StateKeys.STEP] = 0
-        st.rerun()
-
-    if col_donate.button("❤️ Donate to the developer", key="summary_donate"):
-        st.session_state["show_donate"] = True
-
-    if st.session_state.get("show_donate"):
-        st.info(
-            tr(
-                "Spendenkonto: DE00 1234 5678 9000 0000 00",
-                "Donation account: DE00 1234 5678 9000 0000 00",
-            )
-        )
 
 
 # --- Haupt-Wizard-Runner ---
@@ -4719,13 +4663,13 @@ def run_wizard():
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
 
     if current > 0:
-        col_prev, col_next = st.columns([1, 1])
-        with col_prev:
-            if st.button(tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True):
-                prev_step()
-                st.rerun()
-        with col_next:
-            if current < len(steps) - 1:
+        if current < len(steps) - 1:
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button(tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True):
+                    prev_step()
+                    st.rerun()
+            with col_next:
                 if st.button(
                     tr("Weiter ▶︎", "Next ▶︎"),
                     type="primary",
@@ -4734,12 +4678,45 @@ def run_wizard():
                 ):
                     next_step()
                     st.rerun()
-            else:
+        else:
+            back_col, home_col, donate_col = st.columns([1, 1, 1])
+            with back_col:
                 if st.button(
-                    tr("Fertig", "Done"),
-                    type="primary",
+                    tr("◀︎ Zurück", "◀︎ Back"),
                     use_container_width=True,
-                    disabled=bool(missing),
+                    key="summary_back",
+                ):
+                    prev_step()
+                    st.rerun()
+            with home_col:
+                if st.button(
+                    "🏠 Home",
+                    key="summary_home",
+                    use_container_width=True,
                 ):
                     st.session_state[StateKeys.STEP] = 0
                     st.rerun()
+            with donate_col:
+                if st.button(
+                    "❤️ Donate to the developer",
+                    key="summary_donate",
+                    use_container_width=True,
+                ):
+                    st.session_state["show_donate"] = True
+
+    if current == len(steps) - 1:
+        if st.session_state.get("show_donate"):
+            st.info(
+                tr(
+                    "Spendenkonto: DE00 1234 5678 9000 0000 00",
+                    "Donation account: DE00 1234 5678 9000 0000 00",
+                )
+            )
+
+        usage = st.session_state.get(StateKeys.USAGE)
+        if usage:
+            in_tok = usage.get("input_tokens", 0)
+            out_tok = usage.get("output_tokens", 0)
+            total_tok = in_tok + out_tok
+            label = tr("Verbrauchte Tokens", "Tokens used")
+            st.caption(f"{label}: {in_tok} + {out_tok} = {total_tok}")
