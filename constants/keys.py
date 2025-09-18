@@ -38,3 +38,5 @@ class StateKeys:
     ESCO_SKILLS = "extraction_esco_skills"
     BIAS_FINDINGS = "data.bias_findings"
     SKILL_BUCKETS = "skill_buckets"
+    COMPANY_PAGE_SUMMARIES = "company.page_summaries"
+    COMPANY_PAGE_BASE = "company.page_base_url"
