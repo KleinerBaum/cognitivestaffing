@@ -130,6 +130,51 @@ a:hover { text-decoration: none; filter: drop-shadow(0 0 10px rgba(105,226,255,.
 }
 .stTabs [data-baseweb="tab-list"] button { border-radius: 10px; }
 
+/* Summary: values overview highlight */
+.values-overview-grid {
+  margin: 1rem 0 1.4rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.values-overview-card {
+  background: rgba(255,255,255,0.35);
+  border: 1px solid rgba(255,255,255,0.45);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 1rem 1.2rem 1.1rem;
+  box-shadow: 0 18px 40px rgba(5,12,28,0.55);
+  backdrop-filter: blur(calc(var(--blur) + 6px)) saturate(160%);
+  -webkit-backdrop-filter: blur(calc(var(--blur) + 6px)) saturate(160%);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.values-overview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 46px rgba(5,12,28,0.65);
+}
+
+.values-overview-count {
+  font-family: 'Space Grotesk', Inter, system-ui;
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #0b1220;
+}
+
+.values-overview-label {
+  margin-top: .25rem;
+  font-weight: 600;
+  letter-spacing: .2px;
+  color: rgba(11,18,32,0.9);
+}
+
+.values-overview-subtitle {
+  margin-top: .35rem;
+  color: rgba(15,23,42,0.8);
+  font-size: .9rem;
+}
+
 /* Optional: hide default footer/menu; we minimize via config.toml */
 footer, #MainMenu { visibility: hidden; }
 
