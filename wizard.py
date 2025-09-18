@@ -4,9 +4,11 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import textwrap
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, List, Literal, Optional, Sequence
+from typing import Any, Iterable, List, Literal, Optional, Sequence, TypedDict
+from urllib.parse import urljoin, urlparse
 
 import re
 import streamlit as st
@@ -30,6 +32,7 @@ from openai_utils import (
     generate_interview_guide,
     generate_job_ad,
     refine_document,
+    summarize_company_page,
 )
 from core.suggestions import get_benefit_suggestions, get_skill_suggestions
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
@@ -230,6 +233,221 @@ CONTINENT_COUNTRIES = {
         "United Arab Emirates",
     ],
 }
+
+
+class _CompanySectionConfig(TypedDict):
+    """Configuration for a company research button."""
+
+    key: str
+    button: str
+    label: str
+    slugs: Sequence[str]
+
+
+def _normalise_company_base_url(url: str) -> str | None:
+    """Return the normalised base URL for the company website."""
+
+    candidate = (url or "").strip()
+    if not candidate:
+        return None
+    if not re.match(r"^https?://", candidate, re.IGNORECASE):
+        candidate = f"https://{candidate}"
+    parsed = urlparse(candidate)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    if parsed.path and not parsed.path.endswith("/"):
+        last_segment = parsed.path.split("/")[-1]
+        if "." not in last_segment:
+            candidate = f"{candidate}/"
+    base = urljoin(candidate, "./")
+    if not base.endswith("/"):
+        base = f"{base}/"
+    return base
+
+
+def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[str]:
+    """Return a list of candidate URLs for company sub-pages."""
+
+    urls: list[str] = []
+    seen: set[str] = set()
+    for slug in slugs:
+        if not slug:
+            continue
+        trimmed = slug.strip()
+        if not trimmed:
+            continue
+        if re.match(r"^https?://", trimmed, re.IGNORECASE):
+            candidate = trimmed
+        else:
+            candidate = urljoin(base_url, trimmed.lstrip("/"))
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        urls.append(candidate)
+    return urls
+
+
+def _fetch_company_page(base_url: str, slugs: Sequence[str]) -> tuple[str, str] | None:
+    """Fetch the first available company sub-page from ``slugs``."""
+
+    for candidate in _candidate_company_page_urls(base_url, slugs):
+        try:
+            text = extract_text_from_url(candidate)
+        except ValueError:
+            continue
+        content = text.strip()
+        if content:
+            return candidate, content
+    return None
+
+
+def _sync_company_page_base(base_url: str | None) -> None:
+    """Reset cached summaries when the company base URL changes."""
+
+    storage: dict[str, dict[str, str]] = st.session_state[
+        StateKeys.COMPANY_PAGE_SUMMARIES
+    ]
+    previous = st.session_state.get(StateKeys.COMPANY_PAGE_BASE, "")
+    current = base_url or ""
+    if current != previous:
+        st.session_state[StateKeys.COMPANY_PAGE_BASE] = current
+        storage.clear()
+
+
+def _load_company_page_section(
+    section_key: str,
+    base_url: str,
+    slugs: Sequence[str],
+    label: str,
+) -> None:
+    """Fetch and summarise a company section and store it in session state."""
+
+    lang = st.session_state.get("lang", "de")
+    with st.spinner(
+        tr("Suche nach {section} …", "Fetching {section} …").format(section=label)
+    ):
+        result = _fetch_company_page(base_url, slugs)
+    if not result:
+        st.info(
+            tr(
+                "Keine passende Seite für '{section}' gefunden.",
+                "Could not find a matching page for '{section}'.",
+            ).format(section=label)
+        )
+        return
+    url, text = result
+    try:
+        summary = summarize_company_page(text, label, lang=lang)
+    except Exception:
+        summary = textwrap.shorten(text, width=420, placeholder="…")
+        st.warning(
+            tr(
+                "KI-Zusammenfassung fehlgeschlagen – gekürzter Auszug angezeigt.",
+                "AI summary failed – showing a shortened excerpt instead.",
+            )
+        )
+    summaries: dict[str, dict[str, str]] = st.session_state[
+        StateKeys.COMPANY_PAGE_SUMMARIES
+    ]
+    summaries[section_key] = {"url": url, "summary": summary}
+    st.success(tr("Zusammenfassung aktualisiert.", "Summary updated."))
+
+
+def _render_company_research_tools(base_url: str) -> None:
+    """Render buttons to analyse additional company web pages."""
+
+    st.markdown(tr("#### 🔍 Automatische Recherche", "#### 🔍 Automatic research"))
+    st.caption(
+        tr(
+            "Nutze die Buttons, um wichtige Unterseiten zu analysieren und kompakte Zusammenfassungen zu erhalten.",
+            "Use the buttons to analyse key subpages and receive concise summaries.",
+        )
+    )
+    normalised = _normalise_company_base_url(base_url)
+    _sync_company_page_base(normalised)
+    if not base_url or not base_url.strip():
+        st.info(
+            tr(
+                "Bitte gib eine gültige Website ein, um weitere Seiten zu durchsuchen.",
+                "Please provide a valid website to explore additional pages.",
+            )
+        )
+        return
+    if not normalised:
+        st.warning(
+            tr(
+                "Die angegebene Website ist ungültig (z. B. fehlt https://).",
+                "The provided website seems invalid (e.g. missing https://).",
+            )
+        )
+        return
+
+    display_url = normalised.rstrip("/")
+    st.caption(
+        tr("Erkannte Website: {url}", "Detected website: {url}").format(
+            url=f"[{display_url}]({display_url})"
+        )
+    )
+
+    sections: list[_CompanySectionConfig] = [
+        {
+            "key": "about",
+            "button": tr("Über-uns-Seite analysieren", "Analyse About page"),
+            "label": tr("Über uns", "About the company"),
+            "slugs": [
+                "unternehmen",
+                "ueber-uns",
+                "ueberuns",
+                "about-us",
+                "about",
+                "company",
+            ],
+        },
+        {
+            "key": "imprint",
+            "button": tr("Impressum prüfen", "Analyse imprint"),
+            "label": tr("Impressum", "Imprint"),
+            "slugs": [
+                "impressum",
+                "imprint",
+                "legal",
+                "legal-notice",
+                "kontakt/impressum",
+            ],
+        },
+        {
+            "key": "press",
+            "button": tr("Pressebereich analysieren", "Analyse press page"),
+            "label": tr("Presse", "Press"),
+            "slugs": [
+                "presse",
+                "press",
+                "newsroom",
+                "news",
+            ],
+        },
+    ]
+
+    cols = st.columns(len(sections))
+    for col, section in zip(cols, sections):
+        button_label = section["button"]
+        section_key = section["key"]
+        if col.button(button_label, key=f"ui.company.page.{section_key}"):
+            _load_company_page_section(
+                section_key=section_key,
+                base_url=normalised,
+                slugs=section["slugs"],
+                label=section["label"],
+            )
+
+    summaries = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
+    for section in sections:
+        section_key = section["key"]
+        result = summaries.get(section_key)
+        if not result:
+            continue
+        st.markdown(f"**{section['label']}** – [{result['url']}]({result['url']})")
+        st.write(result.get("summary") or "")
 
 
 def _format_language_level_option(option: str) -> str:
@@ -1439,6 +1657,8 @@ def _step_company():
                 "e.g., Promote sustainable mobility",
             ),
         )
+
+        _render_company_research_tools(data["company"].get("website", ""))
 
         data["company"]["culture"] = st.text_area(
             tr("Kultur", "Culture"),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import textwrap
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for
@@ -938,6 +939,61 @@ def generate_job_ad(
     )
 
 
+def summarize_company_page(
+    text: str,
+    section: str,
+    *,
+    lang: str = "de",
+    model: str | None = None,
+) -> str:
+    """Summarize a company web page into a concise paragraph.
+
+    Args:
+        text: Extracted page text that should be summarised.
+        section: Human-readable label for the section (e.g. "About" or
+            "Impressum").
+        lang: Target language for the summary (``"de"`` or ``"en"`` supported).
+        model: Optional OpenAI model override.
+
+    Returns:
+        A summary string describing the most relevant information.
+    """
+
+    cleaned = text.strip()
+    if not cleaned:
+        return ""
+    if len(cleaned) > 8000:
+        cleaned = cleaned[:8000]
+    if model is None:
+        model = get_model_for(ModelTask.EXPLANATION)
+
+    if lang.lower().startswith("de"):
+        prompt = (
+            "Fasse den folgenden Text in maximal vier Sätzen zusammen."
+            " Hebe nur die wichtigsten Fakten hervor. Abschnitt: "
+            f"{section}.\n\n{cleaned}"
+        )
+    else:
+        prompt = (
+            "Summarise the following text in at most four sentences,"
+            " focusing on the key facts only. Section: "
+            f"{section}.\n\n{cleaned}"
+        )
+
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        summary = _chat_content(
+            api.call_chat_api(messages, model=model, temperature=0.2, max_tokens=220)
+        ).strip()
+    except Exception:
+        summary = ""
+
+    if summary:
+        return summary
+
+    return textwrap.shorten(cleaned, width=420, placeholder="…")
+
+
 def refine_document(original: str, feedback: str, model: str | None = None) -> str:
     """Adjust a generated document using user feedback.
 
@@ -1001,6 +1057,7 @@ __all__ = [
     "suggest_role_tasks",
     "generate_interview_guide",
     "generate_job_ad",
+    "summarize_company_page",
     "refine_document",
     "what_happened",
 ]

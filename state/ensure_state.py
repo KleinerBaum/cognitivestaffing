@@ -36,6 +36,10 @@ def ensure_state() -> None:
         st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
     if StateKeys.FOLLOWUPS not in st.session_state:
         st.session_state[StateKeys.FOLLOWUPS] = []
+    if StateKeys.COMPANY_PAGE_SUMMARIES not in st.session_state:
+        st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
+    if StateKeys.COMPANY_PAGE_BASE not in st.session_state:
+        st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:
