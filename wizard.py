@@ -1411,24 +1411,10 @@ def _step_onboarding(schema: dict) -> None:
 
     _maybe_run_extraction(schema)
 
-    lang_options = {"de": "DE", "en": "EN"}
     if UIKeys.LANG_SELECT not in st.session_state:
         st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
 
-    def _on_lang_change() -> None:
-        st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
-
-    _, col_toggle = st.columns([5, 1])
-    with col_toggle:
-        st.radio(
-            tr("Sprache", "Language"),
-            options=list(lang_options.keys()),
-            key=UIKeys.LANG_SELECT,
-            horizontal=True,
-            label_visibility="collapsed",
-            format_func=lambda key: lang_options[key],
-            on_change=_on_lang_change,
-        )
+    st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
     welcome_headline = tr(
         "Willkommen zum Onboarding",
