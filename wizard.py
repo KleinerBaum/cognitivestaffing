@@ -6,7 +6,7 @@ import io
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List, Literal, Optional, Sequence
 
 import re
 import streamlit as st
@@ -80,6 +80,28 @@ SKILL_SORTABLE_STYLE = """
     margin-bottom: 0.35rem;
     font-size: 0.9rem;
 }
+"""
+
+WIZARD_LAYOUT_STYLE = """
+<style>
+section.main > div.block-container {
+    max-width: 1100px;
+}
+section.main > div.block-container [data-testid="stTextInput"],
+section.main > div.block-container [data-testid="stNumberInput"],
+section.main > div.block-container [data-testid="stDateInput"],
+section.main > div.block-container [data-testid="stSelectbox"] {
+    max-width: 460px;
+}
+section.main > div.block-container [data-testid="stTextInput"] input,
+section.main > div.block-container [data-testid="stNumberInput"] input,
+section.main > div.block-container [data-testid="stDateInput"] input {
+    width: 100%;
+}
+section.main > div.block-container [data-testid="stTextArea"] textarea {
+    min-height: 140px;
+}
+</style>
 """
 
 CEFR_LANGUAGE_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2", "Native"]
@@ -651,7 +673,12 @@ def _render_preview_value(value: Any) -> None:
     st.write(value)
 
 
-def _render_prefilled_preview() -> None:
+def _render_prefilled_preview(
+    *,
+    include_prefixes: Sequence[str] | None = None,
+    exclude_prefixes: Sequence[str] = (),
+    layout: Literal["tabs", "grid"] = "tabs",
+) -> None:
     """Render tabs with all fields that already contain values."""
 
     raw_profile = (
@@ -660,11 +687,19 @@ def _render_prefilled_preview() -> None:
         or {}
     )
     flat = flatten(raw_profile)
-    filled = {
-        path: value
-        for path, value in flat.items()
-        if not path.startswith("meta.") and _has_value(value)
-    }
+
+    def _allowed(path: str) -> bool:
+        if path.startswith("meta."):
+            return False
+        if include_prefixes and not any(
+            path.startswith(pref) for pref in include_prefixes
+        ):
+            return False
+        if any(path.startswith(pref) for pref in exclude_prefixes):
+            return False
+        return _has_value(flat[path])
+
+    filled = {path: value for path, value in flat.items() if _allowed(path)}
     if not filled:
         return
 
@@ -685,6 +720,11 @@ def _render_prefilled_preview() -> None:
 
     section_entries: list[tuple[str, list[tuple[str, Any]]]] = []
     for label, prefixes in sections:
+        if include_prefixes and not any(
+            any(pref.startswith(prefix) for prefix in prefixes)
+            for pref in include_prefixes
+        ):
+            continue
         entries = [
             (path, filled[path])
             for path in sorted(filled)
@@ -709,6 +749,19 @@ def _render_prefilled_preview() -> None:
         )
     )
 
+    if layout == "grid":
+        cards: list[tuple[str, Any]] = [
+            (path, value) for _, entries in section_entries for path, value in entries
+        ]
+        for start in range(0, len(cards), 2):
+            row = cards[start : start + 2]
+            cols = st.columns(len(row), gap="large")
+            for col, (path, value) in zip(cols, row):
+                with col.container(border=True):
+                    st.markdown(f"**{_field_label(path)}**")
+                    _render_preview_value(value)
+        return
+
     tabs = st.tabs([label for label, _ in section_entries])
     for tab, (_, entries) in zip(tabs, section_entries):
         with tab:
@@ -721,8 +774,6 @@ def _render_prefilled_preview() -> None:
                 st.markdown(
                     "<div style='margin-bottom:0.6rem'></div>", unsafe_allow_html=True
                 )
-
-    _render_skill_triage(raw_profile)
 
 
 def _ensure_skill_suggestions(
@@ -1295,7 +1346,7 @@ def _step_onboarding(schema: dict) -> None:
             ),
         )
 
-    _render_prefilled_preview()
+    _render_prefilled_preview(exclude_prefixes=("requirements.",))
 
     col_skip, col_next = st.columns(2)
     with col_skip:
@@ -1312,7 +1363,6 @@ def _step_onboarding(schema: dict) -> None:
             type="primary",
             use_container_width=True,
         ):
-            _apply_skill_buckets_to_profile()
             st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
             st.rerun()
 
@@ -1713,6 +1763,17 @@ def _step_requirements():
             "Specify required skills and qualifications.",
         )
     )
+    raw_profile = (
+        st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
+        or st.session_state.get(StateKeys.PROFILE)
+        or {}
+    )
+    _render_prefilled_preview(
+        include_prefixes=("requirements.",),
+        layout="grid",
+    )
+    _render_skill_triage(raw_profile)
+    _apply_skill_buckets_to_profile()
     data = st.session_state[StateKeys.PROFILE]
     missing_here = [
         f
@@ -1739,73 +1800,89 @@ def _step_requirements():
     label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
     if "requirements.hard_skills_required" in missing_here:
         label_hard_req += REQUIRED_SUFFIX
-    data["requirements"]["hard_skills_required"] = _chip_multiselect(
-        label_hard_req,
-        options=data["requirements"].get("hard_skills_required", []),
-        values=data["requirements"].get("hard_skills_required", []),
-    )
-    if "requirements.hard_skills_required" in missing_here and not data[
-        "requirements"
-    ].get("hard_skills_required"):
-        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    col_hard_req, col_hard_opt = st.columns(2, gap="large")
+    with col_hard_req:
+        data["requirements"]["hard_skills_required"] = _chip_multiselect(
+            label_hard_req,
+            options=data["requirements"].get("hard_skills_required", []),
+            values=data["requirements"].get("hard_skills_required", []),
+        )
+        if "requirements.hard_skills_required" in missing_here and not data[
+            "requirements"
+        ].get("hard_skills_required"):
+            st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    with col_hard_opt:
+        data["requirements"]["hard_skills_optional"] = _chip_multiselect(
+            tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
+            options=data["requirements"].get("hard_skills_optional", []),
+            values=data["requirements"].get("hard_skills_optional", []),
+        )
 
-    data["requirements"]["hard_skills_optional"] = _chip_multiselect(
-        tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
-        options=data["requirements"].get("hard_skills_optional", []),
-        values=data["requirements"].get("hard_skills_optional", []),
-    )
     label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
     if "requirements.soft_skills_required" in missing_here:
         label_soft_req += REQUIRED_SUFFIX
-    data["requirements"]["soft_skills_required"] = _chip_multiselect(
-        label_soft_req,
-        options=data["requirements"].get("soft_skills_required", []),
-        values=data["requirements"].get("soft_skills_required", []),
-    )
-    if "requirements.soft_skills_required" in missing_here and not data[
-        "requirements"
-    ].get("soft_skills_required"):
-        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    col_soft_req, col_soft_opt = st.columns(2, gap="large")
+    with col_soft_req:
+        data["requirements"]["soft_skills_required"] = _chip_multiselect(
+            label_soft_req,
+            options=data["requirements"].get("soft_skills_required", []),
+            values=data["requirements"].get("soft_skills_required", []),
+        )
+        if "requirements.soft_skills_required" in missing_here and not data[
+            "requirements"
+        ].get("soft_skills_required"):
+            st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    with col_soft_opt:
+        data["requirements"]["soft_skills_optional"] = _chip_multiselect(
+            tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
+            options=data["requirements"].get("soft_skills_optional", []),
+            values=data["requirements"].get("soft_skills_optional", []),
+        )
 
-    data["requirements"]["soft_skills_optional"] = _chip_multiselect(
-        tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
-        options=data["requirements"].get("soft_skills_optional", []),
-        values=data["requirements"].get("soft_skills_optional", []),
-    )
-    data["requirements"]["tools_and_technologies"] = _chip_multiselect(
-        tr("Tools & Tech", "Tools & Tech"),
-        options=data["requirements"].get("tools_and_technologies", []),
-        values=data["requirements"].get("tools_and_technologies", []),
-    )
-    data["requirements"]["languages_required"] = _chip_multiselect(
-        tr("Sprachen", "Languages"),
-        options=data["requirements"].get("languages_required", []),
-        values=data["requirements"].get("languages_required", []),
-    )
-    data["requirements"]["languages_optional"] = _chip_multiselect(
-        tr("Optionale Sprachen", "Optional languages"),
-        options=data["requirements"].get("languages_optional", []),
-        values=data["requirements"].get("languages_optional", []),
-    )
+    col_tools, col_certs = st.columns(2, gap="large")
+    with col_tools:
+        data["requirements"]["tools_and_technologies"] = _chip_multiselect(
+            tr("Tools & Tech", "Tools & Tech"),
+            options=data["requirements"].get("tools_and_technologies", []),
+            values=data["requirements"].get("tools_and_technologies", []),
+        )
+    with col_certs:
+        data["requirements"]["certifications"] = _chip_multiselect(
+            tr("Zertifizierungen", "Certifications"),
+            options=data["requirements"].get("certifications", []),
+            values=data["requirements"].get("certifications", []),
+        )
+
+    col_lang_req, col_lang_opt = st.columns(2, gap="large")
+    with col_lang_req:
+        data["requirements"]["languages_required"] = _chip_multiselect(
+            tr("Sprachen", "Languages"),
+            options=data["requirements"].get("languages_required", []),
+            values=data["requirements"].get("languages_required", []),
+        )
+    with col_lang_opt:
+        data["requirements"]["languages_optional"] = _chip_multiselect(
+            tr("Optionale Sprachen", "Optional languages"),
+            options=data["requirements"].get("languages_optional", []),
+            values=data["requirements"].get("languages_optional", []),
+        )
+
     current_language_level = data["requirements"].get("language_level_english") or ""
     language_level_options = list(CEFR_LANGUAGE_LEVELS)
     if current_language_level and current_language_level not in language_level_options:
         language_level_options.append(current_language_level)
-    data["requirements"]["language_level_english"] = st.selectbox(
-        tr("Englischniveau", "English level"),
-        options=language_level_options,
-        index=(
-            language_level_options.index(current_language_level)
-            if current_language_level in language_level_options
-            else 0
-        ),
-        format_func=_format_language_level_option,
-    )
-    data["requirements"]["certifications"] = _chip_multiselect(
-        tr("Zertifizierungen", "Certifications"),
-        options=data["requirements"].get("certifications", []),
-        values=data["requirements"].get("certifications", []),
-    )
+    col_level, _ = st.columns([1, 1], gap="large")
+    with col_level:
+        data["requirements"]["language_level_english"] = st.selectbox(
+            tr("Englischniveau", "English level"),
+            options=language_level_options,
+            index=(
+                language_level_options.index(current_language_level)
+                if current_language_level in language_level_options
+                else 0
+            ),
+            format_func=_format_language_level_option,
+        )
 
     # Vorschlagslisten
     sugg_tools = st.multiselect(
@@ -3112,6 +3189,8 @@ def run_wizard():
     Returns:
         None
     """
+
+    st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
 
     # Schema/Config aus app.py Session übernehmen
     schema: dict = st.session_state.get("_schema") or {}
