@@ -1758,6 +1758,24 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
         p["primary"] = i == primary_idx
 
 
+def _filter_existing_participants(
+    participants: Sequence[str],
+    stakeholder_names: Sequence[str],
+) -> list[str]:
+    """Return participants that still exist in ``stakeholder_names``.
+
+    Args:
+        participants: The participants saved for a phase.
+        stakeholder_names: Current list of available stakeholder names.
+
+    Returns:
+        Filtered list containing only participants still available for selection.
+    """
+
+    existing = {name for name in stakeholder_names if name}
+    return [participant for participant in participants if participant in existing]
+
+
 def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> None:
     """Render phase inputs based on ``interview_stages``."""
 
@@ -1813,10 +1831,13 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 format_func=dict(format_options).__getitem__,
                 key=f"{key_prefix}.{idx}.format",
             )
+            phase_participants = _filter_existing_participants(
+                phase.get("participants", []), stakeholder_names
+            )
             phase["participants"] = st.multiselect(
                 tr("Beteiligte", "Participants"),
                 stakeholder_names,
-                default=phase.get("participants", []),
+                default=phase_participants,
                 key=f"{key_prefix}.{idx}.participants",
             )
             phase["docs_required"] = st.text_input(
