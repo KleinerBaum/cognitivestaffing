@@ -131,6 +131,7 @@ class Stakeholder(BaseModel):
     role: str
     email: EmailStr | None = None
     primary: bool = False
+    information_loop_phases: List[int] = Field(default_factory=list)
 
     @field_validator("email", mode="before")
     @classmethod

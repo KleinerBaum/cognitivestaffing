@@ -573,6 +573,12 @@
                                     "boolean",
                                     "null"
                                 ]
+                            },
+                            "information_loop_phases": {
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
                             }
                         },
                         "required": [

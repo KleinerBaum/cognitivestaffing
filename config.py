@@ -77,6 +77,7 @@ class ModelTask(StrEnum):
     SKILL_SUGGESTION = "skill_suggestion"
     BENEFIT_SUGGESTION = "benefit_suggestion"
     TASK_SUGGESTION = "task_suggestion"
+    ONBOARDING_SUGGESTION = "onboarding_suggestion"
     JOB_AD = "job_ad"
     INTERVIEW_GUIDE = "interview_guide"
     DOCUMENT_REFINEMENT = "document_refinement"
@@ -96,6 +97,7 @@ MODEL_ROUTING: Dict[str, str] = {
     ModelTask.SKILL_SUGGESTION.value: GPT5_NANO,
     ModelTask.BENEFIT_SUGGESTION.value: GPT5_NANO,
     ModelTask.TASK_SUGGESTION.value: GPT5_NANO,
+    ModelTask.ONBOARDING_SUGGESTION.value: GPT5_NANO,
     ModelTask.JOB_AD.value: GPT5_MINI,
     ModelTask.INTERVIEW_GUIDE.value: GPT5_MINI,
     ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
