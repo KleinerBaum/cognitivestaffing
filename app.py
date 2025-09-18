@@ -11,7 +11,7 @@ APP_ROOT = Path(__file__).resolve().parent
 for candidate in (APP_ROOT, APP_ROOT.parent):
     candidate_str = str(candidate)
     if candidate_str not in sys.path:
-        sys.path.append(candidate_str)
+        sys.path.insert(0, candidate_str)
 
 from constants.keys import UIKeys  # noqa: E402
 from config_loader import load_json  # noqa: E402
