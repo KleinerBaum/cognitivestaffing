@@ -2,8 +2,11 @@ from core import esco_utils as esco
 
 
 def test_classify_occupation(monkeypatch) -> None:
+    calls = []
+
     def fake_get(path, **params):
-        if "search" in path:
+        calls.append((path, params))
+        if path == "search":
             return {
                 "_embedded": {
                     "results": [
@@ -15,7 +18,9 @@ def test_classify_occupation(monkeypatch) -> None:
                     ]
                 }
             }
-        return {"title": "Software developers"}
+        assert path == "resource"
+        assert params == {"uri": "http://example.com/group", "language": "en"}
+        return {"title": {"en": "Software developers"}}
 
     monkeypatch.setattr(esco, "_get", fake_get)
     res = esco.classify_occupation("Software engineer")
@@ -24,6 +29,8 @@ def test_classify_occupation(monkeypatch) -> None:
         "group": "Software developers",
         "uri": "http://example.com/occ",
     }
+    assert calls[0][0] == "search"
+    assert calls[1][0] == "resource"
 
 
 def test_get_essential_skills(monkeypatch) -> None:
