@@ -16,8 +16,19 @@ class UIKeys:
     TONE_SELECT = "ui.summary.tone"
     NUM_QUESTIONS = "ui.summary.num_questions"
     AUDIENCE_SELECT = "ui.summary.audience"
+    JOB_AD_FIELD_PREFIX = "ui.job_ad.field."
+    JOB_AD_STEP_SELECT = "ui.job_ad.step_select"
+    JOB_AD_STEP_FIELD_PREFIX = "ui.job_ad.step_field."
+    JOB_AD_FIELD_OVERVIEW = "ui.job_ad.overview"
+    JOB_AD_TARGET_SELECT = "ui.job_ad.target"
+    JOB_AD_CUSTOM_TARGET = "ui.job_ad.custom_target"
+    JOB_AD_MANUAL_TITLE = "ui.job_ad.manual_title"
+    JOB_AD_MANUAL_TEXT = "ui.job_ad.manual_text"
     JOB_AD_FEEDBACK = "ui.job_ad.feedback"
     REFINE_JOB_AD = "ui.job_ad.refine"
+    JOB_AD_FONT = "ui.job_ad.font"
+    JOB_AD_FORMAT = "ui.job_ad.format"
+    JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"
 
 
 class StateKeys:
@@ -41,3 +52,8 @@ class StateKeys:
     SKILL_BUCKETS = "skill_buckets"
     COMPANY_PAGE_SUMMARIES = "company.page_summaries"
     COMPANY_PAGE_BASE = "company.page_base_url"
+    JOB_AD_SELECTED_FIELDS = "data.job_ad.selected_fields"
+    JOB_AD_MANUAL_ENTRIES = "data.job_ad.manual_entries"
+    JOB_AD_SELECTED_AUDIENCE = "data.job_ad.selected_audience"
+    JOB_AD_FONT_CHOICE = "data.job_ad.font"
+    JOB_AD_LOGO_DATA = "data.job_ad.logo"

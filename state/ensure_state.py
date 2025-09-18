@@ -40,6 +40,16 @@ def ensure_state() -> None:
         st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
     if StateKeys.COMPANY_PAGE_BASE not in st.session_state:
         st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
+    if StateKeys.JOB_AD_SELECTED_FIELDS not in st.session_state:
+        st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set()
+    if StateKeys.JOB_AD_MANUAL_ENTRIES not in st.session_state:
+        st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = []
+    if StateKeys.JOB_AD_SELECTED_AUDIENCE not in st.session_state:
+        st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = ""
+    if StateKeys.JOB_AD_FONT_CHOICE not in st.session_state:
+        st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = "Helvetica"
+    if StateKeys.JOB_AD_LOGO_DATA not in st.session_state:
+        st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:

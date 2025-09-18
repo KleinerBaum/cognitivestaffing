@@ -12,42 +12,73 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
-        "position.job_title": "Software Engineer",
-        "company.name": "Acme Corp",
-        "location.primary_city": "Berlin",
-        "position.role_summary": "Build web apps",
-        "position.key_projects": "Platform overhaul",
-        "responsibilities.items": ["Develop features"],
-        "compensation.benefits": ["Stock options"],
-        "learning_opportunities": "Annual training budget",
-        "requirements.hard_skills_required": ["Python experience"],
-        "employment.work_policy": "Remote",
-        "employment.work_schedule": "Mon-Fri",
-        "employment.relocation_support": True,
-        "employment.visa_sponsorship": True,
-        "position.team_size": 5,
-        "compensation.salary_provided": True,
-        "compensation.salary_min": 50000,
-        "compensation.salary_max": 70000,
-        "company.mission": "Build the future of collaboration",
-        "company.culture": "Inclusive and growth-oriented",
+        "position": {
+            "job_title": "Software Engineer",
+            "role_summary": "Build web apps",
+            "team_size": 5,
+        },
+        "company": {
+            "name": "Acme Corp",
+            "mission": "Build the future of collaboration",
+            "culture": "Inclusive and growth-oriented",
+        },
+        "location": {"primary_city": "Berlin"},
+        "responsibilities": {"items": ["Develop features"]},
+        "requirements": {"hard_skills_required": ["Python experience"]},
+        "employment": {
+            "work_policy": "Remote",
+            "work_schedule": "Mon-Fri",
+            "relocation_support": True,
+            "visa_sponsorship": True,
+        },
+        "compensation": {
+            "benefits": ["Stock options"],
+            "salary_provided": True,
+            "salary_min": 50000,
+            "salary_max": 70000,
+            "currency": "EUR",
+            "period": "year",
+        },
         "lang": "en",
     }
 
-    openai_utils.generate_job_ad(session, tone="formal and straightforward")
+    openai_utils.generate_job_ad(
+        session,
+        selected_fields=[
+            "position.job_title",
+            "company.name",
+            "location.primary_city",
+            "position.role_summary",
+            "responsibilities.items",
+            "requirements.hard_skills_required",
+            "employment.work_policy",
+            "employment.work_schedule",
+            "employment.relocation_support",
+            "employment.visa_sponsorship",
+            "position.team_size",
+            "compensation.salary",
+            "compensation.benefits",
+        ],
+        target_audience="Experienced engineers",
+        manual_sections=[],
+        lang="en",
+    )
     prompt = captured["prompt"]
+    assert "Relevant information:" in prompt
+    assert "Job Title: Software Engineer" in prompt
+    assert "Company: Acme Corp" in prompt
+    assert "Location: Berlin" in prompt
+    assert "Role Summary: Build web apps" in prompt
+    assert "Key Responsibilities: Develop features" in prompt
     assert "Hard Skills (Must-have): Python experience" in prompt
     assert "Work Policy: Remote" in prompt
     assert "Work Schedule: Mon-Fri" in prompt
-    assert "Relocation Assistance: Yes" in prompt
+    assert "Relocation Support: Yes" in prompt
     assert "Visa Sponsorship: Yes" in prompt
-    assert "Learning & Development: Annual training budget" in prompt
     assert "Team Size: 5" in prompt
-    assert "Key Projects: Platform overhaul" in prompt
-    assert "Salary Range: 50,000–70,000 EUR per year" in prompt
-    assert "Company Mission: Build the future of collaboration" in prompt
-    assert "Company Culture: Inclusive and growth-oriented" in prompt
-    assert "Tone: formal and straightforward." in prompt
+    assert "Salary Range: 50,000–70,000 EUR / year" in prompt
+    assert "Benefits: Stock options" in prompt
+    assert "Target audience: Experienced engineers" in prompt
 
 
 def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
@@ -60,15 +91,24 @@ def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
-        "company.mission": "Weltklasse Produkte bauen",
-        "company.culture": "Teamorientiert und offen",
+        "company": {
+            "mission": "Weltklasse Produkte bauen",
+            "culture": "Teamorientiert und offen",
+        },
         "lang": "de",
     }
 
-    openai_utils.generate_job_ad(session)
+    openai_utils.generate_job_ad(
+        session,
+        selected_fields=["company.mission", "company.culture"],
+        target_audience="Talente mit Teamgeist",
+        manual_sections=[],
+    )
     prompt = captured["prompt"]
-    assert "Unternehmensmission: Weltklasse Produkte bauen" in prompt
-    assert "Unternehmenskultur: Teamorientiert und offen" in prompt
+    assert "Relevante Informationen:" in prompt
+    assert "Mission: Weltklasse Produkte bauen" in prompt
+    assert "Kultur: Teamorientiert und offen" in prompt
+    assert "Zielgruppe: Talente mit Teamgeist" in prompt
 
 
 def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
@@ -81,25 +121,45 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session_en = {
-        "employment.travel_required": True,
-        "employment.travel_details": "Occasional (up to 10%)",
-        "employment.work_policy": "Hybrid",
-        "employment.work_policy_details": "3 days remote",
+        "employment": {
+            "travel_required": True,
+            "travel_details": "Occasional (up to 10%)",
+            "work_policy": "Hybrid",
+        },
         "lang": "en",
     }
-    openai_utils.generate_job_ad(session_en)
+    openai_utils.generate_job_ad(
+        session_en,
+        selected_fields=[
+            "employment.travel_required",
+            "employment.work_policy",
+        ],
+        target_audience="Hybrid workers",
+        manual_sections=[],
+    )
     assert "Travel Requirements: Occasional (up to 10%)" in prompts[0]
-    assert "Work Policy: Hybrid (3 days remote)" in prompts[0]
+    assert "Work Policy: Hybrid" in prompts[0]
 
     session_de = {
-        "employment.travel_required": True,
-        "employment.travel_details": "Gelegentlich (bis zu 10%)",
-        "employment.work_policy": "Hybrid",
-        "employment.work_policy_details": "3 Tage remote",
-        "employment.relocation_support": True,
+        "employment": {
+            "travel_required": True,
+            "travel_details": "Gelegentlich (bis zu 10%)",
+            "work_policy": "Hybrid",
+            "work_policy_details": "3 Tage remote",
+            "relocation_support": True,
+        },
         "lang": "de",
     }
-    openai_utils.generate_job_ad(session_de)
+    openai_utils.generate_job_ad(
+        session_de,
+        selected_fields=[
+            "employment.travel_required",
+            "employment.work_policy",
+            "employment.relocation_support",
+        ],
+        target_audience="Flexibel arbeitende Talente",
+        manual_sections=[],
+    )
     assert "Reisebereitschaft: Gelegentlich (bis zu 10%)" in prompts[1]
     assert "Arbeitsmodell: Hybrid (3 Tage remote)" in prompts[1]
     assert "Umzugsunterstützung: Ja" in prompts[1]
@@ -115,11 +175,15 @@ def test_generate_job_ad_uses_remote_percentage(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
-        "employment.work_policy": "Hybrid",
-        "employment.remote_percentage": 60,
+        "employment": {"work_policy": "Hybrid", "remote_percentage": 60},
         "lang": "en",
     }
-    openai_utils.generate_job_ad(session)
+    openai_utils.generate_job_ad(
+        session,
+        selected_fields=["employment.work_policy"],
+        target_audience="Remote minded",
+        manual_sections=[],
+    )
     assert "Work Policy: Hybrid (60% remote)" in prompts[0]
 
 
@@ -133,10 +197,47 @@ def test_generate_job_ad_lists_unique_benefits(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
 
     session = {
-        "compensation.benefits": ["Gym membership", "Gym membership", "401(k) match"],
+        "compensation": {
+            "benefits": ["Gym membership", "Gym membership", "401(k) match"],
+            "salary_provided": False,
+        },
         "lang": "en",
     }
 
-    openai_utils.generate_job_ad(session)
+    openai_utils.generate_job_ad(
+        session,
+        selected_fields=["compensation.benefits"],
+        target_audience="Benefit seekers",
+        manual_sections=[],
+    )
     prompt = captured["prompt"]
     assert "Benefits: Gym membership, 401(k) match" in prompt
+
+
+def test_generate_job_ad_includes_manual_sections(monkeypatch):
+    captured = {}
+
+    def fake_call_chat_api(messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return ChatCallResult("ok", [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+
+    session = {
+        "position": {"job_title": "Product Manager"},
+        "lang": "en",
+    }
+
+    openai_utils.generate_job_ad(
+        session,
+        selected_fields=["position.job_title"],
+        target_audience="Experienced talent",
+        manual_sections=[
+            {"title": "Culture", "content": "We value openness."},
+            {"content": "Flexible working hours."},
+        ],
+    )
+
+    prompt = captured["prompt"]
+    assert "Culture: We value openness." in prompt
+    assert "Flexible working hours." in prompt
