@@ -32,6 +32,7 @@ class UIKeys:
     JOB_AD_FONT = "ui.job_ad.font"
     JOB_AD_FORMAT = "ui.job_ad.format"
     JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"
+    INTERVIEW_FORMAT = "ui.summary.interview_format"
 
 
 class StateKeys:
@@ -57,7 +58,9 @@ class StateKeys:
     COMPANY_PAGE_BASE = "company.page_base_url"
 
     JOB_AD_SELECTED_FIELDS = "data.job_ad.selected_fields"
+    JOB_AD_SELECTED_VALUES = "data.job_ad.selected_values"
     JOB_AD_MANUAL_ENTRIES = "data.job_ad.manual_entries"
     JOB_AD_SELECTED_AUDIENCE = "data.job_ad.selected_audience"
     JOB_AD_FONT_CHOICE = "data.job_ad.font"
     JOB_AD_LOGO_DATA = "data.job_ad.logo"
+    ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
