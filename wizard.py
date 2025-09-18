@@ -5,6 +5,7 @@ import html
 import hashlib
 import json
 import textwrap
+from collections import defaultdict
 from copy import deepcopy
 from datetime import date
 from pathlib import Path
@@ -124,6 +125,120 @@ SKILL_SORTABLE_STYLE = """
     border-radius: 4px;
 }
 """
+
+SOFT_SKILL_HINTS = {
+    "communication",
+    "kommunikation",
+    "team",
+    "collabor",
+    "leadership",
+    "analytical",
+    "analytisch",
+    "organis",
+    "struktur",
+    "problem",
+    "empath",
+    "kundenorient",
+    "service",
+}
+
+TECH_HINTS = {
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "c++",
+    "c#",
+    "sql",
+    "aws",
+    "azure",
+    "gcp",
+    "cloud",
+    "docker",
+    "kubernetes",
+    "terraform",
+    "sap",
+    "salesforce",
+    "excel",
+    "power bi",
+    "tableau",
+    "figma",
+    "notion",
+}
+
+LANGUAGE_HINTS = {
+    "english",
+    "englisch",
+    "german",
+    "deutsch",
+    "french",
+    "französisch",
+    "spanish",
+    "spanisch",
+    "italian",
+    "italienisch",
+    "dutch",
+    "niederländ",
+    "polish",
+    "poln",
+    "portugu",
+    "chinese",
+    "mandarin",
+    "arabic",
+}
+
+SKILL_ALIAS_MAP: dict[str, str] = {
+    "requirements hard skills required": "requirements.hard_skills_required",
+    "required hard skills": "requirements.hard_skills_required",
+    "pflicht hard skills": "requirements.hard_skills_required",
+    "hard skill must have": "requirements.hard_skills_required",
+    "hard skills must have": "requirements.hard_skills_required",
+    "hard skills muss": "requirements.hard_skills_required",
+    "hard skill muss": "requirements.hard_skills_required",
+    "requirements hard skills optional": "requirements.hard_skills_optional",
+    "optional hard skills": "requirements.hard_skills_optional",
+    "hard skill nice to have": "requirements.hard_skills_optional",
+    "nice to have hard skills": "requirements.hard_skills_optional",
+    "hard skills nice to have": "requirements.hard_skills_optional",
+    "requirements soft skills required": "requirements.soft_skills_required",
+    "required soft skills": "requirements.soft_skills_required",
+    "pflicht soft skills": "requirements.soft_skills_required",
+    "soft skill must have": "requirements.soft_skills_required",
+    "soft skills must have": "requirements.soft_skills_required",
+    "soft skills muss": "requirements.soft_skills_required",
+    "soft skill muss": "requirements.soft_skills_required",
+    "requirements soft skills optional": "requirements.soft_skills_optional",
+    "optional soft skills": "requirements.soft_skills_optional",
+    "soft skill nice to have": "requirements.soft_skills_optional",
+    "nice to have soft skills": "requirements.soft_skills_optional",
+    "soft skills nice to have": "requirements.soft_skills_optional",
+    "requirements tools and technologies": "requirements.tools_and_technologies",
+    "tools tech": "requirements.tools_and_technologies",
+    "tools und tech": "requirements.tools_and_technologies",
+    "tools & tech": "requirements.tools_and_technologies",
+    "tools and tech": "requirements.tools_and_technologies",
+    "requirements languages required": "requirements.languages_required",
+    "languages required": "requirements.languages_required",
+    "pflicht sprachen": "requirements.languages_required",
+    "languages must have": "requirements.languages_required",
+    "sprachen": "requirements.languages_required",
+    "requirements languages optional": "requirements.languages_optional",
+    "languages optional": "requirements.languages_optional",
+    "optionale sprachen": "requirements.languages_optional",
+    "languages nice to have": "requirements.languages_optional",
+}
+
+REQUIREMENT_OVERVIEW_ROWS: list[tuple[str | None, str | None]] = [
+    ("requirements.hard_skills_required", "hard"),
+    ("requirements.hard_skills_optional", "hard"),
+    (None, None),
+    ("requirements.soft_skills_required", "soft"),
+    ("requirements.soft_skills_optional", "soft"),
+    (None, None),
+    ("requirements.tools_and_technologies", "tool"),
+    ("requirements.languages_required", "language"),
+    ("requirements.languages_optional", "language"),
+]
 
 WIZARD_LAYOUT_STYLE = """
 <style>
@@ -1005,6 +1120,7 @@ def _render_prefilled_preview(
 ) -> None:
     """Render tabs with all fields that already contain values."""
 
+    _merge_requirement_aliases()
     raw_profile = (
         st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
         or st.session_state.get(StateKeys.PROFILE)
@@ -1150,6 +1266,267 @@ def _extract_skill_values(profile: dict) -> list[str]:
     ):
         combined.extend(requirements.get(key, []))
     return _unique_normalized(combined)
+
+
+def _normalize_alias_key(name: str) -> str:
+    """Return a normalized identifier for alias lookups."""
+
+    return re.sub(r"[^0-9a-z]+", " ", name.casefold()).strip()
+
+
+def _merge_requirement_aliases() -> None:
+    """Merge legacy or localized requirement keys into canonical schema fields."""
+
+    profile = st.session_state.get(StateKeys.PROFILE)
+    raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
+    if not isinstance(profile, dict):
+        return
+
+    aggregated: dict[str, list[str]] = defaultdict(list)
+    alias_hits: dict[str, set[str]] = defaultdict(set)
+
+    for source in (raw_profile, profile):
+        if not isinstance(source, dict):
+            continue
+        for path, value in flatten(source).items():
+            normalized = _normalize_alias_key(path)
+            target = SKILL_ALIAS_MAP.get(normalized)
+            if not target:
+                continue
+            aggregated[target].extend(_normalize_list(value))
+            alias_hits[target].add(path)
+
+    if not aggregated:
+        return
+
+    for target, values in aggregated.items():
+        cleaned = _unique_normalized(values)
+        if not cleaned:
+            continue
+        _update_profile(target, cleaned)
+        if isinstance(raw_profile, dict):
+            set_in(raw_profile, target, cleaned)
+        for alias in alias_hits.get(target, set()):
+            if alias == target:
+                continue
+            if isinstance(raw_profile, dict):
+                _delete_path(raw_profile, alias)
+            _delete_path(profile, alias)
+
+    if isinstance(raw_profile, dict):
+        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
+    st.session_state[StateKeys.PROFILE] = profile
+
+
+def _looks_like_soft_skill(label: str) -> bool:
+    """Return whether ``label`` appears to describe a soft skill."""
+
+    lower = label.casefold()
+    return any(hint in lower for hint in SOFT_SKILL_HINTS)
+
+
+def _looks_like_tool(label: str) -> bool:
+    """Return whether ``label`` resembles a tool or technology."""
+
+    lower = label.casefold()
+    return any(hint in lower for hint in TECH_HINTS)
+
+
+def _looks_like_language(label: str) -> bool:
+    """Return whether ``label`` describes a language requirement."""
+
+    lower = label.casefold()
+    if "language" in lower or "sprach" in lower:
+        return True
+    return any(hint in lower for hint in LANGUAGE_HINTS)
+
+
+def _classify_requirement_label(label: str) -> str:
+    """Classify ``label`` into ``hard``, ``soft``, ``tool`` or ``language``."""
+
+    if _looks_like_language(label):
+        return "language"
+    if _looks_like_tool(label):
+        return "tool"
+    if _looks_like_soft_skill(label):
+        return "soft"
+    return "hard"
+
+
+def _format_requirement_values(values: list[str]) -> str:
+    """Return HTML representation for ``values`` inside the overview table."""
+
+    if not values:
+        return f"<span class='requirements-overview__placeholder'>{html.escape(tr('Keine Angaben', 'No entries'))}</span>"
+    items = "".join(f"<li>{html.escape(value)}</li>" for value in values)
+    return f"<ul class='requirements-overview__list'>{items}</ul>"
+
+
+def _render_requirements_overview_table(
+    raw_profile: dict | None,
+    profile_data: dict | None,
+    esco_skills: list[str],
+    suggestions_state: dict[str, list[str]] | None,
+) -> None:
+    """Render an overview table comparing extracted, ESCO and LLM suggestions."""
+
+    profile = profile_data if isinstance(profile_data, dict) else {}
+    raw = raw_profile if isinstance(raw_profile, dict) else {}
+    suggestions = suggestions_state or {}
+
+    extracted_map: dict[str, list[str]] = {}
+    for key, _ in REQUIREMENT_OVERVIEW_ROWS:
+        if not key:
+            continue
+        extracted = _normalize_list(get_in(raw, key, []))
+        if not extracted:
+            extracted = _normalize_list(get_in(profile, key, []))
+        extracted_map[key] = _unique_normalized(extracted)
+
+    esco_by_category: dict[str, list[str]] = defaultdict(list)
+    for item in esco_skills:
+        esco_by_category[_classify_requirement_label(item)].append(item)
+
+    llm_by_category: dict[str, list[str]] = {
+        "hard": _unique_normalized(suggestions.get("hard_skills", [])),
+        "soft": _unique_normalized(suggestions.get("soft_skills", [])),
+        "tool": _unique_normalized(suggestions.get("tools_and_technologies", [])),
+        "language": _unique_normalized(suggestions.get("languages", [])),
+    }
+
+    esco_consumed: dict[str, int] = defaultdict(int)
+    llm_consumed: dict[str, int] = defaultdict(int)
+
+    if "_requirements_table_css" not in st.session_state:
+        st.markdown(
+            """
+            <style>
+            table.requirements-overview {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 0.75rem;
+            }
+            table.requirements-overview th,
+            table.requirements-overview td {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                padding: 0.6rem 0.75rem;
+                vertical-align: top;
+                background: var(--background-color, #ffffff);
+            }
+            table.requirements-overview tr.requirements-overview__spacer td {
+                border: none;
+                padding: 0.35rem 0;
+                background: transparent;
+            }
+            .requirements-overview__label {
+                font-weight: 600;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            .requirements-overview__placeholder {
+                color: rgba(0, 0, 0, 0.55);
+                font-style: italic;
+            }
+            .requirements-overview__list {
+                margin: 0;
+                padding-left: 1.1rem;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.session_state["_requirements_table_css"] = True
+
+    headers = "".join(
+        f"<th>{html.escape(col)}</th>"
+        for col in (
+            tr("Automatisch erkannt", "Automatically detected"),
+            tr("ESCO Top 5", "ESCO Top 5"),
+            tr("KI Top 5", "AI Top 5"),
+        )
+    )
+
+    rows_html: list[str] = [
+        f"<thead><tr>{headers}</tr></thead>",
+        "<tbody>",
+    ]
+
+    label_lookup = {
+        "requirements.hard_skills_required": (
+            "Hard Skill (Muss)",
+            "Hard Skill (must have)",
+        ),
+        "requirements.hard_skills_optional": (
+            "Hard Skill (Nice-to-have)",
+            "Hard Skill (nice to have)",
+        ),
+        "requirements.soft_skills_required": (
+            "Soft Skill (Muss)",
+            "Soft Skill (must have)",
+        ),
+        "requirements.soft_skills_optional": (
+            "Soft Skill (Nice-to-have)",
+            "Soft Skill (nice to have)",
+        ),
+        "requirements.tools_and_technologies": (
+            "Tools & Tech",
+            "Tools & Tech",
+        ),
+        "requirements.languages_required": (
+            "Sprachen (Muss)",
+            "Languages (must have)",
+        ),
+        "requirements.languages_optional": (
+            "Sprachen (Nice-to-have)",
+            "Languages (nice to have)",
+        ),
+    }
+
+    for key, category in REQUIREMENT_OVERVIEW_ROWS:
+        if key is None:
+            rows_html.append(
+                "<tr class='requirements-overview__spacer'><td colspan='3'></td></tr>"
+            )
+            continue
+
+        label = tr(*label_lookup[key])
+
+        extracted_values = extracted_map.get(key, [])
+
+        esco_values = esco_by_category.get(category or "", [])
+        start_idx = esco_consumed[category or ""]
+        esco_slice = esco_values[start_idx : start_idx + 5]
+        esco_consumed[category or ""] = start_idx + len(esco_slice)
+
+        llm_source = llm_by_category.get(category or "", [])
+        llm_index = llm_consumed[category or ""]
+        llm_selected: list[str] = []
+        exclusion = set(value.casefold() for value in extracted_values)
+        exclusion.update(value.casefold() for value in esco_slice)
+        llm_seen: set[str] = set()
+        while llm_index < len(llm_source) and len(llm_selected) < 5:
+            candidate = llm_source[llm_index]
+            llm_index += 1
+            marker = candidate.casefold()
+            if marker in exclusion or marker in llm_seen:
+                continue
+            llm_selected.append(candidate)
+            llm_seen.add(marker)
+        llm_consumed[category or ""] = llm_index
+
+        first_col = (
+            f"<td><span class='requirements-overview__label'>{html.escape(label)}</span>"
+            f"{_format_requirement_values(extracted_values)}</td>"
+        )
+        esco_col = f"<td>{_format_requirement_values(esco_slice)}</td>"
+        llm_col = f"<td>{_format_requirement_values(llm_selected)}</td>"
+        rows_html.append(f"<tr>{first_col}{esco_col}{llm_col}</tr>")
+
+    rows_html.append("</tbody>")
+    table_html = (
+        "<table class='requirements-overview'>" + "".join(rows_html) + "</table>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 def _occupation_option_from_dict(data: dict[str, str] | None) -> tuple[str, str, str]:
@@ -1323,6 +1700,13 @@ def _render_skill_triage(raw_profile: dict) -> None:
     esco_skills_all = _unique_normalized(
         st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
     )
+    suggestions_state = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {}) or {}
+    _render_requirements_overview_table(
+        raw_profile,
+        profile_data,
+        esco_skills_all,
+        suggestions_state,
+    )
     show_all_esco = st.toggle(
         tr("Alle ESCO-Skills anzeigen", "Show all ESCO skills"),
         key=toggle_key,
@@ -1337,7 +1721,6 @@ def _render_skill_triage(raw_profile: dict) -> None:
             )
         )
 
-    suggestions_state = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
     llm_candidates: list[str] = []
     for key in ("hard_skills", "soft_skills", "tools_and_technologies"):
         llm_candidates.extend(suggestions_state.get(key, []))
@@ -1418,6 +1801,25 @@ def _render_skill_triage(raw_profile: dict) -> None:
 
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
+def _delete_path(d: dict | None, path: str) -> None:
+    """Remove the value at ``path`` from ``d`` if it exists."""
+
+    if not isinstance(d, dict) or not path:
+        return
+    if "." not in path:
+        d.pop(path, None)
+        return
+    parts = path.split(".")
+    cursor = d
+    for part in parts[:-1]:
+        next_cursor = cursor.get(part)
+        if not isinstance(next_cursor, dict):
+            return
+        cursor = next_cursor
+    if isinstance(cursor, dict):
+        cursor.pop(parts[-1], None)
+
+
 def set_in(d: dict, path: str, value) -> None:
     """Assign a value in a nested dict via dot-separated path."""
 
