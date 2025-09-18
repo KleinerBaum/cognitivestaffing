@@ -2245,6 +2245,21 @@ def _timeline_default_range(value: str | None) -> tuple[date, date]:
     return start, end
 
 
+def _default_date(value: Any, *, fallback: date | None = None) -> date:
+    """Return a ``date`` for widgets, parsing ISO strings when possible."""
+
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            pass
+    if fallback is not None:
+        return fallback
+    return date.today()
+
+
 def _normalize_date_selection(value: Any) -> tuple[date | None, date | None]:
     """Normalize ``st.date_input`` return value to a ``(start, end)`` tuple."""
 
@@ -2635,16 +2650,29 @@ def _step_position():
         c8.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     c9, c10, c11 = st.columns(3)
-    data["meta"]["target_start_date"] = c9.text_input(
+    target_start_default = _default_date(data["meta"].get("target_start_date"))
+    start_selection = c9.date_input(
         tr("Gewünschtes Startdatum", "Desired start date"),
-        value=data["meta"].get("target_start_date", ""),
-        placeholder="YYYY-MM-DD",
+        value=target_start_default,
+        format="YYYY-MM-DD",
     )
-    data["meta"]["application_deadline"] = c10.text_input(
+    if isinstance(start_selection, date):
+        data["meta"]["target_start_date"] = start_selection.isoformat()
+    else:
+        data["meta"]["target_start_date"] = ""
+
+    application_deadline_default = _default_date(
+        data["meta"].get("application_deadline")
+    )
+    deadline_selection = c10.date_input(
         tr("Bewerbungsschluss", "Application deadline"),
-        value=data["meta"].get("application_deadline", ""),
-        placeholder="YYYY-MM-DD",
+        value=application_deadline_default,
+        format="YYYY-MM-DD",
     )
+    if isinstance(deadline_selection, date):
+        data["meta"]["application_deadline"] = deadline_selection.isoformat()
+    else:
+        data["meta"]["application_deadline"] = ""
     data["position"]["supervises"] = c11.number_input(
         tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
         min_value=0,
