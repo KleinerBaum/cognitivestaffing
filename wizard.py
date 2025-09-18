@@ -40,6 +40,11 @@ from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
+from llm.rag_pipeline import (
+    build_field_queries,
+    build_global_context,
+    collect_field_contexts,
+)
 
 # LLM/ESCO und Follow-ups
 from openai_utils import (
@@ -873,32 +878,44 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
 
     raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
     rule_matches = apply_rules(raw_blocks)
+    metadata = dict(st.session_state.get(StateKeys.PROFILE_METADATA, {}))
     if rule_matches:
         rule_patch = matches_to_patch(rule_matches)
         st.session_state[StateKeys.PROFILE] = rule_patch
         st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = rule_patch
-        existing_meta = dict(st.session_state.get(StateKeys.PROFILE_METADATA, {}))
         new_meta = build_rule_metadata(rule_matches)
-        combined_rules = {**existing_meta.get("rules", {}), **new_meta.get("rules", {})}
-        locked = set(existing_meta.get("locked_fields", [])) | set(
+        combined_rules = {**metadata.get("rules", {}), **new_meta.get("rules", {})}
+        locked = set(metadata.get("locked_fields", [])) | set(
             new_meta.get("locked_fields", [])
         )
-        high_conf = set(existing_meta.get("high_confidence_fields", [])) | set(
+        high_conf = set(metadata.get("high_confidence_fields", [])) | set(
             new_meta.get("high_confidence_fields", [])
         )
-        st.session_state[StateKeys.PROFILE_METADATA] = {
-            "rules": combined_rules,
-            "locked_fields": sorted(locked),
-            "high_confidence_fields": sorted(high_conf),
-        }
+        metadata["rules"] = combined_rules
+        metadata["locked_fields"] = sorted(locked)
+        metadata["high_confidence_fields"] = sorted(high_conf)
     else:
-        st.session_state.setdefault(
-            StateKeys.PROFILE_METADATA,
-            {"rules": {}, "locked_fields": [], "high_confidence_fields": []},
-        )
+        metadata.setdefault("rules", {})
+        metadata.setdefault("locked_fields", [])
+        metadata.setdefault("high_confidence_fields", [])
 
-    extracted = extract_with_function(text, schema, model=st.session_state.model)
-    extracted_data = dict(extracted)
+    vector_store_id = st.session_state.get("vector_store_id") or None
+    field_specs = build_field_queries(schema)
+    field_contexts = collect_field_contexts(
+        field_specs,
+        base_text=text,
+        vector_store_id=vector_store_id,
+        model=st.session_state.model,
+    )
+    global_context = build_global_context(text)
+    extraction_result = extract_with_function(
+        text,
+        schema,
+        model=st.session_state.model,
+        field_contexts=field_contexts,
+        global_context=global_context,
+    )
+    extracted_data = dict(extraction_result.data)
     for field, match in rule_matches.items():
         set_in(extracted_data, field, match.value)
 
@@ -969,6 +986,35 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         if not get_in(data, field, None):
             missing.append(field)
     st.session_state[StateKeys.EXTRACTION_MISSING] = missing
+    rag_field_meta: dict[str, Any] = {}
+    rag_answers: dict[str, Any] = {}
+    for field, ctx in extraction_result.field_contexts.items():
+        value = get_in(data, field, None)
+        entry = ctx.to_metadata()
+        entry["value"] = value
+        selected = ctx.select_chunk(value)
+        entry["selected_chunk"] = (
+            selected.to_payload() if selected is not None else None
+        )
+        if selected is not None:
+            rag_answers[field] = {
+                "value": value,
+                "source_id": selected.source_id,
+                "chunk_id": selected.chunk_id,
+                "file_id": selected.file_id,
+                "score": float(selected.score),
+                "fallback": selected.is_fallback,
+            }
+        rag_field_meta[field] = entry
+    metadata["rag"] = {
+        "vector_store_id": vector_store_id or "",
+        "fields": rag_field_meta,
+        "global_context": [
+            chunk.to_payload() for chunk in extraction_result.global_context
+        ],
+        "answers": rag_answers,
+    }
+    st.session_state[StateKeys.PROFILE_METADATA] = metadata
     if st.session_state.get("auto_reask"):
         try:
             round_num = st.session_state.get("auto_reask_round", 0) + 1
