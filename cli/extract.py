@@ -28,7 +28,12 @@ def main() -> None:
     from ingest.reader import clean_structured_document
     from config_loader import load_json
     from openai_utils import extract_with_function
-    from config import OPENAI_MODEL
+    from config import OPENAI_MODEL, VECTOR_STORE_ID
+    from llm.rag_pipeline import (
+        build_field_queries,
+        build_global_context,
+        collect_field_contexts,
+    )
 
     file_path = Path(args.file)
     if not file_path.exists():
@@ -44,8 +49,21 @@ def main() -> None:
         raise SystemExit("No text could be extracted from the file.")
 
     schema = load_json("schema/need_analysis.schema.json", fallback={})
-    profile = extract_with_function(text, schema, model=OPENAI_MODEL)
-    print(json.dumps(profile, indent=2))
+    specs = build_field_queries(schema)
+    contexts = collect_field_contexts(
+        specs,
+        base_text=text,
+        vector_store_id=VECTOR_STORE_ID,
+    )
+    global_chunks = build_global_context(text)
+    result = extract_with_function(
+        text,
+        schema,
+        model=OPENAI_MODEL,
+        field_contexts=contexts,
+        global_context=global_chunks,
+    )
+    print(json.dumps(result.data, indent=2))
 
 
 if __name__ == "__main__":  # pragma: no cover

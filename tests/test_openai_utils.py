@@ -271,7 +271,7 @@ def test_extract_with_function(monkeypatch):
     monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
 
     result = extract_with_function("text", {})
-    assert result["job_title"] == "Dev"
+    assert result.data["job_title"] == "Dev"
 
 
 def test_extract_with_function_falls_back_to_json_mode(monkeypatch):
@@ -301,7 +301,7 @@ def test_extract_with_function_falls_back_to_json_mode(monkeypatch):
     result = extract_with_function("text", {})
     assert len(calls) == 2
     assert "json_schema" in calls[1]
-    assert result["job_title"] == "Lead"
+    assert result.data["job_title"] == "Lead"
 
 
 def test_extract_with_function_repairs_json_payload(monkeypatch):
@@ -335,7 +335,7 @@ def test_extract_with_function_repairs_json_payload(monkeypatch):
     monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
 
     result = extract_with_function("text", {})
-    assert result["job_title"] == "QA"
+    assert result.data["job_title"] == "QA"
 
 
 def test_call_chat_api_executes_tool(monkeypatch):

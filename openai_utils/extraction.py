@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import json
 import textwrap
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for
 from core.job_ad import JOB_AD_FIELDS, iter_field_keys
+from llm.rag_pipeline import (
+    FieldExtractionContext,
+    RetrievedChunk,
+    build_global_context as default_global_context,
+)
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
@@ -102,6 +108,15 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
 FUNCTION_NAME = "cognitive_needs_extract"
 
 
+@dataclass(slots=True)
+class ExtractionResult:
+    """Structured result returned by :func:`extract_with_function`."""
+
+    data: Mapping[str, Any]
+    field_contexts: Mapping[str, FieldExtractionContext]
+    global_context: Sequence[RetrievedChunk]
+
+
 def _extract_tool_arguments(result: api.ChatCallResult) -> str | None:
     """Return the raw ``arguments`` string from the first tool call."""
 
@@ -148,8 +163,13 @@ def _load_json_payload(payload: Any) -> dict[str, Any]:
 
 
 def extract_with_function(
-    job_text: str, schema: dict, *, model: str | None = None
-) -> Mapping[str, Any]:
+    job_text: str,
+    schema: dict,
+    *,
+    model: str | None = None,
+    field_contexts: Mapping[str, FieldExtractionContext] | None = None,
+    global_context: Sequence[RetrievedChunk] | None = None,
+) -> ExtractionResult:
     """Extract profile data from ``job_text`` using OpenAI function calling.
 
     The helper performs two attempts:
@@ -167,15 +187,40 @@ def extract_with_function(
     if model is None:
         model = get_model_for(ModelTask.EXTRACTION)
 
-    system_prompt = (
-        "You are a vacancy extraction engine. Analyse the job advertisement "
-        "and return the structured vacancy profile by calling the provided "
-        f"function {FUNCTION_NAME}. Do not return free-form text."
-    )
-    messages: Sequence[dict[str, str]] = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": job_text},
-    ]
+    if field_contexts:
+        if global_context is None:
+            global_context = default_global_context(job_text)
+        payload = {
+            "global_context": [chunk.to_payload() for chunk in global_context],
+            "fields": [
+                {
+                    "field": ctx.field,
+                    "instruction": ctx.instruction,
+                    "context": [chunk.to_payload() for chunk in ctx.chunks],
+                }
+                for ctx in field_contexts.values()
+            ],
+        }
+        system_prompt = (
+            "You are a vacancy extraction engine. Use the provided global context "
+            "and the per-field snippets to populate the vacancy schema by calling "
+            f"the function {FUNCTION_NAME}. If no relevant snippet is provided "
+            "for a field, return an empty string or empty list. Do not invent data."
+        )
+        messages: Sequence[dict[str, str]] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ]
+    else:
+        system_prompt = (
+            "You are a vacancy extraction engine. Analyse the job advertisement "
+            "and return the structured vacancy profile by calling the provided "
+            f"function {FUNCTION_NAME}. Do not return free-form text."
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": job_text},
+        ]
 
     response = api.call_chat_api(
         messages,
@@ -220,7 +265,11 @@ def extract_with_function(
     from core.schema import coerce_and_fill
 
     profile: NeedAnalysisProfile = coerce_and_fill(raw)
-    return profile.model_dump()
+    return ExtractionResult(
+        data=profile.model_dump(),
+        field_contexts=field_contexts or {},
+        global_context=global_context or [],
+    )
 
 
 def suggest_additional_skills(
@@ -1166,6 +1215,7 @@ def what_happened(
 __all__ = [
     "extract_company_info",
     "extract_with_function",
+    "ExtractionResult",
     "suggest_additional_skills",
     "suggest_skills_for_role",
     "suggest_benefits",
