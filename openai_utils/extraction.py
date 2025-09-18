@@ -55,6 +55,12 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
                         "mission": {"type": "string"},
                         "culture": {"type": "string"},
                     },
+                    "required": [
+                        "name",
+                        "location",
+                        "mission",
+                        "culture",
+                    ],
                     "additionalProperties": False,
                 },
             },
