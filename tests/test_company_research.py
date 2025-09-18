@@ -9,6 +9,8 @@ import streamlit as st
 from constants.keys import StateKeys
 from wizard import (
     _candidate_company_page_urls,
+    _enrich_company_profile_from_about,
+    _extract_company_size,
     _fetch_company_page,
     _load_company_page_section,
     _normalise_company_base_url,
@@ -95,3 +97,76 @@ def test_load_company_page_section_updates_state(monkeypatch) -> None:
     stored = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]["about"]
     assert stored["url"].endswith("unternehmen")
     assert stored["summary"] == "Über uns :: de"
+
+
+def test_extract_company_size_detects_employee_count() -> None:
+    """The size extractor should capture employee count statements."""
+
+    text = "Die Rheinbahn beschäftigt rund 3.370 Menschen und bewegt Düsseldorf."
+    assert _extract_company_size(text) == "rund 3.370 Menschen"
+
+
+def test_enrich_company_profile_from_about_updates_missing_fields(monkeypatch) -> None:
+    """About page enrichment should fill empty company fields."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {
+            "name": "",
+            "hq_location": "",
+            "mission": "",
+            "size": "",
+        }
+    }
+
+    monkeypatch.setattr(
+        "wizard.extract_company_info",
+        lambda text: {
+            "name": "Rheinbahn AG",
+            "location": "Düsseldorf",
+            "mission": "Mobilität für alle",
+        },
+    )
+
+    about_text = (
+        "Die Rheinbahn AG bewegt Düsseldorf und beschäftigt rund 3.370 Menschen,"
+        " die täglich unterwegs sind."
+    )
+    _enrich_company_profile_from_about(about_text)
+
+    company = st.session_state[StateKeys.PROFILE]["company"]
+    assert company["name"] == "Rheinbahn AG"
+    assert company["hq_location"] == "Düsseldorf"
+    assert company["mission"] == "Mobilität für alle"
+    assert company["size"] == "rund 3.370 Menschen"
+
+
+def test_enrich_company_profile_respects_existing_values(monkeypatch) -> None:
+    """Existing user input should not be overwritten by enrichment."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {
+            "name": "Vorhanden GmbH",
+            "hq_location": "Berlin",
+            "mission": "Bestehende Mission",
+            "size": "200 Mitarbeitende",
+        }
+    }
+
+    monkeypatch.setattr(
+        "wizard.extract_company_info",
+        lambda text: {
+            "name": "Neuer Name",
+            "location": "München",
+            "mission": "Neue Mission",
+        },
+    )
+
+    _enrich_company_profile_from_about("Wir beschäftigen 500 Mitarbeitende.")
+
+    company = st.session_state[StateKeys.PROFILE]["company"]
+    assert company["name"] == "Vorhanden GmbH"
+    assert company["hq_location"] == "Berlin"
+    assert company["mission"] == "Bestehende Mission"
+    assert company["size"] == "200 Mitarbeitende"
