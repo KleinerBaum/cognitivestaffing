@@ -56,6 +56,20 @@ def search_occupation(title: str, lang: str = "en") -> dict[str, str]:
     return esco_utils.classify_occupation(title, lang) or {}
 
 
+def search_occupation_options(
+    title: str, lang: str = "en", limit: int = 5
+) -> list[dict[str, str]]:
+    """Return multiple ESCO occupation candidates for a title."""
+
+    if not title:
+        return []
+    if OFFLINE:
+        title_key = title.strip().lower()
+        match = _OFFLINE_OCCUPATIONS.get(title_key)
+        return [match] if match else []
+    return esco_utils.search_occupations(title, lang=lang, limit=limit) or []
+
+
 def enrich_skills(occupation_uri: str, lang: str = "en") -> list[str]:
     """Retrieve essential skills for an occupation.
 
