@@ -37,6 +37,8 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
     if model is None:
         model = get_model_for(ModelTask.COMPANY_INFO)
 
+    expected_fields = ("name", "location", "mission", "culture")
+
     prompt = (
         "Analyze the following company website text and extract: the official "
         "company name, the primary location or headquarters, the company's "
@@ -56,17 +58,9 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string"},
-                        "location": {"type": "string"},
-                        "mission": {"type": "string"},
-                        "culture": {"type": "string"},
+                        field: {"type": "string"} for field in expected_fields
                     },
-                    "required": [
-                        "name",
-                        "location",
-                        "mission",
-                        "culture",
-                    ],
+                    "required": list(expected_fields),
                     "additionalProperties": False,
                 },
             },
@@ -77,7 +71,7 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
 
     result: dict[str, str] = {}
     if isinstance(data, dict):
-        for key in ("name", "location", "mission", "culture"):
+        for key in expected_fields:
             val = data.get(key, "")
             if isinstance(val, str):
                 val = val.strip()
