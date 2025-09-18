@@ -728,6 +728,21 @@ def suggest_onboarding_plans(
         )
 
     messages = [{"role": "user", "content": prompt}]
+    onboarding_schema = {
+        "type": "object",
+        "properties": {
+            "suggestions": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                },
+                "minItems": 5,
+                "maxItems": 5,
+            }
+        },
+        "required": ["suggestions"],
+        "additionalProperties": False,
+    }
     res = api.call_chat_api(
         messages,
         model=model,
@@ -735,32 +750,29 @@ def suggest_onboarding_plans(
         max_tokens=220,
         json_schema={
             "name": "onboarding_suggestions",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "suggestions": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 5,
-                        "maxItems": 5,
-                    }
-                },
-                "required": ["suggestions"],
-                "additionalProperties": False,
-            },
+            "schema": onboarding_schema,
         },
     )
     answer = _chat_content(res)
     suggestions: list[str] = []
+    payload: Any
     try:
-        data = json.loads(answer)
-        suggestions_payload: Sequence[Any]
-        if isinstance(data, dict):
-            suggestions_payload = data.get("suggestions", [])
-        elif isinstance(data, list):
-            suggestions_payload = data
-        else:
-            suggestions_payload = []
+        payload = json.loads(answer)
+    except Exception:
+        payload = None
+
+    suggestions_payload: Sequence[Any] = []
+    if isinstance(payload, Mapping):
+        suggestions_payload = payload.get("suggestions", [])
+    elif isinstance(payload, list):
+        suggestions_payload = payload
+
+    if not isinstance(suggestions_payload, Sequence) or isinstance(
+        suggestions_payload, (str, bytes)
+    ):
+        suggestions_payload = []
+
+    try:
         suggestions = [
             str(item).strip() for item in suggestions_payload if str(item).strip()
         ]
