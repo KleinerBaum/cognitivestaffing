@@ -26,6 +26,9 @@ class UIKeys:
     JOB_AD_MANUAL_TEXT = "ui.job_ad.manual_text"
     JOB_AD_FEEDBACK = "ui.job_ad.feedback"
     REFINE_JOB_AD = "ui.job_ad.refine"
+    REQUIREMENTS_OCC_SEARCH = "ui.requirements.occupation_search"
+    REQUIREMENTS_OCC_SELECT = "ui.requirements.occupation_select"
+    REQUIREMENTS_SHOW_ALL_ESCO = "ui.requirements.show_all_esco"
     JOB_AD_FONT = "ui.job_ad.font"
     JOB_AD_FORMAT = "ui.job_ad.format"
     JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"
@@ -52,6 +55,7 @@ class StateKeys:
     SKILL_BUCKETS = "skill_buckets"
     COMPANY_PAGE_SUMMARIES = "company.page_summaries"
     COMPANY_PAGE_BASE = "company.page_base_url"
+
     JOB_AD_SELECTED_FIELDS = "data.job_ad.selected_fields"
     JOB_AD_MANUAL_ENTRIES = "data.job_ad.manual_entries"
     JOB_AD_SELECTED_AUDIENCE = "data.job_ad.selected_audience"

@@ -22,6 +22,7 @@ _HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
 log = logging.getLogger("cognitive_needs.esco")
 
 _SKILL_CACHE: Dict[Tuple[str, str], Dict[str, str]] = {}
+_GROUP_CACHE: Dict[Tuple[str | None, str], str] = {}
 
 
 def _norm(s: str) -> str:
@@ -43,6 +44,62 @@ def _get(path: str, **params) -> dict:
     return resp.json()
 
 
+def _preferred_label(item: dict, lang: str) -> str:
+    """Return the preferred label of an ESCO item for ``lang``."""
+
+    label = item.get("preferredLabel") or item.get("label") or ""
+    if isinstance(label, dict):
+        return label.get(lang, "") or next(iter(label.values()), "")
+    return str(label)
+
+
+def _group_label(group_uri: str | None, lang: str) -> str:
+    """Resolve the human-readable label of an ISCO group."""
+
+    if not group_uri:
+        return ""
+    cache_key = (group_uri, lang)
+    if cache_key in _GROUP_CACHE:
+        return _GROUP_CACHE[cache_key]
+    try:
+        grp = _get("resource", uri=group_uri, language=lang)
+    except requests.RequestException as exc:  # pragma: no cover - network
+        log.warning("ESCO group lookup failed: %s", exc)
+        return ""
+    label = grp.get("title") or grp.get("preferredLabel") or grp.get("label") or ""
+    if isinstance(label, dict):
+        value = label.get(lang, "") or next(iter(label.values()), "")
+    else:
+        value = str(label)
+    value = value.strip()
+    _GROUP_CACHE[cache_key] = value
+    return value
+
+
+def _score_occupation(query_norm: str, item: dict, lang: str) -> float:
+    """Compute similarity score between query and occupation label."""
+
+    label = _norm(_preferred_label(item, lang))
+    score = SequenceMatcher(None, query_norm, label).ratio()
+    if query_norm in label:
+        score += 0.1
+    if query_norm == label:
+        score += 0.1
+    return score
+
+
+def _prepare_occupation_result(item: dict, lang: str) -> Dict[str, str]:
+    """Convert an ESCO search item into a compact dict."""
+
+    group_uri = (item.get("broaderIscoGroup") or [None])[0]
+    uri = item.get("uri") or item.get("_links", {}).get("self", {}).get("href")
+    return {
+        "preferredLabel": _preferred_label(item, lang).strip(),
+        "uri": uri,
+        "group": _group_label(group_uri, lang),
+    }
+
+
 @st.cache_data(show_spinner=False, max_entries=2048)
 def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
     """Return best matching ESCO occupation for a job title."""
@@ -59,46 +116,39 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
         return classify_occupation(title, "en")
     if not items:
         return None
-    q = _norm(title)
+    query_norm = _norm(title)
+    best = max(items, key=lambda it: _score_occupation(query_norm, it, lang))
+    return _prepare_occupation_result(best, lang)
 
-    def _lab(it: dict) -> str:
-        lab = it.get("preferredLabel", "")
-        if isinstance(lab, dict):
-            return lab.get(lang, "") or next(iter(lab.values()), "")
-        return str(lab)
 
-    def _score(it: dict) -> float:
-        label = _norm(_lab(it))
-        # Base ratio covers partial matches; bonuses favor substring/exact
-        score = SequenceMatcher(None, q, label).ratio()
-        if q in label:
-            score += 0.1
-        if q == label:
-            score += 0.1
-        return score
+@st.cache_data(show_spinner=False, max_entries=2048)
+def search_occupations(
+    title: str,
+    lang: str = "en",
+    limit: int = 5,
+) -> List[Dict[str, str]]:
+    """Return a ranked list of ESCO occupations for ``title``."""
 
-    best = max(items, key=_score)
-    group_uri = (best.get("broaderIscoGroup") or [None])[0]
-    group = ""
-    if group_uri:
-        try:
-            grp = _get("resource", uri=group_uri, language=lang)
-        except requests.RequestException as exc:  # pragma: no cover - network
-            log.warning("ESCO group lookup failed: %s", exc)
-        else:
-            label = (
-                grp.get("title") or grp.get("preferredLabel") or grp.get("label") or ""
-            )
-            if isinstance(label, dict):
-                group = label.get(lang, "") or next(iter(label.values()), "")
-            else:
-                group = str(label)
-            group = group.strip()
-    return {
-        "preferredLabel": _lab(best),
-        "uri": best.get("uri") or best.get("_links", {}).get("self", {}).get("href"),
-        "group": group,
-    }
+    if not title:
+        return []
+    try:
+        data = _get("search", text=title, type="occupation", language=lang)
+    except requests.RequestException as exc:  # pragma: no cover - network
+        log.warning("ESCO occupation search failed: %s", exc)
+        return []
+    items = data.get("_embedded", {}).get("results", []) or []
+    if not items and lang != "en":
+        return search_occupations(title, "en", limit=limit)
+    if not items:
+        return []
+    query_norm = _norm(title)
+    ranked = sorted(
+        items,
+        key=lambda it: _score_occupation(query_norm, it, lang),
+        reverse=True,
+    )
+    trimmed = ranked[: max(limit, 1)]
+    return [_prepare_occupation_result(item, lang) for item in trimmed]
 
 
 @st.cache_data(show_spinner=False, max_entries=4096)
