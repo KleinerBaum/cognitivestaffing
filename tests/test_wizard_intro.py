@@ -16,18 +16,14 @@ class DummyContext:
 
 
 def test_onboarding_language_switch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Selecting English updates ``st.session_state.lang`` via the onboarding UI."""
+    """Onboarding mirrors the sidebar language choice into ``st.session_state.lang``."""
 
     st.session_state.clear()
     st.session_state.lang = "de"
     st.session_state[UIKeys.INPUT_METHOD] = "text"
+    st.session_state[UIKeys.LANG_SELECT] = "en"
 
     def fake_radio(label, options, *, key, horizontal=False, on_change=None, **kwargs):
-        if key == UIKeys.LANG_SELECT:
-            st.session_state[key] = "en"
-            if on_change:
-                on_change()
-            return "en"
         if key == UIKeys.INPUT_METHOD:
             return st.session_state.get(UIKeys.INPUT_METHOD, options[0])
         return options[0]

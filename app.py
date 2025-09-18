@@ -13,7 +13,6 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
     if candidate_str not in sys.path:
         sys.path.append(candidate_str)
 
-from components.model_selector import model_selector  # noqa: E402
 from constants.keys import UIKeys  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
@@ -139,6 +138,11 @@ def render_primary_sidebar() -> None:
     def _on_theme_toggle() -> None:
         st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
+    def _on_lang_change() -> None:
+        st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
+
+    lang_options = {"de": "DE", "en": "EN"}
+
     hero_title = tr("Dein Recruiting-Co-Pilot", "Your recruiting co-pilot")
     hero_subtitle = tr(
         "Verwalte Einstellungen wie im vertrauten ATS – klar, fokussiert, jederzeit erreichbar.",
@@ -147,6 +151,17 @@ def render_primary_sidebar() -> None:
     status_label = tr("Wizard-Status", "Wizard status")
 
     with st.sidebar:
+        st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
+        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
+        st.radio(
+            tr("Sprache", "Language"),
+            options=list(lang_options.keys()),
+            key=UIKeys.LANG_SELECT,
+            horizontal=True,
+            format_func=lambda key: lang_options[key],
+            on_change=_on_lang_change,
+        )
+
         st.markdown(
             f"""
             <div class="sidebar-hero">
@@ -161,18 +176,6 @@ def render_primary_sidebar() -> None:
             unsafe_allow_html=True,
         )
 
-        st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
-        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
-
-        st.markdown(f"### 🤖 {tr('KI-Konfiguration', 'AI configuration')}")
-        model_selector()
-        st.caption(
-            tr(
-                "Passe das Modell flexibel an Extraktion, Analyse oder Generierung an.",
-                "Adjust the model flexibly for extraction, analysis or generation tasks.",
-            )
-        )
-
         st.divider()
         st.markdown(f"### 💡 {tr('Tipps aus der Praxis', 'Practical tips')}")
         st.markdown(
@@ -184,10 +187,6 @@ def render_primary_sidebar() -> None:
                 "- Use the salary outlook inside the detailed steps to validate budget decisions.\n"
                 "- Find every AI result again in the summary view.",
             )
-        )
-        st.markdown(
-            f"<div class='sidebar-note'>{tr('Hinweis: Änderungen werden automatisch gespeichert – nutze den Aktualisieren-Button in den Detail-Schritten für eine frische Prognose.', 'Note: Changes are saved automatically – use the refresh button in the detailed steps for an up-to-date salary estimate.')}</div>",
-            unsafe_allow_html=True,
         )
 
 
