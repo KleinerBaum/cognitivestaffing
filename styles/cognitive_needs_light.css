@@ -159,6 +159,79 @@ a:hover { text-decoration: none; filter: drop-shadow(0 0 10px rgba(6,182,212,.25
   font-size: .9rem;
 }
 
+/* Summary: interactive overview + compact field cards */
+.summary-overview-button {
+  margin-bottom: .75rem;
+}
+
+.summary-overview-button [data-testid="baseButton-primary"],
+.summary-overview-button [data-testid="baseButton-secondary"] {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  border-radius: calc(var(--radius) - 2px);
+  padding: .9rem 1.1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: .15px;
+  box-shadow: 0 12px 26px rgba(15,23,42,0.14);
+}
+
+.summary-overview-button [data-testid="baseButton-secondary"] {
+  background: rgba(6,182,212,0.08);
+  border: 1px solid rgba(15,23,42,0.12);
+  color: var(--text);
+}
+
+.summary-overview-button [data-testid="baseButton-secondary"]:hover {
+  background: rgba(6,182,212,0.12);
+}
+
+.summary-overview-button [data-testid="baseButton-primary"] {
+  background-image: linear-gradient(120deg, rgba(6,182,212,0.9), rgba(124,58,237,0.88));
+  color: #ffffff;
+  border: 1px solid rgba(15,23,42,0.18);
+}
+
+.summary-field-card {
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(15,23,42,0.08);
+  border-radius: calc(var(--radius) - 2px);
+  padding: .95rem 1.1rem 1.05rem;
+  box-shadow: 0 14px 30px rgba(15,23,42,0.12);
+}
+
+.summary-field-title {
+  font-weight: 600;
+  letter-spacing: .2px;
+  margin-bottom: .35rem;
+}
+
+.summary-field-description {
+  color: var(--muted);
+  font-size: .85rem;
+  margin-bottom: .65rem;
+}
+
+.summary-field-card [data-testid="stCheckbox"] {
+  margin-bottom: .35rem;
+}
+
+.summary-field-card [data-testid="stCheckbox"] > label {
+  color: var(--text);
+  font-size: .92rem;
+  line-height: 1.4;
+  padding-left: .35rem;
+}
+
+.summary-field-card [data-testid="stCheckbox"] > label:hover {
+  color: rgba(11,18,32,0.78);
+}
+
+.summary-field-gap {
+  height: 1.1rem;
+}
+
 footer, #MainMenu { visibility: hidden; }
 
 *::-webkit-scrollbar { height: 12px; width: 12px; }

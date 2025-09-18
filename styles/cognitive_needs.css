@@ -138,6 +138,7 @@ a:hover { text-decoration: none; filter: drop-shadow(0 0 10px rgba(105,226,255,.
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+/* Legacy overview cards (kept for backwards-compat) */
 .values-overview-card {
   background: rgba(255,255,255,0.35);
   border: 1px solid rgba(255,255,255,0.45);
@@ -173,6 +174,79 @@ a:hover { text-decoration: none; filter: drop-shadow(0 0 10px rgba(105,226,255,.
   margin-top: .35rem;
   color: rgba(15,23,42,0.8);
   font-size: .9rem;
+}
+
+/* Summary: interactive overview + compact field cards */
+.summary-overview-button {
+  margin-bottom: .75rem;
+}
+
+.summary-overview-button [data-testid="baseButton-primary"],
+.summary-overview-button [data-testid="baseButton-secondary"] {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  border-radius: calc(var(--radius) - 2px);
+  padding: .9rem 1.1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: .15px;
+  box-shadow: 0 12px 28px rgba(4,11,26,0.45);
+}
+
+.summary-overview-button [data-testid="baseButton-secondary"] {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--text);
+}
+
+.summary-overview-button [data-testid="baseButton-secondary"]:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.summary-overview-button [data-testid="baseButton-primary"] {
+  background-image: linear-gradient(120deg, rgba(105,226,255,0.95), rgba(167,139,250,0.9));
+  color: #040b1a;
+  border: 1px solid rgba(255,255,255,0.32);
+}
+
+.summary-field-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: calc(var(--radius) - 2px);
+  padding: .95rem 1.1rem 1.05rem;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+.summary-field-title {
+  font-weight: 600;
+  letter-spacing: .2px;
+  margin-bottom: .35rem;
+}
+
+.summary-field-description {
+  color: var(--muted);
+  font-size: .85rem;
+  margin-bottom: .65rem;
+}
+
+.summary-field-card [data-testid="stCheckbox"] {
+  margin-bottom: .35rem;
+}
+
+.summary-field-card [data-testid="stCheckbox"] > label {
+  color: var(--text);
+  font-size: .92rem;
+  line-height: 1.4;
+  padding-left: .35rem;
+}
+
+.summary-field-card [data-testid="stCheckbox"] > label:hover {
+  color: rgba(230,237,243,0.85);
+}
+
+.summary-field-gap {
+  height: 1.1rem;
 }
 
 /* Optional: hide default footer/menu; we minimize via config.toml */
