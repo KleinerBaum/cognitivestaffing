@@ -3,6 +3,7 @@ import sys
 
 import pytest
 
+from ingest.types import StructuredDocument
 import cli.extract as cli_extract
 
 
@@ -14,9 +15,9 @@ def test_cli_uses_ingest_extractor(
 
     called: dict[str, bool] = {"used": False}
 
-    def fake_extract_text_from_file(_fh) -> str:
+    def fake_extract_text_from_file(_fh) -> StructuredDocument:
         called["used"] = True
-        return "TEXT"
+        return StructuredDocument(text="TEXT", blocks=[])
 
     def fake_extract_with_function(text: str, schema: dict, model=None):
         assert text == "TEXT"

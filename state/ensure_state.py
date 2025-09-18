@@ -22,6 +22,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
     if StateKeys.RAW_TEXT not in st.session_state:
         st.session_state[StateKeys.RAW_TEXT] = ""
+    if StateKeys.RAW_BLOCKS not in st.session_state:
+        st.session_state[StateKeys.RAW_BLOCKS] = []
     if StateKeys.STEP not in st.session_state:
         st.session_state[StateKeys.STEP] = 0
     if StateKeys.EXTRACTION_SUMMARY not in st.session_state:
