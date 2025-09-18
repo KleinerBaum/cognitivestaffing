@@ -132,16 +132,13 @@ def render_primary_sidebar() -> None:
 
     if UIKeys.LANG_SELECT not in st.session_state:
         st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
+    st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
-
-    def _on_language_change() -> None:
-        st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
     def _on_theme_toggle() -> None:
         st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
-    language_labels = {"de": "Deutsch", "en": "English"}
     hero_title = tr("Dein Recruiting-Co-Pilot", "Your recruiting co-pilot")
     hero_subtitle = tr(
         "Verwalte Einstellungen wie im vertrauten ATS – klar, fokussiert, jederzeit erreichbar.",
@@ -165,13 +162,6 @@ def render_primary_sidebar() -> None:
         )
 
         st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
-        st.selectbox(
-            tr("Sprache", "Language"),
-            options=list(language_labels.keys()),
-            format_func=lambda value: language_labels[value],
-            key=UIKeys.LANG_SELECT,
-            on_change=_on_language_change,
-        )
         st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
 
         st.markdown(f"### 🤖 {tr('KI-Konfiguration', 'AI configuration')}")
