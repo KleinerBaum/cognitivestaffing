@@ -4173,6 +4173,9 @@ def _step_summary(schema: dict, _critical: list[str]):
                     manual_sections=list(manual_entries),
                     style_reference=style_reference,
                     lang=lang,
+                    selected_values=st.session_state.get(
+                        StateKeys.JOB_AD_SELECTED_VALUES, {}
+                    ),
                 )
                 st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
                 findings = scan_bias_language(job_ad_md, lang)
