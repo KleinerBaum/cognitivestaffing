@@ -45,23 +45,38 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
     openai_utils.generate_job_ad(
         session,
         selected_fields=[
-            "position.job_title",
-            "company.name",
-            "location.primary_city",
-            "position.role_summary",
-            "responsibilities.items",
-            "requirements.hard_skills_required",
-            "employment.work_policy",
-            "employment.work_schedule",
-            "employment.relocation_support",
-            "employment.visa_sponsorship",
-            "position.team_size",
-            "compensation.salary",
-            "compensation.benefits",
+            "position.job_title::0",
+            "company.name::0",
+            "location.primary_city::0",
+            "position.role_summary::0",
+            "responsibilities.items::0",
+            "requirements.hard_skills_required::0",
+            "employment.work_policy::0",
+            "employment.work_schedule::0",
+            "employment.relocation_support::0",
+            "employment.visa_sponsorship::0",
+            "position.team_size::0",
+            "compensation.salary::0",
+            "compensation.benefits::0",
         ],
         target_audience="Experienced engineers",
         manual_sections=[],
         lang="en",
+        selected_values={
+            "position.job_title::0": "Software Engineer",
+            "company.name::0": "Acme Corp",
+            "location.primary_city::0": "Berlin",
+            "position.role_summary::0": "Build web apps",
+            "responsibilities.items::0": "Develop features",
+            "requirements.hard_skills_required::0": "Python experience",
+            "employment.work_policy::0": "Remote",
+            "employment.work_schedule::0": "Mon-Fri",
+            "employment.relocation_support::0": True,
+            "employment.visa_sponsorship::0": True,
+            "position.team_size::0": 5,
+            "compensation.salary::0": "50,000–70,000 EUR / year",
+            "compensation.benefits::0": "Stock options",
+        },
     )
     prompt = captured["prompt"]
     assert "Relevant information:" in prompt
@@ -100,9 +115,13 @@ def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
 
     openai_utils.generate_job_ad(
         session,
-        selected_fields=["company.mission", "company.culture"],
+        selected_fields=["company.mission::0", "company.culture::0"],
         target_audience="Talente mit Teamgeist",
         manual_sections=[],
+        selected_values={
+            "company.mission::0": "Weltklasse Produkte bauen",
+            "company.culture::0": "Teamorientiert und offen",
+        },
     )
     prompt = captured["prompt"]
     assert "Relevante Informationen:" in prompt

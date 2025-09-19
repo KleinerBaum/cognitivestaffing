@@ -901,6 +901,7 @@ def generate_job_ad(
     style_reference: str | None = None,
     lang: str | None = None,
     model: str | None = None,
+    selected_values: Mapping[str, Any] | None = None,
 ) -> str:
     """Generate a job advertisement tailored to the selected audience."""
 
@@ -944,7 +945,127 @@ def generate_job_ad(
     is_de = lang_code.startswith("de")
     yes_no = ("Ja", "Nein") if is_de else ("Yes", "No")
 
-    selected = set(iter_field_keys(selected_fields))
+    known_keys = {field.key for field in JOB_AD_FIELDS}
+
+    def _normalize_key(field_id: str) -> str | None:
+        if field_id in known_keys:
+            return field_id
+        base, _, _ = field_id.partition("::")
+        return base if base in known_keys else None
+
+    ordered_keys: list[str] = []
+    seen_keys: set[str] = set()
+    for entry in selected_fields:
+        normalised = _normalize_key(entry)
+        if normalised and normalised not in seen_keys:
+            seen_keys.add(normalised)
+            ordered_keys.append(normalised)
+    if not ordered_keys:
+        ordered_keys = list(iter_field_keys(selected_fields))
+
+    selected = set(ordered_keys)
+    overrides: dict[str, list[Any]] = {key: [] for key in selected}
+
+    def _extend_override(key: str, value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, (list, tuple)):
+            overrides[key].extend(value)
+            return
+        if isinstance(value, set):
+            overrides[key].extend(sorted(value))
+            return
+        overrides[key].append(value)
+
+    def _extract_selected_values() -> Mapping[str, Any]:
+        if isinstance(selected_values, Mapping):
+            return selected_values
+        if isinstance(session_data, Mapping):
+            nested = session_data.get("data.job_ad.selected_values")
+            if isinstance(nested, Mapping):
+                return nested
+            data_section = session_data.get("data")
+            if isinstance(data_section, Mapping):
+                job_ad_section = data_section.get("job_ad")
+                if isinstance(job_ad_section, Mapping):
+                    nested = job_ad_section.get("selected_values")
+                    if isinstance(nested, Mapping):
+                        return nested
+        return {}
+
+    def _lookup_selected_value(field_id: str, source: Mapping[str, Any]) -> Any | None:
+        if field_id in source:
+            return source[field_id]
+        base_key, sep, suffix = field_id.partition("::")
+        base_value = source.get(base_key)
+        if sep and base_value is not None:
+            if isinstance(base_value, Mapping):
+                if suffix in base_value:
+                    return base_value[suffix]
+                try:
+                    index = int(suffix)
+                except ValueError:
+                    index = None
+                if index is not None:
+                    if index in base_value:
+                        return base_value[index]
+                    str_index = str(index)
+                    if str_index in base_value:
+                        return base_value[str_index]
+                values = (
+                    base_value.get("values")
+                    if isinstance(base_value, Mapping)
+                    else None
+                )
+                if isinstance(values, Sequence):
+                    try:
+                        idx = int(suffix)
+                    except ValueError:
+                        idx = None
+                    if idx is not None and -len(values) <= idx < len(values):
+                        return values[idx]
+                value_entry = base_value.get("value")
+                if value_entry is not None:
+                    return value_entry
+            if isinstance(base_value, Sequence) and not isinstance(
+                base_value, (str, bytes)
+            ):
+                try:
+                    idx = int(suffix)
+                except ValueError:
+                    idx = None
+                if idx is not None and -len(base_value) <= idx < len(base_value):
+                    return base_value[idx]
+            if isinstance(base_value, str):
+                parts = [
+                    part.strip() for part in base_value.splitlines() if part.strip()
+                ]
+                if parts:
+                    try:
+                        idx = int(suffix)
+                    except ValueError:
+                        idx = None
+                    if idx is not None and -len(parts) <= idx < len(parts):
+                        return parts[idx]
+        if isinstance(base_value, Mapping):
+            if "value" in base_value:
+                return base_value["value"]
+            if "values" in base_value and isinstance(base_value["values"], Sequence):
+                return list(base_value["values"])
+        if base_value is not None:
+            return base_value
+        return None
+
+    values_source = _extract_selected_values()
+    if values_source:
+        for entry_id in selected_fields:
+            field_key = _normalize_key(entry_id)
+            if not field_key or field_key not in overrides:
+                continue
+            override_value = _lookup_selected_value(entry_id, values_source)
+            if override_value is None:
+                continue
+            _extend_override(field_key, override_value)
     details: list[str] = []
 
     def _format_value(key: str, value: Any) -> str | None:
@@ -966,7 +1087,22 @@ def generate_job_ad(
             return yes_no[0] if value else yes_no[1]
         return str(value)
 
-    def _format_detail(field_key: str) -> None:
+    def _format_detail(field_key: str, override_value: Any | None = None) -> None:
+        if override_value is not None:
+            formatted_override = _format_value(field_key, override_value)
+            if not formatted_override:
+                return
+            label = next(
+                (
+                    field.label_de if is_de else field.label_en
+                    for field in JOB_AD_FIELDS
+                    if field.key == field_key
+                ),
+                field_key,
+            )
+            details.append(f"{label}: {formatted_override}")
+            return
+
         if field_key == "compensation.salary":
             salary_enabled = bool(_resolve("compensation.salary_provided"))
             if not salary_enabled:
@@ -1038,7 +1174,15 @@ def generate_job_ad(
     for field in JOB_AD_FIELDS:
         if field.key not in selected:
             continue
-        _format_detail(field.key)
+        override_values = overrides.get(field.key)
+        override_value: Any | None
+        if override_values:
+            override_value = (
+                override_values if len(override_values) > 1 else override_values[0]
+            )
+        else:
+            override_value = None
+        _format_detail(field.key, override_value)
 
     extra_sections = manual_sections or []
     for section in extra_sections:
