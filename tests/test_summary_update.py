@@ -20,3 +20,18 @@ def test_update_profile_clears_generated() -> None:
     assert StateKeys.JOB_AD_MD not in st.session_state
     assert StateKeys.BOOLEAN_STR not in st.session_state
     assert StateKeys.INTERVIEW_GUIDE_MD not in st.session_state
+
+
+def test_update_profile_ignores_semantic_empty() -> None:
+    """Setting empty values keeps cached outputs intact."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE] = {"company": {"brand_keywords": None}}
+    st.session_state[StateKeys.JOB_AD_MD] = "cached"
+
+    _update_profile("company.brand_keywords", "")
+
+    assert (
+        st.session_state[StateKeys.PROFILE]["company"]["brand_keywords"] is None
+    )
+    assert st.session_state[StateKeys.JOB_AD_MD] == "cached"

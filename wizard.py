@@ -1580,11 +1580,26 @@ def _clear_generated() -> None:
         st.session_state.pop(key, None)
 
 
+def _normalize_semantic_empty(value: Any) -> Any:
+    """Return a canonical representation for semantically empty values."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value if value.strip() else None
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return None if len(value) == 0 else value
+    if isinstance(value, dict):
+        return None if len(value) == 0 else value
+    return value
+
+
 def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
     data = st.session_state[StateKeys.PROFILE]
-    if get_in(data, path) != value:
+    current = get_in(data, path)
+    if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
         set_in(data, path, value)
         _clear_generated()
 
@@ -4024,11 +4039,13 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     with next_step_cols[0]:
         st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
-        brand_value = st.text_input(
+        brand_initial = data.get("company", {}).get("brand_keywords")
+        brand_value_input = st.text_input(
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-            value=data["company"].get("brand_keywords", ""),
+            value=brand_initial or "",
             key="ui.summary.company.brand_keywords",
         )
+        brand_value = brand_value_input if brand_value_input.strip() else None
         _update_profile("company.brand_keywords", brand_value)
 
         if suggestions:
