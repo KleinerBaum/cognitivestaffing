@@ -1175,14 +1175,14 @@ def generate_job_ad(
         if field.key not in selected:
             continue
         override_values = overrides.get(field.key)
-        override_value: Any | None
+        selected_override: Any | None
         if override_values:
-            override_value = (
+            selected_override = (
                 override_values if len(override_values) > 1 else override_values[0]
             )
         else:
-            override_value = None
-        _format_detail(field.key, override_value)
+            selected_override = None
+        _format_detail(field.key, selected_override)
 
     extra_sections = manual_sections or []
     for section in extra_sections:
