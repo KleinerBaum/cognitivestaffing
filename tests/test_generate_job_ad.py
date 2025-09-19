@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import openai_utils
 from openai_utils import ChatCallResult
 
@@ -260,3 +262,41 @@ def test_generate_job_ad_includes_manual_sections(monkeypatch):
     prompt = captured["prompt"]
     assert "Culture: We value openness." in prompt
     assert "Flexible working hours." in prompt
+
+
+def test_generate_job_ad_uses_output_fallback(monkeypatch):
+    class StubResponse:
+        def __init__(self, text: str) -> None:
+            self.output_text = None
+            self.output = [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": text}],
+                }
+            ]
+            self.usage = {"input_tokens": 0, "output_tokens": 0}
+
+    stub_text = "Generated job ad"
+    stub_response = StubResponse(stub_text)
+
+    monkeypatch.setattr("core.analysis_tools.build_analysis_tools", lambda: ([], {}))
+
+    dummy_streamlit = SimpleNamespace(
+        session_state={},
+        error=lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(openai_utils.api, "st", dummy_streamlit)
+    monkeypatch.setattr(
+        openai_utils.api, "_execute_response", lambda *_args, **_kwargs: stub_response
+    )
+    monkeypatch.setattr(openai_utils.api, "client", None)
+
+    result = openai_utils.generate_job_ad(
+        {"lang": "en", "position": {"job_title": "QA Engineer"}},
+        selected_fields=["position.job_title"],
+        target_audience="Quality engineers",
+        manual_sections=[],
+    )
+
+    assert result == stub_text

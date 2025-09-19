@@ -248,30 +248,87 @@ def call_chat_api(
     if extra:
         payload.update(extra)
 
+    def _to_mapping(item: Any) -> dict[str, Any] | None:
+        if isinstance(item, Mapping):
+            return dict(item)
+        for attr in ("model_dump", "dict"):
+            method = getattr(item, attr, None)
+            if callable(method):
+                try:
+                    value = method()
+                except TypeError:
+                    try:
+                        value = method(mode="python")
+                    except TypeError:
+                        continue
+                if isinstance(value, Mapping):
+                    return dict(value)
+        data = getattr(item, "__dict__", None)
+        if isinstance(data, Mapping):
+            return dict(data)
+        return None
+
+    def _extract_output_text(response_obj: Any) -> Optional[str]:
+        text = getattr(response_obj, "output_text", None)
+        if text:
+            return text
+        chunks: list[str] = []
+        for raw_item in getattr(response_obj, "output", []) or []:
+            item_dict = _to_mapping(raw_item)
+            if not item_dict:
+                continue
+            item_type = item_dict.get("type")
+            contents = item_dict.get("content")
+            if isinstance(contents, Sequence) and not isinstance(
+                contents, (str, bytes)
+            ):
+                iterable = contents
+            else:
+                iterable = []
+            if item_type == "message" and iterable:
+                for raw_content in iterable:
+                    content_dict = _to_mapping(raw_content)
+                    if not content_dict:
+                        continue
+                    text_value = content_dict.get("text")
+                    if text_value:
+                        chunks.append(str(text_value))
+            else:
+                text_value = item_dict.get("text")
+                if text_value:
+                    chunks.append(str(text_value))
+                for raw_content in iterable:
+                    content_dict = _to_mapping(raw_content)
+                    if not content_dict:
+                        continue
+                    text_value = content_dict.get("text")
+                    if text_value:
+                        chunks.append(str(text_value))
+        if chunks:
+            return "\n".join(chunk for chunk in chunks if chunk)
+        return text
+
     response = _execute_response(payload, model)
 
-    content = getattr(response, "output_text", None)
+    content = _extract_output_text(response)
 
     tool_calls: list[dict] = []
     for item in getattr(response, "output", []) or []:
-        typ = getattr(item, "type", None) or (
-            item.get("type") if isinstance(item, dict) else None
-        )
+        data = _to_mapping(item)
+        if not data:
+            continue
+        typ = data.get("type")
         if typ and "call" in str(typ):
-            if isinstance(item, dict):
-                data = item
-            else:
-                dump = getattr(item, "model_dump", None)
-                data = dump() if callable(dump) else getattr(item, "__dict__", {})
-            fn = data.get("function") if isinstance(data, dict) else None
-            if fn is None and isinstance(data, dict):
-                name = data.get("name")
-                arg_str = data.get("arguments")
-                data = {
-                    **data,
+            call_data = dict(data)
+            fn = call_data.get("function")
+            if fn is None:
+                name = call_data.get("name")
+                arg_str = call_data.get("arguments")
+                call_data = {
+                    **call_data,
                     "function": {"name": name, "arguments": arg_str},
                 }
-            tool_calls.append(data)
+            tool_calls.append(call_data)
 
     usage_obj = getattr(response, "usage", {}) or {}
     if usage_obj and not isinstance(usage_obj, dict):
@@ -309,29 +366,24 @@ def call_chat_api(
             payload["input"] = messages_list
             payload.pop("tool_choice", None)
             response = _execute_response(payload, model)
-            content = getattr(response, "output_text", None)
+            content = _extract_output_text(response)
             extra_calls: list[dict] = []
             for item in getattr(response, "output", []) or []:
-                typ = getattr(item, "type", None) or (
-                    item.get("type") if isinstance(item, dict) else None
-                )
+                data = _to_mapping(item)
+                if not data:
+                    continue
+                typ = data.get("type")
                 if typ and "call" in str(typ):
-                    if isinstance(item, dict):
-                        data = item
-                    else:
-                        dump = getattr(item, "model_dump", None)
-                        data = (
-                            dump() if callable(dump) else getattr(item, "__dict__", {})
-                        )
-                    fn = data.get("function") if isinstance(data, dict) else None
-                    if fn is None and isinstance(data, dict):
-                        name = data.get("name")
-                        arg_str = data.get("arguments")
-                        data = {
-                            **data,
+                    call_data = dict(data)
+                    fn = call_data.get("function")
+                    if fn is None:
+                        name = call_data.get("name")
+                        arg_str = call_data.get("arguments")
+                        call_data = {
+                            **call_data,
                             "function": {"name": name, "arguments": arg_str},
                         }
-                    extra_calls.append(data)
+                    extra_calls.append(call_data)
             tool_calls.extend(extra_calls)
             usage_obj = getattr(response, "usage", {}) or {}
             if usage_obj and not isinstance(usage_obj, dict):
