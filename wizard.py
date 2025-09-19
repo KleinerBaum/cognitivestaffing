@@ -4205,19 +4205,32 @@ def _step_summary(schema: dict, _critical: list[str]):
                     + f": {e}"
                 )
 
-        job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD, "")
-        if job_ad_text:
-            output_key = UIKeys.JOB_AD_OUTPUT
-            if (
-                output_key not in st.session_state
-                or st.session_state.get(output_key) != job_ad_text
-            ):
-                st.session_state[output_key] = job_ad_text
-            st.text_area(
-                tr("Generierte Stellenanzeige", "Generated job ad"),
-                height=_textarea_height(job_ad_text),
-                key=output_key,
+        job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD)
+        output_key = UIKeys.JOB_AD_OUTPUT
+        existing_output = st.session_state.get(output_key, "")
+        display_text = job_ad_text if job_ad_text is not None else existing_output
+        if (
+            output_key not in st.session_state
+            or st.session_state[output_key] != display_text
+        ):
+            st.session_state[output_key] = display_text
+
+        current_text = st.session_state.get(output_key, "")
+        st.text_area(
+            tr("Generierte Stellenanzeige", "Generated job ad"),
+            height=_textarea_height(current_text),
+            key=output_key,
+        )
+
+        if not job_ad_text and current_text:
+            st.info(
+                tr(
+                    "Profil geändert – bitte Anzeige neu generieren.",
+                    "Profile updated – please regenerate the job ad.",
+                )
             )
+
+        if job_ad_text:
 
             seo_data = seo_optimize(job_ad_text)
             keywords: list[str] = list(seo_data.get("keywords", []))
