@@ -67,7 +67,6 @@ from core.esco_utils import normalize_skills
 from core.job_ad import (
     JOB_AD_FIELDS,
     JobAdFieldDefinition,
-    iter_field_keys,
     suggest_target_audiences,
 )
 
@@ -1470,22 +1469,17 @@ def _job_ad_field_entries(
     return [(f"{field.key}::0", str(value))]
 
 
-def _set_job_ad_field(field_key: str, enabled: bool) -> None:
-    """Update the selected job-ad fields set."""
+def _job_ad_available_field_keys(
+    data: Mapping[str, Any],
+    lang: str,
+) -> set[str]:
+    """Return all job-ad field keys that currently have captured values."""
 
-    current = set(st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS, set()))
-    if enabled:
-        current.add(field_key)
-    else:
-        current.discard(field_key)
-    st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = current
-
-
-def _toggle_job_ad_field(field_key: str, widget_key: str) -> None:
-    """Sync checkbox widgets with the stored job-ad field selection."""
-
-    checked = bool(st.session_state.get(widget_key))
-    _set_job_ad_field(field_key, checked)
+    available: set[str] = set()
+    for field in JOB_AD_FIELDS:
+        if _job_ad_field_entries(data, field, lang):
+            available.add(field.key)
+    return available
 
 
 def _update_job_ad_font() -> None:
@@ -1497,26 +1491,10 @@ def _update_job_ad_font() -> None:
 
 
 def _prepare_job_ad_data(data: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a deep-copied profile filtered to the selected job-ad entries."""
+    """Return a deep-copied profile for job-ad generation."""
 
     base = dict(data) if not isinstance(data, dict) else data
-    filtered = deepcopy(base)
-    selections = st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}) or {}
-
-    for field_key, selected_list in selections.items():
-        if not selected_list:
-            continue
-        raw_value = _job_ad_get_value(filtered, field_key)
-        if isinstance(raw_value, list):
-            allowed = {item_id for item_id in selected_list}
-            filtered_items = [
-                item
-                for idx, item in enumerate(raw_value)
-                if f"{field_key}::{idx}" in allowed
-            ]
-            set_in(filtered, field_key, filtered_items)
-
-    return filtered
+    return deepcopy(base)
 
 
 def _job_ad_style_reference(data: Mapping[str, Any], base_url: str | None) -> str:
@@ -3869,16 +3847,13 @@ def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:
     return counts
 
 
-def _render_summary_group_with_checkboxes(
+def _render_summary_group_entries(
     group: str,
     data: Mapping[str, Any],
     lang: str,
 ) -> None:
-    """Display collected values with selection checkboxes for job-ad export."""
+    """Display collected values for the summary view."""
 
-    value_selection = dict(
-        st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}) or {}
-    )
     is_de = lang.lower().startswith("de")
 
     group_fields = [field for field in JOB_AD_FIELDS if field.group == group]
@@ -3887,9 +3862,6 @@ def _render_summary_group_with_checkboxes(
         entries = _job_ad_field_entries(data, field, lang)
         if entries:
             field_entries[field.key] = entries
-        else:
-            value_selection.pop(field.key, None)
-            _set_job_ad_field(field.key, False)
 
     ordered_fields = [field for field in group_fields if field.key in field_entries]
 
@@ -3900,7 +3872,6 @@ def _render_summary_group_with_checkboxes(
                 "No entries available for this section.",
             )
         )
-        st.session_state[StateKeys.JOB_AD_SELECTED_VALUES] = value_selection
         return
 
     for index, field_def in enumerate(ordered_fields):
@@ -3921,42 +3892,18 @@ def _render_summary_group_with_checkboxes(
                 unsafe_allow_html=True,
             )
 
-        entry_ids = [entry_id for entry_id, _ in entries]
-        stored_ids = value_selection.get(field_def.key)
-        if stored_ids is None:
-            selected_ids = set(entry_ids)
-        else:
-            stored_set = set(stored_ids)
-            selected_ids = stored_set & set(entry_ids)
-            if stored_ids:
-                new_ids = set(entry_ids) - stored_set
-                if new_ids:
-                    selected_ids.update(new_ids)
-
-        for entry_id, entry_text in entries:
-            widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{entry_id}"
-            default_checked = entry_id in selected_ids
-            checked = field_box.checkbox(
-                entry_text,
-                value=default_checked,
-                key=widget_key,
-            )
-            if checked:
-                selected_ids.add(entry_id)
-            else:
-                selected_ids.discard(entry_id)
+        items_html = "".join(
+            f"<li>{html.escape(entry_text)}</li>" for _, entry_text in entries
+        )
+        field_box.markdown(
+            f"<ul class='summary-field-list'>{items_html}</ul>",
+            unsafe_allow_html=True,
+        )
 
         field_box.markdown("</div>", unsafe_allow_html=True)
 
-        value_selection[field_def.key] = [
-            entry_id for entry_id, _ in entries if entry_id in selected_ids
-        ]
-        _set_job_ad_field(field_def.key, bool(selected_ids))
-
         if index < len(ordered_fields) - 1:
             st.markdown("<div class='summary-field-gap'></div>", unsafe_allow_html=True)
-
-    st.session_state[StateKeys.JOB_AD_SELECTED_VALUES] = value_selection
 
 
 def _textarea_height(content: str) -> int:
@@ -4053,11 +4000,6 @@ def _step_summary(schema: dict, _critical: list[str]):
     except Exception:
         profile = NeedAnalysisProfile()
 
-    sanitized_selection = set(
-        iter_field_keys(st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS, set()))
-    )
-    st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = sanitized_selection
-
     tone_presets = load_json("tone_presets.json", {}) or {}
     tone_options = tone_presets.get(st.session_state.lang, {})
     tone_labels = {
@@ -4073,17 +4015,18 @@ def _step_summary(schema: dict, _critical: list[str]):
     style_reference = _job_ad_style_reference(data, base_url or None)
 
     suggestions = suggest_target_audiences(profile, lang)
+    available_field_keys = _job_ad_available_field_keys(data, lang)
     content_col, tools_col = st.columns((1.75, 1.25), gap="large")
 
     with content_col:
         st.markdown(f"#### {selected_label}")
         st.caption(
             tr(
-                "Markieren Sie die Inhalte, die in die finale Darstellung übernommen werden sollen.",
-                "Check the items that should be included in the final output.",
+                "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
+                "All available information is automatically included in the final output.",
             )
         )
-        _render_summary_group_with_checkboxes(selected_group, data, lang)
+        _render_summary_group_entries(selected_group, data, lang)
 
     target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
 
@@ -4121,8 +4064,8 @@ def _step_summary(schema: dict, _critical: list[str]):
 
         st.caption(
             tr(
-                "Nur markierte Inhalte und die gewählte Zielgruppe fließen in die Anzeige.",
-                "Only checked items and the chosen audience are used for the job ad.",
+                "Alle Inhalte und die gewählte Zielgruppe fließen in die Anzeige ein.",
+                "All available content and the chosen target audience feed into the job ad.",
             )
         )
 
@@ -4194,9 +4137,9 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
-    current_selection = set(
-        iter_field_keys(st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS, set()))
-    )
+    selected_fields = [
+        field.key for field in JOB_AD_FIELDS if field.key in available_field_keys
+    ]
     filtered_profile = _prepare_job_ad_data(data)
 
     job_ad_col, interview_col = st.columns((2.2, 1), gap="large")
@@ -4248,7 +4191,8 @@ def _step_summary(schema: dict, _critical: list[str]):
                         )
                         st.rerun()
 
-        disabled = not current_selection or not target_value
+        has_content = bool(selected_fields)
+        disabled = not has_content or not target_value
         if st.button(
             tr("📝 Stellenanzeige generieren", "📝 Generate job ad"),
             disabled=disabled,
@@ -4257,7 +4201,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             try:
                 job_ad_md = generate_job_ad(
                     filtered_profile,
-                    sorted(current_selection),
+                    selected_fields,
                     target_audience=target_value,
                     manual_sections=list(manual_entries),
                     style_reference=style_reference,
