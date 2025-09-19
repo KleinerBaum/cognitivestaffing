@@ -1,10 +1,11 @@
-import streamlit as st
+import json
+
 import pytest
+import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
 from models.need_analysis import NeedAnalysisProfile
 from ingest.types import ContentBlock, StructuredDocument
-from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
 from wizard import (
     on_file_uploaded,
     on_url_changed,
@@ -204,19 +205,7 @@ def test_extract_and_summarize_merges_esco_skills(
         "requirements": {"hard_skills_required": ["Python"]},
     }
 
-    class _Result:
-        def __init__(self, data: dict) -> None:
-            self.data = data
-            self.field_contexts: dict[str, FieldExtractionContext] = {}
-            self.global_context: list[RetrievedChunk] = []
-
-    monkeypatch.setattr(
-        "wizard.extract_with_function",
-        lambda *a, **k: _Result(sample_data),
-    )
-    monkeypatch.setattr("wizard.build_field_queries", lambda _schema: [])
-    monkeypatch.setattr("wizard.collect_field_contexts", lambda *a, **k: {})
-    monkeypatch.setattr("wizard.build_global_context", lambda *_a, **_k: [])
+    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t: p)
     monkeypatch.setattr(
@@ -251,28 +240,10 @@ def test_extract_and_summarize_records_rag_metadata(
     st.session_state.model = "gpt"
     st.session_state.vector_store_id = "vs42"
 
-    chunk = RetrievedChunk(text="Title: Engineer", score=0.88, source_id="doc1")
-    ctx = FieldExtractionContext(
-        field="position.job_title",
-        instruction="Find the main job title",
-        chunks=[chunk],
+    monkeypatch.setattr(
+        "wizard.extract_json",
+        lambda *a, **k: json.dumps({"position": {"job_title": "Engineer"}}),
     )
-    global_chunk = RetrievedChunk(
-        text="All context", score=0.0, source_id="global", is_fallback=True
-    )
-
-    class _Result:
-        def __init__(self) -> None:
-            self.data = {"position": {"job_title": "Engineer"}}
-            self.field_contexts: dict[str, FieldExtractionContext] = {
-                "position.job_title": ctx
-            }
-            self.global_context: list[RetrievedChunk] = [global_chunk]
-
-    monkeypatch.setattr("wizard.extract_with_function", lambda *a, **k: _Result())
-    monkeypatch.setattr("wizard.build_field_queries", lambda _schema: [])
-    monkeypatch.setattr("wizard.collect_field_contexts", lambda *a, **k: {})
-    monkeypatch.setattr("wizard.build_global_context", lambda *_a, **_k: [global_chunk])
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t: p)
     monkeypatch.setattr("wizard.search_occupation", lambda *_a, **_k: None)
@@ -283,12 +254,6 @@ def test_extract_and_summarize_records_rag_metadata(
     metadata = st.session_state[StateKeys.PROFILE_METADATA]
     rag_meta = metadata["rag"]
     assert rag_meta["vector_store_id"] == "vs42"
-    field_meta = rag_meta["fields"]["position.job_title"]
-    assert field_meta["value"] == "Engineer"
-    assert field_meta["chunks"][0]["score"] == pytest.approx(0.88)
-    assert field_meta["selected_chunk"] == field_meta["chunks"][0]
-    assert rag_meta["global_context"][0]["fallback"]
-    answer_meta = rag_meta["answers"]["position.job_title"]
-    assert answer_meta["source_id"] == "doc1"
-    assert answer_meta["score"] == pytest.approx(0.88)
-    assert not answer_meta["fallback"]
+    assert rag_meta["fields"] == {}
+    assert rag_meta["global_context"] == []
+    assert rag_meta["answers"] == {}

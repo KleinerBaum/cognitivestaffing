@@ -40,16 +40,11 @@ from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
-from llm.rag_pipeline import (
-    build_field_queries,
-    build_global_context,
-    collect_field_contexts,
-)
+from llm.client import extract_json
 
 # LLM/ESCO und Follow-ups
 from openai_utils import (
     extract_company_info,
-    extract_with_function,  # nutzt deine neue Definition
     generate_interview_guide,
     generate_job_ad,
     refine_document,
@@ -905,22 +900,18 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         metadata.setdefault("high_confidence_fields", [])
 
     vector_store_id = st.session_state.get("vector_store_id") or None
-    field_specs = build_field_queries(schema)
-    field_contexts = collect_field_contexts(
-        field_specs,
-        base_text=text,
-        vector_store_id=vector_store_id,
-        model=st.session_state.model,
-    )
-    global_context = build_global_context(text)
-    extraction_result = extract_with_function(
-        text,
-        schema,
-        model=st.session_state.model,
-        field_contexts=field_contexts,
-        global_context=global_context,
-    )
-    extracted_data = dict(extraction_result.data)
+    raw_json = extract_json(text)
+    try:
+        extracted_data = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        start = raw_json.find("{")
+        end = raw_json.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("Model returned invalid JSON") from exc
+        fragment = raw_json[start : end + 1]
+        extracted_data = json.loads(fragment)
+    if not isinstance(extracted_data, dict):
+        raise ValueError("Model returned JSON that is not an object.")
     for field, match in rule_matches.items():
         set_in(extracted_data, field, match.value)
 
@@ -991,33 +982,11 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         if not get_in(data, field, None):
             missing.append(field)
     st.session_state[StateKeys.EXTRACTION_MISSING] = missing
-    rag_field_meta: dict[str, Any] = {}
-    rag_answers: dict[str, Any] = {}
-    for field, ctx in extraction_result.field_contexts.items():
-        value = get_in(data, field, None)
-        entry = ctx.to_metadata()
-        entry["value"] = value
-        selected = ctx.select_chunk(value)
-        entry["selected_chunk"] = (
-            selected.to_payload() if selected is not None else None
-        )
-        if selected is not None:
-            rag_answers[field] = {
-                "value": value,
-                "source_id": selected.source_id,
-                "chunk_id": selected.chunk_id,
-                "file_id": selected.file_id,
-                "score": float(selected.score),
-                "fallback": selected.is_fallback,
-            }
-        rag_field_meta[field] = entry
     metadata["rag"] = {
         "vector_store_id": vector_store_id or "",
-        "fields": rag_field_meta,
-        "global_context": [
-            chunk.to_payload() for chunk in extraction_result.global_context
-        ],
-        "answers": rag_answers,
+        "fields": {},
+        "global_context": [],
+        "answers": {},
     }
     st.session_state[StateKeys.PROFILE_METADATA] = metadata
     if st.session_state.get("auto_reask"):
