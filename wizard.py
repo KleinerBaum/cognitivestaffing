@@ -25,7 +25,6 @@ from urllib.parse import urljoin, urlparse
 
 import re
 import streamlit as st
-from streamlit_sortables import sort_items
 
 from utils.i18n import tr
 from constants.keys import UIKeys, StateKeys
@@ -58,7 +57,6 @@ from core.suggestions import (
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from integrations.esco import (
     search_occupation,
-    search_occupation_options,
     enrich_skills,
 )
 from components.stepper import render_stepper
@@ -88,111 +86,6 @@ COMPANY_STEP_INDEX = 1
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
 
-SKILL_SORTABLE_STYLE = """
-.sortable-component {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-.sortable-container {
-    flex: 1 1 220px;
-    min-width: 220px;
-    min-height: 180px;
-    background: var(--surface-2);
-    border: 1px solid var(--border-subtle);
-    border-radius: 0.75rem;
-    padding: 0.75rem;
-    max-height: 320px;
-    overflow-y: auto;
-}
-.sortable-container-header {
-    font-weight: 600;
-    margin-bottom: 0.4rem;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-}
-.sortable-item {
-    background: var(--surface-contrast);
-    border: 1px solid var(--border-subtle);
-    border-radius: 0.5rem;
-    padding: 0.4rem 0.6rem;
-    margin-bottom: 0.35rem;
-    font-size: 0.9rem;
-    color: var(--text-strong);
-}
-.sortable-container::-webkit-scrollbar {
-    width: 6px;
-}
-.sortable-container::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
-    border-radius: 4px;
-}
-.sortable-container::-webkit-scrollbar-track {
-    background-color: var(--scrollbar-track);
-    border-radius: 4px;
-}
-"""
-
-SOFT_SKILL_HINTS = {
-    "communication",
-    "kommunikation",
-    "team",
-    "collabor",
-    "leadership",
-    "analytical",
-    "analytisch",
-    "organis",
-    "struktur",
-    "problem",
-    "empath",
-    "kundenorient",
-    "service",
-}
-
-TECH_HINTS = {
-    "python",
-    "java",
-    "javascript",
-    "typescript",
-    "c++",
-    "c#",
-    "sql",
-    "aws",
-    "azure",
-    "gcp",
-    "cloud",
-    "docker",
-    "kubernetes",
-    "terraform",
-    "sap",
-    "salesforce",
-    "excel",
-    "power bi",
-    "tableau",
-    "figma",
-    "notion",
-}
-
-LANGUAGE_HINTS = {
-    "english",
-    "englisch",
-    "german",
-    "deutsch",
-    "french",
-    "französisch",
-    "spanish",
-    "spanisch",
-    "italian",
-    "italienisch",
-    "dutch",
-    "niederländ",
-    "polish",
-    "poln",
-    "portugu",
-    "chinese",
-    "mandarin",
-    "arabic",
-}
 
 SKILL_ALIAS_MAP: dict[str, str] = {
     "requirements hard skills required": "requirements.hard_skills_required",
@@ -1302,58 +1195,6 @@ def _render_prefilled_preview(
                 )
 
 
-def _ensure_skill_suggestions(
-    job_title: str, lang: str
-) -> tuple[dict[str, list[str]], str | None]:
-    """Load skill suggestions for ``job_title`` into session state if needed."""
-
-    if not job_title:
-        return {}, None
-    stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
-    if stored.get("_title") == job_title and stored.get("_lang") == lang:
-        suggestions = {
-            key: stored.get(key, [])
-            for key in ("hard_skills", "soft_skills", "tools_and_technologies")
-        }
-        return suggestions, None
-    suggestions, error = get_skill_suggestions(job_title, lang=lang)
-    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
-        "_title": job_title,
-        "_lang": lang,
-        **suggestions,
-    }
-    if error and st.session_state.get("debug"):
-        st.session_state["skill_suggest_error"] = error
-    return suggestions, error
-
-
-def _skill_marker_set(values: Iterable[str]) -> set[str]:
-    """Return a casefolded set for quick membership tests."""
-
-    markers: set[str] = set()
-    for value in values:
-        if not isinstance(value, str):
-            continue
-        cleaned = value.strip()
-        if cleaned:
-            markers.add(cleaned.casefold())
-    return markers
-
-
-def _extract_skill_values(profile: dict) -> list[str]:
-    """Collect unique skill labels from the extracted profile."""
-
-    requirements = profile.get("requirements", {}) if isinstance(profile, dict) else {}
-    combined: list[str] = []
-    for key in (
-        "hard_skills_required",
-        "hard_skills_optional",
-        "tools_and_technologies",
-    ):
-        combined.extend(requirements.get(key, []))
-    return _unique_normalized(combined)
-
-
 def _normalize_alias_key(name: str) -> str:
     """Return a normalized identifier for alias lookups."""
 
@@ -1402,491 +1243,6 @@ def _merge_requirement_aliases() -> None:
     if isinstance(raw_profile, dict):
         st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
     st.session_state[StateKeys.PROFILE] = profile
-
-
-def _looks_like_soft_skill(label: str) -> bool:
-    """Return whether ``label`` appears to describe a soft skill."""
-
-    lower = label.casefold()
-    return any(hint in lower for hint in SOFT_SKILL_HINTS)
-
-
-def _looks_like_tool(label: str) -> bool:
-    """Return whether ``label`` resembles a tool or technology."""
-
-    lower = label.casefold()
-    return any(hint in lower for hint in TECH_HINTS)
-
-
-def _looks_like_language(label: str) -> bool:
-    """Return whether ``label`` describes a language requirement."""
-
-    lower = label.casefold()
-    if "language" in lower or "sprach" in lower:
-        return True
-    return any(hint in lower for hint in LANGUAGE_HINTS)
-
-
-def _classify_requirement_label(label: str) -> str:
-    """Classify ``label`` into ``hard``, ``soft``, ``tool`` or ``language``."""
-
-    if _looks_like_language(label):
-        return "language"
-    if _looks_like_tool(label):
-        return "tool"
-    if _looks_like_soft_skill(label):
-        return "soft"
-    return "hard"
-
-
-def _format_requirement_values(values: list[str]) -> str:
-    """Return HTML representation for ``values`` inside the overview table."""
-
-    if not values:
-        return f"<span class='requirements-overview__placeholder'>{html.escape(tr('Keine Angaben', 'No entries'))}</span>"
-    items = "".join(f"<li>{html.escape(value)}</li>" for value in values)
-    return f"<ul class='requirements-overview__list'>{items}</ul>"
-
-
-def _render_requirements_overview_table(
-    raw_profile: dict | None,
-    profile_data: dict | None,
-    esco_skills: list[str],
-    suggestions_state: dict[str, list[str]] | None,
-) -> None:
-    """Render an overview table comparing extracted, ESCO and LLM suggestions."""
-
-    profile = profile_data if isinstance(profile_data, dict) else {}
-    raw = raw_profile if isinstance(raw_profile, dict) else {}
-    suggestions = suggestions_state or {}
-
-    extracted_map: dict[str, list[str]] = {}
-    for key, _ in REQUIREMENT_OVERVIEW_ROWS:
-        if not key:
-            continue
-        extracted = _normalize_list(get_in(raw, key, []))
-        if not extracted:
-            extracted = _normalize_list(get_in(profile, key, []))
-        extracted_map[key] = _unique_normalized(extracted)
-
-    esco_by_category: dict[str, list[str]] = defaultdict(list)
-    for item in esco_skills:
-        esco_by_category[_classify_requirement_label(item)].append(item)
-
-    llm_by_category: dict[str, list[str]] = {
-        "hard": _unique_normalized(suggestions.get("hard_skills", [])),
-        "soft": _unique_normalized(suggestions.get("soft_skills", [])),
-        "tool": _unique_normalized(suggestions.get("tools_and_technologies", [])),
-        "language": _unique_normalized(suggestions.get("languages", [])),
-    }
-
-    esco_consumed: dict[str, int] = defaultdict(int)
-    llm_consumed: dict[str, int] = defaultdict(int)
-
-    if "_requirements_table_css" not in st.session_state:
-        st.markdown(
-            """
-            <style>
-            table.requirements-overview {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 0.75rem;
-                color: var(--text-strong);
-            }
-            table.requirements-overview th,
-            table.requirements-overview td {
-                border: 1px solid var(--border-subtle);
-                padding: 0.6rem 0.75rem;
-                vertical-align: top;
-                background: var(--surface-contrast);
-            }
-            table.requirements-overview tr.requirements-overview__spacer td {
-                border: none;
-                padding: 0.35rem 0;
-                background: transparent;
-            }
-            .requirements-overview__label {
-                font-weight: 600;
-                display: block;
-                margin-bottom: 0.25rem;
-                color: var(--text-strong);
-            }
-            .requirements-overview__placeholder {
-                color: var(--text-muted);
-                font-style: italic;
-            }
-            .requirements-overview__list {
-                margin: 0;
-                padding-left: 1.1rem;
-                color: var(--text-contrast-muted);
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.session_state["_requirements_table_css"] = True
-
-    headers = "".join(
-        f"<th>{html.escape(col)}</th>"
-        for col in (
-            tr("Automatisch erkannt", "Automatically detected"),
-            tr("ESCO Top 5", "ESCO Top 5"),
-            tr("KI Top 5", "AI Top 5"),
-        )
-    )
-
-    rows_html: list[str] = [
-        f"<thead><tr>{headers}</tr></thead>",
-        "<tbody>",
-    ]
-
-    label_lookup = {
-        "requirements.hard_skills_required": (
-            "Hard Skill (Muss)",
-            "Hard Skill (must have)",
-        ),
-        "requirements.hard_skills_optional": (
-            "Hard Skill (Nice-to-have)",
-            "Hard Skill (nice to have)",
-        ),
-        "requirements.soft_skills_required": (
-            "Soft Skill (Muss)",
-            "Soft Skill (must have)",
-        ),
-        "requirements.soft_skills_optional": (
-            "Soft Skill (Nice-to-have)",
-            "Soft Skill (nice to have)",
-        ),
-        "requirements.tools_and_technologies": (
-            "Tools & Tech",
-            "Tools & Tech",
-        ),
-        "requirements.languages_required": (
-            "Sprachen (Muss)",
-            "Languages (must have)",
-        ),
-        "requirements.languages_optional": (
-            "Sprachen (Nice-to-have)",
-            "Languages (nice to have)",
-        ),
-    }
-
-    for key, category in REQUIREMENT_OVERVIEW_ROWS:
-        if key is None:
-            rows_html.append(
-                "<tr class='requirements-overview__spacer'><td colspan='3'></td></tr>"
-            )
-            continue
-
-        label = tr(*label_lookup[key])
-
-        extracted_values = extracted_map.get(key, [])
-
-        esco_values = esco_by_category.get(category or "", [])
-        start_idx = esco_consumed[category or ""]
-        esco_slice = esco_values[start_idx : start_idx + 5]
-        esco_consumed[category or ""] = start_idx + len(esco_slice)
-
-        llm_source = llm_by_category.get(category or "", [])
-        llm_index = llm_consumed[category or ""]
-        llm_selected: list[str] = []
-        exclusion = set(value.casefold() for value in extracted_values)
-        exclusion.update(value.casefold() for value in esco_slice)
-        llm_seen: set[str] = set()
-        while llm_index < len(llm_source) and len(llm_selected) < 5:
-            candidate = llm_source[llm_index]
-            llm_index += 1
-            marker = candidate.casefold()
-            if marker in exclusion or marker in llm_seen:
-                continue
-            llm_selected.append(candidate)
-            llm_seen.add(marker)
-        llm_consumed[category or ""] = llm_index
-
-        first_col = (
-            f"<td><span class='requirements-overview__label'>{html.escape(label)}</span>"
-            f"{_format_requirement_values(extracted_values)}</td>"
-        )
-        esco_col = f"<td>{_format_requirement_values(esco_slice)}</td>"
-        llm_col = f"<td>{_format_requirement_values(llm_selected)}</td>"
-        rows_html.append(f"<tr>{first_col}{esco_col}{llm_col}</tr>")
-
-    rows_html.append("</tbody>")
-    table_html = (
-        "<table class='requirements-overview'>" + "".join(rows_html) + "</table>"
-    )
-    st.markdown(table_html, unsafe_allow_html=True)
-
-
-def _occupation_option_from_dict(data: dict[str, str] | None) -> tuple[str, str, str]:
-    """Convert ESCO occupation dicts into selectbox-friendly tuples."""
-
-    if not data:
-        return ("", "", "")
-    label = str(data.get("preferredLabel") or data.get("label") or "").strip()
-    group = str(data.get("group") or "").strip()
-    uri = str(data.get("uri") or "").strip()
-    return (uri, label, group)
-
-
-def _format_occupation_option(option: tuple[str, str, str]) -> str:
-    """Return a readable label for ESCO occupation select options."""
-
-    _, label, group = option
-    display = label.strip() or tr("Keine Zuordnung", "No assignment")
-    group = group.strip()
-    return f"{display} · {group}" if group else display
-
-
-def _update_esco_occupation_options() -> None:
-    """Callback to refresh ESCO occupation suggestions based on search input."""
-
-    query = (st.session_state.get(UIKeys.REQUIREMENTS_OCC_SEARCH) or "").strip()
-    if len(query) < 3:
-        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
-        return
-    lang = st.session_state.get("lang", "en")
-    st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = search_occupation_options(
-        query, lang=lang, limit=8
-    )
-
-
-def _render_skill_triage(raw_profile: dict) -> None:
-    """Render drag & drop skill buckets for must-have and nice-to-have skills."""
-
-    extracted_skills = _extract_skill_values(raw_profile)
-    job_title = (raw_profile.get("position", {}).get("job_title", "") or "").strip()
-    lang = st.session_state.get("lang", "en")
-    if job_title:
-        _ensure_skill_suggestions(job_title, lang)
-
-    profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
-    position_data = (
-        profile_data.get("position", {}) if isinstance(profile_data, dict) else {}
-    )
-    occupation_label = (position_data.get("occupation_label") or "").strip()
-    occupation_group = (position_data.get("occupation_group") or "").strip()
-    occupation_uri = (position_data.get("occupation_uri") or "").strip()
-    derived_label = occupation_label or (
-        position_data.get("job_title") or job_title or ""
-    )
-
-    query_key = UIKeys.REQUIREMENTS_OCC_SEARCH
-    select_key = UIKeys.REQUIREMENTS_OCC_SELECT
-    toggle_key = UIKeys.REQUIREMENTS_SHOW_ALL_ESCO
-
-    if query_key not in st.session_state:
-        st.session_state[query_key] = derived_label
-    default_option = (
-        occupation_uri,
-        derived_label.strip(),
-        occupation_group,
-    )
-    if select_key not in st.session_state:
-        st.session_state[select_key] = (
-            default_option if any(default_option) else ("", "", "")
-        )
-    if toggle_key not in st.session_state:
-        st.session_state[toggle_key] = False
-
-    st.markdown(tr("#### Skills priorisieren", "#### Prioritise skills"))
-    st.caption(
-        tr(
-            "Ziehe die Skills per Drag & Drop in die passende Box.",
-            "Drag each skill into the appropriate bucket.",
-        )
-    )
-
-    options_raw = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, []) or []
-    query_value = (st.session_state.get(query_key) or "").strip()
-
-    with st.container(border=True):
-        st.markdown(tr("**ESCO-Zuordnung prüfen**", "**Review ESCO alignment**"))
-        st.caption(
-            tr(
-                "Passe die automatisch erkannte ESCO Occupation an, falls sie nicht passt.",
-                "Adjust the automatically detected ESCO occupation if it is not accurate.",
-            )
-        )
-        col_query, col_select = st.columns([2, 2], gap="large")
-        with col_query:
-            st.text_input(
-                tr("ESCO Occupation suchen", "Search ESCO occupation"),
-                key=query_key,
-                placeholder=tr(
-                    "z. B. Softwareentwickler/in", "e.g., Software developer"
-                ),
-                on_change=_update_esco_occupation_options,
-            )
-            if query_value:
-                if len(query_value) < 3:
-                    st.caption(
-                        tr(
-                            "Bitte mindestens drei Zeichen eingeben.",
-                            "Please enter at least three characters.",
-                        )
-                    )
-                elif not options_raw:
-                    st.caption(
-                        tr(
-                            "Keine Treffer gefunden – versuche eine alternative Schreibweise.",
-                            "No matches found – try an alternative spelling.",
-                        )
-                    )
-        placeholder_option = ("", "", "")
-        seen: set[tuple[str, str, str]] = {placeholder_option}
-        option_tuples: list[tuple[str, str, str]] = [placeholder_option]
-        if any(default_option) and default_option not in seen:
-            option_tuples.append(default_option)
-            seen.add(default_option)
-        for raw in options_raw:
-            opt = _occupation_option_from_dict(raw)
-            if not opt[1]:
-                continue
-            if opt not in seen:
-                option_tuples.append(opt)
-                seen.add(opt)
-        if st.session_state[select_key] not in option_tuples:
-            st.session_state[select_key] = (
-                default_option if any(default_option) else placeholder_option
-            )
-        with col_select:
-            selected_option = st.selectbox(
-                tr("ESCO-Vorschläge", "ESCO suggestions"),
-                options=option_tuples,
-                key=select_key,
-                format_func=_format_occupation_option,
-            )
-        if selected_option[1]:
-            title = f"**{selected_option[1]}**"
-            if selected_option[2]:
-                title += f" · {selected_option[2]}"
-            st.markdown(title)
-        else:
-            st.caption(
-                tr("Keine ESCO-Zuordnung gewählt.", "No ESCO assignment selected.")
-            )
-        if selected_option[0]:
-            st.caption(selected_option[0])
-
-    previous_option = (
-        occupation_uri,
-        occupation_label,
-        occupation_group,
-    )
-    chosen_option = st.session_state.get(select_key, ("", "", ""))
-    if (
-        chosen_option[0] != previous_option[0]
-        or chosen_option[1].strip() != previous_option[1].strip()
-        or chosen_option[2].strip() != previous_option[2].strip()
-    ):
-        _apply_esco_selection(chosen_option)
-        profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        position_data = (
-            profile_data.get("position", {}) if isinstance(profile_data, dict) else {}
-        )
-
-    esco_skills_all = _unique_normalized(
-        st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
-    )
-    suggestions_state = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {}) or {}
-    _render_requirements_overview_table(
-        raw_profile,
-        profile_data,
-        esco_skills_all,
-        suggestions_state,
-    )
-    show_all_esco = st.toggle(
-        tr("Alle ESCO-Skills anzeigen", "Show all ESCO skills"),
-        key=toggle_key,
-    )
-    esco_display = esco_skills_all if show_all_esco else esco_skills_all[:25]
-    hidden_count = len(esco_skills_all) - len(esco_display)
-    if hidden_count > 0 and not show_all_esco:
-        st.caption(
-            tr(
-                f"{hidden_count} weitere ESCO-Skills ausgeblendet – aktiviere den Schalter, um alle zu sehen.",
-                f"{hidden_count} more ESCO skills hidden – enable the toggle to show all.",
-            )
-        )
-
-    llm_candidates: list[str] = []
-    for key in ("hard_skills", "soft_skills", "tools_and_technologies"):
-        llm_candidates.extend(suggestions_state.get(key, []))
-    llm_suggestions = _unique_normalized(llm_candidates)
-    extracted_markers = _skill_marker_set(extracted_skills)
-    esco_markers = _skill_marker_set(esco_skills_all)
-    llm_suggestions = [
-        item
-        for item in llm_suggestions
-        if item.casefold() not in extracted_markers
-        and item.casefold() not in esco_markers
-    ][:10]
-
-    buckets = st.session_state.get(StateKeys.SKILL_BUCKETS) or {"must": [], "nice": []}
-    must_default = _unique_normalized(buckets.get("must", []))
-    nice_default = _unique_normalized(buckets.get("nice", []))
-    st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": must_default,
-        "nice": nice_default,
-    }
-
-    assigned_markers = _skill_marker_set(must_default + nice_default)
-    available_extracted = [
-        item for item in extracted_skills if item.casefold() not in assigned_markers
-    ]
-    available_esco = [
-        item for item in esco_display if item.casefold() not in assigned_markers
-    ]
-    available_llm = [
-        item for item in llm_suggestions if item.casefold() not in assigned_markers
-    ]
-
-    if not (
-        available_extracted
-        or available_esco
-        or available_llm
-        or must_default
-        or nice_default
-    ):
-        return
-
-    def _with_count(label: str, items: list[str]) -> str:
-        return f"{label} ({len(items)})" if items else label
-
-    label_extracted = _with_count(
-        tr("Extrahierte Skills", "Extracted skills"), available_extracted
-    )
-    label_esco = _with_count(tr("ESCO Vorschläge", "ESCO suggestions"), available_esco)
-    label_llm = _with_count(tr("LLM Vorschläge", "LLM suggestions"), available_llm)
-    label_must = _with_count(tr("Must-have", "Must-have"), must_default)
-    label_nice = _with_count(tr("Nice-to-have", "Nice-to-have"), nice_default)
-
-    containers = [
-        {"header": label_extracted, "items": available_extracted},
-        {"header": label_esco, "items": available_esco},
-        {"header": label_llm, "items": available_llm},
-        {"header": label_must, "items": must_default},
-        {"header": label_nice, "items": nice_default},
-    ]
-
-    result = sort_items(
-        containers,
-        multi_containers=True,
-        direction="horizontal",
-        custom_style=SKILL_SORTABLE_STYLE,
-        key="skill_triage",
-    )
-    if not result:
-        return
-
-    container_map = {item.get("header"): item.get("items", []) for item in result}
-    must_list = _unique_normalized(container_map.get(label_must, []))
-    nice_list = _unique_normalized(container_map.get(label_nice, []))
-    st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": must_list,
-        "nice": nice_list,
-    }
 
 
 # --- Hilfsfunktionen: Dot-Notation lesen/schreiben ---
@@ -2253,31 +1609,6 @@ def _update_profile(path: str, value) -> None:
     if get_in(data, path) != value:
         set_in(data, path, value)
         _clear_generated()
-
-
-def _apply_esco_selection(option: tuple[str, str, str]) -> None:
-    """Persist the selected ESCO occupation and refresh skill suggestions."""
-
-    uri, label, group = option
-    label = label.strip()
-    group = group.strip()
-    _update_profile("position.occupation_uri", uri)
-    _update_profile("position.occupation_label", label)
-    _update_profile("position.occupation_group", group)
-    lang = st.session_state.get("lang", "en")
-    skills = enrich_skills(uri, lang) if uri else []
-    st.session_state[StateKeys.ESCO_SKILLS] = _unique_normalized(skills)
-
-
-def _apply_skill_buckets_to_profile() -> None:
-    """Persist the drag-and-drop skill buckets into the profile."""
-
-    buckets = st.session_state.get(StateKeys.SKILL_BUCKETS, {}) or {}
-    must = _unique_normalized(buckets.get("must", []))
-    nice = _unique_normalized(buckets.get("nice", []))
-    st.session_state[StateKeys.SKILL_BUCKETS] = {"must": must, "nice": nice}
-    _update_profile("requirements.hard_skills_required", must)
-    _update_profile("requirements.hard_skills_optional", nice)
 
 
 def _slugify_label(label: str) -> str:
@@ -3509,17 +2840,10 @@ def _step_requirements():
             "Specify required skills and qualifications.",
         )
     )
-    raw_profile = (
-        st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
-        or st.session_state.get(StateKeys.PROFILE)
-        or {}
-    )
     _render_prefilled_preview(
         include_prefixes=("requirements.",),
         layout="grid",
     )
-    _render_skill_triage(raw_profile)
-    _apply_skill_buckets_to_profile()
     data = st.session_state[StateKeys.PROFILE]
     missing_here = [
         f
@@ -3534,8 +2858,27 @@ def _step_requirements():
     suggestions_error: str | None = None
     has_missing_key = bool(st.session_state.get("openai_api_key_missing"))
     suggestion_hint: str | None = None
+    stored_suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
     if job_title and not has_missing_key:
-        suggestions, suggestions_error = _ensure_skill_suggestions(job_title, lang)
+        if (
+            stored_suggestions.get("_title") == job_title
+            and stored_suggestions.get("_lang") == lang
+        ):
+            suggestions = {
+                key: stored_suggestions.get(key, [])
+                for key in (
+                    "hard_skills",
+                    "soft_skills",
+                    "tools_and_technologies",
+                )
+            }
+        else:
+            suggestions, suggestions_error = get_skill_suggestions(job_title, lang=lang)
+            st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
+                "_title": job_title,
+                "_lang": lang,
+                **suggestions,
+            }
     elif has_missing_key:
         suggestion_hint = "missing_key"
     else:
@@ -3543,17 +2886,6 @@ def _step_requirements():
 
     if suggestions_error and st.session_state.get("debug"):
         st.session_state["skill_suggest_error"] = suggestions_error
-    if not suggestions:
-        stored = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
-        if stored.get("_title") == job_title and stored.get("_lang") == lang:
-            suggestions = {
-                key: stored.get(key, [])
-                for key in (
-                    "hard_skills",
-                    "soft_skills",
-                    "tools_and_technologies",
-                )
-            }
 
     def _render_required_caption(condition: bool) -> None:
         if condition:
