@@ -19,7 +19,6 @@ benefits: BenefitsDict = {
     "Deutsch": {
         "Line Manager": [
             "Sofortiger Kompetenz‑Abgleich zwischen gewünschtem Skill‑Set und Marktverfügbarkeit",
-            "Live‑Budget‑Kalkulation auf Basis aktueller Gehaltsbenchmarks",
             "Ampel‑Warnsystem für unrealistische Anforderungskombinationen",
             "Automatische Priorisierung kritischer Must‑have‑Skills",
             "Zeitersparnis durch One‑Pager‑Summary anstelle langer E‑Mail‑Threads",
@@ -35,7 +34,6 @@ benefits: BenefitsDict = {
             "Konfliktfreies Headcount‑Tracking über mehrere Cost‑Center hinweg",
             "Self‑Service‑Reports ohne BI‑Abhängigkeit",
             "Compliance‑Check (AGG, Equal Pay, EU‑AI‑Act‑Konformität)",
-            "Benchmarks gegen Unternehmensrichtlinien (Salary Bands, Remote‑Policy)",
             "Mehrsprachige Oberfläche für globale Teams",
             "Export‑Funktion zu PowerPoint, PDF, Excel",
             "Integrations‑Hooks (Slack, Teams, Jira) für nahtlose Kollaboration",
@@ -114,7 +112,6 @@ benefits: BenefitsDict = {
         ],
         "Bewerber": [
             "Klare, transparente Anforderungsprofile ohne Buzzwords",
-            "Realistische Gehaltsrange upfront",
             "Echtzeit‑Statusupdates via WhatsApp, E‑Mail, Portal",
             "Kalender‑Self‑Booking von Interviews",
             "Barrierefreier Bewerbungsprozess (Screen‑Reader, Tastatur‑Navi)",
@@ -142,7 +139,6 @@ benefits: BenefitsDict = {
     "English": {
         "Line Manager": [
             "Immediate competency match between desired skill set and market availability",
-            "Live budget calculation based on current salary benchmarks",
             "Traffic‑light alerts for unrealistic requirement combinations",
             "Automatic prioritisation of critical must‑have skills",
             "Time savings through one‑pager summary instead of long email threads",
@@ -158,7 +154,6 @@ benefits: BenefitsDict = {
             "Conflict‑free headcount tracking across multiple cost centres",
             "Self‑service reports without BI dependency",
             "Compliance check (anti‑discrimination, equal pay, EU AI Act)",
-            "Benchmarks against company guidelines (salary bands, remote policy)",
             "Multilingual interface for global teams",
             "Export to PowerPoint, PDF, Excel",
             "Integration hooks (Slack, Teams, Jira) for seamless collaboration",
@@ -306,14 +301,14 @@ intro_en = (
 finish_de = (
     "Auf Basis dieser Daten kannst du DSGVO-geprüfte Stellenanzeigen, Boolean-Suchstrings, "
     "Verträge oder Interviewleitfäden erstellen. Cognitive Needs lässt sich lokal betreiben, um "
-    "sensible Daten zu schützen, und der Gehaltsrechner unterstützt bei der Definition von "
-    "Must- und Nice-to-have-Skills."
+    "sensible Daten zu schützen und unterstützt dich bei der Definition von Must- und Nice-to-"
+    "have-Skills."
 )
 
 finish_en = (
     "Use the collected data to create GDPR-safe job ads, boolean search strings, contracts "
-    "or interview guides. Run Cognitive Needs locally to keep information secure while the salary "
-    "calculator helps define must-have and nice-to-have skills."
+    "or interview guides. Run Cognitive Needs locally to keep information secure while the tool "
+    "supports you in defining must-have and nice-to-have skills."
 )
 
 # ---------------------------------------------------------------------------

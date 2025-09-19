@@ -59,9 +59,13 @@ def test_extract_company_info_required_keys(monkeypatch):
     properties = schema.get("properties")
     assert isinstance(properties, dict)
     required = schema.get("required")
-    assert required == list(properties.keys()) == [
-        "name",
-        "location",
-        "mission",
-        "culture",
-    ]
+    assert (
+        required
+        == list(properties.keys())
+        == [
+            "name",
+            "location",
+            "mission",
+            "culture",
+        ]
+    )
