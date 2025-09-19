@@ -3103,7 +3103,7 @@ def _render_onboarding_section(
 
 
 def _step_position():
-    """Render the position details step.
+    """Render the position details step.",
 
     Returns:
         None
@@ -3117,128 +3117,397 @@ def _step_position():
         )
     )
     data = st.session_state[StateKeys.PROFILE]
+    position = data.setdefault("position", {})
+    location_data = data.setdefault("location", {})
+    meta_data = data.setdefault("meta", {})
+    employment = data.setdefault("employment", {})
+
     missing_here = [
-        f
-        for f in get_missing_critical_fields(max_section=2)
-        if FIELD_SECTION_MAP.get(f) == 2
+        field
+        for field in get_missing_critical_fields(max_section=2)
+        if FIELD_SECTION_MAP.get(field) == 2
     ]
 
-    c1, c2 = st.columns(2)
-    label_title = tr("Jobtitel", "Job title")
+    st.markdown("#### " + tr("Rolle & Team", "Role & team"))
+    role_cols = st.columns((1.3, 1))
+    title_label = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:
-        label_title += REQUIRED_SUFFIX
-    data["position"]["job_title"] = c1.text_input(
-        label_title,
-        value=data["position"].get("job_title", ""),
+        title_label += REQUIRED_SUFFIX
+    position["job_title"] = role_cols[0].text_input(
+        title_label,
+        value=position.get("job_title", ""),
         placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
     )
-    if "position.job_title" in missing_here and not data["position"]["job_title"]:
-        c1.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    if "position.job_title" in missing_here and not position.get("job_title"):
+        role_cols[0].caption(
+            tr("Dieses Feld ist erforderlich", "This field is required")
+        )
 
-    data["position"]["seniority_level"] = c2.text_input(
+    position["seniority_level"] = role_cols[1].text_input(
         tr("Seniorität", "Seniority"),
-        value=data["position"].get("seniority_level", ""),
+        value=position.get("seniority_level", ""),
         placeholder=tr("z. B. Junior", "e.g., Junior"),
     )
 
-    c3, c4 = st.columns(2)
-    data["position"]["department"] = c3.text_input(
+    dept_cols = st.columns(2)
+    position["department"] = dept_cols[0].text_input(
         tr("Abteilung", "Department"),
-        value=data["position"].get("department", ""),
+        value=position.get("department", ""),
         placeholder=tr("z. B. Entwicklung", "e.g., Engineering"),
     )
-    data["position"]["team_structure"] = c4.text_input(
+    position["team_structure"] = dept_cols[1].text_input(
         tr("Teamstruktur", "Team structure"),
-        value=data["position"].get("team_structure", ""),
+        value=position.get("team_structure", ""),
         placeholder=tr(
             "z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"
         ),
     )
 
-    c5, c6 = st.columns(2)
-    data["position"]["reporting_line"] = c5.text_input(
+    summary_cols = st.columns((1, 1))
+    position["reporting_line"] = summary_cols[0].text_input(
         tr("Reports an", "Reports to"),
-        value=data["position"].get("reporting_line", ""),
+        value=position.get("reporting_line", ""),
         placeholder=tr("z. B. CTO", "e.g., CTO"),
     )
-    label_summary = tr("Rollen-Summary", "Role summary")
+    summary_label = tr("Rollen-Summary", "Role summary")
     if "position.role_summary" in missing_here:
-        label_summary += REQUIRED_SUFFIX
-    data["position"]["role_summary"] = c6.text_area(
-        label_summary,
-        value=data["position"].get("role_summary", ""),
+        summary_label += REQUIRED_SUFFIX
+    position["role_summary"] = summary_cols[1].text_area(
+        summary_label,
+        value=position.get("role_summary", ""),
         height=120,
     )
-    if "position.role_summary" in missing_here and not data["position"]["role_summary"]:
-        c6.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    if "position.role_summary" in missing_here and not position.get("role_summary"):
+        summary_cols[1].caption(
+            tr("Dieses Feld ist erforderlich", "This field is required")
+        )
 
-    c7, c8 = st.columns(2)
-    data["location"]["primary_city"] = c7.text_input(
+    st.markdown("#### " + tr("Standort & Zeitplan", "Location & timing"))
+    location_cols = st.columns(2)
+    location_data["primary_city"] = location_cols[0].text_input(
         tr("Stadt", "City"),
-        value=data.get("location", {}).get("primary_city", ""),
+        value=location_data.get("primary_city", ""),
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
     )
-    label_country = tr("Land", "Country")
+    country_label = tr("Land", "Country")
     if "location.country" in missing_here:
-        label_country += REQUIRED_SUFFIX
-    data["location"]["country"] = c8.text_input(
-        label_country,
-        value=data.get("location", {}).get("country", ""),
+        country_label += REQUIRED_SUFFIX
+    location_data["country"] = location_cols[1].text_input(
+        country_label,
+        value=location_data.get("country", ""),
         placeholder=tr("z. B. DE", "e.g., DE"),
     )
-    if "location.country" in missing_here and not data["location"].get("country"):
-        c8.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    if "location.country" in missing_here and not location_data.get("country"):
+        location_cols[1].caption(
+            tr("Dieses Feld ist erforderlich", "This field is required")
+        )
 
-    c9, c10, c11 = st.columns(3)
-    target_start_default = _default_date(data["meta"].get("target_start_date"))
-    start_selection = c9.date_input(
+    timing_cols = st.columns(3)
+    target_start_default = _default_date(meta_data.get("target_start_date"))
+    start_selection = timing_cols[0].date_input(
         tr("Gewünschtes Startdatum", "Desired start date"),
         value=target_start_default,
         format="YYYY-MM-DD",
     )
-    if isinstance(start_selection, date):
-        data["meta"]["target_start_date"] = start_selection.isoformat()
-    else:
-        data["meta"]["target_start_date"] = ""
-
-    application_deadline_default = _default_date(
-        data["meta"].get("application_deadline")
+    meta_data["target_start_date"] = (
+        start_selection.isoformat() if isinstance(start_selection, date) else ""
     )
-    deadline_selection = c10.date_input(
+
+    application_deadline_default = _default_date(meta_data.get("application_deadline"))
+    deadline_selection = timing_cols[1].date_input(
         tr("Bewerbungsschluss", "Application deadline"),
         value=application_deadline_default,
         format="YYYY-MM-DD",
     )
-    if isinstance(deadline_selection, date):
-        data["meta"]["application_deadline"] = deadline_selection.isoformat()
-    else:
-        data["meta"]["application_deadline"] = ""
-    data["position"]["supervises"] = c11.number_input(
+    meta_data["application_deadline"] = (
+        deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
+    )
+
+    position["supervises"] = timing_cols[2].number_input(
         tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
         min_value=0,
-        value=data["position"].get("supervises", 0),
+        value=position.get("supervises", 0),
         step=1,
     )
 
     with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
-        data["position"]["performance_indicators"] = st.text_area(
+        position["performance_indicators"] = st.text_area(
             tr("Leistungskennzahlen", "Performance indicators"),
-            value=data["position"].get("performance_indicators", ""),
+            value=position.get("performance_indicators", ""),
             height=80,
         )
-        data["position"]["decision_authority"] = st.text_area(
+        position["decision_authority"] = st.text_area(
             tr("Entscheidungsbefugnisse", "Decision-making authority"),
-            value=data["position"].get("decision_authority", ""),
+            value=position.get("decision_authority", ""),
             height=80,
         )
-        data["position"]["key_projects"] = st.text_area(
+        position["key_projects"] = st.text_area(
             tr("Schlüsselprojekte", "Key projects"),
-            value=data["position"].get("key_projects", ""),
+            value=position.get("key_projects", ""),
             height=80,
         )
 
-    # Inline follow-up questions for Position and Location section
-    _render_followups_for_section(("position.", "location.", "meta."), data)
+    st.markdown(
+        "#### " + tr("Beschäftigung & Arbeitsmodell", "Employment & working model")
+    )
+
+    job_type_options = {
+        "full_time": tr("Vollzeit", "Full-time"),
+        "part_time": tr("Teilzeit", "Part-time"),
+        "contract": tr("Freelance / Contract", "Contract"),
+        "internship": tr("Praktikum", "Internship"),
+        "temporary": tr("Befristet", "Temporary"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    contract_options = {
+        "permanent": tr("Unbefristet", "Permanent"),
+        "fixed_term": tr("Befristet", "Fixed term"),
+        "contract": tr("Werkvertrag", "Contract"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    policy_options = {
+        "onsite": tr("Vor Ort", "Onsite"),
+        "hybrid": tr("Hybrid", "Hybrid"),
+        "remote": tr("Remote", "Remote"),
+    }
+
+    job_cols = st.columns(3)
+    job_keys = list(job_type_options.keys())
+    job_default = employment.get("job_type", job_keys[0])
+    job_index = job_keys.index(job_default) if job_default in job_keys else 0
+    employment["job_type"] = job_cols[0].selectbox(
+        tr("Beschäftigungsart", "Employment type"),
+        options=job_keys,
+        index=job_index,
+        format_func=lambda key: job_type_options[key],
+    )
+
+    contract_keys = list(contract_options.keys())
+    contract_default = employment.get("contract_type", contract_keys[0])
+    contract_index = (
+        contract_keys.index(contract_default)
+        if contract_default in contract_keys
+        else 0
+    )
+    employment["contract_type"] = job_cols[1].selectbox(
+        tr("Vertragsform", "Contract type"),
+        options=contract_keys,
+        index=contract_index,
+        format_func=lambda key: contract_options[key],
+    )
+
+    policy_keys = list(policy_options.keys())
+    policy_default = employment.get("work_policy", policy_keys[0])
+    policy_index = (
+        policy_keys.index(policy_default) if policy_default in policy_keys else 0
+    )
+    employment["work_policy"] = job_cols[2].selectbox(
+        tr("Arbeitsmodell", "Work model"),
+        options=policy_keys,
+        index=policy_index,
+        format_func=lambda key: policy_options[key],
+    )
+
+    schedule_options = {
+        "standard": tr("Standard", "Standard"),
+        "flexitime": tr("Gleitzeit", "Flexitime"),
+        "shift": tr("Schichtarbeit", "Shift work"),
+        "weekend": tr("Wochenendarbeit", "Weekend work"),
+        "other": tr("Sonstiges", "Other"),
+    }
+    schedule_keys = list(schedule_options.keys())
+    schedule_default = employment.get("work_schedule", schedule_keys[0])
+    schedule_index = (
+        schedule_keys.index(schedule_default)
+        if schedule_default in schedule_keys
+        else 0
+    )
+    schedule_cols = st.columns(3)
+    employment["work_schedule"] = schedule_cols[0].selectbox(
+        tr("Arbeitszeitmodell", "Work schedule"),
+        options=schedule_keys,
+        index=schedule_index,
+        format_func=lambda key: schedule_options[key],
+    )
+
+    remote_col = schedule_cols[1]
+    if employment.get("work_policy") in {"hybrid", "remote"}:
+        employment["remote_percentage"] = remote_col.number_input(
+            tr("Remote-Anteil (%)", "Remote share (%)"),
+            min_value=0,
+            max_value=100,
+            value=int(employment.get("remote_percentage") or 0),
+        )
+    else:
+        remote_col.empty()
+        employment.pop("remote_percentage", None)
+
+    contract_end_col = schedule_cols[2]
+    if employment.get("contract_type") == "fixed_term":
+        contract_end_default = _default_date(
+            employment.get("contract_end"), fallback=date.today()
+        )
+        contract_end_value = contract_end_col.date_input(
+            tr("Vertragsende", "Contract end"),
+            value=contract_end_default,
+            format="YYYY-MM-DD",
+        )
+        employment["contract_end"] = (
+            contract_end_value.isoformat()
+            if isinstance(contract_end_value, date)
+            else employment.get("contract_end", "")
+        )
+    else:
+        contract_end_col.empty()
+        employment.pop("contract_end", None)
+
+    toggle_row_1 = st.columns(3)
+    employment["travel_required"] = toggle_row_1[0].toggle(
+        tr("Reisetätigkeit?", "Travel required?"),
+        value=bool(employment.get("travel_required")),
+    )
+    employment["relocation_support"] = toggle_row_1[1].toggle(
+        tr("Relocation?", "Relocation?"),
+        value=bool(employment.get("relocation_support")),
+    )
+    employment["visa_sponsorship"] = toggle_row_1[2].toggle(
+        tr("Visum-Sponsoring?", "Visa sponsorship?"),
+        value=bool(employment.get("visa_sponsorship")),
+    )
+
+    toggle_row_2 = st.columns(3)
+    employment["overtime_expected"] = toggle_row_2[0].toggle(
+        tr("Überstunden?", "Overtime expected?"),
+        value=bool(employment.get("overtime_expected")),
+    )
+    employment["security_clearance_required"] = toggle_row_2[1].toggle(
+        tr("Sicherheitsüberprüfung?", "Security clearance required?"),
+        value=bool(employment.get("security_clearance_required")),
+    )
+    employment["shift_work"] = toggle_row_2[2].toggle(
+        tr("Schichtarbeit?", "Shift work?"),
+        value=bool(employment.get("shift_work")),
+    )
+
+    if employment.get("travel_required"):
+        with st.expander(
+            tr("Details zur Reisetätigkeit", "Travel details"), expanded=True
+        ):
+            col_share, col_region, col_details = st.columns((1, 2, 2))
+            share_default = int(employment.get("travel_share") or 0)
+            employment["travel_share"] = col_share.number_input(
+                tr("Reiseanteil (%)", "Travel share (%)"),
+                min_value=0,
+                max_value=100,
+                step=5,
+                value=share_default,
+            )
+
+            scope_options = [
+                ("germany", tr("Deutschland", "Germany")),
+                ("europe", tr("Europa", "Europe")),
+                ("worldwide", tr("Weltweit", "Worldwide")),
+            ]
+            scope_lookup = {value: label for value, label in scope_options}
+            current_scope = employment.get("travel_region_scope", "germany")
+            scope_index = next(
+                (
+                    idx
+                    for idx, (value, _) in enumerate(scope_options)
+                    if value == current_scope
+                ),
+                0,
+            )
+            selected_scope = col_region.selectbox(
+                tr("Reiseregion", "Travel region"),
+                options=[value for value, _ in scope_options],
+                format_func=lambda opt: scope_lookup[opt],
+                index=scope_index,
+            )
+            employment["travel_region_scope"] = selected_scope
+
+            stored_regions = employment.get("travel_regions", [])
+            stored_continents = employment.get("travel_continents", [])
+
+            if selected_scope == "germany":
+                selected_regions = col_region.multiselect(
+                    tr("Bundesländer", "Federal states"),
+                    options=GERMAN_STATES,
+                    default=[
+                        region for region in stored_regions if region in GERMAN_STATES
+                    ],
+                )
+                employment["travel_regions"] = selected_regions
+                employment.pop("travel_continents", None)
+            elif selected_scope == "europe":
+                selected_regions = col_region.multiselect(
+                    tr("Länder (Europa)", "Countries (Europe)"),
+                    options=EUROPEAN_COUNTRIES,
+                    default=[
+                        region
+                        for region in stored_regions
+                        if region in EUROPEAN_COUNTRIES
+                    ],
+                )
+                employment["travel_regions"] = selected_regions
+                employment.pop("travel_continents", None)
+            else:
+                continent_options = list(CONTINENT_COUNTRIES.keys())
+                selected_continents = col_region.multiselect(
+                    tr("Kontinente", "Continents"),
+                    options=continent_options,
+                    default=[
+                        continent
+                        for continent in stored_continents
+                        if continent in continent_options
+                    ],
+                )
+                employment["travel_continents"] = selected_continents
+                base_continents = selected_continents or continent_options
+                available_countries = sorted(
+                    {
+                        country
+                        for continent in base_continents
+                        for country in CONTINENT_COUNTRIES.get(continent, [])
+                    }
+                )
+                selected_countries = col_region.multiselect(
+                    tr("Länder", "Countries"),
+                    options=available_countries,
+                    default=[
+                        country
+                        for country in stored_regions
+                        if country in available_countries
+                    ],
+                )
+                employment["travel_regions"] = selected_countries
+
+            employment["travel_details"] = col_details.text_input(
+                tr("Zusatzinfos", "Additional details"),
+                value=employment.get("travel_details", ""),
+            )
+    else:
+        for field_name in (
+            "travel_share",
+            "travel_region_scope",
+            "travel_regions",
+            "travel_continents",
+            "travel_details",
+        ):
+            employment.pop(field_name, None)
+
+    if employment.get("relocation_support"):
+        employment["relocation_details"] = st.text_input(
+            tr("Relocation-Details", "Relocation details"),
+            value=employment.get("relocation_details", ""),
+        )
+    else:
+        employment.pop("relocation_details", None)
+
+    # Inline follow-up questions for Position, Location and Employment section
+    _render_followups_for_section(
+        ("position.", "location.", "meta.", "employment."), data
+    )
 
 
 _step_position.handled_fields = [  # type: ignore[attr-defined]
@@ -3546,254 +3815,6 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
         if q.get("priority") == "critical":
             missing.append(q.get("field", ""))
     return missing
-
-
-def _step_employment():
-    """Render the employment details step.
-
-    Returns:
-        None
-    """
-
-    st.subheader(tr("Beschäftigung", "Employment"))
-    st.caption(
-        tr(
-            "Rahmenbedingungen der Anstellung festlegen.",
-            "Define employment conditions.",
-        )
-    )
-    data = st.session_state[StateKeys.PROFILE]
-
-    c1, c2, c3 = st.columns(3)
-    job_options = [
-        "full_time",
-        "part_time",
-        "contract",
-        "internship",
-        "temporary",
-        "other",
-    ]
-    current_job = data["employment"].get("job_type")
-    data["employment"]["job_type"] = c1.selectbox(
-        tr("Art", "Type"),
-        options=job_options,
-        index=job_options.index(current_job) if current_job in job_options else 0,
-    )
-    policy_options = ["onsite", "hybrid", "remote"]
-    current_policy = data["employment"].get("work_policy")
-    data["employment"]["work_policy"] = c2.selectbox(
-        tr("Policy", "Policy"),
-        options=policy_options,
-        index=(
-            policy_options.index(current_policy)
-            if current_policy in policy_options
-            else 0
-        ),
-    )
-
-    contract_options = {
-        "permanent": tr("Unbefristet", "Permanent"),
-        "fixed_term": tr("Befristet", "Fixed term"),
-        "contract": tr("Werkvertrag", "Contract"),
-        "other": tr("Sonstiges", "Other"),
-    }
-    current_contract = data["employment"].get("contract_type")
-    data["employment"]["contract_type"] = c3.selectbox(
-        tr("Vertragsart", "Contract type"),
-        options=list(contract_options.keys()),
-        format_func=lambda x: contract_options[x],
-        index=(
-            list(contract_options.keys()).index(current_contract)
-            if current_contract in contract_options
-            else 0
-        ),
-    )
-
-    schedule_options = {
-        "standard": tr("Standard", "Standard"),
-        "flexitime": tr("Gleitzeit", "Flexitime"),
-        "shift": tr("Schichtarbeit", "Shift work"),
-        "weekend": tr("Wochenendarbeit", "Weekend work"),
-        "other": tr("Sonstiges", "Other"),
-    }
-    current_schedule = data["employment"].get("work_schedule")
-    data["employment"]["work_schedule"] = st.selectbox(
-        tr("Arbeitszeitmodell", "Work schedule"),
-        options=list(schedule_options.keys()),
-        format_func=lambda x: schedule_options[x],
-        index=(
-            list(schedule_options.keys()).index(current_schedule)
-            if current_schedule in schedule_options
-            else 0
-        ),
-    )
-
-    if data["employment"].get("work_policy") in ["hybrid", "remote"]:
-        data["employment"]["remote_percentage"] = st.number_input(
-            tr("Remote-Anteil (%)", "Remote share (%)"),
-            min_value=0,
-            max_value=100,
-            value=int(data["employment"].get("remote_percentage") or 0),
-        )
-    else:
-        data["employment"].pop("remote_percentage", None)
-
-    if data["employment"].get("contract_type") == "fixed_term":
-        contract_end_str = data["employment"].get("contract_end")
-        default_end = (
-            date.fromisoformat(contract_end_str) if contract_end_str else date.today()
-        )
-        data["employment"]["contract_end"] = st.date_input(
-            tr("Vertragsende", "Contract end"),
-            value=default_end,
-        ).isoformat()
-    else:
-        data["employment"].pop("contract_end", None)
-
-    c4, c5, c6 = st.columns(3)
-    data["employment"]["travel_required"] = c4.toggle(
-        tr("Reisetätigkeit?", "Travel required?"),
-        value=bool(data["employment"].get("travel_required")),
-    )
-    data["employment"]["relocation_support"] = c5.toggle(
-        tr("Relocation?", "Relocation?"),
-        value=bool(data["employment"].get("relocation_support")),
-    )
-    data["employment"]["visa_sponsorship"] = c6.toggle(
-        tr("Visum-Sponsoring?", "Visa sponsorship?"),
-        value=bool(data["employment"].get("visa_sponsorship")),
-    )
-
-    c7, c8, c9 = st.columns(3)
-    data["employment"]["overtime_expected"] = c7.toggle(
-        tr("Überstunden?", "Overtime expected?"),
-        value=bool(data["employment"].get("overtime_expected")),
-    )
-    data["employment"]["security_clearance_required"] = c8.toggle(
-        tr("Sicherheitsüberprüfung?", "Security clearance required?"),
-        value=bool(data["employment"].get("security_clearance_required")),
-    )
-    data["employment"]["shift_work"] = c9.toggle(
-        tr("Schichtarbeit?", "Shift work?"),
-        value=bool(data["employment"].get("shift_work")),
-    )
-
-    if data["employment"].get("travel_required"):
-        col_share, col_region, col_details = st.columns((1, 2, 2))
-        share_default = int(data["employment"].get("travel_share") or 0)
-        data["employment"]["travel_share"] = col_share.number_input(
-            tr("Reiseanteil (%)", "Travel share (%)"),
-            min_value=0,
-            max_value=100,
-            step=5,
-            value=share_default,
-        )
-
-        scope_options = [
-            ("germany", tr("Deutschland", "Germany")),
-            ("europe", tr("Europa", "Europe")),
-            ("worldwide", tr("Weltweit", "Worldwide")),
-        ]
-        scope_lookup = {value: label for value, label in scope_options}
-        current_scope = data["employment"].get("travel_region_scope", "germany")
-        scope_index = next(
-            (
-                idx
-                for idx, (value, _) in enumerate(scope_options)
-                if value == current_scope
-            ),
-            0,
-        )
-        selected_scope = col_region.selectbox(
-            tr("Reiseregion", "Travel region"),
-            options=[value for value, _ in scope_options],
-            format_func=lambda opt: scope_lookup[opt],
-            index=scope_index,
-        )
-        data["employment"]["travel_region_scope"] = selected_scope
-
-        stored_regions = data["employment"].get("travel_regions", [])
-        stored_continents = data["employment"].get("travel_continents", [])
-
-        if selected_scope == "germany":
-            selected_regions = col_region.multiselect(
-                tr("Bundesländer", "Federal states"),
-                options=GERMAN_STATES,
-                default=[
-                    region for region in stored_regions if region in GERMAN_STATES
-                ],
-            )
-            data["employment"]["travel_regions"] = selected_regions
-            data["employment"].pop("travel_continents", None)
-        elif selected_scope == "europe":
-            selected_regions = col_region.multiselect(
-                tr("Länder (Europa)", "Countries (Europe)"),
-                options=EUROPEAN_COUNTRIES,
-                default=[
-                    region for region in stored_regions if region in EUROPEAN_COUNTRIES
-                ],
-            )
-            data["employment"]["travel_regions"] = selected_regions
-            data["employment"].pop("travel_continents", None)
-        else:
-            selected_continents = col_region.multiselect(
-                tr("Kontinente", "Continents"),
-                options=list(CONTINENT_COUNTRIES.keys()),
-                default=[
-                    continent
-                    for continent in stored_continents
-                    if continent in CONTINENT_COUNTRIES
-                ],
-            )
-            data["employment"]["travel_continents"] = selected_continents
-            available_countries = sorted(
-                {
-                    country
-                    for continent in selected_continents
-                    for country in CONTINENT_COUNTRIES.get(continent, [])
-                }
-            )
-            if not available_countries:
-                available_countries = sorted(
-                    {
-                        country
-                        for countries in CONTINENT_COUNTRIES.values()
-                        for country in countries
-                    }
-                )
-            selected_countries = col_region.multiselect(
-                tr("Länder", "Countries"),
-                options=available_countries,
-                default=[
-                    region for region in stored_regions if region in available_countries
-                ],
-            )
-            data["employment"]["travel_regions"] = selected_countries
-
-        data["employment"]["travel_details"] = col_details.text_input(
-            tr("Reisedetails", "Travel details"),
-            value=data["employment"].get("travel_details", ""),
-        )
-    else:
-        for field_name in [
-            "travel_details",
-            "travel_share",
-            "travel_region_scope",
-            "travel_regions",
-            "travel_continents",
-        ]:
-            data["employment"].pop(field_name, None)
-
-    if data["employment"].get("relocation_support"):
-        data["employment"]["relocation_details"] = st.text_input(
-            tr("Umzugsunterstützung", "Relocation details"),
-            value=data["employment"].get("relocation_details", ""),
-        )
-    else:
-        data["employment"].pop("relocation_details", None)
-
-    # Inline follow-up questions for Employment section
-    _render_followups_for_section(("employment.",), data)
 
 
 def _step_compensation():
@@ -5193,7 +5214,6 @@ def run_wizard():
         (tr("Unternehmen", "Company"), _step_company),
         (tr("Basisdaten", "Basic info"), _step_position),
         (tr("Anforderungen", "Requirements"), _step_requirements),
-        (tr("Beschäftigung", "Employment"), _step_employment),
         (tr("Leistungen & Benefits", "Rewards & Benefits"), _step_compensation),
         (tr("Prozess", "Process"), _step_process),
         (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
