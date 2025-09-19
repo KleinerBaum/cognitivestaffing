@@ -3841,15 +3841,6 @@ def _summary_process() -> None:
     _update_profile("process.onboarding_process", onboarding)
 
 
-def _chunked(sequence: Sequence[T], size: int) -> Iterable[Sequence[T]]:
-    """Yield ``sequence`` slices with ``size`` elements each."""
-
-    if size <= 0:
-        raise ValueError("size must be positive")
-    for start in range(0, len(sequence), size):
-        yield sequence[start : start + size]
-
-
 def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:
     """Return the number of collected entries per summary tab group."""
 
@@ -3976,39 +3967,23 @@ def _step_summary(schema: dict, _critical: list[str]):
     st.markdown(f"### {overview_title}")
     entry_label = tr("Einträge", "Entries")
     empty_label = tr("Noch keine Angaben", "No entries yet")
-    selected_group = st.session_state.get(UIKeys.SUMMARY_SELECTED_GROUP)
-    if selected_group not in group_keys:
-        selected_group = next(
-            (group for group in group_keys if overview_counts.get(group, 0)),
-            group_keys[0],
-        )
-    st.session_state[UIKeys.SUMMARY_SELECTED_GROUP] = selected_group
-    selected_label = tab_labels[group_keys.index(selected_group)]
 
-    for chunk in _chunked(list(zip(group_keys, tab_labels)), 3):
-        cols = st.columns(len(chunk))
-        for col, (group, label) in zip(cols, chunk):
+    tab_definitions = list(zip(group_keys, tab_labels))
+    summary_tabs = st.tabs([label for _, label in tab_definitions])
+    for tab, (group, _label) in zip(summary_tabs, tab_definitions):
+        with tab:
             count = overview_counts.get(group, 0)
             subtitle = f"{count} {entry_label}" if count else empty_label
-            button_label = f"{count} {label}\n{subtitle}"
-            button_type: Literal["primary", "secondary"] = (
-                "primary" if group == selected_group else "secondary"
-            )
-            with col:
-                st.markdown(
-                    "<div class='summary-overview-button'>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    button_label,
-                    key=f"summary-group-{group}",
-                    use_container_width=True,
-                    type=button_type,
-                ):
-                    selected_group = group
-                    st.session_state[UIKeys.SUMMARY_SELECTED_GROUP] = group
-                    selected_label = label
-                st.markdown("</div>", unsafe_allow_html=True)
+            st.caption(subtitle)
+            _render_summary_group_entries(group, data, lang)
+
+    st.caption(
+        tr(
+            "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
+            "All available information is automatically included in the final output.",
+        )
+    )
+    st.divider()
 
     try:
         profile = NeedAnalysisProfile.model_validate(data)
@@ -4145,18 +4120,6 @@ def _step_summary(schema: dict, _critical: list[str]):
                 st.rerun()
 
     st.divider()
-
-    content_container = st.container()
-
-    with content_container:
-        st.markdown(f"#### {selected_label}")
-        st.caption(
-            tr(
-                "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
-                "All available information is automatically included in the final output.",
-            )
-        )
-        _render_summary_group_entries(selected_group, data, lang)
 
     st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
