@@ -103,8 +103,8 @@ SKILL_SORTABLE_STYLE = """
     flex: 1 1 220px;
     min-width: 220px;
     min-height: 180px;
-    background: var(--background-secondary-color, #f6f6f9);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
     border-radius: 0.75rem;
     padding: 0.75rem;
     max-height: 320px;
@@ -114,20 +114,26 @@ SKILL_SORTABLE_STYLE = """
     font-weight: 600;
     margin-bottom: 0.4rem;
     font-size: 0.9rem;
+    color: var(--text-muted);
 }
 .sortable-item {
-    background: var(--background-color, #ffffff);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--surface-contrast);
+    border: 1px solid var(--border-subtle);
     border-radius: 0.5rem;
     padding: 0.4rem 0.6rem;
     margin-bottom: 0.35rem;
     font-size: 0.9rem;
+    color: var(--text-strong);
 }
 .sortable-container::-webkit-scrollbar {
     width: 6px;
 }
 .sortable-container::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: var(--scrollbar-thumb);
+    border-radius: 4px;
+}
+.sortable-container::-webkit-scrollbar-track {
+    background-color: var(--scrollbar-track);
     border-radius: 4px;
 }
 """
@@ -1516,13 +1522,14 @@ def _render_requirements_overview_table(
                 width: 100%;
                 border-collapse: collapse;
                 margin-top: 0.75rem;
+                color: var(--text-strong);
             }
             table.requirements-overview th,
             table.requirements-overview td {
-                border: 1px solid rgba(0, 0, 0, 0.1);
+                border: 1px solid var(--border-subtle);
                 padding: 0.6rem 0.75rem;
                 vertical-align: top;
-                background: var(--background-color, #ffffff);
+                background: var(--surface-contrast);
             }
             table.requirements-overview tr.requirements-overview__spacer td {
                 border: none;
@@ -1533,14 +1540,16 @@ def _render_requirements_overview_table(
                 font-weight: 600;
                 display: block;
                 margin-bottom: 0.25rem;
+                color: var(--text-strong);
             }
             .requirements-overview__placeholder {
-                color: rgba(0, 0, 0, 0.55);
+                color: var(--text-muted);
                 font-style: italic;
             }
             .requirements-overview__list {
                 margin: 0;
                 padding-left: 1.1rem;
+                color: var(--text-contrast-muted);
             }
             </style>
             """,
