@@ -4947,11 +4947,16 @@ def _step_summary(schema: dict, _critical: list[str]):
 
         job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD, "")
         if job_ad_text:
+            output_key = UIKeys.JOB_AD_OUTPUT
+            if (
+                output_key not in st.session_state
+                or st.session_state.get(output_key) != job_ad_text
+            ):
+                st.session_state[output_key] = job_ad_text
             st.text_area(
                 tr("Generierte Stellenanzeige", "Generated job ad"),
-                value=job_ad_text,
                 height=_textarea_height(job_ad_text),
-                key="job_ad_output",
+                key=output_key,
             )
 
             seo_data = seo_optimize(job_ad_text)
@@ -5101,11 +5106,16 @@ def _step_summary(schema: dict, _critical: list[str]):
 
         guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
         if guide_text:
+            output_key = UIKeys.INTERVIEW_OUTPUT
+            if (
+                output_key not in st.session_state
+                or st.session_state.get(output_key) != guide_text
+            ):
+                st.session_state[output_key] = guide_text
             st.text_area(
                 tr("Generierter Leitfaden", "Generated guide"),
-                value=guide_text,
                 height=_textarea_height(guide_text),
-                key="interview_output",
+                key=output_key,
             )
             guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
             font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)

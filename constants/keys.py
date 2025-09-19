@@ -16,6 +16,8 @@ class UIKeys:
     TONE_SELECT = "ui.summary.tone"
     NUM_QUESTIONS = "ui.summary.num_questions"
     AUDIENCE_SELECT = "ui.summary.audience"
+    JOB_AD_OUTPUT = "ui.summary.job_ad_output"
+    INTERVIEW_OUTPUT = "ui.summary.interview_output"
     JOB_AD_FIELD_PREFIX = "ui.job_ad.field."
     JOB_AD_STEP_SELECT = "ui.job_ad.step_select"
     JOB_AD_STEP_FIELD_PREFIX = "ui.job_ad.step_field."
