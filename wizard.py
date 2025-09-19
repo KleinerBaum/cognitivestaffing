@@ -4016,22 +4016,14 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     suggestions = suggest_target_audiences(profile, lang)
     available_field_keys = _job_ad_available_field_keys(data, lang)
-    content_col, tools_col = st.columns((1.75, 1.25), gap="large")
-
-    with content_col:
-        st.markdown(f"#### {selected_label}")
-        st.caption(
-            tr(
-                "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
-                "All available information is automatically included in the final output.",
-            )
-        )
-        _render_summary_group_entries(selected_group, data, lang)
 
     target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
 
-    with tools_col:
-        st.markdown(tr("#### Weiterverarbeitung", "#### Next steps"))
+    st.markdown(tr("#### Weiterverarbeitung", "#### Next steps"))
+    next_step_cols = st.columns((1.4, 1.1, 1.2), gap="large")
+
+    with next_step_cols[0]:
+        st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
         brand_value = st.text_input(
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
             value=data["company"].get("brand_keywords", ""),
@@ -4069,8 +4061,8 @@ def _step_summary(schema: dict, _critical: list[str]):
             )
         )
 
-        st.divider()
-
+    with next_step_cols[1]:
+        st.markdown(f"##### {tr('Exportoptionen', 'Export options')}")
         if UIKeys.JOB_AD_FORMAT not in st.session_state:
             st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
         format_options = {
@@ -4112,8 +4104,8 @@ def _step_summary(schema: dict, _critical: list[str]):
             )
         )
 
-        st.divider()
-
+    with next_step_cols[2]:
+        st.markdown(f"##### {tr('Branding-Assets', 'Brand assets')}")
         logo_file = st.file_uploader(
             tr("Logo hochladen (optional)", "Upload logo (optional)"),
             type=["png", "jpg", "jpeg", "svg"],
@@ -4134,6 +4126,20 @@ def _step_summary(schema: dict, _critical: list[str]):
             if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
                 st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
                 st.rerun()
+
+    st.divider()
+
+    content_container = st.container()
+
+    with content_container:
+        st.markdown(f"#### {selected_label}")
+        st.caption(
+            tr(
+                "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
+                "All available information is automatically included in the final output.",
+            )
+        )
+        _render_summary_group_entries(selected_group, data, lang)
 
     st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
