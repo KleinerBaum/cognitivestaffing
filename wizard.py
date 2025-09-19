@@ -67,7 +67,6 @@ from integrations.esco import (
     enrich_skills,
 )
 from components.stepper import render_stepper
-from components.salary_dashboard import render_salary_insights
 from utils import seo_optimize
 from utils.export import prepare_download_data
 from nlp.bias import scan_bias_language
@@ -5210,14 +5209,7 @@ def run_wizard():
     current = st.session_state[StateKeys.STEP]
     _label, renderer = steps[current]
 
-    if current in {2, 3, 4, 5}:
-        main_col, insight_col = st.columns((2.2, 1), gap="large")
-        with main_col:
-            renderer()
-        with insight_col:
-            render_salary_insights(st.session_state)
-    else:
-        renderer()
+    renderer()
 
     # Bottom nav
     section = current - 1

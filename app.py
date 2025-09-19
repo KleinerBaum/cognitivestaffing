@@ -181,10 +181,8 @@ def render_primary_sidebar() -> None:
         st.markdown(
             tr(
                 "- Durchlaufe den Wizard Schritt für Schritt – deine Eingaben bleiben erhalten.\n"
-                "- Nutze die Gehaltsprognose in den Detail-Schritten, um Budgetentscheidungen abzusichern.\n"
                 "- Alle KI-Ergebnisse findest du gesammelt in der Summary.",
                 "- Move through the wizard step by step – your inputs remain persistent.\n"
-                "- Use the salary outlook inside the detailed steps to validate budget decisions.\n"
                 "- Find every AI result again in the summary view.",
             )
         )
