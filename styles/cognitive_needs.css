@@ -283,6 +283,17 @@ a:hover {
   margin-bottom: .65rem;
 }
 
+.summary-field-list {
+  margin: .25rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--text-strong);
+}
+
+.summary-field-list li {
+  margin-bottom: .35rem;
+  line-height: 1.45;
+}
+
 .summary-field-card [data-testid="stCheckbox"] {
   margin-bottom: .35rem;
 }
