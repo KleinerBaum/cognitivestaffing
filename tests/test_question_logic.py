@@ -25,17 +25,14 @@ def test_generate_followup_questions() -> None:
     assert q["priority"] in {"critical", "normal"}
 
 
-def test_role_specific_extra_question(monkeypatch) -> None:
-    """Role classification should add role-specific questions."""
-    monkeypatch.setattr(
-        "question_logic.search_occupation",
-        lambda jt, lang="en": {"group": "Software developers"},
-    )
+def test_role_specific_questions_disabled(monkeypatch) -> None:
+    """Role-specific prompts are disabled when ESCO is inactive."""
+
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"position.job_title"})
     out = generate_followup_questions(
         {"position.job_title": "Backend Developer"}, use_rag=False
     )
-    assert any(q["field"] == "programming_languages" for q in out)
+    assert all(q["field"] != "programming_languages" for q in out)
 
 
 def test_yes_no_default(monkeypatch) -> None:
@@ -195,19 +192,11 @@ def test_generate_followups_salary_implausible(monkeypatch) -> None:
     assert "unusual" in out[0]["question"].lower()
 
 
-def test_generate_followups_esco_suggestions(monkeypatch) -> None:
-    """Missing ESCO skills should surface as suggestions for hard skills."""
+def test_generate_followups_without_esco_suggestions(monkeypatch) -> None:
+    """ESCO suggestions are disabled, resulting in empty suggestion lists."""
 
     monkeypatch.setattr(
         "question_logic.CRITICAL_FIELDS", {"requirements.hard_skills_required"}
-    )
-    monkeypatch.setattr(
-        "question_logic.search_occupation",
-        lambda *_a, **_k: {"group": "Software developers", "uri": "uri123"},
-    )
-    monkeypatch.setattr(
-        "question_logic.enrich_skills",
-        lambda *_a, **_k: ["Kubernetes"],
     )
 
     data = {
@@ -218,7 +207,7 @@ def test_generate_followups_esco_suggestions(monkeypatch) -> None:
     out = generate_followup_questions(data, use_rag=False, lang="en")
 
     assert out[0]["field"] == "requirements.hard_skills_required"
-    assert "kubernetes" in {s.lower() for s in out[0]["suggestions"]}
+    assert out[0]["suggestions"] == []
 
 
 def test_generate_followups_benefit_defaults(monkeypatch) -> None:

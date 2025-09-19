@@ -369,7 +369,7 @@ def suggest_additional_skills(
                 tech_skills.append(skill)
             else:
                 soft_skills.append(skill)
-    # Normalize skill labels via ESCO and drop duplicates against existing skills
+    # Normalize skill labels locally and drop duplicates against existing skills
     try:
         from core.esco_utils import normalize_skills
 
@@ -484,7 +484,7 @@ def suggest_skills_for_role(
     hard = _clean(data.get("hard_skills"))
     soft = _clean(data.get("soft_skills"))
 
-    try:  # Normalize via ESCO
+    try:  # Normalize skill labels locally
         from core.esco_utils import normalize_skills
 
         tools = normalize_skills(tools, lang=lang)
