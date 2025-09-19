@@ -1,8 +1,8 @@
-import streamlit as st
-import pytest
+import json
 from typing import Any
 
-from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
+import pytest
+import streamlit as st
 
 from wizard import _skip_source, _extract_and_summarize, COMPANY_STEP_INDEX
 from constants.keys import StateKeys
@@ -51,16 +51,10 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
     st.session_state.auto_reask = True
     st.session_state.vector_store_id = ""
 
-    class _Result:
-        def __init__(self, data: dict) -> None:
-            self.data = data
-            self.field_contexts: dict[str, FieldExtractionContext] = {}
-            self.global_context: list[RetrievedChunk] = []
-
     def fake_extract(
-        text: str, schema: dict, model: str | None = None, **kwargs: Any
-    ) -> _Result:
-        return _Result({"meta": {"followups_answered": []}})
+        text: str, title: str | None = None, url: str | None = None, **_: Any
+    ) -> str:
+        return json.dumps({"meta": {"followups_answered": []}})
 
     def fake_coerce(data: dict) -> NeedAnalysisProfile:
         return NeedAnalysisProfile.model_validate(data)
@@ -81,10 +75,7 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
         def __exit__(self, exc_type, exc, tb) -> None:
             return None
 
-    monkeypatch.setattr("wizard.extract_with_function", fake_extract)
-    monkeypatch.setattr("wizard.build_field_queries", lambda _schema: [])
-    monkeypatch.setattr("wizard.collect_field_contexts", lambda *a, **k: {})
-    monkeypatch.setattr("wizard.build_global_context", lambda *_a, **_k: [])
+    monkeypatch.setattr("wizard.extract_json", fake_extract)
     monkeypatch.setattr("wizard.coerce_and_fill", fake_coerce)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, t: p)
     monkeypatch.setattr("wizard.search_occupation", lambda t, lang: None)
