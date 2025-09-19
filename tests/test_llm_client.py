@@ -2,27 +2,21 @@
 
 import pytest
 
+from openai_utils import ChatCallResult
+
 import llm.client as client
 
 
-class _FakeResponse:
-    """Minimal stand-in for an OpenAI Responses API result."""
+def fake_call_chat_api(*args, **kwargs):  # noqa: D401
+    """Return a fake OpenAI chat call result."""
 
-    def __init__(self, text: str = "{}") -> None:
-        self.output_text = text
-        self.usage: dict[str, int] = {}
-
-
-def fake_create(**kwargs):  # noqa: D401
-    """Return a fake OpenAI response object."""
-
-    return _FakeResponse(text="{}")
+    return ChatCallResult(content="{}", tool_calls=[], usage={})
 
 
 def test_extract_json_smoke(monkeypatch):
     """Smoke test for the extraction helper."""
 
-    monkeypatch.setattr(client.OPENAI_CLIENT.responses, "create", fake_create)
+    monkeypatch.setattr(client, "call_chat_api", fake_call_chat_api)
     out = client.extract_json("text")
     assert isinstance(out, str) and out != ""
 
