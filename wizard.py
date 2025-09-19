@@ -1752,12 +1752,12 @@ def _step_onboarding(schema: dict) -> None:
     st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
     welcome_headline = tr(
-        "Willkommen zum Onboarding",
-        "Welcome to onboarding",
+        "KI-gestützte Recruiting-Analyse mit Cognitive Needs",
+        "AI-powered recruiting analysis with Cognitive Needs",
     )
     welcome_text = tr(
-        "Wir freuen uns, dich zu begleiten.",
-        "We are excited to guide you through the process.",
+        "Sammle zu Beginn ALLE Recruiting-relevanten Daten und spare Nerven, Zeit und Kosten",
+        "Collect all recruiting-relevant data from the start and save nerves, time, and costs",
     )
     advantage_text = tr(
         (
@@ -1804,11 +1804,11 @@ def _step_onboarding(schema: dict) -> None:
         st.session_state[UIKeys.INPUT_METHOD] = "text"
 
     st.divider()
-    st.subheader(tr("Wie möchtest du starten?", "How would you like to begin?"))
+    st.subheader(tr("Anzeige parat?", "Job ad ready?"))
     st.caption(
         tr(
-            "Du kannst jederzeit zwischen den Eingabemethoden wechseln. Die Analyse startet automatisch, sobald Inhalte vorliegen.",
-            "Feel free to switch methods at any time. Analysis starts automatically as soon as content is available.",
+            "Gebe ein paar Informationen zu Deiner Vakanz und starte die dynamisch angepasste Analyse",
+            "Share a few details about your vacancy and start the dynamically tailored analysis",
         )
     )
 
