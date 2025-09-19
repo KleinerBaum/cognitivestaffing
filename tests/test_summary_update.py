@@ -31,7 +31,5 @@ def test_update_profile_ignores_semantic_empty() -> None:
 
     _update_profile("company.brand_keywords", "")
 
-    assert (
-        st.session_state[StateKeys.PROFILE]["company"]["brand_keywords"] is None
-    )
+    assert st.session_state[StateKeys.PROFILE]["company"]["brand_keywords"] is None
     assert st.session_state[StateKeys.JOB_AD_MD] == "cached"

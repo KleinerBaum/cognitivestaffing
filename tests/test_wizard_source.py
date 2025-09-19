@@ -188,10 +188,10 @@ def test_onboarding_triggers_extraction(monkeypatch: pytest.MonkeyPatch) -> None
     assert st.session_state[StateKeys.PROFILE]["position"]["job_title"] == "Test"
 
 
-def test_extract_and_summarize_merges_esco_skills(
+def test_extract_and_summarize_does_not_enrich_skills(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ESCO skill enrichment is merged without duplicating existing skills."""
+    """ESCO enrichment is disabled so extracted skills remain untouched."""
 
     st.session_state.clear()
     st.session_state.lang = "en"
@@ -208,26 +208,11 @@ def test_extract_and_summarize_merges_esco_skills(
     monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t: p)
-    monkeypatch.setattr(
-        "wizard.search_occupation",
-        lambda _t, _l: {
-            "preferredLabel": "software developer",
-            "uri": "http://example.com/occ",
-            "group": "Software developers",
-        },
-    )
-    monkeypatch.setattr(
-        "wizard.enrich_skills", lambda _u, _l: ["Python", "Project management"]
-    )
-
     _extract_and_summarize("Job text", {})
 
     data = st.session_state[StateKeys.PROFILE]
-    assert data["position"]["occupation_label"] == "software developer"
-    assert data["requirements"]["hard_skills_required"] == [
-        "Project management",
-        "Python",
-    ]
+    assert data["position"]["occupation_label"] == ""
+    assert data["requirements"]["hard_skills_required"] == ["Python"]
 
 
 def test_extract_and_summarize_records_rag_metadata(
@@ -246,9 +231,6 @@ def test_extract_and_summarize_records_rag_metadata(
     )
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t: p)
-    monkeypatch.setattr("wizard.search_occupation", lambda *_a, **_k: None)
-    monkeypatch.setattr("wizard.enrich_skills", lambda *_a, **_k: [])
-
     _extract_and_summarize("Job text", {})
 
     metadata = st.session_state[StateKeys.PROFILE_METADATA]

@@ -1,72 +1,28 @@
+"""Tests for the disabled ESCO utilities."""
+
 from core import esco_utils as esco
 
 
-def test_classify_occupation(monkeypatch) -> None:
-    calls = []
+def test_classify_occupation_returns_none() -> None:
+    """Occupation classification should be disabled."""
 
-    def fake_get(path, **params):
-        calls.append((path, params))
-        if path == "search":
-            return {
-                "_embedded": {
-                    "results": [
-                        {
-                            "preferredLabel": {"en": "software developer"},
-                            "broaderIscoGroup": ["http://example.com/group"],
-                            "uri": "http://example.com/occ",
-                        }
-                    ]
-                }
-            }
-        assert path == "resource"
-        assert params == {"uri": "http://example.com/group", "language": "en"}
-        return {"title": {"en": "Software developers"}}
-
-    monkeypatch.setattr(esco, "_get", fake_get)
-    res = esco.classify_occupation("Software engineer")
-    assert res == {
-        "preferredLabel": "software developer",
-        "group": "Software developers",
-        "uri": "http://example.com/occ",
-    }
-    assert calls[0][0] == "search"
-    assert calls[1][0] == "resource"
+    assert esco.classify_occupation("Software engineer") is None
 
 
-def test_get_essential_skills(monkeypatch) -> None:
-    def fake_get(path, **params):
-        return {
-            "_links": {
-                "hasEssentialSkill": [
-                    {"title": "Project management"},
-                    {"title": "Python"},
-                ]
-            }
-        }
+def test_get_essential_skills_returns_empty() -> None:
+    """Essential skill lookups should return an empty list."""
 
-    monkeypatch.setattr(esco, "_get", fake_get)
-    skills = esco.get_essential_skills("http://example.com/occ")
-    assert skills == ["Project management", "Python"]
+    assert esco.get_essential_skills("http://example.com/occ") == []
 
 
-def test_normalize_skills(monkeypatch) -> None:
-    def fake_lookup(skill, lang="en"):
-        return {"preferredLabel": skill.strip().title()}
+def test_lookup_esco_skill_returns_empty() -> None:
+    """Skill lookups should be disabled."""
 
-    monkeypatch.setattr(esco, "lookup_esco_skill", fake_lookup)
-    out = esco.normalize_skills(["python", "Python ", "docker", ""])
+    assert esco.lookup_esco_skill("Python") == {}
+
+
+def test_normalize_skills_dedupes_locally() -> None:
+    """Normalization should trim and deduplicate values locally."""
+
+    out = esco.normalize_skills(["Python", "python ", "", "Docker"])
     assert out == ["Python", "Docker"]
-
-
-def test_lookup_esco_skill_caches(monkeypatch) -> None:
-    calls = {"count": 0}
-
-    def fake_get(path, **params):
-        calls["count"] += 1
-        return {"_embedded": {"results": [{"preferredLabel": "Python"}]}}
-
-    esco._SKILL_CACHE.clear()
-    monkeypatch.setattr(esco, "_get", fake_get)
-    esco.lookup_esco_skill("python")
-    esco.lookup_esco_skill("python")
-    assert calls["count"] == 1

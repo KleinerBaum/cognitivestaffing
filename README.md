@@ -1,6 +1,6 @@
 # Cognitive Needs — AI Recruitment Need Analysis (Streamlit)
 
-**Cognitive Needs** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It enriches with **ESCO** (skills/occupations) and your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. Finally, it generates a polished **job ad**, **interview guide**, and **boolean search string**.
+**Cognitive Needs** turns messy job ads into a **complete, structured profile**, then asks only the *minimal* follow‑ups. It integrates with your **OpenAI Vector Store** to propose **missing skills, benefits, tools, and tasks**. ESCO-based occupation and skill enrichment is currently disabled and hidden in the wizard. Finally, the app generates a polished **job ad**, **interview guide**, and **boolean search string**.
 
 Cognitive Needs routes tasks across OpenAI’s GPT‑5 family to balance quality
 and cost. `gpt-5-mini` powers extraction, document generation and other
@@ -27,18 +27,14 @@ the base model if needed.
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
 - **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`
 - **Analysis tools**: built-in `get_salary_benchmark` and `get_skill_definition` functions can be invoked by the model for richer need analysis
-- **Smart follow‑ups**: priority-based questions enriched with ESCO & RAG that dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Required fields are consistently marked with a red asterisk.
+- **Smart follow‑ups**: priority-based questions that leverage RAG suggestions and dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Required fields are consistently marked with a red asterisk.
 - **Persistent follow-up tracking**: answered or skipped questions are remembered and won't reappear when navigating back through the wizard.
 - **Follow-up suggestion chips**: if the assistant proposes possible answers, they appear as one-click chips above the input field.
 - **AI-powered benefit suggestions**: fetch common perks for the role/industry and add them to the profile with a single click.
 - **Auto re‑ask loop**: optional toggle that keeps asking follow-up questions automatically until all critical fields are filled, with clear progress messages and a stop button for user control.
 - **Token usage tracker**: displays input/output token counts in the summary step.
 - **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.
-- **Role-aware extras**: automatically adds occupation-specific questions (e.g., programming languages for developers, campaign types for marketers, board certification for doctors, grade levels for teachers, design tools for designers, shift schedules for nurses, project management methodologies for project managers, machine learning frameworks for data scientists, accounting software for financial analysts, HR software for human resource professionals, engineering tools for civil engineers, cuisine specialties for chefs).
-- **ESCO‑Power**: occupation classification + essential skill gaps
-- **Offline-ready ESCO**: set `VACAYSER_OFFLINE=1` to use cached occupations and skills without API calls; data comes from `integrations/esco_offline.json` and covers common roles. Unknown titles log a warning and skip enrichment—update the JSON or unset the env var to fall back to the live ESCO API
-- **Cached ESCO calls**: Streamlit caching avoids repeated API requests
-- **Auto-filled skills**: essential ESCO skills merge into required skills; generic entries like "Communication" are ignored so follow-ups stay relevant
+- **ESCO features disabled**: occupation classification, essential skill enrichment, and role-specific prompts are currently turned off and hidden in the wizard.
 - **RAG‑Assist**: use your vector store to fill/contextualize *(requires setting `VECTOR_STORE_ID` and a populated vector store)*
 - **Model routing**: automatically dispatches calls to `gpt-5-mini` for
   extraction, job ads, interview guides and refinements, and to `gpt-5-nano`
@@ -173,8 +169,8 @@ OPENAI_MODEL = "gpt-5-mini"
 
 Other environment flags:
 
-- `VACAYSER_OFFLINE=1` – use cached ESCO data from `integrations/esco_offline.json`
-  to run without internet access to the ESCO API.
+- `VACAYSER_OFFLINE` – legacy flag with no effect because ESCO integration is
+  currently disabled.
 - `VECTOR_STORE_ID=vs_…` – enable OpenAI File Search for RAG (leave unset to
   disable).
 

@@ -1,9 +1,7 @@
-"""Adaptive follow-up question logic with embedded ESCO + RAG.
+"""Adaptive follow-up question logic with optional RAG enrichment.
 
-- Classifies ``job_title`` via ESCO, fetches essential skills, and flags missing
-  ones.
-- Optionally queries your OpenAI Vector Store (File Search) for field-specific
-  suggestions (set ``VECTOR_STORE_ID``).
+- ESCO-based occupation and skill lookups are disabled; only RAG suggestions
+  contribute additional context.
 - Asks the LLM to produce compact, localized questions with priority flags and
   options.
 
@@ -31,7 +29,6 @@ from utils.i18n import tr
 # ESCO helpers (core utils + offline-aware wrapper)
 from core.esco_utils import normalize_skills
 from core.suggestions import get_benefit_suggestions
-from integrations.esco import enrich_skills, search_occupation
 from config import OPENAI_API_KEY, VECTOR_STORE_ID, ModelTask, get_model_for
 
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
@@ -710,38 +707,8 @@ def generate_followup_questions(
     """Build a set of high-impact follow-up questions for missing fields."""
     job_title = str(_get_field_value(extracted, "position.job_title", "") or "").strip()
     industry = str(_get_field_value(extracted, "company.industry", "") or "").strip()
-    occupation: Dict[str, Any] = {}
-    essential_skills: List[str] = []
-    missing_esco_skills: List[str] = []
     role_fields: List[str] = []
     role_questions_cfg: List[Dict[str, str]] = []
-    if job_title:
-        occupation = search_occupation(job_title, lang=lang) or {}
-        occ_group = (occupation.get("group") or "").lower()
-        role_fields = ROLE_FIELD_MAP.get(occ_group, []) or []
-        role_questions_cfg = ROLE_QUESTION_MAP.get(occ_group, []) or []
-    occ_uri = occupation.get("uri", "")
-    if occ_uri:
-        essential_skills = enrich_skills(occ_uri, lang=lang) or []
-        haystack_paths = [
-            "responsibilities.items",
-            "position.role_summary",
-            "requirements.hard_skills_required",
-            "requirements.hard_skills_optional",
-            "requirements.soft_skills_required",
-            "requirements.soft_skills_optional",
-            "requirements.tools_and_technologies",
-        ]
-        haystack_text = " ".join(
-            _value_to_text(_get_field_value(extracted, path, ""))
-            for path in haystack_paths
-        ).lower()
-        missing_esco_skills = [
-            s
-            for s in essential_skills
-            if isinstance(s, str) and s.lower() not in haystack_text
-        ]
-
     answered_fields = set(_get_followups_answered(extracted))
     fields_to_check = list(CRITICAL_FIELDS)
     for extra in role_fields:
@@ -779,17 +746,6 @@ def generate_followup_questions(
             suggestions_map[key] = _merge_suggestions(
                 values, existing=_existing_value_keys(extracted, key)
             )
-
-    if missing_esco_skills and "requirements.hard_skills_required" in missing_fields:
-        existing_keys = _existing_value_keys(
-            extracted, "requirements.hard_skills_required"
-        )
-        normalized_esco = normalize_skills(missing_esco_skills, lang=lang)
-        suggestions_map["requirements.hard_skills_required"] = _merge_suggestions(
-            suggestions_map.get("requirements.hard_skills_required", []),
-            normalized_esco,
-            existing=existing_keys,
-        )
 
     if "compensation.benefits" in missing_fields:
         existing_keys = _existing_value_keys(extracted, "compensation.benefits")
@@ -835,7 +791,6 @@ def generate_followup_questions(
             }
         )
 
-    has_esco_gap = bool(missing_esco_skills)
     for field in missing_fields:
         if any(q.get("field") == field for q in questions):
             continue
@@ -843,11 +798,7 @@ def generate_followup_questions(
         q_text = _question_text_for_field(field, lang, reason)
         priority = _priority_for(
             field,
-            has_esco_gap
-            and (
-                field.startswith("requirements.hard_skills")
-                or field.startswith("requirements.tools_and_technologies")
-            ),
+            False,
             reason,
         )
         suggestions = suggestions_map.get(field, [])

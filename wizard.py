@@ -41,7 +41,7 @@ from core.schema import coerce_and_fill
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from llm.client import extract_json
 
-# LLM/ESCO und Follow-ups
+# LLM and Follow-ups
 from openai_utils import (
     extract_company_info,
     generate_interview_guide,
@@ -55,10 +55,6 @@ from core.suggestions import (
     get_skill_suggestions,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
-from integrations.esco import (
-    search_occupation,
-    enrich_skills,
-)
 from components.stepper import render_stepper
 from utils import seo_optimize
 from utils.export import prepare_download_data
@@ -847,25 +843,10 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             raw_profile.get("requirements", {}).get("hard_skills_optional", [])
         ),
     }
-    title = profile.position.job_title or ""
-    occ = search_occupation(title, st.session_state.lang or "en") if title else None
     st.session_state[StateKeys.ESCO_SKILLS] = []
-    if occ:
-        profile.position.occupation_label = occ.get("preferredLabel") or ""
-        profile.position.occupation_uri = occ.get("uri") or ""
-        profile.position.occupation_group = occ.get("group") or ""
-        skills = enrich_skills(occ.get("uri") or "", st.session_state.lang or "en")
-        current_list = profile.requirements.hard_skills_required or []
-        skills_clean = _unique_normalized(skills or [])
-        original_markers = {item.casefold() for item in current_list}
-        esco_only = [
-            item for item in skills_clean if item.casefold() not in original_markers
-        ]
-        st.session_state[StateKeys.ESCO_SKILLS] = esco_only
-        merged = _unique_normalized(current_list + skills_clean)
-        profile.requirements.hard_skills_required = sorted(
-            merged, key=lambda item: item.casefold()
-        )
+    profile.position.occupation_label = ""
+    profile.position.occupation_uri = ""
+    profile.position.occupation_group = ""
     data = profile.model_dump()
     st.session_state[StateKeys.PROFILE] = data
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
