@@ -168,7 +168,8 @@ def _paragraph_is_list(paragraph: Paragraph) -> bool:
     props = getattr(paragraph._p, "pPr", None)
     if props is None:
         return False
-    return bool(getattr(props, "numPr", None))
+    num_pr = getattr(props, "numPr", None)
+    return num_pr is not None
 
 
 def _paragraph_list_level(paragraph: Paragraph) -> int:
