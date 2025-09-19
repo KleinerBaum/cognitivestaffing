@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
 from openai import OpenAIError
 
-from openai_utils import get_client
+from openai_utils.api import get_client
 
 
 logger = logging.getLogger("cognitive_needs.rag")
