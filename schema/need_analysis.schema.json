@@ -585,7 +585,8 @@
                             "name",
                             "role",
                             "email",
-                            "primary"
+                            "primary",
+                            "information_loop_phases"
                         ]
                     }
                 },
