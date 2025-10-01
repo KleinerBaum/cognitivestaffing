@@ -1,6 +1,7 @@
 # app.py — Cognitive Needs (clean entrypoint, single source of truth)
 from __future__ import annotations
 
+import html
 from base64 import b64encode
 from pathlib import Path
 import sys
@@ -17,6 +18,7 @@ from constants.keys import UIKeys  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
+from core.preview import build_prefilled_sections, preview_value_to_text  # noqa: E402
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -144,10 +146,43 @@ def render_primary_sidebar() -> None:
     lang_options = {"de": "DE", "en": "EN"}
 
     hero_title = tr("Dein Recruiting-Co-Pilot", "Your recruiting co-pilot")
-    hero_subtitle = tr(
+    hero_fallback_subtitle = tr(
         "Verwalte Einstellungen wie im vertrauten ATS – klar, fokussiert, jederzeit erreichbar.",
         "Manage your essentials like in your familiar ATS – clear, focused and always within reach.",
     )
+    highlighted_paths = (
+        "company.name",
+        "position.job_title",
+        "location.primary_city",
+        "location.country",
+    )
+    prefilled_sections = build_prefilled_sections(
+        include_prefixes=("company.", "position.", "location."),
+    )
+    preview_values: dict[str, str] = {}
+    for _, entries in prefilled_sections:
+        for path, value in entries:
+            if path not in highlighted_paths:
+                continue
+            text_value = preview_value_to_text(value)
+            if text_value and path not in preview_values:
+                preview_values[path] = text_value
+
+    hero_lines: list[str] = []
+    for path in ("company.name", "position.job_title"):
+        text_value = preview_values.get(path)
+        if text_value:
+            hero_lines.append(html.escape(text_value))
+
+    location_parts = [
+        preview_values.get("location.primary_city"),
+        preview_values.get("location.country"),
+    ]
+    location_text = ", ".join(part for part in location_parts if part)
+    if location_text:
+        hero_lines.append(html.escape(location_text))
+
+    hero_subtitle_html = "<br/>".join(hero_lines) if hero_lines else html.escape(hero_fallback_subtitle)
     status_label = tr("Wizard-Status", "Wizard status")
 
     with st.sidebar:
@@ -169,7 +204,7 @@ def render_primary_sidebar() -> None:
               <div>
                 <p class="sidebar-hero__eyebrow">{status_label}</p>
                 <h2 class="sidebar-hero__title">{hero_title}</h2>
-                <p class="sidebar-hero__subtitle">{hero_subtitle}</p>
+                <p class="sidebar-hero__subtitle">{hero_subtitle_html}</p>
               </div>
             </div>
             """,

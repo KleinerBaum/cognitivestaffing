@@ -39,6 +39,7 @@ from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
+from core.preview import build_prefilled_sections
 from llm.client import extract_json
 
 # LLM and Follow-ups
@@ -1080,58 +1081,10 @@ def _render_prefilled_preview(
     """Render tabs with all fields that already contain values."""
 
     _merge_requirement_aliases()
-    raw_profile = (
-        st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
-        or st.session_state.get(StateKeys.PROFILE)
-        or {}
+    section_entries = build_prefilled_sections(
+        include_prefixes=include_prefixes,
+        exclude_prefixes=exclude_prefixes,
     )
-    flat = flatten(raw_profile)
-
-    def _allowed(path: str) -> bool:
-        if path.startswith("meta."):
-            return False
-        if include_prefixes and not any(
-            path.startswith(pref) for pref in include_prefixes
-        ):
-            return False
-        if any(path.startswith(pref) for pref in exclude_prefixes):
-            return False
-        return _has_value(flat[path])
-
-    filled = {path: value for path, value in flat.items() if _allowed(path)}
-    if not filled:
-        return
-
-    sections: list[tuple[str, tuple[str, ...]]] = [
-        (tr("Unternehmen", "Company"), ("company.",)),
-        (
-            tr("Basisdaten", "Basic info"),
-            ("position.", "location.", "responsibilities."),
-        ),
-        (tr("Anforderungen", "Requirements"), ("requirements.",)),
-        (tr("Beschäftigung", "Employment"), ("employment.",)),
-        (
-            tr("Leistungen & Benefits", "Rewards & Benefits"),
-            ("compensation.",),
-        ),
-        (tr("Prozess", "Process"), ("process.",)),
-    ]
-
-    section_entries: list[tuple[str, list[tuple[str, Any]]]] = []
-    for label, prefixes in sections:
-        if include_prefixes and not any(
-            any(pref.startswith(prefix) for prefix in prefixes)
-            for pref in include_prefixes
-        ):
-            continue
-        entries = [
-            (path, filled[path])
-            for path in sorted(filled)
-            if any(path.startswith(prefix) for prefix in prefixes)
-        ]
-        if entries:
-            section_entries.append((label, entries))
-
     if not section_entries:
         return
 
