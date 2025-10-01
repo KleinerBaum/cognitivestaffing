@@ -1559,6 +1559,11 @@ def _clear_generated() -> None:
         StateKeys.INTERVIEW_GUIDE_MD,
     ):
         st.session_state.pop(key, None)
+    for key in (
+        UIKeys.JOB_AD_OUTPUT,
+        UIKeys.INTERVIEW_OUTPUT,
+    ):
+        st.session_state.pop(key, None)
 
 
 def _normalize_semantic_empty(value: Any) -> Any:
