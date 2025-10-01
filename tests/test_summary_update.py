@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import StateKeys, UIKeys
 from wizard import _update_profile
 
 
@@ -13,6 +13,8 @@ def test_update_profile_clears_generated() -> None:
     st.session_state[StateKeys.JOB_AD_MD] = "old"
     st.session_state[StateKeys.BOOLEAN_STR] = "old"
     st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = "old"
+    st.session_state[UIKeys.JOB_AD_OUTPUT] = "ui-old"
+    st.session_state[UIKeys.INTERVIEW_OUTPUT] = "ui-old"
 
     _update_profile("company.name", "New")
 
@@ -20,6 +22,8 @@ def test_update_profile_clears_generated() -> None:
     assert StateKeys.JOB_AD_MD not in st.session_state
     assert StateKeys.BOOLEAN_STR not in st.session_state
     assert StateKeys.INTERVIEW_GUIDE_MD not in st.session_state
+    assert UIKeys.JOB_AD_OUTPUT not in st.session_state
+    assert UIKeys.INTERVIEW_OUTPUT not in st.session_state
 
 
 def test_update_profile_ignores_semantic_empty() -> None:
