@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from constants.keys import StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark
 from utils.i18n import tr
+from utils.normalization import country_to_iso2, normalize_country
 
 try:
     from openai_utils import call_chat_api, build_extraction_tool
@@ -194,10 +195,16 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
 
 
 def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str | None]:
-    bench = get_salary_benchmark(inputs.job_title, inputs.country or "US")
+    iso_country = country_to_iso2(inputs.country)
+    bench_country = iso_country or (
+        inputs.country.strip().upper() if inputs.country else None
+    )
+    bench = get_salary_benchmark(inputs.job_title, bench_country or "US")
     raw_range = bench.get("salary_range", "")
     salary_min, salary_max = _parse_benchmark_range(raw_range)
-    currency = _infer_currency_from_text(raw_range) or _guess_currency(inputs.country)
+    currency = _infer_currency_from_text(raw_range) or _guess_currency(
+        iso_country or inputs.country
+    )
 
     if salary_min is None and salary_max is None:
         message = tr(
@@ -253,18 +260,51 @@ def _infer_currency_from_text(text: str) -> str | None:
     return None
 
 
+_CURRENCY_BY_ISO: dict[str, str] = {
+    "DE": "EUR",
+    "AT": "EUR",
+    "CH": "CHF",
+    "US": "USD",
+    "GB": "GBP",
+    "BE": "EUR",
+    "FR": "EUR",
+    "ES": "EUR",
+    "IT": "EUR",
+}
+
+_CURRENCY_BY_NAME: dict[str, str] = {
+    "GERMANY": "EUR",
+    "AUSTRIA": "EUR",
+    "SWITZERLAND": "CHF",
+    "UNITED STATES": "USD",
+    "UNITED KINGDOM": "GBP",
+}
+
+
 def _guess_currency(country: str | None) -> str | None:
     if not country:
         return None
-    country = country.upper()
-    mapping = {
-        "DE": "EUR",
-        "AT": "EUR",
-        "CH": "CHF",
-        "US": "USD",
-        "GB": "GBP",
-    }
-    return mapping.get(country) or ("EUR" if country in {"BE", "FR", "ES", "IT"} else None)
+
+    iso_code = country_to_iso2(country)
+    if iso_code:
+        currency = _CURRENCY_BY_ISO.get(iso_code)
+        if currency:
+            return currency
+
+    normalized = normalize_country(country)
+    if normalized:
+        normalized_upper = normalized.upper()
+        currency = _CURRENCY_BY_NAME.get(normalized_upper)
+        if currency:
+            return currency
+        iso_from_name = country_to_iso2(normalized)
+        if iso_from_name:
+            currency = _CURRENCY_BY_ISO.get(iso_from_name)
+            if currency:
+                return currency
+
+    upper_country = country.strip().upper()
+    return _CURRENCY_BY_ISO.get(upper_country) or _CURRENCY_BY_NAME.get(upper_country)
 
 
 def _now_iso() -> str:
