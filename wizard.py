@@ -62,7 +62,7 @@ from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue De
 from components.stepper import render_stepper
 from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.normalization import normalize_country, normalize_language_list
-from utils.export import prepare_download_data
+from utils.export import prepare_clean_json, prepare_download_data
 from nlp.bias import scan_bias_language
 from core.esco_utils import normalize_skills
 from core.job_ad import (
@@ -4342,15 +4342,43 @@ def _step_summary(schema: dict, _critical: list[str]):
         None
     """
 
-    st.subheader(tr("Zusammenfassung", "Summary"))
-    st.caption(
-        tr(
-            "Überprüfen Sie Ihre Angaben und laden Sie das Profil herunter.",
-            "Review your entries and download the profile.",
-        )
-    )
     data = st.session_state[StateKeys.PROFILE]
     lang = st.session_state.get("lang", "de")
+
+    try:
+        profile = NeedAnalysisProfile.model_validate(data)
+    except Exception:
+        profile = NeedAnalysisProfile()
+
+    profile_payload = profile.model_dump(mode="json")
+    profile_payload["lang"] = lang
+
+    profile_bytes, profile_mime, profile_ext = prepare_clean_json(profile_payload)
+    job_title_value = (profile.position.job_title or "").strip()
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", job_title_value).strip("-")
+    if not safe_stem:
+        safe_stem = "need-analysis-profile"
+    profile_filename = f"{safe_stem}.{profile_ext}"
+
+    header_cols = st.columns((1, 0.45), gap="small")
+    with header_cols[0]:
+        st.subheader(tr("Zusammenfassung", "Summary"))
+    with header_cols[1]:
+        st.download_button(
+            tr("⬇️ JSON-Profil exportieren", "⬇️ Export JSON profile"),
+            profile_bytes,
+            file_name=profile_filename,
+            mime=profile_mime,
+            use_container_width=True,
+            key="download_profile_json",
+        )
+
+    st.caption(
+        tr(
+            "Überprüfen Sie Ihre Angaben und laden Sie das saubere JSON-Profil über den Button herunter.",
+            "Review your entries and use the button to download the clean JSON profile.",
+        )
+    )
 
     tab_labels = [
         tr("Unternehmen", "Company"),
@@ -4394,14 +4422,6 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
     st.divider()
-
-    try:
-        profile = NeedAnalysisProfile.model_validate(data)
-    except Exception:
-        profile = NeedAnalysisProfile()
-
-    profile_payload = profile.model_dump(mode="json")
-    profile_payload["lang"] = lang
 
     default_boolean_query = build_boolean_search(profile)
     profile_signature = _boolean_profile_signature(profile)
