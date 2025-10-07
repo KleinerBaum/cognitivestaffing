@@ -79,7 +79,7 @@ def text_to_pdf(
         try:
             image_rect = fitz.Rect(left_margin, 36, page.rect.width - left_margin, 140)
             page.insert_image(image_rect, stream=logo, keep_proportion=True)
-            top_margin = image_rect.bottom + 16
+            top_margin = image_rect.y1 + 16
         except Exception:
             top_margin = 72
 
@@ -94,7 +94,7 @@ def text_to_pdf(
             fontname=PDF_FONT_MAP.get(font or "Helvetica", "helv"),
             align=fitz.TEXT_ALIGN_CENTER,
         )
-        top_margin = title_rect.bottom + 16
+        top_margin = title_rect.y1 + 16
 
     rect = fitz.Rect(
         left_margin,
