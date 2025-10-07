@@ -51,9 +51,9 @@ the base model if needed.
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Tabbed summary**: finalize all sections in inline-editable tabs and regenerate outputs instantly
-- **Output tabs**: generated Job Ad, Boolean String and Interview Guide are organized in dedicated tabs
+- **Output workspace**: generated job ad, Boolean builder, and interview guide live in dedicated summary panels for quick iteration
 - **Missing info alerts**: highlights empty critical fields while allowing navigation so you can fix them later
-- **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
+- **Boolean Builder 2.0**: dedicated panel with toggles for skills/title synonyms, instant query preview, and one-click download
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions, automatically covering responsibilities, culture, and specified hard and soft skills
 - **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
@@ -182,6 +182,29 @@ Other environment flags:
   outbound API calls.
 - `VECTOR_STORE_ID=vs_…` – enable OpenAI File Search for RAG (leave unset to
   disable).
+
+
+### Telemetry & tracing (optional)
+
+Set the following environment variables to enable OpenTelemetry tracing. The app
+configures an OTLP exporter on startup when an endpoint is provided and emits
+spans for key LLM flows.
+
+| Variable | Purpose |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (e.g. `https://otel.example.com/v1/traces`). |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | Protocol to use (`http/protobuf` or `grpc`). Defaults to HTTP. |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Comma-separated `key=value` headers to include with each export. |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout in seconds. |
+| `OTEL_EXPORTER_OTLP_CERTIFICATE` | Path to a CA bundle for custom TLS trust. |
+| `OTEL_EXPORTER_OTLP_INSECURE` | Set to `1` to allow insecure gRPC connections. |
+| `OTEL_SERVICE_NAME` | Logical service name reported with spans. Defaults to `cognitive-needs`. |
+| `OTEL_TRACES_ENABLED` | Set to `0`/`false` to disable tracing without removing other settings. |
+| `OTEL_TRACES_SAMPLER` | Sampler name (`parentbased_traceidratio`, `traceidratio`, `always_on`, `always_off`). |
+| `OTEL_TRACES_SAMPLER_ARG` | Sampler argument (e.g. `0.25` for a 25% sampling ratio). |
+
+Tracing is off by default; configure at least `OTEL_EXPORTER_OTLP_ENDPOINT` to
+start emitting spans. Both OTLP/HTTP and OTLP/gRPC exporters are supported.
 
 
 ### Optional: OCR for scanned PDFs

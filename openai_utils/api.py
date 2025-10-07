@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence
 
 import backoff
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from openai import (
     APIConnectionError,
     APIError,
@@ -37,6 +39,7 @@ from config import (
 from constants.keys import StateKeys
 
 logger = logging.getLogger("cognitive_needs.openai")
+tracer = trace.get_tracer(__name__)
 
 # Global client instance (monkeypatchable in tests)
 client: OpenAI | None = None
@@ -109,15 +112,24 @@ def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
 def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
     """Send ``payload`` to the Responses API and retry without temperature if needed."""
 
-    try:
-        return get_client().responses.create(**payload)
-    except BadRequestError as err:
-        if "temperature" in payload and _is_temperature_unsupported_error(err):
-            _mark_model_without_temperature(model)
-            payload.pop("temperature", None)
-            cleaned_payload = dict(payload)
-            return get_client().responses.create(**cleaned_payload)
-        raise
+    with tracer.start_as_current_span("openai.execute_response") as span:
+        if model:
+            span.set_attribute("llm.model", model)
+        span.set_attribute("llm.has_tools", "tools" in payload)
+        if "temperature" in payload:
+            span.set_attribute("llm.temperature", payload.get("temperature"))
+        try:
+            return get_client().responses.create(**payload)
+        except BadRequestError as err:
+            span.record_exception(err)
+            if "temperature" in payload and _is_temperature_unsupported_error(err):
+                span.add_event("retry_without_temperature")
+                _mark_model_without_temperature(model)
+                payload.pop("temperature", None)
+                cleaned_payload = dict(payload)
+                return get_client().responses.create(**cleaned_payload)
+            span.set_status(Status(StatusCode.ERROR, str(err)))
+            raise
 
 
 def _to_mapping(item: Any) -> dict[str, Any] | None:
@@ -547,15 +559,49 @@ def call_chat_api(
             )
             executed = True
 
-        if executed:
-            payload["input"] = messages_list
-            payload.pop("tool_choice", None)
+
+        try:
             response = _execute_response(payload, model)
-            content = _extract_output_text(response)
-            extra_calls: list[dict] = []
-            for item in getattr(response, "output", []) or []:
-                data = _to_mapping(item)
-                if not data:
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+
+        content = _extract_output_text(response)
+
+        tool_calls: list[dict] = []
+        for item in getattr(response, "output", []) or []:
+            data = _to_mapping(item)
+            if not data:
+                continue
+            typ = data.get("type")
+            if typ and "call" in str(typ):
+                call_data = dict(data)
+                fn = call_data.get("function")
+                if fn is None:
+                    name = call_data.get("name")
+                    arg_str = call_data.get("arguments")
+                    call_data = {
+                        **call_data,
+                        "function": {"name": name, "arguments": arg_str},
+                    }
+                tool_calls.append(call_data)
+
+        usage_obj = getattr(response, "usage", {}) or {}
+        if usage_obj and not isinstance(usage_obj, dict):
+            usage: dict = getattr(
+                usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
+            )()
+        else:
+            usage = usage_obj if isinstance(usage_obj, dict) else {}
+
+        executed = False
+        if tool_calls and tool_functions:
+            messages_list = list(messages)
+            for call in tool_calls:
+                func_info = call.get("function", {})
+                name = func_info.get("name")
+                if not name or name not in tool_functions:
                     continue
                 typ = data.get("type")
                 if typ and "call" in str(typ):
@@ -577,6 +623,7 @@ def call_chat_api(
     _update_usage_counters(usage)
 
     return ChatCallResult(content, tool_calls, usage)
+
 
 
 def stream_chat_api(

@@ -10,6 +10,8 @@ from typing import Any, Optional
 
 from jsonschema import Draft7Validator
 from langchain_core.runnables import RunnableLambda, RunnableSerializable
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 import streamlit as st
 
@@ -21,6 +23,7 @@ from config import REASONING_EFFORT, ModelTask, get_model_for
 from models.need_analysis import NeedAnalysisProfile
 
 logger = logging.getLogger("cognitive_needs.llm")
+tracer = trace.get_tracer(__name__)
 
 
 def _assert_closed_schema(schema: dict[str, Any]) -> None:
@@ -167,41 +170,57 @@ def extract_json(
         Raw JSON string as returned by the model.
     """
 
-    messages = (
-        _minimal_messages(text) if minimal else build_extract_messages(text, title, url)
-    )
-    effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
-    model = get_model_for(ModelTask.EXTRACTION)
-    try:
-        return _STRUCTURED_EXTRACTION_CHAIN.invoke(
-            {
-                "messages": messages,
-                "model": model,
-                "reasoning_effort": effort,
-            }
+    with tracer.start_as_current_span("llm.extract_json") as span:
+        messages = (
+            _minimal_messages(text)
+            if minimal
+            else build_extract_messages(text, title, url)
         )
-    except ValidationError as err:
-        notes = "\n".join(getattr(err, "__notes__", ()))
-        detail = notes or str(err)
-        logger.warning(
-            "Structured extraction output failed validation; falling back to plain text.\n%s",
-            detail,
-        )
-    except Exception as exc:  # pragma: no cover - network/SDK issues
-        logger.warning(
-            "Structured extraction failed, falling back to plain text: %s", exc
-        )
+        effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+        model = get_model_for(ModelTask.EXTRACTION)
+        span.set_attribute("llm.model", model)
+        span.set_attribute("llm.extract.minimal", minimal)
+        try:
+            output = _STRUCTURED_EXTRACTION_CHAIN.invoke(
+                {
+                    "messages": messages,
+                    "model": model,
+                    "reasoning_effort": effort,
+                }
+            )
+        except ValidationError as err:
+            notes = "\n".join(getattr(err, "__notes__", ()))
+            detail = notes or str(err)
+            logger.warning(
+                "Structured extraction output failed validation; falling back to plain text.\n%s",
+                detail,
+            )
+            span.record_exception(err)
+            span.add_event("structured_validation_failed")
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            logger.warning(
+                "Structured extraction failed, falling back to plain text: %s", exc
+            )
+            span.record_exception(exc)
+            span.add_event("structured_call_failed")
+        else:
+            span.set_attribute("llm.extract.fallback", False)
+            return output
 
-    try:
-        result = call_chat_api(
-            messages,
-            model=model,
-            temperature=0,
-            reasoning_effort=effort,
-        )
-    except Exception as exc2:  # pragma: no cover - network/SDK issues
-        raise ExtractionError("LLM call failed") from exc2
-    content = (result.content or "").strip()
-    if content:
-        return content
-    raise ExtractionError("LLM returned empty response")
+        span.set_attribute("llm.extract.fallback", True)
+        try:
+            result = call_chat_api(
+                messages,
+                model=model,
+                temperature=0,
+                reasoning_effort=effort,
+            )
+        except Exception as exc2:  # pragma: no cover - network/SDK issues
+            span.record_exception(exc2)
+            span.set_status(Status(StatusCode.ERROR, "fallback_call_failed"))
+            raise ExtractionError("LLM call failed") from exc2
+        content = (result.content or "").strip()
+        if content:
+            return content
+        span.set_status(Status(StatusCode.ERROR, "empty_response"))
+        raise ExtractionError("LLM returned empty response")

@@ -13,10 +13,13 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
     if candidate_str not in sys.path:
         sys.path.insert(0, candidate_str)
 
+from utils.telemetry import setup_tracing  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
+
+setup_tracing()
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
