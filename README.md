@@ -51,9 +51,9 @@ the base model if needed.
 - **Robust error handling**: user-facing alerts for API or network issues
 - **Cross-field deduplication**: avoids repeating the same information across multiple fields
 - **Tabbed summary**: finalize all sections in inline-editable tabs and regenerate outputs instantly
-- **Output tabs**: generated Job Ad, Boolean String and Interview Guide are organized in dedicated tabs
+- **Output workspace**: generated job ad, Boolean builder, and interview guide live in dedicated summary panels for quick iteration
 - **Missing info alerts**: highlights empty critical fields while allowing navigation so you can fix them later
-- **Boolean Builder 2.0**: interactive search string with selectable skills and title synonyms
+- **Boolean Builder 2.0**: dedicated panel with toggles for skills/title synonyms, instant query preview, and one-click download
 - **Export**: clean JSON profile, job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions, automatically covering responsibilities, culture, and specified hard and soft skills
 - **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
