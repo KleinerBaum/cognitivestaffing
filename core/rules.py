@@ -377,21 +377,45 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
     line_match = _LOCATION_LINE_RE.search(text)
     if line_match:
         raw = line_match.group("value").strip()
+        start, end = line_match.span("value")
+        trailing = text[end:]
+        trailing_stripped = trailing.lstrip()
+        if trailing_stripped and (
+            trailing_stripped[0].isdigit()
+            or trailing_stripped.startswith("@")
+            or trailing_stripped.lower().startswith("http")
+        ):
+            return None, None
     else:
         pair_match = _CITY_COUNTRY_RE.search(text)
         raw = pair_match.group(0).strip() if pair_match else text
     if not raw:
         return None, None
+    lowered = raw.lower()
+    if any(char.isdigit() for char in raw) or "http" in lowered or "@" in raw:
+        return None, None
+    city: str | None = None
+    country: str | None = None
     # Prefer comma separated "City, Country" structures.
     if "," in raw:
         city_part, _, country_part = raw.partition(",")
-        city = city_part.strip()
+        city = city_part.strip() or None
         country = country_part.strip() or None
-        return (city or None, country or None)
-    tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
-    if len(tokens) >= 2:
-        return tokens[0], tokens[1]
-    return raw.strip(), None
+    else:
+        tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
+        if len(tokens) >= 2:
+            city, country = tokens[0], tokens[1]
+        else:
+            city = raw.strip() or None
+    if city and (any(char.isdigit() for char in city) or "http" in city.lower() or "@" in city):
+        city = None
+    if country and (
+        any(char.isdigit() for char in country) or "http" in country.lower() or "@" in country
+    ):
+        country = None
+    if city is None and country is None:
+        return None, None
+    return city, country
 
 
 def _normalize_salary_value(value: str | None) -> float | None:
