@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence, cast
 
+from nlp.entities import LocationEntities, extract_location_entities
+
 from ingest.types import ContentBlock
 
 EMAIL_FIELD = "company.contact_email"
@@ -67,6 +69,80 @@ _INDUSTRY_LINE_RE = re.compile(
 _CITY_COUNTRY_RE = re.compile(
     r"\b([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)*)\s*,\s*([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)\b"
 )
+
+_KNOWN_CITY_NAMES = {
+    "berlin",
+    "düsseldorf",
+    "duesseldorf",
+    "munich",
+    "münchen",
+    "muenchen",
+    "hamburg",
+    "stuttgart",
+    "frankfurt",
+    "cologne",
+    "köln",
+    "koeln",
+    "leipzig",
+    "bonn",
+    "essen",
+    "dortmund",
+    "dresden",
+    "nuremberg",
+    "nürnberg",
+    "nuernberg",
+    "hannover",
+    "bremen",
+    "mannheim",
+    "karlsruhe",
+    "münster",
+    "muenster",
+    "aachen",
+    "augsburg",
+    "braunschweig",
+    "chemnitz",
+    "erfurt",
+    "freiburg",
+    "heilbronn",
+    "kassel",
+    "kiel",
+    "ludwigshafen",
+    "magdeburg",
+    "potsdam",
+    "rostock",
+    "saarbrücken",
+    "saarbruecken",
+    "ulm",
+    "wiesbaden",
+    "würzburg",
+    "wuerzburg",
+    "zurich",
+    "zürich",
+    "zuerich",
+    "vienna",
+    "wien",
+    "basel",
+    "bern",
+    "geneva",
+    "genf",
+}
+
+_DISQUALIFIED_CITY_TOKENS = {
+    "remote",
+    "hybrid",
+    "onsite",
+    "on-site",
+    "office",
+    "home office",
+    "home-office",
+    "weltweit",
+    "worldwide",
+    "flexibel",
+    "flexible",
+    "n/a",
+    "keine",
+    "k.a.",
+}
 
 _TABLE_KEYWORDS = {
     "email": EMAIL_FIELD,
@@ -352,7 +428,10 @@ def _table_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
         if field == CITY_FIELD:
             city, country = _extract_location(value)
             if not city:
-                city = value.split(",")[0].strip()
+                candidate = value.split(",")[0].strip()
+                entities = _safe_location_entities(value)
+                if _is_valid_city_candidate(candidate, entities=entities):
+                    city = candidate
             if city:
                 matches.append(
                     RuleMatch(
@@ -441,6 +520,7 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
     raw_lower = raw.lower()
     if any(char.isdigit() for char in raw) or "http" in raw_lower or "@" in raw:
         return None, None
+    entities = _safe_location_entities(text)
     # Prefer comma separated "City, Country" structures.
     if "," in raw:
         city_part, _, country_part = raw.partition(",")
@@ -448,18 +528,88 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
         country = country_part.strip() or None
         if prefix in {"land", "country"} and not country:
             return None, city or None
-        return (city or None, country or None)
+        city = city or None
+        if city and not _is_valid_city_candidate(city, entities=entities):
+            city = None
+        country = country or None
+        if country and not _is_valid_country_candidate(country, entities=entities):
+            country = None
+        return city, country
     tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
     if len(tokens) >= 2:
         city_token = tokens[0]
         country_token = tokens[-1]
-        return city_token or None, country_token or None
+        city = city_token or None
+        if city and not _is_valid_city_candidate(city, entities=entities):
+            city = None
+        country = country_token or None
+        if country and not _is_valid_country_candidate(country, entities=entities):
+            country = None
+        return city, country
     if prefix in {"land", "country"}:
         return None, raw.strip() or None
     cleaned = raw.strip() or None
     if not cleaned:
         return None, None
+    if not _is_valid_city_candidate(cleaned, entities=entities):
+        return None, None
     return cleaned, None
+
+
+def _safe_location_entities(text: str) -> LocationEntities | None:
+    try:
+        return extract_location_entities(text)
+    except Exception:  # pragma: no cover - defensive guard around optional model
+        return None
+
+
+def _is_valid_city_candidate(
+    candidate: str, *, entities: LocationEntities | None
+) -> bool:
+    candidate = candidate.strip()
+    if not candidate:
+        return False
+    if not any(char.isalpha() for char in candidate):
+        return False
+    lower_candidate = candidate.casefold()
+    if lower_candidate in _DISQUALIFIED_CITY_TOKENS:
+        return False
+    if entities is not None:
+        city_matches = {city.casefold() for city in entities.cities}
+        if lower_candidate in city_matches:
+            return True
+        country_matches = {country.casefold() for country in entities.countries}
+        if lower_candidate in country_matches:
+            return False
+    if lower_candidate in _KNOWN_CITY_NAMES:
+        return True
+    # Basic structural heuristics when spaCy is unavailable.
+    parts = [part for part in re.split(r"[-\s]+", candidate) if part]
+    if len(parts) >= 2 and all(part[0].isalpha() and part[0].isupper() for part in parts):
+        combined = " ".join(parts).casefold()
+        if combined not in _DISQUALIFIED_CITY_TOKENS:
+            return True
+    if entities is None and candidate and candidate[0].isupper() and len(candidate) >= 3:
+        return True
+    return False
+
+
+def _is_valid_country_candidate(
+    candidate: str, *, entities: LocationEntities | None
+) -> bool:
+    candidate = candidate.strip()
+    if not candidate:
+        return False
+    if not any(char.isalpha() for char in candidate):
+        return False
+    lower_candidate = candidate.casefold()
+    if entities is None:
+        return True
+    country_matches = {country.casefold() for country in entities.countries}
+    if lower_candidate in country_matches:
+        return True
+    city_matches = {city.casefold() for city in entities.cities}
+    return lower_candidate not in city_matches
 
 
 def _normalize_salary_value(value: str | None) -> float | None:

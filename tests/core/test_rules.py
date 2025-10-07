@@ -118,6 +118,18 @@ def test_extract_location_rejects_disqualifying_lines() -> None:
         assert country is None
 
 
+def test_extract_location_ignores_remote_keyword() -> None:
+    """Non-location keywords after Standort should be ignored."""
+
+    city, country = _extract_location("Standort: Remote")
+    assert city is None
+    assert country is None
+
+    city, country = _extract_location("Standort: Berlin")
+    assert city == "Berlin"
+    assert country is None
+
+
 def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
     """Einsatzort and Branche table headers should populate city and industry."""
 
@@ -149,3 +161,16 @@ def test_apply_rules_handles_inline_einsatzort_and_branche() -> None:
     assert matches["location.primary_city"].value == "Hamburg"
     assert "location.country" not in matches
     assert matches["company.industry"].value == "Erneuerbare Energien"
+
+
+def test_apply_rules_ignores_remote_location_value() -> None:
+    """Rule-based extraction should skip remote placeholders for city."""
+
+    blocks = [
+        ContentBlock(type="paragraph", text="Standort: Remote"),
+        ContentBlock(type="paragraph", text="Standort: Berlin"),
+    ]
+    matches = apply_rules(blocks)
+    assert matches["location.primary_city"].value == "Berlin"
+    assert matches["location.primary_city"].rule == "regex.location"
+    assert "Standort: Remote" not in matches["location.primary_city"].source_text
