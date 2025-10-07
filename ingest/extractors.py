@@ -1,4 +1,5 @@
 import io
+import inspect
 import logging
 import re
 from urllib.parse import urljoin
@@ -38,13 +39,24 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
         raise ValueError("Invalid URL")
     remaining_redirects = 5
     current_url = url
+    redirect_kwargs: dict[str, Any] = {}
+    try:
+        signature = inspect.signature(requests.get)
+    except (TypeError, ValueError):  # pragma: no cover - fallback for C extensions
+        signature = None
+    if signature is None:
+        redirect_kwargs = {"allow_redirects": True}
+    else:
+        params = signature.parameters.values()
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params) or "allow_redirects" in signature.parameters:
+            redirect_kwargs = {"allow_redirects": True}
     while True:
         try:
             resp: Response = requests.get(
                 current_url,
                 timeout=timeout,
                 headers={"User-Agent": "CognitiveNeeds/1.0"},
-                allow_redirects=True,
+                **redirect_kwargs,
             )
             resp.raise_for_status()
             return resp.text
