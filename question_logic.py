@@ -22,7 +22,11 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+
 import streamlit as st
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+
 from openai_utils import call_chat_api
 from utils.i18n import tr
 
@@ -41,6 +45,7 @@ from config import OPENAI_API_KEY, VECTOR_STORE_ID, ModelTask, get_model_for
 RAG_VECTOR_STORE_ID = VECTOR_STORE_ID
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 _ROOT = Path(__file__).resolve().parent
 with open(_ROOT / "critical_fields.json", "r", encoding="utf-8") as _f:
@@ -605,102 +610,115 @@ def ask_followups(
         parsing fails or the response is invalid.
     """
 
-    model = get_model_for(ModelTask.FOLLOW_UP_QUESTIONS, override=model)
-    vector_store_id = (
-        vector_store_id
-        or st.session_state.get("vector_store_id")
-        or RAG_VECTOR_STORE_ID
-    )
-    tools: list[Any] = []
-    tool_choice: Optional[str] = None
-    if vector_store_id:
-        tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
-        tool_choice = "auto"
+    with tracer.start_as_current_span("llm.generate_followups") as span:
+        model = get_model_for(ModelTask.FOLLOW_UP_QUESTIONS, override=model)
+        vector_store_id = (
+            vector_store_id
+            or st.session_state.get("vector_store_id")
+            or RAG_VECTOR_STORE_ID
+        )
+        span.set_attribute("llm.model", model)
+        span.set_attribute("followups.vector_store", bool(vector_store_id))
+        tools: list[Any] = []
+        tool_choice: Optional[str] = None
+        if vector_store_id:
+            tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
+            tool_choice = "auto"
 
-    res = call_chat_api(
-        [
-            {
-                "role": "system",
-                "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions.",
-            },
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        model=model,
-        temperature=0.2,
-        json_schema={
-            "name": "followup_questions",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "questions": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "field": {"type": "string"},
-                                "question": {"type": "string"},
-                                "priority": {"type": "string"},
-                                "suggestions": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "default": [],
+        try:
+            res = call_chat_api(
+                [
+                    {
+                        "role": "system",
+                        "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions.",
+                    },
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                ],
+                model=model,
+                temperature=0.2,
+                json_schema={
+                    "name": "followup_questions",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "questions": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "field": {"type": "string"},
+                                        "question": {"type": "string"},
+                                        "priority": {"type": "string"},
+                                        "suggestions": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "default": [],
+                                        },
+                                    },
+                                    "required": [
+                                        "field",
+                                        "question",
+                                        "priority",
+                                        "suggestions",
+                                    ],
+                                    "additionalProperties": False,
                                 },
-                            },
-                            "required": [
-                                "field",
-                                "question",
-                                "priority",
-                                "suggestions",
-                            ],
-                            "additionalProperties": False,
+                            }
                         },
-                    }
+                        "required": ["questions"],
+                        "additionalProperties": False,
+                    },
                 },
-                "required": ["questions"],
-                "additionalProperties": False,
-            },
-        },
-        tools=tools or None,
-        tool_choice=tool_choice,
-        max_tokens=800,
-    )
+                tools=tools or None,
+                tool_choice=tool_choice,
+                max_tokens=800,
+            )
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "api_error"))
+            raise
 
-    content = _normalize_chat_content(res).strip()
-    if content.startswith("```"):
-        import re
+        content = _normalize_chat_content(res).strip()
+        if content.startswith("```"):
+            import re
 
-        m = re.search(r"```(?:json)?\s*(.*?)```", content, re.S | re.I)
-        if m:
-            content = m.group(1).strip()
-    try:
-        parsed = json.loads(content or "{}")
-    except json.JSONDecodeError:
-        return {}
+            m = re.search(r"```(?:json)?\s*(.*?)```", content, re.S | re.I)
+            if m:
+                content = m.group(1).strip()
+        try:
+            parsed = json.loads(content or "{}")
+        except json.JSONDecodeError as err:
+            span.record_exception(err)
+            span.set_status(Status(StatusCode.ERROR, "invalid_json"))
+            return {}
 
-    if not isinstance(parsed, dict):
-        return {}
+        if not isinstance(parsed, dict):
+            span.add_event("invalid_payload_type")
+            return {}
 
-    questions = parsed.get("questions")
-    if not isinstance(questions, list):
-        parsed["questions"] = []
+        questions = parsed.get("questions")
+        if not isinstance(questions, list):
+            parsed["questions"] = []
+            span.add_event("missing_questions_array")
+            return parsed
+
+        normalized_questions: List[Dict[str, Any]] = []
+        for item in questions:
+            if not isinstance(item, dict):
+                continue
+            normalized = dict(item)
+            suggestions = normalized.get("suggestions")
+            if isinstance(suggestions, list):
+                normalized["suggestions"] = [
+                    str(s) for s in suggestions if isinstance(s, str)
+                ]
+            else:
+                normalized["suggestions"] = []
+            normalized_questions.append(normalized)
+
+        parsed["questions"] = normalized_questions
+        span.set_attribute("followups.question_count", len(normalized_questions))
         return parsed
-
-    normalized_questions: List[Dict[str, Any]] = []
-    for item in questions:
-        if not isinstance(item, dict):
-            continue
-        normalized = dict(item)
-        suggestions = normalized.get("suggestions")
-        if isinstance(suggestions, list):
-            normalized["suggestions"] = [
-                str(s) for s in suggestions if isinstance(s, str)
-            ]
-        else:
-            normalized["suggestions"] = []
-        normalized_questions.append(normalized)
-
-    parsed["questions"] = normalized_questions
-    return parsed
 
 
 def generate_followup_questions(

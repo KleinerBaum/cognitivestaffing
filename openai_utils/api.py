@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 import backoff
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from openai import (
     APIConnectionError,
     APIError,
@@ -37,6 +39,7 @@ from config import (
 from constants.keys import StateKeys
 
 logger = logging.getLogger("cognitive_needs.openai")
+tracer = trace.get_tracer(__name__)
 
 # Global client instance (monkeypatchable in tests)
 client: OpenAI | None = None
@@ -109,15 +112,24 @@ def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
 def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
     """Send ``payload`` to the Responses API and retry without temperature if needed."""
 
-    try:
-        return get_client().responses.create(**payload)
-    except BadRequestError as err:
-        if "temperature" in payload and _is_temperature_unsupported_error(err):
-            _mark_model_without_temperature(model)
-            payload.pop("temperature", None)
-            cleaned_payload = dict(payload)
-            return get_client().responses.create(**cleaned_payload)
-        raise
+    with tracer.start_as_current_span("openai.execute_response") as span:
+        if model:
+            span.set_attribute("llm.model", model)
+        span.set_attribute("llm.has_tools", "tools" in payload)
+        if "temperature" in payload:
+            span.set_attribute("llm.temperature", payload.get("temperature"))
+        try:
+            return get_client().responses.create(**payload)
+        except BadRequestError as err:
+            span.record_exception(err)
+            if "temperature" in payload and _is_temperature_unsupported_error(err):
+                span.add_event("retry_without_temperature")
+                _mark_model_without_temperature(model)
+                payload.pop("temperature", None)
+                cleaned_payload = dict(payload)
+                return get_client().responses.create(**cleaned_payload)
+            span.set_status(Status(StatusCode.ERROR, str(err)))
+            raise
 
 
 @dataclass
@@ -248,194 +260,226 @@ def call_chat_api(
     if extra:
         payload.update(extra)
 
-    def _to_mapping(item: Any) -> dict[str, Any] | None:
-        if isinstance(item, Mapping):
-            return dict(item)
-        for attr in ("model_dump", "dict"):
-            method = getattr(item, attr, None)
-            if callable(method):
-                try:
-                    value = method()
-                except TypeError:
+    with tracer.start_as_current_span("openai.call_chat_api") as span:
+        span.set_attribute("llm.model", model or "")
+        span.set_attribute("llm.message_count", len(messages))
+        if temperature is not None:
+            span.set_attribute("llm.temperature", temperature)
+        if max_tokens is not None:
+            span.set_attribute("llm.max_tokens", max_tokens)
+        if json_schema is not None:
+            span.set_attribute("llm.json_schema", json_schema.get("name", "anonymous"))
+        span.set_attribute("llm.tool_count", len(payload.get("tools", [])))
+        if tool_choice is not None:
+            span.set_attribute("llm.tool_choice", str(tool_choice))
+
+        def _to_mapping(item: Any) -> dict[str, Any] | None:
+            if isinstance(item, Mapping):
+                return dict(item)
+            for attr in ("model_dump", "dict"):
+                method = getattr(item, attr, None)
+                if callable(method):
                     try:
-                        value = method(mode="python")
+                        value = method()
                     except TypeError:
-                        continue
-                if isinstance(value, Mapping):
-                    return dict(value)
-        data = getattr(item, "__dict__", None)
-        if isinstance(data, Mapping):
-            return dict(data)
-        return None
-
-    def _dump_json(value: Any) -> Optional[str]:
-        if value is None:
+                        try:
+                            value = method(mode="python")
+                        except TypeError:
+                            continue
+                    if isinstance(value, Mapping):
+                        return dict(value)
+            data = getattr(item, "__dict__", None)
+            if isinstance(data, Mapping):
+                return dict(data)
             return None
-        try:
-            return json.dumps(value)
-        except TypeError:
+
+        def _dump_json(value: Any) -> Optional[str]:
+            if value is None:
+                return None
             try:
-                mapping = _to_mapping(value)
-            except Exception:  # pragma: no cover - defensive
-                mapping = None
-            if mapping is not None:
+                return json.dumps(value)
+            except TypeError:
                 try:
-                    return json.dumps(mapping)
-                except TypeError:
-                    return str(mapping)
-            return str(value)
+                    mapping = _to_mapping(value)
+                except Exception:  # pragma: no cover - defensive
+                    mapping = None
+                if mapping is not None:
+                    try:
+                        return json.dumps(mapping)
+                    except TypeError:
+                        return str(mapping)
+                return str(value)
 
-    def _extract_output_text(response_obj: Any) -> Optional[str]:
-        text = getattr(response_obj, "output_text", None)
-        if text:
-            return text
-        chunks: list[str] = []
-        for raw_item in getattr(response_obj, "output", []) or []:
-            item_dict = _to_mapping(raw_item)
-            if not item_dict:
-                continue
-            item_type = item_dict.get("type")
-            json_value = item_dict.get("json")
-            if json_value is not None:
-                dumped = _dump_json(json_value)
-                if dumped:
-                    chunks.append(dumped)
-            contents = item_dict.get("content")
-            if isinstance(contents, Sequence) and not isinstance(
-                contents, (str, bytes)
-            ):
-                iterable = contents
-            else:
-                iterable = []
-            if item_type == "message" and iterable:
-                for raw_content in iterable:
-                    content_dict = _to_mapping(raw_content)
-                    if not content_dict:
-                        continue
-                    json_value = content_dict.get("json")
-                    if json_value is not None:
-                        dumped = _dump_json(json_value)
-                        if dumped:
-                            chunks.append(dumped)
-                    text_value = content_dict.get("text")
-                    if text_value:
-                        chunks.append(str(text_value))
-            else:
-                text_value = item_dict.get("text")
-                if text_value:
-                    chunks.append(str(text_value))
-                for raw_content in iterable:
-                    content_dict = _to_mapping(raw_content)
-                    if not content_dict:
-                        continue
-                    json_value = content_dict.get("json")
-                    if json_value is not None:
-                        dumped = _dump_json(json_value)
-                        if dumped:
-                            chunks.append(dumped)
-                    text_value = content_dict.get("text")
-                    if text_value:
-                        chunks.append(str(text_value))
-        if chunks:
-            return "\n".join(chunk for chunk in chunks if chunk)
-        return text
-
-    response = _execute_response(payload, model)
-
-    content = _extract_output_text(response)
-
-    tool_calls: list[dict] = []
-    for item in getattr(response, "output", []) or []:
-        data = _to_mapping(item)
-        if not data:
-            continue
-        typ = data.get("type")
-        if typ and "call" in str(typ):
-            call_data = dict(data)
-            fn = call_data.get("function")
-            if fn is None:
-                name = call_data.get("name")
-                arg_str = call_data.get("arguments")
-                call_data = {
-                    **call_data,
-                    "function": {"name": name, "arguments": arg_str},
-                }
-            tool_calls.append(call_data)
-
-    usage_obj = getattr(response, "usage", {}) or {}
-    if usage_obj and not isinstance(usage_obj, dict):
-        usage: dict = getattr(
-            usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-        )()
-    else:
-        usage = usage_obj if isinstance(usage_obj, dict) else {}
-
-    executed = False
-    if tool_calls and tool_functions:
-        messages_list = list(messages)
-        for call in tool_calls:
-            func_info = call.get("function", {})
-            name = func_info.get("name")
-            if not name or name not in tool_functions:
-                continue
-            args_raw = func_info.get("arguments", "{}") or "{}"
-            try:
-                parsed: Any = json.loads(args_raw)
-                args: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
-            except Exception:  # pragma: no cover - defensive
-                args = {}
-            result = tool_functions[name](**args)
-            messages_list.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.get("id", name),
-                    "content": json.dumps(result),
-                }
-            )
-            executed = True
-
-        if executed:
-            payload["input"] = messages_list
-            payload.pop("tool_choice", None)
-            response = _execute_response(payload, model)
-            content = _extract_output_text(response)
-            extra_calls: list[dict] = []
-            for item in getattr(response, "output", []) or []:
-                data = _to_mapping(item)
-                if not data:
+        def _extract_output_text(response_obj: Any) -> Optional[str]:
+            text = getattr(response_obj, "output_text", None)
+            if text:
+                return text
+            chunks: list[str] = []
+            for raw_item in getattr(response_obj, "output", []) or []:
+                item_dict = _to_mapping(raw_item)
+                if not item_dict:
                     continue
-                typ = data.get("type")
-                if typ and "call" in str(typ):
-                    call_data = dict(data)
-                    fn = call_data.get("function")
-                    if fn is None:
-                        name = call_data.get("name")
-                        arg_str = call_data.get("arguments")
-                        call_data = {
-                            **call_data,
-                            "function": {"name": name, "arguments": arg_str},
-                        }
-                    extra_calls.append(call_data)
-            tool_calls.extend(extra_calls)
-            usage_obj = getattr(response, "usage", {}) or {}
-            if usage_obj and not isinstance(usage_obj, dict):
-                usage_extra: dict = getattr(
-                    usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-                )()
-            else:
-                usage_extra = usage_obj if isinstance(usage_obj, dict) else {}
-            for key in ("input_tokens", "output_tokens"):
-                usage[key] = usage.get(key, 0) + usage_extra.get(key, 0)
+                item_type = item_dict.get("type")
+                json_value = item_dict.get("json")
+                if json_value is not None:
+                    dumped = _dump_json(json_value)
+                    if dumped:
+                        chunks.append(dumped)
+                contents = item_dict.get("content")
+                if isinstance(contents, Sequence) and not isinstance(
+                    contents, (str, bytes)
+                ):
+                    iterable = contents
+                else:
+                    iterable = []
+                if item_type == "message" and iterable:
+                    for raw_content in iterable:
+                        content_dict = _to_mapping(raw_content)
+                        if not content_dict:
+                            continue
+                        json_value = content_dict.get("json")
+                        if json_value is not None:
+                            dumped = _dump_json(json_value)
+                            if dumped:
+                                chunks.append(dumped)
+                        text_value = content_dict.get("text")
+                        if text_value:
+                            chunks.append(str(text_value))
+                else:
+                    text_value = item_dict.get("text")
+                    if text_value:
+                        chunks.append(str(text_value))
+                    for raw_content in iterable:
+                        content_dict = _to_mapping(raw_content)
+                        if not content_dict:
+                            continue
+                        json_value = content_dict.get("json")
+                        if json_value is not None:
+                            dumped = _dump_json(json_value)
+                            if dumped:
+                                chunks.append(dumped)
+                        text_value = content_dict.get("text")
+                        if text_value:
+                            chunks.append(str(text_value))
+            if chunks:
+                return "\n".join(chunk for chunk in chunks if chunk)
+            return text
 
-    if StateKeys.USAGE in st.session_state:
-        st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get(
-            "input_tokens", 0
-        )
-        st.session_state[StateKeys.USAGE]["output_tokens"] += usage.get(
-            "output_tokens", 0
-        )
+        try:
+            response = _execute_response(payload, model)
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
 
-    return ChatCallResult(content, tool_calls, usage)
+        content = _extract_output_text(response)
+
+        tool_calls: list[dict] = []
+        for item in getattr(response, "output", []) or []:
+            data = _to_mapping(item)
+            if not data:
+                continue
+            typ = data.get("type")
+            if typ and "call" in str(typ):
+                call_data = dict(data)
+                fn = call_data.get("function")
+                if fn is None:
+                    name = call_data.get("name")
+                    arg_str = call_data.get("arguments")
+                    call_data = {
+                        **call_data,
+                        "function": {"name": name, "arguments": arg_str},
+                    }
+                tool_calls.append(call_data)
+
+        usage_obj = getattr(response, "usage", {}) or {}
+        if usage_obj and not isinstance(usage_obj, dict):
+            usage: dict = getattr(
+                usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
+            )()
+        else:
+            usage = usage_obj if isinstance(usage_obj, dict) else {}
+
+        executed = False
+        if tool_calls and tool_functions:
+            messages_list = list(messages)
+            for call in tool_calls:
+                func_info = call.get("function", {})
+                name = func_info.get("name")
+                if not name or name not in tool_functions:
+                    continue
+                args_raw = func_info.get("arguments", "{}") or "{}"
+                try:
+                    parsed: Any = json.loads(args_raw)
+                    args: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
+                except Exception:  # pragma: no cover - defensive
+                    args = {}
+                with tracer.start_as_current_span(
+                    "openai.tool_call", attributes={"tool.name": name}
+                ):
+                    result = tool_functions[name](**args)
+                messages_list.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.get("id", name),
+                        "content": json.dumps(result),
+                    }
+                )
+                executed = True
+
+            if executed:
+                payload["input"] = messages_list
+                payload.pop("tool_choice", None)
+                try:
+                    response = _execute_response(payload, model)
+                except Exception as exc:
+                    span.record_exception(exc)
+                    span.set_status(Status(StatusCode.ERROR, str(exc)))
+                    raise
+                content = _extract_output_text(response)
+                extra_calls: list[dict] = []
+                for item in getattr(response, "output", []) or []:
+                    data = _to_mapping(item)
+                    if not data:
+                        continue
+                    typ = data.get("type")
+                    if typ and "call" in str(typ):
+                        call_data = dict(data)
+                        fn = call_data.get("function")
+                        if fn is None:
+                            name = call_data.get("name")
+                            arg_str = call_data.get("arguments")
+                            call_data = {
+                                **call_data,
+                                "function": {"name": name, "arguments": arg_str},
+                            }
+                        extra_calls.append(call_data)
+                tool_calls.extend(extra_calls)
+                usage_obj = getattr(response, "usage", {}) or {}
+                if usage_obj and not isinstance(usage_obj, dict):
+                    usage_extra: dict = getattr(
+                        usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
+                    )()
+                else:
+                    usage_extra = usage_obj if isinstance(usage_obj, dict) else {}
+                for key in ("input_tokens", "output_tokens"):
+                    usage[key] = usage.get(key, 0) + usage_extra.get(key, 0)
+
+        span.set_attribute("llm.tool_calls", len(tool_calls))
+        span.set_attribute("llm.output.length", len(content or ""))
+        if usage:
+            span.set_attribute("llm.usage.input_tokens", usage.get("input_tokens", 0))
+            span.set_attribute("llm.usage.output_tokens", usage.get("output_tokens", 0))
+
+        if StateKeys.USAGE in st.session_state:
+            st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get(
+                "input_tokens", 0
+            )
+            st.session_state[StateKeys.USAGE]["output_tokens"] += usage.get(
+                "output_tokens", 0
+            )
+
+        return ChatCallResult(content, tool_calls, usage)
 
 
 def _chat_content(res: Any) -> str:

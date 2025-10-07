@@ -25,3 +25,6 @@ spacy>=3.7,<3.9
 pycountry>=23.12
 numpy>=1.24,<2.0
 de-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl
+opentelemetry-api==1.25.0
+opentelemetry-sdk==1.25.0
+opentelemetry-exporter-otlp==1.25.0
