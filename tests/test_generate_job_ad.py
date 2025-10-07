@@ -1,18 +1,12 @@
-from types import SimpleNamespace
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import openai_utils
-from openai_utils import ChatCallResult
 
 
-def test_generate_job_ad_includes_optional_fields(monkeypatch):
-    captured = {}
-
-    def fake_call_chat_api(messages, **kwargs):
-        captured["prompt"] = messages[0]["content"]
-        return ChatCallResult("ok", [], {})
-
-    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-
+def test_generate_job_ad_includes_key_sections():
     session = {
         "position": {
             "job_title": "Software Engineer",
@@ -44,69 +38,38 @@ def test_generate_job_ad_includes_optional_fields(monkeypatch):
         "lang": "en",
     }
 
-    openai_utils.generate_job_ad(
+    output = openai_utils.generate_job_ad(
         session,
         selected_fields=[
-            "position.job_title::0",
-            "company.name::0",
-            "location.primary_city::0",
-            "position.role_summary::0",
-            "responsibilities.items::0",
-            "requirements.hard_skills_required::0",
-            "employment.work_policy::0",
-            "employment.work_schedule::0",
-            "employment.relocation_support::0",
-            "employment.visa_sponsorship::0",
-            "position.team_size::0",
-            "compensation.salary::0",
-            "compensation.benefits::0",
+            "position.job_title",
+            "company.name",
+            "location.primary_city",
+            "position.role_summary",
+            "responsibilities.items",
+            "requirements.hard_skills_required",
+            "employment.work_policy",
+            "employment.work_schedule",
+            "employment.relocation_support",
+            "employment.visa_sponsorship",
+            "position.team_size",
+            "compensation.salary",
+            "compensation.benefits",
         ],
         target_audience="Experienced engineers",
         manual_sections=[],
         lang="en",
-        selected_values={
-            "position.job_title::0": "Software Engineer",
-            "company.name::0": "Acme Corp",
-            "location.primary_city::0": "Berlin",
-            "position.role_summary::0": "Build web apps",
-            "responsibilities.items::0": "Develop features",
-            "requirements.hard_skills_required::0": "Python experience",
-            "employment.work_policy::0": "Remote",
-            "employment.work_schedule::0": "Mon-Fri",
-            "employment.relocation_support::0": True,
-            "employment.visa_sponsorship::0": True,
-            "position.team_size::0": 5,
-            "compensation.salary::0": "50,000–70,000 EUR / year",
-            "compensation.benefits::0": "Stock options",
-        },
     )
-    prompt = captured["prompt"]
-    assert "Relevant information:" in prompt
-    assert "Job Title: Software Engineer" in prompt
-    assert "Company: Acme Corp" in prompt
-    assert "Location: Berlin" in prompt
-    assert "Role Summary: Build web apps" in prompt
-    assert "Key Responsibilities: Develop features" in prompt
-    assert "Hard Skills (Must-have): Python experience" in prompt
-    assert "Work Policy: Remote" in prompt
-    assert "Work Schedule: Mon-Fri" in prompt
-    assert "Relocation Support: Yes" in prompt
-    assert "Visa Sponsorship: Yes" in prompt
-    assert "Team Size: 5" in prompt
-    assert "Salary Range: 50,000–70,000 EUR / year" in prompt
-    assert "Benefits: Stock options" in prompt
-    assert "Target audience: Experienced engineers" in prompt
+
+    assert output.startswith("# Software Engineer at Acme Corp")
+    assert "**Location:** Berlin" in output
+    assert "*Target audience: Experienced engineers*" in output
+    assert "Build web apps" in output
+    assert "## Requirements" in output
+    assert "**Salary Range:** 50,000–70,000 EUR / year" in output
+    assert "Stock options" in output
 
 
-def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
-    captured = {}
-
-    def fake_call_chat_api(messages, **kwargs):
-        captured["prompt"] = messages[0]["content"]
-        return ChatCallResult("ok", [], {})
-
-    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-
+def test_generate_job_ad_includes_mission_and_culture_de():
     session = {
         "company": {
             "mission": "Weltklasse Produkte bauen",
@@ -115,32 +78,21 @@ def test_generate_job_ad_includes_mission_and_culture_de(monkeypatch):
         "lang": "de",
     }
 
-    openai_utils.generate_job_ad(
+    output = openai_utils.generate_job_ad(
         session,
-        selected_fields=["company.mission::0", "company.culture::0"],
+        selected_fields=["company.mission", "company.culture"],
         target_audience="Talente mit Teamgeist",
         manual_sections=[],
-        selected_values={
-            "company.mission::0": "Weltklasse Produkte bauen",
-            "company.culture::0": "Teamorientiert und offen",
-        },
+        lang="de",
     )
-    prompt = captured["prompt"]
-    assert "Relevante Informationen:" in prompt
-    assert "Mission: Weltklasse Produkte bauen" in prompt
-    assert "Kultur: Teamorientiert und offen" in prompt
-    assert "Zielgruppe: Talente mit Teamgeist" in prompt
+
+    assert "## Unternehmen" in output
+    assert "**Mission:** Weltklasse Produkte bauen" in output
+    assert "**Kultur:** Teamorientiert und offen" in output
+    assert "*Zielgruppe: Talente mit Teamgeist*" in output
 
 
-def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
-    prompts: list[str] = []
-
-    def fake_call_chat_api(messages, **kwargs):
-        prompts.append(messages[0]["content"])
-        return ChatCallResult("ok", [], {})
-
-    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-
+def test_generate_job_ad_formats_travel_and_remote_details():
     session_en = {
         "employment": {
             "travel_required": True,
@@ -149,7 +101,8 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
         },
         "lang": "en",
     }
-    openai_utils.generate_job_ad(
+
+    output_en = openai_utils.generate_job_ad(
         session_en,
         selected_fields=[
             "employment.travel_required",
@@ -157,9 +110,10 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
         ],
         target_audience="Hybrid workers",
         manual_sections=[],
+        lang="en",
     )
-    assert "Travel Requirements: Occasional (up to 10%)" in prompts[0]
-    assert "Work Policy: Hybrid" in prompts[0]
+    assert "**Travel Requirements:** Occasional (up to 10%)" in output_en
+    assert "**Work Policy:** Hybrid" in output_en
 
     session_de = {
         "employment": {
@@ -171,7 +125,8 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
         },
         "lang": "de",
     }
-    openai_utils.generate_job_ad(
+
+    output_de = openai_utils.generate_job_ad(
         session_de,
         selected_fields=[
             "employment.travel_required",
@@ -180,43 +135,31 @@ def test_generate_job_ad_formats_travel_and_remote(monkeypatch):
         ],
         target_audience="Flexibel arbeitende Talente",
         manual_sections=[],
+        lang="de",
     )
-    assert "Reisebereitschaft: Gelegentlich (bis zu 10%)" in prompts[1]
-    assert "Arbeitsmodell: Hybrid (3 Tage remote)" in prompts[1]
-    assert "Umzugsunterstützung: Ja" in prompts[1]
+    assert "**Reisebereitschaft:** Gelegentlich (bis zu 10%)" in output_de
+    assert "**Arbeitsmodell:** Hybrid (3 Tage remote)" in output_de
+    assert "**Umzugsunterstützung:** Ja" in output_de
 
 
-def test_generate_job_ad_uses_remote_percentage(monkeypatch):
-    prompts: list[str] = []
-
-    def fake_call_chat_api(messages, **kwargs):
-        prompts.append(messages[0]["content"])
-        return ChatCallResult("ok", [], {})
-
-    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-
+def test_generate_job_ad_uses_remote_percentage_hint():
     session = {
         "employment": {"work_policy": "Hybrid", "remote_percentage": 60},
         "lang": "en",
     }
-    openai_utils.generate_job_ad(
+
+    output = openai_utils.generate_job_ad(
         session,
         selected_fields=["employment.work_policy"],
         target_audience="Remote minded",
         manual_sections=[],
+        lang="en",
     )
-    assert "Work Policy: Hybrid (60% remote)" in prompts[0]
+
+    assert "**Work Policy:** Hybrid (60% remote)" in output
 
 
-def test_generate_job_ad_lists_unique_benefits(monkeypatch):
-    captured = {}
-
-    def fake_call_chat_api(messages, **kwargs):
-        captured["prompt"] = messages[0]["content"]
-        return ChatCallResult("ok", [], {})
-
-    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-
+def test_generate_job_ad_lists_unique_benefits():
     session = {
         "compensation": {
             "benefits": ["Gym membership", "Gym membership", "401(k) match"],
@@ -225,31 +168,25 @@ def test_generate_job_ad_lists_unique_benefits(monkeypatch):
         "lang": "en",
     }
 
-    openai_utils.generate_job_ad(
+    output = openai_utils.generate_job_ad(
         session,
         selected_fields=["compensation.benefits"],
         target_audience="Benefit seekers",
         manual_sections=[],
+        lang="en",
     )
-    prompt = captured["prompt"]
-    assert "Benefits: Gym membership, 401(k) match" in prompt
+
+    assert output.count("Gym membership") == 1
+    assert "401(k) match" in output
 
 
-def test_generate_job_ad_includes_manual_sections(monkeypatch):
-    captured = {}
-
-    def fake_call_chat_api(messages, **kwargs):
-        captured["prompt"] = messages[0]["content"]
-        return ChatCallResult("ok", [], {})
-
-    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-
+def test_generate_job_ad_includes_manual_sections():
     session = {
         "position": {"job_title": "Product Manager"},
         "lang": "en",
     }
 
-    openai_utils.generate_job_ad(
+    output = openai_utils.generate_job_ad(
         session,
         selected_fields=["position.job_title"],
         target_audience="Experienced talent",
@@ -257,46 +194,27 @@ def test_generate_job_ad_includes_manual_sections(monkeypatch):
             {"title": "Culture", "content": "We value openness."},
             {"content": "Flexible working hours."},
         ],
+        lang="en",
     )
 
-    prompt = captured["prompt"]
-    assert "Culture: We value openness." in prompt
-    assert "Flexible working hours." in prompt
+    assert "## Additional notes" in output
+    assert "**Culture:**" in output
+    assert "We value openness." in output
+    assert "Flexible working hours." in output
 
 
-def test_generate_job_ad_uses_output_fallback(monkeypatch):
-    class StubResponse:
-        def __init__(self, text: str) -> None:
-            self.output_text = None
-            self.output = [
-                {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": text}],
-                }
-            ]
-            self.usage = {"input_tokens": 0, "output_tokens": 0}
+def test_generate_job_ad_requires_data():
+    session = {"lang": "en"}
 
-    stub_text = "Generated job ad"
-    stub_response = StubResponse(stub_text)
-
-    monkeypatch.setattr("core.analysis_tools.build_analysis_tools", lambda: ([], {}))
-
-    dummy_streamlit = SimpleNamespace(
-        session_state={},
-        error=lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(openai_utils.api, "st", dummy_streamlit)
-    monkeypatch.setattr(
-        openai_utils.api, "_execute_response", lambda *_args, **_kwargs: stub_response
-    )
-    monkeypatch.setattr(openai_utils.api, "client", None)
-
-    result = openai_utils.generate_job_ad(
-        {"lang": "en", "position": {"job_title": "QA Engineer"}},
-        selected_fields=["position.job_title"],
-        target_audience="Quality engineers",
-        manual_sections=[],
-    )
-
-    assert result == stub_text
+    try:
+        openai_utils.generate_job_ad(
+            session,
+            selected_fields=["position.job_title"],
+            target_audience="General",
+            manual_sections=[],
+            lang="en",
+        )
+    except ValueError as exc:
+        assert "No usable data" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError when no content is available")
