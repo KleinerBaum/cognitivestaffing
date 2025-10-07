@@ -4121,6 +4121,9 @@ def _step_summary(schema: dict, _critical: list[str]):
     except Exception:
         profile = NeedAnalysisProfile()
 
+    profile_payload = profile.model_dump(mode="json")
+    profile_payload["lang"] = lang
+
     tone_presets = load_json("tone_presets.json", {}) or {}
     tone_options = tone_presets.get(st.session_state.lang, {})
     tone_labels = {
@@ -4133,10 +4136,10 @@ def _step_summary(schema: dict, _critical: list[str]):
         st.session_state[UIKeys.TONE_SELECT] = "formal"
 
     base_url = st.session_state.get(StateKeys.COMPANY_PAGE_BASE) or ""
-    style_reference = _job_ad_style_reference(data, base_url or None)
+    style_reference = _job_ad_style_reference(profile_payload, base_url or None)
 
     suggestions = suggest_target_audiences(profile, lang)
-    available_field_keys = _job_ad_available_field_keys(data, lang)
+    available_field_keys = _job_ad_available_field_keys(profile_payload, lang)
 
     target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
 
@@ -4257,7 +4260,9 @@ def _step_summary(schema: dict, _critical: list[str]):
     selected_fields = [
         field.key for field in JOB_AD_FIELDS if field.key in available_field_keys
     ]
-    filtered_profile = _prepare_job_ad_data(data)
+    filtered_profile = _prepare_job_ad_data(profile_payload)
+    filtered_profile["lang"] = lang
+    st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set(selected_fields)
 
     job_ad_col, interview_col = st.columns((2.2, 1), gap="large")
 
@@ -4396,12 +4401,16 @@ def _step_summary(schema: dict, _critical: list[str]):
             company_name = (
                 profile.company.brand_name
                 or profile.company.name
-                or str(_job_ad_get_value(data, "company.name") or "").strip()
+                or str(
+                    _job_ad_get_value(profile_payload, "company.name") or ""
+                ).strip()
                 or None
             )
             job_title = (
                 profile.position.job_title
-                or str(_job_ad_get_value(data, "position.job_title") or "").strip()
+                or str(
+                    _job_ad_get_value(profile_payload, "position.job_title") or ""
+                ).strip()
                 or "job-ad"
             )
             safe_stem = (
@@ -4475,30 +4484,40 @@ def _step_summary(schema: dict, _critical: list[str]):
         audience = "general"
         if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
             try:
+                requirements_data = profile_payload.get("requirements", {})
                 extras = (
-                    len(profile.requirements.hard_skills_required)
-                    + len(profile.requirements.hard_skills_optional)
-                    + len(profile.requirements.soft_skills_required)
-                    + len(profile.requirements.soft_skills_optional)
-                    + (1 if profile.company.culture else 0)
+                    len(requirements_data.get("hard_skills_required", []))
+                    + len(requirements_data.get("hard_skills_optional", []))
+                    + len(requirements_data.get("soft_skills_required", []))
+                    + len(requirements_data.get("soft_skills_optional", []))
+                    + (1 if profile_payload.get("company", {}).get("culture") else 0)
                 )
                 if selected_num + extras > 15:
                     st.warning(
                         tr(
-                            "Viele Fragen könnten zu hohen Token-Kosten führen.",
-                            "A high number of questions may increase token usage.",
+                            "Viele Fragen erzeugen einen sehr umfangreichen Leitfaden.",
+                            "A high question count creates a very long guide.",
                         )
                     )
+                responsibilities_text = "\n".join(
+                    profile_payload.get("responsibilities", {}).get("items", [])
+                )
                 guide_md = generate_interview_guide(
-                    job_title=profile.position.job_title or "",
-                    responsibilities="\n".join(profile.responsibilities.items),
-                    hard_skills=profile.requirements.hard_skills_required
-                    + profile.requirements.hard_skills_optional,
-                    soft_skills=profile.requirements.soft_skills_required
-                    + profile.requirements.soft_skills_optional,
-                    company_culture=profile.company.culture or "",
+                    job_title=profile_payload.get("position", {}).get("job_title", ""),
+                    responsibilities=responsibilities_text,
+                    hard_skills=(
+                        requirements_data.get("hard_skills_required", [])
+                        + requirements_data.get("hard_skills_optional", [])
+                    ),
+                    soft_skills=(
+                        requirements_data.get("soft_skills_required", [])
+                        + requirements_data.get("soft_skills_optional", [])
+                    ),
+                    company_culture=profile_payload.get("company", {}).get(
+                        "culture", ""
+                    ),
                     audience=audience,
-                    lang=st.session_state.lang,
+                    lang=lang,
                     tone=st.session_state.get("tone"),
                     num_questions=selected_num,
                 )
