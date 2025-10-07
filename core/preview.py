@@ -129,6 +129,8 @@ def _has_value(value: Any) -> bool:
 
     if value is None:
         return False
+    if isinstance(value, bool):
+        return value
     if isinstance(value, str):
         return bool(value.strip())
     if isinstance(value, (int, float)):
