@@ -552,6 +552,8 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
     if not cleaned:
         return None, None
     if not _is_valid_city_candidate(cleaned, entities=entities):
+        if _is_valid_country_candidate(cleaned, entities=entities):
+            return None, cleaned
         return None, None
     return cleaned, None
 
@@ -574,6 +576,8 @@ def _is_valid_city_candidate(
     lower_candidate = candidate.casefold()
     if lower_candidate in _DISQUALIFIED_CITY_TOKENS:
         return False
+    if lower_candidate in _KNOWN_CITY_NAMES:
+        return True
     if entities is not None:
         city_matches = {city.casefold() for city in entities.cities}
         if lower_candidate in city_matches:
@@ -581,8 +585,6 @@ def _is_valid_city_candidate(
         country_matches = {country.casefold() for country in entities.countries}
         if lower_candidate in country_matches:
             return False
-    if lower_candidate in _KNOWN_CITY_NAMES:
-        return True
     # Basic structural heuristics when spaCy is unavailable.
     parts = [part for part in re.split(r"[-\s]+", candidate) if part]
     if len(parts) >= 2 and all(part[0].isalpha() and part[0].isupper() for part in parts):
@@ -603,13 +605,23 @@ def _is_valid_country_candidate(
     if not any(char.isalpha() for char in candidate):
         return False
     lower_candidate = candidate.casefold()
-    if entities is None:
-        return True
-    country_matches = {country.casefold() for country in entities.countries}
-    if lower_candidate in country_matches:
-        return True
-    city_matches = {city.casefold() for city in entities.cities}
-    return lower_candidate not in city_matches
+    if lower_candidate in _DISQUALIFIED_CITY_TOKENS:
+        return False
+    if entities is not None:
+        city_matches = {city.casefold() for city in entities.cities}
+        if lower_candidate in city_matches:
+            return False
+        country_matches = {country.casefold() for country in entities.countries}
+        if lower_candidate in country_matches:
+            return True
+    parts = [part for part in re.split(r"[-\s]+", candidate) if part]
+    if not parts:
+        return False
+    if any(any(char.isdigit() for char in part) for part in parts):
+        return False
+    if not all(part.isupper() or part[0].isupper() for part in parts):
+        return False
+    return True
 
 
 def _normalize_salary_value(value: str | None) -> float | None:
