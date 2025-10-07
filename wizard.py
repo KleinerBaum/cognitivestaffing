@@ -3370,7 +3370,8 @@ def _step_compensation():
 
     c6, c7 = st.columns(2)
     data["compensation"]["equity_offered"] = c6.toggle(
-        "Equity?", value=bool(data["compensation"].get("equity_offered"))
+        tr("Mitarbeiterbeteiligung?", "Equity?"),
+        value=bool(data["compensation"].get("equity_offered")),
     )
     lang = st.session_state.get("lang", "de")
     preset_benefits = {
@@ -3398,7 +3399,7 @@ def _step_compensation():
         )
     )
     data["compensation"]["benefits"] = _chip_multiselect(
-        "Benefits",
+        tr("Leistungen", "Benefits"),
         options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
@@ -3903,7 +3904,7 @@ def _summary_compensation() -> None:
 
     c6, c7 = st.columns(2)
     equity = c6.toggle(
-        "Equity?",
+        tr("Mitarbeiterbeteiligung?", "Equity?"),
         value=bool(data["compensation"].get("equity_offered")),
         key="ui.summary.compensation.equity_offered",
     )
@@ -3928,7 +3929,7 @@ def _summary_compensation() -> None:
         set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", []))
     )
     benefits = _chip_multiselect(
-        "Benefits",
+        tr("Leistungen", "Benefits"),
         options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
@@ -4759,7 +4760,7 @@ def run_wizard():
                     st.rerun()
             with home_col:
                 if st.button(
-                    "🏠 Home",
+                    tr("🏠 Startseite", "🏠 Home"),
                     key="summary_home",
                     use_container_width=True,
                 ):
@@ -4767,7 +4768,7 @@ def run_wizard():
                     st.rerun()
             with donate_col:
                 if st.button(
-                    "❤️ Donate to the developer",
+                    tr("❤️ Entwickler unterstützen", "❤️ Donate to the developer"),
                     key="summary_donate",
                     use_container_width=True,
                 ):
