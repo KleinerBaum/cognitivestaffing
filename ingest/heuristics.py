@@ -1,8 +1,9 @@
 import re
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Mapping, Optional, Tuple
 
 from models.need_analysis import NeedAnalysisProfile
+from nlp.entities import extract_location_entities
 
 _GENDER_RE = re.compile(
     r"(?P<prefix>\s*[-–—:,/|]*)?(?P<suffix>\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)",
@@ -687,9 +688,36 @@ def guess_start_date(text: str) -> str:
 
 
 def apply_basic_fallbacks(
-    profile: NeedAnalysisProfile, text: str
+    profile: NeedAnalysisProfile,
+    text: str,
+    *,
+    metadata: Mapping[str, object] | None = None,
 ) -> NeedAnalysisProfile:
     """Fill missing basic fields using heuristics."""
+
+    metadata = metadata or {}
+    invalid_fields = {
+        field for field in metadata.get("invalid_fields", []) if isinstance(field, str)
+    }
+    high_confidence = {
+        field
+        for field in metadata.get("high_confidence_fields", [])
+        if isinstance(field, str)
+    }
+    city_field = "location.primary_city"
+    country_field = "location.country"
+    city_invalid = city_field in invalid_fields
+    country_invalid = country_field in invalid_fields
+
+    def _needs_value(value: Optional[str], field: str) -> bool:
+        if field in high_confidence and field not in invalid_fields:
+            return False
+        if field in invalid_fields:
+            return True
+        return not (value and value.strip())
+
+    location_entities = None
+
     if not profile.position.job_title:
         profile.position.job_title = guess_job_title(text)
     if not profile.company.name:
@@ -702,8 +730,32 @@ def apply_basic_fallbacks(
         _, brand = guess_company(text)
         if brand:
             profile.company.brand_name = brand
-    if not profile.location.primary_city:
-        profile.location.primary_city = guess_city(text)
+    if _needs_value(profile.location.primary_city, city_field):
+        city_guess = "" if city_invalid else guess_city(text)
+        if not city_guess or city_invalid:
+            if location_entities is None:
+                location_entities = extract_location_entities(text)
+            if location_entities:
+                spa_city = location_entities.primary_city or ""
+            else:
+                spa_city = ""
+            if spa_city:
+                city_guess = spa_city
+            elif city_invalid:
+                city_guess = guess_city(text)
+        if city_guess:
+            profile.location.primary_city = city_guess
+    if _needs_value(profile.location.country, country_field):
+        if location_entities is None:
+            location_entities = extract_location_entities(text)
+        if location_entities:
+            country_guess = location_entities.primary_country or ""
+        else:
+            country_guess = ""
+        if not country_guess and country_invalid:
+            country_guess = ""
+        if country_guess:
+            profile.location.country = country_guess
     job, contract, policy, remote_pct = guess_employment_details(text)
     if not profile.employment.job_type and job:
         profile.employment.job_type = job

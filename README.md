@@ -22,6 +22,7 @@ the base model if needed.
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
 - **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
+- **NER-backed location fallback**: shared spaCy pipeline fills missing city/country data in German postings when regex fails
 - **Structured output**: function calling/JSON mode ensures valid responses
 - **Job posting schema**: `schema/job_posting_extraction.schema.json` validates 20+ required vacancy fields for consistent LLM outputs
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
@@ -95,6 +96,9 @@ Requires **Python 3.11 or 3.12**.
    ```bash
    pip install -r requirements.txt  # or: pip install -e .
    ```
+
+   This installs spaCy together with the German `de_core_news_sm` model used for
+   rule fallback of city/country detection.
 
 4. **Configure environment variables**
 

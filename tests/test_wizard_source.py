@@ -207,7 +207,7 @@ def test_extract_and_summarize_does_not_enrich_skills(
 
     monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t: p)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
     _extract_and_summarize("Job text", {})
 
     data = st.session_state[StateKeys.PROFILE]
@@ -230,7 +230,7 @@ def test_extract_and_summarize_records_rag_metadata(
         lambda *a, **k: json.dumps({"position": {"job_title": "Engineer"}}),
     )
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t: p)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
     _extract_and_summarize("Job text", {})
 
     metadata = st.session_state[StateKeys.PROFILE_METADATA]

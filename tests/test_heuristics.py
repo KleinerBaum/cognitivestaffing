@@ -39,6 +39,31 @@ def test_guess_city_from_standort_hint() -> None:
     assert profile.location.primary_city == "Stuttgart"
 
 
+def test_spacy_fallback_city_and_country_lowercase() -> None:
+    text = "wir suchen verstärkung in düsseldorf, deutschland mit sofortigem start"
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+    assert profile.location.primary_city == "Düsseldorf"
+    assert profile.location.country == "Deutschland"
+
+
+def test_spacy_respects_invalid_metadata() -> None:
+    text = "arbeitsort düsseldorf mit option in deutschland zu reisen"
+    profile = NeedAnalysisProfile()
+    profile.location.primary_city = "Berlin"
+    metadata = {"invalid_fields": ["location.primary_city"]}
+    profile = apply_basic_fallbacks(profile, text, metadata=metadata)
+    assert profile.location.primary_city == "Düsseldorf"
+
+
+def test_spacy_does_not_override_high_confidence() -> None:
+    text = "einsatzort düsseldorf"
+    profile = NeedAnalysisProfile()
+    profile.location.primary_city = "Berlin"
+    metadata = {"high_confidence_fields": ["location.primary_city"]}
+    profile = apply_basic_fallbacks(profile, text, metadata=metadata)
+    assert profile.location.primary_city == "Berlin"
+
+
 def test_parse_extraction_city_alias() -> None:
     profile = parse_extraction(
         '{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}'

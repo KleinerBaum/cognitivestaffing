@@ -77,7 +77,7 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr("wizard.extract_json", fake_extract)
     monkeypatch.setattr("wizard.coerce_and_fill", fake_coerce)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, t: p)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, t, **_: p)
     monkeypatch.setattr("wizard.ask_followups", fake_followups)
     monkeypatch.setattr(st, "spinner", lambda *a, **k: _DummySpinner())
 
