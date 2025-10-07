@@ -297,6 +297,69 @@ def _render_step_context(context: SidebarContext) -> None:
     renderer(context)
 
 
+def _build_initial_extraction_entries(
+    context: SidebarContext,
+) -> tuple[list[str], dict[str, list[tuple[str, str]]]]:
+    """Return ordered step keys with their extracted entries."""
+
+    step_order = [key for key, _ in STEP_LABELS]
+    if not step_order:
+        return [], {}
+
+    step_entries: dict[str, list[tuple[str, str]]] = {key: [] for key in step_order}
+
+    summary = context.extraction_summary
+    known_step_keys = set(step_order)
+    if isinstance(summary, Mapping):
+        is_step_grouped = (
+            summary
+            and all(
+                isinstance(value, Mapping) and key in known_step_keys
+                for key, value in summary.items()
+            )
+        )
+        if is_step_grouped:
+            for step_key, values in summary.items():
+                entries = step_entries.setdefault(step_key, [])
+                for label, value in values.items():
+                    preview = preview_value_to_text(value)
+                    if preview:
+                        entries.append((str(label), preview))
+        else:
+            entries = step_entries.setdefault("onboarding", [])
+            for label, value in summary.items():
+                preview = preview_value_to_text(value)
+                if preview:
+                    entries.append((str(label), preview))
+
+    section_map = _initial_extraction_section_map()
+    for section_label, items in context.prefilled_sections:
+        step_key = section_map.get(section_label)
+        if not step_key:
+            continue
+        entries = step_entries.setdefault(step_key, [])
+        for path, value in items:
+            preview = preview_value_to_text(value)
+            if not preview:
+                continue
+            entries.append((_format_field_name(path), preview))
+
+    return step_order, step_entries
+
+
+def _initial_extraction_section_map() -> dict[str, str]:
+    """Return mapping of section labels to wizard step keys."""
+
+    return {
+        tr("Unternehmen", "Company"): "company",
+        tr("Basisdaten", "Basic info"): "basic",
+        tr("Beschäftigung", "Employment"): "basic",
+        tr("Anforderungen", "Requirements"): "requirements",
+        tr("Leistungen & Benefits", "Rewards & Benefits"): "compensation",
+        tr("Prozess", "Process"): "process",
+    }
+
+
 def _render_onboarding_context(context: SidebarContext) -> None:
     method = st.session_state.get(UIKeys.INPUT_METHOD, "text")
     method_labels = {
@@ -307,16 +370,45 @@ def _render_onboarding_context(context: SidebarContext) -> None:
     st.markdown(f"#### {tr('Aktuelle Quelle', 'Current source')}")
     st.caption(method_labels.get(method, method))
 
-    summary = context.extraction_summary
     st.markdown(f"#### {tr('Erste Extraktion', 'Initial extraction')}")
-    if summary:
-        for label, value in summary.items():
-            st.markdown(f"- **{label}:** {value}")
-    else:
+    step_order, step_entries = _build_initial_extraction_entries(context)
+    if not any(step_entries.values()):
         st.caption(
             tr(
                 "Sobald du Daten importierst, erscheinen hier die wichtigsten Ergebnisse.",
                 "As soon as you import data the top findings will appear here.",
+            )
+        )
+        return
+
+    select_key = "ui.initial_extraction_step"
+    if (
+        select_key not in st.session_state
+        or st.session_state[select_key] not in step_order
+    ):
+        default_step = next(
+            (key for key in step_order if step_entries.get(key)),
+            step_order[0],
+        )
+        st.session_state[select_key] = default_step
+
+    step_label_map = dict(STEP_LABELS)
+    selected_step = st.selectbox(
+        tr("Schritt auswählen", "Select step"),
+        options=step_order,
+        key=select_key,
+        format_func=lambda key: step_label_map.get(key, key.title()),
+    )
+
+    entries = step_entries.get(selected_step, [])
+    if entries:
+        for label, value in entries:
+            st.markdown(f"- **{label}:** {value}")
+    else:
+        st.caption(
+            tr(
+                "Für diesen Schritt liegen noch keine Daten vor.",
+                "No data captured for this step yet.",
             )
         )
 
