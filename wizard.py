@@ -2462,8 +2462,9 @@ def _render_onboarding_section(
     profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
     existing_entries = _split_onboarding_entries(process.get("onboarding_process", ""))
 
-    job_title = ""
-    if isinstance(profile, Mapping):
+    job_title_state_value = st.session_state.get("position.job_title", "")
+    job_title = str(job_title_state_value or "").strip()
+    if not job_title and isinstance(profile, Mapping):
         job_title = str((profile.get("position") or {}).get("job_title") or "").strip()
 
     if allow_generate:
@@ -2474,12 +2475,13 @@ def _render_onboarding_section(
                     "Please provide a job title to generate onboarding suggestions.",
                 )
             )
-        if st.button(
+        generate_clicked = st.button(
             "🤖 "
             + tr("Onboarding-Vorschläge generieren", "Generate onboarding suggestions"),
             key=f"{key_prefix}.generate",
             disabled=not job_title,
-        ):
+        )
+        if generate_clicked and job_title:
             company_data = (
                 profile.get("company") if isinstance(profile, Mapping) else {}
             )
@@ -2490,26 +2492,25 @@ def _render_onboarding_section(
                 company_name = str(company_data.get("name") or "").strip()
                 industry = str(company_data.get("industry") or "").strip()
                 culture = str(company_data.get("culture") or "").strip()
-            if job_title:
-                suggestions, err = get_onboarding_suggestions(
-                    job_title,
-                    company_name=company_name,
-                    industry=industry,
-                    culture=culture,
-                    lang=lang,
-                )
-                if err or not suggestions:
-                    st.warning(
-                        tr(
-                            "Onboarding-Vorschläge nicht verfügbar (API-Fehler)",
-                            "Onboarding suggestions not available (API error)",
-                        )
+            suggestions, err = get_onboarding_suggestions(
+                job_title,
+                company_name=company_name,
+                industry=industry,
+                culture=culture,
+                lang=lang,
+            )
+            if err or not suggestions:
+                st.warning(
+                    tr(
+                        "Onboarding-Vorschläge nicht verfügbar (API-Fehler)",
+                        "Onboarding suggestions not available (API error)",
                     )
-                    if err and st.session_state.get("debug"):
-                        st.session_state["onboarding_suggestions_error"] = err
-                else:
-                    st.session_state[StateKeys.ONBOARDING_SUGGESTIONS] = suggestions
-                    st.rerun()
+                )
+                if err and st.session_state.get("debug"):
+                    st.session_state["onboarding_suggestions_error"] = err
+            else:
+                st.session_state[StateKeys.ONBOARDING_SUGGESTIONS] = suggestions
+                st.rerun()
 
     current_suggestions = (
         st.session_state.get(StateKeys.ONBOARDING_SUGGESTIONS, []) or []
