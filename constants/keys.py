@@ -45,6 +45,7 @@ class StateKeys:
     RAW_TEXT = "profile_raw_text"
     RAW_BLOCKS = "profile_raw_blocks"
     STEP = "current_step"
+    SCROLL_TO_TOP = "ui.scroll_to_top"
     FOLLOWUPS = "followup_questions"
     USAGE = "api_usage"
     JOB_AD_MD = "data.job_ad_md"
