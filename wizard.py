@@ -55,6 +55,7 @@ from core.suggestions import (
     get_benefit_suggestions,
     get_onboarding_suggestions,
     get_skill_suggestions,
+    get_static_benefit_shortlist,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components.stepper import render_stepper
@@ -3371,26 +3372,14 @@ def _step_compensation():
         "Equity?", value=bool(data["compensation"].get("equity_offered"))
     )
     lang = st.session_state.get("lang", "de")
-    preset_benefits = {
-        "de": [
-            "Firmenwagen",
-            "Home-Office",
-            "Weiterbildungsbudget",
-            "Betriebliche Altersvorsorge",
-            "Team-Events",
-        ],
-        "en": [
-            "Company car",
-            "Home office",
-            "Training budget",
-            "Pension plan",
-            "Team events",
-        ],
-    }
+    industry_context = data.get("company", {}).get("industry", "")
+    fallback_benefits = get_static_benefit_shortlist(
+        lang=lang, industry=industry_context
+    )
     sugg_benefits = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, [])
     benefit_options = sorted(
         set(
-            preset_benefits.get(lang, [])
+            fallback_benefits
             + data["compensation"].get("benefits", [])
             + sugg_benefits
         )
@@ -3405,21 +3394,28 @@ def _step_compensation():
         job_title = data.get("position", {}).get("job_title", "")
         industry = data.get("company", {}).get("industry", "")
         existing = "\n".join(data["compensation"].get("benefits", []))
-        new_sugg, err = get_benefit_suggestions(
+        new_sugg, err, used_fallback = get_benefit_suggestions(
             job_title,
             industry,
             existing,
             lang=lang,
         )
-        if err or not new_sugg:
+        if used_fallback:
+            st.info(
+                tr(
+                    "Keine KI-Vorschläge verfügbar – zeige Standardliste.",
+                    "No AI suggestions available – showing fallback list.",
+                )
+            )
+        elif err:
             st.warning(
                 tr(
                     "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
                     "Benefit suggestions not available (API error)",
                 )
             )
-            if err and st.session_state.get("debug"):
-                st.session_state["benefit_suggest_error"] = err
+        if err and st.session_state.get("debug"):
+            st.session_state["benefit_suggest_error"] = err
         if new_sugg:
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = sorted(
                 set(sugg_benefits + new_sugg)

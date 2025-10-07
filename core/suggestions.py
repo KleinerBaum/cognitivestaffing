@@ -14,7 +14,108 @@ __all__ = [
     "get_skill_suggestions",
     "get_benefit_suggestions",
     "get_onboarding_suggestions",
+    "get_static_benefit_shortlist",
 ]
+
+
+# Default shortlist of benefits used when the AI backend is unavailable or
+# returns no suggestions. The lists are intentionally short and localized.
+_DEFAULT_BENEFIT_SHORTLIST: Dict[str, Dict[str, List[str]]] = {
+    "en": {
+        "default": [
+            "Flexible working hours",
+            "Remote-friendly work",
+            "Training budget",
+            "Health insurance",
+            "Team events",
+        ],
+        "tech": [
+            "Flexible working hours",
+            "Remote-first culture",
+            "Hardware stipend",
+            "Learning & development budget",
+            "Stock options",
+        ],
+        "health": [
+            "Subsidized health insurance",
+            "Paid wellness days",
+            "Retirement plan",
+            "Continuous training",
+            "Team events",
+        ],
+    },
+    "de": {
+        "default": [
+            "Flexible Arbeitszeiten",
+            "Remote-Option",
+            "Weiterbildungsbudget",
+            "Gesundheitsleistungen",
+            "Team-Events",
+        ],
+        "tech": [
+            "Flexible Arbeitszeiten",
+            "Remote-First Kultur",
+            "Hardware-Zuschuss",
+            "Weiterbildungsbudget",
+            "Virtuelle Team-Events",
+        ],
+        "health": [
+            "Bezuschusste Krankenversicherung",
+            "Zusätzliche Gesundheitstage",
+            "Betriebliche Altersvorsorge",
+            "Fortbildungsprogramme",
+            "Team-Events",
+        ],
+    },
+}
+
+
+def _normalize_lang(lang: str) -> str:
+    return "de" if str(lang or "").lower().startswith("de") else "en"
+
+
+def _detect_industry_bucket(industry: str) -> str:
+    industry_lc = str(industry or "").lower()
+    if any(keyword in industry_lc for keyword in ("health", "care", "medizin", "hospital")):
+        return "health"
+    if any(
+        keyword in industry_lc
+        for keyword in (
+            "tech",
+            "software",
+            "it",
+            "digital",
+            "entwick",
+        )
+    ):
+        return "tech"
+    return "default"
+
+
+def _unique(items: List[str]) -> List[str]:
+    seen = set()
+    unique_items: List[str] = []
+    for raw in items:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        lowered = value.casefold()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        unique_items.append(value)
+    return unique_items
+
+
+def get_static_benefit_shortlist(lang: str = "en", industry: str = "") -> List[str]:
+    """Return a localized static benefit shortlist for fallback scenarios."""
+
+    lang_key = _normalize_lang(lang)
+    bucket = _detect_industry_bucket(industry)
+    items = _DEFAULT_BENEFIT_SHORTLIST.get(lang_key, {}).get(bucket)
+    if not items:
+        items = _DEFAULT_BENEFIT_SHORTLIST.get("en", {}).get("default", [])
+    return _unique(items or [])
 
 
 def get_skill_suggestions(
@@ -43,7 +144,7 @@ def get_benefit_suggestions(
     industry: str = "",
     existing_benefits: str = "",
     lang: str = "en",
-) -> Tuple[List[str], str | None]:
+) -> Tuple[List[str], str | None, bool]:
     """Fetch benefit suggestions for a role.
 
     Args:
@@ -53,17 +154,24 @@ def get_benefit_suggestions(
         lang: Output language ("en" or "de").
 
     Returns:
-        Tuple of (benefits list, error message). On failure, the list is empty and
-        ``error`` contains the exception message.
+        Tuple of (benefits list, error message, used_fallback). On failure or when
+        the API returns no suggestions, the fallback list is returned and
+        ``used_fallback`` is ``True``. ``error`` contains the exception message
+        when the API call failed, otherwise ``None``.
     """
 
+    fallback = get_static_benefit_shortlist(lang=lang, industry=industry)
     try:
-        return (
-            suggest_benefits(job_title, industry, existing_benefits, lang=lang),
-            None,
+        suggestions = _unique(
+            suggest_benefits(job_title, industry, existing_benefits, lang=lang)
         )
     except Exception as err:  # pragma: no cover - error path is tested
-        return [], str(err)
+        return fallback, str(err), True
+
+    if suggestions:
+        return suggestions, None, False
+
+    return fallback, None, True
 
 
 def get_onboarding_suggestions(
