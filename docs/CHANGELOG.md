@@ -13,3 +13,4 @@
 - feat: run extraction through a LangChain validation chain with NeedAnalysisProfile fallbacks
 - docs: clarify Responses API migration and removal of Assistants/Threads usage
 - fix: show localized warning in requirements step when skill suggestions fail
+- fix: infer salary estimate country from primary city/HQ hints when explicit country is missing

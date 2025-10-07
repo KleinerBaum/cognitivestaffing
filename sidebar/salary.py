@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping
@@ -54,6 +55,8 @@ class SalaryExpectationResponse(BaseModel):
 class _SalaryInputs:
     job_title: str
     country: str
+    primary_city: str | None
+    hq_location: str | None
     seniority: str | None
     work_policy: str | None
     employment_type: str | None
@@ -70,10 +73,13 @@ def estimate_salary_expectation() -> None:
     profile: Mapping[str, Any] = st.session_state.get(StateKeys.PROFILE, {})
     inputs = _collect_inputs(profile)
 
-    if not inputs.job_title or not inputs.country:
+    has_country = bool(inputs.country)
+    has_geo_hint = has_country or inputs.primary_city or inputs.hq_location
+
+    if not inputs.job_title or not has_geo_hint:
         message = tr(
-            "Bitte gib mindestens Jobtitel und Land an, um eine Schätzung zu erhalten.",
-            "Please provide at least job title and country to generate an estimate.",
+            "Bitte gib mindestens Jobtitel und entweder Land oder Standort an, um eine Schätzung zu erhalten.",
+            "Please provide at least a job title plus either a country or a city/HQ location to generate an estimate.",
         )
         st.session_state[UIKeys.SALARY_ESTIMATE] = None
         st.session_state[UIKeys.SALARY_EXPLANATION] = message
@@ -126,9 +132,16 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
         except (TypeError, ValueError):
             return None
 
+    country_raw = str(location.get("country") or "").strip()
+    primary_city = str(location.get("primary_city") or "").strip() or None
+    hq_location = str(company.get("hq_location") or "").strip() or None
+    inferred_country = country_raw or _derive_country_from_locations(primary_city, hq_location) or ""
+
     return _SalaryInputs(
         job_title=str(position.get("job_title") or "").strip(),
-        country=str(location.get("country") or "").strip(),
+        country=inferred_country,
+        primary_city=primary_city,
+        hq_location=hq_location,
         seniority=str(position.get("seniority_level") or "").strip() or None,
         work_policy=str(employment.get("work_policy") or "").strip() or None,
         employment_type=str(employment.get("job_type") or "").strip() or None,
@@ -138,6 +151,116 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
         current_max=_as_float(compensation.get("salary_max")),
         current_currency=str(compensation.get("currency") or "").strip() or None,
     )
+
+
+_LOCATION_SPLIT_RE = re.compile(r"[\n\-/|;,•·]")
+
+
+def _derive_country_from_locations(*candidates: str | None) -> str | None:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        for token in _iter_location_tokens(candidate):
+            country = _country_from_hint(token)
+            if country:
+                return country
+    return None
+
+
+def _iter_location_tokens(value: str) -> list[str]:
+    cleaned = value.strip().strip(",•·|/\n")
+    if not cleaned:
+        return []
+
+    tokens: list[str] = [cleaned]
+
+    for group in re.findall(r"\(([^)]+)\)", cleaned):
+        inner = group.strip()
+        if inner:
+            tokens.append(inner)
+
+    simplified = cleaned.replace("–", " ").replace("—", " ")
+    simplified = simplified.replace("-", " ")
+
+    for part in _LOCATION_SPLIT_RE.split(simplified):
+        candidate = part.strip()
+        if candidate:
+            tokens.append(candidate)
+
+    for part in simplified.split():
+        piece = part.strip(" ,•·|/")
+        if piece:
+            tokens.append(piece)
+
+    # Preserve order while removing duplicates
+    seen: set[str] = set()
+    unique_tokens: list[str] = []
+    for token in tokens:
+        key = token.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_tokens.append(token)
+    return unique_tokens
+
+
+def _country_from_hint(value: str) -> str | None:
+    normalized = normalize_country(value)
+    if normalized:
+        iso_from_normalized = country_to_iso2(normalized)
+        if iso_from_normalized:
+            return normalized
+
+    iso = country_to_iso2(value)
+    if iso:
+        normalized_iso = normalize_country(iso)
+        if normalized_iso and country_to_iso2(normalized_iso):
+            return normalized_iso
+        return iso
+
+    ascii_value = _strip_accents(value).casefold()
+    mapped = _CITY_TO_COUNTRY.get(ascii_value)
+    if mapped:
+        return mapped
+    return None
+
+
+def _strip_accents(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in normalized if not unicodedata.combining(ch))
+
+
+_CITY_TO_COUNTRY: dict[str, str] = {
+    "berlin": "Germany",
+    "munich": "Germany",
+    "muenchen": "Germany",
+    "hamburg": "Germany",
+    "frankfurt": "Germany",
+    "cologne": "Germany",
+    "koeln": "Germany",
+    "dusseldorf": "Germany",
+    "duesseldorf": "Germany",
+    "stuttgart": "Germany",
+    "vienna": "Austria",
+    "wien": "Austria",
+    "salzburg": "Austria",
+    "zurich": "Switzerland",
+    "zuerich": "Switzerland",
+    "geneva": "Switzerland",
+    "basel": "Switzerland",
+    "london": "United Kingdom",
+    "manchester": "United Kingdom",
+    "paris": "France",
+    "madrid": "Spain",
+    "barcelona": "Spain",
+    "rome": "Italy",
+    "milan": "Italy",
+    "new york": "United States",
+    "san francisco": "United States",
+    "los angeles": "United States",
+    "boston": "United States",
+    "seattle": "United States",
+}
 
 
 def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str | None]:
