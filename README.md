@@ -22,6 +22,7 @@ the base model if needed.
 - **Improved URL parsing**: reports HTTP status on failures and trims boilerplate
 - **Upfront language switch**: choose German or English before entering any data
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
+- **Legal information page**: centralises imprint, ESCO licence notice and disclaimers for compliant launches
 - **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
 - **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
 - **NER-backed location fallback**: shared spaCy pipeline fills missing city/country data in German postings when regex fails
