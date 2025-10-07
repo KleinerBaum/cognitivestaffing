@@ -1,6 +1,7 @@
 import io
 import logging
 import re
+from urllib.parse import urljoin
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -15,6 +16,9 @@ from .types import ContentBlock, StructuredDocument, build_plain_text_document
 
 
 logger = logging.getLogger(__name__)
+
+
+_REDIRECT_STATUSES = {301, 302, 307, 308}
 
 
 def _fetch_url(url: str, timeout: float = 15.0) -> str:
@@ -32,16 +36,48 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
     """
     if not url or not re.match(r"^https?://", url):
         raise ValueError("Invalid URL")
-    try:
-        resp: Response = requests.get(
-            url, timeout=timeout, headers={"User-Agent": "CognitiveNeeds/1.0"}
-        )
-        resp.raise_for_status()
-    except requests.RequestException as exc:  # pragma: no cover - network
-        status = getattr(getattr(exc, "response", None), "status_code", "unknown")
-        logger.warning("Failed to fetch %s (status %s)", url, status)
-        raise ValueError(f"failed to fetch URL (status {status})") from exc
-    return resp.text
+    remaining_redirects = 5
+    current_url = url
+    while True:
+        try:
+            resp: Response = requests.get(
+                current_url,
+                timeout=timeout,
+                headers={"User-Agent": "CognitiveNeeds/1.0"},
+                allow_redirects=True,
+            )
+            resp.raise_for_status()
+            return resp.text
+        except requests.RequestException as exc:  # pragma: no cover - network
+            response = getattr(exc, "response", None)
+            status = getattr(response, "status_code", None)
+            headers = getattr(response, "headers", {}) or {}
+            location = None
+            if hasattr(headers, "get"):
+                location = headers.get("Location") or headers.get("location")
+            elif isinstance(headers, dict):
+                location = headers.get("Location") or headers.get("location")
+            if (
+                status in _REDIRECT_STATUSES
+                and location
+                and remaining_redirects > 0
+            ):
+                remaining_redirects -= 1
+                previous_url = current_url
+                current_url = urljoin(previous_url, location)
+                logger.debug(
+                    "Redirecting fetch from %s to %s (remaining=%s)",
+                    previous_url,
+                    current_url,
+                    remaining_redirects,
+                )
+                continue
+            if status in _REDIRECT_STATUSES and location:
+                logger.warning("Redirect limit exceeded for %s", url)
+                raise ValueError("too many redirects while fetching URL") from exc
+            status_display = status if status is not None else "unknown"
+            logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
+            raise ValueError(f"failed to fetch URL (status {status_display})") from exc
 
 
 def extract_text_from_url(url: str) -> StructuredDocument:
