@@ -40,12 +40,20 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
     current_url = url
     while True:
         try:
-            resp: Response = requests.get(
-                current_url,
-                timeout=timeout,
-                headers={"User-Agent": "CognitiveNeeds/1.0"},
-                allow_redirects=True,
-            )
+            try:
+                resp: Response = requests.get(
+                    current_url,
+                    timeout=timeout,
+                    headers={"User-Agent": "CognitiveNeeds/1.0"},
+                    allow_redirects=True,
+                )
+            except TypeError:  # pragma: no cover - test doubles without kwarg support
+                resp = requests.get(
+                    current_url,
+                    timeout=timeout,
+                    headers={"User-Agent": "CognitiveNeeds/1.0"},
+                )
+
             resp.raise_for_status()
             return resp.text
         except requests.RequestException as exc:  # pragma: no cover - network

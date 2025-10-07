@@ -1,17 +1,26 @@
 import json
-from typing import Any
-from pathlib import Path
 import sys
 import types
+from pathlib import Path
+from typing import Any
+
+import pytest
+import streamlit as st
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from question_logic import (
+from question_logic import (  # noqa: E402
     CRITICAL_FIELDS,
     _rag_suggestions,
     ask_followups,
     generate_followup_questions,
 )
-from openai_utils import ChatCallResult
+from openai_utils import ChatCallResult  # noqa: E402
+from constants.keys import StateKeys  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _clear_session_state() -> None:
+    st.session_state.clear()
 
 
 def test_generate_followup_questions() -> None:
@@ -25,14 +34,28 @@ def test_generate_followup_questions() -> None:
     assert q["priority"] in {"critical", "normal"}
 
 
-def test_role_specific_questions_disabled(monkeypatch) -> None:
-    """Role-specific prompts are disabled when ESCO is inactive."""
+def test_role_specific_questions_from_esco_state(monkeypatch) -> None:
+    """Role-specific prompts should activate when ESCO provides a group."""
 
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"position.job_title"})
+    st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [
+        {
+            "preferredLabel": "Software developers",
+            "group": "Information and communications technology professionals",
+            "uri": "offline://ict",
+        }
+    ]
+    st.session_state[StateKeys.ESCO_SKILLS] = ["Python", "Version control"]
+
     out = generate_followup_questions(
-        {"position.job_title": "Backend Developer"}, use_rag=False
+        {"position": {"job_title": "Backend Developer"}}, use_rag=False
     )
-    assert all(q["field"] != "programming_languages" for q in out)
+    fields = {q["field"] for q in out}
+    assert "requirements.tools_and_technologies" in fields
+    tech_question = next(
+        q for q in out if q["field"] == "requirements.tools_and_technologies"
+    )
+    assert "Python" in tech_question["suggestions"]
 
 
 def test_yes_no_default(monkeypatch) -> None:
@@ -192,8 +215,8 @@ def test_generate_followups_salary_implausible(monkeypatch) -> None:
     assert "unusual" in out[0]["question"].lower()
 
 
-def test_generate_followups_without_esco_suggestions(monkeypatch) -> None:
-    """ESCO suggestions are disabled, resulting in empty suggestion lists."""
+def test_generate_followups_include_esco_suggestions(monkeypatch) -> None:
+    """ESCO suggestions should augment missing skill fields."""
 
     monkeypatch.setattr(
         "question_logic.CRITICAL_FIELDS", {"requirements.hard_skills_required"}
@@ -207,7 +230,7 @@ def test_generate_followups_without_esco_suggestions(monkeypatch) -> None:
     out = generate_followup_questions(data, use_rag=False, lang="en")
 
     assert out[0]["field"] == "requirements.hard_skills_required"
-    assert out[0]["suggestions"] == []
+    assert "Python" in out[0]["suggestions"]
 
 
 def test_generate_followups_benefit_defaults(monkeypatch) -> None:

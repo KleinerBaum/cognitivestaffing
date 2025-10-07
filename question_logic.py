@@ -27,7 +27,12 @@ from openai_utils import call_chat_api
 from utils.i18n import tr
 
 # ESCO helpers (core utils + offline-aware wrapper)
-from core.esco_utils import normalize_skills
+from constants.keys import StateKeys
+from core.esco_utils import (
+    classify_occupation,
+    get_essential_skills,
+    normalize_skills,
+)
 from core.suggestions import get_benefit_suggestions
 from config import OPENAI_API_KEY, VECTOR_STORE_ID, ModelTask, get_model_for
 
@@ -709,6 +714,25 @@ def generate_followup_questions(
     industry = str(_get_field_value(extracted, "company.industry", "") or "").strip()
     role_fields: List[str] = []
     role_questions_cfg: List[Dict[str, str]] = []
+    esco_skills: List[str] = []
+
+    occupation_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, [])
+    occupation = occupation_options[0] if occupation_options else None
+    if not occupation and job_title:
+        occupation = classify_occupation(job_title, lang=lang)
+        if occupation:
+            occupation_options = [occupation]
+            st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = occupation_options
+    if occupation:
+        group_key = str(occupation.get("group") or "").casefold()
+        if group_key:
+            role_fields = list(ROLE_FIELD_MAP.get(group_key, []))
+            role_questions_cfg = ROLE_QUESTION_MAP.get(group_key, [])
+        esco_skills = st.session_state.get(StateKeys.ESCO_SKILLS, [])
+        if not esco_skills:
+            esco_skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
+            if esco_skills:
+                st.session_state[StateKeys.ESCO_SKILLS] = esco_skills
     answered_fields = set(_get_followups_answered(extracted))
     fields_to_check = list(CRITICAL_FIELDS)
     for extra in role_fields:
@@ -746,6 +770,19 @@ def generate_followup_questions(
             suggestions_map[key] = _merge_suggestions(
                 values, existing=_existing_value_keys(extracted, key)
             )
+
+    if esco_skills:
+        normalized_esco = normalize_skills(esco_skills, lang=lang)
+        for skill_field in (
+            "requirements.hard_skills_required",
+            "requirements.tools_and_technologies",
+        ):
+            if skill_field in missing_fields:
+                suggestions_map[skill_field] = _merge_suggestions(
+                    suggestions_map.get(skill_field, []),
+                    normalized_esco,
+                    existing=_existing_value_keys(extracted, skill_field),
+                )
 
     if "compensation.benefits" in missing_fields:
         existing_keys = _existing_value_keys(extracted, "compensation.benefits")
