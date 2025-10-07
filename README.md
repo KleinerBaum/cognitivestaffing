@@ -23,6 +23,7 @@ the base model if needed.
 - **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
 - **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
 - **NER-backed location fallback**: shared spaCy pipeline fills missing city/country data in German postings when regex fails
+- **Canonical geo/language normalisation**: pycountry-backed mapper standardises German country and language inputs (Deutschland→Germany, Deutsch→German) and deduplicates case variants
 - **Structured output**: function calling/JSON mode ensures valid responses
 - **LangChain validation**: a LangChain runnable validates extraction output with the `NeedAnalysisProfile` schema before surfacing it, gracefully falling back to raw JSON mode when the model drifts
 - **Job posting schema**: `schema/job_posting_extraction.schema.json` validates 20+ required vacancy fields for consistent LLM outputs

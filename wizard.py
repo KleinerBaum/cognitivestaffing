@@ -59,6 +59,7 @@ from core.suggestions import (
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components.stepper import render_stepper
 from utils import seo_optimize
+from utils.normalization import normalize_country, normalize_language_list
 from utils.export import prepare_download_data
 from nlp.bias import scan_bias_language
 from core.esco_utils import normalize_skills
@@ -1534,10 +1535,31 @@ def _normalize_semantic_empty(value: Any) -> Any:
     return value
 
 
+def _normalize_value_for_path(path: str, value: Any) -> Any:
+    """Apply field-specific normalisation before persisting ``value``."""
+
+    if path == "location.country":
+        if isinstance(value, str) or value is None:
+            return normalize_country(value)
+        return normalize_country(str(value))
+    if path in {
+        "requirements.languages_required",
+        "requirements.languages_optional",
+    }:
+        if isinstance(value, list):
+            return normalize_language_list(value)
+        if isinstance(value, str):
+            parts = [part.strip() for part in value.split(",") if part.strip()]
+            return normalize_language_list(parts)
+        return normalize_language_list([])
+    return value
+
+
 def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
     data = st.session_state[StateKeys.PROFILE]
+    value = _normalize_value_for_path(path, value)
     current = get_in(data, path)
     if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
         set_in(data, path, value)

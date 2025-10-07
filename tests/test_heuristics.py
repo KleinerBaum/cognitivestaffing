@@ -43,7 +43,13 @@ def test_spacy_fallback_city_and_country_lowercase() -> None:
     text = "wir suchen verstärkung in düsseldorf, deutschland mit sofortigem start"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
     assert profile.location.primary_city == "Düsseldorf"
-    assert profile.location.country == "Deutschland"
+    assert profile.location.country == "Germany"
+
+
+def test_language_normalization_for_german_text() -> None:
+    text = "Sprachen: Deutsch und Englisch"
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+    assert profile.requirements.languages_required == ["German", "English"]
 
 
 def test_spacy_respects_invalid_metadata() -> None:
