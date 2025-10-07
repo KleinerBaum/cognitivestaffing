@@ -177,8 +177,8 @@ OPENAI_MODEL = "gpt-5-mini"
 
 Other environment flags:
 
-- `VACAYSER_OFFLINE` – legacy flag with no effect because ESCO integration is
-  currently disabled.
+- `VACAYSER_OFFLINE` – set to `1` to force the cached ESCO dataset and skip
+  outbound API calls.
 - `VECTOR_STORE_ID=vs_…` – enable OpenAI File Search for RAG (leave unset to
   disable).
 

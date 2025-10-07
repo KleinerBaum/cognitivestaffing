@@ -16,15 +16,30 @@ from openai_utils import api as openai_api, extraction
 def test_get_skill_suggestions(monkeypatch):
     monkeypatch.setattr(
         suggestions,
+        "classify_occupation",
+        lambda title, lang="en": {"uri": "http://example.com/occupation", "group": ""},
+    )
+    monkeypatch.setattr(
+        suggestions,
+        "get_essential_skills",
+        lambda uri, lang="en": ["Python"],
+    )
+    monkeypatch.setattr(
+        suggestions,
+        "normalize_skills",
+        lambda skills, lang="en": [s.title() for s in skills],
+    )
+    monkeypatch.setattr(
+        suggestions,
         "suggest_skills_for_role",
         lambda title, lang="en": {
             "tools_and_technologies": ["T"],
-            "hard_skills": [],
+            "hard_skills": ["Go"],
             "soft_skills": [],
         },
     )
     sugg, err = get_skill_suggestions("Engineer")
-    assert sugg["tools_and_technologies"] == ["T"]
+    assert sugg == {"hard_skills": ["Python", "Go"], "tools_and_technologies": ["T"]}
     assert err is None
 
 
@@ -32,9 +47,24 @@ def test_get_skill_suggestions_error(monkeypatch):
     def raiser(*args, **kwargs):
         raise RuntimeError("fail")
 
+    monkeypatch.setattr(
+        suggestions,
+        "classify_occupation",
+        lambda title, lang="en": {"uri": "http://example.com/occupation"},
+    )
+    monkeypatch.setattr(
+        suggestions,
+        "get_essential_skills",
+        lambda uri, lang="en": ["python"],
+    )
+    monkeypatch.setattr(
+        suggestions,
+        "normalize_skills",
+        lambda skills, lang="en": [skill.upper() for skill in skills],
+    )
     monkeypatch.setattr(suggestions, "suggest_skills_for_role", raiser)
     sugg, err = get_skill_suggestions("Engineer")
-    assert sugg == {}
+    assert sugg == {"hard_skills": ["PYTHON"]}
     assert err == "fail"
 
 

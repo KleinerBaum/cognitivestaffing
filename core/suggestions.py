@@ -10,6 +10,12 @@ from openai_utils import (
     suggest_skills_for_role,
 )
 
+from core.esco_utils import (
+    classify_occupation,
+    get_essential_skills,
+    normalize_skills,
+)
+
 __all__ = [
     "get_skill_suggestions",
     "get_benefit_suggestions",
@@ -118,6 +124,21 @@ def get_static_benefit_shortlist(lang: str = "en", industry: str = "") -> List[s
     return _unique(items or [])
 
 
+def _merge_unique(base: List[str], extra: List[str]) -> List[str]:
+    merged = list(base)
+    seen = {value.casefold() for value in base}
+    for item in extra:
+        normalized = str(item or "").strip()
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(normalized)
+    return merged
+
+
 def get_skill_suggestions(
     job_title: str, lang: str = "en"
 ) -> Tuple[Dict[str, List[str]], str | None]:
@@ -133,10 +154,35 @@ def get_skill_suggestions(
         On failure, the dict is empty and ``error`` holds the exception message.
     """
 
+    suggestions: Dict[str, List[str]] = {
+        "tools_and_technologies": [],
+        "hard_skills": [],
+        "soft_skills": [],
+    }
+    errors: List[str] = []
+
+    occupation = classify_occupation(job_title, lang=lang)
+    if occupation and occupation.get("uri"):
+        esco_skills = normalize_skills(
+            get_essential_skills(occupation["uri"], lang=lang),
+            lang=lang,
+        )
+        if esco_skills:
+            suggestions["hard_skills"] = esco_skills
+
     try:
-        return suggest_skills_for_role(job_title, lang=lang), None
+        ai_suggestions = suggest_skills_for_role(job_title, lang=lang)
     except Exception as err:  # pragma: no cover - error path is tested
-        return {}, str(err)
+        errors.append(str(err))
+    else:
+        for key in list(suggestions.keys()):
+            values = ai_suggestions.get(key, [])
+            if values:
+                suggestions[key] = _merge_unique(suggestions[key], values)
+
+    cleaned = {key: value for key, value in suggestions.items() if value}
+
+    return cleaned, "; ".join(errors) if errors else None
 
 
 def get_benefit_suggestions(

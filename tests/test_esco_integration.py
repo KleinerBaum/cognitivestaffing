@@ -1,9 +1,19 @@
 """Tests for the offline ESCO integration wrapper."""
 
+from __future__ import annotations
+
+import pytest
 import streamlit as st
 
 from constants.keys import StateKeys
 from integrations import esco
+
+
+@pytest.fixture(autouse=True)
+def _offline_env(monkeypatch):
+    monkeypatch.setenv("VACAYSER_OFFLINE", "1")
+    yield
+    monkeypatch.delenv("VACAYSER_OFFLINE", raising=False)
 
 
 def test_search_populates_state() -> None:

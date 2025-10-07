@@ -1,29 +1,77 @@
-"""Lightweight ESCO helpers backed by a cached offline dataset.
+"""High level helpers for interacting with the public ESCO API.
 
-The original cloud ESCO integration is not available in the automated
-evaluation environment, therefore this module provides a deterministic
-fallback that mimics the parts of the API relied upon by the UI.
+The production app talks to the official `ec.europa.eu` ESCO endpoints to
+classify occupations and retrieve the associated essential skills.  The
+automated evaluation environment does not guarantee outbound connectivity
+though, therefore all helpers transparently fall back to a cached offline
+dataset when ``VACAYSER_OFFLINE`` is set or when network requests fail.
 
-The helpers implement a minimal occupation classifier based on a small
-offline dataset.  When no exact occupation is found, a keyword based
-heuristic returns the closest ESCO major group so that downstream logic
-can still resolve role specific follow-up questions via
-``ROLE_FIELD_MAP``.
+The module exposes a very small surface that mirrors the behaviour of the
+previous stub implementation while adding proper HTTP calls, timeouts and
+structured error handling.  Consumers only need to handle ``None`` / empty
+results – all exceptions are swallowed locally after logging.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
-from typing import Dict, Iterable, List, Optional
+from functools import lru_cache
+from typing import Any, Dict, Iterable, List, Optional, Sequence
+
+import requests
 
 from config_loader import load_json
 
 log = logging.getLogger("cognitive_needs.esco")
 
+REQUEST_TIMEOUT = 6  # seconds
+_ESCO_API_ROOT = "https://ec.europa.eu/esco/api"
+_SEARCH_URL = f"{_ESCO_API_ROOT}/search"
+_OCCUPATION_URL = f"{_ESCO_API_ROOT}/resource/occupation"
+
+
+class EscoServiceError(RuntimeError):
+    """Raised when the ESCO API cannot be reached."""
+
+
+_SESSION = requests.Session()
+_SESSION.headers.update({"Accept": "application/json"})
+
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", str(text or "")).strip().casefold()
+
+
+def _normalize_lang(lang: str) -> str:
+    lang_norm = str(lang or "en").strip().lower()
+    if lang_norm.startswith("de"):
+        return "de"
+    if len(lang_norm) == 2:
+        return lang_norm
+    return "en"
+
+
+def _is_offline() -> bool:
+    value = str(os.getenv("VACAYSER_OFFLINE", "")).strip().lower()
+    return value not in {"", "0", "false", "no"}
+
+
+def _fetch_json(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a GET request and return the parsed JSON payload."""
+
+    try:
+        response = _SESSION.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise EscoServiceError(str(exc)) from exc
+
+    try:
+        return response.json()
+    except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+        raise EscoServiceError("Invalid JSON from ESCO API") from exc
 
 
 def _load_offline_data() -> Dict[str, Dict[str, List[str]]]:
@@ -139,19 +187,11 @@ _GROUP_KEYWORDS: Dict[str, List[str]] = {
 }
 
 
-def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
-    """Return the best matching occupation entry for ``title``.
-
-    The classifier checks the cached ESCO snapshot for an exact or partial
-    match.  If nothing is found a keyword based heuristic produces a match
-    on the ESCO major group so the UI can still derive follow-up metadata.
-    """
-
+def _offline_classify(title: str) -> Optional[Dict[str, str]]:
     norm_title = _normalize(title)
     if not norm_title:
         return None
 
-    # Exact match or substring match in the cached dataset
     if norm_title in _OFFLINE_OCCUPATIONS:
         return dict(_OFFLINE_OCCUPATIONS[norm_title])
 
@@ -159,7 +199,6 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
         if key and (key in norm_title or norm_title in key):
             return dict(entry)
 
-    # Keyword-based fallback on ESCO major groups.
     for group, keywords in _GROUP_KEYWORDS.items():
         for kw in keywords:
             if kw in norm_title:
@@ -177,17 +216,10 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
                         _SKILLS_BY_URI[meta["uri"]] = list(skills)
                 return dict(meta)
 
-    log.info("No ESCO occupation match for '%s'", title)
     return None
 
 
-def search_occupations(
-    title: str,
-    lang: str = "en",
-    limit: int = 5,
-) -> List[Dict[str, str]]:
-    """Return a list of possible occupation matches for ``title``."""
-
+def _offline_search(title: str, limit: int) -> List[Dict[str, str]]:
     norm_title = _normalize(title)
     if not norm_title:
         return []
@@ -200,25 +232,18 @@ def search_occupations(
             break
 
     if not matches:
-        fallback = classify_occupation(title, lang=lang)
+        fallback = _offline_classify(title)
         if fallback:
             matches.append(fallback)
 
     return matches[:limit]
 
 
-def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
-    """Return essential skills for ``occupation_uri`` from the offline cache."""
-
-    uri = str(occupation_uri or "").strip()
-    if not uri:
-        return []
+def _offline_essential_skills(uri: str) -> List[str]:
     skills = _SKILLS_BY_URI.get(uri)
     if skills is not None:
         return list(skills)
 
-    # Fallback to group level defaults when the URI stems from the keyword
-    # heuristic.
     for meta in _GROUP_FALLBACKS.values():
         if meta.get("uri") == uri and meta.get("skills"):
             return list(meta["skills"])
@@ -226,37 +251,218 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     return []
 
 
-def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
-    """Provide a normalized representation for ``name``.
+def _select_label(preferred: Any, fallback: str, lang: str) -> str:
+    if isinstance(preferred, dict):
+        lang_norm = _normalize_lang(lang)
+        value = preferred.get(lang_norm) or preferred.get("en")
+        if value:
+            return str(value).strip()
+        for candidate in preferred.values():
+            if candidate:
+                return str(candidate).strip()
+    if preferred:
+        return str(preferred).strip()
+    return str(fallback or "").strip()
 
-    Without remote access we simply echo the normalized label.  This keeps the
-    helper compatible with the rest of the codebase while remaining
-    deterministic for tests.
-    """
+
+def _extract_group(ancestors: Sequence[Dict[str, Any]]) -> str:
+    titles: List[str] = []
+    for ancestor in ancestors or []:
+        title = str(ancestor.get("title") or "").strip()
+        if title:
+            titles.append(title)
+
+    # Prefer explicitly known offline groups to keep compatibility.
+    for title in titles:
+        if title.casefold() in _GROUP_FALLBACKS:
+            return title
+
+    for title in reversed(titles):
+        lowered = title.casefold()
+        if any(keyword in lowered for keyword in ("professionals", "managers")):
+            return title
+
+    if len(titles) >= 2:
+        return titles[-2]
+    return titles[-1] if titles else ""
+
+
+@lru_cache(maxsize=128)
+def _get_occupation_detail(uri: str, lang: str) -> Dict[str, Any]:
+    params = {"uri": uri, "language": _normalize_lang(lang), "view": "full"}
+    return _fetch_json(_OCCUPATION_URL, params)
+
+
+def _api_search_occupations(title: str, lang: str, limit: int) -> List[Dict[str, str]]:
+    params = {
+        "text": title,
+        "type": "occupation",
+        "language": _normalize_lang(lang),
+        "limit": max(1, min(limit, 20)),
+    }
+    payload = _fetch_json(_SEARCH_URL, params)
+    results = payload.get("_embedded", {}).get("results", [])
+    matches: List[Dict[str, str]] = []
+    for result in results:
+        uri = str(result.get("uri") or "").strip()
+        if not uri:
+            continue
+        label = _select_label(result.get("preferredLabel"), result.get("title"), lang)
+        group = ""
+        try:
+            detail = _get_occupation_detail(uri, lang)
+        except EscoServiceError as exc:
+            log.debug("ESCO detail lookup failed for %s: %s", uri, exc)
+            detail = {}
+        if detail:
+            ancestors = detail.get("_embedded", {}).get("ancestors", [])
+            group = _extract_group(ancestors)
+        matches.append({"preferredLabel": label, "uri": uri, "group": group})
+    return matches[:limit]
+
+
+def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
+    """Return the best matching occupation entry for ``title``."""
+
+    if not str(title or "").strip():
+        return None
+
+    if _is_offline():
+        result = _offline_classify(title)
+        if result:
+            return result
+        log.info("No offline ESCO occupation match for '%s'", title)
+        return None
+
+    try:
+        matches = _api_search_occupations(title, lang=lang, limit=1)
+    except EscoServiceError as exc:
+        log.warning("ESCO occupation search failed (%s); falling back to cache", exc)
+        return _offline_classify(title)
+
+    if matches:
+        return matches[0]
+
+    return _offline_classify(title)
+
+
+def search_occupations(
+    title: str,
+    lang: str = "en",
+    limit: int = 5,
+) -> List[Dict[str, str]]:
+    """Return a list of possible occupation matches for ``title``."""
+
+    if not str(title or "").strip():
+        return []
+
+    if _is_offline():
+        return _offline_search(title, limit)
+
+    try:
+        matches = _api_search_occupations(title, lang=lang, limit=limit)
+    except EscoServiceError as exc:
+        log.warning("ESCO occupation search failed (%s); using offline cache", exc)
+        return _offline_search(title, limit)
+
+    if matches:
+        return matches
+
+    return _offline_search(title, limit)
+
+
+def _api_essential_skills(uri: str, lang: str) -> List[str]:
+    detail = _get_occupation_detail(uri, lang)
+    skills: List[str] = []
+    for entry in detail.get("_links", {}).get("hasEssentialSkill", []) or []:
+        label = str(entry.get("title") or "").strip()
+        if label and label not in skills:
+            skills.append(label)
+    return skills
+
+
+def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
+    """Return essential skills for ``occupation_uri``."""
+
+    uri = str(occupation_uri or "").strip()
+    if not uri:
+        return []
+
+    if _is_offline() or uri.startswith("offline://"):
+        return _offline_essential_skills(uri)
+
+    try:
+        skills = _api_essential_skills(uri, lang)
+    except EscoServiceError as exc:
+        log.warning("ESCO essential skill lookup failed (%s); falling back to cache", exc)
+        return _offline_essential_skills(uri)
+
+    if skills:
+        return skills
+
+    return _offline_essential_skills(uri)
+
+
+@lru_cache(maxsize=256)
+def _api_lookup_skill(name: str, lang: str) -> Dict[str, str]:
+    params = {
+        "text": name,
+        "type": "skill",
+        "language": _normalize_lang(lang),
+        "limit": 1,
+    }
+    payload = _fetch_json(_SEARCH_URL, params)
+    results = payload.get("_embedded", {}).get("results", [])
+    if not results:
+        return {}
+    result = results[0]
+    label = _select_label(result.get("preferredLabel"), result.get("title"), lang)
+    data: Dict[str, str] = {"preferredLabel": label}
+    uri = str(result.get("uri") or "").strip()
+    if uri:
+        data["uri"] = uri
+    types = result.get("hasSkillType") or []
+    if isinstance(types, list) and types:
+        data["skillType"] = str(types[0])
+    return data
+
+
+def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
+    """Return metadata for ``name`` from ESCO when available."""
 
     label = str(name or "").strip()
     if not label:
         return {}
-    return {"preferredLabel": label}
+
+    if _is_offline():
+        return {"preferredLabel": label}
+
+    try:
+        data = _api_lookup_skill(label, lang)
+    except EscoServiceError as exc:
+        log.warning("ESCO skill lookup failed (%s); returning local normalization", exc)
+        return {"preferredLabel": label}
+
+    if not data:
+        return {"preferredLabel": label}
+
+    return data
 
 
 def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
-    """Normalize skill labels locally without ESCO requests.
-
-    Args:
-        skills: Raw skill labels supplied by the user or extraction pipeline.
-        lang: Unused language hint retained for backwards compatibility.
-
-    Returns:
-        A list of trimmed, case-insensitive unique skill labels.
-    """
+    """Normalize skill labels via ESCO when possible."""
 
     deduped: List[str] = []
     seen: set[str] = set()
     for skill in skills:
-        label = str(skill or "").strip()
+        raw_label = str(skill or "").strip()
+        if not raw_label:
+            continue
+        meta = lookup_esco_skill(raw_label, lang=lang)
+        label = str(meta.get("preferredLabel") or raw_label).strip()
         key = label.casefold()
-        if label and key not in seen:
-            seen.add(key)
-            deduped.append(label)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(label)
     return deduped

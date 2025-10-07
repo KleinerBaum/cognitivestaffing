@@ -1,7 +1,18 @@
 """Integration-level expectations for disabled ESCO features."""
 
+from __future__ import annotations
+
+import pytest
+
 from core.esco_utils import classify_occupation, normalize_skills
 from integrations import esco
+
+
+@pytest.fixture(autouse=True)
+def _offline_env(monkeypatch):
+    monkeypatch.setenv("VACAYSER_OFFLINE", "1")
+    yield
+    monkeypatch.delenv("VACAYSER_OFFLINE", raising=False)
 
 
 def test_search_occupation_returns_match() -> None:

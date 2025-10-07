@@ -1,0 +1,290 @@
+{
+  "total": 420,
+  "offset": 0,
+  "limit": 5,
+  "text": "software engineer",
+  "language": "en",
+  "type": [
+    "occupation"
+  ],
+  "isInScheme": null,
+  "facet": null,
+  "_links": {
+    "self": {
+      "href": "https://ec.europa.eu/esco/api/search?text=software%20engineer&type=occupation&limit=5&offset=0&full=false&viewObsolete=false&language=en"
+    },
+    "next": {
+      "href": "https://ec.europa.eu/esco/api/search?text=software%20engineer&type=occupation&limit=5&offset=1&full=false&viewObsolete=false&language=en"
+    }
+  },
+  "_embedded": {
+    "results": [
+      {
+        "className": "Occupation",
+        "classId": "http://data.europa.eu/esco/model#Occupation",
+        "uri": "http://data.europa.eu/esco/occupation/f2b15a0e-e65a-438a-affb-29b9d50b77d1",
+        "searchHit": "software engineer",
+        "title": "software developer",
+        "preferredLabel": {
+          "de": "Softwareentwickler/Softwareentwicklerin",
+          "no": "programvareutvikler",
+          "fi": "ohjelmistokehitt\u00e4j\u00e4",
+          "en-us": "software developer",
+          "pt": "Programador de software/Programadora de software",
+          "bg": "\u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a \u043d\u0430 \u0441\u043e\u0444\u0442\u0443\u0435\u0440",
+          "lt": "programin\u0117s \u012frangos k\u016br\u0117jas",
+          "hr": "razvojni programer softvera / razvojna programerka softvera",
+          "lv": "programmat\u016bras izstr\u0101d\u0101t\u0101js",
+          "fr": "d\u00e9veloppeur de logiciels/d\u00e9veloppeuse de logiciels",
+          "hu": "szoftverfejleszt\u0151",
+          "sk": "softv\u00e9rov\u00fd v\u00fdvoj\u00e1r/softv\u00e9rov\u00e1 v\u00fdvoj\u00e1rka",
+          "sl": "razvijalec/razvijalka programske opreme",
+          "ga": "forbr\u00f3ir bogearra\u00ed",
+          "sv": "programvaruutvecklare",
+          "el": "\u03bc\u03b7\u03c7\u03b1\u03bd\u03b9\u03ba\u03cc\u03c2 \u03b1\u03bd\u03ac\u03c0\u03c4\u03c5\u03be\u03b7\u03c2 \u03bb\u03bf\u03b3\u03b9\u03c3\u03bc\u03b9\u03ba\u03bf\u03cd",
+          "mt": "\u017cviluppatur tas-softwer",
+          "en": "software developer",
+          "is": "hugb\u00fana\u00f0arforritari",
+          "it": "sviluppatore di software/sviluppatrice di software",
+          "es": "desarrollador de software/desarrolladora de software",
+          "et": "tarkvaraarendaja",
+          "cs": "softwarov\u00fd v\u00fdvoj\u00e1\u0159/softwarov\u00e1 v\u00fdvoj\u00e1\u0159ka",
+          "ar": "\u0645\u0637\u0648\u0631 \u0628\u0631\u0645\u062c\u064a\u0627\u062a / \u0645\u0637\u0648\u0631\u0629 \u0628\u0631\u0645\u062c\u064a\u0627\u062a",
+          "pl": "tw\u00f3rca oprogramowania",
+          "da": "softwareudvikler",
+          "ro": "dezvoltator de software",
+          "nl": "software ontwikkelaar"
+        },
+        "isTopConceptInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations"
+        ],
+        "code": "2512.3",
+        "isInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations",
+          "http://data.europa.eu/esco/concept-scheme/occupations"
+        ],
+        "broaderIscoGroup": [
+          "http://data.europa.eu/esco/isco/C2512"
+        ],
+        "_links": {
+          "self": {
+            "href": "https://ec.europa.eu/esco/api/resource/occupation?uri=http://data.europa.eu/esco/occupation/f2b15a0e-e65a-438a-affb-29b9d50b77d1&language=en",
+            "uri": "http://data.europa.eu/esco/occupation/f2b15a0e-e65a-438a-affb-29b9d50b77d1",
+            "title": "software developer"
+          }
+        }
+      },
+      {
+        "className": "Occupation",
+        "classId": "http://data.europa.eu/esco/model#Occupation",
+        "uri": "http://data.europa.eu/esco/occupation/bd272aee-adc9-4a06-a15c-a73b4b4a46a7",
+        "searchHit": "application software engineer",
+        "title": "ICT application developer",
+        "preferredLabel": {
+          "de": "IT-Anwendungsentwickler/IT-Anwendungsentwicklerin",
+          "no": "IKT-programutvikler",
+          "fi": "ICT-ohjelmistokehitt\u00e4j\u00e4",
+          "en-us": "ICT application developer",
+          "pt": "Programador de aplica\u00e7\u00f5es inform\u00e1ticas/Programadora de aplica\u00e7\u00f5es inform\u00e1ticas",
+          "bg": "\u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a \u043d\u0430 \u0441\u043e\u0444\u0442\u0443\u0435\u0440\u043d\u0438 \u0418\u041a\u0422 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f",
+          "lt": "informacini\u0173 ir ry\u0161i\u0173 technologij\u0173 taikomosios programin\u0117s \u012frangos k\u016br\u0117jas",
+          "hr": "programer/programerka primjene IKT-a",
+          "lv": "IKT lietot\u0146u izstr\u0101d\u0101t\u0101js",
+          "fr": "concepteur de logiciels d\u2019application/conceptrice de logiciels d\u2019application",
+          "hu": "IKT alkalmaz\u00e1sfejleszt\u0151",
+          "sk": "v\u00fdvoj\u00e1r/v\u00fdvoj\u00e1rka softv\u00e9ru do aplik\u00e1ci\u00ed IKT",
+          "sl": "razvijalec/razvijalka aplikacij IKT",
+          "ga": "forbr\u00f3ir feidhmchl\u00e1r TFC",
+          "sv": "IKT-programutvecklare",
+          "el": "\u03b5\u03b9\u03b4\u03b9\u03ba\u03cc\u03c2 \u03b1\u03bd\u03ac\u03c0\u03c4\u03c5\u03be\u03b7\u03c2 \u03b5\u03c6\u03b1\u03c1\u03bc\u03bf\u03b3\u03ce\u03bd \u03bb\u03bf\u03b3\u03b9\u03c3\u03bc\u03b9\u03ba\u03bf\u03cd \u03a4\u03a0\u0395",
+          "mt": "\u017cviluppatur tal-applikazzjonijiet tal-ICT",
+          "en": "ICT application developer",
+          "is": "hugb\u00fana\u00f0arh\u00f6nnu\u00f0ur \u00e1 svi\u00f0i uppl\u00fdsinga- og fjarskiptat\u00e6kni",
+          "it": "sviluppatore di applicazioni informatiche/sviluppatrice di applicazioni informatiche",
+          "es": "desarrollador de aplicaciones de TIC/desarrolladora de aplicaciones de TIC",
+          "et": "IKT rakendustarkvara arendaja",
+          "cs": "v\u00fdvoj\u00e1\u0159 aplikac\u00ed ICT/v\u00fdvoj\u00e1\u0159ka aplikac\u00ed ICT",
+          "ar": "\u0645\u0637\u0648\u0631 \u062a\u0637\u0628\u064a\u0642\u0627\u062a \u062a\u0643\u0646\u0648\u0644\u0648\u062c\u064a\u0627 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0627\u0644\u0627\u062a\u0635\u0627\u0644\u0627\u062a / \u0645\u0637\u0648\u0631\u0629 \u062a\u0637\u0628\u064a\u0642\u0627\u062a \u062a\u0643\u0646\u0648\u0644\u0648\u062c\u064a\u0627 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0627\u0644\u0627\u062a\u0635\u0627\u0644\u0627\u062a",
+          "pl": "tw\u00f3rca oprogramowania komputerowego technologii informacyjno-telekomunikacyjnych",
+          "da": "softwareudvikler af IKT-applikationer",
+          "ro": "programator de aplica\u021bii/programatoare de aplica\u021bii informatice",
+          "nl": "ict application developer"
+        },
+        "isTopConceptInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations"
+        ],
+        "code": "2514.2",
+        "isInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations",
+          "http://data.europa.eu/esco/concept-scheme/occupations"
+        ],
+        "broaderIscoGroup": [
+          "http://data.europa.eu/esco/isco/C2514"
+        ],
+        "_links": {
+          "self": {
+            "href": "https://ec.europa.eu/esco/api/resource/occupation?uri=http://data.europa.eu/esco/occupation/bd272aee-adc9-4a06-a15c-a73b4b4a46a7&language=en",
+            "uri": "http://data.europa.eu/esco/occupation/bd272aee-adc9-4a06-a15c-a73b4b4a46a7",
+            "title": "ICT application developer"
+          }
+        }
+      },
+      {
+        "className": "Occupation",
+        "classId": "http://data.europa.eu/esco/model#Occupation",
+        "uri": "http://data.europa.eu/esco/occupation/24161923-e3e6-4096-b377-f1ee8a7ea31b",
+        "searchHit": "satellite software engineer",
+        "title": "satellite engineer",
+        "preferredLabel": {
+          "de": "Ingenieur Satellitentechnik/Ingenieurin Satellitentechnik",
+          "no": "satellittekniker",
+          "fi": "insin\u00f6\u00f6ri, satelliittij\u00e4rjestelm\u00e4t",
+          "en-us": "satellite engineer",
+          "pt": "Engenheiro de sistemas de navega\u00e7\u00e3o por sat\u00e9lite/Engenheira de sistemas de navega\u00e7\u00e3o por sat\u00e9lite",
+          "bg": "\u0438\u043d\u0436\u0435\u043d\u0435\u0440, \u0441\u0430\u0442\u0435\u043b\u0438\u0442\u043d\u0430 \u0442\u0435\u0445\u043d\u0438\u043a\u0430 \u0438 \u0430\u043f\u0430\u0440\u0430\u0442\u0443\u0440\u0430",
+          "lt": "palydov\u0173 in\u017einierius",
+          "hr": "in\u017eenjer/in\u017eenjerka satelitskih sustava",
+          "lv": "satel\u012btsist\u0113mu in\u017eenieris",
+          "fr": "ing\u00e9nieur des satellites/ing\u00e9nieure des satellites",
+          "hu": "m\u0171holdm\u00e9rn\u00f6k",
+          "sk": "\u0161pecialista/\u0161pecialistka na satelitn\u00e9 technol\u00f3gie",
+          "sl": "in\u017eenir/in\u017eenirka za satelite",
+          "ga": "innealt\u00f3ir satail\u00edt\u00ed",
+          "sv": "ingenj\u00f6r, satellitteknik",
+          "el": "\u03bc\u03b7\u03c7\u03b1\u03bd\u03b9\u03ba\u03cc\u03c2 \u03b4\u03bf\u03c1\u03c5\u03c6\u03bf\u03c1\u03b9\u03ba\u03ce\u03bd \u03b5\u03c0\u03b9\u03ba\u03bf\u03b9\u03bd\u03c9\u03bd\u03b9\u03ce\u03bd \u03ba\u03b1\u03b9 \u03b7\u03bb\u03b5\u03ba\u03c4\u03c1\u03bf\u03bd\u03b9\u03ba\u03ce\u03bd",
+          "mt": "in\u0121inier tas-satelliti",
+          "en": "satellite engineer",
+          "is": "gervihnattarverkfr\u00e6\u00f0ingur",
+          "it": "ingegnere satellitare",
+          "es": "ingeniero de sat\u00e9lites/ingeniera de sat\u00e9lites",
+          "et": "satelliitside insener",
+          "cs": "satelitn\u00ed in\u017een\u00fdr/satelitn\u00ed in\u017een\u00fdrka",
+          "ar": "\u0645\u0647\u0646\u062f\u0633 \u0627\u0644\u0623\u0642\u0645\u0627\u0631 \u0627\u0644\u0635\u0646\u0627\u0639\u064a\u0629 / \u0645\u0647\u0646\u062f\u0633\u0629 \u0627\u0644\u0623\u0642\u0645\u0627\u0631 \u0627\u0644\u0635\u0646\u0627\u0639\u064a\u0629",
+          "pl": "in\u017cynier technologii satelitarnych",
+          "da": "satellittekniker",
+          "ro": "inginer comunica\u021bii prin satelit/inginer\u0103 comunica\u021bii prin satelit",
+          "nl": "satellietingenieur"
+        },
+        "code": "2152.1.9",
+        "isInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations",
+          "http://data.europa.eu/esco/concept-scheme/occupations"
+        ],
+        "broaderOccupation": [
+          "http://data.europa.eu/esco/occupation/4d34a9ee-2653-4da0-bef7-f59294577224"
+        ],
+        "_links": {
+          "self": {
+            "href": "https://ec.europa.eu/esco/api/resource/occupation?uri=http://data.europa.eu/esco/occupation/24161923-e3e6-4096-b377-f1ee8a7ea31b&language=en",
+            "uri": "http://data.europa.eu/esco/occupation/24161923-e3e6-4096-b377-f1ee8a7ea31b",
+            "title": "satellite engineer"
+          }
+        }
+      },
+      {
+        "className": "Occupation",
+        "classId": "http://data.europa.eu/esco/model#Occupation",
+        "uri": "http://data.europa.eu/esco/occupation/5f50290d-f520-4a69-85c7-1390d2a4a8b6",
+        "searchHit": "ICT usability testers ensure compliance with requirements and strive for optimal usability within the software engineering cycle phases (analysis, design, implementation, and deployment). They also work closely with users (analysts) to research for and document user profiles, analyse tasks, workflows, and user scenarios.",
+        "title": "ICT usability tester",
+        "preferredLabel": {
+          "de": "IT-Usability-Engineer",
+          "no": "IKT-brukbarhetstester",
+          "fi": "ICT-k\u00e4ytett\u00e4vyysinsin\u00f6\u00f6ri",
+          "en-us": "ICT usability tester",
+          "pt": "Testador de usabilidade inform\u00e1tica/Testadora de usabilidade inform\u00e1tica",
+          "bg": "\u0438\u0437\u043f\u0438\u0442\u0430\u0442\u0435\u043b \u043d\u0430 \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430\u0435\u043c\u043e\u0441\u0442 \u043d\u0430 \u0418\u041a\u0422/\u0438\u0437\u043f\u0438\u0442\u0430\u0442\u0435\u043b\u043a\u0430 \u043d\u0430 \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430\u0435\u043c\u043e\u0441\u0442 \u043d\u0430 \u0418\u041a\u0422",
+          "lt": "informacini\u0173 ir ry\u0161i\u0173 technologij\u0173 naudojimo vertintojas",
+          "hr": "ispitiva\u010d uporabljivosti IKT-a / ispitiva\u010dica dostupnosti IKT-a",
+          "lv": "IKT lietojam\u012bbas test\u0113t\u0101js",
+          "fr": "testeur d\u2019utilisabilit\u00e9/testeuse d\u2019utilisabilit\u00e9",
+          "hu": "IKT haszn\u00e1lhat\u00f3s\u00e1gi tesztel\u0151",
+          "sk": "tester/testerka pou\u017eite\u013enosti IKT",
+          "sl": "tester/testerka uporabnosti IKT",
+          "ga": "t\u00e1st\u00e1la\u00ed in\u00fas\u00e1idteachta TFC",
+          "sv": "IKT-anv\u00e4ndbarhetstestare",
+          "el": "\u03c5\u03c0\u03b5\u03cd\u03b8\u03c5\u03bd\u03bf\u03c2 \u03b5\u03bb\u03ad\u03b3\u03c7\u03bf\u03c5 \u03b5\u03c5\u03c7\u03c1\u03b7\u03c3\u03c4\u03af\u03b1\u03c2 \u03c3\u03c5\u03c3\u03c4\u03b7\u03bc\u03ac\u03c4\u03c9\u03bd \u03a4\u03a0\u0395/\u03c5\u03c0\u03b5\u03cd\u03b8\u03c5\u03bd\u03b7 \u03b5\u03bb\u03ad\u03b3\u03c7\u03bf\u03c5 \u03b5\u03c5\u03c7\u03c1\u03b7\u03c3\u03c4\u03af\u03b1\u03c2 \u03c3\u03c5\u03c3\u03c4\u03b7\u03bc\u03ac\u03c4\u03c9\u03bd \u03a4\u03a0\u0395",
+          "mt": "tester tal-u\u017cabilit\u00e0 fl-ICT",
+          "en": "ICT usability tester",
+          "is": "pr\u00f3fari \u00e1 n\u00fdtingu uppl\u00fdsinga- og fjarskiptat\u00e6kni",
+          "it": "collaudatore dell\u2019usabilit\u00e0 informatica/collaudatrice dell\u2019usabilit\u00e0 informatica",
+          "es": "probador de usabilidad de las TIC/probadora de usabilidad de las TIC",
+          "et": "IKT kasutatavuse testija",
+          "cs": "tester pou\u017eitelnosti syst\u00e9m\u016f ICT/testerka pou\u017eitelnosti syst\u00e9m\u016f ICT",
+          "ar": "\u0645\u062e\u062a\u0628\u0631 \u0642\u0627\u0628\u0644\u064a\u0629 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u062a\u0643\u0646\u0648\u0644\u0648\u062c\u064a\u0627 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0627\u0644\u0627\u062a\u0635\u0627\u0644\u0627\u062a / \u0645\u062e\u062a\u0628\u0631\u0629 \u0642\u0627\u0628\u0644\u064a\u0629 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u062a\u0643\u0646\u0648\u0644\u0648\u062c\u064a\u0627 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0627\u0644\u0627\u062a\u0635\u0627\u0644\u0627\u062a",
+          "pl": "tester u\u017cyteczno\u015bci technologii informacyjno-telekomunikacyjnych",
+          "da": "tester af IKT-brugervenlighed",
+          "ro": "specialist \u00een testarea u\u0219urin\u021bei de utilizare a aplica\u021biilor informatice/specialist\u0103 \u00een testarea u\u0219urin\u021bei de utilizare a aplica\u021biilor informatice",
+          "nl": "ict usability tester"
+        },
+        "code": "2519.6.5",
+        "isInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations",
+          "http://data.europa.eu/esco/concept-scheme/occupations"
+        ],
+        "broaderOccupation": [
+          "http://data.europa.eu/esco/occupation/106f79e4-6264-45f1-9e7a-297435cd684b"
+        ],
+        "_links": {
+          "self": {
+            "href": "https://ec.europa.eu/esco/api/resource/occupation?uri=http://data.europa.eu/esco/occupation/5f50290d-f520-4a69-85c7-1390d2a4a8b6&language=en",
+            "uri": "http://data.europa.eu/esco/occupation/5f50290d-f520-4a69-85c7-1390d2a4a8b6",
+            "title": "ICT usability tester"
+          }
+        }
+      },
+      {
+        "className": "Occupation",
+        "classId": "http://data.europa.eu/esco/model#Occupation",
+        "uri": "http://data.europa.eu/esco/occupation/57af9090-55b4-4911-b2d0-86db01c00b02",
+        "searchHit": "embedded software developerl embedded systems engineer",
+        "title": "embedded systems software developer",
+        "preferredLabel": {
+          "de": "Softwareentwickler f\u00fcr Embedded Systems/Softwareentwicklerin f\u00fcr Embedded Systems",
+          "no": "programvareutvikler, innebygde systemer",
+          "fi": "sulautettujen j\u00e4rjestelmien ohjelmistokehitt\u00e4j\u00e4",
+          "en-us": "embedded systems software developer",
+          "pt": "Programador de software de sistemas incorporados/Programadora de software de sistemas incorporados",
+          "bg": "\u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a \u043d\u0430 \u0441\u043e\u0444\u0442\u0443\u0435\u0440 \u0437\u0430 \u0432\u0433\u0440\u0430\u0434\u0435\u043d\u0438 \u0441\u0438\u0441\u0442\u0435\u043c\u0438",
+          "lt": "\u012fterpt\u0173j\u0173 sistem\u0173 programin\u0117s \u012frangos k\u016br\u0117jas",
+          "hr": "razvojni programer / razvojna programerka softvera za ugra\u0111ene sustave",
+          "lv": "iegulto sist\u0113mu programmat\u016bras izstr\u0101d\u0101t\u0101js",
+          "fr": "d\u00e9veloppeur de logiciels pour syst\u00e8mes informatiques int\u00e9gr\u00e9s/d\u00e9veloppeuse de logiciels pour syst\u00e8mes informatiques int\u00e9gr\u00e9s",
+          "hu": "be\u00e1gyazott szoftver fejleszt\u0151 m\u00e9rn\u00f6k",
+          "sk": "v\u00fdvoj\u00e1r/v\u00fdvoj\u00e1rka softv\u00e9ru vstavan\u00fdch syst\u00e9mov",
+          "sl": "razvijalec /razvijalka programske opreme za vgrajene sisteme",
+          "ga": "forbr\u00f3ir bogearra\u00ed do ch\u00f3rais leabaithe",
+          "sv": "programutvecklare f\u00f6r inb\u00e4ddade system",
+          "el": "\u03bc\u03b7\u03c7\u03b1\u03bd\u03b9\u03ba\u03cc\u03c2 \u03b1\u03bd\u03ac\u03c0\u03c4\u03c5\u03be\u03b7\u03c2 \u03bb\u03bf\u03b3\u03b9\u03c3\u03bc\u03b9\u03ba\u03bf\u03cd \u03b5\u03bd\u03c3\u03c9\u03bc\u03b1\u03c4\u03c9\u03bc\u03ad\u03bd\u03c9\u03bd \u03c3\u03c5\u03c3\u03c4\u03b7\u03bc\u03ac\u03c4\u03c9\u03bd",
+          "mt": "\u017cviluppatur tas-softwer g\u0127al sistemi integrati",
+          "en": "embedded systems software developer",
+          "is": "hugb\u00fana\u00f0arh\u00f6nnu\u00f0ur \u00e1 svi\u00f0i \u00edvafinna kerfa",
+          "it": "sviluppatore di software per sistemi integrati",
+          "es": "desarrollador de software para sistemas empotrados/desarrolladora de software para sistemas empotrados",
+          "et": "manuss\u00fcsteemide tarkvara arendaja",
+          "cs": "v\u00fdvoj\u00e1\u0159 softwaru vestav\u011bn\u00fdch syst\u00e9m\u016f/v\u00fdvoj\u00e1\u0159ka softwaru vestav\u011bn\u00fdch syst\u00e9m\u016f",
+          "ar": "\u0645\u0637\u0648\u0631 \u0628\u0631\u0645\u062c\u064a\u0627\u062a \u0627\u0644\u0646\u0638\u0645 \u0627\u0644\u0645\u0646\u062f\u0645\u062c\u0629 / \u0645\u0637\u0648\u0631\u0629 \u0628\u0631\u0645\u062c\u064a\u0627\u062a \u0627\u0644\u0646\u0638\u0645 \u0627\u0644\u0645\u0646\u062f\u0645\u062c\u0629",
+          "pl": "tw\u00f3rca oprogramowania system\u00f3w wbudowanych",
+          "da": "udvikler af integrerede softwaresystemer",
+          "ro": "dezvoltator de software pentru sisteme \u00eenglobate/dezvoltatoare de software pentru sisteme \u00eenglobate",
+          "nl": "embedded systems software developer"
+        },
+        "code": "2514.2.1",
+        "isInScheme": [
+          "http://data.europa.eu/esco/concept-scheme/member-occupations",
+          "http://data.europa.eu/esco/concept-scheme/occupations"
+        ],
+        "broaderOccupation": [
+          "http://data.europa.eu/esco/occupation/bd272aee-adc9-4a06-a15c-a73b4b4a46a7"
+        ],
+        "_links": {
+          "self": {
+            "href": "https://ec.europa.eu/esco/api/resource/occupation?uri=http://data.europa.eu/esco/occupation/57af9090-55b4-4911-b2d0-86db01c00b02&language=en",
+            "uri": "http://data.europa.eu/esco/occupation/57af9090-55b4-4911-b2d0-86db01c00b02",
+            "title": "embedded systems software developer"
+          }
+        }
+      }
+    ]
+  }
+}
