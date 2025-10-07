@@ -6,6 +6,7 @@ import hashlib
 import json
 import textwrap
 from collections import defaultdict
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date
 from pathlib import Path
@@ -1630,7 +1631,13 @@ def missing_keys(
 
 
 # --- UI-Komponenten ---
-def _chip_multiselect(label: str, options: List[str], values: List[str]) -> List[str]:
+def _chip_multiselect(
+    label: str,
+    options: List[str],
+    values: List[str],
+    *,
+    help_text: str | None = None,
+) -> List[str]:
     """Render a multiselect with chip-like UX and free-text additions.
 
     Args:
@@ -1690,6 +1697,7 @@ def _chip_multiselect(label: str, options: List[str], values: List[str]) -> List
         options=available_options,
         default=default_selection,
         key=ms_key,
+        help=help_text,
     )
     return _unique_normalized(selection)
 
@@ -2758,12 +2766,9 @@ _step_position.handled_fields = [  # type: ignore[attr-defined]
 ]
 
 
-def _step_requirements():
-    """Render the requirements step for skills and certifications.
 
-    Returns:
-        None
-    """
+def _step_requirements():
+    """Render the requirements step for skills and certifications."""
 
     st.subheader(tr("Anforderungen", "Requirements"))
     st.caption(
@@ -2782,6 +2787,55 @@ def _step_requirements():
         for f in get_missing_critical_fields(max_section=3)
         if FIELD_SECTION_MAP.get(f) == 3
     ]
+
+    requirements_style_key = "ui.requirements_styles"
+    if not st.session_state.get(requirements_style_key):
+        st.markdown(
+            """
+            <style>
+            .requirement-panel {
+                border-radius: 0.9rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(248, 250, 252, 0.85);
+                padding: 1.25rem 1.4rem;
+                margin-bottom: 1.2rem;
+            }
+            .requirement-panel__header {
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+                font-weight: 600;
+                font-size: 1.05rem;
+            }
+            .requirement-panel__caption {
+                color: #475569;
+                margin: 0.15rem 0 0.95rem 0;
+                font-size: 0.92rem;
+            }
+            .requirement-panel__icon {
+                font-size: 1.1rem;
+            }
+            .ai-suggestion-box {
+                margin-top: 0.6rem;
+                padding: 0.75rem 0.85rem;
+                border-radius: 0.75rem;
+                border: 1px dashed rgba(14, 165, 233, 0.6);
+                background: rgba(14, 165, 233, 0.08);
+            }
+            .ai-suggestion-box__title {
+                font-weight: 600;
+                margin-bottom: 0.3rem;
+            }
+            .ai-suggestion-box__caption {
+                font-size: 0.85rem;
+                color: #0369a1;
+                margin-bottom: 0.5rem;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.session_state[requirements_style_key] = True
 
     # LLM-basierte Skill-Vorschläge abrufen
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
@@ -2823,82 +2877,284 @@ def _step_requirements():
         if condition:
             st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    main_col, side_col = st.columns([3, 2], gap="large")
+    @contextmanager
+    def requirement_panel(
+        *,
+        icon: str,
+        title: str,
+        caption: str,
+        tooltip: str,
+    ):
+        st.markdown(
+            f"<div class='requirement-panel' title='{html.escape(tooltip)}'>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            (
+                "<div class='requirement-panel__header'>"
+                f"<span class='requirement-panel__icon'>{icon}</span>"
+                f"<span>{title}</span>"
+                "</div>"
+                f"<p class='requirement-panel__caption'>{caption}</p>"
+            ),
+            unsafe_allow_html=True,
+        )
+        try:
+            yield
+        finally:
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    with main_col:
-        st.markdown(tr("### Muss-Anforderungen", "### Must-have requirements"))
-        must_col_left, must_col_right = st.columns(2, gap="large")
+    def _render_ai_suggestions(
+        *,
+        source_key: str,
+        target_key: str,
+        widget_suffix: str,
+        caption: str,
+        show_hint: bool = False,
+    ) -> None:
+        if suggestion_hint == "missing_key":
+            if show_hint:
+                st.info(
+                    tr(
+                        "Skill-Vorschläge erfordern einen gültigen OpenAI API Key in den Einstellungen.",
+                        "Skill suggestions require a valid OpenAI API key in the settings.",
+                    )
+                )
+            return
+        if suggestion_hint == "missing_title":
+            if show_hint:
+                st.info(
+                    tr(
+                        "Füge einen Jobtitel hinzu, um KI-Vorschläge zu erhalten.",
+                        "Add a job title to unlock AI suggestions.",
+                    )
+                )
+            return
+
+        available = [
+            item
+            for item in suggestions.get(source_key, [])
+            if item not in data["requirements"].get(target_key, [])
+        ]
+        if not available:
+            if show_hint:
+                st.caption(
+                    tr(
+                        "Aktuell keine Vorschläge verfügbar.",
+                        "No suggestions available right now.",
+                    )
+                )
+            return
+
+        widget_key = f"ai_suggestions.{target_key}.{widget_suffix}"
+        st.markdown("<div class='ai-suggestion-box'>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='ai-suggestion-box__title'>💡 KI</div>"
+            if st.session_state.get("lang", "de") == "de"
+            else "<div class='ai-suggestion-box__title'>💡 AI</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"<div class='ai-suggestion-box__caption'>{caption}</div>",
+            unsafe_allow_html=True,
+        )
+        picked = st.multiselect(
+            tr("Vorschläge auswählen", "Select suggestions"),
+            options=available,
+            key=widget_key,
+            label_visibility="collapsed",
+            placeholder=tr("Elemente auswählen …", "Select entries …"),
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        if picked:
+            merged = sorted(
+                set(data["requirements"].get(target_key, [])).union(picked),
+                key=str.casefold,
+            )
+            data["requirements"][target_key] = merged
+
+    with requirement_panel(
+        icon="🔒",
+        title=tr("Muss-Anforderungen", "Must-have requirements"),
+        caption=tr(
+            "Pflichtfelder für die Vorauswahl der Kandidat:innen.",
+            "Mandatory inputs used to screen candidates.",
+        ),
+        tooltip=tr(
+            "Alle Angaben in diesem Block sind zwingend für das Matching.",
+            "Everything in this block is required for candidate matching.",
+        ),
+    ):
+        must_cols = st.columns(2, gap="large")
         label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
         if "requirements.hard_skills_required" in missing_here:
             label_hard_req += REQUIRED_SUFFIX
-        with must_col_left:
+        with must_cols[0]:
             data["requirements"]["hard_skills_required"] = _chip_multiselect(
                 label_hard_req,
                 options=data["requirements"].get("hard_skills_required", []),
                 values=data["requirements"].get("hard_skills_required", []),
+                help_text=tr(
+                    "Zwingend benötigte technische Kompetenzen.",
+                    "Essential technical competencies.",
+                ),
             )
             _render_required_caption(
                 "requirements.hard_skills_required" in missing_here
                 and not data["requirements"].get("hard_skills_required")
             )
+            _render_ai_suggestions(
+                source_key="hard_skills",
+                target_key="hard_skills_required",
+                widget_suffix="must",
+                caption=tr(
+                    "Empfohlene Skills auf Basis des Jobtitels.",
+                    "Recommended skills based on the job title.",
+                ),
+                show_hint=True,
+            )
         label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
         if "requirements.soft_skills_required" in missing_here:
             label_soft_req += REQUIRED_SUFFIX
-        with must_col_right:
+        with must_cols[1]:
             data["requirements"]["soft_skills_required"] = _chip_multiselect(
                 label_soft_req,
                 options=data["requirements"].get("soft_skills_required", []),
                 values=data["requirements"].get("soft_skills_required", []),
+                help_text=tr(
+                    "Unverzichtbare Verhalten- und Teamkompetenzen.",
+                    "Critical behavioural and team skills.",
+                ),
             )
             _render_required_caption(
                 "requirements.soft_skills_required" in missing_here
                 and not data["requirements"].get("soft_skills_required")
             )
+            _render_ai_suggestions(
+                source_key="soft_skills",
+                target_key="soft_skills_required",
+                widget_suffix="must_soft",
+                caption=tr(
+                    "KI-Vorschläge für soziale und methodische Kompetenzen.",
+                    "AI picks for behavioural and interpersonal strengths.",
+                ),
+            )
 
-        st.markdown(tr("### Tools & Zertifizierungen", "### Tools & certifications"))
-        tools_col, certs_col = st.columns(2, gap="large")
-        with tools_col:
+        tools_cols = st.columns(2, gap="large")
+        with tools_cols[0]:
             data["requirements"]["tools_and_technologies"] = _chip_multiselect(
                 tr("Tools & Tech", "Tools & Tech"),
                 options=data["requirements"].get("tools_and_technologies", []),
                 values=data["requirements"].get("tools_and_technologies", []),
+                help_text=tr(
+                    "Wichtige Systeme, Plattformen oder Sprachen.",
+                    "Key systems, platforms, or languages.",
+                ),
             )
-        with certs_col:
+            _render_ai_suggestions(
+                source_key="tools_and_technologies",
+                target_key="tools_and_technologies",
+                widget_suffix="tools",
+                caption=tr(
+                    "Ergänzende Tools & Technologien aus der KI-Analyse.",
+                    "Complementary tools & technologies suggested by AI.",
+                ),
+            )
+        with tools_cols[1]:
             data["requirements"]["certifications"] = _chip_multiselect(
                 tr("Zertifizierungen", "Certifications"),
                 options=data["requirements"].get("certifications", []),
                 values=data["requirements"].get("certifications", []),
+                help_text=tr(
+                    "Benötigte Zertifikate oder Nachweise.",
+                    "Required certifications or proofs.",
+                ),
             )
 
-    with side_col:
-        st.markdown(tr("### Nice-to-have", "### Nice-to-have"))
-        nice_col_left, nice_col_right = st.columns(2, gap="large")
-        with nice_col_left:
+    with requirement_panel(
+        icon="✨",
+        title=tr("Nice-to-have", "Nice-to-have"),
+        caption=tr(
+            "Optionale Fähigkeiten für ein ideales Kandidatenprofil.",
+            "Optional capabilities that enrich the profile.",
+        ),
+        tooltip=tr(
+            "Diese Angaben sind nicht zwingend, helfen aber bei der Priorisierung.",
+            "Not mandatory, but helpful for prioritisation.",
+        ),
+    ):
+        nice_cols = st.columns(2, gap="large")
+        with nice_cols[0]:
             data["requirements"]["hard_skills_optional"] = _chip_multiselect(
                 tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
                 options=data["requirements"].get("hard_skills_optional", []),
                 values=data["requirements"].get("hard_skills_optional", []),
+                help_text=tr(
+                    "Zusätzliche technische Stärken, die Mehrwert bieten.",
+                    "Additional technical strengths that add value.",
+                ),
             )
-        with nice_col_right:
+            _render_ai_suggestions(
+                source_key="hard_skills",
+                target_key="hard_skills_optional",
+                widget_suffix="nice",
+                caption=tr(
+                    "Optionale technische Skills, die die KI empfiehlt.",
+                    "Optional technical skills recommended by AI.",
+                ),
+            )
+        with nice_cols[1]:
             data["requirements"]["soft_skills_optional"] = _chip_multiselect(
                 tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
                 options=data["requirements"].get("soft_skills_optional", []),
                 values=data["requirements"].get("soft_skills_optional", []),
+                help_text=tr(
+                    "Wünschenswerte persönliche Eigenschaften.",
+                    "Valuable personal attributes.",
+                ),
+            )
+            _render_ai_suggestions(
+                source_key="soft_skills",
+                target_key="soft_skills_optional",
+                widget_suffix="nice_soft",
+                caption=tr(
+                    "Nice-to-have Soft Skills laut KI-Vorschlag.",
+                    "Nice-to-have soft skills suggested by AI.",
+                ),
             )
 
-        st.markdown(tr("### Sprachen & Level", "### Languages & level"))
-        lang_req_col, lang_opt_col = st.columns(2, gap="large")
-        with lang_req_col:
+    with requirement_panel(
+        icon="🌐",
+        title=tr("Sprachen & Level", "Languages & level"),
+        caption=tr(
+            "Kommunikationsanforderungen und gewünschte Sprachkompetenzen.",
+            "Communication requirements and desired language skills.",
+        ),
+        tooltip=tr(
+            "Definiere, welche Sprachen verbindlich oder optional sind.",
+            "Define which languages are mandatory or optional.",
+        ),
+    ):
+        lang_cols = st.columns(2, gap="large")
+        with lang_cols[0]:
             data["requirements"]["languages_required"] = _chip_multiselect(
                 tr("Sprachen", "Languages"),
                 options=data["requirements"].get("languages_required", []),
                 values=data["requirements"].get("languages_required", []),
+                help_text=tr(
+                    "Sprachen, die zwingend erforderlich sind.",
+                    "Languages that are mandatory for the role.",
+                ),
             )
-        with lang_opt_col:
+        with lang_cols[1]:
             data["requirements"]["languages_optional"] = _chip_multiselect(
                 tr("Optionale Sprachen", "Optional languages"),
                 options=data["requirements"].get("languages_optional", []),
                 values=data["requirements"].get("languages_optional", []),
+                help_text=tr(
+                    "Sprachen, die ein Plus darstellen.",
+                    "Languages that are a plus.",
+                ),
             )
 
         current_language_level = (
@@ -2919,77 +3175,12 @@ def _step_requirements():
                 else 0
             ),
             format_func=_format_language_level_option,
+            help=tr(
+                "Wähle das minimale Englischniveau für die Rolle.",
+                "Select the minimum English proficiency level for the role.",
+            ),
         )
         data["requirements"]["language_level_english"] = selected_level
-
-    st.divider()
-    st.markdown(tr("### KI-Vorschläge", "### AI suggestions"))
-
-    if suggestion_hint == "missing_key":
-        st.info(
-            tr(
-                "Skill-Vorschläge erfordern einen gültigen OpenAI API Key in den Einstellungen.",
-                "Skill suggestions require a valid OpenAI API key in the settings.",
-            )
-        )
-    elif suggestion_hint == "missing_title":
-        st.info(
-            tr(
-                "Füge einen Jobtitel hinzu, um KI-Vorschläge zu erhalten.",
-                "Add a job title to unlock AI suggestions.",
-            )
-        )
-
-    def _apply_suggestion(
-        label: str,
-        source_key: str,
-        target_key: str,
-        widget_key: str,
-    ) -> None:
-        available = [
-            item
-            for item in suggestions.get(source_key, [])
-            if item not in data["requirements"].get(target_key, [])
-        ]
-        if not available:
-            st.caption(tr("Keine Vorschläge verfügbar", "No suggestions available"))
-            return
-        picked = st.multiselect(label, options=available, key=widget_key)
-        if picked:
-            merged = sorted(set(data["requirements"].get(target_key, [])).union(picked))
-            data["requirements"][target_key] = merged
-
-    if suggestion_hint:
-        pass
-    elif not any(suggestions.values()):
-        st.caption(
-            tr(
-                "Aktuell keine Vorschläge verfügbar.",
-                "No suggestions available right now.",
-            )
-        )
-    else:
-        sugg_left, sugg_right = st.columns(2, gap="large")
-        with sugg_left:
-            _apply_suggestion(
-                tr("Vorgeschlagene Hard Skills", "Suggested hard skills"),
-                "hard_skills",
-                "hard_skills_required",
-                "ms_sugg_hard",
-            )
-            _apply_suggestion(
-                tr("Vorgeschlagene Soft Skills", "Suggested soft skills"),
-                "soft_skills",
-                "soft_skills_required",
-                "ms_sugg_soft",
-            )
-        with sugg_right:
-            _apply_suggestion(
-                tr("Vorgeschlagene Tools & Tech", "Suggested tools & tech"),
-                "tools_and_technologies",
-                "tools_and_technologies",
-                "ms_sugg_tools",
-            )
 
     st.session_state[StateKeys.SKILL_BUCKETS] = {
         "must": _unique_normalized(
@@ -3002,6 +3193,7 @@ def _step_requirements():
 
     # Inline follow-up questions for Requirements section
     _render_followups_for_section(("requirements.",), data)
+
 
 
 _step_requirements.handled_fields = [  # type: ignore[attr-defined]
