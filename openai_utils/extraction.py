@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
+from llm.prompts import build_job_ad_prompt
 from llm.rag_pipeline import (
     FieldExtractionContext,
     RetrievedChunk,
@@ -1076,6 +1077,7 @@ def generate_job_ad(
     target_audience: str,
     manual_sections: Sequence[Mapping[str, str]] | None = None,
     style_reference: str | None = None,
+    tone: str | None = None,
     lang: str | None = None,
     model: str | None = None,
     selected_values: Mapping[str, Any] | None = None,
@@ -1297,16 +1299,16 @@ def generate_job_ad(
         label = field_def.label_de if is_de else field_def.label_en
         entries.append((key, field_def.group, label, value))
 
-    manual_entries: list[tuple[str, str]] = []
+    manual_sections_payload: list[dict[str, str]] = []
     if manual_sections:
         for section in manual_sections:
             content = str(section.get("content", "")).strip()
             if not content:
                 continue
             title = str(section.get("title", "")).strip()
-            manual_entries.append((title, content))
+            manual_sections_payload.append({"title": title, "content": content})
 
-    if not entries and not manual_entries:
+    if not entries and not manual_sections_payload:
         raise ValueError("No usable data available for the job ad.")
 
     job_title_value = _compose_field_value("position.job_title") or ""
@@ -1365,6 +1367,87 @@ def generate_job_ad(
     def _tr(text_de: str, text_en: str) -> str:
         return text_de if is_de else text_en
 
+    tone_value = (tone or "").strip()
+    raw_brand_keywords = _value_override("company.brand_keywords")
+    if raw_brand_keywords in (None, "", []):
+        raw_brand_keywords = _resolve("company.brand_keywords")
+    if isinstance(raw_brand_keywords, list):
+        brand_keywords_value: str | list[str] = [
+            str(item).strip() for item in raw_brand_keywords if str(item).strip()
+        ]
+    elif isinstance(raw_brand_keywords, str):
+        brand_keywords_value = raw_brand_keywords.strip()
+    elif raw_brand_keywords is None:
+        brand_keywords_value = ""
+    else:
+        brand_keywords_value = str(raw_brand_keywords).strip()
+
+    structured_sections: list[dict[str, Any]] = []
+    for group in group_order:
+        section_entries = grouped.get(group, [])
+        if not section_entries:
+            continue
+        section_payload: list[dict[str, Any]] = []
+        for _key, label, value in section_entries:
+            entry_payload: dict[str, Any] = {"label": label}
+            if isinstance(value, list):
+                items = [str(item).strip() for item in value if str(item).strip()]
+                if not items:
+                    continue
+                entry_payload["items"] = items
+            else:
+                text_value = str(value).strip()
+                if not text_value:
+                    continue
+                entry_payload["text"] = text_value
+            section_payload.append(entry_payload)
+        if not section_payload:
+            continue
+        structured_sections.append(
+            {
+                "group": group,
+                "title": group_labels.get(group, group.title()),
+                "entries": section_payload,
+            }
+        )
+
+    brand_keywords_text = (
+        ", ".join(brand_keywords_value)
+        if isinstance(brand_keywords_value, list)
+        else str(brand_keywords_value).strip()
+    )
+
+    if audience_text:
+        cta_text = _tr(
+            f"Fühlst du dich angesprochen ({audience_text})? Bewirb dich jetzt – wir freuen uns auf dich!",
+            f"Does this sound like you ({audience_text})? Apply now – we'd love to hear from you!",
+        )
+    else:
+        cta_text = _tr(
+            "Bereit für den nächsten Schritt? Bewirb dich jetzt – wir freuen uns auf dich!",
+            "Ready for the next step? Apply now – we'd love to hear from you!",
+        )
+
+    structured_payload: dict[str, Any] = {
+        "language": lang_code,
+        "audience": audience_text,
+        "tone": tone_value,
+        "style_reference": (style_reference or "").strip(),
+        "heading": heading,
+        "job_title": job_title_value,
+        "company": {
+            "display_name": company_display,
+            "brand_name": company_brand,
+            "legal_name": company_name,
+        },
+        "location": location_text,
+        "summary": role_summary_value or "",
+        "sections": structured_sections,
+        "manual_sections": manual_sections_payload,
+        "brand_keywords": brand_keywords_value,
+        "cta_hint": cta_text,
+    }
+
     document_lines: list[str] = [heading]
     if location_text:
         document_lines.append(
@@ -1373,6 +1456,25 @@ def generate_job_ad(
     document_lines.append(
         f"*{_tr('Zielgruppe', 'Target audience')}: {audience_text}*"
     )
+    meta_bits: list[str] = []
+    if tone_value:
+        tone_labels = {
+            "formal": _tr("Formell", "Formal"),
+            "casual": _tr("Locker", "Casual"),
+            "creative": _tr("Kreativ", "Creative"),
+            "diversity_focused": _tr("Diversität im Fokus", "Diversity-focused"),
+        }
+        tone_display = tone_labels.get(
+            tone_value,
+            tone_value.replace("_", " ").title(),
+        )
+        meta_bits.append(f"{_tr('Ton', 'Tone')}: {tone_display}")
+    if brand_keywords_text:
+        meta_bits.append(
+            f"{_tr('Brand-Keywords', 'Brand keywords')}: {brand_keywords_text}"
+        )
+    if meta_bits:
+        document_lines.append(f"*{' | '.join(meta_bits)}*")
     style_note = (style_reference or "").strip()
     if style_note:
         document_lines.append(
@@ -1382,31 +1484,44 @@ def generate_job_ad(
         document_lines.append("")
         document_lines.append(role_summary_value)
 
-    for group in group_order:
-        section_entries = grouped.get(group, [])
-        if not section_entries:
+    for section in structured_sections:
+        entries_payload = section.get("entries", [])
+        if not entries_payload:
             continue
         document_lines.append("")
-        document_lines.append(f"## {group_labels.get(group, group.title())}")
-        for _key, label, value in section_entries:
-            if isinstance(value, list):
-                if not value:
-                    continue
+        document_lines.append(f"## {section.get('title', '')}")
+        for entry_payload in entries_payload:
+            label = str(entry_payload.get("label") or "").strip()
+            items = entry_payload.get("items") or []
+            text_value = str(entry_payload.get("text") or "").strip()
+            if items:
+                if not label:
+                    label = _tr("Details", "Details")
                 document_lines.append(f"**{label}:**")
-                for item in value:
-                    document_lines.append(f"- {item}")
-            else:
-                document_lines.append(f"**{label}:** {value}")
-            document_lines.append("")
+                for item in items:
+                    if item:
+                        document_lines.append(f"- {item}")
+            elif label or text_value:
+                content = text_value if label else text_value
+                if label and content:
+                    document_lines.append(f"**{label}:** {content}")
+                elif label:
+                    document_lines.append(f"**{label}:**")
+                else:
+                    document_lines.append(content)
+            if document_lines and document_lines[-1] != "":
+                document_lines.append("")
         if document_lines and document_lines[-1] == "":
             document_lines.pop()
 
-    if manual_entries:
+    if manual_sections_payload:
         document_lines.append("")
         document_lines.append(
             f"## {_tr('Zusätzliche Hinweise', 'Additional notes')}"
         )
-        for title, content in manual_entries:
+        for entry in manual_sections_payload:
+            title = entry.get("title", "")
+            content = entry.get("content", "")
             if title:
                 document_lines.append(f"**{title}:**")
                 document_lines.append(content)
@@ -1416,8 +1531,27 @@ def generate_job_ad(
         if document_lines and document_lines[-1] == "":
             document_lines.pop()
 
+    if cta_text:
+        document_lines.append("")
+        document_lines.append(cta_text)
+
     document = "\n".join(document_lines).strip()
-    return document
+
+    if model is None:
+        model = get_model_for(ModelTask.JOB_AD)
+    try:
+        messages = build_job_ad_prompt(structured_payload)
+        response = api.call_chat_api(
+            messages,
+            model=model,
+            temperature=0.7,
+            max_tokens=900,
+        )
+        llm_output = _chat_content(response).strip()
+    except Exception:
+        llm_output = ""
+
+    return llm_output or document
 
 
 def summarize_company_page(

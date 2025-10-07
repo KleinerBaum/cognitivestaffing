@@ -1554,6 +1554,7 @@ def _generate_job_ad_content(
             target_audience=target_value,
             manual_sections=list(manual_entries),
             style_reference=style_reference,
+            tone=st.session_state.get(UIKeys.TONE_SELECT),
             lang=lang,
             selected_values=st.session_state.get(
                 StateKeys.JOB_AD_SELECTED_VALUES, {}
