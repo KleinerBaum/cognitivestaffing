@@ -5,7 +5,11 @@ from typing import List, Optional, Tuple
 from models.need_analysis import NeedAnalysisProfile
 
 _GENDER_RE = re.compile(
-    r"\s*\((?:[mwfd]\s*/){2}[mwfd]\)\s*|\s*all genders\s*",
+    r"(?P<prefix>\s*[-–—:,/|]*)?(?P<suffix>\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)",
+    re.IGNORECASE,
+)
+_GENDER_SUFFIX_END_RE = re.compile(
+    r"(?:\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)\s*$",
     re.IGNORECASE,
 )
 _BRAND_OF_RE = re.compile(
@@ -512,14 +516,46 @@ def extract_responsibilities(text: str) -> List[str]:
     return [i for i in items if i]
 
 
+def _line_ends_with_gender_marker(line: str) -> bool:
+    return bool(_GENDER_SUFFIX_END_RE.search(line.strip()))
+
+
+def _should_include_second_line(line: str) -> bool:
+    stripped = line.rstrip()
+    if not stripped:
+        return False
+    if _line_ends_with_gender_marker(stripped):
+        return True
+    return stripped[-1] in {":", "-", "–", "—", "/", "|"}
+
+
+def _normalize_gender_suffix(title: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        suffix = match.group("suffix").strip()
+        return f" {suffix}"
+
+    normalized = _GENDER_RE.sub(_replace, title)
+    normalized = re.sub(r"\s{2,}", " ", normalized).strip()
+    return normalized.rstrip("-–—:,/|").strip()
+
+
 def guess_job_title(text: str) -> str:
     """Return a basic job title guess from ``text``."""
     if not text:
         return ""
-    first_line = text.strip().splitlines()[0]
-    first_line = first_line.split("|")[0]
-    first_line = re.split(r"\s[-–—]\s", first_line)[0]
-    title = _GENDER_RE.sub("", first_line).strip()
+    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+    if not lines:
+        return ""
+    first_line = lines[0]
+    include_second = False
+    if len(lines) > 1 and _should_include_second_line(first_line):
+        second_line = lines[1].lstrip()
+        first_line = f"{first_line.rstrip()} {second_line}"
+        include_second = True
+    first_line = first_line.split("|")[0].strip()
+    if not include_second:
+        first_line = re.split(r"\s[-–—]\s", first_line)[0].strip()
+    title = _normalize_gender_suffix(first_line)
     return title
 
 
