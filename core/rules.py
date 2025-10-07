@@ -56,7 +56,7 @@ _SALARY_RE = re.compile(
 )
 _LOCATION_LINE_RE = re.compile(
     r"(?:^|\b)(?P<prefix>location|standort|ort|arbeitsort|based in|land|country|city)"
-    r"[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß ,./-]+)",
+    r"[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./@-]+)",
     re.IGNORECASE,
 )
 _CITY_COUNTRY_RE = re.compile(
@@ -388,6 +388,10 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
         raw = pair_match.group(0).strip() if pair_match else text
     if not raw:
         return None, None
+
+    raw_lower = raw.lower()
+    if any(char.isdigit() for char in raw) or "http" in raw_lower or "@" in raw:
+        return None, None
     # Prefer comma separated "City, Country" structures.
     if "," in raw:
         city_part, _, country_part = raw.partition(",")
@@ -403,7 +407,10 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
         return city_token or None, country_token or None
     if prefix in {"land", "country"}:
         return None, raw.strip() or None
-    return raw.strip(), None
+    cleaned = raw.strip() or None
+    if not cleaned:
+        return None, None
+    return cleaned, None
 
 
 def _normalize_salary_value(value: str | None) -> float | None:

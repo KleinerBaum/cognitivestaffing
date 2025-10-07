@@ -9,7 +9,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.rules import apply_rules, matches_to_patch, build_rule_metadata  # noqa: E402
+from core.rules import (  # noqa: E402
+    _extract_location,
+    apply_rules,
+    build_rule_metadata,
+    matches_to_patch,
+)
 from ingest.types import ContentBlock  # noqa: E402
 
 
@@ -89,3 +94,25 @@ def test_regex_matches_land_prefix_for_country() -> None:
     matches = apply_rules([text_block])
     assert matches["location.country"].value == "Deutschland"
     assert "location.primary_city" not in matches
+
+
+def test_extract_location_returns_city_and_country() -> None:
+    """City and country should be parsed from inline statements."""
+
+    city, country = _extract_location("Location: Munich, Germany")
+    assert city == "Munich"
+    assert country == "Germany"
+
+
+def test_extract_location_rejects_disqualifying_lines() -> None:
+    """Digits, URLs, and emails should prevent extracting a city value."""
+
+    disqualifying_inputs = [
+        "Location: 80331 Munich",
+        "Location: http://example.com/offices",
+        "Location: contact@example.com",
+    ]
+    for text in disqualifying_inputs:
+        city, country = _extract_location(text)
+        assert city is None
+        assert country is None
