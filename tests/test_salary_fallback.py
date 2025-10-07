@@ -63,3 +63,13 @@ def test_estimate_uses_city_when_country_missing(monkeypatch) -> None:
     assert estimate["salary_min"] == 60000.0
     assert estimate["salary_max"] == 85000.0
     assert estimate["currency"] == "EUR"
+
+
+def test_us_state_abbreviation_does_not_trigger_wrong_country() -> None:
+    country = salary._derive_country_from_locations("San Jose, CA")
+    assert country == "United States"
+
+
+def test_canadian_city_with_abbreviation_maps_to_canada() -> None:
+    country = salary._derive_country_from_locations("Toronto, CA")
+    assert country == "Canada"

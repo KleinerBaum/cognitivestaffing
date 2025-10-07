@@ -156,11 +156,80 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
 _LOCATION_SPLIT_RE = re.compile(r"[\n\-/|;,•·]")
 
 
+_US_STATE_CODES: set[str] = {
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WI",
+    "WV",
+    "WY",
+    "DC",
+    "PR",
+    "VI",
+    "GU",
+    "AS",
+    "MP",
+}
+
+
+def _is_us_state_abbreviation(value: str) -> bool:
+    cleaned = value.strip().strip(". ")
+    if len(cleaned) != 2 or not cleaned.isalpha():
+        return False
+    return cleaned.upper() in _US_STATE_CODES
+
+
 def _derive_country_from_locations(*candidates: str | None) -> str | None:
     for candidate in candidates:
         if not candidate:
             continue
         for token in _iter_location_tokens(candidate):
+            if _is_us_state_abbreviation(token):
+                continue
             country = _country_from_hint(token)
             if country:
                 return country
@@ -205,6 +274,11 @@ def _iter_location_tokens(value: str) -> list[str]:
 
 
 def _country_from_hint(value: str) -> str | None:
+    ascii_value = _strip_accents(value).casefold()
+    mapped = _CITY_TO_COUNTRY.get(ascii_value)
+    if mapped:
+        return mapped
+
     normalized = normalize_country(value)
     if normalized:
         iso_from_normalized = country_to_iso2(normalized)
@@ -218,10 +292,6 @@ def _country_from_hint(value: str) -> str | None:
             return normalized_iso
         return iso
 
-    ascii_value = _strip_accents(value).casefold()
-    mapped = _CITY_TO_COUNTRY.get(ascii_value)
-    if mapped:
-        return mapped
     return None
 
 
@@ -260,6 +330,35 @@ _CITY_TO_COUNTRY: dict[str, str] = {
     "los angeles": "United States",
     "boston": "United States",
     "seattle": "United States",
+    "san jose": "United States",
+    "portland": "United States",
+    "chicago": "United States",
+    "austin": "United States",
+    "dallas": "United States",
+    "denver": "United States",
+    "miami": "United States",
+    "houston": "United States",
+    "atlanta": "United States",
+    "washington": "United States",
+    "philadelphia": "United States",
+    "phoenix": "United States",
+    "san diego": "United States",
+    "san antonio": "United States",
+    "minneapolis": "United States",
+    "orlando": "United States",
+    "tampa": "United States",
+    "pittsburgh": "United States",
+    "charlotte": "United States",
+    "columbus": "United States",
+    "nashville": "United States",
+    "raleigh": "United States",
+    "detroit": "United States",
+    "baltimore": "United States",
+    "salt lake city": "United States",
+    "toronto": "Canada",
+    "vancouver": "Canada",
+    "montreal": "Canada",
+    "ottawa": "Canada",
 }
 
 
