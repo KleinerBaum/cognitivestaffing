@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from jsonschema import Draft7Validator
+from langchain_core.runnables import RunnableLambda, RunnableSerializable
+from pydantic import ValidationError
 import streamlit as st
 
 from openai_utils import call_chat_api
@@ -16,6 +18,7 @@ from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
 from config import REASONING_EFFORT, ModelTask, get_model_for
+from models.need_analysis import NeedAnalysisProfile
 
 logger = logging.getLogger("cognitive_needs.llm")
 
@@ -83,6 +86,59 @@ NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
 
+def _build_structured_extraction_chain() -> RunnableSerializable[dict[str, Any], str]:
+    """Create a LangChain runnable that validates model output against the schema."""
+
+    def _call_model(payload: dict[str, Any]) -> dict[str, Any]:
+        result = call_chat_api(
+            payload["messages"],
+            model=payload["model"],
+            temperature=0,
+            reasoning_effort=payload.get("reasoning_effort"),
+            json_schema={
+                "name": "need_analysis_profile",
+                "schema": NEED_ANALYSIS_SCHEMA,
+            },
+        )
+        content = (result.content or "").strip()
+        if not content:
+            raise ValueError("LLM returned empty response")
+        return {"content": content}
+
+    def _parse_json(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            data = json.loads(payload["content"])
+        except json.JSONDecodeError as err:
+            raise ValueError("Structured extraction did not return valid JSON") from err
+        return {"content": payload["content"], "data": data}
+
+    def _validate(payload: dict[str, Any]) -> dict[str, Any]:
+        data = payload["data"]
+        try:
+            profile = NeedAnalysisProfile.model_validate(data)
+        except ValidationError as err:
+            report = _generate_error_report(data)
+            if report:
+                logger.debug("Schema validation errors:\n%s", report)
+                if hasattr(err, "add_note"):
+                    err.add_note(report)
+            raise
+        return {"validated": profile.model_dump(mode="json")}
+
+    def _serialise(payload: dict[str, Any]) -> str:
+        return json.dumps(payload["validated"], ensure_ascii=False)
+
+    return (
+        RunnableLambda(_call_model)
+        | RunnableLambda(_parse_json)
+        | RunnableLambda(_validate)
+        | RunnableLambda(_serialise)
+    )
+
+
+_STRUCTURED_EXTRACTION_CHAIN = _build_structured_extraction_chain()
+
+
 def _minimal_messages(text: str) -> list[dict[str, str]]:
     """Build a minimal prompt asking for raw JSON output."""
 
@@ -117,34 +173,35 @@ def extract_json(
     effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
     model = get_model_for(ModelTask.EXTRACTION)
     try:
+        return _STRUCTURED_EXTRACTION_CHAIN.invoke(
+            {
+                "messages": messages,
+                "model": model,
+                "reasoning_effort": effort,
+            }
+        )
+    except ValidationError as err:
+        notes = "\n".join(getattr(err, "__notes__", ()))
+        detail = notes or str(err)
+        logger.warning(
+            "Structured extraction output failed validation; falling back to plain text.\n%s",
+            detail,
+        )
+    except Exception as exc:  # pragma: no cover - network/SDK issues
+        logger.warning(
+            "Structured extraction failed, falling back to plain text: %s", exc
+        )
+
+    try:
         result = call_chat_api(
             messages,
             model=model,
             temperature=0,
             reasoning_effort=effort,
-            json_schema={
-                "name": "need_analysis_profile",
-                "schema": NEED_ANALYSIS_SCHEMA,
-            },
         )
-        content = (result.content or "").strip()
-        if content:
-            return content
-        raise ValueError("empty response")
-    except Exception as exc:  # pragma: no cover - network/SDK issues
-        logger.warning(
-            "Structured extraction failed, falling back to plain text: %s", exc
-        )
-        try:
-            result = call_chat_api(
-                messages,
-                model=model,
-                temperature=0,
-                reasoning_effort=effort,
-            )
-        except Exception as exc2:  # pragma: no cover - network/SDK issues
-            raise ExtractionError("LLM call failed") from exc2
-        content = (result.content or "").strip()
-        if content:
-            return content
-        raise ExtractionError("LLM returned empty response")
+    except Exception as exc2:  # pragma: no cover - network/SDK issues
+        raise ExtractionError("LLM call failed") from exc2
+    content = (result.content or "").strip()
+    if content:
+        return content
+    raise ExtractionError("LLM returned empty response")
