@@ -20,3 +20,6 @@ chardet>=5.0
 langdetect>=1.0
 pdf2image>=1.17
 pytesseract>=0.3
+spacy>=3.7,<3.9
+pycountry>=23.12
+de-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl

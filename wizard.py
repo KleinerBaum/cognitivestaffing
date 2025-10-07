@@ -806,7 +806,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         set_in(extracted_data, field, match.value)
 
     profile = coerce_and_fill(extracted_data)
-    profile = apply_basic_fallbacks(profile, text)
+    profile = apply_basic_fallbacks(profile, text, metadata=metadata)
     raw_profile = profile.model_dump()
     st.session_state[StateKeys.PROFILE] = raw_profile
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
