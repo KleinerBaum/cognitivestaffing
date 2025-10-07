@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for
-from core.job_ad import JOB_AD_FIELDS, iter_field_keys
+from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.rag_pipeline import (
     FieldExtractionContext,
     RetrievedChunk,
@@ -806,90 +806,267 @@ def generate_interview_guide(
     tone: str | None = None,
     model: str | None = None,
 ) -> str:
-    """Generate an interview guide (questions + scoring rubrics) for the role.
+    """Create an interview preparation guide directly from captured profile data."""
 
-    Args:
-        job_title: Target role title.
-        responsibilities: Description of role responsibilities.
-        hard_skills: Technical skills required for the role.
-        soft_skills: Soft skills or competencies for the role.
-        audience: Intended interviewer audience.
-        num_questions: Base number of questions to generate.
-        lang: Output language.
-        company_culture: Optional description of company culture.
-        tone: Desired tone of the guide.
-        model: Optional OpenAI model override.
+    lang_code = (lang or "de").lower()
+    is_de = lang_code.startswith("de")
 
-    Returns:
-        The generated interview guide text.
-    """
+    def _tr(value_de: str, value_en: str) -> str:
+        return value_de if is_de else value_en
 
-    def _normalize(skills: Sequence[str] | str) -> list[str]:
-        if isinstance(skills, str):
-            parts = [p.strip() for p in skills.replace("\n", ",").split(",")]
+    def _normalise_list(payload: Sequence[str] | str) -> list[str]:
+        if isinstance(payload, str):
+            parts = [p.strip() for p in payload.replace('\r', '').splitlines()]
         else:
-            parts = [str(s).strip() for s in skills]
+            parts = [str(item).strip() for item in payload]
         return [p for p in parts if p]
 
-    hard_list = _normalize(hard_skills)
-    soft_list = _normalize(soft_skills)
-    total_questions = (
-        num_questions + len(hard_list) + len(soft_list) + (1 if company_culture else 0)
+    def _sentence_case(text: str) -> str:
+        cleaned = text.strip()
+        if not cleaned:
+            return cleaned
+        return cleaned[0].upper() + cleaned[1:]
+
+    hard_list = _normalise_list(hard_skills)
+    soft_list = _normalise_list(soft_skills)
+    responsibilities_list = _normalise_list(responsibilities)
+
+    audience_display = {
+        "general": _tr("Allgemeines Interviewteam", "General interview panel"),
+        "technical": _tr("Technisches Interviewteam", "Technical panel"),
+        "leadership": _tr("Führungsteam", "Leadership panel"),
+    }.get(audience, audience)
+
+    job_title_text = job_title.strip() or _tr("diese Position", "this role")
+    tone_text = tone.strip() if isinstance(tone, str) else ""
+    if not tone_text:
+        tone_text = _tr("professionell und strukturiert", "professional and structured")
+
+    def _make_question(
+        question: str,
+        focus: str,
+        evaluation: str,
+    ) -> dict[str, str]:
+        return {
+            "question": _sentence_case(question),
+            "focus": focus.strip(),
+            "evaluation": evaluation.strip(),
+        }
+
+    focus_label = _tr("Fokus", "Focus")
+    evaluation_label = _tr("Bewertungshinweise", "Evaluation guidance")
+
+    motivation_question = _make_question(
+        _tr(
+            f"Was motiviert Sie an der Rolle als {job_title_text}?",
+            f"What excites you most about the {job_title_text} opportunity?",
+        ),
+        _tr("Motivation & Passung", "Motivation & fit"),
+        _tr(
+            "Suchen Sie nach konkreten Beweggründen, Bezug zum Team und Erwartungen an die Rolle.",
+            "Listen for concrete reasons, links to the team and expectations for the role.",
+        ),
     )
-    if model is None:
-        model = get_model_for(ModelTask.INTERVIEW_GUIDE)
-    job_title = job_title.strip() or "this position"
-    if lang.startswith("de"):
-        tone = tone or "professionell und hilfreich"
-        prompt = (
-            f"Erstelle einen Leitfaden für ein Vorstellungsgespräch für die Position {job_title} "
-            f"(für Interviewer: {audience}).\n"
-            f"Formuliere {total_questions} Schlüsselfragen für das Interview und gib für jede Frage kurz die idealen Antwortkriterien an.\n"
-            f"Wichtige Aufgaben der Rolle: {responsibilities or 'N/A'}.\n"
-            f"Tonfall: {tone}."
+
+    questions: list[dict[str, str]] = []
+
+    def _add_question(entry: dict[str, str]) -> None:
+        if len(questions) >= max(3, min(10, num_questions)):
+            return
+        key = entry["question"].strip().lower()
+        if key in {q["question"].strip().lower() for q in questions}:
+            return
+        questions.append(entry)
+
+    _add_question(motivation_question)
+
+    culture_note = company_culture.strip()
+    if culture_note:
+        culture_question = _make_question(
+            _tr(
+                "Welche Aspekte unserer beschriebenen Kultur sprechen Sie besonders an und wie würden Sie sie im Alltag leben?",
+                "Which aspects of the culture we described resonate with you and how would you live them day to day?",
+            ),
+            _tr("Kulturelle Passung", "Cultural alignment"),
+            _tr(
+                "Hören Sie auf Beispiele aus der Vergangenheit und darauf, wie Werte in konkretes Verhalten übersetzt werden.",
+                "Listen for past examples and how values translate into concrete behaviour.",
+            ),
         )
+        _add_question(culture_question)
+
+    for item in responsibilities_list[:3]:
+        q = _make_question(
+            _tr(
+                f"Beschreiben Sie ein Projekt, in dem Sie '{item}' verantwortet haben. Wie sind Sie vorgegangen und welches Ergebnis wurde erreicht?",
+                f"Describe a project where you were responsible for '{item}'. How did you approach it and what was the outcome?",
+            ),
+            _tr("Umsetzung zentraler Aufgaben", "Executing key responsibilities"),
+            _tr(
+                "Achten Sie auf Struktur, Prioritätensetzung und darauf, welchen Beitrag die Kandidat:in geleistet hat.",
+                "Look for structure, prioritisation and the candidate's personal contribution.",
+            ),
+        )
+        _add_question(q)
+
+    for skill in hard_list[:4]:
+        q = _make_question(
+            _tr(
+                f"Wie gehen Sie bei {skill} vor? Beschreiben Sie einen konkreten Anwendungsfall.",
+                f"How do you approach {skill}? Walk us through a specific use case.",
+            ),
+            _tr("Technische Tiefe", "Technical depth"),
+            _tr(
+                "Erfragen Sie Details zu Methodik, Tools und Ergebnissen, um die tatsächliche Expertise zu bewerten.",
+                "Probe for methodology, tools and measurable outcomes to judge depth of expertise.",
+            ),
+        )
+        _add_question(q)
+
+    for skill in soft_list[:3]:
+        q = _make_question(
+            _tr(
+                f"Erzählen Sie von einer Situation, in der '{skill}' besonders wichtig war. Wie haben Sie reagiert?",
+                f"Tell us about a situation where '{skill}' was critical. How did you respond?",
+            ),
+            _tr("Verhaltenskompetenzen", "Behavioural competencies"),
+            _tr(
+                "Achten Sie auf Selbstreflexion, Lernmomente und konkrete Resultate.",
+                "Listen for self-reflection, learning and concrete outcomes.",
+            ),
+        )
+        _add_question(q)
+
+    fallback_questions = [
+        _make_question(
+            _tr(
+                "Wie würden Sie Ihre ersten 90 Tage gestalten, um Wirkung zu erzielen?",
+                "How would you structure your first 90 days to create impact?",
+            ),
+            _tr("Onboarding & Planung", "Onboarding & planning"),
+            _tr(
+                "Achten Sie auf Prioritäten, Stakeholder-Management und klare Lernziele.",
+                "Look for prioritisation, stakeholder management and clear learning goals.",
+            ),
+        ),
+        _make_question(
+            _tr(
+                "Wie gehen Sie mit kritischem Feedback um? Geben Sie bitte ein Beispiel.",
+                "How do you handle critical feedback? Please give an example.",
+            ),
+            _tr("Selbstreflexion", "Self-awareness"),
+            _tr(
+                "Suchen Sie nach der Bereitschaft, Feedback anzunehmen und daraus Maßnahmen abzuleiten.",
+                "Look for willingness to accept feedback and translate it into action.",
+            ),
+        ),
+        _make_question(
+            _tr(
+                "Wie stellen Sie sicher, dass Sie mit anderen Teams effektiv zusammenarbeiten?",
+                "How do you ensure effective collaboration with other teams?",
+            ),
+            _tr("Zusammenarbeit", "Collaboration"),
+            _tr(
+                "Achten Sie auf Kommunikationsroutinen, Transparenz und Umgang mit Konflikten.",
+                "Listen for communication routines, transparency and conflict handling.",
+            ),
+        ),
+        _make_question(
+            _tr(
+                "Welche Kennzahlen oder Ergebnisse nutzen Sie, um Ihren Erfolg sichtbar zu machen?",
+                "Which metrics or outcomes do you use to make your success visible?",
+            ),
+            _tr("Ergebnisorientierung", "Outcome focus"),
+            _tr(
+                "Hören Sie auf Zahlen, qualitative Wirkungen und wie Erkenntnisse geteilt werden.",
+                "Listen for metrics, qualitative impact and how learnings are shared.",
+            ),
+        ),
+        _make_question(
+            _tr(
+                "Welche Fragen haben Sie an uns, um zu entscheiden, ob wir zueinander passen?",
+                "What questions do you have for us to decide whether we're a mutual fit?",
+            ),
+            _tr("Abschluss & Erwartungsabgleich", "Closing & expectation alignment"),
+            _tr(
+                "Gute Kandidat:innen nutzen die Gelegenheit, offene Punkte strukturiert zu adressieren.",
+                "Strong candidates use the chance to address open topics in a structured way.",
+            ),
+        ),
+    ]
+
+    for question in fallback_questions:
+        _add_question(question)
+
+    if len(questions) < num_questions:
+        additional_sources = responsibilities_list[3:] + hard_list[4:] + soft_list[3:]
+        for item in additional_sources:
+            q = _make_question(
+                _tr(
+                    f"Welche Erfahrungen haben Sie mit '{item}' gesammelt und was haben Sie daraus gelernt?",
+                    f"What experience do you have with '{item}' and what did you learn from it?",
+                ),
+                _tr("Vertiefung", "Deep dive"),
+                _tr(
+                    "Fragen Sie nach Ergebnissen, Lessons Learned und der Übertragbarkeit auf die Rolle.",
+                    "Ask about outcomes, lessons learned and applicability to the role.",
+                ),
+            )
+            _add_question(q)
+            if len(questions) >= num_questions:
+                break
+
+    if len(questions) > num_questions:
+        questions = questions[:num_questions]
+
+    summary_lines: list[str] = []
+    summary_lines.append(
+        _tr("Interviewleitfaden", "Interview Guide") + f" – {job_title_text}"
+    )
+    summary_lines.append("")
+    summary_lines.append(
+        f"**{_tr('Zielgruppe', 'Intended audience')}:** {audience_display}"
+    )
+    summary_lines.append(f"**{_tr('Tonfall', 'Tone')}:** {tone_text}")
+    if culture_note:
+        summary_lines.append(
+            f"**{_tr('Unternehmenskultur', 'Company culture')}:** {culture_note}"
+        )
+
+    focus_section: list[str] = []
+    if responsibilities_list or hard_list or soft_list:
+        focus_section.append("")
+        focus_section.append(f"## {_tr('Fokusbereiche', 'Focus areas')}")
+        if responsibilities_list:
+            focus_section.append(
+                f"- **{_tr('Schlüsselaufgaben', 'Key responsibilities')}:** "
+                + ", ".join(responsibilities_list[:5])
+            )
         if hard_list:
-            prompt += (
-                f"\nWichtige technische Fähigkeiten für die Rolle: {', '.join(hard_list)}."
-                "\nFüge für jede dieser Fähigkeiten eine Frage hinzu, um die Expertise des Kandidaten zu bewerten."
+            focus_section.append(
+                f"- **{_tr('Kernkompetenzen', 'Core hard skills')}:** "
+                + ", ".join(hard_list[:5])
             )
         if soft_list:
-            prompt += (
-                f"\nWichtige Soft Skills: {', '.join(soft_list)}."
-                "\nFüge Fragen hinzu, die diese Soft Skills evaluieren."
+            focus_section.append(
+                f"- **{_tr('Soft Skills', 'Soft skills')}:** "
+                + ", ".join(soft_list[:5])
             )
-        if company_culture:
-            prompt += (
-                f"\nUnternehmenskultur: {company_culture}."
-                "\nFüge mindestens eine Frage hinzu, die die Passung zur Unternehmenskultur bewertet."
-            )
-    else:
-        tone = tone or "professional and helpful"
-        prompt = (
-            f"Generate an interview guide for a {job_title} for {audience} interviewers.\n"
-            f"Include {total_questions} key interview questions and, for each question, provide a brief scoring rubric or ideal answer criteria.\n"
-            f"Key responsibilities for the role: {responsibilities or 'N/A'}.\n"
-            f"Tone: {tone}."
+
+    question_lines: list[str] = [
+        "",
+        f"## {_tr('Fragen & Bewertungsleitfaden', 'Questions & evaluation guide')}",
+    ]
+    for idx, question in enumerate(questions, start=1):
+        question_lines.append("")
+        question_lines.append(f"### {idx}. {question['question']}")
+        question_lines.append(f"- **{focus_label}:** {question['focus']}")
+        question_lines.append(
+            f"- **{evaluation_label}:** {question['evaluation']}"
         )
-        if hard_list:
-            prompt += (
-                f"\nKey required hard skills: {', '.join(hard_list)}."
-                "\nInclude one question to assess each of these skills."
-            )
-        if soft_list:
-            prompt += (
-                f"\nImportant soft skills: {', '.join(soft_list)}."
-                "\nInclude questions to evaluate these competencies."
-            )
-        if company_culture:
-            prompt += (
-                f"\nCompany culture: {company_culture}."
-                "\nInclude at least one question assessing cultural fit."
-            )
-    messages = [{"role": "user", "content": prompt}]
-    return _chat_content(
-        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=1000)
-    )
+
+    document = "\n".join(summary_lines + focus_section + question_lines).strip()
+    return document
 
 
 def generate_job_ad(
@@ -903,7 +1080,7 @@ def generate_job_ad(
     model: str | None = None,
     selected_values: Mapping[str, Any] | None = None,
 ) -> str:
-    """Generate a job advertisement tailored to the selected audience."""
+    """Generate a structured job advertisement from collected profile data."""
 
     if not selected_fields:
         raise ValueError("No fields selected for job ad generation.")
@@ -912,344 +1089,335 @@ def generate_job_ad(
         raise ValueError("Target audience is required for job ad generation.")
 
     data = dict(session_data)
+    lang_code = (lang or data.get("lang") or "de").lower()
+    is_de = lang_code.startswith("de")
+    yes_no = ("Ja", "Nein") if is_de else ("Yes", "No")
+
+    base_fields = [entry.split("::")[0] for entry in selected_fields]
+    ordered_keys = list(iter_field_keys(base_fields))
+    if not ordered_keys:
+        raise ValueError("No usable fields selected for job ad generation.")
+
+    field_map = {field.key: field for field in JOB_AD_FIELDS}
+    group_labels = {
+        key: (labels[0] if is_de else labels[1])
+        for key, labels in JOB_AD_GROUP_LABELS.items()
+    }
 
     def _resolve(path: str) -> Any:
         if path in data:
             return data[path]
-        parts = path.split(".")
         cursor: Any = data
-        for part in parts:
+        for part in path.split('.'):
             if isinstance(cursor, Mapping) and part in cursor:
                 cursor = cursor[part]
             else:
                 return None
         return cursor
 
-    def _normalize_benefits(raw: Any) -> list[str]:
-        if isinstance(raw, list):
-            items = [str(item).strip() for item in raw if str(item).strip()]
-        elif isinstance(raw, str):
-            items = [p.strip() for p in raw.splitlines() if p.strip()]
-        else:
-            return []
-        seen: set[str] = set()
-        result: list[str] = []
-        for perk in items:
-            low = perk.lower()
-            if low not in seen:
-                seen.add(low)
-                result.append(perk)
-        return result
-
-    lang_code = (lang or data.get("lang") or "de").lower()
-    is_de = lang_code.startswith("de")
-    yes_no = ("Ja", "Nein") if is_de else ("Yes", "No")
-
-    known_keys = {field.key for field in JOB_AD_FIELDS}
-
-    def _normalize_key(field_id: str) -> str | None:
-        if field_id in known_keys:
-            return field_id
-        base, _, _ = field_id.partition("::")
-        return base if base in known_keys else None
-
-    ordered_keys: list[str] = []
-    seen_keys: set[str] = set()
-    for entry in selected_fields:
-        normalised = _normalize_key(entry)
-        if normalised and normalised not in seen_keys:
-            seen_keys.add(normalised)
-            ordered_keys.append(normalised)
-    if not ordered_keys:
-        ordered_keys = list(iter_field_keys(selected_fields))
-
-    selected = set(ordered_keys)
-    overrides: dict[str, list[Any]] = {key: [] for key in selected}
-
-    def _extend_override(key: str, value: Any) -> None:
-        if value is None:
-            return
-        if isinstance(value, (list, tuple)):
-            overrides[key].extend(value)
-            return
-        if isinstance(value, set):
-            overrides[key].extend(sorted(value))
-            return
-        overrides[key].append(value)
-
-    def _extract_selected_values() -> Mapping[str, Any]:
-        if isinstance(selected_values, Mapping):
-            return selected_values
-        if isinstance(session_data, Mapping):
-            nested = session_data.get("data.job_ad.selected_values")
-            if isinstance(nested, Mapping):
-                return nested
-            data_section = session_data.get("data")
-            if isinstance(data_section, Mapping):
-                job_ad_section = data_section.get("job_ad")
-                if isinstance(job_ad_section, Mapping):
-                    nested = job_ad_section.get("selected_values")
-                    if isinstance(nested, Mapping):
-                        return nested
-        return {}
-
-    def _lookup_selected_value(field_id: str, source: Mapping[str, Any]) -> Any | None:
-        if field_id in source:
-            return source[field_id]
-        base_key, sep, suffix = field_id.partition("::")
-        base_value = source.get(base_key)
-        if sep and base_value is not None:
-            if isinstance(base_value, Mapping):
-                if suffix in base_value:
-                    return base_value[suffix]
-                try:
-                    index = int(suffix)
-                except ValueError:
-                    index = None
-                if index is not None:
-                    if index in base_value:
-                        return base_value[index]
-                    str_index = str(index)
-                    if str_index in base_value:
-                        return base_value[str_index]
-                values = (
-                    base_value.get("values")
-                    if isinstance(base_value, Mapping)
-                    else None
-                )
-                if isinstance(values, Sequence):
-                    try:
-                        idx = int(suffix)
-                    except ValueError:
-                        idx = None
-                    if idx is not None and -len(values) <= idx < len(values):
-                        return values[idx]
-                value_entry = base_value.get("value")
-                if value_entry is not None:
-                    return value_entry
-            if isinstance(base_value, Sequence) and not isinstance(
-                base_value, (str, bytes)
-            ):
-                try:
-                    idx = int(suffix)
-                except ValueError:
-                    idx = None
-                if idx is not None and -len(base_value) <= idx < len(base_value):
-                    return base_value[idx]
-            if isinstance(base_value, str):
-                parts = [
-                    part.strip() for part in base_value.splitlines() if part.strip()
-                ]
-                if parts:
-                    try:
-                        idx = int(suffix)
-                    except ValueError:
-                        idx = None
-                    if idx is not None and -len(parts) <= idx < len(parts):
-                        return parts[idx]
-        if isinstance(base_value, Mapping):
-            if "value" in base_value:
-                return base_value["value"]
-            if "values" in base_value and isinstance(base_value["values"], Sequence):
-                return list(base_value["values"])
-        if base_value is not None:
-            return base_value
-        return None
-
-    values_source = _extract_selected_values()
-    if values_source:
-        for entry_id in selected_fields:
-            field_key = _normalize_key(entry_id)
-            if not field_key or field_key not in overrides:
-                continue
-            override_value = _lookup_selected_value(entry_id, values_source)
-            if override_value is None:
-                continue
-            _extend_override(field_key, override_value)
-    details: list[str] = []
-
-    def _format_value(key: str, value: Any) -> str | None:
-        if value is None:
-            return None
-        if isinstance(value, str):
-            value = value.strip()
-            if not value:
-                return None
-        if key == "compensation.benefits":
-            perks = _normalize_benefits(value)
-            if not perks:
-                return None
-            return ", ".join(perks)
+    def _normalize_list(value: Any) -> list[str]:
         if isinstance(value, list):
-            cleaned = [str(item).strip() for item in value if str(item).strip()]
-            return ", ".join(cleaned) if cleaned else None
-        if isinstance(value, bool):
-            return yes_no[0] if value else yes_no[1]
-        return str(value)
+            items = [str(item).strip() for item in value if str(item).strip()]
+        elif isinstance(value, str):
+            items = [part.strip() for part in value.replace('\r', '').splitlines() if part.strip()]
+        else:
+            items = []
+        return items
 
-    def _format_detail(field_key: str, override_value: Any | None = None) -> None:
-        if override_value is not None:
-            formatted_override = _format_value(field_key, override_value)
-            if not formatted_override:
-                return
-            label = next(
-                (
-                    field.label_de if is_de else field.label_en
-                    for field in JOB_AD_FIELDS
-                    if field.key == field_key
-                ),
-                field_key,
-            )
-            details.append(f"{label}: {formatted_override}")
-            return
+    def _normalize_benefits(raw: Any) -> list[str]:
+        items = _normalize_list(raw)
+        seen: set[str] = set()
+        unique: list[str] = []
+        for entry in items:
+            lowered = entry.lower()
+            if lowered not in seen:
+                seen.add(lowered)
+                unique.append(entry)
+        return unique
+
+    list_field_keys = {
+        "responsibilities.items",
+        "requirements.hard_skills_required",
+        "requirements.hard_skills_optional",
+        "requirements.soft_skills_required",
+        "requirements.soft_skills_optional",
+        "requirements.tools_and_technologies",
+        "requirements.languages_required",
+        "requirements.languages_optional",
+        "requirements.certifications",
+        "compensation.benefits",
+    }
+
+    values_map: Mapping[str, Any]
+    if isinstance(selected_values, Mapping):
+        values_map = selected_values
+    else:
+        nested = _resolve("data.job_ad.selected_values")
+        values_map = nested if isinstance(nested, Mapping) else {}
+
+    def _value_override(field_key: str) -> Any | None:
+        if not values_map:
+            return None
+        if field_key in values_map:
+            return values_map[field_key]
+        prefix = f"{field_key}::"
+        collected: list[tuple[int | None, Any]] = []
+        for key, value in values_map.items():
+            if not isinstance(key, str) or not key.startswith(prefix):
+                continue
+            suffix = key[len(prefix):]
+            try:
+                index = int(suffix)
+            except ValueError:
+                index = None
+            collected.append((index, value))
+        if not collected:
+            return None
+        collected.sort(key=lambda item: item[0] if item[0] is not None else 0)
+        return [val for _idx, val in collected]
+
+    def _compose_field_value(field_key: str) -> str | list[str] | None:
+        override = _value_override(field_key)
+        if isinstance(override, list) and field_key not in list_field_keys:
+            override = override[0] if override else None
 
         if field_key == "compensation.salary":
+            if isinstance(override, str):
+                text = override.strip()
+                return text or None
             salary_enabled = bool(_resolve("compensation.salary_provided"))
             if not salary_enabled:
-                return
-            min_val = _resolve("compensation.salary_min")
-            max_val = _resolve("compensation.salary_max")
-            currency = _resolve("compensation.currency") or "EUR"
-            period = _resolve("compensation.period") or ("Jahr" if is_de else "year")
-            if not min_val and not max_val:
-                return
-            if min_val and max_val:
-                salary_text = f"{int(min_val):,}–{int(max_val):,} {currency} / {period}"
+                return None
+            if isinstance(override, Mapping):
+                min_val = override.get("min") or override.get("salary_min")
+                max_val = override.get("max") or override.get("salary_max")
+                currency = override.get("currency") or _resolve("compensation.currency") or "EUR"
+                period = override.get("period") or _resolve("compensation.period") or ("Jahr" if is_de else "year")
             else:
-                amount = int(max_val or min_val or 0)
-                salary_text = f"{amount:,} {currency} / {period}"
-            label = next(
-                (
-                    field.label_de if is_de else field.label_en
-                    for field in JOB_AD_FIELDS
-                    if field.key == field_key
-                ),
-                "Salary",
-            )
-            details.append(f"{label}: {salary_text}")
-            return
+                min_val = _resolve("compensation.salary_min")
+                max_val = _resolve("compensation.salary_max")
+                currency = _resolve("compensation.currency") or "EUR"
+                period = _resolve("compensation.period") or ("Jahr" if is_de else "year")
+            try:
+                min_num = int(min_val) if min_val else 0
+            except (TypeError, ValueError):
+                min_num = 0
+            try:
+                max_num = int(max_val) if max_val else 0
+            except (TypeError, ValueError):
+                max_num = 0
+            if not min_num and not max_num:
+                return None
+            if min_num and max_num:
+                return f"{min_num:,}–{max_num:,} {currency} / {period}"
+            amount = max_num or min_num
+            return f"{amount:,} {currency} / {period}"
 
-        raw_value = _resolve(field_key)
         if field_key == "employment.travel_required":
+            if isinstance(override, str) and override.strip():
+                return override.strip()
             detail = _resolve("employment.travel_details")
-            if detail:
-                raw_value = detail
-            elif raw_value is not None:
-                raw_value = bool(raw_value)
-        elif field_key == "employment.relocation_support":
+            if isinstance(detail, str) and detail.strip():
+                return detail.strip()
+            raw = override if isinstance(override, bool) else _resolve("employment.travel_required")
+            if raw in (None, ""):
+                return None
+            return yes_no[0] if bool(raw) else yes_no[1]
+
+        if field_key == "employment.relocation_support":
+            if isinstance(override, str) and override.strip():
+                return override.strip()
             detail = _resolve("employment.relocation_details")
-            if detail:
-                raw_value = detail
-            elif raw_value is not None:
-                raw_value = bool(raw_value)
-        elif field_key == "employment.work_policy":
-            details_text = _resolve("employment.work_policy_details")
-            if not details_text:
+            if isinstance(detail, str) and detail.strip():
+                return detail.strip()
+            raw = override if isinstance(override, bool) else _resolve("employment.relocation_support")
+            if raw in (None, ""):
+                return None
+            return yes_no[0] if bool(raw) else yes_no[1]
+
+        if field_key == "employment.work_policy":
+            base_value = override if isinstance(override, str) else _resolve("employment.work_policy")
+            if not base_value:
+                return None
+            policy_detail = None
+            if isinstance(override, Mapping):
+                policy_detail = override.get("details")
+            if not policy_detail:
+                policy_detail = _resolve("employment.work_policy_details")
+            if not policy_detail:
                 percentage = _resolve("employment.remote_percentage")
                 if percentage:
-                    details_text = (
-                        f"{percentage}% Home-Office"
-                        if is_de
-                        else f"{percentage}% remote"
-                    )
-            if details_text and isinstance(raw_value, str):
-                raw_value = f"{raw_value.strip()} ({details_text})"
-        elif field_key == "employment.remote_percentage" and raw_value:
+                    policy_detail = f"{percentage}% Home-Office" if is_de else f"{percentage}% remote"
+            if policy_detail:
+                return f"{str(base_value).strip()} ({str(policy_detail).strip()})"
+            return str(base_value).strip()
+
+        if field_key == "employment.remote_percentage":
+            raw = override if override is not None else _resolve("employment.remote_percentage")
+            if raw in (None, ""):
+                return None
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                return str(raw)
             suffix = "% Home-Office" if is_de else "% remote"
-            raw_value = f"{raw_value}{suffix}"
+            return f"{value}{suffix}"
 
-        formatted = _format_value(field_key, raw_value)
-        if not formatted:
-            return
-        label = next(
-            (
-                field.label_de if is_de else field.label_en
-                for field in JOB_AD_FIELDS
-                if field.key == field_key
-            ),
-            field_key,
-        )
-        details.append(f"{label}: {formatted}")
+        if field_key == "compensation.benefits":
+            source = override if override is not None else _resolve("compensation.benefits")
+            perks = _normalize_benefits(source)
+            return perks or None
 
-    for field in JOB_AD_FIELDS:
-        if field.key not in selected:
-            continue
-        override_values = overrides.get(field.key)
-        selected_override: Any | None
-        if override_values:
-            selected_override = (
-                override_values if len(override_values) > 1 else override_values[0]
-            )
+        if field_key in list_field_keys:
+            source = override if override is not None else _resolve(field_key)
+            items = _normalize_list(source)
+            return items or None
+
+        if override is not None:
+            raw_value = override
         else:
-            selected_override = None
-        _format_detail(field.key, selected_override)
+            raw_value = _resolve(field_key)
 
-    extra_sections = manual_sections or []
-    for section in extra_sections:
-        content = str(section.get("content", "")).strip()
-        if not content:
+        if raw_value in (None, ""):
+            return None
+        if isinstance(raw_value, bool):
+            return yes_no[0] if raw_value else yes_no[1]
+        if isinstance(raw_value, (int, float)):
+            return str(raw_value)
+        return str(raw_value).strip()
+
+    entries: list[tuple[str, str, str, str | list[str]]] = []
+    for key in ordered_keys:
+        field_def = field_map.get(key)
+        if not field_def:
             continue
-        title = str(section.get("title", "")).strip()
-        if title:
-            details.append(f"{title}: {content}")
-        else:
-            details.append(content)
+        value = _compose_field_value(key)
+        if value in (None, "", []):
+            continue
+        label = field_def.label_de if is_de else field_def.label_en
+        entries.append((key, field_def.group, label, value))
 
-    if not details:
+    manual_entries: list[tuple[str, str]] = []
+    if manual_sections:
+        for section in manual_sections:
+            content = str(section.get("content", "")).strip()
+            if not content:
+                continue
+            title = str(section.get("title", "")).strip()
+            manual_entries.append((title, content))
+
+    if not entries and not manual_entries:
         raise ValueError("No usable data available for the job ad.")
 
-    style_text = (style_reference or "").strip()
-    intro = (
-        "Erstelle eine vollständige, SEO-optimierte Stellenanzeige im Markdown-Format."
-        if is_de
-        else "Create a complete, SEO-optimised job advertisement in Markdown format."
-    )
-    compliance = (
-        "Achte auf inklusive, diskriminierungsfreie Sprache und erfülle die DSGVO."
-        if is_de
-        else "Use inclusive, non-discriminatory language and ensure GDPR compliance."
-    )
-    structure = (
-        "Nutze klare Überschriften, eine motivierende Einleitung und einen eindeutigen Call-to-Action am Ende."
-        if is_de
-        else "Use clear headings, an engaging introduction and end with a precise call to action."
-    )
-    audience_line = (
-        f"Zielgruppe: {audience_text}."
-        if is_de
-        else f"Target audience: {audience_text}."
-    )
-    if style_text:
-        style_line = (
-            f"Berücksichtige Marken-/Styleguide-Hinweise: {style_text}."
+    job_title_value = _compose_field_value("position.job_title") or ""
+    company_brand = _compose_field_value("company.brand_name") or ""
+    company_name = _compose_field_value("company.name") or ""
+    company_display = company_brand or company_name
+
+    if job_title_value and company_display:
+        heading = (
+            f"# {job_title_value} bei {company_display}"
             if is_de
-            else f"Incorporate these brand/style guidelines: {style_text}."
+            else f"# {job_title_value} at {company_display}"
         )
+    elif job_title_value:
+        heading = f"# {job_title_value}"
+    elif company_display:
+        heading = f"# {company_display}"
     else:
-        style_line = ""
+        heading = "# " + ("Stellenanzeige" if is_de else "Job Advertisement")
 
-    prompt_parts = [intro, audience_line, compliance, structure]
-    if style_line:
-        prompt_parts.append(style_line)
-    prompt_parts.append(
-        "Relevante Informationen:" if is_de else "Relevant information:"
+    location_parts = [
+        str(_compose_field_value("location.primary_city") or "").strip(),
+        str(_compose_field_value("location.country") or "").strip(),
+    ]
+    location_text = ", ".join([part for part in location_parts if part])
+
+    role_summary_value: str | None = None
+    filtered_entries: list[tuple[str, str, str, str | list[str]]] = []
+    for entry in entries:
+        key, group, label, value = entry
+        if key == "position.role_summary":
+            if isinstance(value, list):
+                role_summary_value = " ".join(value)
+            else:
+                role_summary_value = str(value)
+            continue
+        if key == "position.job_title":
+            continue
+        if key in {"location.primary_city", "location.country"} and location_text:
+            continue
+        filtered_entries.append(entry)
+
+    group_order = [
+        "basic",
+        "company",
+        "requirements",
+        "employment",
+        "compensation",
+        "process",
+    ]
+
+    grouped: dict[str, list[tuple[str, str, str | list[str]]]] = {}
+    for key, group, label, value in filtered_entries:
+        grouped.setdefault(group, []).append((key, label, value))
+
+    def _tr(text_de: str, text_en: str) -> str:
+        return text_de if is_de else text_en
+
+    document_lines: list[str] = [heading]
+    if location_text:
+        document_lines.append(
+            f"**{_tr('Standort', 'Location')}:** {location_text}"
+        )
+    document_lines.append(
+        f"*{_tr('Zielgruppe', 'Target audience')}: {audience_text}*"
     )
-    prompt_parts.extend(details)
-    prompt_parts.append(
-        "Schließe mit einem prägnanten Abschnitt zu Benefits, Datenschutz und Bewerbungsprozess."
-        if is_de
-        else "Conclude with a concise section covering benefits, data privacy and how to apply."
-    )
+    style_note = (style_reference or "").strip()
+    if style_note:
+        document_lines.append(
+            f"*{_tr('Stilhinweis', 'Style note')}: {style_note}*"
+        )
+    if role_summary_value:
+        document_lines.append("")
+        document_lines.append(role_summary_value)
 
-    prompt = "\n".join(prompt_parts)
+    for group in group_order:
+        section_entries = grouped.get(group, [])
+        if not section_entries:
+            continue
+        document_lines.append("")
+        document_lines.append(f"## {group_labels.get(group, group.title())}")
+        for _key, label, value in section_entries:
+            if isinstance(value, list):
+                if not value:
+                    continue
+                document_lines.append(f"**{label}:**")
+                for item in value:
+                    document_lines.append(f"- {item}")
+            else:
+                document_lines.append(f"**{label}:** {value}")
+            document_lines.append("")
+        if document_lines and document_lines[-1] == "":
+            document_lines.pop()
 
-    if model is None:
-        model = get_model_for(ModelTask.JOB_AD)
+    if manual_entries:
+        document_lines.append("")
+        document_lines.append(
+            f"## {_tr('Zusätzliche Hinweise', 'Additional notes')}"
+        )
+        for title, content in manual_entries:
+            if title:
+                document_lines.append(f"**{title}:**")
+                document_lines.append(content)
+            else:
+                document_lines.append(content)
+            document_lines.append("")
+        if document_lines and document_lines[-1] == "":
+            document_lines.pop()
 
-    messages = [{"role": "user", "content": prompt}]
-    return _chat_content(
-        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=700)
-    )
+    document = "\n".join(document_lines).strip()
+    return document
 
 
 def summarize_company_page(
