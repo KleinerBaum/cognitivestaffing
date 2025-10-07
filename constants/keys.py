@@ -71,3 +71,4 @@ class StateKeys:
     JOB_AD_FONT_CHOICE = "data.job_ad.font"
     JOB_AD_LOGO_DATA = "data.job_ad.logo"
     ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
+    SUMMARY_FOLLOWUP_SNAPSHOT = "data.summary.followup_snapshot"
