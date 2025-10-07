@@ -7,6 +7,9 @@ import textwrap
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+
 from config import ModelTask, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt
@@ -19,84 +22,86 @@ from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
 
+tracer = trace.get_tracer(__name__)
+
 
 def extract_company_info(text: str, model: str | None = None) -> dict:
-    """Extract company details from website text using OpenAI.
+    """Extract company details from website text using OpenAI."""
 
-    Args:
-        text: Combined textual content of company web pages.
-        model: Optional model override for the OpenAI call.
+    with tracer.start_as_current_span("llm.extract_company_info") as span:
+        text = text.strip()
+        if not text:
+            span.set_status(Status(StatusCode.ERROR, "empty_input"))
+            return {}
+        if model is None:
+            model = get_model_for(ModelTask.COMPANY_INFO)
+        span.set_attribute("llm.model", model)
 
-    Returns:
-        Dictionary with keys ``name``, ``location``, ``mission``, ``culture`` when
-        extraction succeeds. Empty dict if no information could be obtained.
-    """
+        expected_fields = ("name", "location", "mission", "culture")
+        properties = {field: {"type": "string"} for field in expected_fields}
 
-    text = text.strip()
-    if not text:
-        return {}
-    if model is None:
-        model = get_model_for(ModelTask.COMPANY_INFO)
-
-    expected_fields = ("name", "location", "mission", "culture")
-    properties = {field: {"type": "string"} for field in expected_fields}
-
-    prompt = (
-        "Analyze the following company website text and extract: the official "
-        "company name, the primary location or headquarters, the company's "
-        "mission or mission statement, core values or culture. Respond in JSON "
-        "with keys name, location, mission, culture.\n\n"
-        f"{text}"
-    )
-    messages = [{"role": "user", "content": prompt}]
-    try:
-        res = api.call_chat_api(
-            messages,
-            model=model,
-            temperature=0.1,
-            max_tokens=500,
-            json_schema={
-                "name": "company_info",
-                "schema": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": list(properties.keys()),
-                    "additionalProperties": False,
-                },
-            },
+        prompt = (
+            "Analyze the following company website text and extract: the official "
+            "company name, the primary location or headquarters, the company's "
+            "mission or mission statement, core values or culture. Respond in JSON "
+            "with keys name, location, mission, culture.\n\n"
+            f"{text}"
         )
-        data = json.loads(_chat_content(res))
-    except Exception:
-        data = {}
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            res = api.call_chat_api(
+                messages,
+                model=model,
+                temperature=0.1,
+                max_tokens=500,
+                json_schema={
+                    "name": "company_info",
+                    "schema": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": list(properties.keys()),
+                        "additionalProperties": False,
+                    },
+                },
+            )
+            data = json.loads(_chat_content(res))
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "api_error"))
+            data = {}
 
-    result: dict[str, str] = {}
-    if isinstance(data, dict):
-        for key in expected_fields:
-            val = data.get(key, "")
-            if isinstance(val, str):
-                val = val.strip()
-            if val:
-                result[key] = val
-    if result:
+        result: dict[str, str] = {}
+        if isinstance(data, dict):
+            for key in expected_fields:
+                val = data.get(key, "")
+                if isinstance(val, str):
+                    val = val.strip()
+                if val:
+                    result[key] = val
+        span.set_attribute("extraction.company_fields", len(result))
+        if result:
+            return result
+
+        # Fallback: simple keyword extraction if the model call fails.
+        try:
+            mission = ""
+            culture = ""
+            for line in text.splitlines():
+                low = line.lower()
+                if not mission and ("mission" in low or "auftrag" in low):
+                    mission = line.strip()
+                if not culture and ("culture" in low or "kultur" in low or "werte" in low):
+                    culture = line.strip()
+            if mission:
+                result["mission"] = mission
+            if culture:
+                result["culture"] = culture
+        except Exception:
+            pass
+        if result:
+            span.add_event("fallback_keyword_extraction")
+            span.set_attribute("extraction.company_fields", len(result))
         return result
-
-    # Fallback: simple keyword extraction if the model call fails.
-    try:
-        mission = ""
-        culture = ""
-        for line in text.splitlines():
-            low = line.lower()
-            if not mission and ("mission" in low or "auftrag" in low):
-                mission = line.strip()
-            if not culture and ("culture" in low or "kultur" in low or "werte" in low):
-                culture = line.strip()
-        if mission:
-            result["mission"] = mission
-        if culture:
-            result["culture"] = culture
-    except Exception:
-        pass
-    return result
 
 
 FUNCTION_NAME = "cognitive_needs_extract"
@@ -1561,76 +1566,79 @@ def summarize_company_page(
     lang: str = "de",
     model: str | None = None,
 ) -> str:
-    """Summarize a company web page into a concise paragraph.
+    """Summarize a company web page into a concise paragraph."""
 
-    Args:
-        text: Extracted page text that should be summarised.
-        section: Human-readable label for the section (e.g. "About" or
-            "Impressum").
-        lang: Target language for the summary (``"de"`` or ``"en"`` supported).
-        model: Optional OpenAI model override.
+    with tracer.start_as_current_span("documents.summarize_company_page") as span:
+        cleaned = text.strip()
+        if not cleaned:
+            span.set_status(Status(StatusCode.ERROR, "empty_input"))
+            return ""
+        if len(cleaned) > 8000:
+            cleaned = cleaned[:8000]
+        if model is None:
+            model = get_model_for(ModelTask.EXPLANATION)
+        span.set_attribute("llm.model", model)
+        span.set_attribute("document.section", section)
+        span.set_attribute("document.lang", lang)
 
-    Returns:
-        A summary string describing the most relevant information.
-    """
+        if lang.lower().startswith("de"):
+            prompt = (
+                "Fasse den folgenden Text in maximal vier Sätzen zusammen."
+                " Hebe nur die wichtigsten Fakten hervor. Abschnitt: "
+                f"{section}.\n\n{cleaned}"
+            )
+        else:
+            prompt = (
+                "Summarise the following text in at most four sentences,"
+                " focusing on the key facts only. Section: "
+                f"{section}.\n\n{cleaned}"
+            )
 
-    cleaned = text.strip()
-    if not cleaned:
-        return ""
-    if len(cleaned) > 8000:
-        cleaned = cleaned[:8000]
-    if model is None:
-        model = get_model_for(ModelTask.EXPLANATION)
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            summary = _chat_content(
+                api.call_chat_api(messages, model=model, temperature=0.2, max_tokens=220)
+            ).strip()
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "api_error"))
+            summary = ""
 
-    if lang.lower().startswith("de"):
-        prompt = (
-            "Fasse den folgenden Text in maximal vier Sätzen zusammen."
-            " Hebe nur die wichtigsten Fakten hervor. Abschnitt: "
-            f"{section}.\n\n{cleaned}"
-        )
-    else:
-        prompt = (
-            "Summarise the following text in at most four sentences,"
-            " focusing on the key facts only. Section: "
-            f"{section}.\n\n{cleaned}"
-        )
+        if summary:
+            span.set_attribute("document.summary_length", len(summary))
+            return summary
 
-    messages = [{"role": "user", "content": prompt}]
-    try:
-        summary = _chat_content(
-            api.call_chat_api(messages, model=model, temperature=0.2, max_tokens=220)
-        ).strip()
-    except Exception:
-        summary = ""
-
-    if summary:
-        return summary
-
-    return textwrap.shorten(cleaned, width=420, placeholder="…")
+        fallback = textwrap.shorten(cleaned, width=420, placeholder="…")
+        span.add_event("fallback_summary")
+        return fallback
 
 
 def refine_document(original: str, feedback: str, model: str | None = None) -> str:
-    """Adjust a generated document using user feedback.
+    """Adjust a generated document using user feedback."""
 
-    Args:
-        original: The original generated document.
-        feedback: Instructions from the user describing desired changes.
-        model: Optional OpenAI model override.
+    with tracer.start_as_current_span("documents.refine_document") as span:
+        if model is None:
+            model = get_model_for(ModelTask.DOCUMENT_REFINEMENT)
+        span.set_attribute("llm.model", model)
+        span.set_attribute("document.feedback_length", len(feedback or ""))
 
-    Returns:
-        The revised document text.
-    """
-    if model is None:
-        model = get_model_for(ModelTask.DOCUMENT_REFINEMENT)
-    prompt = (
-        "Revise the following document based on the user instructions.\n"
-        f"Document:\n{original}\n\n"
-        f"Instructions: {feedback}"
-    )
-    messages = [{"role": "user", "content": prompt}]
-    return _chat_content(
-        api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
-    )
+        prompt = (
+            "Revise the following document based on the user instructions.\n"
+            f"Document:\n{original}\n\n"
+            f"Instructions: {feedback}"
+        )
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            refined = _chat_content(
+                api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
+            )
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "api_error"))
+            return original
+
+        span.set_attribute("document.refined_length", len(refined))
+        return refined
 
 
 def what_happened(
@@ -1639,28 +1647,31 @@ def what_happened(
     doc_type: str = "document",
     model: str | None = None,
 ) -> str:
-    """Explain how a document was generated and which keys were used.
+    """Explain how a document was generated and which keys were used."""
 
-    Args:
-        session_data: Session state containing source fields.
-        output: The generated document text.
-        doc_type: Human-readable name of the document.
-        model: Optional OpenAI model override.
+    with tracer.start_as_current_span("documents.explain_document") as span:
+        if model is None:
+            model = get_model_for(ModelTask.EXPLANATION)
+        span.set_attribute("llm.model", model)
+        span.set_attribute("document.type", doc_type)
+        keys_used = [k for k, v in session_data.items() if v]
+        span.set_attribute("document.source_key_count", len(keys_used))
+        prompt = (
+            f"Explain how the following {doc_type} was generated using the keys: {', '.join(keys_used)}.\n"
+            f"{doc_type.title()}:\n{output}"
+        )
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            explanation = _chat_content(
+                api.call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
+            )
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "api_error"))
+            return ""
 
-    Returns:
-        Explanation text summarizing the generation process.
-    """
-    if model is None:
-        model = get_model_for(ModelTask.EXPLANATION)
-    keys_used = [k for k, v in session_data.items() if v]
-    prompt = (
-        f"Explain how the following {doc_type} was generated using the keys: {', '.join(keys_used)}.\n"
-        f"{doc_type.title()}:\n{output}"
-    )
-    messages = [{"role": "user", "content": prompt}]
-    return _chat_content(
-        api.call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
-    )
+        span.set_attribute("document.explanation_length", len(explanation))
+        return explanation
 
 
 __all__ = [
