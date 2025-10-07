@@ -59,7 +59,7 @@ tech_info = {
             ),
             (
                 "Streaming Responses",
-                "Tokenweises UI‑Streaming (< 300 ms TTFB) für flüssige Nutzer‑Erfahrung.",
+                "OpenAI `responses.stream` + Streamlit-Platzhalter liefern tokenweises UI‑Streaming (< 300 ms TTFB) für eine flüssige Nutzer‑Erfahrung.",
             ),
             (
                 "CI/CD Pipeline",
@@ -121,7 +121,7 @@ tech_info = {
             ),
             (
                 "Streaming Responses",
-                "Sub‑300 ms TTFB with token‑level UI streaming for a snappy UX.",
+                "OpenAI `responses.stream` combined with Streamlit placeholders enables sub‑300 ms TTFB and token-level updates for a snappy UX.",
             ),
             (
                 "CI/CD Pipeline",

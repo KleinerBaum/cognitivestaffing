@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from typing import Any, Sequence
 
 import pytest
@@ -8,11 +9,15 @@ import openai_utils
 from openai_utils import (
     ChatCallResult,
     call_chat_api,
+    stream_chat_api,
     extract_with_function,
     model_supports_reasoning,
     model_supports_temperature,
 )
 from openai import AuthenticationError, RateLimitError
+import streamlit as st
+
+from constants.keys import StateKeys
 
 
 @pytest.fixture(autouse=True)
@@ -103,6 +108,65 @@ def test_call_chat_api_returns_output_json(monkeypatch):
     result = call_chat_api([{"role": "user", "content": "hi"}])
 
     assert result.content == json.dumps(payload)
+
+
+def test_stream_chat_api_yields_chunks(monkeypatch):
+    """Streaming helper should yield incremental text and capture usage."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
+
+    class _FakeFinalResponse:
+        output_text = "Hello world"
+        output: list[dict[str, Any]] = []
+        usage = {"input_tokens": 1, "output_tokens": 4}
+
+    class _FakeStream:
+        def __init__(self) -> None:
+            self._events = [
+                SimpleNamespace(type="response.output_text.delta", delta="Hello "),
+                SimpleNamespace(type="response.output_text.delta", delta="world"),
+            ]
+
+        def __iter__(self):
+            return iter(self._events)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get_final_response(self):
+            return _FakeFinalResponse()
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self.called = False
+            self.kwargs: dict[str, Any] = {}
+
+        def stream(self, **kwargs: Any):
+            self.called = True
+            self.kwargs = kwargs
+            return _FakeStream()
+
+    fake_responses = _FakeResponses()
+
+    class _FakeClient:
+        responses = fake_responses
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    stream = stream_chat_api([{"role": "user", "content": "hello"}], model="gpt-5-mini")
+
+    chunks = list(stream)
+    assert chunks == ["Hello ", "world"]
+    assert stream.text == "Hello world"
+
+    final = stream.result
+    assert final.content == "Hello world"
+    assert st.session_state[StateKeys.USAGE]["output_tokens"] == 4
+    assert fake_responses.called
 
 
 def test_call_chat_api_includes_tool_name(monkeypatch):

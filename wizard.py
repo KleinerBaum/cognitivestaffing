@@ -49,6 +49,7 @@ from openai_utils import (
     extract_company_info,
     generate_interview_guide,
     generate_job_ad,
+    stream_job_ad,
     refine_document,
     summarize_company_page,
 )
@@ -1547,8 +1548,8 @@ def _generate_job_ad_content(
     if not selected_fields or not target_value:
         return False
 
-    try:
-        job_ad_md = generate_job_ad(
+    def _generate_sync() -> str:
+        return generate_job_ad(
             filtered_profile,
             list(selected_fields),
             target_audience=target_value,
@@ -1560,16 +1561,78 @@ def _generate_job_ad_content(
                 StateKeys.JOB_AD_SELECTED_VALUES, {}
             ),
         )
-    except Exception as exc:  # pragma: no cover - error path
-        if show_error:
-            st.error(
-                tr(
-                    "Job Ad Generierung fehlgeschlagen",
-                    "Job ad generation failed",
+
+    job_ad_md = ""
+    placeholder = st.empty()
+    spinner_label = tr("Anzeige wird generiert…", "Generating job ad…")
+
+    try:
+        stream, fallback_doc = stream_job_ad(
+            filtered_profile,
+            list(selected_fields),
+            target_audience=target_value,
+            manual_sections=list(manual_entries),
+            style_reference=style_reference,
+            tone=st.session_state.get(UIKeys.TONE_SELECT),
+            lang=lang,
+            selected_values=st.session_state.get(
+                StateKeys.JOB_AD_SELECTED_VALUES, {}
+            ),
+        )
+    except Exception:
+        try:
+            job_ad_md = _generate_sync()
+            placeholder.markdown(job_ad_md)
+        except Exception as exc:  # pragma: no cover - error path
+            if show_error:
+                st.error(
+                    tr(
+                        "Job Ad Generierung fehlgeschlagen",
+                        "Job ad generation failed",
+                    )
+                    + f": {exc}"
                 )
-                + f": {exc}"
-            )
-        return False
+            return False
+    else:
+        chunks: list[str] = []
+        try:
+            with st.spinner(spinner_label):
+                for chunk in stream:
+                    if not chunk:
+                        continue
+                    chunks.append(chunk)
+                    placeholder.markdown("".join(chunks))
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            if show_error:
+                st.error(
+                    tr(
+                        "Job Ad Streaming fehlgeschlagen",
+                        "Job ad streaming failed",
+                    )
+                    + f": {exc}"
+                )
+            try:
+                job_ad_md = _generate_sync()
+                placeholder.markdown(job_ad_md)
+            except Exception as sync_exc:  # pragma: no cover - error path
+                if show_error:
+                    st.error(
+                        tr(
+                            "Job Ad Generierung fehlgeschlagen",
+                            "Job ad generation failed",
+                        )
+                        + f": {sync_exc}"
+                    )
+                return False
+        else:
+            try:
+                result = stream.result
+                job_ad_md = (result.content or stream.text or "").strip()
+            except RuntimeError:
+                job_ad_md = (stream.text or "").strip()
+            if not job_ad_md:
+                job_ad_md = fallback_doc
+            placeholder.markdown(job_ad_md)
 
     st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
     findings = scan_bias_language(job_ad_md, lang)

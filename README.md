@@ -31,7 +31,7 @@ the base model if needed.
 - **LangChain validation**: a LangChain runnable validates extraction output with the `NeedAnalysisProfile` schema before surfacing it, gracefully falling back to raw JSON mode when the model drifts
 - **Job posting schema**: `schema/job_posting_extraction.schema.json` validates 20+ required vacancy fields for consistent LLM outputs
 - **Instant overview**: review extracted fields in a compact tabbed table before continuing
-- **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`
+- **API helper**: `call_chat_api` wraps the OpenAI Responses API with tool and JSON schema support, automatically executing mapped tools and returning a unified `ChatCallResult`; `stream_chat_api` uses `responses.stream` for token-level updates powering the job-ad UI
 - **Analysis tools**: built-in `get_salary_benchmark` and `get_skill_definition` functions can be invoked by the model for richer need analysis
 - **Smart follow‑ups**: priority-based questions that leverage RAG suggestions and dynamically cap the number of questions by field importance (now up to 12 by default), shown inline in relevant steps. Required fields are consistently marked with a red asterisk.
 - **Persistent follow-up tracking**: answered or skipped questions are remembered and won't reappear when navigating back through the wizard.

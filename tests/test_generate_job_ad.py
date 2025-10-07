@@ -119,3 +119,41 @@ def test_generate_job_ad_requires_content():
             tone="formal",
             lang="en",
         )
+
+
+def test_stream_job_ad_returns_stream(monkeypatch):
+    class _FakeStream:
+        def __init__(self) -> None:
+            self._chunks = ["Hello world"]
+
+        def __iter__(self):
+            yield from self._chunks
+
+        @property
+        def result(self) -> ChatCallResult:
+            return ChatCallResult("Hello world", [], {"input_tokens": 0, "output_tokens": 0})
+
+        @property
+        def text(self) -> str:
+            return "Hello world"
+
+    monkeypatch.setattr(openai_utils.api, "stream_chat_api", lambda *a, **k: _FakeStream())
+
+    session = {
+        "position": {"job_title": "Engineer"},
+        "company": {"name": "Acme"},
+        "lang": "en",
+    }
+
+    stream, fallback = openai_utils.stream_job_ad(
+        session,
+        selected_fields=["position.job_title", "company.name"],
+        target_audience="Builders",
+        manual_sections=[],
+        style_reference=None,
+        tone="formal",
+        lang="en",
+    )
+
+    assert list(stream) == ["Hello world"]
+    assert fallback.startswith("#")
