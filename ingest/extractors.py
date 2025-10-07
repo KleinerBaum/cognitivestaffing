@@ -37,7 +37,11 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
     """
     if not url or not re.match(r"^https?://", url):
         raise ValueError("Invalid URL")
-    remaining_redirects = 5
+    # ``requests`` already protects against infinite redirect loops with its
+    # built-in limit (currently 30). Some environments, however, bypass that
+    # behaviour or surface redirects via ``raise_for_status``. Keep a generous
+    # manual cap so we can follow longer but finite redirect chains ourselves.
+    remaining_redirects = 15
     current_url = url
     redirect_kwargs: dict[str, Any] = {}
     try:

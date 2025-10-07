@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import contextlib
 
+import requests
+
 import streamlit as st
 
 from constants.keys import StateKeys
@@ -174,3 +176,39 @@ def test_enrich_company_profile_respects_existing_values(monkeypatch) -> None:
     assert company["hq_location"] == "Berlin"
     assert company["mission"] == "Bestehende Mission"
     assert company["size"] == "200 Mitarbeitende"
+
+
+def test_fetch_url_follows_long_redirect_chain(monkeypatch) -> None:
+    """Fetching should tolerate long but finite redirect chains."""
+
+    from ingest import extractors
+
+    redirects = [f"https://example.com/hop-{i}" for i in range(7)]
+    final_text = "<html>done</html>"
+    calls: list[str] = []
+
+    class RedirectResponse:
+        def __init__(self, location: str) -> None:
+            self.status_code = 302
+            self.headers = {"Location": location}
+
+    class SuccessResponse:
+        def __init__(self, text: str) -> None:
+            self.text = text
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(url: str, *_, **__):
+        calls.append(url)
+        if len(calls) <= len(redirects):
+            response = RedirectResponse(location=redirects[len(calls) - 1])
+            raise requests.HTTPError(response=response)
+        return SuccessResponse(final_text)
+
+    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+
+    result = extractors._fetch_url("https://example.com/start")
+
+    assert result == final_text
+    assert calls == ["https://example.com/start", *redirects]
