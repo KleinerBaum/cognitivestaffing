@@ -1588,6 +1588,9 @@ def _generate_interview_guide_content(
 ) -> bool:
     """Generate the interview guide and update session state."""
 
+    st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
+    st.session_state[UIKeys.AUDIENCE_SELECT] = audience
+
     requirements_data = dict(profile_payload.get("requirements", {}) or {})
     extras = (
         len(requirements_data.get("hard_skills_required", []))
@@ -1678,11 +1681,16 @@ def _apply_followup_updates(
         lang,
         show_error=show_feedback,
     )
+    audience_choice = (
+        st.session_state.get(StateKeys.INTERVIEW_AUDIENCE)
+        or st.session_state.get(UIKeys.AUDIENCE_SELECT)
+        or "general"
+    )
     interview_generated = _generate_interview_guide_content(
         profile_payload,
         lang,
         num_questions,
-        audience="general",
+        audience=audience_choice,
         warn_on_length=warn_on_length,
         show_error=show_feedback,
     )
@@ -4809,10 +4817,28 @@ def _step_summary(schema: dict, _critical: list[str]):
                 key=UIKeys.NUM_QUESTIONS,
             )
 
-        st.session_state[UIKeys.AUDIENCE_SELECT] = "general"
+        audience_labels = {
+            "general": tr("Allgemeines Interviewteam", "General interview panel"),
+            "technical": tr("Technisches Fachpublikum", "Technical panel"),
+            "leadership": tr("Führungsteam", "Leadership panel"),
+        }
+        if UIKeys.AUDIENCE_SELECT not in st.session_state:
+            st.session_state[UIKeys.AUDIENCE_SELECT] = st.session_state.get(
+                StateKeys.INTERVIEW_AUDIENCE, "general"
+            )
+        audience = st.selectbox(
+            tr("Interview-Zielgruppe", "Interview audience"),
+            options=list(audience_labels.keys()),
+            format_func=lambda key: audience_labels.get(key, key),
+            key=UIKeys.AUDIENCE_SELECT,
+            help=tr(
+                "Steuert Fokus und Tonfall des generierten Leitfadens.",
+                "Controls the focus and tone of the generated guide.",
+            ),
+        )
+        st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
 
         selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
-        audience = "general"
         if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
             _generate_interview_guide_content(
                 profile_payload,

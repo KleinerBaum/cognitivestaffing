@@ -56,6 +56,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = "Helvetica"
     if StateKeys.JOB_AD_LOGO_DATA not in st.session_state:
         st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
+    if StateKeys.INTERVIEW_AUDIENCE not in st.session_state:
+        st.session_state[StateKeys.INTERVIEW_AUDIENCE] = "general"
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:

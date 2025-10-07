@@ -71,5 +71,6 @@ class StateKeys:
     JOB_AD_SELECTED_AUDIENCE = "data.job_ad.selected_audience"
     JOB_AD_FONT_CHOICE = "data.job_ad.font"
     JOB_AD_LOGO_DATA = "data.job_ad.logo"
+    INTERVIEW_AUDIENCE = "data.interview.audience"
     ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
     SUMMARY_FOLLOWUP_SNAPSHOT = "data.summary.followup_snapshot"
