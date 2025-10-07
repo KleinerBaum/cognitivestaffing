@@ -3055,8 +3055,15 @@ def _step_requirements():
     else:
         suggestion_hint = "missing_title"
 
-    if suggestions_error and st.session_state.get("debug"):
-        st.session_state["skill_suggest_error"] = suggestions_error
+    if suggestions_error:
+        st.warning(
+            tr(
+                "Skill-Vorschläge nicht verfügbar (API-Fehler)",
+                "Skill suggestions not available (API error)",
+            )
+        )
+        if st.session_state.get("debug"):
+            st.session_state["skill_suggest_error"] = suggestions_error
 
     def _render_required_caption(condition: bool) -> None:
         if condition:

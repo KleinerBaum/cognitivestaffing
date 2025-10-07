@@ -12,3 +12,4 @@
 - fix: map "Einsatzort"/"Branche" cues to location and industry in rule-based parsing
 - feat: run extraction through a LangChain validation chain with NeedAnalysisProfile fallbacks
 - docs: clarify Responses API migration and removal of Assistants/Threads usage
+- fix: show localized warning in requirements step when skill suggestions fail
