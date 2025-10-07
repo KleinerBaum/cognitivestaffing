@@ -268,6 +268,23 @@ def call_chat_api(
             return dict(data)
         return None
 
+    def _dump_json(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        try:
+            return json.dumps(value)
+        except TypeError:
+            try:
+                mapping = _to_mapping(value)
+            except Exception:  # pragma: no cover - defensive
+                mapping = None
+            if mapping is not None:
+                try:
+                    return json.dumps(mapping)
+                except TypeError:
+                    return str(mapping)
+            return str(value)
+
     def _extract_output_text(response_obj: Any) -> Optional[str]:
         text = getattr(response_obj, "output_text", None)
         if text:
@@ -278,6 +295,11 @@ def call_chat_api(
             if not item_dict:
                 continue
             item_type = item_dict.get("type")
+            json_value = item_dict.get("json")
+            if json_value is not None:
+                dumped = _dump_json(json_value)
+                if dumped:
+                    chunks.append(dumped)
             contents = item_dict.get("content")
             if isinstance(contents, Sequence) and not isinstance(
                 contents, (str, bytes)
@@ -290,6 +312,11 @@ def call_chat_api(
                     content_dict = _to_mapping(raw_content)
                     if not content_dict:
                         continue
+                    json_value = content_dict.get("json")
+                    if json_value is not None:
+                        dumped = _dump_json(json_value)
+                        if dumped:
+                            chunks.append(dumped)
                     text_value = content_dict.get("text")
                     if text_value:
                         chunks.append(str(text_value))
@@ -301,6 +328,11 @@ def call_chat_api(
                     content_dict = _to_mapping(raw_content)
                     if not content_dict:
                         continue
+                    json_value = content_dict.get("json")
+                    if json_value is not None:
+                        dumped = _dump_json(json_value)
+                        if dumped:
+                            chunks.append(dumped)
                     text_value = content_dict.get("text")
                     if text_value:
                         chunks.append(str(text_value))

@@ -1,6 +1,7 @@
-import pytest
-
+import json
 from typing import Any, Sequence
+
+import pytest
 
 import httpx
 import openai_utils
@@ -66,6 +67,42 @@ def test_call_chat_api_tool_call(monkeypatch):
         tool_choice={"type": "function", "name": "fn"},
     )
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
+
+
+def test_call_chat_api_returns_output_json(monkeypatch):
+    """Responses output JSON should be serialised into the content payload."""
+
+    payload = {"suggestions": ["A", "B"]}
+
+    class _FakeResponse:
+        def __init__(self) -> None:
+            self.output = [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_json",
+                            "json": payload,
+                        }
+                    ],
+                }
+            ]
+            self.output_text = ""
+            self.usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        @staticmethod
+        def create(**kwargs):
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    result = call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert result.content == json.dumps(payload)
 
 
 def test_call_chat_api_includes_tool_name(monkeypatch):
@@ -193,6 +230,25 @@ def test_call_chat_api_skips_temperature_for_reasoning_model(monkeypatch):
         temperature=0.7,
     )
     assert "temperature" not in captured
+
+
+def test_suggest_onboarding_plans_uses_json_payload(monkeypatch):
+    """Onboarding helper should parse JSON schema responses into suggestions."""
+
+    expected = ["Kickoff", "Buddy intro", "Training", "Team lunch", "Retro"]
+
+    def _fake_call(messages, **kwargs):  # noqa: ANN001 - signature controlled by API helper
+        return ChatCallResult(json.dumps({"suggestions": expected}), [], {})
+
+    monkeypatch.setattr(
+        "openai_utils.extraction.api.call_chat_api", _fake_call, raising=False
+    )
+
+    suggestions = openai_utils.extraction.suggest_onboarding_plans(
+        "Data Scientist", model="dummy-model"
+    )
+
+    assert suggestions == expected
 
 
 def test_call_chat_api_retries_without_temperature(monkeypatch):
