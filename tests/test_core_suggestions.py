@@ -5,7 +5,11 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from core import suggestions
-from core.suggestions import get_benefit_suggestions, get_skill_suggestions
+from core.suggestions import (
+    get_benefit_suggestions,
+    get_skill_suggestions,
+    get_static_benefit_shortlist,
+)
 from openai_utils import api as openai_api, extraction
 
 
@@ -36,9 +40,10 @@ def test_get_skill_suggestions_error(monkeypatch):
 
 def test_get_benefit_suggestions(monkeypatch):
     monkeypatch.setattr(suggestions, "suggest_benefits", lambda *a, **k: ["A", "B"])
-    sugg, err = get_benefit_suggestions("Engineer")
+    sugg, err, used_fallback = get_benefit_suggestions("Engineer")
     assert sugg == ["A", "B"]
     assert err is None
+    assert used_fallback is False
 
 
 def test_get_benefit_suggestions_error(monkeypatch):
@@ -46,9 +51,18 @@ def test_get_benefit_suggestions_error(monkeypatch):
         raise RuntimeError("nope")
 
     monkeypatch.setattr(suggestions, "suggest_benefits", raiser)
-    sugg, err = get_benefit_suggestions("Engineer")
-    assert sugg == []
+    sugg, err, used_fallback = get_benefit_suggestions("Engineer", lang="en")
+    assert sugg == get_static_benefit_shortlist(lang="en")
     assert err == "nope"
+    assert used_fallback is True
+
+
+def test_get_benefit_suggestions_empty_response(monkeypatch):
+    monkeypatch.setattr(suggestions, "suggest_benefits", lambda *a, **k: [])
+    sugg, err, used_fallback = get_benefit_suggestions("Engineer", industry="Tech", lang="en")
+    assert sugg == get_static_benefit_shortlist(lang="en", industry="Tech")
+    assert err is None
+    assert used_fallback is True
 
 
 def test_suggest_benefits_parses_object_schema(monkeypatch):

@@ -1,7 +1,6 @@
 # app.py — Cognitive Needs (clean entrypoint, single source of truth)
 from __future__ import annotations
 
-import html
 from base64 import b64encode
 from pathlib import Path
 import sys
@@ -14,11 +13,10 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
     if candidate_str not in sys.path:
         sys.path.insert(0, candidate_str)
 
-from constants.keys import UIKeys  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
-from core.preview import build_prefilled_sections, preview_value_to_text  # noqa: E402
+from sidebar import render_sidebar  # noqa: E402
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
@@ -113,136 +111,55 @@ SIDEBAR_STYLE = """
 [data-testid="stSidebar"] .stButton button {
     border-radius: 999px;
 }
-.sidebar-note {
-    font-size: 0.82rem;
-    line-height: 1.45;
-    padding: 0.75rem 0.9rem;
-    border-radius: 0.85rem;
-    background: rgba(15, 23, 42, 0.04);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    margin-top: 0.8rem;
+.sidebar-stepper {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.sidebar-step {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+}
+.sidebar-step__badge {
+    width: 1.6rem;
+    display: inline-flex;
+    justify-content: center;
+}
+.sidebar-step__label {
+    font-weight: 600;
+}
+.sidebar-step__note {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+.sidebar-step--current .sidebar-step__label {
+    color: #4338ca;
+}
+.sidebar-step--warning .sidebar-step__note,
+.sidebar-step--blocked .sidebar-step__note {
+    color: #dc2626;
+}
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4 {
+    margin-top: 0.6rem;
+    margin-bottom: 0.4rem;
+}
+[data-testid="stSidebar"] h4 {
+    font-size: 1rem;
+}
+[data-testid="stSidebar"] .stMarkdown ul {
+    margin-bottom: 0.5rem;
 }
 </style>
 """
 
 st.markdown(SIDEBAR_STYLE, unsafe_allow_html=True)
 
-
-def render_primary_sidebar() -> None:
-    """Render the redesigned global sidebar."""
-
-    if UIKeys.LANG_SELECT not in st.session_state:
-        st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
-    st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
-    if "ui.dark_mode" not in st.session_state:
-        st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
-
-    def _on_theme_toggle() -> None:
-        st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
-
-    def _on_lang_change() -> None:
-        st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
-
-    lang_options = {"de": "DE", "en": "EN"}
-
-    hero_title = tr("Dein Recruiting-Co-Pilot", "Your recruiting co-pilot")
-    hero_fallback_subtitle = tr(
-        "Verwalte Einstellungen wie im vertrauten ATS – klar, fokussiert, jederzeit erreichbar.",
-        "Manage your essentials like in your familiar ATS – clear, focused and always within reach.",
-    )
-    highlighted_paths = (
-        "company.name",
-        "position.job_title",
-        "location.primary_city",
-        "location.country",
-    )
-    prefilled_sections = build_prefilled_sections(
-        include_prefixes=("company.", "position.", "location."),
-    )
-    preview_values: dict[str, str] = {}
-    for _, entries in prefilled_sections:
-        for path, value in entries:
-            if path not in highlighted_paths:
-                continue
-            text_value = preview_value_to_text(value)
-            if text_value and path not in preview_values:
-                preview_values[path] = text_value
-
-    hero_lines: list[str] = []
-    for path in ("company.name", "position.job_title"):
-        text_value = preview_values.get(path)
-        if text_value:
-            hero_lines.append(html.escape(text_value))
-
-    location_parts = [
-        preview_values.get("location.primary_city"),
-        preview_values.get("location.country"),
-    ]
-    location_text = ", ".join(part for part in location_parts if part)
-    if location_text:
-        hero_lines.append(html.escape(location_text))
-
-    hero_subtitle_html = "<br/>".join(hero_lines) if hero_lines else html.escape(hero_fallback_subtitle)
-    status_label = tr("Wizard-Status", "Wizard status")
-
-    with st.sidebar:
-        st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
-        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
-        st.radio(
-            tr("Sprache", "Language"),
-            options=list(lang_options.keys()),
-            key=UIKeys.LANG_SELECT,
-            horizontal=True,
-            format_func=lambda key: lang_options[key],
-            on_change=_on_lang_change,
-        )
-
-        st.markdown(
-            f"""
-            <div class="sidebar-hero">
-              <div class="sidebar-hero__icon">🧭</div>
-              <div>
-                <p class="sidebar-hero__eyebrow">{status_label}</p>
-                <h2 class="sidebar-hero__title">{hero_title}</h2>
-                <p class="sidebar-hero__subtitle">{hero_subtitle_html}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.divider()
-        st.markdown(f"### 💡 {tr('Tipps aus der Praxis', 'Practical tips')}")
-        st.markdown(
-            tr(
-                "- Durchlaufe den Wizard Schritt für Schritt – deine Eingaben bleiben erhalten.\n"
-                "- Alle KI-Ergebnisse findest du gesammelt in der Summary.",
-                "- Move through the wizard step by step – your inputs remain persistent.\n"
-                "- Find every AI result again in the summary view.",
-            )
-        )
-
-
-SCHEMA = load_json("schema/need_analysis.schema.json", fallback={})
-CRITICAL = set(
-    load_json("critical_fields.json", fallback={"critical": []}).get("critical", [])
-)
-TONE = load_json("tone_presets.json", fallback={"en": {}, "de": {}})
-ROLE_FIELD_MAP = load_json("role_field_map.json", fallback={})
-
-
-# --- Headbar / Branding minimal & konfliktfrei ---
-st.markdown(
-    """
-    <style>
-      .block-container { padding-top: 1rem; }
-      header { visibility: hidden; } /* Prevent default Streamlit header */
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-render_primary_sidebar()
+render_sidebar()
 
 # --- Wizard einbinden + Advantages Page via st.navigation ---
 from wizard import run_wizard  # noqa: E402

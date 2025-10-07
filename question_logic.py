@@ -795,7 +795,7 @@ def generate_followup_questions(
             existing_text = str(existing_raw or "")
         benefit_suggestions: List[str] = []
         if OPENAI_API_KEY and job_title:
-            benefit_suggestions, _err = get_benefit_suggestions(
+            benefit_suggestions, _err, _used_fallback = get_benefit_suggestions(
                 job_title,
                 industry=industry,
                 existing_benefits=existing_text,

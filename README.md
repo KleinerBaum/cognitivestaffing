@@ -16,6 +16,8 @@ the base model if needed.
 - **Manual entry option**: skip the upload step and start with an empty profile
 - **Critical field checks**: wizard blocks navigation until essential fields are filled and highlights missing inputs inline
 - **Extraction feedback**: review detected base data in a sidebar table with missing fields highlighted before continuing
+- **Contextual sidebar**: step-aware cards show the most relevant company, role, requirements and process data alongside a live progress tracker
+- **Salary expectation widget**: trigger an on-demand benchmark that compares the refreshed range with your entered salary data directly in the sidebar
 - **Guided error messages**: clear hints when uploads or URLs fail
 - **Improved URL parsing**: reports HTTP status on failures and trims boilerplate
 - **Upfront language switch**: choose German or English before entering any data
@@ -256,6 +258,16 @@ The project was refactored from the deprecated Chat Completions endpoint to
 function/tool calling. Legacy model flags were removed, and older model options
 are no longer supported.
 Prompt behaviours may differ slightly due to the new reasoning models.
+
+Recent platform updates folded the former Assistants features into the
+Responses API. Cognitive Needs now:
+
+- **avoids server-managed assistants/threads** – each request passes the full
+  message history when needed so calls stay stateless by default.
+- **defines tools directly on `responses.create` calls** via the helper in
+  `openai_utils.api`, matching the new `tools=[...]` contract.
+- **uses conversations only when explicit state is required**, keeping the
+  Responses integration lightweight and future-proof.
 
 ## Changelog
 

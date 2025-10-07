@@ -55,6 +55,7 @@ from core.suggestions import (
     get_benefit_suggestions,
     get_onboarding_suggestions,
     get_skill_suggestions,
+    get_static_benefit_shortlist,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components.stepper import render_stepper
@@ -65,7 +66,9 @@ from nlp.bias import scan_bias_language
 from core.esco_utils import normalize_skills
 from core.job_ad import (
     JOB_AD_FIELDS,
+    JOB_AD_GROUP_LABELS,
     JobAdFieldDefinition,
+    resolve_job_ad_field_selection,
     suggest_target_audiences,
 )
 
@@ -3368,35 +3371,24 @@ def _step_compensation():
 
     c6, c7 = st.columns(2)
     data["compensation"]["equity_offered"] = c6.toggle(
-        "Equity?", value=bool(data["compensation"].get("equity_offered"))
+        tr("Mitarbeiterbeteiligung?", "Equity?"),
+        value=bool(data["compensation"].get("equity_offered")),
     )
     lang = st.session_state.get("lang", "de")
-    preset_benefits = {
-        "de": [
-            "Firmenwagen",
-            "Home-Office",
-            "Weiterbildungsbudget",
-            "Betriebliche Altersvorsorge",
-            "Team-Events",
-        ],
-        "en": [
-            "Company car",
-            "Home office",
-            "Training budget",
-            "Pension plan",
-            "Team events",
-        ],
-    }
+    industry_context = data.get("company", {}).get("industry", "")
+    fallback_benefits = get_static_benefit_shortlist(
+        lang=lang, industry=industry_context
+    )
     sugg_benefits = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, [])
     benefit_options = sorted(
         set(
-            preset_benefits.get(lang, [])
+            fallback_benefits
             + data["compensation"].get("benefits", [])
             + sugg_benefits
         )
     )
     data["compensation"]["benefits"] = _chip_multiselect(
-        "Benefits",
+        tr("Leistungen", "Benefits"),
         options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
@@ -3405,21 +3397,28 @@ def _step_compensation():
         job_title = data.get("position", {}).get("job_title", "")
         industry = data.get("company", {}).get("industry", "")
         existing = "\n".join(data["compensation"].get("benefits", []))
-        new_sugg, err = get_benefit_suggestions(
+        new_sugg, err, used_fallback = get_benefit_suggestions(
             job_title,
             industry,
             existing,
             lang=lang,
         )
-        if err or not new_sugg:
+        if used_fallback:
+            st.info(
+                tr(
+                    "Keine KI-Vorschläge verfügbar – zeige Standardliste.",
+                    "No AI suggestions available – showing fallback list.",
+                )
+            )
+        elif err:
             st.warning(
                 tr(
                     "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
                     "Benefit suggestions not available (API error)",
                 )
             )
-            if err and st.session_state.get("debug"):
-                st.session_state["benefit_suggest_error"] = err
+        if err and st.session_state.get("debug"):
+            st.session_state["benefit_suggest_error"] = err
         if new_sugg:
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = sorted(
                 set(sugg_benefits + new_sugg)
@@ -3901,7 +3900,7 @@ def _summary_compensation() -> None:
 
     c6, c7 = st.columns(2)
     equity = c6.toggle(
-        "Equity?",
+        tr("Mitarbeiterbeteiligung?", "Equity?"),
         value=bool(data["compensation"].get("equity_offered")),
         key="ui.summary.compensation.equity_offered",
     )
@@ -3926,7 +3925,7 @@ def _summary_compensation() -> None:
         set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", []))
     )
     benefits = _chip_multiselect(
-        "Benefits",
+        tr("Leistungen", "Benefits"),
         options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
@@ -4285,11 +4284,71 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
-    selected_fields = [
-        field.key for field in JOB_AD_FIELDS if field.key in available_field_keys
-    ]
     filtered_profile = _prepare_job_ad_data(profile_payload)
     filtered_profile["lang"] = lang
+
+    raw_selection = st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS)
+    widget_state_exists = any(
+        f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}" in st.session_state
+        for group in group_keys
+    )
+    if raw_selection is None:
+        current_selection: set[str] = set()
+    else:
+        current_selection = set(raw_selection)
+    if not widget_state_exists and not current_selection:
+        stored_selection = set(available_field_keys)
+    else:
+        stored_selection = {key for key in current_selection if key in available_field_keys}
+
+    is_de = lang.lower().startswith("de")
+    field_labels = {
+        field.key: field.label_de if is_de else field.label_en
+        for field in JOB_AD_FIELDS
+    }
+
+    st.markdown(tr("##### Feldauswahl", "##### Field selection"))
+    st.caption(
+        tr(
+            "Wähle die Inhalte, die in die Stellenanzeige übernommen werden.",
+            "Choose which sections should be included in the job ad.",
+        )
+    )
+
+    aggregated_selection: set[str] = set()
+    for group in group_keys:
+        group_fields = [
+            field
+            for field in JOB_AD_FIELDS
+            if field.group == group and field.key in available_field_keys
+        ]
+        if not group_fields:
+            continue
+
+        group_label_de, group_label_en = JOB_AD_GROUP_LABELS.get(group, (group, group))
+        widget_label = group_label_de if is_de else group_label_en
+        widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}"
+        options = [field.key for field in group_fields]
+        default_values = [key for key in options if key in stored_selection]
+
+        existing_values = st.session_state.get(widget_key)
+        if existing_values is not None:
+            sanitized_values = [value for value in existing_values if value in options]
+            if sanitized_values != existing_values:
+                st.session_state[widget_key] = sanitized_values
+
+        selected_group_values = st.multiselect(
+            widget_label,
+            options,
+            default=default_values,
+            format_func=lambda key, labels=field_labels: labels.get(key, key),
+            key=widget_key,
+        )
+        aggregated_selection.update(selected_group_values)
+
+    selected_fields = resolve_job_ad_field_selection(
+        available_field_keys, aggregated_selection
+    )
     st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set(selected_fields)
 
     job_ad_col, interview_col = st.columns((2.2, 1), gap="large")
@@ -4697,7 +4756,7 @@ def run_wizard():
                     st.rerun()
             with home_col:
                 if st.button(
-                    "🏠 Home",
+                    tr("🏠 Startseite", "🏠 Home"),
                     key="summary_home",
                     use_container_width=True,
                 ):
@@ -4705,7 +4764,7 @@ def run_wizard():
                     st.rerun()
             with donate_col:
                 if st.button(
-                    "❤️ Donate to the developer",
+                    tr("❤️ Entwickler unterstützen", "❤️ Donate to the developer"),
                     key="summary_donate",
                     use_container_width=True,
                 ):
