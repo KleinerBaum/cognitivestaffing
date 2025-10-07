@@ -5,11 +5,18 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.rules import apply_rules, matches_to_patch, build_rule_metadata  # noqa: E402
+from core.rules import (  # noqa: E402
+    apply_rules,
+    build_rule_metadata,
+    matches_to_patch,
+    _extract_location,
+)
 from ingest.types import ContentBlock  # noqa: E402
 
 
@@ -68,3 +75,30 @@ def test_regex_prioritised_over_layout_conflict() -> None:
     assert matches["location.primary_city"].value == "Berlin"
     assert matches["location.primary_city"].rule == "regex.location"
     assert matches["location.country"].value == "Germany"
+
+
+def test_extract_location_accepts_clean_city() -> None:
+    """Valid city and country strings should be returned intact."""
+
+    city, country = _extract_location("Location: Hamburg, Germany")
+    assert city == "Hamburg"
+    assert country == "Germany"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Location: 10115 Berlin",
+        "Location: http://example.com/jobs",
+        "Location: contact@company.com",
+    ],
+)
+def test_extract_location_rejects_disqualifying_lines(line: str) -> None:
+    """Location parsing should ignore lines with obvious noise."""
+
+    city, country = _extract_location(line)
+    assert (city, country) == (None, None)
+
+    block = ContentBlock(type="paragraph", text=line)
+    matches = apply_rules([block])
+    assert "location.primary_city" not in matches
