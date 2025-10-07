@@ -10,3 +10,4 @@
 - feat: inject required arrays and nullable fields into extraction schema
 - fix: map "Einsatzort"/"Branche" cues to location and industry in rule-based parsing
 - feat: run extraction through a LangChain validation chain with NeedAnalysisProfile fallbacks
+- docs: clarify Responses API migration and removal of Assistants/Threads usage
