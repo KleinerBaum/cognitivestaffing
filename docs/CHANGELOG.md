@@ -8,3 +8,4 @@
 - fix: stack columns and buttons on small screens for mobile usability
 - fix: send valid OpenAI tool definitions to avoid missing name errors
 - feat: inject required arrays and nullable fields into extraction schema
+- fix: map "Einsatzort"/"Branche" cues to location and industry in rule-based parsing

@@ -21,7 +21,7 @@ _COMPANY_FORM_RE = re.compile(
 )
 _WE_ARE_RE = re.compile(r"wir sind\s+([A-ZÄÖÜ][\w& ]+)", re.IGNORECASE)
 _CITY_HINT_RE = re.compile(
-    r"(?:city|ort|location|standort|arbeitsort)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
+    r"(?:city|ort|location|standort|arbeitsort|einsatzort)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
     re.IGNORECASE,
 )
 _COMMON_CITIES = [
