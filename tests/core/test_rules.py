@@ -55,6 +55,18 @@ def test_apply_rules_handles_table_layout() -> None:
     assert matches["company.contact_email"].value == "hiring@example.de"
 
 
+def test_apply_rules_handles_land_table_keyword() -> None:
+    """Table headers labelled Land should map to the country field."""
+
+    table_block = ContentBlock(
+        type="table",
+        text="Land | Deutschland",
+        metadata={"rows": [["Land", "Deutschland"]]},
+    )
+    matches = apply_rules([table_block])
+    assert matches["location.country"].value == "Deutschland"
+
+
 def test_regex_prioritised_over_layout_conflict() -> None:
     """Regex matches should outrank layout-based findings when conflicting."""
 
@@ -68,3 +80,12 @@ def test_regex_prioritised_over_layout_conflict() -> None:
     assert matches["location.primary_city"].value == "Berlin"
     assert matches["location.primary_city"].rule == "regex.location"
     assert matches["location.country"].value == "Germany"
+
+
+def test_regex_matches_land_prefix_for_country() -> None:
+    """Inline Land: prefixes should populate the country field."""
+
+    text_block = ContentBlock(type="paragraph", text="Land: Deutschland")
+    matches = apply_rules([text_block])
+    assert matches["location.country"].value == "Deutschland"
+    assert "location.primary_city" not in matches

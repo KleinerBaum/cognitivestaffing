@@ -55,7 +55,8 @@ _SALARY_RE = re.compile(
     re.IGNORECASE,
 )
 _LOCATION_LINE_RE = re.compile(
-    r"(?:^|\b)(?:location|standort|ort|arbeitsort|based in)[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß ,./-]+)",
+    r"(?:^|\b)(?P<prefix>location|standort|ort|arbeitsort|based in|land|country|city)"
+    r"[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß ,./-]+)",
     re.IGNORECASE,
 )
 _CITY_COUNTRY_RE = re.compile(
@@ -73,7 +74,9 @@ _TABLE_KEYWORDS = {
     "compensation": SALARY_MIN_FIELD,
     "standort": CITY_FIELD,
     "location": CITY_FIELD,
+    "city": CITY_FIELD,
     "ort": CITY_FIELD,
+    "land": COUNTRY_FIELD,
     "country": COUNTRY_FIELD,
 }
 
@@ -246,21 +249,23 @@ def _regex_location_matches(
     text: str, index: int, block: ContentBlock
 ) -> Iterable[RuleMatch]:
     city, country = _extract_location(text)
-    if not city:
+    if not city and not country:
         return []
     span_match = _LOCATION_LINE_RE.search(text) or _CITY_COUNTRY_RE.search(text)
     source = span_match.group(0) if span_match else text.strip()[:120]
-    results = [
-        RuleMatch(
-            field=CITY_FIELD,
-            value=city,
-            confidence=0.85,
-            source_text=source,
-            rule="regex.location",
-            block_index=index,
-            block_type=block.type,
+    results: list[RuleMatch] = []
+    if city:
+        results.append(
+            RuleMatch(
+                field=CITY_FIELD,
+                value=city,
+                confidence=0.85,
+                source_text=source,
+                rule="regex.location",
+                block_index=index,
+                block_type=block.type,
+            )
         )
-    ]
     if country:
         results.append(
             RuleMatch(
@@ -375,6 +380,7 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
     if not text:
         return None, None
     line_match = _LOCATION_LINE_RE.search(text)
+    prefix = (line_match.group("prefix") or "").lower() if line_match else ""
     if line_match:
         raw = line_match.group("value").strip()
     else:
@@ -387,10 +393,16 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
         city_part, _, country_part = raw.partition(",")
         city = city_part.strip()
         country = country_part.strip() or None
+        if prefix in {"land", "country"} and not country:
+            return None, city or None
         return (city or None, country or None)
     tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
     if len(tokens) >= 2:
-        return tokens[0], tokens[1]
+        city_token = tokens[0]
+        country_token = tokens[-1]
+        return city_token or None, country_token or None
+    if prefix in {"land", "country"}:
+        return None, raw.strip() or None
     return raw.strip(), None
 
 
