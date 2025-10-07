@@ -249,6 +249,26 @@ JOB_AD_FIELDS: Sequence[JobAdFieldDefinition] = (
 )
 
 
+def resolve_job_ad_field_selection(
+    available_keys: Iterable[str],
+    selected_keys: Iterable[str] | None = None,
+) -> list[str]:
+    """Return ordered job-ad field keys that should be included in the payload.
+
+    The helper keeps the canonical ``JOB_AD_FIELDS`` ordering while ensuring that
+    only field keys present in ``available_keys`` survive. ``selected_keys`` may
+    contain arbitrary values (e.g., from persisted session state); keys without
+    captured values are discarded.
+    """
+
+    available_set = {key for key in available_keys}
+    if selected_keys is None:
+        selected_set = available_set
+    else:
+        selected_set = {key for key in selected_keys if key in available_set}
+    return [field.key for field in JOB_AD_FIELDS if field.key in selected_set]
+
+
 JOB_AD_GROUP_LABELS = {
     "company": ("Unternehmen", "Company"),
     "basic": ("Basisdaten", "Basic information"),

@@ -65,7 +65,9 @@ from nlp.bias import scan_bias_language
 from core.esco_utils import normalize_skills
 from core.job_ad import (
     JOB_AD_FIELDS,
+    JOB_AD_GROUP_LABELS,
     JobAdFieldDefinition,
+    resolve_job_ad_field_selection,
     suggest_target_audiences,
 )
 
@@ -4285,11 +4287,71 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
 
-    selected_fields = [
-        field.key for field in JOB_AD_FIELDS if field.key in available_field_keys
-    ]
     filtered_profile = _prepare_job_ad_data(profile_payload)
     filtered_profile["lang"] = lang
+
+    raw_selection = st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS)
+    widget_state_exists = any(
+        f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}" in st.session_state
+        for group in group_keys
+    )
+    if raw_selection is None:
+        current_selection: set[str] = set()
+    else:
+        current_selection = set(raw_selection)
+    if not widget_state_exists and not current_selection:
+        stored_selection = set(available_field_keys)
+    else:
+        stored_selection = {key for key in current_selection if key in available_field_keys}
+
+    is_de = lang.lower().startswith("de")
+    field_labels = {
+        field.key: field.label_de if is_de else field.label_en
+        for field in JOB_AD_FIELDS
+    }
+
+    st.markdown(tr("##### Feldauswahl", "##### Field selection"))
+    st.caption(
+        tr(
+            "Wähle die Inhalte, die in die Stellenanzeige übernommen werden.",
+            "Choose which sections should be included in the job ad.",
+        )
+    )
+
+    aggregated_selection: set[str] = set()
+    for group in group_keys:
+        group_fields = [
+            field
+            for field in JOB_AD_FIELDS
+            if field.group == group and field.key in available_field_keys
+        ]
+        if not group_fields:
+            continue
+
+        group_label_de, group_label_en = JOB_AD_GROUP_LABELS.get(group, (group, group))
+        widget_label = group_label_de if is_de else group_label_en
+        widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}"
+        options = [field.key for field in group_fields]
+        default_values = [key for key in options if key in stored_selection]
+
+        existing_values = st.session_state.get(widget_key)
+        if existing_values is not None:
+            sanitized_values = [value for value in existing_values if value in options]
+            if sanitized_values != existing_values:
+                st.session_state[widget_key] = sanitized_values
+
+        selected_group_values = st.multiselect(
+            widget_label,
+            options,
+            default=default_values,
+            format_func=lambda key, labels=field_labels: labels.get(key, key),
+            key=widget_key,
+        )
+        aggregated_selection.update(selected_group_values)
+
+    selected_fields = resolve_job_ad_field_selection(
+        available_field_keys, aggregated_selection
+    )
     st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set(selected_fields)
 
     job_ad_col, interview_col = st.columns((2.2, 1), gap="large")
