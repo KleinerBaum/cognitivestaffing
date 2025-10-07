@@ -8,9 +8,17 @@ from models.need_analysis import NeedAnalysisProfile
 from utils.json_parse import parse_extraction
 
 
-def test_guess_job_title_strip_gender() -> None:
+def test_guess_job_title_retains_gender_suffix() -> None:
     text = "Senior Data Scientist (m/w/d) – RAG, OpenAI & Recruiting Tech"
-    assert guess_job_title(text) == "Senior Data Scientist"
+    assert guess_job_title(text) == "Senior Data Scientist (m/w/d)"
+
+
+def test_guess_job_title_multiline_gender_suffix() -> None:
+    text = "Senior Data Scientist (m/w/d)\n– RAG, OpenAI & Recruiting Tech"
+    assert (
+        guess_job_title(text)
+        == "Senior Data Scientist (m/w/d) – RAG, OpenAI & Recruiting Tech"
+    )
 
 
 def test_guess_company_brand() -> None:
