@@ -256,29 +256,17 @@ def _render_global_tips() -> None:
 
 
 def _render_snapshot(
-    prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]
+    _prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]
 ) -> None:
-    """Render quick snapshot of captured data."""
+    """Render quick snapshot header without additional content."""
 
     st.markdown(f"### 🗂️ {tr('Schnellüberblick', 'Quick snapshot')}")
-    if not prefilled_sections:
-        st.caption(tr("Noch keine Angaben vorhanden.", "No entries captured yet."))
-        return
-
-    for label, entries in prefilled_sections:
-        st.markdown(f"#### {label}")
-        for path, value in entries[:5]:
-            preview = preview_value_to_text(value)
-            if not preview:
-                continue
-            st.markdown(f"- **{_format_field_name(path)}:** {preview}")
 
 
 def _render_step_context(context: SidebarContext) -> None:
     """Render contextual guidance for the active wizard step."""
 
     current = st.session_state.get(StateKeys.STEP, 0)
-    st.markdown(f"### 🧭 {tr('Kontext zum Schritt', 'Step context')}")
 
     renderers = {
         0: _render_onboarding_context,
@@ -291,8 +279,12 @@ def _render_step_context(context: SidebarContext) -> None:
     }
     renderer = renderers.get(current)
     if renderer is None:
+        st.markdown(f"### 🧭 {tr('Kontext zum Schritt', 'Step context')}")
         st.caption(tr("Keine Kontextinformationen verfügbar.", "No context available."))
         return
+
+    if current != 0:
+        st.markdown(f"### 🧭 {tr('Kontext zum Schritt', 'Step context')}")
 
     renderer(context)
 
@@ -361,16 +353,6 @@ def _initial_extraction_section_map() -> dict[str, str]:
 
 
 def _render_onboarding_context(context: SidebarContext) -> None:
-    method = st.session_state.get(UIKeys.INPUT_METHOD, "text")
-    method_labels = {
-        "text": tr("Textanalyse aktiv", "Text ingestion active"),
-        "file": tr("Dateiupload aktiv", "File upload active"),
-        "url": tr("URL-Import aktiv", "URL ingestion active"),
-    }
-    st.markdown(f"#### {tr('Aktuelle Quelle', 'Current source')}")
-    st.caption(method_labels.get(method, method))
-
-    st.markdown(f"#### {tr('Erste Extraktion', 'Initial extraction')}")
     step_order, step_entries = _build_initial_extraction_entries(context)
     if not any(step_entries.values()):
         st.caption(
