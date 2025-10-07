@@ -1075,7 +1075,7 @@ def generate_interview_guide(
     return document
 
 
-def generate_job_ad(
+def _prepare_job_ad_payload(
     session_data: Mapping[str, Any],
     selected_fields: Sequence[str],
     *,
@@ -1084,10 +1084,9 @@ def generate_job_ad(
     style_reference: str | None = None,
     tone: str | None = None,
     lang: str | None = None,
-    model: str | None = None,
     selected_values: Mapping[str, Any] | None = None,
-) -> str:
-    """Generate a structured job advertisement from collected profile data."""
+) -> tuple[dict[str, Any], str]:
+    """Build prompt payload and Markdown fallback for job ad generation."""
 
     if not selected_fields:
         raise ValueError("No fields selected for job ad generation.")
@@ -1542,6 +1541,34 @@ def generate_job_ad(
 
     document = "\n".join(document_lines).strip()
 
+    return structured_payload, document
+
+
+def generate_job_ad(
+    session_data: Mapping[str, Any],
+    selected_fields: Sequence[str],
+    *,
+    target_audience: str,
+    manual_sections: Sequence[Mapping[str, str]] | None = None,
+    style_reference: str | None = None,
+    tone: str | None = None,
+    lang: str | None = None,
+    model: str | None = None,
+    selected_values: Mapping[str, Any] | None = None,
+) -> str:
+    """Generate a structured job advertisement from collected profile data."""
+
+    structured_payload, document = _prepare_job_ad_payload(
+        session_data,
+        selected_fields,
+        target_audience=target_audience,
+        manual_sections=manual_sections,
+        style_reference=style_reference,
+        tone=tone,
+        lang=lang,
+        selected_values=selected_values,
+    )
+
     if model is None:
         model = get_model_for(ModelTask.JOB_AD)
     try:
@@ -1557,6 +1584,44 @@ def generate_job_ad(
         llm_output = ""
 
     return llm_output or document
+
+
+def stream_job_ad(
+    session_data: Mapping[str, Any],
+    selected_fields: Sequence[str],
+    *,
+    target_audience: str,
+    manual_sections: Sequence[Mapping[str, str]] | None = None,
+    style_reference: str | None = None,
+    tone: str | None = None,
+    lang: str | None = None,
+    model: str | None = None,
+    selected_values: Mapping[str, Any] | None = None,
+) -> tuple[api.ChatStream, str]:
+    """Return a streaming iterator and fallback document for job ad generation."""
+
+    structured_payload, document = _prepare_job_ad_payload(
+        session_data,
+        selected_fields,
+        target_audience=target_audience,
+        manual_sections=manual_sections,
+        style_reference=style_reference,
+        tone=tone,
+        lang=lang,
+        selected_values=selected_values,
+    )
+
+    if model is None:
+        model = get_model_for(ModelTask.JOB_AD)
+
+    messages = build_job_ad_prompt(structured_payload)
+    stream = api.stream_chat_api(
+        messages,
+        model=model,
+        temperature=0.7,
+        max_tokens=900,
+    )
+    return stream, document
 
 
 def summarize_company_page(
@@ -1685,6 +1750,7 @@ __all__ = [
     "suggest_onboarding_plans",
     "generate_interview_guide",
     "generate_job_ad",
+    "stream_job_ad",
     "summarize_company_page",
     "refine_document",
     "what_happened",

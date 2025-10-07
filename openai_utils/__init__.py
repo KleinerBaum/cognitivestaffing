@@ -20,6 +20,8 @@ from typing import Any, Iterable, Iterator
 
 from .api import ChatCallResult as ChatCallResult  # noqa: F401
 from .api import call_chat_api as call_chat_api  # noqa: F401
+from .api import stream_chat_api as stream_chat_api  # noqa: F401
+from .api import ChatStream as ChatStream  # noqa: F401
 from .api import client as client  # noqa: F401
 from .api import get_client as get_client  # noqa: F401
 from .api import model_supports_reasoning as model_supports_reasoning  # noqa: F401
@@ -54,6 +56,8 @@ __all__: _LazyExportList = _LazyExportList(
     (
         "ChatCallResult",
         "call_chat_api",
+        "stream_chat_api",
+        "ChatStream",
         "client",
         "get_client",
         "model_supports_reasoning",
