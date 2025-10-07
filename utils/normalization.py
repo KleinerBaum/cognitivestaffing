@@ -25,6 +25,12 @@ _COUNTRY_OVERRIDES: dict[str, str] = {
     "che": "Switzerland",
 }
 
+_COUNTRY_CODE_OVERRIDES: dict[str, str] = {
+    "germany": "DE",
+    "austria": "AT",
+    "switzerland": "CH",
+}
+
 _LANGUAGE_OVERRIDES: dict[str, str] = {
     "de": "German",
     "deu": "German",
@@ -104,6 +110,49 @@ def normalize_country(value: Optional[str]) -> Optional[str]:
     return country
 
 
+@lru_cache(maxsize=1024)
+def country_to_iso2(value: Optional[str]) -> Optional[str]:
+    """Return the ISO 3166-1 alpha-2 code for ``value`` if determinable."""
+
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if len(cleaned) == 2 and cleaned.isalpha():
+        return cleaned.upper()
+
+    override = _COUNTRY_CODE_OVERRIDES.get(cleaned.casefold())
+    if override:
+        return override
+
+    if pycountry is not None:
+        try:
+            record = pycountry.countries.lookup(cleaned)
+        except LookupError:
+            record = None
+        if record is not None:
+            alpha_2 = getattr(record, "alpha_2", None)
+            if isinstance(alpha_2, str) and alpha_2.strip():
+                return alpha_2.upper()
+
+    normalized = normalize_country(cleaned)
+    if normalized:
+        override = _COUNTRY_CODE_OVERRIDES.get(normalized.casefold())
+        if override:
+            return override
+        if pycountry is not None:
+            try:
+                record = pycountry.countries.lookup(normalized)
+            except LookupError:
+                record = None
+            if record is not None:
+                alpha_2 = getattr(record, "alpha_2", None)
+                if isinstance(alpha_2, str) and alpha_2.strip():
+                    return alpha_2.upper()
+    return None
+
+
 def normalize_language(value: Optional[str]) -> Optional[str]:
     """Normalise ``value`` to an English language name if possible."""
 
@@ -145,6 +194,7 @@ def normalize_language_list(values: Iterable[str] | None) -> List[str]:
 
 __all__ = [
     "normalize_country",
+    "country_to_iso2",
     "normalize_language",
     "normalize_language_list",
 ]
