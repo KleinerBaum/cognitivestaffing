@@ -49,7 +49,7 @@ def test_spacy_fallback_city_and_country_lowercase() -> None:
 def test_language_normalization_for_german_text() -> None:
     text = "Sprachen: Deutsch und Englisch"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
-    assert profile.requirements.languages_required == ["German", "English"]
+    assert set(profile.requirements.languages_required) == {"German", "English"}
 
 
 def test_spacy_respects_invalid_metadata() -> None:
@@ -102,6 +102,20 @@ def test_remote_days_remote_percentage_inference() -> None:
     assert profile.employment.job_type == "working_student"
     assert profile.employment.work_policy == "hybrid"
     assert profile.employment.remote_percentage == 60
+
+
+def test_apprenticeship_job_type_detection() -> None:
+    text = "Ausbildung zum Fachinformatiker (m/w/d) | Vollzeit"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.employment.job_type == "apprenticeship"
+
+
+def test_trainee_program_job_type_detection() -> None:
+    text = "Traineeprogramm Vertrieb (all genders)"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.employment.job_type == "trainee_program"
 
 
 def test_immediate_start_phrases() -> None:

@@ -2527,6 +2527,9 @@ def _step_position():
         "part_time": tr("Teilzeit", "Part-time"),
         "contract": tr("Freelance / Contract", "Contract"),
         "internship": tr("Praktikum", "Internship"),
+        "working_student": tr("Werkstudent:in", "Working student"),
+        "trainee_program": tr("Traineeprogramm", "Trainee program"),
+        "apprenticeship": tr("Ausbildung", "Apprenticeship"),
         "temporary": tr("Befristet", "Temporary"),
         "other": tr("Sonstiges", "Other"),
     }
@@ -3686,6 +3689,9 @@ def _summary_employment() -> None:
         "part_time",
         "contract",
         "internship",
+        "working_student",
+        "trainee_program",
+        "apprenticeship",
         "temporary",
         "other",
     ]

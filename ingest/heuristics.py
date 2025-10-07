@@ -51,9 +51,24 @@ _COMMON_CITIES = [
 ]
 
 _JOB_TYPE_MAP = {
-    "full_time": ["vollzeit", "full-time", "full time"],
-    "part_time": ["teilzeit", "part-time", "part time"],
-    "internship": ["praktikum", "internship"],
+    "apprenticeship": [
+        "ausbildung",
+        "auszubildende",
+        "auszubildender",
+        "auszubildenden",
+        "azubi",
+        "lehre",
+        "apprentice",
+        "apprenticeship",
+    ],
+    "trainee_program": [
+        "trainee",
+        "traineeprogramm",
+        "trainee-programm",
+        "traineeship",
+        "graduate program",
+        "graduate-programm",
+    ],
     "working_student": [
         "werkstudent",
         "werkstudentin",
@@ -61,6 +76,9 @@ _JOB_TYPE_MAP = {
         "werkstudent:in",
         "working student",
     ],
+    "internship": ["praktikum", "internship"],
+    "full_time": ["vollzeit", "full-time", "full time"],
+    "part_time": ["teilzeit", "part-time", "part time"],
 }
 
 _CONTRACT_TYPE_MAP = {
