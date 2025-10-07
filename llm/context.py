@@ -26,7 +26,7 @@ def build_extract_messages(
         url: Optional source URL.
 
     Returns:
-        A list of messages formatted for ChatCompletion APIs.
+        A list of messages formatted for the OpenAI Responses API.
     """
 
     extras: dict[str, str] = {}

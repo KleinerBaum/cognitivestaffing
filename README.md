@@ -257,6 +257,16 @@ function/tool calling. Legacy model flags were removed, and older model options
 are no longer supported.
 Prompt behaviours may differ slightly due to the new reasoning models.
 
+Recent platform updates folded the former Assistants features into the
+Responses API. Cognitive Needs now:
+
+- **avoids server-managed assistants/threads** – each request passes the full
+  message history when needed so calls stay stateless by default.
+- **defines tools directly on `responses.create` calls** via the helper in
+  `openai_utils.api`, matching the new `tools=[...]` contract.
+- **uses conversations only when explicit state is required**, keeping the
+  Responses integration lightweight and future-proof.
+
 ## Changelog
 
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for recent changes.
