@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
+    Collection,
     Iterable,
     List,
     Literal,
@@ -1505,6 +1506,162 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
         )
         for q in list(followups):
             _render_followup_question(q, data)
+
+
+def _generate_job_ad_content(
+    filtered_profile: Mapping[str, Any],
+    selected_fields: Collection[str],
+    target_value: str | None,
+    manual_entries: Sequence[dict[str, str]],
+    style_reference: str | None,
+    lang: str,
+    *,
+    show_error: bool = True,
+) -> bool:
+    """Generate the job ad and update session state."""
+
+    if not selected_fields or not target_value:
+        return False
+
+    try:
+        job_ad_md = generate_job_ad(
+            filtered_profile,
+            list(selected_fields),
+            target_audience=target_value,
+            manual_sections=list(manual_entries),
+            style_reference=style_reference,
+            lang=lang,
+            selected_values=st.session_state.get(
+                StateKeys.JOB_AD_SELECTED_VALUES, {}
+            ),
+        )
+    except Exception as exc:  # pragma: no cover - error path
+        if show_error:
+            st.error(
+                tr(
+                    "Job Ad Generierung fehlgeschlagen",
+                    "Job ad generation failed",
+                )
+                + f": {exc}"
+            )
+        return False
+
+    st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
+    findings = scan_bias_language(job_ad_md, lang)
+    st.session_state[StateKeys.BIAS_FINDINGS] = findings
+    return True
+
+
+def _generate_interview_guide_content(
+    profile_payload: Mapping[str, Any],
+    lang: str,
+    selected_num: int,
+    *,
+    audience: str = "general",
+    warn_on_length: bool = True,
+    show_error: bool = True,
+) -> bool:
+    """Generate the interview guide and update session state."""
+
+    requirements_data = dict(profile_payload.get("requirements", {}) or {})
+    extras = (
+        len(requirements_data.get("hard_skills_required", []))
+        + len(requirements_data.get("hard_skills_optional", []))
+        + len(requirements_data.get("soft_skills_required", []))
+        + len(requirements_data.get("soft_skills_optional", []))
+        + (
+            1
+            if (profile_payload.get("company", {}) or {}).get("culture")
+            else 0
+        )
+    )
+
+    if warn_on_length and selected_num + extras > 15:
+        st.warning(
+            tr(
+                "Viele Fragen erzeugen einen sehr umfangreichen Leitfaden.",
+                "A high question count creates a very long guide.",
+            )
+        )
+
+    responsibilities_text = "\n".join(
+        profile_payload.get("responsibilities", {}).get("items", [])
+    )
+
+    try:
+        guide_md = generate_interview_guide(
+            job_title=profile_payload.get("position", {}).get("job_title", ""),
+            responsibilities=responsibilities_text,
+            hard_skills=(
+                requirements_data.get("hard_skills_required", [])
+                + requirements_data.get("hard_skills_optional", [])
+            ),
+            soft_skills=(
+                requirements_data.get("soft_skills_required", [])
+                + requirements_data.get("soft_skills_optional", [])
+            ),
+            company_culture=profile_payload.get("company", {}).get(
+                "culture", ""
+            ),
+            audience=audience,
+            lang=lang,
+            tone=st.session_state.get("tone"),
+            num_questions=selected_num,
+        )
+    except Exception as exc:  # pragma: no cover - error path
+        if show_error:
+            st.error(
+                tr(
+                    "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
+                    "Interview guide generation failed: {error}. Please try again.",
+                ).format(error=exc)
+            )
+        return False
+
+    st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide_md
+    return True
+
+
+def _apply_followup_updates(
+    answers: Mapping[str, str],
+    *,
+    data: dict[str, Any],
+    filtered_profile: Mapping[str, Any],
+    profile_payload: Mapping[str, Any],
+    target_value: str | None,
+    manual_entries: Sequence[dict[str, str]],
+    style_reference: str | None,
+    lang: str,
+    selected_fields: Collection[str],
+    num_questions: int,
+    warn_on_length: bool,
+    show_feedback: bool,
+) -> tuple[bool, bool]:
+    """Persist follow-up answers and refresh derived outputs."""
+
+    for field_path, answer in answers.items():
+        stripped = answer.strip()
+        if stripped:
+            set_in(data, field_path, stripped)
+
+    job_generated = _generate_job_ad_content(
+        filtered_profile,
+        selected_fields,
+        target_value,
+        manual_entries,
+        style_reference,
+        lang,
+        show_error=show_feedback,
+    )
+    interview_generated = _generate_interview_guide_content(
+        profile_payload,
+        lang,
+        num_questions,
+        audience="general",
+        warn_on_length=warn_on_length,
+        show_error=show_feedback,
+    )
+    return job_generated, interview_generated
 
 
 def _clear_generated() -> None:
@@ -4411,29 +4568,14 @@ def _step_summary(schema: dict, _critical: list[str]):
             disabled=disabled,
             type="primary",
         ):
-            try:
-                job_ad_md = generate_job_ad(
-                    filtered_profile,
-                    selected_fields,
-                    target_audience=target_value,
-                    manual_sections=list(manual_entries),
-                    style_reference=style_reference,
-                    lang=lang,
-                    selected_values=st.session_state.get(
-                        StateKeys.JOB_AD_SELECTED_VALUES, {}
-                    ),
-                )
-                st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
-                findings = scan_bias_language(job_ad_md, lang)
-                st.session_state[StateKeys.BIAS_FINDINGS] = findings
-            except Exception as e:
-                st.error(
-                    tr(
-                        "Job Ad Generierung fehlgeschlagen",
-                        "Job ad generation failed",
-                    )
-                    + f": {e}"
-                )
+            _generate_job_ad_content(
+                filtered_profile,
+                selected_fields,
+                target_value,
+                list(manual_entries),
+                style_reference,
+                lang,
+            )
 
         job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD)
         output_key = UIKeys.JOB_AD_OUTPUT
@@ -4574,52 +4716,12 @@ def _step_summary(schema: dict, _critical: list[str]):
         selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
         audience = "general"
         if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
-            try:
-                requirements_data = profile_payload.get("requirements", {})
-                extras = (
-                    len(requirements_data.get("hard_skills_required", []))
-                    + len(requirements_data.get("hard_skills_optional", []))
-                    + len(requirements_data.get("soft_skills_required", []))
-                    + len(requirements_data.get("soft_skills_optional", []))
-                    + (1 if profile_payload.get("company", {}).get("culture") else 0)
-                )
-                if selected_num + extras > 15:
-                    st.warning(
-                        tr(
-                            "Viele Fragen erzeugen einen sehr umfangreichen Leitfaden.",
-                            "A high question count creates a very long guide.",
-                        )
-                    )
-                responsibilities_text = "\n".join(
-                    profile_payload.get("responsibilities", {}).get("items", [])
-                )
-                guide_md = generate_interview_guide(
-                    job_title=profile_payload.get("position", {}).get("job_title", ""),
-                    responsibilities=responsibilities_text,
-                    hard_skills=(
-                        requirements_data.get("hard_skills_required", [])
-                        + requirements_data.get("hard_skills_optional", [])
-                    ),
-                    soft_skills=(
-                        requirements_data.get("soft_skills_required", [])
-                        + requirements_data.get("soft_skills_optional", [])
-                    ),
-                    company_culture=profile_payload.get("company", {}).get(
-                        "culture", ""
-                    ),
-                    audience=audience,
-                    lang=lang,
-                    tone=st.session_state.get("tone"),
-                    num_questions=selected_num,
-                )
-                st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide_md
-            except Exception as e:
-                st.error(
-                    tr(
-                        "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
-                        "Interview guide generation failed: {error}. Please try again.",
-                    ).format(error=e)
-                )
+            _generate_interview_guide_content(
+                profile_payload,
+                lang,
+                selected_num,
+                audience=audience,
+            )
 
         guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
         if guide_text:
@@ -4661,19 +4763,100 @@ def _step_summary(schema: dict, _critical: list[str]):
                 key="download_interview",
             )
 
-    if st.session_state.get(StateKeys.FOLLOWUPS):
+    manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
+
+    followup_items = st.session_state.get(StateKeys.FOLLOWUPS) or []
+    if followup_items:
         st.divider()
         st.markdown(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
-        for item in st.session_state[StateKeys.FOLLOWUPS]:
-            key = item.get("key")
-            q = item.get("question")
-            if not key or not q:
+
+        entry_specs: list[tuple[str, str, str]] = []
+        for item in followup_items:
+            field_path = item.get("field") or item.get("key") or ""
+            question_text = item.get("question") or ""
+            if not field_path or not question_text:
                 continue
-            st.markdown(f"**{q}**")
-            label = tr("Antwort für", "Answer for")
-            val = st.text_input(f"{label} {key}", key=f"fu_{key}")
-            if val:
-                set_in(data, key, val)
+            input_key = f"fu_{field_path}"
+            existing_value = str(get_in(data, field_path, "") or "")
+            if input_key not in st.session_state:
+                st.session_state[input_key] = existing_value
+            entry_specs.append((field_path, question_text, input_key))
+
+        if entry_specs:
+            stored_snapshot = dict(
+                st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {})
+            )
+            with st.form("summary_followups_form"):
+                for field_path, question_text, input_key in entry_specs:
+                    st.markdown(f"**{question_text}**")
+                    st.text_input(
+                        question_text,
+                        key=input_key,
+                        value=st.session_state.get(input_key, ""),
+                        label_visibility="collapsed",
+                    )
+                submit_label = tr(
+                    "Folgeantworten anwenden",
+                    "Apply follow-up answers",
+                )
+                submitted = st.form_submit_button(submit_label, type="primary")
+
+            if submitted:
+                answers = {
+                    field_path: st.session_state.get(input_key, "")
+                    for field_path, _question, input_key in entry_specs
+                }
+                trimmed_answers = {
+                    field: value.strip() for field, value in answers.items()
+                }
+                for field_path, _question, input_key in entry_specs:
+                    st.session_state[input_key] = trimmed_answers.get(
+                        field_path, ""
+                    )
+                changed = trimmed_answers != stored_snapshot
+                st.session_state[StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT] = (
+                    trimmed_answers
+                )
+
+                if changed:
+                    job_generated, interview_generated = _apply_followup_updates(
+                        trimmed_answers,
+                        data=data,
+                        filtered_profile=filtered_profile,
+                        profile_payload=profile_payload,
+                        target_value=target_value,
+                        manual_entries=manual_entries,
+                        style_reference=style_reference,
+                        lang=lang,
+                        selected_fields=selected_fields,
+                        num_questions=st.session_state.get(
+                            UIKeys.NUM_QUESTIONS, 5
+                        ),
+                        warn_on_length=False,
+                        show_feedback=True,
+                    )
+                    if job_generated or interview_generated:
+                        st.toast(
+                            tr(
+                                "Folgeantworten übernommen – Inhalte aktualisiert.",
+                                "Follow-up answers applied – content refreshed.",
+                            ),
+                            icon="✅",
+                        )
+                    else:
+                        st.info(
+                            tr(
+                                "Antworten gespeichert – bitte Feldauswahl oder Interview-Einstellungen prüfen.",
+                                "Answers saved – please review field selection or interview settings.",
+                            )
+                        )
+                else:
+                    st.info(
+                        tr(
+                            "Keine Änderungen erkannt – Inhalte bleiben unverändert.",
+                            "No changes detected – content remains unchanged.",
+                        )
+                    )
 
 
 # --- Haupt-Wizard-Runner ---

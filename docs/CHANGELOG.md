@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: auto-regenerate job ad and interview outputs when summary follow-up answers are applied
 - feat: redesign requirements step with vertical panels and inline AI suggestions
 - fix: prevent wizard navigation deadlock when job title is missing
 - feat: route CLI file extraction through ingest.extractors for OCR and text support
