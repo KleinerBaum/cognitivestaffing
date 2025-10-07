@@ -4,6 +4,7 @@ from typing import List, Mapping, Optional, Tuple
 
 from models.need_analysis import NeedAnalysisProfile
 from nlp.entities import extract_location_entities
+from utils.normalization import normalize_country, normalize_language_list
 
 _GENDER_RE = re.compile(
     r"(?P<prefix>\s*[-–—:,/|]*)?(?P<suffix>\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)",
@@ -488,6 +489,8 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
             hard_opt.append(item)
 
     r = profile.requirements
+    r.languages_required = normalize_language_list(r.languages_required)
+    r.languages_optional = normalize_language_list(r.languages_optional)
     r.hard_skills_required = _merge_unique(r.hard_skills_required, hard_req)
     r.hard_skills_optional = _merge_unique(r.hard_skills_optional, hard_opt)
     r.soft_skills_required = _merge_unique(r.soft_skills_required, soft_req)
@@ -496,8 +499,12 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     _extract_tools_from_lists(profile)
 
     langs_req, langs_opt = _extract_languages(text)
+    langs_req = normalize_language_list(langs_req)
+    langs_opt = normalize_language_list(langs_opt)
     r.languages_required = _merge_unique(r.languages_required, langs_req)
     r.languages_optional = _merge_unique(r.languages_optional, langs_opt)
+    r.languages_required = normalize_language_list(r.languages_required)
+    r.languages_optional = normalize_language_list(r.languages_optional)
 
     certs = _extract_certifications(text)
     r.certifications = _merge_unique(r.certifications, certs)
@@ -813,4 +820,6 @@ def apply_basic_fallbacks(
             btxt = _BONUS_TEXT_RE.search(text)
             if btxt:
                 compensation.commission_structure = btxt.group(0).strip()
+    country = normalize_country(profile.location.country)
+    profile.location.country = country
     return refine_requirements(profile, text)
