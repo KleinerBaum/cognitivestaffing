@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any, Mapping, Sequence
+
 from core.schema import ALL_FIELDS
+from utils.i18n import tr
 
 # ----------------------------------------------------------------------------
 # Field enumeration
@@ -73,3 +76,177 @@ def USER_JSON_EXTRACT_TEMPLATE(
     else:
         prompt = f"{instructions}\n\nText:\n{job_text}"
     return prompt
+
+
+# ----------------------------------------------------------------------------
+# Job-ad templates
+# ----------------------------------------------------------------------------
+
+
+def _stringify_brand_keywords(raw: Any) -> str:
+    if isinstance(raw, (list, tuple, set)):
+        return ", ".join(str(item).strip() for item in raw if str(item).strip())
+    if raw is None:
+        return ""
+    return str(raw).strip()
+
+
+def _format_section_block(section: Mapping[str, Any]) -> str:
+    title = str(section.get("title") or section.get("group") or "").strip()
+    entries: Sequence[Mapping[str, Any]] = section.get("entries", []) or []
+    lines: list[str] = [title] if title else []
+    for entry in entries:
+        label = str(entry.get("label") or "").strip()
+        items = entry.get("items") or []
+        text = str(entry.get("text") or "").strip()
+        if items:
+            bullet_heading = f"- {label}:" if label else "-"
+            lines.append(bullet_heading)
+            for item in items:
+                item_text = str(item).strip()
+                if item_text:
+                    lines.append(f"  * {item_text}")
+        elif label or text:
+            combined = text if not label else f"{label}: {text}" if text else label
+            lines.append(f"- {combined}")
+    return "\n".join(line for line in lines if line)
+
+
+def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
+    """Return chat messages instructing the model to craft a job advertisement."""
+
+    lang = str(payload.get("language") or "de").lower()
+
+    system_msg = tr(
+        "Du bist eine erfahrene Texterin für Stellenanzeigen. Schreibe klar, inklusiv und überzeugend.",
+        "You are an experienced recruitment copywriter. Write clearly, inclusively, and persuasively.",
+        lang,
+    )
+
+    heading = str(payload.get("heading") or payload.get("job_title") or "").strip()
+    location = str(payload.get("location") or "").strip()
+    summary = str(payload.get("summary") or "").strip()
+    audience = str(payload.get("audience") or "").strip()
+    tone = str(payload.get("tone") or "").strip()
+    style_reference = str(payload.get("style_reference") or "").strip()
+    brand_keywords = _stringify_brand_keywords(payload.get("brand_keywords"))
+    cta_hint = str(payload.get("cta_hint") or "").strip()
+    company_info = payload.get("company") or {}
+    company_names = [
+        str(company_info.get(key) or "").strip()
+        for key in ("display_name", "brand_name", "legal_name")
+    ]
+    company_names = [name for name in company_names if name]
+    if company_names:
+        deduped = list(dict.fromkeys(company_names))
+        company_line = ", ".join(deduped)
+    else:
+        company_line = ""
+
+    sections: Sequence[Mapping[str, Any]] = payload.get("sections", []) or []
+    manual_sections: Sequence[Mapping[str, Any]] = (
+        payload.get("manual_sections") or []
+    )
+
+    instruction_lines = [
+        tr(
+            "Schreibe eine wirkungsvolle Stellenanzeige in Markdown basierend auf den folgenden Daten.",
+            "Write a compelling job advertisement in Markdown based on the structured data below.",
+            lang,
+        ),
+        tr(
+            "Beginne mit einer aufmerksamkeitsstarken H1-Überschrift und verwende klare Zwischenüberschriften.",
+            "Start with an attention-grabbing H1 headline and use clear sub-headings.",
+            lang,
+        ),
+        tr(
+            "Verknüpfe Zielgruppe, Ton und Brand-Keywords auf natürliche Weise.",
+            "Weave the audience, tone, and brand keywords naturally into the copy.",
+            lang,
+        ),
+        tr(
+            "Nutze Aufzählungen nur dort, wo sie den Text auflockern.",
+            "Use bullet lists only when they improve readability.",
+            lang,
+        ),
+        tr(
+            "Schließe mit einem motivierenden Call-to-Action, der Bewerber:innen direkt anspricht.",
+            "Close with a motivating call to action that directly invites candidates to apply.",
+            lang,
+        ),
+    ]
+
+    meta_lines: list[str] = []
+    if heading:
+        meta_lines.append(
+            f"{tr('Überschrift', 'Heading', lang)}: {heading}"
+        )
+    if location:
+        meta_lines.append(
+            f"{tr('Standort', 'Location', lang)}: {location}"
+        )
+    if summary:
+        meta_lines.append(
+            f"{tr('Kurzprofil', 'Role summary', lang)}: {summary}"
+        )
+    if company_line:
+        meta_lines.append(
+            f"{tr('Unternehmen', 'Company', lang)}: {company_line}"
+        )
+    if audience:
+        meta_lines.append(
+            f"{tr('Zielgruppe', 'Target audience', lang)}: {audience}"
+        )
+    if tone:
+        meta_lines.append(
+            f"{tr('Ton', 'Tone', lang)}: {tone}"
+        )
+    if brand_keywords:
+        label = tr("Brand-Keywords", "Brand keywords", lang)
+        meta_lines.append(f"{label}: {brand_keywords}")
+    if style_reference:
+        meta_lines.append(
+            f"{tr('Stilreferenz', 'Style reference', lang)}: {style_reference}"
+        )
+    if cta_hint:
+        meta_lines.append(
+            f"{tr('CTA-Hinweis', 'CTA hint', lang)}: {cta_hint}"
+        )
+
+    section_blocks = [
+        block
+        for block in (_format_section_block(section) for section in sections)
+        if block
+    ]
+
+    manual_lines: list[str] = []
+    for section in manual_sections:
+        content = str(section.get("content") or "").strip()
+        if not content:
+            continue
+        title = str(section.get("title") or "").strip()
+        if title:
+            manual_lines.append(f"{title}: {content}")
+        else:
+            manual_lines.append(content)
+
+    parts = ["\n".join(instruction_lines)]
+    if meta_lines:
+        parts.append(f"{tr('Kontext', 'Context', lang)}:\n" + "\n".join(meta_lines))
+    if section_blocks:
+        label = tr("Strukturierte Abschnitte", "Structured sections", lang)
+        parts.append(f"{label}:\n" + "\n\n".join(section_blocks))
+    if manual_lines:
+        label = tr(
+            "Kuratiere diese Zusatzabschnitte unverändert", "Include these curated sections verbatim", lang
+        )
+        parts.append(f"{label}:\n" + "\n".join(manual_lines))
+
+    user_msg = "\n\n".join(part for part in parts if part).strip()
+
+    messages = [{"role": "system", "content": system_msg}]
+    if user_msg:
+        messages.append({"role": "user", "content": user_msg})
+    else:
+        messages.append({"role": "user", "content": system_msg})
+    return messages
