@@ -590,10 +590,31 @@ def _format_language_level_option(option: str) -> str:
     return option
 
 
+def _request_scroll_to_top() -> None:
+    """Flag that the next render should scroll to the top."""
+
+    st.session_state[StateKeys.SCROLL_TO_TOP] = True
+
+
+def _apply_pending_scroll_reset() -> None:
+    """Inject JavaScript to scroll to the top if requested."""
+
+    if st.session_state.pop(StateKeys.SCROLL_TO_TOP, False):
+        st.markdown(
+            """
+            <script>
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def next_step() -> None:
     """Advance the wizard to the next step."""
 
     current = st.session_state.get(StateKeys.STEP, 0)
+    _request_scroll_to_top()
     if current == 4:
         try:
             lang = st.session_state.get("lang", "en")
@@ -615,6 +636,7 @@ def next_step() -> None:
 def prev_step() -> None:
     """Return to the previous wizard step."""
 
+    _request_scroll_to_top()
     st.session_state[StateKeys.STEP] = max(
         0, st.session_state.get(StateKeys.STEP, 0) - 1
     )
@@ -986,6 +1008,7 @@ def _skip_source() -> None:
     st.session_state.pop("_analyze_attempted", None)
     st.session_state.pop("__last_extracted_hash__", None)
     st.session_state.pop("__prefill_profile_doc__", None)
+    _request_scroll_to_top()
     st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
     st.rerun()
 
@@ -2050,6 +2073,7 @@ def _step_onboarding(schema: dict) -> None:
             type="primary",
             use_container_width=True,
         ):
+            _request_scroll_to_top()
             st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
             st.rerun()
 
@@ -4920,6 +4944,8 @@ def run_wizard():
 
     renderer()
 
+    _apply_pending_scroll_reset()
+
     # Bottom nav
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
@@ -4956,6 +4982,7 @@ def run_wizard():
                     key="summary_home",
                     use_container_width=True,
                 ):
+                    _request_scroll_to_top()
                     st.session_state[StateKeys.STEP] = 0
                     st.rerun()
             with donate_col:
