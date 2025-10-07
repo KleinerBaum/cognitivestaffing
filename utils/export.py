@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 import json
-from typing import Tuple
+from typing import Any, Tuple
 
 import docx
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -119,6 +119,16 @@ def text_to_json(text: str, *, key: str, title: str | None = None) -> bytes:
     if title:
         data["title"] = title
     return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def prepare_clean_json(data: Any) -> Tuple[bytes, str, str]:
+    """Serialize ``data`` into UTF-8 encoded, human-readable JSON."""
+
+    return (
+        json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"),
+        "application/json",
+        "json",
+    )
 
 
 def prepare_download_data(

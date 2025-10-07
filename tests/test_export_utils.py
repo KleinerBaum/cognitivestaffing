@@ -5,6 +5,7 @@ import docx
 import fitz
 
 from utils.export import (
+    prepare_clean_json,
     prepare_download_data,
     text_to_docx,
     text_to_pdf,
@@ -43,6 +44,13 @@ def test_text_to_json() -> None:
     data = text_to_json("Hello", key="test", title="Title")
     obj = json.loads(data.decode("utf-8"))
     assert obj == {"type": "test", "content": "Hello", "title": "Title"}
+
+
+def test_prepare_clean_json() -> None:
+    payload, mime, ext = prepare_clean_json({"foo": "bär"})
+    assert ext == "json"
+    assert mime == "application/json"
+    assert json.loads(payload.decode("utf-8")) == {"foo": "bär"}
 
 
 def test_prepare_download_data_docx() -> None:
