@@ -31,7 +31,7 @@ import streamlit as st
 from utils.i18n import tr
 from constants.keys import UIKeys, StateKeys
 from utils.session import bind_textarea
-from state.ensure_state import ensure_state
+from state import ensure_state, reset_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
 from ingest.types import StructuredDocument, build_plain_text_document
@@ -5147,6 +5147,7 @@ def run_wizard():
                     use_container_width=True,
                 ):
                     _request_scroll_to_top()
+                    reset_state()
                     st.session_state[StateKeys.STEP] = 0
                     st.rerun()
             with donate_col:
