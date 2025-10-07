@@ -116,3 +116,36 @@ def test_extract_location_rejects_disqualifying_lines() -> None:
         city, country = _extract_location(text)
         assert city is None
         assert country is None
+
+
+def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
+    """Einsatzort and Branche table headers should populate city and industry."""
+
+    table_block = ContentBlock(
+        type="table",
+        text="Einsatzort | Berlin, Deutschland\nBranche | IT-Dienstleistungen",
+        metadata={
+            "rows": [
+                ["Einsatzort", "Berlin, Deutschland"],
+                ["Branche", "IT-Dienstleistungen"],
+            ]
+        },
+    )
+    matches = apply_rules([table_block])
+    assert matches["location.primary_city"].value == "Berlin"
+    assert matches["location.country"].value == "Deutschland"
+    assert matches["company.industry"].value == "IT-Dienstleistungen"
+
+
+def test_apply_rules_handles_inline_einsatzort_and_branche() -> None:
+    """Inline Einsatzort and Branche lines should map to location and industry fields."""
+
+    blocks = [
+        ContentBlock(type="paragraph", text="Einsatzort: Hamburg"),
+        ContentBlock(type="paragraph", text="Branche: Erneuerbare Energien"),
+        ContentBlock(type="paragraph", text="Weitere Informationen folgen."),
+    ]
+    matches = apply_rules(blocks)
+    assert matches["location.primary_city"].value == "Hamburg"
+    assert "location.country" not in matches
+    assert matches["company.industry"].value == "Erneuerbare Energien"

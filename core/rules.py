@@ -15,6 +15,7 @@ SALARY_PROVIDED_FIELD = "compensation.salary_provided"
 CURRENCY_FIELD = "compensation.currency"
 CITY_FIELD = "location.primary_city"
 COUNTRY_FIELD = "location.country"
+INDUSTRY_FIELD = "company.industry"
 
 
 @dataclass(slots=True)
@@ -55,8 +56,12 @@ _SALARY_RE = re.compile(
     re.IGNORECASE,
 )
 _LOCATION_LINE_RE = re.compile(
-    r"(?:^|\b)(?P<prefix>location|standort|ort|arbeitsort|based in|land|country|city)"
+    r"(?:^|\b)(?P<prefix>location|standort|ort|arbeitsort|einsatzort|based in|land|country|city)"
     r"[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./@-]+)",
+    re.IGNORECASE,
+)
+_INDUSTRY_LINE_RE = re.compile(
+    r"(?:^|\b)(?P<prefix>branche|industry)[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./&-]+)",
     re.IGNORECASE,
 )
 _CITY_COUNTRY_RE = re.compile(
@@ -72,10 +77,12 @@ _TABLE_KEYWORDS = {
     "salary": SALARY_MIN_FIELD,
     "vergütung": SALARY_MIN_FIELD,
     "compensation": SALARY_MIN_FIELD,
+    "einsatzort": CITY_FIELD,
     "standort": CITY_FIELD,
     "location": CITY_FIELD,
     "city": CITY_FIELD,
     "ort": CITY_FIELD,
+    "branche": INDUSTRY_FIELD,
     "land": COUNTRY_FIELD,
     "country": COUNTRY_FIELD,
 }
@@ -84,6 +91,7 @@ _RULE_PRIORITIES = {
     "regex.email": 400,
     "regex.salary": 350,
     "regex.location": 300,
+    "regex.industry": 250,
     "layout.table": 100,
 }
 
@@ -143,6 +151,9 @@ def _iter_block_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
         if regex_match.field not in layout_fields:
             results.append(regex_match)
     for regex_match in _regex_location_matches(text, index, block):
+        if regex_match.field not in layout_fields:
+            results.append(regex_match)
+    for regex_match in _regex_industry_matches(text, index, block):
         if regex_match.field not in layout_fields:
             results.append(regex_match)
     return results
@@ -253,13 +264,14 @@ def _regex_location_matches(
         return []
     span_match = _LOCATION_LINE_RE.search(text) or _CITY_COUNTRY_RE.search(text)
     source = span_match.group(0) if span_match else text.strip()[:120]
+    confidence = 0.85 if span_match else 0.6
     results: list[RuleMatch] = []
     if city:
         results.append(
             RuleMatch(
                 field=CITY_FIELD,
                 value=city,
-                confidence=0.85,
+                confidence=confidence,
                 source_text=source,
                 rule="regex.location",
                 block_index=index,
@@ -271,7 +283,7 @@ def _regex_location_matches(
             RuleMatch(
                 field=COUNTRY_FIELD,
                 value=country,
-                confidence=0.85,
+                confidence=confidence,
                 source_text=source,
                 rule="regex.location",
                 block_index=index,
@@ -279,6 +291,31 @@ def _regex_location_matches(
             )
         )
     return results
+
+
+def _regex_industry_matches(
+    text: str, index: int, block: ContentBlock
+) -> Iterable[RuleMatch]:
+    match = _INDUSTRY_LINE_RE.search(text)
+    if not match:
+        return []
+    value = match.group("value").strip()
+    if not value:
+        return []
+    lower_value = value.lower()
+    if "http" in lower_value or "@" in value:
+        return []
+    return [
+        RuleMatch(
+            field=INDUSTRY_FIELD,
+            value=value,
+            confidence=0.75,
+            source_text=match.group(0),
+            rule="regex.industry",
+            block_index=index,
+            block_type=block.type,
+        )
+    ]
 
 
 def _table_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
@@ -372,6 +409,18 @@ def _table_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
                         block_type=block.type,
                     )
                 )
+            continue
+        matches.append(
+            RuleMatch(
+                field=field,
+                value=value,
+                confidence=0.75,
+                source_text=f"{header}: {value}",
+                rule="layout.table",
+                block_index=index,
+                block_type=block.type,
+            )
+        )
     return matches
 
 
