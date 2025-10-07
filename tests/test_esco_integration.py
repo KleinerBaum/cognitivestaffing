@@ -1,20 +1,36 @@
-"""Tests for the disabled ESCO integration wrapper."""
+"""Tests for the offline ESCO integration wrapper."""
 
+import streamlit as st
+
+from constants.keys import StateKeys
 from integrations import esco
 
 
-def test_search_returns_empty_results() -> None:
-    """Search helpers should return empty data structures."""
+def test_search_populates_state() -> None:
+    """Occupation lookup should populate Streamlit session state."""
 
-    assert esco.search_occupation("Software Engineer") == {}
-    assert esco.search_occupation_options("Software Engineer") == []
+    st.session_state.clear()
+    result = esco.search_occupation("Software Engineer")
+    assert result["group"] == "Information and communications technology professionals"
+    assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS]
+    assert st.session_state[StateKeys.ESCO_SKILLS]
 
 
-def test_enrich_skills_returns_empty(caplog) -> None:
-    """Skill enrichment should be disabled."""
+def test_search_options_returns_candidates() -> None:
+    """Occupation options should surface keyword matches."""
 
-    with caplog.at_level("INFO"):
-        assert esco.enrich_skills("http://example.com/occ") == []
-        assert any(
-            "Skipping ESCO skill enrichment" in r.message for r in caplog.records
-        )
+    st.session_state.clear()
+    options = esco.search_occupation_options("Sales Manager")
+    assert options
+    assert options[0]["group"]
+    assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] == options
+
+
+def test_enrich_skills_uses_cached_data() -> None:
+    """Skill enrichment should return deterministic cached data."""
+
+    st.session_state.clear()
+    occupation = esco.search_occupation("Nurse")
+    skills = esco.enrich_skills(occupation.get("uri", ""))
+    assert skills
+    assert st.session_state[StateKeys.ESCO_SKILLS] == skills

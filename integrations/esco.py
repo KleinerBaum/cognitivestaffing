@@ -1,19 +1,46 @@
-"""Disabled ESCO integration wrapper."""
+"""Streamlit friendly ESCO integration wrapper.
+
+The original HTTP based client is replaced with a deterministic wrapper
+around :mod:`core.esco_utils`.  This keeps the UI responsive in offline
+environments while exposing the same session state side effects used by the
+wizard.
+"""
 
 from __future__ import annotations
 
-import logging
 from typing import Dict, List
 
-log = logging.getLogger("cognitive_needs.esco")
+import streamlit as st
+
+from constants.keys import StateKeys
+from core.esco_utils import (
+    classify_occupation,
+    get_essential_skills,
+    search_occupations,
+)
+
+
+def _set_state(key: str, value) -> None:
+    """Helper that writes to ``st.session_state`` when available."""
+
+    try:
+        st.session_state[key] = value
+    except Exception:  # pragma: no cover - streamlit safety belt
+        pass
 
 
 def search_occupation(title: str, lang: str = "en") -> Dict[str, str]:
-    """Return an empty mapping because ESCO features are disabled."""
+    """Return the best matching occupation for ``title`` and store metadata."""
 
-    if title:
-        log.info("Skipping ESCO occupation lookup for '%s'", title)
-    return {}
+    occupation = classify_occupation(title, lang=lang) or {}
+    options = search_occupations(title, lang=lang, limit=5) if occupation else []
+    _set_state(StateKeys.ESCO_OCCUPATION_OPTIONS, options)
+    if occupation:
+        skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
+        _set_state(StateKeys.ESCO_SKILLS, skills)
+    else:
+        _set_state(StateKeys.ESCO_SKILLS, [])
+    return occupation
 
 
 def search_occupation_options(
@@ -21,16 +48,16 @@ def search_occupation_options(
     lang: str = "en",
     limit: int = 5,
 ) -> List[Dict[str, str]]:
-    """Return an empty list of occupation options."""
+    """Return occupation candidates for ``title`` and update session state."""
 
-    if title:
-        log.info("Skipping ESCO occupation options lookup for '%s'", title)
-    return []
+    options = search_occupations(title, lang=lang, limit=limit)
+    _set_state(StateKeys.ESCO_OCCUPATION_OPTIONS, options)
+    return options
 
 
 def enrich_skills(occupation_uri: str, lang: str = "en") -> List[str]:
-    """Return an empty list because ESCO enrichment is disabled."""
+    """Return cached essential skills for ``occupation_uri``."""
 
-    if occupation_uri:
-        log.info("Skipping ESCO skill enrichment for occupation '%s'", occupation_uri)
-    return []
+    skills = get_essential_skills(occupation_uri, lang=lang)
+    _set_state(StateKeys.ESCO_SKILLS, skills)
+    return skills
