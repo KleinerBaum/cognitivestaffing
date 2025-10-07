@@ -46,3 +46,33 @@ def test_requirements_formal_heading_variant() -> None:
     assert "Erfahrung im Vertrieb" in r.hard_skills_required
     assert "Kommunikationsstärke" in r.soft_skills_required
     assert profile.responsibilities.items == ["Kunden beraten"]
+
+
+def test_requirements_new_german_heading_variants() -> None:
+    text = (
+        "Qualifikationen:\n"
+        "- Erfahrung in der Datenanalyse\n"
+        "\n"
+        "Deine Pluspunkte:\n"
+        "- Erfahrung mit Tableau\n"
+    )
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    r = profile.requirements
+    assert "Erfahrung in der Datenanalyse" in r.hard_skills_required
+    assert "Erfahrung mit Tableau" in r.hard_skills_optional
+
+
+def test_requirements_anforderungsprofil_heading() -> None:
+    text = (
+        "Anforderungsprofil:\n"
+        "- Praxis mit CRM-Systemen\n"
+        "\n"
+        "Das wäre toll:\n"
+        "- Salesforce-Zertifizierung\n"
+    )
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    r = profile.requirements
+    assert "Praxis mit CRM-Systemen" in r.hard_skills_required
+    assert "Salesforce-Zertifizierung" in r.hard_skills_optional

@@ -161,6 +161,11 @@ _REQ_REQUIRED_HEADINGS = {
     "must haves",
     "requirements",
     "qualifications",
+    "qualifikationen",
+    "deine qualifikationen",
+    "anforderungsprofil",
+    "dein anforderungsprofil",
+    "unser anforderungsprofil",
     "skills & experience",
     "was du mitbringst",
     "was sie mitbringen",
@@ -174,6 +179,13 @@ _REQ_OPTIONAL_HEADINGS = {
     "wünschenswert",
     "von vorteil",
     "was wir uns wünschen",
+    "deine pluspunkte",
+    "pluspunkte",
+    "das wäre toll",
+    "wäre toll",
+    "wäre ein plus",
+    "idealerweise",
+    "idealerweise bringst du mit",
 }
 _OPTIONAL_HINTS = {
     "nice-to-have",
@@ -182,6 +194,12 @@ _OPTIONAL_HINTS = {
     "wünschenswert",
     "optional",
     "von vorteil",
+    "pluspunkt",
+    "pluspunkte",
+    "wäre toll",
+    "das wäre toll",
+    "wäre ein plus",
+    "idealerweise",
 }
 _SOFT_SKILL_KEYWORDS = {
     "communication",
