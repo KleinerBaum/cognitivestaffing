@@ -2964,17 +2964,6 @@ _step_position.handled_fields = [  # type: ignore[attr-defined]
 def _step_requirements():
     """Render the requirements step for skills and certifications."""
 
-    st.subheader(tr("Anforderungen", "Requirements"))
-    st.caption(
-        tr(
-            "Geforderte Fähigkeiten und Qualifikationen festhalten.",
-            "Specify required skills and qualifications.",
-        )
-    )
-    _render_prefilled_preview(
-        include_prefixes=("requirements.",),
-        layout="grid",
-    )
     data = st.session_state[StateKeys.PROFILE]
     missing_here = [
         f
@@ -3073,6 +3062,14 @@ def _step_requirements():
         )
         if st.session_state.get("debug"):
             st.session_state["skill_suggest_error"] = suggestions_error
+
+    st.subheader(tr("Anforderungen", "Requirements"))
+    st.caption(
+        tr(
+            "Geforderte Fähigkeiten und Qualifikationen festhalten.",
+            "Specify required skills and qualifications.",
+        )
+    )
 
     def _render_required_caption(condition: bool) -> None:
         if condition:
