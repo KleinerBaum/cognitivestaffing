@@ -261,11 +261,51 @@ def test_extract_and_summarize_does_not_enrich_skills(
     monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
     _extract_and_summarize("Job text", {})
 
     data = st.session_state[StateKeys.PROFILE]
-    assert data["position"]["occupation_label"] == ""
+    assert data["position"]["occupation_label"] is None
     assert data["requirements"]["hard_skills_required"] == ["Python"]
+
+
+def test_extract_and_summarize_enriches_esco_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Detected job titles should enrich the profile with ESCO metadata."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    sample_data = {"position": {"job_title": "Software Engineer"}}
+    occupation = {
+        "preferredLabel": "Software developer",
+        "uri": "https://example.com/esco/123",
+        "group": "Information and communications technology professionals",
+    }
+    skills = ["Programming", "Version control"]
+
+    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
+    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: dict(occupation))
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: list(skills))
+
+    _extract_and_summarize("Job text", {})
+
+    data = st.session_state[StateKeys.PROFILE]
+    assert data["position"]["occupation_label"] == occupation["preferredLabel"]
+    assert data["position"]["occupation_uri"] == occupation["uri"]
+    assert data["position"]["occupation_group"] == occupation["group"]
+    assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] == [occupation]
+    assert st.session_state[StateKeys.ESCO_SKILLS] == skills
+    assert (
+        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE]["position"][
+            "occupation_label"
+        ]
+        == occupation["preferredLabel"]
+    )
 
 
 def test_extract_and_summarize_records_rag_metadata(
@@ -284,6 +324,8 @@ def test_extract_and_summarize_records_rag_metadata(
     )
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
     _extract_and_summarize("Job text", {})
 
     metadata = st.session_state[StateKeys.PROFILE_METADATA]
@@ -335,6 +377,8 @@ def test_extract_and_summarize_passes_locked_context(
     monkeypatch.setattr("wizard.extract_json", fake_extract_json)
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
 
     _extract_and_summarize("Job text", {})
 
