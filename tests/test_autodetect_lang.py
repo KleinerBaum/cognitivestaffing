@@ -11,3 +11,4 @@ def test_autodetect_lang_switches_to_english() -> None:
     st.session_state["lang"] = "de"
     _autodetect_lang("We are looking for a Software Engineer")
     assert st.session_state["lang"] == "en"
+    assert st.session_state["profile_metadata"]["autodetect_language"].startswith("en")

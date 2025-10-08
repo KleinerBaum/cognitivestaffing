@@ -793,8 +793,15 @@ def _autodetect_lang(text: str) -> None:
     try:
         from langdetect import detect
 
-        if detect(text).startswith("en"):
+        detected = detect(text)
+        if detected.startswith("en"):
             st.session_state["lang"] = "en"
+        metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+        if not isinstance(metadata, dict):  # pragma: no cover - defensive guard
+            metadata = {}
+        metadata = dict(metadata)
+        metadata["autodetect_language"] = detected
+        st.session_state[StateKeys.PROFILE_METADATA] = metadata
     except Exception:  # pragma: no cover - best effort
         pass
 
