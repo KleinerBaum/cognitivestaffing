@@ -58,6 +58,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
     if StateKeys.INTERVIEW_AUDIENCE not in st.session_state:
         st.session_state[StateKeys.INTERVIEW_AUDIENCE] = "general"
+    if StateKeys.INTERVIEW_GUIDE_DATA not in st.session_state:
+        st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = {}
     if "lang" not in st.session_state:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:

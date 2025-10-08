@@ -30,6 +30,10 @@ def _llm_payload(language: str) -> dict:
                     "items": ["Systeme entwerfen"],
                 }
             ],
+            "evaluation_notes": [
+                "Auf klare Struktur und Beispiele achten.",
+                "Tonfall und Kulturfit bewerten.",
+            ],
             "questions": [
                 {
                     "question": "Beschreiben Sie Ihren Ansatz für komplexe Probleme.",
@@ -54,6 +58,10 @@ def _llm_payload(language: str) -> dict:
                 "items": ["Design systems", "Write code"],
             }
         ],
+        "evaluation_notes": [
+            "Probe for impact and measurable outcomes.",
+            "Ensure collaboration examples match our culture.",
+        ],
         "questions": [
             {
                 "question": "Describe a time you solved a complex problem.",
@@ -77,6 +85,7 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     def fake_call(messages, **kwargs):
         captured["model"] = kwargs.get("model")
         captured["messages"] = messages
+        captured["json_schema"] = kwargs.get("json_schema")
         payload = _llm_payload("en")
         return api.ChatCallResult(json.dumps(payload), [], {"input_tokens": 1})
 
@@ -97,9 +106,12 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     assert captured["model"] == get_model_for(ModelTask.INTERVIEW_GUIDE)
     assert guide.metadata.language == "en"
     assert guide.questions[0].question.startswith("Describe a time")
+    assert guide.evaluation_notes
     markdown = guide.final_markdown()
     assert "Interview Guide – Engineer" in markdown
     assert "## Questions" in markdown or "## Questions & evaluation guide" in markdown
+    assert "Evaluation notes" in markdown
+    assert captured["json_schema"]
 
 
 def test_generate_interview_guide_handles_german_locale(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,6 +137,7 @@ def test_generate_interview_guide_handles_german_locale(monkeypatch: pytest.Monk
     markdown = guide.final_markdown()
     assert "Interviewleitfaden" in markdown
     assert "Fragen & Bewertungsleitfaden" in markdown
+    assert "Bewertungsschwerpunkte" in markdown
 
 
 def test_generate_interview_guide_fallback_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -150,3 +163,4 @@ def test_generate_interview_guide_fallback_on_error(monkeypatch: pytest.MonkeyPa
     markdown = guide.final_markdown()
     assert "Interview Guide" in markdown
     assert "Teamwork" in markdown or "Design systems" in markdown
+    assert "Evaluation" in markdown

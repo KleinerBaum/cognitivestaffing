@@ -51,6 +51,7 @@ class StateKeys:
     JOB_AD_MD = "data.job_ad_md"
     BOOLEAN_STR = "data.boolean_str"
     INTERVIEW_GUIDE_MD = "data.interview_md"
+    INTERVIEW_GUIDE_DATA = "data.interview_guide"
     SKILL_SUGGESTIONS = "skill_suggestions"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     ONBOARDING_SUGGESTIONS = "onboarding_suggestions"
