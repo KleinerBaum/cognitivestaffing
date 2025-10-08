@@ -57,6 +57,29 @@ def test_step_requirements_warns_on_skill_suggestion_error(
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "info", lambda *_, **__: None)
 
+    class FakePanel:
+        def __enter__(self) -> "FakePanel":
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+        def markdown(self, *_: object, **__: object) -> None:
+            return None
+
+        def container(self) -> "FakePanel":
+            return FakePanel()
+
+        def columns(self, *args: object, **kwargs: object) -> tuple[object, ...]:
+            return st.columns(*args, **kwargs)
+
+    monkeypatch.setattr(st, "container", lambda: FakePanel())
+
+    def fake_tabs(labels: list[str]) -> tuple[FakePanel, FakePanel, FakePanel]:
+        return (FakePanel(), FakePanel(), FakePanel())
+
+    monkeypatch.setattr(st, "tabs", fake_tabs)
+
     captured: dict[str, str] = {}
 
     def fake_warning(message: str, *_, **__) -> None:
