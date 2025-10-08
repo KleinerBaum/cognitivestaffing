@@ -1192,6 +1192,16 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
             lang,
         ),
         tr(
+            "Stelle sicher, dass mindestens eine Frage zu Verantwortlichkeiten, Hard Skills, Soft Skills und – falls vorhanden – Unternehmenskultur gestellt wird.",
+            "Ensure there is at least one question covering responsibilities, hard skills, soft skills, and company culture when provided.",
+            lang,
+        ),
+        tr(
+            "Beziehe dich in jeder Frage ausdrücklich auf die Stellenbezeichnung und Seniorität aus dem Kontext.",
+            "Explicitly reference the provided job title and seniority context in every question.",
+            lang,
+        ),
+        tr(
             "Passe Ton und Zielgruppe an und halte dich an die gewünschte Fragenanzahl.",
             "Match the requested tone and audience and respect the desired question count.",
             lang,
