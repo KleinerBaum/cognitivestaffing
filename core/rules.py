@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence, cast
 
-from nlp.entities import LocationEntities, extract_location_entities
+from nlp.entities import LocationEntities, _is_country, extract_location_entities
 
 from ingest.types import ContentBlock
 
@@ -458,9 +458,22 @@ def _table_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
                 )
             continue
         if field == COUNTRY_FIELD:
-            _, country = _extract_location(value)
-            if not country:
-                country = value.split(",")[-1].strip()
+            city, country = _extract_location(value, prefix_hint=key)
+            if city:
+                matches.append(
+                    RuleMatch(
+                        field=CITY_FIELD,
+                        value=city,
+                        confidence=0.82,
+                        source_text=f"{header}: {value}",
+                        rule="layout.table",
+                        block_index=index,
+                        block_type=block.type,
+                    )
+                )
+            if not country and not city:
+                fallback = value.split(",")[-1].strip()
+                country = fallback or None
             if country:
                 matches.append(
                     RuleMatch(
@@ -503,12 +516,13 @@ def _table_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
     return matches
 
 
-def _extract_location(text: str) -> tuple[str | None, str | None]:
+def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | None, str | None]:
     text = text.strip()
     if not text:
         return None, None
     line_match = _LOCATION_LINE_RE.search(text)
-    prefix = (line_match.group("prefix") or "").lower() if line_match else ""
+    hint = (prefix_hint or "").strip().strip(":").lower()
+    prefix = hint or ((line_match.group("prefix") or "").lower() if line_match else "")
     if line_match:
         raw = line_match.group("value").strip()
     else:
@@ -524,16 +538,20 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
     # Prefer comma separated "City, Country" structures.
     if "," in raw:
         city_part, _, country_part = raw.partition(",")
-        city = city_part.strip()
+        city = city_part.strip() or None
         country = country_part.strip() or None
-        if prefix in {"land", "country"} and not country:
-            return None, city or None
-        city = city or None
         if city and not _is_valid_city_candidate(city, entities=entities):
             city = None
-        country = country or None
         if country and not _is_valid_country_candidate(country, entities=entities):
             country = None
+        if prefix in {"land", "country"}:
+            if country:
+                return city, country
+            if city:
+                if _is_country(city):
+                    return None, city
+                if _is_valid_city_candidate(city, entities=entities):
+                    return city, None
         return city, country
     tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
     if len(tokens) >= 2:
@@ -547,7 +565,14 @@ def _extract_location(text: str) -> tuple[str | None, str | None]:
             country = None
         return city, country
     if prefix in {"land", "country"}:
-        return None, raw.strip() or None
+        cleaned = raw.strip()
+        if not cleaned:
+            return None, None
+        if _is_country(cleaned):
+            return None, cleaned
+        if _is_valid_city_candidate(cleaned, entities=entities):
+            return cleaned, None
+        return None, cleaned
     cleaned = raw.strip() or None
     if not cleaned:
         return None, None
