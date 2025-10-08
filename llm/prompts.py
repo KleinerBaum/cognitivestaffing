@@ -166,6 +166,11 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
             lang,
         ),
         tr(
+            "Erwähne Jobtitel und wichtige Skills für SEO immer wieder organisch im Text.",
+            "Repeat the job title and key skills naturally throughout the copy for SEO.",
+            lang,
+        ),
+        tr(
             "Nutze Aufzählungen nur dort, wo sie den Text auflockern.",
             "Use bullet lists only when they improve readability.",
             lang,
