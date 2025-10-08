@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: refresh analysis helper datasets with IT & project-management benchmarks
 - feat: refactor job ad generation to use tone-aware LLM prompts with Markdown fallback
 - feat: auto-regenerate job ad and interview outputs when summary follow-up answers are applied
 - feat: redesign requirements step with vertical panels and inline AI suggestions
