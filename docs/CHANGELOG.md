@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: replace sidebar hero copy with collapsible extraction overview and remove tips section
 - feat: externalize salary benchmark catalog with canonical role normalization and German aliases
 - feat: refresh analysis helper datasets with IT & project-management benchmarks
 - feat: refactor job ad generation to use tone-aware LLM prompts with Markdown fallback
