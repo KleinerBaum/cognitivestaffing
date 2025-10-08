@@ -2157,7 +2157,7 @@ def _chip_multiselect(
     ms_key = f"ms_{label}"
     options_key = f"ui.chip_options.{slug}"
     input_key = f"ui.chip_input.{slug}"
-    button_key = f"ui.chip_add_btn.{slug}"
+    last_added_key = f"ui.chip_last_added.{slug}"
 
     base_options = _unique_normalized(options)
     base_values = _unique_normalized(values)
@@ -2171,33 +2171,49 @@ def _chip_multiselect(
     available_options = sorted(available_options, key=str.casefold)
     st.session_state[options_key] = available_options
 
+    def _add_chip_entry() -> None:
+        raw_value = st.session_state.get(input_key, "")
+        candidate = raw_value.strip() if isinstance(raw_value, str) else ""
+
+        if not candidate:
+            st.session_state[input_key] = ""
+            st.session_state[last_added_key] = ""
+            return
+
+        last_added = st.session_state.get(last_added_key, "")
+        current_values = _unique_normalized(st.session_state.get(ms_key, base_values))
+        current_markers = {item.casefold() for item in current_values}
+        candidate_marker = candidate.casefold()
+
+        if (
+            candidate_marker in current_markers
+            and candidate_marker == str(last_added).casefold()
+        ):
+            st.session_state[input_key] = ""
+            return
+
+        updated_options = sorted(
+            _unique_normalized(st.session_state.get(options_key, []) + [candidate]),
+            key=str.casefold,
+        )
+        updated_values = _unique_normalized(current_values + [candidate])
+
+        st.session_state[options_key] = updated_options
+        st.session_state[ms_key] = updated_values
+        st.session_state[last_added_key] = candidate
+        st.session_state[input_key] = ""
+
     container = st.expander(label, expanded=True) if dropdown else st.container()
     with container:
         if dropdown and help_text:
             st.caption(help_text)
-        input_col, button_col = st.columns([3, 1])
-        new_entry = input_col.text_input(
+        st.text_input(
             tr("Neuen Wert hinzufügen", "Add new value"),
             key=input_key,
             placeholder=tr("Neuen Wert hinzufügen …", "Add new value …"),
             label_visibility="collapsed",
+            on_change=_add_chip_entry,
         )
-        add_clicked = button_col.button(
-            tr("Hinzufügen", "Add"),
-            key=button_key,
-            use_container_width=True,
-        )
-
-        if add_clicked:
-            candidate = new_entry.strip()
-            if candidate:
-                available_options = sorted(
-                    _unique_normalized(available_options + [candidate]),
-                    key=str.casefold,
-                )
-                st.session_state[options_key] = available_options
-                base_values = _unique_normalized(base_values + [candidate])
-                st.session_state[ms_key] = base_values
 
         default_selection = _unique_normalized(
             st.session_state.get(ms_key, base_values)
