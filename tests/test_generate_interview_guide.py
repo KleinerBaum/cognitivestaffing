@@ -102,6 +102,15 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
         tone="Casual",
     )
 
+    messages = captured["messages"]
+    assert isinstance(messages, list) and len(messages) >= 2
+    user_prompt = messages[1]["content"]
+    assert (
+        "at least one question covering responsibilities, hard skills, soft skills, and company culture"
+        in user_prompt
+    )
+    assert "job title and seniority context" in user_prompt
+
     assert isinstance(guide, InterviewGuide)
     assert captured["model"] == get_model_for(ModelTask.INTERVIEW_GUIDE)
     assert guide.metadata.language == "en"
