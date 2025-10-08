@@ -81,7 +81,10 @@ def _create_otlp_exporter() -> Optional[SpanExporter]:
     """Instantiate an OTLP span exporter based on environment settings."""
 
     protocol = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf").strip().lower()
-    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip() or None
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
+    if not endpoint:
+        LOGGER.info("OTLP endpoint not configured; telemetry exporter will not be created")
+        return None
     headers = _parse_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS"))
     timeout_raw = os.getenv("OTEL_EXPORTER_OTLP_TIMEOUT", "").strip()
     certificate_file = os.getenv("OTEL_EXPORTER_OTLP_CERTIFICATE", "").strip() or None
@@ -94,8 +97,7 @@ def _create_otlp_exporter() -> Optional[SpanExporter]:
             LOGGER.warning("Invalid OTEL_EXPORTER_OTLP_TIMEOUT '%s'; ignoring", timeout_raw)
 
     exporter_kwargs: Dict[str, object] = {}
-    if endpoint:
-        exporter_kwargs["endpoint"] = endpoint
+    exporter_kwargs["endpoint"] = endpoint
     if headers:
         exporter_kwargs["headers"] = headers
     if timeout is not None:
@@ -138,12 +140,19 @@ def setup_tracing(*, force: bool = False) -> None:
         LOGGER.debug("No OTLP exporter configured; skipping telemetry bootstrap")
         return
 
+    if not force:
+        existing_provider = trace.get_tracer_provider()
+        if getattr(existing_provider, "_cognitive_needs_configured", False):
+            LOGGER.debug("Telemetry already initialised; skipping setup")
+            return
+
     service_name = os.getenv("OTEL_SERVICE_NAME", "cognitive-needs")
     resource = Resource.create({"service.name": service_name})
     sampler = _build_sampler()
 
     provider = TracerProvider(resource=resource, sampler=sampler)
     provider.add_span_processor(BatchSpanProcessor(exporter))
+    setattr(provider, "_cognitive_needs_configured", True)
     trace.set_tracer_provider(provider)
 
     _INITIALISED = True
