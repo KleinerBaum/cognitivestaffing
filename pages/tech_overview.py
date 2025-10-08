@@ -47,11 +47,11 @@ tech_info = {
         "Tech-interessiert": [
             (
                 "Retrieval-Augmented Generation (RAG)",
-                "FAISS bzw. künftig ChromaDB/Weaviate liefern Vektor‑Suche über mehr als 400 000 ESCO‑Skills und Domain‑Korpora; LangChain orchestriert die RAG‑Pipeline.",
+                "FAISS bzw. künftig ChromaDB/Weaviate liefern Vektor‑Suche über mehr als 400 000 ESCO‑Skills und Domain‑Korpora; eine hauseigene Orchestrierung koordiniert Extraktion und RAG.",
             ),
             (
-                "LangChain Agents & OpenAI Function Calling",
-                "Deterministische Tool‑Aufrufe (PDF‑Parser, ESCO‑Lookup, Markdown‑Renderer) mittels JSON‑Schemas für robustes Error‑Handling.",
+                "Eigenes Agenten-Framework & OpenAI Function Calling",
+                "Deterministische Tool‑Aufrufe (PDF‑Parser, ESCO‑Lookup, Markdown‑Renderer) über unser leichtgewichtiges Agenten‑Framework mit JSON‑Schemas für robustes Error‑Handling.",
             ),
             (
                 "Embedding‑Model",
@@ -109,11 +109,11 @@ tech_info = {
         "Tech-savvy": [
             (
                 "Retrieval-Augmented Generation (RAG)",
-                "FAISS – future upgrade to ChromaDB/Weaviate – provides vector search across 400 k+ ESCO skills & domain corpora, orchestrated via LangChain.",
+                "FAISS – future upgrade to ChromaDB/Weaviate – provides vector search across 400 k+ ESCO skills & domain corpora, coordinated by our custom extraction/RAG orchestrator.",
             ),
             (
-                "LangChain Agents & OpenAI Function Calling",
-                "Deterministic tool invocation (PDF parser, ESCO lookup, Markdown renderer) using strict JSON schemas for resilient error handling.",
+                "Custom Agent Harness & OpenAI Function Calling",
+                "Deterministic tool invocation (PDF parser, ESCO lookup, Markdown renderer) via our lightweight agent harness with strict JSON schemas for resilient error handling.",
             ),
             (
                 "Embedding Model",
