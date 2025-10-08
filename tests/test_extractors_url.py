@@ -1,9 +1,53 @@
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
 from ingest.extractors import extract_text_from_url
+
+
+STEPSTONE_FIXTURE = """
+<html>
+  <body>
+    <header>
+      <nav>
+        <ul>
+          <li>For candidates</li>
+          <li>Career advice</li>
+        </ul>
+      </nav>
+    </header>
+    <div data-at="job-ad-container">
+      <nav>Breadcrumbs</nav>
+      <main>
+        <article>
+          <h1>Senior Data Engineer (f/m/d)</h1>
+          <section>
+            <h2>Your mission</h2>
+            <p>Build reliable data pipelines and analytics tooling.</p>
+            <ul>
+              <li>Design ETL jobs for production workloads.</li>
+              <li>Collaborate with platform teams.</li>
+            </ul>
+            <h2>Your profile</h2>
+            <p>Python expert with experience in orchestration frameworks.</p>
+          </section>
+        </article>
+      </main>
+    </div>
+    <footer>
+      <p>StepStone GmbH · All rights reserved</p>
+    </footer>
+  </body>
+</html>
+"""
 
 
 def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -54,3 +98,28 @@ def test_extract_text_from_url_http_error(monkeypatch: pytest.MonkeyPatch) -> No
     with pytest.raises(ValueError) as err:
         extract_text_from_url("http://example.com")
     assert "status 404" in str(err.value)
+
+
+def test_stepstone_like_content_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Resp:
+        status_code = 200
+        text = STEPSTONE_FIXTURE
+
+        def raise_for_status(self) -> None:  # pragma: no cover - stub
+            return None
+
+    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+        return Resp()
+
+    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+    monkeypatch.setitem(sys.modules, "trafilatura", None)
+
+    doc = extract_text_from_url("https://www.stepstone.de/jobs/awesome-role")
+
+    text = doc.text
+    assert "Senior Data Engineer" in text
+    assert "Design ETL jobs" in text
+    assert "For candidates" not in text
+    assert "Breadcrumbs" not in text
