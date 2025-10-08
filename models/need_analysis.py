@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+import re
+from typing import Any, ClassVar, List, Optional
+
+from email_validator import EmailNotValidError, validate_email
 
 from pydantic import (
     BaseModel,
@@ -19,6 +22,10 @@ class Company(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE
+    )
+
     name: Optional[str] = None
     brand_name: Optional[str] = None
     industry: Optional[str] = None
@@ -31,6 +38,33 @@ class Company(BaseModel):
     contact_email: EmailStr | None = None
     contact_phone: Optional[str] = None
     brand_keywords: Optional[str] = None
+
+    @field_validator("contact_email", mode="before")
+    @classmethod
+    def _extract_first_email(cls, value: str | None) -> str | None:
+        """Extract the first valid email address from a noisy input string."""
+
+        if value is None:
+            return None
+        if isinstance(value, EmailStr):
+            return str(value)
+        if not isinstance(value, str):
+            return None
+
+        candidate_source = value.strip()
+        if not candidate_source:
+            return None
+
+        match = cls._EMAIL_PATTERN.search(candidate_source)
+        if not match:
+            return None
+
+        candidate = match.group(0)
+        try:
+            validated = validate_email(candidate, check_deliverability=False)
+        except EmailNotValidError:
+            return None
+        return validated.normalized.casefold()
 
 
 class Position(BaseModel):

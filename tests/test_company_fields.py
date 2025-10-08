@@ -20,3 +20,18 @@ def test_company_additional_fields() -> None:
     assert profile.company.contact_name == "Jane Doe"
     assert profile.company.contact_email == "jane@example.com"
     assert profile.company.contact_phone == "+49 30 1234567"
+
+
+def test_contact_email_noise_is_trimmed() -> None:
+    company = Company(contact_email="  USER@Example.COM   extra text")
+    assert company.contact_email == "user@example.com"
+
+
+def test_contact_email_without_valid_address_is_none() -> None:
+    company = Company(contact_email="call us maybe")
+    assert company.contact_email is None
+
+
+def test_contact_email_with_concatenated_string() -> None:
+    company = Company(contact_email="m.m@rheinbahn.de.0.0...")
+    assert company.contact_email == "m.m@rheinbahn.de"
