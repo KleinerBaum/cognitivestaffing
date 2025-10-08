@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from importlib import import_module
 from pathlib import Path
 import sys
@@ -63,3 +64,65 @@ def test_estimate_uses_city_when_country_missing(monkeypatch) -> None:
     assert estimate["salary_min"] == 60000.0
     assert estimate["salary_max"] == 85000.0
     assert estimate["currency"] == "EUR"
+
+
+def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_build_extraction_tool(*_args: object, **_kwargs: object) -> dict[str, str]:
+        return {"name": "tool"}
+
+    class FakeResult:
+        def __init__(self) -> None:
+            self.tool_calls = [
+                {
+                    "function": {
+                        "name": salary.FUNCTION_NAME,
+                        "arguments": json.dumps(
+                            {
+                                "salary_min": 1,
+                                "salary_max": 2,
+                                "currency": "EUR",
+                            }
+                        ),
+                    }
+                }
+            ]
+            self.content = ""
+
+    def fake_call_chat_api(messages: list[dict[str, object]], **_kwargs: object) -> FakeResult:
+        captured["messages"] = messages
+        return FakeResult()
+
+    monkeypatch.setattr(salary, "build_extraction_tool", fake_build_extraction_tool)
+    monkeypatch.setattr(salary, "call_chat_api", fake_call_chat_api)
+
+    inputs = salary._SalaryInputs(
+        job_title="Product Manager",
+        country="Germany",
+        primary_city="Berlin",
+        hq_location=None,
+        seniority="Senior",
+        work_policy="Hybrid",
+        employment_type="Full-time",
+        company_size="51-200",
+        industry="Tech",
+        current_min=70000.0,
+        current_max=90000.0,
+        current_currency="EUR",
+        required_hard_skills=["Roadmapping"],
+        required_soft_skills=["Communication"],
+    )
+
+    result, explanation = salary._call_salary_model(inputs)
+
+    assert result is not None
+    assert explanation is None
+
+    messages = captured.get("messages")
+    assert isinstance(messages, list) and len(messages) >= 2
+    payload = json.loads(messages[1]["content"])
+
+    assert payload["primary_city"] == "Berlin"
+    assert payload["required_hard_skills"] == ["Roadmapping"]
+    assert payload["required_soft_skills"] == ["Communication"]
