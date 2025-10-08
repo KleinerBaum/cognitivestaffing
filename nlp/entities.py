@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import List
+from typing import Iterable, List
 
 import spacy
 from spacy.language import Language
@@ -69,20 +69,47 @@ def _load_optional_pipeline(model_name: str) -> Language | None:
         return None
 
 
+def _iter_model_candidates(lang_key: str) -> Iterable[str]:
+    """Yield spaCy model names to try for a given language key."""
+
+    if not lang_key or lang_key.startswith("de"):
+        yield _MODEL_NAME
+        return
+
+    # Prefer the English pipeline whenever English has been detected.
+    ordered_optional = _OPTIONAL_MODELS
+    if not lang_key.startswith("en"):
+        # For non-English languages we still attempt multilingual first to
+        # maximise the chance of a match while keeping English as a fallback.
+        ordered_optional = ("xx_ent_wiki_sm", "en_core_web_sm")
+
+    for model_name in ordered_optional:
+        yield model_name
+
+    # Fall back to German as a final attempt to preserve previous behaviour.
+    yield _MODEL_NAME
+
+
+def _normalise_lang_key(lang: str | None) -> str:
+    if not lang:
+        return ""
+    return lang.split("-", 1)[0].casefold()
+
+
 def get_shared_pipeline(lang: str | None = None) -> Language | None:
     """Load a spaCy pipeline suitable for ``lang``."""
 
-    lang_key = (lang or "").casefold()
-    if lang_key.startswith("de") or not lang_key:
-        return _load_de_pipeline()
-    for model_name in _OPTIONAL_MODELS:
+    lang_key = _normalise_lang_key(lang)
+    for model_name in _iter_model_candidates(lang_key):
+        if model_name == _MODEL_NAME:
+            try:
+                return _load_de_pipeline()
+            except RuntimeError:
+                continue
         pipeline = _load_optional_pipeline(model_name)
         if pipeline is not None:
             return pipeline
-    try:
-        return _load_de_pipeline()
-    except RuntimeError:  # pragma: no cover - German model missing entirely
-        return None
+    return None
 
 
 def _normalise_token(value: str) -> str:

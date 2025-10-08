@@ -119,17 +119,27 @@ def test_spacy_fallback_uses_english_pipeline(
         assert value == text
         return _Doc()
 
-    def fake_get_pipeline(lang: str | None = None):
-        assert lang == "en"
-        return fake_pipeline
+    attempted_models: list[str] = []
 
-    monkeypatch.setattr("nlp.entities.get_shared_pipeline", fake_get_pipeline)
+    def fake_optional_loader(model_name: str):
+        attempted_models.append(model_name)
+        if model_name == "en_core_web_sm":
+            return fake_pipeline
+        return None
+
+    def fail_if_german_loaded() -> None:  # pragma: no cover - sanity guard
+        raise AssertionError("German pipeline should not be loaded for English text")
+
+    monkeypatch.setattr("nlp.entities._load_optional_pipeline", fake_optional_loader)
+    monkeypatch.setattr("nlp.entities._load_de_pipeline", fail_if_german_loaded)
 
     profile = apply_basic_fallbacks(
         NeedAnalysisProfile(),
         text,
         metadata={"autodetect_language": "en"},
     )
+
+    assert attempted_models == ["en_core_web_sm"]
     assert profile.location.primary_city == "London"
     assert profile.location.country == "United Kingdom"
 
