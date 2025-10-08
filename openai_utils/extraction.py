@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import textwrap
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
@@ -28,6 +29,32 @@ from utils.i18n import tr
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
+
+_GENDER_MARKER_RE = re.compile(
+    r"(?:\((?:[mwdgfxnai]\s*/\s*){1,4}[mwdgfxnai]\)"
+    r"|\((?:gn\*?|div|x|all genders|alle geschlechter)\)"
+    r"|all genders|alle geschlechter)",
+    re.IGNORECASE,
+)
+
+
+def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = None) -> bool:
+    """Return ``True`` if ``text`` already includes an inclusive gender marker."""
+
+    if not text:
+        return False
+    if _GENDER_MARKER_RE.search(text):
+        return True
+    if not extra_markers:
+        return False
+    lowered = text.casefold()
+    for marker in extra_markers:
+        candidate = (marker or "").strip()
+        if not candidate:
+            continue
+        if candidate.casefold() in lowered:
+            return True
+    return False
 
 tracer = trace.get_tracer(__name__)
 
@@ -1520,6 +1547,46 @@ def _prepare_job_ad_payload(
         raise ValueError("No usable data available for the job ad.")
 
     job_title_value = _compose_field_value("position.job_title") or ""
+    gender_markers: list[str] = []
+
+    if is_de and job_title_value:
+        marker_keys = [
+            "job_ad.gender_inclusive_token",
+            "job_ad.gender_marker",
+            "job_ad.gender_suffix",
+            "position.gender_inclusive_token",
+            "position.gender_marker",
+            "position.gender_suffix",
+            "meta.gender_marker",
+        ]
+
+        seen_markers: set[str] = set()
+        for marker_key in marker_keys:
+            for source in (_value_override(marker_key), _resolve(marker_key)):
+                if not source:
+                    continue
+                if isinstance(source, str):
+                    candidate = source.strip()
+                    if candidate:
+                        lowered = candidate.casefold()
+                        if lowered not in seen_markers:
+                            seen_markers.add(lowered)
+                            gender_markers.append(candidate)
+                elif isinstance(source, Sequence) and not isinstance(source, (str, bytes)):
+                    for item in source:
+                        candidate = str(item).strip()
+                        if not candidate:
+                            continue
+                        lowered = candidate.casefold()
+                        if lowered in seen_markers:
+                            continue
+                        seen_markers.add(lowered)
+                        gender_markers.append(candidate)
+
+        if not _contains_gender_marker(job_title_value, gender_markers):
+            marker_to_use = gender_markers[0] if gender_markers else "(m/w/d)"
+            job_title_value = f"{job_title_value} {marker_to_use}".strip()
+
     company_brand = _compose_field_value("company.brand_name") or ""
     company_name = _compose_field_value("company.name") or ""
     company_display = company_brand or company_name

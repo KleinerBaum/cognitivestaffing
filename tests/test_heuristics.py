@@ -6,6 +6,7 @@ from ingest.heuristics import (
     guess_company,
     guess_job_title,
 )
+from openai_utils.extraction import _prepare_job_ad_payload
 from models.need_analysis import NeedAnalysisProfile
 from utils.json_parse import parse_extraction
 
@@ -21,6 +22,55 @@ def test_guess_job_title_multiline_gender_suffix() -> None:
         guess_job_title(text)
         == "Senior Data Scientist (m/w/d) – RAG, OpenAI & Recruiting Tech"
     )
+
+
+def test_prepare_job_ad_payload_adds_gender_marker_for_german_heading() -> None:
+    session_data = {
+        "lang": "de",
+        "position": {"job_title": "Data Scientist"},
+        "company": {"name": "Example GmbH"},
+    }
+    payload, document = _prepare_job_ad_payload(
+        session_data,
+        ["position.job_title", "company.name"],
+        target_audience="Data Professionals",
+    )
+    assert payload["job_title"] == "Data Scientist (m/w/d)"
+    assert payload["heading"] == "# Data Scientist (m/w/d) bei Example GmbH"
+    assert document.splitlines()[0] == "# Data Scientist (m/w/d) bei Example GmbH"
+
+
+def test_prepare_job_ad_payload_preserves_existing_marker() -> None:
+    session_data = {
+        "lang": "de",
+        "position": {"job_title": "Data Scientist (m/w/d)"},
+        "company": {"name": "Example GmbH"},
+    }
+    payload, document = _prepare_job_ad_payload(
+        session_data,
+        ["position.job_title", "company.name"],
+        target_audience="Data Professionals",
+    )
+    assert payload["job_title"] == "Data Scientist (m/w/d)"
+    assert payload["heading"] == "# Data Scientist (m/w/d) bei Example GmbH"
+    assert document.splitlines()[0] == "# Data Scientist (m/w/d) bei Example GmbH"
+
+
+def test_prepare_job_ad_payload_respects_configured_marker() -> None:
+    session_data = {
+        "lang": "de",
+        "position": {"job_title": "Data Scientist"},
+        "company": {"name": "Example GmbH"},
+        "job_ad": {"gender_marker": "(gn)"},
+    }
+    payload, document = _prepare_job_ad_payload(
+        session_data,
+        ["position.job_title", "company.name"],
+        target_audience="Data Professionals",
+    )
+    assert payload["job_title"] == "Data Scientist (gn)"
+    assert payload["heading"] == "# Data Scientist (gn) bei Example GmbH"
+    assert document.splitlines()[0] == "# Data Scientist (gn) bei Example GmbH"
 
 
 def test_guess_company_brand() -> None:
