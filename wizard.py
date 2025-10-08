@@ -1652,7 +1652,7 @@ def _generate_interview_guide_content(
     """Generate the interview guide and update session state."""
 
     st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
-    st.session_state[UIKeys.AUDIENCE_SELECT] = audience
+    st.session_state.setdefault(UIKeys.AUDIENCE_SELECT, audience)
 
     requirements_data = dict(profile_payload.get("requirements", {}) or {})
     extras = (
