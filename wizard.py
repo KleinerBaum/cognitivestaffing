@@ -37,6 +37,7 @@ from ingest.reader import clean_structured_document
 from ingest.types import StructuredDocument, build_plain_text_document
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
+from utils.url_utils import is_supported_url
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
@@ -736,7 +737,7 @@ def on_url_changed() -> None:
     url = st.session_state.get(UIKeys.PROFILE_URL_INPUT, "").strip()
     if not url:
         return
-    if not re.match(r"^https?://[\w./-]+$", url):
+    if not is_supported_url(url):
         display_error(
             tr(
                 "Ungültige URL – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",

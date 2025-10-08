@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
-import re
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
-_URL_RE = re.compile(r"^https?://[\w./-]+$")
 _HEADERS = {"User-Agent": "CognitiveNeeds/1.0"}
+
+
+def is_supported_url(url: str) -> bool:
+    """Return ``True`` if ``url`` uses HTTP(S) and contains a host component."""
+
+    if not url:
+        return False
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    return bool(parsed.netloc)
 
 
 def extract_text_from_url(url: str) -> str:
@@ -24,7 +34,8 @@ def extract_text_from_url(url: str) -> str:
         ValueError: If the URL is invalid or cannot be retrieved.
     """
 
-    if not url or not _URL_RE.match(url):
+    url = url.strip()
+    if not is_supported_url(url):
         raise ValueError("Invalid URL")
 
     try:
