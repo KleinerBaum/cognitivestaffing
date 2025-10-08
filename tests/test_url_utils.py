@@ -1,6 +1,7 @@
 import pytest
 
 import utils
+from utils.url_utils import is_supported_url
 
 
 def test_extract_text_from_url(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -25,3 +26,28 @@ def test_extract_text_from_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
     text = utils.extract_text_from_url("http://example.com")
     assert "Hello URL" in text
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/path?param=value#section",
+        "http://example.com/über?foo=bar",
+        "https://sub.example.com/%7Euser/index.html",
+    ],
+)
+def test_is_supported_url_accepts_http_variants(url: str) -> None:
+    assert is_supported_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "ftp://example.com/resource",
+        "mailto:test@example.com",
+        "https://",
+        "",
+    ],
+)
+def test_is_supported_url_rejects_invalid_urls(url: str) -> None:
+    assert not is_supported_url(url)

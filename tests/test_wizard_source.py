@@ -106,6 +106,59 @@ def test_on_url_changed_populates_state(monkeypatch: pytest.MonkeyPatch) -> None
     assert st.session_state["__run_extraction__"] is True
 
 
+def test_on_url_changed_accepts_query_and_fragment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """URLs with parameters and fragments should be accepted."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    url = "https://example.com/path?utm_source=test#details"
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = url
+    seen: dict[str, str] = {}
+
+    def fake_extract(u: str) -> StructuredDocument:
+        seen["url"] = u
+        return StructuredDocument(
+            text="url text",
+            blocks=[ContentBlock(type="paragraph", text="url text")],
+        )
+
+    monkeypatch.setattr("wizard.extract_text_from_url", fake_extract)
+
+    on_url_changed()
+
+    assert seen["url"] == url
+    assert st.session_state.get("source_error") in (None, False)
+    assert st.session_state["__run_extraction__"] is True
+
+
+def test_on_url_changed_rejects_invalid_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-HTTP URLs should raise a validation error without fetching."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = "ftp://example.com/file"
+    errors: list[str] = []
+
+    def fake_error(message, *args, **kwargs):  # pragma: no cover - lambda style
+        errors.append(message)
+
+    monkeypatch.setattr("wizard.display_error", fake_error)
+    monkeypatch.setattr(
+        "wizard.extract_text_from_url",
+        lambda _u: (_ for _ in ()).throw(AssertionError("should not fetch")),
+    )
+
+    on_url_changed()
+
+    assert st.session_state.get("source_error") is True
+    assert st.session_state.get("__run_extraction__") is not True
+    assert errors
+
+
 def test_onboarding_transfers_prefill_to_raw_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
