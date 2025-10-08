@@ -50,11 +50,9 @@ def render_sidebar() -> None:
 
     with st.sidebar:
         _render_settings()
-        _render_hero(context.prefilled_sections)
+        _render_hero(context)
         st.divider()
         _render_progress(context)
-        _render_global_tips()
-        _render_snapshot(context.prefilled_sections)
         _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
@@ -122,61 +120,35 @@ def _render_settings() -> None:
     )
 
 
-def _render_hero(prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]) -> None:
-    """Render hero card with quick headline info."""
+def _render_hero(context: SidebarContext) -> None:
+    """Render extracted data grouped by wizard step."""
 
-    highlighted_paths = (
-        "company.name",
-        "position.job_title",
-        "location.primary_city",
-        "location.country",
-    )
-    preview_values: dict[str, str] = {}
-    for _, entries in prefilled_sections:
-        for path, value in entries:
-            if path not in highlighted_paths:
-                continue
-            text_value = preview_value_to_text(value)
-            if text_value and path not in preview_values:
-                preview_values[path] = text_value
+    st.markdown(f"### 🗂️ {tr('Schnellüberblick', 'Quick snapshot')}")
 
-    hero_title = tr("Dein Recruiting-Co-Pilot", "Your recruiting co-pilot")
-    hero_fallback_subtitle = tr(
-        "Verwalte den Prozess Schritt für Schritt – alle Angaben bleiben erhalten.",
-        "Manage the process step by step – your inputs stay safe.",
-    )
-    hero_lines: list[str] = []
-    for path in ("company.name", "position.job_title"):
-        text_value = preview_values.get(path)
-        if text_value:
-            hero_lines.append(html.escape(text_value))
+    step_order, step_entries = _build_initial_extraction_entries(context)
+    if not any(step_entries.values()):
+        st.caption(
+            tr(
+                "Sobald du Daten importierst, erscheinen hier die wichtigsten Ergebnisse.",
+                "As soon as you import data the top findings will appear here.",
+            )
+        )
+        return
 
-    location_parts = [
-        preview_values.get("location.primary_city"),
-        preview_values.get("location.country"),
-    ]
-    location_text = ", ".join(part for part in location_parts if part)
-    if location_text:
-        hero_lines.append(html.escape(location_text))
-
-    hero_subtitle_html = (
-        "<br/>".join(hero_lines) if hero_lines else html.escape(hero_fallback_subtitle)
-    )
-    status_label = tr("Wizard-Status", "Wizard status")
-
-    st.markdown(
-        f"""
-        <div class="sidebar-hero">
-          <div class="sidebar-hero__icon">🧭</div>
-          <div>
-            <p class="sidebar-hero__eyebrow">{status_label}</p>
-            <h2 class="sidebar-hero__title">{hero_title}</h2>
-            <p class="sidebar-hero__subtitle">{hero_subtitle_html}</p>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    step_labels = {key: label for key, label in STEP_LABELS}
+    for idx, step_key in enumerate(step_order):
+        entries = step_entries.get(step_key, [])
+        if not entries:
+            continue
+        label = step_labels.get(step_key, step_key.title())
+        with st.expander(label, expanded=idx == 0):
+            for field_label, value in entries:
+                safe_label = html.escape(field_label)
+                safe_value = html.escape(value)
+                st.markdown(
+                    f"- **{safe_label}**: {safe_value}",
+                    unsafe_allow_html=True,
+                )
 
 
 def _render_progress(context: SidebarContext) -> None:
@@ -239,28 +211,6 @@ def _status_note(idx: int, missing_by_section: Mapping[int, list[str]]) -> str:
     count = len(missing)
     label = tr("fehlend", "missing")
     return f"<span class='sidebar-step__note'>{count} {label}</span>"
-
-
-def _render_global_tips() -> None:
-    """Show evergreen usage tips."""
-
-    st.markdown(f"### 💡 {tr('Tipps', 'Tips')}")
-    st.markdown(
-        tr(
-            "- Folge dem Wizard Schritt für Schritt – deine Eingaben bleiben erhalten.\n"
-            "- KI-Ergebnisse findest du gesammelt in der Summary.",
-            "- Work through the wizard step by step – your inputs remain persistent.\n"
-            "- All AI-generated results are available on the summary step.",
-        )
-    )
-
-
-def _render_snapshot(
-    _prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]
-) -> None:
-    """Render quick snapshot header without additional content."""
-
-    st.markdown(f"### 🗂️ {tr('Schnellüberblick', 'Quick snapshot')}")
 
 
 def _render_step_context(context: SidebarContext) -> None:
