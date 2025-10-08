@@ -27,6 +27,7 @@ from urllib.parse import urljoin, urlparse
 
 import re
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 
 from utils.i18n import tr
 from constants.keys import UIKeys, StateKeys
@@ -3431,12 +3432,17 @@ def _step_requirements():
         title: str,
         caption: str,
         tooltip: str,
+        parent: DeltaGenerator | None = None,
     ):
-        st.markdown(
+        if parent is not None:
+            panel_container = parent.container()
+        else:
+            panel_container = st.container()
+        panel_container.markdown(
             f"<div class='requirement-panel' title='{html.escape(tooltip)}'>",
             unsafe_allow_html=True,
         )
-        st.markdown(
+        panel_container.markdown(
             (
                 "<div class='requirement-panel__header'>"
                 f"<span class='requirement-panel__icon'>{icon}</span>"
@@ -3446,10 +3452,12 @@ def _step_requirements():
             ),
             unsafe_allow_html=True,
         )
+        body = panel_container.container()
         try:
-            yield
+            with body:
+                yield
         finally:
-            st.markdown("</div>", unsafe_allow_html=True)
+            panel_container.markdown("</div>", unsafe_allow_html=True)
 
     def _render_ai_suggestions(
         *,
@@ -3570,6 +3578,14 @@ def _step_requirements():
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
+    must_tab, nice_tab, language_tab = st.tabs(
+        [
+            tr("Muss-Anforderungen", "Must-have"),
+            tr("Nice-to-have", "Nice-to-have"),
+            tr("Sprachen & Boolean", "Languages & Boolean"),
+        ]
+    )
+
     with requirement_panel(
         icon="🔒",
         title=tr("Muss-Anforderungen", "Must-have requirements"),
@@ -3581,6 +3597,7 @@ def _step_requirements():
             "Alle Angaben in diesem Block sind zwingend für das Matching.",
             "Everything in this block is required for candidate matching.",
         ),
+        parent=must_tab,
     ):
         must_cols = st.columns(2, gap="large")
         label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
@@ -3650,6 +3667,7 @@ def _step_requirements():
             "Diese Angaben sind nicht zwingend, helfen aber bei der Priorisierung.",
             "Not mandatory, but helpful for prioritisation.",
         ),
+        parent=nice_tab,
     ):
         nice_cols = st.columns(2, gap="large")
         with nice_cols[0]:
@@ -3704,6 +3722,7 @@ def _step_requirements():
             "Liste die wichtigsten Werkzeuge sowie verbindliche Zertifikate auf.",
             "List the essential tools together with required certificates.",
         ),
+        parent=must_tab,
     ):
         tech_cert_cols = st.columns(2, gap="large")
         with tech_cert_cols[0]:
@@ -3760,6 +3779,7 @@ def _step_requirements():
             "Definiere, welche Sprachen verbindlich oder optional sind.",
             "Define which languages are mandatory or optional.",
         ),
+        parent=language_tab,
     ):
         lang_cols = st.columns(2, gap="large")
         with lang_cols[0]:
