@@ -1937,23 +1937,14 @@ def _render_boolean_download_button(
     )
 
 
-def render_boolean_builder(profile: NeedAnalysisProfile) -> None:
-    """Render the interactive Boolean builder based on the profile."""
-
-    default_boolean_query = build_boolean_search(profile)
-    profile_signature = _boolean_profile_signature(profile)
-    stored_signature = st.session_state.get(BOOLEAN_PROFILE_SIGNATURE)
-    if stored_signature != profile_signature:
-        for widget_key in list(st.session_state.get(BOOLEAN_WIDGET_KEYS, [])):
-            st.session_state.pop(widget_key, None)
-        st.session_state[BOOLEAN_WIDGET_KEYS] = []
-        st.session_state[BOOLEAN_PROFILE_SIGNATURE] = profile_signature
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
-    elif StateKeys.BOOLEAN_STR not in st.session_state:
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
-
-    boolean_skill_terms = _boolean_skill_terms(profile)
-    boolean_title_synonyms = _boolean_title_synonyms(profile)
+def _render_boolean_interactive_section(
+    profile: NeedAnalysisProfile,
+    *,
+    boolean_skill_terms: Sequence[str],
+    boolean_title_synonyms: Sequence[str],
+    download_key: str = "download_boolean",
+) -> None:
+    """Render the interactive Boolean UI shared across views."""
 
     st.markdown(tr("#### Boolean-Suche", "#### Boolean search"))
     st.caption(
@@ -2038,9 +2029,35 @@ def render_boolean_builder(profile: NeedAnalysisProfile) -> None:
     _render_boolean_download_button(
         boolean_query=boolean_query,
         job_title_value=job_title_value,
+        key=download_key,
     )
 
     st.session_state[BOOLEAN_WIDGET_KEYS] = sorted(set(registry_keys))
+
+
+def render_boolean_builder(profile: NeedAnalysisProfile) -> None:
+    """Render the interactive Boolean builder based on the profile."""
+
+    default_boolean_query = build_boolean_search(profile)
+    profile_signature = _boolean_profile_signature(profile)
+    stored_signature = st.session_state.get(BOOLEAN_PROFILE_SIGNATURE)
+    if stored_signature != profile_signature:
+        for widget_key in list(st.session_state.get(BOOLEAN_WIDGET_KEYS, [])):
+            st.session_state.pop(widget_key, None)
+        st.session_state[BOOLEAN_WIDGET_KEYS] = []
+        st.session_state[BOOLEAN_PROFILE_SIGNATURE] = profile_signature
+        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
+    elif StateKeys.BOOLEAN_STR not in st.session_state:
+        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
+
+    boolean_skill_terms = _boolean_skill_terms(profile)
+    boolean_title_synonyms = _boolean_title_synonyms(profile)
+
+    _render_boolean_interactive_section(
+        profile,
+        boolean_skill_terms=boolean_skill_terms,
+        boolean_title_synonyms=boolean_title_synonyms,
+    )
 
 
 def flatten(d: dict, prefix: str = "") -> dict:
@@ -4649,6 +4666,9 @@ def _step_summary(schema: dict, _critical: list[str]):
     elif StateKeys.BOOLEAN_STR not in st.session_state:
         st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
 
+    boolean_skill_terms = _boolean_skill_terms(profile)
+    boolean_title_synonyms = _boolean_title_synonyms(profile)
+
     boolean_query = st.session_state.get(StateKeys.BOOLEAN_STR, "")
     st.markdown(tr("#### Boolean-Suche", "#### Boolean search"))
     st.caption(
@@ -5145,103 +5165,11 @@ def _step_summary(schema: dict, _critical: list[str]):
             )
 
     with boolean_col:
-        st.markdown(tr("#### Boolean-Suche", "#### Boolean search"))
-        st.caption(
-            tr(
-                "Stellen Sie den Suchstring aus Jobtitel, Synonymen und Skills zusammen.",
-                "Assemble the search string from the job title, synonyms, and skills.",
-            )
+        _render_boolean_interactive_section(
+            profile,
+            boolean_skill_terms=boolean_skill_terms,
+            boolean_title_synonyms=boolean_title_synonyms,
         )
-
-        registry_keys: list[str] = []
-        job_title_value = (profile.position.job_title or "").strip()
-        synonyms = list(boolean_title_synonyms)
-        include_title_default = bool(job_title_value or synonyms)
-        include_title = False
-        title_key = ""
-        if include_title_default:
-            key_basis = job_title_value or "|".join(synonyms) or "title"
-            title_key = _boolean_widget_key("boolean.title", key_basis)
-            include_title = st.checkbox(
-                tr("Jobtitel einbeziehen", "Include job title"),
-                value=st.session_state.get(title_key, True),
-                key=title_key,
-            )
-            registry_keys.append(title_key)
-
-            if job_title_value:
-                st.caption(f'"{job_title_value}"')
-        selected_synonyms: list[str] = []
-        if synonyms:
-            with st.expander(tr("Titel-Synonyme", "Title synonyms"), expanded=True):
-                for synonym in synonyms:
-                    syn_key = _boolean_widget_key("boolean.synonym", synonym)
-                    checked = st.checkbox(
-                        f'"{synonym}"',
-                        value=st.session_state.get(syn_key, True),
-                        key=syn_key,
-                        disabled=not include_title,
-                    )
-                    if include_title and checked:
-                        selected_synonyms.append(synonym)
-                    registry_keys.append(syn_key)
-
-        selected_skills: list[str] = []
-        if boolean_skill_terms:
-            with st.expander(
-                tr("Skills & Keywords", "Skills & keywords"), expanded=True
-            ):
-                for skill in boolean_skill_terms:
-                    skill_key = _boolean_widget_key("boolean.skill", skill)
-                    checked = st.checkbox(
-                        skill,
-                        value=st.session_state.get(skill_key, True),
-                        key=skill_key,
-                    )
-                    if checked:
-                        selected_skills.append(skill)
-                    registry_keys.append(skill_key)
-        else:
-            st.caption(tr("Noch keine Skills erfasst.", "No skills captured yet."))
-
-        include_title_clause = include_title and bool(job_title_value or selected_synonyms)
-        boolean_query = ""
-        if include_title_clause or selected_skills:
-            boolean_query = build_boolean_query(
-                job_title_value,
-                selected_skills,
-                include_title=include_title_clause,
-                title_synonyms=selected_synonyms if selected_synonyms else None,
-            )
-        st.session_state[StateKeys.BOOLEAN_STR] = boolean_query
-
-        if boolean_query:
-            st.code(boolean_query, language=None)
-        else:
-            st.info(
-                tr(
-                    "Bitte mindestens einen Begriff auswählen, um die Suche zu erzeugen.",
-                    "Select at least one term to build the search.",
-                )
-            )
-
-        download_label = tr(
-            "⬇️ Boolean-String herunterladen",
-            "⬇️ Download Boolean string",
-        )
-        safe_title = job_title_value or "boolean-search"
-        safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", safe_title).strip("-")
-        safe_stem = safe_stem or "boolean-search"
-        st.download_button(
-            download_label,
-            boolean_query or "",
-            file_name=f"{safe_stem}.txt",
-            mime="text/plain",
-            key="download_boolean",
-            disabled=not bool(boolean_query),
-        )
-
-        st.session_state[BOOLEAN_WIDGET_KEYS] = sorted(set(registry_keys))
 
     manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
 
