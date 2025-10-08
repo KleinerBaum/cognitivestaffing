@@ -652,7 +652,8 @@
                             "participants",
                             "docs_required",
                             "assessment_tests",
-                            "timeframe"
+                            "timeframe",
+                            "task_assignments"
                         ]
                     }
                 },
