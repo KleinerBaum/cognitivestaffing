@@ -12,9 +12,9 @@ def test_build_messages_include_title_company_and_url():
     )
     assert msgs[0]["content"] == SYSTEM_JSON_EXTRACTOR
     user = msgs[1]["content"]
-    assert "Engineer" in user
-    assert "Acme Corp" in user
-    assert "http://x" in user
+    assert "Title: Engineer" in user
+    assert "Company: Acme Corp" in user
+    assert "Url: http://x" in user
 
 
 def test_build_messages_truncates_text():
