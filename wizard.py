@@ -67,7 +67,11 @@ from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.normalization import normalize_country, normalize_language_list
 from utils.export import prepare_clean_json, prepare_download_data
 from nlp.bias import scan_bias_language
-from core.esco_utils import normalize_skills
+from core.esco_utils import (
+    classify_occupation,
+    get_essential_skills,
+    normalize_skills,
+)
 from core.job_ad import (
     JOB_AD_FIELDS,
     JOB_AD_GROUP_LABELS,
@@ -889,9 +893,29 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
 
     profile = coerce_and_fill(extracted_data)
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
-    raw_profile = profile.model_dump()
-    st.session_state[StateKeys.PROFILE] = raw_profile
-    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
+    lang = getattr(st.session_state, "lang", "en") or "en"
+    occupation_meta: dict[str, str] | None = None
+    essential_skills: list[str] = []
+    job_title_value = (profile.position.job_title or "").strip()
+    if job_title_value:
+        occupation_meta = classify_occupation(job_title_value, lang=lang)
+        if occupation_meta:
+            label = str(occupation_meta.get("preferredLabel") or "").strip()
+            uri = str(occupation_meta.get("uri") or "").strip()
+            group = str(occupation_meta.get("group") or "").strip()
+            profile.position.occupation_label = label or profile.position.job_title
+            profile.position.occupation_uri = uri or None
+            profile.position.occupation_group = group or None
+            essential_skills = get_essential_skills(uri, lang=lang)
+            st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [occupation_meta]
+        else:
+            st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+    else:
+        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+
+    data = profile.model_dump()
+    st.session_state[StateKeys.PROFILE] = data
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data
     summary: dict[str, str] = {}
     if profile.position.job_title:
         summary[tr("Jobtitel", "Job title")] = profile.position.job_title
@@ -921,18 +945,13 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
     st.session_state[StateKeys.SKILL_BUCKETS] = {
         "must": _unique_normalized(
-            raw_profile.get("requirements", {}).get("hard_skills_required", [])
+            data.get("requirements", {}).get("hard_skills_required", [])
         ),
         "nice": _unique_normalized(
-            raw_profile.get("requirements", {}).get("hard_skills_optional", [])
+            data.get("requirements", {}).get("hard_skills_optional", [])
         ),
     }
-    st.session_state[StateKeys.ESCO_SKILLS] = []
-    profile.position.occupation_label = ""
-    profile.position.occupation_uri = ""
-    profile.position.occupation_group = ""
-    data = profile.model_dump()
-    st.session_state[StateKeys.PROFILE] = data
+    st.session_state[StateKeys.ESCO_SKILLS] = essential_skills
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
     for field in CRITICAL_FIELDS:
