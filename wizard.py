@@ -904,13 +904,27 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             label = str(occupation_meta.get("preferredLabel") or "").strip()
             uri = str(occupation_meta.get("uri") or "").strip()
             group = str(occupation_meta.get("group") or "").strip()
-            profile.position.occupation_label = label or profile.position.job_title
+
+            normalized_meta = dict(occupation_meta)
+            if label:
+                normalized_meta["preferredLabel"] = label
+            if uri:
+                normalized_meta["uri"] = uri
+            if group:
+                normalized_meta["group"] = group
+            occupation_meta = normalized_meta
+
+            if label:
+                profile.position.occupation_label = label
             profile.position.occupation_uri = uri or None
             profile.position.occupation_group = group or None
-            essential_skills = get_essential_skills(uri, lang=lang)
-            st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [occupation_meta]
-        else:
-            st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+
+            essential_skills = (
+                get_essential_skills(uri, lang=lang) if uri else []
+            )
+
+    if occupation_meta:
+        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [occupation_meta]
     else:
         st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
 
