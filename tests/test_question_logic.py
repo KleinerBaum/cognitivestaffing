@@ -58,6 +58,39 @@ def test_role_specific_questions_from_esco_state(monkeypatch) -> None:
     assert "Python" in tech_question["suggestions"]
 
 
+def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
+    """Missing ESCO skills should trigger a critical follow-up even with data."""
+
+    monkeypatch.setattr(
+        "question_logic.CRITICAL_FIELDS",
+        {"requirements.hard_skills_required"},
+    )
+    st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [
+        {
+            "preferredLabel": "Software developers",
+            "group": "Information and communications technology professionals",
+            "uri": "offline://ict",
+        }
+    ]
+    st.session_state[StateKeys.ESCO_SKILLS] = ["Python", "Data analysis"]
+
+    profile = {
+        "position": {"job_title": "Data Analyst"},
+        "requirements": {"hard_skills_required": ["Python"]},
+    }
+
+    out = generate_followup_questions(profile, use_rag=False)
+    hard_skill_question = next(
+        q
+        for q in out
+        if q["field"] == "requirements.hard_skills_required"
+    )
+
+    assert hard_skill_question["priority"] == "critical"
+    assert hard_skill_question["suggestions"] == ["Data analysis"]
+    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == ["Data analysis"]
+
+
 def test_yes_no_default(monkeypatch) -> None:
     """Yes/no fields default to 'No' when treated as missing."""
     monkeypatch.setattr(
