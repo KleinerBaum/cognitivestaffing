@@ -2,7 +2,7 @@ import io
 import inspect
 import logging
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -109,7 +109,7 @@ def extract_text_from_url(url: str) -> StructuredDocument:
         ValueError: If no text could be extracted.
     """
     html = _fetch_url(url)
-    blocks = _parse_html_blocks(html)
+    blocks = _parse_html_blocks(html, source_url=url)
     text = ""
     if blocks:
         text = StructuredDocument.from_blocks(blocks, source=url).text
@@ -373,14 +373,57 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
     return StructuredDocument.from_blocks(blocks, source=name)
 
 
-def _parse_html_blocks(html: str) -> list[ContentBlock]:
+_DOMAIN_SELECTORS: dict[str, tuple[str, ...]] = {
+    "stepstone": (
+        "[data-at='job-ad-container']",
+        "section[data-at='job-ad-section']",
+        "#main-content",
+    ),
+    "greenhouse": (
+        "main#main",
+        "#content",
+        "div[data-for='job-description']",
+    ),
+}
+
+_BOILERPLATE_TAGS = {"header", "footer", "nav", "aside"}
+
+
+def _parse_html_blocks(html: str, *, source_url: str | None = None) -> list[ContentBlock]:
     from bs4 import BeautifulSoup
     from bs4.element import Tag
 
     soup = BeautifulSoup(html, "lxml")
     for tag in soup(["script", "style", "noscript", "template"]):
         tag.decompose()
-    body = soup.body or soup
+    body: Tag | None = None
+    domain = None
+    if source_url:
+        netloc = urlparse(source_url).netloc.lower()
+        domain = next((name for name in _DOMAIN_SELECTORS if name in netloc), None)
+        if domain:
+            selectors = _DOMAIN_SELECTORS[domain]
+            for selector in selectors:
+                candidate = soup.select_one(selector)
+                if isinstance(candidate, Tag):
+                    body = candidate
+                    break
+    if body is None:
+        body = soup.find("main") or soup.find("article") or soup.body or soup
+    main_like = None
+    if body.name not in {"main", "article"}:
+        main_like = body.find(["main", "article"])
+    if isinstance(main_like, Tag):
+        body = main_like
+    boilerplate_classes = {"site-header", "global-header", "global-footer"}
+    for child in list(body.children):
+        if not isinstance(child, Tag):
+            continue
+        classes = child.get("class") or []
+        if child.name in _BOILERPLATE_TAGS or any(
+            cls in boilerplate_classes for cls in classes
+        ):
+            child.decompose()
     blocks: list[ContentBlock] = []
     position = 0
     for element in body.find_all(
