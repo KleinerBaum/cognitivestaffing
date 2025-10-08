@@ -723,6 +723,8 @@ def apply_basic_fallbacks(
 
     metadata = metadata or {}
     autodetect_lang = metadata.get("autodetect_language")
+    if not isinstance(autodetect_lang, str):
+        autodetect_lang = metadata.get("_autodetect_language")
     language_hint = autodetect_lang if isinstance(autodetect_lang, str) else None
     invalid_fields = {
         field for field in metadata.get("invalid_fields", []) if isinstance(field, str)
