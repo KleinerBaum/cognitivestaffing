@@ -854,6 +854,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             normalized = str(value).strip()
         return normalized or None
 
+    existing_profile = st.session_state.get(StateKeys.PROFILE, {})
+
     def _locked_hint(field: str) -> str | None:
         locked_fields = set(metadata.get("locked_fields") or [])
         if field not in locked_fields:
@@ -865,7 +867,6 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         match = rule_matches.get(field)
         if match and match.value is not None:
             return _normalize_hint(match.value)
-        existing_profile = st.session_state.get(StateKeys.PROFILE, {})
         return _normalize_hint(get_in(existing_profile, field, None))
 
     title_hint = _locked_hint("position.job_title")

@@ -1,8 +1,10 @@
 """Tests for the OpenAI LLM client helper."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
+import streamlit as st
 
 from openai_utils import ChatCallResult
 
@@ -66,6 +68,59 @@ def test_extract_json_minimal_prompt(monkeypatch):
     out = client.extract_json("text", minimal=True)
     assert "Return JSON only" in captured["messages"][0]["content"]
     assert json.loads(out)["company"]
+
+
+def test_extract_json_forwards_context(monkeypatch):
+    """Providing hints should be forwarded into the prompt builder."""
+
+    st.session_state.clear()
+    captured: dict[str, str | list[dict[str, str]]] = {}
+
+    def _fake_build(
+        text: str,
+        *,
+        title: str | None = None,
+        company: str | None = None,
+        url: str | None = None,
+    ) -> list[dict[str, str]]:
+        captured["text"] = text
+        captured["title"] = title or ""
+        captured["company"] = company or ""
+        captured["url"] = url or ""
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "user"},
+        ]
+        captured["messages"] = messages
+        return messages
+
+    monkeypatch.setattr(client, "build_extract_messages", _fake_build)
+    monkeypatch.setattr(
+        client,
+        "_STRUCTURED_EXTRACTION_CHAIN",
+        SimpleNamespace(
+            invoke=lambda payload: NeedAnalysisProfile().model_dump_json(),
+        ),
+    )
+    monkeypatch.setattr(
+        client,
+        "call_chat_api",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("fallback not expected")),
+    )
+
+    out = client.extract_json(
+        "Job text",
+        title="Locked Engineer",
+        company="Locked Corp",
+        url="https://example.com/job",
+    )
+
+    assert json.loads(out)
+    assert captured["text"] == "Job text"
+    assert captured["title"] == "Locked Engineer"
+    assert captured["company"] == "Locked Corp"
+    assert captured["url"] == "https://example.com/job"
+    assert captured["messages"][0]["content"] == "sys"
 
 
 def test_assert_closed_schema_raises() -> None:
