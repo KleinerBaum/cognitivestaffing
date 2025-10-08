@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- chore: add regeneration utility for need analysis schema to keep Phase fields in sync
 - feat: replace sidebar hero copy with collapsible extraction overview and remove tips section
 - feat: externalize salary benchmark catalog with canonical role normalization and German aliases
 - feat: generate interview guide via LLM JSON schema with evaluation notes and structured fallback
