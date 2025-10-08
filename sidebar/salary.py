@@ -65,6 +65,8 @@ class _SalaryInputs:
     current_min: float | None
     current_max: float | None
     current_currency: str | None
+    required_hard_skills: list[str]
+    required_soft_skills: list[str]
 
 
 def estimate_salary_expectation() -> None:
@@ -123,6 +125,9 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
     compensation = (
         profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
     )
+    requirements = (
+        profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
+    )
 
     def _as_float(value: Any) -> float | None:
         try:
@@ -131,6 +136,18 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    def _as_str_list(value: Any) -> list[str]:
+        if isinstance(value, (list, tuple, set)):
+            result: list[str] = []
+            for item in value:
+                if item is None:
+                    continue
+                text = str(item).strip()
+                if text:
+                    result.append(text)
+            return result
+        return []
 
     country_raw = str(location.get("country") or "").strip()
     primary_city = str(location.get("primary_city") or "").strip() or None
@@ -150,6 +167,8 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
         current_min=_as_float(compensation.get("salary_min")),
         current_max=_as_float(compensation.get("salary_max")),
         current_currency=str(compensation.get("currency") or "").strip() or None,
+        required_hard_skills=_as_str_list(requirements.get("hard_skills_required")),
+        required_soft_skills=_as_str_list(requirements.get("soft_skills_required")),
     )
 
 
@@ -267,6 +286,7 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
     payload = {
         "job_title": inputs.job_title,
         "country": inputs.country,
+        "primary_city": inputs.primary_city,
         "seniority": inputs.seniority,
         "work_policy": inputs.work_policy,
         "employment_type": inputs.employment_type,
@@ -275,10 +295,13 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
         "current_salary_min": inputs.current_min,
         "current_salary_max": inputs.current_max,
         "current_currency": inputs.current_currency,
+        "required_hard_skills": inputs.required_hard_skills,
+        "required_soft_skills": inputs.required_soft_skills,
     }
     system_prompt = (
         "You are a compensation analyst. Estimate an annual salary range in the "
-        "local currency based on the provided job context. Respond by calling the "
+        "local currency based on the provided job context, considering any city "
+        "hints and required skills. Respond by calling the "
         f"function {FUNCTION_NAME}. Prefer realistic mid-market values and align "
         "with the seniority and work policy if given."
     )
