@@ -292,3 +292,52 @@ def test_extract_and_summarize_records_rag_metadata(
     assert rag_meta["fields"] == {}
     assert rag_meta["global_context"] == []
     assert rag_meta["answers"] == {}
+
+
+def test_extract_and_summarize_passes_locked_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rule-locked fields and document source should be forwarded as hints."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {
+        "rules": {
+            "position.job_title": {"value": "Locked Engineer"},
+            "company.name": {"value": "Locked Corp"},
+        },
+        "locked_fields": ["position.job_title", "company.name"],
+        "high_confidence_fields": ["position.job_title", "company.name"],
+    }
+    st.session_state["__prefill_profile_doc__"] = StructuredDocument(
+        text="Job text",
+        blocks=[],
+        source="https://example.com/job",
+    )
+
+    captured: dict[str, str | None] = {}
+
+    def fake_extract_json(
+        text: str,
+        *,
+        title: str | None = None,
+        company: str | None = None,
+        url: str | None = None,
+        minimal: bool = False,
+    ) -> str:
+        captured["title"] = title
+        captured["company"] = company
+        captured["url"] = url
+        return json.dumps({"position": {"job_title": "Engineer"}})
+
+    monkeypatch.setattr("wizard.extract_json", fake_extract_json)
+    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+
+    _extract_and_summarize("Job text", {})
+
+    assert captured["title"] == "Locked Engineer"
+    assert captured["company"] == "Locked Corp"
+    assert captured["url"] == "https://example.com/job"
