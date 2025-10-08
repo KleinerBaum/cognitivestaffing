@@ -1,11 +1,7 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "NeedAnalysisProfile",
-    "type": "object",
     "additionalProperties": false,
     "properties": {
         "company": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "name": {
@@ -82,6 +78,7 @@
                     ]
                 }
             },
+            "type": "object",
             "required": [
                 "name",
                 "brand_name",
@@ -98,7 +95,6 @@
             ]
         },
         "position": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "job_title": {
@@ -186,6 +182,7 @@
                     ]
                 }
             },
+            "type": "object",
             "required": [
                 "job_title",
                 "seniority_level",
@@ -204,7 +201,6 @@
             ]
         },
         "location": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "primary_city": {
@@ -226,6 +222,7 @@
                     ]
                 }
             },
+            "type": "object",
             "required": [
                 "primary_city",
                 "country",
@@ -233,77 +230,76 @@
             ]
         },
         "responsibilities": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "items": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 }
             },
+            "type": "object",
             "required": [
                 "items"
             ]
         },
         "requirements": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "hard_skills_required": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "hard_skills_optional": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "soft_skills_required": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "soft_skills_optional": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "tools_and_technologies": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "languages_required": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "languages_optional": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "certificates": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "certifications": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "language_level_english": {
                     "type": [
@@ -312,6 +308,7 @@
                     ]
                 }
             },
+            "type": "object",
             "required": [
                 "hard_skills_required",
                 "hard_skills_optional",
@@ -326,7 +323,6 @@
             ]
         },
         "employment": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "job_type": {
@@ -384,18 +380,16 @@
                     ]
                 },
                 "travel_regions": {
-                    "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "default": []
+                    "type": "array"
                 },
                 "travel_continents": {
-                    "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "default": []
+                    "type": "array"
                 },
                 "travel_details": {
                     "type": [
@@ -440,6 +434,7 @@
                     ]
                 }
             },
+            "type": "object",
             "required": [
                 "job_type",
                 "work_policy",
@@ -462,15 +457,10 @@
             ]
         },
         "compensation": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "salary_provided": {
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
-                    "default": false
+                    "type": "boolean"
                 },
                 "salary_min": {
                     "type": [
@@ -521,12 +511,13 @@
                     ]
                 },
                 "benefits": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 }
             },
+            "type": "object",
             "required": [
                 "salary_provided",
                 "salary_min",
@@ -541,7 +532,6 @@
             ]
         },
         "process": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "interview_stages": {
@@ -551,22 +541,14 @@
                     ]
                 },
                 "stakeholders": {
-                    "type": "array",
                     "items": {
-                        "type": "object",
                         "additionalProperties": false,
                         "properties": {
                             "name": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
+                                "type": "string"
                             },
                             "role": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
+                                "type": "string"
                             },
                             "email": {
                                 "type": [
@@ -576,16 +558,13 @@
                                 "format": "email"
                             },
                             "primary": {
-                                "type": [
-                                    "boolean",
-                                    "null"
-                                ]
+                                "type": "boolean"
                             },
                             "information_loop_phases": {
-                                "type": "array",
                                 "items": {
                                     "type": "integer"
-                                }
+                                },
+                                "type": "array"
                             }
                         },
                         "required": [
@@ -594,20 +573,17 @@
                             "email",
                             "primary",
                             "information_loop_phases"
-                        ]
-                    }
+                        ],
+                        "type": "object"
+                    },
+                    "type": "array"
                 },
                 "phases": {
-                    "type": "array",
                     "items": {
-                        "type": "object",
                         "additionalProperties": false,
                         "properties": {
                             "name": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
+                                "type": "string"
                             },
                             "interview_format": {
                                 "type": [
@@ -616,10 +592,10 @@
                                 ]
                             },
                             "participants": {
-                                "type": "array",
                                 "items": {
                                     "type": "string"
-                                }
+                                },
+                                "type": "array"
                             },
                             "docs_required": {
                                 "type": [
@@ -654,8 +630,10 @@
                             "assessment_tests",
                             "timeframe",
                             "task_assignments"
-                        ]
-                    }
+                        ],
+                        "type": "object"
+                    },
+                    "type": "array"
                 },
                 "recruitment_timeline": {
                     "type": [
@@ -682,6 +660,7 @@
                     ]
                 }
             },
+            "type": "object",
             "required": [
                 "interview_stages",
                 "stakeholders",
@@ -693,7 +672,6 @@
             ]
         },
         "meta": {
-            "type": "object",
             "additionalProperties": false,
             "properties": {
                 "target_start_date": {
@@ -709,12 +687,13 @@
                     ]
                 },
                 "followups_answered": {
-                    "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 }
             },
+            "type": "object",
             "required": [
                 "target_start_date",
                 "application_deadline",
@@ -722,6 +701,7 @@
             ]
         }
     },
+    "type": "object",
     "required": [
         "company",
         "position",
@@ -732,5 +712,7 @@
         "compensation",
         "process",
         "meta"
-    ]
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "NeedAnalysisProfile"
 }

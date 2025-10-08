@@ -288,6 +288,14 @@ existing drafts remain intact.
 
 ## Development Notes
 
+### Schema regeneration
+
+The persisted need analysis schema is derived from the Pydantic models in
+`models/need_analysis.py`. Run `python -m cli.generate_schema` after updating the
+models to refresh `schema/need_analysis.schema.json` with the normalised output.
+This keeps all nested `required` arrays (including `process.phases.task_assignments`)
+aligned with the model definitions for Responses API validation.
+
 ### Migration to the Responses API
 
 The project was refactored from the deprecated Chat Completions endpoint to
