@@ -92,3 +92,57 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
     ]
     assert StateKeys.EXTRACTION_RAW_PROFILE in st.session_state
     assert StateKeys.SKILL_BUCKETS in st.session_state
+
+
+def test_extract_and_summarize_auto_reask_with_no_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ask_followups should be skipped when no fields are missing."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = True
+    st.session_state.vector_store_id = ""
+    st.session_state["auto_reask_round"] = 3
+    st.session_state["auto_reask_total"] = 3
+    st.session_state[StateKeys.FOLLOWUPS] = [
+        {"field": "company.name", "question": "?", "priority": "critical"}
+    ]
+
+    def fake_extract(
+        text: str,
+        title: str | None = None,
+        company: str | None = None,
+        url: str | None = None,
+        **_: Any,
+    ) -> str:
+        return json.dumps({"meta": {"followups_answered": []}})
+
+    def fake_coerce(data: dict) -> NeedAnalysisProfile:
+        return NeedAnalysisProfile.model_validate(data)
+
+    monkeypatch.setattr("wizard.extract_json", fake_extract)
+    monkeypatch.setattr("wizard.coerce_and_fill", fake_coerce)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, t, **_: p)
+    monkeypatch.setattr("wizard.CRITICAL_FIELDS", [])
+    monkeypatch.setattr(
+        "wizard.ask_followups", lambda *_, **__: pytest.fail("ask_followups called")
+    )
+
+    class _DummySpinner:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    monkeypatch.setattr(st, "spinner", lambda *a, **k: _DummySpinner())
+
+    _extract_and_summarize("text", {})
+
+    assert "auto_reask_round" in st.session_state
+    assert st.session_state["auto_reask_round"] == 0
+    assert "auto_reask_total" in st.session_state
+    assert st.session_state["auto_reask_total"] == 0
+    assert StateKeys.FOLLOWUPS not in st.session_state
