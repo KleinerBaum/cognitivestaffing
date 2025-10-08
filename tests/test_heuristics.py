@@ -1,3 +1,5 @@
+import pytest
+
 from ingest.heuristics import (
     apply_basic_fallbacks,
     guess_city,
@@ -44,6 +46,42 @@ def test_spacy_fallback_city_and_country_lowercase() -> None:
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
     assert profile.location.primary_city == "Düsseldorf"
     assert profile.location.country == "Germany"
+
+
+def test_spacy_fallback_uses_english_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    text = "We are hiring in London, United Kingdom."
+
+    class _Entity:
+        def __init__(self, text: str, label: str) -> None:
+            self.text = text
+            self.label_ = label
+
+    class _Doc:
+        def __init__(self) -> None:
+            self.ents = [
+                _Entity("London", "GPE"),
+                _Entity("United Kingdom", "GPE"),
+            ]
+
+    def fake_pipeline(value: str) -> _Doc:  # pragma: no cover - simple stub
+        assert value == text
+        return _Doc()
+
+    def fake_get_pipeline(lang: str | None = None):
+        assert lang == "en"
+        return fake_pipeline
+
+    monkeypatch.setattr("nlp.entities.get_shared_pipeline", fake_get_pipeline)
+
+    profile = apply_basic_fallbacks(
+        NeedAnalysisProfile(),
+        text,
+        metadata={"autodetect_language": "en"},
+    )
+    assert profile.location.primary_city == "London"
+    assert profile.location.country == "United Kingdom"
 
 
 def test_language_normalization_for_german_text() -> None:

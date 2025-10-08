@@ -722,6 +722,8 @@ def apply_basic_fallbacks(
     """Fill missing basic fields using heuristics."""
 
     metadata = metadata or {}
+    autodetect_lang = metadata.get("autodetect_language")
+    language_hint = autodetect_lang if isinstance(autodetect_lang, str) else None
     invalid_fields = {
         field for field in metadata.get("invalid_fields", []) if isinstance(field, str)
     }
@@ -760,7 +762,7 @@ def apply_basic_fallbacks(
         city_guess = "" if city_invalid else guess_city(text)
         if not city_guess or city_invalid:
             if location_entities is None:
-                location_entities = extract_location_entities(text)
+                location_entities = extract_location_entities(text, lang=language_hint)
             if location_entities:
                 spa_city = location_entities.primary_city or ""
             else:
@@ -773,7 +775,7 @@ def apply_basic_fallbacks(
             profile.location.primary_city = city_guess
     if _needs_value(profile.location.country, country_field):
         if location_entities is None:
-            location_entities = extract_location_entities(text)
+            location_entities = extract_location_entities(text, lang=language_hint)
         if location_entities:
             country_guess = location_entities.primary_country or ""
         else:

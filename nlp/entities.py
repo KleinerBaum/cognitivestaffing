@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover - fallback when dependency missing
 
 
 _MODEL_NAME = "de_core_news_sm"
+_OPTIONAL_MODELS: tuple[str, ...] = ("en_core_web_sm", "xx_ent_wiki_sm")
 _LOCATION_LABELS = {"GPE", "LOC"}
 _COUNTRY_ALIASES = {
     "deutschland",
@@ -46,8 +47,8 @@ else:  # pragma: no cover - exercised only when dependency missing
 
 
 @lru_cache(maxsize=1)
-def get_shared_pipeline() -> Language:
-    """Load and cache the shared spaCy pipeline."""
+def _load_de_pipeline() -> Language:
+    """Return the German spaCy pipeline or raise if unavailable."""
 
     try:
         return spacy.load(_MODEL_NAME)
@@ -56,6 +57,32 @@ def get_shared_pipeline() -> Language:
             "spaCy model 'de_core_news_sm' is not installed. "
             "Install dependencies via requirements.txt to enable location extraction."
         ) from exc
+
+
+@lru_cache(maxsize=None)
+def _load_optional_pipeline(model_name: str) -> Language | None:
+    """Best-effort loader for non-German spaCy pipelines."""
+
+    try:
+        return spacy.load(model_name)
+    except OSError:  # pragma: no cover - optional dependency guard
+        return None
+
+
+def get_shared_pipeline(lang: str | None = None) -> Language | None:
+    """Load a spaCy pipeline suitable for ``lang``."""
+
+    lang_key = (lang or "").casefold()
+    if lang_key.startswith("de") or not lang_key:
+        return _load_de_pipeline()
+    for model_name in _OPTIONAL_MODELS:
+        pipeline = _load_optional_pipeline(model_name)
+        if pipeline is not None:
+            return pipeline
+    try:
+        return _load_de_pipeline()
+    except RuntimeError:  # pragma: no cover - German model missing entirely
+        return None
 
 
 def _normalise_token(value: str) -> str:
@@ -124,13 +151,16 @@ class LocationEntities:
         return self.countries[0] if self.countries else None
 
 
-def extract_location_entities(text: str) -> LocationEntities:
+def extract_location_entities(text: str, lang: str | None = None) -> LocationEntities:
     """Extract potential city/country entities from ``text`` using spaCy."""
 
     if not text.strip():
         return LocationEntities([], [])
 
-    pipeline = get_shared_pipeline()
+    pipeline = get_shared_pipeline(lang)
+    if pipeline is None:
+        return LocationEntities([], [])
+
     doc = pipeline(text)
     cities: List[str] = []
     countries: List[str] = []
