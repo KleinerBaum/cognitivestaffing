@@ -60,6 +60,7 @@ class StateKeys:
     EXTRACTION_RAW_PROFILE = "extraction_raw_profile"
     PROFILE_METADATA = "profile_metadata"
     ESCO_SKILLS = "extraction_esco_skills"
+    ESCO_MISSING_SKILLS = "extraction_esco_missing_skills"
     ESCO_OCCUPATION_OPTIONS = "extraction_esco_occupation_options"
     BIAS_FINDINGS = "data.bias_findings"
     SKILL_BUCKETS = "skill_buckets"

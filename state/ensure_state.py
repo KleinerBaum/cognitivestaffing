@@ -34,6 +34,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {}
     if StateKeys.ESCO_SKILLS not in st.session_state:
         st.session_state[StateKeys.ESCO_SKILLS] = []
+    if StateKeys.ESCO_MISSING_SKILLS not in st.session_state:
+        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
     if StateKeys.ESCO_OCCUPATION_OPTIONS not in st.session_state:
         st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
     if StateKeys.SKILL_BUCKETS not in st.session_state:

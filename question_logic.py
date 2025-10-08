@@ -187,6 +187,12 @@ SKILL_FIELDS: Set[str] = {
     "requirements.tools_and_technologies",
 }
 
+ESCO_ESSENTIAL_FIELDS: Tuple[str, ...] = (
+    "requirements.hard_skills_required",
+    "requirements.hard_skills_optional",
+    "requirements.tools_and_technologies",
+)
+
 YES_NO_FIELDS: Set[str] = {
     "compensation.variable_pay",
     "compensation.equity_offered",
@@ -733,6 +739,13 @@ def generate_followup_questions(
     role_fields: List[str] = []
     role_questions_cfg: List[Dict[str, str]] = []
     esco_skills: List[str] = []
+    esco_missing_skills: List[str] = []
+    normalized_esco: List[str] = []
+    existing_skill_values: Dict[str, Set[str]] = {
+        field: _existing_value_keys(extracted, field) for field in ESCO_ESSENTIAL_FIELDS
+    }
+
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
 
     occupation_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, [])
     occupation = occupation_options[0] if occupation_options else None
@@ -791,16 +804,53 @@ def generate_followup_questions(
 
     if esco_skills:
         normalized_esco = normalize_skills(esco_skills, lang=lang)
+        lookup = {skill.casefold(): skill for skill in normalized_esco}
+        existing_union: Set[str] = set()
+        for values in existing_skill_values.values():
+            existing_union.update(values)
+        esco_missing_skills = [
+            lookup[key] for key in lookup.keys() if key not in existing_union
+        ]
+        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = esco_missing_skills
+
         for skill_field in (
             "requirements.hard_skills_required",
             "requirements.tools_and_technologies",
         ):
-            if skill_field in missing_fields:
+            needs_esco = skill_field in missing_fields
+            seeds: List[str]
+            if (
+                skill_field == "requirements.hard_skills_required"
+                and esco_missing_skills
+            ):
+                needs_esco = True
+                seeds = esco_missing_skills
+            else:
+                seeds = normalized_esco
+            if needs_esco:
                 suggestions_map[skill_field] = _merge_suggestions(
+                    seeds,
                     suggestions_map.get(skill_field, []),
-                    normalized_esco,
-                    existing=_existing_value_keys(extracted, skill_field),
+                    existing=existing_skill_values.get(skill_field),
                 )
+
+    forced_questions: List[Dict[str, Any]] = []
+    esco_followup_field = "requirements.hard_skills_required"
+    if (
+        esco_missing_skills
+        and esco_followup_field not in missing_fields
+        and esco_followup_field not in answered_fields
+    ):
+        forced_questions.append(
+            {
+                "field": esco_followup_field,
+                "question": _question_text_for_field(
+                    esco_followup_field, lang, None
+                ),
+                "priority": _priority_for(esco_followup_field, True, None),
+                "suggestions": suggestions_map.get(esco_followup_field, []),
+            }
+        )
 
     if "compensation.benefits" in missing_fields:
         existing_keys = _existing_value_keys(extracted, "compensation.benefits")
@@ -846,6 +896,11 @@ def generate_followup_questions(
             }
         )
 
+    for forced in forced_questions:
+        if any(q.get("field") == forced["field"] for q in questions):
+            continue
+        questions.append(forced)
+
     for field in missing_fields:
         if any(q.get("field") == field for q in questions):
             continue
@@ -853,7 +908,7 @@ def generate_followup_questions(
         q_text = _question_text_for_field(field, lang, reason)
         priority = _priority_for(
             field,
-            False,
+            field == esco_followup_field and bool(esco_missing_skills),
             reason,
         )
         suggestions = suggestions_map.get(field, [])
