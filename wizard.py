@@ -1708,6 +1708,7 @@ def _generate_interview_guide_content(
             num_questions=selected_num,
         )
         guide_md = guide.final_markdown()
+        st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = guide.model_dump()
     except Exception as exc:  # pragma: no cover - error path
         if show_error:
             st.error(
@@ -1776,6 +1777,7 @@ def _clear_generated() -> None:
         StateKeys.JOB_AD_MD,
         StateKeys.BOOLEAN_STR,
         StateKeys.INTERVIEW_GUIDE_MD,
+        StateKeys.INTERVIEW_GUIDE_DATA,
     ):
         st.session_state.pop(key, None)
     for key in (

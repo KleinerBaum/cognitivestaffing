@@ -1061,6 +1061,28 @@ def _build_deterministic_interview_guide(
             )
         )
 
+    evaluation_notes = [
+        _tr(
+            "Bewerte Klarheit und Struktur der Antworten. Fordere Nachfragen, wenn Beispiele fehlen.",
+            "Assess clarity and structure of answers. Ask follow-ups when examples are missing.",
+        ),
+        _tr(
+            "Bitte um konkrete Resultate, Kennzahlen oder Lernerfahrungen, um Impact zu verifizieren.",
+            "Request concrete outcomes, metrics, or learnings to verify impact.",
+        ),
+        _tr(
+            "Vergleiche Antworten mit dem gewünschten Ton und Kulturfit der Organisation.",
+            "Check answers against the desired tone and cultural fit of the organisation.",
+        ),
+    ]
+    if culture_note:
+        evaluation_notes.append(
+            _tr(
+                "Achte besonders auf Hinweise zur beschriebenen Unternehmenskultur.",
+                "Pay special attention to alignment with the described company culture.",
+            )
+        )
+
     metadata = InterviewGuideMetadata(
         language="de" if is_de else "en",
         heading=(
@@ -1078,6 +1100,7 @@ def _build_deterministic_interview_guide(
         metadata=metadata,
         focus_areas=focus_areas,
         questions=questions,
+        evaluation_notes=evaluation_notes,
     )
     return guide.ensure_markdown()
 
@@ -1140,6 +1163,7 @@ def _prepare_interview_guide_payload(
             question.model_dump()
             for question in fallback.questions[: max(3, min(6, num_questions))]
         ],
+        "evaluation_note_examples": list(fallback.evaluation_notes),
     }
 
     return payload, fallback
@@ -1170,6 +1194,11 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
         tr(
             "Passe Ton und Zielgruppe an und halte dich an die gewünschte Fragenanzahl.",
             "Match the requested tone and audience and respect the desired question count.",
+            lang,
+        ),
+        tr(
+            "Füge 3-5 allgemeine Bewertungshinweise als Liste 'evaluation_notes' hinzu.",
+            "Provide 3-5 general evaluation notes in the 'evaluation_notes' list.",
             lang,
         ),
         tr(

@@ -85,6 +85,10 @@ class InterviewGuide(BaseModel):
     metadata: InterviewGuideMetadata
     questions: list[InterviewGuideQuestion] = Field(default_factory=list)
     focus_areas: list[InterviewGuideFocusArea] = Field(default_factory=list)
+    evaluation_notes: list[str] = Field(
+        default_factory=list,
+        description="General guidance for the panel when assessing answers.",
+    )
     markdown: str | None = Field(
         default=None,
         description="Optional Markdown representation provided by the model.",
@@ -118,16 +122,25 @@ class InterviewGuide(BaseModel):
             return "Fokus", "Bewertungshinweise"
         return "Focus", "Evaluation guidance"
 
+    def _evaluation_heading(self) -> str:
+        return (
+            "Bewertungsschwerpunkte"
+            if self.metadata.normalised_language() == "de"
+            else "Evaluation notes"
+        )
+
     def render_markdown(self) -> str:
         """Render a Markdown document from the structured content."""
 
         heading_label, audience_label, tone_label, culture_label, questions_heading = self._labels()
         focus_heading = self._focus_heading()
         focus_label, evaluation_label = self._question_labels()
+        evaluation_heading = self._evaluation_heading()
 
         metadata = self.metadata
         trimmed_focus = [area.trimmed() for area in self.focus_areas if area]
         trimmed_questions = [question.trimmed() for question in self.questions if question]
+        trimmed_notes = [note.strip() for note in self.evaluation_notes if str(note).strip()]
 
         heading_text = metadata.heading.strip()
         if not heading_text:
@@ -150,6 +163,12 @@ class InterviewGuide(BaseModel):
         culture_text = (metadata.culture_note or "").strip()
         if culture_text:
             lines.append(f"**{culture_label}:** {culture_text}")
+
+        if trimmed_notes:
+            lines.append("")
+            lines.append(f"## {evaluation_heading}")
+            for note in trimmed_notes:
+                lines.append(f"- {note}")
 
         if trimmed_focus:
             lines.append("")

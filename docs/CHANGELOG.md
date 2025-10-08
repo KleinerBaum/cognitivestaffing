@@ -3,6 +3,7 @@
 ## Unreleased
 - feat: replace sidebar hero copy with collapsible extraction overview and remove tips section
 - feat: externalize salary benchmark catalog with canonical role normalization and German aliases
+- feat: generate interview guide via LLM JSON schema with evaluation notes and structured fallback
 - feat: refresh analysis helper datasets with IT & project-management benchmarks
 - feat: refactor job ad generation to use tone-aware LLM prompts with Markdown fallback
 - feat: auto-regenerate job ad and interview outputs when summary follow-up answers are applied
