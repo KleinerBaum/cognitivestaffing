@@ -115,6 +115,9 @@ Requires **Python 3.11 or 3.12**.
    export OPENAI_BASE_URL=http://localhost:8080/v1  # custom endpoint
    # optional: enable RAG suggestions via vector store
    export VECTOR_STORE_ID=vs_XXXXXXXXXXXXXXXXXXXXXXXX
+   # optional: enable OpenTelemetry tracing (requires explicit endpoint)
+   export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com/v1/traces
+   export OTEL_SERVICE_NAME=cognitive-needs
    ```
 
 5. **Launch the app**
@@ -158,6 +161,15 @@ the default OpenAI API URL.
 Cognitive Needs reads API credentials from environment variables or [Streamlit
 secrets](https://docs.streamlit.io/streamlit-community-cloud/get-started/deploy-an-app/secrets-management). At minimum,
 define `OPENAI_API_KEY` before launching the app:
+
+#### OpenTelemetry tracing (opt-in)
+
+Telemetry is disabled unless you configure an OTLP collector endpoint. Set
+`OTEL_EXPORTER_OTLP_ENDPOINT` to your collector URL (for example,
+`https://otel-collector.example.com/v1/traces`) and, optionally, define
+`OTEL_SERVICE_NAME` to customise the reported service identifier. Without an
+explicit endpoint the app skips tracer initialisation, so no telemetry data is
+sent by default.
 
 ```bash
 export OPENAI_API_KEY=sk-your-key
