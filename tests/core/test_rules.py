@@ -96,6 +96,15 @@ def test_regex_matches_land_prefix_for_country() -> None:
     assert "location.primary_city" not in matches
 
 
+def test_regex_matches_land_prefix_with_city_value() -> None:
+    """Inline Land: prefixes with city tokens should populate the city field."""
+
+    text_block = ContentBlock(type="paragraph", text="Land: Düsseldorf")
+    matches = apply_rules([text_block])
+    assert matches["location.primary_city"].value == "Düsseldorf"
+    assert "location.country" not in matches
+
+
 def test_extract_location_returns_city_and_country() -> None:
     """City and country should be parsed from inline statements."""
 
@@ -129,6 +138,10 @@ def test_extract_location_ignores_remote_keyword() -> None:
     assert city == "Berlin"
     assert country is None
 
+    city, country = _extract_location("Land: Düsseldorf")
+    assert city == "Düsseldorf"
+    assert country is None
+
 
 def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
     """Einsatzort and Branche table headers should populate city and industry."""
@@ -147,6 +160,19 @@ def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
     assert matches["location.primary_city"].value == "Berlin"
     assert matches["location.country"].value == "Deutschland"
     assert matches["company.industry"].value == "IT-Dienstleistungen"
+
+
+def test_apply_rules_handles_land_header_with_city_value() -> None:
+    """Land table headers with city values should fill the city field."""
+
+    table_block = ContentBlock(
+        type="table",
+        text="Land | Düsseldorf",
+        metadata={"rows": [["Land", "Düsseldorf"]]},
+    )
+    matches = apply_rules([table_block])
+    assert matches["location.primary_city"].value == "Düsseldorf"
+    assert "location.country" not in matches
 
 
 def test_apply_rules_handles_inline_einsatzort_and_branche() -> None:
