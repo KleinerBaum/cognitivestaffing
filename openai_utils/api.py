@@ -527,17 +527,33 @@ def call_chat_api(
         extra=extra,
     )
 
-    response = _execute_response(payload, model)
+    messages_list = list(messages)
 
-    content = _extract_output_text(response)
+    accumulated_usage: dict[str, int] = {}
+    last_tool_calls: list[dict] = []
 
-    tool_calls = _collect_tool_calls(response)
+    while True:
+        response = _execute_response(payload, model)
 
-    usage = _normalise_usage(getattr(response, "usage", {}) or {})
+        content = _extract_output_text(response)
 
-    executed = False
-    if tool_calls and tool_functions:
-        messages_list = list(messages)
+        tool_calls = _collect_tool_calls(response)
+
+        usage = _normalise_usage(getattr(response, "usage", {}) or {})
+        for key, value in usage.items():
+            accumulated_usage[key] = accumulated_usage.get(key, 0) + value
+
+        if tool_calls:
+            last_tool_calls = tool_calls
+
+        if not tool_calls or not tool_functions:
+            merged_usage = dict(accumulated_usage) if accumulated_usage else dict(usage)
+            _update_usage_counters(merged_usage)
+            result_tool_calls = tool_calls or last_tool_calls
+            return ChatCallResult(content, result_tool_calls, merged_usage)
+
+        executed = False
+        tool_messages: list[dict[str, Any]] = []
         for call in tool_calls:
             func_info = call.get("function", {})
             name = func_info.get("name")
@@ -550,7 +566,7 @@ def call_chat_api(
             except Exception:  # pragma: no cover - defensive
                 args = {}
             result = tool_functions[name](**args)
-            messages_list.append(
+            tool_messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.get("id", name),
@@ -559,70 +575,15 @@ def call_chat_api(
             )
             executed = True
 
+        if not executed:
+            merged_usage = dict(accumulated_usage) if accumulated_usage else dict(usage)
+            _update_usage_counters(merged_usage)
+            result_tool_calls = tool_calls or last_tool_calls
+            return ChatCallResult(content, result_tool_calls, merged_usage)
 
-        try:
-            response = _execute_response(payload, model)
-        except Exception as exc:
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, str(exc)))
-            raise
+        messages_list.extend(tool_messages)
+        payload["input"] = messages_list
 
-        content = _extract_output_text(response)
-
-        tool_calls: list[dict] = []
-        for item in getattr(response, "output", []) or []:
-            data = _to_mapping(item)
-            if not data:
-                continue
-            typ = data.get("type")
-            if typ and "call" in str(typ):
-                call_data = dict(data)
-                fn = call_data.get("function")
-                if fn is None:
-                    name = call_data.get("name")
-                    arg_str = call_data.get("arguments")
-                    call_data = {
-                        **call_data,
-                        "function": {"name": name, "arguments": arg_str},
-                    }
-                tool_calls.append(call_data)
-
-        usage_obj = getattr(response, "usage", {}) or {}
-        if usage_obj and not isinstance(usage_obj, dict):
-            usage: dict = getattr(
-                usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-            )()
-        else:
-            usage = usage_obj if isinstance(usage_obj, dict) else {}
-
-        executed = False
-        if tool_calls and tool_functions:
-            messages_list = list(messages)
-            for call in tool_calls:
-                func_info = call.get("function", {})
-                name = func_info.get("name")
-                if not name or name not in tool_functions:
-                    continue
-                typ = data.get("type")
-                if typ and "call" in str(typ):
-                    call_data = dict(data)
-                    fn = call_data.get("function")
-                    if fn is None:
-                        name = call_data.get("name")
-                        arg_str = call_data.get("arguments")
-                        call_data = {
-                            **call_data,
-                            "function": {"name": name, "arguments": arg_str},
-                        }
-                    extra_calls.append(call_data)
-            tool_calls.extend(extra_calls)
-            usage_extra = _normalise_usage(getattr(response, "usage", {}) or {})
-            for key in ("input_tokens", "output_tokens"):
-                usage[key] = usage.get(key, 0) + usage_extra.get(key, 0)
-
-    _update_usage_counters(usage)
-
-    return ChatCallResult(content, tool_calls, usage)
 
 
 

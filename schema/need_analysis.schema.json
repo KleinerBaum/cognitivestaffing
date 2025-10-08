@@ -293,6 +293,12 @@
                         "type": "string"
                     }
                 },
+                "certificates": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "certifications": {
                     "type": "array",
                     "items": {
@@ -314,6 +320,7 @@
                 "tools_and_technologies",
                 "languages_required",
                 "languages_optional",
+                "certificates",
                 "certifications",
                 "language_level_english"
             ]
@@ -627,6 +634,12 @@
                                 ]
                             },
                             "timeframe": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "task_assignments": {
                                 "type": [
                                     "string",
                                     "null"

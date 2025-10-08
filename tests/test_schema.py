@@ -10,6 +10,7 @@ def test_list_fields_contains_base_lists() -> None:
         "requirements.soft_skills_required",
         "requirements.soft_skills_optional",
         "requirements.certifications",
+        "requirements.certificates",
         "compensation.benefits",
         "requirements.languages_required",
         "requirements.tools_and_technologies",

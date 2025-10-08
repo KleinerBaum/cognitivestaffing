@@ -14,6 +14,7 @@ def fake_call(messages, **kwargs):
             "tools_and_technologies": [f"T{i}" for i in range(1, 12)],
             "hard_skills": ["H1", "H1", "H2"],
             "soft_skills": ["S1", "S2"],
+            "certificates": ["CertA", "CertB"],
         }
     )
     return ChatCallResult(payload, [], {})
@@ -28,6 +29,7 @@ def test_suggest_skills_for_role(monkeypatch):
     assert out["tools_and_technologies"] == [f"T{i}" for i in range(1, 11)]
     assert out["hard_skills"] == ["H1", "H2"]
     assert out["soft_skills"] == ["S1", "S2"]
+    assert out["certificates"] == ["CertA", "CertB"]
 
 
 def test_suggest_skills_for_role_empty():
@@ -36,4 +38,5 @@ def test_suggest_skills_for_role_empty():
         "tools_and_technologies": [],
         "hard_skills": [],
         "soft_skills": [],
+        "certificates": [],
     }

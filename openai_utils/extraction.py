@@ -405,7 +405,7 @@ def suggest_skills_for_role(
     lang: str = "en",
     model: str | None = None,
 ) -> dict[str, list[str]]:
-    """Suggest tools, hard skills and soft skills for a job title.
+    """Suggest tools, skills, and certificates for a job title.
 
     Args:
         job_title: Target role title.
@@ -413,8 +413,8 @@ def suggest_skills_for_role(
         model: Optional OpenAI model override.
 
     Returns:
-        Dict with keys ``tools_and_technologies``, ``hard_skills`` and
-        ``soft_skills`` each containing up to 10 suggestions.
+        Dict with keys ``tools_and_technologies``, ``hard_skills``,
+        ``soft_skills`` and ``certificates`` each containing up to 12 suggestions.
     """
 
     job_title = job_title.strip()
@@ -423,21 +423,26 @@ def suggest_skills_for_role(
             "tools_and_technologies": [],
             "hard_skills": [],
             "soft_skills": [],
+            "certificates": [],
         }
     if model is None:
         model = get_model_for(ModelTask.SKILL_SUGGESTION)
 
     if lang.startswith("de"):
         prompt = (
-            "Gib exakt 10 IT-Technologien, 10 Hard Skills und 10 Soft Skills für "
-            f"den Jobtitel '{job_title}'. Antworte als JSON mit den Schlüsseln "
-            "'tools_and_technologies', 'hard_skills' und 'soft_skills'."
+            "Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 "
+            "relevante Zertifikate für den Jobtitel "
+            f"'{job_title}'. Antworte als JSON mit den Schlüsseln "
+            "'tools_and_technologies', 'hard_skills', 'soft_skills' und "
+            "'certificates'."
         )
     else:
         prompt = (
-            "List exactly 10 IT technologies, 10 hard skills and 10 soft skills "
-            f"relevant for the job title '{job_title}'. Respond with JSON using "
-            "the keys 'tools_and_technologies', 'hard_skills' and 'soft_skills'."
+            "List exactly 12 IT technologies, 12 hard skills, 12 soft skills, "
+            "and 12 relevant certificates for the job title "
+            f"'{job_title}'. Respond with JSON using the keys "
+            "'tools_and_technologies', 'hard_skills', 'soft_skills', and "
+            "'certificates'."
         )
 
     messages = [{"role": "user", "content": prompt}]
@@ -461,11 +466,16 @@ def suggest_skills_for_role(
                         "type": "array",
                         "items": {"type": "string"},
                     },
+                    "certificates": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
                 },
                 "required": [
                     "tools_and_technologies",
                     "hard_skills",
                     "soft_skills",
+                    "certificates",
                 ],
                 "additionalProperties": False,
             },
@@ -484,11 +494,12 @@ def suggest_skills_for_role(
         cleaned = [
             str(it).strip() for it in items if isinstance(it, str) and it.strip()
         ]
-        return cleaned[:10]
+        return cleaned[:12]
 
     tools = _clean(data.get("tools_and_technologies"))
     hard = _clean(data.get("hard_skills"))
     soft = _clean(data.get("soft_skills"))
+    certificates = _clean(data.get("certificates"))
 
     try:  # Normalize skill labels locally
         from core.esco_utils import normalize_skills
@@ -496,6 +507,7 @@ def suggest_skills_for_role(
         tools = normalize_skills(tools, lang=lang)
         hard = normalize_skills(hard, lang=lang)
         soft = normalize_skills(soft, lang=lang)
+        certificates = normalize_skills(certificates, lang=lang)
     except Exception:
         pass
 
@@ -516,6 +528,7 @@ def suggest_skills_for_role(
         "tools_and_technologies": _unique(tools),
         "hard_skills": _unique(hard),
         "soft_skills": _unique(soft),
+        "certificates": _unique(certificates),
     }
 
 
@@ -1150,6 +1163,7 @@ def _prepare_job_ad_payload(
         "requirements.tools_and_technologies",
         "requirements.languages_required",
         "requirements.languages_optional",
+        "requirements.certificates",
         "requirements.certifications",
         "compensation.benefits",
     }

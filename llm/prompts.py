@@ -40,7 +40,7 @@ SYSTEM_JSON_EXTRACTOR: str = (
     "Soft skills like communication or teamwork go into requirements.soft_skills_required or requirements.soft_skills_optional depending on whether they are required or marked as nice-to-have. "
     "List programming languages, frameworks, and tools in requirements.tools_and_technologies (in addition to hard skill lists). "
     "Extract spoken language requirements into requirements.languages_required and optional languages into requirements.languages_optional. "
-    "Put mentioned certifications (e.g. 'AWS ML Specialty') into requirements.certifications. "
+    "Put mentioned certifications (e.g. 'AWS ML Specialty') into requirements.certificates (mirror to requirements.certifications). "
     "Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
 )
 

@@ -158,6 +158,7 @@ def get_skill_suggestions(
         "tools_and_technologies": [],
         "hard_skills": [],
         "soft_skills": [],
+        "certificates": [],
     }
     errors: List[str] = []
 

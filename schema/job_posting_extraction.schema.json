@@ -264,6 +264,15 @@
                 ]
             }
         },
+        "certificates": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "string"
+            }
+        },
         "certifications": {
             "type": [
                 "array",
@@ -525,6 +534,7 @@
         "tools_and_technologies",
         "methodologies",
         "languages",
+        "certificates",
         "certifications",
         "education_requirements",
         "experience_requirements",

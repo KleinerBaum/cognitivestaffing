@@ -36,10 +36,15 @@ def test_get_skill_suggestions(monkeypatch):
             "tools_and_technologies": ["T"],
             "hard_skills": ["Go"],
             "soft_skills": [],
+            "certificates": ["Azure"],
         },
     )
     sugg, err = get_skill_suggestions("Engineer")
-    assert sugg == {"hard_skills": ["Python", "Go"], "tools_and_technologies": ["T"]}
+    assert sugg == {
+        "hard_skills": ["Python", "Go"],
+        "tools_and_technologies": ["T"],
+        "certificates": ["Azure"],
+    }
     assert err is None
 
 
