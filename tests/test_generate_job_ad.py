@@ -1,7 +1,15 @@
+from pathlib import Path
+import sys
+
 import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import openai_utils
 from openai_utils.api import ChatCallResult
+from llm.prompts import build_job_ad_prompt
 
 
 def _collect_prompt_text(messages: list[dict[str, str]]) -> str:
@@ -69,6 +77,46 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
     assert "innovative spirit" in prompt_text.lower()
     assert "Culture: We celebrate learning." in prompt_text
     assert "Experienced engineers" in prompt_text
+
+
+def test_job_ad_prompt_enforces_section_usage_en():
+    payload = {
+        "language": "en",
+        "sections": [
+            {
+                "title": "Responsibilities",
+                "entries": [{"label": "Core", "items": ["Build"]}],
+            }
+        ],
+        "manual_sections": [
+            {"title": "Culture", "content": "We value curiosity."}
+        ],
+    }
+
+    prompt_text = _collect_prompt_text(build_job_ad_prompt(payload))
+
+    assert 'Incorporate every item from the "Structured sections" block' in prompt_text
+    assert "manual sections directly into the advertisement copy" in prompt_text
+
+
+def test_job_ad_prompt_enforces_section_usage_de():
+    payload = {
+        "language": "de",
+        "sections": [
+            {
+                "title": "Aufgaben",
+                "entries": [{"label": "Kern", "items": ["Entwickeln"]}],
+            }
+        ],
+        "manual_sections": [
+            {"title": "Kultur", "content": "Wir schätzen Neugier."}
+        ],
+    }
+
+    prompt_text = _collect_prompt_text(build_job_ad_prompt(payload))
+
+    assert "Arbeite jede einzelne Information aus dem Block „Strukturierte Abschnitte“" in prompt_text
+    assert "manuellen Zusatzabschnitte vollständig in den Anzeigentext ein" in prompt_text
 
 
 def test_generate_job_ad_fallback_highlights_tone_and_cta(monkeypatch):

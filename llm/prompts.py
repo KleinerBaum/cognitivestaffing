@@ -147,6 +147,7 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     manual_sections: Sequence[Mapping[str, Any]] = (
         payload.get("manual_sections") or []
     )
+    sections_label = tr("Strukturierte Abschnitte", "Structured sections", lang)
 
     instruction_lines = [
         tr(
@@ -172,6 +173,11 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
         tr(
             "Schließe mit einem motivierenden Call-to-Action, der Bewerber:innen direkt anspricht.",
             "Close with a motivating call to action that directly invites candidates to apply.",
+            lang,
+        ),
+        tr(
+            f"Arbeite jede einzelne Information aus dem Block „{sections_label}“ sowie alle manuellen Zusatzabschnitte vollständig in den Anzeigentext ein – nichts weglassen oder zusammenfassen.",
+            f"Incorporate every item from the \"{sections_label}\" block and any manual sections directly into the advertisement copy—do not omit or merge details.",
             lang,
         ),
     ]
@@ -234,8 +240,7 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     if meta_lines:
         parts.append(f"{tr('Kontext', 'Context', lang)}:\n" + "\n".join(meta_lines))
     if section_blocks:
-        label = tr("Strukturierte Abschnitte", "Structured sections", lang)
-        parts.append(f"{label}:\n" + "\n\n".join(section_blocks))
+        parts.append(f"{sections_label}:\n" + "\n\n".join(section_blocks))
     if manual_lines:
         label = tr(
             "Kuratiere diese Zusatzabschnitte unverändert", "Include these curated sections verbatim", lang
