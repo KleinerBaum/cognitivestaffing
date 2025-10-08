@@ -300,12 +300,10 @@ def test_extract_and_summarize_enriches_esco_metadata(
     assert data["position"]["occupation_group"] == occupation["group"]
     assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] == [occupation]
     assert st.session_state[StateKeys.ESCO_SKILLS] == skills
-    assert (
-        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE]["position"][
-            "occupation_label"
-        ]
-        == occupation["preferredLabel"]
-    )
+    raw_profile = st.session_state[StateKeys.EXTRACTION_RAW_PROFILE]
+    assert raw_profile["position"]["occupation_label"] == occupation["preferredLabel"]
+    assert raw_profile["position"]["occupation_uri"] == occupation["uri"]
+    assert raw_profile["position"]["occupation_group"] == occupation["group"]
 
 
 def test_extract_and_summarize_records_rag_metadata(
