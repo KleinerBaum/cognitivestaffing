@@ -967,42 +967,47 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     }
     st.session_state[StateKeys.PROFILE_METADATA] = metadata
     if st.session_state.get("auto_reask"):
-        try:
-            round_num = st.session_state.get("auto_reask_round", 0) + 1
-            st.session_state["auto_reask_round"] = round_num
-            total_rounds = st.session_state.get("auto_reask_total", len(missing))
-            st.session_state["auto_reask_total"] = total_rounds
-            msg = tr(
-                f"Generiere automatisch Anschlussfrage {round_num} von {total_rounds}...",
-                f"Automatically generating follow-up {round_num} of {total_rounds}...",
-            )
-            with st.spinner(msg):
-                payload = {
-                    "data": profile.model_dump(),
-                    "lang": st.session_state.lang,
-                }
-                followup_res = ask_followups(
-                    payload,
-                    model=st.session_state.model,
-                    vector_store_id=st.session_state.vector_store_id or None,
+        if not missing:
+            st.session_state["auto_reask_round"] = 0
+            st.session_state["auto_reask_total"] = 0
+            st.session_state.pop(StateKeys.FOLLOWUPS, None)
+        else:
+            try:
+                round_num = st.session_state.get("auto_reask_round", 0) + 1
+                st.session_state["auto_reask_round"] = round_num
+                total_rounds = st.session_state.get("auto_reask_total", len(missing))
+                st.session_state["auto_reask_total"] = total_rounds
+                msg = tr(
+                    f"Generiere automatisch Anschlussfrage {round_num} von {total_rounds}...",
+                    f"Automatically generating follow-up {round_num} of {total_rounds}...",
                 )
-            done = set(
-                st.session_state[StateKeys.PROFILE]
-                .get("meta", {})
-                .get("followups_answered", [])
-            )
-            st.session_state[StateKeys.FOLLOWUPS] = [
-                q
-                for q in followup_res.get("questions", [])
-                if q.get("field") not in done
-            ]
-        except Exception:
-            st.warning(
-                tr(
-                    "Konnte keine Anschlussfragen erzeugen.",
-                    "Could not generate follow-ups automatically.",
+                with st.spinner(msg):
+                    payload = {
+                        "data": profile.model_dump(),
+                        "lang": st.session_state.lang,
+                    }
+                    followup_res = ask_followups(
+                        payload,
+                        model=st.session_state.model,
+                        vector_store_id=st.session_state.vector_store_id or None,
+                    )
+                done = set(
+                    st.session_state[StateKeys.PROFILE]
+                    .get("meta", {})
+                    .get("followups_answered", [])
                 )
-            )
+                st.session_state[StateKeys.FOLLOWUPS] = [
+                    q
+                    for q in followup_res.get("questions", [])
+                    if q.get("field") not in done
+                ]
+            except Exception:
+                st.warning(
+                    tr(
+                        "Konnte keine Anschlussfragen erzeugen.",
+                        "Could not generate follow-ups automatically.",
+                    )
+                )
 
 
 def _maybe_run_extraction(schema: dict) -> None:
