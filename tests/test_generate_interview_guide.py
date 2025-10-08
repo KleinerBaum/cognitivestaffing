@@ -1,69 +1,152 @@
+import json
 from pathlib import Path
 import sys
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from config import ModelTask, get_model_for
+from models import InterviewGuide
 import openai_utils
+from openai_utils import api
 
 
-def test_generate_interview_guide_includes_culture_question():
-    output = openai_utils.generate_interview_guide(
-        "Engineer",
-        responsibilities="Design systems\nWrite code",
-        hard_skills=["Python", "SQL"],
-        soft_skills=["Teamwork"],
-        company_culture="Collaborative and transparent",
-        tone="casual and friendly",
-        num_questions=5,
-        lang="en",
-    )
+def _llm_payload(language: str) -> dict:
+    if language.startswith("de"):
+        return {
+            "metadata": {
+                "language": "de",
+                "heading": "Interviewleitfaden – Ingenieur:in",
+                "job_title": "Ingenieur:in",
+                "audience": "general",
+                "audience_label": "Allgemeines Interviewteam",
+                "tone": "Strukturiert",
+                "culture_note": "Transparente Zusammenarbeit",
+            },
+            "focus_areas": [
+                {
+                    "label": "Schlüsselaufgaben",
+                    "items": ["Systeme entwerfen"],
+                }
+            ],
+            "questions": [
+                {
+                    "question": "Beschreiben Sie Ihren Ansatz für komplexe Probleme.",
+                    "focus": "Problemlösung",
+                    "evaluation": "Achten Sie auf Struktur und Impact.",
+                }
+            ],
+        }
+    return {
+        "metadata": {
+            "language": "en",
+            "heading": "Interview Guide – Engineer",
+            "job_title": "Engineer",
+            "audience": "general",
+            "audience_label": "General interview panel",
+            "tone": "Casual",
+            "culture_note": "Collaborative and transparent",
+        },
+        "focus_areas": [
+            {
+                "label": "Key responsibilities",
+                "items": ["Design systems", "Write code"],
+            }
+        ],
+        "questions": [
+            {
+                "question": "Describe a time you solved a complex problem.",
+                "focus": "Problem solving",
+                "evaluation": "Look for structured reasoning and impact.",
+            },
+            {
+                "question": "How do you collaborate across teams?",
+                "focus": "Collaboration",
+                "evaluation": "Listen for proactive communication.",
+            },
+        ],
+    }
 
-    assert "Interview Guide – Engineer" in output
-    assert "**Company culture:** Collaborative and transparent" in output
-    assert "### 2. Which aspects of the culture we described" in output
-    assert "casual and friendly" in output
 
+def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The LLM driven path returns structured data validated against the schema."""
 
-def test_generate_interview_guide_de_language():
-    output = openai_utils.generate_interview_guide(
-        "Ingenieur:in",
-        responsibilities="Systeme entwerfen",
-        hard_skills=["Python"],
-        lang="de",
-        num_questions=3,
-        tone="strukturierter Ton",
-        company_culture="Transparente Zusammenarbeit",
-    )
+    captured: dict[str, object] = {}
 
-    assert "Interviewleitfaden – Ingenieur:in" in output
-    assert "**Zielgruppe:**" in output
-    assert "Transparente Zusammenarbeit" in output
-    assert "## Fragen & Bewertungsleitfaden" in output
+    def fake_call(messages, **kwargs):
+        captured["model"] = kwargs.get("model")
+        captured["messages"] = messages
+        payload = _llm_payload("en")
+        return api.ChatCallResult(json.dumps(payload), [], {"input_tokens": 1})
 
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
 
-def test_generate_interview_guide_uses_responsibilities_and_skills():
-    output = openai_utils.generate_interview_guide(
+    guide = openai_utils.generate_interview_guide(
         "Engineer",
         responsibilities="Design systems\nWrite code",
         hard_skills=["Python"],
         soft_skills=["Teamwork"],
         num_questions=4,
+        lang="en",
+        company_culture="Collaborative and transparent",
+        tone="Casual",
     )
 
-    assert "Design systems" in output
-    assert "Write code" in output
-    assert "Python" in output
-    assert "Teamwork" in output
+    assert isinstance(guide, InterviewGuide)
+    assert captured["model"] == get_model_for(ModelTask.INTERVIEW_GUIDE)
+    assert guide.metadata.language == "en"
+    assert guide.questions[0].question.startswith("Describe a time")
+    markdown = guide.final_markdown()
+    assert "Interview Guide – Engineer" in markdown
+    assert "## Questions" in markdown or "## Questions & evaluation guide" in markdown
 
 
-def test_generate_interview_guide_respects_question_limit():
-    output = openai_utils.generate_interview_guide(
-        "Engineer",
-        responsibilities="One\nTwo\nThree",
-        hard_skills=["Python", "SQL"],
-        soft_skills=["Teamwork", "Empathy"],
+def test_generate_interview_guide_handles_german_locale(monkeypatch: pytest.MonkeyPatch) -> None:
+    """German prompts return localised metadata and Markdown."""
+
+    def fake_call(messages, **kwargs):
+        payload = _llm_payload("de")
+        return api.ChatCallResult(json.dumps(payload), [], {"input_tokens": 1})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
+
+    guide = openai_utils.generate_interview_guide(
+        "Ingenieur:in",
+        responsibilities="Systeme entwerfen",
+        hard_skills=["Python"],
+        lang="de",
         num_questions=3,
+        tone="Strukturiert",
+        company_culture="Transparente Zusammenarbeit",
     )
 
-    question_count = output.count("### ")
-    assert question_count == 3
+    assert guide.metadata.language == "de"
+    markdown = guide.final_markdown()
+    assert "Interviewleitfaden" in markdown
+    assert "Fragen & Bewertungsleitfaden" in markdown
+
+
+def test_generate_interview_guide_fallback_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Failures in the API call fall back to the deterministic generator."""
+
+    def fail_call(*args, **kwargs):  # noqa: ANN001
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fail_call)
+
+    guide = openai_utils.generate_interview_guide(
+        "Engineer",
+        responsibilities="Design systems\nWrite code",
+        hard_skills=["Python"],
+        soft_skills=["Teamwork"],
+        num_questions=3,
+        lang="en",
+        company_culture="Collaborative",
+    )
+
+    assert isinstance(guide, InterviewGuide)
+    assert len(guide.questions) == 3
+    markdown = guide.final_markdown()
+    assert "Interview Guide" in markdown
+    assert "Teamwork" in markdown or "Design systems" in markdown

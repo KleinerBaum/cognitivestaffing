@@ -56,6 +56,7 @@ the base model if needed.
 - **Boolean Builder 2.0**: dedicated panel with toggles for skills/title synonyms, instant query preview, and one-click download
 - **Export**: clean JSON profile (summary header download button), job‑ad markdown, interview guide
 - **Customizable interview guides**: choose 3–10 questions, automatically covering responsibilities, culture, and specified hard and soft skills
+- **LLM-validated interview guides**: generation now routes through the GPT-5 mini Responses API with JSON schema validation while keeping a deterministic offline fallback
 - **Tone control**: pick formal, casual, creative, or diversity-focused styles for job ads and interview guides
 - **Audience-specific guides**: tailor interview guides for general, technical, or HR interviewers
 - **Comprehensive job ads**: generated ads now mention requirements, salary and work policy when provided
