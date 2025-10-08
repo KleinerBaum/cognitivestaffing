@@ -1688,7 +1688,7 @@ def _generate_interview_guide_content(
     )
 
     try:
-        guide_md = generate_interview_guide(
+        guide = generate_interview_guide(
             job_title=profile_payload.get("position", {}).get("job_title", ""),
             responsibilities=responsibilities_text,
             hard_skills=(
@@ -1707,6 +1707,7 @@ def _generate_interview_guide_content(
             tone=st.session_state.get("tone"),
             num_questions=selected_num,
         )
+        guide_md = guide.final_markdown()
     except Exception as exc:  # pragma: no cover - error path
         if show_error:
             st.error(

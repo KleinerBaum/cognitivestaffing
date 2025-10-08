@@ -18,6 +18,13 @@ from llm.rag_pipeline import (
     RetrievedChunk,
     build_global_context as default_global_context,
 )
+from models.interview_guide import (
+    InterviewGuide,
+    InterviewGuideFocusArea,
+    InterviewGuideMetadata,
+    InterviewGuideQuestion,
+)
+from utils.i18n import tr
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
@@ -813,42 +820,42 @@ def suggest_onboarding_plans(
     return unique
 
 
-def generate_interview_guide(
+def _normalise_guide_list(payload: Sequence[str] | str) -> list[str]:
+    """Normalise skill/responsibility inputs into a list of trimmed strings."""
+
+    if isinstance(payload, str):
+        items = [part.strip() for part in payload.replace("\r", "").splitlines()]
+    else:
+        items = [str(item).strip() for item in payload]
+    return [item for item in items if item]
+
+
+def _sentence_case(text: str) -> str:
+    cleaned = text.strip()
+    if not cleaned:
+        return cleaned
+    return cleaned[0].upper() + cleaned[1:]
+
+
+def _build_deterministic_interview_guide(
+    *,
     job_title: str,
-    responsibilities: str = "",
-    hard_skills: Sequence[str] | str = "",
-    soft_skills: Sequence[str] | str = "",
-    audience: str = "general",
-    num_questions: int = 5,
-    lang: str = "en",
-    company_culture: str = "",
-    tone: str | None = None,
-    model: str | None = None,
-) -> str:
-    """Create an interview preparation guide directly from captured profile data."""
+    responsibilities_list: list[str],
+    hard_list: list[str],
+    soft_list: list[str],
+    audience: str,
+    num_questions: int,
+    lang: str,
+    culture_note: str,
+    tone_text: str,
+) -> InterviewGuide:
+    """Return a deterministic interview guide used as an offline fallback."""
 
     lang_code = (lang or "de").lower()
     is_de = lang_code.startswith("de")
 
     def _tr(value_de: str, value_en: str) -> str:
         return value_de if is_de else value_en
-
-    def _normalise_list(payload: Sequence[str] | str) -> list[str]:
-        if isinstance(payload, str):
-            parts = [p.strip() for p in payload.replace('\r', '').splitlines()]
-        else:
-            parts = [str(item).strip() for item in payload]
-        return [p for p in parts if p]
-
-    def _sentence_case(text: str) -> str:
-        cleaned = text.strip()
-        if not cleaned:
-            return cleaned
-        return cleaned[0].upper() + cleaned[1:]
-
-    hard_list = _normalise_list(hard_skills)
-    soft_list = _normalise_list(soft_skills)
-    responsibilities_list = _normalise_list(responsibilities)
 
     audience_display = {
         "general": _tr("Allgemeines Interviewteam", "General interview panel"),
@@ -857,23 +864,24 @@ def generate_interview_guide(
     }.get(audience, audience)
 
     job_title_text = job_title.strip() or _tr("diese Position", "this role")
-    tone_text = tone.strip() if isinstance(tone, str) else ""
-    if not tone_text:
-        tone_text = _tr("professionell und strukturiert", "professional and structured")
 
-    def _make_question(
-        question: str,
-        focus: str,
-        evaluation: str,
-    ) -> dict[str, str]:
-        return {
-            "question": _sentence_case(question),
-            "focus": focus.strip(),
-            "evaluation": evaluation.strip(),
-        }
+    def _make_question(question: str, focus: str, evaluation: str) -> InterviewGuideQuestion:
+        return InterviewGuideQuestion(
+            question=_sentence_case(question),
+            focus=focus.strip(),
+            evaluation=evaluation.strip(),
+        )
 
-    focus_label = _tr("Fokus", "Focus")
-    evaluation_label = _tr("Bewertungshinweise", "Evaluation guidance")
+    questions: list[InterviewGuideQuestion] = []
+
+    def _add_question(entry: InterviewGuideQuestion) -> None:
+        max_questions = max(3, min(10, num_questions))
+        if len(questions) >= max_questions:
+            return
+        key = entry.question.strip().lower()
+        if key in {existing.question.strip().lower() for existing in questions}:
+            return
+        questions.append(entry)
 
     motivation_question = _make_question(
         _tr(
@@ -886,20 +894,8 @@ def generate_interview_guide(
             "Listen for concrete reasons, links to the team and expectations for the role.",
         ),
     )
-
-    questions: list[dict[str, str]] = []
-
-    def _add_question(entry: dict[str, str]) -> None:
-        if len(questions) >= max(3, min(10, num_questions)):
-            return
-        key = entry["question"].strip().lower()
-        if key in {q["question"].strip().lower() for q in questions}:
-            return
-        questions.append(entry)
-
     _add_question(motivation_question)
 
-    culture_note = company_culture.strip()
     if culture_note:
         culture_question = _make_question(
             _tr(
@@ -915,46 +911,49 @@ def generate_interview_guide(
         _add_question(culture_question)
 
     for item in responsibilities_list[:3]:
-        q = _make_question(
-            _tr(
-                f"Beschreiben Sie ein Projekt, in dem Sie '{item}' verantwortet haben. Wie sind Sie vorgegangen und welches Ergebnis wurde erreicht?",
-                f"Describe a project where you were responsible for '{item}'. How did you approach it and what was the outcome?",
-            ),
-            _tr("Umsetzung zentraler Aufgaben", "Executing key responsibilities"),
-            _tr(
-                "Achten Sie auf Struktur, Prioritätensetzung und darauf, welchen Beitrag die Kandidat:in geleistet hat.",
-                "Look for structure, prioritisation and the candidate's personal contribution.",
-            ),
+        _add_question(
+            _make_question(
+                _tr(
+                    f"Beschreiben Sie ein Projekt, in dem Sie '{item}' verantwortet haben. Wie sind Sie vorgegangen und welches Ergebnis wurde erreicht?",
+                    f"Describe a project where you were responsible for '{item}'. How did you approach it and what was the outcome?",
+                ),
+                _tr("Umsetzung zentraler Aufgaben", "Executing key responsibilities"),
+                _tr(
+                    "Achten Sie auf Struktur, Prioritätensetzung und darauf, welchen Beitrag die Kandidat:in geleistet hat.",
+                    "Look for structure, prioritisation and the candidate's personal contribution.",
+                ),
+            )
         )
-        _add_question(q)
 
     for skill in hard_list[:4]:
-        q = _make_question(
-            _tr(
-                f"Wie gehen Sie bei {skill} vor? Beschreiben Sie einen konkreten Anwendungsfall.",
-                f"How do you approach {skill}? Walk us through a specific use case.",
-            ),
-            _tr("Technische Tiefe", "Technical depth"),
-            _tr(
-                "Erfragen Sie Details zu Methodik, Tools und Ergebnissen, um die tatsächliche Expertise zu bewerten.",
-                "Probe for methodology, tools and measurable outcomes to judge depth of expertise.",
-            ),
+        _add_question(
+            _make_question(
+                _tr(
+                    f"Wie gehen Sie bei {skill} vor? Beschreiben Sie einen konkreten Anwendungsfall.",
+                    f"How do you approach {skill}? Walk us through a specific use case.",
+                ),
+                _tr("Technische Tiefe", "Technical depth"),
+                _tr(
+                    "Erfragen Sie Details zu Methodik, Tools und Ergebnissen, um die tatsächliche Expertise zu bewerten.",
+                    "Probe for methodology, tools and measurable outcomes to judge depth of expertise.",
+                ),
+            )
         )
-        _add_question(q)
 
     for skill in soft_list[:3]:
-        q = _make_question(
-            _tr(
-                f"Erzählen Sie von einer Situation, in der '{skill}' besonders wichtig war. Wie haben Sie reagiert?",
-                f"Tell us about a situation where '{skill}' was critical. How did you respond?",
-            ),
-            _tr("Verhaltenskompetenzen", "Behavioural competencies"),
-            _tr(
-                "Achten Sie auf Selbstreflexion, Lernmomente und konkrete Resultate.",
-                "Listen for self-reflection, learning and concrete outcomes.",
-            ),
+        _add_question(
+            _make_question(
+                _tr(
+                    f"Erzählen Sie von einer Situation, in der '{skill}' besonders wichtig war. Wie haben Sie reagiert?",
+                    f"Tell us about a situation where '{skill}' was critical. How did you respond?",
+                ),
+                _tr("Verhaltenskompetenzen", "Behavioural competencies"),
+                _tr(
+                    "Achten Sie auf Selbstreflexion, Lernmomente und konkrete Resultate.",
+                    "Listen for self-reflection, learning and concrete outcomes.",
+                ),
+            )
         )
-        _add_question(q)
 
     fallback_questions = [
         _make_question(
@@ -1020,72 +1019,224 @@ def generate_interview_guide(
     if len(questions) < num_questions:
         additional_sources = responsibilities_list[3:] + hard_list[4:] + soft_list[3:]
         for item in additional_sources:
-            q = _make_question(
-                _tr(
-                    f"Welche Erfahrungen haben Sie mit '{item}' gesammelt und was haben Sie daraus gelernt?",
-                    f"What experience do you have with '{item}' and what did you learn from it?",
-                ),
-                _tr("Vertiefung", "Deep dive"),
-                _tr(
-                    "Fragen Sie nach Ergebnissen, Lessons Learned und der Übertragbarkeit auf die Rolle.",
-                    "Ask about outcomes, lessons learned and applicability to the role.",
-                ),
+            _add_question(
+                _make_question(
+                    _tr(
+                        f"Welche Erfahrungen haben Sie mit '{item}' gesammelt und was haben Sie daraus gelernt?",
+                        f"What experience do you have with '{item}' and what did you learn from it?",
+                    ),
+                    _tr("Vertiefung", "Deep dive"),
+                    _tr(
+                        "Fragen Sie nach Ergebnissen, Lessons Learned und der Übertragbarkeit auf die Rolle.",
+                        "Ask about outcomes, lessons learned and applicability to the role.",
+                    ),
+                )
             )
-            _add_question(q)
             if len(questions) >= num_questions:
                 break
 
     if len(questions) > num_questions:
         questions = questions[:num_questions]
 
-    summary_lines: list[str] = []
-    summary_lines.append(
-        _tr("Interviewleitfaden", "Interview Guide") + f" – {job_title_text}"
-    )
-    summary_lines.append("")
-    summary_lines.append(
-        f"**{_tr('Zielgruppe', 'Intended audience')}:** {audience_display}"
-    )
-    summary_lines.append(f"**{_tr('Tonfall', 'Tone')}:** {tone_text}")
-    if culture_note:
-        summary_lines.append(
-            f"**{_tr('Unternehmenskultur', 'Company culture')}:** {culture_note}"
+    focus_areas: list[InterviewGuideFocusArea] = []
+    if responsibilities_list:
+        focus_areas.append(
+            InterviewGuideFocusArea(
+                label=_tr("Schlüsselaufgaben", "Key responsibilities"),
+                items=responsibilities_list[:5],
+            )
+        )
+    if hard_list:
+        focus_areas.append(
+            InterviewGuideFocusArea(
+                label=_tr("Kernkompetenzen", "Core hard skills"),
+                items=hard_list[:5],
+            )
+        )
+    if soft_list:
+        focus_areas.append(
+            InterviewGuideFocusArea(
+                label=_tr("Soft Skills", "Soft skills"),
+                items=soft_list[:5],
+            )
         )
 
-    focus_section: list[str] = []
-    if responsibilities_list or hard_list or soft_list:
-        focus_section.append("")
-        focus_section.append(f"## {_tr('Fokusbereiche', 'Focus areas')}")
-        if responsibilities_list:
-            focus_section.append(
-                f"- **{_tr('Schlüsselaufgaben', 'Key responsibilities')}:** "
-                + ", ".join(responsibilities_list[:5])
-            )
-        if hard_list:
-            focus_section.append(
-                f"- **{_tr('Kernkompetenzen', 'Core hard skills')}:** "
-                + ", ".join(hard_list[:5])
-            )
-        if soft_list:
-            focus_section.append(
-                f"- **{_tr('Soft Skills', 'Soft skills')}:** "
-                + ", ".join(soft_list[:5])
-            )
+    metadata = InterviewGuideMetadata(
+        language="de" if is_de else "en",
+        heading=(
+            _tr("Interviewleitfaden", "Interview Guide")
+            + f" – {job_title_text}"
+        ),
+        job_title=job_title_text,
+        audience=audience,
+        audience_label=audience_display,
+        tone=tone_text,
+        culture_note=culture_note or None,
+    )
 
-    question_lines: list[str] = [
-        "",
-        f"## {_tr('Fragen & Bewertungsleitfaden', 'Questions & evaluation guide')}",
+    guide = InterviewGuide(
+        metadata=metadata,
+        focus_areas=focus_areas,
+        questions=questions,
+    )
+    return guide.ensure_markdown()
+
+
+def _prepare_interview_guide_payload(
+    *,
+    job_title: str,
+    responsibilities: str,
+    hard_skills: Sequence[str] | str,
+    soft_skills: Sequence[str] | str,
+    audience: str,
+    num_questions: int,
+    lang: str,
+    company_culture: str,
+    tone: str | None,
+) -> tuple[dict[str, Any], InterviewGuide]:
+    """Prepare payload for prompting and a deterministic fallback."""
+
+    hard_list = _normalise_guide_list(hard_skills)
+    soft_list = _normalise_guide_list(soft_skills)
+    responsibilities_list = _normalise_guide_list(responsibilities)
+
+    tone_text = tone.strip() if isinstance(tone, str) else ""
+    lang_code = (lang or "de").lower()
+    is_de = lang_code.startswith("de")
+    if not tone_text:
+        tone_text = tr(
+            "professionell und strukturiert",
+            "professional and structured",
+            "de" if is_de else "en",
+        )
+
+    culture_note = company_culture.strip()
+
+    fallback = _build_deterministic_interview_guide(
+        job_title=job_title,
+        responsibilities_list=responsibilities_list,
+        hard_list=hard_list,
+        soft_list=soft_list,
+        audience=audience,
+        num_questions=num_questions,
+        lang=lang,
+        culture_note=culture_note,
+        tone_text=tone_text,
+    )
+
+    payload: dict[str, Any] = {
+        "language": "de" if is_de else "en",
+        "job_title": job_title,
+        "requested_questions": max(3, min(10, num_questions)),
+        "audience": audience,
+        "audience_display": fallback.metadata.audience_label,
+        "tone": tone_text,
+        "company_culture": culture_note,
+        "responsibilities": responsibilities_list,
+        "hard_skills": hard_list,
+        "soft_skills": soft_list,
+        "seed_focus_areas": [area.model_dump() for area in fallback.focus_areas],
+        "sample_questions": [
+            question.model_dump()
+            for question in fallback.questions[: max(3, min(6, num_questions))]
+        ],
+    }
+
+    return payload, fallback
+
+
+def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
+    """Return chat messages guiding the model to produce an interview guide."""
+
+    lang = str(payload.get("language") or "de").lower()
+
+    system_msg = tr(
+        "Du bist eine erfahrene HR-Coachin, die strukturierte Interviewleitfäden erstellt.",
+        "You are an experienced HR coach who designs structured interview guides.",
+        lang,
+    )
+
+    instruction_lines = [
+        tr(
+            "Erstelle eine strukturierte Liste von Interviewfragen mit Bewertungsleitfaden.",
+            "Create a structured list of interview questions with evaluation guidance.",
+            lang,
+        ),
+        tr(
+            "Nutze die bereitgestellten Aufgaben, Skills und kulturellen Hinweise als Kontext.",
+            "Use the provided responsibilities, skills, and culture notes as context.",
+            lang,
+        ),
+        tr(
+            "Passe Ton und Zielgruppe an und halte dich an die gewünschte Fragenanzahl.",
+            "Match the requested tone and audience and respect the desired question count.",
+            lang,
+        ),
+        tr(
+            "Liefere ausschließlich JSON, das exakt dem angegebenen Schema entspricht.",
+            "Return only JSON that exactly matches the provided schema.",
+            lang,
+        ),
     ]
-    for idx, question in enumerate(questions, start=1):
-        question_lines.append("")
-        question_lines.append(f"### {idx}. {question['question']}")
-        question_lines.append(f"- **{focus_label}:** {question['focus']}")
-        question_lines.append(
-            f"- **{evaluation_label}:** {question['evaluation']}"
-        )
 
-    document = "\n".join(summary_lines + focus_section + question_lines).strip()
-    return document
+    context_json = json.dumps(payload, ensure_ascii=False, indent=2)
+    user_message = (
+        "\n".join(instruction_lines)
+        + "\n\nContext:\n```json\n"
+        + context_json
+        + "\n```"
+    )
+
+    return [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": user_message},
+    ]
+
+
+def generate_interview_guide(
+    job_title: str,
+    responsibilities: str = "",
+    hard_skills: Sequence[str] | str = "",
+    soft_skills: Sequence[str] | str = "",
+    audience: str = "general",
+    num_questions: int = 5,
+    lang: str = "en",
+    company_culture: str = "",
+    tone: str | None = None,
+    model: str | None = None,
+) -> InterviewGuide:
+    """Create an interview guide via the LLM with a deterministic fallback."""
+
+    payload, fallback = _prepare_interview_guide_payload(
+        job_title=job_title,
+        responsibilities=responsibilities,
+        hard_skills=hard_skills,
+        soft_skills=soft_skills,
+        audience=audience,
+        num_questions=num_questions,
+        lang=lang,
+        company_culture=company_culture,
+        tone=tone,
+    )
+
+    if model is None:
+        model = get_model_for(ModelTask.INTERVIEW_GUIDE)
+
+    try:
+        messages = _build_interview_guide_prompt(payload)
+        schema = InterviewGuide.model_json_schema()
+        response = api.call_chat_api(
+            messages,
+            model=model,
+            temperature=0.6,
+            max_tokens=900,
+            json_schema={"name": "interviewGuide", "schema": schema},
+        )
+        data = _load_json_payload(_chat_content(response))
+        guide = InterviewGuide.model_validate(data).ensure_markdown()
+        return guide
+    except Exception:
+        return fallback
 
 
 def _prepare_job_ad_payload(
