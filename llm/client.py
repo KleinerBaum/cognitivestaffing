@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from jsonschema import Draft7Validator
-from langchain_core.runnables import RunnableLambda, RunnableSerializable
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
@@ -89,57 +88,39 @@ NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
 
-def _build_structured_extraction_chain() -> RunnableSerializable[dict[str, Any], str]:
-    """Create a LangChain runnable that validates model output against the schema."""
+def _structured_extraction(payload: dict[str, Any]) -> str:
+    """Call the chat API and validate the structured extraction output."""
 
-    def _call_model(payload: dict[str, Any]) -> dict[str, Any]:
-        result = call_chat_api(
-            payload["messages"],
-            model=payload["model"],
-            temperature=0,
-            reasoning_effort=payload.get("reasoning_effort"),
-            json_schema={
-                "name": "need_analysis_profile",
-                "schema": NEED_ANALYSIS_SCHEMA,
-            },
-        )
-        content = (result.content or "").strip()
-        if not content:
-            raise ValueError("LLM returned empty response")
-        return {"content": content}
-
-    def _parse_json(payload: dict[str, Any]) -> dict[str, Any]:
-        try:
-            data = json.loads(payload["content"])
-        except json.JSONDecodeError as err:
-            raise ValueError("Structured extraction did not return valid JSON") from err
-        return {"content": payload["content"], "data": data}
-
-    def _validate(payload: dict[str, Any]) -> dict[str, Any]:
-        data = payload["data"]
-        try:
-            profile = NeedAnalysisProfile.model_validate(data)
-        except ValidationError as err:
-            report = _generate_error_report(data)
-            if report:
-                logger.debug("Schema validation errors:\n%s", report)
-                if hasattr(err, "add_note"):
-                    err.add_note(report)
-            raise
-        return {"validated": profile.model_dump(mode="json")}
-
-    def _serialise(payload: dict[str, Any]) -> str:
-        return json.dumps(payload["validated"], ensure_ascii=False)
-
-    return (
-        RunnableLambda(_call_model)
-        | RunnableLambda(_parse_json)
-        | RunnableLambda(_validate)
-        | RunnableLambda(_serialise)
+    result = call_chat_api(
+        payload["messages"],
+        model=payload["model"],
+        temperature=0,
+        reasoning_effort=payload.get("reasoning_effort"),
+        json_schema={
+            "name": "need_analysis_profile",
+            "schema": NEED_ANALYSIS_SCHEMA,
+        },
     )
+    content = (result.content or "").strip()
+    if not content:
+        raise ValueError("LLM returned empty response")
 
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as err:
+        raise ValueError("Structured extraction did not return valid JSON") from err
 
-_STRUCTURED_EXTRACTION_CHAIN = _build_structured_extraction_chain()
+    try:
+        profile = NeedAnalysisProfile.model_validate(data)
+    except ValidationError as err:
+        report = _generate_error_report(data)
+        if report:
+            logger.debug("Schema validation errors:\n%s", report)
+            if hasattr(err, "add_note"):
+                err.add_note(report)
+        raise
+
+    return json.dumps(profile.model_dump(mode="json"), ensure_ascii=False)
 
 
 def _minimal_messages(text: str) -> list[dict[str, str]]:
@@ -183,7 +164,7 @@ def extract_json(
         span.set_attribute("llm.model", model)
         span.set_attribute("llm.extract.minimal", minimal)
         try:
-            output = _STRUCTURED_EXTRACTION_CHAIN.invoke(
+            output = _structured_extraction(
                 {
                     "messages": messages,
                     "model": model,
