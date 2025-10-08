@@ -98,3 +98,13 @@ def test_job_type_invalid() -> None:
     profile = coerce_and_fill({"employment": {"job_type": "unknown"}})
     assert profile.employment is not None
     assert profile.employment.job_type == "unknown"
+
+
+def test_salary_provided_defaults_to_false_when_missing_or_null() -> None:
+    missing_payload = {"compensation": {"salary_max": 100000}}
+    profile_missing = coerce_and_fill(missing_payload)
+    assert profile_missing.compensation.salary_provided is False
+
+    null_payload = {"compensation": {"salary_provided": None}}
+    profile_null = coerce_and_fill(null_payload)
+    assert profile_null.compensation.salary_provided is False

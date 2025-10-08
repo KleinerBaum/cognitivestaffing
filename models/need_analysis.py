@@ -184,6 +184,37 @@ class Compensation(BaseModel):
     equity_offered: Optional[bool] = None
     benefits: List[str] = Field(default_factory=list)
 
+    @field_validator("salary_provided", mode="before")
+    @classmethod
+    def _normalize_salary_provided(cls, value: Any) -> bool:
+        """Coerce falsy placeholders into a real boolean value."""
+
+        if value is None:
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return False
+            lower = stripped.casefold()
+            try:
+                from utils.json_parse import FALSE_VALUES, TRUE_VALUES  # local import to avoid cycles
+
+                if lower in TRUE_VALUES:
+                    return True
+                if lower in FALSE_VALUES:
+                    return False
+            except Exception:
+                # Fallback if json_parse cannot be imported yet (e.g. circular init)
+                pass
+            if lower in {"none", "null", "n/a", "na"}:
+                return False
+            return bool(stripped)
+        return bool(value)
+
 
 class Stakeholder(BaseModel):
     """Person involved in the hiring process."""
