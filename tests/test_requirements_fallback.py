@@ -2,6 +2,7 @@
 
 from models.need_analysis import NeedAnalysisProfile
 from ingest.heuristics import apply_basic_fallbacks
+from models.need_analysis import NeedAnalysisProfile
 
 
 def test_requirements_split_and_languages() -> None:
@@ -27,6 +28,7 @@ def test_requirements_split_and_languages() -> None:
     assert "English" in r.languages_required
     assert "German" in r.languages_optional
     assert any("aws ml specialty" in c.lower() for c in r.certifications)
+    assert any("aws ml specialty" in c.lower() for c in r.certificates)
     tools = {t.lower() for t in r.tools_and_technologies}
     assert "python" in tools and "docker" in tools
 

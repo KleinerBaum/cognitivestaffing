@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class Company(BaseModel):
@@ -77,8 +84,30 @@ class Requirements(BaseModel):
     tools_and_technologies: List[str] = Field(default_factory=list)
     languages_required: List[str] = Field(default_factory=list)
     languages_optional: List[str] = Field(default_factory=list)
+    certificates: List[str] = Field(default_factory=list)
     certifications: List[str] = Field(default_factory=list)
     language_level_english: Optional[str] = None
+
+    @model_validator(mode="after")
+    @classmethod
+    def _sync_certificates(cls, values: "Requirements") -> "Requirements":
+        """Keep ``certificates`` and ``certifications`` aligned."""
+
+        combined: list[str] = []
+        seen: set[str] = set()
+        for source in (values.certifications, values.certificates):
+            for item in source:
+                cleaned = (item or "").strip()
+                if not cleaned:
+                    continue
+                marker = cleaned.casefold()
+                if marker in seen:
+                    continue
+                seen.add(marker)
+                combined.append(cleaned)
+        values.certificates = combined.copy()
+        values.certifications = combined.copy()
+        return values
 
 
 class Employment(BaseModel):
@@ -154,6 +183,7 @@ class Phase(BaseModel):
     docs_required: Optional[str] = None
     assessment_tests: Optional[bool] = None
     timeframe: Optional[str] = None
+    task_assignments: Optional[str] = None
 
 
 class Process(BaseModel):

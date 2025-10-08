@@ -4,7 +4,7 @@ Vacalyzer's schema is now hierarchical, grouping related fields for a profile. E
 - **position:** `job_title`, `seniority_level`, `department`, `management_scope`, `reporting_line`, `role_summary`, `team_structure`, etc.  
 - **employment:** `job_type`, `work_policy` (Onsite/Hybrid/Remote), `travel_required`, `work_schedule`, etc.  
 - **compensation:** `salary_currency`, `salary_min`, `salary_max`, `salary_period`, `benefits`, etc.  
-- **requirements:** `hard_skills`, `soft_skills`, `tools_and_technologies`, `education_level`, `languages_required`, `certifications`, etc.  
+- **requirements:** `hard_skills`, `soft_skills`, `tools_and_technologies`, `education_level`, `languages_required`, `certificates` (`certifications`), etc.
 - **responsibilities:** `items` (list of key responsibilities), `top3` (the top three responsibilities).  
 *(Other groups like contacts, process, and analytics exist in the schema but may not be fully utilized in the initial extraction.)*
 
@@ -52,6 +52,7 @@ Example JSON output from the extractor (abridged):
     "tools_and_technologies": ["Docker", "Kubernetes"],
     "education_level": "Bachelor",
     "languages_required": ["English"],
+    "certificates": [],
     "certifications": [],
     "...": "..."
   },

@@ -30,6 +30,7 @@ def test_step_requirements_warns_on_skill_suggestion_error(
             "tools_and_technologies": [],
             "languages_required": [],
             "languages_optional": [],
+            "certificates": [],
             "certifications": [],
         },
         "position": {"job_title": "Data Scientist"},

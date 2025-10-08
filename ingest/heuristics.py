@@ -526,6 +526,7 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
 
     certs = _extract_certifications(text)
     r.certifications = _merge_unique(r.certifications, certs)
+    r.certificates = _merge_unique(r.certificates, certs)
     return profile
 
 

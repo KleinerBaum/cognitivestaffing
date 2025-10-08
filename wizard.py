@@ -121,6 +121,11 @@ SKILL_ALIAS_MAP: dict[str, str] = {
     "tools und tech": "requirements.tools_and_technologies",
     "tools & tech": "requirements.tools_and_technologies",
     "tools and tech": "requirements.tools_and_technologies",
+    "requirements certifications": "requirements.certificates",
+    "requirements certificates": "requirements.certificates",
+    "certificates": "requirements.certificates",
+    "zertifikate": "requirements.certificates",
+    "zertifizierungen": "requirements.certificates",
     "requirements languages required": "requirements.languages_required",
     "languages required": "requirements.languages_required",
     "pflicht sprachen": "requirements.languages_required",
@@ -140,6 +145,7 @@ REQUIREMENT_OVERVIEW_ROWS: list[tuple[str | None, str | None]] = [
     ("requirements.soft_skills_optional", "soft"),
     (None, None),
     ("requirements.tools_and_technologies", "tool"),
+    ("requirements.certificates", "certificate"),
     ("requirements.languages_required", "language"),
     ("requirements.languages_optional", "language"),
 ]
@@ -1864,6 +1870,28 @@ def _unique_normalized(values: Iterable[str] | None) -> list[str]:
     return result
 
 
+def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]:
+    """Return combined certificate entries across legacy keys."""
+
+    raw_values: list[str] = []
+    if isinstance(requirements, Mapping):
+        for key in ("certificates", "certifications"):
+            items = requirements.get(key, [])
+            if isinstance(items, Sequence) and not isinstance(
+                items, (str, bytes, bytearray)
+            ):
+                raw_values.extend(str(item) for item in items)
+    return _unique_normalized(raw_values)
+
+
+def _set_requirement_certificates(requirements: dict[str, Any], values: Iterable[str]) -> None:
+    """Synchronize certificate lists under both legacy keys."""
+
+    normalized = _unique_normalized(list(values))
+    requirements["certificates"] = normalized
+    requirements["certifications"] = list(normalized)
+
+
 BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
 BOOLEAN_PROFILE_SIGNATURE = "ui.summary.boolean_profile_signature"
 
@@ -1961,19 +1989,37 @@ def _render_boolean_interactive_section(
     include_title_default = bool(job_title_value or synonyms)
     include_title = False
     title_key = ""
-    if include_title_default:
-        key_basis = job_title_value or "|".join(synonyms) or "title"
-        title_key = _boolean_widget_key("boolean.title", key_basis)
-        include_title = st.checkbox(
-            tr("Jobtitel einbeziehen", "Include job title"),
-            value=st.session_state.get(title_key, True),
-            key=title_key,
-        )
-        registry_keys.append(title_key)
-
-        if job_title_value:
-            st.caption(f'"{job_title_value}"')
     selected_synonyms: list[str] = []
+    selected_skills: list[str] = []
+    with st.expander(tr("Skills & Keywords", "Skills & keywords"), expanded=True):
+        if include_title_default:
+            key_basis = job_title_value or "|".join(synonyms) or "title"
+            title_key = _boolean_widget_key("boolean.title", key_basis)
+            include_title = st.checkbox(
+                tr("Jobtitel einbeziehen", "Include job title"),
+                value=st.session_state.get(title_key, True),
+                key=title_key,
+            )
+            registry_keys.append(title_key)
+            if job_title_value:
+                st.caption(f'"{job_title_value}"')
+        else:
+            include_title = False
+
+        if boolean_skill_terms:
+            for skill in boolean_skill_terms:
+                skill_key = _boolean_widget_key("boolean.skill", skill)
+                checked = st.checkbox(
+                    skill,
+                    value=st.session_state.get(skill_key, True),
+                    key=skill_key,
+                )
+                if checked:
+                    selected_skills.append(skill)
+                registry_keys.append(skill_key)
+        else:
+            st.caption(tr("Noch keine Skills erfasst.", "No skills captured yet."))
+
     if synonyms:
         with st.expander(tr("Titel-Synonyme", "Title synonyms"), expanded=True):
             for synonym in synonyms:
@@ -1987,24 +2033,6 @@ def _render_boolean_interactive_section(
                 if include_title and checked:
                     selected_synonyms.append(synonym)
                 registry_keys.append(syn_key)
-
-    selected_skills: list[str] = []
-    if boolean_skill_terms:
-        with st.expander(
-            tr("Skills & Keywords", "Skills & keywords"), expanded=True
-        ):
-            for skill in boolean_skill_terms:
-                skill_key = _boolean_widget_key("boolean.skill", skill)
-                checked = st.checkbox(
-                    skill,
-                    value=st.session_state.get(skill_key, True),
-                    key=skill_key,
-                )
-                if checked:
-                    selected_skills.append(skill)
-                registry_keys.append(skill_key)
-    else:
-        st.caption(tr("Noch keine Skills erfasst.", "No skills captured yet."))
 
     include_title_clause = include_title and bool(job_title_value or selected_synonyms)
     boolean_query = ""
@@ -2112,6 +2140,7 @@ def _chip_multiselect(
     values: List[str],
     *,
     help_text: str | None = None,
+    dropdown: bool = False,
 ) -> List[str]:
     """Render a multiselect with chip-like UX and free-text additions.
 
@@ -2142,38 +2171,45 @@ def _chip_multiselect(
     available_options = sorted(available_options, key=str.casefold)
     st.session_state[options_key] = available_options
 
-    input_col, button_col = st.columns([3, 1])
-    new_entry = input_col.text_input(
-        tr("Neuen Wert hinzufügen", "Add new value"),
-        key=input_key,
-        placeholder=tr("Neuen Wert hinzufügen …", "Add new value …"),
-        label_visibility="collapsed",
-    )
-    add_clicked = button_col.button(
-        tr("Hinzufügen", "Add"),
-        key=button_key,
-        use_container_width=True,
-    )
+    container = st.expander(label, expanded=True) if dropdown else st.container()
+    with container:
+        if dropdown and help_text:
+            st.caption(help_text)
+        input_col, button_col = st.columns([3, 1])
+        new_entry = input_col.text_input(
+            tr("Neuen Wert hinzufügen", "Add new value"),
+            key=input_key,
+            placeholder=tr("Neuen Wert hinzufügen …", "Add new value …"),
+            label_visibility="collapsed",
+        )
+        add_clicked = button_col.button(
+            tr("Hinzufügen", "Add"),
+            key=button_key,
+            use_container_width=True,
+        )
 
-    if add_clicked:
-        candidate = new_entry.strip()
-        if candidate:
-            available_options = sorted(
-                _unique_normalized(available_options + [candidate]),
-                key=str.casefold,
-            )
-            st.session_state[options_key] = available_options
-            base_values = _unique_normalized(base_values + [candidate])
-            st.session_state[ms_key] = base_values
+        if add_clicked:
+            candidate = new_entry.strip()
+            if candidate:
+                available_options = sorted(
+                    _unique_normalized(available_options + [candidate]),
+                    key=str.casefold,
+                )
+                st.session_state[options_key] = available_options
+                base_values = _unique_normalized(base_values + [candidate])
+                st.session_state[ms_key] = base_values
 
-    default_selection = _unique_normalized(st.session_state.get(ms_key, base_values))
-    selection = st.multiselect(
-        label,
-        options=available_options,
-        default=default_selection,
-        key=ms_key,
-        help=help_text,
-    )
+        default_selection = _unique_normalized(
+            st.session_state.get(ms_key, base_values)
+        )
+        selection = st.multiselect(
+            label if not dropdown else tr("Auswahl", "Selection"),
+            options=available_options,
+            default=default_selection,
+            key=ms_key,
+            help=None if dropdown else help_text,
+            label_visibility="visible" if not dropdown else "collapsed",
+        )
     return _unique_normalized(selection)
 
 
@@ -2357,6 +2393,8 @@ def _step_company():
 
     st.subheader(tr("Unternehmen", "Company"))
     data = st.session_state[StateKeys.PROFILE]
+    combined_certificates = _collect_combined_certificates(data["requirements"])
+    _set_requirement_certificates(data["requirements"], combined_certificates)
     missing_here = [
         f
         for f in get_missing_critical_fields(max_section=1)
@@ -3333,6 +3371,7 @@ def _step_requirements():
                     "hard_skills",
                     "soft_skills",
                     "tools_and_technologies",
+                    "certificates",
                 )
             }
         else:
@@ -3423,11 +3462,31 @@ def _step_requirements():
                 )
             return
 
-        available = [
-            item
-            for item in suggestions.get(source_key, [])
-            if item not in data["requirements"].get(target_key, [])
-        ]
+        existing_terms: set[str] = set()
+        for key_name in (
+            "hard_skills_required",
+            "hard_skills_optional",
+            "soft_skills_required",
+            "soft_skills_optional",
+            "tools_and_technologies",
+            "certificates",
+        ):
+            for entry in data["requirements"].get(key_name, []) or []:
+                existing_terms.add(str(entry).casefold())
+
+        normalized_pool: list[str] = []
+        seen_terms: set[str] = set()
+        for raw in suggestions.get(source_key, []):
+            cleaned = str(raw or "").strip()
+            if not cleaned:
+                continue
+            marker = cleaned.casefold()
+            if marker in existing_terms or marker in seen_terms:
+                continue
+            seen_terms.add(marker)
+            normalized_pool.append(cleaned)
+
+        available = normalized_pool[:12]
         if not available:
             if show_hint:
                 st.caption(
@@ -3438,7 +3497,6 @@ def _step_requirements():
                 )
             return
 
-        widget_key = f"ai_suggestions.{target_key}.{widget_suffix}"
         st.markdown("<div class='ai-suggestion-box'>", unsafe_allow_html=True)
         st.markdown(
             "<div class='ai-suggestion-box__title'>💡 KI</div>"
@@ -3450,20 +3508,51 @@ def _step_requirements():
             f"<div class='ai-suggestion-box__caption'>{caption}</div>",
             unsafe_allow_html=True,
         )
-        picked = st.multiselect(
-            tr("Vorschläge auswählen", "Select suggestions"),
-            options=available,
-            key=widget_key,
-            label_visibility="collapsed",
-            placeholder=tr("Elemente auswählen …", "Select entries …"),
-        )
+        widget_prefix = f"ai_suggestions.{target_key}.{widget_suffix}"
+        registry_key = f"{widget_prefix}.keys"
+        current_keys: list[str] = []
+        picked: list[str] = []
+        grid_container = st.container()
+        for start in range(0, len(available), 4):
+            row_values = available[start : start + 4]
+            cols = grid_container.columns(len(row_values), gap="small")
+            for col, suggestion in zip(cols, row_values):
+                cb_key = _boolean_widget_key(widget_prefix, suggestion)
+                current_keys.append(cb_key)
+                checked = col.checkbox(suggestion, key=cb_key)
+                if checked:
+                    picked.append(suggestion)
+        previous_keys = st.session_state.get(registry_key, [])
+        for stale in previous_keys:
+            if stale not in current_keys:
+                st.session_state.pop(stale, None)
+        st.session_state[registry_key] = current_keys
         st.markdown("</div>", unsafe_allow_html=True)
         if picked:
             merged = sorted(
                 set(data["requirements"].get(target_key, [])).union(picked),
                 key=str.casefold,
             )
-            data["requirements"][target_key] = merged
+            if target_key == "certificates":
+                _set_requirement_certificates(data["requirements"], merged)
+            else:
+                data["requirements"][target_key] = merged
+            for suggestion in picked:
+                st.session_state.pop(_boolean_widget_key(widget_prefix, suggestion), None)
+            st.session_state.pop(registry_key, None)
+            st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+            st.rerun()
+
+        if st.button(
+            tr("🔄 Vorschläge aktualisieren", "🔄 Refresh suggestions"),
+            key=f"{widget_prefix}.refresh",
+            use_container_width=True,
+        ):
+            for key in st.session_state.get(registry_key, []):
+                st.session_state.pop(key, None)
+            st.session_state.pop(registry_key, None)
+            st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+            st.rerun()
 
     with requirement_panel(
         icon="🔒",
@@ -3490,6 +3579,7 @@ def _step_requirements():
                     "Zwingend benötigte technische Kompetenzen.",
                     "Essential technical competencies.",
                 ),
+                dropdown=True,
             )
             _render_required_caption(
                 "requirements.hard_skills_required" in missing_here
@@ -3517,6 +3607,7 @@ def _step_requirements():
                     "Unverzichtbare Verhalten- und Teamkompetenzen.",
                     "Critical behavioural and team skills.",
                 ),
+                dropdown=True,
             )
             _render_required_caption(
                 "requirements.soft_skills_required" in missing_here
@@ -3529,37 +3620,6 @@ def _step_requirements():
                 caption=tr(
                     "KI-Vorschläge für soziale und methodische Kompetenzen.",
                     "AI picks for behavioural and interpersonal strengths.",
-                ),
-            )
-
-        tools_cols = st.columns(2, gap="large")
-        with tools_cols[0]:
-            data["requirements"]["tools_and_technologies"] = _chip_multiselect(
-                tr("Tools & Tech", "Tools & Tech"),
-                options=data["requirements"].get("tools_and_technologies", []),
-                values=data["requirements"].get("tools_and_technologies", []),
-                help_text=tr(
-                    "Wichtige Systeme, Plattformen oder Sprachen.",
-                    "Key systems, platforms, or languages.",
-                ),
-            )
-            _render_ai_suggestions(
-                source_key="tools_and_technologies",
-                target_key="tools_and_technologies",
-                widget_suffix="tools",
-                caption=tr(
-                    "Ergänzende Tools & Technologien aus der KI-Analyse.",
-                    "Complementary tools & technologies suggested by AI.",
-                ),
-            )
-        with tools_cols[1]:
-            data["requirements"]["certifications"] = _chip_multiselect(
-                tr("Zertifizierungen", "Certifications"),
-                options=data["requirements"].get("certifications", []),
-                values=data["requirements"].get("certifications", []),
-                help_text=tr(
-                    "Benötigte Zertifikate oder Nachweise.",
-                    "Required certifications or proofs.",
                 ),
             )
 
@@ -3585,6 +3645,7 @@ def _step_requirements():
                     "Zusätzliche technische Stärken, die Mehrwert bieten.",
                     "Additional technical strengths that add value.",
                 ),
+                dropdown=True,
             )
             _render_ai_suggestions(
                 source_key="hard_skills",
@@ -3604,6 +3665,7 @@ def _step_requirements():
                     "Wünschenswerte persönliche Eigenschaften.",
                     "Valuable personal attributes.",
                 ),
+                dropdown=True,
             )
             _render_ai_suggestions(
                 source_key="soft_skills",
@@ -3616,24 +3678,60 @@ def _step_requirements():
             )
 
     with requirement_panel(
-        icon="🧠",
-        title=tr("Boolean-Suche", "Boolean search"),
+        icon="🛠️",
+        title=tr("Tools, Tech & Zertifikate", "Tools, tech & certificates"),
         caption=tr(
-            "Leite aus den Anforderungen einen Suchstring ab.",
-            "Derive a search string from your requirements.",
+            "Technologien, Systeme und formale Nachweise bündeln.",
+            "Capture technologies, systems, and formal certificates.",
         ),
         tooltip=tr(
-            "Verwende Jobtitel und Skills, um direkt einen Boolean-String zu erzeugen.",
-            "Use job titles and skills to instantly create a Boolean string.",
+            "Liste die wichtigsten Werkzeuge sowie verbindliche Zertifikate auf.",
+            "List the essential tools together with required certificates.",
         ),
     ):
-        try:
-            boolean_profile = NeedAnalysisProfile.model_validate(
-                st.session_state[StateKeys.PROFILE]
+        tech_cert_cols = st.columns(2, gap="large")
+        with tech_cert_cols[0]:
+            data["requirements"]["tools_and_technologies"] = _chip_multiselect(
+                tr("Tools & Tech", "Tools & Tech"),
+                options=data["requirements"].get("tools_and_technologies", []),
+                values=data["requirements"].get("tools_and_technologies", []),
+                help_text=tr(
+                    "Wichtige Systeme, Plattformen oder Sprachen.",
+                    "Key systems, platforms, or languages.",
+                ),
+                dropdown=True,
             )
-        except Exception:
-            boolean_profile = NeedAnalysisProfile()
-        render_boolean_builder(boolean_profile)
+            _render_ai_suggestions(
+                source_key="tools_and_technologies",
+                target_key="tools_and_technologies",
+                widget_suffix="tools",
+                caption=tr(
+                    "Ergänzende Tools & Technologien aus der KI-Analyse.",
+                    "Complementary tools & technologies suggested by AI.",
+                ),
+            )
+        with tech_cert_cols[1]:
+            certificate_options = _collect_combined_certificates(data["requirements"])
+            selected_certificates = _chip_multiselect(
+                tr("Zertifikate", "Certificates"),
+                options=certificate_options,
+                values=certificate_options,
+                help_text=tr(
+                    "Benötigte Zertifikate oder Nachweise.",
+                    "Required certificates or attestations.",
+                ),
+                dropdown=True,
+            )
+            _set_requirement_certificates(data["requirements"], selected_certificates)
+            _render_ai_suggestions(
+                source_key="certificates",
+                target_key="certificates",
+                widget_suffix="certs",
+                caption=tr(
+                    "Von der KI empfohlene Zertifikate passend zum Jobtitel.",
+                    "AI-recommended certificates that match the job title.",
+                ),
+            )
 
     with requirement_panel(
         icon="🌐",
@@ -3657,6 +3755,7 @@ def _step_requirements():
                     "Sprachen, die zwingend erforderlich sind.",
                     "Languages that are mandatory for the role.",
                 ),
+                dropdown=True,
             )
         with lang_cols[1]:
             data["requirements"]["languages_optional"] = _chip_multiselect(
@@ -3667,6 +3766,7 @@ def _step_requirements():
                     "Sprachen, die ein Plus darstellen.",
                     "Languages that are a plus.",
                 ),
+                dropdown=True,
             )
 
         current_language_level = (
@@ -4122,9 +4222,10 @@ def _summary_requirements() -> None:
         value=", ".join(data["requirements"].get("languages_optional", [])),
         key="ui.summary.requirements.languages_optional",
     )
+    combined_certs = _collect_combined_certificates(data["requirements"])
     certs = st.text_area(
-        tr("Zertifizierungen", "Certifications"),
-        value=", ".join(data["requirements"].get("certifications", [])),
+        tr("Zertifikate", "Certificates"),
+        value=", ".join(combined_certs),
         key="ui.summary.requirements.certs",
     )
 
@@ -4156,10 +4257,9 @@ def _summary_requirements() -> None:
         "requirements.languages_optional",
         [s.strip() for s in languages_opt.split(",") if s.strip()],
     )
-    _update_profile(
-        "requirements.certifications",
-        [s.strip() for s in certs.split(",") if s.strip()],
-    )
+    new_certs = [s.strip() for s in certs.split(",") if s.strip()]
+    _update_profile("requirements.certificates", new_certs)
+    _update_profile("requirements.certifications", new_certs)
 
 
 def _summary_employment() -> None:
@@ -4670,32 +4770,6 @@ def _step_summary(schema: dict, _critical: list[str]):
     boolean_skill_terms = _boolean_skill_terms(profile)
     boolean_title_synonyms = _boolean_title_synonyms(profile)
 
-    boolean_query = st.session_state.get(StateKeys.BOOLEAN_STR, "")
-    st.markdown(tr("#### Boolean-Suche", "#### Boolean search"))
-    st.caption(
-        tr(
-            "Passe die Auswahl im Schritt 'Anforderungen' an, um den Suchstring zu aktualisieren.",
-            "Adjust the selections in the Requirements step to update the search string.",
-        )
-    )
-
-    if boolean_query:
-        st.code(boolean_query, language=None)
-    else:
-        st.info(
-            tr(
-                "Noch kein Boolean-String vorhanden. Ergänze Skills im Schritt 'Anforderungen'.",
-                "No Boolean string yet. Add skills in the Requirements step.",
-            )
-        )
-
-    job_title_value = (profile.position.job_title or "").strip()
-    _render_boolean_download_button(
-        boolean_query=boolean_query,
-        job_title_value=job_title_value,
-        key="download_boolean_summary",
-    )
-
     tone_presets = load_json("tone_presets.json", {}) or {}
     tone_options = tone_presets.get(st.session_state.lang, {})
     tone_labels = {
@@ -4896,281 +4970,371 @@ def _step_summary(schema: dict, _critical: list[str]):
     )
     st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set(selected_fields)
 
-    job_ad_col, interview_col, boolean_col = st.columns((2.0, 1, 1.25), gap="large")
-
-    with job_ad_col:
-        st.markdown(tr("#### Stellenanzeige", "#### Job ad"))
-        manual_entries: list[dict[str, str]] = list(
-            st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, [])
+    st.markdown(tr("### 1. Stellenanzeige-Generator", "### 1. Job ad generator"))
+    st.caption(
+        tr(
+            "Verwalte Inhalte, Tonalität und Optimierungen für deine Anzeige.",
+            "Manage content, tone, and optimisations for your job ad.",
         )
-        with st.expander(tr("Manuelle Ergänzungen", "Manual additions")):
-            manual_title = st.text_input(
-                tr("Titel (optional)", "Title (optional)"),
-                key=UIKeys.JOB_AD_MANUAL_TITLE,
-            )
-            manual_text = st.text_area(
-                tr("Freitext", "Free text"),
-                key=UIKeys.JOB_AD_MANUAL_TEXT,
-            )
-            if st.button(tr("➕ Eintrag hinzufügen", "➕ Add entry")):
-                if manual_text.strip():
-                    entry = {
-                        "title": manual_title.strip(),
-                        "content": manual_text.strip(),
-                    }
-                    manual_entries.append(entry)
+    )
+
+    manual_entries: list[dict[str, str]] = list(
+        st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, [])
+    )
+    with st.expander(tr("Manuelle Ergänzungen", "Manual additions")):
+        manual_title = st.text_input(
+            tr("Titel (optional)", "Title (optional)"),
+            key=UIKeys.JOB_AD_MANUAL_TITLE,
+        )
+        manual_text = st.text_area(
+            tr("Freitext", "Free text"),
+            key=UIKeys.JOB_AD_MANUAL_TEXT,
+        )
+        if st.button(tr("➕ Eintrag hinzufügen", "➕ Add entry")):
+            if manual_text.strip():
+                entry = {
+                    "title": manual_title.strip(),
+                    "content": manual_text.strip(),
+                }
+                manual_entries.append(entry)
+                st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = manual_entries
+                st.success(tr("Eintrag ergänzt.", "Entry added."))
+            else:
+                st.warning(
+                    tr(
+                        "Bitte Text für den manuellen Eintrag angeben.",
+                        "Please provide text for the manual entry.",
+                    )
+                )
+        if manual_entries:
+            for idx, entry in enumerate(manual_entries):
+                title = entry.get("title") or tr(
+                    "Zusätzliche Information", "Additional information"
+                )
+                st.markdown(f"**{title}**")
+                st.write(entry.get("content", ""))
+                if st.button(
+                    tr("Entfernen", "Remove"),
+                    key=f"{UIKeys.JOB_AD_MANUAL_TEXT}.remove.{idx}",
+                ):
+                    manual_entries.pop(idx)
                     st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = manual_entries
-                    st.success(tr("Eintrag ergänzt.", "Entry added."))
-                else:
-                    st.warning(
-                        tr(
-                            "Bitte Text für den manuellen Eintrag angeben.",
-                            "Please provide text for the manual entry.",
-                        )
-                    )
-            if manual_entries:
-                for idx, entry in enumerate(manual_entries):
-                    title = entry.get("title") or tr(
-                        "Zusätzliche Information", "Additional information"
-                    )
-                    st.markdown(f"**{title}**")
-                    st.write(entry.get("content", ""))
-                    if st.button(
-                        tr("Entfernen", "Remove"),
-                        key=f"{UIKeys.JOB_AD_MANUAL_TEXT}.remove.{idx}",
-                    ):
-                        manual_entries.pop(idx)
-                        st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = (
-                            manual_entries
-                        )
-                        st.rerun()
+                    st.rerun()
 
-        has_content = bool(selected_fields)
-        disabled = not has_content or not target_value
-        if st.button(
-            tr("📝 Stellenanzeige generieren", "📝 Generate job ad"),
-            disabled=disabled,
-            type="primary",
-        ):
-            _generate_job_ad_content(
-                filtered_profile,
-                selected_fields,
-                target_value,
-                list(manual_entries),
-                style_reference,
-                lang,
+    has_content = bool(selected_fields)
+    disabled = not has_content or not target_value
+    if st.button(
+        tr("📝 Stellenanzeige generieren", "📝 Generate job ad"),
+        disabled=disabled,
+        type="primary",
+    ):
+        _generate_job_ad_content(
+            filtered_profile,
+            selected_fields,
+            target_value,
+            list(manual_entries),
+            style_reference,
+            lang,
+        )
+
+    job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD)
+    output_key = UIKeys.JOB_AD_OUTPUT
+    existing_output = st.session_state.get(output_key, "")
+    display_text = job_ad_text if job_ad_text is not None else existing_output
+    if (
+        output_key not in st.session_state
+        or st.session_state[output_key] != display_text
+    ):
+        st.session_state[output_key] = display_text
+
+    current_text = st.session_state.get(output_key, "")
+    st.text_area(
+        tr("Generierte Stellenanzeige", "Generated job ad"),
+        height=_textarea_height(current_text),
+        key=output_key,
+    )
+
+    if not job_ad_text and current_text:
+        st.info(
+            tr(
+                "Profil geändert – bitte Anzeige neu generieren.",
+                "Profile updated – please regenerate the job ad.",
             )
+        )
 
-        job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD)
-        output_key = UIKeys.JOB_AD_OUTPUT
-        existing_output = st.session_state.get(output_key, "")
-        display_text = job_ad_text if job_ad_text is not None else existing_output
+    if job_ad_text:
+        seo_data = seo_optimize(job_ad_text)
+        keywords: list[str] = list(seo_data.get("keywords", []))
+        meta_description: str = str(seo_data.get("meta_description", ""))
+        if keywords or meta_description:
+            with st.expander(tr("SEO-Empfehlungen", "SEO insights")):
+                if keywords:
+                    st.write(
+                        tr("Top-Schlüsselbegriffe", "Top keywords")
+                        + ": "
+                        + ", ".join(keywords)
+                    )
+                if meta_description:
+                    st.write(
+                        tr("Meta-Beschreibung", "Meta description")
+                        + ": "
+                        + meta_description
+                    )
+
+        findings = st.session_state.get(StateKeys.BIAS_FINDINGS) or []
+        if findings:
+            with st.expander(tr("Bias-Check", "Bias check")):
+                for finding in findings:
+                    st.warning(finding)
+
+        format_choice = st.session_state.get(UIKeys.JOB_AD_FORMAT, "markdown")
+        font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
+        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+        company_name = (
+            profile.company.brand_name
+            or profile.company.name
+            or str(_job_ad_get_value(profile_payload, "company.name") or "").strip()
+            or None
+        )
+        job_title = (
+            profile.position.job_title
+            or str(
+                _job_ad_get_value(profile_payload, "position.job_title") or ""
+            ).strip()
+            or "job-ad"
+        )
+        safe_stem = (
+            re.sub(r"[^A-Za-z0-9_-]+", "-", job_title).strip("-") or "job-ad"
+        )
+        export_font = font_choice if format_choice in {"docx", "pdf"} else None
+        export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
+        payload, mime, ext = prepare_download_data(
+            job_ad_text,
+            format_choice,
+            key="job_ad",
+            title=job_title,
+            font=export_font,
+            logo=export_logo,
+            company_name=company_name,
+        )
+        st.download_button(
+            tr("⬇️ Anzeige herunterladen", "⬇️ Download job ad"),
+            payload,
+            file_name=f"{safe_stem}.{ext}",
+            mime=mime,
+            key="download_job_ad",
+        )
+
+        st.markdown(tr("##### Anpassungswünsche", "##### Refinement requests"))
+        feedback = st.text_area(
+            tr("Was soll angepasst werden?", "What should be adjusted?"),
+            key=UIKeys.JOB_AD_FEEDBACK,
+        )
+        if st.button(
+            tr("🔄 Anzeige anpassen", "🔄 Refine job ad"),
+            key=UIKeys.REFINE_JOB_AD,
+        ):
+            try:
+                refined = refine_document(job_ad_text, feedback)
+                st.session_state[StateKeys.JOB_AD_MD] = refined
+                findings = scan_bias_language(refined, st.session_state.lang)
+                st.session_state[StateKeys.BIAS_FINDINGS] = findings
+                st.rerun()
+            except Exception as e:
+                st.error(
+                    tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {e}"
+                )
+
+    st.markdown(tr("### 2. Interview-Prep-Sheet", "### 2. Interview prep sheet"))
+    st.caption(
+        tr(
+            "Erstelle Leitfäden und passe sie an verschiedene Zielgruppen an.",
+            "Generate guides and tailor them for different audiences.",
+        )
+    )
+
+    tone_col, question_col = st.columns((1, 1))
+    with tone_col:
+        selected_tone = st.selectbox(
+            tr("Interviewleitfaden-Ton", "Interview guide tone"),
+            options=list(tone_options.keys()),
+            format_func=lambda k: tone_labels.get(k, k),
+            key=UIKeys.TONE_SELECT,
+        )
+        st.session_state["tone"] = tone_options.get(selected_tone)
+
+    with question_col:
+        if UIKeys.NUM_QUESTIONS not in st.session_state:
+            st.session_state[UIKeys.NUM_QUESTIONS] = 5
+        st.slider(
+            tr("Anzahl Interviewfragen", "Number of interview questions"),
+            min_value=3,
+            max_value=10,
+            key=UIKeys.NUM_QUESTIONS,
+        )
+
+    audience_labels = {
+        "general": tr("Allgemeines Interviewteam", "General interview panel"),
+        "technical": tr("Technisches Fachpublikum", "Technical panel"),
+        "leadership": tr("Führungsteam", "Leadership panel"),
+    }
+    if UIKeys.AUDIENCE_SELECT not in st.session_state:
+        st.session_state[UIKeys.AUDIENCE_SELECT] = st.session_state.get(
+            StateKeys.INTERVIEW_AUDIENCE, "general"
+        )
+    audience = st.selectbox(
+        tr("Interview-Zielgruppe", "Interview audience"),
+        options=list(audience_labels.keys()),
+        format_func=lambda key: audience_labels.get(key, key),
+        key=UIKeys.AUDIENCE_SELECT,
+        help=tr(
+            "Steuert Fokus und Tonfall des generierten Leitfadens.",
+            "Controls the focus and tone of the generated guide.",
+        ),
+    )
+    st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
+
+    selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
+    if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
+        _generate_interview_guide_content(
+            profile_payload,
+            lang,
+            selected_num,
+            audience=audience,
+        )
+
+    guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
+    if guide_text:
+        output_key = UIKeys.INTERVIEW_OUTPUT
         if (
             output_key not in st.session_state
-            or st.session_state[output_key] != display_text
+            or st.session_state.get(output_key) != guide_text
         ):
-            st.session_state[output_key] = display_text
-
-        current_text = st.session_state.get(output_key, "")
+            st.session_state[output_key] = guide_text
         st.text_area(
-            tr("Generierte Stellenanzeige", "Generated job ad"),
-            height=_textarea_height(current_text),
+            tr("Generierter Leitfaden", "Generated guide"),
+            height=_textarea_height(guide_text),
             key=output_key,
         )
+        guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
+        font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
+        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+        guide_title = profile.position.job_title or "interview-guide"
+        safe_stem = (
+            re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-")
+            or "interview-guide"
+        )
+        export_font = font_choice if guide_format in {"docx", "pdf"} else None
+        export_logo = logo_bytes if guide_format in {"docx", "pdf"} else None
+        payload, mime, ext = prepare_download_data(
+            guide_text,
+            guide_format,
+            key="interview",
+            title=guide_title,
+            font=export_font,
+            logo=export_logo,
+            company_name=profile.company.name,
+        )
+        st.download_button(
+            tr("⬇️ Leitfaden herunterladen", "⬇️ Download guide"),
+            payload,
+            file_name=f"{safe_stem}.{ext}",
+            mime=mime,
+            key="download_interview",
+        )
 
-        if not job_ad_text and current_text:
+    st.markdown(tr("### 3. Boolean Searchstring", "### 3. Boolean search string"))
+    st.caption(
+        tr(
+            "Nutze Jobtitel und Skills, um zielgenaue Suchen aufzubauen.",
+            "Use job titles and skills to craft precise search strings.",
+        )
+    )
+    _render_boolean_interactive_section(
+        profile,
+        boolean_skill_terms=boolean_skill_terms,
+        boolean_title_synonyms=boolean_title_synonyms,
+    )
+
+    st.markdown(
+        tr("### 4. Interne Prozesse definieren", "### 4. Define internal processes")
+    )
+    st.caption(
+        tr(
+            "Ordne Informationsschleifen zu und halte Aufgaben für jede Phase fest.",
+            "Assign information loops and capture tasks for each process phase.",
+        )
+    )
+
+    process_data = data.get("process", {}) or {}
+    stakeholders = process_data.get("stakeholders", []) or []
+    phases = process_data.get("phases", []) or []
+
+    process_cols = st.columns(2, gap="large")
+    with process_cols[0]:
+        st.markdown(tr("#### Informationsschleifen", "#### Information loops"))
+        phase_labels = _phase_display_labels(phases)
+        phase_indices = list(range(len(phase_labels)))
+        if not stakeholders:
             st.info(
                 tr(
-                    "Profil geändert – bitte Anzeige neu generieren.",
-                    "Profile updated – please regenerate the job ad.",
+                    "Keine Stakeholder hinterlegt – Schritt 'Prozess' ausfüllen, um Personen zu ergänzen.",
+                    "No stakeholders available – populate the Process step to add contacts.",
                 )
             )
-
-        if job_ad_text:
-
-            seo_data = seo_optimize(job_ad_text)
-            keywords: list[str] = list(seo_data.get("keywords", []))
-            meta_description: str = str(seo_data.get("meta_description", ""))
-            if keywords or meta_description:
-                with st.expander(tr("SEO-Empfehlungen", "SEO insights")):
-                    if keywords:
-                        st.write(
-                            tr("Top-Schlüsselbegriffe", "Top keywords")
-                            + ": "
-                            + ", ".join(keywords)
-                        )
-                    if meta_description:
-                        st.write(
-                            tr("Meta-Beschreibung", "Meta description")
-                            + ": "
-                            + meta_description
-                        )
-
-            findings = st.session_state.get(StateKeys.BIAS_FINDINGS) or []
-            if findings:
-                with st.expander(tr("Bias-Check", "Bias check")):
-                    for finding in findings:
-                        st.warning(finding)
-
-            format_choice = st.session_state.get(UIKeys.JOB_AD_FORMAT, "markdown")
-            font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-            logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
-            company_name = (
-                profile.company.brand_name
-                or profile.company.name
-                or str(
-                    _job_ad_get_value(profile_payload, "company.name") or ""
-                ).strip()
-                or None
-            )
-            job_title = (
-                profile.position.job_title
-                or str(
-                    _job_ad_get_value(profile_payload, "position.job_title") or ""
-                ).strip()
-                or "job-ad"
-            )
-            safe_stem = (
-                re.sub(r"[^A-Za-z0-9_-]+", "-", job_title).strip("-") or "job-ad"
-            )
-            export_font = font_choice if format_choice in {"docx", "pdf"} else None
-            export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
-            payload, mime, ext = prepare_download_data(
-                job_ad_text,
-                format_choice,
-                key="job_ad",
-                title=job_title,
-                font=export_font,
-                logo=export_logo,
-                company_name=company_name,
-            )
-            st.download_button(
-                tr("⬇️ Anzeige herunterladen", "⬇️ Download job ad"),
-                payload,
-                file_name=f"{safe_stem}.{ext}",
-                mime=mime,
-                key="download_job_ad",
-            )
-
-            st.markdown(tr("##### Anpassungswünsche", "##### Refinement requests"))
-            feedback = st.text_area(
-                tr("Was soll angepasst werden?", "What should be adjusted?"),
-                key=UIKeys.JOB_AD_FEEDBACK,
-            )
-            if st.button(
-                tr("🔄 Anzeige anpassen", "🔄 Refine job ad"),
-                key=UIKeys.REFINE_JOB_AD,
-            ):
-                try:
-                    refined = refine_document(job_ad_text, feedback)
-                    st.session_state[StateKeys.JOB_AD_MD] = refined
-                    findings = scan_bias_language(refined, st.session_state.lang)
-                    st.session_state[StateKeys.BIAS_FINDINGS] = findings
-                    st.rerun()
-                except Exception as e:
-                    st.error(
-                        tr("Verfeinerung fehlgeschlagen", "Refinement failed")
-                        + f": {e}"
+        else:
+            for idx, person in enumerate(stakeholders):
+                display_name = person.get("name") or tr(
+                    "Stakeholder {number}", "Stakeholder {number}"
+                ).format(number=idx + 1)
+                st.markdown(f"**{display_name}**")
+                existing_selection = _filter_phase_indices(
+                    person.get("information_loop_phases", []), len(phase_indices)
+                )
+                if existing_selection != person.get("information_loop_phases"):
+                    person["information_loop_phases"] = existing_selection
+                person["information_loop_phases"] = st.multiselect(
+                    tr("Phasen", "Phases"),
+                    options=phase_indices,
+                    default=existing_selection,
+                    format_func=_phase_label_formatter(phase_labels),
+                    key=f"summary.process.loop.{idx}",
+                    disabled=not phase_indices,
+                )
+            if not phase_indices:
+                st.info(
+                    tr(
+                        "Lege Prozessphasen an, um Informationsschleifen zuzuweisen.",
+                        "Create process phases to assign information loops.",
                     )
+                )
 
-    with interview_col:
-        st.markdown(tr("#### Interviewleitfaden", "#### Interview guide"))
-        tone_col, question_col = st.columns((1, 1))
-        with tone_col:
-            selected_tone = st.selectbox(
-                tr("Interviewleitfaden-Ton", "Interview guide tone"),
-                options=list(tone_options.keys()),
-                format_func=lambda k: tone_labels.get(k, k),
-                key=UIKeys.TONE_SELECT,
+    with process_cols[1]:
+        st.markdown(tr("#### Aufgaben & Übergaben", "#### Tasks & handovers"))
+        if not phases:
+            st.info(
+                tr(
+                    "Noch keine Phasen definiert – Schritt 'Prozess' ergänzt Aufgaben.",
+                    "No phases defined yet – use the Process step to add them.",
+                )
             )
-            st.session_state["tone"] = tone_options.get(selected_tone)
-
-        with question_col:
-            if UIKeys.NUM_QUESTIONS not in st.session_state:
-                st.session_state[UIKeys.NUM_QUESTIONS] = 5
-            st.slider(
-                tr("Anzahl Interviewfragen", "Number of interview questions"),
-                min_value=3,
-                max_value=10,
-                key=UIKeys.NUM_QUESTIONS,
-            )
-
-        audience_labels = {
-            "general": tr("Allgemeines Interviewteam", "General interview panel"),
-            "technical": tr("Technisches Fachpublikum", "Technical panel"),
-            "leadership": tr("Führungsteam", "Leadership panel"),
-        }
-        if UIKeys.AUDIENCE_SELECT not in st.session_state:
-            st.session_state[UIKeys.AUDIENCE_SELECT] = st.session_state.get(
-                StateKeys.INTERVIEW_AUDIENCE, "general"
-            )
-        audience = st.selectbox(
-            tr("Interview-Zielgruppe", "Interview audience"),
-            options=list(audience_labels.keys()),
-            format_func=lambda key: audience_labels.get(key, key),
-            key=UIKeys.AUDIENCE_SELECT,
-            help=tr(
-                "Steuert Fokus und Tonfall des generierten Leitfadens.",
-                "Controls the focus and tone of the generated guide.",
-            ),
-        )
-        st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
-
-        selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
-        if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
-            _generate_interview_guide_content(
-                profile_payload,
-                lang,
-                selected_num,
-                audience=audience,
-            )
-
-        guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
-        if guide_text:
-            output_key = UIKeys.INTERVIEW_OUTPUT
-            if (
-                output_key not in st.session_state
-                or st.session_state.get(output_key) != guide_text
-            ):
-                st.session_state[output_key] = guide_text
-            st.text_area(
-                tr("Generierter Leitfaden", "Generated guide"),
-                height=_textarea_height(guide_text),
-                key=output_key,
-            )
-            guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
-            font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-            logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
-            guide_title = profile.position.job_title or "interview-guide"
-            safe_stem = (
-                re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-")
-                or "interview-guide"
-            )
-            export_font = font_choice if guide_format in {"docx", "pdf"} else None
-            export_logo = logo_bytes if guide_format in {"docx", "pdf"} else None
-            payload, mime, ext = prepare_download_data(
-                guide_text,
-                guide_format,
-                key="interview",
-                title=guide_title,
-                font=export_font,
-                logo=export_logo,
-                company_name=profile.company.name,
-            )
-            st.download_button(
-                tr("⬇️ Leitfaden herunterladen", "⬇️ Download guide"),
-                payload,
-                file_name=f"{safe_stem}.{ext}",
-                mime=mime,
-                key="download_interview",
-            )
-
-    with boolean_col:
-        _render_boolean_interactive_section(
-            profile,
-            boolean_skill_terms=boolean_skill_terms,
-            boolean_title_synonyms=boolean_title_synonyms,
-        )
+        else:
+            for idx, phase in enumerate(phases):
+                phase_name = phase.get("name") or tr(
+                    "Phase {number}", "Phase {number}"
+                ).format(number=idx + 1)
+                st.markdown(f"**{phase_name}**")
+                current_tasks = phase.get("task_assignments", "")
+                phase["task_assignments"] = st.text_area(
+                    tr("Aufgabenbeschreibung", "Task notes"),
+                    value=current_tasks,
+                    key=f"summary.process.tasks.{idx}",
+                    label_visibility="collapsed",
+                    placeholder=tr(
+                        "To-dos, Verantwortlichkeiten und Hand-offs …",
+                        "To-dos, responsibilities, and hand-offs …",
+                    ),
+                )
 
     manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
 
