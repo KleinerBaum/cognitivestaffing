@@ -1,0 +1,159 @@
+{
+  "software developer": {
+    "aliases": [
+      "software developer",
+      "softwareentwickler",
+      "software entwickler",
+      "software-entwickler"
+    ],
+    "keywords": ["software", "entwickler"],
+    "ranges": {"US": "$100k-$145k", "DE": "€60k-€85k"}
+  },
+  "software engineer": {
+    "aliases": ["software engineer", "software ingenieur"],
+    "keywords": ["software", "engineer"],
+    "ranges": {"US": "$105k-$150k", "DE": "€70k-€95k"}
+  },
+  "backend engineer": {
+    "aliases": ["backend engineer", "backend entwickler"],
+    "keywords": ["backend"],
+    "ranges": {"US": "$110k-$155k", "DE": "€72k-€98k"}
+  },
+  "frontend engineer": {
+    "aliases": [
+      "frontend engineer",
+      "frontend entwickler",
+      "frontend developer"
+    ],
+    "keywords": ["frontend"],
+    "ranges": {"US": "$95k-$140k", "DE": "€65k-€90k"}
+  },
+  "full stack engineer": {
+    "aliases": [
+      "full stack engineer",
+      "fullstack engineer",
+      "fullstack entwickler"
+    ],
+    "keywords": ["full", "stack"],
+    "ranges": {"US": "$105k-$155k", "DE": "€70k-€96k"}
+  },
+  "cloud engineer": {
+    "aliases": ["cloud engineer", "cloud spezialist"],
+    "keywords": ["cloud"],
+    "ranges": {"US": "$115k-$165k", "DE": "€75k-€102k"}
+  },
+  "devops engineer": {
+    "aliases": ["devops engineer", "devops spezialist"],
+    "keywords": ["devops"],
+    "ranges": {"US": "$115k-$170k", "DE": "€78k-€105k"}
+  },
+  "data engineer": {
+    "aliases": ["data engineer", "dateningenieur"],
+    "keywords": ["data", "engineer"],
+    "ranges": {"US": "$115k-$170k", "DE": "€76k-€105k"}
+  },
+  "data scientist": {
+    "aliases": ["data scientist", "datenwissenschaftler"],
+    "keywords": ["data", "scientist"],
+    "ranges": {"US": "$115k-$165k", "DE": "€75k-€100k"}
+  },
+  "ml engineer": {
+    "aliases": ["ml engineer", "machine learning engineer"],
+    "keywords": ["machine", "learning"],
+    "ranges": {"US": "$120k-$180k", "DE": "€80k-€110k"}
+  },
+  "cybersecurity analyst": {
+    "aliases": ["cybersecurity analyst", "it sicherheitsanalyst"],
+    "keywords": ["security"],
+    "ranges": {"US": "$100k-$145k", "DE": "€68k-€92k"}
+  },
+  "qa engineer": {
+    "aliases": ["qa engineer", "qa tester", "qualitaetssicherung"],
+    "keywords": ["qa"],
+    "ranges": {"US": "$85k-$120k", "DE": "€58k-€80k"}
+  },
+  "it project manager": {
+    "aliases": ["it project manager", "it projektleiter"],
+    "keywords": ["projektleiter"],
+    "ranges": {"US": "$105k-$145k", "DE": "€70k-€95k"}
+  },
+  "technical project manager": {
+    "aliases": [
+      "technical project manager",
+      "technischer projektleiter"
+    ],
+    "keywords": ["technisch", "projekt"],
+    "ranges": {"US": "$110k-$150k", "DE": "€72k-€98k"}
+  },
+  "agile project manager": {
+    "aliases": ["agile project manager", "agiler projektmanager"],
+    "keywords": ["agile", "projekt"],
+    "ranges": {"US": "$105k-$150k", "DE": "€70k-€95k"}
+  },
+  "scrum master": {
+    "aliases": ["scrum master", "scrum-master"],
+    "keywords": ["scrum"],
+    "ranges": {"US": "$95k-$130k", "DE": "€62k-€85k"}
+  },
+  "product manager": {
+    "aliases": [
+      "product manager",
+      "produktmanager",
+      "produkt manager"
+    ],
+    "keywords": ["product", "manager"],
+    "ranges": {"US": "$120k-$175k", "DE": "€78k-€108k"}
+  },
+  "program manager": {
+    "aliases": ["program manager", "programm manager", "programmleiter"],
+    "keywords": ["program", "manager"],
+    "ranges": {"US": "$125k-$185k", "DE": "€82k-€112k"}
+  },
+  "business analyst": {
+    "aliases": [
+      "business analyst",
+      "business-analyst",
+      "business analyse"
+    ],
+    "keywords": ["business", "analyst"],
+    "ranges": {"US": "$90k-$125k", "DE": "€60k-€82k"}
+  },
+  "it service manager": {
+    "aliases": ["it service manager", "it serviceleiter"],
+    "keywords": ["service", "manager"],
+    "ranges": {"US": "$95k-$135k", "DE": "€62k-€86k"}
+  },
+  "product owner": {
+    "aliases": ["product owner", "produkt owner", "product-owner"],
+    "keywords": ["product", "owner"],
+    "ranges": {"US": "$105k-$145k", "DE": "€70k-€95k"}
+  },
+  "product developer": {
+    "aliases": [
+      "product developer",
+      "produktentwickler",
+      "produktentwicklung"
+    ],
+    "keywords": ["produktentwickler"],
+    "ranges": {"US": "$95k-$135k", "DE": "€65k-€90k"}
+  },
+  "data analyst": {
+    "aliases": ["data analyst", "datenanalyst", "data-analyst"],
+    "keywords": ["data", "analyst"],
+    "ranges": {"US": "$75k-$110k", "DE": "€55k-€78k"}
+  },
+  "solution architect": {
+    "aliases": [
+      "solution architect",
+      "solutionsarchitekt",
+      "loesungsarchitekt"
+    ],
+    "keywords": ["solution", "architect"],
+    "ranges": {"US": "$130k-$185k", "DE": "€85k-€115k"}
+  },
+  "mobile engineer": {
+    "aliases": ["mobile engineer", "mobile entwickler", "app entwickler"],
+    "keywords": ["mobile"],
+    "ranges": {"US": "$105k-$150k", "DE": "€68k-€95k"}
+  }
+}

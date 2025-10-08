@@ -66,6 +66,22 @@ def test_estimate_uses_city_when_country_missing(monkeypatch) -> None:
     assert estimate["currency"] == "EUR"
 
 
+def test_fallback_salary_handles_german_product_developer() -> None:
+    profile = {
+        "position": {"job_title": "Produktentwickler innovative Mobilitätskonzepte"},
+        "location": {"country": "Germany"},
+    }
+
+    inputs = salary._collect_inputs(profile)
+    result, explanation = salary._fallback_salary(inputs)
+
+    assert result is not None
+    assert result["salary_min"] == 65000.0
+    assert result["salary_max"] == 90000.0
+    assert result["currency"] == "EUR"
+    assert explanation is not None
+
+
 def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
     captured: dict[str, object] = {}
 

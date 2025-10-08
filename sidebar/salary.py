@@ -12,7 +12,7 @@ import streamlit as st
 from pydantic import BaseModel, Field
 
 from constants.keys import StateKeys, UIKeys
-from core.analysis_tools import get_salary_benchmark
+from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from utils.i18n import tr
 from utils.normalization import country_to_iso2, normalize_country
 
@@ -341,11 +341,13 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
 
 
 def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str | None]:
+    role_key = _canonical_salary_role(inputs.job_title)
     iso_country = country_to_iso2(inputs.country)
     bench_country = iso_country or (
         inputs.country.strip().upper() if inputs.country else None
     )
-    bench = get_salary_benchmark(inputs.job_title, bench_country or "US")
+    benchmark_role = role_key or inputs.job_title
+    bench = get_salary_benchmark(benchmark_role, bench_country or "US")
     raw_range = bench.get("salary_range", "")
     salary_min, salary_max = _parse_benchmark_range(raw_range)
     currency = _infer_currency_from_text(raw_range) or _guess_currency(
@@ -367,6 +369,26 @@ def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str 
         {"salary_min": salary_min, "salary_max": salary_max, "currency": currency},
         explanation,
     )
+
+
+def _canonical_salary_role(job_title: str) -> str | None:
+    """Normalize ``job_title`` and map it to a canonical benchmark role."""
+
+    normalized = unicodedata.normalize("NFKD", job_title or "")
+    ascii_title = "".join(char for char in normalized if not unicodedata.combining(char))
+    compact = " ".join(ascii_title.lower().split())
+    if not compact:
+        return None
+
+    canonical = resolve_salary_role(job_title)
+    if canonical:
+        return canonical
+
+    canonical = resolve_salary_role(compact)
+    if canonical:
+        return canonical
+
+    return compact
 
 
 def _extract_tool_arguments(result: Any, name: str) -> str | None:
