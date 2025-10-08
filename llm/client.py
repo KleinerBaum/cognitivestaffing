@@ -155,6 +155,7 @@ def _minimal_messages(text: str) -> list[dict[str, str]]:
 def extract_json(
     text: str,
     title: Optional[str] = None,
+    company: Optional[str] = None,
     url: Optional[str] = None,
     *,
     minimal: bool = False,
@@ -164,6 +165,7 @@ def extract_json(
     Args:
         text: Input job posting.
         title: Optional job title for context.
+        company: Optional company name for context.
         url: Optional source URL.
 
     Returns:
@@ -174,7 +176,7 @@ def extract_json(
         messages = (
             _minimal_messages(text)
             if minimal
-            else build_extract_messages(text, title, url)
+            else build_extract_messages(text, title=title, company=company, url=url)
         )
         effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
         model = get_model_for(ModelTask.EXTRACTION)

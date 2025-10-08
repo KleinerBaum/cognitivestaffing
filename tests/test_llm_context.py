@@ -3,11 +3,17 @@ from llm.prompts import SYSTEM_JSON_EXTRACTOR
 from nlp.prepare_text import truncate_smart
 
 
-def test_build_messages_includes_title_and_url():
-    msgs = build_extract_messages("body", title="Engineer", url="http://x")
+def test_build_messages_include_title_company_and_url():
+    msgs = build_extract_messages(
+        "body",
+        title="Engineer",
+        company="Acme Corp",
+        url="http://x",
+    )
     assert msgs[0]["content"] == SYSTEM_JSON_EXTRACTOR
     user = msgs[1]["content"]
     assert "Engineer" in user
+    assert "Acme Corp" in user
     assert "http://x" in user
 
 

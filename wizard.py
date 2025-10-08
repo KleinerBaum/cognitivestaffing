@@ -826,7 +826,46 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         metadata.setdefault("high_confidence_fields", [])
 
     vector_store_id = st.session_state.get("vector_store_id") or None
-    raw_json = extract_json(text)
+
+    doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
+    url_hint: str | None = None
+    if doc and doc.source:
+        parsed = urlparse(doc.source)
+        if parsed.scheme in {"http", "https"}:
+            url_hint = doc.source
+
+    def _normalize_hint(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip()
+        else:
+            normalized = str(value).strip()
+        return normalized or None
+
+    def _locked_hint(field: str) -> str | None:
+        locked_fields = set(metadata.get("locked_fields") or [])
+        if field not in locked_fields:
+            return None
+        rules_meta: Mapping[str, Mapping[str, Any]] = metadata.get("rules") or {}
+        meta_value = rules_meta.get(field, {}).get("value")
+        if meta_value is not None:
+            return _normalize_hint(meta_value)
+        match = rule_matches.get(field)
+        if match and match.value is not None:
+            return _normalize_hint(match.value)
+        existing_profile = st.session_state.get(StateKeys.PROFILE, {})
+        return _normalize_hint(get_in(existing_profile, field, None))
+
+    title_hint = _locked_hint("position.job_title")
+    company_hint = _locked_hint("company.name")
+
+    raw_json = extract_json(
+        text,
+        title=title_hint,
+        company=company_hint,
+        url=url_hint,
+    )
     try:
         extracted_data = json.loads(raw_json)
     except json.JSONDecodeError as exc:

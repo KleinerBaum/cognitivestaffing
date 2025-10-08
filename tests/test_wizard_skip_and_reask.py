@@ -52,7 +52,11 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
     st.session_state.vector_store_id = ""
 
     def fake_extract(
-        text: str, title: str | None = None, url: str | None = None, **_: Any
+        text: str,
+        title: str | None = None,
+        company: str | None = None,
+        url: str | None = None,
+        **_: Any,
     ) -> str:
         return json.dumps({"meta": {"followups_answered": []}})
 
