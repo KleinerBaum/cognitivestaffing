@@ -968,14 +968,21 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             return _normalize_hint(match.value)
         return _normalize_hint(get_in(existing_profile, field, None))
 
-    title_hint = _locked_hint("position.job_title")
-    company_hint = _locked_hint("company.name")
+    locked_hints: dict[str, str] = {}
+    for field in metadata.get("locked_fields", []) or []:
+        hint_value = _locked_hint(field)
+        if hint_value is not None:
+            locked_hints[field] = hint_value
+
+    title_hint = locked_hints.get("position.job_title")
+    company_hint = locked_hints.get("company.name")
 
     raw_json = extract_json(
         text,
         title=title_hint,
         company=company_hint,
         url=url_hint,
+        locked_fields=locked_hints or None,
     )
     try:
         extracted_data = json.loads(raw_json)

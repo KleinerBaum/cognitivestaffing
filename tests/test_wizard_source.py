@@ -365,11 +365,13 @@ def test_extract_and_summarize_passes_locked_context(
         title: str | None = None,
         company: str | None = None,
         url: str | None = None,
+        locked_fields: dict[str, str] | None = None,
         minimal: bool = False,
     ) -> str:
         captured["title"] = title
         captured["company"] = company
         captured["url"] = url
+        captured["locked_fields"] = locked_fields or {}
         return json.dumps({"position": {"job_title": "Engineer"}})
 
     monkeypatch.setattr("wizard.extract_json", fake_extract_json)
@@ -383,3 +385,7 @@ def test_extract_and_summarize_passes_locked_context(
     assert captured["title"] == "Locked Engineer"
     assert captured["company"] == "Locked Corp"
     assert captured["url"] == "https://example.com/job"
+    assert captured["locked_fields"] == {
+        "position.job_title": "Locked Engineer",
+        "company.name": "Locked Corp",
+    }

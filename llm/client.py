@@ -6,7 +6,7 @@ import json
 import re
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from jsonschema import Draft7Validator
 from opentelemetry import trace
@@ -145,6 +145,7 @@ def extract_json(
     title: Optional[str] = None,
     company: Optional[str] = None,
     url: Optional[str] = None,
+    locked_fields: Optional[Mapping[str, str]] = None,
     *,
     minimal: bool = False,
 ) -> str:
@@ -164,7 +165,13 @@ def extract_json(
         messages = (
             _minimal_messages(text)
             if minimal
-            else build_extract_messages(text, title=title, company=company, url=url)
+            else build_extract_messages(
+                text,
+                title=title,
+                company=company,
+                url=url,
+                locked_fields=locked_fields,
+            )
         )
         effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
         model = get_model_for(ModelTask.EXTRACTION)

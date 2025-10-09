@@ -17,6 +17,22 @@ def test_build_messages_include_title_company_and_url():
     assert "Url: http://x" in user
 
 
+def test_build_messages_include_locked_fields():
+    msgs = build_extract_messages(
+        "body",
+        locked_fields={
+            "position.job_title": "Engineer",
+            "company.name": "Acme Corp",
+        },
+    )
+    system = msgs[0]["content"]
+    assert "Keep provided locked values unchanged" in system
+    user = msgs[1]["content"]
+    assert "Locked values (reuse exactly):" in user
+    assert "- position.job_title: Engineer" in user
+    assert "- company.name: Acme Corp" in user
+
+
 def test_build_messages_truncates_text():
     text = "line\n" * 1000
     msgs = build_extract_messages(text)
