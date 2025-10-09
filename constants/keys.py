@@ -69,6 +69,7 @@ class StateKeys:
     SKILL_BUCKETS = "skill_buckets"
     COMPANY_PAGE_SUMMARIES = "company.page_summaries"
     COMPANY_PAGE_BASE = "company.page_base_url"
+    COMPANY_PAGE_TEXT_CACHE = "company.page_text_cache"
 
     JOB_AD_SELECTED_FIELDS = "data.job_ad.selected_fields"
     JOB_AD_SELECTED_VALUES = "data.job_ad.selected_values"

@@ -82,6 +82,7 @@ def test_load_company_page_section_updates_state(monkeypatch) -> None:
     st.session_state.clear()
     st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
     st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
+    st.session_state[StateKeys.COMPANY_PAGE_TEXT_CACHE] = {}
     st.session_state["lang"] = "de"
 
     monkeypatch.setattr(
@@ -225,3 +226,49 @@ def test_fetch_url_follows_long_redirect_chain(monkeypatch) -> None:
 
     assert result == final_text
     assert calls == ["https://example.com/start", *redirects]
+
+
+def test_company_page_helpers_use_cache(monkeypatch) -> None:
+    """Repeated lookups should reuse cached fetch, summary and extraction."""
+
+    st.cache_data.clear()
+    st.session_state.clear()
+    st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
+    st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
+    st.session_state[StateKeys.COMPANY_PAGE_TEXT_CACHE] = {}
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "", "hq_location": "", "mission": "", "size": ""}
+    }
+    st.session_state["lang"] = "de"
+
+    counters = {"fetch": 0, "summary": 0, "extract": 0}
+
+    def fake_extract(url: str):
+        counters["fetch"] += 1
+        return build_plain_text_document("Inhalt", source=url)
+
+    def fake_summary(text: str, label: str, lang: str = "de") -> str:
+        counters["summary"] += 1
+        return f"{label}|{lang}"
+
+    def fake_company_info(text: str) -> dict[str, str]:
+        counters["extract"] += 1
+        return {"name": "Cached GmbH", "location": "Berlin", "mission": "Wir"}
+
+    monkeypatch.setattr("wizard.extract_text_from_url", fake_extract)
+    monkeypatch.setattr("wizard.summarize_company_page", fake_summary)
+    monkeypatch.setattr("wizard.extract_company_info", fake_company_info)
+    monkeypatch.setattr("wizard.st.spinner", lambda *_, **__: contextlib.nullcontext())
+    monkeypatch.setattr("wizard.st.info", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.st.warning", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.st.success", lambda *_, **__: None)
+
+    for _ in range(2):
+        _load_company_page_section(
+            section_key="about",
+            base_url="https://example.com/",
+            slugs=["unternehmen"],
+            label="Über uns",
+        )
+
+    assert counters == {"fetch": 1, "summary": 1, "extract": 1}
