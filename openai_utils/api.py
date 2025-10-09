@@ -244,12 +244,34 @@ def _normalise_usage(usage_obj: Any) -> dict:
     return usage
 
 
-def _update_usage_counters(usage: Mapping[str, int]) -> None:
+def _normalise_task(task: ModelTask | str | None) -> str:
+    """Return a normalised identifier for ``task`` suitable for metrics."""
+
+    if isinstance(task, ModelTask):
+        return task.value
+    if isinstance(task, str) and task.strip():
+        return task.strip()
+    return ModelTask.DEFAULT.value
+
+
+def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | None) -> None:
     """Accumulate token usage in the Streamlit session state."""
 
-    if StateKeys.USAGE in st.session_state:
-        st.session_state[StateKeys.USAGE]["input_tokens"] += usage.get("input_tokens", 0)
-        st.session_state[StateKeys.USAGE]["output_tokens"] += usage.get("output_tokens", 0)
+    if StateKeys.USAGE not in st.session_state:
+        return
+
+    usage_state = st.session_state[StateKeys.USAGE]
+    input_tokens = int(usage.get("input_tokens", 0) or 0)
+    output_tokens = int(usage.get("output_tokens", 0) or 0)
+
+    usage_state["input_tokens"] = usage_state.get("input_tokens", 0) + input_tokens
+    usage_state["output_tokens"] = usage_state.get("output_tokens", 0) + output_tokens
+
+    task_key = _normalise_task(task)
+    task_map = usage_state.setdefault("by_task", {})
+    task_totals = task_map.setdefault(task_key, {"input": 0, "output": 0})
+    task_totals["input"] = task_totals.get("input", 0) + input_tokens
+    task_totals["output"] = task_totals.get("output", 0) + output_tokens
 
 
 def _collect_tool_calls(response: Any) -> list[dict]:
@@ -354,9 +376,10 @@ class ChatCallResult:
 class ChatStream(Iterable[str]):
     """Iterator over streaming chat responses."""
 
-    def __init__(self, payload: Dict[str, Any], model: str):
+    def __init__(self, payload: Dict[str, Any], model: str, *, task: ModelTask | str | None):
         self._payload = payload
         self._model = model
+        self._task = task
         self._result: ChatCallResult | None = None
         self._buffer: list[str] = []
 
@@ -382,7 +405,7 @@ class ChatStream(Iterable[str]):
             )
         content = _extract_output_text(response)
         usage = _normalise_usage(getattr(response, "usage", {}) or {})
-        _update_usage_counters(usage)
+        _update_usage_counters(usage, task=self._task)
         self._result = ChatCallResult(content, tool_calls, usage)
 
     @property
@@ -513,6 +536,7 @@ def call_chat_api(
     tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
     reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
+    task: ModelTask | str | None = None,
 ) -> ChatCallResult:
     """Call the OpenAI Responses API and return a :class:`ChatCallResult`.
 
@@ -556,7 +580,7 @@ def call_chat_api(
 
         if not tool_calls or not tool_functions:
             merged_usage = dict(accumulated_usage) if accumulated_usage else dict(usage)
-            _update_usage_counters(merged_usage)
+            _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
             return ChatCallResult(content, result_tool_calls, merged_usage)
 
@@ -585,7 +609,7 @@ def call_chat_api(
 
         if not executed:
             merged_usage = dict(accumulated_usage) if accumulated_usage else dict(usage)
-            _update_usage_counters(merged_usage)
+            _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
             return ChatCallResult(content, result_tool_calls, merged_usage)
 
@@ -604,6 +628,7 @@ def stream_chat_api(
     json_schema: Optional[dict] = None,
     reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
+    task: ModelTask | str | None = None,
 ) -> ChatStream:
     """Return a :class:`ChatStream` yielding incremental text deltas.
 
@@ -629,7 +654,7 @@ def stream_chat_api(
     if tools or tool_functions:
         raise ValueError("Streaming responses do not support tool execution.")
 
-    return ChatStream(payload, model_name)
+    return ChatStream(payload, model_name, task=task)
 
 
 def _chat_content(res: Any) -> str:

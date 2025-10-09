@@ -112,7 +112,16 @@ def ensure_state() -> None:
     if "skip_intro" not in st.session_state:
         st.session_state["skip_intro"] = False
     if StateKeys.USAGE not in st.session_state:
-        st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
+        st.session_state[StateKeys.USAGE] = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "by_task": {},
+        }
+    else:
+        usage_state = st.session_state[StateKeys.USAGE]
+        usage_state.setdefault("input_tokens", 0)
+        usage_state.setdefault("output_tokens", 0)
+        usage_state.setdefault("by_task", {})
     for key in (
         StateKeys.JOB_AD_MD,
         StateKeys.BOOLEAN_STR,

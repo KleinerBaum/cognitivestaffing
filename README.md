@@ -38,7 +38,7 @@ the base model if needed.
 - **Follow-up suggestion chips**: if the assistant proposes possible answers, they appear as one-click chips above the input field.
 - **AI-powered benefit suggestions**: fetch common perks for the role/industry and add them to the profile with a single click.
 - **Auto re‑ask loop**: optional toggle that keeps asking follow-up questions automatically until all critical fields are filled, with clear progress messages and a stop button for user control.
-- **Token usage tracker**: displays input/output token counts in the summary step.
+- **Token usage tracker**: displays input/output token counts per task in the summary step and sidebar.
 - **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.
 - **ESCO features disabled**: occupation classification, essential skill enrichment, and role-specific prompts are currently turned off and hidden in the wizard.
 - **RAG‑Assist**: use your vector store to fill/contextualize *(requires setting `VECTOR_STORE_ID` and a populated vector store)*
