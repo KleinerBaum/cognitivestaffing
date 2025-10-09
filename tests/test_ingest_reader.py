@@ -32,3 +32,13 @@ def test_clean_job_text_preserves_contact_lines():
     cleaned = clean_job_text(raw)
     assert "Kontakt: recruiting@example.com | https://example.com/kontakt" in cleaned
     assert "Homepage: https://example.com/jobs" in cleaned
+
+
+def test_clean_job_text_preserves_phone_number():
+    raw = (
+        "Bewirb dich jetzt!\n"
+        "Telefon: +49 (0) 30 1234567\n"
+        "Weitere Informationen findest du auf unserer Webseite.\n"
+    )
+    cleaned = clean_job_text(raw)
+    assert "Telefon: +49 (0) 30 1234567" in cleaned
