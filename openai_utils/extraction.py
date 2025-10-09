@@ -168,27 +168,18 @@ def _extract_tool_arguments(result: api.ChatCallResult) -> str | None:
     return None
 
 
-def _load_json_payload(payload: Any) -> dict[str, Any]:
-    """Parse ``payload`` into a dictionary, repairing simple syntax issues."""
+def _parse_json_object(payload: Any) -> dict[str, Any]:
+    """Return ``payload`` parsed as a JSON object without heuristics."""
 
     if isinstance(payload, Mapping):
-        return dict(payload)
-    if not isinstance(payload, str):
-        raise ValueError("Structured extraction payload must be a JSON string.")
-
-    text = payload.strip()
-    if not text:
-        raise ValueError("Structured extraction payload is empty.")
-
-    try:
+        data = dict(payload)
+    elif isinstance(payload, str):
+        text = payload.strip()
+        if not text:
+            raise ValueError("Structured extraction payload is empty.")
         data = json.loads(text)
-    except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise
-        fragment = text[start : end + 1]
-        data = json.loads(fragment)
+    else:
+        raise ValueError("Structured extraction payload must be JSON text or mapping.")
 
     if not isinstance(data, dict):
         raise ValueError("Model returned JSON that is not an object.")
@@ -212,9 +203,9 @@ def extract_with_function(
     2. If no tool call is produced, retry with ``json_mode`` that forces a
        strict JSON response.
 
-    Minor JSON syntax issues (e.g., explanatory text around the object) are
-    repaired heuristically before the data is validated against the
-    ``NeedAnalysisProfile`` schema.
+    Structured responses must be valid JSON objects. Any malformed payload will
+    raise a ``ValueError`` before validation against the ``NeedAnalysisProfile``
+    schema.
     """
 
     if model is None:
@@ -290,7 +281,7 @@ def extract_with_function(
         raise RuntimeError("Extraction failed: no structured data received from LLM.")
 
     try:
-        raw = _load_json_payload(arguments)
+        raw = _parse_json_object(arguments)
     except Exception as exc:  # noqa: BLE001
         raise ValueError("Model returned invalid JSON") from exc
 
@@ -1298,7 +1289,7 @@ def generate_interview_guide(
             max_tokens=900,
             json_schema={"name": "interviewGuide", "schema": schema},
         )
-        data = _load_json_payload(_chat_content(response))
+        data = _parse_json_object(_chat_content(response))
         guide = InterviewGuide.model_validate(data).ensure_markdown()
         return guide
     except Exception:

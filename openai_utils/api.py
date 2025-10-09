@@ -33,6 +33,7 @@ from config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     REASONING_EFFORT,
+    STRICT_JSON,
     ModelTask,
     get_model_for,
 )
@@ -317,7 +318,14 @@ def _prepare_payload(
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
-        payload["text"] = {"format": {"type": "json_schema", **json_schema}}
+        if STRICT_JSON:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": json_schema,
+                "strict": True,
+            }
+        else:
+            payload["text"] = {"format": {"type": "json_schema", **json_schema}}
     if combined_tools:
         payload["tools"] = combined_tools
         if tool_choice is not None:
