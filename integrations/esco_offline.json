@@ -1,4 +1,9 @@
 {
+  "metadata": {
+    "esco_version": "v1.1.1",
+    "snapshot_date": "2025-10-09",
+    "source_url": "https://esco.ec.europa.eu/en/use-esco/download"
+  },
   "occupations": {
     "software engineer": {
       "preferredLabel": "Software developers",

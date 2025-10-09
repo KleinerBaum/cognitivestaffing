@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- chore: refresh offline ESCO cache to the v1.1.1 snapshot (2025-10-09) and document refresh cadence
 - fix: enforce strict JSON schema payloads across extraction utilities
 - feat: suggest HQ and contact defaults with optional autofill + rejection memory
 - feat: parse benefits sections into normalized, locked compensation perks via heuristics fallback
