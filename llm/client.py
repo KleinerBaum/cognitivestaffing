@@ -25,6 +25,9 @@ logger = logging.getLogger("cognitive_needs.llm")
 tracer = trace.get_tracer(__name__)
 
 
+_STRUCTURED_EXTRACTION_CHAIN: Any | None = None
+
+
 def _assert_closed_schema(schema: dict[str, Any]) -> None:
     """Ensure the JSON schema is self-contained.
 
@@ -90,6 +93,10 @@ _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
 def _structured_extraction(payload: dict[str, Any]) -> str:
     """Call the chat API and validate the structured extraction output."""
+
+    chain = _STRUCTURED_EXTRACTION_CHAIN
+    if chain is not None:
+        return chain.invoke(payload)
 
     result = call_chat_api(
         payload["messages"],

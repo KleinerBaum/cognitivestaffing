@@ -2521,6 +2521,15 @@ def _step_company():
         ),
         key="ui.company.mission",
     )
+    data["company"]["culture"] = st.text_input(
+        tr("Unternehmenskultur", "Company culture"),
+        value=data["company"].get("culture", ""),
+        placeholder=tr(
+            "z. B. Teamorientiert, innovationsgetrieben",
+            "e.g., Team-oriented, innovation-driven",
+        ),
+        key="ui.company.culture",
+    )
 
     _render_company_research_tools(data["company"].get("website", ""))
 
@@ -2567,11 +2576,40 @@ def _step_company():
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
 
+    contact_cols = st.columns(3)
+    data["company"]["contact_name"] = contact_cols[0].text_input(
+        tr("Ansprechperson", "Primary contact"),
+        value=data["company"].get("contact_name", ""),
+        placeholder=tr("z. B. Maria Beispiel", "e.g., Maria Example"),
+    )
+    data["company"]["contact_email"] = contact_cols[1].text_input(
+        tr("Kontakt E-Mail", "Contact email"),
+        value=data["company"].get("contact_email", ""),
+        placeholder="contact@example.com",
+    )
+    data["company"]["contact_phone"] = contact_cols[2].text_input(
+        tr("Kontakt Telefon", "Contact phone"),
+        value=data["company"].get("contact_phone", ""),
+        placeholder=tr("z. B. +49 30 123456", "e.g., +49 30 123456"),
+    )
+
     # Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
 
 
-_step_company.handled_fields = ["company.name"]  # type: ignore[attr-defined]
+_step_company.handled_fields = [  # type: ignore[attr-defined]
+    "company.name",
+    "company.brand_name",
+    "company.industry",
+    "company.hq_location",
+    "company.size",
+    "company.website",
+    "company.mission",
+    "company.culture",
+    "company.contact_name",
+    "company.contact_email",
+    "company.contact_phone",
+]
 
 
 def _phase_display_labels(phases: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -3666,6 +3704,59 @@ def _step_requirements():
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
+    responsibilities = data.setdefault("responsibilities", {})
+    responsibilities_items = [
+        str(item)
+        for item in responsibilities.get("items", [])
+        if isinstance(item, str)
+    ]
+    responsibilities_text = "\n".join(responsibilities_items)
+    responsibilities_key = "ui.requirements.responsibilities"
+    responsibilities_seed_key = f"{responsibilities_key}.__seed"
+    if st.session_state.get(responsibilities_seed_key) != responsibilities_text:
+        st.session_state[responsibilities_key] = responsibilities_text
+        st.session_state[responsibilities_seed_key] = responsibilities_text
+
+    responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
+    responsibilities_required = "responsibilities.items" in missing_here
+    display_label = (
+        f"{responsibilities_label}{REQUIRED_SUFFIX}"
+        if responsibilities_required
+        else responsibilities_label
+    )
+
+    with requirement_panel(
+        icon="🧠",
+        title=tr("Aufgaben & Verantwortlichkeiten", "Responsibilities & deliverables"),
+        caption=tr(
+            "Wichtigste Aufgaben als Liste erfassen (eine Zeile je Punkt).",
+            "Capture the key responsibilities as a list (one line per item).",
+        ),
+        tooltip=tr(
+            "Nutze Stichpunkte, um klare Verantwortlichkeiten für die Rolle zu dokumentieren.",
+            "Use bullet-style lines to document the role's core responsibilities.",
+        ),
+    ):
+        raw_responsibilities = st.text_area(
+            display_label,
+            key=responsibilities_key,
+            value=st.session_state.get(responsibilities_key, responsibilities_text),
+            height=200,
+            placeholder=tr(
+                "z. B. Produkt-Roadmap planen\nStakeholder-Workshops moderieren",
+                "e.g., Plan the product roadmap\nFacilitate stakeholder workshops",
+            ),
+        )
+        cleaned_responsibilities = [
+            re.sub(r"^[\-\*•]+\s*", "", line.strip())
+            for line in raw_responsibilities.splitlines()
+            if line.strip()
+        ]
+        responsibilities["items"] = cleaned_responsibilities
+        if responsibilities_required and not cleaned_responsibilities:
+            _render_required_caption(True)
+        st.session_state[responsibilities_seed_key] = raw_responsibilities
+
     must_tab, nice_tab, language_tab = st.tabs(
         [
             tr("Muss-Anforderungen", "Must-have"),
@@ -3933,6 +4024,7 @@ def _step_requirements():
 
 
 _step_requirements.handled_fields = [  # type: ignore[attr-defined]
+    "responsibilities.items",
     "requirements.hard_skills_required",
     "requirements.soft_skills_required",
 ]
