@@ -15,3 +15,5 @@ gatherUsageStats = false         # disable telemetry for privacy
 [server]
 enableCORS = false               # allow cross-origin access (needed for cloud dev environments)
 enableXsrfProtection = false     # disable CSRF checks for simpler embedding
+fileWatcherType = "poll"         # use polling to reduce inotify usage
+folderWatchBlacklist = ["^llm/", "^core/", "^components/"]
