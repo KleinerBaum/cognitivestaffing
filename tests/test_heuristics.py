@@ -202,6 +202,13 @@ def test_remote_days_remote_percentage_inference() -> None:
     assert profile.employment.remote_percentage == 60
 
 
+def test_remote_percentage_from_explicit_percent() -> None:
+    text = "Arbeitsmodell: 80 % remote, 20 % Büro"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.employment.remote_percentage == 80
+
+
 def test_apprenticeship_job_type_detection() -> None:
     text = "Ausbildung zum Fachinformatiker (m/w/d) | Vollzeit"
     profile = NeedAnalysisProfile()
