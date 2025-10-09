@@ -236,6 +236,36 @@ def test_compensation_fallbacks() -> None:
     assert profile.compensation.commission_structure.lower().startswith("bonus")
 
 
+def test_benefit_section_extraction_sets_metadata() -> None:
+    text = (
+        "Unsere Benefits:\n"
+        "- 30 Urlaubstage\n"
+        "- Sabbatical-Option\n"
+        "- 1.000€ Lernbudget\n"
+    )
+    profile = NeedAnalysisProfile()
+    metadata: dict[str, object] = {"locked_fields": [], "high_confidence_fields": []}
+    profile = apply_basic_fallbacks(profile, text, metadata=metadata)
+    assert profile.compensation.benefits == [
+        "30 Urlaubstage",
+        "Sabbatical-Option",
+        "1.000€ Lernbudget",
+    ]
+    assert "compensation.benefits" in metadata["locked_fields"]
+    assert "compensation.benefits" in metadata["high_confidence_fields"]
+
+
+def test_benefit_inline_list_extraction() -> None:
+    text = "Benefits: 30 Urlaubstage, Sabbatical-Option, 1.000€ Lernbudget"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.compensation.benefits == [
+        "30 Urlaubstage",
+        "Sabbatical-Option",
+        "1.000€ Lernbudget",
+    ]
+
+
 def test_responsibility_fallbacks() -> None:
     text = (
         "Dein Spielfeld:\n"
