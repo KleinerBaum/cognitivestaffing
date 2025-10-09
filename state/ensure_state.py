@@ -65,6 +65,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
     if StateKeys.COMPANY_PAGE_BASE not in st.session_state:
         st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
+    if StateKeys.COMPANY_PAGE_TEXT_CACHE not in st.session_state:
+        st.session_state[StateKeys.COMPANY_PAGE_TEXT_CACHE] = {}
     if StateKeys.JOB_AD_SELECTED_FIELDS not in st.session_state:
         st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set()
     if StateKeys.JOB_AD_SELECTED_VALUES not in st.session_state:

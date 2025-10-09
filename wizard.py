@@ -614,6 +614,80 @@ def _normalise_company_base_url(url: str) -> str | None:
     return base
 
 
+def _normalise_company_page_url(url: str) -> str:
+    """Return a normalised URL for caching company sub-pages."""
+
+    candidate = (url or "").strip()
+    if not candidate:
+        return ""
+    if not re.match(r"^https?://", candidate, re.IGNORECASE):
+        candidate = f"https://{candidate}"
+    parsed = urlparse(candidate)
+    if not parsed.scheme or not parsed.netloc:
+        return candidate
+    path = parsed.path or "/"
+    normalised_path = re.sub(r"/{2,}", "/", path)
+    if normalised_path != "/" and normalised_path.endswith("/"):
+        normalised_path = normalised_path.rstrip("/")
+    rebuilt = parsed._replace(
+        scheme=parsed.scheme.lower(),
+        netloc=parsed.netloc.lower(),
+        path=normalised_path or "/",
+        fragment="",
+    ).geturl()
+    return rebuilt
+
+
+def _hash_text(value: str) -> str:
+    """Return a short, deterministic hash for ``value``."""
+
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _get_company_page_text_cache() -> dict[str, str]:
+    """Return the mutable cache storing raw company page text samples."""
+
+    cache = st.session_state.get(StateKeys.COMPANY_PAGE_TEXT_CACHE)
+    if isinstance(cache, dict):
+        return cache
+    cache = {}
+    st.session_state[StateKeys.COMPANY_PAGE_TEXT_CACHE] = cache
+    return cache
+
+
+def _remember_company_page_text(cache_key: str, text: str) -> None:
+    """Persist ``text`` for ``cache_key`` in the in-memory session cache."""
+
+    _get_company_page_text_cache()[cache_key] = text
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_fetch_company_page_text(url: str) -> str:
+    """Return page text for ``url`` with shared caching."""
+
+    document = extract_text_from_url(url)
+    return document.text or ""
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_summarize_company_page(url: str, text_hash: str, label: str, lang: str) -> str:
+    """Summarise a company page using cached fetch & deterministic keys."""
+
+    text = _cached_fetch_company_page_text(url)
+    return summarize_company_page(text, label, lang=lang)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_extract_company_info(sample_hash: str) -> Mapping[str, Any]:
+    """Return structured company info for the stored sample hash."""
+
+    cache = _get_company_page_text_cache()
+    text = cache.get(sample_hash)
+    if not isinstance(text, str) or not text.strip():
+        return {}
+    return extract_company_info(text)
+
+
 def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[str]:
     """Return a list of candidate URLs for company sub-pages."""
 
@@ -640,13 +714,16 @@ def _fetch_company_page(base_url: str, slugs: Sequence[str]) -> tuple[str, str] 
     """Fetch the first available company sub-page from ``slugs``."""
 
     for candidate in _candidate_company_page_urls(base_url, slugs):
+        cache_url = _normalise_company_page_url(candidate)
+        if not cache_url:
+            continue
         try:
-            document = extract_text_from_url(candidate)
+            content = _cached_fetch_company_page_text(cache_url)
         except ValueError:
             continue
-        content = document.text.strip()
+        content = content.strip()
         if content:
-            return candidate, content
+            return cache_url, content
     return None
 
 
@@ -661,6 +738,12 @@ def _sync_company_page_base(base_url: str | None) -> None:
     if current != previous:
         st.session_state[StateKeys.COMPANY_PAGE_BASE] = current
         storage.clear()
+        text_cache = st.session_state.get(StateKeys.COMPANY_PAGE_TEXT_CACHE)
+        if isinstance(text_cache, dict):
+            text_cache.clear()
+        _cached_fetch_company_page_text.clear()
+        _cached_summarize_company_page.clear()
+        _cached_extract_company_info.clear()
 
 
 def _extract_company_size(text: str) -> str | None:
@@ -739,7 +822,9 @@ def _enrich_company_profile_from_about(
         sample = sample[:12000]
 
     try:
-        extracted = extract_company_info(sample)
+        sample_hash = _hash_text(sample)
+        _remember_company_page_text(sample_hash, sample)
+        extracted = _cached_extract_company_info(sample_hash)
     except Exception:
         extracted = {}
 
@@ -799,7 +884,8 @@ def _load_company_page_section(
         return
     url, text = result
     try:
-        summary = summarize_company_page(text, label, lang=lang)
+        text_hash = _hash_text(text)
+        summary = _cached_summarize_company_page(url, text_hash, label, lang)
     except Exception:
         summary = textwrap.shorten(text, width=420, placeholder="…")
         st.warning(
