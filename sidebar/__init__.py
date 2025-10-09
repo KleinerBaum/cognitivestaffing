@@ -65,6 +65,10 @@ def _ensure_ui_defaults() -> None:
     if UIKeys.LANG_SELECT not in st.session_state:
         st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
     st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
+    if "ui.lang_toggle" not in st.session_state:
+        st.session_state["ui.lang_toggle"] = (
+            st.session_state[UIKeys.LANG_SELECT] == "en"
+        )
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
 
@@ -104,21 +108,22 @@ def _render_settings() -> None:
     def _on_theme_toggle() -> None:
         st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
-    def _on_lang_change() -> None:
+    def _on_lang_toggle() -> None:
+        st.session_state[UIKeys.LANG_SELECT] = (
+            "en" if st.session_state["ui.lang_toggle"] else "de"
+        )
         st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
-    lang_options = {"de": "DE", "en": "EN"}
-
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
-    st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
-    st.radio(
-        tr("Sprache", "Language"),
-        options=list(lang_options.keys()),
-        key=UIKeys.LANG_SELECT,
-        horizontal=True,
-        format_func=lambda key: lang_options[key],
-        on_change=_on_lang_change,
-    )
+    dark_col, lang_col = st.columns(2)
+    with dark_col:
+        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
+    with lang_col:
+        st.toggle(
+            tr("🇩🇪 Deutsch", "🇬🇧 English"),
+            key="ui.lang_toggle",
+            on_change=_on_lang_toggle,
+        )
 
 
 def _render_hero(context: SidebarContext) -> None:
