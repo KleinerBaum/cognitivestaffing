@@ -424,8 +424,8 @@ def test_extract_with_function_falls_back_to_json_mode(monkeypatch):
     assert result.data["job_title"] == "Lead"
 
 
-def test_extract_with_function_repairs_json_payload(monkeypatch):
-    """Trailing explanations around JSON should be stripped before parsing."""
+def test_extract_with_function_parses_json_payload(monkeypatch):
+    """Structured extraction should accept strictly formatted JSON payloads."""
 
     monkeypatch.setattr(
         openai_utils.api,
@@ -435,7 +435,7 @@ def test_extract_with_function_repairs_json_payload(monkeypatch):
             [
                 {
                     "function": {
-                        "arguments": 'Here you go: {"job_title": "QA"}!',
+                        "arguments": '{"job_title": "QA"}',
                     }
                 }
             ],

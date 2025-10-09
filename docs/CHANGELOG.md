@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- fix: enforce strict JSON schema payloads across extraction utilities
 - feat: suggest HQ and contact defaults with optional autofill + rejection memory
 - feat: parse benefits sections into normalized, locked compensation perks via heuristics fallback
 - feat: capture company culture, contacts, and responsibility lists in wizard company/requirements steps
