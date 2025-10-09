@@ -4,7 +4,13 @@ from typing import Any
 import pytest
 import streamlit as st
 
-from wizard import _skip_source, _extract_and_summarize, COMPANY_STEP_INDEX
+from wizard import (
+    _skip_source,
+    _extract_and_summarize,
+    COMPANY_STEP_INDEX,
+    CRITICAL_SECTION_ORDER,
+    next_step,
+)
 from constants.keys import StateKeys
 from models.need_analysis import NeedAnalysisProfile
 
@@ -93,6 +99,9 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
     ]
     assert StateKeys.EXTRACTION_RAW_PROFILE in st.session_state
     assert StateKeys.SKILL_BUCKETS in st.session_state
+    assert st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] == COMPANY_STEP_INDEX
+    assert st.session_state[StateKeys.COMPLETED_SECTIONS] == []
+    assert st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP]
 
 
 def test_extract_and_summarize_auto_reask_with_no_missing(
@@ -148,3 +157,22 @@ def test_extract_and_summarize_auto_reask_with_no_missing(
     assert "auto_reask_total" in st.session_state
     assert st.session_state["auto_reask_total"] == 0
     assert StateKeys.FOLLOWUPS not in st.session_state
+    assert st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] is None
+    assert st.session_state[StateKeys.COMPLETED_SECTIONS] == list(
+        CRITICAL_SECTION_ORDER
+    )
+    assert not st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP]
+
+
+def test_next_step_skips_completed_sections() -> None:
+    """next_step should skip over sequentially completed sections."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.STEP] = 1
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = 7
+    st.session_state[StateKeys.COMPLETED_SECTIONS] = [1, 2, 3]
+    st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+
+    next_step()
+
+    assert st.session_state[StateKeys.STEP] == 4

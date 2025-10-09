@@ -726,6 +726,8 @@ def next_step() -> None:
     """Advance the wizard to the next step."""
 
     current = st.session_state.get(StateKeys.STEP, 0)
+    total_steps = st.session_state.get(StateKeys.WIZARD_STEP_COUNT, current + 2)
+    total_steps = max(total_steps, current + 2)
     _request_scroll_to_top()
     if current == 4:
         try:
@@ -742,7 +744,11 @@ def next_step() -> None:
                     reqs[key] = normalize_skills(reqs.get(key, []), lang=lang)
         except Exception:
             pass
-    st.session_state[StateKeys.STEP] = current + 1
+    completed = set(st.session_state.get(StateKeys.COMPLETED_SECTIONS, []))
+    candidate = min(current + 1, total_steps - 1)
+    while candidate < total_steps - 1 and candidate in completed:
+        candidate += 1
+    st.session_state[StateKeys.STEP] = min(candidate, total_steps - 1)
 
 
 def prev_step() -> None:
@@ -1078,7 +1084,6 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     for field in CRITICAL_FIELDS:
         if not get_in(data, field, None):
             missing.append(field)
-    st.session_state[StateKeys.EXTRACTION_MISSING] = missing
     metadata["rag"] = {
         "vector_store_id": vector_store_id or "",
         "fields": {},
@@ -1128,6 +1133,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
                         "Could not generate follow-ups automatically.",
                     )
                 )
+
+    first_incomplete, _completed = _update_section_progress()
+    st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = bool(first_incomplete)
 
 
 def _maybe_run_extraction(schema: dict) -> None:
@@ -1205,6 +1213,9 @@ def _skip_source() -> None:
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {}
     st.session_state[StateKeys.ESCO_SKILLS] = []
     st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
+    st.session_state[StateKeys.COMPLETED_SECTIONS] = []
+    st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = None
+    st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = False
     st.session_state.pop("_analyze_attempted", None)
     st.session_state.pop("__last_extracted_hash__", None)
     st.session_state.pop("__prefill_profile_doc__", None)
@@ -4329,6 +4340,9 @@ def _build_field_section_map() -> dict[str, int]:
 
 
 FIELD_SECTION_MAP = _build_field_section_map()
+CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
+    sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,)
+)
 
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
@@ -4356,6 +4370,54 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
         if q.get("priority") == "critical":
             missing.append(q.get("field", ""))
     return missing
+
+
+def _resolve_section_for_field(field: str) -> int:
+    """Return the wizard section index responsible for ``field``."""
+
+    section = FIELD_SECTION_MAP.get(field)
+    if section is not None:
+        return section
+    if CRITICAL_SECTION_ORDER:
+        return CRITICAL_SECTION_ORDER[0]
+    return COMPANY_STEP_INDEX
+
+
+def _update_section_progress(
+    missing_fields: Iterable[str] | None = None,
+) -> tuple[int | None, list[int]]:
+    """Update session state with completion information for wizard sections."""
+
+    fields = (
+        list(missing_fields)
+        if missing_fields is not None
+        else get_missing_critical_fields()
+    )
+    fields = list(dict.fromkeys(fields))
+    sections_with_missing = {_resolve_section_for_field(field) for field in fields}
+
+    first_incomplete: int | None = None
+    for section in CRITICAL_SECTION_ORDER:
+        if section in sections_with_missing:
+            first_incomplete = section
+            break
+
+    if first_incomplete is None and sections_with_missing:
+        first_incomplete = _resolve_section_for_field(next(iter(fields)))
+
+    if first_incomplete is None:
+        completed_sections = list(CRITICAL_SECTION_ORDER)
+    else:
+        completed_sections = [
+            section
+            for section in CRITICAL_SECTION_ORDER
+            if section < first_incomplete and section not in sections_with_missing
+        ]
+
+    st.session_state[StateKeys.EXTRACTION_MISSING] = fields
+    st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = first_incomplete
+    st.session_state[StateKeys.COMPLETED_SECTIONS] = completed_sections
+    return first_incomplete, completed_sections
 
 
 def _step_compensation():
@@ -6054,11 +6116,31 @@ def run_wizard():
         (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
     ]
 
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(steps)
+    first_incomplete, _completed_sections = _update_section_progress()
+    if st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False) and (
+        first_incomplete is not None
+    ):
+        st.session_state[StateKeys.STEP] = first_incomplete
+    completed_sections = list(
+        st.session_state.get(StateKeys.COMPLETED_SECTIONS, [])
+    )
+
     # Headline
     st.markdown("### 🧭 Wizard")
 
     # Step Navigation (oben)
     render_stepper(st.session_state[StateKeys.STEP], [label for label, _ in steps])
+
+    if completed_sections and st.session_state.get("_analyze_attempted"):
+        with st.expander(
+            tr("✅ Abgeschlossene Abschnitte", "✅ Completed sections"),
+            expanded=False,
+        ):
+            for idx in completed_sections:
+                if 0 <= idx < len(steps):
+                    section_label, _ = steps[idx]
+                    st.markdown(f"- {section_label}")
 
     # Render current step
     current = st.session_state[StateKeys.STEP]
