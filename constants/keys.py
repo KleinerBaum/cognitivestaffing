@@ -36,6 +36,8 @@ class UIKeys:
     JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"
     INTERVIEW_FORMAT = "ui.summary.interview_format"
     SUMMARY_SELECTED_GROUP = "ui.summary.selected_group"
+    COMPANY_CONTACT_NAME = "ui.company.contact_name"
+    COMPANY_HQ_LOCATION = "ui.company.hq_location"
 
 
 class StateKeys:
@@ -80,3 +82,4 @@ class StateKeys:
     FIRST_INCOMPLETE_SECTION = "wizard.first_incomplete_section"
     PENDING_INCOMPLETE_JUMP = "wizard.pending_incomplete_jump"
     WIZARD_STEP_COUNT = "wizard.step_count"
+    AUTOFILL_DECISIONS = "wizard.autofill.decisions"
