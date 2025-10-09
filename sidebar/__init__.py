@@ -10,6 +10,7 @@ import streamlit as st
 from constants.keys import StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
 from utils.i18n import tr
+from utils.usage import build_usage_markdown, usage_totals
 
 from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
 
@@ -481,13 +482,17 @@ def _render_summary_context(context: SidebarContext) -> None:
 
     usage = st.session_state.get(StateKeys.USAGE)
     if usage:
-        in_tok = usage.get("input_tokens", 0)
-        out_tok = usage.get("output_tokens", 0)
-        total_tok = in_tok + out_tok
-        st.caption(
+        in_tok, out_tok, total_tok = usage_totals(usage)
+        summary = (
             tr("Tokenverbrauch", "Token usage")
             + f": {in_tok} + {out_tok} = {total_tok}"
         )
+        table = build_usage_markdown(usage)
+        if table:
+            with st.expander(summary):
+                st.markdown(table)
+        else:
+            st.caption(summary)
 
 
 def _render_missing_hint(context: SidebarContext, *, section: int) -> None:

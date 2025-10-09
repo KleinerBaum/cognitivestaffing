@@ -83,4 +83,5 @@ class StateKeys:
     PENDING_INCOMPLETE_JUMP = "wizard.pending_incomplete_jump"
     WIZARD_STEP_COUNT = "wizard.step_count"
     STEPPER_WARNING = "wizard.stepper_warning"
+    AUTOFILL_DECISIONS = "wizard.autofill_decisions"
 

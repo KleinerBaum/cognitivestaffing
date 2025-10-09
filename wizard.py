@@ -67,6 +67,7 @@ from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.contact import infer_contact_name_from_email
 from utils.normalization import normalize_country, normalize_language_list
 from utils.export import prepare_clean_json, prepare_download_data
+from utils.usage import build_usage_markdown, usage_totals
 from nlp.bias import scan_bias_language
 from core.esco_utils import (
     classify_occupation,
@@ -1826,7 +1827,8 @@ def _render_followup_question(q: dict, data: dict) -> None:
     key = f"fu_{field}"
     anchor = f"anchor_{key}"
     container = st.container()
-    container.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
+    with container:
+        st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
     if key not in st.session_state:
         st.session_state[key] = ""
     ui_variant = q.get("ui_variant")
@@ -1836,15 +1838,18 @@ def _render_followup_question(q: dict, data: dict) -> None:
     elif description:
         container.caption(description)
     if q.get("priority") == "critical":
-        container.markdown(f"{REQUIRED_PREFIX}**{prompt}**")
+        with container:
+            st.markdown(f"{REQUIRED_PREFIX}**{prompt}**")
     else:
-        container.markdown(f"**{prompt}**")
+        with container:
+            st.markdown(f"**{prompt}**")
     if suggestions:
         cols = container.columns(len(suggestions))
         for i, (col, sug) in enumerate(zip(cols, suggestions)):
             if col.button(sug, key=f"{key}_opt_{i}"):
                 st.session_state[key] = sug
-    container.text_input("", key=key)
+    with container:
+        st.text_input("", key=key)
     if q.get("priority") == "critical":
         st.toast(
             tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️"
@@ -6861,8 +6866,12 @@ def run_wizard():
 
         usage = st.session_state.get(StateKeys.USAGE)
         if usage:
-            in_tok = usage.get("input_tokens", 0)
-            out_tok = usage.get("output_tokens", 0)
-            total_tok = in_tok + out_tok
+            in_tok, out_tok, total_tok = usage_totals(usage)
             label = tr("Verbrauchte Tokens", "Tokens used")
-            st.caption(f"{label}: {in_tok} + {out_tok} = {total_tok}")
+            summary = f"{label}: {in_tok} + {out_tok} = {total_tok}"
+            table = build_usage_markdown(usage)
+            if table:
+                with st.expander(summary):
+                    st.markdown(table)
+            else:
+                st.caption(summary)

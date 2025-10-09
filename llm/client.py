@@ -107,6 +107,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             "name": "need_analysis_profile",
             "schema": NEED_ANALYSIS_SCHEMA,
         },
+        task=ModelTask.EXTRACTION,
     )
     content = (result.content or "").strip()
     if not content:
@@ -211,6 +212,7 @@ def extract_json(
                 model=model,
                 temperature=0,
                 reasoning_effort=effort,
+                task=ModelTask.EXTRACTION,
             )
         except Exception as exc2:  # pragma: no cover - network/SDK issues
             span.record_exception(exc2)

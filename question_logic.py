@@ -541,6 +541,7 @@ def _rag_suggestions(
             },
             tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
             tool_choice="auto",
+            task=ModelTask.RAG_SUGGESTIONS,
         )
         data = json.loads(_normalize_chat_content(res) or "{}")
         out: Dict[str, List[str]] = {}
@@ -678,6 +679,7 @@ def ask_followups(
                 tools=tools or None,
                 tool_choice=tool_choice,
                 max_tokens=800,
+                task=ModelTask.FOLLOW_UP_QUESTIONS,
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)

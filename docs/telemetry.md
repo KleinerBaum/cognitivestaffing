@@ -32,3 +32,22 @@ When telemetry is enabled the following spans are emitted:
 
 The bootstrap logic lives in `utils/telemetry.py` and is invoked at the start of
 `app.py`.
+
+## Session usage schema
+
+Token counters are stored in `st.session_state[StateKeys.USAGE]` using the
+structure:
+
+```python
+{
+    "input_tokens": int,
+    "output_tokens": int,
+    "by_task": {
+        "extraction": {"input": int, "output": int},
+        # ... additional task buckets ...
+    },
+}
+```
+
+The legacy aggregate keys remain available for compatibility with historical
+sessions and analytics hooks.

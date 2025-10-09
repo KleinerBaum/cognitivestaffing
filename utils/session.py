@@ -105,6 +105,11 @@ def migrate_legacy_keys() -> None:
     if "usage" in ss and StateKeys.USAGE not in ss:
         ss[StateKeys.USAGE] = ss["usage"]
     ss.pop("usage", None)
+    if StateKeys.USAGE in ss and isinstance(ss[StateKeys.USAGE], dict):
+        usage_state = ss[StateKeys.USAGE]
+        usage_state.setdefault("input_tokens", 0)
+        usage_state.setdefault("output_tokens", 0)
+        usage_state.setdefault("by_task", {})
 
     # --- UI key migrations ---
     legacy_ui_map: Dict[str, str] = {

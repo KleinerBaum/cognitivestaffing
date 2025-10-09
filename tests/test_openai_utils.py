@@ -6,6 +6,7 @@ import pytest
 
 import httpx
 import openai_utils
+from config import ModelTask
 from openai_utils import (
     ChatCallResult,
     call_chat_api,
@@ -115,7 +116,11 @@ def test_stream_chat_api_yields_chunks(monkeypatch):
     """Streaming helper should yield incremental text and capture usage."""
 
     st.session_state.clear()
-    st.session_state[StateKeys.USAGE] = {"input_tokens": 0, "output_tokens": 0}
+    st.session_state[StateKeys.USAGE] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "by_task": {},
+    }
 
     class _FakeFinalResponse:
         output_text = "Hello world"
@@ -158,7 +163,11 @@ def test_stream_chat_api_yields_chunks(monkeypatch):
 
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
 
-    stream = stream_chat_api([{"role": "user", "content": "hello"}], model="gpt-5-mini")
+    stream = stream_chat_api(
+        [{"role": "user", "content": "hello"}],
+        model="gpt-5-mini",
+        task=ModelTask.JOB_AD,
+    )
 
     chunks = list(stream)
     assert chunks == ["Hello ", "world"]
@@ -167,7 +176,49 @@ def test_stream_chat_api_yields_chunks(monkeypatch):
     final = stream.result
     assert final.content == "Hello world"
     assert st.session_state[StateKeys.USAGE]["output_tokens"] == 4
+    assert st.session_state[StateKeys.USAGE]["by_task"][ModelTask.JOB_AD.value]["output"] == 4
     assert fake_responses.called
+
+
+def test_call_chat_api_records_task_usage(monkeypatch):
+    """Token counters should aggregate totals per task identifier."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.USAGE] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "by_task": {},
+    }
+
+    class _FakeResponse:
+        def __init__(self) -> None:
+            self.output: list[dict[str, Any]] = []
+            self.output_text = "Done"
+            self.usage = {"input_tokens": 2, "output_tokens": 5}
+
+    class _FakeResponses:
+        @staticmethod
+        def create(**kwargs: Any):
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "Hi"}],
+        task=ModelTask.INTERVIEW_GUIDE,
+    )
+
+    assert result.content == "Done"
+    usage_state = st.session_state[StateKeys.USAGE]
+    assert usage_state["input_tokens"] == 2
+    assert usage_state["output_tokens"] == 5
+    assert usage_state["by_task"][ModelTask.INTERVIEW_GUIDE.value] == {
+        "input": 2,
+        "output": 5,
+    }
 
 
 def test_call_chat_api_includes_tool_name(monkeypatch):
