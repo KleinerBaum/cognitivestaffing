@@ -12,6 +12,8 @@ from ingest.types import ContentBlock
 
 from utils.normalization import country_to_iso2, normalize_country
 
+from core.confidence import RULE_LOCK_TIER
+
 EMAIL_FIELD = "company.contact_email"
 PHONE_FIELD = "company.contact_phone"
 SALARY_MIN_FIELD = "compensation.salary_min"
@@ -46,6 +48,7 @@ class RuleMatch:
             "block_index": self.block_index,
             "block_type": self.block_type,
             "locked": True,
+            "confidence_tier": RULE_LOCK_TIER.value,
         }
 
 
@@ -280,10 +283,20 @@ def build_rule_metadata(matches: RuleMatchMap) -> dict[str, Any]:
 
     rules_meta = {field: match.to_metadata() for field, match in matches.items()}
     locked = sorted(rules_meta.keys())
+    confidence = {
+        field: {
+            "tier": RULE_LOCK_TIER.value,
+            "source": "rule",
+            "score": match.confidence,
+            "rule": match.rule,
+        }
+        for field, match in matches.items()
+    }
     return {
         "rules": rules_meta,
         "locked_fields": locked,
         "high_confidence_fields": locked,
+        "field_confidence": confidence,
     }
 
 
