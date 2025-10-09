@@ -24,3 +24,4 @@
 - fix: show localized warning in requirements step when skill suggestions fail
 - fix: infer salary estimate country from primary city/HQ hints when explicit country is missing
 - feat: pass primary city and required skill context to the salary estimate model payload
+- feat: require explicit unlock before editing high-confidence company and job fields in the wizard

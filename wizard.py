@@ -89,6 +89,16 @@ WIZARD_TITLE = (
 
 T = TypeVar("T")
 
+
+class FieldLockConfig(TypedDict, total=False):
+    """Configuration returned by ``_field_lock_config`` for widget rendering."""
+
+    label: str
+    help_text: str
+    disabled: bool
+    unlocked: bool
+    was_locked: bool
+
 # Index of the first data entry step ("Unternehmen" / "Company")
 COMPANY_STEP_INDEX = 1
 
@@ -2012,6 +2022,143 @@ def _normalize_value_for_path(path: str, value: Any) -> Any:
     return value
 
 
+_FIELD_LOCK_BASE_KEY = "ui.locked_field_unlock"
+
+
+def _field_unlock_key(path: str, context: str) -> str:
+    """Return the Streamlit state key used to unlock ``path`` for ``context``."""
+
+    normalized = path.replace(".", "_")
+    return f"{_FIELD_LOCK_BASE_KEY}.{context}.{normalized}"
+
+
+def _merge_help_text(original: str | None, extra: str | None) -> str | None:
+    """Combine ``original`` help text with ``extra`` notes if both are present."""
+
+    if original and extra:
+        return f"{original}\n\n{extra}"
+    return original or extra
+
+
+def _apply_field_lock_kwargs(
+    config: FieldLockConfig, base_kwargs: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Merge lock-specific widget kwargs into ``base_kwargs``."""
+
+    kwargs = dict(base_kwargs or {})
+    help_text = config.get("help_text")
+    if help_text:
+        kwargs["help"] = _merge_help_text(kwargs.get("help"), help_text)
+    if config.get("disabled"):
+        kwargs["disabled"] = True
+    return kwargs
+
+
+def _field_lock_config(
+    path: str,
+    label: str,
+    *,
+    container: DeltaGenerator | None = None,
+    context: str = "main",
+) -> FieldLockConfig:
+    """Return widget metadata for ``path`` considering lock/high-confidence state."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    metadata: Mapping[str, Any]
+    if isinstance(raw_metadata, Mapping):
+        metadata = raw_metadata
+    else:  # pragma: no cover - defensive branch
+        metadata = {}
+
+    locked_fields = set(metadata.get("locked_fields") or [])
+    high_conf_fields = set(metadata.get("high_confidence_fields") or [])
+
+    is_locked = path in locked_fields
+    is_high_conf = path in high_conf_fields
+    was_locked = is_locked or is_high_conf
+
+    icons: list[str] = []
+    if is_locked:
+        icons.append("🔒")
+    if is_high_conf:
+        icons.append("✅")
+    icon_prefix = " ".join(icons)
+    label_with_icon = f"{icon_prefix} {label}".strip() if icon_prefix else label
+
+    help_bits: list[str] = []
+    if is_locked:
+        help_bits.append(
+            tr(
+                "Automatisch gesperrt – zum Bearbeiten zuerst entsperren.",
+                "Locked automatically – unlock before editing.",
+            )
+        )
+    if is_high_conf:
+        help_bits.append(
+            tr(
+                "Als sehr zuverlässig eingestuft.",
+                "Marked as high confidence.",
+            )
+        )
+    help_text = " ".join(help_bits)
+
+    config: FieldLockConfig = {"label": label_with_icon, "was_locked": was_locked}
+    if help_text:
+        config["help_text"] = help_text
+
+    if not was_locked:
+        config["unlocked"] = True
+        return config
+
+    container = container or st
+    unlock_key = _field_unlock_key(path, context)
+    unlocked_default = bool(st.session_state.get(unlock_key, False))
+    unlocked = container.toggle(
+        tr("Wert bearbeiten", "Edit value"),
+        value=unlocked_default,
+        key=unlock_key,
+        help=help_text or None,
+    )
+    config["unlocked"] = bool(unlocked)
+    if not unlocked:
+        config["disabled"] = True
+    return config
+
+
+def _clear_field_unlock_state(path: str) -> None:
+    """Remove stored unlock toggles for ``path`` across contexts."""
+
+    normalized = path.replace(".", "_")
+    prefix = f"{_FIELD_LOCK_BASE_KEY}."
+    keys_to_remove = [
+        key
+        for key in list(st.session_state.keys())
+        if isinstance(key, str)
+        and key.startswith(prefix)
+        and key.split(".")[-1] == normalized
+    ]
+    for key in keys_to_remove:
+        st.session_state.pop(key, None)
+
+
+def _remove_field_lock_metadata(path: str) -> None:
+    """Drop lock/high-confidence metadata for ``path`` once the value changes."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    if not isinstance(raw_metadata, Mapping):  # pragma: no cover - defensive guard
+        return
+    metadata = dict(raw_metadata)
+    changed = False
+    for key in ("locked_fields", "high_confidence_fields"):
+        values = metadata.get(key)
+        if isinstance(values, list) and path in values:
+            metadata[key] = [item for item in values if item != path]
+            changed = True
+    if changed:
+        st.session_state[StateKeys.PROFILE_METADATA] = metadata
+        _clear_field_unlock_state(path)
+
+
 def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
@@ -2021,6 +2168,7 @@ def _update_profile(path: str, value) -> None:
     if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
         set_in(data, path, value)
         _clear_generated()
+        _remove_field_lock_metadata(path)
 
 
 def _slugify_label(label: str) -> str:
@@ -2729,12 +2877,23 @@ def _step_company():
     label_company = tr("Firma", "Company")
     if "company.name" in missing_here:
         label_company += REQUIRED_SUFFIX
-    data["company"]["name"] = st.text_input(
+    company_lock = _field_lock_config(
+        "company.name",
         label_company,
+        container=st,
+        context="step",
+    )
+    company_kwargs = _apply_field_lock_kwargs(
+        company_lock,
+        {"help": tr("Offizieller Firmenname", "Official company name")},
+    )
+    data["company"]["name"] = st.text_input(
+        company_lock["label"],
         value=data["company"].get("name", ""),
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
-        help=tr("Offizieller Firmenname", "Official company name"),
+        **company_kwargs,
     )
+    _update_profile("company.name", data["company"]["name"])
     if "company.name" in missing_here and not data["company"]["name"]:
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
@@ -3288,11 +3447,20 @@ def _step_position():
     title_label = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:
         title_label += REQUIRED_SUFFIX
-    position["job_title"] = role_cols[0].text_input(
+    title_lock = _field_lock_config(
+        "position.job_title",
         title_label,
+        container=role_cols[0],
+        context="step",
+    )
+    job_title_kwargs = _apply_field_lock_kwargs(title_lock)
+    position["job_title"] = role_cols[0].text_input(
+        title_lock["label"],
         value=position.get("job_title", ""),
         placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
+        **job_title_kwargs,
     )
+    _update_profile("position.job_title", position["job_title"])
     if "position.job_title" in missing_here and not position.get("job_title"):
         role_cols[0].caption(
             tr("Dieses Feld ist erforderlich", "This field is required")
@@ -3339,19 +3507,37 @@ def _step_position():
 
     st.markdown("#### " + tr("Standort & Zeitplan", "Location & timing"))
     location_cols = st.columns(2)
-    location_data["primary_city"] = location_cols[0].text_input(
+    city_lock = _field_lock_config(
+        "location.primary_city",
         tr("Stadt", "City"),
+        container=location_cols[0],
+        context="step",
+    )
+    city_kwargs = _apply_field_lock_kwargs(city_lock)
+    location_data["primary_city"] = location_cols[0].text_input(
+        city_lock["label"],
         value=location_data.get("primary_city", ""),
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
+        **city_kwargs,
     )
+    _update_profile("location.primary_city", location_data["primary_city"])
     country_label = tr("Land", "Country")
     if "location.country" in missing_here:
         country_label += REQUIRED_SUFFIX
-    location_data["country"] = location_cols[1].text_input(
+    country_lock = _field_lock_config(
+        "location.country",
         country_label,
+        container=location_cols[1],
+        context="step",
+    )
+    country_kwargs = _apply_field_lock_kwargs(country_lock)
+    location_data["country"] = location_cols[1].text_input(
+        country_lock["label"],
         value=location_data.get("country", ""),
         placeholder=tr("z. B. DE", "e.g., DE"),
+        **country_kwargs,
     )
+    _update_profile("location.country", location_data["country"])
     if "location.country" in missing_here and not location_data.get("country"):
         location_cols[1].caption(
             tr("Dieses Feld ist erforderlich", "This field is required")
@@ -4650,11 +4836,23 @@ def _summary_company() -> None:
 
     data = st.session_state[StateKeys.PROFILE]
     c1, c2 = st.columns(2)
+    summary_company_label = tr("Firma", "Company") + REQUIRED_SUFFIX
+    summary_company_lock = _field_lock_config(
+        "company.name",
+        summary_company_label,
+        container=c1,
+        context="summary",
+    )
     name = c1.text_input(
-        tr("Firma", "Company") + REQUIRED_SUFFIX,
+        summary_company_lock["label"],
         value=data["company"].get("name", ""),
-        key="ui.summary.company.name",
-        help=tr("Dieses Feld ist erforderlich", "This field is required"),
+        **_apply_field_lock_kwargs(
+            summary_company_lock,
+            {
+                "key": "ui.summary.company.name",
+                "help": tr("Dieses Feld ist erforderlich", "This field is required"),
+            },
+        ),
     )
     industry = c2.text_input(
         tr("Branche", "Industry"),
@@ -4710,11 +4908,23 @@ def _summary_position() -> None:
 
     data = st.session_state[StateKeys.PROFILE]
     c1, c2 = st.columns(2)
+    summary_title_label = tr("Jobtitel", "Job title") + REQUIRED_SUFFIX
+    summary_title_lock = _field_lock_config(
+        "position.job_title",
+        summary_title_label,
+        container=c1,
+        context="summary",
+    )
     job_title = c1.text_input(
-        tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
+        summary_title_lock["label"],
         value=data["position"].get("job_title", ""),
-        key="ui.summary.position.job_title",
-        help=tr("Dieses Feld ist erforderlich", "This field is required"),
+        **_apply_field_lock_kwargs(
+            summary_title_lock,
+            {
+                "key": "ui.summary.position.job_title",
+                "help": tr("Dieses Feld ist erforderlich", "This field is required"),
+            },
+        ),
     )
     seniority = c2.text_input(
         tr("Seniorität", "Seniority"),
@@ -4743,15 +4953,33 @@ def _summary_position() -> None:
         key="ui.summary.position.role_summary",
         help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
-    loc_city = c1.text_input(
+    summary_city_lock = _field_lock_config(
+        "location.primary_city",
         tr("Stadt", "City"),
+        container=c1,
+        context="summary",
+    )
+    loc_city = c1.text_input(
+        summary_city_lock["label"],
         value=data.get("location", {}).get("primary_city", ""),
-        key="ui.summary.location.primary_city",
+        **_apply_field_lock_kwargs(
+            summary_city_lock,
+            {"key": "ui.summary.location.primary_city"},
+        ),
+    )
+    summary_country_lock = _field_lock_config(
+        "location.country",
+        tr("Land", "Country"),
+        container=c2,
+        context="summary",
     )
     loc_country = c2.text_input(
-        tr("Land", "Country"),
+        summary_country_lock["label"],
         value=data.get("location", {}).get("country", ""),
-        key="ui.summary.location.country",
+        **_apply_field_lock_kwargs(
+            summary_country_lock,
+            {"key": "ui.summary.location.country"},
+        ),
     )
 
     _update_profile("position.job_title", job_title)
