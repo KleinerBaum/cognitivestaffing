@@ -97,6 +97,7 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
                         "additionalProperties": False,
                     },
                 },
+                task=ModelTask.COMPANY_INFO,
             )
             data = json.loads(_chat_content(res))
         except Exception as exc:  # pragma: no cover - network/SDK issues
@@ -254,6 +255,7 @@ def extract_with_function(
         temperature=0.0,
         tools=build_extraction_tool(FUNCTION_NAME, schema, allow_extra=False),
         tool_choice={"type": "function", "name": FUNCTION_NAME},
+        task=ModelTask.EXTRACTION,
     )
 
     arguments = _extract_tool_arguments(response)
@@ -274,6 +276,7 @@ def extract_with_function(
             temperature=0.0,
             json_schema={"name": FUNCTION_NAME, "schema": schema},
             max_tokens=1200,
+            task=ModelTask.EXTRACTION,
         )
         arguments = _chat_content(second)
 
@@ -369,6 +372,7 @@ def suggest_additional_skills(
                 "additionalProperties": False,
             },
         },
+        task=ModelTask.SKILL_SUGGESTION,
     )
     answer = _chat_content(res)
     tech_skills: list[str] = []
@@ -506,6 +510,7 @@ def suggest_skills_for_role(
             },
         },
         max_tokens=400,
+        task=ModelTask.SKILL_SUGGESTION,
     )
     raw = _chat_content(res)
     try:
@@ -619,6 +624,7 @@ def suggest_benefits(
                 "additionalProperties": False,
             },
         },
+        task=ModelTask.BENEFIT_SUGGESTION,
     )
     answer = _chat_content(res)
     benefits: list[str] = []
@@ -699,6 +705,7 @@ def suggest_role_tasks(
                 "maxItems": num_tasks,
             },
         },
+        task=ModelTask.TASK_SUGGESTION,
     )
     answer = _chat_content(res)
     tasks: list[str] = []
@@ -795,6 +802,7 @@ def suggest_onboarding_plans(
             "name": "onboarding_suggestions",
             "schema": onboarding_schema,
         },
+        task=ModelTask.ONBOARDING_SUGGESTION,
     )
     answer = _chat_content(res)
     suggestions: list[str] = []
@@ -1288,6 +1296,7 @@ def generate_interview_guide(
             temperature=0.6,
             max_tokens=900,
             json_schema={"name": "interviewGuide", "schema": schema},
+            task=ModelTask.INTERVIEW_GUIDE,
         )
         data = _parse_json_object(_chat_content(response))
         guide = InterviewGuide.model_validate(data).ensure_markdown()
@@ -1840,6 +1849,7 @@ def generate_job_ad(
             model=model,
             temperature=0.7,
             max_tokens=900,
+            task=ModelTask.JOB_AD,
         )
         llm_output = _chat_content(response).strip()
     except Exception:
@@ -1882,6 +1892,7 @@ def stream_job_ad(
         model=model,
         temperature=0.7,
         max_tokens=900,
+        task=ModelTask.JOB_AD,
     )
     return stream, document
 
@@ -1924,7 +1935,13 @@ def summarize_company_page(
         messages = [{"role": "user", "content": prompt}]
         try:
             summary = _chat_content(
-                api.call_chat_api(messages, model=model, temperature=0.2, max_tokens=220)
+                api.call_chat_api(
+                    messages,
+                    model=model,
+                    temperature=0.2,
+                    max_tokens=220,
+                    task=ModelTask.EXPLANATION,
+                )
             ).strip()
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)
@@ -1957,7 +1974,13 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
         messages = [{"role": "user", "content": prompt}]
         try:
             refined = _chat_content(
-                api.call_chat_api(messages, model=model, temperature=0.7, max_tokens=800)
+                api.call_chat_api(
+                    messages,
+                    model=model,
+                    temperature=0.7,
+                    max_tokens=800,
+                    task=ModelTask.DOCUMENT_REFINEMENT,
+                )
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)
@@ -1990,7 +2013,13 @@ def what_happened(
         messages = [{"role": "user", "content": prompt}]
         try:
             explanation = _chat_content(
-                api.call_chat_api(messages, model=model, temperature=0.3, max_tokens=300)
+                api.call_chat_api(
+                    messages,
+                    model=model,
+                    temperature=0.3,
+                    max_tokens=300,
+                    task=ModelTask.EXPLANATION,
+                )
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)

@@ -6,6 +6,7 @@
 - fix: enforce strict JSON schema payloads across extraction utilities
 - feat: suggest HQ and contact defaults with optional autofill + rejection memory
 - feat: parse benefits sections into normalized, locked compensation perks via heuristics fallback
+- feat: show extraction source tooltips and AI inference indicators in wizard fields and summary tables
 - feat: capture company culture, contacts, and responsibility lists in wizard company/requirements steps
 - chore: add regeneration utility for need analysis schema to keep Phase fields in sync
 - feat: replace sidebar hero copy with collapsible extraction overview and remove tips section

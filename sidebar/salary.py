@@ -318,6 +318,7 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
         max_tokens=220,
         tools=tools,
         tool_choice={"type": "function", "name": FUNCTION_NAME},
+        task="salary_estimate",
     )
 
     arguments = _extract_tool_arguments(result, FUNCTION_NAME)
