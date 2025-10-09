@@ -11,6 +11,7 @@ from nlp.entities import LocationEntities, _is_country, extract_location_entitie
 from ingest.types import ContentBlock
 
 EMAIL_FIELD = "company.contact_email"
+PHONE_FIELD = "company.contact_phone"
 SALARY_MIN_FIELD = "compensation.salary_min"
 SALARY_MAX_FIELD = "compensation.salary_max"
 SALARY_PROVIDED_FIELD = "compensation.salary_provided"
@@ -49,6 +50,22 @@ class RuleMatch:
 RuleMatchMap = Mapping[str, RuleMatch]
 
 _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+_PHONE_RE = re.compile(
+    r"""
+    (?<!\w)
+    (?P<phone>
+        (?:
+            (?:\+|00)\s*\d{1,3}[\s().-]*
+        )?
+        (?:
+            \(?\d{1,4}\)?[\s().-]*
+        ){2,}
+        \d
+    )
+    (?!\w)
+    """,
+    re.VERBOSE,
+)
 _SALARY_RE = re.compile(
     r"(?P<prefix>(?:salary|gehalt|compensation|vergütung|pay)[^\d]{0,12})?"
     r"(?P<currency>[$€£]|usd|eur|chf|gbp|euro)?\s*"
@@ -149,6 +166,8 @@ _TABLE_KEYWORDS = {
     "e-mail": EMAIL_FIELD,
     "mail": EMAIL_FIELD,
     "contact email": EMAIL_FIELD,
+    "phone": PHONE_FIELD,
+    "telefon": PHONE_FIELD,
     "gehalt": SALARY_MIN_FIELD,
     "salary": SALARY_MIN_FIELD,
     "vergütung": SALARY_MIN_FIELD,
@@ -165,6 +184,7 @@ _TABLE_KEYWORDS = {
 
 _RULE_PRIORITIES = {
     "regex.email": 400,
+    "regex.phone": 400,
     "regex.salary": 350,
     "regex.location": 300,
     "regex.industry": 250,
@@ -223,6 +243,9 @@ def _iter_block_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
     for regex_match in _regex_email_matches(text, index, block):
         if regex_match.field not in layout_fields:
             results.append(regex_match)
+    for regex_match in _regex_phone_matches(text, index, block):
+        if regex_match.field not in layout_fields:
+            results.append(regex_match)
     for regex_match in _regex_salary_matches(text, index, block):
         if regex_match.field not in layout_fields:
             results.append(regex_match)
@@ -249,6 +272,26 @@ def _regex_email_matches(
             confidence=0.99,
             source_text=match.group(0),
             rule="regex.email",
+            block_index=index,
+            block_type=block.type,
+        )
+    ]
+
+
+def _regex_phone_matches(
+    text: str, index: int, block: ContentBlock
+) -> Iterable[RuleMatch]:
+    extracted = _extract_phone(text)
+    if not extracted:
+        return []
+    phone, source = extracted
+    return [
+        RuleMatch(
+            field=PHONE_FIELD,
+            value=phone,
+            confidence=0.93,
+            source_text=source,
+            rule="regex.phone",
             block_index=index,
             block_type=block.type,
         )
@@ -330,6 +373,21 @@ def _regex_salary_matches(
             )
         )
     return results
+
+
+def _extract_phone(text: str) -> tuple[str, str] | None:
+    match = _PHONE_RE.search(text)
+    if not match:
+        return None
+    phone = match.group("phone")
+    digits_only = re.sub(r"\D", "", phone)
+    if not (7 <= len(digits_only) <= 20):
+        return None
+    normalized = re.sub(r"\s+", " ", phone).strip()
+    if not normalized:
+        return None
+    source = phone.strip()
+    return normalized, source or normalized
 
 
 def _regex_location_matches(
@@ -418,6 +476,23 @@ def _table_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
                     field=EMAIL_FIELD,
                     value=email_match.group(0).lower(),
                     confidence=0.92,
+                    source_text=f"{header}: {value}",
+                    rule="layout.table",
+                    block_index=index,
+                    block_type=block.type,
+                )
+            )
+            continue
+        if field == PHONE_FIELD:
+            phone_extracted = _extract_phone(value)
+            if not phone_extracted:
+                continue
+            phone_value, _ = phone_extracted
+            matches.append(
+                RuleMatch(
+                    field=PHONE_FIELD,
+                    value=phone_value,
+                    confidence=0.9,
                     source_text=f"{header}: {value}",
                     rule="layout.table",
                     block_index=index,

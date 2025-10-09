@@ -3,6 +3,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+from core.rules import apply_rules, build_rule_metadata, PHONE_FIELD
+from ingest.types import ContentBlock
 from models.need_analysis import Company, NeedAnalysisProfile
 
 
@@ -35,3 +37,14 @@ def test_contact_email_without_valid_address_is_none() -> None:
 def test_contact_email_with_concatenated_string() -> None:
     company = Company(contact_email="m.m@rheinbahn.de.0.0...")
     assert company.contact_email == "m.m@rheinbahn.de"
+
+
+def test_apply_rules_locks_contact_phone() -> None:
+    block = ContentBlock(type="paragraph", text="Telefon: +49 30 1234567")
+    matches = apply_rules([block])
+    assert PHONE_FIELD in matches
+    assert matches[PHONE_FIELD].value == "+49 30 1234567"
+
+    metadata = build_rule_metadata(matches)
+    assert PHONE_FIELD in metadata["locked_fields"]
+    assert metadata["rules"][PHONE_FIELD]["value"] == "+49 30 1234567"
