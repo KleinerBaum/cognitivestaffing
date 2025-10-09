@@ -197,6 +197,15 @@ Other environment flags:
 - `VECTOR_STORE_ID=vs_…` – enable OpenAI File Search for RAG (leave unset to
   disable).
 
+#### ESCO offline cache
+
+The offline fallback stored in `integrations/esco_offline.json` ships with the
+**ESCO dataset v1.1.1** snapshot downloaded on **2025-10-09**. The source of
+truth is the official download portal at
+<https://esco.ec.europa.eu/en/use-esco/download>. Operators should check that
+page at least quarterly (and after every Commission release announcement) to
+refresh the cache so that local lookups stay aligned with the public API.
+
 
 ### Telemetry & tracing (optional)
 
