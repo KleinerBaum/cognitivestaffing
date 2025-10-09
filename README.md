@@ -72,6 +72,7 @@ the base model if needed.
 - **Expanded skills section**: distinguish must-have and nice-to-have hard/soft skills, plus certificates, language requirements, and tools & technologies
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
 - **Company insights**: specify headquarters location, company size, brand and contact details for clearer context
+- **Smart autofill suggestions**: accept or dismiss HQ/location and contact name proposals derived from other inputs, with opt-out memory
 - **Detailed role setup**: capture desired start date, direct reports, contract type and optional KPIs or key projects via an expandable section
 - **Process mapping**: plan stakeholders, per-stage details and application instructions directly in the wizard
 - **Domain-specific suggestions**: built-in lists of programming languages, frameworks, databases, cloud providers and DevOps tools help guide inputs
