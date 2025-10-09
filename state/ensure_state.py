@@ -51,6 +51,14 @@ def ensure_state() -> None:
         st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
     if StateKeys.FOLLOWUPS not in st.session_state:
         st.session_state[StateKeys.FOLLOWUPS] = []
+    if StateKeys.COMPLETED_SECTIONS not in st.session_state:
+        st.session_state[StateKeys.COMPLETED_SECTIONS] = []
+    if StateKeys.FIRST_INCOMPLETE_SECTION not in st.session_state:
+        st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = None
+    if StateKeys.PENDING_INCOMPLETE_JUMP not in st.session_state:
+        st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = False
+    if StateKeys.WIZARD_STEP_COUNT not in st.session_state:
+        st.session_state[StateKeys.WIZARD_STEP_COUNT] = 0
     if StateKeys.COMPANY_PAGE_SUMMARIES not in st.session_state:
         st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
     if StateKeys.COMPANY_PAGE_BASE not in st.session_state:
