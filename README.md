@@ -105,7 +105,9 @@ Requires **Python 3.11 or 3.12**.
    ```
 
    This installs spaCy together with the German `de_core_news_sm` model used for
-   rule fallback of city/country detection.
+   rule fallback of city/country detection. Ensure your environment picks up
+   **OpenAI Python SDK ≥ 1.40.0**, which adds the JSON `response_format`
+   implementation required for our structured extraction flow.
 
 4. **Configure environment variables**
 
