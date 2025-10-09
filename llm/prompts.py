@@ -83,10 +83,24 @@ def USER_JSON_EXTRACT_TEMPLATE(
     field_lines = "\n".join(f"- {f}" for f in fields_list)
 
     instructions = (
-        "Extract the following fields and respond with a JSON object containing these keys. "
-        "If data for a key is missing, use an empty string or empty list. Use position.job_title for the main job title without gender markers and map the employer name to company.name and the primary city to location.primary_city. List each responsibility/task separately in responsibilities.items.\n"
-        f"Fields:\n{field_lines}"
+        "Extract the vacancy data and respond with a JSON object containing the schema keys. "
+        "If data for a key is missing, use an empty string or empty list. Use position.job_title for the main job title without gender markers and map the employer name to company.name and the primary city to location.primary_city. "
+        "List each responsibility/task separately in responsibilities.items."
     )
+    if locked_block:
+        instructions += " Reuse the locked values exactly as provided."
+
+    reduced_fields = len(fields_list) < len(FIELDS_ORDER)
+
+    if fields_list:
+        if locked_block and reduced_fields:
+            instructions += "\nFocus on the remaining unlocked fields:\n" + field_lines
+        else:
+            instructions += "\nFocus on the following fields:\n" + field_lines
+    else:
+        instructions += (
+            "\nAll schema keys currently have locked values. Return the JSON object while preserving the schema and the provided locked values exactly, and only augment information when new details are available."
+        )
 
     blocks: list[str] = []
     if extras_block:

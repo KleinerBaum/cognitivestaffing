@@ -43,8 +43,18 @@ def build_extract_messages(
         extras["url"] = url
 
     truncated = truncate_smart(text or "", MAX_CHAR_BUDGET)
+    locked_mapping: Mapping[str, str] | None = locked_fields
+    if locked_mapping:
+        filtered_fields = [
+            field for field in FIELDS_ORDER if not locked_mapping.get(field)
+        ]
+        if not filtered_fields:
+            filtered_fields = FIELDS_ORDER
+    else:
+        filtered_fields = FIELDS_ORDER
+
     user_prompt = USER_JSON_EXTRACT_TEMPLATE(
-        FIELDS_ORDER,
+        filtered_fields,
         truncated,
         extras,
         locked_fields=locked_fields,
