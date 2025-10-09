@@ -6,22 +6,33 @@ from models.need_analysis import NeedAnalysisProfile
 from nlp.entities import extract_location_entities
 from utils.normalization import normalize_country, normalize_language_list
 
+# Matches gender suffixes appended to job titles such as "(m/w/d)" or "all genders".
+# Handles German abbreviations (m/w/d, m/w/x, etc.) separated by slashes and ignores
+# optional punctuation before the suffix.
 _GENDER_RE = re.compile(
     r"(?P<prefix>\s*[-–—:,/|]*)?(?P<suffix>\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)",
     re.IGNORECASE,
 )
+# Finds gender suffixes at the very end of a line so we can strip trailing markers like
+# "Junior Developer (m/w/d)" without affecting inline occurrences.
 _GENDER_SUFFIX_END_RE = re.compile(
     r"(?:\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)\s*$",
     re.IGNORECASE,
 )
+# Captures phrases such as "Brand, ein Unternehmen der ParentGmbH" to pull both the
+# consumer brand and the legal entity. German legal forms like GmbH/AG are covered.
 _BRAND_OF_RE = re.compile(
     r"([A-ZÄÖÜ][\w& ]+?),\s+ein[^,]*?\s+der\s+([A-ZÄÖÜ][\w& ]+(?:GmbH|AG|Inc|Ltd|UG|KG))",
     re.IGNORECASE,
 )
+# Generic legal-entity detector for standalone company names ending with GmbH, AG, Inc,
+# etc., used when we only know the registered company form.
 _COMPANY_FORM_RE = re.compile(
     r"\b([A-ZÄÖÜ][\w& ]+(?:GmbH|AG|Inc|Ltd|UG|KG))\b",
 )
+# Extracts "Wir sind Company" style introductions in German job ads.
 _WE_ARE_RE = re.compile(r"wir sind\s+([A-ZÄÖÜ][\w& ]+)", re.IGNORECASE)
+# Looks for explicit location hints like "Standort: Köln" or "Location - Berlin".
 _CITY_HINT_RE = re.compile(
     r"(?:city|ort|location|standort|arbeitsort|einsatzort)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
     re.IGNORECASE,
@@ -113,15 +124,21 @@ _WORK_POLICY_MAP = {
     ],
 }
 
+# Picks up remote work percentages like "80 % remote" or "50 Prozent Home-Office",
+# accounting for German spelling of percent.
 _REMOTE_PERCENT_RE = re.compile(
     r"(\d{1,3})\s*(?:%|prozent)\s*(?:remote|home[-\s]*office|mobile(?:s)?\s+arbeiten?)",
     re.IGNORECASE,
 )
+# Detects patterns such as "3 Tage/Woche im Büro" including numeric ranges (e.g. 2-3)
+# to estimate hybrid office attendance.
 _REMOTE_DAYS_OFFICE_RE = re.compile(
     r"(?:(?P<min>\d{1,2})[–-](?P<max>\d{1,2})|(?P<single>\d{1,2}))\s*"
     r"(?:Tag(?:e)?|day(?:s)?)\s*/\s*Woche[^\n]*?(?:im\s+(?:Office|Büro|HQ)|vor\s+Ort)",
     re.IGNORECASE,
 )
+# Similar to _REMOTE_DAYS_OFFICE_RE but focused on "remote" or "Home Office" mentions
+# so we can gauge remote days per week.
 _REMOTE_DAYS_REMOTE_RE = re.compile(
     r"(?:(?P<min>\d{1,2})[–-](?P<max>\d{1,2})|(?P<single>\d{1,2}))\s*"
     r"(?:Tag(?:e)?|day(?:s)?)\s*/\s*Woche[^\n]*?(?:remote|Home[-\s]*Office|von\s+zu\s+Hause|"
@@ -135,6 +152,8 @@ _DATE_PATTERNS = [
     r"\b(\d{4}-\d{2}-\d{2})\b",
 ]
 
+# Maps season labels like "Sommer 2025" to approximate months, covering English and
+# German spellings.
 _SEASON_RE = re.compile(
     r"(Frühling|Frühjahr|Sommer|Herbst|Autumn|Fall|Winter)\s+(\d{4})",
     re.IGNORECASE,
@@ -151,21 +170,30 @@ _SEASON_MONTH = {
     "winter": 12,
 }
 
+# Identifies immediate start phrases ("ab sofort", "ASAP", etc.) to normalise start
+# dates.
 _IMMEDIATE_RE = re.compile(
     r"(ab\s+sofort|zum\s+nächstmöglichen\s+zeitpunkt|zum\s+frühestmöglichen\s+zeitpunkt|"
     r"asap|as\s+soon\s+as\s+possible|immediately)",
     re.IGNORECASE,
 )
 
+# Catches salary ranges such as "50.000 - 60.000 €" or "45k–55k eur". Handles dotted
+# thousands, spaces, and "k" suffix shorthand.
 _SALARY_RANGE_RE = re.compile(
     r"(\d[\d.,\s]*(?:k)?)\s*(?:[-–]|bis)\s*(\d[\d.,\s]*(?:k)?)\s*(?:€|eur|euro)",
     re.IGNORECASE,
 )
+# Matches single salary mentions with flexible currency placement ("€70k" or "70.000 EUR").
 _SALARY_SINGLE_RE = re.compile(
     r"(?:€|eur|euro)\s*(\d[\d.,\s]*(?:k)?)|(\d[\d.,\s]*(?:k)?)\s*(?:€|eur|euro)",
     re.IGNORECASE,
 )
+# Looks for bonus percentages like "20% Bonus" but avoids general percentages by
+# requiring explicit bonus vocabulary.
 _BONUS_PERCENT_RE = re.compile(r"(\d{1,3})\s*%\s*(?:variable|bonus)", re.IGNORECASE)
+# Grabs descriptive commission phrases so we can surface text snippets about variable
+# compensation structures.
 _BONUS_TEXT_RE = re.compile(
     r"(?:bonus|provision|pr[aä]mie|commission)[^\n]*",
     re.IGNORECASE,
@@ -861,6 +889,9 @@ def apply_basic_fallbacks(
         if brand:
             profile.company.brand_name = brand
     if _needs_value(profile.location.primary_city, city_field):
+        # City fallback order: reuse regex-based guess_city first, then fall back to
+        # spaCy entity extraction (if available) before retrying the regex when the
+        # field is marked invalid.
         city_guess = "" if city_invalid else guess_city(text)
         if not city_guess or city_invalid:
             if location_entities is None:
@@ -876,6 +907,8 @@ def apply_basic_fallbacks(
         if city_guess:
             profile.location.primary_city = city_guess
     if _needs_value(profile.location.country, country_field):
+        # Country fallback order mirrors the city logic: prefer spaCy geo entities and
+        # only fall back to heuristics when no entity is found and the field was invalid.
         if location_entities is None:
             location_entities = extract_location_entities(text, lang=language_hint)
         if location_entities:
@@ -886,6 +919,9 @@ def apply_basic_fallbacks(
             country_guess = ""
         if country_guess:
             profile.location.country = country_guess
+    # Employment classification: regex heuristics via guess_employment_details decide
+    # job type, contract type, work policy, and remote percentage before any manual
+    # overrides.
     job, contract, policy, remote_pct = guess_employment_details(text)
     if not profile.employment.job_type and job:
         profile.employment.job_type = job
@@ -905,7 +941,8 @@ def apply_basic_fallbacks(
             profile.responsibilities.items = tasks
     if not profile.position.role_summary and profile.responsibilities.items:
         profile.position.role_summary = profile.responsibilities.items[0]
-    # Compensation heuristics
+    # Compensation heuristics: attempt range detection first, then single-value
+    # mentions, and finally flag variable pay + bonus percentage if keywords appear.
     compensation = profile.compensation
     if not (compensation.salary_min and compensation.salary_max):
         range_match = _SALARY_RANGE_RE.search(text)
