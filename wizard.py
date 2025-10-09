@@ -5955,27 +5955,27 @@ def _summary_requirements() -> None:
     data = st.session_state[StateKeys.PROFILE]
 
     hard_req = st.text_area(
-        "Hard Skills (Must-have)",
+        tr("Hard Skills (Muss)", "Hard Skills (Must-have)"),
         value=", ".join(data["requirements"].get("hard_skills_required", [])),
         key="ui.summary.requirements.hard_skills_required",
     )
     hard_opt = st.text_area(
-        "Hard Skills (Nice-to-have)",
+        tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
         value=", ".join(data["requirements"].get("hard_skills_optional", [])),
         key="ui.summary.requirements.hard_skills_optional",
     )
     soft_req = st.text_area(
-        "Soft Skills (Must-have)",
+        tr("Soft Skills (Muss)", "Soft Skills (Must-have)"),
         value=", ".join(data["requirements"].get("soft_skills_required", [])),
         key="ui.summary.requirements.soft_skills_required",
     )
     soft_opt = st.text_area(
-        "Soft Skills (Nice-to-have)",
+        tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
         value=", ".join(data["requirements"].get("soft_skills_optional", [])),
         key="ui.summary.requirements.soft_skills_optional",
     )
     tools = st.text_area(
-        "Tools & Tech",
+        tr("Tools & Tech", "Tools & Tech"),
         value=", ".join(data["requirements"].get("tools_and_technologies", [])),
         key="ui.summary.requirements.tools",
     )
