@@ -49,6 +49,7 @@ class StateKeys:
     STEP = "current_step"
     SCROLL_TO_TOP = "ui.scroll_to_top"
     FOLLOWUPS = "followup_questions"
+    AUTOFILL_DECISIONS = "ui.autofill.decisions"
     USAGE = "api_usage"
     JOB_AD_MD = "data.job_ad_md"
     BOOLEAN_STR = "data.boolean_str"

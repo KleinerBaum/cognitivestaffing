@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import contextlib
+import sys
+from pathlib import Path
 
 import requests
 
 import streamlit as st
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from constants.keys import StateKeys
 from ingest.types import build_plain_text_document
@@ -103,6 +107,7 @@ def test_load_company_page_section_updates_state(monkeypatch) -> None:
     stored = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]["about"]
     assert stored["url"].endswith("unternehmen")
     assert stored["summary"] == "Über uns :: de"
+    assert stored["label"] == "Über uns"
 
 
 def test_extract_company_size_detects_employee_count() -> None:
@@ -145,6 +150,10 @@ def test_enrich_company_profile_from_about_updates_missing_fields(monkeypatch) -
     assert company["hq_location"] == "Düsseldorf"
     assert company["mission"] == "Mobilität für alle"
     assert company["size"] == "rund 3.370 Menschen"
+    metadata = st.session_state[StateKeys.PROFILE_METADATA]
+    name_meta = metadata["rules"]["company.name"]
+    assert name_meta["source_kind"] == "company_page"
+    assert "company.name" in metadata["llm_fields"]
 
 
 def test_enrich_company_profile_respects_existing_values(monkeypatch) -> None:
@@ -176,6 +185,10 @@ def test_enrich_company_profile_respects_existing_values(monkeypatch) -> None:
     assert company["hq_location"] == "Berlin"
     assert company["mission"] == "Bestehende Mission"
     assert company["size"] == "200 Mitarbeitende"
+    assert (
+        StateKeys.PROFILE_METADATA not in st.session_state
+        or not st.session_state[StateKeys.PROFILE_METADATA].get("rules")
+    )
 
 
 def test_fetch_url_follows_long_redirect_chain(monkeypatch) -> None:

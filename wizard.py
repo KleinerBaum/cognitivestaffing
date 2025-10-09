@@ -6,6 +6,7 @@ import hashlib
 import json
 import textwrap
 from collections import defaultdict
+from dataclasses import dataclass
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date
@@ -99,6 +100,55 @@ class FieldLockConfig(TypedDict, total=False):
     disabled: bool
     unlocked: bool
     was_locked: bool
+    source_info: "FieldSourceInfo"
+
+
+@dataclass(slots=True)
+class FieldSourceInfo:
+    """Descriptor about where a field value originated from."""
+
+    descriptor: str
+    context: str | None = None
+    snippet: str | None = None
+    confidence: float | None = None
+    is_inferred: bool = False
+    url: str | None = None
+
+    def tooltip(self) -> str:
+        """Return a localized tooltip string describing the source."""
+
+        parts: list[str] = []
+        descriptor = self.descriptor
+        if self.context:
+            descriptor = f"{descriptor} ({self.context})"
+        if self.is_inferred:
+            parts.append(
+                tr(
+                    "Durch KI aus {descriptor} abgeleitet.",
+                    "Inferred by AI from {descriptor}.",
+                ).format(descriptor=descriptor)
+            )
+        parts.append(
+            tr("Quelle: {descriptor}", "Source: {descriptor}").format(
+                descriptor=descriptor
+            )
+        )
+        if self.confidence is not None:
+            percent = int(round(self.confidence * 100))
+            parts.append(
+                tr("Vertrauen: {percent} %", "Confidence: {percent}%").format(
+                    percent=percent
+                )
+            )
+        if self.snippet:
+            snippet = " ".join(self.snippet.split())
+            if snippet:
+                parts.append(
+                    tr("Auszug: {snippet}", "Snippet: {snippet}").format(
+                        snippet=snippet
+                    )
+                )
+        return "\n".join(parts)
 
 # Index of the first data entry step ("Unternehmen" / "Company")
 COMPANY_STEP_INDEX = 1
@@ -184,6 +234,15 @@ section.main > div.block-container [data-testid="stDateInput"] input {
 }
 section.main > div.block-container [data-testid="stTextArea"] textarea {
     min-height: 140px;
+}
+.summary-field-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.summary-source-icon {
+    font-size: 0.9em;
+    cursor: help;
 }
 </style>
 """
@@ -639,7 +698,52 @@ def _extract_company_size(text: str) -> str | None:
     return re.sub(r"\s+", " ", value).strip(" .,;") or None
 
 
-def _enrich_company_profile_from_about(text: str) -> None:
+def _record_company_page_source(
+    field: str,
+    value: str,
+    *,
+    source_url: str | None,
+    section_key: str,
+    section_label: str | None,
+) -> None:
+    """Store metadata describing a company page derived value."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
+    rules = metadata.get("rules")
+    if isinstance(rules, Mapping):
+        updated_rules = dict(rules)
+    else:
+        updated_rules = {}
+    entry = dict(updated_rules.get(field) or {})
+    entry.update(
+        {
+            "rule": f"company_page.{section_key}",
+            "value": value,
+            "source_text": _truncate_snippet(value),
+            "source_kind": "company_page",
+            "source_section": section_key,
+            "source_section_label": section_label,
+            "source_url": source_url,
+            "inferred": True,
+        }
+    )
+    updated_rules[field] = entry
+    metadata["rules"] = updated_rules
+    llm_fields = metadata.get("llm_fields")
+    current = {field}
+    if isinstance(llm_fields, list):
+        current.update({item for item in llm_fields if isinstance(item, str)})
+    metadata["llm_fields"] = sorted(current)
+    st.session_state[StateKeys.PROFILE_METADATA] = metadata
+
+
+def _enrich_company_profile_from_about(
+    text: str,
+    *,
+    source_url: str | None = None,
+    section_label: str | None = None,
+) -> None:
     """Populate missing company fields from an about-page text."""
 
     if not text.strip():
@@ -670,12 +774,27 @@ def _enrich_company_profile_from_about(text: str) -> None:
             if target not in company or not str(company.get(target, "")).strip():
                 value = extracted.get(source)
                 if isinstance(value, str) and value.strip():
-                    company[target] = value.strip()
+                    normalized = value.strip()
+                    company[target] = normalized
+                    _record_company_page_source(
+                        f"company.{target}",
+                        normalized,
+                        source_url=source_url,
+                        section_key="about",
+                        section_label=section_label,
+                    )
 
     if "size" not in company or not str(company.get("size", "")).strip():
         size_value = _extract_company_size(text)
         if size_value:
             company["size"] = size_value
+            _record_company_page_source(
+                "company.size",
+                size_value,
+                source_url=source_url,
+                section_key="about",
+                section_label=section_label,
+            )
 
 
 def _load_company_page_section(
@@ -713,9 +832,11 @@ def _load_company_page_section(
     summaries: dict[str, dict[str, str]] = st.session_state[
         StateKeys.COMPANY_PAGE_SUMMARIES
     ]
-    summaries[section_key] = {"url": url, "summary": summary}
+    summaries[section_key] = {"url": url, "summary": summary, "label": label}
     if section_key == "about":
-        _enrich_company_profile_from_about(text)
+        _enrich_company_profile_from_about(
+            text, source_url=url, section_label=label
+        )
     st.success(tr("Zusammenfassung aktualisiert.", "Summary updated."))
 
 
@@ -1044,12 +1165,69 @@ def _autodetect_lang(text: str) -> None:
         st.session_state[StateKeys.PROFILE_METADATA] = metadata
     except Exception:  # pragma: no cover - best effort
         pass
+def _annotate_rule_metadata(
+    rule_meta: Mapping[str, Mapping[str, Any]] | None,
+    blocks: Sequence[ContentBlock],
+    doc: StructuredDocument | None,
+) -> dict[str, dict[str, Any]]:
+    """Augment rule metadata with document context."""
+
+    annotated: dict[str, dict[str, Any]] = {}
+    source = getattr(doc, "source", None)
+    for field, payload in (rule_meta or {}).items():
+        if not isinstance(payload, Mapping):
+            continue
+        entry = dict(payload)
+        if source:
+            entry.setdefault("document_source", source)
+        block_index = entry.get("block_index")
+        if isinstance(block_index, int) and 0 <= block_index < len(blocks):
+            block = blocks[block_index]
+            entry.setdefault("block_type", block.type)
+            metadata = block.metadata or {}
+            page = metadata.get("page")
+            if isinstance(page, int):
+                entry.setdefault("page", page)
+        entry.setdefault("source_kind", "job_posting")
+        annotated[field] = entry
+    return annotated
+
+
+def _build_llm_metadata(
+    extracted: Mapping[str, Any],
+    rule_matches: Mapping[str, Any],
+    doc: StructuredDocument | None,
+) -> dict[str, dict[str, Any]]:
+    """Create metadata entries for values inferred by the LLM fallback."""
+
+    llm_entries: dict[str, dict[str, Any]] = {}
+    source = getattr(doc, "source", None)
+    for field, value in flatten(dict(extracted)).items():
+        if field in rule_matches:
+            continue
+        normalized = _normalize_semantic_empty(value)
+        if normalized is None:
+            continue
+        entry: dict[str, Any] = {
+            "rule": "llm.extract_json",
+            "value": normalized,
+            "inferred": True,
+            "source_kind": "job_posting",
+        }
+        snippet = _truncate_snippet(normalized)
+        if snippet:
+            entry["source_text"] = snippet
+        if source:
+            entry["document_source"] = source
+        llm_entries[field] = entry
+    return llm_entries
 
 
 def _extract_and_summarize(text: str, schema: dict) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
     raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
+    doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
     rule_matches = apply_rules(raw_blocks)
     metadata = dict(st.session_state.get(StateKeys.PROFILE_METADATA, {}))
     if rule_matches:
@@ -1057,7 +1235,13 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         st.session_state[StateKeys.PROFILE] = rule_patch
         st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = rule_patch
         new_meta = build_rule_metadata(rule_matches)
-        combined_rules = {**metadata.get("rules", {}), **new_meta.get("rules", {})}
+        annotated_rules = _annotate_rule_metadata(
+            new_meta.get("rules"), raw_blocks, doc
+        )
+        existing_rules = metadata.get("rules") or {}
+        if not isinstance(existing_rules, Mapping):
+            existing_rules = {}
+        combined_rules = {**dict(existing_rules), **annotated_rules}
         locked = set(metadata.get("locked_fields", [])) | set(
             new_meta.get("locked_fields", [])
         )
@@ -1074,7 +1258,6 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
 
     vector_store_id = st.session_state.get("vector_store_id") or None
 
-    doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
     url_hint: str | None = None
     if doc and doc.source:
         parsed = urlparse(doc.source)
@@ -1132,6 +1315,22 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         extracted_data = json.loads(fragment)
     if not isinstance(extracted_data, dict):
         raise ValueError("Model returned JSON that is not an object.")
+
+    llm_meta = _build_llm_metadata(extracted_data, rule_matches, doc)
+    if llm_meta:
+        existing_rules = metadata.get("rules")
+        if not isinstance(existing_rules, Mapping):
+            existing_rules = {}
+        merged_rules = dict(existing_rules)
+        for field, entry in llm_meta.items():
+            merged_rules.setdefault(field, entry)
+        metadata["rules"] = merged_rules
+        current_llm = metadata.get("llm_fields")
+        llm_fields = {field for field in llm_meta}
+        if isinstance(current_llm, list):
+            llm_fields.update({field for field in current_llm if isinstance(field, str)})
+        metadata["llm_fields"] = sorted(llm_fields)
+
     for field, match in rule_matches.items():
         set_in(extracted_data, field, match.value)
 
@@ -2236,6 +2435,139 @@ def _normalize_value_for_path(path: str, value: Any) -> Any:
     return value
 
 
+def _document_origin_label(source: str | None) -> str | None:
+    """Return a compact label describing ``source`` for tooltips."""
+
+    if not source:
+        return None
+    normalized = source.strip()
+    if not normalized:
+        return None
+    lowered = normalized.lower()
+    if lowered == "manual":
+        return tr("manuelle Eingabe", "manual input")
+    if lowered == "pasted":
+        return tr("eingefügter Text", "pasted text")
+    if lowered == "merged":
+        return tr("kombinierte Quellen", "combined sources")
+    parsed = urlparse(normalized)
+    if parsed.scheme and parsed.netloc:
+        return parsed.netloc.lower()
+    name = Path(normalized).name
+    return name or normalized
+
+
+def _company_section_label(section_key: str | None) -> str | None:
+    """Return a localized label for known company page sections."""
+
+    if not section_key:
+        return None
+    mapping: dict[str, tuple[str, str]] = {
+        "about": ("Über-uns-Seite", "About page"),
+        "imprint": ("Impressum", "Imprint"),
+        "press": ("Pressebereich", "Press section"),
+    }
+    localized = mapping.get(section_key.lower())
+    if not localized:
+        return None
+    return localized[0] if st.session_state.get("lang", "de").startswith("de") else localized[1]
+
+
+def _truncate_snippet(value: Any, *, limit: int = 220) -> str | None:
+    """Return a shortened textual representation for tooltips."""
+
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    snippet = " ".join(value.strip().split())
+    if not snippet:
+        return None
+    if len(snippet) > limit:
+        snippet = snippet[: limit - 1].rstrip() + "…"
+    return snippet
+
+
+def _resolve_field_source_info(path: str) -> FieldSourceInfo | None:
+    """Build source information for ``path`` from stored metadata."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    rules_meta = raw_metadata.get("rules") or {}
+    entry = rules_meta.get(path)
+    if not isinstance(entry, Mapping):
+        return None
+
+    source_kind = str(entry.get("source_kind") or "job_posting")
+    snippet = _truncate_snippet(entry.get("source_text"))
+    confidence = entry.get("confidence")
+    is_inferred = bool(entry.get("inferred"))
+    context_bits: list[str] = []
+    url: str | None = None
+
+    if source_kind == "company_page":
+        section_label = entry.get("source_section_label")
+        if not isinstance(section_label, str) or not section_label.strip():
+            section_label = _company_section_label(entry.get("source_section"))
+        descriptor = tr(
+            "Unternehmenswebsite – {section}",
+            "Company website – {section}",
+        ).format(section=section_label or tr("Unterseite", "subpage"))
+        url = entry.get("source_url") or None
+        if isinstance(url, str) and url.strip():
+            parsed = urlparse(url)
+            if parsed.netloc:
+                context_bits.append(parsed.netloc.lower())
+    else:
+        descriptor = _block_descriptor(entry.get("block_type"))
+        document_label = _document_origin_label(entry.get("document_source"))
+        if document_label:
+            context_bits.append(document_label)
+        page = entry.get("page")
+        if isinstance(page, int):
+            context_bits.insert(
+                0,
+                tr("Seite {page}", "Page {page}").format(page=page),
+            )
+
+    context = ", ".join(context_bits) if context_bits else None
+    return FieldSourceInfo(
+        descriptor=descriptor,
+        context=context,
+        snippet=snippet,
+        confidence=confidence if isinstance(confidence, (int, float)) else None,
+        is_inferred=is_inferred,
+        url=url,
+    )
+
+
+def _summary_source_icon_html(path: str) -> str:
+    """Return HTML snippet for the summary info icon."""
+
+    info = _resolve_field_source_info(path)
+    if not info:
+        return ""
+    tooltip = html.escape(info.tooltip(), quote=True)
+    return (
+        f"<span class='summary-source-icon' role='img' aria-label='{tooltip}' "
+        f"title='{tooltip}'>ℹ️</span>"
+    )
+
+
+def _block_descriptor(block_type: str | None) -> str:
+    """Return a localized descriptor for a block type."""
+
+    mapping: dict[str | None, tuple[str, str]] = {
+        "heading": ("Stellenanzeige – Überschrift", "Job ad heading"),
+        "paragraph": ("Stellenanzeige – Absatz", "Job ad paragraph"),
+        "list_item": ("Stellenanzeige – Aufzählungspunkt", "Job ad bullet point"),
+        "table": ("Stellenanzeige – Tabellenzeile", "Job ad table row"),
+        None: ("Stellenanzeige – Abschnitt", "Job ad snippet"),
+    }
+    key = block_type if block_type in mapping else None
+    label_de, label_en = mapping[key]
+    return label_de if st.session_state.get("lang", "de").startswith("de") else label_en
+
+
 _FIELD_LOCK_BASE_KEY = "ui.locked_field_unlock"
 
 
@@ -2291,11 +2623,15 @@ def _field_lock_config(
     is_high_conf = path in high_conf_fields
     was_locked = is_locked or is_high_conf
 
+    source_info = _resolve_field_source_info(path)
+
     icons: list[str] = []
     if is_locked:
         icons.append("🔒")
     if is_high_conf:
         icons.append("✅")
+    if source_info:
+        icons.append("ℹ️")
     icon_prefix = " ".join(icons)
     label_with_icon = f"{icon_prefix} {label}".strip() if icon_prefix else label
 
@@ -2314,9 +2650,15 @@ def _field_lock_config(
                 "Marked as high confidence.",
             )
         )
-    help_text = " ".join(help_bits)
+    if source_info:
+        tooltip = source_info.tooltip()
+        if tooltip:
+            help_bits.append(tooltip)
+    help_text = "\n\n".join(help_bits)
 
     config: FieldLockConfig = {"label": label_with_icon, "was_locked": was_locked}
+    if source_info:
+        config["source_info"] = source_info
     if help_text:
         config["help_text"] = help_text
 
@@ -2368,6 +2710,16 @@ def _remove_field_lock_metadata(path: str) -> None:
         if isinstance(values, list) and path in values:
             metadata[key] = [item for item in values if item != path]
             changed = True
+    rules_meta = metadata.get("rules")
+    if isinstance(rules_meta, Mapping) and path in rules_meta:
+        updated_rules = dict(rules_meta)
+        updated_rules.pop(path, None)
+        metadata["rules"] = updated_rules
+        changed = True
+    llm_fields = metadata.get("llm_fields")
+    if isinstance(llm_fields, list) and path in llm_fields:
+        metadata["llm_fields"] = [field for field in llm_fields if field != path]
+        changed = True
     if changed:
         st.session_state[StateKeys.PROFILE_METADATA] = metadata
         _clear_field_unlock_state(path)
@@ -5880,8 +6232,10 @@ def _render_summary_group_entries(
 
         field_box = st.container()
         field_box.markdown("<div class='summary-field-card'>", unsafe_allow_html=True)
+        source_icon = _summary_source_icon_html(field_def.key)
+        icon_html = f" {source_icon}" if source_icon else ""
         field_box.markdown(
-            f"<div class='summary-field-title'>{html.escape(label)}</div>",
+            f"<div class='summary-field-title'>{html.escape(label)}{icon_html}</div>",
             unsafe_allow_html=True,
         )
         if description:
