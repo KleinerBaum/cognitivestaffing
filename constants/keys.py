@@ -80,6 +80,7 @@ class StateKeys:
     INTERVIEW_AUDIENCE = "data.interview.audience"
     ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
     SUMMARY_FOLLOWUP_SNAPSHOT = "data.summary.followup_snapshot"
+    SUMMARY_SELECTED_GROUP = UIKeys.SUMMARY_SELECTED_GROUP
     COMPLETED_SECTIONS = "wizard.completed_sections"
     FIRST_INCOMPLETE_SECTION = "wizard.first_incomplete_section"
     PENDING_INCOMPLETE_JUMP = "wizard.pending_incomplete_jump"

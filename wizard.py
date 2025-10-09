@@ -6602,23 +6602,72 @@ def _step_summary(schema: dict, _critical: list[str]):
         "process",
     ]
 
-    overview_counts = _summary_group_counts(data, lang)
-    overview_title = tr(
-        "Überblick über erfasste Angaben",
-        "Overview of captured entries",
+    mode_options = {
+        "overview": tr("Überblick", "Overview"),
+        "edit": tr("Bearbeiten", "Edit"),
+    }
+    mode_label = tr("Ansicht", "View mode")
+    if (
+        StateKeys.SUMMARY_SELECTED_GROUP not in st.session_state
+        or st.session_state[StateKeys.SUMMARY_SELECTED_GROUP] not in mode_options
+    ):
+        st.session_state[StateKeys.SUMMARY_SELECTED_GROUP] = "overview"
+    summary_mode = st.radio(
+        mode_label,
+        options=list(mode_options.keys()),
+        format_func=lambda opt: mode_options[opt],
+        key=StateKeys.SUMMARY_SELECTED_GROUP,
+        horizontal=True,
     )
-    st.markdown(f"### {overview_title}")
-    entry_label = tr("Einträge", "Entries")
-    empty_label = tr("Noch keine Angaben", "No entries yet")
 
     tab_definitions = list(zip(group_keys, tab_labels))
+    summary_helpers: dict[str, Callable[[], None]] = {
+        "company": _summary_company,
+        "basic": _summary_position,
+        "requirements": _summary_requirements,
+        "employment": _summary_employment,
+        "compensation": _summary_compensation,
+        "process": _summary_process,
+    }
+
+    if summary_mode == "overview":
+        overview_counts = _summary_group_counts(data, lang)
+        overview_title = tr(
+            "Überblick über erfasste Angaben",
+            "Overview of captured entries",
+        )
+        st.markdown(f"### {overview_title}")
+        entry_label = tr("Einträge", "Entries")
+        empty_label = tr("Noch keine Angaben", "No entries yet")
+    else:
+        edit_title = tr("Angaben bearbeiten", "Edit captured details")
+        st.markdown(f"### {edit_title}")
+        st.caption(
+            tr(
+                "Passe die Inhalte der einzelnen Bereiche direkt in den Tabs an.",
+                "Adjust the contents of each section directly within the tabs.",
+            )
+        )
+
     summary_tabs = st.tabs([label for _, label in tab_definitions])
     for tab, (group, _label) in zip(summary_tabs, tab_definitions):
         with tab:
-            count = overview_counts.get(group, 0)
-            subtitle = f"{count} {entry_label}" if count else empty_label
-            st.caption(subtitle)
-            _render_summary_group_entries(group, data, lang)
+            if summary_mode == "overview":
+                count = overview_counts.get(group, 0)
+                subtitle = f"{count} {entry_label}" if count else empty_label
+                st.caption(subtitle)
+                _render_summary_group_entries(group, data, lang)
+            else:
+                helper = summary_helpers.get(group)
+                if helper:
+                    helper()
+                else:
+                    st.info(
+                        tr(
+                            "Für diesen Bereich ist keine Bearbeitung verfügbar.",
+                            "Editing is not available for this section.",
+                        )
+                    )
 
     st.caption(
         tr(
