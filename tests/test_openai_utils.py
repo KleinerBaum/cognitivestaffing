@@ -112,6 +112,40 @@ def test_call_chat_api_returns_output_json(monkeypatch):
     assert result.content == json.dumps(payload)
 
 
+def test_call_chat_api_uses_json_schema_response_format(monkeypatch):
+    """Structured calls should send a JSON schema ``response_format`` payload."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = ""
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs: Any) -> _FakeResponse:
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.responses = _FakeResponses()
+
+    fake_client = _FakeClient()
+    monkeypatch.setattr(openai_utils.api, "client", fake_client, raising=False)
+    monkeypatch.setattr(openai_utils.api, "get_client", lambda: fake_client)
+
+    schema = {"name": "vacancy", "schema": {"type": "object", "properties": {}}}
+
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        json_schema=schema,
+    )
+
+    assert captured["response_format"]["type"] == "json_schema"
+    assert captured["response_format"]["json_schema"] == schema
+
+
 def test_stream_chat_api_yields_chunks(monkeypatch):
     """Streaming helper should yield incremental text and capture usage."""
 

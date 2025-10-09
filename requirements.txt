@@ -1,4 +1,4 @@
-openai>=1.30
+openai>=1.40.0
 streamlit>=1.33
 pydantic[email]>=2.5
 pymupdf>=1.24
