@@ -46,7 +46,11 @@ SYSTEM_JSON_EXTRACTOR: str = (
 
 
 def USER_JSON_EXTRACT_TEMPLATE(
-    fields_list: list[str], job_text: str, extras: dict | None = None
+    fields_list: list[str],
+    job_text: str,
+    extras: dict | None = None,
+    *,
+    locked_fields: Mapping[str, str] | None = None,
 ) -> str:
     """Render a user prompt for JSON field extraction.
 
@@ -63,6 +67,19 @@ def USER_JSON_EXTRACT_TEMPLATE(
     extras_lines = [f"{k.capitalize()}: {v}" for k, v in extras.items() if v]
     extras_block = "\n".join(extras_lines)
 
+    locked = locked_fields or {}
+    locked_lines = []
+    for field, value in locked.items():
+        if not value:
+            continue
+        sanitized_value = str(value).strip().replace("\n", " ")
+        if not sanitized_value:
+            continue
+        locked_lines.append(f"- {field}: {sanitized_value}")
+    locked_block = ""
+    if locked_lines:
+        locked_block = "Locked values (reuse exactly):\n" + "\n".join(locked_lines)
+
     field_lines = "\n".join(f"- {f}" for f in fields_list)
 
     instructions = (
@@ -71,10 +88,14 @@ def USER_JSON_EXTRACT_TEMPLATE(
         f"Fields:\n{field_lines}"
     )
 
+    blocks: list[str] = []
     if extras_block:
-        prompt = f"{extras_block}\n\n{instructions}\n\nText:\n{job_text}"
-    else:
-        prompt = f"{instructions}\n\nText:\n{job_text}"
+        blocks.append(extras_block)
+    if locked_block:
+        blocks.append(locked_block)
+    blocks.append(instructions)
+    blocks.append(f"Text:\n{job_text}")
+    prompt = "\n\n".join(blocks)
     return prompt
 
 

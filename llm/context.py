@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Mapping, Optional
 
 from .prompts import (
     FIELDS_ORDER,
@@ -20,6 +20,7 @@ def build_extract_messages(
     title: Optional[str] = None,
     company: Optional[str] = None,
     url: Optional[str] = None,
+    locked_fields: Optional[Mapping[str, str]] = None,
 ) -> list[dict[str, str]]:
     """Construct messages for field extraction.
 
@@ -42,9 +43,20 @@ def build_extract_messages(
         extras["url"] = url
 
     truncated = truncate_smart(text or "", MAX_CHAR_BUDGET)
-    user_prompt = USER_JSON_EXTRACT_TEMPLATE(FIELDS_ORDER, truncated, extras)
+    user_prompt = USER_JSON_EXTRACT_TEMPLATE(
+        FIELDS_ORDER,
+        truncated,
+        extras,
+        locked_fields=locked_fields,
+    )
+
+    system_content = SYSTEM_JSON_EXTRACTOR
+    if locked_fields:
+        system_content = (
+            f"{SYSTEM_JSON_EXTRACTOR} Keep provided locked values unchanged in the JSON output."
+        )
 
     return [
-        {"role": "system", "content": SYSTEM_JSON_EXTRACTOR},
+        {"role": "system", "content": system_content},
         {"role": "user", "content": user_prompt},
     ]

@@ -56,6 +56,7 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
         title: str | None = None,
         company: str | None = None,
         url: str | None = None,
+        locked_fields: dict[str, str] | None = None,
         **_: Any,
     ) -> str:
         return json.dumps({"meta": {"followups_answered": []}})
@@ -115,6 +116,7 @@ def test_extract_and_summarize_auto_reask_with_no_missing(
         title: str | None = None,
         company: str | None = None,
         url: str | None = None,
+        locked_fields: dict[str, str] | None = None,
         **_: Any,
     ) -> str:
         return json.dumps({"meta": {"followups_answered": []}})

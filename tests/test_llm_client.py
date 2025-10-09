@@ -82,11 +82,13 @@ def test_extract_json_forwards_context(monkeypatch):
         title: str | None = None,
         company: str | None = None,
         url: str | None = None,
+        locked_fields: dict[str, str] | None = None,
     ) -> list[dict[str, str]]:
         captured["text"] = text
         captured["title"] = title or ""
         captured["company"] = company or ""
         captured["url"] = url or ""
+        captured["locked_fields"] = locked_fields or {}
         messages = [
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "user"},
@@ -113,6 +115,10 @@ def test_extract_json_forwards_context(monkeypatch):
         title="Locked Engineer",
         company="Locked Corp",
         url="https://example.com/job",
+        locked_fields={
+            "position.job_title": "Locked Engineer",
+            "company.name": "Locked Corp",
+        },
     )
 
     assert json.loads(out)
@@ -120,6 +126,10 @@ def test_extract_json_forwards_context(monkeypatch):
     assert captured["title"] == "Locked Engineer"
     assert captured["company"] == "Locked Corp"
     assert captured["url"] == "https://example.com/job"
+    assert captured["locked_fields"] == {
+        "position.job_title": "Locked Engineer",
+        "company.name": "Locked Corp",
+    }
     assert captured["messages"][0]["content"] == "sys"
 
 
