@@ -526,6 +526,53 @@ def test_extract_with_function_json_fallback_uses_context_payload(monkeypatch):
     assert payload["fields"][0]["context"][0]["text"].startswith("Job Title")
 
 
+def test_extract_with_function_json_fallback_reuses_payload(monkeypatch):
+    """Retry call should reuse the original context payload without changes."""
+
+    captured: list[dict[str, Any]] = []
+
+    def _fake_call(messages: Sequence[dict[str, str]], **kwargs: Any) -> ChatCallResult:
+        captured.append({"messages": messages, "kwargs": kwargs})
+        if len(captured) == 1:
+            return ChatCallResult("no structured output", [], {})
+        return ChatCallResult('{"job_title": "Lead"}', [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+
+    from core import schema as cs
+
+    class _FakeProfile:
+        def __init__(self, data: dict[str, Any]) -> None:
+            self._data = data
+
+        def model_dump(self) -> dict[str, Any]:
+            return self._data
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
+
+    field_ctx = FieldExtractionContext(
+        field="job_title",
+        instruction="Prefer explicit titles",
+        chunks=[RetrievedChunk(text="Job Title: Lead Engineer", score=0.88)],
+    )
+    global_ctx = [RetrievedChunk(text="Company overview", score=0.73)]
+
+    extract_with_function(
+        "ignored",
+        {},
+        field_contexts={"job_title": field_ctx},
+        global_context=global_ctx,
+    )
+
+    assert len(captured) == 2
+    initial_messages = captured[0]["messages"]
+    retry_messages = captured[1]["messages"]
+
+    assert retry_messages[1]["content"] == initial_messages[1]["content"]
+    payload = json.loads(retry_messages[1]["content"])
+    assert payload["global_context"][0]["text"] == "Company overview"
+    assert payload["fields"][0]["context"][0]["text"].startswith("Job Title")
+
 def test_extract_with_function_parses_json_payload(monkeypatch):
     """Structured extraction should accept strictly formatted JSON payloads."""
 

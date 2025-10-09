@@ -262,14 +262,25 @@ def extract_with_function(
     if not arguments:
         # Some models ignore the tool request and emit plain text. Retry forcing
         # JSON mode to keep the pipeline deterministic.
-        retry_system_prompt = (
-            system_prompt
-            + " Return only valid JSON that conforms exactly to the provided schema."
-        )
-        retry_messages: Sequence[dict[str, str]] = [
-            {"role": "system", "content": retry_system_prompt},
-            {"role": "user", "content": user_payload},
-        ]
+        retry_messages: list[dict[str, str]] = []
+        for index, message in enumerate(messages):
+            updated = dict(message)
+            if index == 0:
+                updated["content"] = (
+                    f"{message.get('content', '')}"
+                    " Return only valid JSON that conforms exactly to the provided schema."
+                )
+            retry_messages.append(updated)
+        if not retry_messages:
+            retry_messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Return only valid JSON that conforms exactly to the provided schema."
+                    ),
+                },
+                {"role": "user", "content": user_payload},
+            ]
         second = api.call_chat_api(
             retry_messages,
             model=model,
