@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from urllib.parse import urlparse
 
 import streamlit as st
+from pydantic import ValidationError
 
 from constants.keys import StateKeys
 from config import OPENAI_API_KEY, OPENAI_BASE_URL, REASONING_EFFORT, OPENAI_MODEL
+from core.schema import coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
 
 
@@ -18,8 +21,14 @@ def ensure_state() -> None:
     Existing keys are preserved to respect user interactions or URL params.
     """
 
-    if StateKeys.PROFILE not in st.session_state:
+    existing = st.session_state.get(StateKeys.PROFILE)
+    if not isinstance(existing, Mapping):
         st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+    else:
+        try:
+            st.session_state[StateKeys.PROFILE] = coerce_and_fill(existing).model_dump()
+        except ValidationError:
+            st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
     if StateKeys.RAW_TEXT not in st.session_state:
         st.session_state[StateKeys.RAW_TEXT] = ""
     if StateKeys.RAW_BLOCKS not in st.session_state:
