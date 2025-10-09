@@ -181,6 +181,105 @@ FONT_CHOICES = ["Helvetica", "Arial", "Times New Roman", "Georgia", "Calibri"]
 
 CEFR_LANGUAGE_LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2", "Native"]
 
+
+class _SafeFormatDict(dict[str, str]):
+    """Mapping that never raises ``KeyError`` during ``str.format_map`` calls."""
+
+    def __missing__(self, key: str) -> str:  # pragma: no cover - defensive fallback
+        return ""
+
+
+def _sanitize_template_value(value: Any) -> str:
+    """Return a safe string representation for template rendering."""
+
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        sanitized = value.strip()
+    else:
+        sanitized = str(value)
+    return sanitized.replace("{", "").replace("}", "")
+
+
+def _build_profile_context(profile: Mapping[str, Any]) -> dict[str, str]:
+    """Collect frequently reused profile fields for dynamic UI messaging."""
+
+    def _get(path: str) -> str:
+        value: Any = profile
+        for part in path.split("."):
+            if isinstance(value, Mapping):
+                value = value.get(part)
+            else:
+                return ""
+        if isinstance(value, str):
+            return _sanitize_template_value(value)
+        if value is None:
+            return ""
+        if isinstance(value, (int, float)):
+            return _sanitize_template_value(value)
+        return ""
+
+    job_title = _get("position.job_title")
+    company_name = _get("company.name")
+    primary_city = _get("location.primary_city")
+    country = _get("location.country")
+
+    location_combined = ", ".join(
+        part for part in (primary_city, country) if part
+    )
+
+    context: dict[str, str] = {
+        "job_title": job_title,
+        "company_name": company_name,
+        "primary_city": primary_city,
+        "country": country,
+        "location_combined": location_combined,
+    }
+
+    return context
+
+
+def _format_dynamic_message(
+    *,
+    default: tuple[str, str],
+    context: Mapping[str, str],
+    variants: Sequence[tuple[tuple[str, str], Sequence[str]]],
+) -> str:
+    """Return a localized message, injecting context when available."""
+
+    lang = st.session_state.get("lang", "de")
+    lang_index = 0 if lang == "de" else 1
+    default_text = default[lang_index]
+    safe_context = _SafeFormatDict({k: v for k, v in context.items() if v})
+
+    for (de_template, en_template), required_keys in variants:
+        if all(safe_context.get(key) for key in required_keys):
+            template = de_template if lang_index == 0 else en_template
+            try:
+                return template.format_map(safe_context)
+            except Exception:  # pragma: no cover - robust fallback
+                continue
+    return default_text
+
+
+def _get_profile_state() -> dict[str, Any]:
+    """Return the mutable profile dict from session state, ensuring it exists."""
+
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if isinstance(profile, dict):
+        return profile
+    ensure_state()
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if isinstance(profile, dict):
+        return profile
+    if isinstance(profile, Mapping):
+        coerced = dict(profile)
+        st.session_state[StateKeys.PROFILE] = coerced
+        return coerced
+    fallback = NeedAnalysisProfile().model_dump()
+    st.session_state[StateKeys.PROFILE] = fallback
+    return fallback
+
 GERMAN_STATES = [
     "Baden-Württemberg",
     "Bayern",
@@ -1909,7 +2008,7 @@ def _normalize_value_for_path(path: str, value: Any) -> Any:
 def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
-    data = st.session_state[StateKeys.PROFILE]
+    data = _get_profile_state()
     value = _normalize_value_for_path(path, value)
     current = get_in(data, path)
     if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
@@ -2329,6 +2428,9 @@ def _step_onboarding(schema: dict) -> None:
 
     st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
+    profile = _get_profile_state()
+    profile_context = _build_profile_context(profile)
+
     welcome_headline = tr(
         "KI-gestützte Recruiting-Analyse mit Cognitive Needs",
         "AI-powered recruiting analysis with Cognitive Needs",
@@ -2382,13 +2484,51 @@ def _step_onboarding(schema: dict) -> None:
         st.session_state[UIKeys.INPUT_METHOD] = "text"
 
     st.divider()
-    st.subheader(tr("Anzeige parat?", "Job ad ready?"))
-    st.caption(
-        tr(
+    onboarding_header = _format_dynamic_message(
+        default=("Anzeige parat?", "Job ad ready?"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Anzeige für {job_title} bei {company_name} parat?",
+                    "Job ad for {job_title} at {company_name} ready?",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Anzeige für {job_title} parat?",
+                    "Job ad for {job_title} ready?",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    st.subheader(onboarding_header)
+    onboarding_caption = _format_dynamic_message(
+        default=(
             "Gebe ein paar Informationen zu Deiner Vakanz und starte die dynamisch angepasste Analyse",
             "Share a few details about your vacancy and start the dynamically tailored analysis",
-        )
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Teile kurz die Eckdaten zu {job_title} bei {company_name} und starte die dynamisch angepasste Analyse.",
+                    "Share the key details for {job_title} at {company_name} to kick off the tailored analysis.",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Teile kurz die Eckdaten zur Rolle {job_title} und starte die dynamisch angepasste Analyse.",
+                    "Share the key details for the {job_title} role to kick off the tailored analysis.",
+                ),
+                ("job_title",),
+            ),
+        ],
     )
+    st.caption(onboarding_caption)
 
     st.radio(
         tr("Eingabemethode", "Input method"),
@@ -2496,8 +2636,54 @@ def _step_company():
         None
     """
 
-    st.subheader(tr("Unternehmen", "Company"))
-    data = st.session_state[StateKeys.PROFILE]
+    profile = _get_profile_state()
+    profile_context = _build_profile_context(profile)
+    company_header = _format_dynamic_message(
+        default=("Unternehmen", "Company"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "{company_name} in {primary_city}",
+                    "{company_name} in {primary_city}",
+                ),
+                ("company_name", "primary_city"),
+            ),
+            (
+                (
+                    "{company_name} im Überblick",
+                    "{company_name} overview",
+                ),
+                ("company_name",),
+            ),
+        ],
+    )
+    st.subheader(company_header)
+    company_caption = _format_dynamic_message(
+        default=(
+            "Basisinformationen zum Unternehmen angeben.",
+            "Provide basic information about the company.",
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Basisinformationen zu {company_name} in {primary_city} ergänzen.",
+                    "Add the essentials for {company_name} in {primary_city}.",
+                ),
+                ("company_name", "primary_city"),
+            ),
+            (
+                (
+                    "Basisinformationen zu {company_name} ergänzen.",
+                    "Add the essentials for {company_name}.",
+                ),
+                ("company_name",),
+            ),
+        ],
+    )
+    st.caption(company_caption)
+    data = profile
     combined_certificates = _collect_combined_certificates(data["requirements"])
     _set_requirement_certificates(data["requirements"], combined_certificates)
     missing_here = [
@@ -2532,13 +2718,6 @@ def _step_company():
     )
 
     _render_company_research_tools(data["company"].get("website", ""))
-
-    st.caption(
-        tr(
-            "Basisinformationen zum Unternehmen angeben.",
-            "Provide basic information about the company.",
-        )
-    )
 
     label_company = tr("Firma", "Company")
     if "company.name" in missing_here:
@@ -3024,14 +3203,68 @@ def _step_position():
         None
     """
 
-    st.subheader(tr("Basisdaten", "Basic data"))
-    st.caption(
-        tr(
+    profile = _get_profile_state()
+    profile_context = _build_profile_context(profile)
+    position_header = _format_dynamic_message(
+        default=("Basisdaten", "Basic data"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "{job_title} bei {company_name}",
+                    "{job_title} at {company_name}",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "{job_title} in {location_combined}",
+                    "{job_title} in {location_combined}",
+                ),
+                ("job_title", "location_combined"),
+            ),
+            (
+                (
+                    "Rolle: {job_title}",
+                    "Role: {job_title}",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    st.subheader(position_header)
+    position_caption = _format_dynamic_message(
+        default=(
             "Kerninformationen zur Rolle, zum Standort und Rahmenbedingungen erfassen.",
             "Capture key information about the role, location and context.",
-        )
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Kerninformationen zur Rolle {job_title} bei {company_name} festhalten.",
+                    "Capture the key information for {job_title} at {company_name}.",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Kerninformationen zur Rolle {job_title} in {location_combined} festhalten.",
+                    "Capture the key information for {job_title} in {location_combined}.",
+                ),
+                ("job_title", "location_combined"),
+            ),
+            (
+                (
+                    "Kerninformationen zur Rolle {job_title} festhalten.",
+                    "Capture the key information for the {job_title} role.",
+                ),
+                ("job_title",),
+            ),
+        ],
     )
-    data = st.session_state[StateKeys.PROFILE]
+    st.caption(position_caption)
+    data = profile
     position = data.setdefault("position", {})
     location_data = data.setdefault("location", {})
     meta_data = data.setdefault("meta", {})
@@ -3439,7 +3672,7 @@ _step_position.handled_fields = [  # type: ignore[attr-defined]
 def _step_requirements():
     """Render the requirements step for skills and certifications."""
 
-    data = st.session_state[StateKeys.PROFILE]
+    data = _get_profile_state()
     missing_here = [
         f
         for f in get_missing_critical_fields(max_section=3)
@@ -3539,13 +3772,52 @@ def _step_requirements():
         if st.session_state.get("debug"):
             st.session_state["skill_suggest_error"] = suggestions_error
 
-    st.subheader(tr("Anforderungen", "Requirements"))
-    st.caption(
-        tr(
+    profile_context = _build_profile_context(data)
+    requirements_header = _format_dynamic_message(
+        default=("Anforderungen", "Requirements"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Anforderungen für {job_title} bei {company_name}",
+                    "Requirements for {job_title} at {company_name}",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Anforderungen für {job_title}",
+                    "Requirements for {job_title}",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    st.subheader(requirements_header)
+    requirements_caption = _format_dynamic_message(
+        default=(
             "Geforderte Fähigkeiten und Qualifikationen festhalten.",
             "Specify required skills and qualifications.",
-        )
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Wichtige Fähigkeiten für {job_title} bei {company_name} sammeln.",
+                    "Document the key skills for {job_title} at {company_name}.",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Wichtige Fähigkeiten für {job_title} sammeln.",
+                    "Document the key skills for {job_title}.",
+                ),
+                ("job_title",),
+            ),
+        ],
     )
+    st.caption(requirements_caption)
 
     def _render_required_caption(condition: bool) -> None:
         if condition:
@@ -4086,14 +4358,61 @@ def _step_compensation():
         None
     """
 
-    st.subheader(tr("Leistungen & Benefits", "Rewards & Benefits"))
-    st.caption(
-        tr(
+    profile = _get_profile_state()
+    profile_context = _build_profile_context(profile)
+    compensation_header = _format_dynamic_message(
+        default=("Leistungen & Benefits", "Rewards & Benefits"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Vergütung für {job_title} bei {company_name}",
+                    "Compensation for {job_title} at {company_name}",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Vergütung für {job_title}",
+                    "Compensation for {job_title}",
+                ),
+                ("job_title",),
+            ),
+            (
+                (
+                    "Leistungen bei {company_name}",
+                    "Rewards at {company_name}",
+                ),
+                ("company_name",),
+            ),
+        ],
+    )
+    st.subheader(compensation_header)
+    compensation_caption = _format_dynamic_message(
+        default=(
             "Gehaltsspanne und Zusatzleistungen erfassen.",
             "Capture salary range and benefits.",
-        )
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Gehalt und Benefits für {job_title} bei {company_name} festhalten.",
+                    "Capture salary and benefits for {job_title} at {company_name}.",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Gehalt und Benefits für {job_title} festhalten.",
+                    "Capture salary and benefits for {job_title}.",
+                ),
+                ("job_title",),
+            ),
+        ],
     )
-    data = st.session_state[StateKeys.PROFILE]
+    st.caption(compensation_caption)
+    data = profile
 
     stored_min = data["compensation"].get("salary_min")
     stored_max = data["compensation"].get("salary_max")
@@ -4232,14 +4551,54 @@ def _step_compensation():
 def _step_process():
     """Render the hiring process step."""
 
-    st.subheader(tr("Prozess", "Process"))
-    st.caption(
-        tr(
+    profile = _get_profile_state()
+    profile_context = _build_profile_context(profile)
+    process_header = _format_dynamic_message(
+        default=("Prozess", "Process"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Bewerbungsprozess bei {company_name}",
+                    "Hiring process at {company_name}",
+                ),
+                ("company_name",),
+            ),
+            (
+                (
+                    "Prozess für {job_title}",
+                    "Process for {job_title}",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    st.subheader(process_header)
+    process_caption = _format_dynamic_message(
+        default=(
             "Ablauf des Bewerbungsprozesses skizzieren.",
             "Outline the hiring process steps.",
-        )
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Ablauf für den {job_title}-Prozess bei {company_name} skizzieren.",
+                    "Outline the {job_title} process at {company_name}.",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Ablauf für den {job_title}-Prozess skizzieren.",
+                    "Outline the {job_title} process steps.",
+                ),
+                ("job_title",),
+            ),
+        ],
     )
-    data = st.session_state[StateKeys.PROFILE]["process"]
+    st.caption(process_caption)
+    data = profile["process"]
 
     _render_stakeholders(data, "ui.process.stakeholders")
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
@@ -4276,7 +4635,7 @@ def _step_process():
         _render_onboarding_section(data, "ui.process.onboarding")
 
     # Inline follow-up questions for Process section
-    _render_followups_for_section(("process.",), st.session_state[StateKeys.PROFILE])
+    _render_followups_for_section(("process.",), profile)
 
 
 def _summary_company() -> None:
