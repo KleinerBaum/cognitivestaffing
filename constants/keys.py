@@ -82,4 +82,5 @@ class StateKeys:
     FIRST_INCOMPLETE_SECTION = "wizard.first_incomplete_section"
     PENDING_INCOMPLETE_JUMP = "wizard.pending_incomplete_jump"
     WIZARD_STEP_COUNT = "wizard.step_count"
-    AUTOFILL_DECISIONS = "wizard.autofill.decisions"
+    STEPPER_WARNING = "wizard.stepper_warning"
+

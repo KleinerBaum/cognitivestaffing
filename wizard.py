@@ -6736,7 +6736,53 @@ def run_wizard():
     st.markdown("### 🧭 Wizard")
 
     # Step Navigation (oben)
-    render_stepper(st.session_state[StateKeys.STEP], [label for label, _ in steps])
+    def _handle_step_selection(target_index: int) -> None:
+        current_index = st.session_state[StateKeys.STEP]
+        if target_index == current_index:
+            return
+
+        if target_index > current_index:
+            max_section = max(target_index - 1, 0)
+            missing_before_target = get_missing_critical_fields(
+                max_section=max_section
+            )
+            if missing_before_target:
+                next_required_section = min(
+                    (
+                        _resolve_section_for_field(field)
+                        for field in missing_before_target
+                    ),
+                    default=None,
+                )
+                if (
+                    next_required_section is not None
+                    and 0 <= next_required_section < len(steps)
+                ):
+                    blocking_step_label = steps[next_required_section][0]
+                    message = tr(
+                        "Bitte fülle zuerst die Pflichtfelder in „{step}“ aus.",
+                        "Please complete the required fields in “{step}” first.",
+                    ).format(step=blocking_step_label)
+                else:
+                    message = tr(
+                        "Bitte fülle zuerst alle Pflichtfelder in den vorherigen Schritten aus.",
+                        "Please complete all required fields in the previous steps before jumping ahead.",
+                    )
+                st.session_state[StateKeys.STEPPER_WARNING] = message
+                return
+
+        st.session_state[StateKeys.STEP] = target_index
+        st.rerun()
+
+    render_stepper(
+        st.session_state[StateKeys.STEP],
+        [label for label, _ in steps],
+        on_select=_handle_step_selection,
+    )
+
+    warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+    if warning_message:
+        st.warning(warning_message)
 
     if completed_sections and st.session_state.get("_analyze_attempted"):
         with st.expander(
