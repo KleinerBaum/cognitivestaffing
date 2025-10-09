@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import List, Mapping, Optional, Tuple
+from typing import List, Mapping, MutableMapping, Optional, Tuple
 
 from models.need_analysis import NeedAnalysisProfile
 from nlp.entities import extract_location_entities
@@ -275,6 +275,29 @@ _RESP_HEADINGS = {
 }
 
 
+_BENEFIT_HEADINGS = {
+    "benefits",
+    "benefit",
+    "unsere benefits",
+    "deine benefits",
+    "our benefits",
+    "perks",
+    "perks & benefits",
+    "perks and benefits",
+    "what we offer",
+    "what you get",
+    "was wir bieten",
+    "was wir dir bieten",
+    "was wir ihnen bieten",
+    "unsere vorteile",
+    "deine vorteile",
+    "vorteile",
+    "leistungen",
+}
+
+_BENEFIT_SEP_RE = re.compile(r"[•,;\n]+")
+
+
 def _is_bullet_line(line: str) -> bool:
     """Return True if ``line`` begins with a bullet or enumerator."""
     stripped = line.lstrip()
@@ -292,6 +315,83 @@ def _clean_bullet(line: str) -> str:
     stripped = re.sub(r"^\d+[.)]\s*", "", stripped)
     stripped = stripped.lstrip("".join(_BULLET_CHARS))
     return stripped.strip()
+
+
+def _normalize_benefit_entries(values: List[str]) -> List[str]:
+    """Return a deduplicated, trimmed list of benefit entries."""
+
+    normalized: List[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        cleaned = re.sub(r"\s+", " ", raw).strip(" -–—•·\t")
+        cleaned = cleaned.strip()
+        if not cleaned:
+            continue
+        key = cleaned.lower()
+        if key not in seen:
+            seen.add(key)
+            normalized.append(cleaned)
+    return normalized
+
+
+def _match_benefit_heading(line: str) -> Tuple[bool, str]:
+    """Return ``(True, trailing)`` if ``line`` is a benefit heading."""
+
+    stripped = line.strip()
+    if not stripped:
+        return False, ""
+    parts = re.split(r"[:：]", stripped, maxsplit=1)
+    heading_norm = re.sub(r"\s+", " ", parts[0]).strip(" -–—•\t").lower()
+    if heading_norm in _BENEFIT_HEADINGS:
+        trailing = parts[1].strip() if len(parts) > 1 else ""
+        return True, trailing
+    return False, ""
+
+
+def _extract_benefits_from_text(text: str) -> List[str]:
+    """Extract benefit entries from ``text`` based on common headings."""
+
+    lines = text.splitlines()
+    collecting = False
+    inline_chunks: List[str] = []
+    bullet_items: List[str] = []
+
+    for raw in lines:
+        heading, trailing = _match_benefit_heading(raw)
+        if heading:
+            collecting = True
+            inline_chunks = []
+            bullet_items = []
+            if trailing:
+                inline_chunks.append(trailing)
+            continue
+
+        if not collecting:
+            continue
+
+        line = raw.strip()
+        if not line:
+            break
+        if re.match(r"^[^:]{1,120}:$", line) and not _is_bullet_line(raw):
+            break
+        if _is_bullet_line(raw):
+            cleaned = _clean_bullet(raw)
+            if cleaned:
+                bullet_items.append(cleaned)
+        else:
+            inline_chunks.append(line)
+
+    if bullet_items:
+        return _normalize_benefit_entries(bullet_items)
+    if inline_chunks:
+        raw_values: List[str] = []
+        for chunk in inline_chunks:
+            for part in _BENEFIT_SEP_RE.split(chunk):
+                candidate = part.strip()
+                if candidate:
+                    raw_values.append(candidate)
+        return _normalize_benefit_entries(raw_values)
+    return []
 
 
 def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
@@ -721,7 +821,7 @@ def apply_basic_fallbacks(
 ) -> NeedAnalysisProfile:
     """Fill missing basic fields using heuristics."""
 
-    metadata = metadata or {}
+    metadata = metadata if metadata is not None else {}
     autodetect_lang = metadata.get("autodetect_language")
     if not isinstance(autodetect_lang, str):
         autodetect_lang = metadata.get("_autodetect_language")
@@ -843,6 +943,25 @@ def apply_basic_fallbacks(
             btxt = _BONUS_TEXT_RE.search(text)
             if btxt:
                 compensation.commission_structure = btxt.group(0).strip()
+    benefits = _extract_benefits_from_text(text)
+    if benefits:
+        existing_benefits = list(compensation.benefits or [])
+        merged_benefits = _normalize_benefit_entries(existing_benefits + benefits)
+        if merged_benefits:
+            compensation.benefits = merged_benefits
+            if isinstance(metadata, MutableMapping):
+                locked = set(
+                    str(field) for field in metadata.get("locked_fields", []) if isinstance(field, str)
+                )
+                locked.add("compensation.benefits")
+                metadata["locked_fields"] = sorted(locked)
+                high_conf = set(
+                    str(field)
+                    for field in metadata.get("high_confidence_fields", [])
+                    if isinstance(field, str)
+                )
+                high_conf.add("compensation.benefits")
+                metadata["high_confidence_fields"] = sorted(high_conf)
     country = normalize_country(profile.location.country)
     profile.location.country = country
     return refine_requirements(profile, text)
