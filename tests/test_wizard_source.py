@@ -1,14 +1,22 @@
 import json
+import sys
+from pathlib import Path
 
 import pytest
 import streamlit as st
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from constants.keys import StateKeys, UIKeys
+from core.confidence import ConfidenceTier
 from models.need_analysis import NeedAnalysisProfile
 from ingest.types import ContentBlock, StructuredDocument
 from wizard import (
     on_file_uploaded,
     on_url_changed,
+    _field_lock_config,
     _maybe_run_extraction,
     _step_onboarding,
     _extract_and_summarize,
@@ -334,6 +342,37 @@ def test_extract_and_summarize_records_rag_metadata(
     assert rag_meta["answers"] == {}
 
 
+def test_extract_and_summarize_marks_ai_confidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AI-derived fields should be tagged with the default confidence tier."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+
+    sample_data = {
+        "position": {"job_title": "Engineer"},
+        "company": {"name": "ACME"},
+    }
+
+    monkeypatch.setattr("wizard.apply_rules", lambda *_: {})
+    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
+    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+
+    _extract_and_summarize("Job text", {})
+
+    metadata = st.session_state[StateKeys.PROFILE_METADATA]
+    field_conf = metadata["field_confidence"]
+    assert field_conf["position.job_title"]["tier"] == ConfidenceTier.AI_ASSISTED.value
+    assert field_conf["position.job_title"]["source"] == "llm"
+    assert field_conf["company.name"]["tier"] == ConfidenceTier.AI_ASSISTED.value
+    assert field_conf["company.name"]["source"] == "llm"
+
+
 def test_extract_and_summarize_passes_locked_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -389,3 +428,53 @@ def test_extract_and_summarize_passes_locked_context(
         "position.job_title": "Locked Engineer",
         "company.name": "Locked Corp",
     }
+
+
+def test_field_lock_config_shows_rule_indicator() -> None:
+    """Rule tiers should be reflected in the widget label and help text."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state[StateKeys.PROFILE_METADATA] = {
+        "locked_fields": ["company.contact_email"],
+        "high_confidence_fields": ["company.contact_email"],
+        "field_confidence": {
+            "company.contact_email": {
+                "tier": ConfidenceTier.RULE_STRONG.value,
+                "source": "rule",
+                "score": 0.98,
+            }
+        },
+    }
+
+    config = _field_lock_config("company.contact_email", "Email")
+    assert config["confidence_tier"] == ConfidenceTier.RULE_STRONG.value
+    assert "🔎" in config["confidence_icon"]
+    assert "Pattern match" in config["confidence_message"]
+    assert config["confidence_source"] == "rule"
+    assert "🔒" in config["label"]
+
+
+def test_field_lock_config_shows_ai_indicator() -> None:
+    """AI inferred tiers should use the assistant indicator and remain editable."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state[StateKeys.PROFILE_METADATA] = {
+        "locked_fields": [],
+        "high_confidence_fields": [],
+        "field_confidence": {
+            "position.job_title": {
+                "tier": ConfidenceTier.AI_ASSISTED.value,
+                "source": "llm",
+                "score": None,
+            }
+        },
+    }
+
+    config = _field_lock_config("position.job_title", "Job title")
+    assert config["confidence_tier"] == ConfidenceTier.AI_ASSISTED.value
+    assert "🤖" in config["confidence_icon"]
+    assert "Inferred by AI" in config["confidence_message"]
+    assert config["confidence_source"] == "llm"
+    assert config.get("unlocked") is True

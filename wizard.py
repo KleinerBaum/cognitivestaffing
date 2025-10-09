@@ -43,6 +43,7 @@ from utils.url_utils import is_supported_url
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
+from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
@@ -101,61 +102,38 @@ class FieldLockConfig(TypedDict, total=False):
     disabled: bool
     unlocked: bool
     was_locked: bool
-    source_info: "FieldSourceInfo"
-
-
-@dataclass(slots=True)
-class FieldSourceInfo:
-    """Descriptor about where a field value originated from."""
-
-    descriptor: str
-    context: str | None = None
-    snippet: str | None = None
-    confidence: float | None = None
-    is_inferred: bool = False
-    url: str | None = None
-
-    def tooltip(self) -> str:
-        """Return a localized tooltip string describing the source."""
-
-        parts: list[str] = []
-        descriptor = self.descriptor
-        if self.context:
-            descriptor = f"{descriptor} ({self.context})"
-        if self.is_inferred:
-            parts.append(
-                tr(
-                    "Durch KI aus {descriptor} abgeleitet.",
-                    "Inferred by AI from {descriptor}.",
-                ).format(descriptor=descriptor)
-            )
-        parts.append(
-            tr("Quelle: {descriptor}", "Source: {descriptor}").format(
-                descriptor=descriptor
-            )
-        )
-        if self.confidence is not None:
-            percent = int(round(self.confidence * 100))
-            parts.append(
-                tr("Vertrauen: {percent} %", "Confidence: {percent}%").format(
-                    percent=percent
-                )
-            )
-        if self.snippet:
-            snippet = " ".join(self.snippet.split())
-            if snippet:
-                parts.append(
-                    tr("Auszug: {snippet}", "Snippet: {snippet}").format(
-                        snippet=snippet
-                    )
-                )
-        return "\n".join(parts)
+    confidence_tier: str
+    confidence_icon: str
+    confidence_message: str
+    confidence_source: str
 
 # Index of the first data entry step ("Unternehmen" / "Company")
 COMPANY_STEP_INDEX = 1
 
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
+
+
+CONFIDENCE_TIER_DISPLAY: dict[str, dict[str, object]] = {
+    ConfidenceTier.RULE_STRONG.value: {
+        "icon": "🔎",
+        "color": "blue",
+        "label": (
+            "Im Originaltext erkannt (regelbasierte Extraktion)",
+            "Pattern match in source text",
+        ),
+        "source": "rule",
+    },
+    ConfidenceTier.AI_ASSISTED.value: {
+        "icon": "🤖",
+        "color": "violet",
+        "label": (
+            "Von der KI ergänzt (bitte prüfen)",
+            "Inferred by AI",
+        ),
+        "source": "llm",
+    },
+}
 
 
 SKILL_ALIAS_MAP: dict[str, str] = {
@@ -1230,7 +1208,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
     doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
     rule_matches = apply_rules(raw_blocks)
-    metadata = dict(st.session_state.get(StateKeys.PROFILE_METADATA, {}))
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
+    confidence_map = _ensure_mapping(metadata.get("field_confidence"))
     if rule_matches:
         rule_patch = matches_to_patch(rule_matches)
         st.session_state[StateKeys.PROFILE] = rule_patch
@@ -1249,6 +1229,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         high_conf = set(metadata.get("high_confidence_fields", [])) | set(
             new_meta.get("high_confidence_fields", [])
         )
+        confidence_map.update(_ensure_mapping(new_meta.get("field_confidence")))
         metadata["rules"] = combined_rules
         metadata["locked_fields"] = sorted(locked)
         metadata["high_confidence_fields"] = sorted(high_conf)
@@ -1256,6 +1237,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         metadata.setdefault("rules", {})
         metadata.setdefault("locked_fields", [])
         metadata.setdefault("high_confidence_fields", [])
+    metadata["field_confidence"] = confidence_map
 
     vector_store_id = st.session_state.get("vector_store_id") or None
 
@@ -1372,6 +1354,18 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
 
     data = profile.model_dump()
+    for path, value in flatten(data).items():
+        if not _is_meaningful_value(value):
+            continue
+        confidence_map.setdefault(
+            path,
+            {
+                "tier": DEFAULT_AI_TIER.value,
+                "source": "llm",
+                "score": None,
+            },
+        )
+    metadata["field_confidence"] = confidence_map
     st.session_state[StateKeys.PROFILE] = data
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data
     summary: dict[str, str] = {}
@@ -2605,6 +2599,78 @@ def _apply_field_lock_kwargs(
     return kwargs
 
 
+def _confidence_indicator(tier: str) -> tuple[str, str, str]:
+    """Return the icon, tooltip, and source for a given confidence ``tier``."""
+
+    info = CONFIDENCE_TIER_DISPLAY.get(tier)
+    if not info:
+        return "", "", ""
+
+    icon = str(info.get("icon") or "")
+    color = str(info.get("color") or "")
+    icon_text = f":{color}[{icon}]" if icon and color else icon
+
+    label_data = info.get("label")
+    if isinstance(label_data, tuple) and len(label_data) == 2:
+        message = tr(label_data[0], label_data[1])
+    else:  # pragma: no cover - defensive
+        message = ""
+
+    source = str(info.get("source") or "")
+    return icon_text, message, source
+
+
+def _confidence_legend_entries() -> list[tuple[str, str]]:
+    """Return localized legend entries for all configured tiers."""
+
+    entries: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for tier in CONFIDENCE_TIER_DISPLAY:
+        icon, message, _source = _confidence_indicator(tier)
+        key = (icon, message)
+        if icon and message and key not in seen:
+            entries.append(key)
+            seen.add(key)
+    return entries
+
+
+def _render_confidence_legend(
+    container: DeltaGenerator | None = None,
+) -> None:
+    """Render a compact legend that explains confidence indicators."""
+
+    entries = _confidence_legend_entries()
+    if not entries:
+        return
+
+    container = container or st
+    intro = tr("Legende:", "Legend:")
+    legend_body = " • ".join(f"{icon} {message}" for icon, message in entries)
+    container.caption(f"{intro} {legend_body}")
+
+
+def _ensure_mapping(value: Any) -> dict[str, Any]:
+    """Return ``value`` as a shallow ``dict`` when it is mapping-like."""
+
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}
+
+
+def _is_meaningful_value(value: Any) -> bool:
+    """Return ``True`` when ``value`` represents a filled field."""
+
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set)):
+        return bool(value)
+    if isinstance(value, dict):
+        return bool(value)
+    return True
+
+
 def _field_lock_config(
     path: str,
     label: str,
@@ -2623,24 +2689,41 @@ def _field_lock_config(
 
     locked_fields = set(metadata.get("locked_fields") or [])
     high_conf_fields = set(metadata.get("high_confidence_fields") or [])
+    confidence_map = _ensure_mapping(metadata.get("field_confidence"))
+    confidence_entry = confidence_map.get(path)
+    confidence_tier = ""
+    confidence_icon = ""
+    confidence_message = ""
+    confidence_source = ""
+    if isinstance(confidence_entry, Mapping):
+        tier_value = confidence_entry.get("tier")
+        if isinstance(tier_value, str):
+            confidence_tier = tier_value
+            (
+                confidence_icon,
+                confidence_message,
+                confidence_source,
+            ) = _confidence_indicator(confidence_tier)
 
     is_locked = path in locked_fields
-    is_high_conf = path in high_conf_fields
+    is_high_conf = path in high_conf_fields or (
+        confidence_tier == ConfidenceTier.RULE_STRONG.value
+    )
     was_locked = is_locked or is_high_conf
 
     source_info = _resolve_field_source_info(path)
 
     icons: list[str] = []
+    if confidence_icon:
+        icons.append(confidence_icon)
     if is_locked:
         icons.append("🔒")
-    if is_high_conf:
-        icons.append("✅")
-    if source_info:
-        icons.append("ℹ️")
-    icon_prefix = " ".join(icons)
+    icon_prefix = " ".join(filter(None, icons))
     label_with_icon = f"{icon_prefix} {label}".strip() if icon_prefix else label
 
     help_bits: list[str] = []
+    if confidence_message:
+        help_bits.append(confidence_message)
     if is_locked:
         help_bits.append(
             tr(
@@ -2648,22 +2731,17 @@ def _field_lock_config(
                 "Locked automatically – unlock before editing.",
             )
         )
-    if is_high_conf:
-        help_bits.append(
-            tr(
-                "Als sehr zuverlässig eingestuft.",
-                "Marked as high confidence.",
-            )
-        )
-    if source_info:
-        tooltip = source_info.tooltip()
-        if tooltip:
-            help_bits.append(tooltip)
-    help_text = "\n\n".join(help_bits)
+    help_text = " ".join(help_bits)
 
     config: FieldLockConfig = {"label": label_with_icon, "was_locked": was_locked}
-    if source_info:
-        config["source_info"] = source_info
+    if confidence_tier:
+        config["confidence_tier"] = confidence_tier
+    if confidence_icon:
+        config["confidence_icon"] = confidence_icon
+    if confidence_message:
+        config["confidence_message"] = confidence_message
+    if confidence_source:
+        config["confidence_source"] = confidence_source
     if help_text:
         config["help_text"] = help_text
 
@@ -2715,16 +2793,12 @@ def _remove_field_lock_metadata(path: str) -> None:
         if isinstance(values, list) and path in values:
             metadata[key] = [item for item in values if item != path]
             changed = True
-    rules_meta = metadata.get("rules")
-    if isinstance(rules_meta, Mapping) and path in rules_meta:
-        updated_rules = dict(rules_meta)
-        updated_rules.pop(path, None)
-        metadata["rules"] = updated_rules
-        changed = True
-    llm_fields = metadata.get("llm_fields")
-    if isinstance(llm_fields, list) and path in llm_fields:
-        metadata["llm_fields"] = [field for field in llm_fields if field != path]
-        changed = True
+    confidence_map = metadata.get("field_confidence")
+    if isinstance(confidence_map, Mapping) and path in confidence_map:
+        updated = dict(confidence_map)
+        if updated.pop(path, None) is not None:
+            metadata["field_confidence"] = updated
+            changed = True
     if changed:
         st.session_state[StateKeys.PROFILE_METADATA] = metadata
         _clear_field_unlock_state(path)
@@ -6321,6 +6395,8 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
 
+    _render_confidence_legend()
+
     tab_labels = [
         tr("Unternehmen", "Company"),
         tr("Basisdaten", "Basic info"),
@@ -7138,6 +7214,8 @@ def run_wizard():
         [label for label, _ in steps],
         on_select=_handle_step_selection,
     )
+
+    _render_confidence_legend()
 
     warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
     if warning_message:

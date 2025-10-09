@@ -5,10 +5,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from core.confidence import ConfidenceTier  # noqa: E402
 from core.rules import (  # noqa: E402
     _extract_location,
     apply_rules,
@@ -41,6 +44,12 @@ def test_apply_rules_detects_email_and_salary() -> None:
     rule_meta = metadata["rules"]["company.contact_email"]
     assert rule_meta["locked"] is True
     assert rule_meta["confidence"] >= 0.9
+    confidence_meta = metadata["field_confidence"]["company.contact_email"]
+    assert confidence_meta["tier"] == ConfidenceTier.RULE_STRONG.value
+    assert confidence_meta["source"] == "rule"
+    assert confidence_meta["score"] == pytest.approx(
+        matches["company.contact_email"].confidence
+    )
 
 
 def test_apply_rules_handles_table_layout() -> None:
