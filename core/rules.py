@@ -55,6 +55,9 @@ class RuleMatch:
 RuleMatchMap = Mapping[str, RuleMatch]
 
 _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+# Broad international phone pattern allowing optional country code, spaces, dots, and
+# parentheses. Still misses vanity numbers or extensions because we strip trailing
+# letters.
 _PHONE_RE = re.compile(
     r"""
     (?<!\w)
@@ -71,6 +74,9 @@ _PHONE_RE = re.compile(
     """,
     re.VERBOSE,
 )
+# Salary matcher covering explicit min/max values with optional currency symbols
+# before/after the numbers and the "k" suffix. Limited to Latin-alphabet currencies
+# and ignores monthly/annual qualifiers in free text.
 _SALARY_RE = re.compile(
     r"(?P<prefix>(?:salary|gehalt|compensation|vergütung|pay)[^\d]{0,12})?"
     r"(?P<currency>[$€£]|usd|eur|chf|gbp|euro)?\s*"
@@ -79,6 +85,8 @@ _SALARY_RE = re.compile(
     r"\s*(?P<currency_after>[$€£]|usd|eur|chf|gbp|euro)?",
     re.IGNORECASE,
 )
+# Location line detector for headings like "Location: Berlin" or "Standort - Hamburg".
+# Accepts punctuation and digits but can over-match long descriptive phrases.
 _LOCATION_LINE_RE = re.compile(
     r"(?:^|\b)(?P<prefix>location|standort|ort|arbeitsort|einsatzort|based in|land|country|city)"
     r"[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./@-]+)",
@@ -88,6 +96,8 @@ _INDUSTRY_LINE_RE = re.compile(
     r"(?:^|\b)(?P<prefix>branche|industry)[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./&-]+)",
     re.IGNORECASE,
 )
+# Captures "City, Country" pairs with capitalised words and hyphenated names. Not
+# robust for lowercase city names or multi-comma strings (e.g., "Paris, Île-de-France, FR").
 _CITY_COUNTRY_RE = re.compile(
     r"\b([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)*)\s*,\s*([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)\b"
 )
