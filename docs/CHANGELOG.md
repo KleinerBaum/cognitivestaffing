@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: add localized overview/edit toggle to summary tabs with inline editing helpers
 - feat: show summary highlights with role, company, location, salary, and skills above wizard tabs
 - chore: raise OpenAI SDK floor to 1.40.0 for built-in JSON schema response_format support
 - feat: surface extraction confidence tiers with rule vs. AI indicators and UI legend
