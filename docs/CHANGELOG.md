@@ -29,6 +29,7 @@
 - feat: add an in-house validation loop that replays extraction against NeedAnalysisProfile with graceful fallbacks
 - docs: clarify Responses API migration and removal of Assistants/Threads usage
 - docs: add bilingual legal information page including ESCO licensing notice
+- docs: document confidence indicators and locking metadata in README and pipeline guide
 - fix: show localized warning in requirements step when skill suggestions fail
 - fix: infer salary estimate country from primary city/HQ hints when explicit country is missing
 - feat: pass primary city and required skill context to the salary estimate model payload

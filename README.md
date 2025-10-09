@@ -16,6 +16,7 @@ the base model if needed.
 - **Manual entry option**: skip the upload step and start with an empty profile
 - **Critical field checks**: wizard blocks navigation until essential fields are filled and highlights missing inputs inline
 - **Extraction feedback**: review detected base data in a sidebar table with missing fields highlighted before continuing
+- **Confidence legend**: inline icons explain which fields came from rule-based matches (🔎) versus AI inference (🤖) and whether they are locked until manually unlocked
 - **Contextual sidebar**: step-aware cards show the most relevant company, role, requirements and process data alongside a live progress tracker
 - **Salary expectation widget**: trigger an on-demand benchmark that compares the refreshed range with your entered salary data directly in the sidebar
 - **Guided error messages**: clear hints when uploads or URLs fail

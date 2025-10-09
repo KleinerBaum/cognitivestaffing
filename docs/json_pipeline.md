@@ -61,3 +61,29 @@ Example JSON output from the extractor (abridged):
     "top3": []
   }
 }
+```
+
+### Confidence metadata and locks
+
+The extractor and rule passes attach metadata that the wizard uses to explain
+where values came from and whether they should be editable without an explicit
+unlock:
+
+- `field_confidence` is a map of dot-paths to metadata objects. Each entry at
+  least contains a `tier` (`rule_strong` for deterministic rule hits,
+  `ai_assisted` for model output) and a `source` label (`"rule"` or `"llm"`).
+  Rule matches also record their pattern identifier as `rule` and a numeric
+  `score` describing match confidence. The wizard renders these tiers as icons
+  next to each field (🔎 for rule matches, 🤖 for AI) together with a short
+  tooltip, and it shows the same legend in the sidebar.
+- `high_confidence_fields` enumerates fields that should initially be treated
+  as authoritative. Rule-based matches populate this list, and downstream
+  heuristics may append additional items (for example locked benefit lists).
+- `locked_fields` lists the fields that require a user toggle before editing.
+  When a field appears in `high_confidence_fields` or carries the
+  `rule_strong` tier the wizard marks it as locked, pre-fills the unlock toggle
+  state, and preserves the tooltip from `field_confidence`.
+
+All three structures are stored in `profile_metadata` and persist across
+extraction retries so that subsequent runs honour existing locks and
+indicators.
