@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: show summary highlights with role, company, location, salary, and skills above wizard tabs
 - chore: raise OpenAI SDK floor to 1.40.0 for built-in JSON schema response_format support
 - feat: surface extraction confidence tiers with rule vs. AI indicators and UI legend
 - chore: refresh offline ESCO cache to the v1.1.1 snapshot (2025-10-09) and document refresh cadence
