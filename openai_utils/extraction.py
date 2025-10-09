@@ -231,9 +231,10 @@ def extract_with_function(
             f"the function {FUNCTION_NAME}. If no relevant snippet is provided "
             "for a field, return an empty string or empty list. Do not invent data."
         )
+        user_payload = json.dumps(payload, ensure_ascii=False)
         messages: Sequence[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            {"role": "user", "content": user_payload},
         ]
     else:
         system_prompt = (
@@ -241,9 +242,10 @@ def extract_with_function(
             "and return the structured vacancy profile by calling the provided "
             f"function {FUNCTION_NAME}. Do not return free-form text."
         )
+        user_payload = job_text
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": job_text},
+            {"role": "user", "content": user_payload},
         ]
 
     response = api.call_chat_api(
@@ -258,15 +260,13 @@ def extract_with_function(
     if not arguments:
         # Some models ignore the tool request and emit plain text. Retry forcing
         # JSON mode to keep the pipeline deterministic.
+        retry_system_prompt = (
+            system_prompt
+            + " Return only valid JSON that conforms exactly to the provided schema."
+        )
         retry_messages: Sequence[dict[str, str]] = [
-            {
-                "role": "system",
-                "content": (
-                    "Return only valid JSON that conforms exactly to the "
-                    "provided schema."
-                ),
-            },
-            {"role": "user", "content": job_text},
+            {"role": "system", "content": retry_system_prompt},
+            {"role": "user", "content": user_payload},
         ]
         second = api.call_chat_api(
             retry_messages,

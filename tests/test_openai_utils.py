@@ -18,6 +18,7 @@ from openai import AuthenticationError, RateLimitError
 import streamlit as st
 
 from constants.keys import StateKeys
+from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
 
 
 @pytest.fixture(autouse=True)
@@ -400,7 +401,7 @@ def test_extract_with_function_falls_back_to_json_mode(monkeypatch):
     calls: list[dict[str, Any]] = []
 
     def _fake_call(messages: Sequence[dict[str, str]], **kwargs: Any) -> ChatCallResult:
-        calls.append(kwargs)
+        calls.append({"messages": messages, "kwargs": kwargs})
         if len(calls) == 1:
             return ChatCallResult("no structured output", [], {})
         return ChatCallResult('{"job_title": "Lead"}', [], {})
@@ -420,8 +421,58 @@ def test_extract_with_function_falls_back_to_json_mode(monkeypatch):
 
     result = extract_with_function("text", {})
     assert len(calls) == 2
-    assert "json_schema" in calls[1]
+    assert "json_schema" in calls[1]["kwargs"]
     assert result.data["job_title"] == "Lead"
+
+
+def test_extract_with_function_json_fallback_uses_context_payload(monkeypatch):
+    """JSON mode retry should reuse the enriched context payload."""
+
+    captured: list[dict[str, Any]] = []
+
+    def _fake_call(messages: Sequence[dict[str, str]], **kwargs: Any) -> ChatCallResult:
+        captured.append({"messages": messages, "kwargs": kwargs})
+        if len(captured) == 1:
+            return ChatCallResult("no structured output", [], {})
+        return ChatCallResult('{"job_title": "Lead"}', [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+
+    from core import schema as cs
+
+    class _FakeProfile:
+        def __init__(self, data: dict[str, Any]) -> None:
+            self._data = data
+
+        def model_dump(self) -> dict[str, Any]:
+            return self._data
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
+
+    field_ctx = FieldExtractionContext(
+        field="job_title",
+        instruction="Prefer explicit titles",
+        chunks=[RetrievedChunk(text="Job Title: Lead Engineer", score=0.88)],
+    )
+    global_ctx = [RetrievedChunk(text="Company overview", score=0.73)]
+
+    extract_with_function(
+        "ignored",
+        {},
+        field_contexts={"job_title": field_ctx},
+        global_context=global_ctx,
+    )
+
+    assert len(captured) == 2
+    retry_messages = captured[1]["messages"]
+    assert retry_messages[0]["content"].endswith(
+        "Return only valid JSON that conforms exactly to the provided schema."
+    )
+
+    payload = json.loads(retry_messages[1]["content"])
+    assert payload["global_context"][0]["text"] == "Company overview"
+    assert payload["fields"][0]["field"] == "job_title"
+    assert payload["fields"][0]["context"][0]["text"].startswith("Job Title")
 
 
 def test_extract_with_function_parses_json_payload(monkeypatch):
