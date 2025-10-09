@@ -10,6 +10,8 @@ from nlp.entities import LocationEntities, _is_country, extract_location_entitie
 
 from ingest.types import ContentBlock
 
+from utils.normalization import country_to_iso2, normalize_country
+
 EMAIL_FIELD = "company.contact_email"
 PHONE_FIELD = "company.contact_phone"
 SALARY_MIN_FIELD = "compensation.salary_min"
@@ -142,6 +144,63 @@ _KNOWN_CITY_NAMES = {
     "bern",
     "geneva",
     "genf",
+}
+
+_CITY_TO_COUNTRY = {
+    "berlin": "DE",
+    "düsseldorf": "DE",
+    "duesseldorf": "DE",
+    "munich": "DE",
+    "münchen": "DE",
+    "muenchen": "DE",
+    "hamburg": "DE",
+    "stuttgart": "DE",
+    "frankfurt": "DE",
+    "cologne": "DE",
+    "köln": "DE",
+    "koeln": "DE",
+    "leipzig": "DE",
+    "bonn": "DE",
+    "essen": "DE",
+    "dortmund": "DE",
+    "dresden": "DE",
+    "nuremberg": "DE",
+    "nürnberg": "DE",
+    "nuernberg": "DE",
+    "hannover": "DE",
+    "bremen": "DE",
+    "mannheim": "DE",
+    "karlsruhe": "DE",
+    "münster": "DE",
+    "muenster": "DE",
+    "aachen": "DE",
+    "augsburg": "DE",
+    "braunschweig": "DE",
+    "chemnitz": "DE",
+    "erfurt": "DE",
+    "freiburg": "DE",
+    "heilbronn": "DE",
+    "kassel": "DE",
+    "kiel": "DE",
+    "ludwigshafen": "DE",
+    "magdeburg": "DE",
+    "potsdam": "DE",
+    "rostock": "DE",
+    "saarbrücken": "DE",
+    "saarbruecken": "DE",
+    "ulm": "DE",
+    "wiesbaden": "DE",
+    "würzburg": "DE",
+    "wuerzburg": "DE",
+    "zurich": "CH",
+    "zürich": "CH",
+    "zuerich": "CH",
+    "vienna": "AT",
+    "wien": "AT",
+    "basel": "CH",
+    "bern": "CH",
+    "geneva": "CH",
+    "genf": "CH",
 }
 
 _DISQUALIFIED_CITY_TOKENS = {
@@ -610,6 +669,10 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
     if any(char.isdigit() for char in raw) or "http" in raw_lower or "@" in raw:
         return None, None
     entities = _safe_location_entities(text)
+
+    def _finalize(city: str | None, country: str | None) -> tuple[str | None, str | None]:
+        return _finalize_location(city, country, entities)
+
     # Prefer comma separated "City, Country" structures.
     if "," in raw:
         city_part, _, country_part = raw.partition(",")
@@ -619,15 +682,14 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
             city = None
         if country and not _is_valid_country_candidate(country, entities=entities):
             country = None
-        if prefix in {"land", "country"}:
+        if prefix in {"land", "country"} and city:
             if country:
-                return city, country
-            if city:
-                if _is_country(city):
-                    return None, city
-                if _is_valid_city_candidate(city, entities=entities):
-                    return city, None
-        return city, country
+                return _finalize(city, country)
+            if _is_country(city):
+                return _finalize(None, city)
+            if _is_valid_city_candidate(city, entities=entities):
+                return _finalize(city, None)
+        return _finalize(city, country)
     tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
     if len(tokens) >= 2:
         city_token = tokens[0]
@@ -638,22 +700,65 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
         country = country_token or None
         if country and not _is_valid_country_candidate(country, entities=entities):
             country = None
-        return city, country
+        return _finalize(city, country)
     if prefix in {"land", "country"}:
         cleaned = raw.strip()
         if not cleaned:
             return None, None
         if _is_country(cleaned):
-            return None, cleaned
+            return _finalize(None, cleaned)
         if _is_valid_city_candidate(cleaned, entities=entities):
-            return cleaned, None
-        return None, cleaned
+            return _finalize(cleaned, None)
+        return _finalize(None, cleaned)
     cleaned = raw.strip() or None
     if not cleaned:
         return None, None
     if not _is_valid_city_candidate(cleaned, entities=entities):
         return None, None
-    return cleaned, None
+    return _finalize(cleaned, None)
+
+
+def _finalize_location(
+    city: str | None, country: str | None, entities: LocationEntities | None
+) -> tuple[str | None, str | None]:
+    normalized_country = _normalize_country_value(country)
+    if city and normalized_country is None:
+        normalized_country = _infer_country_from_city(city, entities=entities)
+    return city, normalized_country
+
+
+def _infer_country_from_city(
+    city: str, *, entities: LocationEntities | None
+) -> str | None:
+    lookup_key = city.casefold()
+    mapped = _CITY_TO_COUNTRY.get(lookup_key)
+    if mapped:
+        normalized = _normalize_country_value(mapped)
+        if normalized:
+            return normalized
+    if entities is not None:
+        for candidate in entities.countries:
+            normalized = _normalize_country_value(candidate)
+            if normalized:
+                return normalized
+    return None
+
+
+def _normalize_country_value(country: str | None) -> str | None:
+    if not country:
+        return None
+    iso = country_to_iso2(country)
+    if iso:
+        return iso
+    normalized = normalize_country(country)
+    if not normalized:
+        return None
+    iso = country_to_iso2(normalized)
+    if iso:
+        return iso
+    if len(normalized) == 2 and normalized.isalpha():
+        return normalized.upper()
+    return None
 
 
 def _safe_location_entities(text: str) -> LocationEntities | None:
