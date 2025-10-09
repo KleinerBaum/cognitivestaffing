@@ -64,6 +64,7 @@ from core.suggestions import (
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components.stepper import render_stepper
 from utils import build_boolean_query, build_boolean_search, seo_optimize
+from utils.contact import infer_contact_name_from_email
 from utils.normalization import normalize_country, normalize_language_list
 from utils.export import prepare_clean_json, prepare_download_data
 from nlp.bias import scan_bias_language
@@ -197,6 +198,126 @@ class _SafeFormatDict(dict[str, str]):
 
     def __missing__(self, key: str) -> str:  # pragma: no cover - defensive fallback
         return ""
+
+
+LangPair = tuple[str, str]
+LangSuggestionPair = tuple[Sequence[str], Sequence[str]]
+
+
+class TargetedPromptConfig(TypedDict, total=False):
+    """Configuration for inline critical field prompts."""
+
+    prompt: LangPair
+    description: LangPair
+    suggestions: LangSuggestionPair
+    style: Literal["info", "warning"]
+    priority: Literal["critical", "normal"]
+
+
+CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
+    "company.name": {
+        "prompt": (
+            "Wie lautet der offizielle Firmenname?",
+            "What is the official company name?",
+        ),
+        "description": (
+            "Bitte den rechtlichen oder bevorzugten Namen angeben, damit wir korrekt referenzieren können.",
+            "Provide the legal or preferred name so we can reference the company correctly.",
+        ),
+        "suggestions": (
+            ["Noch vertraulich", "Name wird nachgereicht"],
+            ["Confidential for now", "Name to be confirmed"],
+        ),
+        "style": "warning",
+    },
+    "position.job_title": {
+        "prompt": (
+            "Welcher Jobtitel soll in der Ausschreibung stehen?",
+            "What job title should appear in the posting?",
+        ),
+        "description": (
+            "Ein klarer Jobtitel hilft der KI bei allen weiteren Vorschlägen.",
+            "A clear job title helps the assistant with every downstream suggestion.",
+        ),
+        "suggestions": (
+            ["Software Engineer", "Sales Manager", "Product Manager"],
+            ["Software Engineer", "Sales Manager", "Product Manager"],
+        ),
+        "style": "info",
+    },
+    "position.role_summary": {
+        "prompt": (
+            "Wie würdest du die Rolle in 2-3 Sätzen beschreiben?",
+            "How would you summarise the role in 2-3 sentences?",
+        ),
+        "description": (
+            "Diese Kurzbeschreibung landet sowohl in Follow-ups als auch im Job-Ad-Entwurf.",
+            "We use this short blurb in follow-ups and the job ad draft.",
+        ),
+        "suggestions": (
+            [
+                "Treibt den Aufbau datengetriebener Produkte voran",
+                "Koordiniert funktionsübergreifende Projektteams",
+            ],
+            [
+                "Drives the build-out of data-driven products",
+                "Coordinates cross-functional project teams",
+            ],
+        ),
+        "style": "info",
+    },
+    "location.country": {
+        "prompt": (
+            "In welchem Land ist die Rolle verortet?",
+            "Which country is this role based in?",
+        ),
+        "description": (
+            "Das Land steuert Gehaltsbenchmarks, Benefits und Sprachvorschläge.",
+            "Country selection powers salary ranges, benefits, and language suggestions.",
+        ),
+        "suggestions": (
+            ["Deutschland", "Österreich", "Schweiz"],
+            ["Germany", "Austria", "Switzerland"],
+        ),
+        "style": "warning",
+    },
+    "requirements.hard_skills_required": {
+        "prompt": (
+            "Welche Hard Skills sind zwingend?",
+            "Which hard skills are must-haves?",
+        ),
+        "description": (
+            "Bitte Kerntechnologien oder Tools nennen – das fokussiert unsere Vorschläge.",
+            "List the core technologies or tools so our suggestions stay focused.",
+        ),
+        "suggestions": (
+            ["Python, SQL, ETL", "AWS, Terraform, CI/CD"],
+            ["Python, SQL, ETL", "AWS, Terraform, CI/CD"],
+        ),
+        "style": "warning",
+    },
+    "requirements.soft_skills_required": {
+        "prompt": (
+            "Welche Soft Skills sind unverzichtbar?",
+            "Which soft skills are non-negotiable?",
+        ),
+        "description": (
+            "Stichworte reichen – wir übernehmen die Formulierung im Jobprofil.",
+            "Short bullet points are enough – we will phrase them for the profile.",
+        ),
+        "suggestions": (
+            [
+                "Kommunikationsstark, teamorientiert, lösungsorientiert",
+                "Selbstständig, proaktiv, kundenorientiert",
+            ],
+            [
+                "Strong communicator, collaborative, solution-oriented",
+                "Self-driven, proactive, customer-focused",
+            ],
+        ),
+        "style": "info",
+    },
+}
 
 
 def _sanitize_template_value(value: Any) -> str:
@@ -1704,19 +1825,26 @@ def _render_followup_question(q: dict, data: dict) -> None:
     suggestions = q.get("suggestions") or []
     key = f"fu_{field}"
     anchor = f"anchor_{key}"
-    st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
+    container = st.container()
+    container.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
     if key not in st.session_state:
         st.session_state[key] = ""
+    ui_variant = q.get("ui_variant")
+    description = q.get("description")
+    if ui_variant in ("info", "warning") and description:
+        getattr(container, ui_variant)(description)
+    elif description:
+        container.caption(description)
     if q.get("priority") == "critical":
-        st.markdown(f"{REQUIRED_PREFIX}**{prompt}**")
+        container.markdown(f"{REQUIRED_PREFIX}**{prompt}**")
     else:
-        st.markdown(f"**{prompt}**")
+        container.markdown(f"**{prompt}**")
     if suggestions:
-        cols = st.columns(len(suggestions))
+        cols = container.columns(len(suggestions))
         for i, (col, sug) in enumerate(zip(cols, suggestions)):
             if col.button(sug, key=f"{key}_opt_{i}"):
                 st.session_state[key] = sug
-    st.text_input("", key=key)
+    container.text_input("", key=key)
     if q.get("priority") == "critical":
         st.toast(
             tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️"
@@ -1751,6 +1879,81 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
         )
         for q in list(followups):
             _render_followup_question(q, data)
+
+
+def _lang_index(lang: str | None) -> int:
+    """Return index for language-dependent tuples (0=de, 1=en)."""
+
+    if not lang:
+        return 0
+    return 0 if lang.lower().startswith("de") else 1
+
+
+def _select_lang_text(pair: LangPair | None, lang: str | None) -> str:
+    """Return the language-specific string from ``pair``."""
+
+    if not pair:
+        return ""
+    idx = _lang_index(lang)
+    return pair[idx] if idx < len(pair) else pair[0]
+
+
+def _select_lang_suggestions(
+    pair: LangSuggestionPair | None, lang: str | None
+) -> list[str]:
+    """Return language-specific suggestion list from ``pair``."""
+
+    if not pair:
+        return []
+    idx = _lang_index(lang)
+    if idx >= len(pair):
+        idx = 0
+    return list(pair[idx])
+
+
+def _ensure_targeted_followup(field: str) -> None:
+    """Ensure a targeted follow-up question exists for ``field`` if configured."""
+
+    config = CRITICAL_FIELD_PROMPTS.get(field)
+    if not config:
+        return
+    existing = list(st.session_state.get(StateKeys.FOLLOWUPS) or [])
+    if any(q.get("field") == field for q in existing):
+        return
+    lang = getattr(st.session_state, "lang", None) or st.session_state.get(
+        UIKeys.LANG_SELECT,
+        "de",
+    )
+    followup = {
+        "field": field,
+        "question": _select_lang_text(config.get("prompt"), lang),
+        "priority": config.get("priority", "critical"),
+        "suggestions": _select_lang_suggestions(config.get("suggestions"), lang),
+    }
+    description = _select_lang_text(config.get("description"), lang)
+    if description:
+        followup["description"] = description
+    style = config.get("style")
+    if style:
+        followup["ui_variant"] = style
+    existing.insert(0, followup)
+    st.session_state[StateKeys.FOLLOWUPS] = existing
+
+
+def _missing_fields_for_section(section_index: int) -> list[str]:
+    """Return missing critical fields for a given section and enqueue prompts."""
+
+    missing = st.session_state.get(StateKeys.EXTRACTION_MISSING)
+    if missing is None:
+        missing = get_missing_critical_fields()
+    section_missing = [
+        field
+        for field in missing
+        if FIELD_SECTION_MAP.get(field) == section_index
+    ]
+    for field in section_missing:
+        _ensure_targeted_followup(field)
+    return section_missing
 
 
 def _generate_job_ad_content(
@@ -2182,6 +2385,120 @@ def _update_profile(path: str, value) -> None:
         _remove_field_lock_metadata(path)
 
 
+def _normalize_autofill_value(value: str | None) -> str:
+    """Normalize ``value`` for comparison in autofill tracking."""
+
+    if not value:
+        return ""
+    normalized = " ".join(value.strip().split()).casefold()
+    return normalized
+
+
+def _load_autofill_decisions() -> dict[str, list[str]]:
+    """Return a copy of stored autofill rejection decisions."""
+
+    raw = st.session_state.get(StateKeys.AUTOFILL_DECISIONS)
+    if not isinstance(raw, Mapping):
+        return {}
+    decisions: dict[str, list[str]] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            continue
+        if isinstance(value, list):
+            items = [str(item) for item in value if isinstance(item, str)]
+            decisions[key] = items
+    return decisions
+
+
+def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
+    """Persist ``decisions`` to session state."""
+
+    st.session_state[StateKeys.AUTOFILL_DECISIONS] = {
+        key: list(value) for key, value in decisions.items()
+    }
+
+
+def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:
+    """Return ``True`` when ``suggestion`` was rejected for ``field_path``."""
+
+    normalized = _normalize_autofill_value(suggestion)
+    if not normalized:
+        return False
+    decisions = _load_autofill_decisions()
+    rejected = decisions.get(field_path, [])
+    return normalized in rejected
+
+
+def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
+    """Remember that ``suggestion`` was rejected for ``field_path``."""
+
+    normalized = _normalize_autofill_value(suggestion)
+    if not normalized:
+        return
+    decisions = _load_autofill_decisions()
+    current = set(decisions.get(field_path, []))
+    if normalized in current:
+        return
+    current.add(normalized)
+    decisions[field_path] = sorted(current)
+    _store_autofill_decisions(decisions)
+
+
+def _render_autofill_suggestion(
+    *,
+    field_path: str,
+    suggestion: str,
+    title: str,
+    description: str,
+    widget_key: str | None = None,
+    icon: str = "✨",
+    success_message: str | None = None,
+    rejection_message: str | None = None,
+    success_icon: str = "✅",
+    rejection_icon: str = "🗑️",
+) -> None:
+    """Render an optional autofill prompt for ``suggestion``."""
+
+    suggestion = suggestion.strip()
+    if not suggestion:
+        return
+
+    accept_label = f"{icon} {suggestion}" if icon else suggestion
+    reject_label = tr("Ignorieren", "Dismiss")
+    success_message = success_message or tr(
+        "Vorschlag übernommen.", "Suggestion applied."
+    )
+    rejection_message = rejection_message or tr(
+        "Vorschlag verworfen.", "Suggestion dismissed."
+    )
+
+    suggestion_hash = hashlib.sha1(
+        f"{field_path}:{suggestion}".encode("utf-8")
+    ).hexdigest()[:10]
+
+    with st.container(border=True):
+        st.markdown(f"**{title}**")
+        if description:
+            st.caption(description)
+        st.markdown(f"`{suggestion}`")
+        accept_col, reject_col = st.columns((1.4, 1))
+        if accept_col.button(
+            accept_label,
+            key=f"autofill.accept.{field_path}.{suggestion_hash}",
+            type="primary",
+        ):
+            if widget_key:
+                st.session_state[widget_key] = suggestion
+            _update_profile(field_path, suggestion)
+            st.toast(success_message, icon=success_icon)
+            st.rerun()
+        if reject_col.button(
+            reject_label,
+            key=f"autofill.reject.{field_path}.{suggestion_hash}",
+        ):
+            _record_autofill_rejection(field_path, suggestion)
+            st.toast(rejection_message, icon=rejection_icon)
+            st.rerun()
 def _slugify_label(label: str) -> str:
     """Convert a widget label into a slug suitable for state keys.
 
@@ -2852,11 +3169,7 @@ def _step_company():
     data = profile
     combined_certificates = _collect_combined_certificates(data["requirements"])
     _set_requirement_certificates(data["requirements"], combined_certificates)
-    missing_here = [
-        f
-        for f in get_missing_critical_fields(max_section=1)
-        if FIELD_SECTION_MAP.get(f) == 1
-    ]
+    missing_here = _missing_fields_for_section(1)
 
     data["company"]["website"] = st.text_input(
         tr("Website", "Website"),
@@ -2925,6 +3238,7 @@ def _step_company():
         tr("Hauptsitz", "Headquarters"),
         value=data["company"].get("hq_location", ""),
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
+        key=UIKeys.COMPANY_HQ_LOCATION,
     )
     data["company"]["size"] = c4.text_input(
         tr("Größe", "Size"),
@@ -2937,6 +3251,7 @@ def _step_company():
         tr("Ansprechperson", "Primary contact"),
         value=data["company"].get("contact_name", ""),
         placeholder=tr("z. B. Maria Beispiel", "e.g., Maria Example"),
+        key=UIKeys.COMPANY_CONTACT_NAME,
     )
     data["company"]["contact_email"] = contact_cols[1].text_input(
         tr("Kontakt E-Mail", "Contact email"),
@@ -2948,6 +3263,34 @@ def _step_company():
         value=data["company"].get("contact_phone", ""),
         placeholder=tr("z. B. +49 30 123456", "e.g., +49 30 123456"),
     )
+
+    contact_email_value = (data["company"].get("contact_email") or "").strip()
+    contact_name_value = (data["company"].get("contact_name") or "").strip()
+    inferred_contact_name = infer_contact_name_from_email(contact_email_value)
+    if (
+        inferred_contact_name
+        and not contact_name_value
+        and not _autofill_was_rejected("company.contact_name", inferred_contact_name)
+    ):
+        _render_autofill_suggestion(
+            field_path="company.contact_name",
+            suggestion=inferred_contact_name,
+            title=tr("👤 Kontakt übernehmen?", "👤 Use inferred contact?"),
+            description=tr(
+                "Aus der E-Mail-Adresse abgeleiteter Name.",
+                "Name inferred from the email address.",
+            ),
+            widget_key=UIKeys.COMPANY_CONTACT_NAME,
+            icon="👤",
+            success_message=tr(
+                "Kontaktname aus E-Mail übernommen.",
+                "Contact name copied from email.",
+            ),
+            rejection_message=tr(
+                "Vorschlag ignoriert – wir merken uns das.",
+                "Suggestion dismissed – we'll remember that.",
+            ),
+        )
 
     # Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
@@ -3442,16 +3785,13 @@ def _step_position():
     )
     st.caption(position_caption)
     data = profile
+    company = data.setdefault("company", {})
     position = data.setdefault("position", {})
     location_data = data.setdefault("location", {})
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
 
-    missing_here = [
-        field
-        for field in get_missing_critical_fields(max_section=2)
-        if FIELD_SECTION_MAP.get(field) == 2
-    ]
+    missing_here = _missing_fields_for_section(2)
 
     st.markdown("#### " + tr("Rolle & Team", "Role & team"))
     role_cols = st.columns((1.3, 1))
@@ -3552,6 +3892,48 @@ def _step_position():
     if "location.country" in missing_here and not location_data.get("country"):
         location_cols[1].caption(
             tr("Dieses Feld ist erforderlich", "This field is required")
+        )
+
+    city_value = (location_data.get("primary_city") or "").strip()
+    country_value = (location_data.get("country") or "").strip()
+    hq_value = (company.get("hq_location") or "").strip()
+    suggested_hq_parts = [part for part in (city_value, country_value) if part]
+    suggested_hq = ", ".join(suggested_hq_parts)
+    if (
+        suggested_hq
+        and not hq_value
+        and not _autofill_was_rejected("company.hq_location", suggested_hq)
+    ):
+        if city_value and country_value:
+            description = tr(
+                "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
+                "Combined city and country into a potential headquarters.",
+            )
+        elif city_value:
+            description = tr(
+                "Nur Stadt vorhanden – als Hauptsitz übernehmen?",
+                "Only city provided – use it as headquarters?",
+            )
+        else:
+            description = tr(
+                "Nur Land vorhanden – als Hauptsitz übernehmen?",
+                "Only country provided – use it as headquarters?",
+            )
+        _render_autofill_suggestion(
+            field_path="company.hq_location",
+            suggestion=suggested_hq,
+            title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),
+            description=description,
+            widget_key=UIKeys.COMPANY_HQ_LOCATION,
+            icon="🏙️",
+            success_message=tr(
+                "Hauptsitz mit Standortangaben gefüllt.",
+                "Headquarters filled from location details.",
+            ),
+            rejection_message=tr(
+                "Vorschlag ignoriert – wir fragen nicht erneut.",
+                "Suggestion dismissed – we will not offer it again.",
+            ),
         )
 
     timing_cols = st.columns(3)
@@ -3877,11 +4259,7 @@ def _step_requirements():
     """Render the requirements step for skills and certifications."""
 
     data = _get_profile_state()
-    missing_here = [
-        f
-        for f in get_missing_critical_fields(max_section=3)
-        if FIELD_SECTION_MAP.get(f) == 3
-    ]
+    missing_here = _missing_fields_for_section(3)
 
     requirements_style_key = "ui.requirements_styles"
     if not st.session_state.get(requirements_style_key):
