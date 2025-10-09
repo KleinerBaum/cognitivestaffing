@@ -56,7 +56,7 @@ def test_apply_rules_handles_table_layout() -> None:
     matches = apply_rules([table_block])
     assert matches["location.primary_city"].value == "Munich"
     assert matches["location.primary_city"].rule == "layout.table"
-    assert matches["location.country"].value == "Germany"
+    assert matches["location.country"].value == "DE"
     assert matches["company.contact_email"].value == "hiring@example.de"
 
 
@@ -69,7 +69,7 @@ def test_apply_rules_handles_land_table_keyword() -> None:
         metadata={"rows": [["Land", "Deutschland"]]},
     )
     matches = apply_rules([table_block])
-    assert matches["location.country"].value == "Deutschland"
+    assert matches["location.country"].value == "DE"
 
 
 def test_regex_prioritised_over_layout_conflict() -> None:
@@ -84,7 +84,7 @@ def test_regex_prioritised_over_layout_conflict() -> None:
     matches = apply_rules([table_block, text_block])
     assert matches["location.primary_city"].value == "Berlin"
     assert matches["location.primary_city"].rule == "regex.location"
-    assert matches["location.country"].value == "Germany"
+    assert matches["location.country"].value == "DE"
 
 
 def test_regex_matches_land_prefix_for_country() -> None:
@@ -92,7 +92,7 @@ def test_regex_matches_land_prefix_for_country() -> None:
 
     text_block = ContentBlock(type="paragraph", text="Land: Deutschland")
     matches = apply_rules([text_block])
-    assert matches["location.country"].value == "Deutschland"
+    assert matches["location.country"].value == "DE"
     assert "location.primary_city" not in matches
 
 
@@ -102,7 +102,7 @@ def test_regex_matches_land_prefix_with_city_value() -> None:
     text_block = ContentBlock(type="paragraph", text="Land: Düsseldorf")
     matches = apply_rules([text_block])
     assert matches["location.primary_city"].value == "Düsseldorf"
-    assert "location.country" not in matches
+    assert matches["location.country"].value == "DE"
 
 
 def test_extract_location_returns_city_and_country() -> None:
@@ -110,7 +110,15 @@ def test_extract_location_returns_city_and_country() -> None:
 
     city, country = _extract_location("Location: Munich, Germany")
     assert city == "Munich"
-    assert country == "Germany"
+    assert country == "DE"
+
+
+def test_extract_location_infers_country_from_city() -> None:
+    """City-only lines should infer the ISO country when known."""
+
+    city, country = _extract_location("Location: Berlin")
+    assert city == "Berlin"
+    assert country == "DE"
 
 
 def test_extract_location_rejects_disqualifying_lines() -> None:
@@ -136,11 +144,11 @@ def test_extract_location_ignores_remote_keyword() -> None:
 
     city, country = _extract_location("Standort: Berlin")
     assert city == "Berlin"
-    assert country is None
+    assert country == "DE"
 
     city, country = _extract_location("Land: Düsseldorf")
     assert city == "Düsseldorf"
-    assert country is None
+    assert country == "DE"
 
 
 def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
@@ -158,7 +166,7 @@ def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
     )
     matches = apply_rules([table_block])
     assert matches["location.primary_city"].value == "Berlin"
-    assert matches["location.country"].value == "Deutschland"
+    assert matches["location.country"].value == "DE"
     assert matches["company.industry"].value == "IT-Dienstleistungen"
 
 
@@ -172,7 +180,7 @@ def test_apply_rules_handles_land_header_with_city_value() -> None:
     )
     matches = apply_rules([table_block])
     assert matches["location.primary_city"].value == "Düsseldorf"
-    assert "location.country" not in matches
+    assert matches["location.country"].value == "DE"
 
 
 def test_apply_rules_handles_inline_einsatzort_and_branche() -> None:
@@ -185,7 +193,7 @@ def test_apply_rules_handles_inline_einsatzort_and_branche() -> None:
     ]
     matches = apply_rules(blocks)
     assert matches["location.primary_city"].value == "Hamburg"
-    assert "location.country" not in matches
+    assert matches["location.country"].value == "DE"
     assert matches["company.industry"].value == "Erneuerbare Energien"
 
 
