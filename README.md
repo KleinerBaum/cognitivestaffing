@@ -69,6 +69,7 @@ the base model if needed.
 - **Onboarding Intro**: welcome step explains required inputs and allows skipping for returning users
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Enhanced compensation step**: slider-based salary range, preset currency choices, bonus/commission details and common benefit suggestions
+- **Richer salary estimates**: fallback logic adjusts benchmark ranges for required/optional skills, tools, certifications and language levels when no model call is possible
 - **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
 - **Glassmorphic theme**: browser-optimized design with a hero background
 - **Expanded skills section**: distinguish must-have and nice-to-have hard/soft skills, plus certificates, language requirements, and tools & technologies

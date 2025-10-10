@@ -180,6 +180,13 @@ def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
         current_currency="EUR",
         required_hard_skills=["Roadmapping"],
         required_soft_skills=["Communication"],
+        hard_skills_optional=["SQL"],
+        soft_skills_optional=["Coaching"],
+        tools_and_technologies=["Jira"],
+        certificates=["PMP"],
+        languages_required=["English"],
+        languages_optional=["German"],
+        language_level_english="C1",
     )
 
     result, explanation = salary._call_salary_model(inputs)
@@ -194,3 +201,10 @@ def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
     assert payload["primary_city"] == "Berlin"
     assert payload["required_hard_skills"] == ["Roadmapping"]
     assert payload["required_soft_skills"] == ["Communication"]
+    assert payload["hard_skills_optional"] == ["SQL"]
+    assert payload["soft_skills_optional"] == ["Coaching"]
+    assert payload["tools_and_technologies"] == ["Jira"]
+    assert payload["certificates"] == ["PMP"]
+    assert payload["languages_required"] == ["English"]
+    assert payload["languages_optional"] == ["German"]
+    assert payload["language_level_english"] == "C1"

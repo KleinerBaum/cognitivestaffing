@@ -67,6 +67,13 @@ class _SalaryInputs:
     current_currency: str | None
     required_hard_skills: list[str]
     required_soft_skills: list[str]
+    hard_skills_optional: list[str]
+    soft_skills_optional: list[str]
+    tools_and_technologies: list[str]
+    certificates: list[str]
+    languages_required: list[str]
+    languages_optional: list[str]
+    language_level_english: str | None
 
 
 class SalaryImpact(TypedDict, total=False):
@@ -190,6 +197,17 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
         current_currency=str(compensation.get("currency") or "").strip() or None,
         required_hard_skills=_as_str_list(requirements.get("hard_skills_required")),
         required_soft_skills=_as_str_list(requirements.get("soft_skills_required")),
+        hard_skills_optional=_as_str_list(requirements.get("hard_skills_optional")),
+        soft_skills_optional=_as_str_list(requirements.get("soft_skills_optional")),
+        tools_and_technologies=_as_str_list(requirements.get("tools_and_technologies")),
+        certificates=_as_str_list(
+            requirements.get("certificates") or requirements.get("certifications")
+        ),
+        languages_required=_as_str_list(requirements.get("languages_required")),
+        languages_optional=_as_str_list(requirements.get("languages_optional")),
+        language_level_english=(
+            str(requirements.get("language_level_english") or "").strip() or None
+        ),
     )
 
 
@@ -318,13 +336,23 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
         "current_currency": inputs.current_currency,
         "required_hard_skills": inputs.required_hard_skills,
         "required_soft_skills": inputs.required_soft_skills,
+        "hard_skills_optional": inputs.hard_skills_optional,
+        "soft_skills_optional": inputs.soft_skills_optional,
+        "tools_and_technologies": inputs.tools_and_technologies,
+        "certificates": inputs.certificates,
+        "languages_required": inputs.languages_required,
+        "languages_optional": inputs.languages_optional,
+        "language_level_english": inputs.language_level_english,
     }
     system_prompt = (
         "You are a compensation analyst. Estimate an annual salary range in the "
-        "local currency based on the provided job context, considering any city "
-        "hints and required skills. Respond by calling the "
+        "local currency based on the provided job context. Factor in seniority, "
+        "work policy, employment type, team size, industry, city hints, required "
+        "and optional skills, tools, certifications, and language expectations. "
+        "Respond by calling the "
         f"function {FUNCTION_NAME}. Prefer realistic mid-market values and align "
-        "with the seniority and work policy if given."
+        "with the seniority, work policy, and language level requirements if "
+        "given."
     )
     messages = [
         {"role": "system", "content": system_prompt},
@@ -362,9 +390,193 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
     return parsed.model_dump(), parsed.explanation
 
 
-def _fallback_salary(
-    inputs: _SalaryInputs,
-) -> tuple[dict[str, Any] | None, SalaryExplanation | str | None]:
+_FALLBACK_ADJUSTMENT_RULES: dict[str, dict[str, Any]] = {
+    "required_hard_skills": {
+        "attribute": "required_hard_skills",
+        "label_de": "Pflicht-Hard-Skills",
+        "label_en": "Required hard skills",
+        "per_item": 0.02,
+        "max": 0.1,
+        "offset": 0,
+        "description_de": "+2 % je Muss-Kriterium (max. +10 %)",
+        "description_en": "+2% per mandatory requirement (max. +10%)",
+    },
+    "required_soft_skills": {
+        "attribute": "required_soft_skills",
+        "label_de": "Pflicht-Soft-Skills",
+        "label_en": "Required soft skills",
+        "per_item": 0.01,
+        "max": 0.05,
+        "offset": 0,
+        "description_de": "+1 % je Muss-Kriterium (max. +5 %)",
+        "description_en": "+1% per mandatory requirement (max. +5%)",
+    },
+    "hard_skills_optional": {
+        "attribute": "hard_skills_optional",
+        "label_de": "Optionale Hard-Skills",
+        "label_en": "Optional hard skills",
+        "per_item": 0.0075,
+        "max": 0.03,
+        "offset": 0,
+        "description_de": "+0,75 % je Nice-to-have (max. +3 %)",
+        "description_en": "+0.75% per nice-to-have (max. +3%)",
+    },
+    "soft_skills_optional": {
+        "attribute": "soft_skills_optional",
+        "label_de": "Optionale Soft-Skills",
+        "label_en": "Optional soft skills",
+        "per_item": 0.005,
+        "max": 0.02,
+        "offset": 0,
+        "description_de": "+0,5 % je Nice-to-have (max. +2 %)",
+        "description_en": "+0.5% per nice-to-have (max. +2%)",
+    },
+    "tools_and_technologies": {
+        "attribute": "tools_and_technologies",
+        "label_de": "Tools & Technologien",
+        "label_en": "Tools & technologies",
+        "per_item": 0.015,
+        "max": 0.075,
+        "offset": 0,
+        "description_de": "+1,5 % je relevantes Tool (max. +7,5 %)",
+        "description_en": "+1.5% per relevant tool (max. +7.5%)",
+    },
+    "certificates": {
+        "attribute": "certificates",
+        "label_de": "Zertifikate",
+        "label_en": "Certificates",
+        "per_item": 0.03,
+        "max": 0.12,
+        "offset": 0,
+        "description_de": "+3 % je Pflichtzertifikat (max. +12 %)",
+        "description_en": "+3% per required certificate (max. +12%)",
+    },
+    "languages_required": {
+        "attribute": "languages_required",
+        "label_de": "Pflichtsprachen",
+        "label_en": "Required languages",
+        "per_item": 0.015,
+        "max": 0.06,
+        "offset": 1,
+        "description_de": "+1,5 % je weitere Sprache über die erste hinaus (max. +6 %)",
+        "description_en": "+1.5% per additional language beyond the first (max. +6%)",
+    },
+    "languages_optional": {
+        "attribute": "languages_optional",
+        "label_de": "Optionale Sprachen",
+        "label_en": "Optional languages",
+        "per_item": 0.005,
+        "max": 0.02,
+        "offset": 0,
+        "description_de": "+0,5 % je optionale Sprache (max. +2 %)",
+        "description_en": "+0.5% per optional language (max. +2%)",
+    },
+}
+
+
+_LANGUAGE_LEVEL_ADJUSTMENTS: dict[str, dict[str, Any]] = {
+    "native": {
+        "percent": 0.05,
+        "label_de": "Englischniveau",
+        "label_en": "English proficiency",
+        "description_de": "Native/Muttersprache: +5 %",
+        "description_en": "Native level: +5%",
+    },
+    "c2": {
+        "percent": 0.05,
+        "label_de": "Englischniveau",
+        "label_en": "English proficiency",
+        "description_de": "C2: +5 %",
+        "description_en": "C2: +5%",
+    },
+    "c1": {
+        "percent": 0.03,
+        "label_de": "Englischniveau",
+        "label_en": "English proficiency",
+        "description_de": "C1: +3 %",
+        "description_en": "C1: +3%",
+    },
+    "b2": {
+        "percent": 0.015,
+        "label_de": "Englischniveau",
+        "label_en": "English proficiency",
+        "description_de": "B2: +1,5 %",
+        "description_en": "B2: +1.5%",
+    },
+    "b1": {
+        "percent": 0.005,
+        "label_de": "Englischniveau",
+        "label_en": "English proficiency",
+        "description_de": "B1: +0,5 %",
+        "description_en": "B1: +0.5%",
+    },
+    "a2": {
+        "percent": 0.0,
+        "label_de": "Englischniveau",
+        "label_en": "English proficiency",
+        "description_de": "A2 oder niedriger: kein Zuschlag",
+        "description_en": "A2 or lower: no adjustment",
+    },
+}
+
+
+def _compute_adjustment_percentage(inputs: _SalaryInputs) -> tuple[float, list[str], list[str]]:
+    total = 0.0
+    applied_de: list[str] = []
+    applied_en: list[str] = []
+
+    for rule in _FALLBACK_ADJUSTMENT_RULES.values():
+        attr = rule["attribute"]
+        value = getattr(inputs, attr)
+        raw_count = len(value) if isinstance(value, list) else (1 if value else 0)
+        if raw_count <= 0:
+            continue
+        offset = rule.get("offset", 0)
+        effective_count = max(raw_count - offset, 0)
+        if effective_count <= 0:
+            continue
+        per_item = rule["per_item"]
+        max_total = rule.get("max")
+        pct = effective_count * per_item
+        if isinstance(max_total, (int, float)):
+            pct = min(pct, max_total)
+        total += pct
+        applied_de.append(
+            f"{rule['label_de']}: {pct:+.1%} ({rule['description_de']})"
+        )
+        applied_en.append(
+            f"{rule['label_en']}: {pct:+.1%} ({rule['description_en']})"
+        )
+
+    level = (inputs.language_level_english or "").strip().lower()
+    if level:
+        matched = None
+        for key, data in _LANGUAGE_LEVEL_ADJUSTMENTS.items():
+            if level == key or level.startswith(key):
+                matched = data
+                break
+        if matched:
+            pct = matched["percent"]
+            total += pct
+            applied_de.append(
+                f"{matched['label_de']}: {pct:+.1%} ({matched['description_de']})"
+            )
+            applied_en.append(
+                f"{matched['label_en']}: {pct:+.1%} ({matched['description_en']})"
+            )
+
+    total = max(min(total, 0.25), -0.2)
+    return total, applied_de, applied_en
+
+
+def _apply_adjustment(value: float | None, multiplier: float) -> float | None:
+    if value is None:
+        return None
+    adjusted = value * multiplier
+    return round(adjusted, 2)
+
+
+def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str | None]:
     role_key = _canonical_salary_role(inputs.job_title)
     iso_country = country_to_iso2(inputs.country)
     bench_country = iso_country or (
@@ -385,15 +597,19 @@ def _fallback_salary(
         )
         return None, message
 
-    explanation = _build_fallback_explanation(
-        inputs,
-        benchmark_role,
-        bench_country,
-        currency,
-        salary_min,
-        salary_max,
-        raw_range,
-    )
+    adjustment_pct, applied_de, applied_en = _compute_adjustment_percentage(inputs)
+    if adjustment_pct:
+        multiplier = 1 + adjustment_pct
+        salary_min = _apply_adjustment(salary_min, multiplier)
+        salary_max = _apply_adjustment(salary_max, multiplier)
+
+    explanation_de = "Fallback auf statische Benchmark-Daten."
+    explanation_en = "Used static benchmark data as fallback."
+    if applied_de and applied_en:
+        explanation_de += " Zuschläge/Abschläge: " + "; ".join(applied_de) + "."
+        explanation_en += " Adjustments: " + "; ".join(applied_en) + "."
+
+    explanation = tr(explanation_de, explanation_en)
     return (
         {"salary_min": salary_min, "salary_max": salary_max, "currency": currency},
         explanation,
