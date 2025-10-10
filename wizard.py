@@ -1127,7 +1127,15 @@ def on_file_uploaded() -> None:
         st.session_state.pop("__prefill_profile_doc__", None)
         st.session_state[StateKeys.RAW_BLOCKS] = []
         msg = str(e).lower()
-        if "unsupported file type" in msg:
+        if "doc conversion" in msg and ".docx" in msg:
+            display_error(
+                tr(
+                    "Word-Dateien im alten .doc-Format müssen vor dem Upload in .docx konvertiert werden.",
+                    "Legacy .doc files must be converted to .docx before upload.",
+                ),
+                str(e),
+            )
+        elif "unsupported file type" in msg:
             display_error(
                 tr(
                     "Dieser Dateityp wird nicht unterstützt. Bitte laden Sie eine PDF-, DOCX- oder Textdatei hoch.",
