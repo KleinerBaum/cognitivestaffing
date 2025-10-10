@@ -49,6 +49,10 @@ STEPSTONE_FIXTURE = """
 </html>
 """
 
+RHEINBAHN_FIXTURE_PATH = (
+    PROJECT_ROOT / "tests" / "fixtures" / "html" / "rheinbahn_produktentwickler.html"
+)
+
 
 def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
     html = "<html><body><p>Hello URL</p></body></html>"
@@ -123,3 +127,31 @@ def test_stepstone_like_content_extraction(
     assert "Design ETL jobs" in text
     assert "For candidates" not in text
     assert "Breadcrumbs" not in text
+
+
+def test_rheinbahn_content_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = RHEINBAHN_FIXTURE_PATH.read_text(encoding="utf-8")
+
+    class Resp:
+        status_code = 200
+        text = html
+
+        def raise_for_status(self) -> None:  # pragma: no cover - stub
+            return None
+
+    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+        return Resp()
+
+    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+    monkeypatch.setitem(sys.modules, "trafilatura", None)
+
+    doc = extract_text_from_url(
+        "https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler"
+    )
+
+    text = doc.text
+    assert "Darauf kannst du dich freuen" in text
+    assert "gestaltest du die digitale Zukunft" in text
+    assert "Du entwickelst digitale Services" in text
+    assert "Startseite" not in text
+    assert "Impressum" not in text
