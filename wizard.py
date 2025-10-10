@@ -2969,6 +2969,57 @@ def _remove_field_lock_metadata(path: str) -> None:
         _clear_field_unlock_state(path)
 
 
+def _ensure_profile_meta(profile: dict[str, Any]) -> dict[str, Any]:
+    """Return the ``meta`` dict for ``profile``, creating it when missing."""
+
+    meta = profile.get("meta")
+    if isinstance(meta, dict):
+        return meta
+    meta = {}
+    profile["meta"] = meta
+    return meta
+
+
+def _ensure_followups_answered(profile: dict[str, Any]) -> list[str]:
+    """Return the mutable follow-up completion list for ``profile``."""
+
+    meta = _ensure_profile_meta(profile)
+    answered = meta.get("followups_answered")
+    if isinstance(answered, list):
+        cleaned = [item for item in answered if isinstance(item, str)]
+        if cleaned is not answered:
+            meta["followups_answered"] = cleaned
+            return cleaned
+        return answered
+    meta["followups_answered"] = []
+    return meta["followups_answered"]
+
+
+def _sync_followup_completion(path: str, value: Any, profile: dict[str, Any]) -> None:
+    """Synchronize follow-up bookkeeping for ``path`` based on ``value``."""
+
+    normalized = _normalize_semantic_empty(value)
+    meta = _ensure_profile_meta(profile)
+    answered = _ensure_followups_answered(profile)
+
+    if normalized is None:
+        if path in answered:
+            meta["followups_answered"] = [item for item in answered if item != path]
+        return
+
+    followups = st.session_state.get(StateKeys.FOLLOWUPS)
+    if isinstance(followups, list):
+        remaining = [
+            q
+            for q in followups
+            if not (isinstance(q, Mapping) and q.get("field") == path)
+        ]
+        st.session_state[StateKeys.FOLLOWUPS] = remaining
+    st.session_state.pop(f"fu_{path}", None)
+    if path not in answered:
+        answered.append(path)
+
+
 def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
@@ -2979,6 +3030,7 @@ def _update_profile(path: str, value) -> None:
         set_in(data, path, value)
         _clear_generated()
         _remove_field_lock_metadata(path)
+        _sync_followup_completion(path, value, data)
 
 
 def _normalize_autofill_value(value: str | None) -> str:
