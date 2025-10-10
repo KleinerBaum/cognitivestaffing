@@ -24,6 +24,19 @@ def test_guess_job_title_multiline_gender_suffix() -> None:
     )
 
 
+def test_guess_job_title_skips_location_banner() -> None:
+    text = "Berlin | Germany\nSenior Data Scientist (m/w/d)"
+    assert guess_job_title(text) == "Senior Data Scientist (m/w/d)"
+
+
+def test_guess_job_title_skips_known_company_banner() -> None:
+    text = "Cognitive Needs GmbH\nSenior Data Scientist (m/w/d)"
+    assert (
+        guess_job_title(text, skip_phrases=["Cognitive Needs GmbH"])
+        == "Senior Data Scientist (m/w/d)"
+    )
+
+
 def test_prepare_job_ad_payload_adds_gender_marker_for_german_heading() -> None:
     session_data = {
         "lang": "de",
@@ -166,6 +179,37 @@ def test_spacy_does_not_override_high_confidence() -> None:
     metadata = {"high_confidence_fields": ["location.primary_city"]}
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
     assert profile.location.primary_city == "Berlin"
+
+
+def test_basic_fallback_title_skips_company_banner() -> None:
+    profile = NeedAnalysisProfile()
+    profile.company.name = "Cognitive Needs GmbH"
+    profile.location.primary_city = "Berlin"
+    metadata = {
+        "locked_fields": ["company.name", "location.primary_city"],
+        "rules": {
+            "company.name": {"value": "Cognitive Needs GmbH"},
+            "location.primary_city": {"value": "Berlin"},
+        },
+    }
+    text = "Cognitive Needs GmbH\nBerlin\nSenior Data Scientist (m/w/d)"
+    updated = apply_basic_fallbacks(profile, text, metadata=metadata)
+    assert updated.position.job_title == "Senior Data Scientist (m/w/d)"
+    assert updated.company.name == "Cognitive Needs GmbH"
+    assert updated.location.primary_city == "Berlin"
+
+
+def test_basic_fallback_title_skips_location_banner() -> None:
+    profile = NeedAnalysisProfile()
+    profile.location.primary_city = "Berlin"
+    metadata = {
+        "locked_fields": ["location.primary_city"],
+        "rules": {"location.primary_city": {"value": "Berlin"}},
+    }
+    text = "Berlin | Germany\nSenior Data Scientist (m/w/d)"
+    updated = apply_basic_fallbacks(profile, text, metadata=metadata)
+    assert updated.position.job_title == "Senior Data Scientist (m/w/d)"
+    assert updated.location.primary_city == "Berlin"
 
 
 def test_parse_extraction_city_alias() -> None:
