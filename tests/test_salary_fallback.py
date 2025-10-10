@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -38,7 +40,15 @@ def test_fallback_salary_handles_country_name(monkeypatch) -> None:
 
     assert captured["country"] == "DE"
     assert result == {"salary_min": 40000.0, "salary_max": 50000.0, "currency": "EUR"}
-    assert explanation is not None and "fallback" in explanation.lower()
+
+    assert isinstance(explanation, list)
+    keys = [entry.get("key") for entry in explanation]
+    assert "benchmark_role" in keys
+    source_entry = explanation[0]
+    assert source_entry["key"] == "source"
+    assert source_entry.get("impact", {}).get("note") == "fallback_source"
+    salary_min_entry = next(item for item in explanation if item.get("key") == "salary_min")
+    assert salary_min_entry.get("impact", {}).get("note") == "no_user_input"
 
 
 def test_estimate_uses_city_when_country_missing(monkeypatch) -> None:
@@ -65,6 +75,10 @@ def test_estimate_uses_city_when_country_missing(monkeypatch) -> None:
     assert estimate["salary_max"] == 85000.0
     assert estimate["currency"] == "EUR"
 
+    explanation = fake_state[UIKeys.SALARY_EXPLANATION]
+    assert isinstance(explanation, list)
+    assert any(item.get("key") == "benchmark_country" for item in explanation)
+
 
 def test_fallback_salary_handles_german_product_developer() -> None:
     profile = {
@@ -79,7 +93,45 @@ def test_fallback_salary_handles_german_product_developer() -> None:
     assert result["salary_min"] == 65000.0
     assert result["salary_max"] == 90000.0
     assert result["currency"] == "EUR"
-    assert explanation is not None
+    assert isinstance(explanation, list)
+    assert any(item.get("key") == "benchmark_role" for item in explanation)
+
+
+def test_fallback_salary_includes_delta_details(monkeypatch) -> None:
+    def fake_benchmark(role: str, country: str = "US") -> dict[str, str]:
+        return {"salary_range": "80000-100000 USD"}
+
+    monkeypatch.setattr(salary, "get_salary_benchmark", fake_benchmark)
+
+    profile = {
+        "position": {"job_title": "Software Developer"},
+        "location": {"country": "Germany"},
+        "compensation": {
+            "salary_min": 90000,
+            "salary_max": 105000,
+            "currency": "EUR",
+        },
+    }
+
+    inputs = salary._collect_inputs(profile)
+    result, explanation = salary._fallback_salary(inputs)
+
+    assert result is not None and result["currency"] == "USD"
+    assert isinstance(explanation, list)
+
+    min_entry = next(item for item in explanation if item.get("key") == "salary_min")
+    impact = min_entry.get("impact")
+    assert impact is not None
+    assert impact.get("note") == "currency_mismatch"
+    assert impact.get("user_currency") == "EUR"
+    assert impact.get("user_value") == 90000.0
+    assert impact.get("absolute") == pytest.approx(10000.0)
+    assert impact.get("relative") == pytest.approx(0.125)
+
+    max_entry = next(item for item in explanation if item.get("key") == "salary_max")
+    impact_max = max_entry.get("impact")
+    assert impact_max is not None
+    assert impact_max.get("absolute") == pytest.approx(5000.0)
 
 
 def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:

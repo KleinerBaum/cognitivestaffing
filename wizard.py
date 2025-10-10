@@ -65,6 +65,7 @@ from core.suggestions import (
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components.stepper import render_stepper
+from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.contact import infer_contact_name_from_email
 from utils.normalization import normalize_country, normalize_language_list
@@ -5393,6 +5394,32 @@ def _step_requirements():
             )
 
     with requirement_panel(
+        icon="📈",
+        title=tr("Markt-Insights", "Market insights"),
+        caption=tr(
+            "Visualisiert den Effekt deiner Nice-to-have-Auswahl.",
+            "Visualises the effect of your nice-to-have selection.",
+        ),
+        tooltip=tr(
+            "Optional gewählte Skills zeigen hier ihren Einfluss auf Gehalt und Talentverfügbarkeit.",
+            "Optional skills show their impact on salary and talent availability here.",
+        ),
+        parent=nice_tab,
+    ):
+        nice_insight_skills = (
+            list(data["requirements"].get("hard_skills_optional", []))
+            + list(data["requirements"].get("soft_skills_optional", []))
+        )
+        render_skill_market_insights(
+            nice_insight_skills,
+            segment_label=tr("Nice-to-have", "Nice-to-have"),
+            empty_message=tr(
+                "Noch keine Nice-to-have-Skills gewählt – füge Auswahl hinzu für Markt-Insights.",
+                "No nice-to-have skills selected yet – add some to unlock market insights.",
+            ),
+        )
+
+    with requirement_panel(
         icon="🛠️",
         title=tr("Tools, Tech & Zertifikate", "Tools, tech & certificates"),
         caption=tr(
@@ -5448,6 +5475,34 @@ def _step_requirements():
                     "AI-recommended certificates that match the job title.",
                 ),
             )
+
+    with requirement_panel(
+        icon="📊",
+        title=tr("Markt-Insights", "Market insights"),
+        caption=tr(
+            "Zeigt Gehalts- und Verfügbarkeitswirkung deiner Muss-Anforderungen.",
+            "Highlights salary and availability impact for your must-haves.",
+        ),
+        tooltip=tr(
+            "Vergleich der ausgewählten Skills mit Marktbenchmarks – neutral, wenn keine Daten vorliegen.",
+            "Compares the selected skills with market benchmarks – neutral when no data is available.",
+        ),
+        parent=must_tab,
+    ):
+        must_insight_skills = (
+            list(data["requirements"].get("hard_skills_required", []))
+            + list(data["requirements"].get("soft_skills_required", []))
+            + list(data["requirements"].get("tools_and_technologies", []))
+            + _collect_combined_certificates(data["requirements"])
+        )
+        render_skill_market_insights(
+            must_insight_skills,
+            segment_label=tr("Muss-Anforderungen", "Must-have requirements"),
+            empty_message=tr(
+                "Noch keine Muss-Skills ausgewählt – ergänze Fähigkeiten für Markt-Insights.",
+                "No must-have skills selected yet – add capabilities to see market insights.",
+            ),
+        )
 
     with requirement_panel(
         icon="🌐",
@@ -5510,6 +5565,32 @@ def _step_requirements():
             ),
         )
         data["requirements"]["language_level_english"] = selected_level
+
+    with requirement_panel(
+        icon="🗣️",
+        title=tr("Markt-Insights", "Market insights"),
+        caption=tr(
+            "Bewertet Sprachanforderungen hinsichtlich Gehalt und Verfügbarkeit.",
+            "Evaluates language requirements for salary and availability impact.",
+        ),
+        tooltip=tr(
+            "Zeigt, wie verpflichtende oder optionale Sprachen den Talentpool beeinflussen.",
+            "Shows how mandatory or optional languages influence the talent pool.",
+        ),
+        parent=language_tab,
+    ):
+        language_insight_skills = (
+            list(data["requirements"].get("languages_required", []))
+            + list(data["requirements"].get("languages_optional", []))
+        )
+        render_skill_market_insights(
+            language_insight_skills,
+            segment_label=tr("Sprachen", "Languages"),
+            empty_message=tr(
+                "Noch keine Sprachanforderungen gewählt – ergänze Sprachen für Markt-Insights.",
+                "No language requirements selected yet – add languages to see market insights.",
+            ),
+        )
 
     st.session_state[StateKeys.SKILL_BUCKETS] = {
         "must": _unique_normalized(

@@ -6,7 +6,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Mapping
+from typing import Any, Mapping, TypedDict
 
 import streamlit as st
 from pydantic import BaseModel, Field
@@ -76,6 +76,27 @@ class _SalaryInputs:
     language_level_english: str | None
 
 
+class SalaryImpact(TypedDict, total=False):
+    """Describe how a factor influenced the final salary estimate."""
+
+    absolute: float
+    relative: float | None
+    user_value: float
+    user_currency: str | None
+    note: str
+
+
+class SalaryFactor(TypedDict, total=False):
+    """Single entry for the salary explanation table."""
+
+    key: str
+    value: Any
+    impact: SalaryImpact | None
+
+
+SalaryExplanation = list[SalaryFactor]
+
+
 def estimate_salary_expectation() -> None:
     """Calculate and persist the salary expectation for the current profile."""
 
@@ -96,7 +117,7 @@ def estimate_salary_expectation() -> None:
         return
 
     result: dict[str, Any] | None = None
-    explanation: str | None = None
+    explanation: SalaryExplanation | str | None = None
     source = "model"
 
     if call_chat_api and build_extraction_tool and not st.session_state.get(
@@ -112,7 +133,7 @@ def estimate_salary_expectation() -> None:
 
     if not result:
         st.session_state[UIKeys.SALARY_ESTIMATE] = None
-        st.session_state[UIKeys.SALARY_EXPLANATION] = explanation or ""
+        st.session_state[UIKeys.SALARY_EXPLANATION] = explanation
         st.session_state[UIKeys.SALARY_REFRESH] = _now_iso()
         return
 
@@ -120,7 +141,7 @@ def estimate_salary_expectation() -> None:
         result["currency"] = inputs.current_currency or _guess_currency(inputs.country)
 
     st.session_state[UIKeys.SALARY_ESTIMATE] = {**result, "source": source}
-    st.session_state[UIKeys.SALARY_EXPLANATION] = explanation or ""
+    st.session_state[UIKeys.SALARY_EXPLANATION] = explanation
     st.session_state[UIKeys.SALARY_REFRESH] = _now_iso()
 
 
@@ -593,6 +614,122 @@ def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str 
         {"salary_min": salary_min, "salary_max": salary_max, "currency": currency},
         explanation,
     )
+
+
+def _build_fallback_explanation(
+    inputs: _SalaryInputs,
+    benchmark_role: str | None,
+    bench_country: str | None,
+    currency: str | None,
+    salary_min: float | None,
+    salary_max: float | None,
+    raw_range: str,
+) -> SalaryExplanation:
+    explanation: SalaryExplanation = [
+        {
+            "key": "source",
+            "value": tr(
+                "Fallback: Benchmark-Daten",
+                "Fallback: benchmark data",
+            ),
+            "impact": {"note": "fallback_source"},
+        }
+    ]
+
+    if benchmark_role:
+        explanation.append(
+            {
+                "key": "benchmark_role",
+                "value": benchmark_role,
+                "impact": None,
+            }
+        )
+    if bench_country:
+        explanation.append(
+            {
+                "key": "benchmark_country",
+                "value": bench_country,
+                "impact": None,
+            }
+        )
+    if raw_range:
+        explanation.append(
+            {
+                "key": "benchmark_range_raw",
+                "value": raw_range,
+                "impact": None,
+            }
+        )
+    if currency:
+        explanation.append(
+            {
+                "key": "currency",
+                "value": currency,
+                "impact": None,
+            }
+        )
+
+    if salary_min is not None:
+        explanation.append(
+            {
+                "key": "salary_min",
+                "value": salary_min,
+                "impact": _build_salary_impact(
+                    inputs.current_min,
+                    salary_min,
+                    inputs.current_currency,
+                    currency,
+                ),
+            }
+        )
+    if salary_max is not None:
+        explanation.append(
+            {
+                "key": "salary_max",
+                "value": salary_max,
+                "impact": _build_salary_impact(
+                    inputs.current_max,
+                    salary_max,
+                    inputs.current_currency,
+                    currency,
+                ),
+            }
+        )
+
+    return explanation
+
+
+def _build_salary_impact(
+    user_value: float | None,
+    benchmark_value: float | None,
+    user_currency: str | None,
+    benchmark_currency: str | None,
+) -> SalaryImpact | None:
+    if benchmark_value is None:
+        return {"note": "no_benchmark_value"}
+    if user_value is None:
+        return {"note": "no_user_input"}
+
+    absolute = user_value - benchmark_value
+    relative = None
+    if benchmark_value:
+        relative = absolute / benchmark_value
+
+    impact: SalaryImpact = {
+        "absolute": absolute,
+        "relative": relative,
+        "user_value": user_value,
+        "user_currency": user_currency,
+    }
+
+    if (
+        user_currency
+        and benchmark_currency
+        and user_currency.strip().upper() != benchmark_currency.strip().upper()
+    ):
+        impact["note"] = "currency_mismatch"
+
+    return impact
 
 
 def _canonical_salary_role(job_title: str) -> str | None:

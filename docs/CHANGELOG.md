@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: detail salary fallback factors with structured deltas and localized table view
 - feat: add localized overview/edit toggle to summary tabs with inline editing helpers
 - feat: show summary highlights with role, company, location, salary, and skills above wizard tabs
 - chore: raise OpenAI SDK floor to 1.40.0 for built-in JSON schema text.format support
@@ -20,6 +21,7 @@
 - feat: refactor job ad generation to use tone-aware LLM prompts with Markdown fallback
 - feat: auto-regenerate job ad and interview outputs when summary follow-up answers are applied
 - feat: redesign requirements step with vertical panels and inline AI suggestions
+- feat: add requirements skill market insights with salary/availability bubble chart
 - fix: prevent wizard navigation deadlock when job title is missing
 - feat: route CLI file extraction through ingest.extractors for OCR and text support
 - fix: surface consistent OCR requirement errors when scanned PDFs lack dependencies

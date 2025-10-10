@@ -74,6 +74,7 @@ the base model if needed.
 - **Glassmorphic theme**: browser-optimized design with a hero background
 - **Expanded skills section**: distinguish must-have and nice-to-have hard/soft skills, plus certificates, language requirements, and tools & technologies
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
+- **Skill market insights**: inline bubble chart compares salary impact and availability for the currently selected skills (must-have, nice-to-have, and languages)
 - **Company insights**: specify headquarters location, company size, brand and contact details for clearer context
 - **Smart autofill suggestions**: accept or dismiss HQ/location and contact name proposals derived from other inputs, with opt-out memory
 - **Detailed role setup**: capture desired start date, direct reports, contract type and optional KPIs or key projects via an expandable section
