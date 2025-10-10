@@ -30,6 +30,38 @@ STRICT_JSON = True
 CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
+def normalise_model_name(value: str | None) -> str:
+    """Return ``value`` with legacy model aliases mapped to current names."""
+
+    if not value:
+        return ""
+    candidate = value.strip()
+    if not candidate:
+        return ""
+
+    lowered = candidate.lower()
+    legacy_aliases = [
+        ("gpt-4o-mini-2024-08-06", "gpt-5-nano"),
+        ("gpt-4o-mini-2024-07-18", "gpt-5-nano"),
+        ("gpt-4o-mini-2024-05-13", "gpt-5-nano"),
+        ("gpt-4o-mini", "gpt-5-nano"),
+        ("gpt-4o-latest", "gpt-5-mini"),
+        ("gpt-4o-2024-08-06", "gpt-5-mini"),
+        ("gpt-4o-2024-05-13", "gpt-5-mini"),
+        ("gpt-4o", "gpt-5-mini"),
+    ]
+
+    for legacy, replacement in legacy_aliases:
+        if lowered == legacy or lowered.startswith(f"{legacy}-"):
+            return replacement
+
+    if lowered.startswith("gpt-4o-mini"):
+        return "gpt-5-nano"
+    if lowered.startswith("gpt-4o"):
+        return "gpt-5-mini"
+    return candidate
+
+
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
 
@@ -39,22 +71,24 @@ def _detect_default_model() -> str:
 
     env_default = os.getenv("DEFAULT_MODEL")
     if env_default:
-        return env_default
+        normalised = normalise_model_name(env_default)
+        return normalised or "gpt-5-mini"
     return "gpt-5-mini"
 
 
 DEFAULT_MODEL = _detect_default_model()
 REASONING_EFFORT = os.getenv("REASONING_EFFORT", "medium")
 
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)
+OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
     openai_secrets = st.secrets["openai"]
     OPENAI_API_KEY = openai_secrets.get("OPENAI_API_KEY", OPENAI_API_KEY)
-    OPENAI_MODEL = openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)
+    OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
     OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
     VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
 except Exception:
@@ -105,8 +139,13 @@ MODEL_ROUTING: Dict[str, str] = {
     "embedding": EMBED_MODEL,
 }
 
+for key, value in list(MODEL_ROUTING.items()):
+    if key == "embedding":
+        continue
+    MODEL_ROUTING[key] = normalise_model_name(value) or value
 
-def _normalise_override(value: object) -> str | None:
+
+def normalise_model_override(value: object) -> str | None:
     """Normalize manual model override values."""
 
     if not isinstance(value, str):
@@ -116,17 +155,20 @@ def _normalise_override(value: object) -> str | None:
         return None
     if candidate.lower() in {"auto", "automatic", "default"}:
         return None
-    return candidate
+    return normalise_model_name(candidate)
 
 
 def _user_model_override() -> str | None:
     """Return a manually selected model override, if present."""
 
     try:
-        override = _normalise_override(st.session_state.get("model_override"))
+        raw_value = st.session_state.get("model_override")
+        override = normalise_model_override(raw_value)
     except Exception:  # pragma: no cover - Streamlit session not initialised
         override = None
     if override:
+        if raw_value != override:
+            st.session_state["model_override"] = override
         return override
     return None
 
@@ -144,7 +186,7 @@ def get_model_for(task: ModelTask | str, *, override: str | None = None) -> str:
     """Return the configured model for ``task`` respecting manual overrides."""
 
     if override:
-        return override
+        return normalise_model_name(override) or GPT5_MINI
     user_override = _user_model_override()
     if user_override:
         return user_override

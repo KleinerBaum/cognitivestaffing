@@ -135,7 +135,9 @@ Run `streamlit run app.py` to start the app locally and open the URL shown in yo
 
 With a standard OpenAI API key, the app defaults to `gpt-5-mini`. Set
 `OPENAI_MODEL` to another Responses-compatible chat model if you need to force
-an alternative.
+an alternative. Legacy `gpt-4o` and `gpt-4o-mini` values (including dated
+suffixes) are remapped automatically to the new GPT-5 equivalents so older
+deployments keep working without manual intervention.
 
 ### Model selection & reasoning effort
 

@@ -22,3 +22,12 @@ def test_invalid_base_url_sets_flag(monkeypatch):
     monkeypatch.setattr(es, "OPENAI_BASE_URL", "not a url", raising=False)
     es.ensure_state()
     assert st.session_state["openai_base_url_invalid"] is True
+
+
+def test_ensure_state_normalises_legacy_models():
+    st.session_state.clear()
+    st.session_state["model"] = "gpt-4o"
+    st.session_state["model_override"] = "gpt-4o-mini"
+    es.ensure_state()
+    assert st.session_state["model"] == "gpt-5-mini"
+    assert st.session_state["model_override"] == "gpt-5-nano"

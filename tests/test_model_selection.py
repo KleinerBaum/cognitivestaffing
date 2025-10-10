@@ -59,3 +59,18 @@ def test_manual_override_reroutes_all_tasks(monkeypatch):
     out = openai_utils.suggest_benefits("Engineer")
     assert captured["model"] == "gpt-5-mini"
     assert out == ["BenefitA", "BenefitB"]
+
+
+def test_legacy_override_aliases_to_current_model(monkeypatch):
+    captured = {}
+    st.session_state.clear()
+    st.session_state["model_override"] = "gpt-4o-mini-2024-07-18"
+
+    def fake_call_chat_api(messages, model=None, **kwargs):
+        captured["model"] = model
+        return ChatCallResult("- BenefitA\n- BenefitB", [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+    out = openai_utils.suggest_benefits("Engineer")
+    assert captured["model"] == "gpt-5-nano"
+    assert out == ["BenefitA", "BenefitB"]
