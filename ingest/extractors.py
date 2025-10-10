@@ -22,6 +22,18 @@ logger = logging.getLogger(__name__)
 _REDIRECT_STATUSES = {301, 302, 307, 308}
 
 
+class _DocConversionError(RuntimeError):
+    """Base error for DOC → DOCX conversion issues."""
+
+
+class _DocConversionUnavailableError(_DocConversionError):
+    """Raised when no converter is available for legacy Word files."""
+
+
+class _DocConversionFailedError(_DocConversionError):
+    """Raised when a converter is available but the conversion failed."""
+
+
 def _fetch_url(url: str, timeout: float = 15.0) -> str:
     """Fetch raw HTML from ``url`` with timeout and custom user agent.
 
@@ -168,6 +180,19 @@ def extract_text_from_file(file) -> StructuredDocument:
         return _extract_pdf(io.BytesIO(data), name)
     if suffix == ".docx":
         return _extract_docx(io.BytesIO(data), name)
+    if suffix == ".doc":
+        try:
+            converted = _convert_doc_to_docx_bytes(data)
+        except _DocConversionUnavailableError as exc:
+            raise ValueError(
+                "doc conversion unavailable: convert the file to .docx and try again"
+            ) from exc
+        except _DocConversionFailedError as exc:
+            raise ValueError(
+                "doc conversion failed: convert the file to .docx and try again"
+            ) from exc
+        new_name = re.sub(r"\.doc$", ".docx", name)
+        return _extract_docx(io.BytesIO(converted), new_name)
     text_suffixes = {
         ".txt",
         ".md",
@@ -192,6 +217,40 @@ def extract_text_from_file(file) -> StructuredDocument:
     text = re.sub(r"\r\n?", "\n", text)
     text = re.sub(r"\s+$", "", text, flags=re.MULTILINE)
     return build_plain_text_document(text, source=name)
+
+
+def _convert_doc_to_docx_bytes(data: bytes) -> bytes:
+    """Convert legacy DOC bytes to DOCX bytes using optional converters."""
+
+    try:
+        import mammoth  # type: ignore
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise _DocConversionUnavailableError("mammoth not installed") from exc
+
+    converter = getattr(mammoth, "convert_to_docx_bytes", None)
+    if converter is None:
+        converter = getattr(mammoth, "convert_to_docx", None)
+    if converter is None:
+        raise _DocConversionUnavailableError("mammoth doc converter missing")
+
+    try:
+        try:
+            result = converter(io.BytesIO(data))
+        except TypeError:
+            result = converter(data)
+    except Exception as exc:  # pragma: no cover - converter failure
+        raise _DocConversionFailedError("mammoth conversion failed") from exc
+
+    if isinstance(result, (bytes, bytearray)):
+        return bytes(result)
+    value = getattr(result, "value", None)
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value)
+    if isinstance(result, dict) and isinstance(result.get("value"), (bytes, bytearray)):
+        return bytes(result["value"])
+    if isinstance(result, tuple) and result and isinstance(result[0], (bytes, bytearray)):
+        return bytes(result[0])
+    raise _DocConversionFailedError("unexpected converter output")
 
 
 def _iter_block_items(doc: Any) -> Iterable[Paragraph | Table]:

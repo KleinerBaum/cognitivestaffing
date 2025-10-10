@@ -25,6 +25,7 @@ the base model if needed.
 - **Advantages page**: explore key benefits and jump straight into the wizard via a dedicated button
 - **Legal information page**: centralises imprint, ESCO licence notice and disclaimers for compliant launches
 - **One‑hop extraction**: Parse PDFs/DOCX/TXT/URLs into 20+ fields
+- **Legacy Word safeguard**: `.doc` uploads auto-convert via optional Mammoth support; otherwise users get a localized hint to save as `.docx`
 - **Robust base field extraction**: heuristics recover job title, company name and city when the model misses them
 - **NER-backed location fallback**: shared spaCy pipeline fills missing city/country data in German postings when regex fails
 - **Canonical geo/language normalisation**: pycountry-backed mapper standardises German country and language inputs (Deutschland→Germany, Deutsch→German) and deduplicates case variants

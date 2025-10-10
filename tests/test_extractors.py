@@ -3,8 +3,10 @@ import sys
 import types
 
 import pytest
+from docx import Document
 from pypdf import PdfWriter
 
+import ingest.extractors as extractors
 from ingest.extractors import extract_text_from_file
 
 
@@ -84,4 +86,45 @@ def test_extract_pdf_missing_ocr(monkeypatch) -> None:
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
     with pytest.raises(RuntimeError, match="ocr dependencies"):
+        extract_text_from_file(f)
+
+
+def _docx_bytes(text: str) -> bytes:
+    document = Document()
+    document.add_paragraph(text)
+    buf = io.BytesIO()
+    document.save(buf)
+    return buf.getvalue()
+
+
+def test_extract_doc_with_conversion(monkeypatch) -> None:
+    converted = _docx_bytes("Converted text")
+
+    monkeypatch.setattr(
+        extractors,
+        "_convert_doc_to_docx_bytes",
+        lambda data: converted,
+    )
+
+    f = io.BytesIO(b"legacy doc data")
+    f.name = "legacy.doc"
+
+    result = extract_text_from_file(f)
+    assert "Converted text" in result.text
+
+
+def test_extract_doc_conversion_unavailable(monkeypatch) -> None:
+    def _fail(_: bytes) -> bytes:
+        raise extractors._DocConversionUnavailableError("missing")
+
+    monkeypatch.setattr(
+        extractors,
+        "_convert_doc_to_docx_bytes",
+        _fail,
+    )
+
+    f = io.BytesIO(b"legacy doc data")
+    f.name = "legacy.doc"
+
+    with pytest.raises(ValueError, match=r"convert .*\.docx"):
         extract_text_from_file(f)
