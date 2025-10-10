@@ -10,7 +10,14 @@ import streamlit as st
 from pydantic import ValidationError
 
 from constants.keys import StateKeys
-from config import OPENAI_API_KEY, OPENAI_BASE_URL, REASONING_EFFORT, OPENAI_MODEL
+from config import (
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    REASONING_EFFORT,
+    OPENAI_MODEL,
+    normalise_model_name,
+    normalise_model_override,
+)
 from core.schema import coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
 
@@ -87,8 +94,14 @@ def ensure_state() -> None:
         st.session_state["lang"] = "de"
     if "model" not in st.session_state:
         st.session_state["model"] = OPENAI_MODEL
+    else:
+        current_model = normalise_model_name(st.session_state.get("model"))
+        st.session_state["model"] = current_model or OPENAI_MODEL
     if "model_override" not in st.session_state:
         st.session_state["model_override"] = ""
+    else:
+        override = normalise_model_override(st.session_state.get("model_override"))
+        st.session_state["model_override"] = override or ""
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "openai_api_key_missing" not in st.session_state:
