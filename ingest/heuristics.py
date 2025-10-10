@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import List, Mapping, MutableMapping, Optional, Tuple
+from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from models.need_analysis import NeedAnalysisProfile
 from nlp.entities import extract_location_entities
@@ -60,6 +60,32 @@ _COMMON_CITIES = [
     "Karlsruhe",
     "Münster",
 ]
+
+_LOCATION_KEYWORDS = {
+    "remote",
+    "hybrid",
+    "onsite",
+    "on-site",
+    "on site",
+    "vor ort",
+    "büro",
+    "office",
+    "germany",
+    "deutschland",
+    "austria",
+    "österreich",
+    "switzerland",
+    "schweiz",
+    "europe",
+    "europa",
+    "bavaria",
+    "bayern",
+    "nrw",
+}
+
+_LOCATION_KEYWORD_NORMALIZED = {
+    re.sub(r"[\W_]+", "", keyword).casefold() for keyword in _LOCATION_KEYWORDS
+}
 
 _JOB_TYPE_MAP = {
     "apprenticeship": [
@@ -198,6 +224,8 @@ _BONUS_TEXT_RE = re.compile(
     r"(?:bonus|provision|pr[aä]mie|commission)[^\n]*",
     re.IGNORECASE,
 )
+
+_POSTAL_CODE_RE = re.compile(r"\b\d{4,5}\b")
 
 # Requirement extraction helpers
 _REQ_REQUIRED_HEADINGS = {
@@ -712,24 +740,179 @@ def _normalize_gender_suffix(title: str) -> str:
     return normalized.rstrip("-–—:,/|").strip()
 
 
-def guess_job_title(text: str) -> str:
+def _normalize_for_compare(value: str) -> str:
+    return re.sub(r"[\W_]+", "", value).casefold()
+
+
+def _segment_is_city(segment: str) -> bool:
+    cleaned = segment.strip()
+    if not cleaned:
+        return False
+    lower = cleaned.casefold()
+    for city in _COMMON_CITIES:
+        if lower == city.casefold():
+            return True
+    return False
+
+
+def _is_location_token(token: str, known_locations: set[str]) -> bool:
+    normalized = _normalize_for_compare(token)
+    if not normalized:
+        return False
+    if normalized in known_locations:
+        return True
+    if normalized in _LOCATION_KEYWORD_NORMALIZED:
+        return True
+    if _segment_is_city(token):
+        return True
+    return False
+
+
+def _looks_like_location_line(line: str, known_locations: set[str]) -> bool:
+    if not line:
+        return False
+    stripped = line.strip("-–—•|· ")
+    if not stripped:
+        return False
+    comparable = _normalize_for_compare(stripped)
+    if comparable in known_locations:
+        return True
+    if _segment_is_city(stripped):
+        return True
+    if _POSTAL_CODE_RE.search(stripped):
+        segments = [seg.strip() for seg in re.split(r"[|/•·,]", stripped) if seg.strip()]
+        if not segments:
+            return True
+        if all(
+            _is_location_token(segment, known_locations) or _POSTAL_CODE_RE.search(segment)
+            for segment in segments
+        ):
+            return True
+    segments = [seg.strip() for seg in re.split(r"[|/•·,]", stripped) if seg.strip()]
+    if len(segments) > 1:
+        if all(
+            _is_location_token(segment, known_locations)
+            or _POSTAL_CODE_RE.search(segment)
+            or _segment_is_city(segment)
+            for segment in segments
+        ):
+            return True
+    tokens = [tok for tok in stripped.split() if tok]
+    if len(tokens) <= 3:
+        seen_location = False
+        for tok in tokens:
+            if _POSTAL_CODE_RE.fullmatch(tok):
+                seen_location = True
+                continue
+            if _is_location_token(tok, known_locations):
+                seen_location = True
+                continue
+            return False
+        if seen_location:
+            return True
+    return False
+
+
+def _line_matches_known_value(line: str, known_values: set[str]) -> bool:
+    if not line:
+        return False
+    normalized = _normalize_for_compare(line)
+    if not normalized:
+        return False
+    if normalized in known_values:
+        return True
+    for value in known_values:
+        if value and value in normalized:
+            return True
+    return False
+
+
+def _should_skip_line(line: str, known_values: set[str], known_locations: set[str]) -> bool:
+    if _line_matches_known_value(line, known_values):
+        return True
+    if _looks_like_location_line(line, known_locations):
+        return True
+    return False
+
+
+def _coerce_strings(values) -> list[str]:
+    coerced: list[str] = []
+    for value in values:
+        if isinstance(value, str):
+            candidate = value.strip()
+        elif value is not None:
+            candidate = str(value).strip()
+        else:
+            continue
+        if candidate:
+            coerced.append(candidate)
+    return coerced
+
+
+def _collect_locked_values(
+    metadata: Mapping[str, object] | None,
+    field: str,
+    locked_fields: set[str],
+) -> list[str]:
+    if not isinstance(metadata, Mapping):
+        return []
+    if field not in locked_fields:
+        return []
+    hints: list[str] = []
+    rules = metadata.get("rules")
+    if isinstance(rules, Mapping):
+        rule_meta = rules.get(field)
+        if isinstance(rule_meta, Mapping):
+            value = rule_meta.get("value")
+            if value is not None:
+                hints.extend(_coerce_strings([value]))
+    for key in ("locked_field_values", "locked_fields_map", "locked_hints"):
+        mapping = metadata.get(key)
+        if isinstance(mapping, Mapping):
+            value = mapping.get(field)
+            if value is not None:
+                hints.extend(_coerce_strings([value]))
+    return hints
+
+
+def guess_job_title(
+    text: str,
+    *,
+    skip_phrases: Sequence[str] | None = None,
+    known_locations: Sequence[str] | None = None,
+) -> str:
     """Return a basic job title guess from ``text``."""
     if not text:
         return ""
     lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
     if not lines:
         return ""
-    first_line = lines[0]
-    include_second = False
-    if len(lines) > 1 and _should_include_second_line(first_line):
-        second_line = lines[1].lstrip()
-        first_line = f"{first_line.rstrip()} {second_line}"
-        include_second = True
-    first_line = first_line.split("|")[0].strip()
-    if not include_second:
-        first_line = re.split(r"\s[-–—]\s", first_line)[0].strip()
-    title = _normalize_gender_suffix(first_line)
-    return title
+    known_values = {
+        _normalize_for_compare(value)
+        for value in skip_phrases or []
+        if isinstance(value, str) and value.strip()
+    }
+    location_values = {
+        _normalize_for_compare(value)
+        for value in known_locations or []
+        if isinstance(value, str) and value.strip()
+    }
+    for index, first_line in enumerate(lines):
+        if _should_skip_line(first_line, known_values, location_values):
+            continue
+        include_second = False
+        if index + 1 < len(lines) and _should_include_second_line(first_line):
+            second_line = lines[index + 1].lstrip()
+            if not _should_skip_line(second_line, known_values, location_values):
+                first_line = f"{first_line.rstrip()} {second_line}"
+                include_second = True
+        candidate = first_line.split("|")[0].strip()
+        if not include_second:
+            candidate = re.split(r"\s[-–—]\s", candidate)[0].strip()
+        title = _normalize_gender_suffix(candidate)
+        if not _should_skip_line(title, known_values, location_values):
+            return title
+    return ""
 
 
 def guess_company(text: str) -> Tuple[str, str]:
@@ -862,6 +1045,11 @@ def apply_basic_fallbacks(
         for field in metadata.get("high_confidence_fields", [])
         if isinstance(field, str)
     }
+    locked_fields = {
+        field
+        for field in metadata.get("locked_fields", [])
+        if isinstance(field, str)
+    }
     city_field = "location.primary_city"
     country_field = "location.country"
     city_invalid = city_field in invalid_fields
@@ -876,8 +1064,35 @@ def apply_basic_fallbacks(
 
     location_entities = None
 
-    if not profile.position.job_title:
-        profile.position.job_title = guess_job_title(text)
+    if not profile.position.job_title and "position.job_title" not in locked_fields:
+        company_hints = _coerce_strings(
+            [profile.company.name, profile.company.brand_name]
+        )
+        company_hints.extend(
+            _collect_locked_values(metadata, "company.name", locked_fields)
+        )
+        company_hints.extend(
+            _collect_locked_values(metadata, "company.brand_name", locked_fields)
+        )
+        location_hints = _coerce_strings(
+            [profile.location.primary_city, profile.location.country]
+        )
+        location_hints.extend(
+            _collect_locked_values(metadata, "location.primary_city", locked_fields)
+        )
+        location_hints.extend(
+            _collect_locked_values(metadata, "location.country", locked_fields)
+        )
+        skip_phrases = company_hints + _collect_locked_values(
+            metadata, "position.job_title", locked_fields
+        )
+        title_guess = guess_job_title(
+            text,
+            skip_phrases=skip_phrases,
+            known_locations=location_hints,
+        )
+        if title_guess:
+            profile.position.job_title = title_guess
     if not profile.company.name:
         name, brand = guess_company(text)
         if name:
