@@ -229,12 +229,25 @@ class Stakeholder(BaseModel):
 
     @field_validator("email", mode="before")
     @classmethod
-    def _blank_email_to_none(cls, value: str | None) -> str | None:
-        """Coerce blank email strings to ``None`` for optional storage."""
+    def _normalize_email(cls, value: EmailStr | str | None) -> str | None:
+        """Clean stakeholder email addresses before ``EmailStr`` validation."""
 
-        if isinstance(value, str) and not value.strip():
+        if value is None:
             return None
-        return value
+        if isinstance(value, EmailStr):
+            return str(value)
+        if not isinstance(value, str):
+            return None
+
+        candidate = value.strip()
+        if not candidate:
+            return None
+
+        try:
+            validated = validate_email(candidate, check_deliverability=False)
+        except EmailNotValidError:
+            return None
+        return validated.normalized.casefold()
 
 
 class Phase(BaseModel):

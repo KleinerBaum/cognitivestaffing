@@ -57,3 +57,9 @@ def test_stakeholder_blank_email_coerced_to_none():
     stakeholder = Stakeholder(name="Eve", role="HR", email="   ")
     assert stakeholder.email is None
     assert stakeholder.model_dump()["email"] is None
+
+
+def test_stakeholder_invalid_email_coerced_to_none():
+    stakeholder = Stakeholder(name="Frank", role="Lead", email="frank@localhost")
+    assert stakeholder.email is None
+    assert stakeholder.model_dump()["email"] is None
