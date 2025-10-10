@@ -44,6 +44,22 @@ def test_extract_pdf_with_ocr(monkeypatch) -> None:
     assert extract_text_from_file(f).text == "OCR TEXT"
 
 
+def test_extract_pdf_ocr_failure(monkeypatch) -> None:
+    f = _blank_pdf()
+
+    def _convert_fail(*_a, **_k):
+        raise RuntimeError("tesseract missing")
+
+    pdf2image = types.SimpleNamespace(convert_from_bytes=_convert_fail)
+    pytesseract = types.SimpleNamespace(image_to_string=lambda img: "")
+    monkeypatch.setitem(sys.modules, "pdf2image", pdf2image)
+    monkeypatch.setitem(sys.modules, "pytesseract", pytesseract)
+
+    with pytest.raises(ValueError, match="requires OCR support") as exc:
+        extract_text_from_file(f)
+    assert "tesseract missing" in str(exc.value)
+
+
 def test_extract_empty_file() -> None:
     f = io.BytesIO(b"")
     f.name = "d.txt"
@@ -85,7 +101,7 @@ def test_extract_pdf_missing_ocr(monkeypatch) -> None:
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
-    with pytest.raises(RuntimeError, match="ocr dependencies"):
+    with pytest.raises(ValueError, match="requires OCR support"):
         extract_text_from_file(f)
 
 

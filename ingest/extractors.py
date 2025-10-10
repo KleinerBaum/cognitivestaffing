@@ -181,9 +181,8 @@ def extract_text_from_file(file) -> StructuredDocument:
         Extracted text content.
 
     Raises:
-        ValueError: If the file is empty, too large or has an unsupported
-            extension. ``RuntimeError`` is raised when OCR dependencies are
-            missing for scanned PDFs.
+        ValueError: If the file is empty, too large, has an unsupported
+            extension or requires OCR support that is not available.
     """
     name = getattr(file, "name", "").lower()
     data = file.read()
@@ -416,6 +415,10 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
         raise ValueError("invalid pdf") from exc
 
     blocks: list[ContentBlock] = []
+    ocr_help = (
+        "scanned PDF extraction requires OCR support. Install pdf2image, "
+        "pytesseract, and the Tesseract OCR engine, then retry."
+    )
     for idx, page in enumerate(reader.pages, start=1):
         page_text = page.extract_text() or ""
         if not page_text.strip():
@@ -423,7 +426,7 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
                 from pdf2image import convert_from_bytes
                 import pytesseract
             except ImportError as err:  # pragma: no cover - optional OCR
-                raise RuntimeError("ocr dependencies missing") from err
+                raise ValueError(ocr_help) from err
             try:
                 images = convert_from_bytes(
                     buf.getvalue(), fmt="png", first_page=idx, last_page=idx
@@ -431,7 +434,7 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
                 ocr_text = "\n".join(pytesseract.image_to_string(img) for img in images)
                 page_text = (page_text + "\n" + ocr_text).strip()
             except Exception as err:  # pragma: no cover - OCR failure
-                raise RuntimeError("ocr failed") from err
+                raise ValueError(f"{ocr_help} ({err!s})") from err
         page_text = page_text.strip()
         if not page_text:
             continue

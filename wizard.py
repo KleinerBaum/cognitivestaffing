@@ -1159,6 +1159,14 @@ def on_file_uploaded() -> None:
                 ),
                 str(e),
             )
+        elif "requires ocr support" in msg:
+            display_error(
+                tr(
+                    "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
+                    "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
+                ),
+                str(e),
+            )
         else:
             display_error(
                 tr(
@@ -1166,18 +1174,6 @@ def on_file_uploaded() -> None:
                     "File contains no text – you can also enter the information manually in the following steps.",
                 ),
             )
-        st.session_state["source_error"] = True
-        return
-    except RuntimeError as e:  # pragma: no cover - OCR
-        st.session_state.pop("__prefill_profile_doc__", None)
-        st.session_state[StateKeys.RAW_BLOCKS] = []
-        display_error(
-            tr(
-                "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
-                "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
-            ),
-            str(e),
-        )
         st.session_state["source_error"] = True
         return
     except Exception as e:  # pragma: no cover - defensive
