@@ -379,6 +379,11 @@ _DOMAIN_SELECTORS: dict[str, tuple[str, ...]] = {
         "section[data-at='job-ad-section']",
         "#main-content",
     ),
+    "rheinbahn": (
+        "[data-at='job-ad-container']",
+        "section[data-at='job-ad-section']",
+        "#main-content",
+    ),
     "greenhouse": (
         "main#main",
         "#content",
