@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable, Mapping
@@ -527,7 +528,7 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             estimate_salary_expectation()
 
     estimate: Mapping[str, Any] | None = st.session_state.get(UIKeys.SALARY_ESTIMATE)
-    explanation: str | None = st.session_state.get(UIKeys.SALARY_EXPLANATION)
+    explanation = st.session_state.get(UIKeys.SALARY_EXPLANATION)
     timestamp: str | None = st.session_state.get(UIKeys.SALARY_REFRESH)
 
     if timestamp:
@@ -547,8 +548,10 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
                 "No estimate yet. Provide job title and location to get started.",
             )
         )
-        if explanation:
+        if isinstance(explanation, str) and explanation:
             st.caption(explanation)
+        elif explanation and not isinstance(explanation, str):
+            st.caption(str(explanation))
         return
 
     currency = estimate.get("currency") or profile.get("compensation", {}).get(
@@ -571,14 +574,18 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             f"**{tr('Eingegebene Spanne', 'Entered range')}**: "
             f"{_format_salary_range(user_min, user_max, user_currency)}"
         )
-        deltas = _format_salary_delta(
-            salary_min, salary_max, user_min, user_max, user_currency
-        )
-        if deltas:
-            st.caption(deltas)
 
-    if explanation:
+    factor_rows = _prepare_salary_factor_rows(
+        explanation,
+        benchmark_currency=currency,
+        user_currency=user_currency,
+    )
+    if factor_rows:
+        st.markdown(_build_salary_factor_table(factor_rows))
+    elif isinstance(explanation, str) and explanation:
         st.caption(explanation)
+    elif explanation and not isinstance(explanation, str):
+        st.caption(str(explanation))
 
 
 def _format_field_name(path: str) -> str:
@@ -609,40 +616,176 @@ def _format_salary_range(
     return _fmt(value)
 
 
-def _format_salary_delta(
-    est_min: Any,
-    est_max: Any,
-    user_min: Any,
-    user_max: Any,
-    currency: str | None,
-) -> str:
-    """Return textual delta between estimated and entered salary."""
+def _prepare_salary_factor_rows(
+    explanation: object,
+    *,
+    benchmark_currency: str | None,
+    user_currency: str | None,
+) -> list[tuple[str, str, str]]:
+    """Normalize explanation data for rendering."""
 
-    try:
-        est_min_f = float(est_min) if est_min is not None else None
-        est_max_f = float(est_max) if est_max is not None else None
-        user_min_f = float(user_min) if user_min is not None else None
-        user_max_f = float(user_max) if user_max is not None else None
-    except (TypeError, ValueError):
-        return ""
+    factors: list[Mapping[str, Any]] = []
+    if isinstance(explanation, list):
+        factors = [item for item in explanation if isinstance(item, Mapping)]
+    elif isinstance(explanation, Mapping):
+        candidate = explanation.get("factors") if "factors" in explanation else None
+        if isinstance(candidate, list):
+            factors = [item for item in candidate if isinstance(item, Mapping)]
+        else:
+            for key, value in explanation.items():
+                if isinstance(value, Mapping):
+                    item = dict(value)
+                    item.setdefault("key", key)
+                    factors.append(item)
+                else:
+                    factors.append({"key": key, "value": value, "impact": None})
+
+    rows: list[tuple[str, str, str]] = []
+    for factor in factors:
+        key = str(factor.get("key", ""))
+        label = _factor_label(key)
+        value = _factor_value(key, factor.get("value"), benchmark_currency)
+        impact = _factor_impact(
+            factor.get("impact"),
+            benchmark_currency,
+            user_currency,
+        )
+        rows.append((label, value, impact))
+
+    return rows
+
+
+_FACTOR_LABELS: dict[str, tuple[str, str]] = {
+    "source": ("Quelle", "Source"),
+    "benchmark_role": ("Benchmark-Rolle", "Benchmark role"),
+    "benchmark_country": ("Benchmark-Land", "Benchmark country"),
+    "benchmark_range_raw": ("Rohbereich", "Raw range"),
+    "currency": ("Währung", "Currency"),
+    "salary_min": ("Unteres Benchmark-Ende", "Benchmark lower bound"),
+    "salary_max": ("Oberes Benchmark-Ende", "Benchmark upper bound"),
+}
+
+
+_IMPACT_NOTES: dict[str, tuple[str, str]] = {
+    "fallback_source": (
+        "Automatischer Fallback auf Benchmark-Daten",
+        "Automatic fallback to benchmark data",
+    ),
+    "no_user_input": (
+        "Keine Nutzereingabe zum Vergleich",
+        "No user input to compare",
+    ),
+    "no_benchmark_value": (
+        "Keine Benchmark-Werte verfügbar",
+        "No benchmark values available",
+    ),
+    "currency_mismatch": (
+        "Nutzereingabe in anderer Währung",
+        "User input uses different currency",
+    ),
+}
+
+
+def _factor_label(key: str) -> str:
+    de, en = _FACTOR_LABELS.get(
+        key,
+        (key.replace("_", " ").replace(".", " → ").title(),) * 2,
+    )
+    return tr(de, en)
+
+
+def _factor_value(key: str, value: Any, currency: str | None) -> str:
+    if value is None or value == "":
+        return tr("Keine Angaben", "No data")
+    if key in {"salary_min", "salary_max"}:
+        return _format_salary_value(value, currency)
+    if isinstance(value, float):
+        return f"{value:,.0f}".replace(",", "·")
+    return str(value)
+
+
+def _factor_impact(
+    impact: Any,
+    benchmark_currency: str | None,
+    user_currency: str | None,
+) -> str:
+    if not impact:
+        return tr("Keine Auswirkung berechnet", "No impact calculated")
+    if not isinstance(impact, Mapping):
+        return str(impact)
 
     parts: list[str] = []
-    currency = currency or ""
-    if est_min_f is not None and user_min_f is not None:
-        diff_min = user_min_f - est_min_f
-        if abs(diff_min) >= 500:
-            parts.append(
-                tr("Min-Abweichung", "Min delta")
-                + f": {diff_min:+,.0f} {currency}".replace(",", "·")
-            )
-    if est_max_f is not None and user_max_f is not None:
-        diff_max = user_max_f - est_max_f
-        if abs(diff_max) >= 500:
-            parts.append(
-                tr("Max-Abweichung", "Max delta")
-                + f": {diff_max:+,.0f} {currency}".replace(",", "·")
-            )
-    return " · ".join(parts)
+    note = impact.get("note")
+    if note:
+        note_text = _IMPACT_NOTES.get(note)
+        if note_text:
+            parts.append(tr(*note_text))
+        else:
+            parts.append(str(note))
+
+    absolute = impact.get("absolute")
+    currency_to_use = impact.get("user_currency") or user_currency or benchmark_currency
+    if isinstance(absolute, (int, float)) and not math.isnan(absolute):
+        parts.append(_format_salary_value(absolute, currency_to_use, signed=True))
+
+    relative = impact.get("relative")
+    if isinstance(relative, (int, float)) and math.isfinite(relative):
+        parts.append(f"({relative:+.1%})")
+
+    user_value = impact.get("user_value")
+    if user_value is not None:
+        user_value_text = _format_salary_value(
+            user_value,
+            impact.get("user_currency") or user_currency or benchmark_currency,
+        )
+        parts.append(
+            tr("vs. Eingabe {value}", "vs. input {value}").format(value=user_value_text)
+        )
+
+    filtered = [segment for segment in parts if segment]
+    if not filtered:
+        return tr("Keine Auswirkung berechnet", "No impact calculated")
+    return " · ".join(filtered)
+
+
+def _format_salary_value(value: Any, currency: str | None, *, signed: bool = False) -> str:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    fmt = f"{numeric:+,.0f}" if signed else f"{numeric:,.0f}"
+    fmt = fmt.replace(",", "·")
+    if currency:
+        return f"{fmt} {currency}".strip()
+    return fmt
+
+
+def _build_salary_factor_table(rows: list[tuple[str, str, str]]) -> str:
+    if not rows:
+        return ""
+    header = (
+        tr("Faktor", "Factor"),
+        tr("Wert", "Value"),
+        tr("Wirkung", "Impact"),
+    )
+    lines = [
+        "| "
+        + " | ".join(_escape_table(segment) for segment in header)
+        + " |",
+        "| --- | --- | --- |",
+    ]
+    for label, value, impact in rows:
+        lines.append(
+            "| "
+            + " | ".join(_escape_table(segment) for segment in (label, value, impact))
+            + " |"
+        )
+    return "\n".join(lines)
+
+
+def _escape_table(text: str) -> str:
+    return str(text).replace("|", "\\|").replace("\n", "<br>")
 
 
 __all__ = ["render_sidebar"]
