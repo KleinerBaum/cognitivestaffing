@@ -168,8 +168,16 @@ render_sidebar()
 from wizard import run_wizard  # noqa: E402
 from pages import advantages  # noqa: E402
 
-wizard_page = st.Page(run_wizard, title="Wizard", icon=":material/auto_awesome:")
-advantages_page = st.Page(advantages.run, title="Advantages", icon="💡")
+wizard_page = st.Page(
+    run_wizard,
+    title=tr("Assistent", "Wizard"),
+    icon=":material/auto_awesome:",
+)
+advantages_page = st.Page(
+    advantages.run,
+    title=tr("Vorteile", "Advantages"),
+    icon="💡",
+)
 
 pg = st.navigation([wizard_page, advantages_page])
 pg.run()
