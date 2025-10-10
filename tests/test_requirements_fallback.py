@@ -1,6 +1,5 @@
 """Tests for requirement heuristics fallback."""
 
-from models.need_analysis import NeedAnalysisProfile
 from ingest.heuristics import apply_basic_fallbacks
 from models.need_analysis import NeedAnalysisProfile
 
@@ -78,3 +77,30 @@ def test_requirements_anforderungsprofil_heading() -> None:
     r = profile.requirements
     assert "Praxis mit CRM-Systemen" in r.hard_skills_required
     assert "Salesforce-Zertifizierung" in r.hard_skills_optional
+
+
+def test_duplicate_skills_favor_required_lists() -> None:
+    text = (
+        "Must-haves:\n"
+        "- Python\n"
+        "- Kommunikationsstärke\n"
+        "\n"
+        "Nice-to-haves:\n"
+        "- python\n"
+        "- Kommunikationsstärke\n"
+        "- AWS Zertifizierung\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    r = profile.requirements
+    assert any(skill.lower() == "python" for skill in r.hard_skills_required)
+    assert all(skill.lower() != "python" for skill in r.hard_skills_optional)
+    assert any("aws" in skill.lower() for skill in r.hard_skills_optional)
+    assert any("kommunikationsstärke" in skill.lower() for skill in r.soft_skills_required)
+    assert all(
+        "kommunikationsstärke" not in skill.lower() for skill in r.soft_skills_optional
+    )
+
+    tools = {tool.lower() for tool in r.tools_and_technologies}
+    assert "python" in tools
