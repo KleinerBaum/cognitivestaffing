@@ -42,3 +42,25 @@ def test_cli_uses_ingest_extractor(
 
     assert called["used"]
     assert capsys.readouterr().out.strip() == '{\n  "ok": true\n}'
+
+
+def test_cli_handles_missing_ocr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sample = tmp_path / "scan.pdf"
+    sample.write_bytes(b"PDF")
+
+    message = (
+        "scanned PDF extraction requires OCR support. Install pdf2image, "
+        "pytesseract, and the Tesseract OCR engine, then retry."
+    )
+
+    def fake_extract_text_from_file(_fh):
+        raise ValueError(message)
+
+    monkeypatch.setattr(
+        "ingest.extractors.extract_text_from_file", fake_extract_text_from_file
+    )
+    monkeypatch.setattr(sys, "argv", ["prog", "--file", str(sample)])
+
+    with pytest.raises(SystemExit) as exc:
+        cli_extract.main()
+    assert exc.value.code == message

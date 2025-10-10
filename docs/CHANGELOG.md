@@ -22,6 +22,7 @@
 - feat: redesign requirements step with vertical panels and inline AI suggestions
 - fix: prevent wizard navigation deadlock when job title is missing
 - feat: route CLI file extraction through ingest.extractors for OCR and text support
+- fix: surface consistent OCR requirement errors when scanned PDFs lack dependencies
 - fix: show user-friendly labels for missing critical fields
 - fix: stack columns and buttons on small screens for mobile usability
 - fix: send valid OpenAI tool definitions to avoid missing name errors
@@ -31,6 +32,7 @@
 - docs: clarify Responses API migration and removal of Assistants/Threads usage
 - docs: add bilingual legal information page including ESCO licensing notice
 - docs: document confidence indicators and locking metadata in README and pipeline guide
+- docs: expand local OCR setup instructions for CLI ingestion workflows
 - fix: show localized warning in requirements step when skill suggestions fail
 - fix: infer salary estimate country from primary city/HQ hints when explicit country is missing
 - feat: pass primary city and required skill context to the salary estimate model payload

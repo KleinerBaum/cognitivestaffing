@@ -239,7 +239,9 @@ start emitting spans. Both OTLP/HTTP and OTLP/gRPC exporters are supported.
 ### Optional: OCR for scanned PDFs
 
 Cognitive Needs can perform OCR on PDF pages without embedded text. Install the
-dependencies and corresponding system packages:
+dependencies and corresponding system packages so the ingestion helpers and
+`python -m cli.extract` can process scanned PDFs instead of exiting with the
+message "scanned PDF extraction requires OCR support...":
 
 ```bash
 pip install pdf2image pytesseract
