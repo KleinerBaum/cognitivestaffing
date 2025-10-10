@@ -3,7 +3,8 @@
 ## Unreleased
 - feat: add localized overview/edit toggle to summary tabs with inline editing helpers
 - feat: show summary highlights with role, company, location, salary, and skills above wizard tabs
-- chore: raise OpenAI SDK floor to 1.40.0 for built-in JSON schema response_format support
+- chore: raise OpenAI SDK floor to 1.40.0 for built-in JSON schema text.format support
+- fix: adapt Responses payloads to use the ``text.format`` JSON schema config instead of ``response_format``
 - feat: surface extraction confidence tiers with rule vs. AI indicators and UI legend
 - chore: refresh offline ESCO cache to the v1.1.1 snapshot (2025-10-09) and document refresh cadence
 - fix: enforce strict JSON schema payloads across extraction utilities

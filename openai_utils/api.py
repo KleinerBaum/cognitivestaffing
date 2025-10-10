@@ -340,14 +340,12 @@ def _prepare_payload(
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
+        text_config = payload.get("text", {}).copy()
+        format_config = {"type": "json_schema", **json_schema}
         if STRICT_JSON:
-            payload["response_format"] = {
-                "type": "json_schema",
-                "json_schema": json_schema,
-                "strict": True,
-            }
-        else:
-            payload["text"] = {"format": {"type": "json_schema", **json_schema}}
+            format_config["strict"] = True
+        text_config["format"] = format_config
+        payload["text"] = text_config
     if combined_tools:
         payload["tools"] = combined_tools
         if tool_choice is not None:
