@@ -110,30 +110,49 @@ def extract_text_from_url(url: str) -> StructuredDocument:
     """
     html = _fetch_url(url)
     blocks = _parse_html_blocks(html, source_url=url)
+
+    doc: StructuredDocument | None = None
     text = ""
     if blocks:
-        text = StructuredDocument.from_blocks(blocks, source=url).text
-    if not text:
+        doc = StructuredDocument.from_blocks(blocks, source=url)
+        text = doc.text
+
+    has_structure = bool(
+        doc and any(block.type in {"heading", "paragraph"} for block in doc.blocks)
+    )
+    needs_recovery = not text or len(text) < 200 or not has_structure
+
+    recovered_text = ""
+    if needs_recovery:
         try:
             import trafilatura
         except ImportError:  # pragma: no cover - optional dependency
-            text = ""
+            recovered_text = ""
         else:
-            text = (
-                trafilatura.extract(
-                    html,
-                    include_comments=False,
-                    include_tables=True,
+            extractor = getattr(trafilatura, "extract", None)
+            if callable(extractor):
+                recovered_text = (
+                    extractor(
+                        html,
+                        include_comments=False,
+                        include_tables=True,
+                    )
+                    or ""
                 )
-                or ""
-            )
-    if not text:
+        if recovered_text and len(recovered_text) > len(text):
+            return build_plain_text_document(recovered_text, source=url)
+
+    if not text and not recovered_text:
         raise ValueError("URL contains no extractable text")
+
     if not blocks:
-        return build_plain_text_document(text, source=url)
-    doc = StructuredDocument.from_blocks(blocks, source=url)
-    if not doc.text:
-        return build_plain_text_document(text, source=url)
+        final_text = recovered_text or text
+        return build_plain_text_document(final_text, source=url)
+
+    if doc is None or not doc.text:
+        final_text = recovered_text or text
+        return build_plain_text_document(final_text, source=url)
+
     return doc
 
 

@@ -49,13 +49,50 @@ STEPSTONE_FIXTURE = """
 </html>
 """
 
+RHEINBAHN_BOILERPLATE_FIXTURE = """
+<html>
+  <body>
+    <header>
+      <nav>
+        <ul>
+          <li>Startseite</li>
+          <li>Unternehmen</li>
+          <li>Karriere</li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <h1>Digitalisierung bei der Rheinbahn</h1>
+        <p>Gemeinsam gestalten wir Mobilität.</p>
+      </section>
+      <section class="boilerplate">
+        <p>Willkommen auf unserem Karriereportal.</p>
+      </section>
+      <footer>
+        <ul>
+          <li>Impressum</li>
+          <li>Datenschutz</li>
+          <li>Kontakt</li>
+        </ul>
+      </footer>
+    </main>
+  </body>
+</html>
+"""
+
 RHEINBAHN_FIXTURE_PATH = (
     PROJECT_ROOT / "tests" / "fixtures" / "html" / "rheinbahn_produktentwickler.html"
 )
 
 
 def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    html = "<html><body><p>Hello URL</p></body></html>"
+    html = (
+        "<html><body>"
+        "<p>Hello URL paragraph with additional context for testing.</p>"
+        "<p>" + "A" * 210 + "</p>"
+        "</body></html>"
+    )
 
     class Resp:
         status_code = 200
@@ -68,14 +105,15 @@ def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
         return Resp()
 
     fake_traf = types.SimpleNamespace(
-        extract=lambda *_args, **_kwargs: " Hello\n\nWorld "
+        extract=lambda *_args, **_kwargs: "Recovered fallback text"
     )
 
     monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
     monkeypatch.setitem(sys.modules, "trafilatura", fake_traf)
 
     doc = extract_text_from_url("http://example.com")
-    assert doc.text == "Hello URL"
+    assert "Hello URL paragraph" in doc.text
+    assert len(doc.text) > 200
     assert doc.blocks and doc.blocks[0].type == "paragraph"
 
 
@@ -127,6 +165,40 @@ def test_stepstone_like_content_extraction(
     assert "Design ETL jobs" in text
     assert "For candidates" not in text
     assert "Breadcrumbs" not in text
+
+
+def test_rheinbahn_boilerplate_triggers_trafilatura_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Resp:
+        status_code = 200
+        text = RHEINBAHN_BOILERPLATE_FIXTURE
+
+        def raise_for_status(self) -> None:  # pragma: no cover - stub
+            return None
+
+    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+        return Resp()
+
+    recovered = (
+        "Produktentwickler Digitalisierung\n\n"
+        "Darauf kannst du dich freuen: Moderne Arbeitswelten im Herzen von Düsseldorf.\n\n"
+        "Du gestaltest die digitale Zukunft im Verkehrsnetz und setzt innovative Services für unsere Fahrgäste um."
+    )
+
+    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+    fake_traf = types.SimpleNamespace(
+        extract=lambda *_args, **_kwargs: recovered,
+    )
+    monkeypatch.setitem(sys.modules, "trafilatura", fake_traf)
+
+    doc = extract_text_from_url(
+        "https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler-boilerplate"
+    )
+
+    assert "Produktentwickler Digitalisierung" in doc.text
+    assert "Darauf kannst du dich freuen" in doc.text
+    assert len(doc.text) > len("Startseite Unternehmen Karriere")
 
 
 def test_rheinbahn_content_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
