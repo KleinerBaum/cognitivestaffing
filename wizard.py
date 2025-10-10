@@ -107,6 +107,43 @@ class FieldLockConfig(TypedDict, total=False):
     confidence_message: str
     confidence_source: str
 
+
+@dataclass
+class FieldSourceInfo:
+    """Structured information about the provenance of a field value."""
+
+    descriptor: str
+    context: str | None
+    snippet: str | None
+    confidence: float | None
+    is_inferred: bool
+    url: str | None
+
+    def descriptor_with_context(self) -> str:
+        """Return the descriptor enriched with optional context."""
+
+        if self.context:
+            return f"{self.descriptor} ({self.context})"
+        return self.descriptor
+
+    def tooltip(self) -> str:
+        """Return a localized tooltip describing the source."""
+
+        parts: list[str] = [self.descriptor_with_context()]
+        if self.snippet:
+            parts.append(self.snippet)
+        if self.confidence is not None:
+            percent = round(float(self.confidence) * 100)
+            parts.append(
+                tr(
+                    "Vertrauen: {percent}%",
+                    "Confidence: {percent}%",
+                ).format(percent=percent)
+            )
+        if self.is_inferred:
+            parts.append(tr("Durch KI abgeleitet", "Inferred by AI"))
+        return " – ".join(part for part in parts if part)
+
 # Index of the first data entry step ("Unternehmen" / "Company")
 COMPANY_STEP_INDEX = 1
 
@@ -2584,7 +2621,15 @@ def _resolve_field_source_info(path: str) -> FieldSourceInfo | None:
 
     source_kind = str(entry.get("source_kind") or "job_posting")
     snippet = _truncate_snippet(entry.get("source_text"))
-    confidence = entry.get("confidence")
+    confidence_raw = entry.get("confidence")
+    confidence: float | None
+    if isinstance(confidence_raw, (int, float)):
+        confidence = float(confidence_raw)
+    else:
+        try:
+            confidence = float(confidence_raw)
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            confidence = None
     is_inferred = bool(entry.get("inferred"))
     context_bits: list[str] = []
     url: str | None = None
@@ -2619,7 +2664,7 @@ def _resolve_field_source_info(path: str) -> FieldSourceInfo | None:
         descriptor=descriptor,
         context=context,
         snippet=snippet,
-        confidence=confidence if isinstance(confidence, (int, float)) else None,
+        confidence=confidence,
         is_inferred=is_inferred,
         url=url,
     )
@@ -2804,6 +2849,8 @@ def _field_lock_config(
         icons.append(confidence_icon)
     if is_locked:
         icons.append("🔒")
+    if source_info:
+        icons.append("ℹ️")
     icon_prefix = " ".join(filter(None, icons))
     label_with_icon = f"{icon_prefix} {label}".strip() if icon_prefix else label
 
@@ -2817,7 +2864,35 @@ def _field_lock_config(
                 "Locked automatically – unlock before editing.",
             )
         )
-    help_text = " ".join(help_bits)
+    if source_info:
+        descriptor_plain = source_info.descriptor
+        descriptor_full = source_info.descriptor_with_context()
+        if source_info.is_inferred and descriptor_plain:
+            help_bits.append(
+                tr(
+                    "Von KI abgeleitet aus {source}",
+                    "Inferred by AI from {source}",
+                ).format(source=descriptor_plain)
+            )
+        source_descriptor = descriptor_full or descriptor_plain
+        if source_descriptor:
+            help_bits.append(
+                tr("Quelle: {source}", "Source: {source}").format(
+                    source=source_descriptor
+                )
+            )
+        if source_info.confidence is not None:
+            help_bits.append(
+                tr(
+                    "Vertrauen: {percent}%",
+                    "Confidence: {percent}%",
+                ).format(percent=round(float(source_info.confidence) * 100))
+            )
+        if source_info.snippet:
+            help_bits.append(source_info.snippet)
+        if source_info.url:
+            help_bits.append(source_info.url)
+    help_text = "\n\n".join(help_bits)
 
     config: FieldLockConfig = {"label": label_with_icon, "was_locked": was_locked}
     if confidence_tier:
