@@ -117,7 +117,11 @@ def _render_settings() -> None:
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
     dark_col, lang_col = st.columns(2)
     with dark_col:
-        st.toggle("Dark Mode 🌙", key="ui.dark_mode", on_change=_on_theme_toggle)
+        st.toggle(
+            tr("Dunkelmodus 🌙", "Dark mode 🌙"),
+            key="ui.dark_mode",
+            on_change=_on_theme_toggle,
+        )
     with lang_col:
         st.toggle(
             tr("🇩🇪 Deutsch", "🇬🇧 English"),
