@@ -1,0 +1,82 @@
+{
+  "python": {
+    "aliases": ["python", "python programming"],
+    "salary_delta_pct": 6.5,
+    "availability_index": 42.0
+  },
+  "java": {
+    "aliases": ["java"],
+    "salary_delta_pct": 5.0,
+    "availability_index": 48.0
+  },
+  "go": {
+    "aliases": ["go", "golang"],
+    "salary_delta_pct": 9.0,
+    "availability_index": 30.0
+  },
+  "aws": {
+    "aliases": ["aws", "amazon web services", "aws cloud"],
+    "salary_delta_pct": 8.0,
+    "availability_index": 34.0
+  },
+  "azure": {
+    "aliases": ["azure", "microsoft azure"],
+    "salary_delta_pct": 7.0,
+    "availability_index": 40.0
+  },
+  "kubernetes": {
+    "aliases": ["kubernetes", "k8s"],
+    "salary_delta_pct": 7.5,
+    "availability_index": 32.0
+  },
+  "react": {
+    "aliases": ["react", "react.js", "reactjs"],
+    "salary_delta_pct": 4.0,
+    "availability_index": 55.0
+  },
+  "communication": {
+    "aliases": ["communication", "kommunikation", "stakeholder communication"],
+    "salary_delta_pct": 1.0,
+    "availability_index": 70.0
+  },
+  "leadership": {
+    "aliases": ["leadership", "fuehrung", "team leadership"],
+    "salary_delta_pct": 2.0,
+    "availability_index": 60.0
+  },
+  "project management": {
+    "aliases": ["project management", "projektmanagement", "project planning"],
+    "salary_delta_pct": 3.0,
+    "availability_index": 65.0
+  },
+  "machine learning": {
+    "aliases": ["machine learning", "ml", "machine-learning"],
+    "salary_delta_pct": 10.0,
+    "availability_index": 28.0
+  },
+  "data engineering": {
+    "aliases": ["data engineering", "data pipelines", "datenintegration"],
+    "salary_delta_pct": 7.5,
+    "availability_index": 38.0
+  },
+  "english": {
+    "aliases": ["english", "englisch"],
+    "salary_delta_pct": 0.0,
+    "availability_index": 82.0
+  },
+  "german": {
+    "aliases": ["german", "deutsch"],
+    "salary_delta_pct": 3.5,
+    "availability_index": 55.0
+  },
+  "french": {
+    "aliases": ["french", "franzoesisch", "französisch"],
+    "salary_delta_pct": 2.0,
+    "availability_index": 52.0
+  },
+  "spanish": {
+    "aliases": ["spanish", "spanisch"],
+    "salary_delta_pct": 1.5,
+    "availability_index": 58.0
+  }
+}
