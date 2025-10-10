@@ -257,6 +257,55 @@ def test_call_chat_api_records_task_usage(monkeypatch):
     }
 
 
+def test_call_chat_api_handles_nested_usage(monkeypatch):
+    """Existing usage counters stored as mappings should not break aggregation."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.USAGE] = {
+        "input_tokens": {"total": 10},
+        "output_tokens": {"total": 20},
+        "by_task": {
+            ModelTask.EXTRACTION.value: {
+                "input": {"total": 4},
+                "output": {"total": 6},
+            }
+        },
+    }
+
+    class _FakeResponse:
+        def __init__(self) -> None:
+            self.output: list[dict[str, Any]] = []
+            self.output_text = "Done"
+            self.usage = {
+                "input_tokens": {"text": 3, "cached": 0, "total": 3},
+                "output_tokens": {"text": 2, "cached": 0, "total": 2},
+            }
+
+    class _FakeResponses:
+        @staticmethod
+        def create(**kwargs: Any):
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "Hi"}],
+        task=ModelTask.EXTRACTION,
+    )
+
+    assert result.content == "Done"
+    usage_state = st.session_state[StateKeys.USAGE]
+    assert usage_state["input_tokens"] == 13
+    assert usage_state["output_tokens"] == 22
+    assert usage_state["by_task"][ModelTask.EXTRACTION.value] == {
+        "input": 7,
+        "output": 8,
+    }
+
+
 def test_call_chat_api_includes_tool_name(monkeypatch):
     """Each tool spec passed to the API must include a top-level name."""
 

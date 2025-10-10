@@ -244,6 +244,32 @@ def _normalise_usage(usage_obj: Any) -> dict:
     return usage
 
 
+def _coerce_token_count(value: Any) -> int:
+    """Return an integer token count extracted from ``value``."""
+
+    if value is None:
+        return 0
+    if isinstance(value, Mapping):
+        for key in ("total", "total_tokens", "value", "tokens"):
+            if key in value:
+                nested = _coerce_token_count(value[key])
+                if nested:
+                    return nested
+        total = 0
+        for nested_value in value.values():
+            total += _coerce_token_count(nested_value)
+        return total
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        total = 0
+        for item in value:
+            total += _coerce_token_count(item)
+        return total
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _normalise_task(task: ModelTask | str | None) -> str:
     """Return a normalised identifier for ``task`` suitable for metrics."""
 
@@ -261,17 +287,21 @@ def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | 
         return
 
     usage_state = st.session_state[StateKeys.USAGE]
-    input_tokens = int(usage.get("input_tokens", 0) or 0)
-    output_tokens = int(usage.get("output_tokens", 0) or 0)
+    input_tokens = _coerce_token_count(usage.get("input_tokens"))
+    output_tokens = _coerce_token_count(usage.get("output_tokens"))
 
-    usage_state["input_tokens"] = usage_state.get("input_tokens", 0) + input_tokens
-    usage_state["output_tokens"] = usage_state.get("output_tokens", 0) + output_tokens
+    usage_state["input_tokens"] = _coerce_token_count(
+        usage_state.get("input_tokens", 0)
+    ) + input_tokens
+    usage_state["output_tokens"] = _coerce_token_count(
+        usage_state.get("output_tokens", 0)
+    ) + output_tokens
 
     task_key = _normalise_task(task)
     task_map = usage_state.setdefault("by_task", {})
     task_totals = task_map.setdefault(task_key, {"input": 0, "output": 0})
-    task_totals["input"] = task_totals.get("input", 0) + input_tokens
-    task_totals["output"] = task_totals.get("output", 0) + output_tokens
+    task_totals["input"] = _coerce_token_count(task_totals.get("input", 0)) + input_tokens
+    task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
 
 
 def _collect_tool_calls(response: Any) -> list[dict]:
@@ -570,14 +600,15 @@ def call_chat_api(
         tool_calls = _collect_tool_calls(response)
 
         usage = _normalise_usage(getattr(response, "usage", {}) or {})
-        for key, value in usage.items():
+        numeric_usage = {key: _coerce_token_count(value) for key, value in usage.items()}
+        for key, value in numeric_usage.items():
             accumulated_usage[key] = accumulated_usage.get(key, 0) + value
 
         if tool_calls:
             last_tool_calls = tool_calls
 
         if not tool_calls or not tool_functions:
-            merged_usage = dict(accumulated_usage) if accumulated_usage else dict(usage)
+            merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
             return ChatCallResult(content, result_tool_calls, merged_usage)
@@ -606,7 +637,7 @@ def call_chat_api(
             executed = True
 
         if not executed:
-            merged_usage = dict(accumulated_usage) if accumulated_usage else dict(usage)
+            merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
             return ChatCallResult(content, result_tool_calls, merged_usage)
