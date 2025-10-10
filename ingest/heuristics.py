@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
-from models.need_analysis import NeedAnalysisProfile
+from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import normalize_country, normalize_language_list
 
@@ -461,6 +461,50 @@ def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
     return base
 
 
+def _normalize_skill_marker(value: str) -> str:
+    """Return a normalized marker for comparing skill labels."""
+
+    return re.sub(r"\s+", " ", (value or "").strip()).casefold()
+
+
+def _dedupe_skill_tiers(requirements: Requirements) -> None:
+    """Remove duplicate skills across required/optional buckets."""
+
+    def _dedupe_primary(items: List[str]) -> Tuple[List[str], set[str]]:
+        seen: set[str] = set()
+        deduped: List[str] = []
+        for item in items:
+            marker = _normalize_skill_marker(item)
+            if not marker or marker in seen:
+                continue
+            seen.add(marker)
+            deduped.append(item)
+        return deduped, seen
+
+    def _dedupe_secondary(items: List[str], primary_markers: set[str]) -> List[str]:
+        seen: set[str] = set()
+        deduped: List[str] = []
+        for item in items:
+            marker = _normalize_skill_marker(item)
+            if not marker or marker in primary_markers or marker in seen:
+                continue
+            seen.add(marker)
+            deduped.append(item)
+        return deduped
+
+    hard_req, hard_req_markers = _dedupe_primary(requirements.hard_skills_required)
+    soft_req, soft_req_markers = _dedupe_primary(requirements.soft_skills_required)
+
+    requirements.hard_skills_required = hard_req
+    requirements.soft_skills_required = soft_req
+    requirements.hard_skills_optional = _dedupe_secondary(
+        requirements.hard_skills_optional, hard_req_markers
+    )
+    requirements.soft_skills_optional = _dedupe_secondary(
+        requirements.soft_skills_optional, soft_req_markers
+    )
+
+
 def _parse_salary_value(raw: str) -> Optional[float]:
     """Return a numeric salary value extracted from ``raw``."""
 
@@ -669,6 +713,8 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     r.hard_skills_optional = _merge_unique(r.hard_skills_optional, hard_opt)
     r.soft_skills_required = _merge_unique(r.soft_skills_required, soft_req)
     r.soft_skills_optional = _merge_unique(r.soft_skills_optional, soft_opt)
+
+    _dedupe_skill_tiers(r)
 
     _extract_tools_from_lists(profile)
 
