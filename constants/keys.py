@@ -40,6 +40,8 @@ class UIKeys:
     COMPANY_HQ_LOCATION = "ui.company.hq_location"
     COMPANY_BRAND_KEYWORDS = "ui.summary.company.brand_keywords"
     JOB_AD_BRAND_TONE = "ui.summary.job_ad.brand_keywords"
+    JOB_AD_BRAND_TONE_INPUT = "ui.summary.job_ad.brand_keywords.input"
+    JOB_AD_BRAND_TONE_SYNC_FLAG = "ui.summary.job_ad.brand_keywords.sync"
 
 
 class StateKeys:

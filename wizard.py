@@ -6053,9 +6053,22 @@ def _summary_company() -> None:
         value=data["company"].get("culture", ""),
         key="ui.summary.company.culture",
     )
+    company_brand_value = data["company"].get("brand_keywords", "")
+    company_brand_default = (
+        company_brand_value if isinstance(company_brand_value, str) else ""
+    )
+    if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state:
+        st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = company_brand_default
+
+    if st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG, False):
+        synced_brand = st.session_state.get(UIKeys.JOB_AD_BRAND_TONE)
+        st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = (
+            synced_brand if isinstance(synced_brand, str) else ""
+        )
+
     brand = st.text_input(
         tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-        value=data["company"].get("brand_keywords", ""),
+        value=st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS, ""),
         key=UIKeys.COMPANY_BRAND_KEYWORDS,
     )
     logo_bytes = st.session_state.get("company_logo")
@@ -6945,22 +6958,31 @@ def _step_summary(schema: dict, _critical: list[str]):
                 if isinstance(company_brand_state, str)
                 else brand_profile_text
             )
-            st.session_state[UIKeys.JOB_AD_BRAND_TONE] = initial_brand or ""
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE] = (initial_brand or "").strip()
+
+        stored_brand = (st.session_state.get(UIKeys.JOB_AD_BRAND_TONE) or "").strip()
+        if UIKeys.JOB_AD_BRAND_TONE_INPUT not in st.session_state:
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = stored_brand
 
         brand_value_input = st.text_input(
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-            value=st.session_state.get(UIKeys.JOB_AD_BRAND_TONE, ""),
-            key=UIKeys.JOB_AD_BRAND_TONE,
+            value=stored_brand,
+            key=UIKeys.JOB_AD_BRAND_TONE_INPUT,
         )
         normalized_brand = brand_value_input.strip()
         if normalized_brand:
             st.session_state[UIKeys.JOB_AD_BRAND_TONE] = normalized_brand
-            st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = normalized_brand
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = normalized_brand
             _update_profile("company.brand_keywords", normalized_brand)
         else:
-            st.session_state.pop(UIKeys.COMPANY_BRAND_KEYWORDS, None)
             st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE, None)
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = ""
             _update_profile("company.brand_keywords", None)
+
+        if normalized_brand != stored_brand:
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG] = True
+        else:
+            st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG, None)
 
         if suggestions:
             option_map = {s.key: s for s in suggestions}
