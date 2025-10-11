@@ -6056,7 +6056,7 @@ def _summary_company() -> None:
     brand = st.text_input(
         tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
         value=data["company"].get("brand_keywords", ""),
-        key="ui.summary.company.brand_keywords",
+        key=UIKeys.COMPANY_BRAND_KEYWORDS,
     )
     logo_bytes = st.session_state.get("company_logo")
     if logo_bytes:
@@ -6928,14 +6928,39 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     with next_step_cols[0]:
         st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
-        brand_initial = data.get("company", {}).get("brand_keywords")
+        brand_profile_value = data.get("company", {}).get("brand_keywords")
+        brand_profile_text = (
+            brand_profile_value if isinstance(brand_profile_value, str) else ""
+        )
+        if (
+            UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state
+            and brand_profile_text
+        ):
+            st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = brand_profile_text
+
+        company_brand_state = st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS)
+        if UIKeys.JOB_AD_BRAND_TONE not in st.session_state:
+            initial_brand = (
+                company_brand_state
+                if isinstance(company_brand_state, str)
+                else brand_profile_text
+            )
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE] = initial_brand or ""
+
         brand_value_input = st.text_input(
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-            value=brand_initial or "",
-            key="ui.summary.company.brand_keywords",
+            value=st.session_state.get(UIKeys.JOB_AD_BRAND_TONE, ""),
+            key=UIKeys.JOB_AD_BRAND_TONE,
         )
-        brand_value = brand_value_input if brand_value_input.strip() else None
-        _update_profile("company.brand_keywords", brand_value)
+        normalized_brand = brand_value_input.strip()
+        if normalized_brand:
+            st.session_state[UIKeys.JOB_AD_BRAND_TONE] = normalized_brand
+            st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = normalized_brand
+            _update_profile("company.brand_keywords", normalized_brand)
+        else:
+            st.session_state.pop(UIKeys.COMPANY_BRAND_KEYWORDS, None)
+            st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE, None)
+            _update_profile("company.brand_keywords", None)
 
         if suggestions:
             option_map = {s.key: s for s in suggestions}
