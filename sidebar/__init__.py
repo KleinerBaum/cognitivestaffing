@@ -28,9 +28,6 @@ STEP_LABELS: list[tuple[str, str]] = [
     ("summary", tr("Summary", "Summary")),
 ]
 
-SECTION_BY_STEP: dict[int, int] = {1: 1, 2: 2, 3: 3}
-
-
 @dataclass(slots=True)
 class SidebarContext:
     """Convenience bundle with precomputed sidebar data."""
@@ -54,7 +51,6 @@ def render_sidebar() -> None:
         _render_settings()
         _render_hero(context)
         st.divider()
-        _render_progress(context)
         _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
@@ -160,69 +156,6 @@ def _render_hero(context: SidebarContext) -> None:
                     f"- **{safe_label}**: {safe_value}",
                     unsafe_allow_html=True,
                 )
-
-
-def _render_progress(context: SidebarContext) -> None:
-    """Display progress across wizard steps."""
-
-    current = st.session_state.get(StateKeys.STEP, 0)
-    st.markdown(f"### 📍 {tr('Fortschritt', 'Progress')}")
-
-    st.markdown('<ul class="sidebar-stepper">', unsafe_allow_html=True)
-    for idx, (_key, label) in enumerate(STEP_LABELS):
-        status = _step_status(idx, current, context.missing_by_section)
-        badge = _status_badge(status)
-        note = _status_note(idx, context.missing_by_section)
-        st.markdown(
-            f"<li class='sidebar-step sidebar-step--{status}'>"
-            f"{badge}<span class='sidebar-step__label'>{label}</span>"
-            f"{note}</li>",
-            unsafe_allow_html=True,
-        )
-    st.markdown("</ul>", unsafe_allow_html=True)
-
-
-def _step_status(
-    idx: int, current: int, missing_by_section: Mapping[int, list[str]]
-) -> str:
-    """Return visual status for a wizard step."""
-
-    section = SECTION_BY_STEP.get(idx)
-    has_missing = bool(section and missing_by_section.get(section))
-
-    if idx == current:
-        return "current"
-    if idx < current:
-        return "warning" if has_missing else "done"
-    return "blocked" if has_missing else "upcoming"
-
-
-def _status_badge(status: str) -> str:
-    """Return emoji badge for step status."""
-
-    badges = {
-        "current": "<span class='sidebar-step__badge'>🟣</span>",
-        "done": "<span class='sidebar-step__badge'>✅</span>",
-        "warning": "<span class='sidebar-step__badge'>⚠️</span>",
-        "blocked": "<span class='sidebar-step__badge'>⏳</span>",
-        "upcoming": "<span class='sidebar-step__badge'>➡️</span>",
-    }
-    return badges.get(status, "")
-
-
-def _status_note(idx: int, missing_by_section: Mapping[int, list[str]]) -> str:
-    """Return HTML note for steps that miss critical fields."""
-
-    section = SECTION_BY_STEP.get(idx)
-    if not section:
-        return ""
-    missing = missing_by_section.get(section, [])
-    if not missing:
-        return ""
-    count = len(missing)
-    label = tr("fehlend", "missing")
-    return f"<span class='sidebar-step__note'>{count} {label}</span>"
-
 
 def _render_step_context(context: SidebarContext) -> None:
     """Render contextual guidance for the active wizard step."""
