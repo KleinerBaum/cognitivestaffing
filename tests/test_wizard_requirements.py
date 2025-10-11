@@ -123,12 +123,25 @@ def test_render_esco_skill_picker_adds_skills(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(st, "info", lambda message, *_, **__: captured_info.setdefault("info", message))
     monkeypatch.setattr(st, "success", lambda *_, **__: None)
 
-    def fake_multiselect(label, *, options, default, key):
-        assert "ESCO" in label
-        assert "Machine Learning" in options
-        return ["Machine Learning"]
+    class DummyContainer:
+        def __enter__(self) -> "DummyContainer":
+            return self
 
-    monkeypatch.setattr(st, "multiselect", fake_multiselect)
+        def __exit__(self, *_: object) -> None:
+            return None
+
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+
+    def fake_data_editor(rows, **kwargs):
+        assert any(row["Skill"] == "Machine Learning" for row in rows)
+        updated = []
+        for row in rows:
+            row_copy = dict(row)
+            row_copy["Auswahl"] = row_copy["Skill"] == "Machine Learning"
+            updated.append(row_copy)
+        return updated
+
+    monkeypatch.setattr(st, "data_editor", fake_data_editor)
 
     class DummyColumn:
         def __init__(self, trigger: bool) -> None:

@@ -122,18 +122,23 @@ a:hover {
 /* Buttons */
 .stButton > button {
   border-radius: 12px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(148, 163, 184, 0.45);
   padding: .6rem 1.05rem;
-  background: var(--button-gradient);
-  color: var(--text-on-accent);
+  background: rgba(15, 23, 42, 0.78);
+  color: var(--text-strong);
   font-weight: 600;
   letter-spacing: .2px;
-  box-shadow: var(--shadow-soft), var(--button-glass-border);
-  transition: transform .12s ease, box-shadow .12s ease;
+  box-shadow: 0 10px 24px rgba(8, 15, 28, 0.45);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 .stButton > button:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-medium), var(--button-glass-border);
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: 0 14px 30px rgba(8, 15, 28, 0.52);
+}
+.stButton > button:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.65);
+  outline-offset: 2px;
 }
 
 /* Inputs (broad fallback; avoids fragile classnames) */
@@ -145,6 +150,31 @@ a:hover {
 }
 :where(input, textarea, select):focus {
   outline: 2px solid var(--focus-ring) !important;
+}
+
+.stMultiSelect [data-baseweb="tag"] {
+  max-width: 100%;
+  background: rgba(148, 163, 184, 0.25) !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+  color: var(--text-strong) !important;
+  border-radius: 999px !important;
+}
+.stMultiSelect [data-baseweb="tag"] span {
+  white-space: normal !important;
+}
+.stMultiSelect [data-baseweb="input"] {
+  min-height: 44px;
+}
+
+div[data-testid="stAlert"] {
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.16) !important;
+  border: 1px solid rgba(96, 165, 250, 0.32) !important;
+  color: var(--text-strong) !important;
+}
+div[data-testid="stAlert"] svg {
+  width: 18px !important;
+  height: 18px !important;
 }
 
 /* Responsive columns & buttons: stack on narrow screens */
