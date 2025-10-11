@@ -32,7 +32,7 @@ def test_get_skill_suggestions(monkeypatch):
     monkeypatch.setattr(
         suggestions,
         "suggest_skills_for_role",
-        lambda title, lang="en": {
+        lambda title, lang="en", focus_terms=None: {
             "tools_and_technologies": ["T"],
             "hard_skills": ["Go"],
             "soft_skills": [],
@@ -41,9 +41,9 @@ def test_get_skill_suggestions(monkeypatch):
     )
     sugg, err = get_skill_suggestions("Engineer")
     assert sugg == {
-        "hard_skills": ["Python", "Go"],
-        "tools_and_technologies": ["T"],
-        "certificates": ["Azure"],
+        "hard_skills": {"esco": ["Python"], "llm": ["Go"]},
+        "tools_and_technologies": {"llm": ["T"]},
+        "certificates": {"llm": ["Azure"]},
     }
     assert err is None
 
@@ -69,7 +69,7 @@ def test_get_skill_suggestions_error(monkeypatch):
     )
     monkeypatch.setattr(suggestions, "suggest_skills_for_role", raiser)
     sugg, err = get_skill_suggestions("Engineer")
-    assert sugg == {"hard_skills": ["PYTHON"]}
+    assert sugg == {"hard_skills": {"esco": ["PYTHON"]}}
     assert err == "fail"
 
 

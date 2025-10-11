@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from openai_utils import (
     suggest_benefits,
@@ -124,43 +124,42 @@ def get_static_benefit_shortlist(lang: str = "en", industry: str = "") -> List[s
     return _unique(items or [])
 
 
-def _merge_unique(base: List[str], extra: List[str]) -> List[str]:
-    merged = list(base)
-    seen = {value.casefold() for value in base}
-    for item in extra:
-        normalized = str(item or "").strip()
-        if not normalized:
-            continue
-        key = normalized.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(normalized)
-    return merged
-
-
 def get_skill_suggestions(
-    job_title: str, lang: str = "en"
-) -> Tuple[Dict[str, List[str]], str | None]:
+    job_title: str,
+    lang: str = "en",
+    *,
+    focus_terms: Sequence[str] | None = None,
+) -> Tuple[Dict[str, Dict[str, List[str]]], str | None]:
     """Fetch skill suggestions for a role title.
 
-    Args:
-        job_title: Target role title.
-        lang: Output language ("en" or "de").
-
-    Returns:
-        Tuple of (suggestions dict, error message). The suggestions dict contains
-        ``tools_and_technologies``, ``hard_skills`` and ``soft_skills`` lists.
-        On failure, the dict is empty and ``error`` holds the exception message.
+    The returned mapping groups values by their origin (e.g. ESCO vs. LLM)
+    so that the UI can surface them in grouped multi-select widgets.
     """
 
-    suggestions: Dict[str, List[str]] = {
-        "tools_and_technologies": [],
-        "hard_skills": [],
-        "soft_skills": [],
-        "certificates": [],
+    focus_terms = [str(term).strip() for term in (focus_terms or []) if str(term).strip()]
+
+    grouped: Dict[str, Dict[str, List[str]]] = {
+        "tools_and_technologies": {},
+        "hard_skills": {},
+        "soft_skills": {},
+        "certificates": {},
     }
     errors: List[str] = []
+    seen: Dict[str, set[str]] = {key: set() for key in grouped}
+
+    def _add_group(field: str, group: str, values: Sequence[str]) -> None:
+        cleaned: List[str] = []
+        for raw in values:
+            value = str(raw or "").strip()
+            if not value:
+                continue
+            marker = value.casefold()
+            if marker in seen[field]:
+                continue
+            seen[field].add(marker)
+            cleaned.append(value)
+        if cleaned:
+            grouped[field][group] = cleaned
 
     occupation = classify_occupation(job_title, lang=lang)
     if occupation and occupation.get("uri"):
@@ -169,19 +168,23 @@ def get_skill_suggestions(
             lang=lang,
         )
         if esco_skills:
-            suggestions["hard_skills"] = esco_skills
+            _add_group("hard_skills", "esco", esco_skills)
 
     try:
-        ai_suggestions = suggest_skills_for_role(job_title, lang=lang)
+        ai_suggestions = suggest_skills_for_role(
+            job_title,
+            lang=lang,
+            focus_terms=focus_terms,
+        )
     except Exception as err:  # pragma: no cover - error path is tested
         errors.append(str(err))
     else:
-        for key in list(suggestions.keys()):
-            values = ai_suggestions.get(key, [])
+        for field in grouped:
+            values = ai_suggestions.get(field, [])
             if values:
-                suggestions[key] = _merge_unique(suggestions[key], values)
+                _add_group(field, "llm", values)
 
-    cleaned = {key: value for key, value in suggestions.items() if value}
+    cleaned = {key: value for key, value in grouped.items() if value}
 
     return cleaned, "; ".join(errors) if errors else None
 
@@ -191,6 +194,8 @@ def get_benefit_suggestions(
     industry: str = "",
     existing_benefits: str = "",
     lang: str = "en",
+    *,
+    focus_areas: Sequence[str] | None = None,
 ) -> Tuple[List[str], str | None, bool]:
     """Fetch benefit suggestions for a role.
 
@@ -199,6 +204,7 @@ def get_benefit_suggestions(
         industry: Optional industry context.
         existing_benefits: Benefits already provided by the user.
         lang: Output language ("en" or "de").
+        focus_areas: Optional list of categories the AI should prioritise.
 
     Returns:
         Tuple of (benefits list, error message, used_fallback). On failure or when
@@ -210,7 +216,13 @@ def get_benefit_suggestions(
     fallback = get_static_benefit_shortlist(lang=lang, industry=industry)
     try:
         suggestions = _unique(
-            suggest_benefits(job_title, industry, existing_benefits, lang=lang)
+            suggest_benefits(
+                job_title,
+                industry,
+                existing_benefits,
+                lang=lang,
+                focus_areas=focus_areas,
+            )
         )
     except Exception as err:  # pragma: no cover - error path is tested
         return fallback, str(err), True

@@ -39,6 +39,7 @@ the base model if needed.
 - **Persistent follow-up tracking**: answered or skipped questions are remembered and won't reappear when navigating back through the wizard.
 - **Follow-up suggestion chips**: if the assistant proposes possible answers, they appear as one-click chips above the input field.
 - **AI-powered benefit suggestions**: fetch common perks for the role/industry and add them to the profile with a single click.
+- **Guided AI suggestions**: steer skill and benefit generation with optional focus tags and accept results via grouped multi-selects that separate LLM output from curated fallbacks.
 - **Auto re‑ask loop**: optional toggle that keeps asking follow-up questions automatically until all critical fields are filled, with clear progress messages and a stop button for user control.
 - **Token usage tracker**: displays input/output token counts per task in the summary step and sidebar.
 - **Reasoning effort control**: select low, medium, or high reasoning depth with an environment-variable default.

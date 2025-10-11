@@ -444,6 +444,7 @@ def suggest_skills_for_role(
     *,
     lang: str = "en",
     model: str | None = None,
+    focus_terms: Sequence[str] | None = None,
 ) -> dict[str, list[str]]:
     """Suggest tools, skills, and certificates for a job title.
 
@@ -451,6 +452,7 @@ def suggest_skills_for_role(
         job_title: Target role title.
         lang: Output language ("en" or "de").
         model: Optional OpenAI model override.
+        focus_terms: Optional categories the AI should emphasise.
 
     Returns:
         Dict with keys ``tools_and_technologies``, ``hard_skills``,
@@ -468,6 +470,8 @@ def suggest_skills_for_role(
     if model is None:
         model = get_model_for(ModelTask.SKILL_SUGGESTION)
 
+    focus_terms = [str(term).strip() for term in (focus_terms or []) if str(term).strip()]
+
     if lang.startswith("de"):
         prompt = (
             "Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 "
@@ -476,6 +480,12 @@ def suggest_skills_for_role(
             "'tools_and_technologies', 'hard_skills', 'soft_skills' und "
             "'certificates'."
         )
+        if focus_terms:
+            prompt += (
+                " Berücksichtige diese Schwerpunkte bei der Auswahl: "
+                + ", ".join(focus_terms)
+                + "."
+            )
     else:
         prompt = (
             "List exactly 12 IT technologies, 12 hard skills, 12 soft skills, "
@@ -484,6 +494,12 @@ def suggest_skills_for_role(
             "'tools_and_technologies', 'hard_skills', 'soft_skills', and "
             "'certificates'."
         )
+        if focus_terms:
+            prompt += (
+                " Prioritise options connected to: "
+                + ", ".join(focus_terms)
+                + "."
+            )
 
     messages = [{"role": "user", "content": prompt}]
     res = api.call_chat_api(
@@ -579,6 +595,8 @@ def suggest_benefits(
     existing_benefits: str = "",
     lang: str = "en",
     model: str | None = None,
+    *,
+    focus_areas: Sequence[str] | None = None,
 ) -> list[str]:
     """Suggest common benefits/perks for the given role.
 
@@ -597,6 +615,7 @@ def suggest_benefits(
         return []
     if model is None:
         model = get_model_for(ModelTask.BENEFIT_SUGGESTION)
+    focus_areas = [str(area).strip() for area in (focus_areas or []) if str(area).strip()]
     if lang.startswith("de"):
         prompt = f"Nenne bis zu 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} üblich sind"
         if industry:
@@ -604,6 +623,12 @@ def suggest_benefits(
         prompt += ". Antworte als JSON-Liste und vermeide Vorteile, die bereits in der Liste unten stehen.\n"
         if existing_benefits:
             prompt += f"Bereits aufgelistet: {existing_benefits}"
+        if focus_areas:
+            prompt += (
+                " Betone folgende Kategorien besonders: "
+                + ", ".join(focus_areas)
+                + "."
+            )
     else:
         prompt = (
             f"List up to 5 benefits or perks commonly offered for a {job_title} role"
@@ -613,6 +638,12 @@ def suggest_benefits(
         prompt += ". Respond as a JSON array and avoid mentioning any benefit already listed below.\n"
         if existing_benefits:
             prompt += f"Already listed: {existing_benefits}"
+        if focus_areas:
+            prompt += (
+                " Emphasise the following categories: "
+                + ", ".join(focus_areas)
+                + "."
+            )
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "nano" in model else 200
     res = api.call_chat_api(
