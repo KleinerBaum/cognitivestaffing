@@ -94,7 +94,7 @@ class SalaryFactor(TypedDict, total=False):
     impact: SalaryImpact | None
 
 
-SalaryExplanation = list[SalaryFactor]
+SalaryExplanation = list[SalaryFactor | str]
 
 
 def estimate_salary_expectation() -> None:
@@ -576,7 +576,9 @@ def _apply_adjustment(value: float | None, multiplier: float) -> float | None:
     return round(adjusted, 2)
 
 
-def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str | None]:
+def _fallback_salary(
+    inputs: _SalaryInputs,
+) -> tuple[dict[str, Any] | None, SalaryExplanation | str | None]:
     role_key = _canonical_salary_role(inputs.job_title)
     iso_country = country_to_iso2(inputs.country)
     bench_country = iso_country or (
@@ -609,10 +611,42 @@ def _fallback_salary(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str 
         explanation_de += " Zuschläge/Abschläge: " + "; ".join(applied_de) + "."
         explanation_en += " Adjustments: " + "; ".join(applied_en) + "."
 
-    explanation = tr(explanation_de, explanation_en)
+    structured_explanation = _build_fallback_explanation(
+        inputs,
+        benchmark_role,
+        bench_country,
+        currency,
+        salary_min,
+        salary_max,
+        raw_range,
+    )
+
+    structured_explanation.insert(
+        1,
+        {
+            "key": "summary",
+            "value": tr(explanation_de, explanation_en),
+            "impact": None,
+        },
+    )
+
+    if applied_de or applied_en:
+        adjustments_value_de = "; ".join(applied_de) if applied_de else "Keine Anpassungen"
+        adjustments_value_en = (
+            "; ".join(applied_en) if applied_en else "No adjustments applied"
+        )
+        structured_explanation.append(
+            {
+                "key": "adjustments",
+                "value": tr(adjustments_value_de, adjustments_value_en),
+                "impact": None,
+            }
+        )
+        structured_explanation.extend([entry.split(":")[0] for entry in applied_de])
+
     return (
         {"salary_min": salary_min, "salary_max": salary_max, "currency": currency},
-        explanation,
+        structured_explanation,
     )
 
 

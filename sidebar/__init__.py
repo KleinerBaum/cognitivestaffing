@@ -596,6 +596,8 @@ _FACTOR_LABELS: dict[str, tuple[str, str]] = {
     "currency": ("Währung", "Currency"),
     "salary_min": ("Unteres Benchmark-Ende", "Benchmark lower bound"),
     "salary_max": ("Oberes Benchmark-Ende", "Benchmark upper bound"),
+    "summary": ("Zusammenfassung", "Summary"),
+    "adjustments": ("Angewandte Anpassungen", "Applied adjustments"),
 }
 
 
