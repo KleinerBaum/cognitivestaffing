@@ -40,3 +40,21 @@ def test_suggest_skills_for_role_empty():
         "soft_skills": [],
         "certificates": [],
     }
+
+
+def test_suggest_skills_for_role_focus_terms(monkeypatch):
+    captured: dict[str, str] = {}
+
+    def fake_call_chat_api(messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        empty_payload = {
+            "tools_and_technologies": [],
+            "hard_skills": [],
+            "soft_skills": [],
+            "certificates": [],
+        }
+        return ChatCallResult(json.dumps(empty_payload), [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+    suggest_skills_for_role("Engineer", focus_terms=["Cloud", "Security"])
+    assert "Cloud, Security" in captured["prompt"]

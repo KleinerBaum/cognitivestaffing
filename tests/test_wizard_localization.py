@@ -103,7 +103,7 @@ def test_step_compensation_localizes_labels(
 
     st.session_state.clear()
     st.session_state[StateKeys.PROFILE] = _base_profile()
-    st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = []
+    st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = {"llm": [], "fallback": []}
     st.session_state["lang"] = lang
 
     _patch_columns(monkeypatch, toggle_labels)

@@ -95,6 +95,45 @@ WIZARD_TITLE = (
 T = TypeVar("T")
 
 
+_SKILL_FOCUS_PRESETS: dict[str, list[str]] = {
+    "de": [
+        "Cloud & Infrastruktur",
+        "Daten & Analytik",
+        "Cybersecurity",
+        "KI & Automatisierung",
+        "Kundenerlebnis",
+        "Leadership & Coaching",
+    ],
+    "en": [
+        "Cloud & Infrastructure",
+        "Data & Analytics",
+        "Cybersecurity",
+        "AI & Automation",
+        "Customer Experience",
+        "Leadership & Coaching",
+    ],
+}
+
+_BENEFIT_FOCUS_PRESETS: dict[str, list[str]] = {
+    "de": [
+        "Gesundheit & Wohlbefinden",
+        "Flexible Arbeitsmodelle",
+        "Weiterbildung & Budget",
+        "Mobilität & Pendeln",
+        "Familie & Care",
+        "Finanzielle Zusatzleistungen",
+    ],
+    "en": [
+        "Health & Wellbeing",
+        "Flexible Work Models",
+        "Learning & Development Budget",
+        "Mobility & Commuting",
+        "Family & Care Support",
+        "Financial Extras",
+    ],
+}
+
+
 class FieldLockConfig(TypedDict, total=False):
     """Configuration returned by ``_field_lock_config`` for widget rendering."""
 
@@ -4959,10 +4998,31 @@ def _step_requirements():
         )
         st.session_state[requirements_style_key] = True
 
+    lang = st.session_state.get("lang", "en")
+    focus_presets = _SKILL_FOCUS_PRESETS.get(lang, _SKILL_FOCUS_PRESETS["en"])
+    stored_focus = st.session_state.get(StateKeys.SKILL_SUGGESTION_HINTS, [])
+    focus_options = sorted(
+        {value.strip() for value in (focus_presets or []) if value.strip()}.union(
+            {value.strip() for value in stored_focus if value.strip()}
+        ),
+        key=str.casefold,
+    )
+    selected_focus = _chip_multiselect(
+        tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
+        options=focus_options,
+        values=stored_focus,
+        help_text=tr(
+            "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
+            "Provide focus areas so the AI can prioritise matching skills.",
+        ),
+        dropdown=True,
+    )
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = selected_focus
+    focus_signature = tuple(sorted(selected_focus, key=str.casefold))
+
     # LLM-basierte Skill-Vorschläge abrufen
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
-    lang = st.session_state.get("lang", "en")
-    suggestions: dict[str, list[str]] = {}
+    suggestions: dict[str, dict[str, list[str]]] = {}
     suggestions_error: str | None = None
     has_missing_key = bool(st.session_state.get("openai_api_key_missing"))
     suggestion_hint: str | None = None
@@ -4971,9 +5031,10 @@ def _step_requirements():
         if (
             stored_suggestions.get("_title") == job_title
             and stored_suggestions.get("_lang") == lang
+            and tuple(stored_suggestions.get("_focus", [])) == focus_signature
         ):
             suggestions = {
-                key: stored_suggestions.get(key, [])
+                key: stored_suggestions.get(key, {})
                 for key in (
                     "hard_skills",
                     "soft_skills",
@@ -4982,10 +5043,15 @@ def _step_requirements():
                 )
             }
         else:
-            suggestions, suggestions_error = get_skill_suggestions(job_title, lang=lang)
+            suggestions, suggestions_error = get_skill_suggestions(
+                job_title,
+                lang=lang,
+                focus_terms=selected_focus,
+            )
             st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
                 "_title": job_title,
                 "_lang": lang,
+                "_focus": list(focus_signature),
                 **suggestions,
             }
     elif has_missing_key:
@@ -5127,20 +5193,31 @@ def _step_requirements():
             for entry in data["requirements"].get(key_name, []) or []:
                 existing_terms.add(str(entry).casefold())
 
-        normalized_pool: list[str] = []
-        seen_terms: set[str] = set()
-        for raw in suggestions.get(source_key, []):
-            cleaned = str(raw or "").strip()
-            if not cleaned:
-                continue
-            marker = cleaned.casefold()
-            if marker in existing_terms or marker in seen_terms:
-                continue
-            seen_terms.add(marker)
-            normalized_pool.append(cleaned)
+        grouped_pool = suggestions.get(source_key, {}) or {}
+        seen_grouped: set[tuple[str, str]] = set()
+        option_entries: list[tuple[str, str, str]] = []
+        for group_key, values in grouped_pool.items():
+            label_prefix = (
+                tr("LLM-Vorschläge", "LLM suggestions")
+                if group_key == "llm"
+                else tr("ESCO Pflicht-Skills", "ESCO essentials")
+            )
+            if group_key not in {"llm", "esco"}:
+                label_prefix = group_key.title()
+            for raw in values:
+                cleaned = str(raw or "").strip()
+                if not cleaned:
+                    continue
+                marker = cleaned.casefold()
+                if marker in existing_terms:
+                    continue
+                marker_key = (group_key, marker)
+                if marker_key in seen_grouped:
+                    continue
+                seen_grouped.add(marker_key)
+                option_entries.append((group_key, cleaned, label_prefix))
 
-        available = normalized_pool[:12]
-        if not available:
+        if not option_entries:
             if show_hint:
                 st.caption(
                     tr(
@@ -5162,26 +5239,26 @@ def _step_requirements():
             unsafe_allow_html=True,
         )
         widget_prefix = f"ai_suggestions.{target_key}.{widget_suffix}"
-        registry_key = f"{widget_prefix}.keys"
-        current_keys: list[str] = []
-        picked: list[str] = []
-        grid_container = st.container()
-        for start in range(0, len(available), 4):
-            row_values = available[start : start + 4]
-            cols = grid_container.columns(len(row_values), gap="small")
-            for col, suggestion in zip(cols, row_values):
-                cb_key = _boolean_widget_key(widget_prefix, suggestion)
-                current_keys.append(cb_key)
-                checked = col.checkbox(suggestion, key=cb_key)
-                if checked:
-                    picked.append(suggestion)
-        previous_keys = st.session_state.get(registry_key, [])
-        for stale in previous_keys:
-            if stale not in current_keys:
-                st.session_state.pop(stale, None)
-        st.session_state[registry_key] = current_keys
+        selection_key = f"{widget_prefix}.selection"
+        formatted_options = sorted(
+            option_entries,
+            key=lambda item: (item[0], item[1].casefold()),
+        )
+        selected_options = st.multiselect(
+            tr("Vorschläge auswählen", "Select suggestions"),
+            options=formatted_options,
+            default=[],
+            format_func=lambda item: f"{item[2]} • {item[1]}",
+            key=selection_key,
+            help=tr(
+                "Mehrfachauswahl möglich – gruppiert nach Quelle.",
+                "Pick multiple entries grouped by their source.",
+            ),
+        )
         st.markdown("</div>", unsafe_allow_html=True)
-        if picked:
+
+        if selected_options:
+            picked = [value for _group, value, _label in selected_options]
             merged = sorted(
                 set(data["requirements"].get(target_key, [])).union(picked),
                 key=str.casefold,
@@ -5190,9 +5267,7 @@ def _step_requirements():
                 _set_requirement_certificates(data["requirements"], merged)
             else:
                 data["requirements"][target_key] = merged
-            for suggestion in picked:
-                st.session_state.pop(_boolean_widget_key(widget_prefix, suggestion), None)
-            st.session_state.pop(registry_key, None)
+            st.session_state[selection_key] = []
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
@@ -5201,9 +5276,7 @@ def _step_requirements():
             key=f"{widget_prefix}.refresh",
             use_container_width=True,
         ):
-            for key in st.session_state.get(registry_key, []):
-                st.session_state.pop(key, None)
-            st.session_state.pop(registry_key, None)
+            st.session_state.pop(selection_key, None)
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
@@ -5856,16 +5929,47 @@ def _step_compensation():
         value=bool(data["compensation"].get("equity_offered")),
     )
     lang = st.session_state.get("lang", "de")
+    benefit_focus_presets = _BENEFIT_FOCUS_PRESETS.get(
+        lang, _BENEFIT_FOCUS_PRESETS["en"]
+    )
+    stored_benefit_focus = st.session_state.get(
+        StateKeys.BENEFIT_SUGGESTION_HINTS, []
+    )
+    benefit_focus_options = sorted(
+        {value.strip() for value in benefit_focus_presets if value.strip()}.union(
+            {value.strip() for value in stored_benefit_focus if value.strip()}
+        ),
+        key=str.casefold,
+    )
+    selected_benefit_focus = _chip_multiselect(
+        tr("Fokus für Benefit-Vorschläge", "Focus for AI benefit suggestions"),
+        options=benefit_focus_options,
+        values=stored_benefit_focus,
+        help_text=tr(
+            "Lege Kategorien fest, auf die die KI ihre Benefit-Vorschläge ausrichten soll.",
+            "Define categories the AI should emphasise when proposing benefits.",
+        ),
+        dropdown=True,
+    )
+    st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
+
     industry_context = data.get("company", {}).get("industry", "")
     fallback_benefits = get_static_benefit_shortlist(
         lang=lang, industry=industry_context
     )
-    sugg_benefits = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, [])
+    benefit_state = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, {})
+    if benefit_state.get("_lang") != lang:
+        benefit_state = {"llm": [], "fallback": fallback_benefits, "_lang": lang}
+    else:
+        benefit_state.setdefault("fallback", fallback_benefits)
+    st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
+    llm_benefits = benefit_state.get("llm", [])
+    fallback_pool = benefit_state.get("fallback", fallback_benefits)
     benefit_options = sorted(
         set(
-            fallback_benefits
+            fallback_pool
             + data["compensation"].get("benefits", [])
-            + sugg_benefits
+            + llm_benefits
         )
     )
     data["compensation"]["benefits"] = _chip_multiselect(
@@ -5873,6 +5977,55 @@ def _step_compensation():
         options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
+
+    suggestion_entries: list[tuple[str, str, str]] = []
+    existing_benefit_markers = {
+        str(item).casefold()
+        for item in data["compensation"].get("benefits", []) or []
+    }
+    seen_benefit_options: set[tuple[str, str]] = set()
+    for group_key, label in (
+        ("llm", tr("LLM-Vorschläge", "LLM suggestions")),
+        ("fallback", tr("Standardliste", "Fallback shortlist")),
+    ):
+        pool = llm_benefits if group_key == "llm" else fallback_pool
+        for raw in pool:
+            benefit = str(raw or "").strip()
+            if not benefit:
+                continue
+            marker = benefit.casefold()
+            marker_key = (group_key, marker)
+            if marker in existing_benefit_markers or marker_key in seen_benefit_options:
+                continue
+            seen_benefit_options.add(marker_key)
+            suggestion_entries.append((group_key, benefit, label))
+
+    if suggestion_entries:
+        suggestion_key = "benefit_suggestions.selection"
+        formatted_benefits = sorted(
+            suggestion_entries,
+            key=lambda item: (0 if item[0] == "llm" else 1, item[1].casefold()),
+        )
+        selected_suggestions = st.multiselect(
+            tr("Vorschläge aus KI & Liste", "Suggestions from AI & shortlist"),
+            options=formatted_benefits,
+            default=[],
+            format_func=lambda item: f"{item[2]} • {item[1]}",
+            key=suggestion_key,
+            help=tr(
+                "Wähle Benefits nach Quelle gruppiert aus.",
+                "Pick benefits grouped by their source.",
+            ),
+        )
+        if selected_suggestions:
+            picked_values = [value for _group, value, _label in selected_suggestions]
+            merged = sorted(
+                set(data["compensation"].get("benefits", [])).union(picked_values),
+                key=str.casefold,
+            )
+            data["compensation"]["benefits"] = merged
+            st.session_state[suggestion_key] = []
+            st.rerun()
 
     if st.button("💡 " + tr("Benefits vorschlagen", "Suggest Benefits")):
         job_title = data.get("position", {}).get("job_title", "")
@@ -5883,6 +6036,7 @@ def _step_compensation():
             industry,
             existing,
             lang=lang,
+            focus_areas=selected_benefit_focus,
         )
         if used_fallback:
             st.info(
@@ -5901,9 +6055,18 @@ def _step_compensation():
         if err and st.session_state.get("debug"):
             st.session_state["benefit_suggest_error"] = err
         if new_sugg:
-            st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = sorted(
-                set(sugg_benefits + new_sugg)
+            benefit_state = st.session_state.get(
+                StateKeys.BENEFIT_SUGGESTIONS,
+                {"llm": [], "fallback": fallback_benefits, "_lang": lang},
             )
+            benefit_state["_lang"] = lang
+            if used_fallback:
+                benefit_state["llm"] = []
+                benefit_state["fallback"] = new_sugg
+            else:
+                benefit_state["llm"] = new_sugg
+                benefit_state["fallback"] = fallback_benefits
+            st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
             st.rerun()
 
     # Inline follow-up questions for Compensation section

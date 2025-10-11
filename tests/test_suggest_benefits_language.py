@@ -26,3 +26,18 @@ def test_suggest_benefits_german(monkeypatch):
     out = openai_utils.suggest_benefits("Ingenieur", lang="de")
     assert "Vorteile oder Zusatzleistungen" in captured["prompt"]
     assert out == ["Gesundheitsversicherung", "Firmenwagen"]
+
+
+def test_suggest_benefits_focus_areas(monkeypatch):
+    captured = {}
+
+    def fake_call_chat_api(messages, model=None, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return ChatCallResult("[]", [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+    openai_utils.suggest_benefits(
+        "Engineer",
+        focus_areas=["Health", "Flexibility"],
+    )
+    assert "Health, Flexibility" in captured["prompt"]
