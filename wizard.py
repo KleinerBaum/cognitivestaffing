@@ -5351,13 +5351,7 @@ def _step_requirements():
             _render_required_caption(True)
         st.session_state[responsibilities_seed_key] = raw_responsibilities
 
-    must_tab, nice_tab, language_tab = st.tabs(
-        [
-            tr("Muss-Anforderungen", "Must-have"),
-            tr("Nice-to-have", "Nice-to-have"),
-            tr("Sprachen & Boolean", "Languages & Boolean"),
-        ]
-    )
+    must_col, nice_col, language_col = st.columns(3, gap="large")
 
     with requirement_panel(
         icon="🔒",
@@ -5370,7 +5364,7 @@ def _step_requirements():
             "Alle Angaben in diesem Block sind zwingend für das Matching.",
             "Everything in this block is required for candidate matching.",
         ),
-        parent=must_tab,
+        parent=must_col,
     ):
         must_cols = st.columns(2, gap="large")
         label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
@@ -5440,7 +5434,7 @@ def _step_requirements():
             "Diese Angaben sind nicht zwingend, helfen aber bei der Priorisierung.",
             "Not mandatory, but helpful for prioritisation.",
         ),
-        parent=nice_tab,
+        parent=nice_col,
     ):
         nice_cols = st.columns(2, gap="large")
         with nice_cols[0]:
@@ -5495,7 +5489,7 @@ def _step_requirements():
             "Optional gewählte Skills zeigen hier ihren Einfluss auf Gehalt und Talentverfügbarkeit.",
             "Optional skills show their impact on salary and talent availability here.",
         ),
-        parent=nice_tab,
+        parent=nice_col,
     ):
         nice_insight_skills = (
             list(data["requirements"].get("hard_skills_optional", []))
@@ -5521,7 +5515,7 @@ def _step_requirements():
             "Liste die wichtigsten Werkzeuge sowie verbindliche Zertifikate auf.",
             "List the essential tools together with required certificates.",
         ),
-        parent=must_tab,
+        parent=must_col,
     ):
         tech_cert_cols = st.columns(2, gap="large")
         with tech_cert_cols[0]:
@@ -5578,7 +5572,7 @@ def _step_requirements():
             "Vergleich der ausgewählten Skills mit Marktbenchmarks – neutral, wenn keine Daten vorliegen.",
             "Compares the selected skills with market benchmarks – neutral when no data is available.",
         ),
-        parent=must_tab,
+        parent=must_col,
     ):
         must_insight_skills = (
             list(data["requirements"].get("hard_skills_required", []))
@@ -5606,7 +5600,7 @@ def _step_requirements():
             "Definiere, welche Sprachen verbindlich oder optional sind.",
             "Define which languages are mandatory or optional.",
         ),
-        parent=language_tab,
+        parent=language_col,
     ):
         lang_cols = st.columns(2, gap="large")
         with lang_cols[0]:
@@ -5668,7 +5662,7 @@ def _step_requirements():
             "Zeigt, wie verpflichtende oder optionale Sprachen den Talentpool beeinflussen.",
             "Shows how mandatory or optional languages influence the talent pool.",
         ),
-        parent=language_tab,
+        parent=language_col,
     ):
         language_insight_skills = (
             list(data["requirements"].get("languages_required", []))
