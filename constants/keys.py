@@ -38,6 +38,8 @@ class UIKeys:
     SUMMARY_SELECTED_GROUP = "ui.summary.selected_group"
     COMPANY_CONTACT_NAME = "ui.company.contact_name"
     COMPANY_HQ_LOCATION = "ui.company.hq_location"
+    COMPANY_BRAND_KEYWORDS = "ui.summary.company.brand_keywords"
+    JOB_AD_BRAND_TONE = "ui.summary.job_ad.brand_keywords"
 
 
 class StateKeys:
