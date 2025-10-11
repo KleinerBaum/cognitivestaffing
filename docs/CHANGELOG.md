@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: surface ESCO occupation and essential skill pickers in wizard with sidebar todo hints
 - feat: allow focus tags for skill/benefit suggestions and present grouped multi-select pickers for LLM outputs
 - feat: detail salary fallback factors with structured deltas and localized table view
 - feat: add localized overview/edit toggle to summary tabs with inline editing helpers

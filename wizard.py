@@ -3251,6 +3251,177 @@ def _set_requirement_certificates(requirements: dict[str, Any], values: Iterable
     requirements["certifications"] = list(normalized)
 
 
+def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None:
+    """Render a picker for ESCO occupation suggestions."""
+
+    options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, []) or []
+    if not isinstance(options, Sequence) or not options:
+        return
+
+    sanitized: list[tuple[str, str, str, Mapping[str, Any] | None]] = []
+    for idx, raw in enumerate(options):
+        if not isinstance(raw, Mapping):
+            continue
+        label = str(raw.get("preferredLabel") or "").strip()
+        group = str(raw.get("group") or "").strip()
+        uri = str(raw.get("uri") or "").strip()
+        option_id = uri or f"__index_{idx}"
+        sanitized.append((option_id, label, group, raw))
+
+    if not sanitized:
+        return
+
+    current_uri = str(position.get("occupation_uri") or "") if position else ""
+    current_label = str(position.get("occupation_label") or "") if position else ""
+
+    none_option = ("__none__", tr("Keine Auswahl", "No selection"), "", None)
+    option_items = [none_option] + sanitized
+    option_ids = [item[0] for item in option_items]
+    format_map = {
+        option_id: (
+            f"{label} — {group}".strip(" —")
+            if option_id != "__none__"
+            else label
+        )
+        for option_id, label, group, _ in option_items
+    }
+
+    default_id = "__none__"
+    for option_id, label, _group, meta in sanitized:
+        if current_uri and isinstance(meta, Mapping):
+            if str(meta.get("uri") or "") == current_uri:
+                default_id = option_id
+                break
+        if not current_uri and current_label and label:
+            if label.casefold() == current_label.casefold():
+                default_id = option_id
+                break
+
+    default_index = option_ids.index(default_id) if default_id in option_ids else 0
+
+    st.markdown("##### " + tr("ESCO Berufsprofil", "ESCO occupation"))
+    st.caption(
+        tr(
+            "Wähle ein passendes ESCO-Profil, um Skills und Synonyme zu verknüpfen.",
+            "Pick a matching ESCO profile to link skills and synonyms.",
+        )
+    )
+
+    selected_id = st.radio(
+        tr("Vorgeschlagene Berufe", "Suggested occupations"),
+        options=option_ids,
+        index=default_index,
+        key=UIKeys.POSITION_ESCO_OCCUPATION,
+        format_func=lambda opt: format_map.get(opt, opt),
+    )
+
+    selected_meta: Mapping[str, Any] | None
+    if selected_id == "__none__":
+        selected_meta = None
+    else:
+        selected_meta = next(
+            (meta for option_id, _label, _group, meta in sanitized if option_id == selected_id),
+            None,
+        )
+
+    label_value = None
+    uri_value = None
+    group_value = None
+    if isinstance(selected_meta, Mapping):
+        label_value = str(selected_meta.get("preferredLabel") or "").strip() or None
+        uri_value = str(selected_meta.get("uri") or "").strip() or None
+        group_value = str(selected_meta.get("group") or "").strip() or None
+
+    _update_profile("position.occupation_label", label_value)
+    _update_profile("position.occupation_uri", uri_value)
+    _update_profile("position.occupation_group", group_value)
+
+
+def _render_esco_skill_picker(requirements: Mapping[str, Any] | None) -> None:
+    """Render a picker that lets users add ESCO skills to requirements."""
+
+    raw_skills = st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
+    if not isinstance(raw_skills, Sequence):
+        return
+
+    skills = _unique_normalized([
+        str(skill).strip()
+        for skill in raw_skills
+        if isinstance(skill, str) and str(skill).strip()
+    ])
+    if not skills:
+        return
+
+    missing_skills = [
+        str(skill).strip()
+        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+        if isinstance(skill, str) and str(skill).strip()
+    ]
+    missing_display = ", ".join(_unique_normalized(missing_skills[:6]))
+
+    st.markdown("##### " + tr("ESCO Skills", "ESCO skills"))
+    st.caption(
+        tr(
+            "Nutze die empfohlenen ESCO-Pflichtskills, um Must- oder Nice-to-haves zu füllen.",
+            "Use the recommended ESCO essential skills to populate must or nice-to-have lists.",
+        )
+    )
+    if missing_display:
+        st.info(
+            tr(
+                "Noch offen laut ESCO: {skills}",
+                "Still missing according to ESCO: {skills}",
+            ).format(skills=missing_display)
+        )
+
+    selection_key = UIKeys.REQUIREMENTS_ESCO_SKILL_SELECT
+    selected = st.multiselect(
+        tr("ESCO-Skills auswählen", "Select ESCO skills"),
+        options=skills,
+        default=st.session_state.get(selection_key, []),
+        key=selection_key,
+    )
+    selected_clean = _unique_normalized(
+        [str(item).strip() for item in selected if isinstance(item, str) and str(item).strip()]
+    )
+
+    def _apply_to_bucket(target: str) -> bool:
+        if not isinstance(requirements, Mapping):
+            return False
+        existing = [
+            str(item).strip()
+            for item in requirements.get(target, []) or []
+            if isinstance(item, str) and str(item).strip()
+        ]
+        merged = _unique_normalized(existing + selected_clean)
+        if merged == existing:
+            return False
+        if isinstance(requirements, dict):
+            requirements[target] = merged
+        _update_profile(f"requirements.{target}", merged)
+        return True
+
+    action_cols = st.columns(2)
+    added_message = tr("Skills übernommen", "Skills added")
+    if action_cols[0].button(
+        tr("Als Muss übernehmen", "Add as must-have"),
+        key=f"{selection_key}.add_must",
+        disabled=not selected_clean,
+    ):
+        if _apply_to_bucket("hard_skills_required"):
+            st.success(added_message)
+        st.session_state[selection_key] = []
+
+    if action_cols[1].button(
+        tr("Als Plus übernehmen", "Add as nice-to-have"),
+        key=f"{selection_key}.add_nice",
+        disabled=not selected_clean,
+    ):
+        if _apply_to_bucket("hard_skills_optional"):
+            st.success(added_message)
+        st.session_state[selection_key] = []
+
+
 BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
 BOOLEAN_PROFILE_SIGNATURE = "ui.summary.boolean_profile_signature"
 
@@ -4528,6 +4699,8 @@ def _step_position():
             tr("Dieses Feld ist erforderlich", "This field is required")
         )
 
+    _render_esco_occupation_selector(position)
+
     position["seniority_level"] = role_cols[1].text_input(
         tr("Seniorität", "Seniority"),
         value=position.get("seniority_level", ""),
@@ -5355,6 +5528,8 @@ def _step_requirements():
         if responsibilities_required and not cleaned_responsibilities:
             _render_required_caption(True)
         st.session_state[responsibilities_seed_key] = raw_responsibilities
+
+    _render_esco_skill_picker(data.get("requirements"))
 
     must_col, nice_col, language_col = st.columns(3, gap="large")
 
@@ -6358,6 +6533,19 @@ def _summary_requirements() -> None:
     """Editable summary tab for requirements."""
 
     data = st.session_state[StateKeys.PROFILE]
+    missing_esco = [
+        str(skill).strip()
+        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+        if isinstance(skill, str) and str(skill).strip()
+    ]
+    if missing_esco:
+        outstanding = ", ".join(_unique_normalized(missing_esco[:8]))
+        st.info(
+            tr(
+                "Noch ausstehende ESCO-Pflichtskills: {skills}",
+                "Outstanding ESCO essentials: {skills}",
+            ).format(skills=outstanding)
+        )
 
     hard_req = st.text_area(
         tr("Hard Skills (Muss)", "Hard Skills (Must-have)"),

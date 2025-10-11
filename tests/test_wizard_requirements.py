@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import streamlit as st
 
-from constants.keys import StateKeys
-from wizard import _step_requirements
+from constants.keys import StateKeys, UIKeys
+from wizard import _render_esco_skill_picker, _step_requirements
 
 
 class StopWizard(RuntimeError):
@@ -101,3 +101,48 @@ def test_step_requirements_warns_on_skill_suggestion_error(
     assert (
         st.session_state["skill_suggest_error"] == "kaputt"
     ), "Debug information must remain available"
+
+
+def test_render_esco_skill_picker_adds_skills(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Selecting ESCO skills should add them to the required bucket."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.ESCO_SKILLS] = ["Data Analysis", "Machine Learning"]
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = ["Machine Learning"]
+
+    requirements: dict[str, list[str]] = {
+        "hard_skills_required": [],
+        "hard_skills_optional": [],
+    }
+    st.session_state[StateKeys.PROFILE] = {"requirements": requirements}
+
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    captured_info: dict[str, str] = {}
+    monkeypatch.setattr(st, "info", lambda message, *_, **__: captured_info.setdefault("info", message))
+    monkeypatch.setattr(st, "success", lambda *_, **__: None)
+
+    def fake_multiselect(label, *, options, default, key):
+        assert "ESCO" in label
+        assert "Machine Learning" in options
+        return ["Machine Learning"]
+
+    monkeypatch.setattr(st, "multiselect", fake_multiselect)
+
+    class DummyColumn:
+        def __init__(self, trigger: bool) -> None:
+            self._trigger = trigger
+            self._calls = 0
+
+        def button(self, *_: object, **__: object) -> bool:
+            self._calls += 1
+            return self._trigger and self._calls == 1
+
+    monkeypatch.setattr(st, "columns", lambda _: (DummyColumn(True), DummyColumn(False)))
+
+    _render_esco_skill_picker(requirements)
+
+    assert requirements["hard_skills_required"] == ["Machine Learning"]
+    assert st.session_state[UIKeys.REQUIREMENTS_ESCO_SKILL_SELECT] == []
+    assert "Machine Learning" in captured_info.get("info", "")
