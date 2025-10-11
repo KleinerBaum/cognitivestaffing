@@ -3602,6 +3602,24 @@ def _step_onboarding(schema: dict) -> None:
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
 
+    intro_text = tr(
+        (
+            "Jede Suche nach einem Mitarbeiter beginnt damit aufzuschreiben welche Aufgaben zu erledigen sind, welche Skills "
+            "gefragt sind, benefits man bietet und wie man sich bewerben soll. Fehlende, ungenaue oder falsche Angaben führen "
+            "zu weniger Bewerbern, Frust, Zeit und Geldverlust."
+        ),
+        (
+            "Every search for a new team member starts with writing down the tasks to be done, the skills you need, the "
+            "benefits you offer, and how candidates should apply. Missing, vague, or incorrect information results in fewer "
+            "applicants, frustration, wasted time, and financial loss."
+        ),
+    )
+
+    st.markdown(
+        f"<div style='margin-top: 1rem; margin-bottom: 1rem;'>{intro_text}</div>",
+        unsafe_allow_html=True,
+    )
+
     welcome_headline = tr(
         "KI-gestützte Recruiting-Analyse mit Cognitive Needs",
         "AI-powered recruiting analysis with Cognitive Needs",
