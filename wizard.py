@@ -3812,10 +3812,6 @@ def _step_onboarding(schema: dict) -> None:
         "KI-gestützte Recruiting-Analyse mit Cognitive Needs",
         "AI-powered recruiting analysis with Cognitive Needs",
     )
-    welcome_text = tr(
-        "Sammle zu Beginn ALLE Recruiting-relevanten Daten und spare Nerven, Zeit und Kosten",
-        "Collect all recruiting-relevant data from the start and save nerves, time, and costs",
-    )
     advantage_text = tr(
         (
             "Mache den ersten Schritt jedes Recruiting-Prozesses mit einer "
@@ -3844,7 +3840,6 @@ def _step_onboarding(schema: dict) -> None:
     st.markdown(
         f"<div style='text-align:center; margin-top: 1.5rem;'>"
         f"<h2>{welcome_headline}</h2>"
-        f"<p>{welcome_text}</p>"
         f"<p>{advantage_text}</p>"
         f"<p>{dynamic_text}</p>"
         "</div>",
