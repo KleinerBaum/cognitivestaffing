@@ -4389,6 +4389,11 @@ def _render_onboarding_section(
                 if err and st.session_state.get("debug"):
                     st.session_state["onboarding_suggestions_error"] = err
             else:
+                selection_key = f"{key_prefix}.selection"
+                combined_selection = list(
+                    dict.fromkeys(existing_entries + suggestions)
+                )
+                st.session_state[selection_key] = combined_selection
                 st.session_state[StateKeys.ONBOARDING_SUGGESTIONS] = suggestions
                 st.rerun()
 
