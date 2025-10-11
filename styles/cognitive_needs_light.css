@@ -113,18 +113,23 @@ a:hover {
 
 .stButton > button {
   border-radius: 12px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(148, 163, 184, 0.55);
   padding: .6rem 1.05rem;
-  background: var(--button-gradient);
-  color: var(--text-on-accent);
+  background: rgba(241, 245, 249, 0.95);
+  color: var(--text-strong);
   font-weight: 600;
   letter-spacing: .2px;
-  box-shadow: var(--shadow-soft), var(--button-glass-border);
-  transition: transform .12s ease, box-shadow .12s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 .stButton > button:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-medium), var(--button-glass-border);
+  background: rgba(226, 232, 240, 0.98);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
+}
+.stButton > button:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
 }
 
 :where(input, textarea, select) {
@@ -135,6 +140,31 @@ a:hover {
 }
 :where(input, textarea, select):focus {
   outline: 2px solid var(--focus-ring) !important;
+}
+
+.stMultiSelect [data-baseweb="tag"] {
+  max-width: 100%;
+  background: rgba(59, 130, 246, 0.14) !important;
+  border: 1px solid rgba(96, 165, 250, 0.35) !important;
+  color: var(--text-strong) !important;
+  border-radius: 999px !important;
+}
+.stMultiSelect [data-baseweb="tag"] span {
+  white-space: normal !important;
+}
+.stMultiSelect [data-baseweb="input"] {
+  min-height: 44px;
+}
+
+div[data-testid="stAlert"] {
+  border-radius: 12px;
+  background: rgba(191, 219, 254, 0.45) !important;
+  border: 1px solid rgba(96, 165, 250, 0.4) !important;
+  color: var(--text-strong) !important;
+}
+div[data-testid="stAlert"] svg {
+  width: 18px !important;
+  height: 18px !important;
 }
 
 [data-testid="stHeader"] {
@@ -186,14 +216,6 @@ a:hover {
 .stTabs [data-baseweb="tab"]:hover {
   background: var(--sidebar-hover-bg);
   color: var(--text-strong);
-}
-
-div[data-testid="stAlert"] {
-  background: linear-gradient(120deg, rgba(6, 182, 212, 0.12), rgba(124, 58, 237, 0.1));
-  border-left: 4px solid var(--accent);
-  border-radius: 14px;
-  box-shadow: var(--shadow-soft);
-  color: var(--text-contrast-strong);
 }
 
 div[data-testid="stMetric"] {

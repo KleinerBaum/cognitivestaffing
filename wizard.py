@@ -3354,8 +3354,12 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
     _update_profile("position.occupation_group", group_value)
 
 
-def _render_esco_skill_picker(requirements: Mapping[str, Any] | None) -> None:
-    """Render a picker that lets users add ESCO skills to requirements."""
+def _render_esco_skill_picker(
+    requirements: Mapping[str, Any] | None,
+    *,
+    llm_suggestions: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
+) -> None:
+    """Render a picker that lets users add ESCO and LLM skills to requirements."""
 
     raw_skills = st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
     if not isinstance(raw_skills, Sequence):
@@ -3392,15 +3396,151 @@ def _render_esco_skill_picker(requirements: Mapping[str, Any] | None) -> None:
         )
 
     selection_key = UIKeys.REQUIREMENTS_ESCO_SKILL_SELECT
-    selected = st.multiselect(
-        tr("ESCO-Skills auswählen", "Select ESCO skills"),
-        options=skills,
-        default=st.session_state.get(selection_key, []),
-        key=selection_key,
-    )
+    editor_key = f"{selection_key}.editor"
+
+    existing_markers: set[str] = set()
+    if isinstance(requirements, Mapping):
+        for bucket in (
+            "hard_skills_required",
+            "hard_skills_optional",
+            "soft_skills_required",
+            "soft_skills_optional",
+            "tools_and_technologies",
+        ):
+            for entry in requirements.get(bucket, []) or []:
+                if isinstance(entry, str) and entry.strip():
+                    existing_markers.add(entry.strip().casefold())
+
+    lang_code = st.session_state.get("lang", "de")
+    base_selection = _unique_normalized(st.session_state.get(selection_key, []))
+    base_selection_markers = {item.casefold() for item in base_selection}
+
+    suggestion_rows: list[dict[str, object]] = []
+    seen_rows: set[tuple[str, str]] = set()
+
+    source_esco = tr("ESCO", "ESCO", lang=lang_code)
+    category_esco = tr("Pflichtskill", "Essential skill", lang=lang_code)
+    for skill in skills:
+        marker = skill.casefold()
+        if marker in existing_markers:
+            continue
+        row_key = (skill, source_esco)
+        if row_key in seen_rows:
+            continue
+        seen_rows.add(row_key)
+        suggestion_rows.append(
+            {
+                "Auswahl": marker in base_selection_markers,
+                "Skill": skill,
+                "Quelle": source_esco,
+                "Kategorie": category_esco,
+            }
+        )
+
+    if llm_suggestions:
+        category_labels = {
+            "hard_skills": tr("Technisch", "Technical", lang=lang_code),
+            "soft_skills": tr("Persönlich", "Behavioural", lang=lang_code),
+        }
+        for bucket_key, grouped_values in llm_suggestions.items():
+            if not isinstance(grouped_values, Mapping):
+                continue
+            bucket_label = category_labels.get(bucket_key, bucket_key.title())
+            for group_key, values in grouped_values.items():
+                label_key = _SUGGESTION_GROUP_LABEL_KEYS.get(group_key)
+                if label_key:
+                    group_label = translate_key(label_key, lang_code)
+                else:
+                    group_label = str(group_key).title()
+                for raw in values or []:
+                    cleaned = str(raw or "").strip()
+                    if not cleaned:
+                        continue
+                    marker = cleaned.casefold()
+                    if marker in existing_markers:
+                        continue
+                    row_key = (cleaned, group_label)
+                    if row_key in seen_rows:
+                        continue
+                    seen_rows.add(row_key)
+                    suggestion_rows.append(
+                        {
+                            "Auswahl": marker in base_selection_markers,
+                            "Skill": cleaned,
+                            "Quelle": group_label,
+                            "Kategorie": bucket_label,
+                        }
+                    )
+
+    if not suggestion_rows:
+        st.caption(
+            tr(
+                "Aktuell keine zusätzlichen ESCO- oder KI-Skills verfügbar.",
+                "No additional ESCO or AI-generated skills available right now.",
+                lang=lang_code,
+            )
+        )
+        st.session_state[selection_key] = []
+        st.session_state.pop(editor_key, None)
+        return
+
+    suggestion_rows.sort(key=lambda row: (str(row["Quelle"]).casefold(), str(row["Skill"]).casefold()))
+
+    with st.container():
+        st.markdown("<div class='skill-suggestion-table'>", unsafe_allow_html=True)
+        edited_rows = st.data_editor(
+            suggestion_rows,
+            hide_index=True,
+            width="stretch",
+            column_order=["Auswahl", "Skill", "Quelle", "Kategorie"],
+            column_config={
+                "Auswahl": st.column_config.CheckboxColumn(
+                    label=tr("Auswahl", "Select", lang=lang_code),
+                    help=tr(
+                        "Markiere Skills, die du übernehmen möchtest.",
+                        "Mark the skills you want to transfer.",
+                        lang=lang_code,
+                    ),
+                ),
+                "Skill": st.column_config.TextColumn(
+                    label=tr("Skill", "Skill", lang=lang_code),
+                    disabled=True,
+                    width="medium",
+                ),
+                "Quelle": st.column_config.TextColumn(
+                    label=tr("Quelle", "Source", lang=lang_code),
+                    disabled=True,
+                    width="medium",
+                ),
+                "Kategorie": st.column_config.TextColumn(
+                    label=tr("Kategorie", "Category", lang=lang_code),
+                    disabled=True,
+                    width="medium",
+                ),
+            },
+            key=editor_key,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if isinstance(edited_rows, list):
+        updated_selection = [
+            str(row.get("Skill", ""))
+            for row in edited_rows
+            if isinstance(row, Mapping) and row.get("Auswahl")
+        ]
+    elif hasattr(edited_rows, "to_dict"):
+        updated_selection = [
+            str(row.get("Skill", ""))
+            for row in edited_rows.to_dict("records")  # type: ignore[arg-type]
+            if row.get("Auswahl")
+        ]
+    else:
+        updated_selection = []
+
     selected_clean = _unique_normalized(
-        [str(item).strip() for item in selected if isinstance(item, str) and str(item).strip()]
+        [value.strip() for value in updated_selection if isinstance(value, str) and value.strip()]
     )
+    st.session_state[selection_key] = selected_clean
 
     def _apply_to_bucket(target: str) -> bool:
         if not isinstance(requirements, Mapping):
@@ -3428,6 +3568,7 @@ def _render_esco_skill_picker(requirements: Mapping[str, Any] | None) -> None:
         if _apply_to_bucket("hard_skills_required"):
             st.success(added_message)
         st.session_state[selection_key] = []
+        st.session_state.pop(editor_key, None)
 
     if action_cols[1].button(
         tr("Als Plus übernehmen", "Add as nice-to-have"),
@@ -3437,6 +3578,7 @@ def _render_esco_skill_picker(requirements: Mapping[str, Any] | None) -> None:
         if _apply_to_bucket("hard_skills_optional"):
             st.success(added_message)
         st.session_state[selection_key] = []
+        st.session_state.pop(editor_key, None)
 
 
 BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
@@ -5169,6 +5311,11 @@ def _step_requirements():
                 padding: 1.25rem 1.4rem;
                 margin-bottom: 1.2rem;
             }
+            .requirement-panel--insights {
+                background: rgba(59, 130, 246, 0.06);
+                border: 1px solid rgba(59, 130, 246, 0.22);
+                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+            }
             .requirement-panel__header {
                 display: flex;
                 gap: 0.5rem;
@@ -5181,8 +5328,14 @@ def _step_requirements():
                 margin: 0.15rem 0 0.95rem 0;
                 font-size: 0.92rem;
             }
+            .requirement-panel--insights .requirement-panel__caption {
+                color: #1e3a8a;
+            }
             .requirement-panel__icon {
                 font-size: 1.1rem;
+            }
+            .requirement-panel--insights .requirement-panel__icon {
+                font-size: 0.95rem;
             }
             .ai-suggestion-box {
                 margin-top: 0.6rem;
@@ -5199,6 +5352,21 @@ def _step_requirements():
                 font-size: 0.85rem;
                 color: #0369a1;
                 margin-bottom: 0.5rem;
+            }
+            .skill-suggestion-table {
+                margin-top: 0.75rem;
+            }
+            .skill-suggestion-table [data-testid="stDataFrame"] {
+                border-radius: 0.75rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(15, 23, 42, 0.08);
+                overflow: hidden;
+            }
+            .skill-suggestion-table table {
+                font-size: 0.92rem;
+            }
+            .skill-suggestion-table [data-baseweb="checkbox"] {
+                transform: scale(0.92);
             }
             </style>
             """,
@@ -5336,13 +5504,18 @@ def _step_requirements():
         caption: str,
         tooltip: str,
         parent: DeltaGenerator | None = None,
+        variant: str | None = None,
     ):
         if parent is not None:
             panel_container = parent.container()
         else:
             panel_container = st.container()
+        panel_classes = ["requirement-panel"]
+        if variant:
+            panel_classes.append(f"requirement-panel--{variant}")
+        class_attr = " ".join(panel_classes)
         panel_container.markdown(
-            f"<div class='requirement-panel' title='{html.escape(tooltip)}'>",
+            f"<div class='{class_attr}' title='{html.escape(tooltip)}'>",
             unsafe_allow_html=True,
         )
         panel_container.markdown(
@@ -5540,7 +5713,29 @@ def _step_requirements():
             _render_required_caption(True)
         st.session_state[responsibilities_seed_key] = raw_responsibilities
 
-    _render_esco_skill_picker(data.get("requirements"))
+    llm_skill_sources: dict[str, dict[str, list[str]]] = {}
+    for pool_key in ("hard_skills", "soft_skills"):
+        grouped = suggestions.get(pool_key)
+        if not isinstance(grouped, Mapping):
+            continue
+        normalized_groups: dict[str, list[str]] = {}
+        for group_key, values in grouped.items():
+            if not isinstance(values, Sequence):
+                continue
+            cleaned_values = [
+                str(value).strip()
+                for value in values
+                if isinstance(value, str) and str(value).strip()
+            ]
+            if cleaned_values:
+                normalized_groups[str(group_key)] = cleaned_values
+        if normalized_groups:
+            llm_skill_sources[pool_key] = normalized_groups
+
+    _render_esco_skill_picker(
+        data.get("requirements"),
+        llm_suggestions=llm_skill_sources,
+    )
 
     must_col, nice_col, language_col = st.columns(3, gap="large")
 
@@ -5681,6 +5876,7 @@ def _step_requirements():
             "Optional skills show their impact on salary and talent availability here.",
         ),
         parent=nice_col,
+        variant="insights",
     ):
         nice_insight_skills = (
             list(data["requirements"].get("hard_skills_optional", []))
@@ -5764,6 +5960,7 @@ def _step_requirements():
             "Compares the selected skills with market benchmarks – neutral when no data is available.",
         ),
         parent=must_col,
+        variant="insights",
     ):
         must_insight_skills = (
             list(data["requirements"].get("hard_skills_required", []))
@@ -5854,6 +6051,7 @@ def _step_requirements():
             "Shows how mandatory or optional languages influence the talent pool.",
         ),
         parent=language_col,
+        variant="insights",
     ):
         language_insight_skills = (
             list(data["requirements"].get("languages_required", []))
