@@ -31,6 +31,8 @@ class UIKeys:
     REQUIREMENTS_OCC_SEARCH = "ui.requirements.occupation_search"
     REQUIREMENTS_OCC_SELECT = "ui.requirements.occupation_select"
     REQUIREMENTS_SHOW_ALL_ESCO = "ui.requirements.show_all_esco"
+    REQUIREMENTS_ESCO_SKILL_SELECT = "ui.requirements.esco_skill_select"
+    POSITION_ESCO_OCCUPATION = "ui.position.esco_occupation"
     JOB_AD_FONT = "ui.job_ad.font"
     JOB_AD_FORMAT = "ui.job_ad.format"
     JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"

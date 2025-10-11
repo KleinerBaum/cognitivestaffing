@@ -354,6 +354,19 @@ def _render_requirements_context(context: SidebarContext) -> None:
         st.markdown(f"**{tr('Must-haves', 'Must-haves')}**: {', '.join(must[:12])}")
     if nice:
         st.markdown(f"**{tr('Nice-to-haves', 'Nice-to-haves')}**: {', '.join(nice[:12])}")
+    missing_esco = [
+        str(skill).strip()
+        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+        if isinstance(skill, str) and str(skill).strip()
+    ]
+    if missing_esco:
+        outstanding = ", ".join(dict.fromkeys(missing_esco))
+        st.warning(
+            tr(
+                "ESCO meldet noch fehlende Essentials: {skills}",
+                "ESCO still flags missing essentials: {skills}",
+            ).format(skills=outstanding)
+        )
     _render_missing_hint(context, section=3)
 
 

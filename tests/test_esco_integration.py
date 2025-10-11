@@ -24,6 +24,9 @@ def test_search_populates_state() -> None:
     assert result["group"] == "Information and communications technology professionals"
     assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS]
     assert st.session_state[StateKeys.ESCO_SKILLS]
+    first_option = st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS][0]
+    assert "preferredLabel" in first_option
+    assert st.session_state[StateKeys.ESCO_SKILLS][0]
 
 
 def test_search_options_returns_candidates() -> None:
@@ -34,6 +37,7 @@ def test_search_options_returns_candidates() -> None:
     assert options
     assert options[0]["group"]
     assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] == options
+    assert all("preferredLabel" in opt for opt in options)
 
 
 def test_enrich_skills_uses_cached_data() -> None:
