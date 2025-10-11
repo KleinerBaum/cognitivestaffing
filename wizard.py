@@ -7185,8 +7185,6 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
 
-    _render_confidence_legend()
-
     _render_summary_highlights(profile)
 
     tab_labels = [
@@ -8093,8 +8091,6 @@ def run_wizard():
         [label for label, _ in steps],
         on_select=_handle_step_selection,
     )
-
-    _render_confidence_legend()
 
     warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
     if warning_message:
