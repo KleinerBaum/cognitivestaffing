@@ -9,7 +9,14 @@ from typing import Mapping, Sequence
 import streamlit as st
 
 from config_loader import load_json
-from utils.i18n import tr
+from utils.i18n import (
+    SKILL_MARKET_AVAILABILITY_METRIC_LABEL,
+    SKILL_MARKET_FALLBACK_CAPTION,
+    SKILL_MARKET_METRIC_CAPTION,
+    SKILL_MARKET_SALARY_METRIC_LABEL,
+    SKILL_MARKET_SELECT_SKILL_LABEL,
+    tr,
+)
 
 
 @dataclass
@@ -227,15 +234,18 @@ def build_skill_market_chart_spec(
     records: Sequence[SkillMarketRecord],
     *,
     lang: str,
+    highlight_skill: str | None = None,
 ) -> dict[str, object]:
     """Create a Vega-Lite spec visualising salary and availability impact."""
 
     benchmark_label = tr("Benchmark", "Benchmark", lang=lang)
     fallback_label = tr("Fallback", "Fallback", lang=lang)
+    highlight_norm = _normalize_skill_label(highlight_skill) if highlight_skill else None
     values: list[dict[str, object]] = []
     for record in records:
         bubble_size = 80.0 - record.availability_index * 0.4
         bubble_size = max(24.0, bubble_size)
+        is_highlighted = highlight_norm is None or record.normalized_skill == highlight_norm
         values.append(
             {
                 "skill": record.skill,
@@ -245,6 +255,7 @@ def build_skill_market_chart_spec(
                 "bubble_size": round(bubble_size, 2),
                 "salary_text": f"{record.salary_delta_pct:+.1f}%",
                 "availability_text": f"{record.availability_index:.0f}/100",
+                "highlight": is_highlighted,
             }
         )
     x_title = tr(
@@ -290,6 +301,10 @@ def build_skill_market_chart_spec(
                     "domain": [benchmark_label, fallback_label],
                     "range": ["#2563eb", "#9ca3af"],
                 },
+            },
+            "opacity": {
+                "condition": {"test": "datum.highlight", "value": 1.0},
+                "value": 0.25,
             },
             "tooltip": [
                 {"field": "skill", "type": "nominal"},
@@ -368,6 +383,45 @@ def render_skill_market_insights(
             )
         )
         return
-    spec = build_skill_market_chart_spec(records, lang=lang_code)
+    skill_options = [record.skill for record in records]
+    selection_label = tr(*SKILL_MARKET_SELECT_SKILL_LABEL, lang=lang_code)
+    select_key = f"skill-market-select-{_normalize_skill_label(segment_label) or 'segment'}"
+    selected_skill = st.selectbox(selection_label, skill_options, key=select_key)
+    selected_record = next(
+        (record for record in records if record.skill == selected_skill),
+        records[0],
+    )
+
+    if selected_record.has_benchmark:
+        col_salary, col_availability = st.columns(2)
+        col_salary.metric(
+            tr(*SKILL_MARKET_SALARY_METRIC_LABEL, lang=lang_code),
+            f"{selected_record.salary_delta_pct:+.1f}%",
+        )
+        col_availability.metric(
+            tr(*SKILL_MARKET_AVAILABILITY_METRIC_LABEL, lang=lang_code),
+            f"{selected_record.availability_index:.0f}/100",
+        )
+        st.caption(
+            tr(*SKILL_MARKET_METRIC_CAPTION, lang=lang_code).format(
+                skill=selected_record.skill,
+                salary=selected_record.salary_delta_pct,
+                availability=selected_record.availability_index,
+            )
+        )
+    else:
+        st.caption(
+            tr(*SKILL_MARKET_FALLBACK_CAPTION, lang=lang_code).format(
+                skill=selected_record.skill,
+                salary=selected_record.salary_delta_pct,
+                availability=selected_record.availability_index,
+            )
+        )
+
+    spec = build_skill_market_chart_spec(
+        records,
+        lang=lang_code,
+        highlight_skill=selected_record.normalized_skill,
+    )
     st.vega_lite_chart(spec=spec, use_container_width=True)
     _render_summary(records, segment_label=segment_label, lang=lang_code)
