@@ -246,48 +246,7 @@ def _initial_extraction_section_map() -> dict[str, str]:
     }
 
 
-def _render_onboarding_context(context: SidebarContext) -> None:
-    step_order, step_entries = _build_initial_extraction_entries(context)
-    if not any(step_entries.values()):
-        st.caption(
-            tr(
-                "Sobald du Daten importierst, erscheinen hier die wichtigsten Ergebnisse.",
-                "As soon as you import data the top findings will appear here.",
-            )
-        )
-        return
-
-    select_key = "ui.initial_extraction_step"
-    if (
-        select_key not in st.session_state
-        or st.session_state[select_key] not in step_order
-    ):
-        default_step = next(
-            (key for key in step_order if step_entries.get(key)),
-            step_order[0],
-        )
-        st.session_state[select_key] = default_step
-
-    step_label_map = dict(STEP_LABELS)
-    selected_step = st.selectbox(
-        tr("Schritt auswählen", "Select step"),
-        options=step_order,
-        key=select_key,
-        format_func=lambda key: step_label_map.get(key, key.title()),
-    )
-
-    entries = step_entries.get(selected_step, [])
-    if entries:
-        for label, value in entries:
-            st.markdown(f"- **{label}:** {value}")
-    else:
-        st.caption(
-            tr(
-                "Für diesen Schritt liegen noch keine Daten vor.",
-                "No data captured for this step yet.",
-            )
-        )
-
+def _render_onboarding_context(_: SidebarContext) -> None:
     missing = st.session_state.get(StateKeys.EXTRACTION_MISSING, [])
     if missing:
         st.warning(
