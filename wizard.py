@@ -6963,23 +6963,16 @@ def _step_summary(schema: dict, _critical: list[str]):
         stored_brand = (st.session_state.get(UIKeys.JOB_AD_BRAND_TONE) or "").strip()
         if UIKeys.JOB_AD_BRAND_TONE_INPUT not in st.session_state:
             st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = stored_brand
-        else:
-            current_input_value = st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT]
-            normalized_input_value = (
-                current_input_value.strip()
-                if isinstance(current_input_value, str)
-                else stored_brand
-            )
-            if normalized_input_value != current_input_value:
-                st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = (
-                    normalized_input_value or ""
-                )
 
         brand_value_input = st.text_input(
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
             key=UIKeys.JOB_AD_BRAND_TONE_INPUT,
         )
-        normalized_brand = brand_value_input.strip()
+        normalized_brand = (
+            brand_value_input.strip()
+            if isinstance(brand_value_input, str)
+            else stored_brand
+        )
         if normalized_brand:
             st.session_state[UIKeys.JOB_AD_BRAND_TONE] = normalized_brand
             _update_profile("company.brand_keywords", normalized_brand)
