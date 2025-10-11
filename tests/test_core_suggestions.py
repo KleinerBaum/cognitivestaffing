@@ -26,8 +26,11 @@ def test_get_skill_suggestions(monkeypatch):
     )
     monkeypatch.setattr(
         suggestions,
-        "normalize_skills",
-        lambda skills, lang="en": [s.title() for s in skills],
+        "lookup_esco_skill",
+        lambda name, lang="en": {
+            "preferredLabel": name.title(),
+            "skillType": "http://data.europa.eu/esco/skill-type/skill",
+        },
     )
     monkeypatch.setattr(
         suggestions,
@@ -41,7 +44,7 @@ def test_get_skill_suggestions(monkeypatch):
     )
     sugg, err = get_skill_suggestions("Engineer")
     assert sugg == {
-        "hard_skills": {"esco": ["Python"], "llm": ["Go"]},
+        "hard_skills": {"esco_skill": ["Python"], "llm": ["Go"]},
         "tools_and_technologies": {"llm": ["T"]},
         "certificates": {"llm": ["Azure"]},
     }
@@ -64,12 +67,15 @@ def test_get_skill_suggestions_error(monkeypatch):
     )
     monkeypatch.setattr(
         suggestions,
-        "normalize_skills",
-        lambda skills, lang="en": [skill.upper() for skill in skills],
+        "lookup_esco_skill",
+        lambda name, lang="en": {
+            "preferredLabel": name.upper(),
+            "skillType": "http://data.europa.eu/esco/skill-type/skill",
+        },
     )
     monkeypatch.setattr(suggestions, "suggest_skills_for_role", raiser)
     sugg, err = get_skill_suggestions("Engineer")
-    assert sugg == {"hard_skills": {"esco": ["PYTHON"]}}
+    assert sugg == {"hard_skills": {"esco_skill": ["PYTHON"]}}
     assert err == "fail"
 
 

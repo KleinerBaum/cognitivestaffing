@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Dict, List, Sequence, Tuple
 
 from openai_utils import (
@@ -13,7 +14,7 @@ from openai_utils import (
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
-    normalize_skills,
+    lookup_esco_skill,
 )
 
 __all__ = [
@@ -124,11 +125,79 @@ def get_static_benefit_shortlist(lang: str = "en", industry: str = "") -> List[s
     return _unique(items or [])
 
 
+_TOOL_KEYWORDS = (
+    "software",
+    "tool",
+    "tools",
+    "platform",
+    "framework",
+    "technology",
+    "technologies",
+    "system",
+    "systems",
+    "suite",
+    "ide",
+    "environment",
+    "stack",
+)
+
+_CERTIFICATE_KEYWORDS = (
+    "certific",
+    "certified",
+    "lizenz",
+    "license",
+    "licence",
+    "abschluss",
+    "diploma",
+    "degree",
+    "zertifikat",
+    "accredit",
+)
+
+
+def _fetch_missing_esco_skills_from_state() -> List[str]:
+    try:
+        import streamlit as st  # type: ignore
+        from constants.keys import StateKeys
+    except Exception:  # pragma: no cover - optional dependency for non-UI tests
+        return []
+
+    try:
+        session_state = getattr(st, "session_state", {})
+        values = session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+    except Exception:  # pragma: no cover - streamlit guard
+        return []
+
+    missing: List[str] = []
+    for entry in values:
+        if isinstance(entry, str):
+            cleaned = entry.strip()
+            if cleaned:
+                missing.append(cleaned)
+    return missing
+
+
+def _esco_field_and_category(label: str, skill_type: str) -> Tuple[str, str]:
+    lowered = label.casefold()
+    if any(keyword in lowered for keyword in _CERTIFICATE_KEYWORDS):
+        return "certificates", "certificates"
+    if any(keyword in lowered for keyword in _TOOL_KEYWORDS):
+        return "tools_and_technologies", "tools"
+
+    skill_type_key = skill_type.rsplit("/", 1)[-1].lower() if skill_type else ""
+    if skill_type_key == "competence":
+        return "soft_skills", "competence"
+    if skill_type_key == "knowledge":
+        return "hard_skills", "knowledge"
+    return "hard_skills", "skill"
+
+
 def get_skill_suggestions(
     job_title: str,
     lang: str = "en",
     *,
     focus_terms: Sequence[str] | None = None,
+    missing_skills: Sequence[str] | None = None,
 ) -> Tuple[Dict[str, Dict[str, List[str]]], str | None]:
     """Fetch skill suggestions for a role title.
 
@@ -159,16 +228,54 @@ def get_skill_suggestions(
             seen[field].add(marker)
             cleaned.append(value)
         if cleaned:
-            grouped[field][group] = cleaned
+            existing = grouped[field].get(group, [])
+            grouped[field][group] = existing + cleaned
 
     occupation = classify_occupation(job_title, lang=lang)
     if occupation and occupation.get("uri"):
-        esco_skills = normalize_skills(
-            get_essential_skills(occupation["uri"], lang=lang),
-            lang=lang,
+        staged: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
+
+        staged_seen: Dict[str, Dict[str, set[str]]] = defaultdict(
+            lambda: defaultdict(set)
         )
-        if esco_skills:
-            _add_group("hard_skills", "esco", esco_skills)
+
+        def _stage(field: str, group: str, value: str) -> None:
+            marker = value.casefold()
+            if marker in staged_seen[field][group]:
+                return
+            staged_seen[field][group].add(marker)
+            staged[field][group].append(value)
+
+        def _process_esco_skill(raw_label: str, *, is_missing: bool) -> None:
+            label = str(raw_label or "").strip()
+            if not label:
+                return
+            meta = lookup_esco_skill(label, lang=lang)
+            normalized = str(meta.get("preferredLabel") or label).strip()
+            if not normalized:
+                return
+            field, category = _esco_field_and_category(
+                normalized,
+                str(meta.get("skillType") or ""),
+            )
+            prefix = "esco_missing" if is_missing else "esco"
+            group_name = f"{prefix}_{category}"
+            _stage(field, group_name, normalized)
+
+        missing_pool = (
+            [str(term).strip() for term in (missing_skills or []) if str(term).strip()]
+            or _fetch_missing_esco_skills_from_state()
+        )
+        for item in missing_pool:
+            _process_esco_skill(item, is_missing=True)
+
+        essentials = get_essential_skills(occupation["uri"], lang=lang)
+        for item in essentials:
+            _process_esco_skill(item, is_missing=False)
+
+        for field, groups in staged.items():
+            for group_name, values in groups.items():
+                _add_group(field, group_name, values)
 
     try:
         ai_suggestions = suggest_skills_for_role(

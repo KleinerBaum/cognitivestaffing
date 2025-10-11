@@ -31,6 +31,7 @@ import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.i18n import tr
+from i18n import t as translate_key
 from constants.keys import UIKeys, StateKeys
 from utils.session import bind_textarea
 from state import ensure_state, reset_state
@@ -112,6 +113,22 @@ _SKILL_FOCUS_PRESETS: dict[str, list[str]] = {
         "Customer Experience",
         "Leadership & Coaching",
     ],
+}
+
+_SUGGESTION_GROUP_LABEL_KEYS: dict[str, str] = {
+    "llm": "suggestion_group_llm",
+    "esco": "suggestion_group_esco_skill",
+    "esco_skill": "suggestion_group_esco_skill",
+    "esco_missing": "suggestion_group_esco_missing_skill",
+    "esco_knowledge": "suggestion_group_esco_knowledge",
+    "esco_competence": "suggestion_group_esco_competence",
+    "esco_tools": "suggestion_group_esco_tools",
+    "esco_certificates": "suggestion_group_esco_certificates",
+    "esco_missing_skill": "suggestion_group_esco_missing_skill",
+    "esco_missing_knowledge": "suggestion_group_esco_missing_knowledge",
+    "esco_missing_competence": "suggestion_group_esco_missing_competence",
+    "esco_missing_tools": "suggestion_group_esco_missing_tools",
+    "esco_missing_certificates": "suggestion_group_esco_missing_certificates",
 }
 
 _BENEFIT_FOCUS_PRESETS: dict[str, list[str]] = {
@@ -5392,13 +5409,12 @@ def _step_requirements():
         grouped_pool = suggestions.get(source_key, {}) or {}
         seen_grouped: set[tuple[str, str]] = set()
         option_entries: list[tuple[str, str, str]] = []
+        lang_code = st.session_state.get("lang", "de")
         for group_key, values in grouped_pool.items():
-            label_prefix = (
-                tr("LLM-Vorschläge", "LLM suggestions")
-                if group_key == "llm"
-                else tr("ESCO Pflicht-Skills", "ESCO essentials")
-            )
-            if group_key not in {"llm", "esco"}:
+            label_key = _SUGGESTION_GROUP_LABEL_KEYS.get(group_key)
+            if label_key:
+                label_prefix = translate_key(label_key, lang_code)
+            else:
                 label_prefix = group_key.title()
             for raw in values:
                 cleaned = str(raw or "").strip()
