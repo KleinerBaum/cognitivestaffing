@@ -6690,6 +6690,31 @@ def _step_process():
     st.caption(process_caption)
     data = profile["process"]
 
+    stakeholders_raw = data.get("stakeholders")
+    stakeholders_list = (
+        stakeholders_raw if isinstance(stakeholders_raw, list) else []
+    )
+    has_stakeholder_details = any(
+        any(str(person.get(field) or "").strip() for field in ("name", "role", "email"))
+        or bool(person.get("information_loop_phases"))
+        for person in stakeholders_list
+        if isinstance(person, Mapping)
+    )
+    if not has_stakeholder_details:
+        st.info(
+            tr(
+                (
+                    "Erfasse hier deinen Ansprechpartner, damit in der Übersicht nicht der Hinweis "
+                    "„Keine Stakeholder hinterlegt – Schritt 'Prozess' ausfüllen, um Personen zu ergänzen.“"
+                    " erscheint."
+                ),
+                (
+                    "Capture your primary contact here so the summary doesn’t display the hint "
+                    "“No stakeholders available – populate the Process step to add contacts.”."
+                ),
+            )
+        )
+
     _render_stakeholders(data, "ui.process.stakeholders")
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
 
