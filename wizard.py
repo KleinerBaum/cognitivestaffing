@@ -4006,16 +4006,12 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
             selected_ids = [current_uri]
 
     selected_ids = [sid for sid in selected_ids if sid in option_ids]
-    if not selected_ids and option_ids:
-        selected_ids = [option_ids[0]]
 
     widget_value = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
     if not widget_value:
         widget_value = list(selected_ids)
     else:
         widget_value = [sid for sid in widget_value if sid in option_ids]
-        if not widget_value:
-            widget_value = list(selected_ids)
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
 
     st.markdown("##### " + tr("ESCO-Berufe auswählen", "Select ESCO occupations"))
@@ -4033,15 +4029,20 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
-    st.markdown(f"**{selection_label}**")
+    st.caption(selection_label)
 
     st.multiselect(
         selection_label,
         options=option_ids,
-        default=selected_ids,
+        default=widget_value,
         key=UIKeys.POSITION_ESCO_OCCUPATION,
         format_func=lambda value: format_map.get(value, value),
         on_change=_on_change,
+        label_visibility="collapsed",
+        placeholder=tr(
+            "ESCO-Beruf suchen oder hinzufügen …",
+            "Search or add ESCO occupations…",
+        ),
     )
 
     selected_ids = list(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION, []))
@@ -4052,44 +4053,61 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
     selected_title = tr("Ausgewählt", "Selected")
     available_title = tr("Weitere Optionen", "More options")
 
-    if selected_labels:
-        st.markdown(
-            f"<p class='chip-section-title'>{selected_title}</p>",
-            unsafe_allow_html=True,
-        )
-        clicked_selected = _render_chip_button_grid(
-            selected_labels,
-            key_prefix="esco.occupations.selected",
-            button_type="primary",
-            columns=2,
-        )
-        if clicked_selected is not None:
-            removed_id = selected_ids[clicked_selected]
-            new_selection = [sid for sid in selected_ids if sid != removed_id]
-            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
-            _on_change()
-            st.rerun()
-    else:
-        st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
+    selected_col, available_col = st.columns(2)
 
-    if available_labels:
+    with selected_col:
+        header_cols = st.columns([4, 1])
+        with header_cols[0]:
+            st.markdown(
+                f"<p class='chip-section-title'>{selected_title}</p>",
+                unsafe_allow_html=True,
+            )
+        if selected_labels:
+            with header_cols[1]:
+                if st.button(
+                    "✕",
+                    key="esco.occupations.clear",
+                    help=tr("Alle entfernen", "Clear all"),
+                    type="secondary",
+                    width="stretch",
+                ):
+                    st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
+                    _on_change()
+                    st.rerun()
+            clicked_selected = _render_chip_button_grid(
+                selected_labels,
+                key_prefix="esco.occupations.selected",
+                button_type="primary",
+                columns=3,
+            )
+            if clicked_selected is not None:
+                removed_id = selected_ids[clicked_selected]
+                new_selection = [sid for sid in selected_ids if sid != removed_id]
+                st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
+                _on_change()
+                st.rerun()
+        else:
+            st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
+
+    with available_col:
         st.markdown(
             f"<p class='chip-section-title chip-section-title--secondary'>{available_title}</p>",
             unsafe_allow_html=True,
         )
-        clicked_available = _render_chip_button_grid(
-            available_labels,
-            key_prefix="esco.occupations.available",
-            columns=2,
-        )
-        if clicked_available is not None:
-            added_id = available_ids[clicked_available]
-            new_selection = selected_ids + [added_id]
-            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
-            _on_change()
-            st.rerun()
-    elif not selected_labels:
-        st.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
+        if available_labels:
+            clicked_available = _render_chip_button_grid(
+                available_labels,
+                key_prefix="esco.occupations.available",
+                columns=3,
+            )
+            if clicked_available is not None:
+                added_id = available_ids[clicked_available]
+                new_selection = selected_ids + [added_id]
+                st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
+                _on_change()
+                st.rerun()
+        elif not selected_labels:
+            st.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
 
     current_ids = _coerce_occupation_ids(
         st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
