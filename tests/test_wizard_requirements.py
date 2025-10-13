@@ -48,9 +48,7 @@ def test_step_requirements_warns_on_skill_suggestion_error(
 
     monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
     monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
-    monkeypatch.setattr(
-        "wizard.get_skill_suggestions", lambda *_args, **_kwargs: ({}, "kaputt")
-    )
+    monkeypatch.setattr("wizard.get_skill_suggestions", lambda *_args, **_kwargs: ({}, "kaputt"))
 
     monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
@@ -92,13 +90,78 @@ def test_step_requirements_warns_on_skill_suggestion_error(
     with pytest.raises(StopWizard):
         _step_requirements()
 
-    assert (
-        captured["message"]
-        == "Skill-Vorschläge nicht verfügbar (API-Fehler)"
-    ), "User-facing warning should be localized"
-    assert (
-        st.session_state["skill_suggest_error"] == "kaputt"
-    ), "Debug information must remain available"
+    assert captured["message"] == "Skill-Vorschläge nicht verfügbar (API-Fehler)", (
+        "User-facing warning should be localized"
+    )
+    assert st.session_state["skill_suggest_error"] == "kaputt", "Debug information must remain available"
+
+
+def test_step_requirements_initializes_requirements(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The requirements step should populate an empty requirements block."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
+    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
+    st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.PROFILE] = {
+        "position": {"job_title": "Data Scientist"},
+        "company": {},
+    }
+
+    monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
+    monkeypatch.setattr("wizard.get_skill_suggestions", lambda *_args, **_kwargs: ({}, None))
+    monkeypatch.setattr("wizard._chip_multiselect", lambda *_, **__: [])
+
+    class FakePanel:
+        def __enter__(self) -> "FakePanel":
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+        def markdown(self, *_: object, **__: object) -> None:
+            return None
+
+        def container(self) -> "FakePanel":
+            return FakePanel()
+
+    def fake_columns(spec, **_: object) -> tuple[FakePanel, ...]:
+        count = spec if isinstance(spec, int) else len(spec)
+        return tuple(FakePanel() for _ in range(count))
+
+    def fake_text_area(*_: object, key: str | None = None, value: str = "", **__: object) -> str:
+        if key is not None:
+            st.session_state[key] = value
+        return value
+
+    monkeypatch.setattr(st, "container", lambda: FakePanel())
+    monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    captured: dict[str, dict[str, list[str]]] = {}
+
+    def fake_skill_board(requirements: dict[str, list[str]], **_: object) -> None:
+        captured["requirements"] = requirements
+        requirements["hard_skills_required"] = ["Python"]
+        raise StopWizard
+
+    monkeypatch.setattr("wizard._render_skill_board", fake_skill_board)
+
+    with pytest.raises(StopWizard):
+        _step_requirements()
+
+    profile = st.session_state[StateKeys.PROFILE]
+    assert "requirements" in profile, "requirements section should be initialised"
+    assert profile["requirements"]["hard_skills_required"] == ["Python"]
+    assert captured["requirements"] is profile["requirements"], "skill board must receive the live requirements dict"
 
 
 def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -134,12 +197,8 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
         updated = []
         for container in items:
             header = container.get("header")
-            if isinstance(header, str) and (
-                "Muss" in header or "Must" in header
-            ):
-                updated.append(
-                    {"header": header, "items": ["Machine Learning ⟮ESCO⟯"]}
-                )
+            if isinstance(header, str) and ("Muss" in header or "Must" in header):
+                updated.append({"header": header, "items": ["Machine Learning ⟮ESCO⟯"]})
             elif isinstance(header, str) and "ESCO" in header:
                 updated.append({"header": header, "items": []})
             else:

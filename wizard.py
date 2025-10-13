@@ -6050,6 +6050,13 @@ def _step_requirements():
     data = _get_profile_state()
     location_data = data.setdefault("location", {})
 
+    raw_requirements = data.get("requirements")
+    if isinstance(raw_requirements, dict):
+        requirements: dict[str, Any] = raw_requirements
+    else:
+        requirements = {}
+        data["requirements"] = requirements
+
     requirements_style_key = "ui.requirements_styles"
     if not st.session_state.get(requirements_style_key):
         st.markdown(
