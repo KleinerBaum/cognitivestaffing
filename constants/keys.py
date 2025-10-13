@@ -63,6 +63,8 @@ class StateKeys:
     INTERVIEW_GUIDE_DATA = "data.interview_guide"
     SKILL_SUGGESTIONS = "skill_suggestions"
     SKILL_SUGGESTION_HINTS = "skill_suggestion_hints"
+    SKILL_BOARD_STATE = "ui.requirements.skill_board"
+    SKILL_BOARD_META = "ui.requirements.skill_board_meta"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     BENEFIT_SUGGESTION_HINTS = "benefit_suggestion_hints"
     ONBOARDING_SUGGESTIONS = "onboarding_suggestions"

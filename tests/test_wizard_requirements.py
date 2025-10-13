@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import streamlit as st
 
-from constants.keys import StateKeys, UIKeys
-from wizard import _render_esco_skill_picker, _step_requirements
+from constants.keys import StateKeys
+from wizard import _render_skill_board, _step_requirements
 
 
 class StopWizard(RuntimeError):
@@ -84,12 +84,10 @@ def test_step_requirements_warns_on_skill_suggestion_error(
 
     def fake_warning(message: str, *_, **__) -> None:
         captured["message"] = message
-
-    def fake_columns(*_, **__) -> tuple[object, ...]:
         raise StopWizard
 
     monkeypatch.setattr(st, "warning", fake_warning)
-    monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr("wizard.sort_items", lambda items, **_: items)
 
     with pytest.raises(StopWizard):
         _step_requirements()
@@ -103,25 +101,25 @@ def test_step_requirements_warns_on_skill_suggestion_error(
     ), "Debug information must remain available"
 
 
-def test_render_esco_skill_picker_adds_skills(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Selecting ESCO skills should add them to the required bucket."""
+def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Drag-and-drop board should promote ESCO skills into must-have bucket."""
 
     st.session_state.clear()
     st.session_state.lang = "de"
-    st.session_state[StateKeys.ESCO_SKILLS] = ["Data Analysis", "Machine Learning"]
-    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = ["Machine Learning"]
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
+    st.session_state[StateKeys.SKILL_BOARD_META] = {}
 
     requirements: dict[str, list[str]] = {
         "hard_skills_required": [],
         "hard_skills_optional": [],
+        "soft_skills_required": [],
+        "soft_skills_optional": [],
     }
-    st.session_state[StateKeys.PROFILE] = {"requirements": requirements}
 
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
-    captured_info: dict[str, str] = {}
-    monkeypatch.setattr(st, "info", lambda message, *_, **__: captured_info.setdefault("info", message))
-    monkeypatch.setattr(st, "success", lambda *_, **__: None)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
 
     class DummyContainer:
         def __enter__(self) -> "DummyContainer":
@@ -132,30 +130,30 @@ def test_render_esco_skill_picker_adds_skills(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(st, "container", lambda: DummyContainer())
 
-    def fake_data_editor(rows, **kwargs):
-        assert any(row["Skill"] == "Machine Learning" for row in rows)
+    def fake_sort_items(items, **_kwargs):
         updated = []
-        for row in rows:
-            row_copy = dict(row)
-            row_copy["Auswahl"] = row_copy["Skill"] == "Machine Learning"
-            updated.append(row_copy)
+        for container in items:
+            header = container.get("header")
+            if isinstance(header, str) and (
+                "Muss" in header or "Must" in header
+            ):
+                updated.append(
+                    {"header": header, "items": ["Machine Learning ⟮ESCO⟯"]}
+                )
+            elif isinstance(header, str) and "ESCO" in header:
+                updated.append({"header": header, "items": []})
+            else:
+                updated.append(container)
         return updated
 
-    monkeypatch.setattr(st, "data_editor", fake_data_editor)
+    monkeypatch.setattr("wizard.sort_items", fake_sort_items)
 
-    class DummyColumn:
-        def __init__(self, trigger: bool) -> None:
-            self._trigger = trigger
-            self._calls = 0
-
-        def button(self, *_: object, **__: object) -> bool:
-            self._calls += 1
-            return self._trigger and self._calls == 1
-
-    monkeypatch.setattr(st, "columns", lambda _: (DummyColumn(True), DummyColumn(False)))
-
-    _render_esco_skill_picker(requirements)
+    _render_skill_board(
+        requirements,
+        llm_suggestions={},
+        esco_skills=["Machine Learning", "Data Analysis"],
+        missing_esco_skills=["Machine Learning"],
+    )
 
     assert requirements["hard_skills_required"] == ["Machine Learning"]
-    assert st.session_state[UIKeys.REQUIREMENTS_ESCO_SKILL_SELECT] == []
-    assert "Machine Learning" in captured_info.get("info", "")
+    assert st.session_state[StateKeys.SKILL_BUCKETS]["must"] == ["Machine Learning"]
