@@ -13,6 +13,12 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
     if candidate_str not in sys.path:
         sys.path.insert(0, candidate_str)
 
+APP_LOGO_PATH = APP_ROOT / "images" / "color1_logo_transparent_background.png"
+try:
+    APP_LOGO_BYTES: bytes | None = APP_LOGO_PATH.read_bytes()
+except FileNotFoundError:
+    APP_LOGO_BYTES = None
+
 from utils.telemetry import setup_tracing  # noqa: E402
 from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
@@ -24,7 +30,7 @@ setup_tracing()
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
     page_title="Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool",
-    page_icon="🧭",
+    page_icon=APP_LOGO_BYTES or "🧭",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -162,7 +168,7 @@ SIDEBAR_STYLE = """
 
 st.markdown(SIDEBAR_STYLE, unsafe_allow_html=True)
 
-render_sidebar()
+render_sidebar(logo_bytes=APP_LOGO_BYTES)
 
 # --- Wizard einbinden + Advantages Page via st.navigation ---
 from wizard import run_wizard  # noqa: E402

@@ -71,7 +71,7 @@ the base model if needed.
 - **Responsive layout**: mobile-friendly columns and touch-sized buttons
 - **Enhanced compensation step**: slider-based salary range, preset currency choices, bonus/commission details and common benefit suggestions
 - **Richer salary estimates**: fallback logic adjusts benchmark ranges for required/optional skills, tools, certifications and language levels when no model call is possible
-- **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes
+- **Branding options**: upload a company logo, provide style‑guide hints and toggle between dark and light themes. The sidebar ships with the Cognitive Needs color logo by default for instant branding.
 - **Glassmorphic theme**: browser-optimized design with a hero background
 - **Expanded skills section**: distinguish must-have and nice-to-have hard/soft skills, plus certificates, language requirements, and tools & technologies
   - **Schema-aligned benefits**: benefit inputs bind directly to schema keys, merging health and retirement perks so all appear automatically
