@@ -23,12 +23,11 @@ except FileNotFoundError:
     APP_LOGO_BYTES = None
 
 from utils.telemetry import setup_tracing  # noqa: E402
-from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
-from pages import advantages  # noqa: E402
+from pages import advantages, gap_analysis  # noqa: E402
 
 setup_tracing()
 
@@ -198,16 +197,24 @@ wizard_page = st.Page(
     run_wizard,
     title=tr("Assistent", "Wizard"),
     icon=":material/auto_awesome:",
+    url_path="wizard",
+)
+gap_analysis_page = st.Page(
+    gap_analysis.run,
+    title=tr("Gap-Analyse", "Gap analysis"),
+    icon="🧠",
+    url_path="gap-analysis",
 )
 advantages_page = st.Page(
     advantages.run,
     title=tr("Vorteile", "Advantages"),
     icon="💡",
+    url_path="advantages",
 )
 
 navigation = render_sidebar(
     logo_bytes=APP_LOGO_BYTES,
-    pages=[wizard_page, advantages_page],
+    pages=[wizard_page, gap_analysis_page, advantages_page],
 )
 
 if navigation is not None:
