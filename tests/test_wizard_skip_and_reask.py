@@ -176,3 +176,18 @@ def test_next_step_advances_one_section() -> None:
     next_step()
 
     assert st.session_state[StateKeys.STEP] == 2
+
+
+def test_next_step_clears_pending_incomplete_jump_flag() -> None:
+    """Manual navigation should clear pending incomplete jump flag."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.STEP] = 2
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = 5
+    st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = True
+    st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+
+    next_step()
+
+    assert st.session_state[StateKeys.STEP] == 3
+    assert not st.session_state.get(StateKeys.PENDING_INCOMPLETE_JUMP, False)
