@@ -222,7 +222,7 @@ def _render_onboarding_hero() -> None:
 
     hero_eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
     hero_title = tr(
-        "Cognitive Staffing – präzise Recruiting-Analysen in Minuten",
+        "Dynamische Recruiting-Analysen zur Identifikation & Nutzung **aller** vakanzspezifischen Informationen",
         "Cognitive Staffing – precise recruiting analysis in minutes",
     )
     hero_subtitle = tr(
