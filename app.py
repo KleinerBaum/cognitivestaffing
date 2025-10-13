@@ -187,4 +187,7 @@ navigation = render_sidebar(
     pages=[wizard_page, advantages_page],
 )
 
-navigation.run()
+if navigation is not None:
+    navigation.run()
+else:
+    run_wizard()
