@@ -24,6 +24,8 @@ from config_loader import load_json  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
+from wizard import run_wizard  # noqa: E402
+from pages import advantages  # noqa: E402
 
 setup_tracing()
 
@@ -168,12 +170,6 @@ SIDEBAR_STYLE = """
 
 st.markdown(SIDEBAR_STYLE, unsafe_allow_html=True)
 
-render_sidebar(logo_bytes=APP_LOGO_BYTES)
-
-# --- Wizard einbinden + Advantages Page via st.navigation ---
-from wizard import run_wizard  # noqa: E402
-from pages import advantages  # noqa: E402
-
 wizard_page = st.Page(
     run_wizard,
     title=tr("Assistent", "Wizard"),
@@ -185,5 +181,9 @@ advantages_page = st.Page(
     icon="💡",
 )
 
-pg = st.navigation([wizard_page, advantages_page])
-pg.run()
+navigation = render_sidebar(
+    logo_bytes=APP_LOGO_BYTES,
+    pages=[wizard_page, advantages_page],
+)
+
+navigation.run()
