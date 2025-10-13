@@ -5,6 +5,7 @@ import html
 import hashlib
 import json
 import textwrap
+from base64 import b64encode
 from collections import defaultdict
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -94,6 +95,12 @@ ROOT = Path(__file__).parent
 ONBOARDING_ANIMATION_PATH = (
     ROOT / "images" / "color1_logo_transparent_background.png"
 )
+try:
+    ONBOARDING_ANIMATION_BASE64 = b64encode(
+        ONBOARDING_ANIMATION_PATH.read_bytes()
+    ).decode("ascii")
+except FileNotFoundError:
+    ONBOARDING_ANIMATION_BASE64 = ""
 ensure_state()
 
 WIZARD_TITLE = (
@@ -151,6 +158,99 @@ section.main div.block-container .stTabs [data-baseweb="tab"] {
 }
 </style>
 """
+
+ONBOARDING_HERO_STYLE = """
+<style>
+.onboarding-hero {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(1rem, 3vw, 2.75rem);
+    align-items: center;
+    margin: 1.2rem 0 1.4rem;
+}
+.onboarding-hero__logo {
+    flex: 0 1 clamp(200px, 28vw, 320px);
+    display: flex;
+    justify-content: center;
+}
+.onboarding-hero__logo img {
+    width: clamp(180px, 24vw, 320px);
+    height: auto;
+    filter: drop-shadow(0 18px 36px rgba(8, 10, 10, 0.45));
+}
+.onboarding-hero__copy {
+    flex: 1 1 280px;
+}
+.onboarding-hero__eyebrow {
+    font-size: 0.8rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.45rem;
+}
+.onboarding-hero__headline {
+    margin: 0;
+    font-size: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
+    font-weight: 700;
+    color: var(--text-strong);
+}
+.onboarding-hero__subheadline {
+    margin-top: 0.75rem;
+    font-size: clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem);
+    color: var(--text-muted);
+    line-height: 1.55;
+}
+@media (max-width: 768px) {
+    .onboarding-hero {
+        justify-content: center;
+        text-align: center;
+    }
+    .onboarding-hero__copy {
+        flex-basis: 100%;
+    }
+}
+</style>
+"""
+
+def _render_onboarding_hero() -> None:
+    """Render the onboarding hero with logo and positioning copy."""
+
+    if not ONBOARDING_ANIMATION_BASE64:
+        return
+
+    st.markdown(ONBOARDING_HERO_STYLE, unsafe_allow_html=True)
+
+    hero_eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
+    hero_title = tr(
+        "Cognitive Staffing – präzise Recruiting-Analysen in Minuten",
+        "Cognitive Staffing – precise recruiting analysis in minutes",
+    )
+    hero_subtitle = tr(
+        (
+            "Verbinde strukturierte Extraktion, KI-Validierung und Marktbenchmarks, "
+            "um jede Stellenanzeige verlässlich zu bewerten und gezielt zu optimieren."
+        ),
+        (
+            "Combine structured extraction, AI validation, and market benchmarks to "
+            "review every job ad with confidence and improve it with purpose."
+        ),
+    )
+
+    hero_html = f"""
+    <div class="onboarding-hero">
+        <div class="onboarding-hero__logo">
+            <img src="data:image/png;base64,{ONBOARDING_ANIMATION_BASE64}" alt="Cognitive Staffing logo" />
+        </div>
+        <div class="onboarding-hero__copy">
+            <div class="onboarding-hero__eyebrow">{hero_eyebrow}</div>
+            <h1 class="onboarding-hero__headline">{hero_title}</h1>
+            <p class="onboarding-hero__subheadline">{hero_subtitle}</p>
+        </div>
+    </div>
+    """
+
+    st.markdown(hero_html, unsafe_allow_html=True)
+
 
 T = TypeVar("T")
 
@@ -9071,8 +9171,8 @@ def run_wizard():
 
     current = st.session_state[StateKeys.STEP]
 
-    if current == 0 and ONBOARDING_ANIMATION_PATH.exists():
-        st.image(str(ONBOARDING_ANIMATION_PATH), use_container_width=True)
+    if current == 0:
+        _render_onboarding_hero()
 
     # Render current step
     _label, renderer = steps[current]
