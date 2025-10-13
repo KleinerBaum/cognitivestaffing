@@ -4542,20 +4542,6 @@ def _step_onboarding(schema: dict) -> None:
         "KI-gestützte Recruiting-Analyse mit Cognitive Needs",
         "AI-powered recruiting analysis with Cognitive Needs",
     )
-    advantage_text = tr(
-        (
-            "Mache den ersten Schritt jedes Recruiting-Prozesses mit einer "
-            "kompletten Sammlung an Informationen, die im Verlauf wichtig "
-            "werden könnten, und spare viel Geld, Zeit und Mühe – so legst du "
-            "die Basis für eine langfristig funktionierende Kooperation."
-        ),
-        (
-            "Take the first step of every recruiting process with a complete "
-            "collection of information that might become important later on "
-            "and save money, time, and effort – creating the foundation for a "
-            "long-term collaboration that works."
-        ),
-    )
     dynamic_text = tr(
         (
             "Auf Basis deiner Stellenbeschreibung passen wir den Fragenprozess "
@@ -4570,7 +4556,6 @@ def _step_onboarding(schema: dict) -> None:
     st.markdown(
         f"<div style='text-align:center; margin-top: 1.5rem;'>"
         f"<h2>{welcome_headline}</h2>"
-        f"<p>{advantage_text}</p>"
         f"<p>{dynamic_text}</p>"
         "</div>",
         unsafe_allow_html=True,
