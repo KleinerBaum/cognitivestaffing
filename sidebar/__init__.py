@@ -463,7 +463,7 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     st.markdown(f"### 💰 {tr('Gehaltserwartung', 'Salary expectation')}")
     if st.button(
         tr("Gehaltserwartung aktualisieren", "Update salary expectation"),
-        use_container_width=True,
+        width="stretch",
         key="update_salary_expectation",
     ):
         with st.spinner(

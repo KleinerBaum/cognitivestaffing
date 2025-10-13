@@ -177,7 +177,7 @@ def render_stepper(
                     if st.button(
                         annotated_label,
                         key=f"wizard_stepper_{idx}",
-                        use_container_width=True,
+                        width="stretch",
                         type="secondary",
                         disabled=disabled,
                     ):
