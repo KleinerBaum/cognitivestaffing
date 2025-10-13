@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
+import sys
 
 
-def test_salary_factor_table_formatting(monkeypatch) -> None:
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+def test_salary_factor_entries(monkeypatch) -> None:
     sidebar_mod = import_module("sidebar.__init__")
     i18n_mod = import_module("utils.i18n")
     fake_state: dict[str, object] = {"lang": "de"}
@@ -26,24 +33,26 @@ def test_salary_factor_table_formatting(monkeypatch) -> None:
         },
     ]
 
-    rows = sidebar_mod._prepare_salary_factor_rows(
+    factors = sidebar_mod._prepare_salary_factors(
         explanation,
         benchmark_currency="EUR",
         user_currency="EUR",
     )
 
-    assert rows[0][0] == "Quelle"
-    table = sidebar_mod._build_salary_factor_table(rows)
-    assert "| Quelle |" in table
-    assert "+5·000 EUR" in table
-    assert "vs. Eingabe 65·000 EUR" in table
+    assert factors[0].label == "Quelle"
+    assert "Automatischer Fallback" in factors[0].impact_summary
+    assert "Grund" in factors[0].explanation
+    assert factors[1].label == "Unteres Benchmark-Ende"
+    assert "+5·000 EUR" in factors[1].impact_summary
+    assert "+5·000 EUR" in factors[1].explanation
+    assert "verglichen mit deiner Eingabe" in factors[1].explanation
+    assert factors[1].magnitude == 5000.0
 
     fake_state["lang"] = "en"
-    rows_en = sidebar_mod._prepare_salary_factor_rows(
+    factors_en = sidebar_mod._prepare_salary_factors(
         explanation,
         benchmark_currency="EUR",
         user_currency="EUR",
     )
-    table_en = sidebar_mod._build_salary_factor_table(rows_en)
-    assert "| Factor |" in table_en
-    assert "vs. input 65·000 EUR" in table_en
+    assert "Reason:" in factors_en[0].explanation
+    assert "compared to your input 65·000 EUR" in factors_en[1].explanation
