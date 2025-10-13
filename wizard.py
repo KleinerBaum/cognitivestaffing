@@ -3620,7 +3620,7 @@ def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
     data = _get_profile_state()
-    requirements = data.setdefault("requirements", {})
+    location_data = data.setdefault("location", {})
     value = _normalize_value_for_path(path, value)
     current = get_in(data, path)
     if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
@@ -3980,6 +3980,15 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
     st.markdown(f"**{selection_label}**")
+
+    st.multiselect(
+        selection_label,
+        options=option_ids,
+        default=selected_ids,
+        key=UIKeys.POSITION_ESCO_OCCUPATION,
+        format_func=lambda value: format_map.get(value, value),
+        on_change=_on_change,
+    )
 
     selected_ids = list(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION, []))
     selected_labels = [format_map.get(opt, opt) for opt in selected_ids]
@@ -5902,7 +5911,7 @@ def _step_requirements():
     """Render the requirements step for skills and certifications."""
 
     data = _get_profile_state()
-    missing_here = _missing_fields_for_section(3)
+    location_data = data.setdefault("location", {})
 
     requirements_style_key = "ui.requirements_styles"
     if not st.session_state.get(requirements_style_key):
@@ -5988,57 +5997,86 @@ def _step_requirements():
         ),
         key=str.casefold,
     )
-    focus_signature = tuple(sorted(stored_focus, key=str.casefold))
 
-    # LLM-basierte Skill-Vorschläge abrufen
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
-    suggestions: dict[str, dict[str, list[str]]] = {}
-    suggestions_error: str | None = None
     has_missing_key = bool(st.session_state.get("openai_api_key_missing"))
-    suggestion_hint: str | None = None
-    stored_suggestions = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
-    if job_title and not has_missing_key:
-        if (
-            stored_suggestions.get("_title") == job_title
-            and stored_suggestions.get("_lang") == lang
-            and tuple(stored_suggestions.get("_focus", [])) == focus_signature
-        ):
-            suggestions = {
-                key: stored_suggestions.get(key, {})
-                for key in (
-                    "hard_skills",
-                    "soft_skills",
-                    "tools_and_technologies",
-                    "certificates",
+
+    def _load_skill_suggestions(
+        focus_terms: Sequence[str],
+    ) -> tuple[dict[str, dict[str, list[str]]], str | None, str | None]:
+        local_store = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+        focus_signature_local = tuple(sorted(focus_terms, key=str.casefold))
+        if job_title and not has_missing_key:
+            if (
+                local_store.get("_title") == job_title
+                and local_store.get("_lang") == lang
+                and tuple(local_store.get("_focus", [])) == focus_signature_local
+            ):
+                return (
+                    {
+                        key: local_store.get(key, {})
+                        for key in (
+                            "hard_skills",
+                            "soft_skills",
+                            "tools_and_technologies",
+                            "certificates",
+                        )
+                    },
+                    None,
+                    None,
                 )
-            }
-        else:
-            suggestions, suggestions_error = get_skill_suggestions(
+            fetched, error = get_skill_suggestions(
                 job_title,
                 lang=lang,
-                focus_terms=stored_focus,
+                focus_terms=list(focus_terms),
             )
             st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
                 "_title": job_title,
                 "_lang": lang,
-                "_focus": list(focus_signature),
-                **suggestions,
+                "_focus": list(focus_signature_local),
+                **fetched,
             }
-    elif has_missing_key:
-        suggestion_hint = "missing_key"
-    else:
-        suggestion_hint = "missing_title"
+            return fetched, error, None
+        if has_missing_key:
+            return {}, None, "missing_key"
+        return {}, None, "missing_title"
 
-    if suggestions_error:
-        if st.session_state.get("debug"):
-            st.session_state["skill_suggest_error"] = suggestions_error
-
+    def _show_suggestion_warning(error: str | None) -> None:
+        if not error:
+            return
         st.warning(
             tr(
                 "Skill-Vorschläge nicht verfügbar (API-Fehler)",
                 "Skill suggestions not available (API error)",
             )
         )
+        if st.session_state.get("debug"):
+            st.session_state["skill_suggest_error"] = error
+
+    suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(stored_focus)
+    _show_suggestion_warning(suggestions_error)
+
+    selected_focus = _chip_multiselect(
+        tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
+        options=focus_options,
+        values=stored_focus,
+        help_text=tr(
+            "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
+            "Provide focus areas so the AI can prioritise matching skills.",
+        ),
+        dropdown=True,
+    )
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = selected_focus
+    if tuple(sorted(selected_focus, key=str.casefold)) != tuple(
+        sorted(stored_focus, key=str.casefold)
+    ):
+        suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(
+            selected_focus
+        )
+        _show_suggestion_warning(suggestions_error)
+    else:
+        # Ensure the warning remains visible even if focus remains unchanged.
+        _show_suggestion_warning(suggestions_error)
 
     profile_context = _build_profile_context(data)
     requirements_header = _format_dynamic_message(
@@ -6086,6 +6124,8 @@ def _step_requirements():
         ],
     )
     st.caption(requirements_caption)
+
+    missing_here = _missing_fields_for_section(3)
 
     def _render_required_caption(condition: bool) -> None:
         if condition:
@@ -6490,35 +6530,7 @@ def _step_requirements():
             )
 
     with requirement_panel(
-        icon="📈",
-        title=tr("Markt-Insights", "Market insights"),
-        caption=tr(
-            "Visualisiert den Effekt deiner Nice-to-have-Auswahl.",
-            "Visualises the effect of your nice-to-have selection.",
-        ),
-        tooltip=tr(
-            "Optional gewählte Skills zeigen hier ihren Einfluss auf Gehalt und Talentverfügbarkeit.",
-            "Optional skills show their impact on salary and talent availability here.",
-        ),
-        parent=nice_col,
-        variant="insights",
-    ):
-        nice_insight_skills = (
-            list(data["requirements"].get("hard_skills_optional", []))
-            + list(data["requirements"].get("soft_skills_optional", []))
-        )
-        render_skill_market_insights(
-            nice_insight_skills,
-            segment_label=tr("Nice-to-have", "Nice-to-have"),
-            empty_message=tr(
-                "Noch keine Nice-to-have-Skills gewählt – füge Auswahl hinzu für Markt-Insights.",
-                "No nice-to-have skills selected yet – add some to unlock market insights.",
-            ),
-        )
 
-    tools_col, language_col = st.columns(2, gap="large")
-
-    with requirement_panel(
         icon="🛠️",
         title=tr("Tools, Tech & Zertifikate", "Tools, tech & certificates"),
         caption=tr(
@@ -6574,35 +6586,6 @@ def _step_requirements():
                     "AI-recommended certificates that match the job title.",
                 ),
             )
-
-    with requirement_panel(
-        icon="📊",
-        title=tr("Markt-Insights", "Market insights"),
-        caption=tr(
-            "Zeigt Gehalts- und Verfügbarkeitswirkung deiner Muss-Anforderungen.",
-            "Highlights salary and availability impact for your must-haves.",
-        ),
-        tooltip=tr(
-            "Vergleich der ausgewählten Skills mit Marktbenchmarks – neutral, wenn keine Daten vorliegen.",
-            "Compares the selected skills with market benchmarks – neutral when no data is available.",
-        ),
-        parent=must_col,
-        variant="insights",
-    ):
-        must_insight_skills = (
-            list(data["requirements"].get("hard_skills_required", []))
-            + list(data["requirements"].get("soft_skills_required", []))
-            + list(data["requirements"].get("tools_and_technologies", []))
-            + _collect_combined_certificates(data["requirements"])
-        )
-        render_skill_market_insights(
-            must_insight_skills,
-            segment_label=tr("Muss-Anforderungen", "Must-have requirements"),
-            empty_message=tr(
-                "Noch keine Muss-Skills ausgewählt – ergänze Fähigkeiten für Markt-Insights.",
-                "No must-have skills selected yet – add capabilities to see market insights.",
-            ),
-        )
 
     with requirement_panel(
         icon="🌐",
@@ -6666,31 +6649,94 @@ def _step_requirements():
         )
         data["requirements"]["language_level_english"] = selected_level
 
+    must_insight_skills = (
+        list(data["requirements"].get("hard_skills_required", []))
+        + list(data["requirements"].get("soft_skills_required", []))
+        + list(data["requirements"].get("tools_and_technologies", []))
+        + _collect_combined_certificates(data["requirements"])
+    )
+    nice_insight_skills = (
+        list(data["requirements"].get("hard_skills_optional", []))
+        + list(data["requirements"].get("soft_skills_optional", []))
+    )
+    language_insight_skills = (
+        list(data["requirements"].get("languages_required", []))
+        + list(data["requirements"].get("languages_optional", []))
+    )
+    insight_groups = {
+        tr("Muss-Anforderungen", "Must-have requirements"): must_insight_skills,
+        tr("Nice-to-have", "Nice-to-have"): nice_insight_skills,
+        tr("Sprachen", "Languages"): language_insight_skills,
+    }
+    insight_groups = {
+        label: [skill for skill in skills if isinstance(skill, str) and skill.strip()]
+        for label, skills in insight_groups.items()
+        if any(isinstance(skill, str) and skill.strip() for skill in skills)
+    }
+
     with requirement_panel(
-        icon="🗣️",
+        icon="📍",
         title=tr("Markt-Insights", "Market insights"),
         caption=tr(
-            "Bewertet Sprachanforderungen hinsichtlich Gehalt und Verfügbarkeit.",
-            "Evaluates language requirements for salary and availability impact.",
+            "Ein konsolidierter Blick auf Gehalts- und Talentwirkung deiner Anforderungen.",
+            "A consolidated view on salary and talent impact for your requirements.",
         ),
         tooltip=tr(
-            "Zeigt, wie verpflichtende oder optionale Sprachen den Talentpool beeinflussen.",
-            "Shows how mandatory or optional languages influence the talent pool.",
+            "Passe Radius und Auswahl an, um Benchmarks regional zu fokussieren.",
+            "Adjust radius and selection to focus the benchmarks on your region.",
         ),
-        parent=language_col,
         variant="insights",
     ):
-        language_insight_skills = (
-            list(data["requirements"].get("languages_required", []))
-            + list(data["requirements"].get("languages_optional", []))
-        )
-        render_skill_market_insights(
-            language_insight_skills,
-            segment_label=tr("Sprachen", "Languages"),
-            empty_message=tr(
-                "Noch keine Sprachanforderungen gewählt – ergänze Sprachen für Markt-Insights.",
-                "No language requirements selected yet – add languages to see market insights.",
+        radius_default_raw = location_data.get("talent_radius_km", 50)
+        try:
+            radius_default_int = int(float(radius_default_raw))
+        except (TypeError, ValueError):
+            radius_default_int = 50
+        radius_default_int = min(200, max(10, radius_default_int))
+        radius_value = st.slider(
+            tr("Standort-Radius", "Location radius"),
+            min_value=10,
+            max_value=200,
+            value=radius_default_int,
+            step=5,
+            help=tr(
+                "Bestimmt, in welchem Umkreis wir Skill-Benchmarks priorisieren (in Kilometern).",
+                "Determines the catchment area for prioritising skill benchmarks (in kilometres).",
             ),
+        )
+        location_data["talent_radius_km"] = int(radius_value)
+
+        location_parts: list[str] = []
+        for key in ("primary_city", "region", "state", "province", "country"):
+            raw_value = location_data.get(key)
+            if not raw_value:
+                continue
+            cleaned_value = str(raw_value).strip()
+            if cleaned_value and cleaned_value not in location_parts:
+                location_parts.append(cleaned_value)
+        if location_parts:
+            region_caption = tr(
+                "Region: {region} · Radius {radius} km",
+                "Region: {region} · Radius {radius} km",
+            ).format(region=", ".join(location_parts), radius=radius_value)
+            st.caption(region_caption)
+        else:
+            st.caption(
+                tr(
+                    "Trage einen Standort im Unternehmensschritt ein, um regionale Benchmarks zu präzisieren.",
+                    "Provide a location in the company step to refine regional benchmarks.",
+                )
+            )
+
+        render_skill_market_insights(
+            insight_groups,
+            segment_label=tr("Ausgewählte Anforderungen", "Selected requirements"),
+            empty_message=tr(
+                "Noch keine Anforderungen hinterlegt – ergänze Skills oder Sprachen für Markt-Insights.",
+                "No requirements captured yet – add skills or languages to unlock market insights.",
+            ),
+            location=location_data,
+            radius_km=float(radius_value),
         )
 
     # Inline follow-up questions for Requirements section
