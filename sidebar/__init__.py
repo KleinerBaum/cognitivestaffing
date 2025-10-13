@@ -51,9 +51,11 @@ def render_sidebar(logo_bytes: bytes | None = None) -> None:
         if logo_bytes:
             _render_branding(logo_bytes)
         _render_settings()
-        _render_hero(context)
-        st.divider()
-        _render_step_context(context)
+        current_step = st.session_state.get(StateKeys.STEP, 0)
+        if current_step > 0:
+            _render_hero(context)
+            st.divider()
+            _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
 

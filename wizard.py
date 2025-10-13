@@ -4538,44 +4538,6 @@ def _step_onboarding(schema: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    welcome_headline = tr(
-        "KI-gestützte Recruiting-Analyse mit Cognitive Needs",
-        "AI-powered recruiting analysis with Cognitive Needs",
-    )
-    advantage_text = tr(
-        (
-            "Mache den ersten Schritt jedes Recruiting-Prozesses mit einer "
-            "kompletten Sammlung an Informationen, die im Verlauf wichtig "
-            "werden könnten, und spare viel Geld, Zeit und Mühe – so legst du "
-            "die Basis für eine langfristig funktionierende Kooperation."
-        ),
-        (
-            "Take the first step of every recruiting process with a complete "
-            "collection of information that might become important later on "
-            "and save money, time, and effort – creating the foundation for a "
-            "long-term collaboration that works."
-        ),
-    )
-    dynamic_text = tr(
-        (
-            "Auf Basis deiner Stellenbeschreibung passen wir den Fragenprozess "
-            "dynamisch an und reduzieren so Schreibarbeit auf das Nötigste."
-        ),
-        (
-            "Based on your job description we dynamically adapt the question "
-            "flow so that you only need to provide the essentials."
-        ),
-    )
-
-    st.markdown(
-        f"<div style='text-align:center; margin-top: 1.5rem;'>"
-        f"<h2>{welcome_headline}</h2>"
-        f"<p>{advantage_text}</p>"
-        f"<p>{dynamic_text}</p>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
     st.divider()
     onboarding_header = _format_dynamic_message(
         default=("Anzeige parat?", "Job ad ready?"),
@@ -6018,14 +5980,14 @@ def _step_requirements():
     def _show_suggestion_warning(error: str | None) -> None:
         if not error:
             return
+        if st.session_state.get("debug"):
+            st.session_state["skill_suggest_error"] = error
         st.warning(
             tr(
                 "Skill-Vorschläge nicht verfügbar (API-Fehler)",
                 "Skill suggestions not available (API error)",
             )
         )
-        if st.session_state.get("debug"):
-            st.session_state["skill_suggest_error"] = error
 
     suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(stored_focus)
     _show_suggestion_warning(suggestions_error)
@@ -8892,15 +8854,18 @@ def _render_wizard_navigation(
         st.session_state[StateKeys.STEP] = target_index
         st.rerun()
 
-    with st.container():
-        render_stepper(
-            current,
-            [label for label, _ in steps],
-            on_select=_handle_step_selection,
-        )
-        warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
-        if warning_message:
-            st.warning(warning_message)
+    if current > 0:
+        with st.container():
+            render_stepper(
+                current,
+                [label for label, _ in steps],
+                on_select=_handle_step_selection,
+            )
+            warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+            if warning_message:
+                st.warning(warning_message)
+    else:
+        st.session_state.pop(StateKeys.STEPPER_WARNING, None)
 
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
