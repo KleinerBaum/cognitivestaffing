@@ -2,12 +2,28 @@
   "python": {
     "aliases": ["python", "python programming"],
     "salary_delta_pct": 6.5,
-    "availability_index": 42.0
+    "availability_index": 42.0,
+    "regions": {
+      "berlin de": [
+        {"max_radius": 25, "salary_delta_pct": 7.4, "availability_index": 38.0},
+        {"max_radius": 80, "salary_delta_pct": 7.0, "availability_index": 41.0}
+      ],
+      "de": [
+        {"max_radius": 50, "salary_delta_pct": 6.8, "availability_index": 43.0},
+        {"salary_delta_pct": 6.2, "availability_index": 46.0}
+      ]
+    }
   },
   "java": {
     "aliases": ["java"],
     "salary_delta_pct": 5.0,
-    "availability_index": 48.0
+    "availability_index": 48.0,
+    "regions": {
+      "munich de": [
+        {"max_radius": 30, "salary_delta_pct": 6.1, "availability_index": 37.0},
+        {"salary_delta_pct": 5.4, "availability_index": 40.0}
+      ]
+    }
   },
   "go": {
     "aliases": ["go", "golang"],
@@ -62,7 +78,16 @@
   "english": {
     "aliases": ["english", "englisch"],
     "salary_delta_pct": 0.0,
-    "availability_index": 82.0
+    "availability_index": 82.0,
+    "regions": {
+      "berlin de": [
+        {"max_radius": 25, "salary_delta_pct": 0.2, "availability_index": 78.0},
+        {"salary_delta_pct": 0.1, "availability_index": 80.0}
+      ],
+      "de": [
+        {"salary_delta_pct": 0.0, "availability_index": 82.0}
+      ]
+    }
   },
   "german": {
     "aliases": ["german", "deutsch"],

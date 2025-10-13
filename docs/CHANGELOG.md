@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: consolidate requirements insights into dual salary/availability cards with regional radius filtering
 - feat: reorganize company step with grouped inputs for location, team context, and branding assets uploader
 - feat: surface ESCO occupation multi-select after extraction and limit skill suggestions to chosen profiles
 - feat: categorize ESCO skill suggestions by type and highlight outstanding essentials in wizard panels
