@@ -4567,15 +4567,6 @@ def _step_onboarding(schema: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    method_options = [
-        ("text", tr("Text eingeben", "Enter text")),
-        ("file", tr("Datei hochladen", "Upload file")),
-        ("url", tr("URL eingeben", "Enter URL")),
-    ]
-    method_labels = {value: label for value, label in method_options}
-    if UIKeys.INPUT_METHOD not in st.session_state:
-        st.session_state[UIKeys.INPUT_METHOD] = "text"
-
     st.divider()
     onboarding_header = _format_dynamic_message(
         default=("Anzeige parat?", "Job ad ready?"),
@@ -4623,14 +4614,6 @@ def _step_onboarding(schema: dict) -> None:
     )
     st.caption(onboarding_caption)
 
-    st.radio(
-        tr("Eingabemethode", "Input method"),
-        options=list(method_labels.keys()),
-        key=UIKeys.INPUT_METHOD,
-        format_func=method_labels.__getitem__,
-        horizontal=True,
-    )
-
     if st.session_state.pop("source_error", False):
         st.info(
             tr(
@@ -4652,53 +4635,51 @@ def _step_onboarding(schema: dict) -> None:
         if raw_text and raw_text.strip():
             st.session_state["__run_extraction__"] = True
 
-    method = st.session_state[UIKeys.INPUT_METHOD]
-    if method == "text":
-        bind_textarea(
-            tr("Jobtext", "Job text"),
-            UIKeys.PROFILE_TEXT_INPUT,
-            StateKeys.RAW_TEXT,
-            placeholder=tr(
-                "Füge hier den Text deiner Stellenanzeige ein …",
-                "Paste the text of your job posting here …",
-            ),
-            help=tr(
-                "Wir analysieren den Text automatisch und befüllen alle passenden Felder.",
-                "We automatically analyse the text and prefill all relevant fields.",
-            ),
-            on_change=_queue_extraction_if_ready,
+    st.text_input(
+        tr("Öffentliche Stellenanzeigen-URL", "Public job posting URL"),
+        key=UIKeys.PROFILE_URL_INPUT,
+        on_change=on_url_changed,
+        placeholder="https://example.com/job",
+        help=tr(
+            "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
+            "The URL needs to be accessible without authentication. We will fetch the content automatically.",
+        ),
+    )
+
+    st.file_uploader(
+        tr(
+            "Stellenanzeige hochladen (PDF/DOCX/TXT)",
+            "Upload job posting (PDF/DOCX/TXT)",
+        ),
+        type=["pdf", "docx", "txt"],
+        key=UIKeys.PROFILE_FILE_UPLOADER,
+        on_change=on_file_uploaded,
+        help=tr(
+            "Direkt nach dem Upload beginnen wir mit der Analyse.",
+            "We start analysing immediately after the upload finishes.",
+        ),
+    )
+
+    bind_textarea(
+        tr("Jobtext", "Job text"),
+        UIKeys.PROFILE_TEXT_INPUT,
+        StateKeys.RAW_TEXT,
+        placeholder=tr(
+            "Füge hier den Text deiner Stellenanzeige ein …",
+            "Paste the text of your job posting here …",
+        ),
+        help=tr(
+            "Wir analysieren den Text automatisch und befüllen alle passenden Felder.",
+            "We automatically analyse the text and prefill all relevant fields.",
+        ),
+        on_change=_queue_extraction_if_ready,
+    )
+    st.caption(
+        tr(
+            "Sobald du Text ergänzt oder änderst, startet die Analyse ohne weiteren Klick.",
+            "As soon as you add or change the text, the analysis starts automatically.",
         )
-        st.caption(
-            tr(
-                "Sobald du Text ergänzt oder änderst, startet die Analyse ohne weiteren Klick.",
-                "As soon as you add or change the text, the analysis starts automatically.",
-            )
-        )
-    elif method == "file":
-        st.file_uploader(
-            tr(
-                "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-                "Upload job posting (PDF/DOCX/TXT)",
-            ),
-            type=["pdf", "docx", "txt"],
-            key=UIKeys.PROFILE_FILE_UPLOADER,
-            on_change=on_file_uploaded,
-            help=tr(
-                "Direkt nach dem Upload beginnen wir mit der Analyse.",
-                "We start analysing immediately after the upload finishes.",
-            ),
-        )
-    else:
-        st.text_input(
-            tr("Öffentliche Stellenanzeigen-URL", "Public job posting URL"),
-            key=UIKeys.PROFILE_URL_INPUT,
-            on_change=on_url_changed,
-            placeholder="https://example.com/job",
-            help=tr(
-                "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
-                "The URL needs to be accessible without authentication. We will fetch the content automatically.",
-            ),
-        )
+    )
 
     _render_prefilled_preview(exclude_prefixes=("requirements.",))
 
