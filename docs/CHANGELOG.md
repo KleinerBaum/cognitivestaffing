@@ -51,3 +51,4 @@
 - fix: prevent brand tone input normalization from mutating Streamlit widget state mid-run
 - feat: polish light theme widgets with improved tabs, alerts, metrics, and dataframe styling
 - feat: enrich salary fallback explanations with structured summary and adjustment rows
+- fix: swap sidebar and onboarding visuals to keep Cognitive Staffing branding consistent
