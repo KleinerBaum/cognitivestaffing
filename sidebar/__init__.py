@@ -40,7 +40,7 @@ class SidebarContext:
     prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]
 
 
-def render_sidebar() -> None:
+def render_sidebar(logo_bytes: bytes | None = None) -> None:
     """Render the dynamic wizard sidebar with contextual content."""
 
     _ensure_ui_defaults()
@@ -48,12 +48,21 @@ def render_sidebar() -> None:
     context = _build_context()
 
     with st.sidebar:
+        if logo_bytes:
+            _render_branding(logo_bytes)
         _render_settings()
         _render_hero(context)
         st.divider()
         _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
+
+
+def _render_branding(logo_bytes: bytes) -> None:
+    """Display the Cognitive Needs logo in the sidebar."""
+
+    st.image(logo_bytes, width="stretch")
+    st.markdown("<div style=\"margin-bottom: 0.5rem;\"></div>", unsafe_allow_html=True)
 
 
 def _ensure_ui_defaults() -> None:
