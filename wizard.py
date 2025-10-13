@@ -4112,6 +4112,7 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
         widget_value = list(selected_ids)
     else:
         widget_value = [sid for sid in widget_value if sid in option_ids]
+
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
 
     st.markdown("##### " + tr("ESCO-Berufe auswählen", "Select ESCO occupations"))
@@ -4134,7 +4135,6 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
     st.multiselect(
         selection_label,
         options=option_ids,
-        default=widget_value,
         key=UIKeys.POSITION_ESCO_OCCUPATION,
         format_func=lambda value: format_map.get(value, value),
         on_change=_on_change,
