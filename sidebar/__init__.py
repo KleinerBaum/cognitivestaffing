@@ -135,14 +135,22 @@ def _render_settings() -> None:
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
     dark_col, lang_col = st.columns(2)
     with dark_col:
+        is_dark = st.session_state.get("ui.dark_mode", True)
+        dark_label = (
+            tr("🌙 Dunkelmodus aktiv", "🌙 Dark mode active")
+            if is_dark
+            else tr("☀️ Hellmodus aktiv", "☀️ Light mode active")
+        )
         st.toggle(
-            tr("Dunkelmodus 🌙", "Dark mode 🌙"),
+            dark_label,
             key="ui.dark_mode",
             on_change=_on_theme_toggle,
         )
     with lang_col:
+        lang_is_en = st.session_state.get("ui.lang_toggle", False)
+        lang_label = "🇬🇧 English" if lang_is_en else "🇩🇪 Deutsch"
         st.toggle(
-            tr("🇩🇪 Deutsch", "🇬🇧 English"),
+            lang_label,
             key="ui.lang_toggle",
             on_change=_on_lang_toggle,
         )

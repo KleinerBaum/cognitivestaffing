@@ -45,8 +45,8 @@ def _inject_workflow_styles() -> None:
             height: 1px;
             background: linear-gradient(
                 90deg,
-                rgba(148, 163, 184, 0.35),
-                rgba(148, 163, 184, 0)
+                var(--border-subtle),
+                rgba(0, 0, 0, 0)
             );
         }
 
@@ -62,9 +62,9 @@ def _inject_workflow_styles() -> None:
 
         .workflow-stepper__step button[kind="secondary"] {
             border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            background: rgba(15, 23, 42, 0.1);
-            color: var(--workflow-step-text, #e2e8f0);
+            border: 1px solid var(--border-subtle);
+            background: var(--interactive-surface);
+            color: var(--text-strong);
             font-weight: 600;
             justify-content: flex-start;
             gap: 0.5rem;
@@ -72,32 +72,32 @@ def _inject_workflow_styles() -> None:
         }
 
         .workflow-stepper__step button[kind="secondary"]:hover:not(:disabled) {
-            border-color: rgba(148, 163, 184, 0.45);
-            background: rgba(30, 41, 59, 0.2);
+            border-color: var(--interactive-border-strong);
+            background: var(--interactive-hover);
         }
 
         .workflow-stepper__step--done button[kind="secondary"] {
-            border-color: rgba(45, 212, 191, 0.35);
-            background: rgba(45, 212, 191, 0.12);
-            color: #c4f5ed;
+            border-color: var(--interactive-border-strong);
+            background: var(--interactive-done);
+            color: var(--text-strong);
         }
 
         .workflow-stepper__step--current button[kind="secondary"] {
-            border-color: rgba(129, 140, 248, 0.45);
-            background: rgba(129, 140, 248, 0.18);
-            color: #dbeafe;
+            border-color: var(--interactive-border-strong);
+            background: var(--interactive-current);
+            color: var(--text-strong);
         }
 
         .workflow-stepper__step--upcoming button[kind="secondary"] {
-            border-color: rgba(148, 163, 184, 0.18);
-            background: rgba(15, 23, 42, 0.05);
-            color: rgba(226, 232, 240, 0.72);
+            border-color: var(--border-subtle);
+            background: var(--interactive-surface);
+            color: var(--text-soft);
         }
 
         .workflow-stepper__step--upcoming
             button[kind="secondary"]:hover:not(:disabled) {
-            border-color: rgba(148, 163, 184, 0.35);
-            background: rgba(30, 41, 59, 0.15);
+            border-color: var(--interactive-border-strong);
+            background: var(--interactive-hover);
         }
 
         .workflow-stepper__step button[kind="secondary"][disabled] {

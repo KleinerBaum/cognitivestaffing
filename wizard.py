@@ -89,6 +89,9 @@ from core.job_ad import (
 )
 
 ROOT = Path(__file__).parent
+ONBOARDING_ANIMATION_PATH = (
+    ROOT / "images" / "animation_pulse_SingleColorHex1_7kigl22lw.gif"
+)
 ensure_state()
 
 WIZARD_TITLE = (
@@ -4533,57 +4536,68 @@ def _step_onboarding(schema: dict) -> None:
         ),
     )
 
-    st.markdown(
-        f"<div style='margin-top: 1rem; margin-bottom: 1rem;'>{intro_text}</div>",
-        unsafe_allow_html=True,
-    )
+    hero_text_col, hero_visual_col = st.columns([3, 2], gap="large")
+    with hero_text_col:
+        st.markdown(
+            f"<div style='margin-top: 1rem; margin-bottom: 1rem;'>{intro_text}</div>",
+            unsafe_allow_html=True,
+        )
+
+        onboarding_header = _format_dynamic_message(
+            default=("Anzeige parat?", "Job ad ready?"),
+            context=profile_context,
+            variants=[
+                (
+                    (
+                        "Anzeige für {job_title} bei {company_name} parat?",
+                        "Job ad for {job_title} at {company_name} ready?",
+                    ),
+                    ("job_title", "company_name"),
+                ),
+                (
+                    (
+                        "Anzeige für {job_title} parat?",
+                        "Job ad for {job_title} ready?",
+                    ),
+                    ("job_title",),
+                ),
+            ],
+        )
+        st.subheader(onboarding_header)
+        onboarding_caption = _format_dynamic_message(
+            default=(
+                "Gebe ein paar Informationen zu Deiner Vakanz und starte die dynamisch angepasste Analyse",
+                "Share a few details about your vacancy and start the dynamically tailored analysis",
+            ),
+            context=profile_context,
+            variants=[
+                (
+                    (
+                        "Teile kurz die Eckdaten zu {job_title} bei {company_name} und starte die dynamisch angepasste Analyse.",
+                        "Share the key details for {job_title} at {company_name} to kick off the tailored analysis.",
+                    ),
+                    ("job_title", "company_name"),
+                ),
+                (
+                    (
+                        "Teile kurz die Eckdaten zur Rolle {job_title} und starte die dynamisch angepasste Analyse.",
+                        "Share the key details for the {job_title} role to kick off the tailored analysis.",
+                    ),
+                    ("job_title",),
+                ),
+            ],
+        )
+        st.caption(onboarding_caption)
+
+    with hero_visual_col:
+        if ONBOARDING_ANIMATION_PATH.exists():
+            st.image(
+                str(ONBOARDING_ANIMATION_PATH),
+                caption=tr("Recruiting in Bewegung", "Recruiting in motion"),
+                use_column_width=True,
+            )
 
     st.divider()
-    onboarding_header = _format_dynamic_message(
-        default=("Anzeige parat?", "Job ad ready?"),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Anzeige für {job_title} bei {company_name} parat?",
-                    "Job ad for {job_title} at {company_name} ready?",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Anzeige für {job_title} parat?",
-                    "Job ad for {job_title} ready?",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    st.subheader(onboarding_header)
-    onboarding_caption = _format_dynamic_message(
-        default=(
-            "Gebe ein paar Informationen zu Deiner Vakanz und starte die dynamisch angepasste Analyse",
-            "Share a few details about your vacancy and start the dynamically tailored analysis",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Teile kurz die Eckdaten zu {job_title} bei {company_name} und starte die dynamisch angepasste Analyse.",
-                    "Share the key details for {job_title} at {company_name} to kick off the tailored analysis.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Teile kurz die Eckdaten zur Rolle {job_title} und starte die dynamisch angepasste Analyse.",
-                    "Share the key details for the {job_title} role to kick off the tailored analysis.",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    st.caption(onboarding_caption)
 
     if st.session_state.pop("source_error", False):
         st.info(
