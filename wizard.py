@@ -4801,6 +4801,15 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
                 )
             )
 
+    has_primary = any(p.get("primary") for p in stakeholders)
+    if stakeholders and not has_primary:
+        st.warning(
+            tr(
+                "Bitte bestätige, wer der primäre Kontakt sein soll, bevor wir automatisch einen auswählen.",
+                "Please confirm who should be the primary contact before we auto-select one.",
+            )
+        )
+
     primary_idx = st.radio(
         tr("Primärer Kontakt", "Primary contact"),
         options=list(range(len(stakeholders))),
