@@ -11,22 +11,21 @@ def test_section_filtering() -> None:
     st.session_state.clear()
     st.session_state[StateKeys.FOLLOWUPS] = []
 
-    # Section 1 only requires the company name
-    assert get_missing_critical_fields(max_section=1) == ["company.name"]
+    # Section 1 requires company name and the primary country information
+    section_one_missing = set(get_missing_critical_fields(max_section=1))
+    assert section_one_missing == {"company.name", "location.country"}
 
     st.session_state["company.name"] = "Acme"
+    assert set(get_missing_critical_fields(max_section=1)) == {"location.country"}
+
+    st.session_state["location.country"] = "DE"
     assert get_missing_critical_fields(max_section=1) == []
 
-    # Section 2 requires job title, role summary, and country
+    # Section 2 requires job title and role summary
     missing = get_missing_critical_fields(max_section=2)
-    assert {
-        "position.job_title",
-        "position.role_summary",
-        "location.country",
-    } <= set(missing)
+    assert {"position.job_title", "position.role_summary"} <= set(missing)
 
     st.session_state["position.job_title"] = "Engineer"
-    st.session_state["location.country"] = "DE"
     missing = get_missing_critical_fields(max_section=2)
     assert "position.role_summary" in missing
 

@@ -68,7 +68,6 @@ from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue De
 from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
-from utils.contact import infer_contact_name_from_email
 from utils.normalization import normalize_country, normalize_language_list
 from utils.export import prepare_clean_json, prepare_download_data
 from utils.usage import build_usage_markdown, usage_totals
@@ -4355,36 +4354,12 @@ def _step_company():
     )
     st.caption(company_caption)
     data = profile
+    company = data.setdefault("company", {})
+    position = data.setdefault("position", {})
+    location_data = data.setdefault("location", {})
     combined_certificates = _collect_combined_certificates(data["requirements"])
     _set_requirement_certificates(data["requirements"], combined_certificates)
     missing_here = _missing_fields_for_section(1)
-
-    data["company"]["website"] = st.text_input(
-        tr("Website", "Website"),
-        value=data["company"].get("website", ""),
-        placeholder="https://example.com",
-        key="ui.company.website",
-    )
-    data["company"]["mission"] = st.text_input(
-        tr("Mission", "Mission"),
-        value=data["company"].get("mission", ""),
-        placeholder=tr(
-            "z. B. Nachhaltige Mobilität fördern",
-            "e.g., Promote sustainable mobility",
-        ),
-        key="ui.company.mission",
-    )
-    data["company"]["culture"] = st.text_input(
-        tr("Unternehmenskultur", "Company culture"),
-        value=data["company"].get("culture", ""),
-        placeholder=tr(
-            "z. B. Teamorientiert, innovationsgetrieben",
-            "e.g., Team-oriented, innovation-driven",
-        ),
-        key="ui.company.culture",
-    )
-
-    _render_company_research_tools(data["company"].get("website", ""))
 
     label_company = tr("Firma", "Company")
     if "company.name" in missing_here:
@@ -4399,86 +4374,205 @@ def _step_company():
         company_lock,
         {"help": tr("Offizieller Firmenname", "Official company name")},
     )
-    data["company"]["name"] = st.text_input(
+    company["name"] = st.text_input(
         company_lock["label"],
-        value=data["company"].get("name", ""),
+        value=company.get("name", ""),
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
         **company_kwargs,
     )
-    _update_profile("company.name", data["company"]["name"])
-    if "company.name" in missing_here and not data["company"]["name"]:
+    _update_profile("company.name", company["name"])
+    if "company.name" in missing_here and not company["name"]:
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    c1, c2, c3 = st.columns(3)
-    data["company"]["brand_name"] = c1.text_input(
-        tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
-        value=data["company"].get("brand_name", ""),
-        placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
-    )
-    data["company"]["industry"] = c2.text_input(
-        tr("Branche", "Industry"),
-        value=data["company"].get("industry", ""),
-        placeholder=tr("z. B. IT-Services", "e.g., IT services"),
-    )
-
-    c3, c4 = st.columns(2)
-    data["company"]["hq_location"] = c3.text_input(
+    hq_col, size_col, industry_col = st.columns(3)
+    company["hq_location"] = hq_col.text_input(
         tr("Hauptsitz", "Headquarters"),
-        value=data["company"].get("hq_location", ""),
+        value=company.get("hq_location", ""),
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
         key=UIKeys.COMPANY_HQ_LOCATION,
     )
-    data["company"]["size"] = c4.text_input(
+    company["size"] = size_col.text_input(
         tr("Größe", "Size"),
-        value=data["company"].get("size", ""),
+        value=company.get("size", ""),
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
-
-    contact_cols = st.columns(3)
-    data["company"]["contact_name"] = contact_cols[0].text_input(
-        tr("Ansprechperson", "Primary contact"),
-        value=data["company"].get("contact_name", ""),
-        placeholder=tr("z. B. Maria Beispiel", "e.g., Maria Example"),
-        key=UIKeys.COMPANY_CONTACT_NAME,
-    )
-    data["company"]["contact_email"] = contact_cols[1].text_input(
-        tr("Kontakt E-Mail", "Contact email"),
-        value=data["company"].get("contact_email", ""),
-        placeholder="contact@example.com",
-    )
-    data["company"]["contact_phone"] = contact_cols[2].text_input(
-        tr("Kontakt Telefon", "Contact phone"),
-        value=data["company"].get("contact_phone", ""),
-        placeholder=tr("z. B. +49 30 123456", "e.g., +49 30 123456"),
+    company["industry"] = industry_col.text_input(
+        tr("Branche", "Industry"),
+        value=company.get("industry", ""),
+        placeholder=tr("z. B. IT-Services", "e.g., IT services"),
     )
 
-    contact_email_value = (data["company"].get("contact_email") or "").strip()
-    contact_name_value = (data["company"].get("contact_name") or "").strip()
-    inferred_contact_name = infer_contact_name_from_email(contact_email_value)
+    website_col, mission_col = st.columns(2)
+    company["website"] = website_col.text_input(
+        tr("Website", "Website"),
+        value=company.get("website", ""),
+        placeholder="https://example.com",
+        key="ui.company.website",
+    )
+    company["mission"] = mission_col.text_input(
+        tr("Mission", "Mission"),
+        value=company.get("mission", ""),
+        placeholder=tr(
+            "z. B. Nachhaltige Mobilität fördern",
+            "e.g., Promote sustainable mobility",
+        ),
+        key="ui.company.mission",
+    )
+
+    _render_company_research_tools(company.get("website", ""))
+
+    company["culture"] = st.text_input(
+        tr("Unternehmenskultur", "Company culture"),
+        value=company.get("culture", ""),
+        placeholder=tr(
+            "z. B. Teamorientiert, innovationsgetrieben",
+            "e.g., Team-oriented, innovation-driven",
+        ),
+        key="ui.company.culture",
+    )
+
+    city_col, country_col = st.columns(2)
+    city_lock = _field_lock_config(
+        "location.primary_city",
+        tr("Stadt", "City"),
+        container=city_col,
+        context="step",
+    )
+    city_kwargs = _apply_field_lock_kwargs(city_lock)
+    location_data["primary_city"] = city_col.text_input(
+        city_lock["label"],
+        value=location_data.get("primary_city", ""),
+        placeholder=tr("z. B. Berlin", "e.g., Berlin"),
+        **city_kwargs,
+    )
+    _update_profile("location.primary_city", location_data["primary_city"])
+
+    country_label = tr("Land", "Country")
+    if "location.country" in missing_here:
+        country_label += REQUIRED_SUFFIX
+    country_lock = _field_lock_config(
+        "location.country",
+        country_label,
+        container=country_col,
+        context="step",
+    )
+    country_kwargs = _apply_field_lock_kwargs(country_lock)
+    location_data["country"] = country_col.text_input(
+        country_lock["label"],
+        value=location_data.get("country", ""),
+        placeholder=tr("z. B. DE", "e.g., DE"),
+        **country_kwargs,
+    )
+    _update_profile("location.country", location_data["country"])
+    if "location.country" in missing_here and not location_data.get("country"):
+        country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+    city_value = (location_data.get("primary_city") or "").strip()
+    country_value = (location_data.get("country") or "").strip()
+    hq_value = (company.get("hq_location") or "").strip()
+    suggested_hq_parts = [part for part in (city_value, country_value) if part]
+    suggested_hq = ", ".join(suggested_hq_parts)
     if (
-        inferred_contact_name
-        and not contact_name_value
-        and not _autofill_was_rejected("company.contact_name", inferred_contact_name)
+        suggested_hq
+        and not hq_value
+        and not _autofill_was_rejected("company.hq_location", suggested_hq)
     ):
+        if city_value and country_value:
+            description = tr(
+                "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
+                "Combined city and country into a potential headquarters.",
+            )
+        elif city_value:
+            description = tr(
+                "Nur Stadt vorhanden – als Hauptsitz übernehmen?",
+                "Only city provided – use it as headquarters?",
+            )
+        else:
+            description = tr(
+                "Nur Land vorhanden – als Hauptsitz übernehmen?",
+                "Only country provided – use it as headquarters?",
+            )
         _render_autofill_suggestion(
-            field_path="company.contact_name",
-            suggestion=inferred_contact_name,
-            title=tr("👤 Kontakt übernehmen?", "👤 Use inferred contact?"),
-            description=tr(
-                "Aus der E-Mail-Adresse abgeleiteter Name.",
-                "Name inferred from the email address.",
-            ),
-            widget_key=UIKeys.COMPANY_CONTACT_NAME,
-            icon="👤",
+            field_path="company.hq_location",
+            suggestion=suggested_hq,
+            title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),
+            description=description,
+            widget_key=UIKeys.COMPANY_HQ_LOCATION,
+            icon="🏙️",
             success_message=tr(
-                "Kontaktname aus E-Mail übernommen.",
-                "Contact name copied from email.",
+                "Hauptsitz mit Standortangaben gefüllt.",
+                "Headquarters filled from location details.",
             ),
             rejection_message=tr(
-                "Vorschlag ignoriert – wir merken uns das.",
-                "Suggestion dismissed – we'll remember that.",
+                "Vorschlag ignoriert – wir fragen nicht erneut.",
+                "Suggestion dismissed – we will not offer it again.",
             ),
         )
+
+    dept_cols = st.columns(2)
+    position["department"] = dept_cols[0].text_input(
+        tr("Abteilung", "Department"),
+        value=position.get("department", ""),
+        placeholder=tr("z. B. Entwicklung", "e.g., Engineering"),
+    )
+    position["team_structure"] = dept_cols[1].text_input(
+        tr("Teamstruktur", "Team structure"),
+        value=position.get("team_structure", ""),
+        placeholder=tr(
+            "z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"
+        ),
+    )
+
+    position["key_projects"] = st.text_area(
+        tr("Schlüsselprojekte", "Key projects"),
+        value=position.get("key_projects", ""),
+        height=90,
+    )
+
+    brand_cols = st.columns((2, 1))
+    company["brand_name"] = brand_cols[0].text_input(
+        tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
+        value=company.get("brand_name", ""),
+        placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
+    )
+    brand_upload = brand_cols[1].file_uploader(
+        tr("Branding-Assets", "Brand assets"),
+        type=["png", "jpg", "jpeg", "svg", "pdf"],
+        key=UIKeys.COMPANY_BRANDING_UPLOAD,
+    )
+    if brand_upload is not None:
+        st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
+            "name": brand_upload.name,
+            "type": brand_upload.type,
+            "data": brand_upload.getvalue(),
+        }
+
+    branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
+    if branding_asset:
+        asset_name = branding_asset.get("name") or tr(
+            "Hochgeladene Datei", "Uploaded file"
+        )
+        brand_cols[1].caption(
+            tr(
+                "Aktuelle Datei: {name}",
+                "Current asset: {name}",
+            ).format(name=asset_name)
+        )
+        if (
+            isinstance(branding_asset.get("data"), (bytes, bytearray))
+            and str(branding_asset.get("type", "")).startswith("image/")
+        ):
+            try:
+                brand_cols[1].image(branding_asset["data"], width=160)
+            except Exception:  # pragma: no cover - graceful fallback
+                pass
+        if brand_cols[1].button(
+            tr("Datei entfernen", "Remove file"),
+            key="company.branding.remove",
+        ):
+            st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
+            st.session_state.pop(UIKeys.COMPANY_BRANDING_UPLOAD, None)
+            st.rerun()
 
     # Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
@@ -4493,9 +4587,11 @@ _step_company.handled_fields = [  # type: ignore[attr-defined]
     "company.website",
     "company.mission",
     "company.culture",
-    "company.contact_name",
-    "company.contact_email",
-    "company.contact_phone",
+    "location.primary_city",
+    "location.country",
+    "position.department",
+    "position.team_structure",
+    "position.key_projects",
 ]
 
 
@@ -5018,20 +5114,6 @@ def _step_position():
         placeholder=tr("z. B. Junior", "e.g., Junior"),
     )
 
-    dept_cols = st.columns(2)
-    position["department"] = dept_cols[0].text_input(
-        tr("Abteilung", "Department"),
-        value=position.get("department", ""),
-        placeholder=tr("z. B. Entwicklung", "e.g., Engineering"),
-    )
-    position["team_structure"] = dept_cols[1].text_input(
-        tr("Teamstruktur", "Team structure"),
-        value=position.get("team_structure", ""),
-        placeholder=tr(
-            "z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"
-        ),
-    )
-
     summary_cols = st.columns((1, 1))
     position["reporting_line"] = summary_cols[0].text_input(
         tr("Reports an", "Reports to"),
@@ -5052,84 +5134,6 @@ def _step_position():
         )
 
     st.markdown("#### " + tr("Standort & Zeitplan", "Location & timing"))
-    location_cols = st.columns(2)
-    city_lock = _field_lock_config(
-        "location.primary_city",
-        tr("Stadt", "City"),
-        container=location_cols[0],
-        context="step",
-    )
-    city_kwargs = _apply_field_lock_kwargs(city_lock)
-    location_data["primary_city"] = location_cols[0].text_input(
-        city_lock["label"],
-        value=location_data.get("primary_city", ""),
-        placeholder=tr("z. B. Berlin", "e.g., Berlin"),
-        **city_kwargs,
-    )
-    _update_profile("location.primary_city", location_data["primary_city"])
-    country_label = tr("Land", "Country")
-    if "location.country" in missing_here:
-        country_label += REQUIRED_SUFFIX
-    country_lock = _field_lock_config(
-        "location.country",
-        country_label,
-        container=location_cols[1],
-        context="step",
-    )
-    country_kwargs = _apply_field_lock_kwargs(country_lock)
-    location_data["country"] = location_cols[1].text_input(
-        country_lock["label"],
-        value=location_data.get("country", ""),
-        placeholder=tr("z. B. DE", "e.g., DE"),
-        **country_kwargs,
-    )
-    _update_profile("location.country", location_data["country"])
-    if "location.country" in missing_here and not location_data.get("country"):
-        location_cols[1].caption(
-            tr("Dieses Feld ist erforderlich", "This field is required")
-        )
-
-    city_value = (location_data.get("primary_city") or "").strip()
-    country_value = (location_data.get("country") or "").strip()
-    hq_value = (company.get("hq_location") or "").strip()
-    suggested_hq_parts = [part for part in (city_value, country_value) if part]
-    suggested_hq = ", ".join(suggested_hq_parts)
-    if (
-        suggested_hq
-        and not hq_value
-        and not _autofill_was_rejected("company.hq_location", suggested_hq)
-    ):
-        if city_value and country_value:
-            description = tr(
-                "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
-                "Combined city and country into a potential headquarters.",
-            )
-        elif city_value:
-            description = tr(
-                "Nur Stadt vorhanden – als Hauptsitz übernehmen?",
-                "Only city provided – use it as headquarters?",
-            )
-        else:
-            description = tr(
-                "Nur Land vorhanden – als Hauptsitz übernehmen?",
-                "Only country provided – use it as headquarters?",
-            )
-        _render_autofill_suggestion(
-            field_path="company.hq_location",
-            suggestion=suggested_hq,
-            title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),
-            description=description,
-            widget_key=UIKeys.COMPANY_HQ_LOCATION,
-            icon="🏙️",
-            success_message=tr(
-                "Hauptsitz mit Standortangaben gefüllt.",
-                "Headquarters filled from location details.",
-            ),
-            rejection_message=tr(
-                "Vorschlag ignoriert – wir fragen nicht erneut.",
-                "Suggestion dismissed – we will not offer it again.",
-            ),
-        )
 
     timing_cols = st.columns(3)
     target_start_default = _default_date(meta_data.get("target_start_date"))
@@ -5168,11 +5172,6 @@ def _step_position():
         position["decision_authority"] = st.text_area(
             tr("Entscheidungsbefugnisse", "Decision-making authority"),
             value=position.get("decision_authority", ""),
-            height=80,
-        )
-        position["key_projects"] = st.text_area(
-            tr("Schlüsselprojekte", "Key projects"),
-            value=position.get("key_projects", ""),
             height=80,
         )
 
@@ -5445,7 +5444,6 @@ def _step_position():
 _step_position.handled_fields = [  # type: ignore[attr-defined]
     "position.job_title",
     "position.role_summary",
-    "location.country",
 ]
 
 
