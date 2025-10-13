@@ -4718,24 +4718,17 @@ def _step_onboarding(schema: dict) -> None:
             position_mapping = raw_position
     _render_esco_occupation_selector(position_mapping)
 
-    col_skip, col_next = st.columns(2)
-    with col_skip:
-        if st.button(
-            tr("Ohne Vorlage fortfahren", "Continue without template"),
-            type="secondary",
-            use_container_width=True,
-        ):
-            _skip_source()
-
-    with col_next:
-        if st.button(
-            tr("Weiter", "Next"),
-            type="primary",
-            use_container_width=True,
-        ):
-            _request_scroll_to_top()
-            st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
-            st.rerun()
+    if st.button(
+        tr(
+            "Identifiziere fehlende Informationen",
+            "Identify missing information",
+        ),
+        type="primary",
+        use_container_width=True,
+    ):
+        _request_scroll_to_top()
+        st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
+        st.rerun()
 
 
 def _step_company():
