@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- fix: darken light-mode hero background image for stronger visual contrast
 - feat: refresh onboarding hero with lighter dark-mode background, smaller logo, and mission-focused copy
 - feat: replace sidebar salary factor table with interactive explanations and top-N selector
 - feat: consolidate requirements insights into dual salary/availability cards with regional radius filtering

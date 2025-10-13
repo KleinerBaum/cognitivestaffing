@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from io import BytesIO
 from pathlib import Path
 import sys
 
+from PIL import Image, ImageEnhance
 import streamlit as st
 
 APP_ROOT = Path(__file__).resolve().parent
@@ -58,19 +60,39 @@ if st.session_state.get("openai_base_url_invalid"):
     )
 
 
+def _load_background_image(dark_mode: bool) -> str | None:
+    """Return the base64 encoded background image, adjusting for the theme."""
+
+    bg_path = ROOT / "images" / "AdobeStock_506577005.jpeg"
+    try:
+        with Image.open(bg_path) as image:
+            processed_image = image.convert("RGB")
+            if not dark_mode:
+                brightness = ImageEnhance.Brightness(processed_image)
+                processed_image = brightness.enhance(0.55)
+
+            buffer = BytesIO()
+            processed_image.save(buffer, format="JPEG", quality=90)
+    except FileNotFoundError:
+        return None
+
+    return b64encode(buffer.getvalue()).decode()
+
+
 def inject_global_css() -> None:
     """Inject the global stylesheet and background image."""
 
-    theme = (
-        "cognitive_needs.css"
-        if st.session_state.get("dark_mode", True)
-        else "cognitive_needs_light.css"
-    )
+    dark_mode = st.session_state.get("dark_mode", True)
+    theme = "cognitive_needs.css" if dark_mode else "cognitive_needs_light.css"
     css = (ROOT / "styles" / theme).read_text(encoding="utf-8")
-    bg_bytes = (ROOT / "images" / "AdobeStock_506577005.jpeg").read_bytes()
-    encoded_bg = b64encode(bg_bytes).decode()
+    encoded_bg = _load_background_image(dark_mode)
+    bg_style = (
+        f":root {{ --bg-image: url('data:image/jpeg;base64,{encoded_bg}'); }}"
+        if encoded_bg
+        else ""
+    )
     st.markdown(
-        f"<style>{css}\n:root {{ --bg-image: url('data:image/jpeg;base64,{encoded_bg}'); }}</style>",
+        f"<style>{css}\n{bg_style}</style>",
         unsafe_allow_html=True,
     )
 
