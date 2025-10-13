@@ -4646,7 +4646,7 @@ def _step_onboarding(schema: dict) -> None:
             st.image(
                 str(ONBOARDING_ANIMATION_PATH),
                 caption=tr("Recruiting in Bewegung", "Recruiting in motion"),
-                use_column_width=True,
+                use_container_width=True,
             )
 
     st.divider()
