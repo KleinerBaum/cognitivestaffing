@@ -40,6 +40,16 @@ class SidebarContext:
     prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]
 
 
+@dataclass(slots=True)
+class SalaryFactorEntry:
+    key: str
+    label: str
+    value_display: str
+    impact_summary: str
+    explanation: str
+    magnitude: float
+
+
 def render_sidebar(logo_bytes: bytes | None = None) -> None:
     """Render the dynamic wizard sidebar with contextual content."""
 
@@ -491,13 +501,59 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             f"{_format_salary_range(user_min, user_max, user_currency)}"
         )
 
-    factor_rows = _prepare_salary_factor_rows(
+    factors = _prepare_salary_factors(
         explanation,
         benchmark_currency=currency,
         user_currency=user_currency,
     )
-    if factor_rows:
-        st.markdown(_build_salary_factor_table(factor_rows))
+    if factors:
+        st.markdown(f"### {tr('Größte Einflussfaktoren', 'Top influencing factors')}")
+        st.caption(
+            tr(
+                "Wähle aus, wie viele Faktoren angezeigt werden sollen und tippe auf einen Eintrag für Details.",
+                "Choose how many factors to display and tap an entry for the details.",
+            )
+        )
+
+        max_count = len(factors)
+        if max_count > 1:
+            default_count = min(3, max_count)
+            factor_count = st.slider(
+                tr(
+                    "Anzahl der angezeigten Einflussfaktoren",
+                    "Number of influencing factors to show",
+                ),
+                min_value=1,
+                max_value=max_count,
+                value=default_count,
+                key="ui.salary.factor.count",
+            )
+        else:
+            factor_count = 1
+
+        top_factors = sorted(
+            factors,
+            key=lambda item: item.magnitude,
+            reverse=True,
+        )[:factor_count]
+
+        radio_key = "ui.salary.factor.selected"
+        if st.session_state.get(radio_key, 0) >= len(top_factors):
+            st.session_state[radio_key] = 0
+
+        selected_index = st.radio(
+            tr(
+                "Einflussfaktor auswählen",
+                "Select an influencing factor",
+            ),
+            options=list(range(len(top_factors))),
+            index=st.session_state.get(radio_key, 0),
+            format_func=lambda idx: _format_factor_option(top_factors[idx]),
+            key=radio_key,
+        )
+
+        selected_factor = top_factors[selected_index]
+        st.info(selected_factor.explanation)
     elif isinstance(explanation, str) and explanation:
         st.caption(explanation)
     elif explanation and not isinstance(explanation, str):
@@ -532,12 +588,12 @@ def _format_salary_range(
     return _fmt(value)
 
 
-def _prepare_salary_factor_rows(
+def _prepare_salary_factors(
     explanation: object,
     *,
     benchmark_currency: str | None,
     user_currency: str | None,
-) -> list[tuple[str, str, str]]:
+) -> list[SalaryFactorEntry]:
     """Normalize explanation data for rendering."""
 
     factors: list[Mapping[str, Any]] = []
@@ -556,19 +612,36 @@ def _prepare_salary_factor_rows(
                 else:
                     factors.append({"key": key, "value": value, "impact": None})
 
-    rows: list[tuple[str, str, str]] = []
+    entries: list[SalaryFactorEntry] = []
     for factor in factors:
         key = str(factor.get("key", ""))
         label = _factor_label(key)
         value = _factor_value(key, factor.get("value"), benchmark_currency)
+        impact_mapping = factor.get("impact")
         impact = _factor_impact(
-            factor.get("impact"),
+            impact_mapping,
             benchmark_currency,
             user_currency,
         )
-        rows.append((label, value, impact))
+        explanation_text = _factor_explanation(
+            label,
+            value,
+            impact_mapping,
+            benchmark_currency,
+            user_currency,
+        )
+        entries.append(
+            SalaryFactorEntry(
+                key=key,
+                label=label,
+                value_display=value,
+                impact_summary=impact,
+                explanation=explanation_text,
+                magnitude=_factor_magnitude(impact_mapping),
+            )
+        )
 
-    return rows
+    return entries
 
 
 _FACTOR_LABELS: dict[str, tuple[str, str]] = {
@@ -622,6 +695,15 @@ def _factor_value(key: str, value: Any, currency: str | None) -> str:
     return str(value)
 
 
+def _impact_note_text(note: Any) -> str | None:
+    if not note:
+        return None
+    lookup = _IMPACT_NOTES.get(str(note))
+    if lookup:
+        return tr(*lookup)
+    return str(note)
+
+
 def _factor_impact(
     impact: Any,
     benchmark_currency: str | None,
@@ -633,13 +715,9 @@ def _factor_impact(
         return str(impact)
 
     parts: list[str] = []
-    note = impact.get("note")
-    if note:
-        note_text = _IMPACT_NOTES.get(note)
-        if note_text:
-            parts.append(tr(*note_text))
-        else:
-            parts.append(str(note))
+    note_text = _impact_note_text(impact.get("note"))
+    if note_text:
+        parts.append(note_text)
 
     absolute = impact.get("absolute")
     currency_to_use = impact.get("user_currency") or user_currency or benchmark_currency
@@ -666,6 +744,119 @@ def _factor_impact(
     return " · ".join(filtered)
 
 
+def _factor_explanation(
+    label: str,
+    value_display: str,
+    impact: Any,
+    benchmark_currency: str | None,
+    user_currency: str | None,
+) -> str:
+    base_sentence = tr(
+        "Der Faktor {label} ist mit {value} hinterlegt.",
+        "The {label} factor is set to {value}.",
+    ).format(label=label, value=value_display)
+
+    if not impact:
+        second = tr(
+            "Für diesen Faktor liegt keine konkrete Auswirkung vor.",
+            "There is no concrete impact available for this factor.",
+        )
+        return f"{base_sentence} {second}"
+
+    if not isinstance(impact, Mapping):
+        return f"{base_sentence} {impact}."
+
+    currency_to_use = impact.get("user_currency") or user_currency or benchmark_currency
+    absolute = impact.get("absolute")
+    absolute_text: str | None = None
+    if isinstance(absolute, (int, float)) and math.isfinite(absolute):
+        absolute_text = _format_salary_value(absolute, currency_to_use, signed=True)
+
+    relative = impact.get("relative")
+    relative_text: str | None = None
+    if isinstance(relative, (int, float)) and math.isfinite(relative):
+        relative_text = f"{relative:+.1%}"
+
+    user_value = impact.get("user_value")
+    user_value_text: str | None = None
+    if user_value is not None:
+        user_value_text = _format_salary_value(
+            user_value,
+            impact.get("user_currency") or user_currency or benchmark_currency,
+        )
+
+    detail_parts: list[str] = []
+    if absolute_text and relative_text:
+        detail_parts.append(
+            tr(
+                "einer Anpassung von {absolute} (entspricht {relative})",
+                "an adjustment of {absolute} (equal to {relative})",
+            ).format(absolute=absolute_text, relative=relative_text)
+        )
+    elif absolute_text:
+        detail_parts.append(
+            tr(
+                "einer Anpassung von {absolute}",
+                "an adjustment of {absolute}",
+            ).format(absolute=absolute_text)
+        )
+    elif relative_text:
+        detail_parts.append(
+            tr(
+                "einer Veränderung von {relative}",
+                "a change of {relative}",
+            ).format(relative=relative_text)
+        )
+
+    if user_value_text:
+        detail_parts.append(
+            tr(
+                "verglichen mit deiner Eingabe {value}",
+                "compared to your input {value}",
+            ).format(value=user_value_text)
+        )
+
+    second_sentence = ""
+    if detail_parts:
+        details = " und ".join(detail_parts)
+        second_sentence = tr(
+            "Das führt zu {details} in der Schätzung.",
+            "This results in {details} for the estimate.",
+        ).format(details=details)
+
+    note_text = _impact_note_text(impact.get("note"))
+    if note_text:
+        reason_text = tr("Grund: {note}.", "Reason: {note}.").format(note=note_text)
+        if second_sentence:
+            second_sentence = f"{second_sentence} {reason_text}"
+        else:
+            second_sentence = reason_text
+
+    if not second_sentence:
+        second_sentence = tr(
+            "Für diesen Faktor liegt keine konkrete Auswirkung vor.",
+            "There is no concrete impact available for this factor.",
+        )
+
+    if not base_sentence.endswith("."):
+        base_sentence = f"{base_sentence}."
+    if not second_sentence.endswith("."):
+        second_sentence = f"{second_sentence}."
+
+    return f"{base_sentence} {second_sentence}"
+
+
+def _factor_magnitude(impact: Any) -> float:
+    if isinstance(impact, Mapping):
+        absolute = impact.get("absolute")
+        if isinstance(absolute, (int, float)) and math.isfinite(absolute):
+            return abs(float(absolute))
+        relative = impact.get("relative")
+        if isinstance(relative, (int, float)) and math.isfinite(relative):
+            return abs(float(relative))
+    return 0.0
+
+
 def _format_salary_value(value: Any, currency: str | None, *, signed: bool = False) -> str:
     try:
         numeric = float(value)
@@ -679,31 +870,16 @@ def _format_salary_value(value: Any, currency: str | None, *, signed: bool = Fal
     return fmt
 
 
-def _build_salary_factor_table(rows: list[tuple[str, str, str]]) -> str:
-    if not rows:
-        return ""
-    header = (
-        tr("Faktor", "Factor"),
-        tr("Wert", "Value"),
-        tr("Wirkung", "Impact"),
-    )
-    lines = [
-        "| "
-        + " | ".join(_escape_table(segment) for segment in header)
-        + " |",
-        "| --- | --- | --- |",
-    ]
-    for label, value, impact in rows:
-        lines.append(
-            "| "
-            + " | ".join(_escape_table(segment) for segment in (label, value, impact))
-            + " |"
+def _format_factor_option(entry: SalaryFactorEntry) -> str:
+    parts: list[str] = [entry.label]
+    if entry.value_display:
+        parts.append(entry.value_display)
+    option_text = " · ".join(part for part in parts if part)
+    if entry.impact_summary:
+        option_text = (
+            option_text + (" — " if option_text else "") + str(entry.impact_summary)
         )
-    return "\n".join(lines)
-
-
-def _escape_table(text: str) -> str:
-    return str(text).replace("|", "\\|").replace("\n", "<br>")
+    return option_text
 
 
 __all__ = ["render_sidebar"]
