@@ -73,6 +73,7 @@ class StateKeys:
     ESCO_SKILLS = "extraction_esco_skills"
     ESCO_MISSING_SKILLS = "extraction_esco_missing_skills"
     ESCO_OCCUPATION_OPTIONS = "extraction_esco_occupation_options"
+    ESCO_SELECTED_OCCUPATIONS = "data.esco_selected_occupations"
     BIAS_FINDINGS = "data.bias_findings"
     SKILL_BUCKETS = "skill_buckets"
     COMPANY_PAGE_SUMMARIES = "company.page_summaries"

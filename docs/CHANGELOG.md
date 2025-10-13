@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- feat: surface ESCO occupation multi-select after extraction and limit skill suggestions to chosen profiles
 - feat: categorize ESCO skill suggestions by type and highlight outstanding essentials in wizard panels
 - feat: surface ESCO occupation and essential skill pickers in wizard with sidebar todo hints
 - feat: allow focus tags for skill/benefit suggestions and present grouped multi-select pickers for LLM outputs

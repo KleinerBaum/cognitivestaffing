@@ -77,6 +77,7 @@ from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
     normalize_skills,
+    search_occupations,
 )
 from core.job_ad import (
     JOB_AD_FIELDS,
@@ -1504,38 +1505,89 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     profile = coerce_and_fill(extracted_data)
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
     lang = getattr(st.session_state, "lang", "en") or "en"
-    occupation_meta: dict[str, str] | None = None
-    essential_skills: list[str] = []
     job_title_value = (profile.position.job_title or "").strip()
+    occupation_options: list[dict[str, str]] = []
+    selected_ids: list[str] = []
     if job_title_value:
-        occupation_meta = classify_occupation(job_title_value, lang=lang)
-        if occupation_meta:
-            label = str(occupation_meta.get("preferredLabel") or "").strip()
-            uri = str(occupation_meta.get("uri") or "").strip()
-            group = str(occupation_meta.get("group") or "").strip()
-
-            normalized_meta = dict(occupation_meta)
+        occupation_options = _sanitize_esco_options(
+            search_occupations(job_title_value, lang=lang, limit=5)
+        )
+        classified = classify_occupation(job_title_value, lang=lang)
+        if classified:
+            label = str(classified.get("preferredLabel") or "").strip()
+            uri = str(classified.get("uri") or "").strip()
+            group = str(classified.get("group") or "").strip()
+            normalized_meta = dict(classified)
             if label:
                 normalized_meta["preferredLabel"] = label
             if uri:
                 normalized_meta["uri"] = uri
             if group:
                 normalized_meta["group"] = group
-            occupation_meta = normalized_meta
+            if uri and all(entry.get("uri") != uri for entry in occupation_options):
+                occupation_options.insert(0, normalized_meta)
+            elif not uri:
+                occupation_options.insert(0, normalized_meta)
 
-            if label:
-                profile.position.occupation_label = label
+        previous_selected = st.session_state.get(
+            StateKeys.ESCO_SELECTED_OCCUPATIONS, []
+        ) or []
+        prev_ids = [
+            str(entry.get("uri") or "").strip()
+            for entry in previous_selected
+            if isinstance(entry, Mapping) and str(entry.get("uri") or "").strip()
+        ]
+        option_map = {
+            str(entry.get("uri") or "").strip(): entry for entry in occupation_options if entry.get("uri")
+        }
+        selected_ids = [uri for uri in prev_ids if uri in option_map]
+        if not selected_ids:
+            primary_uri = str(
+                classified.get("uri") if isinstance(classified, Mapping) else ""
+            ).strip()
+            if primary_uri and primary_uri in option_map:
+                selected_ids = [primary_uri]
+        if not selected_ids and occupation_options:
+            first_uri = str(occupation_options[0].get("uri") or "").strip()
+            if first_uri:
+                selected_ids = [first_uri]
+
+    if occupation_options:
+        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = occupation_options
+        selected_entries = [
+            dict(entry)
+            for entry in occupation_options
+            if str(entry.get("uri") or "").strip() in set(selected_ids)
+        ]
+        if not selected_entries and occupation_options:
+            selected_entries = [dict(occupation_options[0])]
+            selected_ids = [str(occupation_options[0].get("uri") or "").strip()]
+        st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = selected_entries
+        st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = [
+            sid for sid in selected_ids if sid
+        ]
+        primary_meta = selected_entries[0] if selected_entries else None
+        if primary_meta:
+            label = primary_meta.get("preferredLabel") or None
+            uri = primary_meta.get("uri") or None
+            group = primary_meta.get("group") or None
+            profile.position.occupation_label = label or None
             profile.position.occupation_uri = uri or None
             profile.position.occupation_group = group or None
-
-            essential_skills = (
-                get_essential_skills(uri, lang=lang) if uri else []
-            )
-
-    if occupation_meta:
-        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [occupation_meta]
+            _refresh_esco_skills(selected_entries, lang=lang)
+        else:
+            profile.position.occupation_label = None
+            profile.position.occupation_uri = None
+            profile.position.occupation_group = None
+            st.session_state[StateKeys.ESCO_SKILLS] = []
     else:
         st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+        st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
+        st.session_state[StateKeys.ESCO_SKILLS] = []
+        st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
+        profile.position.occupation_label = None
+        profile.position.occupation_uri = None
+        profile.position.occupation_group = None
 
     data = profile.model_dump()
     for path, value in flatten(data).items():
@@ -1587,7 +1639,6 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             data.get("requirements", {}).get("hard_skills_optional", [])
         ),
     }
-    st.session_state[StateKeys.ESCO_SKILLS] = essential_skills
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
     for field in CRITICAL_FIELDS:
@@ -3268,90 +3319,189 @@ def _set_requirement_certificates(requirements: dict[str, Any], values: Iterable
     requirements["certifications"] = list(normalized)
 
 
-def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None:
-    """Render a picker for ESCO occupation suggestions."""
+def _sanitize_esco_options(
+    options: Iterable[Mapping[str, Any]] | None,
+) -> list[dict[str, str]]:
+    """Return cleaned ESCO occupation metadata entries."""
 
-    options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, []) or []
-    if not isinstance(options, Sequence) or not options:
-        return
-
-    sanitized: list[tuple[str, str, str, Mapping[str, Any] | None]] = []
-    for idx, raw in enumerate(options):
+    sanitized: list[dict[str, str]] = []
+    if not options:
+        return sanitized
+    seen: set[str] = set()
+    for raw in options:
         if not isinstance(raw, Mapping):
             continue
         label = str(raw.get("preferredLabel") or "").strip()
-        group = str(raw.get("group") or "").strip()
         uri = str(raw.get("uri") or "").strip()
-        option_id = uri or f"__index_{idx}"
-        sanitized.append((option_id, label, group, raw))
+        group = str(raw.get("group") or "").strip()
+        if not label and not uri:
+            continue
+        marker = uri or f"{label}|{group}"
+        if marker in seen:
+            continue
+        seen.add(marker)
+        sanitized.append({"preferredLabel": label, "uri": uri, "group": group})
+    return sanitized
 
-    if not sanitized:
+
+def _coerce_occupation_ids(raw_value: Any) -> list[str]:
+    """Normalize session state data to a list of occupation identifiers."""
+
+    if isinstance(raw_value, str):
+        return [raw_value] if raw_value else []
+    if isinstance(raw_value, (list, tuple, set, frozenset)):
+        result: list[str] = []
+        for item in raw_value:
+            if isinstance(item, str) and item.strip():
+                result.append(item.strip())
+        return result
+    return []
+
+
+def _write_occupation_to_profile(meta: Mapping[str, Any] | None) -> None:
+    """Persist primary ESCO occupation metadata to profile and raw data."""
+
+    label = str(meta.get("preferredLabel") or "").strip() if meta else None
+    uri = str(meta.get("uri") or "").strip() if meta else None
+    group = str(meta.get("group") or "").strip() if meta else None
+
+    _update_profile("position.occupation_label", label or None)
+    _update_profile("position.occupation_uri", uri or None)
+    _update_profile("position.occupation_group", group or None)
+
+    raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
+    if isinstance(raw_profile, dict):
+        set_in(raw_profile, "position.occupation_label", label or None)
+        set_in(raw_profile, "position.occupation_uri", uri or None)
+        set_in(raw_profile, "position.occupation_group", group or None)
+        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
+
+
+def _refresh_esco_skills(
+    selections: Sequence[Mapping[str, Any]],
+    *,
+    lang: str,
+) -> None:
+    """Load essential skills for all selected occupations and store them."""
+
+    aggregated: list[str] = []
+    seen: set[str] = set()
+    for entry in selections:
+        if not isinstance(entry, Mapping):
+            continue
+        uri = str(entry.get("uri") or "").strip()
+        if not uri:
+            continue
+        for skill in get_essential_skills(uri, lang=lang):
+            cleaned = str(skill or "").strip()
+            if not cleaned:
+                continue
+            marker = cleaned.casefold()
+            if marker in seen:
+                continue
+            seen.add(marker)
+            aggregated.append(cleaned)
+    st.session_state[StateKeys.ESCO_SKILLS] = aggregated
+    if not aggregated:
+        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+
+
+def _apply_esco_selection(
+    selected_ids: Sequence[str],
+    options: Sequence[Mapping[str, Any]],
+    *,
+    lang: str,
+) -> None:
+    """Update session state based on selected ESCO occupations."""
+
+    option_map: dict[str, Mapping[str, Any]] = {}
+    for option in options:
+        if not isinstance(option, Mapping):
+            continue
+        uri = str(option.get("uri") or "").strip()
+        if uri:
+            option_map[uri] = option
+
+    resolved: list[dict[str, Any]] = []
+    for uri in selected_ids:
+        meta = option_map.get(uri)
+        if meta:
+            resolved.append(dict(meta))
+
+    st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = resolved
+
+    primary = resolved[0] if resolved else None
+    _write_occupation_to_profile(primary)
+
+    _refresh_esco_skills(resolved, lang=lang)
+
+def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None:
+    """Render a picker for ESCO occupation suggestions."""
+
+    raw_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, []) or []
+    options = [entry for entry in _sanitize_esco_options(raw_options) if entry.get("uri")]
+    if not options:
         return
 
-    current_uri = str(position.get("occupation_uri") or "") if position else ""
-    current_label = str(position.get("occupation_label") or "") if position else ""
-
-    none_option = ("__none__", tr("Keine Auswahl", "No selection"), "", None)
-    option_items = [none_option] + sanitized
-    option_ids = [item[0] for item in option_items]
+    lang_code = st.session_state.get("lang", "de") or "de"
+    option_ids = [str(entry.get("uri") or "").strip() for entry in options]
     format_map = {
-        option_id: (
-            f"{label} — {group}".strip(" —")
-            if option_id != "__none__"
-            else label
-        )
-        for option_id, label, group, _ in option_items
+        option_id: f"{entry.get('preferredLabel', '')} — {entry.get('group', '')}".strip(" —")
+        for option_id, entry in zip(option_ids, options)
     }
 
-    default_id = "__none__"
-    for option_id, label, _group, meta in sanitized:
-        if current_uri and isinstance(meta, Mapping):
-            if str(meta.get("uri") or "") == current_uri:
-                default_id = option_id
-                break
-        if not current_uri and current_label and label:
-            if label.casefold() == current_label.casefold():
-                default_id = option_id
-                break
+    selected_entries = st.session_state.get(StateKeys.ESCO_SELECTED_OCCUPATIONS, []) or []
+    selected_ids = [
+        str(entry.get("uri") or "").strip()
+        for entry in selected_entries
+        if isinstance(entry, Mapping) and str(entry.get("uri") or "").strip()
+    ]
 
-    default_index = option_ids.index(default_id) if default_id in option_ids else 0
+    if not selected_ids and isinstance(position, Mapping):
+        current_uri = str(position.get("occupation_uri") or "").strip()
+        if current_uri:
+            selected_ids = [current_uri]
 
-    st.markdown("##### " + tr("ESCO Berufsprofil", "ESCO occupation"))
+    selected_ids = [sid for sid in selected_ids if sid in option_ids]
+    if not selected_ids and option_ids:
+        selected_ids = [option_ids[0]]
+
+    widget_value = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
+    if not widget_value:
+        widget_value = list(selected_ids)
+    else:
+        widget_value = [sid for sid in widget_value if sid in option_ids]
+        if not widget_value:
+            widget_value = list(selected_ids)
+    st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
+
+    st.markdown("##### " + tr("ESCO-Berufe auswählen", "Select ESCO occupations"))
     st.caption(
         tr(
-            "Wähle ein passendes ESCO-Profil, um Skills und Synonyme zu verknüpfen.",
-            "Pick a matching ESCO profile to link skills and synonyms.",
+            "Wähle alle passenden ESCO-Profile, um Skills und Synonyme vorzubereiten.",
+            "Select all relevant ESCO profiles to prepare skills and synonyms.",
         )
     )
 
-    selected_id = st.radio(
-        tr("Vorgeschlagene Berufe", "Suggested occupations"),
+    def _on_change() -> None:
+        current_ids = _coerce_occupation_ids(
+            st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
+        )
+        _apply_esco_selection(current_ids, options, lang=lang_code)
+
+    st.multiselect(
+        tr("Empfohlene Berufe", "Suggested occupations"),
         options=option_ids,
-        index=default_index,
+        default=widget_value,
         key=UIKeys.POSITION_ESCO_OCCUPATION,
         format_func=lambda opt: format_map.get(opt, opt),
+        on_change=_on_change,
     )
 
-    selected_meta: Mapping[str, Any] | None
-    if selected_id == "__none__":
-        selected_meta = None
-    else:
-        selected_meta = next(
-            (meta for option_id, _label, _group, meta in sanitized if option_id == selected_id),
-            None,
-        )
-
-    label_value = None
-    uri_value = None
-    group_value = None
-    if isinstance(selected_meta, Mapping):
-        label_value = str(selected_meta.get("preferredLabel") or "").strip() or None
-        uri_value = str(selected_meta.get("uri") or "").strip() or None
-        group_value = str(selected_meta.get("group") or "").strip() or None
-
-    _update_profile("position.occupation_label", label_value)
-    _update_profile("position.occupation_uri", uri_value)
-    _update_profile("position.occupation_group", group_value)
+    current_ids = _coerce_occupation_ids(
+        st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
+    )
+    _apply_esco_selection(current_ids, options, lang=lang_code)
 
 
 def _render_esco_skill_picker(
@@ -4122,6 +4272,13 @@ def _step_onboarding(schema: dict) -> None:
         )
 
     _render_prefilled_preview(exclude_prefixes=("requirements.",))
+
+    position_mapping: Mapping[str, Any] | None = None
+    if isinstance(profile, Mapping):
+        raw_position = profile.get("position")
+        if isinstance(raw_position, Mapping):
+            position_mapping = raw_position
+    _render_esco_occupation_selector(position_mapping)
 
     col_skip, col_next = st.columns(2)
     with col_skip:
