@@ -1699,11 +1699,8 @@ def next_step() -> None:
                     reqs[key] = normalize_skills(reqs.get(key, []), lang=lang)
         except Exception:
             pass
-    completed = set(st.session_state.get(StateKeys.COMPLETED_SECTIONS, []))
     candidate = min(current + 1, total_steps - 1)
-    while candidate < total_steps - 1 and candidate in completed:
-        candidate += 1
-    st.session_state[StateKeys.STEP] = min(candidate, total_steps - 1)
+    st.session_state[StateKeys.STEP] = candidate
 
 
 def prev_step() -> None:
