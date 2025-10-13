@@ -12,7 +12,7 @@ from typing import Dict, List
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import StateKeys, UIKeys
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
@@ -38,8 +38,12 @@ def search_occupation(title: str, lang: str = "en") -> Dict[str, str]:
     if occupation:
         skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
         _set_state(StateKeys.ESCO_SKILLS, skills)
+        _set_state(StateKeys.ESCO_SELECTED_OCCUPATIONS, [occupation])
+        _set_state(UIKeys.POSITION_ESCO_OCCUPATION, [occupation.get("uri", "")])
     else:
         _set_state(StateKeys.ESCO_SKILLS, [])
+        _set_state(StateKeys.ESCO_SELECTED_OCCUPATIONS, [])
+        _set_state(UIKeys.POSITION_ESCO_OCCUPATION, [])
     return occupation
 
 

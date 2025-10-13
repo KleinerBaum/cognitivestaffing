@@ -45,6 +45,13 @@ def test_role_specific_questions_from_esco_state(monkeypatch) -> None:
             "uri": "offline://ict",
         }
     ]
+    st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = [
+        {
+            "preferredLabel": "Software developers",
+            "group": "Information and communications technology professionals",
+            "uri": "offline://ict",
+        }
+    ]
     st.session_state[StateKeys.ESCO_SKILLS] = ["Python", "Version control"]
 
     out = generate_followup_questions(
@@ -66,6 +73,13 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
         {"requirements.hard_skills_required"},
     )
     st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [
+        {
+            "preferredLabel": "Software developers",
+            "group": "Information and communications technology professionals",
+            "uri": "offline://ict",
+        }
+    ]
+    st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = [
         {
             "preferredLabel": "Software developers",
             "group": "Information and communications technology professionals",

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import StateKeys, UIKeys
 from integrations import esco
 
 
@@ -24,6 +24,8 @@ def test_search_populates_state() -> None:
     assert result["group"] == "Information and communications technology professionals"
     assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS]
     assert st.session_state[StateKeys.ESCO_SKILLS]
+    assert st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS]
+    assert st.session_state[UIKeys.POSITION_ESCO_OCCUPATION]
     first_option = st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS][0]
     assert "preferredLabel" in first_option
     assert st.session_state[StateKeys.ESCO_SKILLS][0]

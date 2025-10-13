@@ -270,12 +270,14 @@ def test_extract_and_summarize_does_not_enrich_skills(
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
     monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
     monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
     _extract_and_summarize("Job text", {})
 
     data = st.session_state[StateKeys.PROFILE]
     assert data["position"]["occupation_label"] is None
     assert data["requirements"]["hard_skills_required"] == ["Python"]
+    assert st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] == []
 
 
 def test_extract_and_summarize_enriches_esco_metadata(
@@ -298,6 +300,10 @@ def test_extract_and_summarize_enriches_esco_metadata(
     monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
     monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: dict(occupation))
+    monkeypatch.setattr(
+        "wizard.search_occupations",
+        lambda *a, **k: [dict(occupation)],
+    )
     monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: list(skills))
 
     _extract_and_summarize("Job text", {})
@@ -307,6 +313,8 @@ def test_extract_and_summarize_enriches_esco_metadata(
     assert data["position"]["occupation_uri"] == occupation["uri"]
     assert data["position"]["occupation_group"] == occupation["group"]
     assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] == [occupation]
+    assert st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] == [occupation]
+    assert st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] == [occupation["uri"]]
     assert st.session_state[StateKeys.ESCO_SKILLS] == skills
     raw_profile = st.session_state[StateKeys.EXTRACTION_RAW_PROFILE]
     assert raw_profile["position"]["occupation_label"] == occupation["preferredLabel"]

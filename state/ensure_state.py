@@ -54,6 +54,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
     if StateKeys.ESCO_OCCUPATION_OPTIONS not in st.session_state:
         st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+    if StateKeys.ESCO_SELECTED_OCCUPATIONS not in st.session_state:
+        st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
     if StateKeys.SKILL_BUCKETS not in st.session_state:
         st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
     if StateKeys.FOLLOWUPS not in st.session_state:

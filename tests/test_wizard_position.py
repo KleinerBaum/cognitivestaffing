@@ -28,20 +28,49 @@ def test_render_esco_occupation_selector_updates_profile(
             "uri": "uri:2",
         },
     ]
+    st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
 
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
 
-    def fake_radio(label, *, options, index, key, format_func):
-        assert key == UIKeys.POSITION_ESCO_OCCUPATION
-        assert options[index] == "__none__"
-        assert any("Data Analyst" in format_func(opt) for opt in options)
-        return "uri:2"
+    skill_store: dict[str, list[str]] = {
+        "uri:1": ["Python"],
+        "uri:2": ["SQL"],
+    }
 
-    monkeypatch.setattr(st, "radio", fake_radio)
+    monkeypatch.setattr(
+        "wizard.get_essential_skills",
+        lambda uri, **_: skill_store.get(uri, []),
+    )
+
+    def fake_multiselect(
+        label,
+        *,
+        options,
+        default,
+        key,
+        format_func,
+        on_change,
+    ):
+        assert key == UIKeys.POSITION_ESCO_OCCUPATION
+        assert default == ["uri:1"]
+        assert any("Data Analyst" in format_func(opt) for opt in options)
+        st.session_state[key] = ["uri:2"]
+        on_change()
+        return ["uri:2"]
+
+    monkeypatch.setattr(st, "multiselect", fake_multiselect)
 
     _render_esco_occupation_selector(position)
 
     assert position["occupation_label"] == "Data Analyst"
     assert position["occupation_uri"] == "uri:2"
     assert position["occupation_group"] == "Science professionals"
+    assert st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] == [
+        {
+            "preferredLabel": "Data Analyst",
+            "group": "Science professionals",
+            "uri": "uri:2",
+        }
+    ]
+    assert st.session_state[StateKeys.ESCO_SKILLS] == ["SQL"]
