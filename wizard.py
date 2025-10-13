@@ -4366,7 +4366,7 @@ def _render_chip_button_grid(
                 option,
                 key=f"{key_prefix}.{idx}",
                 type=button_type,
-                use_container_width=True,
+                width="stretch",
             )
         if pressed and clicked_index is None:
             clicked_index = idx
@@ -4744,7 +4744,7 @@ def _step_onboarding(schema: dict) -> None:
         if st.button(
             tr("Weiter ▶︎", "Next ▶︎"),
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key="onboarding_next",
         ):
             _request_scroll_to_top()
@@ -6309,7 +6309,7 @@ def _step_requirements():
         if st.button(
             tr("🔄 Vorschläge aktualisieren", "🔄 Refresh suggestions"),
             key=f"{widget_prefix}.refresh",
-            use_container_width=True,
+            width="stretch",
         ):
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
@@ -8085,7 +8085,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             profile_bytes,
             file_name=profile_filename,
             mime=profile_mime,
-            use_container_width=True,
+            width="stretch",
             key="download_profile_json",
         )
 
@@ -8957,14 +8957,14 @@ def _render_wizard_navigation(
         if current < len(steps) - 1:
             col_prev, col_next = st.columns([1, 1])
             with col_prev:
-                if st.button(tr("◀︎ Zurück", "◀︎ Back"), use_container_width=True):
+                if st.button(tr("◀︎ Zurück", "◀︎ Back"), width="stretch"):
                     prev_step()
                     st.rerun()
             with col_next:
                 if st.button(
                     tr("Weiter ▶︎", "Next ▶︎"),
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                     disabled=bool(missing),
                 ):
                     next_step()
@@ -8974,7 +8974,7 @@ def _render_wizard_navigation(
             with back_col:
                 if st.button(
                     tr("◀︎ Zurück", "◀︎ Back"),
-                    use_container_width=True,
+                    width="stretch",
                     key="summary_back",
                 ):
                     prev_step()
@@ -8983,7 +8983,7 @@ def _render_wizard_navigation(
                 if st.button(
                     tr("🏠 Startseite", "🏠 Home"),
                     key="summary_home",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     _request_scroll_to_top()
                     reset_state()
@@ -8993,7 +8993,7 @@ def _render_wizard_navigation(
                 if st.button(
                     tr("❤️ Entwickler unterstützen", "❤️ Donate to the developer"),
                     key="summary_donate",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     st.session_state["show_donate"] = True
 
@@ -9072,7 +9072,7 @@ def run_wizard():
     current = st.session_state[StateKeys.STEP]
 
     if current == 0 and ONBOARDING_ANIMATION_PATH.exists():
-        st.image(str(ONBOARDING_ANIMATION_PATH), use_container_width=True)
+        st.image(str(ONBOARDING_ANIMATION_PATH), width="stretch")
 
     # Render current step
     _label, renderer = steps[current]

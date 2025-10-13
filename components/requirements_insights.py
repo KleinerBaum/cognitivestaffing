@@ -706,9 +706,9 @@ def render_skill_market_insights(
     availability_spec = build_availability_chart_spec(records, lang=lang_code)
     col_salary, col_availability = st.columns(2, gap="large")
     with col_salary:
-        st.vega_lite_chart(spec=salary_spec, use_container_width=True)
+        st.vega_lite_chart(spec=salary_spec, width="stretch")
     with col_availability:
-        st.vega_lite_chart(spec=availability_spec, use_container_width=True)
+        st.vega_lite_chart(spec=availability_spec, width="stretch")
 
     _render_summary(
         records,
