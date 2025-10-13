@@ -1802,6 +1802,7 @@ def next_step() -> None:
         except Exception:
             pass
     candidate = min(current + 1, total_steps - 1)
+    st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
     st.session_state[StateKeys.STEP] = candidate
 
 
@@ -1809,6 +1810,7 @@ def prev_step() -> None:
     """Return to the previous wizard step."""
 
     _request_scroll_to_top()
+    st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
     st.session_state[StateKeys.STEP] = max(
         0, st.session_state.get(StateKeys.STEP, 0) - 1
     )
@@ -9052,6 +9054,7 @@ def _render_wizard_navigation(
                 st.session_state[StateKeys.STEPPER_WARNING] = message
                 return
 
+        st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
         st.session_state[StateKeys.STEP] = target_index
         st.rerun()
 
