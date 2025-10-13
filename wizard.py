@@ -5053,8 +5053,8 @@ def _step_position():
     st.subheader(position_header)
     position_caption = _format_dynamic_message(
         default=(
-            "Kerninformationen zur Rolle, zum Standort und Rahmenbedingungen erfassen.",
-            "Capture key information about the role, location and context.",
+            "Kerninformationen zur Rolle und Rahmenbedingungen erfassen.",
+            "Capture key information about the role and overall context.",
         ),
         context=profile_context,
         variants=[
@@ -5142,7 +5142,7 @@ def _step_position():
             tr("Dieses Feld ist erforderlich", "This field is required")
         )
 
-    st.markdown("#### " + tr("Standort & Zeitplan", "Location & timing"))
+    st.markdown("#### " + tr("Zeitplan", "Timing"))
 
     timing_cols = st.columns(3)
     target_start_default = _default_date(meta_data.get("target_start_date"))
