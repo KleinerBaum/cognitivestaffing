@@ -37,6 +37,7 @@
 - fix: send valid OpenAI tool definitions to avoid missing name errors
 - feat: inject required arrays and nullable fields into extraction schema
 - fix: map "Einsatzort"/"Branche" cues to location and industry in rule-based parsing
+- fix: restore the classic "Weiter" CTA in the onboarding step with highlighted styling
 - feat: add an in-house validation loop that replays extraction against NeedAnalysisProfile with graceful fallbacks
 - docs: clarify Responses API migration and removal of Assistants/Threads usage
 - docs: add bilingual legal information page including ESCO licensing notice
