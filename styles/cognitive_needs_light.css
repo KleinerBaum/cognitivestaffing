@@ -56,7 +56,12 @@
   --sidebar-active-bg: linear-gradient(90deg, rgba(46, 50, 50, 0.08), rgba(71, 75, 75, 0.08));
   --sidebar-hover-bg: rgba(46, 50, 50, 0.06);
   --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
-  --app-gradient: linear-gradient(180deg, rgba(243, 244, 244, 0.85) 0%, rgba(255, 255, 255, 0.72) 45%, rgba(243, 244, 244, 0.9) 100%);
+  --app-gradient: linear-gradient(
+    180deg,
+    rgba(226, 229, 229, 0.94) 0%,
+    rgba(220, 223, 223, 0.9) 45%,
+    rgba(206, 210, 210, 0.94) 100%
+  );
   --scrollbar-track: rgba(0, 0, 0, 0.08);
   --scrollbar-thumb: rgba(71, 75, 75, 0.28);
   --scrollbar-thumb-border: rgba(255, 255, 255, 0.32);
@@ -171,19 +176,21 @@ a:hover {
   border: 1px solid var(--border-subtle) !important;
   color: var(--text-strong) !important;
   border-radius: 999px !important;
+  padding: 0.25rem 0.65rem !important;
+  font-size: 0.85rem !important;
 }
 .stMultiSelect [data-baseweb="tag"] span {
   white-space: normal !important;
 }
 .stMultiSelect [data-baseweb="input"] {
-  min-height: 44px;
+  min-height: 36px;
 }
 
 .chip-section-title {
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  margin: 0.7rem 0 0.4rem;
+  margin: 0.45rem 0 0.25rem;
   color: var(--text-muted);
 }
 

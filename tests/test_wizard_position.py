@@ -32,6 +32,26 @@ def test_render_esco_occupation_selector_updates_profile(
 
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+    monkeypatch.setattr(st, "rerun", lambda *_, **__: None)
+
+    class DummyColumn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def fake_columns(spec, *_args, **_kwargs):
+        if isinstance(spec, int):
+            count = spec
+        elif isinstance(spec, (list, tuple)):
+            count = len(spec)
+        else:
+            count = 2
+        return [DummyColumn() for _ in range(max(count, 1))]
+
+    monkeypatch.setattr(st, "columns", fake_columns)
 
     skill_store: dict[str, list[str]] = {
         "uri:1": ["Python"],
@@ -51,10 +71,13 @@ def test_render_esco_occupation_selector_updates_profile(
         key,
         format_func,
         on_change,
+        **kwargs,
     ):
         assert key == UIKeys.POSITION_ESCO_OCCUPATION
-        assert default == ["uri:1"]
+        assert default == []
         assert any("Data Analyst" in format_func(opt) for opt in options)
+        assert kwargs.get("label_visibility") == "collapsed"
+        assert "ESCO" in kwargs.get("placeholder", "")
         st.session_state[key] = ["uri:2"]
         on_change()
         return ["uri:2"]
