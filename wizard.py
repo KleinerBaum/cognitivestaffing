@@ -90,7 +90,7 @@ from core.job_ad import (
 
 ROOT = Path(__file__).parent
 ONBOARDING_ANIMATION_PATH = (
-    ROOT / "images" / "animation_pulse_SingleColorHex1_7kigl22lw.gif"
+    ROOT / "images" / "animation_pulse_Default_7kigl22lw.gif"
 )
 ensure_state()
 
