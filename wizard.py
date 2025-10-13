@@ -3488,14 +3488,55 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
         )
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
-    st.multiselect(
-        tr("Empfohlene Berufe", "Suggested occupations"),
-        options=option_ids,
-        default=widget_value,
-        key=UIKeys.POSITION_ESCO_OCCUPATION,
-        format_func=lambda opt: format_map.get(opt, opt),
-        on_change=_on_change,
-    )
+    selection_label = tr("Empfohlene Berufe", "Suggested occupations")
+    st.markdown(f"**{selection_label}**")
+
+    selected_ids = list(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION, []))
+    selected_labels = [format_map.get(opt, opt) for opt in selected_ids]
+    available_ids = [opt for opt in option_ids if opt not in selected_ids]
+    available_labels = [format_map.get(opt, opt) for opt in available_ids]
+
+    selected_title = tr("Ausgewählt", "Selected")
+    available_title = tr("Weitere Optionen", "More options")
+
+    if selected_labels:
+        st.markdown(
+            f"<p class='chip-section-title'>{selected_title}</p>",
+            unsafe_allow_html=True,
+        )
+        clicked_selected = _render_chip_button_grid(
+            selected_labels,
+            key_prefix="esco.occupations.selected",
+            button_type="primary",
+            columns=2,
+        )
+        if clicked_selected is not None:
+            removed_id = selected_ids[clicked_selected]
+            new_selection = [sid for sid in selected_ids if sid != removed_id]
+            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
+            _on_change()
+            st.rerun()
+    else:
+        st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
+
+    if available_labels:
+        st.markdown(
+            f"<p class='chip-section-title chip-section-title--secondary'>{available_title}</p>",
+            unsafe_allow_html=True,
+        )
+        clicked_available = _render_chip_button_grid(
+            available_labels,
+            key_prefix="esco.occupations.available",
+            columns=2,
+        )
+        if clicked_available is not None:
+            added_id = available_ids[clicked_available]
+            new_selection = selected_ids + [added_id]
+            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
+            _on_change()
+            st.rerun()
+    elif not selected_labels:
+        st.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
 
     current_ids = _coerce_occupation_ids(
         st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
@@ -3972,6 +4013,41 @@ def missing_keys(
 
 
 # --- UI-Komponenten ---
+def _render_chip_button_grid(
+    options: Sequence[str],
+    *,
+    key_prefix: str,
+    button_type: Literal["primary", "secondary"] = "secondary",
+    columns: int = 3,
+) -> int | None:
+    """Render a responsive grid of clickable buttons representing chip choices."""
+
+    if not options:
+        return None
+
+    per_row = max(1, min(columns, len(options)))
+    grid_columns = st.columns(per_row)
+    clicked_index: int | None = None
+
+    for idx, option in enumerate(options):
+        if idx and idx % per_row == 0:
+            remaining = len(options) - idx
+            per_row = max(1, min(columns, remaining))
+            grid_columns = st.columns(per_row)
+        col = grid_columns[idx % per_row]
+        with col:
+            pressed = st.button(
+                option,
+                key=f"{key_prefix}.{idx}",
+                type=button_type,
+                use_container_width=True,
+            )
+        if pressed and clicked_index is None:
+            clicked_index = idx
+
+    return clicked_index
+
+
 def _chip_multiselect(
     label: str,
     options: List[str],
@@ -3980,16 +4056,7 @@ def _chip_multiselect(
     help_text: str | None = None,
     dropdown: bool = False,
 ) -> List[str]:
-    """Render a multiselect with chip-like UX and free-text additions.
-
-    Args:
-        label: UI label for the widget.
-        options: Available options coming from profile data or suggestions.
-        values: Initially selected options.
-
-    Returns:
-        Updated list of selections from the user.
-    """
+    """Render an interactive chip-based multiselect with free-text additions."""
 
     slug = _slugify_label(label)
     ms_key = f"ms_{label}"
@@ -4000,14 +4067,15 @@ def _chip_multiselect(
     base_options = _unique_normalized(options)
     base_values = _unique_normalized(values)
 
-    current_selection = _unique_normalized(st.session_state.get(ms_key, []))
-    if current_selection:
-        base_values = current_selection
-
     stored_options = _unique_normalized(st.session_state.get(options_key, []))
     available_options = _unique_normalized(stored_options + base_options + base_values)
     available_options = sorted(available_options, key=str.casefold)
     st.session_state[options_key] = available_options
+
+    if ms_key not in st.session_state:
+        st.session_state[ms_key] = base_values
+
+    current_values = _unique_normalized(st.session_state.get(ms_key, []))
 
     def _add_chip_entry() -> None:
         raw_value = st.session_state.get(input_key, "")
@@ -4019,7 +4087,6 @@ def _chip_multiselect(
             return
 
         last_added = st.session_state.get(last_added_key, "")
-        current_values = _unique_normalized(st.session_state.get(ms_key, base_values))
         current_markers = {item.casefold() for item in current_values}
         candidate_marker = candidate.casefold()
 
@@ -4040,11 +4107,15 @@ def _chip_multiselect(
         st.session_state[ms_key] = updated_values
         st.session_state[last_added_key] = candidate
         st.session_state[input_key] = ""
+        st.rerun()
 
     container = st.expander(label, expanded=True) if dropdown else st.container()
     with container:
-        if dropdown and help_text:
+        if not dropdown:
+            st.markdown(f"**{label}**")
+        if help_text:
             st.caption(help_text)
+
         st.text_input(
             tr("Neuen Wert hinzufügen", "Add new value"),
             key=input_key,
@@ -4053,18 +4124,114 @@ def _chip_multiselect(
             on_change=_add_chip_entry,
         )
 
-        default_selection = _unique_normalized(
-            st.session_state.get(ms_key, base_values)
-        )
-        selection = st.multiselect(
-            label if not dropdown else tr("Auswahl", "Selection"),
-            options=available_options,
-            default=default_selection,
-            key=ms_key,
-            help=None if dropdown else help_text,
-            label_visibility="visible" if not dropdown else "collapsed",
-        )
-    return _unique_normalized(selection)
+        selected_label = tr("Ausgewählt", "Selected")
+        available_label = tr("Weitere Optionen", "More options")
+
+        selected_values = list(current_values)
+        available_pool = [
+            option for option in available_options if option not in selected_values
+        ]
+
+        if selected_values:
+            st.markdown(
+                f"<p class='chip-section-title'>{selected_label}</p>",
+                unsafe_allow_html=True,
+            )
+            clicked_selected = _render_chip_button_grid(
+                selected_values,
+                key_prefix=f"{ms_key}.selected",
+                button_type="primary",
+            )
+            if clicked_selected is not None:
+                value = selected_values[clicked_selected]
+                updated = [item for item in selected_values if item != value]
+                st.session_state[ms_key] = updated
+                st.session_state[last_added_key] = ""
+                st.session_state[input_key] = ""
+                st.rerun()
+        else:
+            st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
+
+        if available_pool:
+            st.markdown(
+                f"<p class='chip-section-title chip-section-title--secondary'>{available_label}</p>",
+                unsafe_allow_html=True,
+            )
+            clicked_available = _render_chip_button_grid(
+                available_pool,
+                key_prefix=f"{ms_key}.available",
+                button_type="secondary",
+            )
+            if clicked_available is not None:
+                value = available_pool[clicked_available]
+                updated = _unique_normalized(selected_values + [value])
+                st.session_state[ms_key] = updated
+                st.session_state[last_added_key] = value
+                st.session_state[input_key] = ""
+                st.rerun()
+        elif not selected_values:
+            st.caption(tr("Keine Vorschläge verfügbar.", "No suggestions available."))
+
+    return _unique_normalized(st.session_state.get(ms_key, []))
+
+
+def _chip_multiselect_mapped(
+    label: str,
+    option_pairs: Sequence[tuple[str, str]],
+    values: Sequence[str],
+    *,
+    help_text: str | None = None,
+    dropdown: bool = False,
+) -> list[str]:
+    """Render a chip multiselect while mapping display labels to stored values."""
+
+    normalized_map: dict[str, str] = {}
+    display_options: list[str] = []
+    selected_display: list[str] = []
+
+    def _register_option(value: str, display: str, preselect: bool = False) -> None:
+        cleaned_display = display.strip()
+        if not cleaned_display:
+            cleaned_display = value.strip()
+        if not cleaned_display:
+            return
+        candidate = cleaned_display
+        suffix = 2
+        while candidate.casefold() in normalized_map:
+            candidate = f"{cleaned_display} ({suffix})"
+            suffix += 1
+        normalized_map[candidate.casefold()] = value
+        display_options.append(candidate)
+        if preselect:
+            selected_display.append(candidate)
+
+    for raw_value, display in option_pairs:
+        value = str(raw_value)
+        display_text = str(display)
+        preselect = any(value == str(existing) for existing in values)
+        _register_option(value, display_text, preselect=preselect)
+
+    existing_markers = {str(item) for item in normalized_map.values()}
+    for raw_value in values:
+        value = str(raw_value)
+        if value in existing_markers:
+            continue
+        _register_option(value, value, preselect=True)
+
+    chosen_displays = _chip_multiselect(
+        label,
+        options=display_options,
+        values=selected_display,
+        help_text=help_text,
+        dropdown=dropdown,
+    )
+
+    result: list[str] = []
+    for display in chosen_displays:
+        marker = display.casefold()
+        if marker in normalized_map:
+            result.append(normalized_map[marker])
+    return result
 
 
 # --- Step-Renderers ---
@@ -4781,18 +4948,29 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
         )
         if existing_selection != person.get("information_loop_phases"):
             person["information_loop_phases"] = existing_selection
-        person["information_loop_phases"] = st.multiselect(
-            tr("Informationsloop-Phasen", "Information loop phases"),
-            options=phase_indices,
-            default=existing_selection,
-            format_func=_phase_label_formatter(phase_labels),
-            key=f"{key_prefix}.{idx}.loop",
-            help=tr(
-                "Wähle die Phasen, in denen dieser Kontakt informiert wird.",
-                "Select the process phases where this contact stays in the loop.",
-            ),
-            disabled=not phase_indices,
-        )
+        if phase_indices:
+            label_pairs = [
+                (
+                    index,
+                    _phase_label_formatter(phase_labels)(index),
+                )
+                for index in phase_indices
+            ]
+            selected_phase_strings = [str(index) for index in existing_selection]
+            chosen_phase_values = _chip_multiselect_mapped(
+                tr("Informationsloop-Phasen", "Information loop phases"),
+                option_pairs=label_pairs,
+                values=selected_phase_strings,
+                help_text=tr(
+                    "Wähle die Phasen, in denen dieser Kontakt informiert wird.",
+                    "Select the process phases where this contact stays in the loop.",
+                ),
+            )
+            person["information_loop_phases"] = [
+                int(value) for value in chosen_phase_values if str(value).isdigit()
+            ]
+        else:
+            person["information_loop_phases"] = []
         if not phase_indices:
             st.caption(
                 tr(
@@ -4888,11 +5066,15 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
             phase_participants = _filter_existing_participants(
                 phase.get("participants", []), stakeholder_names
             )
-            phase["participants"] = st.multiselect(
+            participant_pairs = [
+                (name, name)
+                for name in stakeholder_names
+                if isinstance(name, str) and name
+            ]
+            phase["participants"] = _chip_multiselect_mapped(
                 tr("Beteiligte", "Participants"),
-                stakeholder_names,
-                default=phase_participants,
-                key=f"{key_prefix}.{idx}.participants",
+                option_pairs=participant_pairs,
+                values=phase_participants,
             )
             phase["docs_required"] = st.text_input(
                 tr("Benötigte Unterlagen/Assignments", "Required docs/assignments"),
@@ -4980,17 +5162,13 @@ def _render_onboarding_section(
     )
     options = list(dict.fromkeys(current_suggestions + existing_entries))
     defaults = [opt for opt in options if opt in existing_entries]
-    selected = st.multiselect(
+    selected = _chip_multiselect(
         tr("Onboarding-Prozess", "Onboarding process"),
         options=options,
-        default=defaults,
-        key=f"{key_prefix}.selection",
-        help=tr(
+        values=defaults,
+        help_text=tr(
             "Wähle die Vorschläge aus, die in den Onboarding-Prozess übernommen werden sollen.",
             "Select the suggestions you want to include in the onboarding process.",
-        ),
-        placeholder=tr(
-            "Vorschläge auswählen oder generieren", "Select or generate suggestions"
         ),
     )
     if not options:
@@ -5774,35 +5952,38 @@ def _step_requirements():
             unsafe_allow_html=True,
         )
         widget_prefix = f"ai_suggestions.{target_key}.{widget_suffix}"
-        selection_key = f"{widget_prefix}.selection"
         formatted_options = sorted(
             option_entries,
             key=lambda item: (item[0], item[1].casefold()),
         )
-        selected_options = st.multiselect(
-            tr("Vorschläge auswählen", "Select suggestions"),
-            options=formatted_options,
-            default=[],
-            format_func=lambda item: f"{item[2]} • {item[1]}",
-            key=selection_key,
-            help=tr(
-                "Mehrfachauswahl möglich – gruppiert nach Quelle.",
-                "Pick multiple entries grouped by their source.",
-            ),
+        selection_label = tr("Vorschläge auswählen", "Select suggestions")
+        st.markdown(f"**{selection_label}**")
+        st.caption(
+            tr(
+                "Klicke auf eine Box, um den Vorschlag zu übernehmen.",
+                "Click a tile to add the suggestion.",
+            )
+        )
+        display_options = [
+            f"{label} • {value}" for _group, value, label in formatted_options
+        ]
+        clicked_option = _render_chip_button_grid(
+            display_options,
+            key_prefix=f"{widget_prefix}.chips",
+            columns=3,
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        if selected_options:
-            picked = [value for _group, value, _label in selected_options]
+        if clicked_option is not None:
+            _group, value, _label = formatted_options[clicked_option]
             merged = sorted(
-                set(data["requirements"].get(target_key, [])).union(picked),
+                set(data["requirements"].get(target_key, [])).union([value]),
                 key=str.casefold,
             )
             if target_key == "certificates":
                 _set_requirement_certificates(data["requirements"], merged)
             else:
                 data["requirements"][target_key] = merged
-            st.session_state[selection_key] = []
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
@@ -5811,7 +5992,6 @@ def _step_requirements():
             key=f"{widget_prefix}.refresh",
             use_container_width=True,
         ):
-            st.session_state.pop(selection_key, None)
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
@@ -6562,25 +6742,30 @@ def _step_compensation():
             suggestion_entries,
             key=lambda item: (0 if item[0] == "llm" else 1, item[1].casefold()),
         )
-        selected_suggestions = st.multiselect(
-            tr("Vorschläge aus KI & Liste", "Suggestions from AI & shortlist"),
-            options=formatted_benefits,
-            default=[],
-            format_func=lambda item: f"{item[2]} • {item[1]}",
-            key=suggestion_key,
-            help=tr(
-                "Wähle Benefits nach Quelle gruppiert aus.",
-                "Pick benefits grouped by their source.",
-            ),
+        suggestion_label = tr(
+            "Vorschläge aus KI & Liste",
+            "Suggestions from AI & shortlist",
         )
-        if selected_suggestions:
-            picked_values = [value for _group, value, _label in selected_suggestions]
+        st.markdown(f"**{suggestion_label}**")
+        st.caption(
+            tr(
+                "Klicke auf eine Box, um den Vorschlag zu übernehmen.",
+                "Click a tile to add the suggestion.",
+            )
+        )
+        display_values = [f"{label} • {value}" for _group, value, label in formatted_benefits]
+        clicked_index = _render_chip_button_grid(
+            display_values,
+            key_prefix=suggestion_key,
+            columns=3,
+        )
+        if clicked_index is not None:
+            _group, value, _label = formatted_benefits[clicked_index]
             merged = sorted(
-                set(data["compensation"].get("benefits", [])).union(picked_values),
+                set(data["compensation"].get("benefits", [])).union([value]),
                 key=str.casefold,
             )
             data["compensation"]["benefits"] = merged
-            st.session_state[suggestion_key] = []
             st.rerun()
 
     if st.button("💡 " + tr("Benefits vorschlagen", "Suggest Benefits")):
@@ -7837,13 +8022,16 @@ def _step_summary(schema: dict, _critical: list[str]):
             if sanitized_values != existing_values:
                 st.session_state[widget_key] = sanitized_values
 
-        selected_group_values = st.multiselect(
+        option_pairs = [
+            (key, field_labels.get(key, key))
+            for key in options
+        ]
+        selected_group_values = _chip_multiselect_mapped(
             widget_label,
-            options,
-            default=default_values,
-            format_func=lambda key, labels=field_labels: labels.get(key, key),
-            key=widget_key,
+            option_pairs=option_pairs,
+            values=default_values,
         )
+        st.session_state[widget_key] = selected_group_values
         aggregated_selection.update(selected_group_values)
 
     selected_fields = resolve_job_ad_field_selection(
@@ -8174,14 +8362,27 @@ def _step_summary(schema: dict, _critical: list[str]):
                 )
                 if existing_selection != person.get("information_loop_phases"):
                     person["information_loop_phases"] = existing_selection
-                person["information_loop_phases"] = st.multiselect(
-                    tr("Phasen", "Phases"),
-                    options=phase_indices,
-                    default=existing_selection,
-                    format_func=_phase_label_formatter(phase_labels),
-                    key=f"summary.process.loop.{idx}",
-                    disabled=not phase_indices,
-                )
+                if phase_indices:
+                    label_pairs = [
+                        (index, _phase_label_formatter(phase_labels)(index))
+                        for index in phase_indices
+                    ]
+                    selected_phase_strings = [
+                        str(index) for index in existing_selection
+                    ]
+                    chosen_summary_phases = _chip_multiselect_mapped(
+                        tr("Phasen", "Phases"),
+                        option_pairs=label_pairs,
+                        values=selected_phase_strings,
+                        dropdown=True,
+                    )
+                    person["information_loop_phases"] = [
+                        int(value)
+                        for value in chosen_summary_phases
+                        if str(value).isdigit()
+                    ]
+                else:
+                    person["information_loop_phases"] = []
             if not phase_indices:
                 st.info(
                     tr(

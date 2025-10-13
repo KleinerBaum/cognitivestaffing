@@ -156,6 +156,18 @@ a:hover {
   min-height: 44px;
 }
 
+.chip-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0.7rem 0 0.4rem;
+  color: var(--text-muted);
+}
+
+.chip-section-title--secondary {
+  color: rgba(71, 85, 105, 0.85);
+}
+
 div[data-testid="stAlert"] {
   border-radius: 12px;
   background: rgba(191, 219, 254, 0.45) !important;
