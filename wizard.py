@@ -4673,7 +4673,7 @@ def _step_onboarding(schema: dict) -> None:
             st.session_state["__run_extraction__"] = True
 
     st.text_input(
-        tr("Öffentliche Stellenanzeigen-URL", "Public job posting URL"),
+        tr("Füge eine Stellenanzeigen-URL ein:", "Public job posting URL"),
         key=UIKeys.PROFILE_URL_INPUT,
         on_change=on_url_changed,
         placeholder="https://example.com/job",
