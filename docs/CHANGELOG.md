@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- fix: keep the wizard next button enabled and surface a hint for missing required fields
 - fix: darken light-mode hero background image for stronger visual contrast
 - feat: refresh onboarding hero with lighter dark-mode background, smaller logo, and mission-focused copy
 - feat: replace sidebar salary factor table with interactive explanations and top-N selector

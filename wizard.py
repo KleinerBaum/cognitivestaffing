@@ -9082,12 +9082,19 @@ def _render_wizard_navigation(
                     prev_step()
                     st.rerun()
             with col_next:
-                if st.button(
+                next_clicked = st.button(
                     tr("Weiter ▶︎", "Next ▶︎"),
                     type="primary",
                     width="stretch",
-                    disabled=bool(missing),
-                ):
+                )
+                if missing:
+                    st.info(
+                        tr(
+                            "Hinweis: Es fehlen noch Pflichtfelder. Du kannst später nachtragen.",
+                            "Heads-up: Required fields are still missing. You can fill them later.",
+                        )
+                    )
+                if next_clicked:
                     next_step()
                     st.rerun()
         else:
