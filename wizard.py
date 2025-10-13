@@ -4727,17 +4727,41 @@ def _step_onboarding(schema: dict) -> None:
             position_mapping = raw_position
     _render_esco_occupation_selector(position_mapping)
 
-    if st.button(
-        tr(
-            "Identifiziere fehlende Informationen",
-            "Identify missing information",
-        ),
-        type="primary",
-        use_container_width=True,
-    ):
-        _request_scroll_to_top()
-        st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
-        st.rerun()
+    st.markdown(
+        """
+        <style>
+            .onboarding-next-button button {
+                background: linear-gradient(135deg, #FF6B35 0%, #FF922B 100%) !important;
+                color: #FFFFFF !important;
+                border: none !important;
+                box-shadow: 0 6px 16px rgba(255, 107, 53, 0.35);
+            }
+
+            .onboarding-next-button button:hover {
+                background: linear-gradient(135deg, #FF5A24 0%, #FF7F2A 100%) !important;
+            }
+
+            .onboarding-next-button button:focus {
+                outline: 2px solid rgba(255, 107, 53, 0.45) !important;
+                box-shadow: 0 0 0 4px rgba(255, 146, 43, 0.35) !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.container():
+        st.markdown('<div class="onboarding-next-button">', unsafe_allow_html=True)
+        if st.button(
+            tr("Weiter ▶︎", "Next ▶︎"),
+            type="primary",
+            use_container_width=True,
+            key="onboarding_next",
+        ):
+            _request_scroll_to_top()
+            st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _step_company():
