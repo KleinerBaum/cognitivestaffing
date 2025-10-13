@@ -67,14 +67,13 @@ def test_render_esco_occupation_selector_updates_profile(
         label,
         *,
         options,
-        default,
         key,
         format_func,
         on_change,
         **kwargs,
     ):
         assert key == UIKeys.POSITION_ESCO_OCCUPATION
-        assert default == []
+        assert st.session_state[key] == []
         assert any("Data Analyst" in format_func(opt) for opt in options)
         assert kwargs.get("label_visibility") == "collapsed"
         assert "ESCO" in kwargs.get("placeholder", "")
