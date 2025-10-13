@@ -38,8 +38,8 @@ class UIKeys:
     JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"
     INTERVIEW_FORMAT = "ui.summary.interview_format"
     SUMMARY_SELECTED_GROUP = "ui.summary.selected_group"
-    COMPANY_CONTACT_NAME = "ui.company.contact_name"
     COMPANY_HQ_LOCATION = "ui.company.hq_location"
+    COMPANY_BRANDING_UPLOAD = "ui.company.branding_upload"
     COMPANY_BRAND_KEYWORDS = "ui.summary.company.brand_keywords"
     JOB_AD_BRAND_TONE = "ui.summary.job_ad.brand_keywords"
     JOB_AD_BRAND_TONE_INPUT = "ui.summary.job_ad.brand_keywords.input"
@@ -79,6 +79,7 @@ class StateKeys:
     COMPANY_PAGE_SUMMARIES = "company.page_summaries"
     COMPANY_PAGE_BASE = "company.page_base_url"
     COMPANY_PAGE_TEXT_CACHE = "company.page_text_cache"
+    COMPANY_BRANDING_ASSET = "company.branding_asset"
 
     JOB_AD_SELECTED_FIELDS = "data.job_ad.selected_fields"
     JOB_AD_SELECTED_VALUES = "data.job_ad.selected_values"
