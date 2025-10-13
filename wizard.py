@@ -95,6 +95,58 @@ WIZARD_TITLE = (
     "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
 )
 
+COMPACT_STEP_STYLE = """
+<style>
+section.main div.block-container div[data-testid="stVerticalBlock"] {
+    gap: 0.35rem !important;
+}
+section.main div.block-container div[data-testid="stTextInput"],
+section.main div.block-container div[data-testid="stTextArea"],
+section.main div.block-container div[data-testid="stSelectbox"],
+section.main div.block-container div[data-testid="stMultiSelect"],
+section.main div.block-container div[data-testid="stNumberInput"],
+section.main div.block-container div[data-testid="stCheckbox"],
+section.main div.block-container div[data-testid="stRadio"],
+section.main div.block-container div[data-testid="stSlider"],
+section.main div.block-container div[data-testid="stDateInput"],
+section.main div.block-container div[data-testid="stDownloadButton"],
+section.main div.block-container div[data-testid="stButton"],
+section.main div.block-container div[data-testid="stFormSubmitButton"],
+section.main div.block-container div[data-testid="stFileUploader"],
+section.main div.block-container div[data-testid="stCaptionContainer"],
+section.main div.block-container div[data-testid="stMarkdownContainer"] {
+    margin-bottom: 0.35rem;
+}
+section.main div.block-container h1,
+section.main div.block-container h2,
+section.main div.block-container h3,
+section.main div.block-container h4,
+section.main div.block-container h5,
+section.main div.block-container h6 {
+    margin-top: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+section.main div.block-container hr {
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+section.main div.block-container div[data-testid="column"] {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+section.main div.block-container div[data-testid="stHorizontalBlock"] {
+    gap: 0.5rem !important;
+}
+section.main div.block-container .stTabs [data-baseweb="tab-list"] {
+    gap: 0.35rem !important;
+}
+section.main div.block-container .stTabs [data-baseweb="tab"] {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+</style>
+"""
+
 T = TypeVar("T")
 
 
@@ -4681,6 +4733,8 @@ def _step_company():
         None
     """
 
+    st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
+
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
     company_header = _format_dynamic_message(
@@ -4759,7 +4813,7 @@ def _step_company():
     if "company.name" in missing_here and not company["name"]:
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    hq_col, size_col, industry_col = st.columns(3)
+    hq_col, size_col, industry_col = st.columns(3, gap="small")
     company["hq_location"] = hq_col.text_input(
         tr("Hauptsitz", "Headquarters"),
         value=company.get("hq_location", ""),
@@ -4777,7 +4831,7 @@ def _step_company():
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
     )
 
-    website_col, mission_col = st.columns(2)
+    website_col, mission_col = st.columns(2, gap="small")
     company["website"] = website_col.text_input(
         tr("Website", "Website"),
         value=company.get("website", ""),
@@ -4806,7 +4860,7 @@ def _step_company():
         key="ui.company.culture",
     )
 
-    city_col, country_col = st.columns(2)
+    city_col, country_col = st.columns(2, gap="small")
     city_lock = _field_lock_config(
         "location.primary_city",
         tr("Stadt", "City"),
@@ -4884,7 +4938,7 @@ def _step_company():
             ),
         )
 
-    dept_cols = st.columns(2)
+    dept_cols = st.columns(2, gap="small")
     position["department"] = dept_cols[0].text_input(
         tr("Abteilung", "Department"),
         value=position.get("department", ""),
@@ -4904,7 +4958,7 @@ def _step_company():
         height=90,
     )
 
-    brand_cols = st.columns((2, 1))
+    brand_cols = st.columns((2, 1), gap="small")
     company["brand_name"] = brand_cols[0].text_input(
         tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
         value=company.get("brand_name", ""),
@@ -7975,6 +8029,8 @@ def _step_summary(schema: dict, _critical: list[str]):
         None
     """
 
+    st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
+
     data = st.session_state[StateKeys.PROFILE]
     lang = st.session_state.get("lang", "de")
 
@@ -8108,7 +8164,7 @@ def _step_summary(schema: dict, _critical: list[str]):
     target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
 
     st.markdown(tr("#### Weiterverarbeitung", "#### Next steps"))
-    next_step_cols = st.columns((1.4, 1.1, 1.2), gap="large")
+    next_step_cols = st.columns((1.4, 1.1, 1.2), gap="small")
 
     with next_step_cols[0]:
         st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
@@ -8512,7 +8568,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
 
-    tone_col, question_col = st.columns((1, 1))
+    tone_col, question_col = st.columns((1, 1), gap="small")
     with tone_col:
         selected_tone = st.selectbox(
             tr("Interviewleitfaden-Ton", "Interview guide tone"),
@@ -8629,7 +8685,7 @@ def _step_summary(schema: dict, _critical: list[str]):
     stakeholders = process_data.get("stakeholders", []) or []
     phases = process_data.get("phases", []) or []
 
-    process_cols = st.columns(2, gap="large")
+    process_cols = st.columns(2, gap="small")
     with process_cols[0]:
         st.markdown(tr("#### Informationsschleifen", "#### Information loops"))
         phase_labels = _phase_display_labels(phases)
