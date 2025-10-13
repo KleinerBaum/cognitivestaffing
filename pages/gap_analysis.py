@@ -10,12 +10,14 @@ import streamlit as st
 
 from question_logic import ask_followups, CRITICAL_FIELDS
 from llm.client import extract_json
+from llm.gap_analysis import analyze_vacancy
 from state import ensure_state
 from utils.i18n import tr
 
 _RESULT_STATE_KEY = "gap_analysis.result"
 _PROFILE_STATE_KEY = "gap_analysis.profile"
 _FOLLOWUPS_STATE_KEY = "gap_analysis.followups"
+_REPORT_STATE_KEY = "gap_analysis.assistant_report"
 _TEXT_STATE_KEY = "gap_analysis.text"
 _TITLE_STATE_KEY = "gap_analysis.title"
 
@@ -88,8 +90,9 @@ def _render_gap_report(lang: str) -> None:
     result: Mapping[str, Any] | None = st.session_state.get(_RESULT_STATE_KEY)
     profile: Mapping[str, Any] | None = st.session_state.get(_PROFILE_STATE_KEY)
     followups: list[Mapping[str, Any]] = st.session_state.get(_FOLLOWUPS_STATE_KEY, [])
+    report_text: str | None = st.session_state.get(_REPORT_STATE_KEY)
 
-    if not result and not profile and not followups:
+    if not result and not profile and not followups and not report_text:
         return
 
     st.divider()
@@ -101,7 +104,17 @@ def _render_gap_report(lang: str) -> None:
         for field in missing_fields:
             st.markdown(f"- `{_format_field(field, lang=lang)}`")
     else:
-        st.success(tr("Alle kritischen Felder sind aktuell befüllt.", "All critical fields are currently populated.", lang=lang))
+        st.success(
+            tr(
+                "Alle kritischen Felder sind aktuell befüllt.",
+                "All critical fields are currently populated.",
+                lang=lang,
+            )
+        )
+
+    if report_text:
+        st.markdown(tr("**Assistenten-Report**", "**Assistant report**", lang=lang))
+        st.markdown(report_text)
 
     if followups:
         priority_order = {"critical": 0, "normal": 1, "optional": 2}
@@ -197,9 +210,11 @@ def run() -> None:
         st.session_state.pop(_RESULT_STATE_KEY, None)
         st.session_state.pop(_PROFILE_STATE_KEY, None)
         st.session_state.pop(_FOLLOWUPS_STATE_KEY, None)
+        st.session_state.pop(_REPORT_STATE_KEY, None)
 
         analysis_caption = tr("Analysiere Stellenprofil…", "Analysing vacancy profile…", lang=lang)
         with st.spinner(analysis_caption):
+            report_text = ""
             try:
                 raw_json = extract_json(vacancy_text.strip(), title=job_title or None)
                 profile_data = json.loads(raw_json)
@@ -214,17 +229,35 @@ def run() -> None:
                     vector_store_id=(vector_store_id or None) or st.session_state.get("vector_store_id") or None,
                 )
                 questions = followup_result.get("questions", []) if isinstance(followup_result, Mapping) else []
+
+                try:
+                    assistant_result = analyze_vacancy(
+                        vacancy_text.strip(),
+                        job_title=job_title or None,
+                        lang=lang,
+                        vector_store_id=(vector_store_id or None) or st.session_state.get("vector_store_id") or None,
+                    )
+                    report_text = assistant_result.content
+                except Exception as exc:  # pragma: no cover - network/SDK issues
+                    report_text = ""
+                    st.warning(
+                        tr(
+                            "LLM-Report nicht verfügbar: {error}",
+                            "LLM report unavailable: {error}",
+                            lang=lang,
+                        ).format(error=str(exc))
+                    )
             except Exception as exc:  # pragma: no cover - network/SDK issues
                 st.error(
-                    tr("Analyse fehlgeschlagen: {error}", "Analysis failed: {error}", lang=lang).format(
-                        error=str(exc)
-                    )
+                    tr("Analyse fehlgeschlagen: {error}", "Analysis failed: {error}", lang=lang).format(error=str(exc))
                 )
                 return
 
         st.session_state[_PROFILE_STATE_KEY] = profile_data
         st.session_state[_RESULT_STATE_KEY] = {"missing_critical": missing}
         st.session_state[_FOLLOWUPS_STATE_KEY] = questions
+        if report_text:
+            st.session_state[_REPORT_STATE_KEY] = report_text
         st.success(tr("Analyse abgeschlossen.", "Analysis completed.", lang=lang))
 
     _render_gap_report(lang)
