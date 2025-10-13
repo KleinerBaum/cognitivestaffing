@@ -8,6 +8,7 @@
 - feat: categorize ESCO skill suggestions by type and highlight outstanding essentials in wizard panels
 - feat: surface ESCO occupation and essential skill pickers in wizard with sidebar todo hints
 - feat: allow focus tags for skill/benefit suggestions and present grouped multi-select pickers for LLM outputs
+- fix: keep wizard navigation sequential and ensure each next step scrolls to the top
 - feat: detail salary fallback factors with structured deltas and localized table view
 - feat: add localized overview/edit toggle to summary tabs with inline editing helpers
 - feat: show summary highlights with role, company, location, salary, and skills above wizard tabs

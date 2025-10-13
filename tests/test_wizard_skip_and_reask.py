@@ -164,8 +164,8 @@ def test_extract_and_summarize_auto_reask_with_no_missing(
     assert not st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP]
 
 
-def test_next_step_skips_completed_sections() -> None:
-    """next_step should skip over sequentially completed sections."""
+def test_next_step_advances_one_section() -> None:
+    """next_step should move to the immediate next section."""
 
     st.session_state.clear()
     st.session_state[StateKeys.STEP] = 1
@@ -175,4 +175,4 @@ def test_next_step_skips_completed_sections() -> None:
 
     next_step()
 
-    assert st.session_state[StateKeys.STEP] == 4
+    assert st.session_state[StateKeys.STEP] == 2
