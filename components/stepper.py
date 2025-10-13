@@ -147,39 +147,42 @@ def render_stepper(
             "<div class='workflow-stepper-marker'></div>",
             unsafe_allow_html=True,
         )
-        columns = st.columns(total, gap="small")
+        annotated_steps: list[str] = []
+        for start in range(0, total, 3):
+            chunk = labels[start : start + 3]
+            columns = st.columns([1] * len(chunk), gap="small")
 
-    annotated_steps: list[str] = []
-    for idx, (column, label) in enumerate(zip(columns, labels)):
-        button_label = f"{idx + 1}. {label}"
-        if idx < current:
-            status = "done"
-        elif idx == current:
-            status = "current"
-        else:
-            status = "upcoming"
+            for offset, (column, label) in enumerate(zip(columns, chunk)):
+                idx = start + offset
+                button_label = f"{idx + 1}. {label}"
+                if idx < current:
+                    status = "done"
+                elif idx == current:
+                    status = "current"
+                else:
+                    status = "upcoming"
 
-        icon = status_icons[status]
-        annotated_label = f"{icon} {button_label}"
-        annotated_steps.append(
-            f"**{annotated_label}**" if status == "current" else annotated_label
-        )
+                icon = status_icons[status]
+                annotated_label = f"{icon} {button_label}"
+                annotated_steps.append(
+                    f"**{annotated_label}**" if status == "current" else annotated_label
+                )
 
-        disabled = status == "current" or on_select is None
-        with column:
-            st.markdown(
-                f"<div class='workflow-stepper__step workflow-stepper__step--{status}'>",
-                unsafe_allow_html=True,
-            )
-            if st.button(
-                annotated_label,
-                key=f"wizard_stepper_{idx}",
-                use_container_width=True,
-                type="secondary",
-                disabled=disabled,
-            ):
-                if on_select is not None and not disabled:
-                    on_select(idx)
-            st.markdown("</div>", unsafe_allow_html=True)
+                disabled = status == "current" or on_select is None
+                with column:
+                    st.markdown(
+                        f"<div class='workflow-stepper__step workflow-stepper__step--{status}'>",
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        annotated_label,
+                        key=f"wizard_stepper_{idx}",
+                        use_container_width=True,
+                        type="secondary",
+                        disabled=disabled,
+                    ):
+                        if on_select is not None and not disabled:
+                            on_select(idx)
+                    st.markdown("</div>", unsafe_allow_html=True)
 
     st.caption(" → ".join(annotated_steps))
