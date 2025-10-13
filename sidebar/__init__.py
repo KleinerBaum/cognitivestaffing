@@ -4,6 +4,7 @@ import html
 import math
 from dataclasses import dataclass
 from datetime import datetime
+from collections.abc import Sequence
 from typing import Any, Iterable, Mapping
 
 import streamlit as st
@@ -50,17 +51,24 @@ class SalaryFactorEntry:
     magnitude: float
 
 
-def render_sidebar(logo_bytes: bytes | None = None) -> None:
+def render_sidebar(
+    logo_bytes: bytes | None = None,
+    *,
+    pages: Sequence[st.Page] | None = None,
+) -> Any:
     """Render the dynamic wizard sidebar with contextual content."""
 
     _ensure_ui_defaults()
 
     context = _build_context()
 
+    navigation = None
     with st.sidebar:
         if logo_bytes:
             _render_branding(logo_bytes)
         _render_settings()
+        if pages is not None:
+            navigation = st.navigation(pages)
         current_step = st.session_state.get(StateKeys.STEP, 0)
         if current_step > 0:
             _render_hero(context)
@@ -68,6 +76,8 @@ def render_sidebar(logo_bytes: bytes | None = None) -> None:
             _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
+
+    return navigation
 
 
 def _render_branding(logo_bytes: bytes) -> None:
