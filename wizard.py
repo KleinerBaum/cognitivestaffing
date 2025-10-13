@@ -89,8 +89,10 @@ from core.job_ad import (
 )
 
 ROOT = Path(__file__).parent
+# Onboarding visual reuses the colourful transparent logo that previously
+# lived in the sidebar
 ONBOARDING_ANIMATION_PATH = (
-    ROOT / "images" / "animation_pulse_Default_7kigl22lw.gif"
+    ROOT / "images" / "color1_logo_transparent_background.png"
 )
 ensure_state()
 

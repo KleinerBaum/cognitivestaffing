@@ -13,7 +13,8 @@ for candidate in (APP_ROOT, APP_ROOT.parent):
     if candidate_str not in sys.path:
         sys.path.insert(0, candidate_str)
 
-APP_LOGO_PATH = APP_ROOT / "images" / "color1_logo_transparent_background.png"
+# Sidebar + favicon visuals use the former onboarding animation asset
+APP_LOGO_PATH = APP_ROOT / "images" / "animation_pulse_Default_7kigl22lw.gif"
 try:
     APP_LOGO_BYTES: bytes | None = APP_LOGO_PATH.read_bytes()
 except FileNotFoundError:
