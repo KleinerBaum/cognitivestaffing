@@ -54,9 +54,16 @@
   --accent-glow: drop-shadow(0 0 12px rgba(223, 227, 227, 0.18));
   --button-gradient: linear-gradient(135deg, rgba(223, 227, 227, 0.95), rgba(195, 200, 200, 0.9));
   --summary-primary-gradient: linear-gradient(120deg, rgba(223, 227, 227, 0.16), rgba(195, 200, 200, 0.12));
-  --sidebar-gradient: linear-gradient(180deg, rgba(15, 17, 17, 0.92), rgba(39, 43, 43, 0.72));
-  --sidebar-active-bg: linear-gradient(90deg, rgba(223, 227, 227, 0.14), rgba(195, 200, 200, 0.12));
-  --sidebar-hover-bg: rgba(223, 227, 227, 0.1);
+  --sidebar-gradient: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #eef4f7 32%,
+    #d6e3e9 54%,
+    #1b2f39 100%
+  );
+  --sidebar-active-bg: linear-gradient(90deg, rgba(19, 45, 58, 0.12), rgba(27, 47, 57, 0.18));
+  --sidebar-hover-bg: rgba(23, 52, 66, 0.14);
+  --sidebar-text-color: #1c2e37;
   --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   --app-gradient: linear-gradient(
     180deg,
@@ -130,12 +137,16 @@ a:hover {
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
   border-right: 1px solid var(--border-subtle);
+  color: var(--sidebar-text-color);
+}
+[data-testid="stSidebar"] a {
+  color: var(--sidebar-text-color);
 }
 
 /* Default nav (st.navigation) items */
 [data-testid="stSidebarNavItems"] a {
   border-radius: 10px;
-  color: var(--text-strong);
+  color: var(--sidebar-text-color);
   padding: .35rem .55rem;
 }
 [data-testid="stSidebarNavItems"] a[aria-current="page"] {
@@ -144,6 +155,7 @@ a:hover {
 }
 [data-testid="stSidebarNavItems"] a:hover {
   background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-color);
 }
 
 /* Buttons */
