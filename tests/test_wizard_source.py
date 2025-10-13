@@ -41,8 +41,6 @@ def _patch_onboarding_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
             # keep current language default
             st.session_state[key] = st.session_state.get(key, options[0])
             return st.session_state[key]
-        if key == UIKeys.INPUT_METHOD:
-            return st.session_state.get(UIKeys.INPUT_METHOD, options[0])
         return options[0]
 
     def fake_columns(spec, *_, **__):
@@ -57,6 +55,16 @@ def _patch_onboarding_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_tabs(labels):
         return [DummyContext() for _ in labels]
 
+    def fake_text_input(label, value="", *, key=None, on_change=None, **kwargs):
+        if key is not None and key not in st.session_state:
+            st.session_state[key] = value
+        return st.session_state.get(key, value)
+
+    def fake_text_area(label, value="", *, key=None, on_change=None, **kwargs):
+        if key is not None and key not in st.session_state:
+            st.session_state[key] = value
+        return st.session_state.get(key, value)
+
     monkeypatch.setattr(st, "radio", fake_radio)
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "subheader", lambda *a, **k: None)
@@ -66,6 +74,8 @@ def _patch_onboarding_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
     monkeypatch.setattr(st, "caption", lambda *a, **k: None)
     monkeypatch.setattr(st, "tabs", fake_tabs)
+    monkeypatch.setattr(st, "text_input", fake_text_input)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
     monkeypatch.setattr(st, "button", lambda *a, **k: False)
     monkeypatch.setattr(st, "rerun", lambda: None)
 
@@ -174,7 +184,6 @@ def test_onboarding_transfers_prefill_to_raw_text(
 
     st.session_state.clear()
     st.session_state.lang = "en"
-    st.session_state[UIKeys.INPUT_METHOD] = "file"
     st.session_state["__prefill_profile_text__"] = "prefilled"
     st.session_state[StateKeys.RAW_TEXT] = ""
     _patch_onboarding_streamlit(monkeypatch)
@@ -231,7 +240,6 @@ def test_onboarding_triggers_extraction(monkeypatch: pytest.MonkeyPatch) -> None
 
     st.session_state.clear()
     st.session_state.lang = "en"
-    st.session_state[UIKeys.INPUT_METHOD] = "file"
     st.session_state["__prefill_profile_text__"] = "prefilled"
     st.session_state["__run_extraction__"] = True
     _patch_onboarding_streamlit(monkeypatch)

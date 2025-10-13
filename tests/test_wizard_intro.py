@@ -1,5 +1,12 @@
-import streamlit as st
+import sys
+from pathlib import Path
+
 import pytest
+import streamlit as st
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from constants.keys import UIKeys
 from wizard import _step_onboarding
@@ -20,15 +27,24 @@ def test_onboarding_language_switch(monkeypatch: pytest.MonkeyPatch) -> None:
 
     st.session_state.clear()
     st.session_state.lang = "de"
-    st.session_state[UIKeys.INPUT_METHOD] = "text"
     st.session_state[UIKeys.LANG_SELECT] = "en"
 
     def fake_radio(label, options, *, key, horizontal=False, on_change=None, **kwargs):
-        if key == UIKeys.INPUT_METHOD:
-            return st.session_state.get(UIKeys.INPUT_METHOD, options[0])
         return options[0]
 
+    def fake_text_input(label, value="", *, key=None, on_change=None, **kwargs):
+        if key is not None and key not in st.session_state:
+            st.session_state[key] = value
+        return st.session_state.get(key, value)
+
+    def fake_text_area(label, value="", *, key=None, on_change=None, **kwargs):
+        if key is not None and key not in st.session_state:
+            st.session_state[key] = value
+        return st.session_state.get(key, value)
+
     monkeypatch.setattr(st, "radio", fake_radio)
+    monkeypatch.setattr(st, "text_input", fake_text_input)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "write", lambda *a, **k: None)
     monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
