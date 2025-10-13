@@ -23,12 +23,14 @@ from typing import (
     Sequence,
     TypedDict,
     TypeVar,
+    cast,
 )
 from urllib.parse import urljoin, urlparse
 
 import re
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
+from streamlit_sortables import sort_items
 
 from utils.i18n import tr
 from i18n import t as translate_key
@@ -149,6 +151,493 @@ _BENEFIT_FOCUS_PRESETS: dict[str, list[str]] = {
         "Financial Extras",
     ],
 }
+
+
+SkillCategory = Literal["hard", "soft"]
+SkillSource = Literal["auto", "ai", "esco"]
+SkillContainerType = Literal[
+    "source_auto",
+    "source_ai",
+    "source_esco",
+    "target_must",
+    "target_nice",
+]
+
+
+class SkillBubbleMeta(TypedDict):
+    """Metadata used to track drag-and-drop skill bubbles."""
+
+    label: str
+    category: SkillCategory
+    source: SkillSource
+
+
+_SKILL_CONTAINER_ORDER: tuple[SkillContainerType, ...] = (
+    "source_auto",
+    "source_ai",
+    "source_esco",
+    "target_must",
+    "target_nice",
+)
+
+_SKILL_BOARD_STYLE = """
+.sortable-component {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    background: rgba(15, 23, 42, 0.04);
+    overflow-x: auto;
+}
+
+.sortable-container {
+    min-width: 220px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.sortable-container-header {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+
+.sortable-container-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 3rem;
+}
+
+.sortable-item {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.28), rgba(148, 163, 184, 0.12));
+    color: #0f172a;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(100, 116, 139, 0.35);
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    cursor: grab;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.sortable-item.dragging {
+    opacity: 0.75;
+    cursor: grabbing;
+}
+"""
+
+
+_SKILL_BOARD_STYLE_KEY = "ui.requirements.skill_board_style"
+
+
+def _ensure_skill_board_style() -> None:
+    """Inject one-time styles for the drag-and-drop skill board."""
+
+    if st.session_state.get(_SKILL_BOARD_STYLE_KEY):
+        return
+
+    st.session_state[_SKILL_BOARD_STYLE_KEY] = True
+    st.markdown(f"<style>{_SKILL_BOARD_STYLE}</style>", unsafe_allow_html=True)
+
+
+def _skill_source_label(source: SkillSource, lang: str | None = None) -> str:
+    """Return a localized label for the given skill source."""
+
+    lang_code = lang or st.session_state.get("lang", "de")
+    source_labels: dict[SkillSource, str] = {
+        "auto": tr("Auto", "Auto", lang=lang_code),
+        "ai": tr("KI", "AI", lang=lang_code),
+        "esco": tr("ESCO", "ESCO", lang=lang_code),
+    }
+    return source_labels[source]
+
+
+def _skill_board_labels(lang: str | None = None) -> dict[SkillContainerType, str]:
+    """Return localized column headers for the skill board."""
+
+    lang_code = lang or st.session_state.get("lang", "de")
+    return {
+        "source_auto": tr(
+            "Autoextrahierte Werte",
+            "Auto-extracted values",
+            lang=lang_code,
+        ),
+        "source_ai": tr("KI-Vorschläge", "AI suggestions", lang=lang_code),
+        "source_esco": tr("ESCO-Vorschläge", "ESCO suggestions", lang=lang_code),
+        "target_must": tr(
+            "Muss-Anforderungen",
+            "Must-have requirements",
+            lang=lang_code,
+        ),
+        "target_nice": tr("Nice-to-have", "Nice-to-have", lang=lang_code),
+    }
+
+
+def _register_skill_bubble(
+    meta: dict[str, SkillBubbleMeta],
+    label: str,
+    *,
+    category: SkillCategory,
+    source: SkillSource,
+) -> str:
+    """Create or update display metadata for a draggable skill bubble."""
+
+    cleaned_label = label.strip()
+    lang_code = st.session_state.get("lang", "de")
+    source_label = _skill_source_label(source, lang=lang_code)
+    display_label = f"{cleaned_label} ⟮{source_label}⟯"
+    meta[display_label] = {
+        "label": cleaned_label,
+        "category": category,
+        "source": source,
+    }
+    return display_label
+
+
+def _find_existing_display(
+    meta: Mapping[str, SkillBubbleMeta],
+    *,
+    label: str,
+    category: SkillCategory,
+    source: SkillSource | None = None,
+) -> str | None:
+    """Return the display string for an existing bubble with the same label."""
+
+    needle = label.strip().casefold()
+    for display, info in meta.items():
+        if info["category"] != category:
+            continue
+        if source is not None and info["source"] != source:
+            continue
+        if info["label"].strip().casefold() == needle:
+            return display
+    return None
+
+
+def _render_skill_board(
+    requirements: dict[str, Any],
+    *,
+    llm_suggestions: Mapping[str, Mapping[str, Sequence[str]]] | None,
+    esco_skills: Sequence[str] | None,
+    missing_esco_skills: Sequence[str] | None,
+) -> None:
+    """Render the combined drag-and-drop board for skill selection."""
+
+    _ensure_skill_board_style()
+
+    lang_code = st.session_state.get("lang", "de")
+    labels = _skill_board_labels(lang_code)
+
+    stored_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE)
+    if isinstance(stored_state, Mapping):
+        board_state: dict[SkillContainerType, list[str]] = {
+            container: [
+                str(item)
+                for item in stored_state.get(container, [])
+                if isinstance(item, str)
+            ]
+            for container in _SKILL_CONTAINER_ORDER
+        }
+    else:
+        board_state = {container: [] for container in _SKILL_CONTAINER_ORDER}
+
+    stored_meta = st.session_state.get(StateKeys.SKILL_BOARD_META)
+    meta: dict[str, SkillBubbleMeta] = {}
+    if isinstance(stored_meta, Mapping):
+        for key, raw_info in stored_meta.items():
+            if not isinstance(key, str) or not isinstance(raw_info, Mapping):
+                continue
+            label_value = str(raw_info.get("label", "")).strip()
+            raw_category = raw_info.get("category", "hard")
+            category_value: SkillCategory = (
+                cast(SkillCategory, raw_category)
+                if raw_category in {"hard", "soft"}
+                else "hard"
+            )
+            raw_source = raw_info.get("source", "auto")
+            source_value: SkillSource = (
+                cast(SkillSource, raw_source)
+                if raw_source in {"auto", "ai", "esco"}
+                else "auto"
+            )
+            meta[key] = {
+                "label": label_value,
+                "category": category_value,
+                "source": source_value,
+            }
+
+    for container in _SKILL_CONTAINER_ORDER:
+        cleaned_items: list[str] = []
+        for raw_item in board_state.get(container, []):
+            if not isinstance(raw_item, str):
+                continue
+            cleaned_items.append(raw_item)
+            if raw_item not in meta:
+                fallback_label = raw_item.split(" ⟮", 1)[0].strip()
+                meta[raw_item] = {
+                    "label": fallback_label,
+                    "category": "hard",
+                    "source": "auto",
+                }
+        board_state[container] = cleaned_items
+
+    def _is_present(item: str) -> bool:
+        return any(item in bucket for bucket in board_state.values())
+
+    def _move_to_container(item: str, container: SkillContainerType) -> None:
+        for bucket in board_state.values():
+            if item in bucket:
+                bucket.remove(item)
+        board_state[container].append(item)
+
+    def _add_if_absent(item: str, container: SkillContainerType) -> None:
+        if _is_present(item):
+            return
+        board_state[container].append(item)
+
+    hard_required = requirements.get("hard_skills_required", []) or []
+    soft_required = requirements.get("soft_skills_required", []) or []
+    hard_optional = requirements.get("hard_skills_optional", []) or []
+    soft_optional = requirements.get("soft_skills_optional", []) or []
+
+    for value in hard_required:
+        if not isinstance(value, str):
+            continue
+        display = _find_existing_display(
+            meta,
+            label=value,
+            category="hard",
+        )
+        if display is None:
+            display = _register_skill_bubble(
+                meta,
+                value,
+                category="hard",
+                source="auto",
+            )
+        _move_to_container(display, "target_must")
+
+    for value in soft_required:
+        if not isinstance(value, str):
+            continue
+        display = _find_existing_display(
+            meta,
+            label=value,
+            category="soft",
+        )
+        if display is None:
+            display = _register_skill_bubble(
+                meta,
+                value,
+                category="soft",
+                source="auto",
+            )
+        _move_to_container(display, "target_must")
+
+    for value in hard_optional:
+        if not isinstance(value, str):
+            continue
+        display = _find_existing_display(
+            meta,
+            label=value,
+            category="hard",
+        )
+        if display is None:
+            display = _register_skill_bubble(
+                meta,
+                value,
+                category="hard",
+                source="auto",
+            )
+        _move_to_container(display, "target_nice")
+
+    for value in soft_optional:
+        if not isinstance(value, str):
+            continue
+        display = _find_existing_display(
+            meta,
+            label=value,
+            category="soft",
+        )
+        if display is None:
+            display = _register_skill_bubble(
+                meta,
+                value,
+                category="soft",
+                source="auto",
+            )
+        _move_to_container(display, "target_nice")
+
+    if llm_suggestions:
+        for bucket_key, grouped_values in llm_suggestions.items():
+            if bucket_key not in {"hard_skills", "soft_skills"}:
+                continue
+            category: SkillCategory = "hard" if bucket_key == "hard_skills" else "soft"
+            for values in grouped_values.values():
+                for raw in values or []:
+                    cleaned = str(raw or "").strip()
+                    if not cleaned:
+                        continue
+                    display = _find_existing_display(
+                        meta,
+                        label=cleaned,
+                        category=category,
+                        source="ai",
+                    )
+                    if display is None:
+                        display = _register_skill_bubble(
+                            meta,
+                            cleaned,
+                            category=category,
+                            source="ai",
+                        )
+                    _add_if_absent(display, "source_ai")
+
+    for raw in esco_skills or []:
+        cleaned = str(raw or "").strip()
+        if not cleaned:
+            continue
+        display = _find_existing_display(
+            meta,
+            label=cleaned,
+            category="hard",
+            source="esco",
+        )
+        if display is None:
+            display = _register_skill_bubble(
+                meta,
+                cleaned,
+                category="hard",
+                source="esco",
+            )
+        _add_if_absent(display, "source_esco")
+
+    st.markdown("##### " + tr("ESCO Skills", "ESCO skills", lang=lang_code))
+    st.caption(
+        tr(
+            "Kombiniere autoextrahierte, KI- und ESCO-Skills per Drag & Drop in deine Auswahl.",
+            "Combine auto-extracted, AI and ESCO skills via drag & drop to build your selection.",
+            lang=lang_code,
+        )
+    )
+    normalized_missing = _unique_normalized(missing_esco_skills)
+    if normalized_missing:
+        st.info(
+            tr(
+                "ESCO empfiehlt zusätzlich: {skills}",
+                "ESCO still recommends: {skills}",
+                lang=lang_code,
+            ).format(skills=", ".join(normalized_missing))
+        )
+
+    st.caption(
+        tr(
+            "Ziehe Skills in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
+            "Drag skills into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            lang=lang_code,
+        )
+    )
+
+    board_payload = [
+        {
+            "header": labels[container],
+            "items": list(board_state.get(container, [])),
+        }
+        for container in _SKILL_CONTAINER_ORDER
+    ]
+
+    sorted_items = sort_items(
+        board_payload,
+        multi_containers=True,
+        direction="horizontal",
+        custom_style=_SKILL_BOARD_STYLE,
+        key="requirements_skill_board",
+    )
+
+    header_to_type = {labels[container]: container for container in _SKILL_CONTAINER_ORDER}
+    updated_state: dict[SkillContainerType, list[str]] = {
+        container: [] for container in _SKILL_CONTAINER_ORDER
+    }
+
+    for container in sorted_items:
+        header = container.get("header")
+        container_type = header_to_type.get(str(header))
+        if container_type is None:
+            continue
+        cleaned_items: list[str] = []
+        for raw_item in container.get("items", []) or []:
+            if not isinstance(raw_item, str):
+                continue
+            cleaned_items.append(raw_item)
+            if raw_item not in meta:
+                fallback_label = raw_item.split(" ⟮", 1)[0].strip()
+                meta[raw_item] = {
+                    "label": fallback_label,
+                    "category": "hard",
+                    "source": "auto",
+                }
+        updated_state[container_type] = cleaned_items
+
+    board_state = updated_state
+
+    active_items = {
+        item for bucket in board_state.values() for item in bucket if isinstance(item, str)
+    }
+    meta = {key: value for key, value in meta.items() if key in active_items}
+
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = board_state
+    st.session_state[StateKeys.SKILL_BOARD_META] = meta
+
+    final_must_hard: list[str] = []
+    final_must_soft: list[str] = []
+    final_nice_hard: list[str] = []
+    final_nice_soft: list[str] = []
+
+    for item in board_state["target_must"]:
+        info = meta.get(item)
+        if not info:
+            continue
+        label = info["label"]
+        if info["category"] == "soft":
+            if label not in final_must_soft:
+                final_must_soft.append(label)
+        else:
+            if label not in final_must_hard:
+                final_must_hard.append(label)
+
+    for item in board_state["target_nice"]:
+        info = meta.get(item)
+        if not info:
+            continue
+        label = info["label"]
+        if info["category"] == "soft":
+            if label not in final_nice_soft:
+                final_nice_soft.append(label)
+        else:
+            if label not in final_nice_hard:
+                final_nice_hard.append(label)
+
+    requirements["hard_skills_required"] = _unique_normalized(final_must_hard)
+    requirements["soft_skills_required"] = _unique_normalized(final_must_soft)
+    requirements["hard_skills_optional"] = _unique_normalized(final_nice_hard)
+    requirements["soft_skills_optional"] = _unique_normalized(final_nice_soft)
+
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": _unique_normalized(final_must_hard + final_must_soft),
+        "nice": _unique_normalized(final_nice_hard + final_nice_soft),
+    }
+
+
 
 
 class FieldLockConfig(TypedDict, total=False):
@@ -3554,233 +4043,6 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
     _apply_esco_selection(current_ids, options, lang=lang_code)
 
 
-def _render_esco_skill_picker(
-    requirements: Mapping[str, Any] | None,
-    *,
-    llm_suggestions: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
-) -> None:
-    """Render a picker that lets users add ESCO and LLM skills to requirements."""
-
-    raw_skills = st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
-    if not isinstance(raw_skills, Sequence):
-        return
-
-    skills = _unique_normalized([
-        str(skill).strip()
-        for skill in raw_skills
-        if isinstance(skill, str) and str(skill).strip()
-    ])
-    if not skills:
-        return
-
-    missing_skills = [
-        str(skill).strip()
-        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
-        if isinstance(skill, str) and str(skill).strip()
-    ]
-    missing_display = ", ".join(_unique_normalized(missing_skills[:6]))
-
-    st.markdown("##### " + tr("ESCO Skills", "ESCO skills"))
-    st.caption(
-        tr(
-            "Nutze die empfohlenen ESCO-Pflichtskills, um Must- oder Nice-to-haves zu füllen.",
-            "Use the recommended ESCO essential skills to populate must or nice-to-have lists.",
-        )
-    )
-    if missing_display:
-        st.info(
-            tr(
-                "Noch offen laut ESCO: {skills}",
-                "Still missing according to ESCO: {skills}",
-            ).format(skills=missing_display)
-        )
-
-    selection_key = UIKeys.REQUIREMENTS_ESCO_SKILL_SELECT
-    editor_key = f"{selection_key}.editor"
-
-    existing_markers: set[str] = set()
-    if isinstance(requirements, Mapping):
-        for bucket in (
-            "hard_skills_required",
-            "hard_skills_optional",
-            "soft_skills_required",
-            "soft_skills_optional",
-            "tools_and_technologies",
-        ):
-            for entry in requirements.get(bucket, []) or []:
-                if isinstance(entry, str) and entry.strip():
-                    existing_markers.add(entry.strip().casefold())
-
-    lang_code = st.session_state.get("lang", "de")
-    base_selection = _unique_normalized(st.session_state.get(selection_key, []))
-    base_selection_markers = {item.casefold() for item in base_selection}
-
-    suggestion_rows: list[dict[str, object]] = []
-    seen_rows: set[tuple[str, str]] = set()
-
-    source_esco = tr("ESCO", "ESCO", lang=lang_code)
-    category_esco = tr("Pflichtskill", "Essential skill", lang=lang_code)
-    for skill in skills:
-        marker = skill.casefold()
-        if marker in existing_markers:
-            continue
-        row_key = (skill, source_esco)
-        if row_key in seen_rows:
-            continue
-        seen_rows.add(row_key)
-        suggestion_rows.append(
-            {
-                "Auswahl": marker in base_selection_markers,
-                "Skill": skill,
-                "Quelle": source_esco,
-                "Kategorie": category_esco,
-            }
-        )
-
-    if llm_suggestions:
-        category_labels = {
-            "hard_skills": tr("Technisch", "Technical", lang=lang_code),
-            "soft_skills": tr("Persönlich", "Behavioural", lang=lang_code),
-        }
-        for bucket_key, grouped_values in llm_suggestions.items():
-            if not isinstance(grouped_values, Mapping):
-                continue
-            bucket_label = category_labels.get(bucket_key, bucket_key.title())
-            for group_key, values in grouped_values.items():
-                label_key = _SUGGESTION_GROUP_LABEL_KEYS.get(group_key)
-                if label_key:
-                    group_label = translate_key(label_key, lang_code)
-                else:
-                    group_label = str(group_key).title()
-                for raw in values or []:
-                    cleaned = str(raw or "").strip()
-                    if not cleaned:
-                        continue
-                    marker = cleaned.casefold()
-                    if marker in existing_markers:
-                        continue
-                    row_key = (cleaned, group_label)
-                    if row_key in seen_rows:
-                        continue
-                    seen_rows.add(row_key)
-                    suggestion_rows.append(
-                        {
-                            "Auswahl": marker in base_selection_markers,
-                            "Skill": cleaned,
-                            "Quelle": group_label,
-                            "Kategorie": bucket_label,
-                        }
-                    )
-
-    if not suggestion_rows:
-        st.caption(
-            tr(
-                "Aktuell keine zusätzlichen ESCO- oder KI-Skills verfügbar.",
-                "No additional ESCO or AI-generated skills available right now.",
-                lang=lang_code,
-            )
-        )
-        st.session_state[selection_key] = []
-        st.session_state.pop(editor_key, None)
-        return
-
-    suggestion_rows.sort(key=lambda row: (str(row["Quelle"]).casefold(), str(row["Skill"]).casefold()))
-
-    with st.container():
-        st.markdown("<div class='skill-suggestion-table'>", unsafe_allow_html=True)
-        edited_rows = st.data_editor(
-            suggestion_rows,
-            hide_index=True,
-            width="stretch",
-            column_order=["Auswahl", "Skill", "Quelle", "Kategorie"],
-            column_config={
-                "Auswahl": st.column_config.CheckboxColumn(
-                    label=tr("Auswahl", "Select", lang=lang_code),
-                    help=tr(
-                        "Markiere Skills, die du übernehmen möchtest.",
-                        "Mark the skills you want to transfer.",
-                        lang=lang_code,
-                    ),
-                ),
-                "Skill": st.column_config.TextColumn(
-                    label=tr("Skill", "Skill", lang=lang_code),
-                    disabled=True,
-                    width="medium",
-                ),
-                "Quelle": st.column_config.TextColumn(
-                    label=tr("Quelle", "Source", lang=lang_code),
-                    disabled=True,
-                    width="medium",
-                ),
-                "Kategorie": st.column_config.TextColumn(
-                    label=tr("Kategorie", "Category", lang=lang_code),
-                    disabled=True,
-                    width="medium",
-                ),
-            },
-            key=editor_key,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if isinstance(edited_rows, list):
-        updated_selection = [
-            str(row.get("Skill", ""))
-            for row in edited_rows
-            if isinstance(row, Mapping) and row.get("Auswahl")
-        ]
-    elif hasattr(edited_rows, "to_dict"):
-        updated_selection = [
-            str(row.get("Skill", ""))
-            for row in edited_rows.to_dict("records")  # type: ignore[arg-type]
-            if row.get("Auswahl")
-        ]
-    else:
-        updated_selection = []
-
-    selected_clean = _unique_normalized(
-        [value.strip() for value in updated_selection if isinstance(value, str) and value.strip()]
-    )
-    st.session_state[selection_key] = selected_clean
-
-    def _apply_to_bucket(target: str) -> bool:
-        if not isinstance(requirements, Mapping):
-            return False
-        existing = [
-            str(item).strip()
-            for item in requirements.get(target, []) or []
-            if isinstance(item, str) and str(item).strip()
-        ]
-        merged = _unique_normalized(existing + selected_clean)
-        if merged == existing:
-            return False
-        if isinstance(requirements, dict):
-            requirements[target] = merged
-        _update_profile(f"requirements.{target}", merged)
-        return True
-
-    action_cols = st.columns(2)
-    added_message = tr("Skills übernommen", "Skills added")
-    if action_cols[0].button(
-        tr("Als Muss übernehmen", "Add as must-have"),
-        key=f"{selection_key}.add_must",
-        disabled=not selected_clean,
-    ):
-        if _apply_to_bucket("hard_skills_required"):
-            st.success(added_message)
-        st.session_state[selection_key] = []
-        st.session_state.pop(editor_key, None)
-
-    if action_cols[1].button(
-        tr("Als Plus übernehmen", "Add as nice-to-have"),
-        key=f"{selection_key}.add_nice",
-        disabled=not selected_clean,
-    ):
-        if _apply_to_bucket("hard_skills_optional"):
-            st.success(added_message)
-        st.session_state[selection_key] = []
-        st.session_state.pop(editor_key, None)
-
-
 BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
 BOOLEAN_PROFILE_SIGNATURE = "ui.summary.boolean_profile_signature"
 
@@ -5728,7 +5990,7 @@ def _step_requirements():
 
     lang = st.session_state.get("lang", "en")
     focus_presets = _SKILL_FOCUS_PRESETS.get(lang, _SKILL_FOCUS_PRESETS["en"])
-    stored_focus = st.session_state.get(StateKeys.SKILL_SUGGESTION_HINTS, [])
+    stored_focus = list(st.session_state.get(StateKeys.SKILL_SUGGESTION_HINTS, []))
     focus_options = sorted(
         {value.strip() for value in (focus_presets or []) if value.strip()}.union(
             {value.strip() for value in stored_focus if value.strip()}
@@ -6107,12 +6369,40 @@ def _step_requirements():
         if normalized_groups:
             llm_skill_sources[pool_key] = normalized_groups
 
-    _render_esco_skill_picker(
-        data.get("requirements"),
+    esco_skill_candidates = [
+        str(skill).strip()
+        for skill in st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
+        if isinstance(skill, str) and str(skill).strip()
+    ]
+    missing_esco_skills = [
+        str(skill).strip()
+        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+        if isinstance(skill, str) and str(skill).strip()
+    ]
+
+    _render_skill_board(
+        requirements,
         llm_suggestions=llm_skill_sources,
+        esco_skills=esco_skill_candidates,
+        missing_esco_skills=missing_esco_skills,
     )
 
-    must_col, nice_col, language_col = st.columns(3, gap="large")
+    focus_columns = st.columns([1, 2, 1])
+    with focus_columns[1]:
+        updated_focus = _chip_multiselect(
+            tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
+            options=focus_options,
+            values=stored_focus,
+            help_text=tr(
+                "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
+                "Provide focus areas so the AI can prioritise matching skills.",
+            ),
+            dropdown=True,
+        )
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = updated_focus
+    stored_focus = updated_focus
+
+    must_col, nice_col = st.columns(2, gap="large")
 
     with requirement_panel(
         icon="🔒",
@@ -6240,6 +6530,7 @@ def _step_requirements():
             )
 
     with requirement_panel(
+
         icon="🛠️",
         title=tr("Tools, Tech & Zertifikate", "Tools, tech & certificates"),
         caption=tr(
@@ -6250,7 +6541,7 @@ def _step_requirements():
             "Liste die wichtigsten Werkzeuge sowie verbindliche Zertifikate auf.",
             "List the essential tools together with required certificates.",
         ),
-        parent=must_col,
+        parent=tools_col,
     ):
         tech_cert_cols = st.columns(2, gap="large")
         with tech_cert_cols[0]:
@@ -6447,15 +6738,6 @@ def _step_requirements():
             location=location_data,
             radius_km=float(radius_value),
         )
-
-    st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": _unique_normalized(
-            data["requirements"].get("hard_skills_required", [])
-        ),
-        "nice": _unique_normalized(
-            data["requirements"].get("hard_skills_optional", [])
-        ),
-    }
 
     # Inline follow-up questions for Requirements section
     _render_followups_for_section(("requirements.",), data)
@@ -8586,60 +8868,18 @@ def _step_summary(schema: dict, _critical: list[str]):
                     )
 
 
-# --- Haupt-Wizard-Runner ---
-def run_wizard():
-    """Run the multi-step profile creation wizard.
+# --- Navigation helper ---
 
-    Returns:
-        None
-    """
 
-    st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
+def _render_wizard_navigation(
+    steps: Sequence[tuple[str, Callable[[], None]]],
+    *,
+    completed_sections: Sequence[int],
+) -> None:
+    """Render navigation controls (stepper + buttons) for the wizard."""
 
-    # Schema/Config aus app.py Session übernehmen
-    schema: dict = st.session_state.get("_schema") or {}
-    critical: list[str] = st.session_state.get("_critical_list") or []
+    current = st.session_state[StateKeys.STEP]
 
-    # Falls nicht durch app.py injiziert, lokal nachladen (failsafe)
-    if not schema:
-        try:
-            with (ROOT / "schema" / "need_analysis.schema.json").open(
-                "r", encoding="utf-8"
-            ) as f:
-                schema = json.load(f)
-        except Exception:
-            schema = {}
-    if not critical:
-        try:
-            with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as f:
-                critical = json.load(f).get("critical", [])
-        except Exception:
-            critical = []
-
-    steps = [
-        (tr("Onboarding", "Onboarding"), lambda: _step_onboarding(schema)),
-        (tr("Unternehmen", "Company"), _step_company),
-        (tr("Basisdaten", "Basic info"), _step_position),
-        (tr("Anforderungen", "Requirements"), _step_requirements),
-        (tr("Leistungen & Benefits", "Rewards & Benefits"), _step_compensation),
-        (tr("Prozess", "Process"), _step_process),
-        (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
-    ]
-
-    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(steps)
-    first_incomplete, _completed_sections = _update_section_progress()
-    if st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False) and (
-        first_incomplete is not None
-    ):
-        st.session_state[StateKeys.STEP] = first_incomplete
-    completed_sections = list(
-        st.session_state.get(StateKeys.COMPLETED_SECTIONS, [])
-    )
-
-    # Headline
-    st.markdown("### 🧭 Wizard")
-
-    # Step Navigation (oben)
     def _handle_step_selection(target_index: int) -> None:
         current_index = st.session_state[StateKeys.STEP]
         if target_index == current_index:
@@ -8678,35 +8918,16 @@ def run_wizard():
         st.session_state[StateKeys.STEP] = target_index
         st.rerun()
 
-    render_stepper(
-        st.session_state[StateKeys.STEP],
-        [label for label, _ in steps],
-        on_select=_handle_step_selection,
-    )
+    with st.container():
+        render_stepper(
+            current,
+            [label for label, _ in steps],
+            on_select=_handle_step_selection,
+        )
+        warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+        if warning_message:
+            st.warning(warning_message)
 
-    warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
-    if warning_message:
-        st.warning(warning_message)
-
-    if completed_sections and st.session_state.get("_analyze_attempted"):
-        with st.expander(
-            tr("✅ Abgeschlossene Abschnitte", "✅ Completed sections"),
-            expanded=False,
-        ):
-            for idx in completed_sections:
-                if 0 <= idx < len(steps):
-                    section_label, _ = steps[idx]
-                    st.markdown(f"- {section_label}")
-
-    # Render current step
-    current = st.session_state[StateKeys.STEP]
-    _label, renderer = steps[current]
-
-    renderer()
-
-    _apply_pending_scroll_reset()
-
-    # Bottom nav
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
 
@@ -8774,3 +8995,67 @@ def run_wizard():
                     st.markdown(table)
             else:
                 st.caption(summary)
+
+
+# --- Haupt-Wizard-Runner ---
+def run_wizard():
+    """Run the multi-step profile creation wizard.
+
+    Returns:
+        None
+    """
+
+    st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
+
+    # Schema/Config aus app.py Session übernehmen
+    schema: dict = st.session_state.get("_schema") or {}
+    critical: list[str] = st.session_state.get("_critical_list") or []
+
+    # Falls nicht durch app.py injiziert, lokal nachladen (failsafe)
+    if not schema:
+        try:
+            with (ROOT / "schema" / "need_analysis.schema.json").open(
+                "r", encoding="utf-8"
+            ) as f:
+                schema = json.load(f)
+        except Exception:
+            schema = {}
+    if not critical:
+        try:
+            with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as f:
+                critical = json.load(f).get("critical", [])
+        except Exception:
+            critical = []
+
+    steps = [
+        (tr("Onboarding", "Onboarding"), lambda: _step_onboarding(schema)),
+        (tr("Unternehmen", "Company"), _step_company),
+        (tr("Basisdaten", "Basic info"), _step_position),
+        (tr("Anforderungen", "Requirements"), _step_requirements),
+        (tr("Leistungen & Benefits", "Rewards & Benefits"), _step_compensation),
+        (tr("Prozess", "Process"), _step_process),
+        (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
+    ]
+
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(steps)
+    first_incomplete, _completed_sections = _update_section_progress()
+    if st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False) and (
+        first_incomplete is not None
+    ):
+        st.session_state[StateKeys.STEP] = first_incomplete
+    completed_sections = list(
+        st.session_state.get(StateKeys.COMPLETED_SECTIONS, [])
+    )
+
+    # Headline
+    st.markdown("### 🧭 Wizard")
+
+    # Render current step
+    current = st.session_state[StateKeys.STEP]
+    _label, renderer = steps[current]
+
+    renderer()
+
+    _apply_pending_scroll_reset()
+
+    _render_wizard_navigation(steps, completed_sections=completed_sections)
