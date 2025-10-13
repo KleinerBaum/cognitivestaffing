@@ -87,8 +87,9 @@ SIDEBAR_STYLE = """
     align-items: center;
     padding: 1.1rem 1.2rem;
     border-radius: 1.2rem;
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.92), rgba(236, 72, 153, 0.85));
-    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+    background: linear-gradient(135deg, var(--surface-0), var(--surface-accent-secondary));
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-medium);
     margin-bottom: 1.3rem;
 }
 .sidebar-hero__icon {
@@ -109,10 +110,10 @@ SIDEBAR_STYLE = """
 .sidebar-hero__subtitle {
     margin: 0.25rem 0 0;
     font-size: 0.85rem;
-    opacity: 0.9;
+    opacity: 0.85;
 }
 .sidebar-hero * {
-    color: #ffffff !important;
+    color: var(--text-strong) !important;
 }
 [data-testid="stSidebar"] .stSelectbox label,
 [data-testid="stSidebar"] .stToggle label {
@@ -145,14 +146,14 @@ SIDEBAR_STYLE = """
 .sidebar-step__note {
     margin-left: auto;
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-soft);
 }
 .sidebar-step--current .sidebar-step__label {
-    color: #4338ca;
+    color: var(--accent);
 }
 .sidebar-step--warning .sidebar-step__note,
 .sidebar-step--blocked .sidebar-step__note {
-    color: #dc2626;
+    color: rgba(214, 90, 78, 0.9);
 }
 [data-testid="stSidebar"] h3,
 [data-testid="stSidebar"] h4 {

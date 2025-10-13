@@ -1,9 +1,9 @@
 [theme]
 base = "dark"
-primaryColor = "#69E2FF"         # cyan accent
-backgroundColor = "#0B1220"
-secondaryBackgroundColor = "#0F1629"
-textColor = "#E6EDF3"
+primaryColor = "#DFE3E3"         # light graphite accent
+backgroundColor = "#111414"
+secondaryBackgroundColor = "#1A1E1E"
+textColor = "#F7F9F9"
 font = "sans serif"
 
 [client]

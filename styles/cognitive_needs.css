@@ -7,46 +7,68 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
-  --accent: #72d2c3;
-  --accent-2: #b1a2ff;
-  --text-strong: #edf2ff;
-  --text-muted: #a8b5d6;
-  --text-soft: #cbd4ea;
-  --text-inverse: #081321;
-  --text-contrast-strong: #081321;
-  --text-contrast-muted: rgba(12, 27, 46, 0.7);
-  --text-contrast-soft: rgba(12, 27, 46, 0.55);
+  --tone-50: #f7f9f9;
+  --tone-100: #edf1f1;
+  --tone-200: #dfe3e3;
+  --tone-300: #c3c8c8;
+  --tone-400: #a1a6a6;
+  --tone-500: #838888;
+  --tone-600: #646969;
+  --tone-700: #4b5050;
+  --tone-800: #303434;
+  --tone-900: #191c1c;
+  --tone-950: #0f1111;
+
+  --accent: var(--tone-200);
+  --accent-2: var(--tone-300);
+  --text-strong: var(--tone-50);
+  --text-muted: rgba(223, 227, 227, 0.75);
+  --text-soft: rgba(223, 227, 227, 0.55);
+  --text-inverse: var(--tone-950);
+  --text-contrast-strong: var(--tone-950);
+  --text-contrast-muted: rgba(25, 28, 28, 0.72);
+  --text-contrast-soft: rgba(25, 28, 28, 0.55);
   --text-on-accent: var(--text-inverse);
-  --surface-0: rgba(6, 12, 25, 0.92);
-  --surface-1: rgba(16, 23, 35, 0.6);
-  --surface-2: rgba(22, 32, 48, 0.68);
-  --surface-3: rgba(255, 255, 255, 0.08);
-  --surface-contrast: rgba(238, 244, 255, 0.92);
-  --surface-accent-soft: rgba(114, 210, 195, 0.14);
-  --surface-accent-strong: rgba(114, 210, 195, 0.24);
-  --surface-accent-secondary: rgba(177, 162, 255, 0.2);
-  --surface-hover: rgba(114, 210, 195, 0.18);
-  --surface-press: rgba(177, 162, 255, 0.24);
-  --surface-critical: rgba(255, 214, 102, 0.2);
-  --border-subtle: rgba(148, 163, 184, 0.24);
-  --border-strong: rgba(221, 232, 255, 0.34);
-  --border-contrast: rgba(12, 21, 36, 0.16);
+
+  --surface-0: rgba(15, 17, 17, 0.94);
+  --surface-1: rgba(25, 28, 28, 0.84);
+  --surface-2: rgba(39, 43, 43, 0.72);
+  --surface-3: rgba(223, 227, 227, 0.08);
+  --surface-contrast: rgba(247, 249, 249, 0.96);
+  --surface-accent-soft: rgba(223, 227, 227, 0.12);
+  --surface-accent-strong: rgba(223, 227, 227, 0.2);
+  --surface-accent-secondary: rgba(195, 200, 200, 0.16);
+  --surface-hover: rgba(223, 227, 227, 0.12);
+  --surface-press: rgba(195, 200, 200, 0.2);
+  --surface-critical: rgba(214, 90, 78, 0.24);
+
+  --border-subtle: rgba(195, 200, 200, 0.2);
+  --border-strong: rgba(223, 227, 227, 0.3);
+  --border-contrast: rgba(12, 14, 14, 0.5);
+
   --radius: 14px;
-  --shadow-soft: 0 12px 28px rgba(6, 12, 25, 0.4);
-  --shadow-medium: 0 18px 40px rgba(6, 12, 25, 0.5);
-  --shadow-strong: 0 26px 48px rgba(6, 12, 25, 0.62);
-  --focus-ring: rgba(114, 210, 195, 0.42);
-  --accent-glow: drop-shadow(0 0 10px rgba(114, 210, 195, 0.24));
-  --button-gradient: linear-gradient(90deg, #72d2c3, #b1a2ff);
-  --summary-primary-gradient: linear-gradient(120deg, rgba(114, 210, 195, 0.9), rgba(177, 162, 255, 0.85));
-  --sidebar-gradient: linear-gradient(180deg, rgba(6, 15, 28, 0.78), rgba(6, 15, 28, 0.52));
-  --sidebar-active-bg: linear-gradient(90deg, rgba(114, 210, 195, 0.24), rgba(177, 162, 255, 0.22));
-  --sidebar-hover-bg: rgba(114, 210, 195, 0.16);
-  --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
-  --app-gradient: linear-gradient(180deg, rgba(6, 12, 25, 0.88) 0%, rgba(6, 16, 32, 0.54) 42%, rgba(6, 12, 25, 0.92) 100%);
-  --scrollbar-track: rgba(3, 7, 17, 0.24);
-  --scrollbar-thumb: rgba(237, 242, 255, 0.22);
-  --scrollbar-thumb-border: rgba(3, 7, 17, 0.28);
+  --shadow-soft: 0 12px 28px rgba(8, 10, 10, 0.4);
+  --shadow-medium: 0 18px 40px rgba(8, 10, 10, 0.52);
+  --shadow-strong: 0 28px 52px rgba(8, 10, 10, 0.65);
+  --focus-ring: rgba(223, 227, 227, 0.5);
+  --accent-glow: drop-shadow(0 0 12px rgba(223, 227, 227, 0.18));
+  --button-gradient: linear-gradient(135deg, rgba(223, 227, 227, 0.95), rgba(195, 200, 200, 0.9));
+  --summary-primary-gradient: linear-gradient(120deg, rgba(223, 227, 227, 0.16), rgba(195, 200, 200, 0.12));
+  --sidebar-gradient: linear-gradient(180deg, rgba(15, 17, 17, 0.92), rgba(39, 43, 43, 0.72));
+  --sidebar-active-bg: linear-gradient(90deg, rgba(223, 227, 227, 0.14), rgba(195, 200, 200, 0.12));
+  --sidebar-hover-bg: rgba(223, 227, 227, 0.1);
+  --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --app-gradient: linear-gradient(180deg, rgba(15, 17, 17, 0.94) 0%, rgba(21, 24, 24, 0.82) 45%, rgba(15, 17, 17, 0.94) 100%);
+  --scrollbar-track: rgba(8, 10, 10, 0.4);
+  --scrollbar-thumb: rgba(195, 200, 200, 0.35);
+  --scrollbar-thumb-border: rgba(8, 10, 10, 0.5);
+
+  --interactive-surface: rgba(223, 227, 227, 0.08);
+  --interactive-hover: rgba(223, 227, 227, 0.14);
+  --interactive-current: rgba(223, 227, 227, 0.2);
+  --interactive-done: rgba(223, 227, 227, 0.16);
+  --interactive-border-strong: rgba(223, 227, 227, 0.45);
+
   --blur: 12px;
   --bg-image: none;
 }
@@ -122,22 +144,23 @@ a:hover {
 /* Buttons */
 .stButton > button {
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  border: 1px solid var(--border-subtle);
   padding: .6rem 1.05rem;
-  background: rgba(15, 23, 42, 0.78);
-  color: var(--text-strong);
+  background: var(--button-gradient);
+  color: var(--text-inverse);
   font-weight: 600;
   letter-spacing: .2px;
-  box-shadow: 0 10px 24px rgba(8, 15, 28, 0.45);
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow: 0 10px 24px rgba(8, 10, 10, 0.45);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease,
+    color .12s ease;
 }
 .stButton > button:hover {
   transform: translateY(-1px);
-  background: rgba(15, 23, 42, 0.88);
-  box-shadow: 0 14px 30px rgba(8, 15, 28, 0.52);
+  background: linear-gradient(135deg, rgba(239, 242, 242, 0.98), rgba(210, 214, 214, 0.92));
+  box-shadow: 0 14px 30px rgba(8, 10, 10, 0.55);
 }
 .stButton > button:focus-visible {
-  outline: 2px solid rgba(96, 165, 250, 0.65);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -154,8 +177,8 @@ a:hover {
 
 .stMultiSelect [data-baseweb="tag"] {
   max-width: 100%;
-  background: rgba(148, 163, 184, 0.25) !important;
-  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+  background: var(--surface-accent-soft) !important;
+  border: 1px solid var(--border-subtle) !important;
   color: var(--text-strong) !important;
   border-radius: 999px !important;
 }
@@ -180,8 +203,8 @@ a:hover {
 
 div[data-testid="stAlert"] {
   border-radius: 12px;
-  background: rgba(37, 99, 235, 0.16) !important;
-  border: 1px solid rgba(96, 165, 250, 0.32) !important;
+  background: rgba(223, 227, 227, 0.18) !important;
+  border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
 }
 div[data-testid="stAlert"] svg {
