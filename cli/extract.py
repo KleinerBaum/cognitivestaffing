@@ -28,7 +28,7 @@ def main() -> None:
     from ingest.reader import clean_structured_document
     from config_loader import load_json
     from openai_utils import extract_with_function
-    from config import OPENAI_MODEL, VECTOR_STORE_ID
+    from config import ModelTask, VECTOR_STORE_ID, get_model_for
     from llm.rag_pipeline import (
         build_field_queries,
         build_global_context,
@@ -59,7 +59,7 @@ def main() -> None:
     result = extract_with_function(
         text,
         schema,
-        model=OPENAI_MODEL,
+        model=get_model_for(ModelTask.EXTRACTION),
         field_contexts=contexts,
         global_context=global_chunks,
     )
