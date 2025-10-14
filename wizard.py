@@ -6194,30 +6194,24 @@ def _step_requirements():
             )
         )
 
-    suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(stored_focus)
-    _show_suggestion_warning(suggestions_error)
-
-    selected_focus = _chip_multiselect(
-        tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
-        options=focus_options,
-        values=stored_focus,
-        help_text=tr(
-            "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
-            "Provide focus areas so the AI can prioritise matching skills.",
-        ),
-        dropdown=True,
-    )
-    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = selected_focus
-    if tuple(sorted(selected_focus, key=str.casefold)) != tuple(
-        sorted(stored_focus, key=str.casefold)
-    ):
-        suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(
-            selected_focus
+    focus_columns = st.columns([1, 2, 1])
+    with focus_columns[1]:
+        focus_selection = _chip_multiselect(
+            tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
+            options=focus_options,
+            values=stored_focus,
+            help_text=tr(
+                "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
+                "Provide focus areas so the AI can prioritise matching skills.",
+            ),
+            dropdown=True,
         )
-        _show_suggestion_warning(suggestions_error)
-    else:
-        # Ensure the warning remains visible even if focus remains unchanged.
-        _show_suggestion_warning(suggestions_error)
+
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = focus_selection
+    suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(
+        focus_selection
+    )
+    _show_suggestion_warning(suggestions_error)
 
     profile_context = _build_profile_context(data)
     requirements_header = _format_dynamic_message(
@@ -6527,21 +6521,6 @@ def _step_requirements():
         esco_skills=esco_skill_candidates,
         missing_esco_skills=missing_esco_skills,
     )
-
-    focus_columns = st.columns([1, 2, 1])
-    with focus_columns[1]:
-        updated_focus = _chip_multiselect(
-            tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
-            options=focus_options,
-            values=stored_focus,
-            help_text=tr(
-                "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
-                "Provide focus areas so the AI can prioritise matching skills.",
-            ),
-            dropdown=True,
-        )
-    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = updated_focus
-    stored_focus = updated_focus
 
     must_col, nice_col = st.columns(2, gap="large")
 
