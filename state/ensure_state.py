@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Mapping
+from copy import deepcopy
+from typing import Any
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -18,8 +21,11 @@ from config import (
     normalise_model_name,
     normalise_model_override,
 )
-from core.schema import coerce_and_fill
+from core.schema import ALIASES, coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
+
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_state() -> None:
@@ -34,8 +40,17 @@ def ensure_state() -> None:
     else:
         try:
             st.session_state[StateKeys.PROFILE] = coerce_and_fill(existing).model_dump()
-        except ValidationError:
-            st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+        except ValidationError as error:
+            logger.debug("Validation error when coercing profile: %s", error)
+            sanitized = _sanitize_profile(existing)
+            try:
+                st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile.model_validate(sanitized).model_dump()
+            except ValidationError as sanitized_error:
+                logger.warning(
+                    "Failed to sanitize profile data; resetting to defaults: %s",
+                    sanitized_error,
+                )
+                st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
     if StateKeys.RAW_TEXT not in st.session_state:
         st.session_state[StateKeys.RAW_TEXT] = ""
     if StateKeys.RAW_BLOCKS not in st.session_state:
@@ -111,9 +126,7 @@ def ensure_state() -> None:
     if "openai_base_url_invalid" not in st.session_state:
         if OPENAI_BASE_URL:
             parsed = urlparse(OPENAI_BASE_URL)
-            st.session_state["openai_base_url_invalid"] = not (
-                parsed.scheme and parsed.netloc
-            )
+            st.session_state["openai_base_url_invalid"] = not (parsed.scheme and parsed.netloc)
         else:
             st.session_state["openai_base_url_invalid"] = False
     if "auto_reask" not in st.session_state:
@@ -146,6 +159,81 @@ def ensure_state() -> None:
     ):
         if key not in st.session_state:
             st.session_state[key] = ""
+
+
+def _sanitize_profile(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove unsupported fields while preserving valid values."""
+
+    canonical = _apply_aliases(data)
+    template = NeedAnalysisProfile().model_dump()
+    sanitized = deepcopy(template)
+    _merge_known_fields(sanitized, canonical)
+    return sanitized
+
+
+def _apply_aliases(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Expand profile aliases to their canonical paths."""
+
+    mutable = _to_mutable_dict(data)
+    sentinel = object()
+    for alias, target in ALIASES.items():
+        value = _pop_path(mutable, alias, sentinel)
+        if value is not sentinel:
+            _set_path(mutable, target, value)
+    return mutable
+
+
+def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> None:
+    """Merge ``source`` into ``target`` while ignoring unknown keys."""
+
+    for key, value in source.items():
+        if key not in target:
+            continue
+        current = target[key]
+        if isinstance(current, dict) and isinstance(value, Mapping):
+            _merge_known_fields(current, value)
+        else:
+            target[key] = value
+
+
+def _to_mutable_dict(data: Any) -> Any:
+    """Convert mappings to plain dictionaries for mutation."""
+
+    if isinstance(data, Mapping):
+        return {key: _to_mutable_dict(value) for key, value in data.items()}
+    if isinstance(data, list):
+        return [_to_mutable_dict(item) for item in data]
+    return data
+
+
+def _pop_path(obj: dict[str, Any], path: str, default: Any) -> Any:
+    """Pop a dotted path from ``obj`` if present."""
+
+    parts = path.split(".")
+    cursor: Any = obj
+    for part in parts[:-1]:
+        if not isinstance(cursor, dict):
+            return default
+        if part not in cursor:
+            return default
+        cursor = cursor[part]
+    if not isinstance(cursor, dict):
+        return default
+    return cursor.pop(parts[-1], default)
+
+
+def _set_path(obj: dict[str, Any], path: str, value: Any) -> None:
+    """Set ``value`` at ``path`` within ``obj`` creating nested dictionaries."""
+
+    parts = path.split(".")
+    cursor: Any = obj
+    for part in parts[:-1]:
+        next_value = cursor.get(part)
+        if not isinstance(next_value, dict):
+            next_value = {}
+            cursor[part] = next_value
+        cursor = next_value
+    cursor[parts[-1]] = value
 
 
 def reset_state() -> None:
