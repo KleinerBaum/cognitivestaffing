@@ -68,7 +68,7 @@ def test_call_chat_api_tool_call(monkeypatch):
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     out = call_chat_api(
         [],
-        tools=[{"type": "function", "name": "fn", "parameters": {}}],
+        tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
         tool_choice={"type": "function", "name": "fn"},
     )
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
@@ -412,20 +412,35 @@ def test_call_chat_api_handles_nested_usage(monkeypatch):
     }
 
 
-def test_call_chat_api_includes_tool_name(monkeypatch):
-    """Each tool spec passed to the API must include a top-level name."""
+def test_call_chat_api_normalises_tool_schema(monkeypatch):
+    """Function tools should expose nested metadata while built-ins stay bare."""
+
+    captured: dict[str, Any] = {}
 
     class _FakeResponses:
         def create(self, **kwargs):
+            captured.update(kwargs)
             for tool in kwargs.get("tools", []):
-                assert "name" in tool, "tool missing name"
+                if tool.get("type") == "function":
+                    fn_block = tool.get("function", {})
+                    assert "name" in fn_block and fn_block["name"]
+                    assert "parameters" in fn_block
+                    assert "name" not in tool
+                else:
+                    assert "function" not in tool
+                    assert "name" not in tool
             return type("R", (), {"output": [], "output_text": "", "usage": {}})()
 
     class _FakeClient:
         responses = _FakeResponses()
 
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
-    call_chat_api([], tools=[{"type": "function", "name": "fn", "parameters": {}}])
+    call_chat_api(
+        [],
+        tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
+    )
+
+    assert any(tool.get("type") == "web_search" for tool in captured.get("tools", []))
 
 
 def test_prepare_payload_includes_web_search_tools():
@@ -437,7 +452,7 @@ def test_prepare_payload_includes_web_search_tools():
         temperature=None,
         max_tokens=None,
         json_schema=None,
-        tools=[{"type": "function", "name": "custom", "parameters": {}}],
+        tools=[{"type": "function", "function": {"name": "custom", "parameters": {}}}],
         tool_choice=None,
         tool_functions={},
         reasoning_effort=None,
@@ -449,6 +464,13 @@ def test_prepare_payload_includes_web_search_tools():
     assert "web_search" in tool_types
     assert "web_search_preview" in tool_types
 
+    for tool in payload["tools"]:
+        if tool.get("type") == "function":
+            fn_payload = tool.get("function", {})
+            assert fn_payload.get("name")
+        else:
+            assert "name" not in tool
+
 
 def test_build_extraction_tool_has_name_and_parameters():
     """build_extraction_tool should include function name and parameters."""
@@ -456,8 +478,11 @@ def test_build_extraction_tool_has_name_and_parameters():
     schema = {"type": "object", "properties": {}}
     tool = openai_utils.build_extraction_tool("cognitive_needs_extract", schema)
     spec = tool[0]
-    assert spec["name"] == "cognitive_needs_extract"
-    assert spec["parameters"]["type"] == "object"
+    assert spec["type"] == "function"
+    fn_payload = spec["function"]
+    assert fn_payload["name"] == "cognitive_needs_extract"
+    assert fn_payload["parameters"]["type"] == "object"
+    assert fn_payload["strict"] is True
 
 
 def test_build_extraction_tool_marks_required_recursively() -> None:
@@ -473,7 +498,7 @@ def test_build_extraction_tool_marks_required_recursively() -> None:
         },
     }
     tool = openai_utils.build_extraction_tool("extract", schema)
-    params = tool[0]["parameters"]
+    params = tool[0]["function"]["parameters"]
     assert params["required"] == ["outer"]
     outer = params["properties"]["outer"]
     assert outer["required"] == ["inner"]
