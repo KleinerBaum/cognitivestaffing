@@ -7,6 +7,7 @@ import json
 import textwrap
 from base64 import b64encode
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from contextlib import contextmanager
 from copy import deepcopy
@@ -2009,6 +2010,75 @@ def _enrich_company_profile_from_about(
             )
 
 
+def _store_company_page_section(
+    *,
+    section: _CompanySectionConfig,
+    url: str,
+    text: str,
+    lang: str,
+) -> None:
+    """Persist a fetched section and trigger enrichment where applicable."""
+
+    try:
+        text_hash = _hash_text(text)
+        summary = _cached_summarize_company_page(url, text_hash, section["label"], lang)
+    except Exception:
+        summary = textwrap.shorten(text, width=420, placeholder="…")
+        st.warning(
+            tr(
+                "KI-Zusammenfassung fehlgeschlagen – gekürzter Auszug angezeigt.",
+                "AI summary failed – showing a shortened excerpt instead.",
+            )
+        )
+    summaries: dict[str, dict[str, str]] = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
+    summaries[section["key"]] = {
+        "url": url,
+        "summary": summary,
+        "label": section["label"],
+    }
+    if section["key"] == "about":
+        _enrich_company_profile_from_about(
+            text,
+            source_url=url,
+            section_label=section["label"],
+        )
+
+
+def _bulk_fetch_company_sections(
+    base_url: str, sections: Sequence[_CompanySectionConfig]
+) -> tuple[
+    list[tuple[_CompanySectionConfig, str, str]],
+    list[_CompanySectionConfig],
+    list[tuple[_CompanySectionConfig, str]],
+]:
+    """Fetch multiple company sections concurrently."""
+
+    successes: list[tuple[_CompanySectionConfig, str, str]] = []
+    misses: list[_CompanySectionConfig] = []
+    errors: list[tuple[_CompanySectionConfig, str]] = []
+    if not sections:
+        return successes, misses, errors
+
+    max_workers = min(4, len(sections)) or 1
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_section = {
+            executor.submit(_fetch_company_page, base_url, section["slugs"]): section for section in sections
+        }
+        for future in as_completed(future_to_section):
+            section = future_to_section[future]
+            try:
+                result = future.result()
+            except Exception as exc:  # pragma: no cover - defensive safeguard
+                errors.append((section, str(exc)))
+                continue
+            if not result:
+                misses.append(section)
+                continue
+            url, text = result
+            successes.append((section, url, text))
+    return successes, misses, errors
+
+
 def _load_company_page_section(
     section_key: str,
     base_url: str,
@@ -2029,21 +2099,12 @@ def _load_company_page_section(
         )
         return
     url, text = result
-    try:
-        text_hash = _hash_text(text)
-        summary = _cached_summarize_company_page(url, text_hash, label, lang)
-    except Exception:
-        summary = textwrap.shorten(text, width=420, placeholder="…")
-        st.warning(
-            tr(
-                "KI-Zusammenfassung fehlgeschlagen – gekürzter Auszug angezeigt.",
-                "AI summary failed – showing a shortened excerpt instead.",
-            )
-        )
-    summaries: dict[str, dict[str, str]] = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
-    summaries[section_key] = {"url": url, "summary": summary, "label": label}
-    if section_key == "about":
-        _enrich_company_profile_from_about(text, source_url=url, section_label=label)
+    _store_company_page_section(
+        section={"key": section_key, "label": label, "slugs": slugs},
+        url=url,
+        text=text,
+        lang=lang,
+    )
     st.success(tr("Zusammenfassung aktualisiert.", "Summary updated."))
 
 
@@ -2120,12 +2181,51 @@ def _render_company_research_tools(base_url: str) -> None:
         "Get Info from Web",
     )
     if st.button(fetch_all_label, key="ui.company.page.fetch_all"):
-        for section in sections:
-            _load_company_page_section(
-                section_key=section["key"],
-                base_url=normalised,
-                slugs=section["slugs"],
-                label=section["label"],
+        lang = st.session_state.get("lang", "de")
+        summaries = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
+        pending_sections = [section for section in sections if not summaries.get(section["key"], {}).get("summary")]
+        targets = pending_sections or sections
+        with st.spinner(
+            tr(
+                "Analysiere verfügbare Unterseiten …",
+                "Analysing available subpages …",
+            )
+        ):
+            successes, misses, errors = _bulk_fetch_company_sections(normalised, targets)
+            for section, url, text in successes:
+                _store_company_page_section(
+                    section=section,
+                    url=url,
+                    text=text,
+                    lang=lang,
+                )
+        if successes:
+            st.success(
+                tr(
+                    "{count} Seiten automatisch aktualisiert.",
+                    "Automatically updated {count} sections.",
+                ).format(count=len(successes))
+            )
+        if misses:
+            st.info(
+                tr(
+                    "Keine passenden Seiten gefunden für: {labels}.",
+                    "No matching pages found for: {labels}.",
+                ).format(labels=", ".join(section["label"] for section in misses))
+            )
+        if errors:
+            st.warning(
+                tr(
+                    "{count} Seiten konnten nicht verarbeitet werden (siehe Logs).",
+                    "Failed to process {count} sections (see logs).",
+                ).format(count=len(errors))
+            )
+        if not (successes or misses or errors):
+            st.info(
+                tr(
+                    "Keine neuen Seiten zur Analyse gefunden.",
+                    "No new pages to analyse.",
+                )
             )
 
     summaries = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
