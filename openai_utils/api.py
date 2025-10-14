@@ -35,10 +35,12 @@ from config import (
     REASONING_EFFORT,
     STRICT_JSON,
     ModelTask,
+    get_first_available_model,
     get_model_for,
     mark_model_unavailable,
 )
 from constants.keys import StateKeys
+from llm.cost_router import route_model_for_messages
 
 logger = logging.getLogger("cognitive_needs.openai")
 tracer = trace.get_tracer(__name__)
@@ -371,6 +373,7 @@ def _prepare_payload(
     reasoning_effort: Optional[str],
     extra: Optional[dict],
     include_analysis_tools: bool = True,
+    task: ModelTask | str | None = None,
 ) -> tuple[
     Dict[str, Any],
     str,
@@ -379,8 +382,15 @@ def _prepare_payload(
 ]:
     """Assemble the payload for the Responses API."""
 
+    selected_task = task or ModelTask.DEFAULT
+    router_estimate = None
     if model is None:
-        model = get_model_for(ModelTask.DEFAULT)
+        base_model = get_model_for(selected_task)
+        chosen_model, router_estimate = route_model_for_messages(messages, default_model=base_model)
+        if chosen_model != base_model:
+            model = get_first_available_model(selected_task, override=chosen_model)
+        else:
+            model = base_model
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
 
@@ -417,6 +427,19 @@ def _prepare_payload(
             payload["tool_choice"] = tool_choice
     if extra:
         payload.update(extra)
+
+    if router_estimate is not None:
+        metadata = dict(payload.get("metadata") or {})
+        router_info = dict(metadata.get("router") or {})
+        router_info.update(
+            {
+                "complexity": router_estimate.complexity.value,
+                "tokens": router_estimate.total_tokens,
+                "hard_words": router_estimate.hard_word_count,
+            }
+        )
+        metadata["router"] = router_info
+        payload["metadata"] = metadata
 
     return payload, model, combined_tools, tool_map
 
@@ -617,6 +640,7 @@ def call_chat_api(
         tool_functions=tool_functions,
         reasoning_effort=reasoning_effort,
         extra=extra,
+        task=task,
     )
 
     messages_list = list(messages)
@@ -708,6 +732,7 @@ def stream_chat_api(
         reasoning_effort=reasoning_effort,
         extra=extra,
         include_analysis_tools=False,
+        task=task,
     )
 
     if tools or tool_functions:
