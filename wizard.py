@@ -1316,10 +1316,9 @@ CONTINENT_COUNTRIES = {
 
 
 class _CompanySectionConfig(TypedDict):
-    """Configuration for a company research button."""
+    """Configuration for an automatically analysed company section."""
 
     key: str
-    button: str
     label: str
     slugs: Sequence[str]
 
@@ -1651,8 +1650,8 @@ def _render_company_research_tools(base_url: str) -> None:
     st.markdown(tr("#### 🔍 Automatische Recherche", "#### 🔍 Automatic research"))
     st.caption(
         tr(
-            "Nutze die Buttons, um wichtige Unterseiten zu analysieren und kompakte Zusammenfassungen zu erhalten.",
-            "Use the buttons to analyse key subpages and receive concise summaries.",
+            "Nutze den Button, um wichtige Unterseiten zu analysieren und kompakte Zusammenfassungen zu erhalten.",
+            "Use the button to analyse key subpages and receive concise summaries.",
         )
     )
     normalised = _normalise_company_base_url(base_url)
@@ -1684,7 +1683,6 @@ def _render_company_research_tools(base_url: str) -> None:
     sections: list[_CompanySectionConfig] = [
         {
             "key": "about",
-            "button": tr("Über-uns-Seite analysieren", "Analyse About page"),
             "label": tr("Über uns", "About the company"),
             "slugs": [
                 "unternehmen",
@@ -1697,7 +1695,6 @@ def _render_company_research_tools(base_url: str) -> None:
         },
         {
             "key": "imprint",
-            "button": tr("Impressum prüfen", "Analyse imprint"),
             "label": tr("Impressum", "Imprint"),
             "slugs": [
                 "impressum",
@@ -1709,7 +1706,6 @@ def _render_company_research_tools(base_url: str) -> None:
         },
         {
             "key": "press",
-            "button": tr("Pressebereich analysieren", "Analyse press page"),
             "label": tr("Presse", "Press"),
             "slugs": [
                 "presse",
@@ -1720,13 +1716,14 @@ def _render_company_research_tools(base_url: str) -> None:
         },
     ]
 
-    cols = st.columns(len(sections))
-    for col, section in zip(cols, sections):
-        button_label = section["button"]
-        section_key = section["key"]
-        if col.button(button_label, key=f"ui.company.page.{section_key}"):
+    fetch_all_label = tr(
+        "Informationen aus dem Web abrufen",
+        "Get Info from Web",
+    )
+    if st.button(fetch_all_label, key="ui.company.page.fetch_all"):
+        for section in sections:
             _load_company_page_section(
-                section_key=section_key,
+                section_key=section["key"],
                 base_url=normalised,
                 slugs=section["slugs"],
                 label=section["label"],
