@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 import streamlit as st
 
+from constants.keys import StateKeys
 from question_logic import ask_followups, CRITICAL_FIELDS
 from llm.client import extract_json
 from llm.gap_analysis import analyze_vacancy
@@ -18,8 +19,8 @@ _RESULT_STATE_KEY = "gap_analysis.result"
 _PROFILE_STATE_KEY = "gap_analysis.profile"
 _FOLLOWUPS_STATE_KEY = "gap_analysis.followups"
 _REPORT_STATE_KEY = "gap_analysis.assistant_report"
-_TEXT_STATE_KEY = "gap_analysis.text"
-_TITLE_STATE_KEY = "gap_analysis.title"
+_TEXT_STATE_KEY = StateKeys.GAP_ANALYSIS_TEXT
+_TITLE_STATE_KEY = StateKeys.GAP_ANALYSIS_TITLE
 
 
 def _resolve_secret(name: str) -> str:
