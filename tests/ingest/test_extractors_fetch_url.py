@@ -37,9 +37,9 @@ def test_fetch_url_handles_redirect(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_get(url: str, timeout: float, headers: dict[str, Any], allow_redirects: bool) -> DummyResponse:
         nonlocal call_count
         call_count += 1
+        assert allow_redirects is False
         if call_count == 1:
-            response = DummyResponse(301, headers={"Location": "/final"})
-            raise requests.HTTPError(response=response)
+            return DummyResponse(301, headers={"Location": "/final"})
         assert url == "https://example.com/final"
         return DummyResponse(200, text="done")
 
@@ -53,10 +53,31 @@ def test_fetch_url_redirect_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Exceeding the redirect limit raises a ``ValueError``."""
 
     def fake_get(url: str, timeout: float, headers: dict[str, Any], allow_redirects: bool) -> DummyResponse:
-        response = DummyResponse(302, headers={"Location": "/loop"})
-        raise requests.HTTPError(response=response)
+        assert allow_redirects is False
+        response = DummyResponse(302, headers={"Location": f"/next-{url.split('/')[-1]}"})
+        return response
 
     monkeypatch.setattr(requests, "get", fake_get)
 
     with pytest.raises(ValueError, match="too many redirects"):
         _fetch_url("https://example.com/start")
+
+
+def test_fetch_url_detects_redirect_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Alternating redirects surface a dedicated error message."""
+
+    calls: list[str] = []
+
+    def fake_get(url: str, timeout: float, headers: dict[str, Any], allow_redirects: bool) -> DummyResponse:
+        calls.append(url)
+        assert allow_redirects is False
+        if url.endswith("start"):
+            return DummyResponse(301, headers={"Location": "/second"})
+        return DummyResponse(302, headers={"Location": "/start"})
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    with pytest.raises(ValueError, match="redirect loop detected"):
+        _fetch_url("https://example.com/start")
+
+    assert calls == ["https://example.com/start", "https://example.com/second"]
