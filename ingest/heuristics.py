@@ -578,6 +578,12 @@ def _is_soft_skill(text: str) -> bool:
     return any(keyword in lower for keyword in _SOFT_SKILL_KEYWORDS)
 
 
+def is_soft_skill(text: str) -> bool:
+    """Public helper to detect soft skills based on keyword heuristics."""
+
+    return _is_soft_skill(text)
+
+
 def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
     """Extract required and optional requirement bullet points from ``text``."""
 
