@@ -1337,6 +1337,7 @@ def generate_interview_guide(
     lang: str = "en",
     company_culture: str = "",
     tone: str | None = None,
+    vector_store_id: str | None = None,
     model: str | None = None,
 ) -> InterviewGuide:
     """Create an interview guide via the LLM with a deterministic fallback."""
@@ -1356,6 +1357,13 @@ def generate_interview_guide(
     if model is None:
         model = get_model_for(ModelTask.INTERVIEW_GUIDE)
 
+    store_id = _resolve_vector_store_id(vector_store_id)
+    tools: list[dict[str, Any]] = []
+    tool_choice: str | None = None
+    if store_id:
+        tools = [{"type": "file_search", "vector_store_ids": [store_id]}]
+        tool_choice = "auto"
+
     try:
         messages = _build_interview_guide_prompt(payload)
         schema = InterviewGuide.model_json_schema()
@@ -1366,6 +1374,8 @@ def generate_interview_guide(
             max_tokens=900,
             json_schema={"name": "interviewGuide", "schema": schema},
             task=ModelTask.INTERVIEW_GUIDE,
+            tools=tools or None,
+            tool_choice=tool_choice,
         )
         data = _parse_json_object(_chat_content(response))
         guide = InterviewGuide.model_validate(data).ensure_markdown()

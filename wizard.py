@@ -3675,6 +3675,9 @@ def _generate_interview_guide_content(
 
     responsibilities_text = "\n".join(profile_payload.get("responsibilities", {}).get("items", []))
 
+    raw_vector_store = st.session_state.get("vector_store_id") or VECTOR_STORE_ID
+    vector_store_id = str(raw_vector_store).strip() if raw_vector_store else ""
+
     try:
         guide = generate_interview_guide(
             job_title=profile_payload.get("position", {}).get("job_title", ""),
@@ -3690,6 +3693,7 @@ def _generate_interview_guide_content(
             lang=lang,
             tone=st.session_state.get("tone"),
             num_questions=selected_num,
+            vector_store_id=vector_store_id or None,
         )
         guide_md = guide.final_markdown()
         st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = guide.model_dump()
