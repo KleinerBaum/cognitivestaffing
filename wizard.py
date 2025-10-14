@@ -5096,10 +5096,12 @@ def _chip_multiselect_mapped(
 def _advance_from_onboarding() -> None:
     """Advance the wizard from the onboarding screen."""
 
+    first_incomplete, _ = _update_section_progress()
     _request_scroll_to_top()
     st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
-    target = st.session_state.get(StateKeys.FIRST_INCOMPLETE_SECTION)
-    if not isinstance(target, int):
+    if isinstance(first_incomplete, int):
+        target = first_incomplete
+    else:
         target = COMPANY_STEP_INDEX
     st.session_state[StateKeys.STEP] = target
     st.rerun()

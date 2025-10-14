@@ -201,9 +201,13 @@ def test_onboarding_next_uses_first_incomplete_section(
 
     st.session_state.clear()
     st.session_state[StateKeys.STEP] = 0
-    st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = 4
     st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = True
     st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+
+    def fake_update() -> tuple[int | None, list[int]]:
+        return 4, []
+
+    monkeypatch.setattr("wizard._update_section_progress", fake_update)
 
     reran = False
 
