@@ -39,6 +39,7 @@
   --surface-hover: rgba(46, 50, 50, 0.08);
   --surface-press: rgba(71, 75, 75, 0.12);
   --surface-critical: rgba(214, 90, 78, 0.18);
+  --control-surface: rgba(46, 50, 50, 0.06);
 
   --border-subtle: rgba(46, 50, 50, 0.14);
   --border-strong: rgba(46, 50, 50, 0.22);
@@ -186,8 +187,8 @@ a:hover {
 }
 
 :where(input, textarea, select) {
-  background: var(--surface-3) !important;
-  border: 1px solid var(--border-subtle) !important;
+  background: var(--control-surface) !important;
+  border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
   border-radius: 12px !important;
 }
@@ -197,8 +198,8 @@ a:hover {
 
 .stMultiSelect [data-baseweb="tag"] {
   max-width: 100%;
-  background: var(--surface-accent-soft) !important;
-  border: 1px solid var(--border-subtle) !important;
+  background: var(--control-surface) !important;
+  border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
   border-radius: 999px !important;
   padding: 0.25rem 0.65rem !important;
@@ -240,13 +241,15 @@ div[data-testid="stAlert"] svg {
   border-bottom: none;
 }
 
-.stTextInput > div > div > input,
 .stTextArea textarea,
+[data-baseweb="textarea"],
+[data-baseweb="textarea"] textarea,
 .stSelectbox div[data-baseweb="select"] > div,
 .stMultiselect div[data-baseweb="select"] > div {
-  background: var(--surface-2) !important;
+  background: var(--control-surface) !important;
   border-radius: 12px !important;
-  box-shadow: inset 0 1px 2px rgba(46, 50, 50, 0.05);
+  border: 1px solid var(--border-strong) !important;
+  box-shadow: inset 0 1px 2px rgba(46, 50, 50, 0.08);
 }
 
 .stRadio > div[role="radiogroup"] label,
