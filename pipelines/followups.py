@@ -1,0 +1,40 @@
+"""Follow-up question generation pipeline."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from config import ModelTask
+from openai_utils import call_chat_api
+from schemas import FOLLOW_UPS_SCHEMA
+
+__all__ = ["generate_followups"]
+
+
+def generate_followups(
+    vacancy_json: dict,
+    lang: str,
+    vector_store_id: str | None = None,
+) -> Any:
+    """Generate prioritised follow-up questions for a vacancy profile."""
+
+    system = {
+        "role": "system",
+        "content": "Erzeuge präzise Nachfragen, minimal, nach Priorität.",
+    }
+    user = {
+        "role": "user",
+        "content": f"Sprache: {lang}\nAktuelles Profil:\n{vacancy_json}",
+    }
+    tools: list[dict[str, Any]] = []
+    if vector_store_id:
+        tools.append({"type": "file_search", "vector_store_ids": [vector_store_id]})
+
+    return call_chat_api(
+        messages=[system, user],
+        model="gpt-5-nano",
+        temperature=0.2,
+        tools=tools or None,
+        json_schema={"name": "FollowUpQuestions", "schema": FOLLOW_UPS_SCHEMA},
+        task=ModelTask.FOLLOW_UP_QUESTIONS,
+    )

@@ -81,9 +81,7 @@ RHEINBAHN_BOILERPLATE_FIXTURE = """
 </html>
 """
 
-RHEINBAHN_FIXTURE_PATH = (
-    PROJECT_ROOT / "tests" / "fixtures" / "html" / "rheinbahn_produktentwickler.html"
-)
+RHEINBAHN_FIXTURE_PATH = PROJECT_ROOT / "tests" / "fixtures" / "html" / "rheinbahn_produktentwickler.html"
 
 
 def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -101,12 +99,15 @@ def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+    def fake_get(
+        _url: str,
+        timeout: float,
+        headers: dict | None = None,
+        **_kwargs: object,
+    ) -> Resp:
         return Resp()
 
-    fake_traf = types.SimpleNamespace(
-        extract=lambda *_args, **_kwargs: "Recovered fallback text"
-    )
+    fake_traf = types.SimpleNamespace(extract=lambda *_args, **_kwargs: "Recovered fallback text")
 
     monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
     monkeypatch.setitem(sys.modules, "trafilatura", fake_traf)
@@ -122,7 +123,10 @@ def test_extract_text_from_url_http_error(monkeypatch: pytest.MonkeyPatch) -> No
     from requests import Response
 
     def fake_get(
-        _url: str, timeout: float, headers: dict | None = None
+        _url: str,
+        timeout: float,
+        headers: dict | None = None,
+        **_kwargs: object,
     ) -> Response:  # pragma: no cover - stub
         resp = Response()
         resp.status_code = 404
@@ -152,7 +156,12 @@ def test_stepstone_like_content_extraction(
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+    def fake_get(
+        _url: str,
+        timeout: float,
+        headers: dict | None = None,
+        **_kwargs: object,
+    ) -> Resp:
         return Resp()
 
     monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
@@ -177,7 +186,12 @@ def test_rheinbahn_boilerplate_triggers_trafilatura_fallback(
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+    def fake_get(
+        _url: str,
+        timeout: float,
+        headers: dict | None = None,
+        **_kwargs: object,
+    ) -> Resp:
         return Resp()
 
     recovered = (
@@ -192,9 +206,7 @@ def test_rheinbahn_boilerplate_triggers_trafilatura_fallback(
     )
     monkeypatch.setitem(sys.modules, "trafilatura", fake_traf)
 
-    doc = extract_text_from_url(
-        "https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler-boilerplate"
-    )
+    doc = extract_text_from_url("https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler-boilerplate")
 
     assert "Produktentwickler Digitalisierung" in doc.text
     assert "Darauf kannst du dich freuen" in doc.text
@@ -211,15 +223,18 @@ def test_rheinbahn_content_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(_url: str, timeout: float, headers: dict | None = None) -> Resp:
+    def fake_get(
+        _url: str,
+        timeout: float,
+        headers: dict | None = None,
+        **_kwargs: object,
+    ) -> Resp:
         return Resp()
 
     monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
     monkeypatch.setitem(sys.modules, "trafilatura", None)
 
-    doc = extract_text_from_url(
-        "https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler"
-    )
+    doc = extract_text_from_url("https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler")
 
     text = doc.text
     assert "Darauf kannst du dich freuen" in text

@@ -23,6 +23,8 @@ _TASK_LABELS: dict[str, tuple[str, str]] = {
     ModelTask.ONBOARDING_SUGGESTION.value: ("Onboarding", "Onboarding"),
     ModelTask.JOB_AD.value: ("Stellenanzeige", "Job ad"),
     ModelTask.INTERVIEW_GUIDE.value: ("Interview-Guide", "Interview guide"),
+    ModelTask.PROFILE_SUMMARY.value: ("Profil-Zusammenfassung", "Profile summary"),
+    ModelTask.CANDIDATE_MATCHING.value: ("Kandidat:innen-Matching", "Candidate matching"),
     ModelTask.DOCUMENT_REFINEMENT.value: ("Dokument-Feinschliff", "Document refinement"),
     ModelTask.EXPLANATION.value: ("Erklärungen", "Explanations"),
     "salary_estimate": ("Gehaltsprognose", "Salary estimate"),
