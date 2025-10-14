@@ -20,7 +20,7 @@ def test_render_followup_updates_state(monkeypatch) -> None:
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
-    def fake_input(label, key=None):
+    def fake_input(label, key=None, **kwargs):
         st.session_state[key] = "100k"
         return "100k"
 
@@ -45,7 +45,7 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
     def fake_markdown(text, **_):
         seen_markdown.append(text)
 
-    def fake_input(label, key=None):
+    def fake_input(label, key=None, **kwargs):
         seen["label"] = label
         st.session_state[key] = "100k"
         return "100k"
@@ -56,7 +56,7 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
     monkeypatch.setattr(st, "button", lambda *a, **k: False)
     _render_followup_question(q, data)
     assert any(m.lstrip().startswith(":red[*]") for m in seen_markdown)
-    assert seen["label"] == ""
+    assert seen["label"] == "Salary?"
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert data["meta"]["followups_answered"] == ["salary"]
 
