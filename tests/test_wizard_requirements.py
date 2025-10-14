@@ -261,12 +261,12 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
         _step_requirements()
 
     data = st.session_state[StateKeys.PROFILE]
-    assert data["responsibilities"]["items"] == [
-        "Updated KPI ownership"
-    ], "Sanitized responsibilities should persist in the profile"
-    assert (
-        st.session_state[responsibilities_seed_key] == "Updated KPI ownership"
-    ), "Seed value should track the stored responsibilities"
+    assert data["responsibilities"]["items"] == ["Updated KPI ownership"], (
+        "Sanitized responsibilities should persist in the profile"
+    )
+    assert st.session_state[responsibilities_seed_key] == "Updated KPI ownership", (
+        "Seed value should track the stored responsibilities"
+    )
     assert call_history[0]["value_provided"] is True
     assert call_history[0]["value_argument"] == "Initial scope alignment"
 
@@ -275,12 +275,12 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
 
     assert call_history[1]["value_provided"] is False
     assert call_history[1]["result"] == "- Updated KPI ownership"
-    assert (
-        st.session_state[responsibilities_key] == "- Updated KPI ownership"
-    ), "Raw session state should keep the user edit between renders"
-    assert (
-        st.session_state[responsibilities_seed_key] == "Updated KPI ownership"
-    ), "Seed value should remain the sanitized join"
+    assert st.session_state[responsibilities_key] == "- Updated KPI ownership", (
+        "Raw session state should keep the user edit between renders"
+    )
+    assert st.session_state[responsibilities_seed_key] == "Updated KPI ownership", (
+        "Seed value should remain the sanitized join"
+    )
 
 
 def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -336,3 +336,56 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
     assert requirements["hard_skills_required"] == ["Machine Learning"]
     assert st.session_state[StateKeys.SKILL_BUCKETS]["must"] == ["Machine Learning"]
     assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
+
+
+def test_skill_board_rehydrates_legacy_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Legacy board payloads are normalised into current structure."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {
+        "target_must": ["Python ⟮Auto⟯", "Python ⟮Auto⟯", "Teamwork ⟮KI⟯"],
+        "target_nice": ["Storytelling ⟮KI⟯"],
+        "source_auto": ["Communication ⟮ESCO⟯"],
+    }
+    st.session_state[StateKeys.SKILL_BOARD_META] = {
+        "Python ⟮Auto⟯": {"label": "Python", "category": "hard", "source": "auto"},
+        "Teamwork ⟮KI⟯": {"label": "Teamwork", "category": "soft", "source": "ai"},
+        "Storytelling ⟮KI⟯": {"label": "Storytelling", "category": "soft", "source": "ai"},
+        "Communication ⟮ESCO⟯": {
+            "label": "Communication",
+            "category": "soft",
+            "source": "esco",
+        },
+    }
+
+    requirements: dict[str, list[str]] = {
+        "hard_skills_required": [],
+        "hard_skills_optional": [],
+        "soft_skills_required": [],
+        "soft_skills_optional": [],
+    }
+
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "header", lambda *_, **__: None)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.sort_items", lambda items, **_: items)
+
+    _render_skill_board(
+        requirements,
+        llm_suggestions={},
+        esco_skills=["Communication"],
+        missing_esco_skills=["Communication"],
+    )
+
+    assert requirements["hard_skills_required"] == ["Python"]
+    assert requirements["soft_skills_required"] == ["Teamwork"]
+    assert requirements["soft_skills_optional"] == ["Storytelling"]
+    assert st.session_state[StateKeys.SKILL_BUCKETS] == {
+        "must": ["Python", "Teamwork"],
+        "nice": ["Storytelling"],
+    }
+    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
+    assert st.session_state[StateKeys.SKILL_BOARD_STATE]["source_suggestions"] == ["Communication ⟮ESCO⟯"]
