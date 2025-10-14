@@ -454,18 +454,79 @@ def _prepare_payload(
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
 
-    combined_tools = [dict(tool) for tool in (tools or [])]
+    def _normalise_tool_spec(spec: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+        """Return a copy of ``spec`` normalised to the Responses API schema."""
+
+        prepared = dict(spec)
+        function_payload = prepared.get("function")
+        tool_type = prepared.get("type")
+        has_function_payload = isinstance(function_payload, Mapping)
+        has_parameters = "parameters" in prepared or (
+            has_function_payload and "parameters" in function_payload
+        )
+        is_function_tool = bool(
+            tool_type == "function" or has_function_payload or has_parameters
+        )
+
+        if not is_function_tool:
+            prepared.pop("name", None)
+            return prepared, False
+
+        if has_function_payload:
+            function_dict = dict(function_payload)
+        else:
+            function_dict = {}
+
+        for field in ("name", "description", "parameters", "strict"):
+            if field in prepared and field not in function_dict:
+                function_dict[field] = prepared[field]
+            prepared.pop(field, None)
+
+        prepared["type"] = "function"
+        prepared["function"] = function_dict
+        name = function_dict.get("name")
+        return prepared, bool(name)
+
+    raw_tools = [dict(tool) for tool in (tools or [])]
     tool_map = dict(tool_functions or {})
     if include_analysis_tools:
         from core import analysis_tools
 
         base_tools, base_funcs = analysis_tools.build_analysis_tools()
-        combined_tools.extend(dict(tool) for tool in base_tools)
+        raw_tools.extend(dict(tool) for tool in base_tools)
         tool_map = {**base_funcs, **tool_map}
 
-    for tool in combined_tools:
-        if "name" not in tool and tool.get("type"):
-            tool["name"] = str(tool.get("type"))
+    converted_tools: list[dict[str, Any]] = []
+    missing_name_indices: list[int] = []
+    used_names: set[str] = set()
+
+    for index, tool in enumerate(raw_tools):
+        converted, has_name = _normalise_tool_spec(tool)
+        if converted.get("type") == "function":
+            function_block = converted.get("function", {})
+            name_value = function_block.get("name")
+            if isinstance(name_value, str) and name_value.strip():
+                used_names.add(name_value)
+            elif not has_name:
+                missing_name_indices.append(index)
+        converted_tools.append(converted)
+
+    available_names = [name for name in tool_map if name not in used_names]
+    for index in missing_name_indices:
+        function_block = converted_tools[index].setdefault("function", {})
+        fallback_name: str | None = None
+        if available_names:
+            fallback_name = available_names.pop(0)
+        elif function_block.get("parameters"):
+            fallback_name = f"function_{index}"
+
+        if not fallback_name:
+            raise ValueError("Function tools must define a 'name'.")
+
+        function_block["name"] = fallback_name
+        used_names.add(fallback_name)
+
+    combined_tools = converted_tools
 
     payload: Dict[str, Any] = {"model": model, "input": messages}
     if temperature is not None and model_supports_temperature(model):

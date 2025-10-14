@@ -137,8 +137,8 @@ def test_fallback_salary_includes_delta_details(monkeypatch) -> None:
 def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_build_extraction_tool(*_args: object, **_kwargs: object) -> dict[str, str]:
-        return {"name": "tool"}
+    def fake_build_extraction_tool(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+        return [{"type": "function", "function": {"name": "tool", "parameters": {}}}]
 
     class FakeResult:
         def __init__(self) -> None:
