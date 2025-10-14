@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- fix: pin `streamlit-sortables` to 0.3.1 to restore deployment compatibility (EN)
+  - Fix: setzt `streamlit-sortables` auf Version 0.3.1 fest, um die Bereitstellung wiederherzustellen (DE)
 - docs: document the content cost router, GPT-4/GPT-3.5 fallback flow, and model override toggle (EN/DE)
   - Dokumentation: beschreibt den Content-Kostenrouter, den GPT-4/GPT-3.5-Fallback-Flow und den Modell-Override-Umschalter (DE/EN)
 - fix: default the application language to English on first load
