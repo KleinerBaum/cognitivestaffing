@@ -45,6 +45,7 @@ from ingest.types import ContentBlock, StructuredDocument, build_plain_text_docu
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from utils.url_utils import is_supported_url
+from config import VECTOR_STORE_ID
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
@@ -3534,6 +3535,9 @@ def _generate_job_ad_content(
     if not selected_fields or not target_value:
         return False
 
+    raw_vector_store = st.session_state.get("vector_store_id") or VECTOR_STORE_ID
+    vector_store_id = str(raw_vector_store).strip() if raw_vector_store else ""
+
     def _generate_sync() -> str:
         return generate_job_ad(
             filtered_profile,
@@ -3544,24 +3548,14 @@ def _generate_job_ad_content(
             tone=st.session_state.get(UIKeys.TONE_SELECT),
             lang=lang,
             selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
+            vector_store_id=vector_store_id or None,
         )
 
     job_ad_md = ""
     placeholder = st.empty()
     spinner_label = tr("Anzeige wird generiert…", "Generating job ad…")
 
-    try:
-        stream, fallback_doc = stream_job_ad(
-            filtered_profile,
-            list(selected_fields),
-            target_audience=target_value,
-            manual_sections=list(manual_entries),
-            style_reference=style_reference,
-            tone=st.session_state.get(UIKeys.TONE_SELECT),
-            lang=lang,
-            selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
-        )
-    except Exception:
+    if vector_store_id:
         try:
             job_ad_md = _generate_sync()
             placeholder.markdown(job_ad_md)
@@ -3576,45 +3570,71 @@ def _generate_job_ad_content(
                 )
             return False
     else:
-        chunks: list[str] = []
         try:
-            with st.spinner(spinner_label):
-                for chunk in stream:
-                    if not chunk:
-                        continue
-                    chunks.append(chunk)
-                    placeholder.markdown("".join(chunks))
-        except Exception as exc:  # pragma: no cover - network/SDK issues
-            if show_error:
-                st.error(
-                    tr(
-                        "Job Ad Streaming fehlgeschlagen",
-                        "Job ad streaming failed",
-                    )
-                    + f": {exc}"
-                )
+            stream, fallback_doc = stream_job_ad(
+                filtered_profile,
+                list(selected_fields),
+                target_audience=target_value,
+                manual_sections=list(manual_entries),
+                style_reference=style_reference,
+                tone=st.session_state.get(UIKeys.TONE_SELECT),
+                lang=lang,
+                selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
+            )
+        except Exception:
             try:
                 job_ad_md = _generate_sync()
                 placeholder.markdown(job_ad_md)
-            except Exception as sync_exc:  # pragma: no cover - error path
+            except Exception as exc:  # pragma: no cover - error path
                 if show_error:
                     st.error(
                         tr(
                             "Job Ad Generierung fehlgeschlagen",
                             "Job ad generation failed",
                         )
-                        + f": {sync_exc}"
+                        + f": {exc}"
                     )
                 return False
         else:
+            chunks: list[str] = []
             try:
-                result = stream.result
-                job_ad_md = (result.content or stream.text or "").strip()
-            except RuntimeError:
-                job_ad_md = (stream.text or "").strip()
-            if not job_ad_md:
-                job_ad_md = fallback_doc
-            placeholder.markdown(job_ad_md)
+                with st.spinner(spinner_label):
+                    for chunk in stream:
+                        if not chunk:
+                            continue
+                        chunks.append(chunk)
+                        placeholder.markdown("".join(chunks))
+            except Exception as exc:  # pragma: no cover - network/SDK issues
+                if show_error:
+                    st.error(
+                        tr(
+                            "Job Ad Streaming fehlgeschlagen",
+                            "Job ad streaming failed",
+                        )
+                        + f": {exc}"
+                    )
+                try:
+                    job_ad_md = _generate_sync()
+                    placeholder.markdown(job_ad_md)
+                except Exception as sync_exc:  # pragma: no cover - error path
+                    if show_error:
+                        st.error(
+                            tr(
+                                "Job Ad Generierung fehlgeschlagen",
+                                "Job ad generation failed",
+                            )
+                            + f": {sync_exc}"
+                        )
+                    return False
+            else:
+                try:
+                    result = stream.result
+                    job_ad_md = (result.content or stream.text or "").strip()
+                except RuntimeError:
+                    job_ad_md = (stream.text or "").strip()
+                if not job_ad_md:
+                    job_ad_md = fallback_doc
+                placeholder.markdown(job_ad_md)
 
     st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
     findings = scan_bias_language(job_ad_md, lang)
