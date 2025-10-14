@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- docs: document the content cost router, GPT-4/GPT-3.5 fallback flow, and model override toggle (EN/DE)
+  - Dokumentation: beschreibt den Content-Kostenrouter, den GPT-4/GPT-3.5-Fallback-Flow und den Modell-Override-Umschalter (DE/EN)
 - fix: default the application language to English on first load
 - fix: keep the wizard next button enabled and surface a hint for missing required fields
 - fix: darken light-mode hero background image for stronger visual contrast
