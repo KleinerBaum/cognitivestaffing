@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import sys
 from pathlib import Path
+from typing import Sequence, cast
 
 import requests
 
@@ -15,12 +16,15 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from constants.keys import StateKeys
 from ingest.types import build_plain_text_document
 from wizard import (
+    _CompanySectionConfig,
     _candidate_company_page_urls,
+    _bulk_fetch_company_sections,
     _enrich_company_profile_from_about,
     _extract_company_size,
     _fetch_company_page,
     _load_company_page_section,
     _normalise_company_base_url,
+    _store_company_page_section,
 )
 
 
@@ -29,10 +33,7 @@ def test_normalise_company_base_url() -> None:
 
     assert _normalise_company_base_url("https://example.com") == "https://example.com/"
     assert _normalise_company_base_url("www.example.com") == "https://www.example.com/"
-    assert (
-        _normalise_company_base_url("https://example.com/de")
-        == "https://example.com/de/"
-    )
+    assert _normalise_company_base_url("https://example.com/de") == "https://example.com/de/"
     assert _normalise_company_base_url("") is None
 
 
@@ -111,6 +112,41 @@ def test_load_company_page_section_updates_state(monkeypatch) -> None:
     assert stored["label"] == "Über uns"
 
 
+def test_store_company_page_section_enriches_about(monkeypatch) -> None:
+    """Storing the about section should trigger enrichment once."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
+    st.session_state[StateKeys.PROFILE] = {"company": {}}
+
+    monkeypatch.setattr(
+        "wizard._cached_summarize_company_page",
+        lambda *_, **__: "Kurzfassung",
+    )
+
+    calls: list[dict[str, str | None]] = []
+
+    def fake_enrich(*_, **kwargs) -> None:
+        calls.append(kwargs)
+
+    monkeypatch.setattr("wizard._enrich_company_profile_from_about", fake_enrich)
+
+    section = cast(
+        _CompanySectionConfig,
+        {"key": "about", "label": "Über uns", "slugs": ["unternehmen"]},
+    )
+    _store_company_page_section(
+        section=section,
+        url="https://example.com/unternehmen",
+        text="Wir beschäftigen 120 Mitarbeitende.",
+        lang="de",
+    )
+
+    stored = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]["about"]
+    assert stored["summary"] == "Kurzfassung"
+    assert calls and calls[0]["section_label"] == "Über uns"
+
+
 def test_extract_company_size_detects_employee_count() -> None:
     """The size extractor should capture employee count statements."""
 
@@ -140,10 +176,7 @@ def test_enrich_company_profile_from_about_updates_missing_fields(monkeypatch) -
         },
     )
 
-    about_text = (
-        "Die Rheinbahn AG bewegt Düsseldorf und beschäftigt rund 3.370 Menschen,"
-        " die täglich unterwegs sind."
-    )
+    about_text = "Die Rheinbahn AG bewegt Düsseldorf und beschäftigt rund 3.370 Menschen, die täglich unterwegs sind."
     _enrich_company_profile_from_about(about_text)
 
     company = st.session_state[StateKeys.PROFILE]["company"]
@@ -186,10 +219,38 @@ def test_enrich_company_profile_respects_existing_values(monkeypatch) -> None:
     assert company["hq_location"] == "Berlin"
     assert company["mission"] == "Bestehende Mission"
     assert company["size"] == "200 Mitarbeitende"
-    assert (
-        StateKeys.PROFILE_METADATA not in st.session_state
-        or not st.session_state[StateKeys.PROFILE_METADATA].get("rules")
+    assert StateKeys.PROFILE_METADATA not in st.session_state or not st.session_state[StateKeys.PROFILE_METADATA].get(
+        "rules"
     )
+
+
+def test_bulk_fetch_company_sections_returns_success_and_miss(monkeypatch) -> None:
+    """Bulk fetching should separate successes from misses."""
+
+    def fake_fetch(base_url: str, slugs: Sequence[str]) -> tuple[str, str] | None:
+        if "unternehmen" in slugs:
+            return (f"{base_url}unternehmen", "Über uns")
+        return None
+
+    monkeypatch.setattr("wizard._fetch_company_page", fake_fetch)
+
+    sections = [
+        cast(
+            _CompanySectionConfig,
+            {"key": "about", "label": "Über uns", "slugs": ["unternehmen"]},
+        ),
+        cast(
+            _CompanySectionConfig,
+            {"key": "press", "label": "Presse", "slugs": ["presse"]},
+        ),
+    ]
+
+    successes, misses, errors = _bulk_fetch_company_sections("https://example.com/", sections)
+
+    assert len(successes) == 1
+    assert successes[0][0]["key"] == "about"
+    assert len(misses) == 1 and misses[0]["key"] == "press"
+    assert errors == []
 
 
 def test_fetch_url_follows_long_redirect_chain(monkeypatch) -> None:
@@ -236,9 +297,7 @@ def test_company_page_helpers_use_cache(monkeypatch) -> None:
     st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
     st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
     st.session_state[StateKeys.COMPANY_PAGE_TEXT_CACHE] = {}
-    st.session_state[StateKeys.PROFILE] = {
-        "company": {"name": "", "hq_location": "", "mission": "", "size": ""}
-    }
+    st.session_state[StateKeys.PROFILE] = {"company": {"name": "", "hq_location": "", "mission": "", "size": ""}}
     st.session_state["lang"] = "de"
 
     counters = {"fetch": 0, "summary": 0, "extract": 0}
