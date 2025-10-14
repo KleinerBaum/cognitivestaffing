@@ -5993,12 +5993,12 @@ def _step_requirements():
             .requirement-panel {
                 border-radius: 0.9rem;
                 border: 1px solid rgba(148, 163, 184, 0.35);
-                background: rgba(248, 250, 252, 0.85);
+                background: #f1f5f9;
                 padding: 1.25rem 1.4rem;
                 margin-bottom: 1.2rem;
             }
             .requirement-panel--insights {
-                background: rgba(59, 130, 246, 0.06);
+                background: #f1f5f9;
                 border: 1px solid rgba(59, 130, 246, 0.22);
                 box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
             }
@@ -6028,7 +6028,7 @@ def _step_requirements():
                 padding: 0.75rem 0.85rem;
                 border-radius: 0.75rem;
                 border: 1px dashed rgba(14, 165, 233, 0.6);
-                background: rgba(14, 165, 233, 0.08);
+                background: #f1f5f9;
             }
             .ai-suggestion-box__title {
                 font-weight: 600;
@@ -6045,7 +6045,7 @@ def _step_requirements():
             .skill-suggestion-table [data-testid="stDataFrame"] {
                 border-radius: 0.75rem;
                 border: 1px solid rgba(148, 163, 184, 0.35);
-                background: rgba(15, 23, 42, 0.08);
+                background: #f1f5f9;
                 overflow: hidden;
             }
             .skill-suggestion-table table {
