@@ -634,9 +634,11 @@ _BENEFIT_FOCUS_PRESETS: dict[str, list[str]] = {
 SkillCategory = Literal["hard", "soft"]
 SkillSource = Literal["auto", "ai", "esco"]
 SkillContainerType = Literal[
+    "source_extracted",
+    "source_ai",
+    "source_esco",
     "target_must",
     "target_nice",
-    "source_suggestions",
 ]
 
 
@@ -649,9 +651,11 @@ class SkillBubbleMeta(TypedDict):
 
 
 _SKILL_CONTAINER_ORDER: tuple[SkillContainerType, ...] = (
+    "source_extracted",
+    "source_ai",
+    "source_esco",
     "target_must",
     "target_nice",
-    "source_suggestions",
 )
 
 _SKILL_BOARD_STYLE = """
@@ -668,7 +672,7 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-container {
-    flex: 1 1 clamp(260px, 32%, 360px);
+    flex: 1 1 clamp(260px, 48%, 520px);
     background: rgba(255, 255, 255, 0.92);
     border-radius: 1.1rem;
     border: 1px solid rgba(148, 163, 184, 0.28);
@@ -689,17 +693,41 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-component > div:nth-child(1) {
+    flex: 1 1 100%;
+    order: 0;
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.92), rgba(56, 189, 248, 0.85));
+    color: #f8fafc;
+}
+
+.sortable-component > div:nth-child(2),
+.sortable-component > div:nth-child(3) {
+    flex: 1 1 calc(50% - 0.75rem);
+    order: 1;
+}
+
+.sortable-component > div:nth-child(2) {
     background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(14, 165, 233, 0.9));
     color: #f8fafc;
 }
 
-.sortable-component > div:nth-child(2) {
+.sortable-component > div:nth-child(3) {
+    background: linear-gradient(135deg, rgba(2, 132, 199, 0.92), rgba(6, 182, 212, 0.85));
+    color: #f8fafc;
+}
+
+.sortable-component > div:nth-child(4),
+.sortable-component > div:nth-child(5) {
+    flex: 1 1 calc(50% - 0.75rem);
+    order: 2;
+}
+
+.sortable-component > div:nth-child(4) {
     background: linear-gradient(135deg, rgba(30, 64, 175, 0.95), rgba(59, 130, 246, 0.9));
     color: #f8fafc;
 }
 
-.sortable-component > div:nth-child(3) {
-    background: linear-gradient(135deg, rgba(14, 116, 144, 0.9), rgba(56, 189, 248, 0.85));
+.sortable-component > div:nth-child(5) {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(147, 197, 253, 0.85));
     color: #f8fafc;
 }
 
@@ -722,7 +750,9 @@ _SKILL_BOARD_STYLE = """
 
 .sortable-component > div:nth-child(1) .sortable-container-header::after,
 .sortable-component > div:nth-child(2) .sortable-container-header::after,
-.sortable-component > div:nth-child(3) .sortable-container-header::after {
+.sortable-component > div:nth-child(3) .sortable-container-header::after,
+.sortable-component > div:nth-child(4) .sortable-container-header::after,
+.sortable-component > div:nth-child(5) .sortable-container-header::after {
     background: rgba(241, 245, 249, 0.45);
 }
 
@@ -735,7 +765,9 @@ _SKILL_BOARD_STYLE = """
 
 .sortable-component > div:nth-child(1) .sortable-container-body,
 .sortable-component > div:nth-child(2) .sortable-container-body,
-.sortable-component > div:nth-child(3) .sortable-container-body {
+.sortable-component > div:nth-child(3) .sortable-container-body,
+.sortable-component > div:nth-child(4) .sortable-container-body,
+.sortable-component > div:nth-child(5) .sortable-container-body {
     padding-bottom: 0.25rem;
 }
 
@@ -838,13 +870,27 @@ def _skill_board_labels(lang: str | None = None) -> dict[SkillContainerType, str
 
     lang_code = lang or st.session_state.get("lang", "de")
     return {
+        "source_extracted": tr(
+            "Extrahierte Anforderungen",
+            "Extracted requirements",
+            lang=lang_code,
+        ),
+        "source_ai": tr(
+            "KI-Vorschläge",
+            "AI suggestions",
+            lang=lang_code,
+        ),
+        "source_esco": tr(
+            "ESCO-Essentials",
+            "ESCO essentials",
+            lang=lang_code,
+        ),
         "target_must": tr(
             "Muss-Anforderungen",
             "Must-have requirements",
             lang=lang_code,
         ),
         "target_nice": tr("Nice-to-have", "Nice-to-have", lang=lang_code),
-        "source_suggestions": tr("KI-Vorschläge", "AI suggestions", lang=lang_code),
     }
 
 
@@ -911,10 +957,11 @@ def _render_skill_board(
         legacy_mapping: dict[str, SkillContainerType] = {
             "target_must": "target_must",
             "target_nice": "target_nice",
-            "source_ai": "source_suggestions",
-            "source_auto": "source_suggestions",
-            "source_esco": "source_suggestions",
-            "source_suggestions": "source_suggestions",
+            "source_auto": "source_extracted",
+            "source_extracted": "source_extracted",
+            "source_ai": "source_ai",
+            "source_esco": "source_esco",
+            "source_suggestions": "source_ai",
         }
         for raw_container, raw_items in stored_state.items():
             target_container = legacy_mapping.get(str(raw_container))
@@ -965,6 +1012,26 @@ def _render_skill_board(
                     "source": "auto",
                 }
         board_state[container] = cleaned_items
+
+    source_for_container: dict[SkillSource, SkillContainerType] = {
+        "auto": "source_extracted",
+        "ai": "source_ai",
+        "esco": "source_esco",
+    }
+
+    for container in ("source_extracted", "source_ai", "source_esco"):
+        items = list(board_state.get(container, []))
+        board_state[container] = []
+        for item in items:
+            info = meta.get(item)
+            if not info:
+                target_bucket = container
+            else:
+                target_bucket = source_for_container.get(info["source"], "source_extracted")
+            if target_bucket not in board_state:
+                board_state[target_bucket] = []
+            if item not in board_state[target_bucket]:
+                board_state[target_bucket].append(item)
 
     def _is_present(item: str) -> bool:
         return any(item in bucket for bucket in board_state.values())
@@ -1053,6 +1120,43 @@ def _render_skill_board(
             )
         _move_to_container(display, "target_nice")
 
+    extracted_field_map: tuple[tuple[str, SkillCategory], ...] = (
+        ("hard_skills_required", "hard"),
+        ("soft_skills_required", "soft"),
+        ("hard_skills_optional", "hard"),
+        ("soft_skills_optional", "soft"),
+        ("tools_and_technologies", "hard"),
+        ("languages_required", "hard"),
+        ("languages_optional", "hard"),
+        ("certificates", "hard"),
+        ("certifications", "hard"),
+    )
+
+    for field_name, category in extracted_field_map:
+        raw_values = requirements.get(field_name, []) or []
+        if not isinstance(raw_values, Collection):
+            continue
+        for raw_value in raw_values:
+            if not isinstance(raw_value, str):
+                continue
+            cleaned = raw_value.strip()
+            if not cleaned:
+                continue
+            display = _find_existing_display(
+                meta,
+                label=cleaned,
+                category=category,
+                source="auto",
+            )
+            if display is None:
+                display = _register_skill_bubble(
+                    meta,
+                    cleaned,
+                    category=category,
+                    source="auto",
+                )
+            _add_if_absent(display, "source_extracted")
+
     if llm_suggestions:
         for bucket_key, grouped_values in llm_suggestions.items():
             if bucket_key not in {"hard_skills", "soft_skills"}:
@@ -1075,7 +1179,7 @@ def _render_skill_board(
                             category=category,
                             source="ai",
                         )
-                    _add_if_absent(display, "source_suggestions")
+                    _add_if_absent(display, "source_ai")
 
     for cleaned in esco_candidates:
         category: SkillCategory = _infer_skill_category(cleaned)
@@ -1101,7 +1205,7 @@ def _render_skill_board(
                 category=category,
                 source="esco",
             )
-        _add_if_absent(display, "source_suggestions")
+        _add_if_absent(display, "source_esco")
 
     st.header(tr("Skill-Board", "Skill board", lang=lang_code))
     st.subheader(
@@ -1199,8 +1303,8 @@ def _render_skill_board(
 
     st.caption(
         tr(
-            "Ziehe Skills aus „KI-/ESCO-Vorschläge“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
-            "Drag skills from “AI/ESCO suggestions” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            "Ziehe Skills aus „Extrahierte Anforderungen“, „KI-Vorschläge“ oder „ESCO-Essentials“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
+            "Drag skills from “Extracted requirements”, “AI suggestions”, or “ESCO essentials” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
             lang=lang_code,
         )
     )

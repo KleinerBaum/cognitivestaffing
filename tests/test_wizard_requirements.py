@@ -6,7 +6,7 @@ import pytest
 import streamlit as st
 
 from constants.keys import StateKeys
-from wizard import _render_skill_board, _step_requirements
+from wizard import _render_skill_board, _skill_board_labels, _step_requirements
 
 
 class StopWizard(RuntimeError):
@@ -312,13 +312,17 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(st, "container", lambda: DummyContainer())
 
+    labels = _skill_board_labels("de")
+    must_header = labels["target_must"]
+    esco_header = labels["source_esco"]
+
     def fake_sort_items(items, **_kwargs):
         updated = []
         for container in items:
             header = container.get("header")
-            if isinstance(header, str) and ("Muss" in header or "Must" in header):
+            if isinstance(header, str) and header == must_header:
                 updated.append({"header": header, "items": ["Machine Learning ⟮ESCO⟯"]})
-            elif isinstance(header, str) and ("Vorsch" in header or "suggest" in header.lower()):
+            elif isinstance(header, str) and header == esco_header:
                 updated.append({"header": header, "items": []})
             else:
                 updated.append(container)
@@ -388,4 +392,48 @@ def test_skill_board_rehydrates_legacy_state(monkeypatch: pytest.MonkeyPatch) ->
         "nice": ["Storytelling"],
     }
     assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
-    assert st.session_state[StateKeys.SKILL_BOARD_STATE]["source_suggestions"] == ["Communication ⟮ESCO⟯"]
+    assert st.session_state[StateKeys.SKILL_BOARD_STATE]["source_esco"] == ["Communication ⟮ESCO⟯"]
+
+
+def test_skill_board_collects_extracted_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aggregated extracted fields land in the dedicated source container."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
+    st.session_state[StateKeys.SKILL_BOARD_META] = {}
+
+    requirements: dict[str, list[str]] = {
+        "hard_skills_required": ["Python"],
+        "hard_skills_optional": [],
+        "soft_skills_required": [],
+        "soft_skills_optional": [],
+        "tools_and_technologies": ["Figma", "Notion"],
+        "languages_required": ["English"],
+        "languages_optional": ["German"],
+        "certificates": ["PMP"],
+    }
+
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "header", lambda *_, **__: None)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    monkeypatch.setattr("wizard.sort_items", lambda items, **_: items)
+
+    _render_skill_board(
+        requirements,
+        llm_suggestions={},
+        esco_skills=[],
+        missing_esco_skills=[],
+    )
+
+    board_state = st.session_state[StateKeys.SKILL_BOARD_STATE]
+    extracted_bucket = board_state["source_extracted"]
+
+    assert any(item.startswith("Figma") for item in extracted_bucket)
+    assert any(item.startswith("Notion") for item in extracted_bucket)
+    assert any(item.startswith("English") for item in extracted_bucket)
+    assert any(item.startswith("German") for item in extracted_bucket)
+    assert any(item.startswith("PMP") for item in extracted_bucket)
