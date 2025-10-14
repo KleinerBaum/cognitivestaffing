@@ -4850,13 +4850,6 @@ def _step_onboarding(schema: dict) -> None:
         ),
         on_change=_queue_extraction_if_ready,
     )
-    st.caption(
-        tr(
-            "Sobald du Text ergänzt oder änderst, startet die Analyse ohne weiteren Klick.",
-            "As soon as you add or change the text, the analysis starts automatically.",
-        )
-    )
-
     _render_prefilled_preview(exclude_prefixes=("requirements.",))
 
     position_mapping: Mapping[str, Any] | None = None
