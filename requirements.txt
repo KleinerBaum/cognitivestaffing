@@ -14,11 +14,13 @@ opentelemetry-exporter-otlp==1.25.0
 
 # NLP & parsing
 beautifulsoup4>=4.12
+bs4>=0.0.2
 chardet>=5.0
 de-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl
 httpx>=0.24
 langdetect>=1.0
 lxml>=4.9
+mammoth>=1.7
 numpy>=1.24,<2.0
 pdf2image>=1.17
 pillow>=10.0
@@ -27,6 +29,7 @@ pymupdf>=1.24
 pypdf>=4.0
 pytesseract>=0.3
 readability-lxml>=0.8.1
+spacy>=3.7,<4.0
 trafilatura>=1.0
 
 # Application utilities
