@@ -1,30 +1,40 @@
+# requirements.txt
+
+# Core dependencies
+streamlit>=1.33
+streamlit-sortables>=0.6.1
+openai>=1.40.0
+configloader>=1.0.1,<2.0
+pydantic[email]>=2.5
+jsonschema>=4.18
 backoff>=2.2
+opentelemetry-api>=1.25.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-exporter-otlp==1.25.0
+
+# NLP & parsing
 beautifulsoup4>=4.12
 chardet>=5.0
-configloader>=5.0
 de-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl
 httpx>=0.24
-jsonschema>=4.0
 langdetect>=1.0
 lxml>=4.9
 numpy>=1.24,<2.0
-openai>=1.40.0
-opentelemetry-api==1.25.0
-opentelemetry-exporter-otlp==1.25.0
-opentelemetry-sdk==1.25.0
 pdf2image>=1.17
 pillow>=10.0
 pycountry>=23.12
-pydantic[email]>=2.5
 pymupdf>=1.24
 pypdf>=4.0
+pytesseract>=0.3
+readability-lxml>=0.8.1
+trafilatura>=1.0
+
+# Application utilities
 python-docx>=0.8.11
 python-dotenv>=1.0
-readability-lxml>=0.8.1
 requests>=2.31
-streamlit>=1.33
-streamlit-sortables>=0.3.1
 tenacity>=8.2
-trafilatura>=1.0
 types-requests
-pytesseract>=0.3
+
+# Additional utilities (if not vendored)
+# User-provided custom instructions
