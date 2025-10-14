@@ -13,6 +13,18 @@
 - **Multi-model routing:** The router sends high-complexity tasks to `gpt-5-mini` and lightweight lookups to `gpt-5-nano`, keeping costs predictable without sacrificing quality.
 - **Deliberate UX:** Wizard steps expose inline help that explains why fields are locked or why suggestions may be missing, a sidebar tracks progress, and branded dark/light themes align with Cognitive Staffing colors.
 
+## Model Routing & Cost Controls / Modellrouting & Kostensteuerung
+
+- **Content cost router / Kostenrouter für Inhalte**  
+  **EN:** Each request runs through a prompt cost router that inspects token length and hard-to-translate compounds before selecting the cheapest suitable GPT-5 tier. Short, simple prompts stay on `gpt-5-nano`, while complex or multilingual payloads automatically escalate to `gpt-5-mini` for higher quality without manual tuning.  
+  **DE:** Jede Anfrage durchläuft einen Kostenrouter, der Tokenlänge und schwer übersetzbare Komposita prüft, bevor das günstigste passende GPT-5-Modell gewählt wird. Kurze, einfache Prompts bleiben auf `gpt-5-nano`, komplexe oder mehrsprachige Eingaben wechseln automatisch auf `gpt-5-mini`, um Qualität ohne manuelles Feintuning sicherzustellen.
+- **Fallback chain (GPT-4/GPT-3.5) / Fallback-Kette (GPT-4/GPT-3.5)**  
+  **EN:** If an API call reports that a GPT-5 model is overloaded or deprecated, the platform marks it as unavailable and retries with `gpt-4o`, then `gpt-3.5-turbo`. This automatic degradation keeps the wizard responsive during outages while still logging which tier delivered the final response.  
+  **DE:** Meldet die API, dass ein GPT-5-Modell überlastet oder abgekündigt ist, markiert die Plattform es als nicht verfügbar und versucht es erneut mit `gpt-4o`, danach mit `gpt-3.5-turbo`. Diese automatische Abstufung hält den Wizard auch bei Störungen reaktionsfähig und protokolliert, welches Modell die endgültige Antwort geliefert hat.
+- **Model override toggle / Modell-Override-Umschalter**  
+  **EN:** Open the sidebar settings and use the **Base model** select box to force a specific tier. Choosing “Auto” clears the override so routing and fallbacks can operate normally; selecting “Force GPT-5 mini” or “Force GPT-5 nano” pins every request to that engine until you switch back.  
+  **DE:** Öffne die Einstellungen in der Seitenleiste und nutze das Auswahlfeld **Basismodell**, um einen bestimmten Modell-Tier zu erzwingen. Mit „Automatisch“ wird der Override aufgehoben, sodass Routing und Fallbacks normal greifen; „GPT-5 mini erzwingen“ bzw. „GPT-5 nano erzwingen“ fixiert jede Anfrage auf diese Engine, bis du wieder zurückschaltest.
+
 ## Architecture at a Glance
 The Streamlit app lives in `app.py` and delegates to the domain modules under `core/`, `wizard.py`, and `components/`. LLM utilities in `llm/` implement a unified `ChatCallResult` wrapper with retry, tool execution, and JSON-mode enforcement. Agents (documented in [AGENTS.md](AGENTS.md)) operate on shared state inside `st.session_state`, enabling features like auto follow-ups, ESCO lookups, and streaming document generation.
 
