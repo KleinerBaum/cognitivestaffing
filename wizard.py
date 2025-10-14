@@ -6555,6 +6555,7 @@ def _step_requirements():
     )
 
     must_col, nice_col = st.columns(2, gap="large")
+    tools_col, language_col = st.columns(2, gap="large")
 
     with requirement_panel(
         icon="🔒",
