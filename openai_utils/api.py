@@ -487,6 +487,36 @@ def _prepare_payload(
         name = function_dict.get("name")
         return prepared, bool(name)
 
+    def _normalise_tool_choice_spec(choice: Any) -> Any:
+        """Translate legacy function ``tool_choice`` payloads to the new schema."""
+
+        if not isinstance(choice, Mapping):
+            return choice
+
+        normalised = dict(choice)
+        if normalised.get("type") != "function":
+            return normalised
+
+        merged_function: dict[str, Any] = {}
+        existing_function = normalised.get("function")
+        if isinstance(existing_function, Mapping):
+            merged_function.update(existing_function)
+
+        sentinel = object()
+        for field in ("name", "arguments", "reasoning"):
+            value = normalised.pop(field, sentinel)
+            if value is sentinel:
+                continue
+            if field not in merged_function:
+                merged_function[field] = value
+
+        if merged_function:
+            normalised["function"] = merged_function
+        else:
+            normalised.pop("function", None)
+
+        return normalised
+
     raw_tools = [dict(tool) for tool in (tools or [])]
     tool_map = dict(tool_functions or {})
     if include_analysis_tools:
@@ -545,7 +575,7 @@ def _prepare_payload(
     if combined_tools:
         payload["tools"] = combined_tools
         if tool_choice is not None:
-            payload["tool_choice"] = tool_choice
+            payload["tool_choice"] = _normalise_tool_choice_spec(tool_choice)
     if extra:
         payload.update(extra)
 
