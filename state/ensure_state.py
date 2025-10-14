@@ -93,7 +93,7 @@ def ensure_state() -> None:
     if StateKeys.INTERVIEW_GUIDE_DATA not in st.session_state:
         st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = {}
     if "lang" not in st.session_state:
-        st.session_state["lang"] = "de"
+        st.session_state["lang"] = "en"
     if "model" not in st.session_state:
         st.session_state["model"] = OPENAI_MODEL
     else:
