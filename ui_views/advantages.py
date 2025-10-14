@@ -1,4 +1,4 @@
-# pages/advantages.py
+# ui_views/advantages.py
 """Streamlit-Seite: Vorteile / Advantages von Cognitive Needs
 
 Bietet einen Sprachumschalter (Deutsch ↔ English) und drei Tabs für die
@@ -346,6 +346,6 @@ def run() -> None:
     if st.button(button_label):
         st.session_state[StateKeys.STEP] = 0
 
-    footer_de = "Hinweis: Passe die Listen in *pages/advantages.py* frei an, um sie zu kürzen oder zu erweitern."
-    footer_en = "Note: Adjust the lists in *pages/advantages.py* freely to shorten or extend them."
+    footer_de = "Hinweis: Passe die Listen in *ui_views/advantages.py* frei an, um sie zu kürzen oder zu erweitern."
+    footer_en = "Note: Adjust the lists in *ui_views/advantages.py* freely to shorten or extend them."
     st.caption(footer_de if lang == "Deutsch" else footer_en)
