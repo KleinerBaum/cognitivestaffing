@@ -69,3 +69,50 @@ def test_extract_company_info_required_keys(monkeypatch):
             "culture",
         ]
     )
+    assert captured_kwargs.get("tools") == [{"type": "web_search"}]
+    assert captured_kwargs.get("tool_choice") is None
+
+
+def test_extract_company_info_with_vector_store(monkeypatch):
+    """Advertise file search when a vector store ID is provided."""
+
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_call_chat_api(messages, **kwargs):
+        captured_kwargs.update(kwargs)
+        payload = json.dumps(
+            {
+                "name": "Acme Corp",
+                "location": "Berlin, Germany",
+                "mission": "Make widgets greener",
+                "culture": "Collaborative and inclusive",
+            }
+        )
+        return ChatCallResult(payload, [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+
+    openai_utils.extract_company_info("dummy text", vector_store_id="store-1")
+
+    assert captured_kwargs.get("tools") == [
+        {"type": "file_search", "vector_store_ids": ["store-1"]}
+    ]
+    assert captured_kwargs.get("tool_choice") == "auto"
+
+
+def test_extract_company_info_fallback_keyword(monkeypatch):
+    """Fallback still extracts mission and culture hints when the API fails."""
+
+    def failing_call_chat_api(messages, **kwargs):  # noqa: D401 - inline helper
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", failing_call_chat_api)
+
+    sample = "Our mission is to make hiring joyful.\nWe love a collaborative culture."
+
+    result = openai_utils.extract_company_info(sample)
+
+    assert result == {
+        "mission": "Our mission is to make hiring joyful.",
+        "culture": "We love a collaborative culture.",
+    }

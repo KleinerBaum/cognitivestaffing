@@ -86,7 +86,12 @@ def _resolve_vector_store_id(candidate: str | None) -> str:
     return ""
 
 
-def extract_company_info(text: str, model: str | None = None) -> dict:
+def extract_company_info(
+    text: str,
+    model: str | None = None,
+    *,
+    vector_store_id: str | None = None,
+) -> dict:
     """Extract company details from website text using OpenAI."""
 
     with tracer.start_as_current_span("llm.extract_company_info") as span:
@@ -109,6 +114,16 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
             f"{text}"
         )
         messages = [{"role": "user", "content": prompt}]
+        store_id = _resolve_vector_store_id(vector_store_id)
+        tools: list[dict[str, Any]] = []
+        tool_choice: str | None = None
+        if store_id:
+            tools.append({"type": "file_search", "vector_store_ids": [store_id]})
+            tool_choice = "auto"
+        else:
+            tools.append({"type": "web_search"})
+        span.set_attribute("llm.vector_store", bool(store_id))
+        span.set_attribute("llm.tools", ",".join(tool["type"] for tool in tools))
         try:
             res = api.call_chat_api(
                 messages,
@@ -125,6 +140,8 @@ def extract_company_info(text: str, model: str | None = None) -> dict:
                     },
                 },
                 task=ModelTask.COMPANY_INFO,
+                tools=tools,
+                tool_choice=tool_choice,
             )
             data = json.loads(_chat_content(res))
         except Exception as exc:  # pragma: no cover - network/SDK issues
