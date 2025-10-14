@@ -45,6 +45,8 @@ def test_step_requirements_warns_on_skill_suggestion_error(
         "company": {"industry": ""},
     }
     st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = True
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
 
     monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
     monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
@@ -54,6 +56,7 @@ def test_step_requirements_warns_on_skill_suggestion_error(
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
 
     class FakePanel:
         def __enter__(self) -> "FakePanel":
@@ -105,6 +108,8 @@ def test_step_requirements_initializes_requirements(monkeypatch: pytest.MonkeyPa
     st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
     st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
     st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = True
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
     st.session_state[StateKeys.PROFILE] = {
         "position": {"job_title": "Data Scientist"},
         "company": {},
@@ -152,6 +157,7 @@ def test_step_requirements_initializes_requirements(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "info", lambda *_, **__: None)
     monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
 
     captured: dict[str, dict[str, list[str]]] = {}
 
@@ -180,6 +186,8 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
     st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
     st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
     st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = True
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
     st.session_state[StateKeys.PROFILE] = {
         "position": {"job_title": "Data Scientist"},
         "company": {},
@@ -253,6 +261,7 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "info", lambda *_, **__: None)
     monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
     monkeypatch.setattr(st, "tabs", lambda labels: tuple(FakePanel() for _ in labels))
     monkeypatch.setattr(st, "button", lambda *_, **__: False)
     monkeypatch.setattr("wizard._render_skill_board", fake_skill_board)
@@ -281,6 +290,252 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
     assert st.session_state[responsibilities_seed_key] == "Updated KPI ownership", (
         "Seed value should remain the sanitized join"
     )
+
+
+def test_skill_suggestions_disabled_until_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AI and ESCO suggestions stay dormant until the user opts in."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.PROFILE] = {
+        "position": {"job_title": "Data Scientist"},
+        "company": {},
+    }
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
+    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
+    st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.ESCO_SKILLS] = ["ESCO Analytics"]
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = ["Missing insight"]
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = False
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = False
+
+    monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
+
+    calls: list[str] = []
+
+    def fake_get_skill_suggestions(*_args: object, **_kwargs: object) -> tuple[dict[str, dict[str, list[str]]], None]:
+        calls.append("called")
+        return {"hard_skills": {"core": ["Python"]}}, None
+
+    monkeypatch.setattr("wizard.get_skill_suggestions", fake_get_skill_suggestions)
+
+    class FakePanel:
+        def __enter__(self) -> "FakePanel":
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+        def markdown(self, *_: object, **__: object) -> None:
+            return None
+
+        def container(self) -> "FakePanel":
+            return FakePanel()
+
+    def fake_columns(spec: object, **_: object) -> tuple[FakePanel, ...]:
+        count = spec if isinstance(spec, int) else len(spec)
+        return tuple(FakePanel() for _ in range(int(count)))
+
+    def fake_text_area(*_: object, **kwargs: object) -> str:
+        key = kwargs.get("key")
+        value = kwargs.get("value", "")
+        if isinstance(key, str):
+            st.session_state[key] = value
+        return str(value)
+
+    monkeypatch.setattr(st, "container", lambda: FakePanel())
+    monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
+    monkeypatch.setattr(st, "header", lambda *_, **__: None)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+
+    original_skill_board = _render_skill_board
+
+    def wrapped_skill_board(*args: object, **kwargs: object) -> None:
+        original_skill_board(*args, **kwargs)
+        raise StopWizard
+
+    monkeypatch.setattr("wizard.sort_items", lambda items, **_: items)
+    monkeypatch.setattr("wizard._render_skill_board", wrapped_skill_board)
+
+    with pytest.raises(StopWizard):
+        _step_requirements()
+
+    assert calls == [], "AI suggestions must not fetch before opt-in"
+    board_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE, {}) or {}
+    assert board_state.get("source_ai") == [], "No AI suggestions should populate the board before opt-in"
+    assert board_state.get("source_esco") == [], "ESCO bucket should remain empty before opt-in"
+    assert st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] is False
+    assert st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] is False
+
+
+def test_skill_suggestions_opt_in_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opting in enables fetching and passes suggestions to the skill board."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.PROFILE] = {
+        "position": {"job_title": "Data Scientist"},
+        "company": {},
+    }
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
+    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
+    st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.ESCO_SKILLS] = ["ESCO Analytics"]
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = True
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
+
+    monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
+
+    calls: list[str] = []
+
+    def fake_get_skill_suggestions(*_args: object, **_kwargs: object) -> tuple[dict[str, dict[str, list[str]]], None]:
+        calls.append("called")
+        return {"hard_skills": {"core": ["Python"]}}, None
+
+    monkeypatch.setattr("wizard.get_skill_suggestions", fake_get_skill_suggestions)
+
+    class FakePanel:
+        def __enter__(self) -> "FakePanel":
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+        def markdown(self, *_: object, **__: object) -> None:
+            return None
+
+        def container(self) -> "FakePanel":
+            return FakePanel()
+
+    def fake_columns(spec: object, **_: object) -> tuple[FakePanel, ...]:
+        count = spec if isinstance(spec, int) else len(spec)
+        return tuple(FakePanel() for _ in range(int(count)))
+
+    def fake_text_area(*_: object, **kwargs: object) -> str:
+        key = kwargs.get("key")
+        value = kwargs.get("value", "")
+        if isinstance(key, str):
+            st.session_state[key] = value
+        return str(value)
+
+    monkeypatch.setattr(st, "container", lambda: FakePanel())
+    monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+
+    captured: dict[str, object] = {}
+
+    def fake_skill_board(
+        requirements: dict[str, list[str]],
+        *,
+        llm_suggestions: dict[str, dict[str, list[str]]],
+        esco_skills: list[str],
+        **_: object,
+    ) -> None:
+        captured["llm"] = llm_suggestions
+        captured["esco"] = esco_skills
+        raise StopWizard
+
+    monkeypatch.setattr("wizard._render_skill_board", fake_skill_board)
+
+    with pytest.raises(StopWizard):
+        _step_requirements()
+
+    assert calls == ["called"], "AI suggestions should be fetched when opted in"
+    assert captured["llm"] == {"hard_skills": {"core": ["Python"]}}
+    assert captured["esco"] == ["ESCO Analytics"], "ESCO suggestions should surface after opt-in"
+
+
+def test_skill_suggestions_refresh_resets_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refreshing AI suggestions clears the opt-in flag."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.PROFILE] = {
+        "position": {"job_title": "Data Scientist"},
+        "company": {},
+    }
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
+    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = True
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
+
+    monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
+    monkeypatch.setattr(
+        "wizard.get_skill_suggestions",
+        lambda *_args, **_kwargs: ({"hard_skills": {"core": ["Python"]}}, None),
+    )
+    monkeypatch.setattr("wizard._render_skill_board", lambda *_, **__: None)
+
+    class FakePanel:
+        def __enter__(self) -> "FakePanel":
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+        def markdown(self, *_: object, **__: object) -> None:
+            return None
+
+        def container(self) -> "FakePanel":
+            return FakePanel()
+
+    def fake_columns(spec: object, **_: object) -> tuple[FakePanel, ...]:
+        count = spec if isinstance(spec, int) else len(spec)
+        return tuple(FakePanel() for _ in range(int(count)))
+
+    def fake_text_area(*_: object, **kwargs: object) -> str:
+        key = kwargs.get("key")
+        if isinstance(key, str):
+            st.session_state[key] = kwargs.get("value", "")
+        return str(kwargs.get("value", ""))
+
+    monkeypatch.setattr(st, "container", lambda: FakePanel())
+    monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    triggered = {"refresh": False}
+
+    def fake_button(*_args: object, **kwargs: object) -> bool:
+        key = kwargs.get("key")
+        if key == "ai_suggestions.hard_skills_required.must.refresh" and not triggered["refresh"]:
+            triggered["refresh"] = True
+            return True
+        return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    def fake_rerun() -> None:
+        raise StopWizard
+
+    monkeypatch.setattr(st, "rerun", fake_rerun)
+
+    with pytest.raises(StopWizard):
+        _step_requirements()
+
+    assert st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] is False, "Refresh should clear the opt-in flag"
 
 
 def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:

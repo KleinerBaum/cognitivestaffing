@@ -946,10 +946,12 @@ def _render_skill_board(
 
     _ensure_skill_board_style()
 
+    ai_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
+    esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
     lang_code = st.session_state.get("lang", "de")
     labels = _skill_board_labels(lang_code)
-    esco_candidates = _unique_normalized(esco_skills)
-    normalized_missing = _unique_normalized(missing_esco_skills)
+    esco_candidates = _unique_normalized(esco_skills if esco_opted_in else [])
+    normalized_missing = _unique_normalized(missing_esco_skills if esco_opted_in else [])
 
     stored_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE)
     board_state: dict[SkillContainerType, list[str]] = {container: [] for container in _SKILL_CONTAINER_ORDER}
@@ -976,6 +978,11 @@ def _render_skill_board(
                 if not cleaned_item or cleaned_item in board_state[target_container]:
                     continue
                 board_state[target_container].append(cleaned_item)
+
+    if not ai_opted_in:
+        board_state["source_ai"] = []
+    if not esco_opted_in:
+        board_state["source_esco"] = []
 
     stored_meta = st.session_state.get(StateKeys.SKILL_BOARD_META)
     meta: dict[str, SkillBubbleMeta] = {}
@@ -1157,8 +1164,10 @@ def _render_skill_board(
                 )
             _add_if_absent(display, "source_extracted")
 
-    if llm_suggestions:
-        for bucket_key, grouped_values in llm_suggestions.items():
+    effective_llm_suggestions = llm_suggestions if ai_opted_in else None
+
+    if effective_llm_suggestions:
+        for bucket_key, grouped_values in effective_llm_suggestions.items():
             if bucket_key not in {"hard_skills", "soft_skills"}:
                 continue
             category: SkillCategory = "hard" if bucket_key == "hard_skills" else "soft"
@@ -1181,31 +1190,32 @@ def _render_skill_board(
                         )
                     _add_if_absent(display, "source_ai")
 
-    for cleaned in esco_candidates:
-        category: SkillCategory = _infer_skill_category(cleaned)
-        display = _find_existing_display(
-            meta,
-            label=cleaned,
-            category=category,
-        )
-        if display is None:
-            alternate: SkillCategory = "soft" if category == "hard" else "hard"
-            alt_display = _find_existing_display(
+    if esco_opted_in:
+        for cleaned in esco_candidates:
+            category: SkillCategory = _infer_skill_category(cleaned)
+            display = _find_existing_display(
                 meta,
                 label=cleaned,
-                category=alternate,
-            )
-            if alt_display is not None:
-                display = alt_display
-                category = alternate
-        if display is None:
-            display = _register_skill_bubble(
-                meta,
-                cleaned,
                 category=category,
-                source="esco",
             )
-        _add_if_absent(display, "source_esco")
+            if display is None:
+                alternate: SkillCategory = "soft" if category == "hard" else "hard"
+                alt_display = _find_existing_display(
+                    meta,
+                    label=cleaned,
+                    category=alternate,
+                )
+                if alt_display is not None:
+                    display = alt_display
+                    category = alternate
+            if display is None:
+                display = _register_skill_bubble(
+                    meta,
+                    cleaned,
+                    category=category,
+                    source="esco",
+                )
+            _add_if_absent(display, "source_esco")
 
     st.header(tr("Skill-Board", "Skill board", lang=lang_code))
     st.subheader(
@@ -1231,12 +1241,15 @@ def _render_skill_board(
             "Every selection affects salary expectations and the availability of qualified talent.",
             lang=lang_code,
         ),
-        tr(
-            "ESCO markiert fehlende Essentials separat – schiebe sie in Muss oder Nice-to-have.",
-            "ESCO highlights missing essentials separately – drag them into Must-have or Nice-to-have.",
-            lang=lang_code,
-        ),
     ]
+    if esco_opted_in:
+        info_lines.append(
+            tr(
+                "ESCO markiert fehlende Essentials separat – schiebe sie in Muss oder Nice-to-have.",
+                "ESCO highlights missing essentials separately – drag them into Must-have or Nice-to-have.",
+                lang=lang_code,
+            )
+        )
     st.markdown("  \n".join(info_lines))
 
     board_payload = [
@@ -1301,10 +1314,31 @@ def _render_skill_board(
             ).format(skills=", ".join(filtered_missing))
         )
 
+    def _join_sources(parts: Sequence[str], conjunction: str) -> str:
+        if not parts:
+            return ""
+        if len(parts) == 1:
+            return parts[0]
+        if len(parts) == 2:
+            return f"{parts[0]} {conjunction} {parts[1]}"
+        return f"{', '.join(parts[:-1])} {conjunction} {parts[-1]}"
+
+    source_parts_de: list[str] = ["„Extrahierte Anforderungen“"]
+    source_parts_en: list[str] = ["“Extracted requirements”"]
+    if ai_opted_in:
+        source_parts_de.append("„KI-Vorschläge“")
+        source_parts_en.append("“AI suggestions”")
+    if esco_opted_in:
+        source_parts_de.append("„ESCO-Essentials“")
+        source_parts_en.append("“ESCO essentials”")
+
+    sources_de = _join_sources(source_parts_de, "oder")
+    sources_en = _join_sources(source_parts_en, "or")
+
     st.caption(
         tr(
-            "Ziehe Skills aus „Extrahierte Anforderungen“, „KI-Vorschläge“ oder „ESCO-Essentials“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
-            "Drag skills from “Extracted requirements”, “AI suggestions”, or “ESCO essentials” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            f"Ziehe Skills aus {sources_de} in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
+            f"Drag skills from {sources_en} into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
             lang=lang_code,
         )
     )
@@ -4691,7 +4725,12 @@ def _apply_esco_selection(
     primary = resolved[0] if resolved else None
     _write_occupation_to_profile(primary)
 
-    _refresh_esco_skills(resolved, lang=lang)
+    esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
+    if esco_opted_in:
+        _refresh_esco_skills(resolved, lang=lang)
+    else:
+        st.session_state[StateKeys.ESCO_SKILLS] = []
+        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
 
 
 def _render_esco_occupation_selector(
@@ -6649,6 +6688,11 @@ def _step_requirements():
         requirements = {}
         data["requirements"] = requirements
 
+    ai_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
+    esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = ai_opted_in
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = esco_opted_in
+
     requirements_style_key = "ui.requirements_styles"
     if not st.session_state.get(requirements_style_key):
         st.markdown(
@@ -6740,6 +6784,9 @@ def _step_requirements():
     def _load_skill_suggestions(
         focus_terms: Sequence[str],
     ) -> tuple[dict[str, dict[str, list[str]]], str | None, str | None]:
+        if not st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN):
+            return {}, None, "ai_opt_in_required"
+
         local_store = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
         focus_signature_local = tuple(sorted(focus_terms, key=str.casefold))
         if job_title and not has_missing_key:
@@ -6805,8 +6852,48 @@ def _step_requirements():
             ),
             dropdown=True,
         )
+        current_ai_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
+        ai_button_label = (
+            tr("✨ KI-Vorschläge laden", "✨ Fetch suggestions from AI")
+            if not current_ai_opt_in
+            else tr("🔌 KI-Vorschläge deaktivieren", "🔌 Disable AI suggestions")
+        )
+        if st.button(
+            ai_button_label,
+            key=UIKeys.REQUIREMENTS_FETCH_AI_SUGGESTIONS,
+            type="secondary",
+            help=tr(
+                "Schaltet KI-Vorschläge für Skills ein oder aus.",
+                "Toggle AI-powered skill suggestions on or off.",
+            ),
+        ):
+            new_value = not current_ai_opt_in
+            st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = new_value
+            st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+            st.rerun()
     with helper_columns[1]:
         _render_esco_occupation_selector(position_mapping, compact=True)
+        current_esco_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
+        esco_button_label = (
+            tr("🌐 ESCO-Vorschläge laden", "🌐 Fetch suggestions from ESCO")
+            if not current_esco_opt_in
+            else tr("🔌 ESCO-Vorschläge deaktivieren", "🔌 Disable ESCO suggestions")
+        )
+        if st.button(
+            esco_button_label,
+            key=UIKeys.REQUIREMENTS_FETCH_ESCO_SUGGESTIONS,
+            type="secondary",
+            help=tr(
+                "Steuert, ob ESCO-Empfehlungen im Skill-Board erscheinen.",
+                "Control whether ESCO recommendations appear on the skill board.",
+            ),
+        ):
+            new_value = not current_esco_opt_in
+            st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = new_value
+            if not new_value:
+                st.session_state[StateKeys.ESCO_SKILLS] = []
+                st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+            st.rerun()
 
     st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = focus_selection
     suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(focus_selection)
@@ -6912,6 +6999,15 @@ def _step_requirements():
         caption: str,
         show_hint: bool = False,
     ) -> None:
+        if not st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN) or suggestion_hint == "ai_opt_in_required":
+            if show_hint:
+                st.info(
+                    tr(
+                        "Klicke auf „✨ KI-Vorschläge laden“, um Vorschläge anzuzeigen.",
+                        "Press “✨ Fetch suggestions from AI” to reveal suggestions.",
+                    )
+                )
+            return
         if suggestion_hint == "missing_key":
             if show_hint:
                 st.info(
@@ -7034,6 +7130,7 @@ def _step_requirements():
             width="stretch",
         ):
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+            st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = False
             st.rerun()
 
     responsibilities = data.setdefault("responsibilities", {})
