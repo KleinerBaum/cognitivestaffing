@@ -10,6 +10,12 @@ import streamlit as st
 _STYLE_STATE_KEY = "_workflow_stepper_styles_v1"
 
 
+# The wizard stepper is currently disabled to streamline the flow between steps.
+# Keeping the rendering function as a no-op maintains backward compatibility for
+# callers that still import it (e.g., tests that monkeypatch the helper).
+STEP_NAVIGATION_ENABLED = False
+
+
 def _inject_workflow_styles() -> None:
     """Inject subtle workflow styling for the wizard stepper once per session."""
 
@@ -129,6 +135,9 @@ def render_stepper(
         on_select: Optional callback invoked when the user requests a step
             change. Receives the selected index.
     """
+
+    if not STEP_NAVIGATION_ENABLED:
+        return
 
     total = len(labels)
     if total == 0:
