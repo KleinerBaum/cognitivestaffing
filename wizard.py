@@ -392,7 +392,8 @@ def _generate_local_benefits(profile: Mapping[str, Any], *, lang: str) -> list[s
     """Return locally flavoured benefit ideas based on profile context."""
 
     compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
-    existing = {str(item).strip().casefold() for item in compensation.get("benefits", []) or [] if str(item).strip()}
+    existing_values = _unique_normalized(str(item) for item in (compensation.get("benefits", []) or []))
+    existing = {value.casefold() for value in existing_values}
     location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
     country_raw = str(location.get("country") or "").strip()
     iso_country = country_to_iso2(country_raw) if country_raw else None
@@ -418,7 +419,8 @@ def _generate_local_benefits(profile: Mapping[str, Any], *, lang: str) -> list[s
             continue
         seen.add(marker)
         suggestions.append(normalized)
-    return suggestions[:5]
+    normalized_suggestions = _unique_normalized(suggestions)
+    return normalized_suggestions[:5]
 
 
 def _compact_inline_label(raw: str, *, limit: int = MAX_INLINE_VALUE_CHARS) -> tuple[str, bool]:
@@ -1458,8 +1460,7 @@ def _render_skill_board(
     st.markdown("  \n".join(info_lines))
 
     chip_markup: dict[str, str] = {
-        identifier: _skill_chip_markup(identifier, info, lang=lang_code)
-        for identifier, info in meta.items()
+        identifier: _skill_chip_markup(identifier, info, lang=lang_code) for identifier, info in meta.items()
     }
 
     board_payload = []
@@ -1476,10 +1477,12 @@ def _render_skill_board(
                     markup = html.escape(identifier)
             legacy_identifier_map.setdefault(markup, identifier)
             rendered_items.append(markup)
-        board_payload.append({
-            "header": labels[container],
-            "items": rendered_items,
-        })
+        board_payload.append(
+            {
+                "header": labels[container],
+                "items": rendered_items,
+            }
+        )
 
     sorted_items = sort_items(
         board_payload,
@@ -7379,9 +7382,7 @@ def _step_requirements():
             st.rerun()
 
     responsibilities = data.setdefault("responsibilities", {})
-    responsibilities_items = [
-        str(item) for item in responsibilities.get("items", []) if isinstance(item, str)
-    ]
+    responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
     responsibilities_text = "\n".join(responsibilities_items)
     responsibilities_key = "ui.requirements.responsibilities"
     responsibilities_seed_key = f"{responsibilities_key}.__seed"
@@ -8073,15 +8074,22 @@ def _step_compensation():
         benefit_state = {"llm": [], "fallback": fallback_benefits, "_lang": lang}
     else:
         benefit_state.setdefault("fallback", fallback_benefits)
+    llm_benefits = _unique_normalized(str(item) for item in benefit_state.get("llm", []))
+    fallback_pool = _unique_normalized(str(item) for item in benefit_state.get("fallback", fallback_benefits))
+    benefit_state["llm"] = llm_benefits
+    benefit_state["fallback"] = fallback_pool
     st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
-    llm_benefits = benefit_state.get("llm", [])
-    fallback_pool = benefit_state.get("fallback", fallback_benefits)
-    benefit_options = sorted(set(fallback_pool + data["compensation"].get("benefits", []) + llm_benefits))
-    data["compensation"]["benefits"] = _chip_multiselect(
+    existing_benefits = _unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
+    benefit_options = sorted(
+        _unique_normalized(existing_benefits + fallback_pool + llm_benefits),
+        key=str.casefold,
+    )
+    selected_benefits = _chip_multiselect(
         tr("Leistungen", "Benefits", lang=lang),
         options=benefit_options,
-        values=data["compensation"].get("benefits", []),
+        values=existing_benefits,
     )
+    data["compensation"]["benefits"] = _unique_normalized(selected_benefits)
 
     stored_benefit_focus = st.session_state.get(StateKeys.BENEFIT_SUGGESTION_HINTS, [])
     benefit_focus_options = sorted(
@@ -8160,8 +8168,9 @@ def _step_compensation():
                 break
         if clicked_entry is not None:
             _group, value = clicked_entry
+            current_benefits = list(data["compensation"].get("benefits", []))
             merged = sorted(
-                set(data["compensation"].get("benefits", [])).union([value]),
+                _unique_normalized(current_benefits + [value]),
                 key=str.casefold,
             )
             data["compensation"]["benefits"] = merged
@@ -8206,10 +8215,10 @@ def _step_compensation():
             benefit_state["_lang"] = lang
             if used_fallback:
                 benefit_state["llm"] = []
-                benefit_state["fallback"] = new_sugg
+                benefit_state["fallback"] = _unique_normalized(str(item) for item in new_sugg)
             else:
-                benefit_state["llm"] = new_sugg
-                benefit_state["fallback"] = fallback_benefits
+                benefit_state["llm"] = _unique_normalized(str(item) for item in new_sugg)
+                benefit_state["fallback"] = fallback_pool
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
             st.rerun()
 
@@ -8843,12 +8852,18 @@ def _summary_compensation() -> None:
             "Team events",
         ],
     }
-    benefit_options = sorted(set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", [])))
+    preset_options = _unique_normalized(preset_benefits.get(lang, []))
+    existing_benefits = _unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
+    benefit_options = sorted(
+        _unique_normalized(existing_benefits + preset_options),
+        key=str.casefold,
+    )
     benefits = _chip_multiselect(
         tr("Leistungen", "Benefits"),
         options=benefit_options,
-        values=data["compensation"].get("benefits", []),
+        values=existing_benefits,
     )
+    benefits = _unique_normalized(benefits)
 
     _update_profile("compensation.salary_min", salary_min)
     _update_profile("compensation.salary_max", salary_max)
