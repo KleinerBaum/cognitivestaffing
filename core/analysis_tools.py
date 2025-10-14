@@ -377,6 +377,13 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
             },
         },
     ]
+    # Advertise OpenAI built-in tools so downstream chat calls can leverage
+    # native web search capabilities without having to configure them manually
+    # in every call site.
+    tools.extend([
+        {"type": "web_search"},
+        {"type": "web_search_preview"},
+    ])
     funcs: Mapping[str, Callable[..., Any]] = {
         "get_salary_benchmark": get_salary_benchmark,
         "get_skill_definition": get_skill_definition,
