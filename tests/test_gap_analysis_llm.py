@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from types import SimpleNamespace
-
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -13,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import llm.gap_analysis as gap_analysis  # noqa: E402
+from openai_utils.api import ChatCallResult  # noqa: E402
 
 
 def test_build_gap_prompt_includes_all_blocks():
@@ -82,6 +81,7 @@ def test_retrieve_from_vector_store_parses_results():
 
 def test_analyze_vacancy_normalises_esco_and_skips_vector_store(monkeypatch):
     calls: dict[str, object] = {"normalize": None, "retrieve": 0}
+    captured: dict[str, object] = {}
 
     def fake_classify(title: str, lang: str):
         assert title == "Engineer"
@@ -106,45 +106,18 @@ def test_analyze_vacancy_normalises_esco_and_skips_vector_store(monkeypatch):
     monkeypatch.setattr(gap_analysis, "normalize_skills", fake_normalize)
     monkeypatch.setattr(gap_analysis, "retrieve_from_vector_store", fake_retrieve)
 
-    class DummyMessages:
-        def __init__(self):
-            self._response_text = "# Report\n- Item"
+    def fake_call_chat_api(messages, **kwargs):  # noqa: ANN001 - simple capture helper
+        captured["messages"] = messages
+        captured["kwargs"] = kwargs
+        return ChatCallResult("# Report\n- Item", [], {"total_tokens": 12})
 
-        def list(self, **_kwargs):
-            return {
-                "data": [
-                    {
-                        "content": [
-                            {"text": self._response_text},
-                        ]
-                    }
-                ]
-            }
-
-    class DummyRuns:
-        def create_and_poll(self, **_kwargs):
-            return SimpleNamespace(status="completed", usage={"total_tokens": 12})
-
-    class DummyThreads:
-        def __init__(self):
-            self.captured_messages = None
-            self.messages = DummyMessages()
-            self.runs = DummyRuns()
-
-        def create(self, *, messages):
-            self.captured_messages = messages
-            return SimpleNamespace(id="thread-1")
-
-    class DummyClient:
-        def __init__(self):
-            self.beta = SimpleNamespace(threads=DummyThreads())
+    monkeypatch.setattr(gap_analysis, "call_chat_api", fake_call_chat_api)
 
     result = gap_analysis.analyze_vacancy(
         " Vacancy text ",
         job_title="Engineer",
         lang="en",
         vector_store_id="",  # should skip retrieval and not increment counter
-        client=DummyClient(),
     )
 
     assert isinstance(result.content, str)
@@ -153,6 +126,10 @@ def test_analyze_vacancy_normalises_esco_and_skips_vector_store(monkeypatch):
 
     assert calls["normalize"] == ([" Skill A ", "Skill B"], "en")
     assert calls["retrieve"] == 0
+
+    assert captured["kwargs"]["tools"] is None
+    assert captured["kwargs"]["tool_choice"] is None
+    assert captured["kwargs"]["extra"] == {"metadata": {"task": "gap_analysis"}}
 
     captured = gap_analysis.build_gap_prompt(
         vacancy_text=" Vacancy text ",
@@ -176,36 +153,25 @@ def test_analyze_vacancy_handles_service_failures(monkeypatch):
     monkeypatch.setattr(gap_analysis, "normalize_skills", failing)
     monkeypatch.setattr(gap_analysis, "retrieve_from_vector_store", failing)
 
-    class DummyMessages:
-        def list(self, **_kwargs):
-            return {"data": [{"content": [{"text": "## Result"}]}]}
+    captured: dict[str, object] = {}
 
-    class DummyRuns:
-        def create_and_poll(self, **_kwargs):
-            return {"status": "completed", "usage": {}}
+    def fake_call_chat_api(messages, **kwargs):  # noqa: ANN001 - capture helper
+        captured["messages"] = messages
+        captured["kwargs"] = kwargs
+        return ChatCallResult("## Result", [], {})
 
-    class DummyThreads:
-        def __init__(self):
-            self.messages = DummyMessages()
-            self.runs = DummyRuns()
-
-        def create(self, *, messages):
-            assert messages[0]["role"] == "system"
-            return {"id": "thread-2"}
-
-    class DummyClient:
-        def __init__(self):
-            self.beta = SimpleNamespace(threads=DummyThreads())
+    monkeypatch.setattr(gap_analysis, "call_chat_api", fake_call_chat_api)
 
     result = gap_analysis.analyze_vacancy(
         "Vacancy text",
         job_title="Title",
         lang="de",
         vector_store_id="store-1",
-        client=DummyClient(),
     )
 
     assert result.content == "## Result"
+    assert captured["kwargs"]["tools"] == [{"type": "file_search", "vector_store_ids": ["store-1"]}]
+    assert captured["kwargs"]["tool_choice"] == "auto"
 
 
 def test_analyze_vacancy_requires_text():

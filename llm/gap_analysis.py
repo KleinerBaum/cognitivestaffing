@@ -10,11 +10,10 @@ from openai import OpenAIError
 
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
 from core.esco_utils import classify_occupation, get_essential_skills, normalize_skills
-from openai_utils.api import ChatCallResult, get_client
+from openai_utils.api import ChatCallResult, call_chat_api, get_client
 
 logger = logging.getLogger("cognitive_needs.gap_analysis")
 
-_ASSISTANT_ID = "asst_xiCpNIMzJnKCtajrLgW0N5ub"
 _MAX_VACANCY_CHARS = 4500
 _DEFAULT_TOP_K = 4
 
@@ -255,29 +254,6 @@ def _build_retrieval_query(job_title: str | None, lang: str) -> str:
     return base
 
 
-def _extract_text_from_messages(payload: Any) -> str:
-    if payload is None:
-        return ""
-    data = getattr(payload, "data", None)
-    if data is None and isinstance(payload, Mapping):
-        data = payload.get("data")
-    if not data:
-        return ""
-    for message in data:
-        content = getattr(message, "content", None)
-        if content is None and isinstance(message, Mapping):
-            content = message.get("content")
-        if not content:
-            continue
-        for entry in content:
-            text = getattr(entry, "text", None)
-            if text is None and isinstance(entry, Mapping):
-                text = entry.get("text")
-            if text:
-                return str(text)
-    return ""
-
-
 def analyze_vacancy(
     vacancy_text: str,
     *,
@@ -343,30 +319,22 @@ def analyze_vacancy(
         context=context,
     )
 
-    api = client or get_client()
-    thread = api.beta.threads.create(messages=messages)
-    run = api.beta.threads.runs.create_and_poll(
-        thread_id=getattr(thread, "id", thread.get("id") if isinstance(thread, Mapping) else None),
-        assistant_id=_ASSISTANT_ID,
-    )
-    status = getattr(run, "status", None)
-    if status is None and isinstance(run, Mapping):
-        status = run.get("status")
-    if status and status not in {"completed", "requires_action"}:
-        raise RuntimeError(f"Gap analysis run failed: {status}")
+    tools: list[dict[str, Any]] = []
+    tool_choice: str | None = None
+    if effective_store_id:
+        tools.append({"type": "file_search", "vector_store_ids": [effective_store_id]})
+        tool_choice = "auto"
 
-    messages_payload = api.beta.threads.messages.list(
-        thread_id=getattr(thread, "id", thread.get("id") if isinstance(thread, Mapping) else None),
-        order="desc",
-        limit=1,
+    result = call_chat_api(
+        messages,
+        model=get_model_for(ModelTask.EXPLANATION),
+        tools=tools or None,
+        tool_choice=tool_choice,
+        extra={"metadata": {"task": "gap_analysis"}},
+        task=ModelTask.EXPLANATION,
     )
-    content = _extract_text_from_messages(messages_payload).strip()
-    if not content:
+
+    if not (result.content or "").strip():
         raise RuntimeError("Assistant returned no content")
 
-    usage = getattr(run, "usage", None)
-    if usage is None and isinstance(run, Mapping):
-        usage = run.get("usage")
-    usage_dict = usage if isinstance(usage, Mapping) else {}
-
-    return ChatCallResult(content=content, tool_calls=[], usage=dict(usage_dict))
+    return result
