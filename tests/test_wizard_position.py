@@ -35,12 +35,33 @@ def test_render_esco_occupation_selector_updates_profile(
     monkeypatch.setattr(st, "button", lambda *_, **__: False)
     monkeypatch.setattr(st, "rerun", lambda *_, **__: None)
 
-    class DummyColumn:
+    class DummyContainer:
         def __enter__(self):
             return self
 
         def __exit__(self, *_):
             return False
+
+        def markdown(self, *_args, **_kwargs):
+            return None
+
+        def caption(self, *_args, **_kwargs):
+            return None
+
+        def button(self, *_args, **_kwargs):
+            return False
+
+        def container(self):
+            return self
+
+        def columns(self, spec, *_args, **_kwargs):
+            return fake_columns(spec)
+
+        def multiselect(self, *args, **kwargs):
+            return fake_multiselect(*args, **kwargs)
+
+    class DummyColumn(DummyContainer):
+        pass
 
     def fake_columns(spec, *_args, **_kwargs):
         if isinstance(spec, int):
@@ -52,6 +73,7 @@ def test_render_esco_occupation_selector_updates_profile(
         return [DummyColumn() for _ in range(max(count, 1))]
 
     monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
 
     skill_store: dict[str, list[str]] = {
         "uri:1": ["Python"],

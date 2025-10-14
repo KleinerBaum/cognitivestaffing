@@ -236,9 +236,7 @@ def _normalise_usage(usage_obj: Any) -> dict:
     """Return a plain dictionary describing token usage."""
 
     if usage_obj and not isinstance(usage_obj, dict):
-        usage: dict = getattr(
-            usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {})
-        )()
+        usage: dict = getattr(usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {}))()
     else:
         usage = usage_obj if isinstance(usage_obj, dict) else {}
     return usage
@@ -290,12 +288,8 @@ def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | 
     input_tokens = _coerce_token_count(usage.get("input_tokens"))
     output_tokens = _coerce_token_count(usage.get("output_tokens"))
 
-    usage_state["input_tokens"] = _coerce_token_count(
-        usage_state.get("input_tokens", 0)
-    ) + input_tokens
-    usage_state["output_tokens"] = _coerce_token_count(
-        usage_state.get("output_tokens", 0)
-    ) + output_tokens
+    usage_state["input_tokens"] = _coerce_token_count(usage_state.get("input_tokens", 0)) + input_tokens
+    usage_state["output_tokens"] = _coerce_token_count(usage_state.get("output_tokens", 0)) + output_tokens
 
     task_key = _normalise_task(task)
     task_map = usage_state.setdefault("by_task", {})
@@ -353,14 +347,18 @@ def _prepare_payload(
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
 
-    combined_tools = list(tools or [])
+    combined_tools = [dict(tool) for tool in (tools or [])]
     tool_map = dict(tool_functions or {})
     if include_analysis_tools:
         from core import analysis_tools
 
         base_tools, base_funcs = analysis_tools.build_analysis_tools()
-        combined_tools.extend(base_tools)
+        combined_tools.extend(dict(tool) for tool in base_tools)
         tool_map = {**base_funcs, **tool_map}
+
+    for tool in combined_tools:
+        if "name" not in tool and tool.get("type"):
+            tool["name"] = str(tool.get("type"))
 
     payload: Dict[str, Any] = {"model": model, "input": messages}
     if temperature is not None and model_supports_temperature(model):
@@ -514,10 +512,7 @@ def _handle_openai_error(error: OpenAIError) -> None:
         user_msg = "OpenAI API rate limit exceeded. Please retry later."
     elif isinstance(error, (APIConnectionError, APITimeoutError)):
         user_msg = "Network error communicating with OpenAI. Please check your connection and retry."
-    elif (
-        isinstance(error, BadRequestError)
-        or getattr(error, "type", "") == "invalid_request_error"
-    ):
+    elif isinstance(error, BadRequestError) or getattr(error, "type", "") == "invalid_request_error":
         detail = getattr(error, "message", str(error))
         log_msg = f"OpenAI invalid request: {detail}"
         user_msg = "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)"
@@ -644,8 +639,6 @@ def call_chat_api(
 
         messages_list.extend(tool_messages)
         payload["input"] = messages_list
-
-
 
 
 def stream_chat_api(
