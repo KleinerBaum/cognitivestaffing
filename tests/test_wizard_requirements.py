@@ -132,10 +132,17 @@ def test_step_requirements_initializes_requirements(monkeypatch: pytest.MonkeyPa
         count = spec if isinstance(spec, int) else len(spec)
         return tuple(FakePanel() for _ in range(count))
 
-    def fake_text_area(*_: object, key: str | None = None, value: str = "", **__: object) -> str:
-        if key is not None:
-            st.session_state[key] = value
-        return value
+    def fake_text_area(*_: object, **kwargs: object) -> str:
+        key = kwargs.get("key")
+        value_provided = "value" in kwargs
+        if value_provided:
+            result = kwargs["value"]
+        else:
+            existing = st.session_state.get(key) if isinstance(key, str) else ""
+            result = existing if isinstance(existing, str) else ""
+        if isinstance(key, str):
+            st.session_state[key] = result
+        return str(result)
 
     monkeypatch.setattr(st, "container", lambda: FakePanel())
     monkeypatch.setattr(st, "columns", fake_columns)
@@ -162,6 +169,118 @@ def test_step_requirements_initializes_requirements(monkeypatch: pytest.MonkeyPa
     assert "requirements" in profile, "requirements section should be initialised"
     assert profile["requirements"]["hard_skills_required"] == ["Python"]
     assert captured["requirements"] is profile["requirements"], "skill board must receive the live requirements dict"
+
+
+def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Existing responsibilities stay visible and accept edits without warnings."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
+    st.session_state[StateKeys.SKILL_SUGGESTIONS] = {}
+    st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
+    st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.PROFILE] = {
+        "position": {"job_title": "Data Scientist"},
+        "company": {},
+        "responsibilities": {"items": ["Initial scope alignment"]},
+    }
+
+    monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
+    monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
+    monkeypatch.setattr("wizard.get_skill_suggestions", lambda *_args, **_kwargs: ({}, None))
+    monkeypatch.setattr("wizard._chip_multiselect", lambda *_, **__: [])
+
+    class FakePanel:
+        def __enter__(self) -> "FakePanel":
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+        def markdown(self, *_: object, **__: object) -> None:
+            return None
+
+        def container(self) -> "FakePanel":
+            return FakePanel()
+
+        def columns(self, *args: object, **kwargs: object) -> tuple[object, ...]:
+            return st.columns(*args, **kwargs)
+
+    def fake_columns(spec, **_: object) -> tuple[FakePanel, ...]:
+        count = spec if isinstance(spec, int) else len(spec)
+        return tuple(FakePanel() for _ in range(count))
+
+    responsibilities_key = "ui.requirements.responsibilities"
+    responsibilities_seed_key = f"{responsibilities_key}.__seed"
+    user_inputs = ["- Updated KPI ownership", None]
+    call_history: list[dict[str, object]] = []
+
+    def fake_text_area(*_: object, **kwargs: object) -> str:
+        key = kwargs.get("key")
+        value_provided = "value" in kwargs
+        existing_before = isinstance(key, str) and key in st.session_state
+        if value_provided and existing_before:
+            raise AssertionError("value argument should be omitted when the widget key already exists")
+        call_index = len(call_history)
+        preferred = user_inputs[call_index] if call_index < len(user_inputs) else None
+        if preferred is not None:
+            result = preferred
+        elif value_provided:
+            result = kwargs["value"]
+        else:
+            existing_value = st.session_state.get(key) if isinstance(key, str) else ""
+            result = existing_value if isinstance(existing_value, str) else ""
+        if isinstance(key, str):
+            st.session_state[key] = result
+        call_history.append(
+            {
+                "value_provided": value_provided,
+                "value_argument": kwargs.get("value"),
+                "result": result,
+            }
+        )
+        return str(result)
+
+    def fake_skill_board(requirements: dict[str, list[str]], **_: object) -> None:
+        raise StopWizard
+
+    monkeypatch.setattr(st, "container", lambda: FakePanel())
+    monkeypatch.setattr(st, "columns", fake_columns)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
+    monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "tabs", lambda labels: tuple(FakePanel() for _ in labels))
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+    monkeypatch.setattr("wizard._render_skill_board", fake_skill_board)
+
+    with pytest.raises(StopWizard):
+        _step_requirements()
+
+    data = st.session_state[StateKeys.PROFILE]
+    assert data["responsibilities"]["items"] == [
+        "Updated KPI ownership"
+    ], "Sanitized responsibilities should persist in the profile"
+    assert (
+        st.session_state[responsibilities_seed_key] == "Updated KPI ownership"
+    ), "Seed value should track the stored responsibilities"
+    assert call_history[0]["value_provided"] is True
+    assert call_history[0]["value_argument"] == "Initial scope alignment"
+
+    with pytest.raises(StopWizard):
+        _step_requirements()
+
+    assert call_history[1]["value_provided"] is False
+    assert call_history[1]["result"] == "- Updated KPI ownership"
+    assert (
+        st.session_state[responsibilities_key] == "- Updated KPI ownership"
+    ), "Raw session state should keep the user edit between renders"
+    assert (
+        st.session_state[responsibilities_seed_key] == "Updated KPI ownership"
+    ), "Seed value should remain the sanitized join"
 
 
 def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:

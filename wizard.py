@@ -6893,13 +6893,17 @@ def _step_requirements():
             st.rerun()
 
     responsibilities = data.setdefault("responsibilities", {})
-    responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
+    responsibilities_items = [
+        str(item) for item in responsibilities.get("items", []) if isinstance(item, str)
+    ]
     responsibilities_text = "\n".join(responsibilities_items)
     responsibilities_key = "ui.requirements.responsibilities"
     responsibilities_seed_key = f"{responsibilities_key}.__seed"
-    if st.session_state.get(responsibilities_seed_key) != responsibilities_text:
-        st.session_state[responsibilities_key] = responsibilities_text
+    current_seed = st.session_state.get(responsibilities_seed_key)
+    if current_seed != responsibilities_text:
         st.session_state[responsibilities_seed_key] = responsibilities_text
+        if responsibilities_key in st.session_state:
+            st.session_state[responsibilities_key] = responsibilities_text
 
     responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
     responsibilities_required = "responsibilities.items" in missing_here
@@ -6919,23 +6923,26 @@ def _step_requirements():
             "Use bullet-style lines to document the role's core responsibilities.",
         ),
     ):
-        raw_responsibilities = st.text_area(
-            display_label,
-            key=responsibilities_key,
-            value=st.session_state.get(responsibilities_key, responsibilities_text),
-            height=200,
-            placeholder=tr(
+        text_area_kwargs = {
+            "label": display_label,
+            "key": responsibilities_key,
+            "height": 200,
+            "placeholder": tr(
                 "z. B. Produkt-Roadmap planen\nStakeholder-Workshops moderieren",
                 "e.g., Plan the product roadmap\nFacilitate stakeholder workshops",
             ),
-        )
+        }
+        if responsibilities_key not in st.session_state:
+            text_area_kwargs["value"] = responsibilities_text
+
+        raw_responsibilities = st.text_area(**text_area_kwargs)
         cleaned_responsibilities = [
             re.sub(r"^[\-\*•]+\s*", "", line.strip()) for line in raw_responsibilities.splitlines() if line.strip()
         ]
         responsibilities["items"] = cleaned_responsibilities
         if responsibilities_required and not cleaned_responsibilities:
             _render_required_caption(True)
-        st.session_state[responsibilities_seed_key] = raw_responsibilities
+        st.session_state[responsibilities_seed_key] = "\n".join(cleaned_responsibilities)
 
     llm_skill_sources: dict[str, dict[str, list[str]]] = {}
     for pool_key in ("hard_skills", "soft_skills"):
