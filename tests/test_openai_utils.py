@@ -69,7 +69,10 @@ def test_call_chat_api_tool_call(monkeypatch):
     out = call_chat_api(
         [],
         tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
-        tool_choice={"type": "function", "name": "fn"},
+        tool_choice={
+            "type": "function",
+            "function": {"name": "fn"},
+        },
     )
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
 
@@ -470,6 +473,40 @@ def test_prepare_payload_includes_web_search_tools():
             assert fn_payload.get("name")
         else:
             assert "name" not in tool
+
+
+def test_prepare_payload_normalises_legacy_tool_choice():
+    """Legacy function tool choices should be translated to the nested schema."""
+
+    payload, _, _, _ = openai_utils.api._prepare_payload(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-5-mini",
+        temperature=None,
+        max_tokens=None,
+        json_schema=None,
+        tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
+        tool_choice={
+            "type": "function",
+            "name": "fn",
+            "arguments": "{}",
+            "reasoning": {"steps": 1},
+        },
+        tool_functions={"fn": lambda: None},
+        reasoning_effort=None,
+        extra=None,
+        include_analysis_tools=False,
+    )
+
+    tool_choice = payload.get("tool_choice")
+    assert isinstance(tool_choice, dict)
+    assert tool_choice.get("type") == "function"
+    assert "name" not in tool_choice
+
+    fn_payload = tool_choice.get("function")
+    assert isinstance(fn_payload, dict)
+    assert fn_payload["name"] == "fn"
+    assert fn_payload["arguments"] == "{}"
+    assert fn_payload["reasoning"] == {"steps": 1}
 
 
 def test_build_extraction_tool_has_name_and_parameters():

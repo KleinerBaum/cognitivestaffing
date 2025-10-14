@@ -366,7 +366,10 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
         temperature=0.2,
         max_tokens=220,
         tools=tools,
-        tool_choice={"type": "function", "name": FUNCTION_NAME},
+        tool_choice={
+            "type": "function",
+            "function": {"name": FUNCTION_NAME},
+        },
         task="salary_estimate",
     )
 

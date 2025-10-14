@@ -298,7 +298,10 @@ def extract_with_function(
         model=model,
         temperature=0.0,
         tools=build_extraction_tool(FUNCTION_NAME, schema, allow_extra=False),
-        tool_choice={"type": "function", "name": FUNCTION_NAME},
+        tool_choice={
+            "type": "function",
+            "function": {"name": FUNCTION_NAME},
+        },
         task=ModelTask.EXTRACTION,
     )
 
