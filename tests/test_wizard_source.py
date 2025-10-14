@@ -222,9 +222,7 @@ def test_maybe_run_extraction_uses_prefill_before_raw_text(
     monkeypatch.setattr("wizard._autodetect_lang", lambda _t: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
     warnings: list[str] = []
-    monkeypatch.setattr(
-        st, "warning", lambda message, *a, **k: warnings.append(message)
-    )
+    monkeypatch.setattr(st, "warning", lambda message, *a, **k: warnings.append(message))
 
     _maybe_run_extraction({})
 
@@ -286,6 +284,28 @@ def test_extract_and_summarize_does_not_enrich_skills(
     assert data["position"]["occupation_label"] is None
     assert data["requirements"]["hard_skills_required"] == ["Python"]
     assert st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] == []
+
+
+def test_extract_and_summarize_prefills_gap_analysis_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Raw job text and job title should prefill the gap analysis form."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    sample_data = {"position": {"job_title": "Engineer"}}
+
+    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
+    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+
+    _extract_and_summarize("  Job text  ", {})
+
+    assert st.session_state[StateKeys.GAP_ANALYSIS_TEXT] == "Job text"
+    assert st.session_state[StateKeys.GAP_ANALYSIS_TITLE] == "Engineer"
 
 
 def test_extract_and_summarize_enriches_esco_metadata(

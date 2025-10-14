@@ -2230,6 +2230,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
     lang = getattr(st.session_state, "lang", "en") or "en"
     job_title_value = (profile.position.job_title or "").strip()
+    st.session_state[StateKeys.GAP_ANALYSIS_TEXT] = text.strip()
+    st.session_state[StateKeys.GAP_ANALYSIS_TITLE] = job_title_value
     occupation_options: list[dict[str, str]] = []
     selected_ids: list[str] = []
     if job_title_value:
