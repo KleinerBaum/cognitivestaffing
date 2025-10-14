@@ -1085,31 +1085,34 @@ def _render_skill_board(
             )
         _add_if_absent(display, "source_suggestions")
 
-    st.markdown("##### " + tr("KI-Vorschläge", "AI suggestions", lang=lang_code))
-    st.caption(
-        tr(
-            "Alle KI- und ESCO-Vorschläge landen hier zur weiteren Auswahl.",
-            "All AI and ESCO recommendations are collected here for review.",
-            lang=lang_code,
-        )
-    )
     normalized_missing = _unique_normalized(missing_esco_skills)
-    if normalized_missing:
-        st.info(
-            tr(
-                "ESCO empfiehlt zusätzlich: {skills}",
-                "ESCO still recommends: {skills}",
-                lang=lang_code,
-            ).format(skills=", ".join(normalized_missing))
-        )
 
-    st.caption(
+    st.header(tr("Skill-Board", "Skill board", lang=lang_code))
+    st.subheader(
         tr(
-            "Ziehe Skills aus „KI-Vorschläge“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
-            "Drag skills from “AI suggestions” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            "Alle Skills an einem Ort organisieren",
+            "Organise every skill in one place",
             lang=lang_code,
         )
     )
+    info_lines = [
+        tr(
+            "Hier landen alle Pflicht-, Nice-to-have- und vorgeschlagenen Skills.",
+            "All must-have, nice-to-have, and suggested skills gather here.",
+            lang=lang_code,
+        ),
+        tr(
+            "Sortiere sie in die passenden Bereiche, um dein Skill-Set zu definieren.",
+            "Place each one into the right bucket to define your skill mix.",
+            lang=lang_code,
+        ),
+        tr(
+            "Jede Auswahl beeinflusst Vergütungsspannen und die Verfügbarkeit geeigneter Talente.",
+            "Every selection affects salary expectations and the availability of qualified talent.",
+            lang=lang_code,
+        ),
+    ]
+    st.markdown("  \n".join(info_lines))
 
     board_payload = [
         {
@@ -1156,6 +1159,23 @@ def _render_skill_board(
 
     st.session_state[StateKeys.SKILL_BOARD_STATE] = board_state
     st.session_state[StateKeys.SKILL_BOARD_META] = meta
+
+    if normalized_missing:
+        st.info(
+            tr(
+                "ESCO empfiehlt zusätzlich: {skills}",
+                "ESCO still recommends: {skills}",
+                lang=lang_code,
+            ).format(skills=", ".join(normalized_missing))
+        )
+
+    st.caption(
+        tr(
+            "Ziehe Skills aus „KI-Vorschläge“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
+            "Drag skills from “AI suggestions” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            lang=lang_code,
+        )
+    )
 
     tooltip_map: dict[str, list[str]] = {}
     for display, info in meta.items():
