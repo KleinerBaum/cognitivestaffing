@@ -322,6 +322,28 @@ def test_call_chat_api_includes_tool_name(monkeypatch):
     call_chat_api([], tools=[{"type": "function", "name": "fn", "parameters": {}}])
 
 
+def test_prepare_payload_includes_web_search_tools():
+    """The payload should always advertise OpenAI web search tools."""
+
+    payload, _, _, _ = openai_utils.api._prepare_payload(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-5-mini",
+        temperature=None,
+        max_tokens=None,
+        json_schema=None,
+        tools=[{"type": "function", "name": "custom", "parameters": {}}],
+        tool_choice=None,
+        tool_functions={},
+        reasoning_effort=None,
+        extra=None,
+        include_analysis_tools=True,
+    )
+
+    tool_types = {tool.get("type") for tool in payload["tools"]}
+    assert "web_search" in tool_types
+    assert "web_search_preview" in tool_types
+
+
 def test_build_extraction_tool_has_name_and_parameters():
     """build_extraction_tool should include function name and parameters."""
 
