@@ -4689,6 +4689,18 @@ def _chip_multiselect_mapped(
 
 
 # --- Step-Renderers ---
+def _advance_from_onboarding() -> None:
+    """Advance the wizard from the onboarding screen."""
+
+    _request_scroll_to_top()
+    st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
+    target = st.session_state.get(StateKeys.FIRST_INCOMPLETE_SECTION)
+    if not isinstance(target, int):
+        target = COMPANY_STEP_INDEX
+    st.session_state[StateKeys.STEP] = target
+    st.rerun()
+
+
 def _step_onboarding(schema: dict) -> None:
     """Render onboarding with language toggle, intro, and ingestion options."""
 
@@ -4875,9 +4887,7 @@ def _step_onboarding(schema: dict) -> None:
             width="stretch",
             key="onboarding_next",
         ):
-            _request_scroll_to_top()
-            st.session_state[StateKeys.STEP] = COMPANY_STEP_INDEX
-            st.rerun()
+            _advance_from_onboarding()
         st.markdown("</div>", unsafe_allow_html=True)
 
 
