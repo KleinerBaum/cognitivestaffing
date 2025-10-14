@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- chore: consolidate dependency management under `requirements.txt` and drop setup-based installs (EN/DE)
+  - Chore: bündelt die Abhängigkeitsverwaltung in `requirements.txt` und entfernt setup-basierte Installationen (DE/EN)
 - fix: pin `streamlit-sortables` to 0.3.1 to restore deployment compatibility (EN)
   - Fix: setzt `streamlit-sortables` auf Version 0.3.1 fest, um die Bereitstellung wiederherzustellen (DE)
 - docs: document the content cost router, GPT-4/GPT-3.5 fallback flow, and model override toggle (EN/DE)
