@@ -52,9 +52,10 @@
   --accent-glow: drop-shadow(0 0 10px rgba(71, 75, 75, 0.18));
   --button-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(230, 233, 233, 0.96));
   --summary-primary-gradient: linear-gradient(120deg, rgba(46, 50, 50, 0.1), rgba(71, 75, 75, 0.08));
+  --sidebar-top: #f5f8fb;
   --sidebar-gradient: linear-gradient(
     180deg,
-    #ffffff 0%,
+    var(--sidebar-top) 0%,
     #eef4f7 32%,
     #d6e3e9 54%,
     #1b2f39 100%
@@ -125,6 +126,10 @@ a:hover {
   filter: var(--accent-glow);
 }
 
+[data-testid="stSidebar"] {
+  color: var(--sidebar-text-color) !important;
+}
+
 [data-testid="stSidebar"] > div {
   background: var(--sidebar-gradient);
   backdrop-filter: blur(var(--blur));
@@ -132,8 +137,16 @@ a:hover {
   border-right: 1px solid var(--border-subtle);
   color: var(--sidebar-text-color);
 }
+[data-testid="stSidebar"] * {
+  color: inherit;
+}
+
+[data-testid="stSidebar"] [data-testid*="NavLabel"] {
+  color: var(--sidebar-text-color) !important;
+}
+
 [data-testid="stSidebar"] a {
-  color: var(--sidebar-text-color);
+  color: inherit;
 }
 
 [data-testid="stSidebarNavItems"] a {

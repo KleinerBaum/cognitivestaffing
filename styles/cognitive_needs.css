@@ -54,9 +54,10 @@
   --accent-glow: drop-shadow(0 0 12px rgba(223, 227, 227, 0.18));
   --button-gradient: linear-gradient(135deg, rgba(223, 227, 227, 0.95), rgba(195, 200, 200, 0.9));
   --summary-primary-gradient: linear-gradient(120deg, rgba(223, 227, 227, 0.16), rgba(195, 200, 200, 0.12));
+  --sidebar-top: #f2f6fb;
   --sidebar-gradient: linear-gradient(
     180deg,
-    #ffffff 0%,
+    var(--sidebar-top) 0%,
     #eef4f7 32%,
     #d6e3e9 54%,
     #1b2f39 100%
@@ -132,6 +133,10 @@ a:hover {
 }
 
 /* Sidebar: glass panel + tidy nav */
+[data-testid="stSidebar"] {
+  color: var(--sidebar-text-color) !important;
+}
+
 [data-testid="stSidebar"] > div {
   background: var(--sidebar-gradient);
   backdrop-filter: blur(var(--blur));
@@ -139,8 +144,16 @@ a:hover {
   border-right: 1px solid var(--border-subtle);
   color: var(--sidebar-text-color);
 }
+[data-testid="stSidebar"] * {
+  color: inherit;
+}
+
+[data-testid="stSidebar"] [data-testid*="NavLabel"] {
+  color: var(--sidebar-text-color) !important;
+}
+
 [data-testid="stSidebar"] a {
-  color: var(--sidebar-text-color);
+  color: inherit;
 }
 
 /* Default nav (st.navigation) items */
