@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import pytest
 
@@ -41,11 +45,13 @@ def test_extract_vacancy_passes_schema(monkeypatch: pytest.MonkeyPatch) -> None:
         return _FakeResult()
 
     monkeypatch.setattr(extraction_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(extraction_mod, "get_model_for", lambda *_, **__: "model-extraction")
     extraction_mod.extract_vacancy_structured("Text", "de")
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "VacancyExtraction"
     assert schema_cfg["schema"] == VACANCY_EXTRACTION_SCHEMA
+    assert captured["model"] == "model-extraction"
 
 
 def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,12 +62,14 @@ def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> Non
         return _FakeResult()
 
     monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
     followups_mod.generate_followups({}, "en", vector_store_id="store-id")
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "FollowUpQuestions"
     assert schema_cfg["schema"] == FOLLOW_UPS_SCHEMA
     assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["store-id"]}]
+    assert captured["model"] == "model-followups"
 
 
 def test_followups_without_vector_store(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,9 +80,11 @@ def test_followups_without_vector_store(monkeypatch: pytest.MonkeyPatch) -> None
         return _FakeResult()
 
     monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
     followups_mod.generate_followups({}, "de")
 
     assert captured.get("tools") is None
+    assert captured["model"] == "model-followups"
 
 
 def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,11 +95,13 @@ def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
         return _FakeResult()
 
     monkeypatch.setattr(profile_summary_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(profile_summary_mod, "get_model_for", lambda *_, **__: "model-profile")
     profile_summary_mod.summarize_candidate("CV", "en", "cand-1")
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "CandidateProfileSummary"
     assert schema_cfg["schema"] == PROFILE_SUMMARY_SCHEMA
+    assert captured["model"] == "model-profile"
 
 
 def test_candidate_matching_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,11 +112,13 @@ def test_candidate_matching_schema(monkeypatch: pytest.MonkeyPatch) -> None:
         return _FakeResult()
 
     monkeypatch.setattr(matching_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(matching_mod, "get_model_for", lambda *_, **__: "model-matching")
     matching_mod.match_candidates({}, [])
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "CandidateMatches"
     assert schema_cfg["schema"] == CANDIDATE_MATCHES_SCHEMA
+    assert captured["model"] == "model-matching"
 
 
 def test_job_ad_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,11 +129,13 @@ def test_job_ad_schema(monkeypatch: pytest.MonkeyPatch) -> None:
         return _FakeResult()
 
     monkeypatch.setattr(job_ad_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(job_ad_mod, "get_model_for", lambda *_, **__: "model-job-ad")
     job_ad_mod.generate_job_ad({}, "de", tone="casual")
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "JobAd"
     assert schema_cfg["schema"] == JOB_AD_SCHEMA
+    assert captured["model"] == "model-job-ad"
 
 
 def test_interview_guide_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -130,8 +146,10 @@ def test_interview_guide_schema(monkeypatch: pytest.MonkeyPatch) -> None:
         return _FakeResult()
 
     monkeypatch.setattr(interview_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(interview_mod, "get_model_for", lambda *_, **__: "model-interview")
     interview_mod.generate_interview_guide({}, "en")
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "InterviewGuide"
     assert schema_cfg["schema"] == INTERVIEW_GUIDE_SCHEMA
+    assert captured["model"] == "model-interview"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask
+from config import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from schemas import PROFILE_SUMMARY_SCHEMA
 
@@ -24,7 +24,7 @@ def summarize_candidate(cv_text: str, lang: str, candidate_id: str) -> Any:
     }
     return call_chat_api(
         messages=[system, user],
-        model="gpt-5-nano",
+        model=get_model_for(ModelTask.PROFILE_SUMMARY),
         temperature=0.2,
         json_schema={
             "name": "CandidateProfileSummary",

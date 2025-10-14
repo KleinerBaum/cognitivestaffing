@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask
+from config import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from schemas import FOLLOW_UPS_SCHEMA
 
@@ -32,7 +32,7 @@ def generate_followups(
 
     return call_chat_api(
         messages=[system, user],
-        model="gpt-5-nano",
+        model=get_model_for(ModelTask.FOLLOW_UP_QUESTIONS),
         temperature=0.2,
         tools=tools or None,
         json_schema={"name": "FollowUpQuestions", "schema": FOLLOW_UPS_SCHEMA},
