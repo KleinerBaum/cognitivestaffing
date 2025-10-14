@@ -7,6 +7,7 @@ import streamlit as st
 from wizard import (
     _skip_source,
     _extract_and_summarize,
+    _advance_from_onboarding,
     COMPANY_STEP_INDEX,
     CRITICAL_SECTION_ORDER,
     next_step,
@@ -191,3 +192,29 @@ def test_next_step_clears_pending_incomplete_jump_flag() -> None:
 
     assert st.session_state[StateKeys.STEP] == 3
     assert not st.session_state.get(StateKeys.PENDING_INCOMPLETE_JUMP, False)
+
+
+def test_onboarding_next_uses_first_incomplete_section(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Onboarding next button should jump to recorded incomplete section."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.STEP] = 0
+    st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = 4
+    st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = True
+    st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+
+    reran = False
+
+    def fake_rerun() -> None:
+        nonlocal reran
+        reran = True
+
+    monkeypatch.setattr(st, "rerun", fake_rerun)
+
+    _advance_from_onboarding()
+
+    assert st.session_state[StateKeys.STEP] == 4
+    assert not st.session_state.get(StateKeys.PENDING_INCOMPLETE_JUMP, False)
+    assert reran
