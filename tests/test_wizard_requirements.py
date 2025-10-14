@@ -199,7 +199,7 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
             header = container.get("header")
             if isinstance(header, str) and ("Muss" in header or "Must" in header):
                 updated.append({"header": header, "items": ["Machine Learning ⟮ESCO⟯"]})
-            elif isinstance(header, str) and "ESCO" in header:
+            elif isinstance(header, str) and ("Vorsch" in header or "suggest" in header.lower()):
                 updated.append({"header": header, "items": []})
             else:
                 updated.append(container)
