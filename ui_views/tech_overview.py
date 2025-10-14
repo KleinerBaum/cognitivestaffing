@@ -1,4 +1,4 @@
-# pages/tech_overview.py
+# ui_views/tech_overview.py
 """Streamlit-Seite: Technology Deep Dive & Wizard Flow
 
 Für IT‑Spezialisten und Entscheider bietet diese Seite einen kompakten, aber

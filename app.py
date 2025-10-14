@@ -27,7 +27,7 @@ from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
-from pages import advantages, gap_analysis  # noqa: E402
+from ui_views import advantages, gap_analysis  # noqa: E402
 
 setup_tracing()
 
