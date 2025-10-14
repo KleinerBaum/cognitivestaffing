@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask
+from config import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from schemas import JOB_AD_SCHEMA
 
@@ -24,7 +24,7 @@ def generate_job_ad(vacancy_json: dict, lang: str, tone: str = "professional") -
     }
     return call_chat_api(
         messages=[system, user],
-        model="gpt-5-mini",
+        model=get_model_for(ModelTask.JOB_AD),
         temperature=0.4,
         json_schema={"name": "JobAd", "schema": JOB_AD_SCHEMA},
         task=ModelTask.JOB_AD,
