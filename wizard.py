@@ -632,11 +632,9 @@ _BENEFIT_FOCUS_PRESETS: dict[str, list[str]] = {
 SkillCategory = Literal["hard", "soft"]
 SkillSource = Literal["auto", "ai", "esco"]
 SkillContainerType = Literal[
-    "source_auto",
-    "source_ai",
-    "source_esco",
     "target_must",
     "target_nice",
+    "source_suggestions",
 ]
 
 
@@ -651,9 +649,7 @@ class SkillBubbleMeta(TypedDict):
 _SKILL_CONTAINER_ORDER: tuple[SkillContainerType, ...] = (
     "target_must",
     "target_nice",
-    "source_auto",
-    "source_ai",
-    "source_esco",
+    "source_suggestions",
 )
 
 _SKILL_BOARD_STYLE = """
@@ -669,13 +665,8 @@ _SKILL_BOARD_STYLE = """
     overflow: visible;
 }
 
-.sortable-component > div:nth-child(1),
-.sortable-component > div:nth-child(2) {
-    flex: 1 1 100%;
-}
-
 .sortable-container {
-    flex: 1 1 clamp(240px, 30%, 360px);
+    flex: 1 1 clamp(260px, 32%, 360px);
     background: rgba(255, 255, 255, 0.92);
     border-radius: 1.1rem;
     border: 1px solid rgba(148, 163, 184, 0.28);
@@ -687,6 +678,12 @@ _SKILL_BOARD_STYLE = """
     backdrop-filter: blur(6px);
     position: relative;
     overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sortable-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
 }
 
 .sortable-component > div:nth-child(1) {
@@ -696,6 +693,11 @@ _SKILL_BOARD_STYLE = """
 
 .sortable-component > div:nth-child(2) {
     background: linear-gradient(135deg, rgba(30, 64, 175, 0.95), rgba(59, 130, 246, 0.9));
+    color: #f8fafc;
+}
+
+.sortable-component > div:nth-child(3) {
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.9), rgba(56, 189, 248, 0.85));
     color: #f8fafc;
 }
 
@@ -717,7 +719,8 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-component > div:nth-child(1) .sortable-container-header::after,
-.sortable-component > div:nth-child(2) .sortable-container-header::after {
+.sortable-component > div:nth-child(2) .sortable-container-header::after,
+.sortable-component > div:nth-child(3) .sortable-container-header::after {
     background: rgba(241, 245, 249, 0.45);
 }
 
@@ -729,7 +732,8 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-component > div:nth-child(1) .sortable-container-body,
-.sortable-component > div:nth-child(2) .sortable-container-body {
+.sortable-component > div:nth-child(2) .sortable-container-body,
+.sortable-component > div:nth-child(3) .sortable-container-body {
     padding-bottom: 0.25rem;
 }
 
@@ -755,7 +759,8 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-component > div:nth-child(1) .sortable-item,
-.sortable-component > div:nth-child(2) .sortable-item {
+.sortable-component > div:nth-child(2) .sortable-item,
+.sortable-component > div:nth-child(3) .sortable-item {
     background: rgba(15, 23, 42, 0.25);
     color: #f8fafc;
     border-color: rgba(241, 245, 249, 0.4);
@@ -774,7 +779,20 @@ _SKILL_BOARD_STYLE = """
     box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
+    .sortable-container {
+        flex: 1 1 calc(50% - 1.25rem);
+    }
+}
+
+@media (max-width: 820px) {
+    .sortable-component {
+        gap: 1rem;
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 640px) {
     .sortable-container {
         flex: 1 1 100%;
     }
@@ -812,19 +830,13 @@ def _skill_board_labels(lang: str | None = None) -> dict[SkillContainerType, str
 
     lang_code = lang or st.session_state.get("lang", "de")
     return {
-        "source_auto": tr(
-            "Autoextrahierte Werte",
-            "Auto-extracted values",
-            lang=lang_code,
-        ),
-        "source_ai": tr("KI-Vorschläge", "AI suggestions", lang=lang_code),
-        "source_esco": tr("ESCO-Vorschläge", "ESCO suggestions", lang=lang_code),
         "target_must": tr(
             "Muss-Anforderungen",
             "Must-have requirements",
             lang=lang_code,
         ),
         "target_nice": tr("Nice-to-have", "Nice-to-have", lang=lang_code),
+        "source_suggestions": tr("KI-Vorschläge", "AI suggestions", lang=lang_code),
     }
 
 
@@ -884,13 +896,29 @@ def _render_skill_board(
     labels = _skill_board_labels(lang_code)
 
     stored_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE)
+    board_state: dict[SkillContainerType, list[str]] = {container: [] for container in _SKILL_CONTAINER_ORDER}
     if isinstance(stored_state, Mapping):
-        board_state: dict[SkillContainerType, list[str]] = {
-            container: [str(item) for item in stored_state.get(container, []) if isinstance(item, str)]
-            for container in _SKILL_CONTAINER_ORDER
+        legacy_mapping: dict[str, SkillContainerType] = {
+            "target_must": "target_must",
+            "target_nice": "target_nice",
+            "source_ai": "source_suggestions",
+            "source_auto": "source_suggestions",
+            "source_esco": "source_suggestions",
+            "source_suggestions": "source_suggestions",
         }
-    else:
-        board_state = {container: [] for container in _SKILL_CONTAINER_ORDER}
+        for raw_container, raw_items in stored_state.items():
+            target_container = legacy_mapping.get(str(raw_container))
+            if target_container is None:
+                continue
+            if not isinstance(raw_items, Collection):
+                continue
+            for raw_item in raw_items:
+                if not isinstance(raw_item, str):
+                    continue
+                cleaned_item = raw_item.strip()
+                if not cleaned_item or cleaned_item in board_state[target_container]:
+                    continue
+                board_state[target_container].append(cleaned_item)
 
     stored_meta = st.session_state.get(StateKeys.SKILL_BOARD_META)
     meta: dict[str, SkillBubbleMeta] = {}
@@ -1029,7 +1057,6 @@ def _render_skill_board(
                         meta,
                         label=cleaned,
                         category=category,
-                        source="ai",
                     )
                     if display is None:
                         display = _register_skill_bubble(
@@ -1038,7 +1065,7 @@ def _render_skill_board(
                             category=category,
                             source="ai",
                         )
-                    _add_if_absent(display, "source_ai")
+                    _add_if_absent(display, "source_suggestions")
 
     for raw in esco_skills or []:
         cleaned = str(raw or "").strip()
@@ -1048,7 +1075,6 @@ def _render_skill_board(
             meta,
             label=cleaned,
             category="hard",
-            source="esco",
         )
         if display is None:
             display = _register_skill_bubble(
@@ -1057,13 +1083,13 @@ def _render_skill_board(
                 category="hard",
                 source="esco",
             )
-        _add_if_absent(display, "source_esco")
+        _add_if_absent(display, "source_suggestions")
 
-    st.markdown("##### " + tr("ESCO Skills", "ESCO skills", lang=lang_code))
+    st.markdown("##### " + tr("KI-Vorschläge", "AI suggestions", lang=lang_code))
     st.caption(
         tr(
-            "Kombiniere autoextrahierte, KI- und ESCO-Skills per Drag & Drop in deine Auswahl.",
-            "Combine auto-extracted, AI and ESCO skills via drag & drop to build your selection.",
+            "Alle KI- und ESCO-Vorschläge landen hier zur weiteren Auswahl.",
+            "All AI and ESCO recommendations are collected here for review.",
             lang=lang_code,
         )
     )
@@ -1079,8 +1105,8 @@ def _render_skill_board(
 
     st.caption(
         tr(
-            "Ziehe Skills in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
-            "Drag skills into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            "Ziehe Skills aus „KI-Vorschläge“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
+            "Drag skills from “AI suggestions” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
             lang=lang_code,
         )
     )
