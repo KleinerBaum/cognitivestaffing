@@ -1,165 +1,87 @@
-# Cognitive Needs — Autonomous Agents
+# Autonomous Agents in Cognitive Staffing
 
-This document lists all current and planned autonomous agents in Cognitive Needs, along with their roles and interfaces. Each agent is small, focused, and composable. *Note: earlier docs used the labels “GPT‑4o” and “GPT‑4o‑mini”; the new router maps these to OpenAI’s `gpt-5-mini` and `gpt-5-nano` models respectively.*
-
----
+This guide documents every autonomous or semi-autonomous agent that powers Cognitive Staffing. Use it to understand how data flows through the system, which credentials are required, and where to extend or replace behaviour.
 
 ## Configuration
+All agents rely on OpenAI credentials supplied either through environment variables or `st.secrets["openai"]`:
 
-All agents depend on OpenAI credentials provided via environment variables or
-`st.secrets["openai"]`:
+- `OPENAI_API_KEY` – mandatory for all LLM calls.
+- `OPENAI_BASE_URL` – optional override (set to `https://eu.api.openai.com/v1` for EU hosting).
+- `OPENAI_MODEL` – optional default model. The router still picks `gpt-5-mini` / `gpt-5-nano` per task unless overridden.
+- `VECTOR_STORE_ID` – optional OpenAI Vector Store used by RAG-enabled agents via the `file_search` tool.
+- `VACAYSER_OFFLINE` – set to `1` to load the local ESCO cache instead of calling the public API.
 
-- `OPENAI_API_KEY` – required API key for all LLM calls.
-- `OPENAI_BASE_URL` – optional custom endpoint (e.g., Azure or Responses API).
-- `OPENAI_MODEL` – optional default model override.
-- `VECTOR_STORE_ID` – optional vector store ID enabling the RAG Completion Agent
-  and enriching follow-up suggestions via the File Search tool.
-- `VACAYSER_OFFLINE` – set to `1` to use the cached ESCO dataset and skip
-  network calls.
+Additional environment hints:
+- `OCR_BACKEND` toggles OCR/vision extraction (`none` or `openai`).
+- OpenTelemetry variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`) enable tracing for each agent call.
 
----
+## Core Agents
 
-## 1) Follow‑Up Question Generator (FQG)
+### 1. Follow-up Question Generator (FQG)
+- **Purpose:** Turn a partially filled vacancy JSON into a short list of prioritized follow-up questions. Priorities are `critical`, `normal`, or `optional`, and suggested answers fuel the chip UI.
+- **Inputs:** Current vacancy profile (`extracted`), locale (`lang`), optional ESCO payload, optional RAG suggestions.
+- **Outputs:** `{ "questions": [ { field, question, priority, suggestions } ] }` enforced via `json_schema` in the Responses API.
+- **Model & tools:** `gpt-5-nano` via `responses.create` (JSON mode). Uses `file_search` automatically if `VECTOR_STORE_ID` is present.
+- **When it runs:** After the initial extraction and whenever the user triggers the follow-up step (manual rerun or Auto re-ask loop).
 
-**Purpose**  
-Turn a partially filled vacancy JSON into a minimal, targeted list of follow-up questions that close all information gaps with the fewest user interactions.
+### 2. ESCO Enricher
+- **Purpose:** Normalize the job title with ESCO, retrieve essential skills, and highlight gaps in the current profile. Also produces normalized skill labels for the UI.
+- **Inputs:** `job_title`, `lang`, and current requirements.
+- **Outputs:** Occupation metadata (`preferredLabel`, group, URI), `essential_skills`, `missing_esco_skills`, and label mapping.
+- **Model & tools:** Calls the ESCO REST API (occupation classification + skill lookup). No LLM cost when ESCO is disabled or offline.
+- **When it runs:** During extraction, when job titles change, and while generating skill suggestions.
 
-**Inputs**  
-- `extracted`: dict (current vacancy JSON)  
-- `lang`: "en" | "de"  
-- ESCO context (occupation, essential skills)  
-- RAG suggestions (per field, optional)
+### 3. RAG Completion Agent
+- **Purpose:** Retrieve supporting snippets from the configured OpenAI vector store to pre-fill missing fields or offer better suggestion candidates.
+- **Inputs:** Vacancy context (title, seniority, existing JSON) and list of missing fields.
+- **Outputs:** `rag_suggestions` mapping each missing field to candidate values plus optional rationales.
+- **Model & tools:** `gpt-5-nano` with the `file_search` tool against `VECTOR_STORE_ID`.
+- **When it runs:** Before the FQG (to seed follow-up chips) and on-demand when the user clicks “Refresh suggestions”.
 
-**Outputs**  
-- `questions`: list of objects, each with:  
-  - `field`: schema key (or "")  
-  - `question`: localized string  
-  - `priority`: "critical" | "normal" | "optional"  
-  - `suggestions`: list[str] (optional, to render as answer chips)
+### 4. Company Intel Agent
+- **Purpose:** Extract company name, location, mission, and culture directly from a provided URL. The ingest layer fetches HTML/PDF content; the agent distills it into structured data.
+- **Inputs:** `company_url` plus fetched page text.
+- **Outputs:** `{ company_name, location, company_mission, company_culture }`.
+- **Model & tools:** `gpt-5-mini` via structured extraction prompts.
+- **When it runs:** When a user provides a company URL or triggers “Fetch from website”.
 
-**Model / APIs**
-- OpenAI Responses API with `gpt-5-nano` (JSON schema + tool calling)
-- ESCO API (occupation + essential skills lookup)
-- Optional File Search tool using `vector_store_id` for context suggestions
+### 5. Suggestion Helpers
+Small focused agents that enrich the vacancy profile:
+- **Task Suggester:** Drafts responsibilities per role.
+- **Skill Suggester:** Generates hard/soft skills (with ESCO normalization when available).
+- **Benefit Suggester:** Combines curated lists and LLM ideas for perks.
+- **Boolean Query Builder:** Produces a recruiter-friendly boolean search string.
+- **Interview Guide Generator:** Delivers structured interview questions and rubrics (supports streaming).
+- **Job-ad Writer:** Streams a Markdown job ad aligned with selected tone and branding cues.
 
-**When**
-- After initial extraction
-- After each user update (optional re‑ask triggered or via Auto Re‑ask Loop)
+All helpers use the Responses API: long-form outputs (`job_ad`, `interview_guide`, `boolean_query`) call `gpt-5-mini` with streaming; shorter lists (`skills`, `benefits`, `tasks`) run on `gpt-5-nano`.
 
----
+### 6. Auto Re-ask Loop
+- **Purpose:** Automatically re-trigger the FQG until every `critical` question is answered, reducing manual intervention.
+- **Inputs:** Current profile (`st.session_state[profile]`), language, optional vector store context.
+- **Outputs:** Same schema as the FQG (updated questions) plus state updates marking which questions are resolved.
+- **Model & tools:** Delegates to the FQG.
+- **When it runs:** When the “Auto follow-ups” toggle is active after extraction or after each auto-answer.
 
-## 2) ESCO Enricher
+## Compliance & Forthcoming Agents
 
-**Purpose**  
-Normalize the role context and surface **missing essential skills** via ESCO; also standardize skill labels.
+### Compliance Sentinel *(planned)*
+- **Goal:** Review generated content (job ads, interview guides, follow-ups) for GDPR/EEO compliance and risky phrasing.
+- **Behaviour:** Receives structured outputs plus metadata (jurisdiction, language). Flags violations, proposes safe rewrites, and can block downstream exports. Integrates with Deliberative Alignment routines in `llm/responses.py` to ensure refusal reasons reach the UI.
+- **Model & tools:** Planned for `gpt-5-mini` with policy-specific prompt templates and optional audit logging via OpenTelemetry attributes.
 
-**Inputs**  
-- `job_title`, `lang`  
-- Existing lists (requirements, responsibilities, tools)
+### Tech-Stack Miner *(planned)*
+- **Goal:** Detect missing technologies, frameworks, and tools relevant to the vacancy based on industry, ESCO data, and vector store snippets.
+- **Behaviour:** Combines deterministic heuristics (mapping tables in `skill_market_insights.json`) with LLM reasoning to propose stack items grouped by category (languages, frameworks, DevOps, data). Outputs structured JSON for direct injection into requirement sections.
+- **Model & tools:** Will route through `gpt-5-nano` for quick classifications and escalate ambiguous cases to `gpt-5-mini`. May optionally trigger additional vector store searches to justify suggestions.
 
-**Outputs**  
-- `occupation`: {preferredLabel, group, uri}  
-- `essential_skills`: list[str]  
-- `missing_esco_skills`: list[str]  
-- Normalized labels for suggested skills
+### DEI Language Auditor *(planned)*
+- **Goal:** Highlight non-inclusive or biased phrasing in job ads and interview questions, suggesting neutral alternatives.
+- **Behaviour:** Runs as a post-processing step on generated text. Returns annotations with severity levels so the UI can surface inline highlights.
 
-**Model / APIs**  
-- ESCO REST API (occupation match + skill relations)
-
-**When**  
-- During initial extraction & FQG  
-- When suggesting skills/tasks in later steps
-
----
-
-## 3) RAG Completion Agent
-
-**Purpose**
-Fill or propose values for missing fields using your **OpenAI vector store** (set via `VECTOR_STORE_ID`; omit or leave empty to disable). Suggestions feed into FQG’s `suggestions` field.
-
-**Inputs**  
-- Job context (title, industry, current JSON)  
-- `missing_fields`: set of field names
-
-**Outputs**  
-- `rag_suggestions`: dict mapping field -> list[str] suggestions  
-- (Optionally) short rationales or source snippets for each suggestion
-
-**Model / APIs**
-- OpenAI Responses API with `gpt-5-nano`
-- File Search tool driven by `vector_store_id` (no separate API call)
-
-**When**  
-- Before FQG (to seed “suggestions” in questions)  
-- On-demand enrichment (e.g. to suggest skills, benefits, tech stacks)
+### Content Cost Router *(planned)*
+- **Goal:** Dynamically choose between `gpt-5-mini` and `gpt-5-nano` depending on prompt complexity, context size, and required output length, keeping usage predictable.
+- **Behaviour:** Extends the dispatcher in `config.py`, logging routing decisions for analytics and enabling per-step overrides from the settings panel.
 
 ---
-
-## 4) Company Info Agent
-
-**Purpose**  
-Extract company name, location, mission/values, and culture from a given company website (homepage and `/impressum` or equivalent if present).
-
-**Inputs**  
-- `company_url` (string)  
-- Page text content (fetched via ingestion utils)
-
-**Outputs**  
-- `company_name`  
-- `location`  
-- `company_mission`  
-- `company_culture`
-
-**Model / APIs**
-- OpenAI Responses API with `gpt-5-mini` for structured text extraction
-- Uses `ingest.extractors` to fetch website content
-
-**When**
-- Company info step (“Fetch from website” action in the UI)
-
----
-
-## 5) Suggestion Agents (Helpers)
-
-- **Task Suggester** – Propose top responsibilities/tasks for the role
-- **Skill Suggester** – Suggest technical and soft skills (with ESCO normalization)
-- **Benefit Suggester** – Suggest common perks/benefits using internal lists and LLM guesses
-- **Boolean Builder** – Compose a candidate search string from title + skills (Boolean Builder 2.0)
-- **Interview Guide Generator** – Generate interview questions & scoring rubrics
-- **Job‑Ad Writer** – Draft a polished, SEO-aware job ad in Markdown format
-
-**Models**
-- OpenAI Responses API with `gpt-5-mini` for job-ad, interview and boolean generation
-- OpenAI Responses API with `gpt-5-nano` for skill, benefit and task suggestions
-
----
-
-## 6) Auto Re‑ask Loop
-
-**Purpose**
-Automatically invoke the FQG until all critical fields are answered, reducing manual clicks.
-
-**Inputs**
-- Current vacancy JSON (`profile`)
-- `lang`
-- Optional `vector_store_id` (passed through to FQG)
-
-**Outputs**
-- Updated follow-up questions (same schema as FQG)
-
-**Model / APIs**
-- Delegates to FQG, thus OpenAI Responses API with `gpt-5-nano` and optional File Search tool
-
-**When**
-- After extraction when the user enables **Auto Follow-ups**; implemented in `_extract_and_summarize`
-
----
-
-## 7) Planned Agents
-
-*(Planned enhancements and future autonomous agents)*
-
-- **Tech‑Stack Miner** – Identify prevalent tech stack elements for the role/industry via RAG + ESCO patterns
-- **Compliance Checker** – Check outputs for bias, EEO/GDPR compliance, add boilerplate as needed
-- **DEI Language Auditor** – Provide inclusive language suggestions (flag potentially discriminatory phrasing)
-- **Content Cost Router** – Auto-select between `gpt-5-mini` and `gpt-5-nano` based on content complexity to manage cost
+Every agent returns a unified `ChatCallResult` (OK/usage/error/raw). UI components translate errors into friendly alerts with retry buttons, and exponential backoff protects against transient rate limits. Refer to `llm/` for implementation details and `wizard.py` for integration points.

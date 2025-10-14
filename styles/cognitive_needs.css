@@ -1,87 +1,97 @@
-/* === Cognitive Needs Futuristic Theme ===========================================
-   This stylesheet assumes dark base colors from .streamlit/config.toml.
-   It adds a glassmorphic layout, consistent buttons, and a global background.
-   The background image is provided at runtime via :root { --bg-image: url(...); }
+/* === Cognitive Staffing Dark Theme =============================================
+   Streamlit skin aligned with the Cognitive Staffing brand.
+   Applies a deep-navy gradient, cyan highlights, and glass panels.
+   Background imagery can still be injected via :root { --bg-image: url(...); }
    ======================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
-  --tone-50: #f7f9f9;
-  --tone-100: #edf1f1;
-  --tone-200: #dfe3e3;
-  --tone-300: #c3c8c8;
-  --tone-400: #a1a6a6;
-  --tone-500: #838888;
-  --tone-600: #646969;
-  --tone-700: #515656;
-  --tone-800: #3a3f3f;
-  --tone-900: #232727;
-  --tone-950: #151818;
+  --brand-navy-900: #071327;
+  --brand-navy-800: #0c1f3d;
+  --brand-navy-700: #132d52;
+  --brand-navy-600: #173760;
+  --brand-cyan-400: #33b6ff;
+  --brand-cyan-300: #5ecffe;
+  --brand-amber-300: #f7b955;
+  --brand-slate-200: #d6dee9;
+  --brand-slate-100: #e5edf5;
 
-  --accent: var(--tone-200);
-  --accent-2: var(--tone-300);
-  --text-strong: var(--tone-50);
-  --text-muted: rgba(223, 227, 227, 0.75);
-  --text-soft: rgba(223, 227, 227, 0.55);
+  --tone-50: #f4f7fb;
+  --tone-100: #e4ebf6;
+  --tone-200: #cad7ec;
+  --tone-300: #a7bfdc;
+  --tone-400: #84a8cc;
+  --tone-500: #618fbb;
+  --tone-600: #476f99;
+  --tone-700: #345578;
+  --tone-800: #243c58;
+  --tone-900: #16253c;
+  --tone-950: #0a1628;
+
+  --accent: var(--brand-cyan-300);
+  --accent-2: var(--brand-amber-300);
+  --text-strong: #f5f7fa;
+  --text-muted: rgba(216, 227, 243, 0.76);
+  --text-soft: rgba(216, 227, 243, 0.58);
   --text-inverse: var(--tone-950);
   --text-contrast-strong: var(--tone-950);
-  --text-contrast-muted: rgba(25, 28, 28, 0.72);
-  --text-contrast-soft: rgba(25, 28, 28, 0.55);
+  --text-contrast-muted: rgba(15, 23, 42, 0.75);
+  --text-contrast-soft: rgba(15, 23, 42, 0.55);
   --text-on-accent: var(--text-inverse);
 
-  --surface-0: rgba(28, 31, 31, 0.9);
-  --surface-1: rgba(36, 40, 40, 0.82);
-  --surface-2: rgba(52, 57, 57, 0.7);
-  --surface-3: rgba(223, 227, 227, 0.1);
-  --surface-contrast: rgba(247, 249, 249, 0.96);
-  --surface-accent-soft: rgba(223, 227, 227, 0.12);
-  --surface-accent-strong: rgba(223, 227, 227, 0.2);
-  --surface-accent-secondary: rgba(195, 200, 200, 0.16);
-  --surface-hover: rgba(223, 227, 227, 0.12);
-  --surface-press: rgba(195, 200, 200, 0.2);
-  --surface-critical: rgba(214, 90, 78, 0.24);
-  --control-surface: var(--surface-1);
+  --surface-0: rgba(12, 20, 36, 0.94);
+  --surface-1: rgba(15, 27, 49, 0.9);
+  --surface-2: rgba(24, 41, 68, 0.78);
+  --surface-3: rgba(97, 143, 187, 0.12);
+  --surface-contrast: rgba(248, 250, 252, 0.96);
+  --surface-accent-soft: rgba(94, 207, 254, 0.14);
+  --surface-accent-strong: rgba(51, 182, 255, 0.18);
+  --surface-accent-secondary: rgba(247, 185, 85, 0.18);
+  --surface-hover: rgba(148, 188, 241, 0.16);
+  --surface-press: rgba(94, 207, 254, 0.24);
+  --surface-critical: rgba(214, 90, 78, 0.26);
+  --control-surface: rgba(18, 35, 60, 0.86);
 
-  --border-subtle: rgba(195, 200, 200, 0.2);
-  --border-strong: rgba(223, 227, 227, 0.3);
-  --border-contrast: rgba(12, 14, 14, 0.5);
+  --border-subtle: rgba(138, 170, 212, 0.22);
+  --border-strong: rgba(214, 222, 233, 0.34);
+  --border-contrast: rgba(5, 10, 20, 0.55);
 
   --radius: 14px;
-  --shadow-soft: 0 12px 28px rgba(8, 10, 10, 0.4);
-  --shadow-medium: 0 18px 40px rgba(8, 10, 10, 0.52);
-  --shadow-strong: 0 28px 52px rgba(8, 10, 10, 0.65);
-  --focus-ring: rgba(223, 227, 227, 0.5);
-  --accent-glow: drop-shadow(0 0 12px rgba(223, 227, 227, 0.18));
-  --button-gradient: linear-gradient(135deg, rgba(223, 227, 227, 0.95), rgba(195, 200, 200, 0.9));
-  --summary-primary-gradient: linear-gradient(120deg, rgba(223, 227, 227, 0.16), rgba(195, 200, 200, 0.12));
+  --shadow-soft: 0 12px 28px rgba(3, 8, 20, 0.52);
+  --shadow-medium: 0 18px 40px rgba(3, 8, 20, 0.6);
+  --shadow-strong: 0 28px 52px rgba(3, 8, 20, 0.7);
+  --focus-ring: rgba(94, 207, 254, 0.5);
+  --accent-glow: drop-shadow(0 0 14px rgba(94, 207, 254, 0.28));
+  --button-gradient: linear-gradient(135deg, rgba(51, 182, 255, 0.95), rgba(17, 94, 181, 0.92));
+  --summary-primary-gradient: linear-gradient(120deg, rgba(51, 182, 255, 0.16), rgba(17, 94, 181, 0.2));
   --sidebar-top: #f2f6fb;
   --sidebar-gradient: linear-gradient(
     180deg,
-    var(--sidebar-top) 0%,
-    #eef4f7 32%,
-    #d6e3e9 54%,
-    #1b2f39 100%
+    rgba(242, 246, 251, 0.95) 0%,
+    rgba(226, 237, 249, 0.92) 24%,
+    rgba(204, 224, 246, 0.88) 48%,
+    rgba(23, 55, 96, 0.94) 100%
   );
-  --sidebar-active-bg: linear-gradient(90deg, rgba(19, 45, 58, 0.12), rgba(27, 47, 57, 0.18));
-  --sidebar-hover-bg: rgba(23, 52, 66, 0.14);
-  --sidebar-text-color: #1c2e37;
-  --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: linear-gradient(90deg, rgba(51, 182, 255, 0.18), rgba(17, 94, 181, 0.24));
+  --sidebar-hover-bg: rgba(51, 182, 255, 0.16);
+  --sidebar-text-color: #0c1f3d;
+  --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   --app-gradient: linear-gradient(
     180deg,
-    rgba(28, 31, 31, 0.88) 0%,
-    rgba(40, 44, 44, 0.78) 45%,
-    rgba(28, 31, 31, 0.9) 100%
+    rgba(7, 19, 39, 0.95) 0%,
+    rgba(15, 31, 61, 0.92) 45%,
+    rgba(9, 20, 38, 0.97) 100%
   );
-  --scrollbar-track: rgba(8, 10, 10, 0.4);
-  --scrollbar-thumb: rgba(195, 200, 200, 0.35);
-  --scrollbar-thumb-border: rgba(8, 10, 10, 0.5);
+  --scrollbar-track: rgba(5, 10, 20, 0.55);
+  --scrollbar-thumb: rgba(94, 207, 254, 0.4);
+  --scrollbar-thumb-border: rgba(3, 8, 20, 0.55);
 
-  --interactive-surface: rgba(223, 227, 227, 0.08);
-  --interactive-hover: rgba(223, 227, 227, 0.14);
-  --interactive-current: rgba(223, 227, 227, 0.2);
-  --interactive-done: rgba(223, 227, 227, 0.16);
-  --interactive-border-strong: rgba(223, 227, 227, 0.45);
+  --interactive-surface: rgba(94, 207, 254, 0.12);
+  --interactive-hover: rgba(94, 207, 254, 0.22);
+  --interactive-current: rgba(51, 182, 255, 0.28);
+  --interactive-done: rgba(17, 94, 181, 0.22);
+  --interactive-border-strong: rgba(94, 207, 254, 0.45);
 
   --blur: 12px;
   --bg-image: none;
