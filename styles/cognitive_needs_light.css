@@ -1,85 +1,93 @@
-/* === Cognitive Needs Light Theme ==================================================
-   Alternate light theme using the same structure as cognitive_needs.css but with
-   light-friendly colors. ==================================================== */
+/* === Cognitive Staffing Light Theme ===============================================
+   Alternate light theme matching the Cognitive Staffing palette.
+   Keeps glass panels while switching to bright backgrounds.
+   ======================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
-  --tone-50: #f7f7f7;
-  --tone-100: #eeeeee;
-  --tone-200: #e0e0e0;
-  --tone-300: #c7c9c9;
-  --tone-400: #adb0b0;
-  --tone-500: #939696;
-  --tone-600: #797c7c;
-  --tone-700: #5f6363;
-  --tone-800: #454949;
-  --tone-900: #2e3232;
-  --tone-950: #1b1f1f;
+  --brand-navy-200: #e6efff;
+  --brand-navy-500: #2a4a85;
+  --brand-cyan-400: #1e88f7;
+  --brand-cyan-200: #7fc8ff;
+  --brand-amber-200: #ffce73;
+  --brand-slate-300: #d2dae7;
 
-  --accent: var(--tone-900);
-  --accent-2: var(--tone-800);
+  --tone-50: #f6f9fe;
+  --tone-100: #edf3fb;
+  --tone-200: #dae6f7;
+  --tone-300: #c4d6ef;
+  --tone-400: #a6c2e6;
+  --tone-500: #85aad7;
+  --tone-600: #618cc1;
+  --tone-700: #466da5;
+  --tone-800: #345381;
+  --tone-900: #253a5f;
+  --tone-950: #152544;
+
+  --accent: var(--brand-cyan-400);
+  --accent-2: var(--brand-amber-200);
   --text-strong: var(--tone-900);
-  --text-muted: rgba(46, 50, 50, 0.7);
-  --text-soft: rgba(71, 75, 75, 0.6);
+  --text-muted: rgba(37, 58, 95, 0.72);
+  --text-soft: rgba(52, 83, 129, 0.56);
   --text-inverse: var(--tone-50);
   --text-contrast-strong: var(--tone-900);
-  --text-contrast-muted: rgba(46, 50, 50, 0.7);
-  --text-contrast-soft: rgba(46, 50, 50, 0.5);
+  --text-contrast-muted: rgba(37, 58, 95, 0.7);
+  --text-contrast-soft: rgba(37, 58, 95, 0.5);
   --text-on-accent: var(--text-inverse);
 
   --surface-0: rgba(255, 255, 255, 0.96);
   --surface-1: rgba(255, 255, 255, 0.92);
   --surface-2: rgba(255, 255, 255, 0.98);
-  --surface-3: rgba(46, 50, 50, 0.08);
+  --surface-3: rgba(30, 136, 247, 0.08);
   --surface-contrast: rgba(255, 255, 255, 0.98);
-  --surface-accent-soft: rgba(46, 50, 50, 0.08);
-  --surface-accent-strong: rgba(46, 50, 50, 0.14);
-  --surface-accent-secondary: rgba(71, 75, 75, 0.12);
-  --surface-hover: rgba(46, 50, 50, 0.08);
-  --surface-press: rgba(71, 75, 75, 0.12);
+  --surface-accent-soft: rgba(30, 136, 247, 0.12);
+  --surface-accent-strong: rgba(30, 136, 247, 0.18);
+  --surface-accent-secondary: rgba(255, 206, 115, 0.16);
+  --surface-hover: rgba(30, 136, 247, 0.12);
+  --surface-press: rgba(30, 136, 247, 0.18);
   --surface-critical: rgba(214, 90, 78, 0.18);
-  --control-surface: rgba(46, 50, 50, 0.06);
+  --control-surface: rgba(42, 74, 133, 0.08);
 
-  --border-subtle: rgba(46, 50, 50, 0.14);
-  --border-strong: rgba(46, 50, 50, 0.22);
-  --border-contrast: rgba(46, 50, 50, 0.28);
+  --border-subtle: rgba(42, 74, 133, 0.16);
+  --border-strong: rgba(42, 74, 133, 0.26);
+  --border-contrast: rgba(42, 74, 133, 0.34);
 
   --radius: 14px;
-  --shadow-soft: 0 10px 24px rgba(46, 50, 50, 0.08);
-  --shadow-medium: 0 16px 34px rgba(46, 50, 50, 0.12);
-  --shadow-strong: 0 22px 44px rgba(46, 50, 50, 0.16);
-  --focus-ring: rgba(46, 50, 50, 0.35);
-  --accent-glow: drop-shadow(0 0 10px rgba(71, 75, 75, 0.18));
-  --button-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(230, 233, 233, 0.96));
-  --summary-primary-gradient: linear-gradient(120deg, rgba(46, 50, 50, 0.1), rgba(71, 75, 75, 0.08));
-  --sidebar-top: #f5f8fb;
+  --shadow-soft: 0 10px 24px rgba(37, 58, 95, 0.12);
+  --shadow-medium: 0 16px 34px rgba(37, 58, 95, 0.16);
+  --shadow-strong: 0 22px 44px rgba(37, 58, 95, 0.2);
+  --focus-ring: rgba(30, 136, 247, 0.3);
+  --accent-glow: drop-shadow(0 0 10px rgba(30, 136, 247, 0.22));
+  --button-gradient: linear-gradient(135deg, rgba(30, 136, 247, 0.95), rgba(70, 109, 165, 0.92));
+  --summary-primary-gradient: linear-gradient(120deg, rgba(30, 136, 247, 0.12), rgba(70, 109, 165, 0.1));
+  --sidebar-top: #f2f6fd;
   --sidebar-gradient: linear-gradient(
     180deg,
-    var(--sidebar-top) 0%,
-    #eef4f7 32%,
-    #d6e3e9 54%,
-    #1b2f39 100%
+    rgba(242, 246, 253, 0.96) 0%,
+    rgba(228, 236, 250, 0.92) 32%,
+    rgba(204, 221, 247, 0.88) 58%,
+    rgba(52, 83, 129, 0.92) 100%
   );
-  --sidebar-active-bg: linear-gradient(90deg, rgba(19, 45, 58, 0.1), rgba(27, 47, 57, 0.16));
-  --sidebar-hover-bg: rgba(23, 52, 66, 0.12);
-  --sidebar-text-color: #1c2e37;
-  --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+  --sidebar-active-bg: linear-gradient(90deg, rgba(30, 136, 247, 0.16), rgba(52, 83, 129, 0.2));
+  --sidebar-hover-bg: rgba(30, 136, 247, 0.14);
+  --sidebar-text-color: #1e335b;
+  --button-glass-border: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
   --app-gradient: linear-gradient(
     180deg,
-    rgba(226, 229, 229, 0.94) 0%,
-    rgba(220, 223, 223, 0.9) 45%,
-    rgba(206, 210, 210, 0.94) 100%
+    rgba(244, 247, 254, 0.95) 0%,
+    rgba(235, 242, 252, 0.92) 45%,
+    rgba(222, 233, 248, 0.95) 100%
   );
-  --scrollbar-track: rgba(0, 0, 0, 0.08);
-  --scrollbar-thumb: rgba(71, 75, 75, 0.28);
-  --scrollbar-thumb-border: rgba(255, 255, 255, 0.32);
+  --scrollbar-track: rgba(30, 53, 90, 0.08);
+  --scrollbar-thumb: rgba(30, 136, 247, 0.28);
+  --scrollbar-thumb-border: rgba(244, 247, 254, 0.32);
 
-  --interactive-surface: rgba(46, 50, 50, 0.05);
-  --interactive-hover: rgba(46, 50, 50, 0.1);
-  --interactive-current: rgba(46, 50, 50, 0.14);
-  --interactive-done: rgba(46, 50, 50, 0.12);
-  --interactive-border-strong: rgba(46, 50, 50, 0.28);
+  --interactive-surface: rgba(30, 136, 247, 0.08);
+  --interactive-hover: rgba(30, 136, 247, 0.14);
+  --interactive-current: rgba(30, 136, 247, 0.18);
+  --interactive-done: rgba(70, 109, 165, 0.16);
+  --interactive-border-strong: rgba(30, 136, 247, 0.28);
 
   --blur: 10px;
   --bg-image: none;

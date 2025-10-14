@@ -4134,6 +4134,18 @@ def _field_lock_config(
                 "Locked automatically – unlock before editing.",
             )
         )
+        help_bits.append(
+            tr(
+                "Der Wert stammt direkt aus dem Dokument oder einer Regel und bleibt unverändert, bis du ihn manuell freigibst.",
+                "The value comes directly from the source document or rule logic and stays frozen until you explicitly unlock it.",
+            )
+        )
+        help_bits.append(
+            tr(
+                "Nach dem Entsperren überschreiben deine Eingaben zukünftige Auto-Aktualisierungen.",
+                "Once unlocked, your input will override future automatic updates.",
+            )
+        )
     if source_info:
         descriptor_plain = source_info.descriptor
         descriptor_full = source_info.descriptor_with_context()
@@ -6854,8 +6866,8 @@ def _step_requirements():
             if show_hint:
                 st.caption(
                     tr(
-                        "Aktuell keine Vorschläge verfügbar.",
-                        "No suggestions available right now.",
+                        "Aktuell keine Vorschläge verfügbar – entweder sind bereits alle Optionen übernommen, das Feld ist gesperrt oder es fehlen Kontextdaten (z. B. Jobtitel, RAG).",
+                        "No suggestions available right now – either everything useful is already added, the field is locked, or required context (e.g. job title, RAG) is missing.",
                     )
                 )
             return
