@@ -11,7 +11,7 @@ from typing import Any, Mapping, Sequence
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from config import ModelTask, get_model_for
+from config import ModelTask, VECTOR_STORE_ID, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt
 from llm.rag_pipeline import (
@@ -29,6 +29,11 @@ from utils.i18n import tr
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool
+
+try:  # pragma: no cover - Streamlit not required for CLI usage
+    import streamlit as st
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    st = None  # type: ignore[assignment]
 
 _GENDER_MARKER_RE = re.compile(
     r"(?:\((?:[mwdgfxnai]\s*/\s*){1,4}[mwdgfxnai]\)"
@@ -57,6 +62,28 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
     return False
 
 tracer = trace.get_tracer(__name__)
+
+
+def _resolve_vector_store_id(candidate: str | None) -> str:
+    """Return the active vector store ID based on runtime configuration."""
+
+    if candidate:
+        candidate = candidate.strip()
+        if candidate:
+            return candidate
+
+    session_value: str | None = None
+    if st is not None:
+        try:
+            raw_value = st.session_state.get("vector_store_id")  # type: ignore[attr-defined]
+        except Exception:  # pragma: no cover - defensive
+            raw_value = None
+        if raw_value:
+            session_value = str(raw_value).strip()
+    for value in (session_value, (VECTOR_STORE_ID or "").strip()):
+        if value:
+            return value
+    return ""
 
 
 def extract_company_info(text: str, model: str | None = None) -> dict:
@@ -1868,6 +1895,7 @@ def generate_job_ad(
     lang: str | None = None,
     model: str | None = None,
     selected_values: Mapping[str, Any] | None = None,
+    vector_store_id: str | None = None,
 ) -> str:
     """Generate a structured job advertisement from collected profile data."""
 
@@ -1884,6 +1912,13 @@ def generate_job_ad(
 
     if model is None:
         model = get_model_for(ModelTask.JOB_AD)
+
+    store_id = _resolve_vector_store_id(vector_store_id)
+    tools: list[dict[str, Any]] = []
+    tool_choice: str | None = None
+    if store_id:
+        tools = [{"type": "file_search", "vector_store_ids": [store_id]}]
+        tool_choice = "auto"
     try:
         messages = build_job_ad_prompt(structured_payload)
         response = api.call_chat_api(
@@ -1892,6 +1927,8 @@ def generate_job_ad(
             temperature=0.7,
             max_tokens=900,
             task=ModelTask.JOB_AD,
+            tools=tools or None,
+            tool_choice=tool_choice,
         )
         llm_output = _chat_content(response).strip()
     except Exception:
@@ -1911,6 +1948,7 @@ def stream_job_ad(
     lang: str | None = None,
     model: str | None = None,
     selected_values: Mapping[str, Any] | None = None,
+    vector_store_id: str | None = None,
 ) -> tuple[api.ChatStream, str]:
     """Return a streaming iterator and fallback document for job ad generation."""
 
@@ -1927,6 +1965,10 @@ def stream_job_ad(
 
     if model is None:
         model = get_model_for(ModelTask.JOB_AD)
+
+    store_id = _resolve_vector_store_id(vector_store_id)
+    if store_id:
+        raise RuntimeError("Job ad streaming with retrieval is not supported.")
 
     messages = build_job_ad_prompt(structured_payload)
     stream = api.stream_chat_api(

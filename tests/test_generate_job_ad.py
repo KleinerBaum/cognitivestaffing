@@ -21,6 +21,7 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
 
     def fake_call(messages, **_kwargs):
         captured["messages"] = messages
+        captured["kwargs"] = _kwargs
         return ChatCallResult(
             content=(
                 "# Software Engineer at Acme Corp\n\n"
@@ -67,6 +68,7 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
         style_reference="Bold and human",
         tone="creative",
         lang="en",
+        vector_store_id="vs123",
     )
 
     assert output.startswith("# Software Engineer at Acme Corp")
@@ -77,6 +79,8 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
     assert "innovative spirit" in prompt_text.lower()
     assert "Culture: We celebrate learning." in prompt_text
     assert "Experienced engineers" in prompt_text
+    assert captured["kwargs"]["tools"] == [{"type": "file_search", "vector_store_ids": ["vs123"]}]
+    assert captured["kwargs"]["tool_choice"] == "auto"
 
 
 def test_job_ad_prompt_enforces_section_usage_en():
@@ -88,9 +92,7 @@ def test_job_ad_prompt_enforces_section_usage_en():
                 "entries": [{"label": "Core", "items": ["Build"]}],
             }
         ],
-        "manual_sections": [
-            {"title": "Culture", "content": "We value curiosity."}
-        ],
+        "manual_sections": [{"title": "Culture", "content": "We value curiosity."}],
     }
 
     prompt_text = _collect_prompt_text(build_job_ad_prompt(payload))
@@ -108,9 +110,7 @@ def test_job_ad_prompt_enforces_section_usage_de():
                 "entries": [{"label": "Kern", "items": ["Entwickeln"]}],
             }
         ],
-        "manual_sections": [
-            {"title": "Kultur", "content": "Wir schätzen Neugier."}
-        ],
+        "manual_sections": [{"title": "Kultur", "content": "Wir schätzen Neugier."}],
     }
 
     prompt_text = _collect_prompt_text(build_job_ad_prompt(payload))
