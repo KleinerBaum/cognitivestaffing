@@ -30,6 +30,7 @@ STRICT_JSON = True
 CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
+
 def normalise_model_name(value: str | None) -> str:
     """Return ``value`` with legacy model aliases mapped to current names."""
 
@@ -114,6 +115,8 @@ class ModelTask(StrEnum):
     ONBOARDING_SUGGESTION = "onboarding_suggestion"
     JOB_AD = "job_ad"
     INTERVIEW_GUIDE = "interview_guide"
+    PROFILE_SUMMARY = "profile_summary"
+    CANDIDATE_MATCHING = "candidate_matching"
     DOCUMENT_REFINEMENT = "document_refinement"
     EXPLANATION = "explanation"
 
@@ -134,6 +137,8 @@ MODEL_ROUTING: Dict[str, str] = {
     ModelTask.ONBOARDING_SUGGESTION.value: GPT5_NANO,
     ModelTask.JOB_AD.value: GPT5_MINI,
     ModelTask.INTERVIEW_GUIDE.value: GPT5_MINI,
+    ModelTask.PROFILE_SUMMARY.value: GPT5_NANO,
+    ModelTask.CANDIDATE_MATCHING.value: GPT5_MINI,
     ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
     ModelTask.EXPLANATION.value: GPT5_MINI,
     "embedding": EMBED_MODEL,
