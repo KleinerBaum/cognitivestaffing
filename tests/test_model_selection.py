@@ -18,6 +18,7 @@ import config
 import core.esco_utils as esco_utils
 import openai_utils
 from openai_utils import ChatCallResult
+from components import model_selector as model_selector_component
 
 
 def test_suggest_additional_skills_model(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -152,3 +153,85 @@ def test_marking_unavailable_is_cleared_on_reload() -> None:
     importlib.reload(config)
     reloaded_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
     assert config.get_model_for(config.ModelTask.EXTRACTION) == reloaded_chain[0]
+
+
+def test_model_selector_uses_translations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The model selector should surface localized labels and auto mode by default."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = "de"
+
+    captured: dict[str, object] = {}
+
+    def fake_selectbox(label, options, index=0, key=None, **kwargs):  # type: ignore[no-untyped-def]
+        captured["label"] = label
+        captured["options"] = list(options)
+        captured["index"] = index
+        choice = options[index]
+        if key is not None:
+            st.session_state[key] = choice
+        return choice
+
+    monkeypatch.setattr(st, "selectbox", fake_selectbox)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+
+    resolved = model_selector_component.model_selector()
+
+    assert captured["label"] == "Basismodell"
+    assert any("Automatisch" in option for option in captured["options"])
+    assert captured["index"] == 0
+    assert resolved == config.OPENAI_MODEL
+    assert st.session_state["model_override"] == ""
+    assert st.session_state["model"] == config.OPENAI_MODEL
+
+
+def test_model_selector_updates_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Selecting a manual override stores the normalized value in session state."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+
+    captured: dict[str, object] = {}
+
+    def fake_selectbox(label, options, index=0, key=None, **kwargs):  # type: ignore[no-untyped-def]
+        captured["index"] = index
+        choice = options[2]
+        if key is not None:
+            st.session_state[key] = choice
+        return choice
+
+    monkeypatch.setattr(st, "selectbox", fake_selectbox)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+
+    resolved = model_selector_component.model_selector()
+
+    assert captured["index"] == 0
+    assert resolved == config.GPT5_NANO
+    assert st.session_state["model_override"] == config.GPT5_NANO
+    assert st.session_state["model"] == config.GPT5_NANO
+
+
+def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Existing overrides should be normalised and reflected in the default index."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    st.session_state["model_override"] = "  GPT-5-NANO  "
+
+    captured: dict[str, object] = {}
+
+    def fake_selectbox(label, options, index=0, key=None, **kwargs):  # type: ignore[no-untyped-def]
+        captured["index"] = index
+        choice = options[index]
+        if key is not None:
+            st.session_state[key] = choice
+        return choice
+
+    monkeypatch.setattr(st, "selectbox", fake_selectbox)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+
+    resolved = model_selector_component.model_selector()
+
+    assert captured["index"] == 2
+    assert resolved == config.GPT5_NANO
+    assert st.session_state["model_override"] == config.GPT5_NANO
