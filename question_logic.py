@@ -812,6 +812,7 @@ def generate_followup_questions(
 
     if esco_skills:
         normalized_esco = normalize_skills(esco_skills, lang=lang)
+        st.session_state[StateKeys.ESCO_SKILLS] = normalized_esco
         lookup = {skill.casefold(): skill for skill in normalized_esco}
         existing_union: Set[str] = set()
         for values in existing_skill_values.values():

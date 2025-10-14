@@ -77,6 +77,7 @@ from utils.normalization import normalize_country, normalize_language_list, coun
 from utils.export import prepare_clean_json, prepare_download_data
 from utils.usage import build_usage_markdown, usage_totals
 from nlp.bias import scan_bias_language
+from ingest.heuristics import is_soft_skill
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
@@ -826,6 +827,12 @@ def _skill_source_label(source: SkillSource, lang: str | None = None) -> str:
     return source_labels[source]
 
 
+def _infer_skill_category(label: str) -> SkillCategory:
+    """Infer whether a skill should be treated as hard or soft."""
+
+    return "soft" if is_soft_skill(label) else "hard"
+
+
 def _skill_board_labels(lang: str | None = None) -> dict[SkillContainerType, str]:
     """Return localized column headers for the skill board."""
 
@@ -895,6 +902,8 @@ def _render_skill_board(
 
     lang_code = st.session_state.get("lang", "de")
     labels = _skill_board_labels(lang_code)
+    esco_candidates = _unique_normalized(esco_skills)
+    normalized_missing = _unique_normalized(missing_esco_skills)
 
     stored_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE)
     board_state: dict[SkillContainerType, list[str]] = {container: [] for container in _SKILL_CONTAINER_ORDER}
@@ -1068,25 +1077,31 @@ def _render_skill_board(
                         )
                     _add_if_absent(display, "source_suggestions")
 
-    for raw in esco_skills or []:
-        cleaned = str(raw or "").strip()
-        if not cleaned:
-            continue
+    for cleaned in esco_candidates:
+        category: SkillCategory = _infer_skill_category(cleaned)
         display = _find_existing_display(
             meta,
             label=cleaned,
-            category="hard",
+            category=category,
         )
+        if display is None:
+            alternate: SkillCategory = "soft" if category == "hard" else "hard"
+            alt_display = _find_existing_display(
+                meta,
+                label=cleaned,
+                category=alternate,
+            )
+            if alt_display is not None:
+                display = alt_display
+                category = alternate
         if display is None:
             display = _register_skill_bubble(
                 meta,
                 cleaned,
-                category="hard",
+                category=category,
                 source="esco",
             )
         _add_if_absent(display, "source_suggestions")
-
-    normalized_missing = _unique_normalized(missing_esco_skills)
 
     st.header(tr("Skill-Board", "Skill board", lang=lang_code))
     st.subheader(
@@ -1110,6 +1125,11 @@ def _render_skill_board(
         tr(
             "Jede Auswahl beeinflusst Vergütungsspannen und die Verfügbarkeit geeigneter Talente.",
             "Every selection affects salary expectations and the availability of qualified talent.",
+            lang=lang_code,
+        ),
+        tr(
+            "ESCO markiert fehlende Essentials separat – schiebe sie in Muss oder Nice-to-have.",
+            "ESCO highlights missing essentials separately – drag them into Must-have or Nice-to-have.",
             lang=lang_code,
         ),
     ]
@@ -1161,19 +1181,26 @@ def _render_skill_board(
     st.session_state[StateKeys.SKILL_BOARD_STATE] = board_state
     st.session_state[StateKeys.SKILL_BOARD_META] = meta
 
+    filtered_missing: list[str] = []
     if normalized_missing:
-        st.info(
+        present_labels = {info["label"].casefold() for info in meta.values()}
+        filtered_missing = [skill for skill in normalized_missing if skill.casefold() not in present_labels]
+
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = filtered_missing
+
+    if filtered_missing:
+        st.warning(
             tr(
-                "ESCO empfiehlt zusätzlich: {skills}",
-                "ESCO still recommends: {skills}",
+                "ESCO empfiehlt weiterhin essenzielle Skills: {skills}",
+                "ESCO still recommends essential skills: {skills}",
                 lang=lang_code,
-            ).format(skills=", ".join(normalized_missing))
+            ).format(skills=", ".join(filtered_missing))
         )
 
     st.caption(
         tr(
-            "Ziehe Skills aus „KI-Vorschläge“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
-            "Drag skills from “AI suggestions” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            "Ziehe Skills aus „KI-/ESCO-Vorschläge“ in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
+            "Drag skills from “AI/ESCO suggestions” into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
             lang=lang_code,
         )
     )
@@ -4515,8 +4542,9 @@ def _refresh_esco_skills(
                 continue
             seen.add(marker)
             aggregated.append(cleaned)
-    st.session_state[StateKeys.ESCO_SKILLS] = aggregated
-    if not aggregated:
+    normalized_aggregated = _unique_normalized(aggregated)
+    st.session_state[StateKeys.ESCO_SKILLS] = normalized_aggregated
+    if not normalized_aggregated:
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
 
 
@@ -6952,16 +6980,20 @@ def _step_requirements():
         if normalized_groups:
             llm_skill_sources[pool_key] = normalized_groups
 
-    esco_skill_candidates = [
-        str(skill).strip()
-        for skill in st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
-        if isinstance(skill, str) and str(skill).strip()
-    ]
-    missing_esco_skills = [
-        str(skill).strip()
-        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
-        if isinstance(skill, str) and str(skill).strip()
-    ]
+    esco_skill_candidates = _unique_normalized(
+        [
+            str(skill).strip()
+            for skill in st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
+            if isinstance(skill, str) and str(skill).strip()
+        ]
+    )
+    missing_esco_skills = _unique_normalized(
+        [
+            str(skill).strip()
+            for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+            if isinstance(skill, str) and str(skill).strip()
+        ]
+    )
 
     _render_skill_board(
         requirements,

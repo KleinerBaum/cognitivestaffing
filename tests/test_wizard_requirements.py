@@ -53,7 +53,7 @@ def test_step_requirements_warns_on_skill_suggestion_error(
     monkeypatch.setattr(st, "subheader", lambda *_, **__: None)
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
-    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
 
     class FakePanel:
         def __enter__(self) -> "FakePanel":
@@ -216,3 +216,4 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert requirements["hard_skills_required"] == ["Machine Learning"]
     assert st.session_state[StateKeys.SKILL_BUCKETS]["must"] == ["Machine Learning"]
+    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
