@@ -4507,13 +4507,21 @@ def _chip_multiselect(
     options: List[str],
     values: List[str],
     *,
+    key_suffix: str | None = None,
     help_text: str | None = None,
     dropdown: bool = False,
 ) -> List[str]:
-    """Render an interactive chip-based multiselect with free-text additions."""
+    """Render an interactive chip-based multiselect with free-text additions.
 
-    slug = _slugify_label(label)
-    ms_key = f"ms_{label}"
+    ``key_suffix`` can be used to disambiguate widgets that share the same
+    label, ensuring that the session state keys remain unique.
+    """
+
+    slug_parts = [_slugify_label(label)]
+    if key_suffix:
+        slug_parts.append(_slugify_label(str(key_suffix)))
+    slug = ".".join(slug_parts)
+    ms_key = f"ms_{slug}"
     options_key = f"ui.chip_options.{slug}"
     input_key = f"ui.chip_input.{slug}"
     last_added_key = f"ui.chip_last_added.{slug}"
@@ -4636,6 +4644,7 @@ def _chip_multiselect_mapped(
     *,
     help_text: str | None = None,
     dropdown: bool = False,
+    key_suffix: str | None = None,
 ) -> list[str]:
     """Render a chip multiselect while mapping display labels to stored values."""
 
@@ -4676,6 +4685,7 @@ def _chip_multiselect_mapped(
         label,
         options=display_options,
         values=selected_display,
+        key_suffix=key_suffix,
         help_text=help_text,
         dropdown=dropdown,
     )
@@ -5382,6 +5392,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
                     "Wähle die Phasen, in denen dieser Kontakt informiert wird.",
                     "Select the process phases where this contact stays in the loop.",
                 ),
+                key_suffix=f"{key_prefix}.{idx}.info_loop",
             )
             person["information_loop_phases"] = [
                 int(value) for value in chosen_phase_values if str(value).isdigit()
@@ -5501,6 +5512,7 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 tr("Beteiligte", "Participants"),
                 option_pairs=participant_pairs,
                 values=phase_participants,
+                key_suffix=f"{key_prefix}.{idx}.participants",
             )
             phase["docs_required"] = st.text_input(
                 tr("Benötigte Unterlagen/Assignments", "Required docs/assignments"),
@@ -6211,6 +6223,7 @@ def _step_requirements():
             tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
             options=focus_options,
             values=stored_focus,
+            key_suffix="requirements.skill_focus",
             help_text=tr(
                 "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
                 "Provide focus areas so the AI can prioritise matching skills.",
@@ -8529,6 +8542,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             widget_label,
             option_pairs=option_pairs,
             values=default_values,
+            key_suffix=widget_key,
         )
         st.session_state[widget_key] = selected_group_values
         aggregated_selection.update(selected_group_values)
@@ -8874,6 +8888,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                         option_pairs=label_pairs,
                         values=selected_phase_strings,
                         dropdown=True,
+                        key_suffix=f"summary.information_loops.{idx}",
                     )
                     person["information_loop_phases"] = [
                         int(value)
