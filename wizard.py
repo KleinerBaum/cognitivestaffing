@@ -108,6 +108,10 @@ WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and
 MAX_INLINE_VALUE_CHARS = 20
 
 
+_SKILL_IDENTIFIER_PATTERN = re.compile(r"^(?:hard|soft):[0-9a-f]{12}$")
+_SKILL_ID_ATTR_PATTERN = re.compile(r"data-skill-id=['\"]([^'\"]+)['\"]")
+
+
 SALARY_SLIDER_MIN = 0
 SALARY_SLIDER_MAX = 500_000
 SALARY_SLIDER_STEP = 1_000
@@ -792,6 +796,39 @@ _SKILL_BOARD_STYLE = """
     position: relative;
 }
 
+.sortable-item .skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.sortable-item[data-source]::after {
+    content: attr(data-source-short);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.35rem;
+    padding: 0.08rem 0.45rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.18);
+    color: #0f172a;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sortable-item[data-source="ai"]::after {
+    background: rgba(59, 130, 246, 0.75);
+    color: #f8fafc;
+}
+
+.sortable-item[data-source="esco"]::after {
+    background: rgba(16, 185, 129, 0.75);
+    color: #ecfdf5;
+}
+
 .sortable-component > div:nth-child(1) .sortable-item,
 .sortable-component > div:nth-child(2) .sortable-item,
 .sortable-component > div:nth-child(3) .sortable-item {
@@ -894,6 +931,91 @@ def _skill_board_labels(lang: str | None = None) -> dict[SkillContainerType, str
     }
 
 
+def _build_skill_identifier(label: str, category: SkillCategory) -> str:
+    """Return a stable identifier for the given ``label`` and ``category``."""
+
+    normalized = html.unescape(label).strip().casefold()
+    payload = f"{category}::{normalized}".encode("utf-8")
+    digest = hashlib.sha1(payload).hexdigest()[:12]
+    return f"{category}:{digest}"
+
+
+def _looks_like_skill_identifier(value: str) -> bool:
+    """Return ``True`` if ``value`` resembles a generated skill identifier."""
+
+    return bool(_SKILL_IDENTIFIER_PATTERN.fullmatch(value.strip()))
+
+
+def _extract_skill_identifier(raw: str) -> str | None:
+    """Extract an identifier from markup or legacy payloads."""
+
+    trimmed = str(raw).strip()
+    if not trimmed:
+        return None
+    if _looks_like_skill_identifier(trimmed):
+        return trimmed
+    match = _SKILL_ID_ATTR_PATTERN.search(trimmed)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def _strip_legacy_skill_label(raw: str) -> str:
+    """Remove formatting artefacts from stored skill labels."""
+
+    text = str(raw)
+    if "⟮" in text:
+        text = text.split("⟮", 1)[0]
+    # Drop any HTML artefacts from sortable markup
+    text = re.sub(r"<[^>]+>", "", text)
+    return html.unescape(text).strip()
+
+
+def _skill_source_badge(source: SkillSource, lang: str | None = None) -> str:
+    """Return a compact badge label for ``source``."""
+
+    lang_code = lang or st.session_state.get("lang", "de")
+    short_labels: dict[SkillSource, str] = {
+        "auto": tr("Doc", "Doc", lang=lang_code),
+        "ai": tr("KI", "AI", lang=lang_code),
+        "esco": tr("ESCO", "ESCO", lang=lang_code),
+    }
+    return short_labels[source]
+
+
+def _skill_chip_markup(
+    identifier: str,
+    info: SkillBubbleMeta,
+    *,
+    lang: str,
+) -> str:
+    """Return HTML markup used to render a draggable skill chip."""
+
+    label = html.escape(info["label"])
+    source = info["source"]
+    source_label = html.escape(_skill_source_label(source, lang=lang))
+    source_short = html.escape(_skill_source_badge(source, lang=lang))
+    return (
+        "<span class='skill-chip'"
+        f" data-skill-id='{identifier}'"
+        f" data-source='{source}'"
+        f" data-source-label='{source_label}'"
+        f" data-source-short='{source_short}'"
+        f" title='{source_label}'>"
+        f"{label}"  # Label remains clean; badge is injected via CSS.
+        "</span>"
+    )
+
+
+_CONTAINER_SOURCE_DEFAULT: dict[SkillContainerType, SkillSource] = {
+    "source_extracted": "auto",
+    "source_ai": "ai",
+    "source_esco": "esco",
+    "target_must": "auto",
+    "target_nice": "auto",
+}
+
+
 def _register_skill_bubble(
     meta: dict[str, SkillBubbleMeta],
     label: str,
@@ -904,15 +1026,20 @@ def _register_skill_bubble(
     """Create or update display metadata for a draggable skill bubble."""
 
     cleaned_label = label.strip()
-    lang_code = st.session_state.get("lang", "de")
-    source_label = _skill_source_label(source, lang=lang_code)
-    display_label = f"{cleaned_label} ⟮{source_label}⟯"
-    meta[display_label] = {
+    identifier = _build_skill_identifier(cleaned_label, category)
+    existing = meta.get(identifier)
+    if existing:
+        existing["label"] = cleaned_label
+        source_priority = {"auto": 0, "ai": 1, "esco": 2}
+        if source_priority[source] > source_priority[existing["source"]]:
+            existing["source"] = source
+        return identifier
+    meta[identifier] = {
         "label": cleaned_label,
         "category": category,
         "source": source,
     }
-    return display_label
+    return identifier
 
 
 def _find_existing_display(
@@ -925,14 +1052,66 @@ def _find_existing_display(
     """Return the display string for an existing bubble with the same label."""
 
     needle = label.strip().casefold()
-    for display, info in meta.items():
+    for identifier, info in meta.items():
         if info["category"] != category:
             continue
         if source is not None and info["source"] != source:
             continue
         if info["label"].strip().casefold() == needle:
-            return display
+            return identifier
     return None
+
+
+def _resolve_skill_identifier(
+    raw_item: str,
+    *,
+    meta: dict[str, SkillBubbleMeta],
+    legacy_map: dict[str, str],
+    container: SkillContainerType,
+) -> str | None:
+    """Normalise persisted ``raw_item`` values to the current identifier scheme."""
+
+    trimmed = str(raw_item).strip()
+    if not trimmed:
+        return None
+
+    direct_identifier = _extract_skill_identifier(trimmed)
+    if direct_identifier and direct_identifier in meta:
+        legacy_map.setdefault(direct_identifier, direct_identifier)
+        return direct_identifier
+
+    if trimmed in meta:
+        legacy_map.setdefault(trimmed, trimmed)
+        return trimmed
+
+    if direct_identifier:
+        mapped_identifier = legacy_map.get(direct_identifier)
+        if mapped_identifier and mapped_identifier in meta:
+            return mapped_identifier
+
+    lookup_candidates = [trimmed, _strip_legacy_skill_label(trimmed)]
+    for candidate in lookup_candidates:
+        mapped = legacy_map.get(candidate)
+        if mapped and mapped in meta:
+            return mapped
+
+    label = _strip_legacy_skill_label(trimmed)
+    if not label:
+        return None
+
+    needle = label.casefold()
+    for identifier, info in meta.items():
+        if info["label"].casefold() == needle:
+            legacy_map.setdefault(trimmed, identifier)
+            legacy_map.setdefault(label, identifier)
+            return identifier
+
+    source = _CONTAINER_SOURCE_DEFAULT.get(container, "auto")
+    category = _infer_skill_category(label)
+    identifier = _register_skill_bubble(meta, label, category=category, source=source)
+    legacy_map.setdefault(trimmed, identifier)
+    legacy_map.setdefault(label, identifier)
+    return identifier
 
 
 def _render_skill_board(
@@ -975,7 +1154,7 @@ def _render_skill_board(
                 if not isinstance(raw_item, str):
                     continue
                 cleaned_item = raw_item.strip()
-                if not cleaned_item or cleaned_item in board_state[target_container]:
+                if not cleaned_item:
                     continue
                 board_state[target_container].append(cleaned_item)
 
@@ -986,9 +1165,10 @@ def _render_skill_board(
 
     stored_meta = st.session_state.get(StateKeys.SKILL_BOARD_META)
     meta: dict[str, SkillBubbleMeta] = {}
+    legacy_identifier_map: dict[str, str] = {}
     if isinstance(stored_meta, Mapping):
         for key, raw_info in stored_meta.items():
-            if not isinstance(key, str) or not isinstance(raw_info, Mapping):
+            if not isinstance(raw_info, Mapping):
                 continue
             label_value = str(raw_info.get("label", "")).strip()
             raw_category = raw_info.get("category", "hard")
@@ -999,26 +1179,51 @@ def _render_skill_board(
             source_value: SkillSource = (
                 cast(SkillSource, raw_source) if raw_source in {"auto", "ai", "esco"} else "auto"
             )
-            meta[key] = {
+            candidate_identifier = str(raw_info.get("identifier", "")).strip()
+            identifier: str
+            if candidate_identifier and _looks_like_skill_identifier(candidate_identifier):
+                identifier = candidate_identifier
+            elif isinstance(key, str) and _looks_like_skill_identifier(key):
+                identifier = key.strip()
+            else:
+                fallback_seed = label_value or str(key)
+                identifier = _build_skill_identifier(fallback_seed, category_value)
+            meta[identifier] = {
                 "label": label_value,
                 "category": category_value,
                 "source": source_value,
             }
+            legacy_identifier_map[str(key)] = identifier
+            legacy_identifier_map[identifier] = identifier
+            if label_value:
+                legacy_identifier_map[label_value] = identifier
+                source_label = _skill_source_label(source_value, lang=lang_code)
+                legacy_identifier_map[f"{label_value} ⟮{source_label}⟯"] = identifier
 
     for container in _SKILL_CONTAINER_ORDER:
-        cleaned_items: list[str] = []
+        normalised_items: list[str] = []
         for raw_item in board_state.get(container, []):
             if not isinstance(raw_item, str):
                 continue
-            cleaned_items.append(raw_item)
-            if raw_item not in meta:
-                fallback_label = raw_item.split(" ⟮", 1)[0].strip()
-                meta[raw_item] = {
-                    "label": fallback_label,
-                    "category": "hard",
-                    "source": "auto",
-                }
-        board_state[container] = cleaned_items
+            identifier = _resolve_skill_identifier(
+                raw_item,
+                meta=meta,
+                legacy_map=legacy_identifier_map,
+                container=container,
+            )
+            if identifier is None or identifier in normalised_items:
+                continue
+            normalised_items.append(identifier)
+        board_state[container] = normalised_items
+
+    for identifier, info in meta.items():
+        legacy_identifier_map.setdefault(identifier, identifier)
+        label_value = info.get("label", "")
+        if not label_value:
+            continue
+        legacy_identifier_map.setdefault(label_value, identifier)
+        source_label = _skill_source_label(info.get("source", "auto"), lang=lang_code)
+        legacy_identifier_map.setdefault(f"{label_value} ⟮{source_label}⟯", identifier)
 
     source_for_container: dict[SkillSource, SkillContainerType] = {
         "auto": "source_extracted",
@@ -1252,13 +1457,29 @@ def _render_skill_board(
         )
     st.markdown("  \n".join(info_lines))
 
-    board_payload = [
-        {
+    chip_markup: dict[str, str] = {
+        identifier: _skill_chip_markup(identifier, info, lang=lang_code)
+        for identifier, info in meta.items()
+    }
+
+    board_payload = []
+    for container in _SKILL_CONTAINER_ORDER:
+        rendered_items: list[str] = []
+        for identifier in board_state.get(container, []):
+            markup = chip_markup.get(identifier)
+            if markup is None:
+                info = meta.get(identifier)
+                if info:
+                    markup = _skill_chip_markup(identifier, info, lang=lang_code)
+                    chip_markup[identifier] = markup
+                else:
+                    markup = html.escape(identifier)
+            legacy_identifier_map.setdefault(markup, identifier)
+            rendered_items.append(markup)
+        board_payload.append({
             "header": labels[container],
-            "items": list(board_state.get(container, [])),
-        }
-        for container in _SKILL_CONTAINER_ORDER
-    ]
+            "items": rendered_items,
+        })
 
     sorted_items = sort_items(
         board_payload,
@@ -1280,14 +1501,15 @@ def _render_skill_board(
         for raw_item in container.get("items", []) or []:
             if not isinstance(raw_item, str):
                 continue
-            cleaned_items.append(raw_item)
-            if raw_item not in meta:
-                fallback_label = raw_item.split(" ⟮", 1)[0].strip()
-                meta[raw_item] = {
-                    "label": fallback_label,
-                    "category": "hard",
-                    "source": "auto",
-                }
+            identifier = _resolve_skill_identifier(
+                raw_item,
+                meta=meta,
+                legacy_map=legacy_identifier_map,
+                container=container_type,
+            )
+            if identifier is None or identifier in cleaned_items:
+                continue
+            cleaned_items.append(identifier)
         updated_state[container_type] = cleaned_items
 
     board_state = updated_state
@@ -1344,11 +1566,11 @@ def _render_skill_board(
     )
 
     tooltip_map: dict[str, list[str]] = {}
-    for display, info in meta.items():
+    for identifier, info in meta.items():
         label_text = info["label"]
         if len(label_text) <= MAX_INLINE_VALUE_CHARS:
             continue
-        tooltip_map.setdefault(display, []).append(label_text)
+        tooltip_map.setdefault(identifier, []).append(label_text)
 
     if tooltip_map:
         tooltip_payload = json.dumps(tooltip_map, ensure_ascii=False).replace("</", "<\/")
@@ -1361,15 +1583,38 @@ def _render_skill_board(
                 const workingCopy = JSON.parse(JSON.stringify(tooltipMap));
                 const nodes = doc.querySelectorAll('.sortable-item');
                 nodes.forEach((node) => {
-                    const key = node.textContent.trim();
-                    const entries = workingCopy[key];
-                    if (!entries || !entries.length) {
-                        if (node.getAttribute('title')) {
-                            node.removeAttribute('title');
-                        }
+                    const marker = node.querySelector('[data-skill-id]');
+                    const skillId = marker?.getAttribute('data-skill-id') || node.getAttribute('data-skill-id');
+                    if (!skillId) {
+                        node.removeAttribute('title');
                         return;
                     }
-                    node.setAttribute('title', entries.shift());
+                    node.setAttribute('data-skill-id', skillId);
+                    const source = marker?.getAttribute('data-source') || node.getAttribute('data-source');
+                    if (source) {
+                        node.setAttribute('data-source', source);
+                    }
+                    const sourceLabel = marker?.getAttribute('data-source-label') || node.getAttribute('data-source-label') || '';
+                    if (sourceLabel) {
+                        node.setAttribute('data-source-label', sourceLabel);
+                        node.setAttribute('aria-label', `${node.textContent.trim()} – ${sourceLabel}`.trim());
+                    }
+                    const sourceShort = marker?.getAttribute('data-source-short') || node.getAttribute('data-source-short');
+                    if (sourceShort) {
+                        node.setAttribute('data-source-short', sourceShort);
+                    }
+                    const entries = workingCopy[skillId];
+                    if (entries && entries.length) {
+                        const fullLabel = entries.shift();
+                        const tooltip = sourceLabel ? `${fullLabel} • ${sourceLabel}` : fullLabel;
+                        node.setAttribute('title', tooltip);
+                        return;
+                    }
+                    if (sourceLabel) {
+                        node.setAttribute('title', sourceLabel);
+                        return;
+                    }
+                    node.removeAttribute('title');
                 });
             };
             window.requestAnimationFrame(() => {

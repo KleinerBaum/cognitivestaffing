@@ -546,6 +546,8 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
     st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = []
     st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
     st.session_state[StateKeys.SKILL_BOARD_META] = {}
+    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = True
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
 
     requirements: dict[str, list[str]] = {
         "hard_skills_required": [],
@@ -571,14 +573,29 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
     must_header = labels["target_must"]
     esco_header = labels["source_esco"]
 
+    captured_payload: list[list[dict[str, object]]] = []
+
     def fake_sort_items(items, **_kwargs):
+        captured_payload.append(items)
         updated = []
+        esco_chip = None
         for container in items:
             header = container.get("header")
-            if isinstance(header, str) and header == must_header:
-                updated.append({"header": header, "items": ["Machine Learning ⟮ESCO⟯"]})
-            elif isinstance(header, str) and header == esco_header:
+            if isinstance(header, str) and header == esco_header:
+                esco_items = list(container.get("items", []) or [])
+                if esco_items:
+                    for candidate in esco_items:
+                        if isinstance(candidate, str) and "Machine Learning" in candidate:
+                            esco_chip = candidate
+                            break
+                    if esco_chip is None:
+                        esco_chip = esco_items[0]
                 updated.append({"header": header, "items": []})
+            elif isinstance(header, str) and header == must_header:
+                moved_items = list(container.get("items", []) or [])
+                if esco_chip is not None:
+                    moved_items.append(esco_chip)
+                updated.append({"header": header, "items": moved_items})
             else:
                 updated.append(container)
         return updated
@@ -592,6 +609,20 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
         missing_esco_skills=["Machine Learning"],
     )
 
+    board_state = st.session_state[StateKeys.SKILL_BOARD_STATE]
+    meta = st.session_state[StateKeys.SKILL_BOARD_META]
+    assert captured_payload, "sort_items should receive a payload"
+    first_payload = captured_payload[0]
+    esco_container = next(
+        container for container in first_payload if container.get("header") == esco_header
+    )
+    esco_items_markup = esco_container.get("items", []) or []
+    assert esco_items_markup, "ESCO container should start with items"
+    moved_labels = [meta[item]["label"] for item in board_state["target_must"] if item in meta]
+    assert moved_labels == ["Machine Learning"], moved_labels
+    if board_state["target_must"]:
+        first_identifier = board_state["target_must"][0]
+        assert meta[first_identifier]["category"] == "hard"
     assert requirements["hard_skills_required"] == ["Machine Learning"]
     assert st.session_state[StateKeys.SKILL_BUCKETS]["must"] == ["Machine Learning"]
     assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
@@ -647,7 +678,13 @@ def test_skill_board_rehydrates_legacy_state(monkeypatch: pytest.MonkeyPatch) ->
         "nice": ["Storytelling"],
     }
     assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
-    assert st.session_state[StateKeys.SKILL_BOARD_STATE]["source_esco"] == ["Communication ⟮ESCO⟯"]
+    board_state = st.session_state[StateKeys.SKILL_BOARD_STATE]
+    meta = st.session_state[StateKeys.SKILL_BOARD_META]
+    esco_items = board_state["source_esco"]
+    assert len(esco_items) == 1
+    esco_identifier = esco_items[0]
+    assert meta[esco_identifier]["label"] == "Communication"
+    assert meta[esco_identifier]["source"] == "esco"
 
 
 def test_skill_board_collects_extracted_sources(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -685,10 +722,12 @@ def test_skill_board_collects_extracted_sources(monkeypatch: pytest.MonkeyPatch)
     )
 
     board_state = st.session_state[StateKeys.SKILL_BOARD_STATE]
+    meta = st.session_state[StateKeys.SKILL_BOARD_META]
     extracted_bucket = board_state["source_extracted"]
+    extracted_labels = [meta[item]["label"] for item in extracted_bucket if item in meta]
 
-    assert any(item.startswith("Figma") for item in extracted_bucket)
-    assert any(item.startswith("Notion") for item in extracted_bucket)
-    assert any(item.startswith("English") for item in extracted_bucket)
-    assert any(item.startswith("German") for item in extracted_bucket)
-    assert any(item.startswith("PMP") for item in extracted_bucket)
+    assert "Figma" in extracted_labels
+    assert "Notion" in extracted_labels
+    assert "English" in extracted_labels
+    assert "German" in extracted_labels
+    assert "PMP" in extracted_labels
