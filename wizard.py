@@ -92,20 +92,27 @@ from core.job_ad import (
 ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
 # lived in the sidebar
-ONBOARDING_ANIMATION_PATH = (
-    ROOT / "images" / "color1_logo_transparent_background.png"
-)
+ONBOARDING_ANIMATION_PATH = ROOT / "images" / "color1_logo_transparent_background.png"
 try:
-    ONBOARDING_ANIMATION_BASE64 = b64encode(
-        ONBOARDING_ANIMATION_PATH.read_bytes()
-    ).decode("ascii")
+    ONBOARDING_ANIMATION_BASE64 = b64encode(ONBOARDING_ANIMATION_PATH.read_bytes()).decode("ascii")
 except FileNotFoundError:
     ONBOARDING_ANIMATION_BASE64 = ""
 ensure_state()
 
-WIZARD_TITLE = (
-    "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
-)
+WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
+
+MAX_INLINE_VALUE_CHARS = 20
+
+
+def _compact_inline_label(raw: str, *, limit: int = MAX_INLINE_VALUE_CHARS) -> tuple[str, bool]:
+    """Return a single-line label truncated to ``limit`` characters when needed."""
+
+    text = re.sub(r"\s+", " ", str(raw).strip())
+    if len(text) <= limit:
+        return text, False
+    clipped = text[: max(0, limit - 1)].rstrip()
+    return f"{clipped}…", True
+
 
 COMPACT_STEP_STYLE = """
 <style>
@@ -211,6 +218,7 @@ ONBOARDING_HERO_STYLE = """
 }
 </style>
 """
+
 
 def _render_onboarding_hero() -> None:
     """Render the onboarding hero with logo and positioning copy."""
@@ -330,66 +338,135 @@ class SkillBubbleMeta(TypedDict):
 
 
 _SKILL_CONTAINER_ORDER: tuple[SkillContainerType, ...] = (
+    "target_must",
+    "target_nice",
     "source_auto",
     "source_ai",
     "source_esco",
-    "target_must",
-    "target_nice",
 )
 
 _SKILL_BOARD_STYLE = """
 .sortable-component {
     display: flex;
-    gap: 1rem;
-    padding: 0.75rem;
-    border-radius: 1rem;
-    background: rgba(15, 23, 42, 0.04);
-    overflow-x: auto;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    border-radius: 1.5rem;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(59, 130, 246, 0.12));
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    box-shadow: 0 22px 45px rgba(15, 23, 42, 0.14);
+    overflow: visible;
+}
+
+.sortable-component > div:nth-child(1),
+.sortable-component > div:nth-child(2) {
+    flex: 1 1 100%;
 }
 
 .sortable-container {
-    min-width: 220px;
-    background: rgba(255, 255, 255, 0.85);
-    border-radius: 0.85rem;
+    flex: 1 1 clamp(240px, 30%, 360px);
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 1.1rem;
     border: 1px solid rgba(148, 163, 184, 0.28);
-    padding: 0.75rem;
+    padding: 1rem 1.15rem;
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    gap: 0.75rem;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(6px);
+    position: relative;
+    overflow: hidden;
+}
+
+.sortable-component > div:nth-child(1) {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(14, 165, 233, 0.9));
+    color: #f8fafc;
+}
+
+.sortable-component > div:nth-child(2) {
+    background: linear-gradient(135deg, rgba(30, 64, 175, 0.95), rgba(59, 130, 246, 0.9));
+    color: #f8fafc;
 }
 
 .sortable-container-header {
     font-weight: 600;
-    color: #0f172a;
-    font-size: 0.95rem;
-    margin-bottom: 0.25rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.sortable-container-header::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    margin-left: 0.5rem;
+    background: rgba(148, 163, 184, 0.35);
+}
+
+.sortable-component > div:nth-child(1) .sortable-container-header::after,
+.sortable-component > div:nth-child(2) .sortable-container-header::after {
+    background: rgba(241, 245, 249, 0.45);
 }
 
 .sortable-container-body {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    min-height: 3rem;
+    gap: 0.6rem;
+    min-height: 3.5rem;
+}
+
+.sortable-component > div:nth-child(1) .sortable-container-body,
+.sortable-component > div:nth-child(2) .sortable-container-body {
+    padding-bottom: 0.25rem;
 }
 
 .sortable-item {
-    background: linear-gradient(135deg, rgba(148, 163, 184, 0.28), rgba(148, 163, 184, 0.12));
+    background: linear-gradient(135deg, rgba(226, 232, 240, 0.9), rgba(203, 213, 225, 0.6));
     color: #0f172a;
-    padding: 0.35rem 0.75rem;
+    padding: 0.4rem 0.85rem;
     border-radius: 999px;
-    border: 1px solid rgba(100, 116, 139, 0.35);
+    border: 1px solid rgba(100, 116, 139, 0.25);
     font-size: 0.9rem;
     font-weight: 500;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
     cursor: grab;
     white-space: nowrap;
-    max-width: 100%;
+    max-width: 20ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, max-width 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    position: relative;
+}
+
+.sortable-component > div:nth-child(1) .sortable-item,
+.sortable-component > div:nth-child(2) .sortable-item {
+    background: rgba(15, 23, 42, 0.25);
+    color: #f8fafc;
+    border-color: rgba(241, 245, 249, 0.4);
+}
+
+.sortable-item:hover {
+    max-width: min(38ch, 100%);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18);
+    transform: translateY(-1px);
+    z-index: 3;
 }
 
 .sortable-item.dragging {
     opacity: 0.75;
     cursor: grabbing;
+    box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+}
+
+@media (max-width: 980px) {
+    .sortable-container {
+        flex: 1 1 100%;
+    }
 }
 """
 
@@ -498,11 +575,7 @@ def _render_skill_board(
     stored_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE)
     if isinstance(stored_state, Mapping):
         board_state: dict[SkillContainerType, list[str]] = {
-            container: [
-                str(item)
-                for item in stored_state.get(container, [])
-                if isinstance(item, str)
-            ]
+            container: [str(item) for item in stored_state.get(container, []) if isinstance(item, str)]
             for container in _SKILL_CONTAINER_ORDER
         }
     else:
@@ -517,15 +590,11 @@ def _render_skill_board(
             label_value = str(raw_info.get("label", "")).strip()
             raw_category = raw_info.get("category", "hard")
             category_value: SkillCategory = (
-                cast(SkillCategory, raw_category)
-                if raw_category in {"hard", "soft"}
-                else "hard"
+                cast(SkillCategory, raw_category) if raw_category in {"hard", "soft"} else "hard"
             )
             raw_source = raw_info.get("source", "auto")
             source_value: SkillSource = (
-                cast(SkillSource, raw_source)
-                if raw_source in {"auto", "ai", "esco"}
-                else "auto"
+                cast(SkillSource, raw_source) if raw_source in {"auto", "ai", "esco"} else "auto"
             )
             meta[key] = {
                 "label": label_value,
@@ -722,9 +791,7 @@ def _render_skill_board(
     )
 
     header_to_type = {labels[container]: container for container in _SKILL_CONTAINER_ORDER}
-    updated_state: dict[SkillContainerType, list[str]] = {
-        container: [] for container in _SKILL_CONTAINER_ORDER
-    }
+    updated_state: dict[SkillContainerType, list[str]] = {container: [] for container in _SKILL_CONTAINER_ORDER}
 
     for container in sorted_items:
         header = container.get("header")
@@ -747,13 +814,49 @@ def _render_skill_board(
 
     board_state = updated_state
 
-    active_items = {
-        item for bucket in board_state.values() for item in bucket if isinstance(item, str)
-    }
+    active_items = {item for bucket in board_state.values() for item in bucket if isinstance(item, str)}
     meta = {key: value for key, value in meta.items() if key in active_items}
 
     st.session_state[StateKeys.SKILL_BOARD_STATE] = board_state
     st.session_state[StateKeys.SKILL_BOARD_META] = meta
+
+    tooltip_map: dict[str, list[str]] = {}
+    for display, info in meta.items():
+        label_text = info["label"]
+        if len(label_text) <= MAX_INLINE_VALUE_CHARS:
+            continue
+        tooltip_map.setdefault(display, []).append(label_text)
+
+    if tooltip_map:
+        tooltip_payload = json.dumps(tooltip_map, ensure_ascii=False).replace("</", "<\/")
+        st.markdown(
+            """
+            <script>
+            const tooltipMap = __TOOLTIP_DATA_PLACEHOLDER__;
+            const doc = window.parent?.document || window.document;
+            const applySortableTooltips = () => {
+                const workingCopy = JSON.parse(JSON.stringify(tooltipMap));
+                const nodes = doc.querySelectorAll('.sortable-item');
+                nodes.forEach((node) => {
+                    const key = node.textContent.trim();
+                    const entries = workingCopy[key];
+                    if (!entries || !entries.length) {
+                        if (node.getAttribute('title')) {
+                            node.removeAttribute('title');
+                        }
+                        return;
+                    }
+                    node.setAttribute('title', entries.shift());
+                });
+            };
+            window.requestAnimationFrame(() => {
+                setTimeout(applySortableTooltips, 0);
+                setTimeout(applySortableTooltips, 300);
+            });
+            </script>
+            """.replace("__TOOLTIP_DATA_PLACEHOLDER__", tooltip_payload),
+            unsafe_allow_html=True,
+        )
 
     final_must_hard: list[str] = []
     final_must_soft: list[str] = []
@@ -793,8 +896,6 @@ def _render_skill_board(
         "must": _unique_normalized(final_must_hard + final_must_soft),
         "nice": _unique_normalized(final_nice_hard + final_nice_soft),
     }
-
-
 
 
 class FieldLockConfig(TypedDict, total=False):
@@ -846,6 +947,7 @@ class FieldSourceInfo:
         if self.is_inferred:
             parts.append(tr("Durch KI abgeleitet", "Inferred by AI"))
         return " – ".join(part for part in parts if part)
+
 
 # Index of the first data entry step ("Unternehmen" / "Company")
 COMPANY_STEP_INDEX = 1
@@ -1133,9 +1235,7 @@ def _build_profile_context(profile: Mapping[str, Any]) -> dict[str, str]:
     primary_city = _get("location.primary_city")
     country = _get("location.country")
 
-    location_combined = ", ".join(
-        part for part in (primary_city, country) if part
-    )
+    location_combined = ", ".join(part for part in (primary_city, country) if part)
 
     context: dict[str, str] = {
         "job_title": job_title,
@@ -1188,6 +1288,7 @@ def _get_profile_state() -> dict[str, Any]:
     fallback = NeedAnalysisProfile().model_dump()
     st.session_state[StateKeys.PROFILE] = fallback
     return fallback
+
 
 GERMAN_STATES = [
     "Baden-Württemberg",
@@ -1469,9 +1570,7 @@ def _fetch_company_page(base_url: str, slugs: Sequence[str]) -> tuple[str, str] 
 def _sync_company_page_base(base_url: str | None) -> None:
     """Reset cached summaries when the company base URL changes."""
 
-    storage: dict[str, dict[str, str]] = st.session_state[
-        StateKeys.COMPANY_PAGE_SUMMARIES
-    ]
+    storage: dict[str, dict[str, str]] = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
     previous = st.session_state.get(StateKeys.COMPANY_PAGE_BASE, "")
     current = base_url or ""
     if current != previous:
@@ -1609,9 +1708,7 @@ def _load_company_page_section(
     """Fetch and summarise a company section and store it in session state."""
 
     lang = st.session_state.get("lang", "de")
-    with st.spinner(
-        tr("Suche nach {section} …", "Fetching {section} …").format(section=label)
-    ):
+    with st.spinner(tr("Suche nach {section} …", "Fetching {section} …").format(section=label)):
         result = _fetch_company_page(base_url, slugs)
     if not result:
         st.info(
@@ -1633,14 +1730,10 @@ def _load_company_page_section(
                 "AI summary failed – showing a shortened excerpt instead.",
             )
         )
-    summaries: dict[str, dict[str, str]] = st.session_state[
-        StateKeys.COMPANY_PAGE_SUMMARIES
-    ]
+    summaries: dict[str, dict[str, str]] = st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES]
     summaries[section_key] = {"url": url, "summary": summary, "label": label}
     if section_key == "about":
-        _enrich_company_profile_from_about(
-            text, source_url=url, section_label=label
-        )
+        _enrich_company_profile_from_about(text, source_url=url, section_label=label)
     st.success(tr("Zusammenfassung aktualisiert.", "Summary updated."))
 
 
@@ -1674,11 +1767,7 @@ def _render_company_research_tools(base_url: str) -> None:
         return
 
     display_url = normalised.rstrip("/")
-    st.caption(
-        tr("Erkannte Website: {url}", "Detected website: {url}").format(
-            url=f"[{display_url}]({display_url})"
-        )
-    )
+    st.caption(tr("Erkannte Website: {url}", "Detected website: {url}").format(url=f"[{display_url}]({display_url})"))
 
     sections: list[_CompanySectionConfig] = [
         {
@@ -1808,9 +1897,7 @@ def prev_step() -> None:
 
     _request_scroll_to_top()
     st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
-    st.session_state[StateKeys.STEP] = max(
-        0, st.session_state.get(StateKeys.STEP, 0) - 1
-    )
+    st.session_state[StateKeys.STEP] = max(0, st.session_state.get(StateKeys.STEP, 0) - 1)
 
 
 def on_file_uploaded() -> None:
@@ -1970,6 +2057,8 @@ def _autodetect_lang(text: str) -> None:
         st.session_state[StateKeys.PROFILE_METADATA] = metadata
     except Exception:  # pragma: no cover - best effort
         pass
+
+
 def _annotate_rule_metadata(
     rule_meta: Mapping[str, Mapping[str, Any]] | None,
     blocks: Sequence[ContentBlock],
@@ -2042,19 +2131,13 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         st.session_state[StateKeys.PROFILE] = rule_patch
         st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = rule_patch
         new_meta = build_rule_metadata(rule_matches)
-        annotated_rules = _annotate_rule_metadata(
-            new_meta.get("rules"), raw_blocks, doc
-        )
+        annotated_rules = _annotate_rule_metadata(new_meta.get("rules"), raw_blocks, doc)
         existing_rules = metadata.get("rules") or {}
         if not isinstance(existing_rules, Mapping):
             existing_rules = {}
         combined_rules = {**dict(existing_rules), **annotated_rules}
-        locked = set(metadata.get("locked_fields", [])) | set(
-            new_meta.get("locked_fields", [])
-        )
-        high_conf = set(metadata.get("high_confidence_fields", [])) | set(
-            new_meta.get("high_confidence_fields", [])
-        )
+        locked = set(metadata.get("locked_fields", [])) | set(new_meta.get("locked_fields", []))
+        high_conf = set(metadata.get("high_confidence_fields", [])) | set(new_meta.get("high_confidence_fields", []))
         confidence_map.update(_ensure_mapping(new_meta.get("field_confidence")))
         metadata["rules"] = combined_rules
         metadata["locked_fields"] = sorted(locked)
@@ -2150,9 +2233,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     occupation_options: list[dict[str, str]] = []
     selected_ids: list[str] = []
     if job_title_value:
-        occupation_options = _sanitize_esco_options(
-            search_occupations(job_title_value, lang=lang, limit=5)
-        )
+        occupation_options = _sanitize_esco_options(search_occupations(job_title_value, lang=lang, limit=5))
         classified = classify_occupation(job_title_value, lang=lang)
         if classified:
             label = str(classified.get("preferredLabel") or "").strip()
@@ -2170,22 +2251,16 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             elif not uri:
                 occupation_options.insert(0, normalized_meta)
 
-        previous_selected = st.session_state.get(
-            StateKeys.ESCO_SELECTED_OCCUPATIONS, []
-        ) or []
+        previous_selected = st.session_state.get(StateKeys.ESCO_SELECTED_OCCUPATIONS, []) or []
         prev_ids = [
             str(entry.get("uri") or "").strip()
             for entry in previous_selected
             if isinstance(entry, Mapping) and str(entry.get("uri") or "").strip()
         ]
-        option_map = {
-            str(entry.get("uri") or "").strip(): entry for entry in occupation_options if entry.get("uri")
-        }
+        option_map = {str(entry.get("uri") or "").strip(): entry for entry in occupation_options if entry.get("uri")}
         selected_ids = [uri for uri in prev_ids if uri in option_map]
         if not selected_ids:
-            primary_uri = str(
-                classified.get("uri") if isinstance(classified, Mapping) else ""
-            ).strip()
+            primary_uri = str(classified.get("uri") if isinstance(classified, Mapping) else "").strip()
             if primary_uri and primary_uri in option_map:
                 selected_ids = [primary_uri]
         if not selected_ids and occupation_options:
@@ -2196,17 +2271,13 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     if occupation_options:
         st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = occupation_options
         selected_entries = [
-            dict(entry)
-            for entry in occupation_options
-            if str(entry.get("uri") or "").strip() in set(selected_ids)
+            dict(entry) for entry in occupation_options if str(entry.get("uri") or "").strip() in set(selected_ids)
         ]
         if not selected_entries and occupation_options:
             selected_entries = [dict(occupation_options[0])]
             selected_ids = [str(occupation_options[0].get("uri") or "").strip()]
         st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = selected_entries
-        st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = [
-            sid for sid in selected_ids if sid
-        ]
+        st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = [sid for sid in selected_ids if sid]
         primary_meta = selected_entries[0] if selected_entries else None
         if primary_meta:
             label = primary_meta.get("preferredLabel") or None
@@ -2262,23 +2333,15 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             value = sal_min if sal_min is not None else sal_max
             salary_str = f"{int(value)} {currency}" if value is not None else currency
         summary[tr("Gehaltsspanne", "Salary range")] = salary_str.strip()
-    hard_total = len(profile.requirements.hard_skills_required) + len(
-        profile.requirements.hard_skills_optional
-    )
+    hard_total = len(profile.requirements.hard_skills_required) + len(profile.requirements.hard_skills_optional)
     if hard_total:
         summary[tr("Hard Skills", "Hard skills")] = str(hard_total)
-    soft_total = len(profile.requirements.soft_skills_required) + len(
-        profile.requirements.soft_skills_optional
-    )
+    soft_total = len(profile.requirements.soft_skills_required) + len(profile.requirements.soft_skills_optional)
     if soft_total:
         summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
     st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": _unique_normalized(
-            data.get("requirements", {}).get("hard_skills_required", [])
-        ),
-        "nice": _unique_normalized(
-            data.get("requirements", {}).get("hard_skills_optional", [])
-        ),
+        "must": _unique_normalized(data.get("requirements", {}).get("hard_skills_required", [])),
+        "nice": _unique_normalized(data.get("requirements", {}).get("hard_skills_optional", [])),
     }
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
@@ -2317,15 +2380,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
                         model=st.session_state.model,
                         vector_store_id=st.session_state.vector_store_id or None,
                     )
-                done = set(
-                    st.session_state[StateKeys.PROFILE]
-                    .get("meta", {})
-                    .get("followups_answered", [])
-                )
+                done = set(st.session_state[StateKeys.PROFILE].get("meta", {}).get("followups_answered", []))
                 st.session_state[StateKeys.FOLLOWUPS] = [
-                    q
-                    for q in followup_res.get("questions", [])
-                    if q.get("field") not in done
+                    q for q in followup_res.get("questions", []) if q.get("field") not in done
                 ]
             except Exception:
                 st.warning(
@@ -2351,12 +2408,7 @@ def _maybe_run_extraction(schema: dict) -> None:
     if not raw_input:
         raw_input = st.session_state.get("__prefill_profile_text__", "")
     raw_input = raw_input or ""
-    if (
-        doc
-        and raw_input
-        and raw_input.strip()
-        and raw_input.strip() != doc.text.strip()
-    ):
+    if doc and raw_input and raw_input.strip() and raw_input.strip() != doc.text.strip():
         doc = None
     if not raw_input and doc:
         raw_input = doc.text
@@ -2543,9 +2595,7 @@ def _render_prefilled_preview(
     )
 
     if layout == "grid":
-        cards: list[tuple[str, Any]] = [
-            (path, value) for _, entries in section_entries for path, value in entries
-        ]
+        cards: list[tuple[str, Any]] = [(path, value) for _, entries in section_entries for path, value in entries]
         for start in range(0, len(cards), 2):
             row = cards[start : start + 2]
             cols = st.columns(len(row), gap="large")
@@ -2564,9 +2614,7 @@ def _render_prefilled_preview(
                     st.markdown(f"**{_field_label(path)}**")
                 with col_value:
                     _render_preview_value(value)
-                st.markdown(
-                    "<div style='margin-bottom:0.6rem'></div>", unsafe_allow_html=True
-                )
+                st.markdown("<div style='margin-bottom:0.6rem'></div>", unsafe_allow_html=True)
 
 
 def _normalize_alias_key(name: str) -> str:
@@ -2695,9 +2743,7 @@ def _job_ad_field_value(data: Mapping[str, Any], key: str, lang: str) -> str:
         min_val = _job_ad_get_value(data, "compensation.salary_min") or 0
         max_val = _job_ad_get_value(data, "compensation.salary_max") or 0
         currency = _job_ad_get_value(data, "compensation.currency") or "EUR"
-        period = _job_ad_get_value(data, "compensation.period") or (
-            "Jahr" if is_de else "year"
-        )
+        period = _job_ad_get_value(data, "compensation.period") or ("Jahr" if is_de else "year")
         try:
             min_num = int(min_val)
             max_num = int(max_val)
@@ -2731,9 +2777,7 @@ def _job_ad_field_value(data: Mapping[str, Any], key: str, lang: str) -> str:
         if not details_text:
             percentage = _job_ad_get_value(data, "employment.remote_percentage")
             if percentage:
-                details_text = (
-                    f"{percentage}% Home-Office" if is_de else f"{percentage}% remote"
-                )
+                details_text = f"{percentage}% Home-Office" if is_de else f"{percentage}% remote"
         if details_text and isinstance(raw, str):
             return f"{raw.strip()} ({details_text})"
     elif key == "employment.remote_percentage":
@@ -2770,11 +2814,7 @@ def _job_ad_field_display(
         return None
     is_de = lang.lower().startswith("de")
     label = next(
-        (
-            field.label_de if is_de else field.label_en
-            for field in JOB_AD_FIELDS
-            if field.key == field_key
-        ),
+        (field.label_de if is_de else field.label_en for field in JOB_AD_FIELDS if field.key == field_key),
         field_key,
     )
     return label, value
@@ -2809,9 +2849,7 @@ def _job_ad_field_entries(
         if not details_text:
             percentage = _job_ad_get_value(data, "employment.remote_percentage")
             if percentage:
-                details_text = (
-                    f"{percentage}% Home-Office" if is_de else f"{percentage}% remote"
-                )
+                details_text = f"{percentage}% Home-Office" if is_de else f"{percentage}% remote"
         if details_text and isinstance(value, str):
             value = f"{value.strip()} ({details_text})"
     elif field.key == "employment.remote_percentage" and value:
@@ -2921,9 +2959,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     with container:
         st.text_input(label, key=key, label_visibility="collapsed")
     if q.get("priority") == "critical":
-        st.toast(
-            tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️"
-        )
+        st.toast(tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️")
         st.markdown(
             f"<script>var el=document.getElementById('{anchor}').nextElementSibling;el.classList.add('fu-highlight');el.scrollIntoView({{behavior:'smooth',block:'center'}});</script>",
             unsafe_allow_html=True,
@@ -2973,9 +3009,7 @@ def _select_lang_text(pair: LangPair | None, lang: str | None) -> str:
     return pair[idx] if idx < len(pair) else pair[0]
 
 
-def _select_lang_suggestions(
-    pair: LangSuggestionPair | None, lang: str | None
-) -> list[str]:
+def _select_lang_suggestions(pair: LangSuggestionPair | None, lang: str | None) -> list[str]:
     """Return language-specific suggestion list from ``pair``."""
 
     if not pair:
@@ -3021,11 +3055,7 @@ def _missing_fields_for_section(section_index: int) -> list[str]:
     missing = st.session_state.get(StateKeys.EXTRACTION_MISSING)
     if missing is None:
         missing = get_missing_critical_fields()
-    section_missing = [
-        field
-        for field in missing
-        if FIELD_SECTION_MAP.get(field) == section_index
-    ]
+    section_missing = [field for field in missing if FIELD_SECTION_MAP.get(field) == section_index]
     for field in section_missing:
         _ensure_targeted_followup(field)
     return section_missing
@@ -3055,9 +3085,7 @@ def _generate_job_ad_content(
             style_reference=style_reference,
             tone=st.session_state.get(UIKeys.TONE_SELECT),
             lang=lang,
-            selected_values=st.session_state.get(
-                StateKeys.JOB_AD_SELECTED_VALUES, {}
-            ),
+            selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
         )
 
     job_ad_md = ""
@@ -3073,9 +3101,7 @@ def _generate_job_ad_content(
             style_reference=style_reference,
             tone=st.session_state.get(UIKeys.TONE_SELECT),
             lang=lang,
-            selected_values=st.session_state.get(
-                StateKeys.JOB_AD_SELECTED_VALUES, {}
-            ),
+            selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
         )
     except Exception:
         try:
@@ -3158,11 +3184,7 @@ def _generate_interview_guide_content(
         + len(requirements_data.get("hard_skills_optional", []))
         + len(requirements_data.get("soft_skills_required", []))
         + len(requirements_data.get("soft_skills_optional", []))
-        + (
-            1
-            if (profile_payload.get("company", {}) or {}).get("culture")
-            else 0
-        )
+        + (1 if (profile_payload.get("company", {}) or {}).get("culture") else 0)
     )
 
     if warn_on_length and selected_num + extras > 15:
@@ -3173,25 +3195,19 @@ def _generate_interview_guide_content(
             )
         )
 
-    responsibilities_text = "\n".join(
-        profile_payload.get("responsibilities", {}).get("items", [])
-    )
+    responsibilities_text = "\n".join(profile_payload.get("responsibilities", {}).get("items", []))
 
     try:
         guide = generate_interview_guide(
             job_title=profile_payload.get("position", {}).get("job_title", ""),
             responsibilities=responsibilities_text,
             hard_skills=(
-                requirements_data.get("hard_skills_required", [])
-                + requirements_data.get("hard_skills_optional", [])
+                requirements_data.get("hard_skills_required", []) + requirements_data.get("hard_skills_optional", [])
             ),
             soft_skills=(
-                requirements_data.get("soft_skills_required", [])
-                + requirements_data.get("soft_skills_optional", [])
+                requirements_data.get("soft_skills_required", []) + requirements_data.get("soft_skills_optional", [])
             ),
-            company_culture=profile_payload.get("company", {}).get(
-                "culture", ""
-            ),
+            company_culture=profile_payload.get("company", {}).get("culture", ""),
             audience=audience,
             lang=lang,
             tone=st.session_state.get("tone"),
@@ -3245,9 +3261,7 @@ def _apply_followup_updates(
         show_error=show_feedback,
     )
     audience_choice = (
-        st.session_state.get(StateKeys.INTERVIEW_AUDIENCE)
-        or st.session_state.get(UIKeys.AUDIENCE_SELECT)
-        or "general"
+        st.session_state.get(StateKeys.INTERVIEW_AUDIENCE) or st.session_state.get(UIKeys.AUDIENCE_SELECT) or "general"
     )
     interview_generated = _generate_interview_guide_content(
         profile_payload,
@@ -3431,10 +3445,7 @@ def _summary_source_icon_html(path: str) -> str:
     if not info:
         return ""
     tooltip = html.escape(info.tooltip(), quote=True)
-    return (
-        f"<span class='summary-source-icon' role='img' aria-label='{tooltip}' "
-        f"title='{tooltip}'>ℹ️</span>"
-    )
+    return f"<span class='summary-source-icon' role='img' aria-label='{tooltip}' title='{tooltip}'>ℹ️</span>"
 
 
 def _block_descriptor(block_type: str | None) -> str:
@@ -3470,9 +3481,7 @@ def _merge_help_text(original: str | None, extra: str | None) -> str | None:
     return original or extra
 
 
-def _apply_field_lock_kwargs(
-    config: FieldLockConfig, base_kwargs: Mapping[str, Any] | None = None
-) -> dict[str, Any]:
+def _apply_field_lock_kwargs(config: FieldLockConfig, base_kwargs: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Merge lock-specific widget kwargs into ``base_kwargs``."""
 
     kwargs = dict(base_kwargs or {})
@@ -3591,9 +3600,7 @@ def _field_lock_config(
             ) = _confidence_indicator(confidence_tier)
 
     is_locked = path in locked_fields
-    is_high_conf = path in high_conf_fields or (
-        confidence_tier == ConfidenceTier.RULE_STRONG.value
-    )
+    is_high_conf = path in high_conf_fields or (confidence_tier == ConfidenceTier.RULE_STRONG.value)
     was_locked = is_locked or is_high_conf
 
     source_info = _resolve_field_source_info(path)
@@ -3630,11 +3637,7 @@ def _field_lock_config(
             )
         source_descriptor = descriptor_full or descriptor_plain
         if source_descriptor:
-            help_bits.append(
-                tr("Quelle: {source}", "Source: {source}").format(
-                    source=source_descriptor
-                )
-            )
+            help_bits.append(tr("Quelle: {source}", "Source: {source}").format(source=source_descriptor))
         if source_info.confidence is not None:
             help_bits.append(
                 tr(
@@ -3687,9 +3690,7 @@ def _clear_field_unlock_state(path: str) -> None:
     keys_to_remove = [
         key
         for key in list(st.session_state.keys())
-        if isinstance(key, str)
-        and key.startswith(prefix)
-        and key.split(".")[-1] == normalized
+        if isinstance(key, str) and key.startswith(prefix) and key.split(".")[-1] == normalized
     ]
     for key in keys_to_remove:
         st.session_state.pop(key, None)
@@ -3759,11 +3760,7 @@ def _sync_followup_completion(path: str, value: Any, profile: dict[str, Any]) ->
 
     followups = st.session_state.get(StateKeys.FOLLOWUPS)
     if isinstance(followups, list):
-        remaining = [
-            q
-            for q in followups
-            if not (isinstance(q, Mapping) and q.get("field") == path)
-        ]
+        remaining = [q for q in followups if not (isinstance(q, Mapping) and q.get("field") == path)]
         st.session_state[StateKeys.FOLLOWUPS] = remaining
     st.session_state.pop(f"fu_{path}", None)
     if path not in answered:
@@ -3812,9 +3809,7 @@ def _load_autofill_decisions() -> dict[str, list[str]]:
 def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
     """Persist ``decisions`` to session state."""
 
-    st.session_state[StateKeys.AUTOFILL_DECISIONS] = {
-        key: list(value) for key, value in decisions.items()
-    }
+    st.session_state[StateKeys.AUTOFILL_DECISIONS] = {key: list(value) for key, value in decisions.items()}
 
 
 def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:
@@ -3864,16 +3859,10 @@ def _render_autofill_suggestion(
 
     accept_label = f"{icon} {suggestion}" if icon else suggestion
     reject_label = tr("Ignorieren", "Dismiss")
-    success_message = success_message or tr(
-        "Vorschlag übernommen.", "Suggestion applied."
-    )
-    rejection_message = rejection_message or tr(
-        "Vorschlag verworfen.", "Suggestion dismissed."
-    )
+    success_message = success_message or tr("Vorschlag übernommen.", "Suggestion applied.")
+    rejection_message = rejection_message or tr("Vorschlag verworfen.", "Suggestion dismissed.")
 
-    suggestion_hash = hashlib.sha1(
-        f"{field_path}:{suggestion}".encode("utf-8")
-    ).hexdigest()[:10]
+    suggestion_hash = hashlib.sha1(f"{field_path}:{suggestion}".encode("utf-8")).hexdigest()[:10]
 
     with st.container(border=True):
         st.markdown(f"**{title}**")
@@ -3898,6 +3887,8 @@ def _render_autofill_suggestion(
             _record_autofill_rejection(field_path, suggestion)
             st.toast(rejection_message, icon=rejection_icon)
             st.rerun()
+
+
 def _slugify_label(label: str) -> str:
     """Convert a widget label into a slug suitable for state keys.
 
@@ -3947,9 +3938,7 @@ def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]
     if isinstance(requirements, Mapping):
         for key in ("certificates", "certifications"):
             items = requirements.get(key, [])
-            if isinstance(items, Sequence) and not isinstance(
-                items, (str, bytes, bytearray)
-            ):
+            if isinstance(items, Sequence) and not isinstance(items, (str, bytes, bytearray)):
                 raw_values.extend(str(item) for item in items)
     return _unique_normalized(raw_values)
 
@@ -4078,6 +4067,7 @@ def _apply_esco_selection(
 
     _refresh_esco_skills(resolved, lang=lang)
 
+
 def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None:
     """Render a picker for ESCO occupation suggestions."""
 
@@ -4124,9 +4114,7 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
     )
 
     def _on_change() -> None:
-        current_ids = _coerce_occupation_ids(
-            st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
-        )
+        current_ids = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
@@ -4209,9 +4197,7 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
         elif not selected_labels:
             st.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
 
-    current_ids = _coerce_occupation_ids(
-        st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
-    )
+    current_ids = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
     _apply_esco_selection(current_ids, options, lang=lang_code)
 
 
@@ -4433,9 +4419,7 @@ def flatten(d: dict, prefix: str = "") -> dict:
     return out
 
 
-def missing_keys(
-    data: dict, critical: List[str], ignore: Optional[set[str]] = None
-) -> List[str]:
+def missing_keys(data: dict, critical: List[str], ignore: Optional[set[str]] = None) -> List[str]:
     """Identify required keys that are missing or empty.
 
     Args:
@@ -4449,11 +4433,7 @@ def missing_keys(
 
     flat = flatten(data)
     ignore = ignore or set()
-    return [
-        k
-        for k in critical
-        if k not in ignore and ((k not in flat) or (flat[k] in (None, "", [], {})))
-    ]
+    return [k for k in critical if k not in ignore and ((k not in flat) or (flat[k] in (None, "", [], {})))]
 
 
 # --- UI-Komponenten ---
@@ -4474,6 +4454,8 @@ def _render_chip_button_grid(
     clicked_index: int | None = None
 
     for idx, option in enumerate(options):
+        option_text = str(option)
+        display_text, was_truncated = _compact_inline_label(option_text)
         if idx and idx % per_row == 0:
             remaining = len(options) - idx
             per_row = max(1, min(columns, remaining))
@@ -4481,10 +4463,11 @@ def _render_chip_button_grid(
         col = grid_columns[idx % per_row]
         with col:
             pressed = st.button(
-                option,
+                display_text,
                 key=f"{key_prefix}.{idx}",
                 type=button_type,
                 width="stretch",
+                help=option_text if was_truncated else None,
             )
         if pressed and clicked_index is None:
             clicked_index = idx
@@ -4492,9 +4475,7 @@ def _render_chip_button_grid(
     return clicked_index
 
 
-def _group_chip_options_by_label(
-    entries: Iterable[tuple[str, str, str]]
-) -> list[tuple[str, list[tuple[str, str]]]]:
+def _group_chip_options_by_label(entries: Iterable[tuple[str, str, str]]) -> list[tuple[str, list[tuple[str, str]]]]:
     """Group chip entries by their translated label while preserving order."""
 
     grouped: dict[str, list[tuple[str, str]]] = {}
@@ -4558,10 +4539,7 @@ def _chip_multiselect(
         current_markers = {item.casefold() for item in current_values}
         candidate_marker = candidate.casefold()
 
-        if (
-            candidate_marker in current_markers
-            and candidate_marker == str(last_added).casefold()
-        ):
+        if candidate_marker in current_markers and candidate_marker == str(last_added).casefold():
             st.session_state[input_key] = ""
             return
 
@@ -4596,9 +4574,7 @@ def _chip_multiselect(
         available_label = tr("Weitere Optionen", "More options")
 
         selected_values = list(current_values)
-        available_pool = [
-            option for option in available_options if option not in selected_values
-        ]
+        available_pool = [option for option in available_options if option not in selected_values]
 
         if selected_values:
             st.markdown(
@@ -5075,11 +5051,7 @@ def _step_company():
     hq_value = (company.get("hq_location") or "").strip()
     suggested_hq_parts = [part for part in (city_value, country_value) if part]
     suggested_hq = ", ".join(suggested_hq_parts)
-    if (
-        suggested_hq
-        and not hq_value
-        and not _autofill_was_rejected("company.hq_location", suggested_hq)
-    ):
+    if suggested_hq and not hq_value and not _autofill_was_rejected("company.hq_location", suggested_hq):
         if city_value and country_value:
             description = tr(
                 "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
@@ -5121,9 +5093,7 @@ def _step_company():
     position["team_structure"] = dept_cols[1].text_input(
         tr("Teamstruktur", "Team structure"),
         value=position.get("team_structure", ""),
-        placeholder=tr(
-            "z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"
-        ),
+        placeholder=tr("z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"),
     )
 
     position["key_projects"] = st.text_area(
@@ -5152,19 +5122,16 @@ def _step_company():
 
     branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
     if branding_asset:
-        asset_name = branding_asset.get("name") or tr(
-            "Hochgeladene Datei", "Uploaded file"
-        )
+        asset_name = branding_asset.get("name") or tr("Hochgeladene Datei", "Uploaded file")
         brand_cols[1].caption(
             tr(
                 "Aktuelle Datei: {name}",
                 "Current asset: {name}",
             ).format(name=asset_name)
         )
-        if (
-            isinstance(branding_asset.get("data"), (bytes, bytearray))
-            and str(branding_asset.get("type", "")).startswith("image/")
-        ):
+        if isinstance(branding_asset.get("data"), (bytes, bytearray)) and str(
+            branding_asset.get("type", "")
+        ).startswith("image/"):
             try:
                 brand_cols[1].image(branding_asset["data"], width=160)
             except Exception:  # pragma: no cover - graceful fallback
@@ -5379,9 +5346,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
             key=f"{key_prefix}.{idx}.email",
         )
 
-        existing_selection = _filter_phase_indices(
-            person.get("information_loop_phases", []), len(phase_indices)
-        )
+        existing_selection = _filter_phase_indices(person.get("information_loop_phases", []), len(phase_indices))
         if existing_selection != person.get("information_loop_phases"):
             person["information_loop_phases"] = existing_selection
         if phase_indices:
@@ -5403,9 +5368,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
                 ),
                 key_suffix=f"{key_prefix}.{idx}.info_loop",
             )
-            person["information_loop_phases"] = [
-                int(value) for value in chosen_phase_values if str(value).isdigit()
-            ]
+            person["information_loop_phases"] = [int(value) for value in chosen_phase_values if str(value).isdigit()]
         else:
             person["information_loop_phases"] = []
         if not phase_indices:
@@ -5509,14 +5472,8 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 format_func=dict(format_options).__getitem__,
                 key=f"{key_prefix}.{idx}.format",
             )
-            phase_participants = _filter_existing_participants(
-                phase.get("participants", []), stakeholder_names
-            )
-            participant_pairs = [
-                (name, name)
-                for name in stakeholder_names
-                if isinstance(name, str) and name
-            ]
+            phase_participants = _filter_existing_participants(phase.get("participants", []), stakeholder_names)
+            participant_pairs = [(name, name) for name in stakeholder_names if isinstance(name, str) and name]
             phase["participants"] = _chip_multiselect_mapped(
                 tr("Beteiligte", "Participants"),
                 option_pairs=participant_pairs,
@@ -5540,9 +5497,7 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
             )
 
 
-def _render_onboarding_section(
-    process: dict, key_prefix: str, *, allow_generate: bool = True
-) -> None:
+def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate: bool = True) -> None:
     """Render onboarding suggestions with optional LLM generation."""
 
     lang = st.session_state.get("lang", "de")
@@ -5563,15 +5518,12 @@ def _render_onboarding_section(
                 )
             )
         generate_clicked = st.button(
-            "🤖 "
-            + tr("Onboarding-Vorschläge generieren", "Generate onboarding suggestions"),
+            "🤖 " + tr("Onboarding-Vorschläge generieren", "Generate onboarding suggestions"),
             key=f"{key_prefix}.generate",
             disabled=not job_title,
         )
         if generate_clicked and job_title:
-            company_data = (
-                profile.get("company") if isinstance(profile, Mapping) else {}
-            )
+            company_data = profile.get("company") if isinstance(profile, Mapping) else {}
             company_name = ""
             industry = ""
             culture = ""
@@ -5597,16 +5549,12 @@ def _render_onboarding_section(
                     st.session_state["onboarding_suggestions_error"] = err
             else:
                 selection_key = f"{key_prefix}.selection"
-                combined_selection = list(
-                    dict.fromkeys(existing_entries + suggestions)
-                )
+                combined_selection = list(dict.fromkeys(existing_entries + suggestions))
                 st.session_state[selection_key] = combined_selection
                 st.session_state[StateKeys.ONBOARDING_SUGGESTIONS] = suggestions
                 st.rerun()
 
-    current_suggestions = (
-        st.session_state.get(StateKeys.ONBOARDING_SUGGESTIONS, []) or []
-    )
+    current_suggestions = st.session_state.get(StateKeys.ONBOARDING_SUGGESTIONS, []) or []
     options = list(dict.fromkeys(current_suggestions + existing_entries))
     defaults = [opt for opt in options if opt in existing_entries]
     selected = _chip_multiselect(
@@ -5727,9 +5675,7 @@ def _step_position():
     )
     _update_profile("position.job_title", position["job_title"])
     if "position.job_title" in missing_here and not position.get("job_title"):
-        role_cols[0].caption(
-            tr("Dieses Feld ist erforderlich", "This field is required")
-        )
+        role_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     _render_esco_occupation_selector(position)
 
@@ -5754,9 +5700,7 @@ def _step_position():
         height=120,
     )
     if "position.role_summary" in missing_here and not position.get("role_summary"):
-        summary_cols[1].caption(
-            tr("Dieses Feld ist erforderlich", "This field is required")
-        )
+        summary_cols[1].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     st.markdown("#### " + tr("Zeitplan", "Timing"))
 
@@ -5767,9 +5711,7 @@ def _step_position():
         value=target_start_default,
         format="YYYY-MM-DD",
     )
-    meta_data["target_start_date"] = (
-        start_selection.isoformat() if isinstance(start_selection, date) else ""
-    )
+    meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
 
     application_deadline_default = _default_date(meta_data.get("application_deadline"))
     deadline_selection = timing_cols[1].date_input(
@@ -5777,9 +5719,7 @@ def _step_position():
         value=application_deadline_default,
         format="YYYY-MM-DD",
     )
-    meta_data["application_deadline"] = (
-        deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
-    )
+    meta_data["application_deadline"] = deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
 
     position["supervises"] = timing_cols[2].number_input(
         tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
@@ -5800,9 +5740,7 @@ def _step_position():
             height=80,
         )
 
-    st.markdown(
-        "#### " + tr("Beschäftigung & Arbeitsmodell", "Employment & working model")
-    )
+    st.markdown("#### " + tr("Beschäftigung & Arbeitsmodell", "Employment & working model"))
 
     job_type_options = {
         "full_time": tr("Vollzeit", "Full-time"),
@@ -5840,11 +5778,7 @@ def _step_position():
 
     contract_keys = list(contract_options.keys())
     contract_default = employment.get("contract_type", contract_keys[0])
-    contract_index = (
-        contract_keys.index(contract_default)
-        if contract_default in contract_keys
-        else 0
-    )
+    contract_index = contract_keys.index(contract_default) if contract_default in contract_keys else 0
     employment["contract_type"] = job_cols[1].selectbox(
         tr("Vertragsform", "Contract type"),
         options=contract_keys,
@@ -5854,9 +5788,7 @@ def _step_position():
 
     policy_keys = list(policy_options.keys())
     policy_default = employment.get("work_policy", policy_keys[0])
-    policy_index = (
-        policy_keys.index(policy_default) if policy_default in policy_keys else 0
-    )
+    policy_index = policy_keys.index(policy_default) if policy_default in policy_keys else 0
     employment["work_policy"] = job_cols[2].selectbox(
         tr("Arbeitsmodell", "Work model"),
         options=policy_keys,
@@ -5873,11 +5805,7 @@ def _step_position():
     }
     schedule_keys = list(schedule_options.keys())
     schedule_default = employment.get("work_schedule", schedule_keys[0])
-    schedule_index = (
-        schedule_keys.index(schedule_default)
-        if schedule_default in schedule_keys
-        else 0
-    )
+    schedule_index = schedule_keys.index(schedule_default) if schedule_default in schedule_keys else 0
     schedule_cols = st.columns(3)
     employment["work_schedule"] = schedule_cols[0].selectbox(
         tr("Arbeitszeitmodell", "Work schedule"),
@@ -5900,9 +5828,7 @@ def _step_position():
 
     contract_end_col = schedule_cols[2]
     if employment.get("contract_type") == "fixed_term":
-        contract_end_default = _default_date(
-            employment.get("contract_end"), fallback=date.today()
-        )
+        contract_end_default = _default_date(employment.get("contract_end"), fallback=date.today())
         contract_end_value = contract_end_col.date_input(
             tr("Vertragsende", "Contract end"),
             value=contract_end_default,
@@ -5946,9 +5872,7 @@ def _step_position():
     )
 
     if employment.get("travel_required"):
-        with st.expander(
-            tr("Details zur Reisetätigkeit", "Travel details"), expanded=True
-        ):
+        with st.expander(tr("Details zur Reisetätigkeit", "Travel details"), expanded=True):
             col_share, col_region, col_details = st.columns((1, 2, 2))
             share_default = int(employment.get("travel_share") or 0)
             employment["travel_share"] = col_share.number_input(
@@ -5967,11 +5891,7 @@ def _step_position():
             scope_lookup = {value: label for value, label in scope_options}
             current_scope = employment.get("travel_region_scope", "germany")
             scope_index = next(
-                (
-                    idx
-                    for idx, (value, _) in enumerate(scope_options)
-                    if value == current_scope
-                ),
+                (idx for idx, (value, _) in enumerate(scope_options) if value == current_scope),
                 0,
             )
             selected_scope = col_region.selectbox(
@@ -5989,9 +5909,7 @@ def _step_position():
                 selected_regions = col_region.multiselect(
                     tr("Bundesländer", "Federal states"),
                     options=GERMAN_STATES,
-                    default=[
-                        region for region in stored_regions if region in GERMAN_STATES
-                    ],
+                    default=[region for region in stored_regions if region in GERMAN_STATES],
                 )
                 employment["travel_regions"] = selected_regions
                 employment.pop("travel_continents", None)
@@ -5999,11 +5917,7 @@ def _step_position():
                 selected_regions = col_region.multiselect(
                     tr("Länder (Europa)", "Countries (Europe)"),
                     options=EUROPEAN_COUNTRIES,
-                    default=[
-                        region
-                        for region in stored_regions
-                        if region in EUROPEAN_COUNTRIES
-                    ],
+                    default=[region for region in stored_regions if region in EUROPEAN_COUNTRIES],
                 )
                 employment["travel_regions"] = selected_regions
                 employment.pop("travel_continents", None)
@@ -6012,29 +5926,17 @@ def _step_position():
                 selected_continents = col_region.multiselect(
                     tr("Kontinente", "Continents"),
                     options=continent_options,
-                    default=[
-                        continent
-                        for continent in stored_continents
-                        if continent in continent_options
-                    ],
+                    default=[continent for continent in stored_continents if continent in continent_options],
                 )
                 employment["travel_continents"] = selected_continents
                 base_continents = selected_continents or continent_options
                 available_countries = sorted(
-                    {
-                        country
-                        for continent in base_continents
-                        for country in CONTINENT_COUNTRIES.get(continent, [])
-                    }
+                    {country for continent in base_continents for country in CONTINENT_COUNTRIES.get(continent, [])}
                 )
                 selected_countries = col_region.multiselect(
                     tr("Länder", "Countries"),
                     options=available_countries,
-                    default=[
-                        country
-                        for country in stored_regions
-                        if country in available_countries
-                    ],
+                    default=[country for country in stored_regions if country in available_countries],
                 )
                 employment["travel_regions"] = selected_countries
 
@@ -6061,16 +5963,13 @@ def _step_position():
         employment.pop("relocation_details", None)
 
     # Inline follow-up questions for Position, Location and Employment section
-    _render_followups_for_section(
-        ("position.", "location.", "meta.", "employment."), data
-    )
+    _render_followups_for_section(("position.", "location.", "meta.", "employment."), data)
 
 
 _step_position.handled_fields = [  # type: ignore[attr-defined]
     "position.job_title",
     "position.role_summary",
 ]
-
 
 
 def _step_requirements():
@@ -6241,9 +6140,7 @@ def _step_requirements():
         )
 
     st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = focus_selection
-    suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(
-        focus_selection
-    )
+    suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(focus_selection)
     _show_suggestion_warning(suggestions_error)
 
     profile_context = _build_profile_context(data)
@@ -6471,11 +6368,7 @@ def _step_requirements():
             st.rerun()
 
     responsibilities = data.setdefault("responsibilities", {})
-    responsibilities_items = [
-        str(item)
-        for item in responsibilities.get("items", [])
-        if isinstance(item, str)
-    ]
+    responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
     responsibilities_text = "\n".join(responsibilities_items)
     responsibilities_key = "ui.requirements.responsibilities"
     responsibilities_seed_key = f"{responsibilities_key}.__seed"
@@ -6486,9 +6379,7 @@ def _step_requirements():
     responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
     responsibilities_required = "responsibilities.items" in missing_here
     display_label = (
-        f"{responsibilities_label}{REQUIRED_SUFFIX}"
-        if responsibilities_required
-        else responsibilities_label
+        f"{responsibilities_label}{REQUIRED_SUFFIX}" if responsibilities_required else responsibilities_label
     )
 
     with requirement_panel(
@@ -6514,9 +6405,7 @@ def _step_requirements():
             ),
         )
         cleaned_responsibilities = [
-            re.sub(r"^[\-\*•]+\s*", "", line.strip())
-            for line in raw_responsibilities.splitlines()
-            if line.strip()
+            re.sub(r"^[\-\*•]+\s*", "", line.strip()) for line in raw_responsibilities.splitlines() if line.strip()
         ]
         responsibilities["items"] = cleaned_responsibilities
         if responsibilities_required and not cleaned_responsibilities:
@@ -6532,11 +6421,7 @@ def _step_requirements():
         for group_key, values in grouped.items():
             if not isinstance(values, Sequence):
                 continue
-            cleaned_values = [
-                str(value).strip()
-                for value in values
-                if isinstance(value, str) and str(value).strip()
-            ]
+            cleaned_values = [str(value).strip() for value in values if isinstance(value, str) and str(value).strip()]
             if cleaned_values:
                 normalized_groups[str(group_key)] = cleaned_values
         if normalized_groups:
@@ -6689,7 +6574,6 @@ def _step_requirements():
             )
 
     with requirement_panel(
-
         icon="🛠️",
         title=tr("Tools, Tech & Zertifikate", "Tools, tech & certificates"),
         caption=tr(
@@ -6783,14 +6667,9 @@ def _step_requirements():
                 dropdown=True,
             )
 
-        current_language_level = (
-            data["requirements"].get("language_level_english") or ""
-        )
+        current_language_level = data["requirements"].get("language_level_english") or ""
         language_level_options = list(CEFR_LANGUAGE_LEVELS)
-        if (
-            current_language_level
-            and current_language_level not in language_level_options
-        ):
+        if current_language_level and current_language_level not in language_level_options:
             language_level_options.append(current_language_level)
         selected_level = st.selectbox(
             tr("Englischniveau", "English level"),
@@ -6814,13 +6693,11 @@ def _step_requirements():
         + list(data["requirements"].get("tools_and_technologies", []))
         + _collect_combined_certificates(data["requirements"])
     )
-    nice_insight_skills = (
-        list(data["requirements"].get("hard_skills_optional", []))
-        + list(data["requirements"].get("soft_skills_optional", []))
+    nice_insight_skills = list(data["requirements"].get("hard_skills_optional", [])) + list(
+        data["requirements"].get("soft_skills_optional", [])
     )
-    language_insight_skills = (
-        list(data["requirements"].get("languages_required", []))
-        + list(data["requirements"].get("languages_optional", []))
+    language_insight_skills = list(data["requirements"].get("languages_required", [])) + list(
+        data["requirements"].get("languages_optional", [])
     )
     insight_groups = {
         tr("Muss-Anforderungen", "Must-have requirements"): must_insight_skills,
@@ -6902,7 +6779,6 @@ def _step_requirements():
     _render_followups_for_section(("requirements.",), data)
 
 
-
 _step_requirements.handled_fields = [  # type: ignore[attr-defined]
     "responsibilities.items",
     "requirements.hard_skills_required",
@@ -6930,9 +6806,7 @@ def _build_field_section_map() -> dict[str, int]:
 
 
 FIELD_SECTION_MAP = _build_field_section_map()
-CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
-    sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,)
-)
+CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
 
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
@@ -6978,11 +6852,7 @@ def _update_section_progress(
 ) -> tuple[int | None, list[int]]:
     """Update session state with completion information for wizard sections."""
 
-    fields = (
-        list(missing_fields)
-        if missing_fields is not None
-        else get_missing_critical_fields()
-    )
+    fields = list(missing_fields) if missing_fields is not None else get_missing_critical_fields()
     fields = list(dict.fromkeys(fields))
     sections_with_missing = {_resolve_section_for_field(field) for field in fields}
 
@@ -7107,9 +6977,7 @@ def _step_compensation():
         if current_currency in currency_options
         else currency_options.index("Other")
     )
-    choice = c1.selectbox(
-        tr("Währung", "Currency"), options=currency_options, index=idx
-    )
+    choice = c1.selectbox(tr("Währung", "Currency"), options=currency_options, index=idx)
     if choice == "Other":
         data["compensation"]["currency"] = c1.text_input(
             tr("Andere Währung", "Other currency"),
@@ -7123,11 +6991,7 @@ def _step_compensation():
     data["compensation"]["period"] = c2.selectbox(
         tr("Periode", "Period"),
         options=period_options,
-        index=(
-            period_options.index(current_period)
-            if current_period in period_options
-            else 0
-        ),
+        index=(period_options.index(current_period) if current_period in period_options else 0),
     )
     data["compensation"]["variable_pay"] = c3.toggle(
         tr("Variable Vergütung?", "Variable pay?"),
@@ -7153,12 +7017,8 @@ def _step_compensation():
         value=bool(data["compensation"].get("equity_offered")),
     )
     lang = st.session_state.get("lang", "de")
-    benefit_focus_presets = _BENEFIT_FOCUS_PRESETS.get(
-        lang, _BENEFIT_FOCUS_PRESETS["en"]
-    )
-    stored_benefit_focus = st.session_state.get(
-        StateKeys.BENEFIT_SUGGESTION_HINTS, []
-    )
+    benefit_focus_presets = _BENEFIT_FOCUS_PRESETS.get(lang, _BENEFIT_FOCUS_PRESETS["en"])
+    stored_benefit_focus = st.session_state.get(StateKeys.BENEFIT_SUGGESTION_HINTS, [])
     benefit_focus_options = sorted(
         {value.strip() for value in benefit_focus_presets if value.strip()}.union(
             {value.strip() for value in stored_benefit_focus if value.strip()}
@@ -7178,9 +7038,7 @@ def _step_compensation():
     st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
 
     industry_context = data.get("company", {}).get("industry", "")
-    fallback_benefits = get_static_benefit_shortlist(
-        lang=lang, industry=industry_context
-    )
+    fallback_benefits = get_static_benefit_shortlist(lang=lang, industry=industry_context)
     benefit_state = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, {})
     if benefit_state.get("_lang") != lang:
         benefit_state = {"llm": [], "fallback": fallback_benefits, "_lang": lang}
@@ -7189,13 +7047,7 @@ def _step_compensation():
     st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
     llm_benefits = benefit_state.get("llm", [])
     fallback_pool = benefit_state.get("fallback", fallback_benefits)
-    benefit_options = sorted(
-        set(
-            fallback_pool
-            + data["compensation"].get("benefits", [])
-            + llm_benefits
-        )
-    )
+    benefit_options = sorted(set(fallback_pool + data["compensation"].get("benefits", []) + llm_benefits))
     data["compensation"]["benefits"] = _chip_multiselect(
         tr("Leistungen", "Benefits"),
         options=benefit_options,
@@ -7203,10 +7055,7 @@ def _step_compensation():
     )
 
     suggestion_entries: list[tuple[str, str, str]] = []
-    existing_benefit_markers = {
-        str(item).casefold()
-        for item in data["compensation"].get("benefits", []) or []
-    }
+    existing_benefit_markers = {str(item).casefold() for item in data["compensation"].get("benefits", []) or []}
     seen_benefit_options: set[tuple[str, str]] = set()
     for group_key, label in (
         ("llm", tr("LLM-Vorschläge", "LLM suggestions")),
@@ -7362,9 +7211,7 @@ def _step_process():
     data = profile["process"]
 
     stakeholders_raw = data.get("stakeholders")
-    stakeholders_list = (
-        stakeholders_raw if isinstance(stakeholders_raw, list) else []
-    )
+    stakeholders_list = stakeholders_raw if isinstance(stakeholders_raw, list) else []
     has_stakeholder_details = any(
         any(str(person.get(field) or "").strip() for field in ("name", "role", "email"))
         or bool(person.get("information_loop_phases"))
@@ -7399,11 +7246,7 @@ def _step_process():
     )
     start_date, end_date = _normalize_date_selection(timeline_selection)
     changed = (start_date, end_date) != (default_start, default_end)
-    if (
-        original_timeline
-        and not _parse_timeline_range(str(original_timeline))[0]
-        and not changed
-    ):
+    if original_timeline and not _parse_timeline_range(str(original_timeline))[0] and not changed:
         data["recruitment_timeline"] = str(original_timeline)
     else:
         data["recruitment_timeline"] = _format_timeline_string(start_date, end_date)
@@ -7478,17 +7321,13 @@ def _summary_company() -> None:
         key="ui.summary.company.culture",
     )
     company_brand_value = data["company"].get("brand_keywords", "")
-    company_brand_default = (
-        company_brand_value if isinstance(company_brand_value, str) else ""
-    )
+    company_brand_default = company_brand_value if isinstance(company_brand_value, str) else ""
     if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state:
         st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = company_brand_default
 
     if st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG, False):
         synced_brand = st.session_state.get(UIKeys.JOB_AD_BRAND_TONE)
-        st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = (
-            synced_brand if isinstance(synced_brand, str) else ""
-        )
+        st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = synced_brand if isinstance(synced_brand, str) else ""
 
     brand = st.text_input(
         tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
@@ -7779,9 +7618,7 @@ def _summary_employment() -> None:
 
     if contract_type == "fixed_term":
         contract_end_str = data["employment"].get("contract_end")
-        default_end = (
-            date.fromisoformat(contract_end_str) if contract_end_str else date.today()
-        )
+        default_end = date.fromisoformat(contract_end_str) if contract_end_str else date.today()
         contract_end = st.date_input(
             tr("Vertragsende", "Contract end"),
             value=default_end,
@@ -7934,9 +7771,7 @@ def _summary_compensation() -> None:
             "Team events",
         ],
     }
-    benefit_options = sorted(
-        set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", []))
-    )
+    benefit_options = sorted(set(preset_benefits.get(lang, []) + data["compensation"].get("benefits", [])))
     benefits = _chip_multiselect(
         tr("Leistungen", "Benefits"),
         options=benefit_options,
@@ -7968,9 +7803,7 @@ def _summary_process() -> None:
         "ui.summary.process.phases",
     )
     _update_profile("process.phases", process.get("phases", []))
-    _update_profile(
-        "process.interview_stages", int(process.get("interview_stages") or 0)
-    )
+    _update_profile("process.interview_stages", int(process.get("interview_stages") or 0))
 
     c1, c2 = st.columns(2)
     original_timeline = process.get("recruitment_timeline", "")
@@ -7982,11 +7815,7 @@ def _summary_process() -> None:
     )
     start_date, end_date = _normalize_date_selection(summary_selection)
     changed = (start_date, end_date) != (default_start, default_end)
-    if (
-        original_timeline
-        and not _parse_timeline_range(str(original_timeline))[0]
-        and not changed
-    ):
+    if original_timeline and not _parse_timeline_range(str(original_timeline))[0] and not changed:
         timeline = str(original_timeline)
     else:
         timeline = _format_timeline_string(start_date, end_date)
@@ -8001,9 +7830,7 @@ def _summary_process() -> None:
         key="ui.summary.process.application_instructions",
     )
     with st.expander(tr("Onboarding (nach Einstellung)", "Onboarding (post-hire)")):
-        _render_onboarding_section(
-            process, "ui.summary.process.onboarding", allow_generate=False
-        )
+        _render_onboarding_section(process, "ui.summary.process.onboarding", allow_generate=False)
         onboarding = process.get("onboarding_process", "")
 
     _update_profile("process.recruitment_timeline", timeline)
@@ -8071,9 +7898,7 @@ def _render_summary_group_entries(
                 unsafe_allow_html=True,
             )
 
-        items_html = "".join(
-            f"<li>{html.escape(entry_text)}</li>" for _, entry_text in entries
-        )
+        items_html = "".join(f"<li>{html.escape(entry_text)}</li>" for _, entry_text in entries)
         field_box.markdown(
             f"<ul class='summary-field-list'>{items_html}</ul>",
             unsafe_allow_html=True,
@@ -8100,10 +7925,7 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
     placeholder = tr("Noch offen", "TBD")
 
     job_title = (profile.position.job_title or "").strip() or placeholder
-    company_name = (
-        (profile.company.name or profile.company.brand_name or "").strip()
-        or placeholder
-    )
+    company_name = (profile.company.name or profile.company.brand_name or "").strip() or placeholder
 
     location_parts: list[str] = []
     primary_city = (profile.location.primary_city or "").strip()
@@ -8124,9 +7946,7 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
     salary_range = ""
     if salary_values:
         if len(salary_values) == 2:
-            salary_range = tr("{min} – {max}", "{min} – {max}").format(
-                min=salary_values[0], max=salary_values[1]
-            )
+            salary_range = tr("{min} – {max}", "{min} – {max}").format(min=salary_values[0], max=salary_values[1])
         else:
             salary_range = salary_values[0]
 
@@ -8137,9 +7957,7 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
         if currency:
             salary_range = f"{currency} {salary_range}"
         if period:
-            salary_range = tr("{base} pro {period}", "{base} per {period}").format(
-                base=salary_range, period=period
-            )
+            salary_range = tr("{base} pro {period}", "{base} per {period}").format(base=salary_range, period=period)
     elif compensation.salary_provided:
         salary_range = tr("Gehalt vorhanden", "Salary provided")
     else:
@@ -8169,24 +7987,12 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
     soft_label = tr("Soziale Skills", "Soft skills")
 
     bullets = [
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-            label=job_title_label, value=job_title
-        ),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-            label=company_label, value=company_name
-        ),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-            label=location_label, value=location_value
-        ),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-            label=salary_label, value=salary_range
-        ),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-            label=hard_label, value=hard_value
-        ),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-            label=soft_label, value=soft_value
-        ),
+        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=job_title_label, value=job_title),
+        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=company_label, value=company_name),
+        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=location_label, value=location_value),
+        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=salary_label, value=salary_range),
+        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=hard_label, value=hard_value),
+        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=soft_label, value=soft_value),
     ]
 
     with st.container():
@@ -8345,22 +8151,13 @@ def _step_summary(schema: dict, _critical: list[str]):
     with next_step_cols[0]:
         st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
         brand_profile_value = data.get("company", {}).get("brand_keywords")
-        brand_profile_text = (
-            brand_profile_value if isinstance(brand_profile_value, str) else ""
-        )
-        if (
-            UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state
-            and brand_profile_text
-        ):
+        brand_profile_text = brand_profile_value if isinstance(brand_profile_value, str) else ""
+        if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state and brand_profile_text:
             st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = brand_profile_text
 
         company_brand_state = st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS)
         if UIKeys.JOB_AD_BRAND_TONE not in st.session_state:
-            initial_brand = (
-                company_brand_state
-                if isinstance(company_brand_state, str)
-                else brand_profile_text
-            )
+            initial_brand = company_brand_state if isinstance(company_brand_state, str) else brand_profile_text
             st.session_state[UIKeys.JOB_AD_BRAND_TONE] = (initial_brand or "").strip()
 
         stored_brand = (st.session_state.get(UIKeys.JOB_AD_BRAND_TONE) or "").strip()
@@ -8371,11 +8168,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
             key=UIKeys.JOB_AD_BRAND_TONE_INPUT,
         )
-        normalized_brand = (
-            brand_value_input.strip()
-            if isinstance(brand_value_input, str)
-            else stored_brand
-        )
+        normalized_brand = brand_value_input.strip() if isinstance(brand_value_input, str) else stored_brand
         if normalized_brand:
             st.session_state[UIKeys.JOB_AD_BRAND_TONE] = normalized_brand
             _update_profile("company.brand_keywords", normalized_brand)
@@ -8383,9 +8176,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE, None)
             _update_profile("company.brand_keywords", None)
 
-        profile_brand_comparable = (
-            brand_profile_text if isinstance(brand_profile_text, str) else ""
-        )
+        profile_brand_comparable = brand_profile_text if isinstance(brand_profile_text, str) else ""
         if normalized_brand != profile_brand_comparable:
             st.session_state[UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG] = True
         else:
@@ -8438,9 +8229,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             key=UIKeys.JOB_AD_FORMAT,
         )
 
-        font_default = st.session_state.get(
-            StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0]
-        )
+        font_default = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0])
         if StateKeys.JOB_AD_FONT_CHOICE not in st.session_state:
             st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = font_default
         if UIKeys.JOB_AD_FONT not in st.session_state:
@@ -8476,13 +8265,9 @@ def _step_summary(schema: dict, _critical: list[str]):
         logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
         if logo_bytes:
             try:
-                st.image(
-                    logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180
-                )
+                st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180)
             except Exception:
-                st.caption(
-                    tr("Logo erfolgreich geladen.", "Logo uploaded successfully.")
-                )
+                st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
             if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
                 st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
                 st.rerun()
@@ -8495,10 +8280,7 @@ def _step_summary(schema: dict, _critical: list[str]):
     filtered_profile["lang"] = lang
 
     raw_selection = st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS)
-    widget_state_exists = any(
-        f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}" in st.session_state
-        for group in group_keys
-    )
+    widget_state_exists = any(f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}" in st.session_state for group in group_keys)
     if raw_selection is None:
         current_selection: set[str] = set()
     else:
@@ -8509,10 +8291,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         stored_selection = {key for key in current_selection if key in available_field_keys}
 
     is_de = lang.lower().startswith("de")
-    field_labels = {
-        field.key: field.label_de if is_de else field.label_en
-        for field in JOB_AD_FIELDS
-    }
+    field_labels = {field.key: field.label_de if is_de else field.label_en for field in JOB_AD_FIELDS}
 
     st.markdown(tr("##### Feldauswahl", "##### Field selection"))
     st.caption(
@@ -8524,11 +8303,7 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     aggregated_selection: set[str] = set()
     for group in group_keys:
-        group_fields = [
-            field
-            for field in JOB_AD_FIELDS
-            if field.group == group and field.key in available_field_keys
-        ]
+        group_fields = [field for field in JOB_AD_FIELDS if field.group == group and field.key in available_field_keys]
         if not group_fields:
             continue
 
@@ -8544,10 +8319,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             if sanitized_values != existing_values:
                 st.session_state[widget_key] = sanitized_values
 
-        option_pairs = [
-            (key, field_labels.get(key, key))
-            for key in options
-        ]
+        option_pairs = [(key, field_labels.get(key, key)) for key in options]
         selected_group_values = _chip_multiselect_mapped(
             widget_label,
             option_pairs=option_pairs,
@@ -8557,9 +8329,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         st.session_state[widget_key] = selected_group_values
         aggregated_selection.update(selected_group_values)
 
-    selected_fields = resolve_job_ad_field_selection(
-        available_field_keys, aggregated_selection
-    )
+    selected_fields = resolve_job_ad_field_selection(available_field_keys, aggregated_selection)
     st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set(selected_fields)
 
     st.markdown(tr("### 1. Stellenanzeige-Generator", "### 1. Job ad generator"))
@@ -8570,9 +8340,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
 
-    manual_entries: list[dict[str, str]] = list(
-        st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, [])
-    )
+    manual_entries: list[dict[str, str]] = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
     with st.expander(tr("Manuelle Ergänzungen", "Manual additions")):
         manual_title = st.text_input(
             tr("Titel (optional)", "Title (optional)"),
@@ -8600,9 +8368,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 )
         if manual_entries:
             for idx, entry in enumerate(manual_entries):
-                title = entry.get("title") or tr(
-                    "Zusätzliche Information", "Additional information"
-                )
+                title = entry.get("title") or tr("Zusätzliche Information", "Additional information")
                 st.markdown(f"**{title}**")
                 st.write(entry.get("content", ""))
                 if st.button(
@@ -8633,10 +8399,7 @@ def _step_summary(schema: dict, _critical: list[str]):
     output_key = UIKeys.JOB_AD_OUTPUT
     existing_output = st.session_state.get(output_key, "")
     display_text = job_ad_text if job_ad_text is not None else existing_output
-    if (
-        output_key not in st.session_state
-        or st.session_state[output_key] != display_text
-    ):
+    if output_key not in st.session_state or st.session_state[output_key] != display_text:
         st.session_state[output_key] = display_text
 
     current_text = st.session_state.get(output_key, "")
@@ -8661,17 +8424,9 @@ def _step_summary(schema: dict, _critical: list[str]):
         if keywords or meta_description:
             with st.expander(tr("SEO-Empfehlungen", "SEO insights")):
                 if keywords:
-                    st.write(
-                        tr("Top-Schlüsselbegriffe", "Top keywords")
-                        + ": "
-                        + ", ".join(keywords)
-                    )
+                    st.write(tr("Top-Schlüsselbegriffe", "Top keywords") + ": " + ", ".join(keywords))
                 if meta_description:
-                    st.write(
-                        tr("Meta-Beschreibung", "Meta description")
-                        + ": "
-                        + meta_description
-                    )
+                    st.write(tr("Meta-Beschreibung", "Meta description") + ": " + meta_description)
 
         findings = st.session_state.get(StateKeys.BIAS_FINDINGS) or []
         if findings:
@@ -8690,14 +8445,10 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
         job_title = (
             profile.position.job_title
-            or str(
-                _job_ad_get_value(profile_payload, "position.job_title") or ""
-            ).strip()
+            or str(_job_ad_get_value(profile_payload, "position.job_title") or "").strip()
             or "job-ad"
         )
-        safe_stem = (
-            re.sub(r"[^A-Za-z0-9_-]+", "-", job_title).strip("-") or "job-ad"
-        )
+        safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", job_title).strip("-") or "job-ad"
         export_font = font_choice if format_choice in {"docx", "pdf"} else None
         export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
         payload, mime, ext = prepare_download_data(
@@ -8733,9 +8484,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 st.session_state[StateKeys.BIAS_FINDINGS] = findings
                 st.rerun()
             except Exception as e:
-                st.error(
-                    tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {e}"
-                )
+                st.error(tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {e}")
 
     st.markdown(tr("### 2. Interview-Prep-Sheet", "### 2. Interview prep sheet"))
     st.caption(
@@ -8771,9 +8520,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         "leadership": tr("Führungsteam", "Leadership panel"),
     }
     if UIKeys.AUDIENCE_SELECT not in st.session_state:
-        st.session_state[UIKeys.AUDIENCE_SELECT] = st.session_state.get(
-            StateKeys.INTERVIEW_AUDIENCE, "general"
-        )
+        st.session_state[UIKeys.AUDIENCE_SELECT] = st.session_state.get(StateKeys.INTERVIEW_AUDIENCE, "general")
     audience = st.selectbox(
         tr("Interview-Zielgruppe", "Interview audience"),
         options=list(audience_labels.keys()),
@@ -8798,10 +8545,7 @@ def _step_summary(schema: dict, _critical: list[str]):
     guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
     if guide_text:
         output_key = UIKeys.INTERVIEW_OUTPUT
-        if (
-            output_key not in st.session_state
-            or st.session_state.get(output_key) != guide_text
-        ):
+        if output_key not in st.session_state or st.session_state.get(output_key) != guide_text:
             st.session_state[output_key] = guide_text
         st.text_area(
             tr("Generierter Leitfaden", "Generated guide"),
@@ -8812,10 +8556,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
         logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
         guide_title = profile.position.job_title or "interview-guide"
-        safe_stem = (
-            re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-")
-            or "interview-guide"
-        )
+        safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-") or "interview-guide"
         export_font = font_choice if guide_format in {"docx", "pdf"} else None
         export_logo = logo_bytes if guide_format in {"docx", "pdf"} else None
         payload, mime, ext = prepare_download_data(
@@ -8848,9 +8589,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         boolean_title_synonyms=boolean_title_synonyms,
     )
 
-    st.markdown(
-        tr("### 4. Interne Prozesse definieren", "### 4. Define internal processes")
-    )
+    st.markdown(tr("### 4. Interne Prozesse definieren", "### 4. Define internal processes"))
     st.caption(
         tr(
             "Ordne Informationsschleifen zu und halte Aufgaben für jede Phase fest.",
@@ -8876,9 +8615,9 @@ def _step_summary(schema: dict, _critical: list[str]):
             )
         else:
             for idx, person in enumerate(stakeholders):
-                display_name = person.get("name") or tr(
-                    "Stakeholder {number}", "Stakeholder {number}"
-                ).format(number=idx + 1)
+                display_name = person.get("name") or tr("Stakeholder {number}", "Stakeholder {number}").format(
+                    number=idx + 1
+                )
                 st.markdown(f"**{display_name}**")
                 existing_selection = _filter_phase_indices(
                     person.get("information_loop_phases", []), len(phase_indices)
@@ -8886,13 +8625,8 @@ def _step_summary(schema: dict, _critical: list[str]):
                 if existing_selection != person.get("information_loop_phases"):
                     person["information_loop_phases"] = existing_selection
                 if phase_indices:
-                    label_pairs = [
-                        (index, _phase_label_formatter(phase_labels)(index))
-                        for index in phase_indices
-                    ]
-                    selected_phase_strings = [
-                        str(index) for index in existing_selection
-                    ]
+                    label_pairs = [(index, _phase_label_formatter(phase_labels)(index)) for index in phase_indices]
+                    selected_phase_strings = [str(index) for index in existing_selection]
                     chosen_summary_phases = _chip_multiselect_mapped(
                         tr("Phasen", "Phases"),
                         option_pairs=label_pairs,
@@ -8901,9 +8635,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                         key_suffix=f"summary.information_loops.{idx}",
                     )
                     person["information_loop_phases"] = [
-                        int(value)
-                        for value in chosen_summary_phases
-                        if str(value).isdigit()
+                        int(value) for value in chosen_summary_phases if str(value).isdigit()
                     ]
                 else:
                     person["information_loop_phases"] = []
@@ -8926,9 +8658,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             )
         else:
             for idx, phase in enumerate(phases):
-                phase_name = phase.get("name") or tr(
-                    "Phase {number}", "Phase {number}"
-                ).format(number=idx + 1)
+                phase_name = phase.get("name") or tr("Phase {number}", "Phase {number}").format(number=idx + 1)
                 st.markdown(f"**{phase_name}**")
                 current_tasks = phase.get("task_assignments", "")
                 phase["task_assignments"] = st.text_area(
@@ -8962,9 +8692,7 @@ def _step_summary(schema: dict, _critical: list[str]):
             entry_specs.append((field_path, question_text, input_key))
 
         if entry_specs:
-            stored_snapshot = dict(
-                st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {})
-            )
+            stored_snapshot = dict(st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {}))
             with st.form("summary_followups_form"):
                 for field_path, question_text, input_key in entry_specs:
                     st.markdown(f"**{question_text}**")
@@ -8982,20 +8710,13 @@ def _step_summary(schema: dict, _critical: list[str]):
 
             if submitted:
                 answers = {
-                    field_path: st.session_state.get(input_key, "")
-                    for field_path, _question, input_key in entry_specs
+                    field_path: st.session_state.get(input_key, "") for field_path, _question, input_key in entry_specs
                 }
-                trimmed_answers = {
-                    field: value.strip() for field, value in answers.items()
-                }
+                trimmed_answers = {field: value.strip() for field, value in answers.items()}
                 for field_path, _question, input_key in entry_specs:
-                    st.session_state[input_key] = trimmed_answers.get(
-                        field_path, ""
-                    )
+                    st.session_state[input_key] = trimmed_answers.get(field_path, "")
                 changed = trimmed_answers != stored_snapshot
-                st.session_state[StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT] = (
-                    trimmed_answers
-                )
+                st.session_state[StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT] = trimmed_answers
 
                 if changed:
                     job_generated, interview_generated = _apply_followup_updates(
@@ -9008,9 +8729,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                         style_reference=style_reference,
                         lang=lang,
                         selected_fields=selected_fields,
-                        num_questions=st.session_state.get(
-                            UIKeys.NUM_QUESTIONS, 5
-                        ),
+                        num_questions=st.session_state.get(UIKeys.NUM_QUESTIONS, 5),
                         warn_on_length=False,
                         show_feedback=True,
                     )
@@ -9057,21 +8776,13 @@ def _render_wizard_navigation(
 
         if target_index > current_index:
             max_section = max(target_index - 1, 0)
-            missing_before_target = get_missing_critical_fields(
-                max_section=max_section
-            )
+            missing_before_target = get_missing_critical_fields(max_section=max_section)
             if missing_before_target:
                 next_required_section = min(
-                    (
-                        _resolve_section_for_field(field)
-                        for field in missing_before_target
-                    ),
+                    (_resolve_section_for_field(field) for field in missing_before_target),
                     default=None,
                 )
-                if (
-                    next_required_section is not None
-                    and 0 <= next_required_section < len(steps)
-                ):
+                if next_required_section is not None and 0 <= next_required_section < len(steps):
                     blocking_step_label = steps[next_required_section][0]
                     message = tr(
                         "Bitte fülle zuerst die Pflichtfelder in „{step}“ aus.",
@@ -9195,9 +8906,7 @@ def run_wizard():
     # Falls nicht durch app.py injiziert, lokal nachladen (failsafe)
     if not schema:
         try:
-            with (ROOT / "schema" / "need_analysis.schema.json").open(
-                "r", encoding="utf-8"
-            ) as f:
+            with (ROOT / "schema" / "need_analysis.schema.json").open("r", encoding="utf-8") as f:
                 schema = json.load(f)
         except Exception:
             schema = {}
@@ -9220,19 +8929,14 @@ def run_wizard():
 
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(steps)
     first_incomplete, _completed_sections = _update_section_progress()
-    if st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False) and (
-        first_incomplete is not None
-    ):
+    if st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False) and (first_incomplete is not None):
         st.session_state[StateKeys.STEP] = first_incomplete
-    completed_sections = list(
-        st.session_state.get(StateKeys.COMPLETED_SECTIONS, [])
-    )
+    completed_sections = list(st.session_state.get(StateKeys.COMPLETED_SECTIONS, []))
 
     current = st.session_state[StateKeys.STEP]
 
     if current == 0:
         _render_onboarding_hero()
-
 
     # Render current step
     _label, renderer = steps[current]
