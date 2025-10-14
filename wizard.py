@@ -4491,6 +4491,17 @@ def _render_chip_button_grid(
     return clicked_index
 
 
+def _group_chip_options_by_label(
+    entries: Iterable[tuple[str, str, str]]
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Group chip entries by their translated label while preserving order."""
+
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    for group_key, value, label in entries:
+        grouped.setdefault(label, []).append((group_key, value))
+    return [(label, values) for label, values in grouped.items()]
+
+
 def _chip_multiselect(
     label: str,
     options: List[str],
@@ -6391,7 +6402,7 @@ def _step_requirements():
         widget_prefix = f"ai_suggestions.{target_key}.{widget_suffix}"
         formatted_options = sorted(
             option_entries,
-            key=lambda item: (item[0], item[1].casefold()),
+            key=lambda item: (item[2].casefold(), item[1].casefold()),
         )
         selection_label = tr("Vorschläge auswählen", "Select suggestions")
         st.markdown(f"**{selection_label}**")
@@ -6401,18 +6412,23 @@ def _step_requirements():
                 "Click a tile to add the suggestion.",
             )
         )
-        display_options = [
-            f"{label} • {value}" for _group, value, label in formatted_options
-        ]
-        clicked_option = _render_chip_button_grid(
-            display_options,
-            key_prefix=f"{widget_prefix}.chips",
-            columns=3,
-        )
+        grouped_options = _group_chip_options_by_label(formatted_options)
+        clicked_entry: tuple[str, str] | None = None
+        for group_index, (label, group_entries) in enumerate(grouped_options):
+            st.caption(label)
+            values_only = [value for _group, value in group_entries]
+            clicked_index = _render_chip_button_grid(
+                values_only,
+                key_prefix=f"{widget_prefix}.chips.{group_index}",
+                columns=3,
+            )
+            if clicked_index is not None:
+                clicked_entry = group_entries[clicked_index]
+                break
         st.markdown("</div>", unsafe_allow_html=True)
 
-        if clicked_option is not None:
-            _group, value, _label = formatted_options[clicked_option]
+        if clicked_entry is not None:
+            _group, value = clicked_entry
             merged = sorted(
                 set(data["requirements"].get(target_key, [])).union([value]),
                 key=str.casefold,
@@ -7202,14 +7218,21 @@ def _step_compensation():
                 "Click a tile to add the suggestion.",
             )
         )
-        display_values = [f"{label} • {value}" for _group, value, label in formatted_benefits]
-        clicked_index = _render_chip_button_grid(
-            display_values,
-            key_prefix=suggestion_key,
-            columns=3,
-        )
-        if clicked_index is not None:
-            _group, value, _label = formatted_benefits[clicked_index]
+        grouped_benefits = _group_chip_options_by_label(formatted_benefits)
+        clicked_entry: tuple[str, str] | None = None
+        for group_index, (label, group_entries) in enumerate(grouped_benefits):
+            st.caption(label)
+            display_values = [value for _group, value in group_entries]
+            clicked_index = _render_chip_button_grid(
+                display_values,
+                key_prefix=f"{suggestion_key}.{group_index}",
+                columns=3,
+            )
+            if clicked_index is not None:
+                clicked_entry = group_entries[clicked_index]
+                break
+        if clicked_entry is not None:
+            _group, value = clicked_entry
             merged = sorted(
                 set(data["compensation"].get("benefits", [])).union([value]),
                 key=str.casefold,
