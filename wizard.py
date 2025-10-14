@@ -4546,7 +4546,12 @@ def _apply_esco_selection(
     _refresh_esco_skills(resolved, lang=lang)
 
 
-def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None:
+def _render_esco_occupation_selector(
+    position: Mapping[str, Any] | None,
+    *,
+    parent: DeltaGenerator | None = None,
+    compact: bool = False,
+) -> None:
     """Render a picker for ESCO occupation suggestions."""
 
     raw_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, []) or []
@@ -4583,8 +4588,40 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
 
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
 
-    st.markdown("##### " + tr("ESCO-Berufe auswählen", "Select ESCO occupations"))
-    st.caption(
+    container = parent.container() if parent is not None else st.container()
+    render_target = container
+
+    if compact:
+        style_key = "ui.esco_selector.compact"
+        if not st.session_state.get(style_key):
+            st.markdown(
+                """
+                <style>
+                    .esco-compact .chip-section-title {
+                        margin-bottom: 0.25rem;
+                        font-size: 0.85rem;
+                    }
+                    .esco-compact .chip-section-title--secondary {
+                        color: #0f172a;
+                        opacity: 0.85;
+                    }
+                    .esco-compact .stMultiSelect [data-baseweb="tag"] {
+                        transform: scale(0.9);
+                    }
+                    .esco-compact .stMultiSelect div[data-baseweb="input"] {
+                        min-height: 2.6rem;
+                    }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.session_state[style_key] = True
+        container.markdown("<div class='esco-compact'>", unsafe_allow_html=True)
+        render_target = container.container()
+
+    header_level = "######" if compact else "#####"
+    render_target.markdown(f"{header_level} " + tr("ESCO-Berufe auswählen", "Select ESCO occupations"))
+    render_target.caption(
         tr(
             "Wähle alle passenden ESCO-Profile, um Skills und Synonyme vorzubereiten.",
             "Select all relevant ESCO profiles to prepare skills and synonyms.",
@@ -4596,9 +4633,9 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
-    st.caption(selection_label)
+    render_target.caption(selection_label)
 
-    st.multiselect(
+    render_target.multiselect(
         selection_label,
         options=option_ids,
         key=UIKeys.POSITION_ESCO_OCCUPATION,
@@ -4619,10 +4656,10 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
     selected_title = tr("Ausgewählt", "Selected")
     available_title = tr("Weitere Optionen", "More options")
 
-    selected_col, available_col = st.columns(2)
+    selected_col, available_col = render_target.columns(2, gap="small" if compact else "large")
 
     with selected_col:
-        header_cols = st.columns([4, 1])
+        header_cols = selected_col.columns([4, 1])
         with header_cols[0]:
             st.markdown(
                 f"<p class='chip-section-title'>{selected_title}</p>",
@@ -4653,7 +4690,7 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
                 _on_change()
                 st.rerun()
         else:
-            st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
+            selected_col.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
 
     with available_col:
         st.markdown(
@@ -4673,10 +4710,13 @@ def _render_esco_occupation_selector(position: Mapping[str, Any] | None) -> None
                 _on_change()
                 st.rerun()
         elif not selected_labels:
-            st.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
+            available_col.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
 
     current_ids = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
     _apply_esco_selection(current_ids, options, lang=lang_code)
+
+    if compact:
+        container.markdown("</div>", unsafe_allow_html=True)
 
 
 BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
@@ -5273,53 +5313,49 @@ def _step_onboarding(schema: dict) -> None:
         if raw_text and raw_text.strip():
             st.session_state["__run_extraction__"] = True
 
-    st.text_input(
-        tr("Füge eine Stellenanzeigen-URL ein:", "Public job posting URL"),
-        key=UIKeys.PROFILE_URL_INPUT,
-        on_change=on_url_changed,
-        placeholder="https://example.com/job",
-        help=tr(
-            "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
-            "The URL needs to be accessible without authentication. We will fetch the content automatically.",
-        ),
-    )
+    content_cols = st.columns((3, 2), gap="large")
+    with content_cols[0]:
+        bind_textarea(
+            tr("Jobtext", "Job text"),
+            UIKeys.PROFILE_TEXT_INPUT,
+            StateKeys.RAW_TEXT,
+            placeholder=tr(
+                "Füge hier den Text deiner Stellenanzeige ein …",
+                "Paste the text of your job posting here …",
+            ),
+            help=tr(
+                "Wir analysieren den Text automatisch und befüllen alle passenden Felder.",
+                "We automatically analyse the text and prefill all relevant fields.",
+            ),
+            on_change=_queue_extraction_if_ready,
+        )
+    with content_cols[1]:
+        st.text_input(
+            tr("Füge eine Stellenanzeigen-URL ein:", "Public job posting URL"),
+            key=UIKeys.PROFILE_URL_INPUT,
+            on_change=on_url_changed,
+            placeholder="https://example.com/job",
+            help=tr(
+                "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
+                "The URL needs to be accessible without authentication. We will fetch the content automatically.",
+            ),
+        )
 
-    st.file_uploader(
-        tr(
-            "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-            "Upload job posting (PDF/DOCX/TXT)",
-        ),
-        type=["pdf", "docx", "txt"],
-        key=UIKeys.PROFILE_FILE_UPLOADER,
-        on_change=on_file_uploaded,
-        help=tr(
-            "Direkt nach dem Upload beginnen wir mit der Analyse.",
-            "We start analysing immediately after the upload finishes.",
-        ),
-    )
+        st.file_uploader(
+            tr(
+                "Stellenanzeige hochladen (PDF/DOCX/TXT)",
+                "Upload job posting (PDF/DOCX/TXT)",
+            ),
+            type=["pdf", "docx", "txt"],
+            key=UIKeys.PROFILE_FILE_UPLOADER,
+            on_change=on_file_uploaded,
+            help=tr(
+                "Direkt nach dem Upload beginnen wir mit der Analyse.",
+                "We start analysing immediately after the upload finishes.",
+            ),
+        )
 
-    bind_textarea(
-        tr("Jobtext", "Job text"),
-        UIKeys.PROFILE_TEXT_INPUT,
-        StateKeys.RAW_TEXT,
-        placeholder=tr(
-            "Füge hier den Text deiner Stellenanzeige ein …",
-            "Paste the text of your job posting here …",
-        ),
-        help=tr(
-            "Wir analysieren den Text automatisch und befüllen alle passenden Felder.",
-            "We automatically analyse the text and prefill all relevant fields.",
-        ),
-        on_change=_queue_extraction_if_ready,
-    )
     _render_prefilled_preview(exclude_prefixes=("requirements.",))
-
-    position_mapping: Mapping[str, Any] | None = None
-    if isinstance(profile, Mapping):
-        raw_position = profile.get("position")
-        if isinstance(raw_position, Mapping):
-            position_mapping = raw_position
-    _render_esco_occupation_selector(position_mapping)
 
     st.markdown(
         """
@@ -6605,8 +6641,11 @@ def _step_requirements():
             )
         )
 
-    focus_columns = st.columns([1, 2, 1])
-    with focus_columns[1]:
+    raw_position = data.get("position")
+    position_mapping: Mapping[str, Any] | None = raw_position if isinstance(raw_position, Mapping) else None
+
+    helper_columns = st.columns((2.5, 1.5), gap="large")
+    with helper_columns[0]:
         focus_selection = _chip_multiselect(
             tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
             options=focus_options,
@@ -6618,6 +6657,8 @@ def _step_requirements():
             ),
             dropdown=True,
         )
+    with helper_columns[1]:
+        _render_esco_occupation_selector(position_mapping, compact=True)
 
     st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = focus_selection
     suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(focus_selection)
