@@ -67,6 +67,8 @@ class StateKeys:
     SKILL_BOARD_META = "ui.requirements.skill_board_meta"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     BENEFIT_SUGGESTION_HINTS = "benefit_suggestion_hints"
+    LOCAL_BENEFIT_SUGGESTIONS = "benefit_suggestions.local"
+    LOCAL_BENEFIT_CONTEXT = "benefit_suggestions.local_context"
     ONBOARDING_SUGGESTIONS = "onboarding_suggestions"
     EXTRACTION_SUMMARY = "extraction_summary"
     EXTRACTION_MISSING = "extraction_missing"

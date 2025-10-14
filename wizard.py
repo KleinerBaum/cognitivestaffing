@@ -40,7 +40,7 @@ from utils.session import bind_textarea
 from state import ensure_state, reset_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
-from ingest.types import StructuredDocument, build_plain_text_document
+from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from utils.url_utils import is_supported_url
@@ -71,7 +71,7 @@ from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue De
 from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
-from utils.normalization import normalize_country, normalize_language_list
+from utils.normalization import normalize_country, normalize_language_list, country_to_iso2
 from utils.export import prepare_clean_json, prepare_download_data
 from utils.usage import build_usage_markdown, usage_totals
 from nlp.bias import scan_bias_language
@@ -88,6 +88,7 @@ from core.job_ad import (
     resolve_job_ad_field_selection,
     suggest_target_audiences,
 )
+from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 
 ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
@@ -102,6 +103,315 @@ ensure_state()
 WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
 
 MAX_INLINE_VALUE_CHARS = 20
+
+
+SALARY_SLIDER_MIN = 0
+SALARY_SLIDER_MAX = 500_000
+SALARY_SLIDER_STEP = 1_000
+_SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
+
+_DEFAULT_CURRENCY_BY_ISO: dict[str, str] = {
+    "DE": "EUR",
+    "AT": "EUR",
+    "CH": "CHF",
+    "US": "USD",
+    "GB": "GBP",
+}
+
+
+@dataclass(frozen=True)
+class _SalaryRangeDefaults:
+    """Container for slider defaults."""
+
+    minimum: int
+    maximum: int
+    currency: str | None
+
+
+def _to_int(value: Any) -> int | None:
+    """Convert ``value`` to ``int`` when possible."""
+
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(round(float(value)))
+    try:
+        cleaned = str(value).strip()
+    except Exception:  # noqa: BLE001
+        return None
+    if not cleaned:
+        return None
+    normalized = cleaned.replace(".", "").replace(",", ".")
+    try:
+        return int(round(float(normalized)))
+    except ValueError:
+        return None
+
+
+def _clamp_salary_value(value: int | None) -> int:
+    """Clamp a salary value to the slider boundaries."""
+
+    if value is None:
+        return SALARY_SLIDER_MIN
+    return max(SALARY_SLIDER_MIN, min(SALARY_SLIDER_MAX, int(value)))
+
+
+def _parse_salary_range_text(text: str) -> tuple[int | None, int | None]:
+    """Extract numeric salary bounds from ``text``."""
+
+    if not text:
+        return None, None
+    multiplier = 1_000 if "k" in text.lower() else 1
+    numbers: list[float] = []
+    for raw in re.findall(r"\d+[\d,\.]*", text):
+        normalized = raw.replace(".", "").replace(",", ".")
+        try:
+            numbers.append(float(normalized))
+        except ValueError:
+            continue
+    if not numbers:
+        return None, None
+    if len(numbers) == 1:
+        value = int(round(numbers[0] * multiplier))
+        return value, value
+    first = int(round(numbers[0] * multiplier))
+    second = int(round(numbers[1] * multiplier))
+    return first, second
+
+
+def _infer_currency_from_range(text: str) -> str | None:
+    """Infer a currency identifier from textual salary information."""
+
+    if not text:
+        return None
+    upper = text.upper()
+    if "EUR" in upper or "€" in text:
+        return "EUR"
+    if "USD" in upper or "$" in text:
+        return "USD"
+    if "GBP" in upper or "£" in text:
+        return "GBP"
+    if "CHF" in upper or "CHF" in text:
+        return "CHF"
+    return None
+
+
+def _benchmark_salary_range(
+    profile: Mapping[str, Any],
+) -> tuple[int | None, int | None, str | None]:
+    """Return salary bounds derived from static benchmark data."""
+
+    position = profile.get("position", {}) if isinstance(profile, Mapping) else {}
+    job_title = str(position.get("job_title") or "").strip()
+    if not job_title:
+        return None, None, None
+
+    location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
+    country_raw = str(location.get("country") or "").strip()
+    iso_country = country_to_iso2(country_raw) if country_raw else None
+    benchmark_role = resolve_salary_role(job_title) or job_title
+    bench_country = iso_country or (country_raw.upper() if country_raw else "US")
+    benchmark = get_salary_benchmark(benchmark_role, bench_country)
+    raw_range = str(benchmark.get("salary_range") or "")
+    salary_min, salary_max = _parse_salary_range_text(raw_range)
+    currency = _infer_currency_from_range(raw_range)
+    if currency is None and iso_country:
+        currency = _DEFAULT_CURRENCY_BY_ISO.get(iso_country)
+    return salary_min, salary_max, currency
+
+
+def _derive_salary_range_defaults(profile: Mapping[str, Any]) -> _SalaryRangeDefaults:
+    """Compute slider defaults from profile or benchmark information."""
+
+    compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
+    current_min = _to_int(compensation.get("salary_min"))
+    current_max = _to_int(compensation.get("salary_max"))
+    current_currency = str(compensation.get("currency") or "").strip() or None
+
+    if current_min is not None or current_max is not None:
+        minimum = _clamp_salary_value(current_min or current_max)
+        maximum = _clamp_salary_value(current_max or current_min)
+        if minimum > maximum:
+            minimum, maximum = maximum, minimum
+        return _SalaryRangeDefaults(minimum, maximum, current_currency)
+
+    estimate = st.session_state.get(UIKeys.SALARY_ESTIMATE) or {}
+    estimate_min = _to_int(estimate.get("salary_min"))
+    estimate_max = _to_int(estimate.get("salary_max"))
+    estimate_currency = str(estimate.get("currency") or "").strip() or None
+
+    if estimate_min is not None or estimate_max is not None:
+        minimum = _clamp_salary_value(estimate_min or estimate_max)
+        maximum = _clamp_salary_value(estimate_max or estimate_min)
+        if minimum > maximum:
+            minimum, maximum = maximum, minimum
+        return _SalaryRangeDefaults(minimum, maximum, estimate_currency or current_currency)
+
+    benchmark_min, benchmark_max, benchmark_currency = _benchmark_salary_range(profile)
+    if benchmark_min is not None or benchmark_max is not None:
+        minimum = _clamp_salary_value(benchmark_min or benchmark_max)
+        maximum = _clamp_salary_value(benchmark_max or benchmark_min)
+        if minimum > maximum:
+            minimum, maximum = maximum, minimum
+        currency = benchmark_currency or estimate_currency or current_currency
+        return _SalaryRangeDefaults(minimum, maximum, currency)
+
+    fallback_min, fallback_max = 50_000, 70_000
+    fallback_currency = estimate_currency or current_currency or "EUR"
+    return _SalaryRangeDefaults(fallback_min, fallback_max, fallback_currency)
+
+
+def _inject_salary_slider_styles() -> None:
+    """Inject custom styling for the salary slider once per session."""
+
+    if st.session_state.get(_SALARY_SLIDER_STYLE_KEY):
+        return
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stSlider"] .stSliderTrack {
+            background: linear-gradient(90deg, #1f6feb, #7f00ff);
+            box-shadow: 0 0 12px rgba(31, 111, 235, 0.45);
+        }
+        div[data-testid="stSlider"] div[role="slider"] {
+            background: radial-gradient(circle at 30% 30%, #ffffff, #00f0ff);
+            border: 2px solid rgba(127, 0, 255, 0.75);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.55);
+        }
+        div[data-testid="stSlider"] .stSliderRail {
+            background: linear-gradient(90deg, rgba(31, 111, 235, 0.25), rgba(127, 0, 255, 0.25));
+            border-radius: 999px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state[_SALARY_SLIDER_STYLE_KEY] = True
+
+
+def _extract_city_from_text(raw: str) -> str | None:
+    """Extract a likely city name from ``raw`` text."""
+
+    if not raw:
+        return None
+    parts = re.split(r"[,/|;\-]\s*", raw)
+    for part in parts:
+        candidate = part.strip()
+        if candidate and any(char.isalpha() for char in candidate):
+            return candidate
+    cleaned = raw.strip()
+    return cleaned or None
+
+
+def _profile_city(profile: Mapping[str, Any]) -> str | None:
+    """Return the most relevant city for ``profile`` if available."""
+
+    location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
+    primary_city = str(location.get("primary_city") or "").strip()
+    if primary_city:
+        return primary_city
+    company = profile.get("company", {}) if isinstance(profile, Mapping) else {}
+    return _extract_city_from_text(str(company.get("hq_location") or ""))
+
+
+_LOCAL_BENEFIT_COUNTRY_PRESETS: dict[str, list[tuple[str, str]]] = {
+    "DE": [
+        (
+            "Zuschuss zum Deutschlandticket oder regionalen ÖPNV-Abo",
+            "Subsidy for the Deutschlandticket or local public transport pass",
+        ),
+        (
+            "Mitgliedschaft im {city}-Fußball- oder Sportverein",
+            "Membership at the {city} football or sports club",
+        ),
+    ],
+    "AT": [
+        (
+            "Klimaticket- oder ÖPNV-Zuschuss für {city}",
+            "Klimaticket or public transport subsidy around {city}",
+        ),
+    ],
+    "CH": [
+        (
+            "SBB-Halbtax- oder Regionalabo-Zuschuss",
+            "SBB half-fare or regional travel pass subsidy",
+        ),
+        (
+            "Mitgliedschaft in einem regionalen Sportverein in {city}",
+            "Membership in a regional sports club in {city}",
+        ),
+    ],
+    "US": [
+        (
+            "Corporate-Mitgliedschaft in Fitnessstudios und Sportvereinen in {city}",
+            "Corporate membership for gyms and sports clubs in {city}",
+        ),
+        (
+            "Volunteer Day zur Unterstützung lokaler Projekte in {city}",
+            "Volunteer day to support community projects in {city}",
+        ),
+    ],
+    "GB": [
+        (
+            "Unterstützung für lokale Season Tickets im ÖPNV",
+            "Support for local public transport season tickets",
+        ),
+        (
+            "Mitgliedschaft im {city} Football Club Supporters Scheme",
+            "Membership in the {city} football club supporters scheme",
+        ),
+    ],
+}
+
+_LOCAL_BENEFIT_FALLBACKS: list[tuple[str, str]] = [
+    (
+        "Gutscheine für lokale Cafés und Coworking-Spaces in {city}",
+        "Vouchers for local cafés and co-working spaces in {city}",
+    ),
+    (
+        "Teilnahme an regionalen Meetups & Fachkonferenzen in {city}",
+        "Participation in regional meetups and industry events in {city}",
+    ),
+    (
+        "Unterstützte Ehrenamtstage für Initiativen in {city}",
+        "Sponsored volunteer days for initiatives in {city}",
+    ),
+]
+
+
+def _generate_local_benefits(profile: Mapping[str, Any], *, lang: str) -> list[str]:
+    """Return locally flavoured benefit ideas based on profile context."""
+
+    compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
+    existing = {str(item).strip().casefold() for item in compensation.get("benefits", []) or [] if str(item).strip()}
+    location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
+    country_raw = str(location.get("country") or "").strip()
+    iso_country = country_to_iso2(country_raw) if country_raw else None
+    city = _profile_city(profile)
+    city_placeholder = city or tr("der Region", "the region", lang=lang)
+
+    templates: list[tuple[str, str]] = []
+    if iso_country and iso_country in _LOCAL_BENEFIT_COUNTRY_PRESETS:
+        templates.extend(_LOCAL_BENEFIT_COUNTRY_PRESETS[iso_country])
+    templates.extend(_LOCAL_BENEFIT_FALLBACKS)
+
+    suggestions: list[str] = []
+    seen: set[str] = set()
+    for de_text, en_text in templates:
+        text = tr(de_text, en_text, lang=lang)
+        if "{city}" in text:
+            text = text.format(city=city_placeholder)
+        normalized = text.strip()
+        if not normalized:
+            continue
+        marker = normalized.casefold()
+        if marker in seen or marker in existing:
+            continue
+        seen.add(marker)
+        suggestions.append(normalized)
+    return suggestions[:5]
 
 
 def _compact_inline_label(raw: str, *, limit: int = MAX_INLINE_VALUE_CHARS) -> tuple[str, bool]:
@@ -3771,7 +4081,7 @@ def _update_profile(path: str, value) -> None:
     """Update profile data and clear derived outputs if changed."""
 
     data = _get_profile_state()
-    location_data = data.setdefault("location", {})
+    data.setdefault("location", {})
     value = _normalize_value_for_path(path, value)
     current = get_in(data, path)
     if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
@@ -5647,9 +5957,9 @@ def _step_position():
     )
     st.caption(position_caption)
     data = profile
-    company = data.setdefault("company", {})
+    data.setdefault("company", {})
     position = data.setdefault("position", {})
-    location_data = data.setdefault("location", {})
+    data.setdefault("location", {})
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
 
@@ -6889,6 +7199,19 @@ def _step_compensation():
 
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
+    lang = st.session_state.get("lang", "de")
+    position = profile.get("position", {}) if isinstance(profile, Mapping) else {}
+    job_title = str(position.get("job_title") or "").strip()
+    location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
+    country_raw = str(location.get("country") or "").strip()
+    iso_country = country_to_iso2(country_raw) if country_raw else ""
+    city = _profile_city(profile) or ""
+    local_context = (job_title, iso_country, city)
+    stored_local_context = st.session_state.get(StateKeys.LOCAL_BENEFIT_CONTEXT)
+    if stored_local_context != local_context:
+        st.session_state[StateKeys.LOCAL_BENEFIT_CONTEXT] = local_context
+        st.session_state[StateKeys.LOCAL_BENEFIT_SUGGESTIONS] = []
+
     compensation_header = _format_dynamic_message(
         default=("Leistungen & Benefits", "Rewards & Benefits"),
         context=profile_context,
@@ -6943,100 +7266,94 @@ def _step_compensation():
     st.caption(compensation_caption)
     data = profile
 
-    stored_min = data["compensation"].get("salary_min")
-    stored_max = data["compensation"].get("salary_max")
-    default_min = int(stored_min) if stored_min else 50000
-    default_max = int(stored_max) if stored_max else 70000
-
-    c_salary_min, c_salary_max = st.columns(2)
-    salary_min = c_salary_min.number_input(
-        tr("Gehalt von", "Salary from"),
-        min_value=0,
-        max_value=500000,
-        value=default_min,
-        step=1000,
-        format="%i",
+    slider_defaults = _derive_salary_range_defaults(profile)
+    _inject_salary_slider_styles()
+    slider_label = tr("Gehaltsspanne", "Salary range", lang=lang)
+    slider_help = tr(
+        "Passe die Spanne per Schieberegler an.",
+        "Adjust the range with the slider.",
+        lang=lang,
     )
-    salary_max = c_salary_max.number_input(
-        tr("Gehalt bis", "Salary to"),
-        min_value=0,
-        max_value=500000,
-        value=default_max,
-        step=1000,
-        format="%i",
+    salary_min, salary_max = st.slider(
+        slider_label,
+        min_value=SALARY_SLIDER_MIN,
+        max_value=SALARY_SLIDER_MAX,
+        value=(slider_defaults.minimum, slider_defaults.maximum),
+        step=SALARY_SLIDER_STEP,
+        help=slider_help,
+        key="ui.compensation.salary_range",
     )
     data["compensation"]["salary_min"] = int(salary_min)
     data["compensation"]["salary_max"] = int(salary_max)
     data["compensation"]["salary_provided"] = bool(salary_min or salary_max)
 
-    c1, c2, c3 = st.columns(3)
-    currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
-    current_currency = data["compensation"].get("currency", "EUR")
-    idx = (
-        currency_options.index(current_currency)
-        if current_currency in currency_options
-        else currency_options.index("Other")
-    )
-    choice = c1.selectbox(tr("Währung", "Currency"), options=currency_options, index=idx)
-    if choice == "Other":
-        data["compensation"]["currency"] = c1.text_input(
-            tr("Andere Währung", "Other currency"),
-            value=("" if current_currency in currency_options else current_currency),
-        )
-    else:
-        data["compensation"]["currency"] = choice
+    current_currency = data["compensation"].get("currency")
+    if not current_currency and slider_defaults.currency:
+        data["compensation"]["currency"] = slider_defaults.currency
+        current_currency = slider_defaults.currency
 
-    period_options = ["year", "month", "day", "hour"]
-    current_period = data["compensation"].get("period")
-    data["compensation"]["period"] = c2.selectbox(
-        tr("Periode", "Period"),
-        options=period_options,
-        index=(period_options.index(current_period) if current_period in period_options else 0),
+    details_label = tr(
+        "Währungs- & Periodendetails",
+        "Currency & period details",
+        lang=lang,
     )
-    data["compensation"]["variable_pay"] = c3.toggle(
-        tr("Variable Vergütung?", "Variable pay?"),
+    with st.expander(details_label, expanded=False):
+        c1, c2 = st.columns(2)
+        currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
+        current_currency = data["compensation"].get("currency") or "EUR"
+        currency_index = (
+            currency_options.index(current_currency)
+            if current_currency in currency_options
+            else currency_options.index("Other")
+        )
+        currency_label = tr("Währung", "Currency", lang=lang)
+        selected_currency = c1.selectbox(
+            currency_label,
+            options=currency_options,
+            index=currency_index,
+        )
+        if selected_currency == "Other":
+            other_currency = c1.text_input(
+                tr("Andere Währung", "Other currency", lang=lang),
+                value=("" if current_currency in currency_options else str(current_currency)),
+            )
+            data["compensation"]["currency"] = other_currency.strip()
+        else:
+            data["compensation"]["currency"] = selected_currency
+
+        period_options = ["year", "month", "day", "hour"]
+        current_period = data["compensation"].get("period")
+        period_index = period_options.index(current_period) if current_period in period_options else 0
+        data["compensation"]["period"] = c2.selectbox(
+            tr("Periode", "Period", lang=lang),
+            options=period_options,
+            index=period_index,
+        )
+
+    toggle_variable, toggle_equity = st.columns(2)
+    data["compensation"]["variable_pay"] = toggle_variable.toggle(
+        tr("Variable Vergütung?", "Variable pay?", lang=lang),
         value=bool(data["compensation"].get("variable_pay")),
+    )
+    data["compensation"]["equity_offered"] = toggle_equity.toggle(
+        tr("Mitarbeiterbeteiligung?", "Equity?", lang=lang),
+        value=bool(data["compensation"].get("equity_offered")),
     )
 
     if data["compensation"]["variable_pay"]:
         c4, c5 = st.columns(2)
         data["compensation"]["bonus_percentage"] = c4.number_input(
-            tr("Bonus %", "Bonus %"),
+            tr("Bonus %", "Bonus %", lang=lang),
             min_value=0.0,
             max_value=100.0,
             value=float(data["compensation"].get("bonus_percentage") or 0.0),
         )
         data["compensation"]["commission_structure"] = c5.text_input(
-            tr("Provisionsmodell", "Commission structure"),
+            tr("Provisionsmodell", "Commission structure", lang=lang),
             value=data["compensation"].get("commission_structure", ""),
         )
 
-    c6, c7 = st.columns(2)
-    data["compensation"]["equity_offered"] = c6.toggle(
-        tr("Mitarbeiterbeteiligung?", "Equity?"),
-        value=bool(data["compensation"].get("equity_offered")),
-    )
-    lang = st.session_state.get("lang", "de")
     benefit_focus_presets = _BENEFIT_FOCUS_PRESETS.get(lang, _BENEFIT_FOCUS_PRESETS["en"])
-    stored_benefit_focus = st.session_state.get(StateKeys.BENEFIT_SUGGESTION_HINTS, [])
-    benefit_focus_options = sorted(
-        {value.strip() for value in benefit_focus_presets if value.strip()}.union(
-            {value.strip() for value in stored_benefit_focus if value.strip()}
-        ),
-        key=str.casefold,
-    )
-    selected_benefit_focus = _chip_multiselect(
-        tr("Fokus für Benefit-Vorschläge", "Focus for AI benefit suggestions"),
-        options=benefit_focus_options,
-        values=stored_benefit_focus,
-        help_text=tr(
-            "Lege Kategorien fest, auf die die KI ihre Benefit-Vorschläge ausrichten soll.",
-            "Define categories the AI should emphasise when proposing benefits.",
-        ),
-        dropdown=True,
-    )
-    st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
-
     industry_context = data.get("company", {}).get("industry", "")
     fallback_benefits = get_static_benefit_shortlist(lang=lang, industry=industry_context)
     benefit_state = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, {})
@@ -7049,17 +7366,41 @@ def _step_compensation():
     fallback_pool = benefit_state.get("fallback", fallback_benefits)
     benefit_options = sorted(set(fallback_pool + data["compensation"].get("benefits", []) + llm_benefits))
     data["compensation"]["benefits"] = _chip_multiselect(
-        tr("Leistungen", "Benefits"),
+        tr("Leistungen", "Benefits", lang=lang),
         options=benefit_options,
         values=data["compensation"].get("benefits", []),
     )
+
+    stored_benefit_focus = st.session_state.get(StateKeys.BENEFIT_SUGGESTION_HINTS, [])
+    benefit_focus_options = sorted(
+        {value.strip() for value in benefit_focus_presets if value.strip()}.union(
+            {value.strip() for value in stored_benefit_focus if value.strip()}
+        ),
+        key=str.casefold,
+    )
+    selected_benefit_focus = _chip_multiselect(
+        tr(
+            "Fokus für Benefit-Vorschläge",
+            "Focus for AI benefit suggestions",
+            lang=lang,
+        ),
+        options=benefit_focus_options,
+        values=stored_benefit_focus,
+        help_text=tr(
+            "Lege Kategorien fest, auf die die KI ihre Benefit-Vorschläge ausrichten soll.",
+            "Define categories the AI should emphasise when proposing benefits.",
+            lang=lang,
+        ),
+        dropdown=True,
+    )
+    st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
 
     suggestion_entries: list[tuple[str, str, str]] = []
     existing_benefit_markers = {str(item).casefold() for item in data["compensation"].get("benefits", []) or []}
     seen_benefit_options: set[tuple[str, str]] = set()
     for group_key, label in (
-        ("llm", tr("LLM-Vorschläge", "LLM suggestions")),
-        ("fallback", tr("Standardliste", "Fallback shortlist")),
+        ("llm", tr("LLM-Vorschläge", "LLM suggestions", lang=lang)),
+        ("fallback", tr("Standardliste", "Fallback shortlist", lang=lang)),
     ):
         pool = llm_benefits if group_key == "llm" else fallback_pool
         for raw in pool:
@@ -7082,12 +7423,14 @@ def _step_compensation():
         suggestion_label = tr(
             "Vorschläge aus KI & Liste",
             "Suggestions from AI & shortlist",
+            lang=lang,
         )
         st.markdown(f"**{suggestion_label}**")
         st.caption(
             tr(
                 "Klicke auf eine Box, um den Vorschlag zu übernehmen.",
                 "Click a tile to add the suggestion.",
+                lang=lang,
             )
         )
         grouped_benefits = _group_chip_options_by_label(formatted_benefits)
@@ -7112,10 +7455,12 @@ def _step_compensation():
             data["compensation"]["benefits"] = merged
             st.rerun()
 
-    if st.button("💡 " + tr("Benefits vorschlagen", "Suggest Benefits")):
+    if st.button("💡 " + tr("Benefits vorschlagen", "Suggest Benefits", lang=lang)):
         job_title = data.get("position", {}).get("job_title", "")
         industry = data.get("company", {}).get("industry", "")
         existing = "\n".join(data["compensation"].get("benefits", []))
+        local_benefits = _generate_local_benefits(profile, lang=lang)
+        st.session_state[StateKeys.LOCAL_BENEFIT_SUGGESTIONS] = local_benefits
         new_sugg, err, used_fallback = get_benefit_suggestions(
             job_title,
             industry,
@@ -7128,6 +7473,7 @@ def _step_compensation():
                 tr(
                     "Keine KI-Vorschläge verfügbar – zeige Standardliste.",
                     "No AI suggestions available – showing fallback list.",
+                    lang=lang,
                 )
             )
         elif err:
@@ -7135,6 +7481,7 @@ def _step_compensation():
                 tr(
                     "Benefit-Vorschläge nicht verfügbar (API-Fehler)",
                     "Benefit suggestions not available (API error)",
+                    lang=lang,
                 )
             )
         if err and st.session_state.get("debug"):
@@ -7153,6 +7500,19 @@ def _step_compensation():
                 benefit_state["fallback"] = fallback_benefits
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
             st.rerun()
+
+    local_suggestions = st.session_state.get(StateKeys.LOCAL_BENEFIT_SUGGESTIONS, [])
+    if local_suggestions:
+        st.markdown(f"**{tr('Lokale Benefit-Ideen', 'Local benefit ideas', lang=lang)}**")
+        st.caption(
+            tr(
+                "Regional passende Zusatzleistungen zur Inspiration.",
+                "Regionally flavoured benefits for inspiration.",
+                lang=lang,
+            )
+        )
+        for benefit in local_suggestions:
+            st.markdown(f"- {benefit}")
 
     # Inline follow-up questions for Compensation section
     _render_followups_for_section(("compensation.",), data)
