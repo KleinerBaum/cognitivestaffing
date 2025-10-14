@@ -67,6 +67,32 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
         except requests.RequestException as exc:  # pragma: no cover - network
             response = getattr(exc, "response", None)
             status = getattr(response, "status_code", None)
+            headers = getattr(response, "headers", {}) if response is not None else {}
+            if status in _REDIRECT_STATUSES:
+                location = None
+                if hasattr(headers, "get"):
+                    location = headers.get("Location") or headers.get("location")
+                elif isinstance(headers, dict):
+                    location = headers.get("Location") or headers.get("location")
+                if location and remaining_redirects > 0:
+                    next_url = urljoin(current_url, location)
+                    if next_url in visited_urls:
+                        logger.warning("Redirect loop detected for %s", url)
+                        raise ValueError("redirect loop detected")
+                    visited_urls.add(next_url)
+                    remaining_redirects -= 1
+                    previous_url = current_url
+                    current_url = next_url
+                    logger.debug(
+                        "Redirecting fetch from %s to %s (remaining=%s)",
+                        previous_url,
+                        current_url,
+                        remaining_redirects,
+                    )
+                    continue
+                if location:
+                    logger.warning("Redirect limit exceeded for %s", url)
+                    raise ValueError("too many redirects while fetching URL")
             status_display = status if status is not None else "unknown"
             logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
             raise ValueError(f"failed to fetch URL (status {status_display})") from exc
@@ -130,9 +156,7 @@ def extract_text_from_url(url: str) -> StructuredDocument:
         doc = StructuredDocument.from_blocks(blocks, source=url)
         text = doc.text
 
-    has_structure = bool(
-        doc and any(block.type in {"heading", "paragraph"} for block in doc.blocks)
-    )
+    has_structure = bool(doc and any(block.type in {"heading", "paragraph"} for block in doc.blocks))
     needs_recovery = not text or len(text) < 200 or not has_structure
 
     recovered_text = ""
@@ -203,13 +227,9 @@ def extract_text_from_file(file) -> StructuredDocument:
         try:
             converted = _convert_doc_to_docx_bytes(data)
         except _DocConversionUnavailableError as exc:
-            raise ValueError(
-                "doc conversion unavailable: convert the file to .docx and try again"
-            ) from exc
+            raise ValueError("doc conversion unavailable: convert the file to .docx and try again") from exc
         except _DocConversionFailedError as exc:
-            raise ValueError(
-                "doc conversion failed: convert the file to .docx and try again"
-            ) from exc
+            raise ValueError("doc conversion failed: convert the file to .docx and try again") from exc
         new_name = re.sub(r"\.doc$", ".docx", name)
         return _extract_docx(io.BytesIO(converted), new_name)
     text_suffixes = {
@@ -368,11 +388,7 @@ def _extract_docx(buf: io.BytesIO, name: str) -> StructuredDocument:
                             "position": position,
                             "style": item.style.name if item.style else None,
                             "ordered": _paragraph_list_type(item) == "ordered",
-                            "marker": (
-                                "-"
-                                if _paragraph_list_type(item) == "unordered"
-                                else "1"
-                            ),
+                            "marker": ("-" if _paragraph_list_type(item) == "unordered" else "1"),
                         },
                     )
                 )
@@ -429,9 +445,7 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
             except ImportError as err:  # pragma: no cover - optional OCR
                 raise ValueError(ocr_help) from err
             try:
-                images = convert_from_bytes(
-                    buf.getvalue(), fmt="png", first_page=idx, last_page=idx
-                )
+                images = convert_from_bytes(buf.getvalue(), fmt="png", first_page=idx, last_page=idx)
                 ocr_text = "\n".join(pytesseract.image_to_string(img) for img in images)
                 page_text = (page_text + "\n" + ocr_text).strip()
             except Exception as err:  # pragma: no cover - OCR failure
@@ -439,9 +453,7 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
         page_text = page_text.strip()
         if not page_text:
             continue
-        segments = [
-            seg.strip() for seg in re.split(r"\n{2,}", page_text) if seg.strip()
-        ]
+        segments = [seg.strip() for seg in re.split(r"\n{2,}", page_text) if seg.strip()]
         if not segments:
             segments = [page_text]
         for pos, segment in enumerate(segments):
@@ -507,9 +519,7 @@ def _parse_html_blocks(html: str, *, source_url: str | None = None) -> list[Cont
         if not isinstance(child, Tag):
             continue
         classes = child.get("class") or []
-        if child.name in _BOILERPLATE_TAGS or any(
-            cls in boilerplate_classes for cls in classes
-        ):
+        if child.name in _BOILERPLATE_TAGS or any(cls in boilerplate_classes for cls in classes):
             child.decompose()
     blocks: list[ContentBlock] = []
     position = 0
@@ -537,14 +547,10 @@ def _parse_html_blocks(html: str, *, source_url: str | None = None) -> list[Cont
             )
         elif element.name == "li":
             ancestors = [
-                ancestor
-                for ancestor in element.parents
-                if isinstance(ancestor, Tag) and ancestor.name in {"ul", "ol"}
+                ancestor for ancestor in element.parents if isinstance(ancestor, Tag) and ancestor.name in {"ul", "ol"}
             ]
             list_level = max(len(ancestors) - 1, 0)
-            list_type = (
-                "ordered" if ancestors and ancestors[0].name == "ol" else "unordered"
-            )
+            list_type = "ordered" if ancestors and ancestors[0].name == "ol" else "unordered"
             marker = "-" if list_type == "unordered" else str(position + 1)
             blocks.append(
                 ContentBlock(
@@ -564,11 +570,7 @@ def _parse_html_blocks(html: str, *, source_url: str | None = None) -> list[Cont
             for tr in element.find_all("tr"):
                 if not isinstance(tr, Tag):
                     continue
-                cells = [
-                    cell.get_text(" ", strip=True)
-                    for cell in tr.find_all(["td", "th"])
-                    if isinstance(cell, Tag)
-                ]
+                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["td", "th"]) if isinstance(cell, Tag)]
                 if any(cells):
                     rows.append(cells)
             if rows:
