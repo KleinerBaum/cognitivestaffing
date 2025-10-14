@@ -4525,6 +4525,7 @@ def _chip_multiselect(
     options_key = f"ui.chip_options.{slug}"
     input_key = f"ui.chip_input.{slug}"
     last_added_key = f"ui.chip_last_added.{slug}"
+    clear_flag_key = f"{input_key}.__clear"
 
     base_options = _unique_normalized(options)
     base_values = _unique_normalized(values)
@@ -4538,6 +4539,10 @@ def _chip_multiselect(
         st.session_state[ms_key] = base_values
 
     current_values = _unique_normalized(st.session_state.get(ms_key, []))
+
+    if st.session_state.get(clear_flag_key):
+        st.session_state[input_key] = ""
+        st.session_state.pop(clear_flag_key, None)
 
     def _add_chip_entry() -> None:
         raw_value = st.session_state.get(input_key, "")
@@ -4609,7 +4614,7 @@ def _chip_multiselect(
                 updated = [item for item in selected_values if item != value]
                 st.session_state[ms_key] = updated
                 st.session_state[last_added_key] = ""
-                st.session_state[input_key] = ""
+                st.session_state[clear_flag_key] = True
                 st.rerun()
         else:
             st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
@@ -4629,7 +4634,7 @@ def _chip_multiselect(
                 updated = _unique_normalized(selected_values + [value])
                 st.session_state[ms_key] = updated
                 st.session_state[last_added_key] = value
-                st.session_state[input_key] = ""
+                st.session_state[clear_flag_key] = True
                 st.rerun()
         elif not selected_values:
             st.caption(tr("Keine Vorschläge verfügbar.", "No suggestions available."))
