@@ -36,6 +36,7 @@ from config import (
     STRICT_JSON,
     ModelTask,
     get_model_for,
+    mark_model_unavailable,
 )
 from constants.keys import StateKeys
 
@@ -103,6 +104,30 @@ def model_supports_temperature(model: Optional[str]) -> bool:
     return "reasoning" not in normalized
 
 
+def _should_mark_model_unavailable(error: OpenAIError) -> bool:
+    """Return ``True`` if ``error`` indicates the selected model is unavailable."""
+
+    code = getattr(error, "code", "") or getattr(getattr(error, "error", {}), "code", "")
+    if isinstance(code, str):
+        lowered_code = code.lower()
+        if lowered_code in {"model_not_found", "model_not_available", "invalid_model"}:
+            return True
+    message = getattr(error, "message", str(error))
+    lowered = message.lower()
+    if "model" not in lowered:
+        return False
+    phrases = [
+        "does not exist",
+        "not found",
+        "currently unavailable",
+        "currently overloaded",
+        "was not found",
+        "has been deprecated",
+        "is not available",
+    ]
+    return any(phrase in lowered for phrase in phrases)
+
+
 def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
     """Return ``True`` if ``error`` indicates the model rejected ``temperature``."""
 
@@ -118,7 +143,11 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
             span.set_attribute("llm.model", model)
         span.set_attribute("llm.has_tools", "tools" in payload)
         if "temperature" in payload:
-            span.set_attribute("llm.temperature", payload.get("temperature"))
+            temperature_value = payload.get("temperature")
+            if isinstance(temperature_value, (int, float)):
+                span.set_attribute("llm.temperature", float(temperature_value))
+            elif temperature_value is not None:
+                span.set_attribute("llm.temperature", str(temperature_value))
         try:
             return get_client().responses.create(**payload)
         except BadRequestError as err:
@@ -129,6 +158,14 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
                 payload.pop("temperature", None)
                 cleaned_payload = dict(payload)
                 return get_client().responses.create(**cleaned_payload)
+            if model and _should_mark_model_unavailable(err):
+                mark_model_unavailable(model)
+            span.set_status(Status(StatusCode.ERROR, str(err)))
+            raise
+        except OpenAIError as err:
+            span.record_exception(err)
+            if model and _should_mark_model_unavailable(err):
+                mark_model_unavailable(model)
             span.set_status(Status(StatusCode.ERROR, str(err)))
             raise
 

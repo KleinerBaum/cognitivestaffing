@@ -31,8 +31,8 @@ CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
 
-def normalise_model_name(value: str | None) -> str:
-    """Return ``value`` with legacy model aliases mapped to current names."""
+def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> str:
+    """Return ``value`` with optional mapping of legacy aliases to current names."""
 
     if not value:
         return ""
@@ -41,6 +41,8 @@ def normalise_model_name(value: str | None) -> str:
         return ""
 
     lowered = candidate.lower()
+    if not prefer_latest:
+        return candidate
     legacy_aliases = [
         ("gpt-4o-mini-2024-08-06", "gpt-5-nano"),
         ("gpt-4o-mini-2024-07-18", "gpt-5-nano"),
@@ -65,6 +67,14 @@ def normalise_model_name(value: str | None) -> str:
 
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
+
+
+def _canonical_model_name(value: str | None) -> str:
+    """Return a lower-cased identifier suitable for availability tracking."""
+
+    if not value:
+        return ""
+    return value.strip().lower()
 
 
 def _detect_default_model() -> str:
@@ -150,6 +160,79 @@ for key, value in list(MODEL_ROUTING.items()):
     MODEL_ROUTING[key] = normalise_model_name(value) or value
 
 
+MODEL_FALLBACKS: Dict[str, list[str]] = {
+    _canonical_model_name(GPT5_MINI): [GPT5_MINI, "gpt-4o", "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_NANO): [GPT5_NANO, "gpt-4o", "gpt-3.5-turbo"],
+    _canonical_model_name("gpt-4o"): ["gpt-4o", "gpt-3.5-turbo"],
+    _canonical_model_name("gpt-3.5-turbo"): ["gpt-3.5-turbo"],
+}
+
+
+def _build_task_fallbacks() -> Dict[str, list[str]]:
+    """Return fallback chains per task derived from :data:`MODEL_ROUTING`."""
+
+    mapping: Dict[str, list[str]] = {}
+    for task, model_name in MODEL_ROUTING.items():
+        if task == "embedding":
+            mapping[task] = [model_name]
+            continue
+        preferred = model_name or GPT5_MINI
+        canonical = _canonical_model_name(preferred)
+        fallbacks = MODEL_FALLBACKS.get(canonical, [preferred])
+        # Ensure the preferred model is first in the list and remove duplicates while preserving order.
+        options: list[str] = []
+        for candidate in [preferred, *fallbacks]:
+            if candidate and candidate not in options:
+                options.append(candidate)
+        mapping[task] = options
+    return mapping
+
+
+TASK_MODEL_FALLBACKS: Dict[str, list[str]] = _build_task_fallbacks()
+
+
+_UNAVAILABLE_MODELS: set[str] = set()
+
+
+def clear_unavailable_models(*models: str) -> None:
+    """Remove ``models`` from the unavailable cache or reset it entirely."""
+
+    if not models:
+        _UNAVAILABLE_MODELS.clear()
+        return
+    for model in models:
+        canonical = _canonical_model_name(model)
+        if canonical:
+            _UNAVAILABLE_MODELS.discard(canonical)
+
+
+def mark_model_unavailable(model: str) -> None:
+    """Remember that ``model`` cannot be used for subsequent requests."""
+
+    canonical = _canonical_model_name(model)
+    if canonical:
+        _UNAVAILABLE_MODELS.add(canonical)
+
+
+def is_model_available(model: str) -> bool:
+    """Return ``True`` if ``model`` has not been marked as unavailable."""
+
+    canonical = _canonical_model_name(model)
+    if not canonical:
+        return False
+    return canonical not in _UNAVAILABLE_MODELS
+
+
+def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
+    """Return the fallback chain configured for ``task`` without overrides."""
+
+    key = task.value if isinstance(task, ModelTask) else str(task)
+    fallback_chain = TASK_MODEL_FALLBACKS.get(key)
+    if fallback_chain is not None:
+        return list(fallback_chain)
+    return list(TASK_MODEL_FALLBACKS.get(ModelTask.DEFAULT.value, [GPT5_MINI, "gpt-3.5-turbo"]))
+
+
 def normalise_model_override(value: object) -> str | None:
     """Normalize manual model override values."""
 
@@ -190,13 +273,36 @@ except Exception:
 def get_model_for(task: ModelTask | str, *, override: str | None = None) -> str:
     """Return the configured model for ``task`` respecting manual overrides."""
 
+    return get_first_available_model(task, override=override)
+
+
+def _collect_candidate_models(task: ModelTask | str, override: str | None) -> list[str]:
+    """Assemble model candidates for ``task`` including manual overrides."""
+
+    candidates: list[str] = []
     if override:
-        return normalise_model_name(override) or GPT5_MINI
+        override_name = normalise_model_name(override, prefer_latest=False) or override.strip()
+        if override_name:
+            candidates.append(override_name)
     user_override = _user_model_override()
     if user_override:
-        return user_override
-    key = task.value if isinstance(task, ModelTask) else str(task)
-    return MODEL_ROUTING.get(key, GPT5_MINI)
+        override_name = normalise_model_name(user_override, prefer_latest=False) or user_override
+        if override_name and override_name not in candidates:
+            candidates.append(override_name)
+    for candidate in get_model_fallbacks_for(task):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def get_first_available_model(task: ModelTask | str, *, override: str | None = None) -> str:
+    """Return the first available model for ``task`` using the configured fallbacks."""
+
+    candidates = _collect_candidate_models(task, override)
+    for candidate in candidates:
+        if is_model_available(candidate):
+            return candidate
+    return candidates[-1] if candidates else GPT5_MINI
 
 
 if OPENAI_API_KEY:
