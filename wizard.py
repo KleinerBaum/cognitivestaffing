@@ -2917,8 +2917,9 @@ def _render_followup_question(q: dict, data: dict) -> None:
         for i, (col, sug) in enumerate(zip(cols, suggestions)):
             if col.button(sug, key=f"{key}_opt_{i}"):
                 st.session_state[key] = sug
+    label = prompt or tr("Antwort eingeben", "Enter response")
     with container:
-        st.text_input("", key=key)
+        st.text_input(label, key=key, label_visibility="collapsed")
     if q.get("priority") == "critical":
         st.toast(
             tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️"
