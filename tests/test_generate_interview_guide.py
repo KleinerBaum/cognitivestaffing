@@ -86,6 +86,8 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
         captured["model"] = kwargs.get("model")
         captured["messages"] = messages
         captured["json_schema"] = kwargs.get("json_schema")
+        captured["tools"] = kwargs.get("tools")
+        captured["tool_choice"] = kwargs.get("tool_choice")
         payload = _llm_payload("en")
         return api.ChatCallResult(json.dumps(payload), [], {"input_tokens": 1})
 
@@ -100,6 +102,7 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
         lang="en",
         company_culture="Collaborative and transparent",
         tone="Casual",
+        vector_store_id="store-1",
     )
 
     messages = captured["messages"]
@@ -121,6 +124,8 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     assert "## Questions" in markdown or "## Questions & evaluation guide" in markdown
     assert "Evaluation notes" in markdown
     assert captured["json_schema"]
+    assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["store-1"]}]
+    assert captured["tool_choice"] == "auto"
 
 
 def test_generate_interview_guide_handles_german_locale(monkeypatch: pytest.MonkeyPatch) -> None:
