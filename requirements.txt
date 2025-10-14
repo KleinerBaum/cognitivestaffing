@@ -39,5 +39,7 @@ requests>=2.31
 tenacity>=8.2
 types-requests
 
-# Additional utilities (if not vendored)
-# User-provided custom instructions
+# Developer tooling (install with `pip install -r requirements.txt` for a unified stack)
+pytest>=8.0
+mypy>=1.10
+ruff>=0.5
