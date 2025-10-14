@@ -11,7 +11,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from difflib import SequenceMatcher
+from threading import Lock
 from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence
 
 import backoff
@@ -51,6 +54,7 @@ client: OpenAI | None = None
 
 _REASONING_MODEL_PATTERN = re.compile(r"^o\d")
 _MODELS_WITHOUT_TEMPERATURE: set[str] = set()
+_USAGE_LOCK = Lock()
 
 
 def _normalise_model_name(model: Optional[str]) -> str:
@@ -323,18 +327,19 @@ def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | 
     if StateKeys.USAGE not in st.session_state:
         return
 
-    usage_state = st.session_state[StateKeys.USAGE]
-    input_tokens = _coerce_token_count(usage.get("input_tokens"))
-    output_tokens = _coerce_token_count(usage.get("output_tokens"))
+    with _USAGE_LOCK:
+        usage_state = st.session_state[StateKeys.USAGE]
+        input_tokens = _coerce_token_count(usage.get("input_tokens"))
+        output_tokens = _coerce_token_count(usage.get("output_tokens"))
 
-    usage_state["input_tokens"] = _coerce_token_count(usage_state.get("input_tokens", 0)) + input_tokens
-    usage_state["output_tokens"] = _coerce_token_count(usage_state.get("output_tokens", 0)) + output_tokens
+        usage_state["input_tokens"] = _coerce_token_count(usage_state.get("input_tokens", 0)) + input_tokens
+        usage_state["output_tokens"] = _coerce_token_count(usage_state.get("output_tokens", 0)) + output_tokens
 
-    task_key = _normalise_task(task)
-    task_map = usage_state.setdefault("by_task", {})
-    task_totals = task_map.setdefault(task_key, {"input": 0, "output": 0})
-    task_totals["input"] = _coerce_token_count(task_totals.get("input", 0)) + input_tokens
-    task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
+        task_key = _normalise_task(task)
+        task_map = usage_state.setdefault("by_task", {})
+        task_totals = task_map.setdefault(task_key, {"input": 0, "output": 0})
+        task_totals["input"] = _coerce_token_count(task_totals.get("input", 0)) + input_tokens
+        task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
 
 
 def _collect_tool_calls(response: Any) -> list[dict]:
@@ -358,6 +363,61 @@ def _collect_tool_calls(response: Any) -> list[dict]:
                 }
             tool_calls.append(call_data)
     return tool_calls
+
+
+def _merge_usage_dicts(
+    primary_usage: Mapping[str, Any] | None,
+    secondary_usage: Mapping[str, Any] | None,
+) -> dict[str, int]:
+    """Combine two usage dictionaries by summing numeric values."""
+
+    combined: dict[str, int] = {}
+    for usage in (primary_usage or {}, secondary_usage or {}):
+        if not isinstance(usage, Mapping):
+            continue
+        for key, value in usage.items():
+            combined[key] = combined.get(key, 0) + _coerce_token_count(value)
+    return combined
+
+
+def _build_comparison_metadata(
+    primary: ChatCallResult,
+    secondary: ChatCallResult,
+    *,
+    label: str | None,
+    custom: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return structured metadata comparing primary and secondary outputs."""
+
+    metadata: dict[str, Any] = {
+        "mode": "dual_prompt",
+        "primary": {
+            "content": primary.content,
+            "usage": dict(primary.usage or {}),
+            "tool_calls": list(primary.tool_calls or []),
+        },
+        "secondary": {
+            "content": secondary.content,
+            "usage": dict(secondary.usage or {}),
+            "tool_calls": list(secondary.tool_calls or []),
+        },
+    }
+    if label:
+        metadata["label"] = label
+
+    if primary.content is not None and secondary.content is not None:
+        similarity = SequenceMatcher(None, primary.content, secondary.content).ratio()
+        metadata["diff"] = {
+            "are_equal": primary.content == secondary.content,
+            "similarity": similarity,
+        }
+    else:
+        metadata["diff"] = {"are_equal": primary.content == secondary.content}
+
+    if custom:
+        metadata["custom"] = dict(custom)
+
+    return metadata
 
 
 def _prepare_payload(
@@ -457,6 +517,13 @@ class ChatCallResult:
     content: Optional[str]
     tool_calls: list[dict]
     usage: dict
+    secondary_content: Optional[str] = None
+    secondary_tool_calls: Optional[list[dict]] = None
+    secondary_usage: Optional[dict] = None
+    comparison: Optional[dict[str, Any]] = None
+
+
+ComparisonBuilder = Callable[["ChatCallResult", "ChatCallResult"], Mapping[str, Any]]
 
 
 class ChatStream(Iterable[str]):
@@ -600,14 +667,7 @@ def _on_api_giveup(details: Any) -> None:
     raise err  # pragma: no cover - re-raise unexpected errors
 
 
-@backoff.on_exception(
-    backoff.expo,
-    (OpenAIError,),
-    max_tries=3,
-    jitter=backoff.full_jitter,
-    on_giveup=_on_api_giveup,
-)
-def call_chat_api(
+def _call_chat_api_single(
     messages: Sequence[dict],
     *,
     model: str | None = None,
@@ -621,13 +681,7 @@ def call_chat_api(
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
 ) -> ChatCallResult:
-    """Call the OpenAI Responses API and return a :class:`ChatCallResult`.
-
-    If the model requests a function tool, the function is executed locally and
-    the result appended to the message list before the API call is retried. This
-    mirrors OpenAI's tool-calling flow while keeping the logic transparent and
-    testable.
-    """
+    """Execute a single chat completion call with optional tool handling."""
 
     payload, model, tools, tool_functions = _prepare_payload(
         messages,
@@ -700,6 +754,136 @@ def call_chat_api(
 
         messages_list.extend(tool_messages)
         payload["input"] = messages_list
+
+
+@backoff.on_exception(
+    backoff.expo,
+    (OpenAIError,),
+    max_tries=3,
+    jitter=backoff.full_jitter,
+    on_giveup=_on_api_giveup,
+)
+def call_chat_api(
+    messages: Sequence[dict],
+    *,
+    model: str | None = None,
+    temperature: float | None = 0.2,
+    max_tokens: int | None = None,
+    json_schema: Optional[dict] = None,
+    tools: Optional[list] = None,
+    tool_choice: Optional[Any] = None,
+    tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
+    reasoning_effort: str | None = None,
+    extra: Optional[dict] = None,
+    task: ModelTask | str | None = None,
+    comparison_messages: Sequence[dict] | None = None,
+    comparison_options: Optional[Mapping[str, Any]] = None,
+    comparison_label: str | None = None,
+) -> ChatCallResult:
+    """Call the OpenAI Responses API and return a :class:`ChatCallResult`.
+
+    When ``comparison_messages`` are supplied a second request is dispatched in
+    parallel (unless ``comparison_options['dispatch']`` is set to
+    ``"sequential"``). Both responses are returned along with basic similarity
+    metadata so callers can decide which variant to keep.
+    """
+
+    single_kwargs: dict[str, Any] = {
+        "model": model,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "json_schema": json_schema,
+        "tools": tools,
+        "tool_choice": tool_choice,
+        "tool_functions": tool_functions,
+        "reasoning_effort": reasoning_effort,
+        "extra": extra,
+        "task": task,
+    }
+
+    if comparison_messages is None:
+        return _call_chat_api_single(messages, **single_kwargs)
+
+    options = dict(comparison_options or {})
+    dispatch = str(options.pop("dispatch", "parallel")).lower()
+    if dispatch not in {"parallel", "sequential"}:
+        raise ValueError("comparison_options['dispatch'] must be 'parallel' or 'sequential'")
+
+    metadata_builder: ComparisonBuilder | None = options.pop("metadata_builder", None)
+    if metadata_builder is not None and not callable(metadata_builder):
+        raise TypeError("comparison_options['metadata_builder'] must be callable")
+
+    label_override = options.pop("label", None)
+    if label_override is not None:
+        comparison_label = label_override
+
+    allowed_override_keys = {
+        "model",
+        "temperature",
+        "max_tokens",
+        "json_schema",
+        "tools",
+        "tool_choice",
+        "tool_functions",
+        "reasoning_effort",
+        "extra",
+        "task",
+    }
+
+    secondary_kwargs = dict(single_kwargs)
+    for key in list(options):
+        if key in allowed_override_keys:
+            secondary_kwargs[key] = options.pop(key)
+
+    if options:
+        remaining = ", ".join(sorted(options.keys()))
+        raise ValueError(f"Unsupported comparison_options keys: {remaining}")
+
+    if dispatch == "parallel":
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            primary_future = executor.submit(_call_chat_api_single, messages, **single_kwargs)
+            secondary_future = executor.submit(
+                _call_chat_api_single,
+                comparison_messages,
+                **secondary_kwargs,
+            )
+            primary_result = primary_future.result()
+            secondary_result = secondary_future.result()
+    else:
+        primary_result = _call_chat_api_single(messages, **single_kwargs)
+        secondary_result = _call_chat_api_single(comparison_messages, **secondary_kwargs)
+
+    combined_usage = _merge_usage_dicts(primary_result.usage, secondary_result.usage)
+
+    custom_metadata: Mapping[str, Any] | None = None
+    if metadata_builder is not None:
+        try:
+            built = metadata_builder(primary_result, secondary_result)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Custom comparison metadata builder failed: %s", exc, exc_info=exc)
+        else:
+            if built is not None:
+                if isinstance(built, Mapping):
+                    custom_metadata = dict(built)
+                else:
+                    custom_metadata = {"value": built}
+
+    comparison = _build_comparison_metadata(
+        primary_result,
+        secondary_result,
+        label=comparison_label,
+        custom=custom_metadata,
+    )
+
+    return ChatCallResult(
+        content=primary_result.content,
+        tool_calls=list(primary_result.tool_calls),
+        usage=combined_usage,
+        secondary_content=secondary_result.content,
+        secondary_tool_calls=list(secondary_result.tool_calls),
+        secondary_usage=dict(secondary_result.usage or {}),
+        comparison=comparison,
+    )
 
 
 def stream_chat_api(

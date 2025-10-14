@@ -1,6 +1,6 @@
 import json
 from types import SimpleNamespace
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import pytest
 
@@ -26,9 +26,7 @@ from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
 def reset_temperature_cache(monkeypatch):
     """Ensure temperature capability cache is cleared between tests."""
 
-    monkeypatch.setattr(
-        openai_utils.api, "_MODELS_WITHOUT_TEMPERATURE", set(), raising=False
-    )
+    monkeypatch.setattr(openai_utils.api, "_MODELS_WITHOUT_TEMPERATURE", set(), raising=False)
     yield
 
 
@@ -110,6 +108,114 @@ def test_call_chat_api_returns_output_json(monkeypatch):
     result = call_chat_api([{"role": "user", "content": "hi"}])
 
     assert result.content == json.dumps(payload)
+
+
+def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
+    """Dual prompt evaluations should capture both outputs and metadata."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.USAGE] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "by_task": {},
+    }
+
+    class _FakeResponse:
+        def __init__(self, text: str, usage: Mapping[str, int]):
+            self.output_text = text
+            self.output: list[dict[str, Any]] = []
+            self.usage = usage
+
+    responses = [
+        _FakeResponse("Primary", {"input_tokens": 1, "output_tokens": 2}),
+        _FakeResponse("Secondary", {"input_tokens": 2, "output_tokens": 3}),
+    ]
+
+    def _fake_prepare(messages: Sequence[dict[str, Any]], **_: Any):
+        return ({"model": "test", "input": list(messages)}, "test", [], {})
+
+    def _fake_execute(_: Mapping[str, Any], __: str | None):
+        return responses.pop(0)
+
+    monkeypatch.setattr(openai_utils.api, "_prepare_payload", _fake_prepare)
+    monkeypatch.setattr(openai_utils.api, "_execute_response", _fake_execute)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        comparison_messages=[{"role": "user", "content": "hello"}],
+        comparison_label="A/B",
+        comparison_options={"dispatch": "sequential"},
+    )
+
+    assert result.content == "Primary"
+    assert result.secondary_content == "Secondary"
+    assert result.usage["input_tokens"] == 3
+    assert result.usage["output_tokens"] == 5
+    assert result.secondary_usage == {"input_tokens": 2, "output_tokens": 3}
+    assert result.comparison is not None
+    assert result.comparison["label"] == "A/B"
+    assert result.comparison["secondary"]["content"] == "Secondary"
+    assert result.comparison["diff"]["are_equal"] is False
+
+
+def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
+    """Custom comparison metadata builders should feed into the result."""
+
+    primary = ChatCallResult("A", [], {"input_tokens": 1})
+    secondary = ChatCallResult("Beta", [], {"input_tokens": 4})
+
+    calls: list[dict[str, Any]] = []
+
+    def _fake_single(
+        messages: Sequence[dict[str, Any]],
+        *,
+        model: str | None = None,
+        temperature: float | None = 0.2,
+        max_tokens: int | None = None,
+        json_schema: Mapping[str, Any] | None = None,
+        tools: Sequence[dict[str, Any]] | None = None,
+        tool_choice: Any | None = None,
+        tool_functions: Mapping[str, Any] | None = None,
+        reasoning_effort: str | None = None,
+        extra: Mapping[str, Any] | None = None,
+        task: Any | None = None,
+    ) -> ChatCallResult:
+        calls.append(
+            {
+                "messages": messages,
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "json_schema": json_schema,
+                "tools": tools,
+                "tool_choice": tool_choice,
+                "tool_functions": tool_functions,
+                "reasoning_effort": reasoning_effort,
+                "extra": extra,
+                "task": task,
+            }
+        )
+        return primary if len(calls) == 1 else secondary
+
+    monkeypatch.setattr(openai_utils.api, "_call_chat_api_single", _fake_single)
+
+    def _builder(first: ChatCallResult, second: ChatCallResult) -> Mapping[str, Any]:
+        return {"winner": "secondary" if len(second.content or "") > len(first.content or "") else "primary"}
+
+    result = call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        comparison_messages=[{"role": "user", "content": "hey"}],
+        comparison_options={
+            "dispatch": "sequential",
+            "metadata_builder": _builder,
+            "temperature": 0.75,
+        },
+    )
+
+    assert result.comparison is not None
+    assert result.comparison["custom"] == {"winner": "secondary"}
+    assert calls[0]["temperature"] == 0.2
+    assert calls[1]["temperature"] == 0.75
 
 
 def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
@@ -463,13 +569,9 @@ def test_suggest_onboarding_plans_uses_json_payload(monkeypatch):
     def _fake_call(messages, **kwargs):  # noqa: ANN001 - signature controlled by API helper
         return ChatCallResult(json.dumps({"suggestions": expected}), [], {})
 
-    monkeypatch.setattr(
-        "openai_utils.extraction.api.call_chat_api", _fake_call, raising=False
-    )
+    monkeypatch.setattr("openai_utils.extraction.api.call_chat_api", _fake_call, raising=False)
 
-    suggestions = openai_utils.extraction.suggest_onboarding_plans(
-        "Data Scientist", model="dummy-model"
-    )
+    suggestions = openai_utils.extraction.suggest_onboarding_plans("Data Scientist", model="dummy-model")
 
     assert suggestions == expected
 
@@ -488,9 +590,7 @@ def test_call_chat_api_retries_without_temperature(monkeypatch):
         def create(self, **kwargs):
             calls.append(kwargs)
             if len(calls) == 1:
-                raise _FakeBadRequestError(
-                    "Unsupported parameter: 'temperature' is not supported with this model."
-                )
+                raise _FakeBadRequestError("Unsupported parameter: 'temperature' is not supported with this model.")
             return type("R", (), {"output": [], "output_text": "", "usage": {}})()
 
     class _FakeClient:
@@ -534,9 +634,7 @@ def test_extract_with_function(monkeypatch):
     monkeypatch.setattr(
         openai_utils.api,
         "call_chat_api",
-        lambda *a, **k: ChatCallResult(
-            None, [{"function": {"arguments": '{"job_title": "Dev"}'}}], {}
-        ),
+        lambda *a, **k: ChatCallResult(None, [{"function": {"arguments": '{"job_title": "Dev"}'}}], {}),
     )
     from core import schema as cs
 
@@ -623,9 +721,7 @@ def test_extract_with_function_json_fallback_uses_context_payload(monkeypatch):
 
     assert len(captured) == 2
     retry_messages = captured[1]["messages"]
-    assert retry_messages[0]["content"].endswith(
-        "Return only valid JSON that conforms exactly to the provided schema."
-    )
+    assert retry_messages[0]["content"].endswith("Return only valid JSON that conforms exactly to the provided schema.")
 
     payload = json.loads(retry_messages[1]["content"])
     assert payload["global_context"][0]["text"] == "Company overview"
@@ -679,6 +775,7 @@ def test_extract_with_function_json_fallback_reuses_payload(monkeypatch):
     payload = json.loads(retry_messages[1]["content"])
     assert payload["global_context"][0]["text"] == "Company overview"
     assert payload["fields"][0]["context"][0]["text"].startswith("Job Title")
+
 
 def test_extract_with_function_parses_json_payload(monkeypatch):
     """Structured extraction should accept strictly formatted JSON payloads."""
