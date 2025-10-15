@@ -7314,8 +7314,8 @@ def _step_requirements():
             if show_hint:
                 st.caption(
                     tr(
-                        "Aktuell keine Vorschläge verfügbar – entweder sind bereits alle Optionen übernommen, das Feld ist gesperrt oder es fehlen Kontextdaten (z. B. Jobtitel, RAG).",
-                        "No suggestions available right now – either everything useful is already added, the field is locked, or required context (e.g. job title, RAG) is missing.",
+                        "Aktuell keine Vorschläge verfügbar – bitte KI-Vorschläge aktivieren, einen gültigen API-Schlüssel hinterlegen und den Jobtitel ausfüllen. Wenn bereits alle Optionen übernommen sind, kannst du die Liste aktualisieren.",
+                        "No suggestions available right now – make sure AI suggestions are enabled, a valid API key is configured, and the job title is set. If you've already taken every option, try refreshing.",
                     )
                 )
             return
