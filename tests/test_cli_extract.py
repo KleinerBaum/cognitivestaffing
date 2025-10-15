@@ -4,6 +4,7 @@ import sys
 import pytest
 
 from ingest.types import StructuredDocument
+from config import ModelTask
 import cli.extract as cli_extract
 
 
@@ -25,8 +26,14 @@ def test_cli_uses_ingest_extractor(
 
     def fake_extract_with_function(text: str, schema: dict, model=None, **kwargs):
         assert text == "TEXT"
+        assert model == "router-model"
         return _Result({"ok": True})
 
+    def fake_get_model_for(task: ModelTask) -> str:
+        assert task is ModelTask.EXTRACTION
+        return "router-model"
+
+    monkeypatch.setattr("config.get_model_for", fake_get_model_for)
     monkeypatch.setattr(
         "ingest.extractors.extract_text_from_file", fake_extract_text_from_file
     )
