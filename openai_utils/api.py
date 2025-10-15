@@ -366,37 +366,54 @@ def _collect_tool_calls(response: Any) -> list[dict]:
         data = _to_mapping(item)
         if not data:
             continue
-        typ = data.get("type")
-        if not typ or "call" not in str(typ):
+        typ = str(data.get("type") or "")
+        if not typ or ("tool_call" not in typ and "tool_response" not in typ):
             continue
 
         call_data = dict(data)
         canonical_id = call_data.get("call_id") or call_data.get("id")
-        function_payload = call_data.get("function")
-        if isinstance(function_payload, Mapping):
-            normalised_function: dict[str, Any] = dict(function_payload)
-        else:
-            normalised_function = {}
 
-        if not normalised_function.get("name") and call_data.get("name"):
-            normalised_function["name"] = call_data.get("name")
+        if "tool_response" in typ:
+            payload_value: str | None = None
+            for candidate in (
+                call_data.get("output"),
+                call_data.get("content"),
+                call_data.get("result"),
+            ):
+                payload_value = _serialise_tool_payload(candidate)
+                if payload_value is not None:
+                    break
 
-        payload_value: str | None = None
-        for candidate in (
-            normalised_function.get("input"),
-            call_data.get("input"),
-            normalised_function.get("arguments"),
-            call_data.get("arguments"),
-        ):
-            payload_value = _serialise_tool_payload(candidate)
             if payload_value is not None:
-                break
+                call_data["output"] = payload_value
+                call_data["content"] = payload_value
+        else:
+            function_payload = call_data.get("function")
+            if isinstance(function_payload, Mapping):
+                normalised_function: dict[str, Any] = dict(function_payload)
+            else:
+                normalised_function = {}
 
-        if payload_value is not None:
-            normalised_function["input"] = payload_value
-            normalised_function["arguments"] = payload_value
+            if not normalised_function.get("name") and call_data.get("name"):
+                normalised_function["name"] = call_data.get("name")
 
-        call_data["function"] = normalised_function
+            payload_value: str | None = None
+            for candidate in (
+                normalised_function.get("input"),
+                call_data.get("input"),
+                normalised_function.get("arguments"),
+                call_data.get("arguments"),
+            ):
+                payload_value = _serialise_tool_payload(candidate)
+                if payload_value is not None:
+                    break
+
+            if payload_value is not None:
+                normalised_function["input"] = payload_value
+                normalised_function["arguments"] = payload_value
+
+            call_data["function"] = normalised_function
+
         if canonical_id:
             call_data["call_id"] = canonical_id
         tool_calls.append(call_data)
@@ -961,10 +978,10 @@ def _call_chat_api_single(
         if tool_calls:
             last_tool_calls = tool_calls
 
-        if not tool_calls or not tool_functions:
+        if not tool_calls:
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
-            result_tool_calls = tool_calls or last_tool_calls
+            result_tool_calls = last_tool_calls
             return ChatCallResult(
                 content,
                 result_tool_calls,
@@ -977,6 +994,27 @@ def _call_chat_api_single(
         executed = False
         tool_messages: list[dict[str, Any]] = []
         for call in tool_calls:
+            call_type = str(call.get("type") or "")
+            if "tool_response" in call_type:
+                payload_text = call.get("output")
+                if payload_text is None:
+                    payload_text = call.get("content")
+                serialised_payload = _serialise_tool_payload(payload_text)
+                if serialised_payload is None:
+                    continue
+                tool_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.get("call_id") or call.get("id"),
+                        "content": serialised_payload,
+                    }
+                )
+                executed = True
+                continue
+
+            if not tool_functions:
+                continue
+
             func_block = call.get("function")
             func_info = dict(func_block) if isinstance(func_block, Mapping) else {}
             name = func_info.get("name")
@@ -1006,6 +1044,10 @@ def _call_chat_api_single(
             )
             executed = True
 
+        if tool_messages:
+            messages_list.extend(tool_messages)
+            payload["input"] = messages_list
+
         if not executed:
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
@@ -1018,9 +1060,6 @@ def _call_chat_api_single(
                 raw_response=response if include_raw_response else None,
                 file_search_results=file_search_results if file_search_results else None,
             )
-
-        messages_list.extend(tool_messages)
-        payload["input"] = messages_list
 
 
 @backoff.on_exception(
