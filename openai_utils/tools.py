@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable, Mapping
 from copy import deepcopy
-from typing import Any, Iterable
+from typing import Any, cast
 
 
 def _prepare_schema(obj: dict[str, Any], *, require_all: bool) -> dict[str, Any]:
@@ -178,7 +178,11 @@ def build_function_tools(
             if key == "callable":
                 if value is not None and not callable(value):
                     raise TypeError(f"Callable for tool '{name}' must be callable")
-                callable_obj = value  # type: ignore[assignment]
+                if value is not None:
+                    callable_obj = cast(Callable[..., Any], value)
+                else:
+                    callable_obj = None
+
                 continue
             function_payload[key] = deepcopy(value)
 

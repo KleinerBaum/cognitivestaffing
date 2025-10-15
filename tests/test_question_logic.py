@@ -25,9 +25,7 @@ def _clear_session_state() -> None:
 
 def test_generate_followup_questions() -> None:
     """Basic smoke test for follow-up question generation."""
-    out = generate_followup_questions(
-        {"company.name": "ACME"}, num_questions=1, use_rag=False
-    )
+    out = generate_followup_questions({"company.name": "ACME"}, num_questions=1, use_rag=False)
     assert len(out) == 1
     q = out[0]
     assert q["field"] in CRITICAL_FIELDS
@@ -54,14 +52,10 @@ def test_role_specific_questions_from_esco_state(monkeypatch) -> None:
     ]
     st.session_state[StateKeys.ESCO_SKILLS] = ["Python", "Version control"]
 
-    out = generate_followup_questions(
-        {"position": {"job_title": "Backend Developer"}}, use_rag=False
-    )
+    out = generate_followup_questions({"position": {"job_title": "Backend Developer"}}, use_rag=False)
     fields = {q["field"] for q in out}
     assert "requirements.tools_and_technologies" in fields
-    tech_question = next(
-        q for q in out if q["field"] == "requirements.tools_and_technologies"
-    )
+    tech_question = next(q for q in out if q["field"] == "requirements.tools_and_technologies")
     assert "Python" in tech_question["suggestions"]
 
 
@@ -94,11 +88,7 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
     }
 
     out = generate_followup_questions(profile, use_rag=False)
-    hard_skill_question = next(
-        q
-        for q in out
-        if q["field"] == "requirements.hard_skills_required"
-    )
+    hard_skill_question = next(q for q in out if q["field"] == "requirements.hard_skills_required")
 
     assert hard_skill_question["priority"] == "critical"
     assert hard_skill_question["suggestions"] == ["Data analysis"]
@@ -107,9 +97,7 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
 
 def test_yes_no_default(monkeypatch) -> None:
     """Yes/no fields default to 'No' when treated as missing."""
-    monkeypatch.setattr(
-        "question_logic.CRITICAL_FIELDS", {"employment.visa_sponsorship"}
-    )
+    monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"employment.visa_sponsorship"})
     out = generate_followup_questions({}, num_questions=1, use_rag=False)
     assert out == [
         {
@@ -124,12 +112,30 @@ def test_yes_no_default(monkeypatch) -> None:
 
 def test_language_level_question(monkeypatch) -> None:
     """Missing English level should trigger a specific question."""
-    monkeypatch.setattr(
-        "question_logic.CRITICAL_FIELDS", {"requirements.language_level_english"}
-    )
+    monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"requirements.language_level_english"})
     out = generate_followup_questions({}, num_questions=1, use_rag=False)
     assert out[0]["field"] == "requirements.language_level_english"
     assert "English" in out[0]["question"]
+
+
+def test_missing_city_triggers_followup() -> None:
+    """Omitting the city should yield a critical follow-up question."""
+    assert "location.primary_city" in CRITICAL_FIELDS
+
+    profile = {
+        "company": {"name": "ACME"},
+        "position": {"job_title": "Engineer", "role_summary": "Build products"},
+        "location": {"country": "DE"},
+        "requirements": {
+            "hard_skills_required": ["Python"],
+            "soft_skills_required": ["Teamwork"],
+        },
+    }
+
+    out = generate_followup_questions(profile, use_rag=False)
+    city_question = next(q for q in out if q["field"] == "location.primary_city")
+    assert city_question["priority"] == "critical"
+    assert "city" in city_question["question"].lower()
 
 
 def test_rag_suggestions_merge(monkeypatch) -> None:
@@ -147,9 +153,7 @@ def test_rag_suggestions_merge(monkeypatch) -> None:
 
 def test_new_field_triggers_question(monkeypatch) -> None:
     """New schema fields should yield follow-up questions when missing."""
-    monkeypatch.setattr(
-        "question_logic.CRITICAL_FIELDS", {"contacts.hiring_manager.phone"}
-    )
+    monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"contacts.hiring_manager.phone"})
     out = generate_followup_questions({}, num_questions=1, use_rag=False)
     assert out[0]["field"] == "contacts.hiring_manager.phone"
     assert "phone" in out[0]["question"].lower()
@@ -173,6 +177,31 @@ def test_rag_suggestions_tool_payload(monkeypatch) -> None:
     assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["vs123"]}]
     assert captured["tool_choice"] == "auto"
     assert captured.get("extra") in (None, {})
+
+
+def test_rag_suggestions_skipped_flag(monkeypatch) -> None:
+    """When no vector store is configured the skip flag should be recorded."""
+
+    monkeypatch.setattr("question_logic.RAG_VECTOR_STORE_ID", None)
+    out = _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id=None)
+
+    assert out == {}
+    assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is True
+
+
+def test_rag_suggestions_clears_skip_flag(monkeypatch) -> None:
+    """Providing a vector store should unset the skip flag before execution."""
+
+    def fake_call(messages, **_kwargs):
+        return ChatCallResult("{}", [], {})
+
+    monkeypatch.setattr("question_logic.call_chat_api", fake_call)
+    monkeypatch.setattr("question_logic.RAG_VECTOR_STORE_ID", "vs123")
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = True
+
+    _rag_suggestions("Engineer", "Tech", ["location"], vector_store_id="vs456")
+
+    assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is False
 
 
 def test_rag_suggestions_failure(monkeypatch) -> None:
@@ -265,9 +294,7 @@ def test_generate_followups_salary_implausible(monkeypatch) -> None:
 def test_generate_followups_include_esco_suggestions(monkeypatch) -> None:
     """ESCO suggestions should augment missing skill fields."""
 
-    monkeypatch.setattr(
-        "question_logic.CRITICAL_FIELDS", {"requirements.hard_skills_required"}
-    )
+    monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"requirements.hard_skills_required"})
 
     data = {
         "position": {"job_title": "Backend Developer"},

@@ -13,9 +13,13 @@ def test_section_filtering() -> None:
 
     # Section 1 requires company name and the primary country information
     section_one_missing = set(get_missing_critical_fields(max_section=1))
-    assert section_one_missing == {"company.name", "location.country"}
+    assert {"company.name", "location.primary_city", "location.country"} <= section_one_missing
 
     st.session_state["company.name"] = "Acme"
+    section_one_missing = set(get_missing_critical_fields(max_section=1))
+    assert {"location.primary_city", "location.country"} <= section_one_missing
+
+    st.session_state["location.primary_city"] = "Berlin"
     assert set(get_missing_critical_fields(max_section=1)) == {"location.country"}
 
     st.session_state["location.country"] = "DE"
