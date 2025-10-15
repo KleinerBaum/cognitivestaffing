@@ -19,62 +19,32 @@ from openai_utils import ChatCallResult
 from openai_utils.extraction import extract_with_function
 
 
-class _DummyResponses:
-    """Minimal stub mimicking ``OpenAI.responses`` for tests."""
-
-    def __init__(self, payload: list[dict[str, Any]]) -> None:
-        self._payload = payload
-        self.calls: list[dict[str, Any]] = []
-
-    def create(self, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
-        return types.SimpleNamespace(output=self._payload)
-
-
-def _vector_result(text: str, score: float = 0.9) -> dict[str, Any]:
-    return {
-        "type": "file_search_results",
-        "file_search": {
-            "results": [
-                {
-                    "content": [{"text": text}],
-                    "score": score,
-                    "file_id": "file-1",
-                    "id": "chunk-1",
-                    "metadata": {"source": "doc.md"},
-                }
-            ]
-        },
-    }
-
-
-def _empty_vector_payload() -> list[dict[str, Any]]:
-    return [
-        {
-            "content": [
-                {
-                    "type": "file_search_results",
-                    "file_search": {"results": []},
-                }
-            ]
-        }
-    ]
-
-
-def _payload_with_result(text: str, score: float = 0.9) -> list[dict[str, Any]]:
-    return [{"content": [_vector_result(text, score=score)]}]
-
-
 def test_collect_field_contexts_uses_vector_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Vector store snippets should populate the field context."""
 
-    responses = _DummyResponses(_payload_with_result("Title: Engineer", 0.88))
-    monkeypatch.setattr(
-        "llm.rag_pipeline.get_client",
-        lambda: types.SimpleNamespace(responses=responses),
-    )
+    captured: dict[str, Any] = {}
+
+    def fake_call(messages, **kwargs):  # noqa: ANN001 - simple stub
+        captured["messages"] = messages
+        captured["kwargs"] = kwargs
+        return ChatCallResult(
+            content=None,
+            tool_calls=[],
+            usage={},
+            file_search_results=[
+                {
+                    "text": "Title: Engineer",
+                    "score": 0.88,
+                    "file_id": "file-1",
+                    "chunk_id": "chunk-1",
+                    "metadata": {"source": "doc.md"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr("llm.rag_pipeline.call_chat_api", fake_call)
 
     spec = FieldSpec(field="position.job_title", instruction="Extract title")
     contexts = collect_field_contexts(
@@ -91,16 +61,16 @@ def test_collect_field_contexts_uses_vector_store(
     assert chunk.score == pytest.approx(0.88)
     assert chunk.source_id == "doc.md"
     assert not chunk.is_fallback
+    assert captured["kwargs"]["capture_file_search"] is True
 
 
 def test_collect_field_contexts_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fallback snippets should be returned when no vector hits are available."""
 
-    responses = _DummyResponses(_empty_vector_payload())
-    monkeypatch.setattr(
-        "llm.rag_pipeline.get_client",
-        lambda: types.SimpleNamespace(responses=responses),
-    )
+    def fake_call(messages, **_kwargs):  # noqa: ANN001 - sentinel
+        return ChatCallResult(content=None, tool_calls=[], usage={}, file_search_results=[])
+
+    monkeypatch.setattr("llm.rag_pipeline.call_chat_api", fake_call)
 
     spec = FieldSpec(field="company.name", instruction="Find company")
     pipeline = RAGPipeline(

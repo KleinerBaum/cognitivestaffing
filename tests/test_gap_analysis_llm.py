@@ -40,43 +40,33 @@ def test_build_gap_prompt_includes_all_blocks():
     assert any(text.startswith("【RAG】") for text in texts)
 
 
-def test_retrieve_from_vector_store_parses_results():
-    class DummyResponses:
-        def create(self, **_kwargs):
-            return {
-                "output": [
-                    {
-                        "content": [
-                            {
-                                "type": "file_search_results",
-                                "file_search": {
-                                    "results": [
-                                        {
-                                            "content": [
-                                                {"text": "First snippet"},
-                                                {"text": ""},
-                                            ]
-                                        },
-                                        {"text": "Second snippet"},
-                                    ]
-                                },
-                            }
-                        ]
-                    }
-                ]
-            }
+def test_retrieve_from_vector_store_parses_results(monkeypatch):
+    captured: dict[str, object] = {}
 
-    class DummyClient:
-        def __init__(self):
-            self.responses = DummyResponses()
+    def fake_call(messages, **kwargs):  # noqa: ANN001 - simple stub
+        captured["messages"] = messages
+        captured["kwargs"] = kwargs
+        return ChatCallResult(
+            content=None,
+            tool_calls=[],
+            usage={},
+            file_search_results=[
+                {"text": "First snippet"},
+                {"text": "Second snippet"},
+            ],
+        )
+
+    monkeypatch.setattr(gap_analysis, "call_chat_api", fake_call)
 
     result = gap_analysis.retrieve_from_vector_store(
         "query",
         vector_store_id="store-123",
-        client=DummyClient(),
+        client=object(),
         top_k=2,
     )
     assert result == ["First snippet", "Second snippet"]
+    assert captured["kwargs"]["capture_file_search"] is True
+    assert captured["kwargs"]["model"]
 
 
 def test_analyze_vacancy_normalises_esco_and_skips_vector_store(monkeypatch):

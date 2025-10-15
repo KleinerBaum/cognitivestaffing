@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
-
-from openai import OpenAIError
+from typing import Any, Mapping, Sequence
 
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
 from core.esco_utils import classify_occupation, get_essential_skills, normalize_skills
-from openai_utils.api import ChatCallResult, call_chat_api, get_client
+from openai_utils.api import ChatCallResult, call_chat_api
 
 logger = logging.getLogger("cognitive_needs.gap_analysis")
 
@@ -75,11 +73,12 @@ def retrieve_from_vector_store(
     if not store_id or not str(query or "").strip():
         return []
 
-    api = client or get_client()
+    if client is not None:  # pragma: no cover - backwards compatibility shim
+        logger.debug("Custom OpenAI client overrides are ignored by call_chat_api")
+
     try:
-        response = api.responses.create(
-            model=get_model_for(ModelTask.RAG_SUGGESTIONS),
-            input=[
+        result = call_chat_api(
+            [
                 {
                     "role": "user",
                     "content": [
@@ -90,85 +89,29 @@ def retrieve_from_vector_store(
                     ],
                 }
             ],
+            model=get_model_for(ModelTask.RAG_SUGGESTIONS),
             tools=[{"type": "file_search", "vector_store_ids": [store_id]}],
             tool_choice={"type": "file_search"},
-            max_output_tokens=1,
-            metadata={"task": "gap_analysis"},
+            max_tokens=1,
+            extra={"metadata": {"task": "gap_analysis"}},
+            task=ModelTask.RAG_SUGGESTIONS,
+            capture_file_search=True,
         )
-    except OpenAIError as err:  # pragma: no cover - defensive network guard
+    except RuntimeError as err:  # pragma: no cover - defensive network guard
         logger.warning("Vector store lookup failed: %s", err)
         return []
     except Exception as err:  # pragma: no cover - defensive
         logger.warning("Unexpected vector store failure: %s", err)
         return []
 
-    results: list[str] = []
-    for item in _iter_file_search_results(response):
-        text = (item or "").strip()
-        if text and text not in results:
-            results.append(text)
-        if len(results) >= max(1, top_k):
-            break
-    return results
-
-
-def _iter_file_search_results(response: Any) -> Iterable[str]:
-    output = getattr(response, "output", None)
-    if output is None and isinstance(response, Mapping):
-        output = response.get("output")
-    if not output:
-        return []
-
     snippets: list[str] = []
-    for item in output:
-        content = getattr(item, "content", None)
-        if content is None and isinstance(item, Mapping):
-            content = item.get("content")
-        if not content:
-            continue
-        for entry in content:
-            entry_type = getattr(entry, "type", None)
-            file_search = getattr(entry, "file_search", None)
-            if entry_type is None and isinstance(entry, Mapping):
-                entry_type = entry.get("type")
-                file_search = entry.get("file_search")
-            if entry_type != "file_search_results" or not file_search:
-                continue
-            results = getattr(file_search, "results", None)
-            if results is None and isinstance(file_search, Mapping):
-                results = file_search.get("results")
-            if not results:
-                continue
-            for result in results:
-                text = _extract_result_text(result)
-                if text:
-                    snippets.append(text)
+    for entry in result.file_search_results or []:
+        text = str(entry.get("text") or "").strip()
+        if text and text not in snippets:
+            snippets.append(text)
+        if len(snippets) >= max(1, top_k):
+            break
     return snippets
-
-
-def _extract_result_text(result: Any) -> str:
-    if result is None:
-        return ""
-    if isinstance(result, Mapping):
-        content = result.get("content")
-        if isinstance(content, Iterable) and not isinstance(content, (str, bytes)):
-            parts: list[str] = []
-            for part in content:
-                text = getattr(part, "text", None)
-                if text is None and isinstance(part, Mapping):
-                    text = part.get("text")
-                if text:
-                    parts.append(str(text))
-            joined = "\n".join(parts).strip()
-            if joined:
-                return joined
-        text = result.get("text")
-        if text:
-            return str(text)
-    text_attr = getattr(result, "text", None)
-    if text_attr:
-        return str(text_attr)
-    return ""
 
 
 def build_gap_prompt(

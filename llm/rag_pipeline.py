@@ -7,9 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
-from openai import OpenAIError
 
-from openai_utils.api import get_client
+from openai_utils.api import call_chat_api
 
 
 logger = logging.getLogger("cognitive_needs.rag")
@@ -118,12 +117,6 @@ class RAGPipeline:
         self.model = model or get_model_for(ModelTask.EXTRACTION)
         self.fallback_chars = max(120, fallback_chars)
         self._fallback_offset = 0
-        self._client = None
-
-    def _client_instance(self):
-        if self._client is None:
-            self._client = get_client()
-        return self._client
 
     def _build_query(self, spec: FieldSpec) -> str:
         return (
@@ -132,68 +125,36 @@ class RAGPipeline:
             f"{spec.field}. Instruction: {spec.instruction}"
         )
 
-    def _collect_results(self, response: Any) -> list[RetrievedChunk]:
-        output = getattr(response, "output", None)
-        if output is None and isinstance(response, Mapping):
-            output = response.get("output")
+    def _collect_results(self, entries: Sequence[Mapping[str, Any]] | None) -> list[RetrievedChunk]:
         chunks: list[RetrievedChunk] = []
-        if not output:
+        if not entries:
             return chunks
-        for item in output:
-            if item is None:
+        for res in entries:
+            if not isinstance(res, Mapping):
                 continue
-            if isinstance(item, Mapping):
-                content = item.get("content")
-            else:
-                content = getattr(item, "content", None)
-            if not content:
+            result_map = dict(res)
+            text = _result_text(result_map)
+            if not text:
                 continue
-            for entry in content:
-                if entry is None:
-                    continue
-                if isinstance(entry, Mapping):
-                    entry_type = entry.get("type")
-                    file_search = entry.get("file_search")
-                else:
-                    entry_type = getattr(entry, "type", None)
-                    file_search = getattr(entry, "file_search", None)
-                if entry_type != "file_search_results" or not file_search:
-                    continue
-                results = (
-                    file_search.get("results")
-                    if isinstance(file_search, Mapping)
-                    else None
+            score = _safe_float(result_map.get("score", 0.0))
+            file_id = result_map.get("file_id")
+            chunk_id = result_map.get("chunk_id") or result_map.get("id")
+            metadata_obj = result_map.get("metadata")
+            metadata = dict(metadata_obj) if isinstance(metadata_obj, Mapping) else None
+            source = None
+            if metadata:
+                source = metadata.get("source") or metadata.get("filename")
+            source = source or file_id or chunk_id
+            chunks.append(
+                RetrievedChunk(
+                    text=text,
+                    score=score,
+                    source_id=str(source) if source else None,
+                    file_id=file_id,
+                    chunk_id=chunk_id,
+                    metadata=metadata,
                 )
-                if not results:
-                    continue
-                for res in results:
-                    if res is None or not isinstance(res, Mapping):
-                        continue
-                    text = _result_text(res)
-                    if not text:
-                        continue
-                    score = _safe_float(res.get("score", 0.0))
-                    file_id = res.get("file_id")
-                    chunk_id = res.get("chunk_id") or res.get("id")
-                    metadata = (
-                        res.get("metadata")
-                        if isinstance(res.get("metadata"), Mapping)
-                        else None
-                    )
-                    source = None
-                    if metadata:
-                        source = metadata.get("source") or metadata.get("filename")
-                    source = source or file_id or chunk_id
-                    chunks.append(
-                        RetrievedChunk(
-                            text=text,
-                            score=score,
-                            source_id=str(source) if source else None,
-                            file_id=file_id,
-                            chunk_id=chunk_id,
-                            metadata=dict(metadata) if metadata else None,
-                        )
-                    )
+            )
         chunks.sort(key=lambda c: c.score, reverse=True)
         if len(chunks) > self.top_k:
             return chunks[: self.top_k]
@@ -227,9 +188,8 @@ class RAGPipeline:
             return [fallback] if fallback else []
         query = self._build_query(spec)
         try:
-            response = self._client_instance().responses.create(
-                model=self.model,
-                input=[
+            result = call_chat_api(
+                [
                     {
                         "role": "user",
                         "content": [
@@ -240,14 +200,15 @@ class RAGPipeline:
                         ],
                     }
                 ],
-                tools=[
-                    {"type": "file_search", "vector_store_ids": [self.vector_store_id]}
-                ],
+                model=self.model,
+                tools=[{"type": "file_search", "vector_store_ids": [self.vector_store_id]}],
                 tool_choice={"type": "file_search"},
-                max_output_tokens=1,
-                metadata={"field": spec.field},
+                max_tokens=1,
+                extra={"metadata": {"field": spec.field}},
+                task=ModelTask.EXTRACTION,
+                capture_file_search=True,
             )
-        except OpenAIError as err:  # pragma: no cover - defensive
+        except RuntimeError as err:  # pragma: no cover - defensive
             logger.warning("Vector store lookup failed for %s: %s", spec.field, err)
             fallback = self._next_fallback()
             return [fallback] if fallback else []
@@ -256,7 +217,7 @@ class RAGPipeline:
             fallback = self._next_fallback()
             return [fallback] if fallback else []
 
-        chunks = self._collect_results(response)
+        chunks = self._collect_results(result.file_search_results)
         if chunks:
             return chunks
         fallback = self._next_fallback()
@@ -311,8 +272,7 @@ def _collect_schema_fields(schema: Mapping[str, Any], prefix: str = "") -> list[
     for key, definition in props.items():
         path = f"{prefix}{key}"
         if isinstance(definition, Mapping) and (
-            definition.get("type") == "object"
-            or isinstance(definition.get("properties"), Mapping)
+            definition.get("type") == "object" or isinstance(definition.get("properties"), Mapping)
         ):
             fields.extend(_collect_schema_fields(definition, f"{path}."))
         else:
