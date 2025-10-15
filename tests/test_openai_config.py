@@ -35,6 +35,42 @@ def test_invalid_base_url_sets_flag(monkeypatch):
     assert st.session_state["openai_base_url_invalid"] is True
 
 
+def test_valid_base_url_us_does_not_set_flag(monkeypatch):
+    st.session_state.clear()
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "x", raising=False)
+    monkeypatch.setattr(es, "OPENAI_API_KEY", "x", raising=False)
+    monkeypatch.setattr(
+        config, "OPENAI_BASE_URL", "https://api.openai.com/v1", raising=False
+    )
+    monkeypatch.setattr(
+        es, "OPENAI_BASE_URL", "https://api.openai.com/v1", raising=False
+    )
+
+    try:
+        es.ensure_state()
+        assert st.session_state["openai_base_url_invalid"] is False
+    finally:
+        st.session_state.clear()
+
+
+def test_valid_base_url_eu_does_not_set_flag(monkeypatch):
+    st.session_state.clear()
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "x", raising=False)
+    monkeypatch.setattr(es, "OPENAI_API_KEY", "x", raising=False)
+    monkeypatch.setattr(
+        config, "OPENAI_BASE_URL", "https://eu.api.openai.com/v1", raising=False
+    )
+    monkeypatch.setattr(
+        es, "OPENAI_BASE_URL", "https://eu.api.openai.com/v1", raising=False
+    )
+
+    try:
+        es.ensure_state()
+        assert st.session_state["openai_base_url_invalid"] is False
+    finally:
+        st.session_state.clear()
+
+
 def test_ensure_state_normalises_legacy_models():
     st.session_state.clear()
     st.session_state["model"] = "gpt-4o"
