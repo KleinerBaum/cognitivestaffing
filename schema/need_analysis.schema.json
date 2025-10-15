@@ -78,21 +78,7 @@
                     ]
                 }
             },
-            "type": "object",
-            "required": [
-                "name",
-                "brand_name",
-                "industry",
-                "hq_location",
-                "size",
-                "website",
-                "mission",
-                "culture",
-                "contact_name",
-                "contact_email",
-                "contact_phone",
-                "brand_keywords"
-            ]
+            "type": "object"
         },
         "position": {
             "additionalProperties": false,
@@ -182,23 +168,7 @@
                     ]
                 }
             },
-            "type": "object",
-            "required": [
-                "job_title",
-                "seniority_level",
-                "department",
-                "team_structure",
-                "reporting_line",
-                "role_summary",
-                "occupation_label",
-                "occupation_uri",
-                "occupation_group",
-                "supervises",
-                "performance_indicators",
-                "decision_authority",
-                "key_projects",
-                "team_size"
-            ]
+            "type": "object"
         },
         "location": {
             "additionalProperties": false,
@@ -222,12 +192,7 @@
                     ]
                 }
             },
-            "type": "object",
-            "required": [
-                "primary_city",
-                "country",
-                "onsite_ratio"
-            ]
+            "type": "object"
         },
         "responsibilities": {
             "additionalProperties": false,
@@ -239,10 +204,7 @@
                     "type": "array"
                 }
             },
-            "type": "object",
-            "required": [
-                "items"
-            ]
+            "type": "object"
         },
         "requirements": {
             "additionalProperties": false,
@@ -308,19 +270,7 @@
                     ]
                 }
             },
-            "type": "object",
-            "required": [
-                "hard_skills_required",
-                "hard_skills_optional",
-                "soft_skills_required",
-                "soft_skills_optional",
-                "tools_and_technologies",
-                "languages_required",
-                "languages_optional",
-                "certificates",
-                "certifications",
-                "language_level_english"
-            ]
+            "type": "object"
         },
         "employment": {
             "additionalProperties": false,
@@ -434,27 +384,7 @@
                     ]
                 }
             },
-            "type": "object",
-            "required": [
-                "job_type",
-                "work_policy",
-                "contract_type",
-                "work_schedule",
-                "remote_percentage",
-                "contract_end",
-                "travel_required",
-                "travel_share",
-                "travel_region_scope",
-                "travel_regions",
-                "travel_continents",
-                "travel_details",
-                "overtime_expected",
-                "relocation_support",
-                "relocation_details",
-                "visa_sponsorship",
-                "security_clearance_required",
-                "shift_work"
-            ]
+            "type": "object"
         },
         "compensation": {
             "additionalProperties": false,
@@ -517,19 +447,7 @@
                     "type": "array"
                 }
             },
-            "type": "object",
-            "required": [
-                "salary_provided",
-                "salary_min",
-                "salary_max",
-                "currency",
-                "period",
-                "variable_pay",
-                "bonus_percentage",
-                "commission_structure",
-                "equity_offered",
-                "benefits"
-            ]
+            "type": "object"
         },
         "process": {
             "additionalProperties": false,
@@ -569,10 +487,7 @@
                         },
                         "required": [
                             "name",
-                            "role",
-                            "email",
-                            "primary",
-                            "information_loop_phases"
+                            "role"
                         ],
                         "type": "object"
                     },
@@ -623,13 +538,7 @@
                             }
                         },
                         "required": [
-                            "name",
-                            "interview_format",
-                            "participants",
-                            "docs_required",
-                            "assessment_tests",
-                            "timeframe",
-                            "task_assignments"
+                            "name"
                         ],
                         "type": "object"
                     },
@@ -660,16 +569,7 @@
                     ]
                 }
             },
-            "type": "object",
-            "required": [
-                "interview_stages",
-                "stakeholders",
-                "phases",
-                "recruitment_timeline",
-                "process_notes",
-                "application_instructions",
-                "onboarding_process"
-            ]
+            "type": "object"
         },
         "meta": {
             "additionalProperties": false,
@@ -693,26 +593,10 @@
                     "type": "array"
                 }
             },
-            "type": "object",
-            "required": [
-                "target_start_date",
-                "application_deadline",
-                "followups_answered"
-            ]
+            "type": "object"
         }
     },
     "type": "object",
-    "required": [
-        "company",
-        "position",
-        "location",
-        "responsibilities",
-        "requirements",
-        "employment",
-        "compensation",
-        "process",
-        "meta"
-    ],
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "NeedAnalysisProfile"
 }

@@ -178,7 +178,7 @@ def build_function_tools(
             if key == "callable":
                 if value is not None and not callable(value):
                     raise TypeError(f"Callable for tool '{name}' must be callable")
-                callable_obj = value  # type: ignore[assignment]
+                callable_obj = value
                 continue
             function_payload[key] = deepcopy(value)
 
