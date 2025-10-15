@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- chore: raise OpenAI SDK minimum to 1.99.3 to stay compatible with updated Responses stream events (EN/DE)
+  - Chore: hebt die Mindestversion des OpenAI-SDKs auf 1.99.3 an, um mit den aktualisierten Responses-Streaming-Ereignissen kompatibel zu bleiben (DE/EN)
 - feat: re-enable ESCO occupation + essential skill seeding in follow-up question logic (EN)
   - Feature: reaktiviert ESCO-Beruf- und Kernkompetenz-Vorschläge in der Follow-up-Logik (DE)
 - chore: consolidate dependency management under `requirements.txt` and drop setup-based installs (EN/DE)
