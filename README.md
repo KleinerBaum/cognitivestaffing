@@ -85,7 +85,10 @@ You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_RE
 
 ### 5. (Optional) Configure OCR & branding
 - Set `OCR_BACKEND=none` to disable OCR (default). Provide `OCR_BACKEND=openai` to use OpenAI Vision for image/PDF parsing.
-- Upload your own logo and colors via the UI branding controls, or adjust the themes in `styles/`.
+- Use the sidebar **⚙️ Einstellungen / Settings** section to switch between the built-in dark 🌙 and light ☀️ themes.
+- Upload your company logo via the **Logo hochladen (optional) / Upload logo (optional)** control in the Company step.
+> **EN:** Additional color tweaks require editing `styles/cognitive_needs.css` (dark) and `styles/cognitive_needs_light.css` (light); there is no in-app color picker.
+> **DE:** Für weitere Farbänderungen musst du `styles/cognitive_needs.css` (Dark Theme) und `styles/cognitive_needs_light.css` (Light Theme) anpassen; ein Farb-Picker ist derzeit nicht vorhanden.
 
 ### 6. Launch the app
 ```bash
