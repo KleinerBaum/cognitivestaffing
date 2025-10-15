@@ -60,6 +60,64 @@ _MODELS_WITHOUT_TEMPERATURE: set[str] = set()
 _USAGE_LOCK = Lock()
 
 
+_VERBOSITY_HINTS: dict[str, str] = {
+    "low": (
+        "Antwort-Detailgrad: Halte dich extrem kurz und fokussiere dich auf zwingend notwendige Fakten.\n"
+        "Verbosity preference: Respond very concisely and only cover essential information."
+    ),
+    "medium": (
+        "Antwort-Detailgrad: Formuliere prägnante, aber informative Antworten mit kurzen Erläuterungen.\n"
+        "Verbosity preference: Provide balanced answers that stay concise while offering brief clarifications."
+    ),
+    "high": (
+        "Antwort-Detailgrad: Liefere ausführliche, wohlstrukturierte Antworten mit nachvollziehbarer Begründung.\n"
+        "Verbosity preference: Respond with thorough, well-structured explanations that include relevant reasoning."
+    ),
+}
+
+_VERBOSITY_FORMAT_GUARD = (
+    "Formatanforderung: Wenn ein strukturiertes Format (z. B. JSON oder Markdown) vorgegeben ist, halte dich strikt daran und "
+    "füge keine Meta-Kommentare hinzu.\n"
+    "Format requirement: When a structured format (e.g. JSON or Markdown) is requested, follow it exactly and avoid adding "
+    "extra meta comments."
+)
+
+
+def _resolve_verbosity(value: Optional[str]) -> str:
+    """Return the active verbosity preference for the current session."""
+
+    if value is None:
+        return get_active_verbosity()
+    return normalise_verbosity(value, default=VERBOSITY)
+
+
+def _inject_verbosity_hint(
+    messages: Sequence[Mapping[str, Any]],
+    level: str,
+) -> list[dict[str, Any]]:
+    """Return ``messages`` with an additional system hint for ``level``."""
+
+    hint = _VERBOSITY_HINTS.get(level)
+    if not hint:
+        return [dict(message) for message in messages]
+
+    instruction = f"{hint}\n{_VERBOSITY_FORMAT_GUARD}".strip()
+
+    new_messages: list[dict[str, Any]] = []
+    inserted = False
+    for message in messages:
+        new_messages.append(dict(message))
+        role = str(message.get("role", "")).strip().lower()
+        if not inserted and role == "system":
+            new_messages.append({"role": "system", "content": instruction})
+            inserted = True
+
+    if not inserted:
+        new_messages.insert(0, {"role": "system", "content": instruction})
+
+    return new_messages
+
+
 def _normalise_model_name(model: Optional[str]) -> str:
     """Return ``model`` as a lower-cased identifier without surrounding whitespace."""
 
@@ -561,7 +619,6 @@ def _prepare_payload(
     tool_choice: Optional[Any],
     tool_functions: Optional[Mapping[str, Callable[..., Any]]],
     reasoning_effort: Optional[str],
-    verbosity: Optional[str],
     extra: Optional[dict],
     include_analysis_tools: bool = True,
     task: ModelTask | str | None = None,
@@ -585,10 +642,6 @@ def _prepare_payload(
             model = base_model
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
-    if verbosity is None:
-        verbosity = get_active_verbosity()
-    else:
-        verbosity = normalise_verbosity(verbosity, default=VERBOSITY)
 
     def _normalise_tool_spec(spec: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         """Return a copy of ``spec`` normalised to the Responses API schema."""
@@ -698,8 +751,6 @@ def _prepare_payload(
         payload["temperature"] = temperature
     if model_supports_reasoning(model):
         payload["reasoning"] = {"effort": reasoning_effort}
-    if verbosity:
-        payload["verbosity"] = verbosity
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
@@ -928,8 +979,10 @@ def _call_chat_api_single(
 ) -> ChatCallResult:
     """Execute a single chat completion call with optional tool handling."""
 
+    messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
+
     payload, model, tools, tool_functions = _prepare_payload(
-        messages,
+        messages_with_hint,
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
@@ -938,13 +991,12 @@ def _call_chat_api_single(
         tool_choice=tool_choice,
         tool_functions=tool_functions,
         reasoning_effort=reasoning_effort,
-        verbosity=verbosity,
         extra=extra,
         task=task,
         previous_response_id=previous_response_id,
     )
 
-    messages_list = list(messages)
+    messages_list = list(messages_with_hint)
 
     accumulated_usage: dict[str, int] = {}
     last_tool_calls: list[dict] = []
@@ -1227,8 +1279,10 @@ def stream_chat_api(
     partially-executed tool calls.
     """
 
+    messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
+
     payload, model_name, tools, tool_functions = _prepare_payload(
-        messages,
+        messages_with_hint,
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
@@ -1237,7 +1291,6 @@ def stream_chat_api(
         tool_choice=None,
         tool_functions=None,
         reasoning_effort=reasoning_effort,
-        verbosity=verbosity,
         extra=extra,
         include_analysis_tools=False,
         task=task,
