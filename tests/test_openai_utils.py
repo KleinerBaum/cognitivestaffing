@@ -995,6 +995,42 @@ def test_build_extraction_tool_has_name_and_parameters():
     assert fn_payload["strict"] is True
 
 
+def test_build_extraction_tool_auto_describes_schema_fields() -> None:
+    """Automatically generated description should mention key schema fields."""
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "requirements": {
+                "type": "object",
+                "properties": {
+                    "hard_skills_required": {"type": "array", "items": {"type": "string"}},
+                    "soft_skills_required": {"type": "array", "items": {"type": "string"}},
+                    "languages_required": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            "role_summary": {"type": "string"},
+        },
+    }
+
+    tool = openai_utils.build_extraction_tool("extract", schema)
+    description = tool[0]["function"]["description"]
+
+    assert "requirements.hard_skills_required" in description
+    assert "requirements.soft_skills_required" in description
+    assert "requirements.languages_required" in description
+
+
+def test_build_extraction_tool_allows_custom_description() -> None:
+    """Callers can provide a tailored description for the tool."""
+
+    schema = {"type": "object", "properties": {"salary": {"type": "string"}}}
+    custom_description = "Estimate annual salary bands for the vacancy."
+
+    tool = openai_utils.build_extraction_tool("salary", schema, description=custom_description)
+    assert tool[0]["function"]["description"] == custom_description
+
+
 def test_build_function_tools_normalises_specs() -> None:
     """Helper should inject tool names and copy parameters."""
 
