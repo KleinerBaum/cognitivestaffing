@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from constants.keys import StateKeys
 from config import (
+    GPT5_MINI,
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     REASONING_EFFORT,
@@ -25,6 +26,9 @@ from config import (
 )
 from core.schema import ALIASES, coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
+
+
+import config as app_config
 
 
 logger = logging.getLogger(__name__)
@@ -111,11 +115,17 @@ def ensure_state() -> None:
         st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = {}
     if "lang" not in st.session_state:
         st.session_state["lang"] = "en"
+    canonical_model = normalise_model_name(app_config.OPENAI_MODEL) or GPT5_MINI
+    if app_config.OPENAI_MODEL != canonical_model:
+        app_config.OPENAI_MODEL = canonical_model
+    global OPENAI_MODEL
+    OPENAI_MODEL = canonical_model
+
     if "model" not in st.session_state:
-        st.session_state["model"] = OPENAI_MODEL
+        st.session_state["model"] = canonical_model
     else:
         current_model = normalise_model_name(st.session_state.get("model"))
-        st.session_state["model"] = current_model or OPENAI_MODEL
+        st.session_state["model"] = current_model or canonical_model
     if "model_override" not in st.session_state:
         st.session_state["model_override"] = ""
     else:

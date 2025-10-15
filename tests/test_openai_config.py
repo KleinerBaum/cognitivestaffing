@@ -1,7 +1,15 @@
 import importlib
+import sys
+from pathlib import Path
+
+import pytest
+import streamlit as st
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 import config
-import streamlit as st
 
 from constants.keys import StateKeys
 from models.need_analysis import NeedAnalysisProfile
@@ -66,3 +74,21 @@ def test_ensure_state_salvages_profile_with_extra_fields():
     assert result["meta"]["target_start_date"] == "2024-11-01"
     assert "unknown_section" not in result
     assert "invalid_field" not in result["company"]
+
+
+@pytest.mark.parametrize("model_alias", ["gpt-5-mini", "GPT-5-MINI"])
+def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_alias):
+    st.session_state.clear()
+    monkeypatch.setattr(
+        st,
+        "secrets",
+        {"openai": {"OPENAI_MODEL": model_alias}},
+        raising=False,
+    )
+    monkeypatch.setattr(config, "OPENAI_MODEL", model_alias, raising=False)
+    monkeypatch.setattr(es, "OPENAI_MODEL", model_alias, raising=False)
+
+    es.ensure_state()
+
+    assert config.OPENAI_MODEL == config.GPT5_MINI
+    assert st.session_state["model"] == config.GPT5_MINI
