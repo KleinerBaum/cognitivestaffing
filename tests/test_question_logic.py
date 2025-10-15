@@ -132,6 +132,26 @@ def test_language_level_question(monkeypatch) -> None:
     assert "English" in out[0]["question"]
 
 
+def test_missing_city_triggers_followup() -> None:
+    """Omitting the city should yield a critical follow-up question."""
+    assert "location.primary_city" in CRITICAL_FIELDS
+
+    profile = {
+        "company": {"name": "ACME"},
+        "position": {"job_title": "Engineer", "role_summary": "Build products"},
+        "location": {"country": "DE"},
+        "requirements": {
+            "hard_skills_required": ["Python"],
+            "soft_skills_required": ["Teamwork"],
+        },
+    }
+
+    out = generate_followup_questions(profile, use_rag=False)
+    city_question = next(q for q in out if q["field"] == "location.primary_city")
+    assert city_question["priority"] == "critical"
+    assert "city" in city_question["question"].lower()
+
+
 def test_rag_suggestions_merge(monkeypatch) -> None:
     """RAG suggestions should populate the suggestions list."""
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"location.primary_city"})

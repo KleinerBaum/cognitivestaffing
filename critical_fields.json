@@ -3,6 +3,7 @@
         "company.name",
         "position.job_title",
         "position.role_summary",
+        "location.primary_city",
         "location.country",
         "requirements.hard_skills_required",
         "requirements.soft_skills_required"
