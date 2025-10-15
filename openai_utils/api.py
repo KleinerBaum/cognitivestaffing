@@ -709,11 +709,13 @@ class ChatCallResult:
         content: Text content returned by the model, if any.
         tool_calls: List of tool call payloads.
         usage: Token usage information.
+        response_id: Identifier assigned by the OpenAI API, when available.
     """
 
     content: Optional[str]
     tool_calls: list[dict]
     usage: dict
+    response_id: str | None = None
     raw_response: Any | None = None
     file_search_results: Optional[list[dict[str, Any]]] = None
     secondary_content: Optional[str] = None
@@ -722,6 +724,7 @@ class ChatCallResult:
     comparison: Optional[dict[str, Any]] = None
     secondary_raw_response: Any | None = None
     secondary_file_search_results: Optional[list[dict[str, Any]]] = None
+    secondary_response_id: str | None = None
 
 
 ComparisonBuilder = Callable[["ChatCallResult", "ChatCallResult"], Mapping[str, Any]]
@@ -760,7 +763,13 @@ class ChatStream(Iterable[str]):
         content = _extract_output_text(response)
         usage = _normalise_usage(getattr(response, "usage", {}) or {})
         _update_usage_counters(usage, task=self._task)
-        self._result = ChatCallResult(content, tool_calls, usage)
+        response_id = getattr(response, "id", None)
+        self._result = ChatCallResult(
+            content,
+            tool_calls,
+            usage,
+            response_id=response_id,
+        )
 
     @property
     def result(self) -> ChatCallResult:
@@ -934,10 +943,12 @@ def _call_chat_api_single(
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
+            response_id = getattr(response, "id", None)
             return ChatCallResult(
                 content,
                 result_tool_calls,
                 merged_usage,
+                response_id=response_id,
                 raw_response=response if include_raw_response else None,
                 file_search_results=file_search_results if file_search_results else None,
             )
@@ -978,10 +989,12 @@ def _call_chat_api_single(
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
+            response_id = getattr(response, "id", None)
             return ChatCallResult(
                 content,
                 result_tool_calls,
                 merged_usage,
+                response_id=response_id,
                 raw_response=response if include_raw_response else None,
                 file_search_results=file_search_results if file_search_results else None,
             )
@@ -1117,6 +1130,7 @@ def call_chat_api(
         content=primary_result.content,
         tool_calls=list(primary_result.tool_calls),
         usage=combined_usage,
+        response_id=primary_result.response_id,
         secondary_content=secondary_result.content,
         secondary_tool_calls=list(secondary_result.tool_calls),
         secondary_usage=dict(secondary_result.usage or {}),
@@ -1125,6 +1139,7 @@ def call_chat_api(
         file_search_results=primary_result.file_search_results,
         secondary_raw_response=secondary_result.raw_response,
         secondary_file_search_results=secondary_result.file_search_results,
+        secondary_response_id=secondary_result.response_id,
     )
 
 
