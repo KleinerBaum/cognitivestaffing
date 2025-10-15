@@ -126,6 +126,36 @@ _DEFAULT_CURRENCY_BY_ISO: dict[str, str] = {
 }
 
 
+def _coerce_logo_bytes(data: Any) -> bytes | None:
+    """Return ``data`` as ``bytes`` when it looks like a logo payload."""
+
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+    return None
+
+
+def _set_company_logo(data: bytes | bytearray | None) -> None:
+    """Persist logo ``data`` under shared session keys for reuse."""
+
+    logo_bytes = _coerce_logo_bytes(data)
+    st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_bytes
+    st.session_state["company_logo"] = logo_bytes
+
+
+def _get_company_logo_bytes() -> bytes | None:
+    """Return the stored company logo, synchronising legacy keys."""
+
+    shared_logo = _coerce_logo_bytes(st.session_state.get(StateKeys.JOB_AD_LOGO_DATA))
+    if shared_logo is not None:
+        st.session_state["company_logo"] = shared_logo
+        return shared_logo
+
+    legacy_logo = _coerce_logo_bytes(st.session_state.get("company_logo"))
+    st.session_state["company_logo"] = legacy_logo
+    st.session_state[StateKeys.JOB_AD_LOGO_DATA] = legacy_logo
+    return legacy_logo
+
+
 @dataclass(frozen=True)
 class _SalaryRangeDefaults:
     """Container for slider defaults."""
@@ -6081,41 +6111,61 @@ def _step_company():
         value=company.get("brand_name", ""),
         placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
     )
-    brand_upload = brand_cols[1].file_uploader(
-        tr("Branding-Assets", "Brand assets"),
-        type=["png", "jpg", "jpeg", "svg", "pdf"],
-        key=UIKeys.COMPANY_BRANDING_UPLOAD,
-    )
-    if brand_upload is not None:
-        st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
-            "name": brand_upload.name,
-            "type": brand_upload.type,
-            "data": brand_upload.getvalue(),
-        }
 
-    branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
-    if branding_asset:
-        asset_name = branding_asset.get("name") or tr("Hochgeladene Datei", "Uploaded file")
-        brand_cols[1].caption(
-            tr(
-                "Aktuelle Datei: {name}",
-                "Current asset: {name}",
-            ).format(name=asset_name)
+    with brand_cols[1]:
+        brand_upload = st.file_uploader(
+            tr("Branding-Assets", "Brand assets"),
+            type=["png", "jpg", "jpeg", "svg", "pdf"],
+            key=UIKeys.COMPANY_BRANDING_UPLOAD,
         )
-        if isinstance(branding_asset.get("data"), (bytes, bytearray)) and str(
-            branding_asset.get("type", "")
-        ).startswith("image/"):
+        if brand_upload is not None:
+            st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
+                "name": brand_upload.name,
+                "type": brand_upload.type,
+                "data": brand_upload.getvalue(),
+            }
+
+        branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
+        if branding_asset:
+            asset_name = branding_asset.get("name") or tr("Hochgeladene Datei", "Uploaded file")
+            st.caption(
+                tr(
+                    "Aktuelle Datei: {name}",
+                    "Current asset: {name}",
+                ).format(name=asset_name)
+            )
+            if isinstance(branding_asset.get("data"), (bytes, bytearray)) and str(
+                branding_asset.get("type", "")
+            ).startswith("image/"):
+                try:
+                    st.image(branding_asset["data"], width=160)
+                except Exception:  # pragma: no cover - graceful fallback
+                    pass
+            if st.button(
+                tr("Datei entfernen", "Remove file"),
+                key="company.branding.remove",
+            ):
+                st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
+                st.session_state.pop(UIKeys.COMPANY_BRANDING_UPLOAD, None)
+                st.rerun()
+
+        logo_upload = st.file_uploader(
+            tr("Logo hochladen (optional)", "Upload logo (optional)"),
+            type=["png", "jpg", "jpeg", "svg"],
+            key=UIKeys.COMPANY_LOGO,
+        )
+        if logo_upload is not None:
+            _set_company_logo(logo_upload.getvalue())
+
+        logo_bytes = _get_company_logo_bytes()
+        if logo_bytes:
             try:
-                brand_cols[1].image(branding_asset["data"], width=160)
-            except Exception:  # pragma: no cover - graceful fallback
-                pass
-        if brand_cols[1].button(
-            tr("Datei entfernen", "Remove file"),
-            key="company.branding.remove",
-        ):
-            st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
-            st.session_state.pop(UIKeys.COMPANY_BRANDING_UPLOAD, None)
-            st.rerun()
+                st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=160)
+            except Exception:
+                st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
+            if st.button(tr("Logo entfernen", "Remove logo"), key="company.logo.remove"):
+                _set_company_logo(None)
+                st.rerun()
 
     # Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
@@ -8448,9 +8498,12 @@ def _summary_company() -> None:
         value=st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS, ""),
         key=UIKeys.COMPANY_BRAND_KEYWORDS,
     )
-    logo_bytes = st.session_state.get("company_logo")
+    logo_bytes = _get_company_logo_bytes()
     if logo_bytes:
-        st.image(logo_bytes, width=120)
+        try:
+            st.image(logo_bytes, width=120)
+        except Exception:
+            st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
 
     _update_profile("company.name", name)
     _update_profile("company.industry", industry)
@@ -9381,15 +9434,15 @@ def _step_summary(schema: dict, _critical: list[str]):
             key=UIKeys.JOB_AD_LOGO_UPLOAD,
         )
         if logo_file is not None:
-            st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_file.getvalue()
-        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+            _set_company_logo(logo_file.getvalue())
+        logo_bytes = _get_company_logo_bytes()
         if logo_bytes:
             try:
                 st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180)
             except Exception:
                 st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
             if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
-                st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
+                _set_company_logo(None)
                 st.rerun()
 
     st.divider()
@@ -9556,7 +9609,7 @@ def _step_summary(schema: dict, _critical: list[str]):
 
         format_choice = st.session_state.get(UIKeys.JOB_AD_FORMAT, "markdown")
         font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+        logo_bytes = _get_company_logo_bytes()
         company_name = (
             profile.company.brand_name
             or profile.company.name
@@ -9674,7 +9727,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
         guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
         font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-        logo_bytes = st.session_state.get(StateKeys.JOB_AD_LOGO_DATA)
+        logo_bytes = _get_company_logo_bytes()
         guide_title = profile.position.job_title or "interview-guide"
         safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-") or "interview-guide"
         export_font = font_choice if guide_format in {"docx", "pdf"} else None

@@ -84,9 +84,7 @@ def text_to_pdf(
             top_margin = 72
 
     if title:
-        title_rect = fitz.Rect(
-            left_margin, top_margin, page.rect.width - left_margin, top_margin + 40
-        )
+        title_rect = fitz.Rect(left_margin, top_margin, page.rect.width - left_margin, top_margin + 40)
         page.insert_textbox(
             title_rect,
             title,
