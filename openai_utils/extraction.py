@@ -61,6 +61,7 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
             return True
     return False
 
+
 tracer = trace.get_tracer(__name__)
 
 
@@ -196,20 +197,29 @@ class ExtractionResult:
 
 
 def _extract_tool_arguments(result: api.ChatCallResult) -> str | None:
-    """Return the raw ``arguments`` string from the first tool call."""
+    """Return the raw tool payload from the first call, preferring ``input``."""
 
     for call in result.tool_calls or []:
         func = call.get("function") if isinstance(call, dict) else None
         if func is None and isinstance(call, dict):
-            # ``call_chat_api`` normalises responses, but keep a fallback.
             func = {
                 "arguments": call.get("arguments"),
+                "input": call.get("input"),
             }
         if not func:
             continue
-        args = func.get("arguments")
-        if isinstance(args, str) and args.strip():
-            return args
+        payload = func.get("input")
+        if payload is None:
+            payload = func.get("arguments")
+        if isinstance(payload, str):
+            text = payload.strip()
+            if text:
+                return text
+        elif payload is not None:
+            try:
+                return json.dumps(payload)
+            except TypeError:
+                continue
     return None
 
 
@@ -314,17 +324,14 @@ def extract_with_function(
             updated = dict(message)
             if index == 0:
                 updated["content"] = (
-                    f"{message.get('content', '')}"
-                    " Return only valid JSON that conforms exactly to the provided schema."
+                    f"{message.get('content', '')} Return only valid JSON that conforms exactly to the provided schema."
                 )
             retry_messages.append(updated)
         if not retry_messages:
             retry_messages = [
                 {
                     "role": "system",
-                    "content": (
-                        "Return only valid JSON that conforms exactly to the provided schema."
-                    ),
+                    "content": ("Return only valid JSON that conforms exactly to the provided schema."),
                 },
                 {"role": "user", "content": user_payload},
             ]
@@ -438,12 +445,8 @@ def suggest_additional_skills(
     try:
         data = json.loads(answer)
         if isinstance(data, dict):
-            tech_skills = [
-                str(s).strip() for s in data.get("technical", []) if str(s).strip()
-            ]
-            soft_skills = [
-                str(s).strip() for s in data.get("soft", []) if str(s).strip()
-            ]
+            tech_skills = [str(s).strip() for s in data.get("technical", []) if str(s).strip()]
+            soft_skills = [str(s).strip() for s in data.get("soft", []) if str(s).strip()]
     except Exception:
         bucket = "tech"
         for line in answer.splitlines():
@@ -453,9 +456,7 @@ def suggest_additional_skills(
             if skill.lower().startswith("soft"):
                 bucket = "soft"
                 continue
-            if skill.lower().startswith("technical") or skill.lower().startswith(
-                "technische"
-            ):
+            if skill.lower().startswith("technical") or skill.lower().startswith("technische"):
                 bucket = "tech"
                 continue
             if bucket == "tech":
@@ -466,19 +467,9 @@ def suggest_additional_skills(
     try:
         from core.esco_utils import normalize_skills
 
-        existing_norm = {
-            s.lower() for s in normalize_skills(existing_skills, lang=lang)
-        }
-        tech_skills = [
-            s
-            for s in normalize_skills(tech_skills, lang=lang)
-            if s.lower() not in existing_norm
-        ]
-        soft_skills = [
-            s
-            for s in normalize_skills(soft_skills, lang=lang)
-            if s.lower() not in existing_norm
-        ]
+        existing_norm = {s.lower() for s in normalize_skills(existing_skills, lang=lang)}
+        tech_skills = [s for s in normalize_skills(tech_skills, lang=lang) if s.lower() not in existing_norm]
+        soft_skills = [s for s in normalize_skills(soft_skills, lang=lang) if s.lower() not in existing_norm]
     except Exception:
         existing_lower = {s.lower() for s in existing_skills}
         tech_skills = [s for s in tech_skills if s.lower() not in existing_lower]
@@ -528,11 +519,7 @@ def suggest_skills_for_role(
             "'certificates'."
         )
         if focus_terms:
-            prompt += (
-                " Berücksichtige diese Schwerpunkte bei der Auswahl: "
-                + ", ".join(focus_terms)
-                + "."
-            )
+            prompt += " Berücksichtige diese Schwerpunkte bei der Auswahl: " + ", ".join(focus_terms) + "."
     else:
         prompt = (
             "List exactly 12 IT technologies, 12 hard skills, 12 soft skills, "
@@ -542,11 +529,7 @@ def suggest_skills_for_role(
             "'certificates'."
         )
         if focus_terms:
-            prompt += (
-                " Prioritise options connected to: "
-                + ", ".join(focus_terms)
-                + "."
-            )
+            prompt += " Prioritise options connected to: " + ", ".join(focus_terms) + "."
 
     messages = [{"role": "user", "content": prompt}]
     res = api.call_chat_api(
@@ -595,9 +578,7 @@ def suggest_skills_for_role(
     def _clean(items: Any) -> list[str]:
         if not isinstance(items, list):
             return []
-        cleaned = [
-            str(it).strip() for it in items if isinstance(it, str) and it.strip()
-        ]
+        cleaned = [str(it).strip() for it in items if isinstance(it, str) and it.strip()]
         return cleaned[:12]
 
     tools = _clean(data.get("tools_and_technologies"))
@@ -671,26 +652,16 @@ def suggest_benefits(
         if existing_benefits:
             prompt += f"Bereits aufgelistet: {existing_benefits}"
         if focus_areas:
-            prompt += (
-                " Betone folgende Kategorien besonders: "
-                + ", ".join(focus_areas)
-                + "."
-            )
+            prompt += " Betone folgende Kategorien besonders: " + ", ".join(focus_areas) + "."
     else:
-        prompt = (
-            f"List up to 5 benefits or perks commonly offered for a {job_title} role"
-        )
+        prompt = f"List up to 5 benefits or perks commonly offered for a {job_title} role"
         if industry:
             prompt += f" in the {industry} industry"
         prompt += ". Respond as a JSON array and avoid mentioning any benefit already listed below.\n"
         if existing_benefits:
             prompt += f"Already listed: {existing_benefits}"
         if focus_areas:
-            prompt += (
-                " Emphasise the following categories: "
-                + ", ".join(focus_areas)
-                + "."
-            )
+            prompt += " Emphasise the following categories: " + ", ".join(focus_areas) + "."
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "nano" in model else 200
     res = api.call_chat_api(
@@ -760,9 +731,7 @@ def suggest_benefits(
     return unique
 
 
-def suggest_role_tasks(
-    job_title: str, num_tasks: int = 5, model: str | None = None
-) -> list[str]:
+def suggest_role_tasks(job_title: str, num_tasks: int = 5, model: str | None = None) -> list[str]:
     """Suggest a list of key responsibilities/tasks for a given job title.
 
     Args:
@@ -849,10 +818,7 @@ def suggest_onboarding_plans(
             "\nFormatiere die Ausgabe als JSON-Array mit genau fünf String-Elementen."
         )
     else:
-        prompt = (
-            "You are an HR expert. Devise five concise, actionable onboarding "
-            "initiatives for a new hire."
-        )
+        prompt = "You are an HR expert. Devise five concise, actionable onboarding initiatives for a new hire."
         prompt += f"\nRole: {job_title}."
         if company_name:
             prompt += f"\nCompany: {company_name}."
@@ -907,15 +873,11 @@ def suggest_onboarding_plans(
     elif isinstance(payload, list):
         suggestions_payload = payload
 
-    if not isinstance(suggestions_payload, Sequence) or isinstance(
-        suggestions_payload, (str, bytes)
-    ):
+    if not isinstance(suggestions_payload, Sequence) or isinstance(suggestions_payload, (str, bytes)):
         suggestions_payload = []
 
     try:
-        suggestions = [
-            str(item).strip() for item in suggestions_payload if str(item).strip()
-        ]
+        suggestions = [str(item).strip() for item in suggestions_payload if str(item).strip()]
     except Exception:
         for line in answer.splitlines():
             item = line.strip("-•* \t")
@@ -1200,10 +1162,7 @@ def _build_deterministic_interview_guide(
 
     metadata = InterviewGuideMetadata(
         language="de" if is_de else "en",
-        heading=(
-            _tr("Interviewleitfaden", "Interview Guide")
-            + f" – {job_title_text}"
-        ),
+        heading=(_tr("Interviewleitfaden", "Interview Guide") + f" – {job_title_text}"),
         job_title=job_title_text,
         audience=audience,
         audience_label=audience_display,
@@ -1274,10 +1233,7 @@ def _prepare_interview_guide_payload(
         "hard_skills": hard_list,
         "soft_skills": soft_list,
         "seed_focus_areas": [area.model_dump() for area in fallback.focus_areas],
-        "sample_questions": [
-            question.model_dump()
-            for question in fallback.questions[: max(3, min(6, num_questions))]
-        ],
+        "sample_questions": [question.model_dump() for question in fallback.questions[: max(3, min(6, num_questions))]],
         "evaluation_note_examples": list(fallback.evaluation_notes),
     }
 
@@ -1334,12 +1290,7 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
     ]
 
     context_json = json.dumps(payload, ensure_ascii=False, indent=2)
-    user_message = (
-        "\n".join(instruction_lines)
-        + "\n\nContext:\n```json\n"
-        + context_json
-        + "\n```"
-    )
+    user_message = "\n".join(instruction_lines) + "\n\nContext:\n```json\n" + context_json + "\n```"
 
     return [
         {"role": "system", "content": system_msg},
@@ -1434,16 +1385,13 @@ def _prepare_job_ad_payload(
         raise ValueError("No usable fields selected for job ad generation.")
 
     field_map = {field.key: field for field in JOB_AD_FIELDS}
-    group_labels = {
-        key: (labels[0] if is_de else labels[1])
-        for key, labels in JOB_AD_GROUP_LABELS.items()
-    }
+    group_labels = {key: (labels[0] if is_de else labels[1]) for key, labels in JOB_AD_GROUP_LABELS.items()}
 
     def _resolve(path: str) -> Any:
         if path in data:
             return data[path]
         cursor: Any = data
-        for part in path.split('.'):
+        for part in path.split("."):
             if isinstance(cursor, Mapping) and part in cursor:
                 cursor = cursor[part]
             else:
@@ -1454,7 +1402,7 @@ def _prepare_job_ad_payload(
         if isinstance(value, list):
             items = [str(item).strip() for item in value if str(item).strip()]
         elif isinstance(value, str):
-            items = [part.strip() for part in value.replace('\r', '').splitlines() if part.strip()]
+            items = [part.strip() for part in value.replace("\r", "").splitlines() if part.strip()]
         else:
             items = []
         return items
@@ -1501,7 +1449,7 @@ def _prepare_job_ad_payload(
         for key, value in values_map.items():
             if not isinstance(key, str) or not key.startswith(prefix):
                 continue
-            suffix = key[len(prefix):]
+            suffix = key[len(prefix) :]
             try:
                 index = int(suffix)
             except ValueError:
@@ -1691,11 +1639,7 @@ def _prepare_job_ad_payload(
     company_display = company_brand or company_name
 
     if job_title_value and company_display:
-        heading = (
-            f"# {job_title_value} bei {company_display}"
-            if is_de
-            else f"# {job_title_value} at {company_display}"
-        )
+        heading = f"# {job_title_value} bei {company_display}" if is_de else f"# {job_title_value} at {company_display}"
     elif job_title_value:
         heading = f"# {job_title_value}"
     elif company_display:
@@ -1746,9 +1690,7 @@ def _prepare_job_ad_payload(
     if raw_brand_keywords in (None, "", []):
         raw_brand_keywords = _resolve("company.brand_keywords")
     if isinstance(raw_brand_keywords, list):
-        brand_keywords_value: str | list[str] = [
-            str(item).strip() for item in raw_brand_keywords if str(item).strip()
-        ]
+        brand_keywords_value: str | list[str] = [str(item).strip() for item in raw_brand_keywords if str(item).strip()]
     elif isinstance(raw_brand_keywords, str):
         brand_keywords_value = raw_brand_keywords.strip()
     elif raw_brand_keywords is None:
@@ -1786,9 +1728,7 @@ def _prepare_job_ad_payload(
         )
 
     brand_keywords_text = (
-        ", ".join(brand_keywords_value)
-        if isinstance(brand_keywords_value, list)
-        else str(brand_keywords_value).strip()
+        ", ".join(brand_keywords_value) if isinstance(brand_keywords_value, list) else str(brand_keywords_value).strip()
     )
 
     if audience_text:
@@ -1824,12 +1764,8 @@ def _prepare_job_ad_payload(
 
     document_lines: list[str] = [heading]
     if location_text:
-        document_lines.append(
-            f"**{_tr('Standort', 'Location')}:** {location_text}"
-        )
-    document_lines.append(
-        f"*{_tr('Zielgruppe', 'Target audience')}: {audience_text}*"
-    )
+        document_lines.append(f"**{_tr('Standort', 'Location')}:** {location_text}")
+    document_lines.append(f"*{_tr('Zielgruppe', 'Target audience')}: {audience_text}*")
     meta_bits: list[str] = []
     if tone_value:
         tone_labels = {
@@ -1844,16 +1780,12 @@ def _prepare_job_ad_payload(
         )
         meta_bits.append(f"{_tr('Ton', 'Tone')}: {tone_display}")
     if brand_keywords_text:
-        meta_bits.append(
-            f"{_tr('Brand-Keywords', 'Brand keywords')}: {brand_keywords_text}"
-        )
+        meta_bits.append(f"{_tr('Brand-Keywords', 'Brand keywords')}: {brand_keywords_text}")
     if meta_bits:
         document_lines.append(f"*{' | '.join(meta_bits)}*")
     style_note = (style_reference or "").strip()
     if style_note:
-        document_lines.append(
-            f"*{_tr('Stilhinweis', 'Style note')}: {style_note}*"
-        )
+        document_lines.append(f"*{_tr('Stilhinweis', 'Style note')}: {style_note}*")
     if role_summary_value:
         document_lines.append("")
         document_lines.append(role_summary_value)
@@ -1890,9 +1822,7 @@ def _prepare_job_ad_payload(
 
     if manual_sections_payload:
         document_lines.append("")
-        document_lines.append(
-            f"## {_tr('Zusätzliche Hinweise', 'Additional notes')}"
-        )
+        document_lines.append(f"## {_tr('Zusätzliche Hinweise', 'Additional notes')}")
         for entry in manual_sections_payload:
             title = entry.get("title", "")
             content = entry.get("content", "")

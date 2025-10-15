@@ -153,6 +153,13 @@ def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
                                 "currency": "EUR",
                             }
                         ),
+                        "input": json.dumps(
+                            {
+                                "salary_min": 1,
+                                "salary_max": 2,
+                                "currency": "EUR",
+                            }
+                        ),
                     }
                 }
             ]
