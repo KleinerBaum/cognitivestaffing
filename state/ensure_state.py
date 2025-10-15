@@ -19,7 +19,7 @@ from config import (
     OPENAI_BASE_URL,
     REASONING_EFFORT,
     VERBOSITY,
-    OPENAI_MODEL,
+    OPENAI_MODEL,  # noqa: F401 - re-exported after normalization to keep module parity
     normalise_model_name,
     normalise_model_override,
     normalise_verbosity,

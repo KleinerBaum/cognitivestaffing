@@ -194,7 +194,7 @@ def extract_company_info(
         return result
 
 
-FUNCTION_NAME = "cognitive_needs_extract"
+FUNCTION_NAME = "NeedAnalysisProfile"
 
 
 @dataclass(slots=True)
