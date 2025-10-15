@@ -27,14 +27,17 @@ def generate_followups(
         "content": f"Sprache: {lang}\nAktuelles Profil:\n{vacancy_json}",
     }
     tools: list[dict[str, Any]] = []
+    tool_choice: str | None = None
     if vector_store_id:
         tools.append({"type": "file_search", "vector_store_ids": [vector_store_id]})
+        tool_choice = "auto"
 
     return call_chat_api(
         messages=[system, user],
         model=get_model_for(ModelTask.FOLLOW_UP_QUESTIONS),
         temperature=0.2,
         tools=tools or None,
+        tool_choice=tool_choice,
         json_schema={"name": "FollowUpQuestions", "schema": FOLLOW_UPS_SCHEMA},
         task=ModelTask.FOLLOW_UP_QUESTIONS,
         verbosity=get_active_verbosity(),
