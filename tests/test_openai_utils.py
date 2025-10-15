@@ -11,6 +11,7 @@ import config
 from config import ModelTask
 from openai_utils import (
     ChatCallResult,
+    build_function_tools,
     call_chat_api,
     stream_chat_api,
     extract_with_function,
@@ -909,6 +910,35 @@ def test_build_extraction_tool_has_name_and_parameters():
     assert fn_payload["strict"] is True
 
 
+def test_build_function_tools_normalises_specs() -> None:
+    """Helper should inject tool names and copy parameters."""
+
+    def _impl(skill: str) -> dict[str, str]:  # pragma: no cover - invoked in helper mapping
+        return {"definition": skill}
+
+    parameters = {"type": "object", "properties": {"skill": {"type": "string"}}}
+    specs = {
+        "describe_skill": {
+            "description": "Return a definition for the provided skill.",
+            "parameters": parameters,
+            "strict": True,
+            "callable": _impl,
+        }
+    }
+
+    tools, funcs = build_function_tools(specs)
+    assert len(tools) == 1
+    spec = tools[0]
+    assert spec["type"] == "function"
+    function_payload = spec["function"]
+    assert function_payload["name"] == "describe_skill"
+    assert function_payload["description"] == specs["describe_skill"]["description"]
+    assert function_payload["strict"] is True
+    assert function_payload["parameters"] == parameters
+    assert function_payload["parameters"] is not parameters
+    assert funcs["describe_skill"] is _impl
+
+
 def test_build_extraction_tool_marks_required_recursively() -> None:
     """Nested objects should receive required arrays and nullable types."""
 
@@ -1705,6 +1735,78 @@ def test_call_chat_api_executes_tool(monkeypatch):
     res = call_chat_api([{"role": "user", "content": "hi"}])
     assert res.content == "done"
     assert res.tool_calls[0]["function"]["name"] == "get_skill_definition"
+
+
+def test_call_chat_api_executes_helper_tool(monkeypatch):
+    """Tools created via build_function_tools should integrate with call_chat_api."""
+
+    def _echo_tool(text: str) -> dict[str, str]:
+        return {"echo": text.upper()}
+
+    tool_specs = {
+        "echo_tool": {
+            "description": "Echo input in uppercase.",
+            "parameters": {
+                "type": "object",
+                "properties": {"text": {"type": "string"}},
+                "required": ["text"],
+            },
+        }
+    }
+    tools, functions = build_function_tools(tool_specs, callables={"echo_tool": _echo_tool})
+
+    class _FirstResponse:
+        def __init__(self) -> None:
+            self.output = [
+                {
+                    "type": "response.tool_call",
+                    "id": "tool-1",
+                    "call_id": "call_echo",
+                    "function": {"name": "echo_tool", "input": {"text": "hello"}},
+                }
+            ]
+            self.output_text = ""
+            self.usage: dict[str, int] = {}
+
+    class _SecondResponse:
+        def __init__(self) -> None:
+            self.output = []
+            self.output_text = "done"
+            self.usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def create(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                tool_names = {
+                    tool.get("function", {}).get("name")
+                    for tool in kwargs["tools"]
+                    if tool.get("type") == "function"
+                }
+                assert "echo_tool" in tool_names
+                return _FirstResponse()
+
+            tool_message = kwargs["input"][-1]
+            assert tool_message["role"] == "tool"
+            assert tool_message["tool_call_id"] == "call_echo"
+            assert json.loads(tool_message["content"])["echo"] == "HELLO"
+            return _SecondResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    res = call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        tools=tools,
+        tool_functions=functions,
+    )
+
+    assert res.content == "done"
+    assert res.tool_calls[0]["function"]["name"] == "echo_tool"
 
 
 def test_get_client_uses_configured_timeout(monkeypatch):

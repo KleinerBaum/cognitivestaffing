@@ -29,6 +29,7 @@ from .api import get_client as get_client  # noqa: F401
 from .api import model_supports_reasoning as model_supports_reasoning  # noqa: F401
 from .api import model_supports_temperature as model_supports_temperature  # noqa: F401
 from .tools import build_extraction_tool as build_extraction_tool  # noqa: F401
+from .tools import build_function_tools as build_function_tools  # noqa: F401
 
 
 class _LazyExportList(list[str]):
@@ -65,6 +66,7 @@ __all__: _LazyExportList = _LazyExportList(
         "model_supports_reasoning",
         "model_supports_temperature",
         "build_extraction_tool",
+        "build_function_tools",
     )
 )
 
