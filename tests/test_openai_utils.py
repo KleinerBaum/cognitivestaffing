@@ -151,6 +151,91 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
+def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
+    """call_chat_api should execute registered analysis tools and relay outputs."""
+
+    from core import analysis_tools
+
+    tool_args = {
+        "interviewers": 3,
+        "hours_per_week": 4.5,
+        "interview_duration_minutes": 45,
+        "buffer_minutes": 10,
+    }
+    original_fn = analysis_tools.calculate_interview_capacity
+    expected_payload = original_fn(**tool_args)
+    recorded_kwargs: dict[str, Any] = {}
+
+    def _recording_capacity(**kwargs: Any) -> dict[str, Any]:
+        recorded_kwargs["kwargs"] = kwargs
+        return original_fn(**kwargs)
+
+    monkeypatch.setattr(
+        analysis_tools,
+        "calculate_interview_capacity",
+        _recording_capacity,
+        raising=False,
+    )
+
+    first_response = SimpleNamespace(
+        id="resp-1",
+        output=[
+            {
+                "type": "response.tool_call",
+                "id": "call-1",
+                "call_id": "call-1",
+                "function": {
+                    "name": "calculate_interview_capacity",
+                    "input": dict(tool_args),
+                },
+            }
+        ],
+        output_text="",
+        usage={},
+    )
+    second_response = SimpleNamespace(
+        id="resp-2",
+        output=[
+            {
+                "type": "message",
+                "content": [
+                    {"type": "text", "text": "capacity ready"},
+                ],
+            }
+        ],
+        output_text="",
+        usage={},
+    )
+
+    responses = iter([first_response, second_response])
+    recorded_inputs: list[list[dict[str, Any]]] = []
+
+    def _fake_execute_response(payload: dict[str, Any], model: str | None):
+        recorded_inputs.append(deepcopy(payload.get("input", [])))
+        try:
+            return next(responses)
+        except StopIteration as exc:  # pragma: no cover - defensive
+            raise AssertionError("Unexpected additional OpenAI call") from exc
+
+    monkeypatch.setattr(openai_utils.api, "_execute_response", _fake_execute_response, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_API_KEY", "test-key", raising=False)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "Plan our interview schedule"}],
+        tool_choice={"type": "function", "function": {"name": "calculate_interview_capacity"}},
+    )
+
+    assert recorded_kwargs["kwargs"] == tool_args
+    assert len(recorded_inputs) == 2
+    tool_message = recorded_inputs[1][-1]
+    assert tool_message["role"] == "tool"
+    assert tool_message["tool_call_id"] == "call-1"
+    assert json.loads(tool_message["content"]) == expected_payload
+    assert result.tool_calls
+    assert result.tool_calls[0]["function"]["name"] == "calculate_interview_capacity"
+    assert result.content == "capacity ready"
+
+
 def test_collect_tool_calls_handles_tool_response(
     tool_response_object: SimpleNamespace, tool_response_event: Mapping[str, Any]
 ):
@@ -1782,9 +1867,7 @@ def test_call_chat_api_executes_helper_tool(monkeypatch):
             self.calls += 1
             if self.calls == 1:
                 tool_names = {
-                    tool.get("function", {}).get("name")
-                    for tool in kwargs["tools"]
-                    if tool.get("type") == "function"
+                    tool.get("function", {}).get("name") for tool in kwargs["tools"] if tool.get("type") == "function"
                 }
                 assert "echo_tool" in tool_names
                 return _FirstResponse()
