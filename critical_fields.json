@@ -5,7 +5,7 @@
         "position.role_summary",
         "location.primary_city",
         "location.country",
-        "location.primary_city",
+        "responsibilities.items",
         "requirements.hard_skills_required",
         "requirements.soft_skills_required"
     ]
