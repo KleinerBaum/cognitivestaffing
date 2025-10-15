@@ -9,7 +9,7 @@ extraction tasks.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Iterable
 from copy import deepcopy
 from typing import Any, cast
 
