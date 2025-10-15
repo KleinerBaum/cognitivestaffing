@@ -1932,6 +1932,21 @@ CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
         ),
         "style": "warning",
     },
+    "location.primary_city": {
+        "prompt": (
+            "In welcher Stadt arbeitet das Team überwiegend?",
+            "Which city is the team primarily based in?",
+        ),
+        "description": (
+            "Die Stadt hilft bei Gehaltsbandbreiten, Steuerungen für Zeitzonen und Office-Vorschlägen.",
+            "Knowing the city informs salary bands, time zone handling, and office suggestions.",
+        ),
+        "suggestions": (
+            ["Berlin", "München", "Remote (Berlin bevorzugt)"],
+            ["Berlin", "Munich", "Remote (Berlin preferred)"],
+        ),
+        "style": "warning",
+    },
     "requirements.hard_skills_required": {
         "prompt": (
             "Welche Hard Skills sind zwingend?",
