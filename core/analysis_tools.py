@@ -341,6 +341,57 @@ def get_skill_definition(skill: str) -> Dict[str, str]:
     return {"definition": definition}
 
 
+def calculate_interview_capacity(
+    *,
+    interviewers: int,
+    hours_per_week: float,
+    interview_duration_minutes: int,
+    buffer_minutes: int = 5,
+) -> Dict[str, int | float]:
+    """Estimate interview slots per week based on available interviewer time.
+
+    Args:
+        interviewers: Number of people who can conduct interviews.
+        hours_per_week: Hours per interviewer that can be spent on interviews.
+        interview_duration_minutes: Planned duration of a single interview.
+        buffer_minutes: Optional pause between interviews for notes/handovers.
+
+    Returns:
+        Dictionary describing available slots and time utilisation. Values are
+        rounded to two decimals where appropriate so they can be displayed
+        directly in the UI or embedded into prompts.
+    """
+
+    interviewer_count = max(int(interviewers), 0)
+    available_hours = max(float(hours_per_week), 0.0)
+    interview_minutes = max(int(interview_duration_minutes), 1)
+    pause_minutes = max(int(buffer_minutes), 0)
+
+    slot_minutes = interview_minutes + pause_minutes
+    if interviewer_count == 0 or available_hours == 0.0 or slot_minutes <= 0:
+        return {
+            "slots_per_week": 0,
+            "interviewer_hours_used": 0.0,
+            "buffer_hours": 0.0,
+            "slot_minutes": slot_minutes,
+            "remaining_minutes": 0.0,
+        }
+
+    total_available_minutes = interviewer_count * available_hours * 60.0
+    slots = int(total_available_minutes // float(slot_minutes))
+    utilised_minutes = slots * interview_minutes
+    utilised_buffer = slots * pause_minutes
+    remaining_minutes = total_available_minutes - (slots * slot_minutes)
+
+    return {
+        "slots_per_week": slots,
+        "interviewer_hours_used": round(utilised_minutes / 60.0, 2),
+        "buffer_hours": round(utilised_buffer / 60.0, 2),
+        "slot_minutes": slot_minutes,
+        "remaining_minutes": round(remaining_minutes, 2),
+    }
+
+
 def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]]:
     """Return tool specifications and corresponding callables.
 
@@ -372,10 +423,44 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
                     "required": ["skill"],
                 },
             },
+            "calculate_interview_capacity": {
+                "description": ("Estimate how many interview slots fit into the available interviewer hours."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "interviewers": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Number of interviewers who can run sessions.",
+                        },
+                        "hours_per_week": {
+                            "type": "number",
+                            "minimum": 0,
+                            "description": "Weekly hours each interviewer can dedicate.",
+                        },
+                        "interview_duration_minutes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Length of a single interview in minutes.",
+                        },
+                        "buffer_minutes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Optional buffer between interviews for notes.",
+                        },
+                    },
+                    "required": [
+                        "interviewers",
+                        "hours_per_week",
+                        "interview_duration_minutes",
+                    ],
+                },
+            },
         },
         callables={
             "get_salary_benchmark": get_salary_benchmark,
             "get_skill_definition": get_skill_definition,
+            "calculate_interview_capacity": calculate_interview_capacity,
         },
     )
 
@@ -396,5 +481,6 @@ __all__ = [
     "get_salary_benchmark",
     "resolve_salary_role",
     "get_skill_definition",
+    "calculate_interview_capacity",
     "build_analysis_tools",
 ]
