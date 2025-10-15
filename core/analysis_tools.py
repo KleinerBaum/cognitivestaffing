@@ -12,6 +12,7 @@ import unicodedata
 from typing import Any, Callable, Dict, Final, Mapping, Sequence, Tuple, TypedDict
 
 from config_loader import load_json
+from openai_utils.tools import build_function_tools
 
 
 class _SalaryBenchmarkEntry(TypedDict, total=False):
@@ -348,11 +349,9 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
         tool name to callable.
     """
 
-    tools = [
+    function_tools, function_map = build_function_tools(
         {
-            "type": "function",
-            "function": {
-                "name": "get_salary_benchmark",
+            "get_salary_benchmark": {
                 "description": "Fetch a rough annual salary range for a role in a country.",
                 "parameters": {
                     "type": "object",
@@ -363,11 +362,7 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
                     "required": ["role"],
                 },
             },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_skill_definition",
+            "get_skill_definition": {
                 "description": "Return a concise definition for a skill.",
                 "parameters": {
                     "type": "object",
@@ -378,7 +373,13 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
                 },
             },
         },
-    ]
+        callables={
+            "get_salary_benchmark": get_salary_benchmark,
+            "get_skill_definition": get_skill_definition,
+        },
+    )
+
+    tools = list(function_tools)
     # Advertise OpenAI built-in tools so downstream chat calls can leverage
     # native web search capabilities without having to configure them manually
     # in every call site.
@@ -388,11 +389,7 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
             {"type": "web_search_preview", "name": "web_search_preview"},
         ]
     )
-    funcs: Mapping[str, Callable[..., Any]] = {
-        "get_salary_benchmark": get_salary_benchmark,
-        "get_skill_definition": get_skill_definition,
-    }
-    return tools, funcs
+    return tools, function_map
 
 
 __all__ = [

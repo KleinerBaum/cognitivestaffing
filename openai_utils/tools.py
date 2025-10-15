@@ -8,6 +8,7 @@ extraction tasks.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from typing import Any
 
@@ -81,4 +82,72 @@ def build_extraction_tool(
     ]
 
 
-__all__ = ["build_extraction_tool"]
+def build_function_tools(
+    specs: Mapping[str, Mapping[str, Any]],
+    *,
+    callables: Mapping[str, Callable[..., Any]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Callable[..., Any]]]:
+    """Return OpenAI tool specs and callable mapping for ``call_chat_api``.
+
+    Args:
+        specs: Mapping from tool name to a function specification. Each
+            specification should contain the JSON schema under ``parameters``
+            and optional metadata accepted by the OpenAI API (for example a
+            ``description`` or ``strict`` flag). The helper copies the
+            specification to avoid mutating the caller's data.
+        callables: Optional mapping with Python callables that implement the
+            tool behaviour. When omitted, the helper will fall back to
+            resolving a ``callable`` key present in the individual tool specs.
+
+    Returns:
+        Tuple containing the list of OpenAI tool specifications and a mapping
+        from tool name to the callable that should be invoked when the model
+        selects the tool.
+
+    Raises:
+        ValueError: If a specification does not define ``parameters``.
+        TypeError: If ``parameters`` is not a mapping or the provided callable
+            is not callable.
+    """
+
+    tools: list[dict[str, Any]] = []
+    functions: dict[str, Callable[..., Any]] = {}
+
+    for name, spec in specs.items():
+        if not isinstance(spec, Mapping):
+            raise TypeError(f"Tool specification for '{name}' must be a mapping")
+
+        function_payload: dict[str, Any] = {}
+        callable_obj: Callable[..., Any] | None = None
+
+        for key, value in spec.items():
+            if key == "callable":
+                if value is not None and not callable(value):
+                    raise TypeError(f"Callable for tool '{name}' must be callable")
+                callable_obj = value  # type: ignore[assignment]
+                continue
+            function_payload[key] = deepcopy(value)
+
+        function_payload["name"] = name
+
+        if "parameters" not in function_payload:
+            raise ValueError(f"Tool '{name}' must define a 'parameters' schema")
+
+        parameters = function_payload["parameters"]
+        if not isinstance(parameters, Mapping):
+            raise TypeError(f"Tool '{name}' expects 'parameters' to be a mapping, got {type(parameters)!r}")
+
+        tools.append({"type": "function", "function": function_payload})
+
+        if callables and name in callables:
+            callable_obj = callables[name]
+
+        if callable_obj is not None:
+            if not callable(callable_obj):
+                raise TypeError(f"Callable for tool '{name}' must be callable")
+            functions[name] = callable_obj
+
+    return tools, functions
+
+
+__all__ = ["build_extraction_tool", "build_function_tools"]
