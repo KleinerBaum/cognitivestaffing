@@ -501,8 +501,10 @@ def _rag_suggestions(
     sys = (
         "You provide short, concrete suggestions to help complete a profile while following GPT-5 prompting discipline. "
         "Silently plan which fields to address and which sources to use—do not output the plan. Execute each step methodically "
-        "and do not stop until the user's request is fully satisfied. Use retrieved context; if none, return empty arrays. "
-        "Respond as a JSON object mapping each requested field to an array of up to N concise suggestions (no explanations)."
+        "and do not stop until the user's request is fully satisfied. Follow these steps: 1) Inspect the requested fields, 2) "
+        "review retrieved context for each field, 3) craft up to N concise suggestions per field that respect locale and scope. "
+        "Use retrieved context; if none, return empty arrays. Respond as a JSON object mapping each requested field to an array "
+        "of up to N concise suggestions (no explanations)."
     )
     user = {
         "job_title": job_title,

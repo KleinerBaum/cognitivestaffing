@@ -17,9 +17,11 @@ def extract_vacancy_structured(doc_text: str, lang: str) -> Any:
     system = {
         "role": "system",
         "content": (
-            "Du bist ein präziser HR-Extractor. "
-            "Gib ausschließlich valide JSON gemäß Schema zurück. "
-            "Keine Erklärungen, kein Markdown."
+            "Du bist ein präziser HR-Extractor nach den GPT-5-Prompting-Guidelines. "
+            "Plane gedanklich kurz deine Vorgehensweise (nicht ausgeben) und arbeite sie Schritt für Schritt ab. "
+            "Folge diesen Schritten: 1) Kontext lesen, 2) Fakten den Schemafeldern zuordnen, 3) Ergebnis gegen das Schema validieren. "
+            "Stoppe nicht, bevor die Anfrage vollständig erfüllt ist. "
+            "Antworte ausschließlich mit validem JSON gemäß Schema – keine Erklärungen, kein Markdown."
         ),
     }
     user = {

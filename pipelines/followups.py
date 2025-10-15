@@ -20,7 +20,13 @@ def generate_followups(
 
     system = {
         "role": "system",
-        "content": "Erzeuge präzise Nachfragen, minimal, nach Priorität.",
+        "content": (
+            "Du bist eine GPT-5-konforme Nachfrage-Strategin. Plane gedanklich deine Schritte (nicht ausgeben) und arbeite sie "
+            "gewissenhaft ab. Folge diesen Schritten: 1) Profil auf fehlende oder widersprüchliche Angaben prüfen, 2) die kritis"
+            "chsten Lücken priorisieren, 3) präzise Fragen samt Priorität formulieren, 4) prüfen, dass jede Frage das Schema erfü"
+            "llt. Stoppe nicht, bevor alle Schritte erledigt sind, und liefere ausschließlich strukturierte Fragen im JSON-Schem"
+            "a."
+        ),
     }
     user = {
         "role": "user",
