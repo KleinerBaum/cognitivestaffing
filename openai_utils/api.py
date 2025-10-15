@@ -224,18 +224,91 @@ def _should_mark_model_unavailable(error: OpenAIError) -> bool:
     return any(phrase in lowered for phrase in phrases)
 
 
+def _message_indicates_parameter_unsupported(message: str, parameter: str) -> bool:
+    """Return ``True`` if ``message`` clearly rejects ``parameter``."""
+
+    lowered = message.lower()
+    if parameter not in lowered:
+        return False
+    return any(
+        phrase in lowered
+        for phrase in (
+            "unsupported parameter",
+            "does not support",
+            "not supported",
+            "cannot be used",
+        )
+    )
+
+
+def _value_matches_parameter(value: Any, parameter: str) -> bool:
+    """Return ``True`` if ``value`` names ``parameter`` (allowing dotted paths)."""
+
+    if not isinstance(value, str):
+        return False
+    lowered_value = value.strip().lower()
+    return lowered_value == parameter or lowered_value.endswith(f".{parameter}")
+
+
+def _iter_error_payloads(error: OpenAIError) -> Iterator[Mapping[str, Any]]:
+    """Yield mapping payloads attached to ``error`` (including nested details)."""
+
+    stack: list[Mapping[str, Any]] = []
+    for attr in ("error", "body"):
+        value = getattr(error, attr, None)
+        if isinstance(value, Mapping):
+            stack.append(value)
+    seen: set[int] = set()
+    while stack:
+        payload = stack.pop()
+        payload_id = id(payload)
+        if payload_id in seen:
+            continue
+        seen.add(payload_id)
+        yield payload
+        nested = payload.get("error")
+        if isinstance(nested, Mapping):
+            stack.append(nested)
+        details = payload.get("details")
+        if isinstance(details, Sequence) and not isinstance(details, (str, bytes)):
+            for item in details:
+                if isinstance(item, Mapping):
+                    stack.append(item)
+
+
+def _is_parameter_unsupported_error(error: OpenAIError, parameter: str) -> bool:
+    """Return ``True`` if ``error`` indicates the model rejected ``parameter``."""
+
+    parameter = parameter.lower()
+    message = getattr(error, "message", str(error))
+    if isinstance(message, str) and _message_indicates_parameter_unsupported(message, parameter):
+        return True
+    error_text = str(error)
+    if error_text != message and _message_indicates_parameter_unsupported(error_text, parameter):
+        return True
+
+    for payload in _iter_error_payloads(error):
+        payload_message = payload.get("message")
+        if isinstance(payload_message, str) and _message_indicates_parameter_unsupported(payload_message, parameter):
+            return True
+        code = payload.get("code")
+        if isinstance(code, str) and code.lower() == "unsupported_parameter":
+            for key in ("param", "parameter", "field", "name"):
+                if _value_matches_parameter(payload.get(key), parameter):
+                    return True
+    return False
+
+
 def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
     """Return ``True`` if ``error`` indicates the model rejected ``temperature``."""
 
-    message = getattr(error, "message", str(error)).lower()
-    return "unsupported parameter" in message and "temperature" in message
+    return _is_parameter_unsupported_error(error, "temperature")
 
 
 def _is_reasoning_unsupported_error(error: OpenAIError) -> bool:
     """Return ``True`` if ``error`` indicates the model rejected ``reasoning``."""
 
-    message = getattr(error, "message", str(error)).lower()
-    return "unsupported parameter" in message and "reasoning" in message
+    return _is_parameter_unsupported_error(error, "reasoning")
 
 
 def _create_response_with_timeout(payload: Dict[str, Any]) -> Any:
@@ -658,9 +731,7 @@ def _collect_tool_calls_from_chat_completion(response: Any) -> list[dict]:
 def _collect_tool_calls(response: Any) -> list[dict]:
     """Extract tool call payloads from an OpenAI response object."""
 
-    if hasattr(response, "choices") or (
-        isinstance(response, Mapping) and "choices" in response
-    ):
+    if hasattr(response, "choices") or (isinstance(response, Mapping) and "choices" in response):
         return _collect_tool_calls_from_chat_completion(response)
 
     tool_calls: list[dict] = []
@@ -1075,9 +1146,7 @@ def _prepare_payload(
     combined_tools = converted_tools
 
     messages_payload = [dict(message) for message in messages]
-    normalised_tool_choice = (
-        _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
-    )
+    normalised_tool_choice = _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
 
     if USE_CLASSIC_API:
         payload = {"model": model, "messages": messages_payload}
