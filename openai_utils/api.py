@@ -61,6 +61,7 @@ client: OpenAI | None = None
 
 _REASONING_MODEL_PATTERN = re.compile(r"^o\d")
 _MODELS_WITHOUT_TEMPERATURE: set[str] = set()
+_MODELS_WITHOUT_REASONING: set[str] = set()
 _USAGE_LOCK = Lock()
 
 
@@ -152,6 +153,14 @@ def _mark_model_without_temperature(model: Optional[str]) -> None:
         _MODELS_WITHOUT_TEMPERATURE.add(normalized)
 
 
+def _mark_model_without_reasoning(model: Optional[str]) -> None:
+    """Remember that ``model`` rejects the ``reasoning`` parameter."""
+
+    normalized = _normalise_model_name(model)
+    if normalized:
+        _MODELS_WITHOUT_REASONING.add(normalized)
+
+
 def model_supports_reasoning(model: Optional[str]) -> bool:
     """Return ``True`` if ``model`` accepts a reasoning payload.
 
@@ -161,10 +170,10 @@ def model_supports_reasoning(model: Optional[str]) -> bool:
     sending the parameter to regular chat models that would reject it.
     """
 
-    if not model:
-        return False
-    normalized = model.strip().lower()
+    normalized = _normalise_model_name(model)
     if not normalized:
+        return False
+    if normalized in _MODELS_WITHOUT_REASONING:
         return False
     if _REASONING_MODEL_PATTERN.match(normalized):
         return True
@@ -220,6 +229,13 @@ def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
     return "unsupported parameter" in message and "temperature" in message
 
 
+def _is_reasoning_unsupported_error(error: OpenAIError) -> bool:
+    """Return ``True`` if ``error`` indicates the model rejected ``reasoning``."""
+
+    message = getattr(error, "message", str(error)).lower()
+    return "unsupported parameter" in message and "reasoning" in message
+
+
 def _create_response_with_timeout(payload: Dict[str, Any]) -> Any:
     """Execute a Responses create call with configured timeout handling."""
 
@@ -249,6 +265,11 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
                 span.add_event("retry_without_temperature")
                 _mark_model_without_temperature(model)
                 payload.pop("temperature", None)
+                return _create_response_with_timeout(payload)
+            if "reasoning" in payload and _is_reasoning_unsupported_error(err):
+                span.add_event("retry_without_reasoning")
+                _mark_model_without_reasoning(model)
+                payload.pop("reasoning", None)
                 return _create_response_with_timeout(payload)
             if model and _should_mark_model_unavailable(err):
                 mark_model_unavailable(model)

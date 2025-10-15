@@ -30,6 +30,7 @@ def reset_temperature_cache(monkeypatch):
     """Ensure temperature capability cache is cleared between tests."""
 
     monkeypatch.setattr(openai_utils.api, "_MODELS_WITHOUT_TEMPERATURE", set(), raising=False)
+    monkeypatch.setattr(openai_utils.api, "_MODELS_WITHOUT_REASONING", set(), raising=False)
     yield
 
 
@@ -1048,6 +1049,59 @@ def test_call_chat_api_retries_without_temperature(monkeypatch):
     assert "temperature" not in calls[1]
     assert result.tool_calls == []
     assert not model_supports_temperature(config.GPT5_MINI)
+
+
+def test_call_chat_api_retries_without_reasoning(monkeypatch):
+    """The client should retry without reasoning when the model rejects it."""
+
+    calls: list[dict[str, Any]] = []
+
+    class _FakeBadRequestError(Exception):
+        def __init__(self, message: str) -> None:
+            super().__init__(message)
+            self.message = message
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self._call_count = 0
+
+        def create(self, **kwargs):
+            self._call_count += 1
+            calls.append(dict(kwargs))
+            if self._call_count == 1:
+                raise _FakeBadRequestError(
+                    "Unsupported parameter: 'reasoning' is not supported for this model."
+                )
+            return SimpleNamespace(output=[], output_text="", usage={})
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    monkeypatch.setattr("openai_utils.api.BadRequestError", _FakeBadRequestError)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="gpt-5-reasoning",
+        reasoning_effort="medium",
+    )
+
+    assert len(calls) == 2
+    assert "reasoning" in calls[0]
+    assert "reasoning" not in calls[1]
+    assert result.tool_calls == []
+    assert not model_supports_reasoning("gpt-5-reasoning")
+
+    calls.clear()
+
+    call_chat_api(
+        [{"role": "user", "content": "hi again"}],
+        model="gpt-5-reasoning",
+        reasoning_effort="medium",
+    )
+
+    assert len(calls) == 1
+    assert "reasoning" not in calls[0]
 
 
 def test_model_supports_temperature_detection() -> None:
