@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 import streamlit as st
@@ -8,6 +9,8 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+import question_logic
 
 from constants.keys import StateKeys, UIKeys
 from core.confidence import ConfidenceTier
@@ -31,6 +34,40 @@ class DummyContext:
 
     def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - interface only
         return None
+
+
+class _DummySpinner:
+    """Minimal spinner context used to bypass Streamlit UI rendering."""
+
+    def __enter__(self) -> None:
+        return None
+
+    def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - interface only
+        return None
+
+
+def _prepare_minimal_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub heavy extraction dependencies to exercise auto re-ask flows."""
+
+    sample_payload = NeedAnalysisProfile().model_dump()
+
+    monkeypatch.setattr("wizard.apply_rules", lambda *_: {})
+    monkeypatch.setattr("wizard.matches_to_patch", lambda *_: {})
+    monkeypatch.setattr("wizard.build_rule_metadata", lambda *_: {})
+    monkeypatch.setattr("wizard._annotate_rule_metadata", lambda *a, **k: {})
+    monkeypatch.setattr("wizard._ensure_mapping", lambda value: dict(value or {}))
+    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_payload))
+
+    def _coerce(_: dict) -> NeedAnalysisProfile:
+        return NeedAnalysisProfile()
+
+    monkeypatch.setattr("wizard.coerce_and_fill", _coerce)
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda profile, _text, **_: profile)
+    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+    monkeypatch.setattr("wizard._refresh_esco_skills", lambda *a, **k: None)
+    monkeypatch.setattr("wizard._update_section_progress", lambda: (None, []))
 
 
 def _patch_onboarding_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,6 +137,55 @@ def test_on_file_uploaded_populates_state(monkeypatch: pytest.MonkeyPatch) -> No
     assert st.session_state["__prefill_profile_doc__"].text == "file text"
     assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "file text"
     assert st.session_state["__run_extraction__"] is True
+
+
+@pytest.mark.parametrize(
+    ("lang", "error_message", "expected_text"),
+    [
+        ("de", "File too large for processing", "Datei ist zu groß. Maximale Größe: 20 MB."),
+        ("en", "File too large for processing", "File is too large. Maximum size: 20 MB."),
+        (
+            "de",
+            "Requires OCR support for scanned input",
+            "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
+        ),
+        (
+            "en",
+            "Requires OCR support for scanned input",
+            "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
+        ),
+    ],
+)
+def test_on_file_uploaded_shows_localized_errors(
+    monkeypatch: pytest.MonkeyPatch, lang: str, error_message: str, expected_text: str
+) -> None:
+    """Known extraction errors should surface localized UI feedback."""
+
+    st.session_state.clear()
+    st.session_state.lang = lang
+    st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
+    st.session_state["__prefill_profile_doc__"] = StructuredDocument(text="old", blocks=[])
+    st.session_state[StateKeys.RAW_BLOCKS] = [ContentBlock(type="paragraph", text="old")]
+
+    def raise_value_error(_file: Any) -> StructuredDocument:
+        raise ValueError(error_message)
+
+    calls: list[tuple[str, tuple[Any, ...]]] = []
+
+    def spy_display(message: str, *args: Any) -> None:
+        calls.append((message, args))
+
+    monkeypatch.setattr("wizard.extract_text_from_file", raise_value_error)
+    monkeypatch.setattr("wizard.display_error", spy_display)
+
+    on_file_uploaded()
+
+    assert calls and calls[0][0] == expected_text
+    assert calls[0][1][0] == error_message
+    assert st.session_state.get("source_error") is True
+    assert st.session_state.get("__prefill_profile_doc__") is None
+    assert st.session_state[StateKeys.RAW_BLOCKS] == []
+    assert st.session_state.get("__run_extraction__") is not True
 
 
 def test_on_url_changed_populates_state(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -255,6 +341,47 @@ def test_onboarding_triggers_extraction(monkeypatch: pytest.MonkeyPatch) -> None
     assert st.session_state[StateKeys.PROFILE]["position"]["job_title"] == "Test"
 
 
+@pytest.mark.parametrize(
+    ("lang", "expected"),
+    [
+        ("de", "Automatische Extraktion fehlgeschlagen"),
+        ("en", "Automatic extraction failed"),
+    ],
+)
+def test_maybe_run_extraction_handles_errors(monkeypatch: pytest.MonkeyPatch, lang: str, expected: str) -> None:
+    """Extraction failures should surface localized fallback alerts."""
+
+    st.session_state.clear()
+    st.session_state.lang = lang
+    st.session_state["__run_extraction__"] = True
+    st.session_state["__prefill_profile_doc__"] = StructuredDocument(
+        text="Detected text",
+        blocks=[ContentBlock(type="paragraph", text="Detected text")],
+    )
+
+    monkeypatch.setattr("wizard.clean_structured_document", lambda doc: doc)
+    monkeypatch.setattr("wizard._autodetect_lang", lambda _text: None)
+    monkeypatch.setattr(st, "rerun", lambda: None)
+
+    def fake_extract(text: str, schema: dict) -> None:
+        raise RuntimeError("synthetic failure")
+
+    calls: list[tuple[str, tuple[Any, ...]]] = []
+
+    monkeypatch.setattr("wizard._extract_and_summarize", fake_extract)
+    monkeypatch.setattr("wizard.display_error", lambda message, *args: calls.append((message, args)))
+
+    _maybe_run_extraction({})
+
+    assert calls and calls[0][0] == expected
+    assert calls[0][1][0] == "synthetic failure"
+    assert st.session_state[StateKeys.RAW_TEXT] == "Detected text"
+    assert st.session_state[StateKeys.RAW_BLOCKS] == [ContentBlock(type="paragraph", text="Detected text")]
+    assert st.session_state.get("__last_extracted_hash__") is None
+    assert st.session_state.get("_analyze_attempted") is True
+    assert st.session_state.get("source_error") is not True
+
+
 def test_extract_and_summarize_does_not_enrich_skills(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -407,6 +534,92 @@ def test_extract_and_summarize_marks_ai_confidence(
     assert field_conf["position.job_title"]["source"] == "llm"
     assert field_conf["company.name"]["tier"] == ConfidenceTier.AI_ASSISTED.value
     assert field_conf["company.name"]["source"] == "llm"
+
+
+@pytest.mark.parametrize(
+    ("lang", "expected"),
+    [
+        ("de", "Konnte keine Anschlussfragen erzeugen."),
+        ("en", "Could not generate follow-ups automatically."),
+    ],
+)
+def test_extract_and_summarize_auto_reask_warns_on_followup_error(
+    monkeypatch: pytest.MonkeyPatch, lang: str, expected: str
+) -> None:
+    """Auto re-ask should warn when follow-up generation raises an error."""
+
+    st.session_state.clear()
+    st.session_state.lang = lang
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = True
+    st.session_state.vector_store_id = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {}
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
+
+    _prepare_minimal_extraction(monkeypatch)
+    monkeypatch.setattr(st, "spinner", lambda *a, **k: _DummySpinner())
+
+    warnings: list[str] = []
+    monkeypatch.setattr(st, "warning", lambda message, *a, **k: warnings.append(message))
+
+    def failing_followups(*_: Any, **__: Any) -> dict:
+        raise RuntimeError("rate limit")
+
+    monkeypatch.setattr(question_logic, "ask_followups", failing_followups)
+    monkeypatch.setattr("wizard.ask_followups", failing_followups)
+
+    _extract_and_summarize("Job text", {})
+
+    assert warnings == [expected]
+    assert st.session_state[StateKeys.FOLLOWUPS] == [{"field": "company.name", "question": "?", "priority": "critical"}]
+    assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is False
+    assert st.session_state.get("source_error") is not True
+
+
+@pytest.mark.parametrize(
+    ("lang", "expected", "initial_flag"),
+    [
+        ("de", "Konnte keine Anschlussfragen erzeugen.", True),
+        ("en", "Could not generate follow-ups automatically.", False),
+    ],
+)
+def test_extract_and_summarize_auto_reask_warns_on_invalid_payload(
+    monkeypatch: pytest.MonkeyPatch, lang: str, expected: str, initial_flag: bool
+) -> None:
+    """Malformed follow-up payloads should trigger the localized warning."""
+
+    st.session_state.clear()
+    st.session_state.lang = lang
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = True
+    st.session_state.vector_store_id = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {}
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "position.job_title", "question": "?", "priority": "critical"}]
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = initial_flag
+
+    _prepare_minimal_extraction(monkeypatch)
+    monkeypatch.setattr(st, "spinner", lambda *a, **k: _DummySpinner())
+
+    warnings: list[str] = []
+    monkeypatch.setattr(st, "warning", lambda message, *a, **k: warnings.append(message))
+
+    def malformed_followups(*_: Any, **__: Any) -> list[str]:
+        return ["not-a-dict"]
+
+    monkeypatch.setattr(question_logic, "ask_followups", malformed_followups)
+    monkeypatch.setattr("wizard.ask_followups", malformed_followups)
+
+    _extract_and_summarize("Job text", {})
+
+    assert warnings == [expected]
+    assert st.session_state[StateKeys.FOLLOWUPS] == [
+        {"field": "position.job_title", "question": "?", "priority": "critical"}
+    ]
+    assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is initial_flag
+    assert st.session_state.get("source_error") is not True
 
 
 def test_extract_and_summarize_passes_locked_context(
