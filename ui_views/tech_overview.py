@@ -28,11 +28,7 @@ lang_label = st.radio(
 lang = "de" if lang_label == "Deutsch" else "en"
 audience = st.radio(
     "🎯 Zielgruppe / Audience",
-    (
-        ("Tech-interessiert", "Allgemein verständlich")
-        if lang == "de"
-        else ("Tech-savvy", "General public")
-    ),
+    (("Tech-interessiert", "Allgemein verständlich") if lang == "de" else ("Tech-savvy", "General public")),
     horizontal=True,
     key="audience",
 )
@@ -55,7 +51,8 @@ tech_info = {
             ),
             (
                 "Embedding‑Model",
-                "OpenAI *text-embedding-3-small* (8 k Dim); selbstgehostete Alternative *e5-large-v2* ist vorbereitet.",
+                "OpenAI *text-embedding-3-large* (3 072 Dimensionen) liefert stabilere, mehrsprachige Treffer;"
+                " trotz höherer Kosten behalten wir „Small“ als Fallback vor.",
             ),
             (
                 "Streaming Responses",
@@ -117,7 +114,8 @@ tech_info = {
             ),
             (
                 "Embedding Model",
-                "OpenAI *text-embedding-3-small* (8 k dim); self‑hosted fallback *e5-large-v2* prepared.",
+                "OpenAI *text-embedding-3-large* (3,072-dim vectors) boosts recall & cross-lingual quality;"
+                " the pricier tier stays optional thanks to a retained *-3-small* fallback.",
             ),
             (
                 "Streaming Responses",
@@ -225,11 +223,7 @@ for tech, desc in tech_info[lang_label][audience]:
 # ─── Wizard flow graph for tech audience ───
 if audience == TECH_AUDIENCE:
     st.divider()
-    st.markdown(
-        "#### 🔄 Wizard‑Flow & State Machine"
-        if lang == "de"
-        else "#### 🔄 Wizard Flow & State Machine"
-    )
+    st.markdown("#### 🔄 Wizard‑Flow & State Machine" if lang == "de" else "#### 🔄 Wizard Flow & State Machine")
     render_wizard_graph()
 
 st.divider()
