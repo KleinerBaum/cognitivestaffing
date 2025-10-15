@@ -1,7 +1,7 @@
 import json
 from copy import deepcopy
 from types import SimpleNamespace
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import pytest
 
@@ -282,6 +282,7 @@ def test_stream_chat_api_classic_mode(monkeypatch):
     assert result.usage["input_tokens"] == 2
     assert result.usage["output_tokens"] == 3
     assert result.response_id == "chat-stream"
+
 
 def test_tool_loop_sets_previous_response_id(monkeypatch):
     """Tool execution loops should reuse the Responses session."""
@@ -1144,90 +1145,209 @@ def test_suggest_onboarding_plans_uses_json_payload(monkeypatch):
 def test_call_chat_api_retries_without_temperature(monkeypatch):
     """The client should retry without temperature when the model rejects it."""
 
-    calls: list[dict[str, Any]] = []
-
     class _FakeBadRequestError(Exception):
-        def __init__(self, message: str) -> None:
+        def __init__(
+            self,
+            message: str,
+            *,
+            error_payload: Mapping[str, Any] | None = None,
+            body: Mapping[str, Any] | None = None,
+        ) -> None:
             super().__init__(message)
             self.message = message
+            if error_payload is not None:
+                self.error = error_payload
+            if body is not None:
+                self.body = body
 
-    class _FakeResponses:
-        def create(self, **kwargs):
-            calls.append(kwargs)
-            if len(calls) == 1:
-                raise _FakeBadRequestError("Unsupported parameter: 'temperature' is not supported with this model.")
-            return type("R", (), {"output": [], "output_text": "", "usage": {}})()
-
-    class _FakeClient:
-        responses = _FakeResponses()
-
-    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     monkeypatch.setattr("openai_utils.api.BadRequestError", _FakeBadRequestError)
 
-    result = call_chat_api(
-        [{"role": "user", "content": "hi"}],
-        model=config.GPT5_MINI,
-        temperature=0.5,
+    scenarios: list[tuple[str, Callable[[], Exception], str]] = [
+        (
+            "legacy-message",
+            lambda: _FakeBadRequestError("Unsupported parameter: 'temperature' is not supported with this model."),
+            "gpt-legacy-temp",
+        ),
+        (
+            "structured-error-attr",
+            lambda: _FakeBadRequestError(
+                "Request invalid for this model.",
+                error_payload={
+                    "code": "unsupported_parameter",
+                    "param": "temperature",
+                    "message": "Parameter `temperature` is not supported for this model.",
+                },
+            ),
+            "gpt-structured-temp",
+        ),
+        (
+            "structured-body",
+            lambda: _FakeBadRequestError(
+                "Bad request",
+                body={
+                    "error": {
+                        "code": "unsupported_parameter",
+                        "message": "The model gpt-o1-preview does not support temperature.",
+                    }
+                },
+            ),
+            "gpt-body-temp",
+        ),
+    ]
+
+    final_calls: list[dict[str, Any]] | None = None
+    final_model: str | None = None
+
+    for _, error_factory, model_name in scenarios:
+        calls: list[dict[str, Any]] = []
+
+        class _FakeResponses:
+            def __init__(self) -> None:
+                self._call_count = 0
+
+            def create(self, **kwargs):
+                self._call_count += 1
+                calls.append(dict(kwargs))
+                if self._call_count == 1:
+                    raise error_factory()
+                return SimpleNamespace(output=[], output_text="", usage={})
+
+        class _FakeClient:
+            def __init__(self) -> None:
+                self.responses = _FakeResponses()
+
+        monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+        result = call_chat_api(
+            [{"role": "user", "content": "hi"}],
+            model=model_name,
+            temperature=0.5,
+        )
+
+        assert len(calls) == 2
+        assert "temperature" in calls[0]
+        assert "temperature" not in calls[1]
+        assert result.tool_calls == []
+        assert not model_supports_temperature(model_name)
+
+        final_calls = calls
+        final_model = model_name
+
+    assert final_calls is not None and final_model is not None
+    final_calls.clear()
+
+    call_chat_api(
+        [{"role": "user", "content": "hi again"}],
+        model=final_model,
+        temperature=0.3,
     )
 
-    assert len(calls) == 2
-    assert "temperature" in calls[0]
-    assert "temperature" not in calls[1]
-    assert result.tool_calls == []
-    assert not model_supports_temperature(config.GPT5_MINI)
+    assert len(final_calls) == 1
+    assert "temperature" not in final_calls[0]
 
 
 def test_call_chat_api_retries_without_reasoning(monkeypatch):
     """The client should retry without reasoning when the model rejects it."""
 
-    calls: list[dict[str, Any]] = []
-
     class _FakeBadRequestError(Exception):
-        def __init__(self, message: str) -> None:
+        def __init__(
+            self,
+            message: str,
+            *,
+            error_payload: Mapping[str, Any] | None = None,
+            body: Mapping[str, Any] | None = None,
+        ) -> None:
             super().__init__(message)
             self.message = message
+            if error_payload is not None:
+                self.error = error_payload
+            if body is not None:
+                self.body = body
 
-    class _FakeResponses:
-        def __init__(self) -> None:
-            self._call_count = 0
-
-        def create(self, **kwargs):
-            self._call_count += 1
-            calls.append(dict(kwargs))
-            if self._call_count == 1:
-                raise _FakeBadRequestError(
-                    "Unsupported parameter: 'reasoning' is not supported for this model."
-                )
-            return SimpleNamespace(output=[], output_text="", usage={})
-
-    class _FakeClient:
-        responses = _FakeResponses()
-
-    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     monkeypatch.setattr("openai_utils.api.BadRequestError", _FakeBadRequestError)
 
-    result = call_chat_api(
-        [{"role": "user", "content": "hi"}],
-        model="gpt-5-reasoning",
-        reasoning_effort="medium",
-    )
+    scenarios: list[tuple[str, Callable[[], Exception], str]] = [
+        (
+            "legacy-message",
+            lambda: _FakeBadRequestError("Unsupported parameter: 'reasoning' is not supported for this model."),
+            "gpt-legacy-reasoning",
+        ),
+        (
+            "structured-error-attr",
+            lambda: _FakeBadRequestError(
+                "Request invalid for this model.",
+                error_payload={
+                    "code": "unsupported_parameter",
+                    "param": "reasoning",
+                    "message": "Parameter `reasoning` cannot be used with this model.",
+                },
+            ),
+            "gpt-structured-reasoning",
+        ),
+        (
+            "structured-body",
+            lambda: _FakeBadRequestError(
+                "Bad request",
+                body={
+                    "error": {
+                        "code": "unsupported_parameter",
+                        "message": "The model gpt-o1-preview does not support reasoning options.",
+                    }
+                },
+            ),
+            "gpt-body-reasoning",
+        ),
+    ]
 
-    assert len(calls) == 2
-    assert "reasoning" in calls[0]
-    assert "reasoning" not in calls[1]
-    assert result.tool_calls == []
-    assert not model_supports_reasoning("gpt-5-reasoning")
+    final_calls: list[dict[str, Any]] | None = None
+    final_model: str | None = None
 
-    calls.clear()
+    for _, error_factory, model_name in scenarios:
+        calls: list[dict[str, Any]] = []
+
+        class _FakeResponses:
+            def __init__(self) -> None:
+                self._call_count = 0
+
+            def create(self, **kwargs):
+                self._call_count += 1
+                calls.append(dict(kwargs))
+                if self._call_count == 1:
+                    raise error_factory()
+                return SimpleNamespace(output=[], output_text="", usage={})
+
+        class _FakeClient:
+            def __init__(self) -> None:
+                self.responses = _FakeResponses()
+
+        monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+        result = call_chat_api(
+            [{"role": "user", "content": "hi"}],
+            model=model_name,
+            reasoning_effort="medium",
+        )
+
+        assert len(calls) == 2
+        assert "reasoning" in calls[0]
+        assert "reasoning" not in calls[1]
+        assert result.tool_calls == []
+        assert not model_supports_reasoning(model_name)
+
+        final_calls = calls
+        final_model = model_name
+
+    assert final_calls is not None and final_model is not None
+    final_calls.clear()
 
     call_chat_api(
         [{"role": "user", "content": "hi again"}],
-        model="gpt-5-reasoning",
+        model=final_model,
         reasoning_effort="medium",
     )
 
-    assert len(calls) == 1
-    assert "reasoning" not in calls[0]
+    assert len(final_calls) == 1
+    assert "reasoning" not in final_calls[0]
 
 
 def test_call_chat_api_handles_openai_bad_request_without_reasoning(monkeypatch):
