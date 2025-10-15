@@ -1,42 +1,31 @@
-# Telemetry & Observability
+# Telemetry & Observability / Telemetrie & Observability
 
-Cognitive Needs can emit OpenTelemetry traces to capture end-to-end performance
-and behaviour of key LLM flows. Tracing is disabled by default. Configure the
-service via environment variables before launching the app.
+**EN:** Cognitive Staffing emits OpenTelemetry traces to capture end-to-end performance for LLM-heavy flows. Tracing is disabled by default—enable it via environment variables before launching the app.
 
-## Configuration
+**DE:** Cognitive Staffing kann OpenTelemetry-Traces erzeugen, um die End-to-End-Performance LLM-lastiger Abläufe zu messen. Telemetrie ist standardmäßig deaktiviert und wird über Umgebungsvariablen vor dem Start aktiviert.
 
-| Variable | Description |
-| --- | --- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint. Required to enable exports. |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | Protocol (`http/protobuf` or `grpc`). Defaults to HTTP. |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Comma-separated `key=value` headers added to each export. |
-| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout in seconds. |
-| `OTEL_EXPORTER_OTLP_CERTIFICATE` | Path to a CA bundle for TLS validation. |
-| `OTEL_EXPORTER_OTLP_INSECURE` | Set to `1` to allow insecure gRPC connections. |
-| `OTEL_SERVICE_NAME` | Logical service name reported with spans (`cognitive-needs` by default). |
-| `OTEL_TRACES_ENABLED` | Set to `0`/`false` to disable tracing without removing config. |
-| `OTEL_TRACES_SAMPLER` | Sampler (`parentbased_traceidratio`, `traceidratio`, `always_on`, `always_off`). |
-| `OTEL_TRACES_SAMPLER_ARG` | Sampler argument (e.g. sampling ratio). |
+## Configuration / Konfiguration
 
-## Instrumented operations
+| Variable | Description (EN) | Beschreibung (DE) |
+| --- | --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (required to send traces). | OTLP-Collector-Endpunkt (erforderlich für Exporte). |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | Protocol (`http/protobuf` or `grpc`, default HTTP). | Protokoll (`http/protobuf` oder `grpc`, Standard HTTP). |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Comma-separated `key=value` headers appended to every export. | Kommagetrennte `key=value`-Header für jeden Export. |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout in seconds. | Export-Timeout in Sekunden. |
+| `OTEL_EXPORTER_OTLP_CERTIFICATE` | Optional CA bundle path for TLS validation. | Optionaler Pfad zu einem CA-Bundle für TLS-Validierung. |
+| `OTEL_EXPORTER_OTLP_INSECURE` | Set to `1` to allow insecure gRPC connections. | Mit `1` unsichere gRPC-Verbindungen zulassen. |
+| `OTEL_SERVICE_NAME` | Logical service name (defaults to `cognitive-needs`). | Logischer Servicename (Standard `cognitive-needs`). |
+| `OTEL_TRACES_ENABLED` | Set `0`/`false` to disable tracing without removing config. | Mit `0`/`false` Tracing deaktivieren, ohne Konfig zu löschen. |
+| `OTEL_TRACES_SAMPLER` | Sampler (`parentbased_traceidratio`, `traceidratio`, `always_on`, `always_off`). | Sampler (`parentbased_traceidratio`, `traceidratio`, `always_on`, `always_off`). |
+| `OTEL_TRACES_SAMPLER_ARG` | Sampler argument (e.g. sampling ratio). | Sampler-Parameter (z. B. Sampling-Ratio). |
 
-When telemetry is enabled the following spans are emitted:
+## Instrumented operations / Instrumentierte Abläufe
 
-- OpenAI API calls (`openai.call_chat_api`) including tool execution and token
-  usage metadata.
-- Structured extraction via `llm.extract_json`.
-- Follow-up generation (`llm.generate_followups`).
-- Document summarisation, refinement and explanation flows in
-  `openai_utils/extraction.py`.
+**EN:** With telemetry enabled, spans cover OpenAI calls (`openai.call_chat_api` with tool usage metadata), structured extraction (`llm.extract_json`), follow-up generation (`llm.generate_followups`), and summarisation/refinement flows in `openai_utils/extraction.py`. Bootstrapping lives in `utils/telemetry.py` and runs during `app.py` initialisation.
 
-The bootstrap logic lives in `utils/telemetry.py` and is invoked at the start of
-`app.py`.
+**DE:** Bei aktivierter Telemetrie erfassen Spans OpenAI-Aufrufe (`openai.call_chat_api` inklusive Tool-Metadaten), strukturierte Extraktion (`llm.extract_json`), Nachfragen-Generierung (`llm.generate_followups`) sowie Zusammenfassungs-/Refinement-Flows in `openai_utils/extraction.py`. Das Bootstrap befindet sich in `utils/telemetry.py` und wird beim Start von `app.py` ausgeführt.
 
-## Session usage schema
-
-Token counters are stored in `st.session_state[StateKeys.USAGE]` using the
-structure:
+## Session usage schema / Sitzungs-Nutzungs-Schema
 
 ```python
 {
@@ -49,5 +38,6 @@ structure:
 }
 ```
 
-The legacy aggregate keys remain available for compatibility with historical
-sessions and analytics hooks.
+**EN:** Token counters persist in `st.session_state[StateKeys.USAGE]`. Legacy aggregate keys remain for analytics compatibility.
+
+**DE:** Token-Zähler liegen in `st.session_state[StateKeys.USAGE]`. Ältere Aggregat-Schlüssel bleiben für Analytics-kompatible Auswertungen erhalten.

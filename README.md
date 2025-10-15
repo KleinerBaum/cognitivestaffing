@@ -9,11 +9,14 @@
 - **Interactive follow-ups:** A Follow-up Question Generator agent produces prioritized follow-up questions with suggestion chips. When ESCO metadata is available the assistant injects normalized essential skills into the prompts, and the auto re-ask loop keeps rerunning critical prompts until every must-have field is answered.
 - **ESCO integration:** When enabled, the ESCO enricher normalizes job titles, proposes essential skills, and flags missing competencies directly in the UI.
 - **AI-assisted suggestions:** Dedicated helpers surface skills, benefits, responsibilities, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI stays responsive during longer generations.
-- **Analysis helpers / Analyse-Helfer:**  
-  **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.  
+- **Analysis helpers / Analyse-Helfer:**
+  **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.
   **DE:** Deterministische Helfer liefern Gehaltsbenchmarks, Währungsumrechnung mit zwischengespeicherten FX-Kursen und ISO-Datumsnormalisierung, damit der Assistent ohne zusätzliche APIs fundiert begründen kann.
 - **Vector-store enrichment:** Provide `VECTOR_STORE_ID` to let the RAG agent retrieve supporting snippets via OpenAI **file_search**, seeding better suggestions when the uploaded job ad is sparse.
 - **Multi-model routing:** The router sends high-complexity tasks to `gpt-5.1-mini` (the official GPT-5 mini endpoint) and lightweight lookups to `gpt-5.1-nano` (GPT-5 nano), keeping costs predictable without sacrificing quality.
+- **Gap analysis workspace / Gap-Analyse-Arbeitsbereich:**
+  **EN:** Launch the **Gap analysis** view to combine ESCO metadata, retrieved snippets, and vacancy text into an executive-ready report that highlights missing information and next steps.
+  **DE:** Öffne die Ansicht **Gap-Analyse**, um ESCO-Metadaten, abgerufene Snippets und Ausschreibungstext zu einem Management-tauglichen Bericht mit offenen Punkten und nächsten Schritten zu verbinden.
 - **Deliberate UX:** Wizard steps expose inline help that explains why fields are locked or why suggestions may be missing, a sidebar tracks progress, and branded dark/light themes align with Cognitive Staffing colors.
 
 ## Model Routing & Cost Controls / Modellrouting & Kostensteuerung
@@ -96,6 +99,17 @@ streamlit run app.py
 ```
 Streamlit prints a local URL; open it in your browser to start the wizard.
 
+### 7. Optional: Build a vector store for RAG / Optional: Vector-Store für RAG erstellen
+
+**EN:** Use the helper CLI to re-embed an OpenAI vector store before enabling Retrieval-Augmented Generation. The command copies your existing store, upgrades embeddings to `text-embedding-3-large`, and prints the new identifier.
+
+**DE:** Verwende das CLI-Hilfsprogramm, um vor der Aktivierung der Retrieval-Augmented-Generation einen OpenAI-Vector-Store neu einzubetten. Der Befehl dupliziert den bestehenden Store, aktualisiert die Embeddings auf `text-embedding-3-large` und gibt die neue Kennung aus.
+
+```bash
+python -m cli.rebuild_vector_store vs_existing_store_id
+# Update VECTOR_STORE_ID with the printed target value
+```
+
 ## Usage Guide
 1. **Load a job ad:** Upload a PDF/DOCX/TXT file or paste a URL/text snippet. Extraction runs automatically, locking high-confidence fields.
 2. **Review the overview:** The sidebar highlights which fields were rule-matched, inferred by AI, or still missing. Adjust the **Response verbosity** setting (Deutsch: *Antwort-Detailgrad*) to switch between concise and detailed AI explanations.
@@ -103,6 +117,20 @@ Streamlit prints a local URL; open it in your browser to start the wizard.
 4. **Enrich requirements:** Accept AI suggestions for skills, benefits, salary ranges, and responsibilities. Tooltips explain why suggestions might be empty (e.g., locked fields, missing context, or disabled RAG).
 5. **Generate deliverables:** Use the summary step to stream job ads, interview guides, and Boolean search strings. Each generation shows usage metrics and supports instant regeneration with new instructions.
 6. **Export:** Download the structured vacancy JSON, job ad Markdown, and interview guide directly from the summary workspace.
+
+## RAG Quickstart / RAG-Schnellstart
+
+**Step 1 / Schritt 1:**
+  **EN:** Run `python -m cli.rebuild_vector_store <source_store_id>` (or create a fresh store in the OpenAI dashboard) and place the returned ID in the `VECTOR_STORE_ID` environment variable or `st.secrets`.
+  **DE:** Führe `python -m cli.rebuild_vector_store <source_store_id>` aus (oder erstelle im OpenAI-Dashboard einen neuen Store) und hinterlege die ausgegebene ID in der Umgebungsvariable `VECTOR_STORE_ID` oder in `st.secrets`.
+
+**Step 2 / Schritt 2:**
+  **EN:** Upload a job ad and open the **Gap analysis** or **Follow-up questions** panel. The RAG pipeline (`llm/rag_pipeline.py`) adds the best-matching snippets to the agent prompt so that follow-up suggestions contain grounded evidence links.
+  **DE:** Lade eine Stellenanzeige hoch und öffne die Ansicht **Gap-Analyse** oder das Panel **Nachfragen**. Die RAG-Pipeline (`llm/rag_pipeline.py`) ergänzt die Agenten-Prompts um passende Ausschnitte, sodass Nachfragen begründete Hinweise enthalten.
+
+**Step 3 / Schritt 3:**
+  **EN:** Use the inline “Refresh suggestions” button to trigger another retrieval round when you change key fields. Missing vector-store configuration raises a localized hint instead of blocking the wizard.
+  **DE:** Nutze den Inline-Button „Vorschläge aktualisieren“, um nach einer Feldänderung eine neue Retrieval-Runde zu starten. Fehlt die Vector-Store-Konfiguration, erscheint ein lokalisierter Hinweis, ohne den Wizard zu blockieren.
 
 ## Troubleshooting & Tips
 - **Missing suggestions?** Ensure the job title is set, unlock the field if it’s frozen by rule logic, and verify that `OPENAI_API_KEY` and (optionally) `VECTOR_STORE_ID` are configured.

@@ -1,16 +1,25 @@
-## Schema (v2.1)
-Vacalyzer's schema is now hierarchical, grouping related fields for a profile. Each top-level key represents a category (such as `company`, `position`, `compensation`, etc.), containing sub-fields. We focus on core fields (priority 1–3) to gather essential information first. Below are the groups and example fields:
-- **company:** `name`, `industry`, `hq_location`, `size`, `website`  
-- **position:** `job_title`, `seniority_level`, `department`, `management_scope`, `reporting_line`, `role_summary`, `team_structure`, etc.  
-- **employment:** `job_type`, `work_policy` (Onsite/Hybrid/Remote), `travel_required`, `work_schedule`, etc.  
-- **compensation:** `salary_currency`, `salary_min`, `salary_max`, `salary_period`, `benefits`, etc.  
-- **requirements:** `hard_skills`, `soft_skills`, `tools_and_technologies`, `education_level`, `languages_required`, `certificates` (`certifications`), etc.
-- **responsibilities:** `items` (list of key responsibilities), `top3` (the top three responsibilities).  
-*(Other groups like contacts, process, and analytics exist in the schema but may not be fully utilized in the initial extraction.)*
+## Schema (v2.1) / Schema (v2.1)
 
-All fields are expected in the JSON output, even if empty (empty string for text, empty list for lists). The `schema_version` is "v2.1" indicating the expanded schema.
+**EN:** The hierarchical schema groups related fields into categories such as `company`, `position`, and `compensation`. Priority levels (1–3) focus the extraction flow on mandatory information first. Example categories:
+- **company:** `name`, `industry`, `hq_location`, `size`, `website`
+- **position:** `job_title`, `seniority_level`, `department`, `management_scope`, `reporting_line`, `role_summary`, `team_structure`
+- **employment:** `job_type`, `work_policy` (Onsite/Hybrid/Remote), `travel_required`, `work_schedule`
+- **compensation:** `salary_currency`, `salary_min`, `salary_max`, `salary_period`, `benefits`
+- **requirements:** `hard_skills`, `soft_skills`, `tools_and_technologies`, `education_level`, `languages_required`, `certificates`
+- **responsibilities:** `items` (list of key responsibilities), `top3` (three highlights)
 
-Example JSON output from the extractor (abridged):
+**DE:** Das hierarchische Schema gruppiert verwandte Felder in Kategorien wie `company`, `position` und `compensation`. Prioritäten (1–3) lenken die Extraktion zuerst auf Pflichtangaben. Beispielkategorien:
+- **company:** `name`, `industry`, `hq_location`, `size`, `website`
+- **position:** `job_title`, `seniority_level`, `department`, `management_scope`, `reporting_line`, `role_summary`, `team_structure`
+- **employment:** `job_type`, `work_policy` (Onsite/Hybrid/Remote), `travel_required`, `work_schedule`
+- **compensation:** `salary_currency`, `salary_min`, `salary_max`, `salary_period`, `benefits`
+- **requirements:** `hard_skills`, `soft_skills`, `tools_and_technologies`, `education_level`, `languages_required`, `certificates`
+- **responsibilities:** `items` (Liste der wichtigsten Aufgaben), `top3` (drei Highlights)
+
+*EN/DE:* Weitere Bereiche (z. B. Kontakte, Prozess oder Analytics) existieren im Schema, kommen aber nicht in jeder Extraktion zum Einsatz. Alle Felder erscheinen im JSON – leere Strings für Text, leere Listen für Arrays. Die aktuelle `schema_version` lautet `"v2.1"`.
+
+### Example output / Beispielausgabe
+
 ```json
 {
   "schema_version": "v2.1",
@@ -63,27 +72,16 @@ Example JSON output from the extractor (abridged):
 }
 ```
 
-### Confidence metadata and locks
+### Confidence metadata and locks / Confidence-Metadaten und Sperren
 
-The extractor and rule passes attach metadata that the wizard uses to explain
-where values came from and whether they should be editable without an explicit
-unlock:
+**EN:**
+- `field_confidence` maps dot-paths to metadata entries. Each entry includes a `tier` (`rule_strong` for deterministic rule hits, `ai_assisted` for LLM output) and a `source` (`"rule"` or `"llm"`). Rule hits also log a pattern identifier and numeric `score`. The wizard renders icons (🔎 for rules, 🤖 for AI) and tooltips based on this data.
+- `high_confidence_fields` lists authoritative fields that start locked. Rule passes populate the list; downstream heuristics add further entries (e.g. benefit bundles).
+- `locked_fields` records fields that require an explicit unlock toggle before editing. Overlap with `high_confidence_fields` indicates strong rule confidence.
 
-- `field_confidence` is a map of dot-paths to metadata objects. Each entry at
-  least contains a `tier` (`rule_strong` for deterministic rule hits,
-  `ai_assisted` for model output) and a `source` label (`"rule"` or `"llm"`).
-  Rule matches also record their pattern identifier as `rule` and a numeric
-  `score` describing match confidence. The wizard renders these tiers as icons
-  next to each field (🔎 for rule matches, 🤖 for AI) together with a short
-  tooltip, and it shows the same legend in the sidebar.
-- `high_confidence_fields` enumerates fields that should initially be treated
-  as authoritative. Rule-based matches populate this list, and downstream
-  heuristics may append additional items (for example locked benefit lists).
-- `locked_fields` lists the fields that require a user toggle before editing.
-  When a field appears in `high_confidence_fields` or carries the
-  `rule_strong` tier the wizard marks it as locked, pre-fills the unlock toggle
-  state, and preserves the tooltip from `field_confidence`.
+**DE:**
+- `field_confidence` ordnet Dot-Pfade Metadaten zu. Jeder Eintrag enthält ein `tier` (`rule_strong` für Regel-Treffer, `ai_assisted` für KI-Output) sowie ein `source` (`"rule"` oder `"llm"`). Regel-Treffer speichern zusätzlich eine Pattern-ID und den numerischen `score`. Der Wizard zeigt darauf basierende Icons (🔎 für Regeln, 🤖 für KI) samt Tooltip an.
+- `high_confidence_fields` führt Felder mit hoher Verlässlichkeit, die initial gesperrt bleiben. Regelprüfungen füllen die Liste, Heuristiken ergänzen weitere Felder (z. B. Benefits).
+- `locked_fields` enthält Felder, die vor Änderungen aktiv entsperrt werden müssen. Überschneidungen mit `high_confidence_fields` deuten auf hohe Regel-Sicherheit hin.
 
-All three structures are stored in `profile_metadata` and persist across
-extraction retries so that subsequent runs honour existing locks and
-indicators.
+*EN/DE:* Alle drei Strukturen liegen in `profile_metadata`, überleben erneute Extraktionsläufe und stellen sicher, dass bestehende Sperren und Hinweise respektiert werden.
