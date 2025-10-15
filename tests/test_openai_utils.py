@@ -64,6 +64,35 @@ def test_call_chat_api_raises_when_no_api_key(monkeypatch):
         call_chat_api([{"role": "user", "content": "hi"}])
 
 
+def test_missing_api_key_triggers_ui_alert_once(monkeypatch):
+    """Missing API keys should surface a bilingual UI hint exactly once per session."""
+
+    st.session_state.clear()
+
+    recorded: list[str] = []
+
+    def _fake_display(msg: str) -> None:
+        recorded.append(msg)
+
+    monkeypatch.setattr("openai_utils.api.display_error", _fake_display)
+    monkeypatch.setattr("openai_utils.api.OPENAI_API_KEY", "")
+    monkeypatch.setattr("openai_utils.api.client", None, raising=False)
+
+    with pytest.raises(RuntimeError):
+        call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert recorded == [openai_utils.api._MISSING_API_KEY_ALERT_MESSAGE]
+    assert (
+        st.session_state.get(openai_utils.api._MISSING_API_KEY_ALERT_STATE_KEY)
+        is True
+    )
+
+    with pytest.raises(RuntimeError):
+        call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert recorded == [openai_utils.api._MISSING_API_KEY_ALERT_MESSAGE]
+
+
 def test_call_chat_api_tool_call(monkeypatch):
     """Tool call information should be returned to the caller."""
 
