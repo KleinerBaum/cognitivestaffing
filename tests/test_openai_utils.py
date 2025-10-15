@@ -659,6 +659,35 @@ def test_call_chat_api_includes_reasoning_for_supported_models(monkeypatch):
     assert captured["reasoning"] == {"effort": "high"}
 
 
+def test_call_chat_api_uses_session_reasoning_default(monkeypatch):
+    """Reasoning payload should honour the session's stored effort level."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = ""
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    st.session_state.clear()
+    st.session_state["reasoning_effort"] = "minimal"
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="o1-mini",
+    )
+    assert captured["reasoning"] == {"effort": "minimal"}
+
+
 def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
     """Regular chat models should not receive the reasoning parameter."""
 

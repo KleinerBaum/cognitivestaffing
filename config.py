@@ -6,8 +6,8 @@ generative workloads, while ``gpt-5-nano`` powers lightweight suggestion flows.
 Structured retrieval keeps using ``text-embedding-3-small``.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
-``REASONING_EFFORT`` (``low`` | ``medium`` | ``high``) to control how much
-reasoning the model performs by default.
+``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
+how much reasoning the model performs by default.
 """
 
 import os
@@ -88,7 +88,27 @@ def _detect_default_model() -> str:
 
 
 DEFAULT_MODEL = _detect_default_model()
-REASONING_EFFORT = os.getenv("REASONING_EFFORT", "medium")
+REASONING_LEVELS = ("minimal", "low", "medium", "high")
+
+
+def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -> str:
+    """Return a supported reasoning effort value or ``default`` when invalid."""
+
+    if value is None:
+        return default
+    candidate = value.strip().lower()
+    if not candidate:
+        return default
+    if candidate in REASONING_LEVELS:
+        return candidate
+    warnings.warn(
+        "Unsupported REASONING_EFFORT '%s'; falling back to '%s'." % (candidate, default),
+        RuntimeWarning,
+    )
+    return default
+
+
+REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
@@ -106,7 +126,10 @@ except Exception:
     openai_secrets = None
 
 try:
-    REASONING_EFFORT = st.secrets.get("REASONING_EFFORT", REASONING_EFFORT)
+    REASONING_EFFORT = _normalise_reasoning_effort(
+        st.secrets.get("REASONING_EFFORT", REASONING_EFFORT),
+        default=REASONING_EFFORT,
+    )
 except Exception:
     pass
 

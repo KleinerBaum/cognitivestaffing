@@ -67,7 +67,7 @@ export OPENAI_API_KEY="sk-..."
 # Optional overrides
 export OPENAI_BASE_URL="https://api.openai.com/v1"          # use https://eu.api.openai.com/v1 for EU residency
 export OPENAI_MODEL="gpt-5-mini"                             # default model override
-export REASONING_EFFORT="medium"                             # low | medium | high
+export REASONING_EFFORT="medium"                             # minimal | low | medium | high
 export VECTOR_STORE_ID="vs_XXXXXXXXXXXXXXXX"                 # enable RAG lookups (optional)
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.example/v1/traces"  # optional tracing
 export OTEL_SERVICE_NAME="cognitive-staffing"
