@@ -672,7 +672,7 @@ def test_call_chat_api_handles_nested_usage(monkeypatch):
 
 
 def test_call_chat_api_normalises_tool_schema(monkeypatch):
-    """Function tools should expose nested metadata while built-ins stay bare."""
+    """Function tools should expose nested metadata while built-ins expose names."""
 
     captured: dict[str, Any] = {}
 
@@ -684,10 +684,10 @@ def test_call_chat_api_normalises_tool_schema(monkeypatch):
                     fn_block = tool.get("function", {})
                     assert "name" in fn_block and fn_block["name"]
                     assert "parameters" in fn_block
-                    assert "name" not in tool
+                    assert tool.get("name") == fn_block.get("name")
                 else:
                     assert "function" not in tool
-                    assert "name" not in tool
+                    assert tool.get("name") == tool.get("type")
             return type("R", (), {"output": [], "output_text": "", "usage": {}})()
 
     class _FakeClient:
@@ -727,8 +727,9 @@ def test_prepare_payload_includes_web_search_tools():
         if tool.get("type") == "function":
             fn_payload = tool.get("function", {})
             assert fn_payload.get("name")
+            assert tool.get("name") == fn_payload.get("name")
         else:
-            assert "name" not in tool
+            assert tool.get("name") == tool.get("type")
 
 
 def test_prepare_payload_normalises_legacy_tool_choice():

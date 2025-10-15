@@ -478,20 +478,20 @@ def _collect_tool_calls(response: Any) -> list[dict]:
             if not normalised_function.get("name") and call_data.get("name"):
                 normalised_function["name"] = call_data.get("name")
 
-            payload_value: str | None = None
+            function_payload_value: str | None = None
             for candidate in (
                 normalised_function.get("input"),
                 call_data.get("input"),
                 normalised_function.get("arguments"),
                 call_data.get("arguments"),
             ):
-                payload_value = _serialise_tool_payload(candidate)
-                if payload_value is not None:
+                function_payload_value = _serialise_tool_payload(candidate)
+                if function_payload_value is not None:
                     break
 
-            if payload_value is not None:
-                normalised_function["input"] = payload_value
-                normalised_function["arguments"] = payload_value
+            if function_payload_value is not None:
+                normalised_function["input"] = function_payload_value
+                normalised_function["arguments"] = function_payload_value
 
             call_data["function"] = normalised_function
 
@@ -678,23 +678,37 @@ def _prepare_payload(
         is_function_tool = bool(tool_type == "function" or has_function_payload or has_parameters)
 
         if not is_function_tool:
-            prepared.pop("name", None)
-            return prepared, False
+            name_value = prepared.get("name")
+            has_name = isinstance(name_value, str) and bool(name_value.strip())
+            return prepared, has_name
 
-        if function_payload is not None:
-            function_dict = dict(function_payload)
-        else:
-            function_dict = {}
+        function_dict = dict(function_payload) if function_payload is not None else {}
+        top_level_name = prepared.get("name")
 
-        for field in ("name", "description", "parameters", "strict"):
+        for field in ("description", "parameters", "strict"):
             if field in prepared and field not in function_dict:
                 function_dict[field] = prepared[field]
             prepared.pop(field, None)
 
+        function_name = function_dict.get("name")
+        if not (isinstance(function_name, str) and function_name.strip()):
+            if isinstance(top_level_name, str) and top_level_name.strip():
+                function_dict["name"] = top_level_name.strip()
+                function_name = function_dict["name"]
+            else:
+                function_name = None
+        else:
+            function_name = function_name.strip()
+
+        if function_name:
+            prepared["name"] = function_name
+            function_dict["name"] = function_name
+        else:
+            prepared.pop("name", None)
+
         prepared["type"] = "function"
         prepared["function"] = function_dict
-        name = function_dict.get("name")
-        return prepared, bool(name)
+        return prepared, bool(function_name)
 
     def _normalise_tool_choice_spec(choice: Any) -> Any:
         """Translate legacy function ``tool_choice`` payloads to the new schema."""
@@ -763,6 +777,7 @@ def _prepare_payload(
             raise ValueError("Function tools must define a 'name'.")
 
         function_block["name"] = fallback_name
+        converted_tools[index]["name"] = fallback_name
         used_names.add(fallback_name)
 
     combined_tools = converted_tools
@@ -839,7 +854,9 @@ class ChatStream(Iterable[str]):
     """Iterator over streaming chat responses."""
 
     def __init__(self, payload: Dict[str, Any], model: str, *, task: ModelTask | str | None):
-        self._payload = payload
+        prepared_payload = dict(payload)
+        prepared_payload.setdefault("timeout", OPENAI_REQUEST_TIMEOUT)
+        self._payload = prepared_payload
         self._model = model
         self._task = task
         self._result: ChatCallResult | None = None
@@ -862,7 +879,6 @@ class ChatStream(Iterable[str]):
             _handle_streaming_error(error)
         else:
             self._finalise(final_response)
-
 
     def _finalise(self, response: Any) -> None:
         tool_calls = _collect_tool_calls(response)

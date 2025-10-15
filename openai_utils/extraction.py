@@ -123,10 +123,16 @@ def extract_company_info(
         tools: list[dict[str, Any]] = []
         tool_choice: str | None = None
         if store_id:
-            tools.append({"type": "file_search", "vector_store_ids": [store_id]})
+            tools.append(
+                {
+                    "type": "file_search",
+                    "name": "file_search",
+                    "vector_store_ids": [store_id],
+                }
+            )
             tool_choice = "auto"
         else:
-            tools.append({"type": "web_search"})
+            tools.append({"type": "web_search", "name": "web_search"})
         span.set_attribute("llm.vector_store", bool(store_id))
         span.set_attribute("llm.tools", ",".join(tool["type"] for tool in tools))
         try:

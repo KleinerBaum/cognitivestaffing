@@ -234,9 +234,7 @@ _ROLE_KEYWORDS: dict[str, list[str]] = {}
 for canonical_role, entry in _SALARY_DATA.items():
     normalized_role = _normalize_token(canonical_role)
     _ROLE_INDEX[normalized_role] = canonical_role
-    _ROLE_KEYWORDS[canonical_role] = [
-        _normalize_token(keyword) for keyword in entry.get("keywords", []) if keyword
-    ]
+    _ROLE_KEYWORDS[canonical_role] = [_normalize_token(keyword) for keyword in entry.get("keywords", []) if keyword]
     _ROLE_FRAGMENTS.append((normalized_role, canonical_role))
     for alias in entry.get("aliases", []):
         normalized_alias = _normalize_token(alias)
@@ -384,10 +382,12 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
     # Advertise OpenAI built-in tools so downstream chat calls can leverage
     # native web search capabilities without having to configure them manually
     # in every call site.
-    tools.extend([
-        {"type": "web_search"},
-        {"type": "web_search_preview"},
-    ])
+    tools.extend(
+        [
+            {"type": "web_search", "name": "web_search"},
+            {"type": "web_search_preview", "name": "web_search_preview"},
+        ]
+    )
     funcs: Mapping[str, Callable[..., Any]] = {
         "get_salary_benchmark": get_salary_benchmark,
         "get_skill_definition": get_skill_definition,
