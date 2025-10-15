@@ -137,7 +137,13 @@ def _minimal_messages(text: str) -> list[dict[str, str]]:
 
     keys = ", ".join(FIELDS_ORDER)
     return [
-        {"role": "system", "content": f"Return JSON only with these keys: {keys}"},
+        {
+            "role": "system",
+            "content": (
+                "Follow GPT-5 discipline: plan silently, execute sequentially, and do not stop until the request is complete. "
+                f"Return JSON only with these keys: {keys}"
+            ),
+        },
         {"role": "user", "content": text},
     ]
 

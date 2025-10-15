@@ -345,11 +345,14 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
         "language_level_english": inputs.language_level_english,
     }
     system_prompt = (
-        "You are a compensation analyst. Estimate an annual salary range in the "
-        "local currency based on the provided job context. Factor in seniority, "
-        "work policy, employment type, team size, industry, city hints, required "
-        "and optional skills, tools, certifications, and language expectations. "
-        "Respond by calling the "
+        "You are a compensation analyst operating with GPT-5 prompting discipline. "
+        "Mentally draft a brief plan (do not output it) covering inputs to review, "
+        "market adjustments, and validation. Follow the plan step by step and do "
+        "not stop until the user's query is completely resolved. Estimate an "
+        "annual salary range in the local currency based on the provided job "
+        "context. Factor in seniority, work policy, employment type, team size, "
+        "industry, city hints, required and optional skills, tools, "
+        "certifications, and language expectations. Respond by calling the "
         f"function {FUNCTION_NAME}. Prefer realistic mid-market values and align "
         "with the seniority, work policy, and language level requirements if "
         "given."

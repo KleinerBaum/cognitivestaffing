@@ -25,23 +25,17 @@ def render_field_bullets() -> str:
 # ----------------------------------------------------------------------------
 
 SYSTEM_JSON_EXTRACTOR: str = (
-    "You are an extractor. Return ONLY a JSON object with the exact keys provided. "
-    "Use empty strings for missing values and empty lists for missing arrays. No prose. "
+    "You are an extractor following GPT-5 best practices. Before responding, silently outline a short plan covering identification, field mapping, and validation—do not expose the plan. "
+    "Execute the plan step by step, persisting until every schema key is handled. Do not stop until the user's request is completely satisfied. Return ONLY a JSON object with the exact keys provided. "
+    "Use empty strings for missing values and empty lists for missing arrays. No prose. Lock JSON structure to the schema at all times. "
     "Provide the main job title without gender markers in position.job_title, the company's legal name in company.name, and the primary city in location.primary_city. "
-    "Map common terms: 'Vollzeit' or 'Full-time' -> employment.job_type='full_time', 'Teilzeit' -> 'part_time', "
-    "'Festanstellung' or 'Permanent' -> employment.contract_type='permanent', 'Befristet' or 'Fixed term' -> employment.contract_type='fixed_term'. "
-    "Detect work policy keywords like 'Remote', 'Home-Office', or 'Hybrid' and map them to employment.work_policy. "
-    "If office days per week or remote percentages are mentioned, estimate employment.remote_percentage using a 5-day work week. "
-    "Extract salary ranges like '65.000–85.000 €' into numeric compensation.salary_min and compensation.salary_max and set compensation.currency to an ISO code (e.g. EUR). "
-    "If variable pay or bonuses such as '10% Variable' are mentioned, set compensation.variable_pay=true and capture the percentage in compensation.bonus_percentage. "
-    "List every benefit/perk separately in compensation.benefits as a JSON array of strings. "
-    "Collect each key task or responsibility (especially bullet points) in responsibilities.items as a JSON array of strings. "
-    "Separate technical vs. social skills: place mandatory hard skills in requirements.hard_skills_required and optional ones in requirements.hard_skills_optional. "
-    "Soft skills like communication or teamwork go into requirements.soft_skills_required or requirements.soft_skills_optional depending on whether they are required or marked as nice-to-have. "
-    "List programming languages, frameworks, and tools in requirements.tools_and_technologies (in addition to hard skill lists). "
-    "Extract spoken language requirements into requirements.languages_required and optional languages into requirements.languages_optional. "
-    "Put mentioned certifications (e.g. 'AWS ML Specialty') into requirements.certificates (mirror to requirements.certifications). "
-    "Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
+    "Map common terms: 'Vollzeit' or 'Full-time' -> employment.job_type='full_time', 'Teilzeit' -> 'part_time', 'Festanstellung' or 'Permanent' -> employment.contract_type='permanent', 'Befristet' or 'Fixed term' -> employment.contract_type='fixed_term'. "
+    "Detect work policy keywords like 'Remote', 'Home-Office', or 'Hybrid' and map them to employment.work_policy. If office days per week or remote percentages are mentioned, estimate employment.remote_percentage using a 5-day work week. "
+    "Extract salary ranges like '65.000–85.000 €' into numeric compensation.salary_min and compensation.salary_max and set compensation.currency to an ISO code (e.g. EUR). If variable pay or bonuses such as '10% Variable' are mentioned, set compensation.variable_pay=true and capture the percentage in compensation.bonus_percentage. "
+    "List every benefit/perk separately in compensation.benefits as a JSON array of strings. Collect each key task or responsibility (especially bullet points) in responsibilities.items as a JSON array of strings. "
+    "Separate technical vs. social skills: place mandatory hard skills in requirements.hard_skills_required and optional ones in requirements.hard_skills_optional. Soft skills like communication or teamwork go into requirements.soft_skills_required or requirements.soft_skills_optional depending on whether they are required or marked as nice-to-have. "
+    "List programming languages, frameworks, and tools in requirements.tools_and_technologies (in addition to hard skill lists). Extract spoken language requirements into requirements.languages_required and optional languages into requirements.languages_optional. "
+    "Put mentioned certifications (e.g. 'AWS ML Specialty') into requirements.certificates (mirror to requirements.certifications). Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
 )
 
 
@@ -83,8 +77,9 @@ def USER_JSON_EXTRACT_TEMPLATE(
     field_lines = "\n".join(f"- {f}" for f in fields_list)
 
     instructions = (
-        "Extract the vacancy data and respond with a JSON object containing the schema keys. "
-        "If data for a key is missing, use an empty string or empty list. Use position.job_title for the main job title without gender markers and map the employer name to company.name and the primary city to location.primary_city. "
+        "Follow these steps carefully and persist until every step succeeds: "
+        "1) Review the extras, locked values, and schema keys. 2) Scan the text for each field. 3) Populate the JSON with exact matches, using empty strings/lists when missing. "
+        "Extract the vacancy data and respond with a JSON object containing the schema keys. Use position.job_title for the main job title without gender markers, map the employer name to company.name, and map the primary city to location.primary_city. "
         "List each responsibility/task separately in responsibilities.items."
     )
     if locked_block:
@@ -153,8 +148,8 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     lang = str(payload.get("language") or "de").lower()
 
     system_msg = tr(
-        "Du bist eine erfahrene Texterin für Stellenanzeigen. Schreibe klar, inklusiv und überzeugend.",
-        "You are an experienced recruitment copywriter. Write clearly, inclusively, and persuasively.",
+        "Du bist eine erfahrene Texterin für Stellenanzeigen. Plane gedanklich kurz die Struktur, gib diesen Plan nicht aus und arbeite die Schritte nacheinander ab. Schreibe klar, inklusiv und überzeugend und höre erst auf, wenn alle Anforderungen erfüllt sind.",
+        "You are an experienced recruitment copywriter. Briefly plan the structure internally (do not output it), execute the steps sequentially, write clearly, inclusively, and persuasively, and do not stop until every requirement is satisfied.",
         lang,
     )
 
@@ -188,6 +183,11 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
         tr(
             "Schreibe eine wirkungsvolle Stellenanzeige in Markdown basierend auf den folgenden Daten.",
             "Write a compelling job advertisement in Markdown based on the structured data below.",
+            lang,
+        ),
+        tr(
+            "Folge diesen Schritten strikt: 1) Lies Kontext und Abschnitte, 2) lege die Gliederung fest, 3) schreibe die Abschnitte, 4) prüfe, ob alle Punkte enthalten sind.",
+            "Follow these steps strictly: 1) Review context and sections, 2) decide on the outline, 3) write the sections, 4) verify every point is included.",
             lang,
         ),
         tr(
