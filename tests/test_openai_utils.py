@@ -82,10 +82,7 @@ def test_missing_api_key_triggers_ui_alert_once(monkeypatch):
         call_chat_api([{"role": "user", "content": "hi"}])
 
     assert recorded == [openai_utils.api._MISSING_API_KEY_ALERT_MESSAGE]
-    assert (
-        st.session_state.get(openai_utils.api._MISSING_API_KEY_ALERT_STATE_KEY)
-        is True
-    )
+    assert st.session_state.get(openai_utils.api._MISSING_API_KEY_ALERT_STATE_KEY) is True
 
     with pytest.raises(RuntimeError):
         call_chat_api([{"role": "user", "content": "hi"}])
@@ -1294,3 +1291,59 @@ def test_call_chat_api_rate_limit(monkeypatch):
     monkeypatch.setattr("openai_utils.api.client", _Client(), raising=False)
     with pytest.raises(RuntimeError, match="rate limit"):
         call_chat_api([{"role": "user", "content": "hi"}])
+
+
+def _make_streaming_error_event(message: str) -> dict[str, Any]:
+    """Return a streaming event representing an error."""
+
+    return {
+        "type": "response.error",
+        "error": {"message": message, "code": "rate_limit_exceeded"},
+    }
+
+
+def test_chat_stream_routes_streaming_errors(monkeypatch):
+    """Streaming errors should surface in the UI before bubbling up."""
+
+    recorded: list[str] = []
+
+    def _capture_error(msg: str) -> None:
+        recorded.append(msg)
+
+    monkeypatch.setattr(st, "error", _capture_error)
+
+    class _FakeStream:
+        def __init__(self) -> None:
+            self._events = iter([_make_streaming_error_event("Rate limit hit")])
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            return next(self._events)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get_final_response(self):  # pragma: no cover - not reached during error
+            raise AssertionError("get_final_response should not be called on failure")
+
+    class _FakeResponses:
+        def stream(self, **_: Any):
+            return _FakeStream()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr(openai_utils.api, "client", _FakeClient(), raising=False)
+
+    stream = openai_utils.api.ChatStream({}, "gpt-test", task=None)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        list(stream)
+
+    assert recorded == [openai_utils.api._RATE_LIMIT_ERROR_MESSAGE]
+    assert str(exc_info.value) == openai_utils.api._RATE_LIMIT_ERROR_MESSAGE

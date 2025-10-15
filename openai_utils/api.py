@@ -63,8 +63,15 @@ _USAGE_LOCK = Lock()
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
 _MISSING_API_KEY_ALERT_MESSAGE = (
-    "\U0001F511 OpenAI-API-Schlüssel fehlt. Bitte `OPENAI_API_KEY` in der Umgebung oder in den Streamlit-Secrets hinterlegen.\n"
+    "\U0001f511 OpenAI-API-Schlüssel fehlt. Bitte `OPENAI_API_KEY` in der Umgebung oder in den Streamlit-Secrets hinterlegen.\n"
     "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
+)
+
+_AUTHENTICATION_ERROR_MESSAGE = "OpenAI API key invalid or quota exceeded."
+_RATE_LIMIT_ERROR_MESSAGE = "OpenAI API rate limit exceeded. Please retry later."
+_NETWORK_ERROR_MESSAGE = "Network error communicating with OpenAI. Please check your connection and retry."
+_INVALID_REQUEST_ERROR_MESSAGE = (
+    "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)"
 )
 
 
@@ -835,14 +842,18 @@ class ChatStream(Iterable[str]):
 
     def _consume(self) -> Iterator[str]:
         client = get_client()
-        with client.responses.stream(**self._payload) as stream:
-            for event in stream:
-                for chunk in _stream_event_chunks(event):
-                    if chunk:
-                        self._buffer.append(chunk)
-                        yield chunk
-            final_response = stream.get_final_response()
-        self._finalise(final_response)
+        try:
+            with client.responses.stream(**self._payload) as stream:
+                for event in stream:
+                    for chunk in _stream_event_chunks(event):
+                        if chunk:
+                            self._buffer.append(chunk)
+                            yield chunk
+                final_response = stream.get_final_response()
+        except (OpenAIError, RuntimeError) as error:
+            _handle_streaming_error(error)
+        else:
+            self._finalise(final_response)
 
     def _finalise(self, response: Any) -> None:
         tool_calls = _collect_tool_calls(response)
@@ -960,26 +971,68 @@ def _show_missing_api_key_alert() -> None:
         pass
 
 
+def _describe_openai_error(error: OpenAIError) -> tuple[str, str]:
+    """Return the user-facing and log messages for an OpenAI error."""
+
+    if isinstance(error, AuthenticationError):
+        return _AUTHENTICATION_ERROR_MESSAGE, _AUTHENTICATION_ERROR_MESSAGE
+
+    if isinstance(error, RateLimitError):
+        return _RATE_LIMIT_ERROR_MESSAGE, _RATE_LIMIT_ERROR_MESSAGE
+
+    if isinstance(error, (APIConnectionError, APITimeoutError)):
+        return _NETWORK_ERROR_MESSAGE, _NETWORK_ERROR_MESSAGE
+
+    if isinstance(error, BadRequestError) or getattr(error, "type", "") == "invalid_request_error":
+        detail = getattr(error, "message", str(error))
+        log_msg = f"OpenAI invalid request: {detail}"
+        return _INVALID_REQUEST_ERROR_MESSAGE, log_msg
+
+    if isinstance(error, APIError):
+        detail = getattr(error, "message", str(error))
+        return f"OpenAI API error: {detail}", f"OpenAI API error: {detail}"
+
+    return f"Unexpected OpenAI error: {error}", f"Unexpected OpenAI error: {error}"
+
+
 def _handle_openai_error(error: OpenAIError) -> None:
     """Raise a user-friendly ``RuntimeError`` for OpenAI failures."""
 
-    if isinstance(error, AuthenticationError):
-        user_msg = "OpenAI API key invalid or quota exceeded."
-    elif isinstance(error, RateLimitError):
-        user_msg = "OpenAI API rate limit exceeded. Please retry later."
-    elif isinstance(error, (APIConnectionError, APITimeoutError)):
-        user_msg = "Network error communicating with OpenAI. Please check your connection and retry."
-    elif isinstance(error, BadRequestError) or getattr(error, "type", "") == "invalid_request_error":
-        detail = getattr(error, "message", str(error))
-        log_msg = f"OpenAI invalid request: {detail}"
-        user_msg = "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)"
-    elif isinstance(error, APIError):
-        detail = getattr(error, "message", str(error))
-        user_msg = f"OpenAI API error: {detail}"
-    else:
-        user_msg = f"Unexpected OpenAI error: {error}"
+    user_msg, log_msg = _describe_openai_error(error)
+    logger.error(log_msg, exc_info=error)
+    try:  # pragma: no cover - Streamlit may not be initialised in tests
+        st.error(user_msg)
+    except Exception:  # noqa: BLE001
+        pass
+    raise RuntimeError(user_msg) from error
 
-    log_msg = locals().get("log_msg", user_msg)
+
+def _handle_streaming_error(error: Exception) -> None:
+    """Surface streaming failures with user-facing feedback before re-raising."""
+
+    if isinstance(error, OpenAIError):
+        _handle_openai_error(error)
+        return
+
+    message = str(error)
+    lowered = message.lower()
+
+    if "rate limit" in lowered or "429" in lowered or "too many requests" in lowered:
+        user_msg = _RATE_LIMIT_ERROR_MESSAGE
+        log_msg = f"OpenAI streaming rate limit: {message}"
+    elif any(keyword in lowered for keyword in ("timeout", "timed out", "connection", "network", "dns", "503", "504")):
+        user_msg = _NETWORK_ERROR_MESSAGE
+        log_msg = f"OpenAI streaming network error: {message}"
+    elif any(
+        keyword in lowered
+        for keyword in ("invalid", "bad request", "prompt", "context length", "length limit", "unsupported")
+    ):
+        user_msg = _INVALID_REQUEST_ERROR_MESSAGE
+        log_msg = f"OpenAI streaming invalid request: {message}"
+    else:
+        user_msg = f"Unexpected OpenAI error: {message}"
+        log_msg = user_msg
+
     logger.error(log_msg, exc_info=error)
     try:  # pragma: no cover - Streamlit may not be initialised in tests
         st.error(user_msg)
