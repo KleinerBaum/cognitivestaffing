@@ -32,8 +32,8 @@ def test_ensure_state_normalises_legacy_models():
     st.session_state["model"] = "gpt-4o"
     st.session_state["model_override"] = "gpt-4o-mini"
     es.ensure_state()
-    assert st.session_state["model"] == "gpt-5-mini"
-    assert st.session_state["model_override"] == "gpt-5-nano"
+    assert st.session_state["model"] == config.GPT5_MINI
+    assert st.session_state["model_override"] == config.GPT5_NANO
 
 
 def test_ensure_state_preserves_minimal_reasoning_level():

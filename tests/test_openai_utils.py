@@ -7,6 +7,7 @@ import pytest
 
 import httpx
 import openai_utils
+import config
 from config import ModelTask
 from openai_utils import (
     ChatCallResult,
@@ -566,7 +567,7 @@ def test_stream_chat_api_yields_chunks(monkeypatch):
 
     stream = stream_chat_api(
         [{"role": "user", "content": "hello"}],
-        model="gpt-5-mini",
+        model=config.GPT5_MINI,
         task=ModelTask.JOB_AD,
     )
 
@@ -708,7 +709,7 @@ def test_prepare_payload_includes_web_search_tools():
 
     payload, _, _, _ = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
-        model="gpt-5-mini",
+        model=config.GPT5_MINI,
         temperature=None,
         max_tokens=None,
         json_schema=None,
@@ -738,7 +739,7 @@ def test_prepare_payload_normalises_legacy_tool_choice():
 
     payload, _, _, _ = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
-        model="gpt-5-mini",
+        model=config.GPT5_MINI,
         temperature=None,
         max_tokens=None,
         json_schema=None,
@@ -901,7 +902,7 @@ def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     call_chat_api(
         [{"role": "user", "content": "hi"}],
-        model="gpt-5-nano",
+        model=config.GPT5_NANO,
         reasoning_effort="high",
     )
     assert "reasoning" not in captured
@@ -1038,7 +1039,7 @@ def test_call_chat_api_retries_without_temperature(monkeypatch):
 
     result = call_chat_api(
         [{"role": "user", "content": "hi"}],
-        model="gpt-5-mini",
+        model=config.GPT5_MINI,
         temperature=0.5,
     )
 
@@ -1046,7 +1047,7 @@ def test_call_chat_api_retries_without_temperature(monkeypatch):
     assert "temperature" in calls[0]
     assert "temperature" not in calls[1]
     assert result.tool_calls == []
-    assert not model_supports_temperature("gpt-5-mini")
+    assert not model_supports_temperature(config.GPT5_MINI)
 
 
 def test_model_supports_temperature_detection() -> None:
@@ -1054,7 +1055,7 @@ def test_model_supports_temperature_detection() -> None:
 
     assert not model_supports_temperature("o1-mini")
     assert not model_supports_temperature("gpt-5-reasoning")
-    assert model_supports_temperature("gpt-5-mini")
+    assert model_supports_temperature(config.GPT5_MINI)
 
 
 def test_model_supports_reasoning_detection() -> None:
@@ -1062,7 +1063,7 @@ def test_model_supports_reasoning_detection() -> None:
 
     assert model_supports_reasoning("o1-mini")
     assert model_supports_reasoning("gpt-5-reasoning")
-    assert not model_supports_reasoning("gpt-5-nano")
+    assert not model_supports_reasoning(config.GPT5_NANO)
 
 
 def test_extract_with_function(monkeypatch):
@@ -1399,7 +1400,7 @@ def test_execute_response_uses_configured_timeout(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
     monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 42.0, raising=False)
 
-    response = openai_utils.api._execute_response({"input": []}, "gpt-5-mini")
+    response = openai_utils.api._execute_response({"input": []}, config.GPT5_MINI)
 
     assert captured["timeout"] == 42.0
     assert response.id == "resp"
@@ -1433,7 +1434,7 @@ def test_chat_stream_uses_configured_timeout(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
     monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 77.0, raising=False)
 
-    stream = openai_utils.api.ChatStream({"input": []}, "gpt-5-mini", task=None)
+    stream = openai_utils.api.ChatStream({"input": []}, config.GPT5_MINI, task=None)
     assert list(stream) == []
     assert stream.result.content == "done"
     assert captured["timeout"] == 77.0

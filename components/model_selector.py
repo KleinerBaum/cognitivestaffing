@@ -14,8 +14,14 @@ def model_selector(key: str = "model") -> str:
 
     option_entries: list[tuple[str | None, str]] = [
         (None, tr("Automatisch: GPT-5 (empfohlen)", "Auto: GPT-5 (recommended)")),
-        (GPT5_MINI, tr("GPT-5 mini erzwingen", "Force GPT-5 mini")),
-        (GPT5_NANO, tr("GPT-5 nano erzwingen", "Force GPT-5 nano")),
+        (
+            GPT5_MINI,
+            tr("GPT-5 mini (gpt-5.1-mini) erzwingen", "Force GPT-5 mini (gpt-5.1-mini)"),
+        ),
+        (
+            GPT5_NANO,
+            tr("GPT-5 nano (gpt-5.1-nano) erzwingen", "Force GPT-5 nano (gpt-5.1-nano)"),
+        ),
     ]
 
     raw_override = st.session_state.get("model_override", "")
@@ -44,8 +50,8 @@ def model_selector(key: str = "model") -> str:
         resolved = OPENAI_MODEL
         st.caption(
             tr(
-                "Die App wählt automatisch zwischen GPT-5-mini und GPT-5-nano je nach Aufgabe.",
-                "The app automatically chooses between GPT-5 mini and GPT-5 nano per task.",
+                "Die App wählt automatisch zwischen GPT-5 mini (`gpt-5.1-mini`) und GPT-5 nano (`gpt-5.1-nano`) je nach Aufgabe.",
+                "The app automatically chooses between GPT-5 mini (`gpt-5.1-mini`) and GPT-5 nano (`gpt-5.1-nano`) per task.",
             )
         )
     else:

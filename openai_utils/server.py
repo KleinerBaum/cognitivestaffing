@@ -1,6 +1,7 @@
 # server.py
 import json
 
+import config
 from fastapi import FastAPI, Request
 from agents import Runner
 from agent_setup import build_wizard_agent
@@ -27,7 +28,7 @@ async def respond(req: Request):
             agent,
             input=f"Action {action_id} with payload: {json.dumps(payload)}",
             # You can set model config including reasoning effort here per event:
-            run_config={"model": "gpt-5-mini", "reasoning": {"effort": "minimal"}},
+            run_config={"model": config.GPT5_MINI, "reasoning": {"effort": "minimal"}},
         )
         return {"ok": True, "messages": result.messages}
     # Message event
