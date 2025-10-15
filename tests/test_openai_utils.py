@@ -21,6 +21,7 @@ import streamlit as st
 
 from constants.keys import StateKeys
 from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
+from pydantic import ValidationError
 
 
 @pytest.fixture(autouse=True)
@@ -1255,6 +1256,64 @@ def test_extract_with_function_parses_json_payload(monkeypatch):
 
     result = extract_with_function("text", {})
     assert result.data["job_title"] == "QA"
+
+
+def test_extract_with_function_raises_for_malformed_json(monkeypatch):
+    """Malformed JSON payloads should surface a clear ``ValueError``."""
+
+    def _fake_call(messages, **kwargs):  # noqa: ANN001 - API signature is dynamic
+        return ChatCallResult(
+            None,
+            [
+                {
+                    "function": {
+                        "input": "{",
+                    }
+                }
+            ],
+            {},
+        )
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+
+    with pytest.raises(ValueError) as excinfo:
+        extract_with_function("ignored", {})
+
+    assert str(excinfo.value) == "Model returned invalid JSON"
+    assert isinstance(excinfo.value.__cause__, Exception)
+
+
+def test_extract_with_function_propagates_validation_error(monkeypatch):
+    """Schema validation errors from ``NeedAnalysisProfile`` should propagate."""
+
+    payload = {
+        "requirements": {
+            "hard_skills_required": "python",
+        }
+    }
+
+    def _fake_call(messages, **kwargs):  # noqa: ANN001 - API signature is dynamic
+        return ChatCallResult(
+            None,
+            [
+                {
+                    "function": {
+                        "input": payload,
+                    }
+                }
+            ],
+            {},
+        )
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+
+    with pytest.raises(ValueError) as excinfo:
+        extract_with_function("ignored", {})
+
+    message = str(excinfo.value)
+    assert message.startswith("Model returned JSON that does not fit NeedAnalysisProfile")
+    assert "requirements.hard_skills_required" in message
+    assert isinstance(excinfo.value.__cause__, ValidationError)
 
 
 def test_call_chat_api_executes_tool(monkeypatch):
