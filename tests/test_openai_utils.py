@@ -16,7 +16,7 @@ from openai_utils import (
     model_supports_reasoning,
     model_supports_temperature,
 )
-from openai import AuthenticationError, RateLimitError
+from openai import APITimeoutError, AuthenticationError, BadRequestError, RateLimitError
 import streamlit as st
 
 from constants.keys import StateKeys
@@ -268,6 +268,54 @@ def test_tool_response_replayed_between_turns(monkeypatch, tool_response_event):
     }
     assert result.tool_calls[0]["type"] == "response.tool_response"
     assert result.tool_calls[0]["output"] == expected_payload
+    assert result.content == "assistant"
+
+
+def test_call_chat_api_propagates_bad_request_without_retry(monkeypatch):
+    """Bad request errors should be raised immediately without retries."""
+
+    calls: list[dict[str, Any]] = []
+
+    def _raise_bad_request(payload: Mapping[str, Any]) -> None:
+        calls.append(dict(payload))
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        response = httpx.Response(
+            status_code=400,
+            request=request,
+            json={"error": {"message": "invalid"}},
+        )
+        raise BadRequestError("invalid", response=response, body={"error": {"message": "invalid"}})
+
+    monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _raise_bad_request)
+
+    with pytest.raises(BadRequestError):
+        call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert len(calls) == 1
+
+
+def test_call_chat_api_retries_transient_timeout(monkeypatch):
+    """Transient timeout errors should trigger a retry before succeeding."""
+
+    attempts = 0
+
+    def _maybe_timeout(payload: Mapping[str, Any]) -> Any:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+            raise APITimeoutError(request)
+        return type(
+            "_FakeResponse",
+            (),
+            {"output": [], "output_text": "assistant", "usage": {}, "id": "resp-success"},
+        )()
+
+    monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _maybe_timeout)
+
+    result = call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert attempts == 2
     assert result.content == "assistant"
 
 
