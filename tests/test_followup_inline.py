@@ -32,6 +32,8 @@ def test_render_followup_updates_state(monkeypatch) -> None:
     assert data["compensation"]["salary_min"] == "100k"
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert data["meta"]["followups_answered"] == ["compensation.salary_min"]
+    focus_sentinel = "fu_compensation.salary_min_focus_pending"
+    assert focus_sentinel not in st.session_state
 
 
 def test_render_followups_critical_prefix(monkeypatch) -> None:
@@ -85,6 +87,46 @@ def test_followup_requires_answer(monkeypatch) -> None:
     assert not any(k and k.endswith("_skip") for k in seen_keys)
     assert st.session_state[StateKeys.FOLLOWUPS] == [q]
     assert data["meta"].get("followups_answered") == []
+
+
+def test_followup_focus_runs_once(monkeypatch) -> None:
+    """New follow-ups should request focus only on their first render."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    data: dict = {"meta": {"followups_answered": []}}
+    q = {"field": "company.name", "question": "Name?"}
+    st.session_state[StateKeys.FOLLOWUPS] = [q]
+    seen_scripts: list[str] = []
+
+    def fake_markdown(text, **kwargs):
+        if "<script>" in text:
+            seen_scripts.append(text)
+
+    call_count = {"value": 0}
+
+    def fake_input(label, key=None, **kwargs):
+        call_count["value"] += 1
+        focus_key = f"{key}_focus_pending"
+        if call_count["value"] == 1:
+            assert st.session_state.get(focus_key) is True
+        else:
+            assert st.session_state.get(focus_key) is False
+        return ""
+
+    monkeypatch.setattr(st, "markdown", fake_markdown)
+    monkeypatch.setattr(st, "toast", lambda *a, **k: None)
+    monkeypatch.setattr(st, "text_input", fake_input)
+    monkeypatch.setattr(st, "button", lambda *a, **k: False)
+
+    _render_followup_question(q, data)
+    assert any("focus" in script for script in seen_scripts)
+    focus_sentinel = "fu_company.name_focus_pending"
+    assert st.session_state.get(focus_sentinel) is False
+
+    _render_followup_question(q, data)
+    focus_scripts = [script for script in seen_scripts if "focus" in script]
+    assert len(focus_scripts) == 1
 
 
 def test_update_profile_syncs_followup_state() -> None:
