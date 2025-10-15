@@ -1002,6 +1002,8 @@ def _on_api_giveup(details: Any) -> None:
     """Handle a final API error after retries have been exhausted."""
 
     err = details.get("exception")
+    if isinstance(err, BadRequestError):
+        raise err
     if isinstance(err, OpenAIError):  # pragma: no cover - defensive
         _handle_openai_error(err)
     raise err  # pragma: no cover - re-raise unexpected errors
@@ -1164,9 +1166,10 @@ def _call_chat_api_single(
 
 @backoff.on_exception(
     backoff.expo,
-    (OpenAIError,),
+    (APITimeoutError, APIConnectionError, RateLimitError, APIError),
     max_tries=3,
     jitter=backoff.full_jitter,
+    giveup=lambda exc: isinstance(exc, BadRequestError),
     on_giveup=_on_api_giveup,
 )
 def call_chat_api(
