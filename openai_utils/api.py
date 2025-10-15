@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
-from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple
 
 import backoff
 from opentelemetry import trace
@@ -400,6 +400,81 @@ def _collect_tool_calls(response: Any) -> list[dict]:
     return tool_calls
 
 
+def _file_search_result_text(result: Mapping[str, Any]) -> str:
+    """Return the textual content contained in a file-search result."""
+
+    content = result.get("content")
+    if isinstance(content, Sequence) and not isinstance(content, (str, bytes)):
+        parts: list[str] = []
+        for part in content:
+            part_map = _to_mapping(part)
+            if not part_map:
+                continue
+            text_value = part_map.get("text")
+            if text_value:
+                parts.append(str(text_value))
+        joined = "\n".join(parts).strip()
+        if joined:
+            return joined
+    text_value = result.get("text")
+    if text_value:
+        return str(text_value)
+    return ""
+
+
+def _file_search_result_key(result: Mapping[str, Any]) -> Tuple[str, str, str]:
+    """Return a deduplication key for a file-search result mapping."""
+
+    chunk_id = str(result.get("id") or result.get("chunk_id") or "")
+    file_id = str(result.get("file_id") or "")
+    text_value = str(result.get("text") or "")
+    return chunk_id, file_id, text_value
+
+
+def _collect_file_search_results(response: Any) -> list[dict[str, Any]]:
+    """Extract file-search results from a Responses API object."""
+
+    collected: list[dict[str, Any]] = []
+    seen: set[Tuple[str, str, str]] = set()
+
+    for item in getattr(response, "output", []) or []:
+        item_dict = _to_mapping(item)
+        if not item_dict:
+            continue
+        content = item_dict.get("content")
+        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)):
+            continue
+        for entry in content:
+            entry_dict = _to_mapping(entry)
+            if not entry_dict or entry_dict.get("type") != "file_search_results":
+                continue
+            file_search_block = _to_mapping(entry_dict.get("file_search"))
+            if not file_search_block:
+                continue
+            results = file_search_block.get("results")
+            if not isinstance(results, Sequence) or isinstance(results, (str, bytes)):
+                continue
+            for raw_result in results:
+                result_map = _to_mapping(raw_result)
+                if not result_map:
+                    continue
+                normalised = dict(result_map)
+                metadata = normalised.get("metadata")
+                if metadata is not None and not isinstance(metadata, Mapping):
+                    metadata_map = _to_mapping(metadata)
+                    if metadata_map is not None:
+                        normalised["metadata"] = metadata_map
+                text_value = _file_search_result_text(normalised)
+                if text_value:
+                    normalised.setdefault("text", text_value)
+                key = _file_search_result_key(normalised)
+                if key in seen:
+                    continue
+                seen.add(key)
+                collected.append(normalised)
+    return collected
+
+
 def _merge_usage_dicts(
     primary_usage: Mapping[str, Any] | None,
     secondary_usage: Mapping[str, Any] | None,
@@ -639,10 +714,14 @@ class ChatCallResult:
     content: Optional[str]
     tool_calls: list[dict]
     usage: dict
+    raw_response: Any | None = None
+    file_search_results: Optional[list[dict[str, Any]]] = None
     secondary_content: Optional[str] = None
     secondary_tool_calls: Optional[list[dict]] = None
     secondary_usage: Optional[dict] = None
     comparison: Optional[dict[str, Any]] = None
+    secondary_raw_response: Any | None = None
+    secondary_file_search_results: Optional[list[dict[str, Any]]] = None
 
 
 ComparisonBuilder = Callable[["ChatCallResult", "ChatCallResult"], Mapping[str, Any]]
@@ -802,6 +881,8 @@ def _call_chat_api_single(
     reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
+    include_raw_response: bool = False,
+    capture_file_search: bool = False,
 ) -> ChatCallResult:
     """Execute a single chat completion call with optional tool handling."""
 
@@ -823,6 +904,8 @@ def _call_chat_api_single(
 
     accumulated_usage: dict[str, int] = {}
     last_tool_calls: list[dict] = []
+    file_search_results: list[dict[str, Any]] = []
+    seen_file_search: set[Tuple[str, str, str]] = set()
 
     while True:
         response = _execute_response(payload, model)
@@ -836,6 +919,14 @@ def _call_chat_api_single(
         for key, value in numeric_usage.items():
             accumulated_usage[key] = accumulated_usage.get(key, 0) + value
 
+        if capture_file_search:
+            for entry in _collect_file_search_results(response):
+                key = _file_search_result_key(entry)
+                if key in seen_file_search:
+                    continue
+                seen_file_search.add(key)
+                file_search_results.append(entry)
+
         if tool_calls:
             last_tool_calls = tool_calls
 
@@ -843,7 +934,13 @@ def _call_chat_api_single(
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
-            return ChatCallResult(content, result_tool_calls, merged_usage)
+            return ChatCallResult(
+                content,
+                result_tool_calls,
+                merged_usage,
+                raw_response=response if include_raw_response else None,
+                file_search_results=file_search_results if file_search_results else None,
+            )
 
         executed = False
         tool_messages: list[dict[str, Any]] = []
@@ -881,7 +978,13 @@ def _call_chat_api_single(
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
-            return ChatCallResult(content, result_tool_calls, merged_usage)
+            return ChatCallResult(
+                content,
+                result_tool_calls,
+                merged_usage,
+                raw_response=response if include_raw_response else None,
+                file_search_results=file_search_results if file_search_results else None,
+            )
 
         messages_list.extend(tool_messages)
         payload["input"] = messages_list
@@ -907,6 +1010,8 @@ def call_chat_api(
     reasoning_effort: str | None = None,
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
+    include_raw_response: bool = False,
+    capture_file_search: bool = False,
     comparison_messages: Sequence[dict] | None = None,
     comparison_options: Optional[Mapping[str, Any]] = None,
     comparison_label: str | None = None,
@@ -930,6 +1035,8 @@ def call_chat_api(
         "reasoning_effort": reasoning_effort,
         "extra": extra,
         "task": task,
+        "include_raw_response": include_raw_response,
+        "capture_file_search": capture_file_search,
     }
 
     if comparison_messages is None:
@@ -1014,6 +1121,10 @@ def call_chat_api(
         secondary_tool_calls=list(secondary_result.tool_calls),
         secondary_usage=dict(secondary_result.usage or {}),
         comparison=comparison,
+        raw_response=primary_result.raw_response,
+        file_search_results=primary_result.file_search_results,
+        secondary_raw_response=secondary_result.raw_response,
+        secondary_file_search_results=secondary_result.file_search_results,
     )
 
 
