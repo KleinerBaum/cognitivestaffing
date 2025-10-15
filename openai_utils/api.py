@@ -342,6 +342,19 @@ def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | 
         task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
 
 
+def _serialise_tool_payload(value: Any) -> str | None:
+    """Return ``value`` as a JSON string if possible."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value)
+    except TypeError:
+        return None
+
+
 def _collect_tool_calls(response: Any) -> list[dict]:
     """Extract tool call payloads from a Responses API object."""
 
@@ -351,17 +364,39 @@ def _collect_tool_calls(response: Any) -> list[dict]:
         if not data:
             continue
         typ = data.get("type")
-        if typ and "call" in str(typ):
-            call_data = dict(data)
-            fn = call_data.get("function")
-            if fn is None:
-                name = call_data.get("name")
-                arg_str = call_data.get("arguments")
-                call_data = {
-                    **call_data,
-                    "function": {"name": name, "arguments": arg_str},
-                }
-            tool_calls.append(call_data)
+        if not typ or "call" not in str(typ):
+            continue
+
+        call_data = dict(data)
+        canonical_id = call_data.get("call_id") or call_data.get("id")
+        function_payload = call_data.get("function")
+        if isinstance(function_payload, Mapping):
+            normalised_function: dict[str, Any] = dict(function_payload)
+        else:
+            normalised_function = {}
+
+        if not normalised_function.get("name") and call_data.get("name"):
+            normalised_function["name"] = call_data.get("name")
+
+        payload_value: str | None = None
+        for candidate in (
+            normalised_function.get("input"),
+            call_data.get("input"),
+            normalised_function.get("arguments"),
+            call_data.get("arguments"),
+        ):
+            payload_value = _serialise_tool_payload(candidate)
+            if payload_value is not None:
+                break
+
+        if payload_value is not None:
+            normalised_function["input"] = payload_value
+            normalised_function["arguments"] = payload_value
+
+        call_data["function"] = normalised_function
+        if canonical_id:
+            call_data["call_id"] = canonical_id
+        tool_calls.append(call_data)
     return tool_calls
 
 
@@ -461,12 +496,8 @@ def _prepare_payload(
         function_payload = prepared.get("function")
         tool_type = prepared.get("type")
         has_function_payload = isinstance(function_payload, Mapping)
-        has_parameters = "parameters" in prepared or (
-            has_function_payload and "parameters" in function_payload
-        )
-        is_function_tool = bool(
-            tool_type == "function" or has_function_payload or has_parameters
-        )
+        has_parameters = "parameters" in prepared or (has_function_payload and "parameters" in function_payload)
+        is_function_tool = bool(tool_type == "function" or has_function_payload or has_parameters)
 
         if not is_function_tool:
             prepared.pop("name", None)
@@ -817,21 +848,30 @@ def _call_chat_api_single(
         executed = False
         tool_messages: list[dict[str, Any]] = []
         for call in tool_calls:
-            func_info = call.get("function", {})
+            func_block = call.get("function")
+            func_info = dict(func_block) if isinstance(func_block, Mapping) else {}
             name = func_info.get("name")
             if not name or name not in tool_functions:
                 continue
-            args_raw = func_info.get("arguments", "{}") or "{}"
-            try:
-                parsed: Any = json.loads(args_raw)
-                args: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
-            except Exception:  # pragma: no cover - defensive
-                args = {}
+            tool_payload = func_info.get("input")
+            if tool_payload is None:
+                tool_payload = func_info.get("arguments")
+            args: dict[str, Any] = {}
+            if isinstance(tool_payload, Mapping):
+                args = dict(tool_payload)
+            elif isinstance(tool_payload, str):
+                raw_text = tool_payload or "{}"
+                try:
+                    parsed: Any = json.loads(raw_text)
+                    if isinstance(parsed, Mapping):
+                        args = dict(parsed)
+                except Exception:  # pragma: no cover - defensive
+                    args = {}
             result = tool_functions[name](**args)
             tool_messages.append(
                 {
                     "role": "tool",
-                    "tool_call_id": call.get("id", name),
+                    "tool_call_id": call.get("call_id") or call.get("id") or name,
                     "content": json.dumps(result),
                 }
             )

@@ -149,7 +149,8 @@ def test_extract_with_function_uses_rag_payload(
             tool_calls=[
                 {
                     "function": {
-                        "arguments": json.dumps({"position": {"job_title": "Engineer"}})
+                        "arguments": json.dumps({"position": {"job_title": "Engineer"}}),
+                        "input": json.dumps({"position": {"job_title": "Engineer"}}),
                     }
                 }
             ],
@@ -157,9 +158,7 @@ def test_extract_with_function_uses_rag_payload(
         )
 
     monkeypatch.setattr("openai_utils.extraction.api.call_chat_api", fake_call)
-    monkeypatch.setattr(
-        "openai_utils.extraction.build_extraction_tool", lambda *a, **k: []
-    )
+    monkeypatch.setattr("openai_utils.extraction.build_extraction_tool", lambda *a, **k: [])
     monkeypatch.setattr(
         "core.schema.coerce_and_fill",
         lambda raw: types.SimpleNamespace(model_dump=lambda: raw),

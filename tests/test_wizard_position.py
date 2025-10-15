@@ -29,6 +29,7 @@ def test_render_esco_occupation_selector_updates_profile(
         },
     ]
     st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
 
     monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)

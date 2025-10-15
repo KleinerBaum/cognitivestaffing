@@ -46,13 +46,20 @@ def test_call_chat_api_tool_call(monkeypatch):
         def __init__(self) -> None:
             self.output: list[dict[str, Any]] = [
                 {
-                    "type": "tool_call",
-                    "id": "1",
+                    "type": "response.tool_call",
+                    "id": "toolcall_1",
+                    "call_id": "call_abc",
                     "function": {
                         "name": "fn",
-                        "arguments": '{"job_title": "x"}',
+                        "input": {"job_title": "x"},
                     },
-                }
+                },
+                {
+                    "type": "tool_call",
+                    "id": "legacy",
+                    "name": "legacy_fn",
+                    "arguments": '{"foo": "bar"}',
+                },
             ]
             self.output_text = ""
             self.usage: dict[str, int] = {}
@@ -74,7 +81,11 @@ def test_call_chat_api_tool_call(monkeypatch):
             "function": {"name": "fn"},
         },
     )
+    assert out.tool_calls[0]["call_id"] == "call_abc"
+    assert out.tool_calls[0]["function"]["input"] == '{"job_title": "x"}'
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
+    assert out.tool_calls[1]["call_id"] == "legacy"
+    assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
 def test_call_chat_api_returns_output_json(monkeypatch):
@@ -696,7 +707,17 @@ def test_extract_with_function(monkeypatch):
     monkeypatch.setattr(
         openai_utils.api,
         "call_chat_api",
-        lambda *a, **k: ChatCallResult(None, [{"function": {"arguments": '{"job_title": "Dev"}'}}], {}),
+        lambda *a, **k: ChatCallResult(
+            None,
+            [
+                {
+                    "function": {
+                        "input": {"job_title": "Dev"},
+                    }
+                }
+            ],
+            {},
+        ),
     )
     from core import schema as cs
 
@@ -851,6 +872,7 @@ def test_extract_with_function_parses_json_payload(monkeypatch):
                 {
                     "function": {
                         "arguments": '{"job_title": "QA"}',
+                        "input": '{"job_title": "QA"}',
                     }
                 }
             ],
@@ -880,11 +902,12 @@ def test_call_chat_api_executes_tool(monkeypatch):
         def __init__(self) -> None:
             self.output = [
                 {
-                    "type": "tool_call",
+                    "type": "response.tool_call",
                     "id": "1",
+                    "call_id": "call_fn",
                     "function": {
                         "name": "get_skill_definition",
-                        "arguments": '{"skill": "Python"}',
+                        "input": {"skill": "Python"},
                     },
                 }
             ]
@@ -906,6 +929,7 @@ def test_call_chat_api_executes_tool(monkeypatch):
             if self.calls == 1:
                 return _FirstResponse()
             assert kwargs["input"][1]["role"] == "tool"
+            assert kwargs["input"][1]["tool_call_id"] == "call_fn"
             return _SecondResponse()
 
     class _FakeClient:
