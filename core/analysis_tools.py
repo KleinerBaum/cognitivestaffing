@@ -8,6 +8,7 @@ tests.
 
 from __future__ import annotations
 
+from datetime import datetime
 import unicodedata
 from typing import Any, Callable, Dict, Final, Mapping, Sequence, Tuple, TypedDict
 
@@ -194,6 +195,45 @@ _DEFAULT_SALARY_DATA: Final[dict[str, _SalaryBenchmarkEntry]] = {
 }
 
 
+# Lightweight FX table with USD as the base currency to avoid depending on
+# third-party APIs when running in offline or test environments. Rates roughly
+# reflect early 2025 averages and are rounded to four decimals so prompts stay
+# compact. Consumers can override the mapping by passing a ``exchange_rates``
+# argument to :func:`convert_currency`.
+_DEFAULT_EXCHANGE_RATES: Final[Mapping[str, float]] = {
+    "USD": 1.0,
+    "EUR": 1.085,
+    "GBP": 1.27,
+    "CHF": 1.14,
+    "CAD": 0.74,
+    "AUD": 0.66,
+    "SEK": 0.095,
+    "NOK": 0.092,
+    "DKK": 0.145,
+    "PLN": 0.25,
+}
+
+
+_DEFAULT_DATE_FORMATS: Final[tuple[str, ...]] = (
+    "%Y-%m-%d",
+    "%Y/%m/%d",
+    "%Y.%m.%d",
+    "%d.%m.%Y",
+    "%d-%m-%Y",
+    "%d/%m/%Y",
+    "%m/%d/%Y",
+    "%m-%d-%Y",
+    "%B %d, %Y",
+    "%d %B %Y",
+    "%b %d, %Y",
+    "%d %b %Y",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S%z",
+)
+
+
 def _load_salary_data() -> dict[str, _SalaryBenchmarkEntry]:
     raw_data = load_json("salary_benchmarks.json", fallback=_DEFAULT_SALARY_DATA)
     if not isinstance(raw_data, Mapping):
@@ -303,6 +343,82 @@ SKILL_DEFINITIONS: Final[Mapping[str, str]] = {
 }
 
 
+def convert_currency(
+    amount: float,
+    source_currency: str,
+    target_currency: str,
+    *,
+    exchange_rates: Mapping[str, float] | None = None,
+) -> Dict[str, float | str | bool | None]:
+    """Convert ``amount`` between currencies using cached FX rates."""
+
+    result: Dict[str, float | str | bool | None] = {
+        "input_amount": None,
+        "source_currency": (source_currency or "").strip().upper(),
+        "target_currency": (target_currency or "").strip().upper(),
+        "converted_amount": None,
+        "exchange_rate": None,
+        "success": False,
+        "error": None,
+    }
+
+    try:
+        numeric_amount = float(amount)
+    except (TypeError, ValueError):
+        result["error"] = "amount must be a numeric value"
+        return result
+
+    result["input_amount"] = round(numeric_amount, 2)
+
+    source_code = result["source_currency"]
+    target_code = result["target_currency"]
+
+    if not source_code or not target_code:
+        result["error"] = "source_currency and target_currency are required"
+        return result
+
+    if source_code == target_code:
+        result["converted_amount"] = result["input_amount"]
+        result["exchange_rate"] = 1.0
+        result["success"] = True
+        result["error"] = None
+        return result
+
+    prepared_rates: dict[str, float] = dict(_DEFAULT_EXCHANGE_RATES)
+    if exchange_rates:
+        for currency_code, rate in exchange_rates.items():
+            try:
+                numeric_rate = float(rate)
+            except (TypeError, ValueError):
+                continue
+            cleaned_code = str(currency_code).strip().upper()
+            if cleaned_code and numeric_rate > 0:
+                prepared_rates[cleaned_code] = numeric_rate
+
+    source_rate = prepared_rates.get(source_code)
+    target_rate = prepared_rates.get(target_code)
+
+    if source_rate is None or target_rate is None:
+        missing_codes = [
+            code for code, rate in ((source_code, source_rate), (target_code, target_rate)) if rate is None
+        ]
+        result["error"] = f"missing exchange rate for {', '.join(missing_codes)}"
+        return result
+
+    if target_rate == 0:
+        result["error"] = "target currency exchange rate cannot be zero"
+        return result
+
+    conversion_rate = float(source_rate) / float(target_rate)
+    converted_amount = numeric_amount * conversion_rate
+
+    result["exchange_rate"] = round(conversion_rate, 6)
+    result["converted_amount"] = round(converted_amount, 2)
+    result["success"] = True
+    result["error"] = None
+    return result
+
+
 def get_salary_benchmark(role: str, country: str = "US") -> Dict[str, str]:
     """Return a naive annual salary benchmark for ``role`` in ``country``.
 
@@ -339,6 +455,90 @@ def get_skill_definition(skill: str) -> Dict[str, str]:
         "definition unavailable",
     )
     return {"definition": definition}
+
+
+def normalise_date(
+    date_string: str,
+    *,
+    day_first: bool | None = None,
+    formats: Sequence[str] | None = None,
+) -> Dict[str, str | bool | None | int]:
+    """Normalise a date string to ISO-8601 output."""
+
+    original_input = date_string
+    cleaned_input = (date_string or "").strip()
+    result: Dict[str, str | bool | None | int] = {
+        "original": original_input,
+        "iso_date": None,
+        "iso_datetime": None,
+        "timezone": None,
+        "utc_offset_minutes": None,
+        "success": False,
+        "inferred_format": None,
+        "error": None,
+    }
+
+    if not cleaned_input:
+        result["error"] = "date_string is empty"
+        return result
+
+    parsed: datetime | None = None
+    inferred_format: str | None = None
+
+    try:
+        parsed = datetime.fromisoformat(cleaned_input)
+        inferred_format = "iso"
+    except ValueError:
+        parsed = None
+
+    candidate_formats: list[str] = []
+    if formats:
+        for fmt in formats:
+            if isinstance(fmt, str) and fmt.strip():
+                candidate_formats.append(fmt)
+
+    default_formats = list(_DEFAULT_DATE_FORMATS)
+    if day_first is True:
+        day_first_formats = [fmt for fmt in default_formats if fmt.startswith("%d")]
+        remainder = [fmt for fmt in default_formats if fmt not in day_first_formats]
+        default_formats = day_first_formats + remainder
+    elif day_first is False:
+        month_first_formats = [
+            fmt for fmt in default_formats if fmt.startswith("%m") or fmt.startswith("%B") or fmt.startswith("%b")
+        ]
+        remainder = [fmt for fmt in default_formats if fmt not in month_first_formats]
+        default_formats = month_first_formats + remainder
+
+    for fmt in default_formats:
+        if fmt not in candidate_formats:
+            candidate_formats.append(fmt)
+
+    if parsed is None:
+        for fmt in candidate_formats:
+            try:
+                parsed = datetime.strptime(cleaned_input, fmt)
+            except ValueError:
+                continue
+            inferred_format = fmt
+            break
+
+    if parsed is None:
+        result["error"] = "unable to parse date_string"
+        return result
+
+    result["iso_date"] = parsed.date().isoformat()
+    result["iso_datetime"] = parsed.isoformat()
+    result["success"] = True
+    result["inferred_format"] = inferred_format
+
+    tzinfo = parsed.tzinfo
+    if tzinfo is not None:
+        result["timezone"] = tzinfo.tzname(parsed)
+        offset = parsed.utcoffset()
+        if offset is not None:
+            result["utc_offset_minutes"] = int(offset.total_seconds() // 60)
+
+    return result
 
 
 def calculate_interview_capacity(
@@ -402,6 +602,31 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
 
     function_tools, function_map = build_function_tools(
         {
+            "convert_currency": {
+                "description": "Convert an amount from one currency to another using cached FX rates.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number",
+                            "description": "Amount to convert in the source currency.",
+                        },
+                        "source_currency": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 3,
+                            "description": "Three-letter ISO currency code of the input amount.",
+                        },
+                        "target_currency": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 3,
+                            "description": "Three-letter ISO currency code to convert into.",
+                        },
+                    },
+                    "required": ["amount", "source_currency", "target_currency"],
+                },
+            },
             "get_salary_benchmark": {
                 "description": "Fetch a rough annual salary range for a role in a country.",
                 "parameters": {
@@ -421,6 +646,28 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
                         "skill": {"type": "string"},
                     },
                     "required": ["skill"],
+                },
+            },
+            "normalise_date": {
+                "description": "Normalise a free-form date into ISO-8601 output.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "date_string": {
+                            "type": "string",
+                            "description": "The raw date as provided by the user or document.",
+                        },
+                        "day_first": {
+                            "type": "boolean",
+                            "description": "Hint that ambiguous dates use day/month order (e.g. 05/04/2025).",
+                        },
+                        "formats": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional explicit strptime formats to try before the defaults.",
+                        },
+                    },
+                    "required": ["date_string"],
                 },
             },
             "calculate_interview_capacity": {
@@ -458,8 +705,10 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
             },
         },
         callables={
+            "convert_currency": convert_currency,
             "get_salary_benchmark": get_salary_benchmark,
             "get_skill_definition": get_skill_definition,
+            "normalise_date": normalise_date,
             "calculate_interview_capacity": calculate_interview_capacity,
         },
     )
@@ -478,9 +727,11 @@ def build_analysis_tools() -> Tuple[list[dict], Mapping[str, Callable[..., Any]]
 
 
 __all__ = [
+    "convert_currency",
     "get_salary_benchmark",
     "resolve_salary_role",
     "get_skill_definition",
+    "normalise_date",
     "calculate_interview_capacity",
     "build_analysis_tools",
 ]

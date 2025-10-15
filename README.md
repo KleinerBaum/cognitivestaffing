@@ -9,6 +9,9 @@
 - **Interactive follow-ups:** A Follow-up Question Generator agent produces prioritized follow-up questions with suggestion chips. When ESCO metadata is available the assistant injects normalized essential skills into the prompts, and the auto re-ask loop keeps rerunning critical prompts until every must-have field is answered.
 - **ESCO integration:** When enabled, the ESCO enricher normalizes job titles, proposes essential skills, and flags missing competencies directly in the UI.
 - **AI-assisted suggestions:** Dedicated helpers surface skills, benefits, responsibilities, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI stays responsive during longer generations.
+- **Analysis helpers / Analyse-Helfer:**  
+  **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.  
+  **DE:** Deterministische Helfer liefern Gehaltsbenchmarks, Währungsumrechnung mit zwischengespeicherten FX-Kursen und ISO-Datumsnormalisierung, damit der Assistent ohne zusätzliche APIs fundiert begründen kann.
 - **Vector-store enrichment:** Provide `VECTOR_STORE_ID` to let the RAG agent retrieve supporting snippets via OpenAI **file_search**, seeding better suggestions when the uploaded job ad is sparse.
 - **Multi-model routing:** The router sends high-complexity tasks to `gpt-5.1-mini` (the official GPT-5 mini endpoint) and lightweight lookups to `gpt-5.1-nano` (GPT-5 nano), keeping costs predictable without sacrificing quality.
 - **Deliberate UX:** Wizard steps expose inline help that explains why fields are locked or why suggestions may be missing, a sidebar tracks progress, and branded dark/light themes align with Cognitive Staffing colors.
