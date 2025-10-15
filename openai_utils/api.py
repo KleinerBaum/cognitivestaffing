@@ -47,6 +47,7 @@ from config import (
 )
 from constants.keys import StateKeys
 from llm.cost_router import route_model_for_messages
+from utils.errors import display_error
 
 logger = logging.getLogger("cognitive_needs.openai")
 tracer = trace.get_tracer(__name__)
@@ -58,6 +59,13 @@ client: OpenAI | None = None
 _REASONING_MODEL_PATTERN = re.compile(r"^o\d")
 _MODELS_WITHOUT_TEMPERATURE: set[str] = set()
 _USAGE_LOCK = Lock()
+
+
+_MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
+_MISSING_API_KEY_ALERT_MESSAGE = (
+    "\U0001F511 OpenAI-API-Schlüssel fehlt. Bitte `OPENAI_API_KEY` in der Umgebung oder in den Streamlit-Secrets hinterlegen.\n"
+    "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
+)
 
 
 _VERBOSITY_HINTS: dict[str, str] = {
@@ -914,12 +922,42 @@ def get_client() -> OpenAI:
     if client is None:
         key = OPENAI_API_KEY
         if not key:
+            _show_missing_api_key_alert()
             raise RuntimeError(
                 "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
             )
         base = OPENAI_BASE_URL or None
         client = OpenAI(api_key=key, base_url=base)
     return client
+
+
+def _show_missing_api_key_alert() -> None:
+    """Display a user-facing hint about missing API credentials once per session."""
+
+    try:
+        if st.session_state.get(_MISSING_API_KEY_ALERT_STATE_KEY):
+            return
+    except Exception:  # pragma: no cover - defensive when Streamlit isn't initialised
+        pass
+
+    emitted = False
+    for emitter in (display_error, getattr(st, "error", None)):
+        if emitter is None:
+            continue
+        try:
+            emitter(_MISSING_API_KEY_ALERT_MESSAGE)
+            emitted = True
+            break
+        except Exception:  # noqa: BLE001 - fall back to next emitter
+            continue
+
+    if not emitted:
+        return
+
+    try:
+        st.session_state[_MISSING_API_KEY_ALERT_STATE_KEY] = True
+    except Exception:  # pragma: no cover - Streamlit session state unavailable
+        pass
 
 
 def _handle_openai_error(error: OpenAIError) -> None:
