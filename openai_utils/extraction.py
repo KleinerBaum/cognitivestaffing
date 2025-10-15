@@ -657,54 +657,6 @@ def suggest_benefits(
     return unique
 
 
-def suggest_role_tasks(job_title: str, num_tasks: int = 5, model: str | None = None) -> list[str]:
-    """Suggest a list of key responsibilities/tasks for a given job title.
-
-    Args:
-        job_title: Target role title.
-        num_tasks: Number of tasks to request.
-        model: Optional OpenAI model override.
-
-    Returns:
-        A list of suggested tasks.
-    """
-    job_title = job_title.strip()
-    if not job_title:
-        return []
-    if model is None:
-        model = get_model_for(ModelTask.TASK_SUGGESTION)
-    prompt = f"List {num_tasks} concise core responsibilities for a {job_title} role as a JSON array."
-    messages = [{"role": "user", "content": prompt}]
-    max_tokens = 180 if not model or "nano" in model else 250
-    res = api.call_chat_api(
-        messages,
-        model=model,
-        temperature=0.5,
-        max_tokens=max_tokens,
-        json_schema={
-            "name": "task_suggestions",
-            "schema": {
-                "type": "array",
-                "items": {"type": "string"},
-                "maxItems": num_tasks,
-            },
-        },
-        task=ModelTask.TASK_SUGGESTION,
-    )
-    answer = _chat_content(res)
-    tasks: list[str] = []
-    try:
-        data = json.loads(answer)
-        if isinstance(data, list):
-            tasks = [str(t).strip() for t in data if str(t).strip()][:num_tasks]
-    except Exception:
-        for line in answer.splitlines():
-            task = line.strip("-•* \t")
-            if task:
-                tasks.append(task)
-    return tasks[:num_tasks]
-
-
 def suggest_onboarding_plans(
     job_title: str,
     *,
@@ -2014,7 +1966,6 @@ __all__ = [
     "ExtractionResult",
     "suggest_skills_for_role",
     "suggest_benefits",
-    "suggest_role_tasks",
     "suggest_onboarding_plans",
     "generate_interview_guide",
     "generate_job_ad",
