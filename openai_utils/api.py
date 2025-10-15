@@ -1184,7 +1184,15 @@ def _prepare_payload(
             text_config["format"] = format_config
             payload["text"] = text_config
         if combined_tools:
-            payload["tools"] = combined_tools
+            responses_tools: list[dict[str, Any]] = []
+            for tool_spec in combined_tools:
+                cleaned_spec = dict(tool_spec)
+                cleaned_spec.pop("name", None)
+                function_block = cleaned_spec.get("function")
+                if isinstance(function_block, Mapping):
+                    cleaned_spec["function"] = dict(function_block)
+                responses_tools.append(cleaned_spec)
+            payload["tools"] = responses_tools
             if normalised_tool_choice is not None:
                 payload["tool_choice"] = normalised_tool_choice
         if extra:

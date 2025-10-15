@@ -151,6 +151,35 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
+def test_responses_payload_omits_top_level_tool_names(monkeypatch):
+    """Responses payloads must not send top-level tool names to the API."""
+
+    monkeypatch.setattr("core.analysis_tools.build_analysis_tools", lambda: ([], {}))
+
+    captured: dict[str, Any] = {}
+
+    def _fake_create(payload: Mapping[str, Any]) -> SimpleNamespace:
+        captured["payload"] = dict(payload)
+        return SimpleNamespace(output=[], output_text="", usage={}, id="resp-1")
+
+    monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _fake_create)
+
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="gpt-test",
+        tools=[{"type": "function", "function": {"name": "say_hi", "parameters": {}}}],
+    )
+
+    sent_payload = captured["payload"]
+    assert "tools" in sent_payload
+    assert sent_payload["tools"], "Expected at least one tool in the payload"
+    for tool_spec in sent_payload["tools"]:
+        assert "name" not in tool_spec
+        if tool_spec.get("type") == "function":
+            function_block = tool_spec.get("function", {})
+            assert function_block.get("name") == "say_hi"
+
+
 def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
     """call_chat_api should execute registered analysis tools and relay outputs."""
 
