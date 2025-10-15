@@ -1230,6 +1230,81 @@ def test_call_chat_api_executes_tool(monkeypatch):
     assert res.tool_calls[0]["function"]["name"] == "get_skill_definition"
 
 
+def test_get_client_uses_configured_timeout(monkeypatch):
+    """The configured timeout should be passed to the OpenAI client."""
+
+    captured: dict[str, Any] = {}
+
+    class _DummyClient:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+            self.responses = SimpleNamespace()
+
+    monkeypatch.setattr(openai_utils.api, "client", None, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_BASE_URL", "https://api.example.com", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 321.0, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OpenAI", _DummyClient)
+
+    openai_utils.api.get_client()
+
+    assert captured["timeout"] == 321.0
+
+
+def test_execute_response_uses_configured_timeout(monkeypatch):
+    """Responses.create should include the configured timeout argument."""
+
+    captured: dict[str, Any] = {}
+
+    class _DummyResponses:
+        def create(self, **kwargs: Any) -> Any:
+            captured.update(kwargs)
+            return SimpleNamespace(output=[], usage={}, output_text="", id="resp")
+
+    dummy_client = SimpleNamespace(responses=_DummyResponses())
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 42.0, raising=False)
+
+    response = openai_utils.api._execute_response({"input": []}, "gpt-5-mini")
+
+    assert captured["timeout"] == 42.0
+    assert response.id == "resp"
+
+
+def test_chat_stream_uses_configured_timeout(monkeypatch):
+    """Streaming responses should honour the configured timeout."""
+
+    captured: dict[str, Any] = {}
+
+    class _DummyStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401,B027
+            return False
+
+        def __iter__(self):
+            return iter([])
+
+        def get_final_response(self):
+            return SimpleNamespace(output=[], usage={}, output_text="done", id="resp")
+
+    class _DummyResponses:
+        def stream(self, **kwargs: Any):
+            captured.update(kwargs)
+            return _DummyStream()
+
+    dummy_client = SimpleNamespace(responses=_DummyResponses())
+
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 77.0, raising=False)
+
+    stream = openai_utils.api.ChatStream({"input": []}, "gpt-5-mini", task=None)
+    assert list(stream) == []
+    assert stream.result.content == "done"
+    assert captured["timeout"] == 77.0
+
+
 def _dummy_response(status: int) -> httpx.Response:
     """Return a minimal :class:`httpx.Response` for exception tests."""
 

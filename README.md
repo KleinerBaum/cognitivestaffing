@@ -67,13 +67,14 @@ export OPENAI_API_KEY="sk-..."
 # Optional overrides
 export OPENAI_BASE_URL="https://api.openai.com/v1"          # use https://eu.api.openai.com/v1 for EU residency
 export OPENAI_MODEL="gpt-5-mini"                             # default model override
+export OPENAI_REQUEST_TIMEOUT="120"                          # seconds; extend for long-running generations
 export REASONING_EFFORT="medium"                             # minimal | low | medium | high
 export VERBOSITY="medium"                                     # low | medium | high (Antwort-Detailgrad)
 export VECTOR_STORE_ID="vs_XXXXXXXXXXXXXXXX"                 # enable RAG lookups (optional)
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.example/v1/traces"  # optional tracing
 export OTEL_SERVICE_NAME="cognitive-staffing"
 ```
-You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
+You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
 
 ### 5. (Optional) Configure OCR & branding
 - Set `OCR_BACKEND=none` to disable OCR (default). Provide `OCR_BACKEND=openai` to use OpenAI Vision for image/PDF parsing.
