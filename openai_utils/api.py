@@ -35,6 +35,7 @@ import streamlit as st
 from config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
+    OPENAI_REQUEST_TIMEOUT,
     REASONING_EFFORT,
     STRICT_JSON,
     VERBOSITY,
@@ -210,6 +211,14 @@ def _is_temperature_unsupported_error(error: OpenAIError) -> bool:
     return "unsupported parameter" in message and "temperature" in message
 
 
+def _create_response_with_timeout(payload: Dict[str, Any]) -> Any:
+    """Execute a Responses create call with configured timeout handling."""
+
+    request_kwargs = dict(payload)
+    timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
+    return get_client().responses.create(timeout=timeout, **request_kwargs)
+
+
 def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
     """Send ``payload`` to the Responses API and retry without temperature if needed."""
 
@@ -224,15 +233,14 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
             elif temperature_value is not None:
                 span.set_attribute("llm.temperature", str(temperature_value))
         try:
-            return get_client().responses.create(**payload)
+            return _create_response_with_timeout(payload)
         except BadRequestError as err:
             span.record_exception(err)
             if "temperature" in payload and _is_temperature_unsupported_error(err):
                 span.add_event("retry_without_temperature")
                 _mark_model_without_temperature(model)
                 payload.pop("temperature", None)
-                cleaned_payload = dict(payload)
-                return get_client().responses.create(**cleaned_payload)
+                return _create_response_with_timeout(payload)
             if model and _should_mark_model_unavailable(err):
                 mark_model_unavailable(model)
             span.set_status(Status(StatusCode.ERROR, str(err)))
@@ -835,7 +843,9 @@ class ChatStream(Iterable[str]):
 
     def _consume(self) -> Iterator[str]:
         client = get_client()
-        with client.responses.stream(**self._payload) as stream:
+        stream_kwargs = dict(self._payload)
+        timeout = stream_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
+        with client.responses.stream(timeout=timeout, **stream_kwargs) as stream:
             for event in stream:
                 for chunk in _stream_event_chunks(event):
                     if chunk:
@@ -927,7 +937,7 @@ def get_client() -> OpenAI:
                 "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
             )
         base = OPENAI_BASE_URL or None
-        client = OpenAI(api_key=key, base_url=base)
+        client = OpenAI(api_key=key, base_url=base, timeout=OPENAI_REQUEST_TIMEOUT)
     return client
 
 
