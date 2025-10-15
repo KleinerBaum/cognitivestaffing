@@ -61,10 +61,10 @@ _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-4o-mini-2024-07-18", GPT5_NANO),
     ("gpt-4o-mini-2024-05-13", GPT5_NANO),
     ("gpt-4o-mini", GPT5_NANO),
-    ("gpt-4o-latest", GPT4O),
-    ("gpt-4o-2024-08-06", GPT4O),
-    ("gpt-4o-2024-05-13", GPT4O),
-    ("gpt-4o", GPT4O),
+    ("gpt-4o-latest", GPT5_MINI),
+    ("gpt-4o-2024-08-06", GPT5_MINI),
+    ("gpt-4o-2024-05-13", GPT5_MINI),
+    ("gpt-4o", GPT5_MINI),
 )
 
 
@@ -204,10 +204,35 @@ def _normalise_timeout(value: object | None, *, default: float = 120.0) -> float
     return default
 
 
+def _normalise_bool(value: object | None, *, default: bool = False) -> bool:
+    """Return ``value`` converted to ``bool`` where possible."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        candidate = value.strip().lower()
+        if not candidate:
+            return default
+        if candidate in {"1", "true", "yes", "y", "on"}:
+            return True
+        if candidate in {"0", "false", "no", "n", "off"}:
+            return False
+    warnings.warn(
+        "Unsupported boolean value %r; falling back to %s." % (value, default),
+        RuntimeWarning,
+    )
+    return default
+
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
+USE_CLASSIC_API = _normalise_bool(os.getenv("USE_CLASSIC_API"), default=False)
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
@@ -217,6 +242,8 @@ try:
     OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
     timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
     OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
+    if "USE_CLASSIC_API" in openai_secrets:
+        USE_CLASSIC_API = _normalise_bool(openai_secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
     VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
     VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
@@ -227,6 +254,8 @@ try:
         st.secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT),
         default=OPENAI_REQUEST_TIMEOUT,
     )
+    if "USE_CLASSIC_API" in st.secrets:
+        USE_CLASSIC_API = _normalise_bool(st.secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
 except Exception:
     pass
 

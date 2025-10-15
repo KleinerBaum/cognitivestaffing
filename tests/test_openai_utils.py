@@ -33,6 +33,14 @@ def reset_temperature_cache(monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def reset_classic_flag(monkeypatch):
+    """Force Responses API mode unless a test overrides it."""
+
+    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", False, raising=False)
+    yield
+
+
 @pytest.fixture
 def tool_response_event() -> dict[str, Any]:
     """Return a mocked ``response.tool_response`` payload."""
@@ -157,6 +165,123 @@ def test_collect_tool_calls_handles_tool_response(
     assert call["content"] == call["output"]
 
 
+def test_prepare_payload_classic_mode(monkeypatch):
+    """Classic ChatCompletions payloads should use messages/functions schema."""
+
+    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", True, raising=False)
+
+    payload, model, tools, tool_map, _candidate_models = openai_utils.api._prepare_payload(
+        [{"role": "user", "content": "hello"}],
+        model="gpt-4o-mini",
+        temperature=0.4,
+        max_tokens=256,
+        json_schema={"name": "Test", "schema": {"type": "object"}},
+        tools=[{"type": "function", "function": {"name": "do", "parameters": {"type": "object"}}}],
+        tool_choice={"type": "function", "function": {"name": "do"}},
+        tool_functions={"do": lambda **_: None},
+        reasoning_effort=None,
+        extra={"metadata": {"ignored": True}},
+        include_analysis_tools=False,
+    )
+
+    assert model == "gpt-4o-mini"
+    assert payload["messages"][0]["content"] == "hello"
+    assert "functions" in payload and payload["functions"][0]["name"] == "do"
+    assert payload.get("function_call", {}).get("name") == "do"
+    assert "metadata" not in payload
+    assert payload.get("max_tokens") == 256
+    assert "tool_choice" not in payload
+    assert tools and tools[0]["function"]["name"] == "do"
+    assert "input" not in payload
+    assert tool_map["do"]
+
+
+def test_call_chat_api_classic_mode(monkeypatch):
+    """call_chat_api should normalise ChatCompletions responses."""
+
+    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", True, raising=False)
+
+    captured: list[dict[str, Any]] = []
+
+    class _FakeCompletion:
+        def __init__(self) -> None:
+            self.choices = [
+                {
+                    "message": {
+                        "content": "done",
+                    }
+                }
+            ]
+            self.usage = {"prompt_tokens": 3, "completion_tokens": 5}
+            self.id = "chat-123"
+
+    def _fake_create(payload: Mapping[str, Any]) -> Any:
+        captured.append(dict(payload))
+        return _FakeCompletion()
+
+    monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _fake_create)
+
+    result = call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert captured and "messages" in captured[0]
+    assert result.content == "done"
+    assert result.response_id == "chat-123"
+    assert result.usage["input_tokens"] == 3
+    assert result.usage["output_tokens"] == 5
+
+
+def test_stream_chat_api_classic_mode(monkeypatch):
+    """Streaming should consume ChatCompletions events."""
+
+    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", True, raising=False)
+
+    events = [
+        {"type": "content.delta", "delta": "Hel"},
+        {"type": "content.delta", "delta": "lo"},
+    ]
+
+    final_response = {
+        "choices": [{"message": {"content": "Hello"}}],
+        "usage": {"prompt_tokens": 2, "completion_tokens": 3},
+        "id": "chat-stream",
+    }
+
+    class _FakeStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+        def __iter__(self):
+            return iter(events)
+
+        def get_final_completion(self):
+            return final_response
+
+    class _FakeClient:
+        class _Chat:
+            class _Completions:
+                @staticmethod
+                def stream(**kwargs):
+                    return _FakeStream()
+
+            completions = _Completions()
+
+        chat = _Chat()
+
+    monkeypatch.setattr(openai_utils.api, "client", _FakeClient(), raising=False)
+
+    stream = stream_chat_api([{"role": "user", "content": "hi"}])
+    chunks = list(stream)
+
+    assert "".join(chunks) == "Hello"
+    result = stream.result
+    assert result.content == "Hello"
+    assert result.usage["input_tokens"] == 2
+    assert result.usage["output_tokens"] == 3
+    assert result.response_id == "chat-stream"
+
 def test_tool_loop_sets_previous_response_id(monkeypatch):
     """Tool execution loops should reuse the Responses session."""
 
@@ -248,7 +373,8 @@ def test_tool_response_replayed_between_turns(monkeypatch, tool_response_event):
             self._index = 0
 
         def create(self, **kwargs: Any) -> Any:
-            calls.append(deepcopy(kwargs.get("input", [])))
+            key = "messages" if "messages" in kwargs else "input"
+            calls.append(deepcopy(kwargs.get(key, [])))
             self._index += 1
             return _ToolResponse() if self._index == 1 else _FinalResponse()
 

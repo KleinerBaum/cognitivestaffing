@@ -2,8 +2,8 @@
 
 The package is split into focused modules:
 
-* :mod:`openai_utils.api` – client configuration and low-level Responses API
-  helpers.
+* :mod:`openai_utils.api` – client configuration and low-level Responses / Chat
+  Completions API helpers.
 * :mod:`openai_utils.tools` – functions for building tool specifications.
 * :mod:`openai_utils.extraction` – high-level routines for extraction and content
   generation using the API.

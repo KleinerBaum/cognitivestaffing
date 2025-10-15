@@ -1,9 +1,10 @@
 """OpenAI API client and chat helpers.
 
-This module isolates low-level interactions with the OpenAI Responses API.
-It provides a :func:`call_chat_api` helper that also executes any requested
-function tools and feeds the results back to the model, effectively acting as
-"mini agent" loop.
+This module isolates low-level interactions with the OpenAI Responses and
+Chat Completions APIs. It provides a :func:`call_chat_api` helper that also
+executes any requested function tools and feeds the results back to the
+model, effectively acting as a small agent loop regardless of the selected
+endpoint.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     OPENAI_REQUEST_TIMEOUT,
+    USE_CLASSIC_API,
     REASONING_EFFORT,
     STRICT_JSON,
     VERBOSITY,
@@ -225,11 +227,13 @@ def _create_response_with_timeout(payload: Dict[str, Any]) -> Any:
 
     request_kwargs = dict(payload)
     timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
+    if USE_CLASSIC_API:
+        return get_client().chat.completions.create(timeout=timeout, **request_kwargs)
     return get_client().responses.create(timeout=timeout, **request_kwargs)
 
 
 def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
-    """Send ``payload`` to the Responses API and retry without temperature if needed."""
+    """Send ``payload`` to the configured OpenAI API with retry handling."""
 
     with tracer.start_as_current_span("openai.execute_response") as span:
         if model:
@@ -305,8 +309,57 @@ def _dump_json(value: Any) -> Optional[str]:
         return str(value)
 
 
+def _extract_chat_completion_text(response_obj: Any) -> Optional[str]:
+    """Return text content from a Chat Completions style response."""
+
+    choices = getattr(response_obj, "choices", None)
+    if choices is None:
+        response_map = _to_mapping(response_obj)
+        choices = response_map.get("choices") if response_map else None
+
+    if not isinstance(choices, Sequence) or isinstance(choices, (str, bytes)):
+        return None
+
+    parts: list[str] = []
+
+    for choice in choices:
+        choice_map = _to_mapping(choice)
+        if not choice_map:
+            continue
+        message_map = _to_mapping(choice_map.get("message"))
+        if not message_map:
+            continue
+
+        parsed_value = message_map.get("parsed")
+        if parsed_value is not None:
+            dumped = _dump_json(parsed_value)
+            if dumped:
+                parts.append(dumped)
+                continue
+
+        content_value = message_map.get("content")
+        if isinstance(content_value, str):
+            if content_value:
+                parts.append(content_value)
+            continue
+        if isinstance(content_value, Sequence) and not isinstance(content_value, (str, bytes)):
+            for segment in content_value:
+                segment_map = _to_mapping(segment)
+                if not segment_map:
+                    continue
+                if segment_map.get("text"):
+                    parts.append(str(segment_map["text"]))
+                elif segment_map.get("json") is not None:
+                    dumped = _dump_json(segment_map.get("json"))
+                    if dumped:
+                        parts.append(dumped)
+
+    joined = "\n".join(part for part in parts if part)
+    return joined or None
+
+
 def _extract_output_text(response_obj: Any) -> Optional[str]:
-    """Return concatenated text from a Responses API object."""
+    """Return concatenated text from an OpenAI response object."""
 
     text = getattr(response_obj, "output_text", None)
     if text:
@@ -358,6 +411,12 @@ def _extract_output_text(response_obj: Any) -> Optional[str]:
                     chunks.append(str(text_value))
     if chunks:
         return "\n".join(chunk for chunk in chunks if chunk)
+    chat_text = _extract_chat_completion_text(response_obj)
+    if chat_text:
+        return chat_text
+    fallback = _chat_content(response_obj)
+    if fallback:
+        return fallback
     return text
 
 
@@ -368,7 +427,46 @@ def _normalise_usage(usage_obj: Any) -> dict:
         usage: dict = getattr(usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {}))()
     else:
         usage = usage_obj if isinstance(usage_obj, dict) else {}
-    return usage
+
+    normalised = dict(usage)
+    prompt_tokens = normalised.get("prompt_tokens")
+    completion_tokens = normalised.get("completion_tokens")
+    total_tokens = normalised.get("total_tokens")
+
+    if prompt_tokens is not None and "input_tokens" not in normalised:
+        normalised["input_tokens"] = prompt_tokens
+    if completion_tokens is not None and "output_tokens" not in normalised:
+        normalised["output_tokens"] = completion_tokens
+    if total_tokens is not None and "total_tokens" not in normalised:
+        normalised["total_tokens"] = total_tokens
+
+    return normalised
+
+
+def _extract_usage_block(response: Any) -> Any:
+    """Return the raw usage block from an OpenAI response object."""
+
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        return usage
+    response_map = _to_mapping(response)
+    if response_map is not None:
+        return response_map.get("usage")
+    return None
+
+
+def _extract_response_id(response: Any) -> str | None:
+    """Return the identifier assigned to an OpenAI response."""
+
+    identifier = getattr(response, "id", None)
+    if isinstance(identifier, str) and identifier.strip():
+        return identifier.strip()
+    response_map = _to_mapping(response)
+    if response_map is not None:
+        value = response_map.get("id")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _coerce_token_count(value: Any) -> int:
@@ -441,8 +539,108 @@ def _serialise_tool_payload(value: Any) -> str | None:
         return None
 
 
+def _collect_tool_calls_from_chat_completion(response: Any) -> list[dict]:
+    """Extract tool calls from a Chat Completions response."""
+
+    choices = getattr(response, "choices", None)
+    if choices is None:
+        response_map = _to_mapping(response)
+        choices = response_map.get("choices") if response_map else None
+
+    if not isinstance(choices, Sequence) or isinstance(choices, (str, bytes)):
+        return []
+
+    collected: list[dict] = []
+    seen_ids: set[str] = set()
+
+    for choice in choices:
+        choice_map = _to_mapping(choice)
+        if not choice_map:
+            continue
+        message_map = _to_mapping(choice_map.get("message"))
+        if not message_map:
+            continue
+
+        raw_tool_calls = message_map.get("tool_calls")
+        if isinstance(raw_tool_calls, Sequence) and not isinstance(raw_tool_calls, (str, bytes)):
+            for raw_call in raw_tool_calls:
+                call_map = _to_mapping(raw_call)
+                if not call_map:
+                    continue
+
+                function_payload = _to_mapping(call_map.get("function")) or {}
+                normalised_function = dict(function_payload)
+                name_value = normalised_function.get("name") or call_map.get("name")
+                if isinstance(name_value, str) and name_value.strip():
+                    normalised_function["name"] = name_value.strip()
+
+                arguments_value: str | None = None
+                for candidate in (
+                    normalised_function.get("arguments"),
+                    call_map.get("arguments"),
+                ):
+                    serialised = _serialise_tool_payload(candidate)
+                    if serialised is not None:
+                        arguments_value = serialised
+                        break
+                if arguments_value is not None:
+                    normalised_function["arguments"] = arguments_value
+                    normalised_function["input"] = arguments_value
+
+                canonical_id = call_map.get("id") or call_map.get("tool_call_id")
+                if isinstance(canonical_id, str) and canonical_id.strip():
+                    call_id = canonical_id.strip()
+                else:
+                    call_id = f"tool_call_{len(collected)}"
+
+                if call_id in seen_ids:
+                    continue
+                seen_ids.add(call_id)
+
+                payload = {
+                    "type": "tool_call",
+                    "id": call_id,
+                    "call_id": call_id,
+                    "name": normalised_function.get("name"),
+                    "function": normalised_function,
+                }
+                collected.append(payload)
+
+        function_call = message_map.get("function_call")
+        if function_call:
+            call_map = _to_mapping(function_call) or {}
+            name_value = call_map.get("name")
+            if isinstance(name_value, str) and name_value.strip():
+                arguments_value = _serialise_tool_payload(call_map.get("arguments"))
+                call_id = call_map.get("id") or name_value.strip()
+                if not isinstance(call_id, str) or not call_id.strip():
+                    call_id = f"function_call_{len(collected)}"
+                if call_id not in seen_ids:
+                    seen_ids.add(call_id)
+                    function_payload = {"name": name_value.strip()}
+                    if arguments_value is not None:
+                        function_payload["arguments"] = arguments_value
+                        function_payload["input"] = arguments_value
+                    collected.append(
+                        {
+                            "type": "tool_call",
+                            "id": call_id,
+                            "call_id": call_id,
+                            "name": function_payload.get("name"),
+                            "function": function_payload,
+                        }
+                    )
+
+    return collected
+
+
 def _collect_tool_calls(response: Any) -> list[dict]:
-    """Extract tool call payloads from a Responses API object."""
+    """Extract tool call payloads from an OpenAI response object."""
+
+    if hasattr(response, "choices") or (
+        isinstance(response, Mapping) and "choices" in response
+    ):
+        return _collect_tool_calls_from_chat_completion(response)
 
     tool_calls: list[dict] = []
     for item in getattr(response, "output", []) or []:
@@ -633,6 +831,68 @@ def _build_comparison_metadata(
     return metadata
 
 
+def _convert_tool_choice_to_function_call(choice: Any) -> Any:
+    """Translate a Responses tool choice payload to ``function_call``."""
+
+    if choice is None:
+        return None
+    if isinstance(choice, str):
+        lowered = choice.strip().lower()
+        if lowered in {"none", "auto"}:
+            return lowered
+        if lowered:
+            return {"name": lowered}
+        return None
+    if not isinstance(choice, Mapping):
+        return None
+
+    choice_type = str(choice.get("type") or "").strip().lower()
+    if choice_type and choice_type != "function":
+        # Chat Completions only understands ``function`` selectors or the
+        # ``auto``/``none`` shorthand.
+        if choice_type in {"none", "auto"}:
+            return choice_type
+        return None
+
+    function_payload = choice.get("function")
+    if isinstance(function_payload, Mapping):
+        name_value = function_payload.get("name")
+        if isinstance(name_value, str) and name_value.strip():
+            return {"name": name_value.strip()}
+
+    fallback_name = choice.get("name")
+    if isinstance(fallback_name, str) and fallback_name.strip():
+        return {"name": fallback_name.strip()}
+
+    return None
+
+
+def _convert_tools_to_functions(tool_specs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Return classic ``functions`` payload derived from ``tool_specs``."""
+
+    functions: list[dict[str, Any]] = []
+    for spec in tool_specs:
+        if str(spec.get("type") or "").strip().lower() != "function":
+            continue
+        function_payload: dict[str, Any] = {}
+        raw_function = spec.get("function")
+        if isinstance(raw_function, Mapping):
+            function_payload.update(raw_function)
+        for field in ("description", "parameters", "strict"):
+            if field in spec and field not in function_payload:
+                function_payload[field] = spec[field]
+
+        name_value = function_payload.get("name") or spec.get("name")
+        if isinstance(name_value, str) and name_value.strip():
+            function_payload["name"] = name_value.strip()
+        else:
+            # Skip unnamed tools; Responses would already have enforced a name.
+            continue
+
+        functions.append(function_payload)
+    return functions
+
+
 def _prepare_payload(
     messages: Sequence[dict],
     *,
@@ -655,7 +915,7 @@ def _prepare_payload(
     dict[str, Callable[..., Any]],
     list[str],
 ]:
-    """Assemble the payload for the Responses API."""
+    """Assemble the payload for the configured OpenAI API."""
 
     selected_task = task or ModelTask.DEFAULT
     router_estimate = None
@@ -793,41 +1053,65 @@ def _prepare_payload(
 
     combined_tools = converted_tools
 
-    payload: Dict[str, Any] = {"model": model, "input": messages}
-    if previous_response_id:
-        payload["previous_response_id"] = previous_response_id
-    if temperature is not None and model_supports_temperature(model):
-        payload["temperature"] = temperature
-    if model_supports_reasoning(model):
-        payload["reasoning"] = {"effort": reasoning_effort}
-    if max_tokens is not None:
-        payload["max_output_tokens"] = max_tokens
-    if json_schema is not None:
-        text_config = payload.get("text", {}).copy()
-        format_config = {"type": "json_schema", **json_schema}
-        if STRICT_JSON:
-            format_config["strict"] = True
-        text_config["format"] = format_config
-        payload["text"] = text_config
-    if combined_tools:
-        payload["tools"] = combined_tools
-        if tool_choice is not None:
-            payload["tool_choice"] = _normalise_tool_choice_spec(tool_choice)
-    if extra:
-        payload.update(extra)
+    messages_payload = [dict(message) for message in messages]
+    normalised_tool_choice = (
+        _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
+    )
 
-    if router_estimate is not None:
-        metadata = dict(payload.get("metadata") or {})
-        router_info = dict(metadata.get("router") or {})
-        router_info.update(
-            {
-                "complexity": router_estimate.complexity.value,
-                "tokens": router_estimate.total_tokens,
-                "hard_words": router_estimate.hard_word_count,
-            }
-        )
-        metadata["router"] = router_info
-        payload["metadata"] = metadata
+    if USE_CLASSIC_API:
+        payload = {"model": model, "messages": messages_payload}
+        if temperature is not None and model_supports_temperature(model):
+            payload["temperature"] = temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        if json_schema is not None:
+            format_config: dict[str, Any] = {"type": "json_schema", "json_schema": dict(json_schema)}
+            if STRICT_JSON:
+                format_config["strict"] = True
+            payload["response_format"] = format_config
+        if combined_tools:
+            functions = _convert_tools_to_functions(combined_tools)
+            if functions:
+                payload["functions"] = functions
+                function_call = _convert_tool_choice_to_function_call(normalised_tool_choice)
+                if function_call is not None:
+                    payload["function_call"] = function_call
+    else:
+        payload = {"model": model, "input": messages_payload}
+        if previous_response_id:
+            payload["previous_response_id"] = previous_response_id
+        if temperature is not None and model_supports_temperature(model):
+            payload["temperature"] = temperature
+        if model_supports_reasoning(model):
+            payload["reasoning"] = {"effort": reasoning_effort}
+        if max_tokens is not None:
+            payload["max_output_tokens"] = max_tokens
+        if json_schema is not None:
+            text_config = payload.get("text", {}).copy()
+            format_config = {"type": "json_schema", **json_schema}
+            if STRICT_JSON:
+                format_config["strict"] = True
+            text_config["format"] = format_config
+            payload["text"] = text_config
+        if combined_tools:
+            payload["tools"] = combined_tools
+            if normalised_tool_choice is not None:
+                payload["tool_choice"] = normalised_tool_choice
+        if extra:
+            payload.update(extra)
+
+        if router_estimate is not None:
+            metadata = dict(payload.get("metadata") or {})
+            router_info = dict(metadata.get("router") or {})
+            router_info.update(
+                {
+                    "complexity": router_estimate.complexity.value,
+                    "tokens": router_estimate.total_tokens,
+                    "hard_words": router_estimate.hard_word_count,
+                }
+            )
+            metadata["router"] = router_info
+            payload["metadata"] = metadata
 
     return payload, model, combined_tools, tool_map, candidate_models
 
@@ -879,13 +1163,22 @@ class ChatStream(Iterable[str]):
     def _consume(self) -> Iterator[str]:
         client = get_client()
         try:
-            with client.responses.stream(**self._payload) as stream:
-                for event in stream:
-                    for chunk in _stream_event_chunks(event):
-                        if chunk:
-                            self._buffer.append(chunk)
-                            yield chunk
-                final_response = stream.get_final_response()
+            if USE_CLASSIC_API:
+                with client.chat.completions.stream(**self._payload) as stream:
+                    for event in stream:
+                        for chunk in _stream_event_chunks(event):
+                            if chunk:
+                                self._buffer.append(chunk)
+                                yield chunk
+                    final_response = stream.get_final_completion()
+            else:
+                with client.responses.stream(**self._payload) as stream:
+                    for event in stream:
+                        for chunk in _stream_event_chunks(event):
+                            if chunk:
+                                self._buffer.append(chunk)
+                                yield chunk
+                    final_response = stream.get_final_response()
         except (OpenAIError, RuntimeError) as error:
             _handle_streaming_error(error)
         else:
@@ -898,9 +1191,9 @@ class ChatStream(Iterable[str]):
                 "Streaming responses requested tool execution. Use call_chat_api for tool-enabled prompts."
             )
         content = _extract_output_text(response)
-        usage = _normalise_usage(getattr(response, "usage", {}) or {})
+        usage = _normalise_usage(_extract_usage_block(response) or {})
         _update_usage_counters(usage, task=self._task)
-        response_id = getattr(response, "id", None)
+        response_id = _extract_response_id(response)
         self._result = ChatCallResult(
             content,
             tool_calls,
@@ -936,8 +1229,24 @@ def _stream_event_chunks(event: Any) -> Iterable[str]:
         message = error_info.get("message") or str(error_info or event)
         raise RuntimeError(f"OpenAI streaming error: {message}")
 
-    if typ.endswith(".delta") and isinstance(data.get("delta"), str):
-        return [data["delta"]]
+    if typ.endswith(".delta"):
+        delta_value = data.get("delta")
+        if isinstance(delta_value, str):
+            return [delta_value]
+        if isinstance(delta_value, Sequence) and not isinstance(delta_value, (str, bytes)):
+            chunks: list[str] = []
+            for part in delta_value:
+                part_map = _to_mapping(part)
+                if not part_map:
+                    continue
+                text_value = part_map.get("text")
+                if isinstance(text_value, str):
+                    chunks.append(text_value)
+            if chunks:
+                return chunks
+        text_value = data.get("text")
+        if isinstance(text_value, str):
+            return [text_value]
 
     if typ.endswith(".added"):
         item = data.get("item")
@@ -1125,7 +1434,13 @@ def _call_chat_api_single(
         previous_response_id=previous_response_id,
     )
 
-    messages_list = list(messages_with_hint)
+    message_key = "messages" if "messages" in payload else "input"
+    base_messages = payload.get(message_key)
+    if isinstance(base_messages, list):
+        messages_list = base_messages
+    else:
+        messages_list = list(messages_with_hint)
+        payload[message_key] = messages_list
 
     unique_candidates: list[str] = []
     for candidate in [model, *candidate_models]:
@@ -1173,15 +1488,15 @@ def _call_chat_api_single(
             current_model = next_model
             continue
 
-        response_id = getattr(response, "id", None)
-        if response_id:
+        response_id = _extract_response_id(response)
+        if response_id and not USE_CLASSIC_API:
             payload["previous_response_id"] = response_id
 
         content = _extract_output_text(response)
 
         tool_calls = _collect_tool_calls(response)
 
-        usage = _normalise_usage(getattr(response, "usage", {}) or {})
+        usage = _normalise_usage(_extract_usage_block(response) or {})
         numeric_usage = {key: _coerce_token_count(value) for key, value in usage.items()}
         for key, value in numeric_usage.items():
             accumulated_usage[key] = accumulated_usage.get(key, 0) + value
@@ -1265,7 +1580,7 @@ def _call_chat_api_single(
 
         if tool_messages:
             messages_list.extend(tool_messages)
-            payload["input"] = messages_list
+            payload[message_key] = messages_list
 
         if not executed:
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
@@ -1310,9 +1625,11 @@ def call_chat_api(
     comparison_options: Optional[Mapping[str, Any]] = None,
     comparison_label: str | None = None,
 ) -> ChatCallResult:
-    """Call the OpenAI Responses API and return a :class:`ChatCallResult`.
+    """Call the OpenAI chat endpoint and return a :class:`ChatCallResult`.
 
-    When ``comparison_messages`` are supplied a second request is dispatched in
+    The function automatically targets either the Responses API or the classic
+    Chat Completions API depending on configuration. When
+    ``comparison_messages`` are supplied a second request is dispatched in
     parallel (unless ``comparison_options['dispatch']`` is set to
     ``"sequential"``). Both responses are returned along with basic similarity
     metadata so callers can decide which variant to keep.
