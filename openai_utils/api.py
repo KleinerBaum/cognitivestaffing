@@ -544,6 +544,7 @@ def _prepare_payload(
     extra: Optional[dict],
     include_analysis_tools: bool = True,
     task: ModelTask | str | None = None,
+    previous_response_id: str | None = None,
 ) -> tuple[
     Dict[str, Any],
     str,
@@ -665,6 +666,8 @@ def _prepare_payload(
     combined_tools = converted_tools
 
     payload: Dict[str, Any] = {"model": model, "input": messages}
+    if previous_response_id:
+        payload["previous_response_id"] = previous_response_id
     if temperature is not None and model_supports_temperature(model):
         payload["temperature"] = temperature
     if model_supports_reasoning(model):
@@ -892,6 +895,7 @@ def _call_chat_api_single(
     task: ModelTask | str | None = None,
     include_raw_response: bool = False,
     capture_file_search: bool = False,
+    previous_response_id: str | None = None,
 ) -> ChatCallResult:
     """Execute a single chat completion call with optional tool handling."""
 
@@ -907,6 +911,7 @@ def _call_chat_api_single(
         reasoning_effort=reasoning_effort,
         extra=extra,
         task=task,
+        previous_response_id=previous_response_id,
     )
 
     messages_list = list(messages)
@@ -918,6 +923,10 @@ def _call_chat_api_single(
 
     while True:
         response = _execute_response(payload, model)
+
+        response_id = getattr(response, "id", None)
+        if response_id:
+            payload["previous_response_id"] = response_id
 
         content = _extract_output_text(response)
 
@@ -943,7 +952,6 @@ def _call_chat_api_single(
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
-            response_id = getattr(response, "id", None)
             return ChatCallResult(
                 content,
                 result_tool_calls,
@@ -989,7 +997,6 @@ def _call_chat_api_single(
             merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or last_tool_calls
-            response_id = getattr(response, "id", None)
             return ChatCallResult(
                 content,
                 result_tool_calls,
@@ -1025,6 +1032,7 @@ def call_chat_api(
     task: ModelTask | str | None = None,
     include_raw_response: bool = False,
     capture_file_search: bool = False,
+    previous_response_id: str | None = None,
     comparison_messages: Sequence[dict] | None = None,
     comparison_options: Optional[Mapping[str, Any]] = None,
     comparison_label: str | None = None,
@@ -1050,6 +1058,7 @@ def call_chat_api(
         "task": task,
         "include_raw_response": include_raw_response,
         "capture_file_search": capture_file_search,
+        "previous_response_id": previous_response_id,
     }
 
     if comparison_messages is None:
@@ -1079,6 +1088,7 @@ def call_chat_api(
         "reasoning_effort",
         "extra",
         "task",
+        "previous_response_id",
     }
 
     secondary_kwargs = dict(single_kwargs)
