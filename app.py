@@ -5,9 +5,11 @@ from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
 import sys
+from typing import cast
 
 from PIL import Image, ImageEnhance
 import streamlit as st
+from streamlit.navigation.page import StreamlitPage
 
 APP_ROOT = Path(__file__).resolve().parent
 for candidate in (APP_ROOT, APP_ROOT.parent):
@@ -25,7 +27,7 @@ except FileNotFoundError:
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
-from sidebar import render_sidebar  # noqa: E402
+from sidebar import SidebarPlan, render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 from ui_views import advantages, gap_analysis  # noqa: E402
 
@@ -212,12 +214,26 @@ advantages_page = st.Page(
     url_path="advantages",
 )
 
-navigation = render_sidebar(
+sidebar_plan = render_sidebar(
     logo_bytes=APP_LOGO_BYTES,
     pages=[wizard_page, gap_analysis_page, advantages_page],
+    defer=True,
 )
 
-if navigation is not None:
-    navigation.run()
+if isinstance(sidebar_plan, SidebarPlan):
+    selected_page: StreamlitPage | None = sidebar_plan.page
+elif hasattr(sidebar_plan, "run"):
+    selected_page = cast(StreamlitPage, sidebar_plan)
+else:
+    selected_page = None
+
+if selected_page is not None:
+    selected_page.run()
 else:
     run_wizard()
+
+if isinstance(sidebar_plan, SidebarPlan):
+    render_sidebar(
+        logo_bytes=APP_LOGO_BYTES,
+        plan=sidebar_plan,
+    )

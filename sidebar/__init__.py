@@ -16,6 +16,9 @@ from core.preview import build_prefilled_sections, preview_value_to_text
 from utils.i18n import tr
 from utils.usage import build_usage_markdown, usage_totals
 
+from streamlit.delta_generator import DeltaGenerator
+from streamlit.navigation.page import StreamlitPage
+
 from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
 
 from .salary import estimate_salary_expectation
@@ -53,24 +56,77 @@ class SalaryFactorEntry:
     magnitude: float
 
 
+@dataclass(slots=True)
+class SidebarPlan:
+    """Keep track of navigation placement for deferred sidebar rendering."""
+
+    page: StreamlitPage | None
+    branding: DeltaGenerator
+    settings: DeltaGenerator
+    navigation: DeltaGenerator
+    body: DeltaGenerator
+
+
 def render_sidebar(
     logo_bytes: bytes | None = None,
     *,
     pages: Sequence[st.Page] | None = None,
-) -> Any:
+    plan: SidebarPlan | None = None,
+    defer: bool = False,
+) -> SidebarPlan | StreamlitPage | None:
     """Render the dynamic wizard sidebar with contextual content."""
 
     _ensure_ui_defaults()
 
+    if plan is None:
+        plan = _prepare_sidebar_plan(pages)
+        if defer:
+            return plan
+
+    return _render_sidebar_sections(plan, logo_bytes)
+
+
+def _prepare_sidebar_plan(
+    pages: Sequence[st.Page] | None,
+) -> SidebarPlan:
+    """Create sidebar containers and navigation without rendering contextual data."""
+
+    with st.sidebar:
+        branding = st.container()
+        settings = st.container()
+        navigation = st.container()
+        body = st.container()
+
+    current_page: StreamlitPage | None = None
+    if pages is not None:
+        with navigation:
+            current_page = st.navigation(pages)
+
+    return SidebarPlan(
+        page=current_page,
+        branding=branding,
+        settings=settings,
+        navigation=navigation,
+        body=body,
+    )
+
+
+def _render_sidebar_sections(
+    plan: SidebarPlan,
+    logo_bytes: bytes | None,
+) -> StreamlitPage | None:
+    """Render branding, settings, and contextual sections in the sidebar."""
+
     context = _build_context()
 
-    navigation = None
-    with st.sidebar:
+    with plan.branding:
         if logo_bytes:
             _render_branding(logo_bytes)
+
+    with plan.settings:
         _render_settings()
-        if pages is not None:
-            navigation = st.navigation(pages)
+
+    with plan.body:
         current_step = st.session_state.get(StateKeys.STEP, 0)
         if current_step > 0:
             _render_hero(context)
@@ -79,7 +135,7 @@ def render_sidebar(
         st.divider()
         _render_salary_expectation(context.profile)
 
-    return navigation
+    return plan.page
 
 
 def _render_branding(logo_bytes: bytes) -> None:
@@ -905,4 +961,4 @@ def _format_factor_option(entry: SalaryFactorEntry) -> str:
     return option_text
 
 
-__all__ = ["render_sidebar"]
+__all__ = ["SidebarPlan", "render_sidebar"]
