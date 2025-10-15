@@ -9,7 +9,9 @@ The package is split into focused modules:
   generation using the API.
 
 Most existing code imports directly from ``openai_utils``; the symbols below are
-re-exported for backward compatibility.
+re-exported for backward compatibility. The Responses client remains the
+default, but setting ``USE_CLASSIC_API`` switches helpers to the Chat
+Completions interface when required.
 """
 
 from __future__ import annotations

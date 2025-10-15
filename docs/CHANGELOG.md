@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- feat: allow opting into classic Chat Completions via `USE_CLASSIC_API` while keeping Responses as the default (EN/DE)
+  - Feature: erlaubt über `USE_CLASSIC_API` den Wechsel zur klassischen Chat-Completions-API, während Responses der Standard bleibt (DE/EN)
 - chore: raise OpenAI SDK minimum to 1.99.3 to stay compatible with updated Responses stream events (EN/DE)
   - Chore: hebt die Mindestversion des OpenAI-SDKs auf 1.99.3 an, um mit den aktualisierten Responses-Streaming-Ereignissen kompatibel zu bleiben (DE/EN)
 - feat: re-enable ESCO occupation + essential skill seeding in follow-up question logic (EN)

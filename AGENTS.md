@@ -55,7 +55,7 @@ Small focused agents that enrich the vacancy profile:
 - **Interview Guide Generator:** Delivers structured interview questions and rubrics (supports streaming).
 - **Job-ad Writer:** Streams a Markdown job ad aligned with selected tone and branding cues.
 
-All helpers use the Responses API: long-form outputs (`job_ad`, `interview_guide`, `boolean_query`) call `gpt-5.1-mini` (GPT-5 mini) with streaming; shorter lists (`skills`, `benefits`, `tasks`) run on `gpt-5.1-nano` (GPT-5 nano).
+By default all helpers use the Responses API: long-form outputs (`job_ad`, `interview_guide`, `boolean_query`) call `gpt-5.1-mini` (GPT-5 mini) with streaming; shorter lists (`skills`, `benefits`, `tasks`) run on `gpt-5.1-nano` (GPT-5 nano). When `USE_CLASSIC_API=1` the same helpers fall back to Chat Completions.
 
 ### 6. Auto Re-ask Loop
 - **Purpose:** Automatically re-trigger the FQG until every `critical` question is answered, reducing manual intervention.
