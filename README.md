@@ -32,12 +32,17 @@
   **DE:** Öffne die Einstellungen in der Seitenleiste und nutze das Auswahlfeld **Basismodell**, um einen bestimmten Modell-Tier zu erzwingen. Mit „Automatisch“ wird der Override aufgehoben, sodass Routing und Fallbacks normal greifen; „GPT-5 mini (`gpt-5.1-mini`) erzwingen“ bzw. „GPT-5 nano (`gpt-5.1-nano`) erzwingen“ fixiert jede Anfrage auf diese Engine, bis du wieder zurückschaltest.
 
 ## Architecture at a Glance
-The Streamlit app lives in `app.py` and delegates to the domain modules under `core/`, `wizard.py`, and `components/`. LLM utilities in `llm/` implement a unified `ChatCallResult` wrapper with retry, tool execution, and JSON-mode enforcement. Agents (documented in [AGENTS.md](AGENTS.md)) operate on shared state inside `st.session_state`, enabling features like auto follow-ups, ESCO lookups, and streaming document generation.
+The Streamlit entrypoint (`app.py`) wires UI components from `components/` and the multi-step graph in `wizard.py` into a shared `st.session_state`. Domain rules in `core/` and `question_logic.py` keep the vacancy schema aligned with UI widgets and exports. Agents (see [AGENTS.md](AGENTS.md)) call into `llm/` helpers that return a unified `ChatCallResult`, manage retries, and execute registered tools.
 
 ```
-streamlit app.py → wizard (UI) → core/question_logic → llm responses
-                             ↘ ingest/ (PDF, HTML, OCR)
-                              ↘ integrations/ (ESCO, vector store)
+streamlit app.py
+  ├─ wizard.py + components/      → build the UI flow & session state
+  │    └─ wizard_tools.py         → Streamlit function tools (ingest, reruns, SME merge)
+  ├─ core/ + question_logic.py    → vacancy domain logic & schema synchronisation
+  └─ agents (AGENTS.md)
+       ├─ llm/responses.py        → ChatCallResult wrapper & tool runner
+       │    └─ llm/rag_pipeline.py → OpenAI file_search tool (VECTOR_STORE_ID)
+       └─ ingest/ + integrations/ → PDF/HTML/OCR loaders, ESCO API, vector stores
 ```
 
 ## Setup
