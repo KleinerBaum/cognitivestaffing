@@ -88,6 +88,70 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
+def test_tool_loop_sets_previous_response_id(monkeypatch):
+    """Tool execution loops should reuse the Responses session."""
+
+    calls: list[dict[str, Any]] = []
+
+    class _ToolResponse:
+        def __init__(self) -> None:
+            self.output = [
+                {
+                    "type": "response.tool_call",
+                    "id": "tool-call",
+                    "call_id": "tool-call",
+                    "function": {
+                        "name": "fn",
+                        "arguments": json.dumps({"value": 1}),
+                    },
+                }
+            ]
+            self.output_text = ""
+            self.usage = {"input_tokens": 3}
+            self.id = "resp-1"
+
+    class _FinalResponse:
+        def __init__(self) -> None:
+            self.output = []
+            self.output_text = "done"
+            self.usage = {"output_tokens": 5}
+            self.id = "resp-2"
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self._index = 0
+
+        def create(self, **kwargs: Any) -> Any:
+            calls.append(dict(kwargs))
+            self._index += 1
+            return _ToolResponse() if self._index == 1 else _FinalResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    tool_payload: dict[str, Any] = {}
+
+    def _tool_fn(value: int | None = None) -> dict[str, Any]:
+        tool_payload["value"] = value
+        return {"ok": True}
+
+    result = call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
+        tool_choice={"type": "function", "function": {"name": "fn"}},
+        tool_functions={"fn": _tool_fn},
+    )
+
+    assert tool_payload == {"value": 1}
+    assert len(calls) == 2
+    assert "previous_response_id" not in calls[0]
+    assert calls[1]["previous_response_id"] == "resp-1"
+    assert result.content == "done"
+    assert result.response_id == "resp-2"
+
+
 def test_call_chat_api_returns_output_json(monkeypatch):
     """Responses output JSON should be serialised into the content payload."""
 
@@ -200,6 +264,7 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
         task: Any | None = None,
         include_raw_response: bool = False,
         capture_file_search: bool = False,
+        previous_response_id: str | None = None,
     ) -> ChatCallResult:
         calls.append(
             {
@@ -216,6 +281,7 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
                 "task": task,
                 "include_raw_response": include_raw_response,
                 "capture_file_search": capture_file_search,
+                "previous_response_id": previous_response_id,
             }
         )
         return primary if len(calls) == 1 else secondary

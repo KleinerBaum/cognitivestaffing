@@ -342,6 +342,7 @@ def extract_with_function(
             json_schema={"name": FUNCTION_NAME, "schema": schema},
             max_tokens=1200,
             task=ModelTask.EXTRACTION,
+            previous_response_id=response.response_id,
         )
         arguments = _chat_content(second)
 

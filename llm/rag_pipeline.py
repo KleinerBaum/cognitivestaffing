@@ -117,6 +117,7 @@ class RAGPipeline:
         self.model = model or get_model_for(ModelTask.EXTRACTION)
         self.fallback_chars = max(120, fallback_chars)
         self._fallback_offset = 0
+        self._last_response_id: str | None = None
 
     def _build_query(self, spec: FieldSpec) -> str:
         return (
@@ -207,6 +208,7 @@ class RAGPipeline:
                 extra={"metadata": {"field": spec.field}},
                 task=ModelTask.EXTRACTION,
                 capture_file_search=True,
+                previous_response_id=self._last_response_id,
             )
         except RuntimeError as err:  # pragma: no cover - defensive
             logger.warning("Vector store lookup failed for %s: %s", spec.field, err)
@@ -216,6 +218,9 @@ class RAGPipeline:
             logger.warning("Vector store lookup failed for %s: %s", spec.field, err)
             fallback = self._next_fallback()
             return [fallback] if fallback else []
+
+        if result.response_id:
+            self._last_response_id = result.response_id
 
         chunks = self._collect_results(result.file_search_results)
         if chunks:

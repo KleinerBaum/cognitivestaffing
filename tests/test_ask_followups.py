@@ -14,6 +14,8 @@ from question_logic import ask_followups
 def test_ask_followups_parses_message(monkeypatch):
     """ask_followups should parse JSON content from call_chat_api result."""
 
+    st.session_state.clear()
+
     class _FakeMessage:
         def __init__(self) -> None:
             self.content = json.dumps(

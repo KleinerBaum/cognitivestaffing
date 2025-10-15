@@ -617,6 +617,7 @@ def ask_followups(
         if vector_store_id:
             tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
             tool_choice = "auto"
+        previous_response_id = st.session_state.get(StateKeys.FOLLOWUPS_RESPONSE_ID)
 
         try:
             res = call_chat_api(
@@ -666,11 +667,14 @@ def ask_followups(
                 tool_choice=tool_choice,
                 max_tokens=800,
                 task=ModelTask.FOLLOW_UP_QUESTIONS,
+                previous_response_id=previous_response_id,
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)
             span.set_status(Status(StatusCode.ERROR, "api_error"))
             raise
+
+        st.session_state[StateKeys.FOLLOWUPS_RESPONSE_ID] = getattr(res, "response_id", None)
 
         content = _normalize_chat_content(res).strip()
         if content.startswith("```"):
