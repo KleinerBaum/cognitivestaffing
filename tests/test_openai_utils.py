@@ -641,7 +641,6 @@ def test_prepare_payload_includes_web_search_tools():
         tool_choice=None,
         tool_functions={},
         reasoning_effort=None,
-        verbosity=None,
         extra=None,
         include_analysis_tools=True,
     )
@@ -676,7 +675,6 @@ def test_prepare_payload_normalises_legacy_tool_choice():
         },
         tool_functions={"fn": lambda: None},
         reasoning_effort=None,
-        verbosity=None,
         extra=None,
         include_analysis_tools=False,
     )
@@ -809,8 +807,8 @@ def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
     assert "reasoning" not in captured
 
 
-def test_call_chat_api_includes_explicit_verbosity(monkeypatch):
-    """Explicit verbosity settings should be forwarded to the API payload."""
+def test_call_chat_api_includes_explicit_verbosity_hint(monkeypatch):
+    """Explicit verbosity settings should be translated into system hints."""
 
     captured: dict[str, Any] = {}
 
@@ -832,11 +830,16 @@ def test_call_chat_api_includes_explicit_verbosity(monkeypatch):
         [{"role": "user", "content": "hi"}],
         verbosity="high",
     )
-    assert captured["verbosity"] == "high"
+    assert "verbosity" not in captured
+    system_message = captured["input"][0]
+    assert system_message["role"] == "system"
+    content = system_message["content"]
+    assert "Antwort-Detailgrad" in content
+    assert "ausführliche" in content or "thorough" in content
 
 
 def test_call_chat_api_uses_session_verbosity_default(monkeypatch):
-    """When omitted the helper should fall back to the session verbosity."""
+    """When omitted the helper should fall back to the session verbosity hint."""
 
     captured: dict[str, Any] = {}
 
@@ -860,7 +863,12 @@ def test_call_chat_api_uses_session_verbosity_default(monkeypatch):
     call_chat_api(
         [{"role": "user", "content": "hi"}],
     )
-    assert captured["verbosity"] == "low"
+    assert "verbosity" not in captured
+    system_message = captured["input"][0]
+    assert system_message["role"] == "system"
+    content = system_message["content"]
+    assert "Antwort-Detailgrad" in content
+    assert "kurz" in content or "concise" in content
 
 
 def test_call_chat_api_skips_temperature_for_reasoning_model(monkeypatch):
@@ -1184,8 +1192,9 @@ def test_call_chat_api_executes_tool(monkeypatch):
             self.calls += 1
             if self.calls == 1:
                 return _FirstResponse()
-            assert kwargs["input"][1]["role"] == "tool"
-            assert kwargs["input"][1]["tool_call_id"] == "call_fn"
+            tool_message = kwargs["input"][-1]
+            assert tool_message["role"] == "tool"
+            assert tool_message["tool_call_id"] == "call_fn"
             return _SecondResponse()
 
     class _FakeClient:
