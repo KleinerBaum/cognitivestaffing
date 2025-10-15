@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- feat: re-enable ESCO occupation + essential skill seeding in follow-up question logic (EN)
+  - Feature: reaktiviert ESCO-Beruf- und Kernkompetenz-Vorschläge in der Follow-up-Logik (DE)
 - chore: consolidate dependency management under `requirements.txt` and drop setup-based installs (EN/DE)
   - Chore: bündelt die Abhängigkeitsverwaltung in `requirements.txt` und entfernt setup-basierte Installationen (DE/EN)
 - fix: pin `streamlit-sortables` to 0.3.1 to restore deployment compatibility (EN)
