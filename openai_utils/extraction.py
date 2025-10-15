@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import json
 import re
 import textwrap
@@ -25,6 +26,8 @@ from models.interview_guide import (
     InterviewGuideMetadata,
     InterviewGuideQuestion,
 )
+from pydantic import ValidationError
+
 from utils.i18n import tr
 from . import api
 from .api import _chat_content
@@ -62,6 +65,7 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
     return False
 
 
+logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
@@ -316,7 +320,12 @@ def extract_with_function(
         messages,
         model=model,
         temperature=0.0,
-        tools=build_extraction_tool(FUNCTION_NAME, schema, allow_extra=False),
+        tools=build_extraction_tool(
+            FUNCTION_NAME,
+            schema,
+            allow_extra=False,
+            require_all_fields=False,
+        ),
         tool_choice={
             "type": "function",
             "function": {"name": FUNCTION_NAME},
@@ -366,7 +375,21 @@ def extract_with_function(
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import coerce_and_fill
 
-    profile: NeedAnalysisProfile = coerce_and_fill(raw)
+    try:
+        profile: NeedAnalysisProfile = coerce_and_fill(raw)
+    except ValidationError as exc:  # pragma: no cover - defensive logging
+        errors = exc.errors()
+        summaries: list[str] = []
+        for entry in errors[:5]:
+            loc = entry.get("loc") or ()
+            loc_str = ".".join(str(part) for part in loc) or "<root>"
+            msg = entry.get("msg", "")
+            summaries.append(f"{loc_str}: {msg}")
+        detail = "; ".join(summaries)
+        if len(errors) > 5:
+            detail = f"{detail} (+{len(errors) - 5} more)"
+        logger.debug("NeedAnalysisProfile validation failed: %s", detail, exc_info=exc)
+        raise ValueError(f"Model returned JSON that does not fit NeedAnalysisProfile: {detail}") from exc
     return ExtractionResult(
         data=profile.model_dump(),
         field_contexts=field_contexts or {},
