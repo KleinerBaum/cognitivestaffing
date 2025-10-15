@@ -57,8 +57,8 @@ The requirements list includes Streamlit, OpenAI, Pydantic, jsonschema, vector r
 > **Hinweis:** Wir fixieren `streamlit-sortables` auf Version 0.3.1, da dies die jüngste auf PyPI verfügbare Veröffentlichung ist; die Drag-and-Drop-Oberfläche des Wizards bleibt damit vollständig kompatibel.
 
 > **Dependency policy / Abhängigkeitsrichtlinie:**
-> **EN:** Dependency management is now unified in `requirements.txt` for both runtime and developer tooling. Remove legacy `pip install -e .` or `setup.cfg` flows—the configuration file now only hosts lint/type-check settings.
-> **DE:** Die Abhängigkeitsverwaltung erfolgt vollständig über `requirements.txt` – sowohl für Laufzeit als auch Entwickler-Tools. Bitte ältere Workflows mit `pip install -e .` oder `setup.cfg` nicht mehr verwenden; die Konfigurationsdatei enthält nur noch Lint-/Typisierungsregeln.
+> **EN:** Dependency management is now unified in `requirements.txt` for both runtime and developer tooling. Remove legacy `pip install -e .` flows—the lint/type-check configuration now lives in `pyproject.toml`.
+> **DE:** Die Abhängigkeitsverwaltung erfolgt vollständig über `requirements.txt` – sowohl für Laufzeit als auch Entwickler-Tools. Bitte ältere Workflows mit `pip install -e .` nicht mehr verwenden; die Lint-/Typisierungsregeln stehen jetzt in `pyproject.toml`.
 
 ### 4. Provide OpenAI credentials
 Set environment variables (or configure `.streamlit/secrets.toml` under the `openai` key):
