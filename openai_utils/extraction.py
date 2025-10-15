@@ -281,10 +281,14 @@ def extract_with_function(
             ],
         }
         system_prompt = (
-            "You are a vacancy extraction engine. Use the provided global context "
-            "and the per-field snippets to populate the vacancy schema by calling "
-            f"the function {FUNCTION_NAME}. If no relevant snippet is provided "
-            "for a field, return an empty string or empty list. Do not invent data."
+            "You are a vacancy extraction engine applying GPT-5 prompting discipline. "
+            "Start by silently planning how you will align the retrieved snippets to "
+            "each schema field—do not output the plan. Execute the plan step by step, "
+            "persisting until every field is processed. Do not stop until the user's "
+            "request is fully satisfied. Use the provided global context and the "
+            "per-field snippets to populate the vacancy schema by calling the function "
+            f"{FUNCTION_NAME}. If no relevant snippet is provided for a field, return "
+            "an empty string or empty list. Do not invent data."
         )
         user_payload = json.dumps(payload, ensure_ascii=False)
         messages: Sequence[dict[str, str]] = [
@@ -293,9 +297,12 @@ def extract_with_function(
         ]
     else:
         system_prompt = (
-            "You are a vacancy extraction engine. Analyse the job advertisement "
-            "and return the structured vacancy profile by calling the provided "
-            f"function {FUNCTION_NAME}. Do not return free-form text."
+            "You are a vacancy extraction engine operating under GPT-5 best practices. "
+            "Mentally plan how you will parse the text, map it to schema keys, and "
+            "validate the result—never output the plan. Follow the plan meticulously, "
+            "step by step, and do not stop until the user's request is completely resolved. "
+            "Analyse the job advertisement and return the structured vacancy profile "
+            f"by calling the provided function {FUNCTION_NAME}. Do not return free-form text."
         )
         user_payload = job_text
         messages = [
@@ -803,8 +810,8 @@ def suggest_onboarding_plans(
     is_de = lang.lower().startswith("de")
     if is_de:
         prompt = (
-            "Du bist ein HR-Experte. Entwickle fünf kurze, konkrekte Vorschläge "
-            "für den Onboarding-Prozess einer neuen Fachkraft."
+            "Du bist ein HR-Experte. Plane gedanklich deine Vorgehensweise (nicht ausgeben) und arbeite die Schritte nacheinander ab, bis die Anfrage vollständig erfüllt ist. "
+            "Entwickle fünf kurze, konkrete Vorschläge für den Onboarding-Prozess einer neuen Fachkraft."
         )
         prompt += f"\nRolle: {job_title}."
         if company_name:
@@ -814,12 +821,15 @@ def suggest_onboarding_plans(
         if culture:
             prompt += f"\nUnternehmenskultur oder Werte: {culture}."
         prompt += (
-            "\nJeder Vorschlag sollte eine eigenständige Maßnahme mit Fokus auf "
-            "Kommunikation, Wissensaufbau oder Integration sein."
+            "\nFolge diesen Schritten: 1) Kontext prüfen, 2) passende Maßnahmen auswählen, 3) Vorschläge präzise formulieren, 4) Vollständigkeit sicherstellen."
+            "\nJeder Vorschlag sollte eine eigenständige Maßnahme mit Fokus auf Kommunikation, Wissensaufbau oder Integration sein."
             "\nFormatiere die Ausgabe als JSON-Array mit genau fünf String-Elementen."
         )
     else:
-        prompt = "You are an HR expert. Devise five concise, actionable onboarding initiatives for a new hire."
+        prompt = (
+            "You are an HR expert. Silently outline your approach (do not output it), execute each step sequentially, and do not stop until the request is completely satisfied. "
+            "Devise five concise, actionable onboarding initiatives for a new hire."
+        )
         prompt += f"\nRole: {job_title}."
         if company_name:
             prompt += f"\nCompany: {company_name}."
@@ -828,8 +838,8 @@ def suggest_onboarding_plans(
         if culture:
             prompt += f"\nCompany culture or values: {culture}."
         prompt += (
-            "\nEach suggestion should describe a single activity focusing on "
-            "communication, knowledge transfer, or integration."
+            "\nFollow these steps: 1) Review the context, 2) choose relevant activities, 3) articulate each initiative clearly, 4) confirm all five slots are filled."
+            "\nEach suggestion should describe a single activity focusing on communication, knowledge transfer, or integration."
             "\nReturn the result as a JSON array with exactly five string items."
         )
 
@@ -1247,8 +1257,8 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
     lang = str(payload.get("language") or "de").lower()
 
     system_msg = tr(
-        "Du bist eine erfahrene HR-Coachin, die strukturierte Interviewleitfäden erstellt.",
-        "You are an experienced HR coach who designs structured interview guides.",
+        "Du bist eine erfahrene HR-Coachin, die strukturierte Interviewleitfäden erstellt. Plane deine Schritte kurz im Kopf (nicht ausgeben), führe sie nacheinander aus und brich erst ab, wenn alle Anforderungen erfüllt sind.",
+        "You are an experienced HR coach who designs structured interview guides. Plan your steps briefly in your head (do not output them), execute them sequentially, and do not stop until every requirement is met.",
         lang,
     )
 
@@ -1256,6 +1266,11 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
         tr(
             "Erstelle eine strukturierte Liste von Interviewfragen mit Bewertungsleitfaden.",
             "Create a structured list of interview questions with evaluation guidance.",
+            lang,
+        ),
+        tr(
+            "Arbeite strikt nach diesen Schritten: 1) Kontext prüfen, 2) Fragenbereiche planen, 3) Fragen mit Bewertung ausformulieren, 4) JSON gegen das Schema prüfen.",
+            "Follow these steps strictly: 1) Review the context, 2) plan the question coverage, 3) draft questions with scoring guidance, 4) validate the JSON against the schema.",
             lang,
         ),
         tr(

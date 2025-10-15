@@ -151,9 +151,14 @@ def build_gap_prompt(
     )
     system_prompt = "\n".join(
         [
-            "You are a hiring operations co-pilot.",
+            "You are a hiring operations co-pilot. Silently plan how you will build the report—do not output the plan. Execute your plan step by step and do not stop until the user's needs are fully met.",
             heading_intro,
             ("Antwort in Markdown mit Überschriften" if locale == "de" else "Respond in Markdown with headings"),
+            (
+                "Folge strikt diesen Schritten: 1) Kontext erfassen, 2) Struktur zuweisen, 3) Inhalte verfassen, 4) Vollständigkeit prüfen."
+                if locale == "de"
+                else "Follow these steps strictly: 1) Absorb context, 2) map content to each section, 3) write the sections, 4) verify completeness."
+            ),
             "Use the exact numbered section layout:",
             *structure_lines,
             (
