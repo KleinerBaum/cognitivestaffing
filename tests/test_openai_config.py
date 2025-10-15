@@ -36,6 +36,15 @@ def test_ensure_state_normalises_legacy_models():
     assert st.session_state["model_override"] == "gpt-5-nano"
 
 
+def test_ensure_state_preserves_minimal_reasoning_level():
+    st.session_state.clear()
+    st.session_state["reasoning_effort"] = "minimal"
+
+    es.ensure_state()
+
+    assert st.session_state["reasoning_effort"] == "minimal"
+
+
 def test_ensure_state_salvages_profile_with_extra_fields():
     st.session_state.clear()
     profile = NeedAnalysisProfile().model_dump()
