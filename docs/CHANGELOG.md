@@ -1,8 +1,9 @@
 # Changelog
 
 ## Unreleased
-- refactor: rename structured extraction handles to `NeedAnalysisProfile` and salary responses to `SalaryExpectationResponse` for consistent schema naming (EN/DE)
-  - Refactor: vereinheitlicht die Funktionsnamen für strukturierte Extraktion auf `NeedAnalysisProfile` bzw. `SalaryExpectationResponse`, damit sie den Schemanamen entsprechen (DE/EN)
+- feat: add deterministic currency conversion and date normalisation helpers to analysis tools (EN/DE)
+  - Feature: ergänzt die Analysetools um deterministische Währungsumrechnung und Datumsnormalisierung (DE/EN)
+
 - feat: switch RAG embeddings to `text-embedding-3-large` (3,072-dim) and add `cli/rebuild_vector_store.py` to re-embed existing OpenAI stores (EN/DE)
   - Run `python -m cli.rebuild_vector_store <source_store_id>` and point `VECTOR_STORE_ID` to the printed target once validation passes.
   - Feature: stellt RAG-Embeddings auf `text-embedding-3-large` (3.072 Dimensionen) um und liefert `cli/rebuild_vector_store.py` zum Neu-Einbetten bestehender OpenAI-Stores (DE/EN)
