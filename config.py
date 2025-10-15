@@ -132,9 +132,39 @@ def normalise_verbosity(value: object | None, *, default: str = "medium") -> str
 VERBOSITY = normalise_verbosity(os.getenv("VERBOSITY", "medium"))
 
 
+def _normalise_timeout(value: object | None, *, default: float = 120.0) -> float:
+    """Return a positive timeout value in seconds."""
+
+    if value is None:
+        return default
+    candidate = value
+    if isinstance(candidate, str):
+        stripped = candidate.strip()
+        if not stripped:
+            return default
+        try:
+            candidate = float(stripped)
+        except ValueError:
+            warnings.warn(
+                "Unsupported OPENAI_REQUEST_TIMEOUT '%s'; falling back to %.1f seconds." % (candidate, default),
+                RuntimeWarning,
+            )
+            return default
+    if isinstance(candidate, (int, float)):
+        timeout = float(candidate)
+        if timeout > 0:
+            return timeout
+    warnings.warn(
+        "OPENAI_REQUEST_TIMEOUT must be a positive number; falling back to %.1f seconds." % default,
+        RuntimeWarning,
+    )
+    return default
+
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
+OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
@@ -142,10 +172,20 @@ try:
     OPENAI_API_KEY = openai_secrets.get("OPENAI_API_KEY", OPENAI_API_KEY)
     OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
     OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
+    timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
+    OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
     VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
     VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
     openai_secrets = None
+
+try:
+    OPENAI_REQUEST_TIMEOUT = _normalise_timeout(
+        st.secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT),
+        default=OPENAI_REQUEST_TIMEOUT,
+    )
+except Exception:
+    pass
 
 try:
     REASONING_EFFORT = _normalise_reasoning_effort(

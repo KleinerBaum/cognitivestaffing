@@ -8,6 +8,7 @@ All agents rely on OpenAI credentials supplied either through environment variab
 - `OPENAI_API_KEY` – mandatory for all LLM calls.
 - `OPENAI_BASE_URL` – optional override (set to `https://eu.api.openai.com/v1` for EU hosting).
 - `OPENAI_MODEL` – optional default model. The router still picks `gpt-5-mini` / `gpt-5-nano` per task unless overridden.
+- `OPENAI_REQUEST_TIMEOUT` – optional request timeout in seconds (defaults to 120s for long-running generations).
 - `VECTOR_STORE_ID` – optional OpenAI Vector Store used by RAG-enabled agents via the `file_search` tool.
 - `VACAYSER_OFFLINE` – set to `1` to load the local ESCO cache instead of calling the public API.
 
