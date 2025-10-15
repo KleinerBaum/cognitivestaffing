@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import types
 from pathlib import Path
@@ -23,19 +24,29 @@ from openai import BadRequestError
 from components import model_selector as model_selector_component
 
 
-def test_suggest_additional_skills_model(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_suggest_skills_for_role_model(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, str | None] = {}
+
+    payload = {
+        "tools_and_technologies": ["Tool A", "Tool A", "Tool B"],
+        "hard_skills": ["Hard Skill 1", ""],
+        "soft_skills": ["Soft Skill 1"],
+        "certificates": ["Certificate 1"],
+    }
 
     def fake_call_chat_api(messages: Any, model: str | None = None, **kwargs: Any) -> ChatCallResult:
         captured["model"] = model
-        return ChatCallResult("- Tech1\n- Tech2\nSoft skills:\n- Communication", [], {})
+        return ChatCallResult(json.dumps(payload), [], {})
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     monkeypatch.setattr(esco_utils, "normalize_skills", lambda skills, **_: skills)
-    out = openai_utils.suggest_additional_skills("Engineer", model=config.GPT5_MINI)
+    result = openai_utils.suggest_skills_for_role("Engineer", model=config.GPT5_MINI)
+
     assert captured["model"] == config.GPT5_MINI
-    assert out["technical"] == ["Tech1", "Tech2"]
-    assert out["soft"] == ["Communication"]
+    assert result["tools_and_technologies"] == ["Tool A", "Tool B"]
+    assert result["hard_skills"] == ["Hard Skill 1"]
+    assert result["soft_skills"] == ["Soft Skill 1"]
+    assert result["certificates"] == ["Certificate 1"]
 
 
 def test_suggest_benefits_model(monkeypatch: pytest.MonkeyPatch) -> None:

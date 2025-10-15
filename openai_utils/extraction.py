@@ -403,119 +403,6 @@ def extract_with_function(
     )
 
 
-def suggest_additional_skills(
-    job_title: str,
-    responsibilities: str = "",
-    existing_skills: list[str] | None = None,
-    num_suggestions: int = 10,
-    lang: str = "en",
-    model: str | None = None,
-) -> dict:
-    """Suggest a mix of technical and soft skills for the given role.
-
-    Args:
-        job_title: Target role title.
-        responsibilities: Known responsibilities for context.
-        existing_skills: Skills already listed by the user.
-        num_suggestions: Total number of skills to request.
-        lang: Language of the response ("en" or "de").
-        model: Optional OpenAI model override.
-
-    Returns:
-        Dict with keys ``technical`` and ``soft`` containing suggested skills.
-    """
-    if existing_skills is None:
-        existing_skills = []
-    job_title = job_title.strip()
-    if not job_title:
-        return {"technical": [], "soft": []}
-    if model is None:
-        model = get_model_for(ModelTask.SKILL_SUGGESTION)
-    half = num_suggestions // 2
-    if lang.startswith("de"):
-        prompt = (
-            f"Gib {half} technische und {half} soziale Fähigkeiten für die Position '{job_title}'. "
-            "Antworte als JSON mit den Schlüsseln 'technical' und 'soft'. Vermeide Dubletten oder bereits aufgeführte Fähigkeiten."
-        )
-        if responsibilities:
-            prompt += f" Wichtige Aufgaben: {responsibilities}."
-        if existing_skills:
-            prompt += f" Bereits aufgelistet: {', '.join(existing_skills)}."
-    else:
-        prompt = (
-            f"Suggest {half} technical and {half} soft skills for a {job_title} role. "
-            "Respond in JSON using keys 'technical' and 'soft'. Avoid duplicates or skills already listed."
-        )
-        if responsibilities:
-            prompt += f" Key responsibilities: {responsibilities}."
-        if existing_skills:
-            prompt += f" Already listed: {', '.join(existing_skills)}."
-
-    messages = [{"role": "user", "content": prompt}]
-    max_tokens = 220 if not model or "nano" in model else 300
-    res = api.call_chat_api(
-        messages,
-        model=model,
-        temperature=0.4,
-        max_tokens=max_tokens,
-        json_schema={
-            "name": "skill_mix",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "technical": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "soft": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                },
-                "required": ["technical", "soft"],
-                "additionalProperties": False,
-            },
-        },
-        task=ModelTask.SKILL_SUGGESTION,
-    )
-    answer = _chat_content(res)
-    tech_skills: list[str] = []
-    soft_skills: list[str] = []
-    try:
-        data = json.loads(answer)
-        if isinstance(data, dict):
-            tech_skills = [str(s).strip() for s in data.get("technical", []) if str(s).strip()]
-            soft_skills = [str(s).strip() for s in data.get("soft", []) if str(s).strip()]
-    except Exception:
-        bucket = "tech"
-        for line in answer.splitlines():
-            skill = line.strip("-•* \t")
-            if not skill:
-                continue
-            if skill.lower().startswith("soft"):
-                bucket = "soft"
-                continue
-            if skill.lower().startswith("technical") or skill.lower().startswith("technische"):
-                bucket = "tech"
-                continue
-            if bucket == "tech":
-                tech_skills.append(skill)
-            else:
-                soft_skills.append(skill)
-    # Normalize skill labels locally and drop duplicates against existing skills
-    try:
-        from core.esco_utils import normalize_skills
-
-        existing_norm = {s.lower() for s in normalize_skills(existing_skills, lang=lang)}
-        tech_skills = [s for s in normalize_skills(tech_skills, lang=lang) if s.lower() not in existing_norm]
-        soft_skills = [s for s in normalize_skills(soft_skills, lang=lang) if s.lower() not in existing_norm]
-    except Exception:
-        existing_lower = {s.lower() for s in existing_skills}
-        tech_skills = [s for s in tech_skills if s.lower() not in existing_lower]
-        soft_skills = [s for s in soft_skills if s.lower() not in existing_lower]
-    return {"technical": tech_skills, "soft": soft_skills}
-
-
 def suggest_skills_for_role(
     job_title: str,
     *,
@@ -2125,7 +2012,6 @@ __all__ = [
     "extract_company_info",
     "extract_with_function",
     "ExtractionResult",
-    "suggest_additional_skills",
     "suggest_skills_for_role",
     "suggest_benefits",
     "suggest_role_tasks",
