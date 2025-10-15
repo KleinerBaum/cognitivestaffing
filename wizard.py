@@ -3820,11 +3820,14 @@ def _render_followup_question(q: dict, data: dict) -> None:
     suggestions = q.get("suggestions") or []
     key = f"fu_{field}"
     anchor = f"anchor_{key}"
+    focus_sentinel = f"{key}_focus_pending"
     container = st.container()
     with container:
         st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
     if key not in st.session_state:
         st.session_state[key] = ""
+    if focus_sentinel not in st.session_state:
+        st.session_state[focus_sentinel] = True
     ui_variant = q.get("ui_variant")
     description = q.get("description")
     if ui_variant in ("info", "warning") and description:
@@ -3843,8 +3846,32 @@ def _render_followup_question(q: dict, data: dict) -> None:
             if col.button(sug, key=f"{key}_opt_{i}"):
                 st.session_state[key] = sug
     label = prompt or tr("Antwort eingeben", "Enter response")
+    should_focus = st.session_state.get(focus_sentinel, False)
     with container:
         st.text_input(label, key=key, label_visibility="collapsed")
+        if should_focus:
+            st.markdown(
+                f"""
+<script>
+(function() {{
+    const anchor = document.getElementById('{anchor}');
+    if (!anchor) {{
+        return;
+    }}
+    const wrapper = anchor.nextElementSibling;
+    if (!wrapper) {{
+        return;
+    }}
+    const input = wrapper.querySelector('input');
+    if (input && document.activeElement !== input) {{
+        input.focus({{preventScroll: true}});
+    }}
+}})();
+</script>
+""",
+                unsafe_allow_html=True,
+            )
+            st.session_state[focus_sentinel] = False
     if q.get("priority") == "critical":
         st.toast(tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️")
         st.markdown(
@@ -3858,6 +3885,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
         if field not in completed:
             completed.append(field)
         st.session_state[StateKeys.FOLLOWUPS].remove(q)
+        st.session_state.pop(focus_sentinel, None)
 
 
 def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
