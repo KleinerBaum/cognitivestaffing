@@ -26,8 +26,8 @@ from pydantic import ValidationError
 
 
 @pytest.fixture(autouse=True)
-def reset_temperature_cache(monkeypatch):
-    """Ensure temperature capability cache is cleared between tests."""
+def reset_model_capability_caches(monkeypatch):
+    """Ensure cached model capability flags are cleared between tests."""
 
     monkeypatch.setattr(openai_utils.api, "_MODELS_WITHOUT_TEMPERATURE", set(), raising=False)
     monkeypatch.setattr(openai_utils.api, "_MODELS_WITHOUT_REASONING", set(), raising=False)
@@ -1102,6 +1102,48 @@ def test_call_chat_api_retries_without_reasoning(monkeypatch):
 
     assert len(calls) == 1
     assert "reasoning" not in calls[0]
+
+
+def test_call_chat_api_handles_openai_bad_request_without_reasoning(monkeypatch):
+    """A real BadRequestError should trigger a retry without the reasoning payload."""
+
+    calls: list[dict[str, Any]] = []
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self._call_count = 0
+
+        def create(self, **kwargs: Any):
+            self._call_count += 1
+            calls.append(dict(kwargs))
+            if self._call_count == 1:
+                request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+                response = httpx.Response(
+                    status_code=400,
+                    json={"error": {"message": "unsupported parameter: reasoning"}},
+                    request=request,
+                )
+                raise BadRequestError(
+                    "unsupported parameter: reasoning",
+                    response=response,
+                    body={"error": {"message": "unsupported parameter: reasoning"}},
+                )
+            return SimpleNamespace(output=[], output_text="", usage={})
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="o1-mini",
+        reasoning_effort="medium",
+    )
+
+    assert len(calls) == 2
+    assert "reasoning" in calls[0]
+    assert "reasoning" not in calls[1]
 
 
 def test_model_supports_temperature_detection() -> None:
