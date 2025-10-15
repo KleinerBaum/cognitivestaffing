@@ -59,6 +59,7 @@ class StateKeys:
     SCROLL_TO_TOP = "ui.scroll_to_top"
     FOLLOWUPS = "followup_questions"
     FOLLOWUPS_RESPONSE_ID = "followups.response_id"
+    RAG_CONTEXT_SKIPPED = "followups.rag_skipped"
     AUTOFILL_DECISIONS = "autofill_decisions"
     USAGE = "api_usage"
     JOB_AD_MD = "data.job_ad_md"

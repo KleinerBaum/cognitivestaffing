@@ -8,6 +8,7 @@ extraction tasks.
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from typing import Any, cast
@@ -46,13 +47,56 @@ def _prepare_schema(obj: dict[str, Any], *, require_all: bool) -> dict[str, Any]
     return obj
 
 
+def _is_object_schema(node: Mapping[str, Any]) -> bool:
+    """Return ``True`` when ``node`` represents a JSON object schema."""
+
+    type_hint = node.get("type")
+    if type_hint is None:
+        return isinstance(node.get("properties"), Mapping)
+    if isinstance(type_hint, str):
+        return type_hint == "object"
+    if isinstance(type_hint, Iterable):
+        return "object" in type_hint
+    return False
+
+
+def _collect_schema_fields(schema: Mapping[str, Any], *, limit: int = 8) -> list[str]:
+    """Collect representative dot-paths from ``schema`` to surface in docs."""
+
+    properties = schema.get("properties")
+    if not isinstance(properties, Mapping):
+        return []
+
+    collected: list[str] = []
+    queue: deque[tuple[tuple[str, ...], Mapping[str, Any]]] = deque()
+    queue.append(((), properties))
+
+    while queue and len(collected) < limit:
+        path, props = queue.popleft()
+        for key, value in props.items():
+            new_path = (*path, key)
+            if isinstance(value, Mapping):
+                child_props = value.get("properties")
+                if _is_object_schema(value) and isinstance(child_props, Mapping) and child_props:
+                    queue.append((new_path, child_props))
+                    if len(collected) >= limit:
+                        break
+                    continue
+            collected.append(".".join(new_path))
+            if len(collected) >= limit:
+                break
+
+    return collected
+
+
 def build_extraction_tool(
     name: str,
-    schema: dict,
+    schema: dict[str, Any],
     *,
     allow_extra: bool = False,
     require_all_fields: bool = True,
-) -> list[dict]:
+    description: str | None = None,
+) -> list[dict[str, Any]]:
     """Return an OpenAI tool spec for structured extraction.
 
     Args:
@@ -69,12 +113,22 @@ def build_extraction_tool(
     params = deepcopy(schema)
     _prepare_schema(params, require_all=require_all_fields)
     params["additionalProperties"] = bool(allow_extra)
+
+    if description is None:
+        fields = _collect_schema_fields(schema)
+        if fields:
+            description = (
+                f"Return structured profile data that fits the schema exactly. Key fields: {', '.join(fields)}."
+            )
+        else:
+            description = "Return structured profile data that fits the schema exactly."
+
     return [
         {
             "type": "function",
             "function": {
                 "name": name,
-                "description": "Return structured profile data that fits the schema exactly.",
+                "description": description,
                 "parameters": params,
                 "strict": not allow_extra,
             },
@@ -128,6 +182,7 @@ def build_function_tools(
                     callable_obj = cast(Callable[..., Any], value)
                 else:
                     callable_obj = None
+
                 continue
             function_payload[key] = deepcopy(value)
 

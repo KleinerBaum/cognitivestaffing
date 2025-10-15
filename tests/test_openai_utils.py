@@ -236,6 +236,104 @@ def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
     assert result.content == "capacity ready"
 
 
+def test_call_chat_api_executes_currency_conversion_tool(monkeypatch):
+    """Conversion helper outputs should be injected back into the prompt loop."""
+
+    from core import analysis_tools
+
+    conversion_args = {
+        "amount": 100,
+        "source_currency": "usd",
+        "target_currency": "eur",
+    }
+
+    recorded_kwargs: dict[str, Any] = {}
+    original_fn = analysis_tools.convert_currency
+
+    def _recording_convert_currency(**kwargs: Any) -> dict[str, Any]:
+        recorded_kwargs.update(kwargs)
+        return original_fn(**kwargs)
+
+    monkeypatch.setattr(
+        analysis_tools,
+        "convert_currency",
+        _recording_convert_currency,
+        raising=False,
+    )
+
+    first_response = SimpleNamespace(
+        id="resp-1",
+        output=[
+            {
+                "type": "response.tool_call",
+                "id": "call-1",
+                "call_id": "call-1",
+                "function": {
+                    "name": "convert_currency",
+                    "input": dict(conversion_args),
+                },
+            }
+        ],
+        output_text="",
+        usage={},
+    )
+
+    second_response = SimpleNamespace(
+        id="resp-2",
+        output=[
+            {
+                "type": "message",
+                "content": [
+                    {"type": "text", "text": "conversion done"},
+                ],
+            }
+        ],
+        output_text="",
+        usage={},
+    )
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self._index = 0
+            self.captured_turns: list[list[dict[str, Any]]] = []
+
+        def create(self, **kwargs: Any) -> Any:
+            key = "messages" if "messages" in kwargs else "input"
+            self.captured_turns.append(deepcopy(kwargs.get(key, [])))
+            self._index += 1
+            return first_response if self._index == 1 else second_response
+
+    fake_responses = _FakeResponses()
+
+    class _FakeClient:
+        responses = fake_responses
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    result = call_chat_api(
+        [{"role": "user", "content": "convert 100 USD to EUR"}],
+        tool_choice={"type": "function", "function": {"name": "convert_currency"}},
+    )
+
+    assert recorded_kwargs == {
+        "amount": 100,
+        "source_currency": "usd",
+        "target_currency": "eur",
+    }
+    assert len(fake_responses.captured_turns) == 2
+    tool_message = fake_responses.captured_turns[1][-1]
+    assert tool_message["role"] == "tool"
+    assert tool_message["tool_call_id"] == "call-1"
+    payload = json.loads(tool_message["content"])
+    assert payload["success"] is True
+    assert payload["source_currency"] == "USD"
+    assert payload["target_currency"] == "EUR"
+    assert payload["converted_amount"] == pytest.approx(92.17, rel=1e-4)
+    assert payload["exchange_rate"] == pytest.approx(0.921659, rel=1e-6)
+    assert result.tool_calls[0]["function"]["name"] == "convert_currency"
+    assert result.content == "conversion done"
+
+
 def test_collect_tool_calls_handles_tool_response(
     tool_response_object: SimpleNamespace, tool_response_event: Mapping[str, Any]
 ):
@@ -918,10 +1016,10 @@ def test_call_chat_api_normalises_tool_schema(monkeypatch):
     assert any(tool.get("type") == "web_search" for tool in captured.get("tools", []))
 
 
-def test_prepare_payload_includes_web_search_tools():
-    """The payload should always advertise OpenAI web search tools."""
+def test_prepare_payload_includes_analysis_helpers():
+    """Base payload should expose web search and analysis helper tools."""
 
-    payload, _, _, _, _ = openai_utils.api._prepare_payload(
+    payload, _, _, tool_map, _ = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
         model=config.GPT5_MINI,
         temperature=None,
@@ -938,6 +1036,16 @@ def test_prepare_payload_includes_web_search_tools():
     tool_types = {tool.get("type") for tool in payload["tools"]}
     assert "web_search" in tool_types
     assert "web_search_preview" in tool_types
+
+    function_names = {
+        tool.get("function", {}).get("name")
+        for tool in payload["tools"]
+        if tool.get("type") == "function"
+    }
+    assert "convert_currency" in function_names
+    assert "normalise_date" in function_names
+    assert callable(tool_map["convert_currency"])
+    assert callable(tool_map["normalise_date"])
 
     for tool in payload["tools"]:
         if tool.get("type") == "function":
@@ -993,6 +1101,42 @@ def test_build_extraction_tool_has_name_and_parameters():
     assert fn_payload["name"] == "NeedAnalysisProfile"
     assert fn_payload["parameters"]["type"] == "object"
     assert fn_payload["strict"] is True
+
+
+def test_build_extraction_tool_auto_describes_schema_fields() -> None:
+    """Automatically generated description should mention key schema fields."""
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "requirements": {
+                "type": "object",
+                "properties": {
+                    "hard_skills_required": {"type": "array", "items": {"type": "string"}},
+                    "soft_skills_required": {"type": "array", "items": {"type": "string"}},
+                    "languages_required": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            "role_summary": {"type": "string"},
+        },
+    }
+
+    tool = openai_utils.build_extraction_tool("extract", schema)
+    description = tool[0]["function"]["description"]
+
+    assert "requirements.hard_skills_required" in description
+    assert "requirements.soft_skills_required" in description
+    assert "requirements.languages_required" in description
+
+
+def test_build_extraction_tool_allows_custom_description() -> None:
+    """Callers can provide a tailored description for the tool."""
+
+    schema = {"type": "object", "properties": {"salary": {"type": "string"}}}
+    custom_description = "Estimate annual salary bands for the vacancy."
+
+    tool = openai_utils.build_extraction_tool("salary", schema, description=custom_description)
+    assert tool[0]["function"]["description"] == custom_description
 
 
 def test_build_function_tools_normalises_specs() -> None:
