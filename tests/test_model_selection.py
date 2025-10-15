@@ -30,8 +30,8 @@ def test_suggest_additional_skills_model(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     monkeypatch.setattr(esco_utils, "normalize_skills", lambda skills, **_: skills)
-    out = openai_utils.suggest_additional_skills("Engineer", model="gpt-5-mini")
-    assert captured["model"] == "gpt-5-mini"
+    out = openai_utils.suggest_additional_skills("Engineer", model=config.GPT5_MINI)
+    assert captured["model"] == config.GPT5_MINI
     assert out["technical"] == ["Tech1", "Tech2"]
     assert out["soft"] == ["Communication"]
 
@@ -44,8 +44,8 @@ def test_suggest_benefits_model(monkeypatch: pytest.MonkeyPatch) -> None:
         return ChatCallResult("- BenefitA\n- BenefitB", [], {})
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-    out = openai_utils.suggest_benefits("Engineer", lang="en", model="gpt-5-nano")
-    assert captured["model"] == "gpt-5-nano"
+    out = openai_utils.suggest_benefits("Engineer", lang="en", model=config.GPT5_NANO)
+    assert captured["model"] == config.GPT5_NANO
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -59,14 +59,14 @@ def test_suggest_benefits_dispatch_default(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == "gpt-5-nano"
+    assert captured["model"] == config.GPT5_NANO
     assert out == ["BenefitA", "BenefitB"]
 
 
 def test_manual_override_reroutes_all_tasks(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, str | None] = {}
     st.session_state.clear()
-    st.session_state["model_override"] = "gpt-5-mini"
+    st.session_state["model_override"] = config.GPT5_MINI
 
     def fake_call_chat_api(messages: Any, model: str | None = None, **kwargs: Any) -> ChatCallResult:
         captured["model"] = model
@@ -74,7 +74,7 @@ def test_manual_override_reroutes_all_tasks(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == "gpt-5-mini"
+    assert captured["model"] == config.GPT5_MINI
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -89,7 +89,7 @@ def test_legacy_override_aliases_to_current_model(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == "gpt-5-nano"
+    assert captured["model"] == config.GPT5_NANO
     assert out == ["BenefitA", "BenefitB"]
 
 

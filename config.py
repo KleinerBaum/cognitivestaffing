@@ -1,8 +1,9 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
 The application now routes requests between OpenAI's GPT-5 family to balance
-quality and cost. ``gpt-5-mini`` serves as the default large language model for
-generative workloads, while ``gpt-5-nano`` powers lightweight suggestion flows.
+quality and cost. ``gpt-5.1-mini`` (GPT-5 mini) serves as the default large
+language model for generative workloads, while ``gpt-5.1-nano`` (GPT-5 nano)
+powers lightweight suggestion flows.
 Structured retrieval keeps using ``text-embedding-3-small``.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
@@ -31,6 +32,40 @@ CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
 
+# Canonical GPT-5 model identifiers as exposed by the OpenAI API.
+#
+# OpenAI's public documentation describes the "GPT-5" tiers as "GPT-5", "GPT-5
+# mini" and "GPT-5 nano". The actual API endpoints follow the ``gpt-5.1-*``
+# naming pattern (with dated suffices such as ``-latest`` or a concrete release
+# date). ``normalise_model_name`` below maps historic aliases to these
+# canonical identifiers so the rest of the application only sees the official
+# names.
+GPT5_FULL = "gpt-5.1"
+GPT5_MINI = "gpt-5.1-mini"
+GPT5_NANO = "gpt-5.1-nano"
+
+
+_LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
+    ("gpt-5-mini", GPT5_MINI),
+    ("gpt-5-mini-latest", GPT5_MINI),
+    ("gpt-5-nano", GPT5_NANO),
+    ("gpt-5-nano-latest", GPT5_NANO),
+    ("gpt-5", GPT5_FULL),
+    ("gpt-5-latest", GPT5_FULL),
+)
+
+_LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
+    ("gpt-4o-mini-2024-08-06", GPT5_NANO),
+    ("gpt-4o-mini-2024-07-18", GPT5_NANO),
+    ("gpt-4o-mini-2024-05-13", GPT5_NANO),
+    ("gpt-4o-mini", GPT5_NANO),
+    ("gpt-4o-latest", GPT5_MINI),
+    ("gpt-4o-2024-08-06", GPT5_MINI),
+    ("gpt-4o-2024-05-13", GPT5_MINI),
+    ("gpt-4o", GPT5_MINI),
+)
+
+
 def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> str:
     """Return ``value`` with optional mapping of legacy aliases to current names."""
 
@@ -43,25 +78,31 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
     lowered = candidate.lower()
     if not prefer_latest:
         return candidate
-    legacy_aliases = [
-        ("gpt-4o-mini-2024-08-06", "gpt-5-nano"),
-        ("gpt-4o-mini-2024-07-18", "gpt-5-nano"),
-        ("gpt-4o-mini-2024-05-13", "gpt-5-nano"),
-        ("gpt-4o-mini", "gpt-5-nano"),
-        ("gpt-4o-latest", "gpt-5-mini"),
-        ("gpt-4o-2024-08-06", "gpt-5-mini"),
-        ("gpt-4o-2024-05-13", "gpt-5-mini"),
-        ("gpt-4o", "gpt-5-mini"),
-    ]
 
-    for legacy, replacement in legacy_aliases:
+    for alias, replacement in _LATEST_MODEL_ALIASES:
+        if lowered == alias or lowered.startswith(f"{alias}-"):
+            return replacement
+
+    for legacy, replacement in _LEGACY_MODEL_ALIASES:
         if lowered == legacy or lowered.startswith(f"{legacy}-"):
             return replacement
 
+    if lowered.startswith("gpt-5.1-nano"):
+        return GPT5_NANO
+    if lowered.startswith("gpt-5.1-mini"):
+        return GPT5_MINI
+    if lowered.startswith("gpt-5.1"):
+        return GPT5_FULL
+    if lowered.startswith("gpt-5-nano"):
+        return GPT5_NANO
+    if lowered.startswith("gpt-5-mini"):
+        return GPT5_MINI
+    if lowered.startswith("gpt-5"):
+        return GPT5_FULL
     if lowered.startswith("gpt-4o-mini"):
-        return "gpt-5-nano"
+        return GPT5_NANO
     if lowered.startswith("gpt-4o"):
-        return "gpt-5-mini"
+        return GPT5_MINI
     return candidate
 
 
@@ -83,8 +124,8 @@ def _detect_default_model() -> str:
     env_default = os.getenv("DEFAULT_MODEL")
     if env_default:
         normalised = normalise_model_name(env_default)
-        return normalised or "gpt-5-mini"
-    return "gpt-5-mini"
+        return normalised or GPT5_MINI
+    return GPT5_MINI
 
 
 DEFAULT_MODEL = _detect_default_model()
@@ -221,10 +262,6 @@ class ModelTask(StrEnum):
     EXPLANATION = "explanation"
 
 
-GPT5_MINI = "gpt-5-mini"
-GPT5_NANO = "gpt-5-nano"
-
-
 MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DEFAULT.value: OPENAI_MODEL,
     ModelTask.EXTRACTION.value: GPT5_MINI,
@@ -251,6 +288,7 @@ for key, value in list(MODEL_ROUTING.items()):
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
+    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, "gpt-4o", "gpt-3.5-turbo"],
     _canonical_model_name(GPT5_MINI): [GPT5_MINI, "gpt-4o", "gpt-3.5-turbo"],
     _canonical_model_name(GPT5_NANO): [GPT5_NANO, "gpt-4o", "gpt-3.5-turbo"],
     _canonical_model_name("gpt-4o"): ["gpt-4o", "gpt-3.5-turbo"],
