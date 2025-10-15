@@ -69,6 +69,7 @@ def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> Non
     assert schema_cfg["name"] == "FollowUpQuestions"
     assert schema_cfg["schema"] == FOLLOW_UPS_SCHEMA
     assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["store-id"]}]
+    assert captured["tool_choice"] == "auto"
     assert captured["model"] == "model-followups"
 
 
@@ -84,6 +85,7 @@ def test_followups_without_vector_store(monkeypatch: pytest.MonkeyPatch) -> None
     followups_mod.generate_followups({}, "de")
 
     assert captured.get("tools") is None
+    assert captured.get("tool_choice") is None
     assert captured["model"] == "model-followups"
 
 
