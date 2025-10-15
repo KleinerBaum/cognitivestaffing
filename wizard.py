@@ -3821,6 +3821,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     key = f"fu_{field}"
     anchor = f"anchor_{key}"
     focus_sentinel = f"{key}_focus_pending"
+    highlight_sentinel = f"{key}_highlight_pending"
     container = st.container()
     with container:
         st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
@@ -3828,6 +3829,8 @@ def _render_followup_question(q: dict, data: dict) -> None:
         st.session_state[key] = ""
     if focus_sentinel not in st.session_state:
         st.session_state[focus_sentinel] = True
+    if highlight_sentinel not in st.session_state:
+        st.session_state[highlight_sentinel] = True
     ui_variant = q.get("ui_variant")
     description = q.get("description")
     if ui_variant in ("info", "warning") and description:
@@ -3845,6 +3848,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
         for i, (col, sug) in enumerate(zip(cols, suggestions)):
             if col.button(sug, key=f"{key}_opt_{i}"):
                 st.session_state[key] = sug
+    priority = q.get("priority")
     label = prompt or tr("Antwort eingeben", "Enter response")
     should_focus = st.session_state.get(focus_sentinel, False)
     with container:
@@ -3872,12 +3876,34 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 unsafe_allow_html=True,
             )
             st.session_state[focus_sentinel] = False
-    if q.get("priority") == "critical":
-        st.toast(tr("Neue kritische Anschlussfrage", "New critical follow-up"), icon="⚠️")
-        st.markdown(
-            f"<script>var el=document.getElementById('{anchor}').nextElementSibling;el.classList.add('fu-highlight');el.scrollIntoView({{behavior:'smooth',block:'center'}});</script>",
-            unsafe_allow_html=True,
-        )
+        highlight_pending = st.session_state.get(highlight_sentinel, False)
+        if highlight_pending:
+            highlight_class = "fu-highlight" if priority == "critical" else "fu-highlight-soft"
+            if priority == "critical":
+                st.toast(
+                    tr("Neue kritische Anschlussfrage", "New critical follow-up"),
+                    icon="⚠️",
+                )
+            st.markdown(
+                f"""
+<script>
+(function() {{
+    const anchor = document.getElementById('{anchor}');
+    if (!anchor) {{
+        return;
+    }}
+    const wrapper = anchor.nextElementSibling;
+    if (!wrapper) {{
+        return;
+    }}
+    wrapper.classList.add('{highlight_class}');
+    wrapper.scrollIntoView({{behavior:'smooth',block:'center'}});
+}})();
+</script>
+""",
+                unsafe_allow_html=True,
+            )
+            st.session_state[highlight_sentinel] = False
     ans = st.session_state.get(key, "")
     if ans:
         set_in(data, field, ans)
@@ -3886,6 +3912,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
             completed.append(field)
         st.session_state[StateKeys.FOLLOWUPS].remove(q)
         st.session_state.pop(focus_sentinel, None)
+        st.session_state.pop(highlight_sentinel, None)
 
 
 def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:

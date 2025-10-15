@@ -519,11 +519,24 @@ footer, #MainMenu {
 .fu-highlight {
   animation: fu-flash 2s ease-in-out 2;
 }
+
+.fu-highlight-soft {
+  animation: fu-soft-flash 1.6s ease-in-out 1;
+}
 @keyframes fu-flash {
   0%, 100% {
     background: transparent;
   }
   50% {
     background: var(--surface-critical);
+  }
+}
+
+@keyframes fu-soft-flash {
+  0%, 100% {
+    background: transparent;
+  }
+  50% {
+    background: var(--surface-accent-soft);
   }
 }
