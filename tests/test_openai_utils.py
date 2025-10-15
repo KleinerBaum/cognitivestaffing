@@ -986,11 +986,11 @@ def test_build_extraction_tool_has_name_and_parameters():
     """build_extraction_tool should include function name and parameters."""
 
     schema = {"type": "object", "properties": {}}
-    tool = openai_utils.build_extraction_tool("cognitive_needs_extract", schema)
+    tool = openai_utils.build_extraction_tool("NeedAnalysisProfile", schema)
     spec = tool[0]
     assert spec["type"] == "function"
     fn_payload = spec["function"]
-    assert fn_payload["name"] == "cognitive_needs_extract"
+    assert fn_payload["name"] == "NeedAnalysisProfile"
     assert fn_payload["parameters"]["type"] == "object"
     assert fn_payload["strict"] is True
 

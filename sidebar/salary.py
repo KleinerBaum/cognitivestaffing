@@ -26,7 +26,7 @@ except Exception:  # pragma: no cover - during offline tests without OpenAI
 logger = logging.getLogger(__name__)
 
 
-FUNCTION_NAME = "update_salary_expectation"
+FUNCTION_NAME = "SalaryExpectationResponse"
 
 
 class SalaryExpectationResponse(BaseModel):
