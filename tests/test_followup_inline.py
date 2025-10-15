@@ -1,10 +1,12 @@
 import streamlit as st
+import pytest
 
 from constants.keys import StateKeys
 from wizard import (
     FIELD_SECTION_MAP,
     _get_profile_state,
     _render_followup_question,
+    _render_followups_for_section,
     _update_profile,
     get_missing_critical_fields,
 )
@@ -94,9 +96,7 @@ def test_update_profile_syncs_followup_state() -> None:
 
     path = "compensation.salary_min"
     st.session_state[path] = ""
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": path, "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": path, "priority": "critical"}]
     st.session_state[f"fu_{path}"] = ""
     profile = _get_profile_state()
     profile.setdefault("meta", {}).setdefault("followups_answered", [])
@@ -115,3 +115,28 @@ def test_update_profile_syncs_followup_state() -> None:
     _update_profile(path, "")
     answered = profile.get("meta", {}).get("followups_answered", [])
     assert path not in answered
+
+
+@pytest.mark.parametrize(
+    ("lang", "expected"),
+    (
+        ("en", "Contextual suggestions require a configured vector store (VECTOR_STORE_ID)."),
+        ("de", "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID)."),
+    ),
+)
+def test_followup_section_shows_rag_hint(monkeypatch, lang: str, expected: str) -> None:
+    """Sections should surface a hint when RAG suggestions were skipped."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = lang
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "Name?"}]
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = True
+    seen: list[str] = []
+
+    monkeypatch.setattr(st, "markdown", lambda *_a, **_k: None)
+    monkeypatch.setattr(st, "caption", lambda text, **_k: seen.append(text))
+    monkeypatch.setattr("wizard._render_followup_question", lambda *_a, **_k: None)
+
+    _render_followups_for_section(("company.",), {})
+
+    assert expected in seen

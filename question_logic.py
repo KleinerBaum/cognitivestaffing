@@ -496,7 +496,9 @@ def _rag_suggestions(
 
     vector_store_id = vector_store_id or st.session_state.get("vector_store_id") or RAG_VECTOR_STORE_ID
     if not vector_store_id:
+        st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = True
         return {}
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
     model = get_model_for(ModelTask.RAG_SUGGESTIONS, override=model)
     sys = (
         "You provide short, concrete suggestions to help complete a profile while following GPT-5 prompting discipline. "

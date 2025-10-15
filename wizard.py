@@ -3860,6 +3860,13 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
                 "The assistant has generated follow-up questions to help fill in missing info:",
             )
         )
+        if st.session_state.get(StateKeys.RAG_CONTEXT_SKIPPED):
+            st.caption(
+                tr(
+                    "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID).",
+                    "Contextual suggestions require a configured vector store (VECTOR_STORE_ID).",
+                )
+            )
         for q in list(followups):
             _render_followup_question(q, data)
 
