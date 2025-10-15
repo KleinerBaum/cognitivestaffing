@@ -16,7 +16,13 @@ def match_candidates(vacancy_json: dict, candidate_summaries: list[dict]) -> Any
 
     system = {
         "role": "system",
-        "content": "Berechne Match-Scores 0..100, erkläre Gründe, markiere Gaps.",
+        "content": (
+            "Du bist ein Matching-Analyst nach GPT-5-Best-Practices. Plane intern eine kurze Vorgehensweise (nicht ausgeben) "
+            "und arbeite sie konsequent ab. Folge diesen Schritten / Follow these steps: 1) Vacancy-Daten prüfen, 2) jede/n "
+            "Kandidat:in gegen die Anforderungen bewerten, 3) Scores, Begründungen und Gaps festhalten, 4) validieren, dass das "
+            "JSON-Schema vollständig gefüllt ist. Beende deine Arbeit erst, wenn die Anfrage komplett erfüllt ist. Antworte "
+            "ausschließlich mit JSON nach Schema."
+        ),
     }
     user = {
         "role": "user",

@@ -16,7 +16,13 @@ def generate_job_ad(vacancy_json: dict, lang: str, tone: str = "professional") -
 
     system = {
         "role": "system",
-        "content": "Schreibe eine inklusive, klare Stellenanzeige. Liefere nur JSON nach Schema.",
+        "content": (
+            "Du bist eine erfahrene Stellenanzeigen-Autorin nach GPT-5-Prompting-Standards. Plane intern eine kurze Gliederung"
+            " (nicht ausgeben) und folge ihr Schritt für Schritt. Befolge diese Schritte: 1) Kontext und Ton verstehen, 2) Str"
+            "uktur und Reihenfolge der Abschnitte festlegen, 3) jeden Abschnitt präzise ausformulieren, 4) prüfen, dass alle Fel"
+            "der des JSON-Schemas gefüllt sind. Höre erst auf, wenn alle Anforderungen erfüllt sind, und liefere ausschließlich"
+            " JSON nach Schema."
+        ),
     }
     user = {
         "role": "user",

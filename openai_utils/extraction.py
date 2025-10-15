@@ -285,10 +285,11 @@ def extract_with_function(
             "Start by silently planning how you will align the retrieved snippets to "
             "each schema field—do not output the plan. Execute the plan step by step, "
             "persisting until every field is processed. Do not stop until the user's "
-            "request is fully satisfied. Use the provided global context and the "
-            "per-field snippets to populate the vacancy schema by calling the function "
-            f"{FUNCTION_NAME}. If no relevant snippet is provided for a field, return "
-            "an empty string or empty list. Do not invent data."
+            "request is fully satisfied. Follow these steps: 1) Review the global and "
+            "field-level context, 2) map evidence to the matching schema fields, 3) call "
+            f"the function {FUNCTION_NAME} with validated data. If no relevant snippet "
+            "is provided for a field, return an empty string or empty list. Do not invent "
+            "data."
         )
         user_payload = json.dumps(payload, ensure_ascii=False)
         messages: Sequence[dict[str, str]] = [
@@ -301,8 +302,9 @@ def extract_with_function(
             "Mentally plan how you will parse the text, map it to schema keys, and "
             "validate the result—never output the plan. Follow the plan meticulously, "
             "step by step, and do not stop until the user's request is completely resolved. "
-            "Analyse the job advertisement and return the structured vacancy profile "
-            f"by calling the provided function {FUNCTION_NAME}. Do not return free-form text."
+            "Execute these steps: 1) Analyse the vacancy text thoroughly, 2) assign "
+            "evidence to the correct schema fields, 3) validate the structured payload "
+            f"and call the function {FUNCTION_NAME}. Do not return free-form text."
         )
         user_payload = job_text
         messages = [

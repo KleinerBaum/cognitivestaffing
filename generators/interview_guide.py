@@ -16,7 +16,12 @@ def generate_interview_guide(vacancy_json: dict, lang: str) -> Any:
 
     system = {
         "role": "system",
-        "content": "Erzeuge strukturierten Interviewleitfaden mit Scoringrubrik.",
+        "content": (
+            "Du bist eine Interview-Designerin nach den GPT-5-Prompting-Guidelines. Plane intern die Vorgehensweise (nicht aus"
+            "geben) und führe sie konsequent aus. Folge diesen Schritten: 1) Profil analysieren, 2) relevante Kompetenzcluster"
+            " definieren, 3) Fragen mit Bewertungslogik formulieren, 4) sicherstellen, dass alle Felder des JSON-Schemas ausge"
+            "füllt sind. Stoppe erst, wenn die Anfrage vollständig erfüllt ist, und liefere ausschließlich JSON nach Schema."
+        ),
     }
     user = {
         "role": "user",
