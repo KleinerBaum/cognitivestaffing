@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal, Optional, TypedDict, List, Dict
+from typing import Any, Literal, Optional, List, Dict
 from pydantic import BaseModel, Field
 
 # Agents SDK
-from agents import function_tool, RunContextWrapper
+from agents import function_tool
 
 # ---------- Shared types ----------
 

@@ -69,7 +69,7 @@ def test_extract_company_info_required_keys(monkeypatch):
             "culture",
         ]
     )
-    assert captured_kwargs.get("tools") == [{"type": "web_search"}]
+    assert captured_kwargs.get("tools") == [{"type": "web_search", "name": "web_search"}]
     assert captured_kwargs.get("tool_choice") is None
 
 
@@ -95,7 +95,11 @@ def test_extract_company_info_with_vector_store(monkeypatch):
     openai_utils.extract_company_info("dummy text", vector_store_id="store-1")
 
     assert captured_kwargs.get("tools") == [
-        {"type": "file_search", "vector_store_ids": ["store-1"]}
+        {
+            "type": "file_search",
+            "name": "file_search",
+            "vector_store_ids": ["store-1"],
+        }
     ]
     assert captured_kwargs.get("tool_choice") == "auto"
 

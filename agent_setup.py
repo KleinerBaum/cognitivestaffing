@@ -1,5 +1,5 @@
 # agent_setup.py
-from agents import Agent, Runner, FileSearchTool, WebSearchTool  # hosted tools
+from agents import Agent, FileSearchTool, WebSearchTool  # hosted tools
 from wizard_tools import (
     add_stage, update_stage, remove_stage, connect_stages, disconnect, list_graph, save_graph, load_graph,
     upload_jobad, extract_vacancy_fields, detect_gaps, generate_followups, ingest_answers, validate_profile,
