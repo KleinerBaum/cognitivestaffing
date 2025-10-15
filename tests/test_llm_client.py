@@ -143,5 +143,5 @@ def test_assert_closed_schema_raises() -> None:
 def test_generate_error_report_missing_required() -> None:
     """Missing required fields should be reported clearly."""
 
-    report = client._generate_error_report({"position": {"job_title": "x"}})
-    assert "'company' is a required property" in report
+    report = client._generate_error_report({"process": {"stakeholders": [{}]}})
+    assert "'role' is a required property" in report

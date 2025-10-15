@@ -87,7 +87,18 @@ def _normalise_schema(node: Any) -> None:
 
         props = node.get("properties")
         if isinstance(props, dict):
-            node["required"] = list(props.keys())
+            existing_required = node.get("required")
+            if isinstance(existing_required, list):
+                filtered_required = [
+                    prop for prop in existing_required if prop in props
+                ]
+                if filtered_required:
+                    node["required"] = filtered_required
+                else:
+                    node.pop("required", None)
+            else:
+                node.pop("required", None)
+
             for child in props.values():
                 _normalise_schema(child)
 
