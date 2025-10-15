@@ -109,6 +109,7 @@ def test_call_chat_api_returns_output_json(monkeypatch):
             ]
             self.output_text = ""
             self.usage: dict[str, int] = {}
+            self.id = "resp-output-json"
 
     class _FakeResponses:
         @staticmethod
@@ -122,6 +123,7 @@ def test_call_chat_api_returns_output_json(monkeypatch):
     result = call_chat_api([{"role": "user", "content": "hi"}])
 
     assert result.content == json.dumps(payload)
+    assert result.response_id == "resp-output-json"
 
 
 def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
@@ -135,14 +137,15 @@ def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
     }
 
     class _FakeResponse:
-        def __init__(self, text: str, usage: Mapping[str, int]):
+        def __init__(self, text: str, usage: Mapping[str, int], identifier: str):
             self.output_text = text
             self.output: list[dict[str, Any]] = []
             self.usage = usage
+            self.id = identifier
 
     responses = [
-        _FakeResponse("Primary", {"input_tokens": 1, "output_tokens": 2}),
-        _FakeResponse("Secondary", {"input_tokens": 2, "output_tokens": 3}),
+        _FakeResponse("Primary", {"input_tokens": 1, "output_tokens": 2}, "resp-primary"),
+        _FakeResponse("Secondary", {"input_tokens": 2, "output_tokens": 3}, "resp-secondary"),
     ]
 
     def _fake_prepare(messages: Sequence[dict[str, Any]], **_: Any):
@@ -170,13 +173,15 @@ def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
     assert result.comparison["label"] == "A/B"
     assert result.comparison["secondary"]["content"] == "Secondary"
     assert result.comparison["diff"]["are_equal"] is False
+    assert result.response_id == "resp-primary"
+    assert result.secondary_response_id == "resp-secondary"
 
 
 def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
     """Custom comparison metadata builders should feed into the result."""
 
-    primary = ChatCallResult("A", [], {"input_tokens": 1})
-    secondary = ChatCallResult("Beta", [], {"input_tokens": 4})
+    primary = ChatCallResult("A", [], {"input_tokens": 1}, response_id="primary-id")
+    secondary = ChatCallResult("Beta", [], {"input_tokens": 4}, response_id="secondary-id")
 
     calls: list[dict[str, Any]] = []
 
@@ -193,6 +198,8 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
         reasoning_effort: str | None = None,
         extra: Mapping[str, Any] | None = None,
         task: Any | None = None,
+        include_raw_response: bool = False,
+        capture_file_search: bool = False,
     ) -> ChatCallResult:
         calls.append(
             {
@@ -207,6 +214,8 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
                 "reasoning_effort": reasoning_effort,
                 "extra": extra,
                 "task": task,
+                "include_raw_response": include_raw_response,
+                "capture_file_search": capture_file_search,
             }
         )
         return primary if len(calls) == 1 else secondary
@@ -230,6 +239,8 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
     assert result.comparison["custom"] == {"winner": "secondary"}
     assert calls[0]["temperature"] == 0.2
     assert calls[1]["temperature"] == 0.75
+    assert result.response_id == "primary-id"
+    assert result.secondary_response_id == "secondary-id"
 
 
 def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
@@ -282,6 +293,7 @@ def test_stream_chat_api_yields_chunks(monkeypatch):
         output_text = "Hello world"
         output: list[dict[str, Any]] = []
         usage = {"input_tokens": 1, "output_tokens": 4}
+        id = "stream-1"
 
     class _FakeStream:
         def __init__(self) -> None:
@@ -331,6 +343,7 @@ def test_stream_chat_api_yields_chunks(monkeypatch):
 
     final = stream.result
     assert final.content == "Hello world"
+    assert final.response_id == "stream-1"
     assert st.session_state[StateKeys.USAGE]["output_tokens"] == 4
     assert st.session_state[StateKeys.USAGE]["by_task"][ModelTask.JOB_AD.value]["output"] == 4
     assert fake_responses.called
