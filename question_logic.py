@@ -1,7 +1,7 @@
-"""Adaptive follow-up question logic with optional RAG enrichment.
+"""Adaptive follow-up question logic with ESCO + optional RAG enrichment.
 
-- ESCO-based occupation and skill lookups are disabled; only RAG suggestions
-  contribute additional context.
+- ESCO occupation lookups and essential skill retrieval seed field-level
+  follow-ups and suggestions alongside RAG context when available.
 - Asks the LLM to produce compact, localized questions with priority flags and
   options.
 
@@ -51,9 +51,7 @@ _ROOT = Path(__file__).resolve().parent
 with open(_ROOT / "critical_fields.json", "r", encoding="utf-8") as _f:
     CRITICAL_FIELDS: Set[str] = set(json.load(_f).get("critical", []))
 with open(_ROOT / "role_field_map.json", "r", encoding="utf-8") as _f:
-    ROLE_FIELD_MAP: Dict[str, List[str]] = {
-        k.lower(): v for k, v in json.load(_f).items()
-    }
+    ROLE_FIELD_MAP: Dict[str, List[str]] = {k.lower(): v for k, v in json.load(_f).items()}
 
 # Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
 ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
@@ -283,9 +281,7 @@ def _existing_value_keys(extracted: Dict[str, Any], path: str) -> Set[str]:
     return normalized
 
 
-def _merge_suggestions(
-    *iterables: Iterable[str], existing: Optional[Set[str]] = None
-) -> List[str]:
+def _merge_suggestions(*iterables: Iterable[str], existing: Optional[Set[str]] = None) -> List[str]:
     seen = set(existing or set())
     merged: List[str] = []
     for iterable in iterables:
@@ -338,9 +334,7 @@ def _detect_implausible(field: str, value: Any) -> Optional[Tuple[str, Any]]:
     return None
 
 
-def _question_text_for_field(
-    field: str, lang: str, reason: Optional[Tuple[str, Any]]
-) -> str:
+def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, Any]]) -> str:
     label = field.split(".")[-1].replace("_", " ")
     if field == "compensation.salary_range":
         if reason and reason[0] == "salary_unrealistic":
@@ -500,11 +494,7 @@ def _rag_suggestions(
         Mapping of field name to suggestion list.
     """
 
-    vector_store_id = (
-        vector_store_id
-        or st.session_state.get("vector_store_id")
-        or RAG_VECTOR_STORE_ID
-    )
+    vector_store_id = vector_store_id or st.session_state.get("vector_store_id") or RAG_VECTOR_STORE_ID
     if not vector_store_id:
         return {}
     model = get_model_for(ModelTask.RAG_SUGGESTIONS, override=model)
@@ -619,11 +609,7 @@ def ask_followups(
 
     with tracer.start_as_current_span("llm.generate_followups") as span:
         model = get_model_for(ModelTask.FOLLOW_UP_QUESTIONS, override=model)
-        vector_store_id = (
-            vector_store_id
-            or st.session_state.get("vector_store_id")
-            or RAG_VECTOR_STORE_ID
-        )
+        vector_store_id = vector_store_id or st.session_state.get("vector_store_id") or RAG_VECTOR_STORE_ID
         span.set_attribute("llm.model", model)
         span.set_attribute("followups.vector_store", bool(vector_store_id))
         tools: list[Any] = []
@@ -717,9 +703,7 @@ def ask_followups(
             normalized = dict(item)
             suggestions = normalized.get("suggestions")
             if isinstance(suggestions, list):
-                normalized["suggestions"] = [
-                    str(s) for s in suggestions if isinstance(s, str)
-                ]
+                normalized["suggestions"] = [str(s) for s in suggestions if isinstance(s, str)]
             else:
                 normalized["suggestions"] = []
             normalized_questions.append(normalized)
@@ -750,9 +734,7 @@ def generate_followup_questions(
     st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
 
     occupation_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, [])
-    selected_occupations = (
-        st.session_state.get(StateKeys.ESCO_SELECTED_OCCUPATIONS, []) or []
-    )
+    selected_occupations = st.session_state.get(StateKeys.ESCO_SELECTED_OCCUPATIONS, []) or []
     occupation = selected_occupations[0] if selected_occupations else None
     if not occupation and occupation_options:
         occupation = occupation_options[0]
@@ -777,20 +759,13 @@ def generate_followup_questions(
     for extra in role_fields:
         if extra not in fields_to_check:
             fields_to_check.append(extra)
-    missing_fields, implausible_map = _collect_missing_fields(
-        extracted, fields_to_check, answered=answered_fields
-    )
+    missing_fields, implausible_map = _collect_missing_fields(extracted, fields_to_check, answered=answered_fields)
 
-    if (
-        "compensation.salary_min" in missing_fields
-        and "compensation.salary_max" in missing_fields
-    ):
-        missing_fields = [
-            f for f in missing_fields if not f.startswith("compensation.salary_")
-        ]
-        combined_reason = implausible_map.pop(
-            "compensation.salary_min", None
-        ) or implausible_map.pop("compensation.salary_max", None)
+    if "compensation.salary_min" in missing_fields and "compensation.salary_max" in missing_fields:
+        missing_fields = [f for f in missing_fields if not f.startswith("compensation.salary_")]
+        combined_reason = implausible_map.pop("compensation.salary_min", None) or implausible_map.pop(
+            "compensation.salary_max", None
+        )
         missing_fields.append("compensation.salary_range")
         if combined_reason:
             implausible_map["compensation.salary_range"] = combined_reason
@@ -806,9 +781,7 @@ def generate_followup_questions(
         )
     if suggestions_map:
         for key, values in list(suggestions_map.items()):
-            suggestions_map[key] = _merge_suggestions(
-                values, existing=_existing_value_keys(extracted, key)
-            )
+            suggestions_map[key] = _merge_suggestions(values, existing=_existing_value_keys(extracted, key))
 
     if esco_skills:
         normalized_esco = normalize_skills(esco_skills, lang=lang)
@@ -817,9 +790,7 @@ def generate_followup_questions(
         existing_union: Set[str] = set()
         for values in existing_skill_values.values():
             existing_union.update(values)
-        esco_missing_skills = [
-            lookup[key] for key in lookup.keys() if key not in existing_union
-        ]
+        esco_missing_skills = [lookup[key] for key in lookup.keys() if key not in existing_union]
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = esco_missing_skills
 
         for skill_field in (
@@ -828,10 +799,7 @@ def generate_followup_questions(
         ):
             needs_esco = skill_field in missing_fields
             seeds: List[str]
-            if (
-                skill_field == "requirements.hard_skills_required"
-                and esco_missing_skills
-            ):
+            if skill_field == "requirements.hard_skills_required" and esco_missing_skills:
                 needs_esco = True
                 seeds = esco_missing_skills
             else:
@@ -845,17 +813,11 @@ def generate_followup_questions(
 
     forced_questions: List[Dict[str, Any]] = []
     esco_followup_field = "requirements.hard_skills_required"
-    if (
-        esco_missing_skills
-        and esco_followup_field not in missing_fields
-        and esco_followup_field not in answered_fields
-    ):
+    if esco_missing_skills and esco_followup_field not in missing_fields and esco_followup_field not in answered_fields:
         forced_questions.append(
             {
                 "field": esco_followup_field,
-                "question": _question_text_for_field(
-                    esco_followup_field, lang, None
-                ),
+                "question": _question_text_for_field(esco_followup_field, lang, None),
                 "priority": _priority_for(esco_followup_field, True, None),
                 "suggestions": suggestions_map.get(esco_followup_field, []),
             }
@@ -865,9 +827,7 @@ def generate_followup_questions(
         existing_keys = _existing_value_keys(extracted, "compensation.benefits")
         existing_raw = _get_field_value(extracted, "compensation.benefits", [])
         if isinstance(existing_raw, list):
-            existing_text = "\n".join(
-                str(item) for item in existing_raw if str(item).strip()
-            )
+            existing_text = "\n".join(str(item) for item in existing_raw if str(item).strip())
         else:
             existing_text = str(existing_raw or "")
         benefit_suggestions: List[str] = []
@@ -879,9 +839,7 @@ def generate_followup_questions(
                 lang=lang,
             )
         if not benefit_suggestions:
-            benefit_suggestions = DEFAULT_BENEFIT_SUGGESTIONS.get(
-                lang, DEFAULT_BENEFIT_SUGGESTIONS["en"]
-            )
+            benefit_suggestions = DEFAULT_BENEFIT_SUGGESTIONS.get(lang, DEFAULT_BENEFIT_SUGGESTIONS["en"])
         suggestions_map["compensation.benefits"] = _merge_suggestions(
             suggestions_map.get("compensation.benefits", []),
             benefit_suggestions,
@@ -953,9 +911,7 @@ def generate_followup_questions(
     sorted_questions = [item[1] for item in ordered]
 
     if num_questions is None:
-        critical_count = sum(
-            1 for q in sorted_questions if q.get("priority") == "critical"
-        )
+        critical_count = sum(1 for q in sorted_questions if q.get("priority") == "critical")
         normal_count = len(sorted_questions) - critical_count
         limit = critical_count + min(normal_count, 3)
         if sorted_questions:
