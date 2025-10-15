@@ -4,7 +4,8 @@ The application now routes requests between OpenAI's GPT-5 family to balance
 quality and cost. ``gpt-5.1-mini`` (GPT-5 mini) serves as the default large
 language model for generative workloads, while ``gpt-5.1-nano`` (GPT-5 nano)
 powers lightweight suggestion flows.
-Structured retrieval keeps using ``text-embedding-3-small``.
+Structured retrieval now standardises on ``text-embedding-3-large`` (3,072
+dimensions) for higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
 ``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
@@ -27,7 +28,7 @@ except ImportError:
     pass
 
 
-EMBED_MODEL = "text-embedding-3-small"  # RAG
+EMBED_MODEL = "text-embedding-3-large"  # RAG
 STRICT_JSON = True
 CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
