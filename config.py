@@ -11,6 +11,7 @@ Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
 how much reasoning the model performs by default.
 """
 
+import logging
 import os
 import warnings
 
@@ -43,6 +44,7 @@ CHUNK_OVERLAP = 0.1
 GPT5_FULL = "gpt-5.1"
 GPT5_MINI = "gpt-5.1-mini"
 GPT5_NANO = "gpt-5.1-nano"
+GPT4O = "gpt-4o"
 
 
 _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
@@ -59,10 +61,10 @@ _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-4o-mini-2024-07-18", GPT5_NANO),
     ("gpt-4o-mini-2024-05-13", GPT5_NANO),
     ("gpt-4o-mini", GPT5_NANO),
-    ("gpt-4o-latest", GPT5_MINI),
-    ("gpt-4o-2024-08-06", GPT5_MINI),
-    ("gpt-4o-2024-05-13", GPT5_MINI),
-    ("gpt-4o", GPT5_MINI),
+    ("gpt-4o-latest", GPT4O),
+    ("gpt-4o-2024-08-06", GPT4O),
+    ("gpt-4o-2024-05-13", GPT4O),
+    ("gpt-4o", GPT4O),
 )
 
 
@@ -102,7 +104,7 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
     if lowered.startswith("gpt-4o-mini"):
         return GPT5_NANO
     if lowered.startswith("gpt-4o"):
-        return GPT5_MINI
+        return GPT4O
     return candidate
 
 
@@ -288,10 +290,10 @@ for key, value in list(MODEL_ROUTING.items()):
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, "gpt-4o", "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_MINI): [GPT5_MINI, "gpt-4o", "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_NANO): [GPT5_NANO, "gpt-4o", "gpt-3.5-turbo"],
-    _canonical_model_name("gpt-4o"): ["gpt-4o", "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_NANO): [GPT5_NANO, GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT4O): [GPT4O, "gpt-3.5-turbo"],
     _canonical_model_name("gpt-3.5-turbo"): ["gpt-3.5-turbo"],
 }
 
@@ -408,29 +410,63 @@ def _collect_candidate_models(task: ModelTask | str, override: str | None) -> li
     """Assemble model candidates for ``task`` including manual overrides."""
 
     candidates: list[str] = []
+
+    def _extend_with_model_chain(model_name: str) -> None:
+        canonical = _canonical_model_name(model_name)
+        if not canonical:
+            return
+        chain = MODEL_FALLBACKS.get(canonical)
+        if not chain:
+            return
+        for fallback in chain[1:]:
+            if fallback and fallback not in candidates:
+                candidates.append(fallback)
+
     if override:
         override_name = normalise_model_name(override, prefer_latest=False) or override.strip()
         if override_name:
             candidates.append(override_name)
+            _extend_with_model_chain(override_name)
     user_override = _user_model_override()
     if user_override:
         override_name = normalise_model_name(user_override, prefer_latest=False) or user_override
         if override_name and override_name not in candidates:
             candidates.append(override_name)
+            _extend_with_model_chain(override_name)
     for candidate in get_model_fallbacks_for(task):
         if candidate and candidate not in candidates:
             candidates.append(candidate)
     return candidates
 
 
+def get_model_candidates(task: ModelTask | str, *, override: str | None = None) -> list[str]:
+    """Return ordered model candidates for ``task`` including overrides."""
+
+    return _collect_candidate_models(task, override)
+
+
 def get_first_available_model(task: ModelTask | str, *, override: str | None = None) -> str:
     """Return the first available model for ``task`` using the configured fallbacks."""
 
     candidates = _collect_candidate_models(task, override)
-    for candidate in candidates:
+    for index, candidate in enumerate(candidates):
         if is_model_available(candidate):
+            if index > 0:
+                logging.getLogger("cognitive_needs.model_routing").warning(
+                    "Model '%s' unavailable; using fallback '%s'.", candidates[0], candidate
+                )
             return candidate
-    return candidates[-1] if candidates else GPT5_MINI
+    if candidates:
+        logging.getLogger("cognitive_needs.model_routing").warning(
+            "All configured models unavailable for task '%s'; using last candidate '%s'.",
+            task,
+            candidates[-1],
+        )
+        return candidates[-1]
+    logging.getLogger("cognitive_needs.model_routing").error(
+        "No model candidates resolved for task '%s'; falling back to %s.", task, GPT5_MINI
+    )
+    return GPT5_MINI
 
 
 def get_active_verbosity() -> str:

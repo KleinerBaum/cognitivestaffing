@@ -42,7 +42,9 @@ from config import (
     ModelTask,
     get_active_verbosity,
     get_first_available_model,
+    get_model_candidates,
     get_model_for,
+    is_model_available,
     mark_model_unavailable,
     normalise_verbosity,
 )
@@ -651,20 +653,29 @@ def _prepare_payload(
     str,
     list,
     dict[str, Callable[..., Any]],
+    list[str],
 ]:
     """Assemble the payload for the Responses API."""
 
     selected_task = task or ModelTask.DEFAULT
     router_estimate = None
+    candidate_override = model
     if model is None:
         base_model = get_model_for(selected_task)
         chosen_model, router_estimate = route_model_for_messages(messages, default_model=base_model)
         if chosen_model != base_model:
+            candidate_override = chosen_model
             model = get_first_available_model(selected_task, override=chosen_model)
         else:
             model = base_model
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+
+    candidate_models = get_model_candidates(selected_task, override=candidate_override)
+    if model and model not in candidate_models:
+        candidate_models = [model, *candidate_models]
+    elif not candidate_models and model:
+        candidate_models = [model]
 
     def _normalise_tool_spec(spec: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         """Return a copy of ``spec`` normalised to the Responses API schema."""
@@ -818,7 +829,7 @@ def _prepare_payload(
         metadata["router"] = router_info
         payload["metadata"] = metadata
 
-    return payload, model, combined_tools, tool_map
+    return payload, model, combined_tools, tool_map, candidate_models
 
 
 @dataclass
@@ -1099,7 +1110,7 @@ def _call_chat_api_single(
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
-    payload, model, tools, tool_functions = _prepare_payload(
+    payload, model, tools, tool_functions, candidate_models = _prepare_payload(
         messages_with_hint,
         model=model,
         temperature=temperature,
@@ -1116,13 +1127,51 @@ def _call_chat_api_single(
 
     messages_list = list(messages_with_hint)
 
+    unique_candidates: list[str] = []
+    for candidate in [model, *candidate_models]:
+        if candidate and candidate not in unique_candidates:
+            unique_candidates.append(candidate)
+
+    if not unique_candidates:
+        raise RuntimeError("No model candidates resolved for call_chat_api request")
+
+    attempted: set[str] = set()
+    current_model = unique_candidates[0]
+    payload["model"] = current_model
+
     accumulated_usage: dict[str, int] = {}
     last_tool_calls: list[dict] = []
     file_search_results: list[dict[str, Any]] = []
     seen_file_search: set[Tuple[str, str, str]] = set()
 
     while True:
-        response = _execute_response(payload, model)
+        try:
+            response = _execute_response(payload, current_model)
+        except OpenAIError as err:
+            attempted.add(current_model)
+            if is_model_available(current_model):
+                raise
+
+            next_model: str | None = None
+            for candidate in unique_candidates:
+                if candidate in attempted:
+                    continue
+                if is_model_available(candidate):
+                    next_model = candidate
+                    break
+
+            if next_model is None:
+                raise
+
+            logger.warning(
+                "Model '%s' unavailable (%s); retrying with fallback '%s'.",
+                current_model,
+                getattr(err, "message", str(err)),
+                next_model,
+            )
+            payload["model"] = next_model
+            current_model = next_model
+            continue
 
         response_id = getattr(response, "id", None)
         if response_id:
@@ -1400,7 +1449,7 @@ def stream_chat_api(
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
-    payload, model_name, tools, tool_functions = _prepare_payload(
+    payload, model_name, tools, tool_functions, _candidate_models = _prepare_payload(
         messages_with_hint,
         model=model,
         temperature=temperature,

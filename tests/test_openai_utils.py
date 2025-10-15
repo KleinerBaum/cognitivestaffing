@@ -379,7 +379,7 @@ def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
     ]
 
     def _fake_prepare(messages: Sequence[dict[str, Any]], **_: Any):
-        return ({"model": "test", "input": list(messages)}, "test", [], {})
+        return ({"model": "test", "input": list(messages)}, "test", [], {}, ["test"])
 
     def _fake_execute(_: Mapping[str, Any], __: str | None):
         return responses.pop(0)
@@ -707,7 +707,7 @@ def test_call_chat_api_normalises_tool_schema(monkeypatch):
 def test_prepare_payload_includes_web_search_tools():
     """The payload should always advertise OpenAI web search tools."""
 
-    payload, _, _, _ = openai_utils.api._prepare_payload(
+    payload, _, _, _, _ = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
         model=config.GPT5_MINI,
         temperature=None,
@@ -737,7 +737,7 @@ def test_prepare_payload_includes_web_search_tools():
 def test_prepare_payload_normalises_legacy_tool_choice():
     """Legacy function tool choices should be translated to the nested schema."""
 
-    payload, _, _, _ = openai_utils.api._prepare_payload(
+    payload, _, _, _, _ = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
         model=config.GPT5_MINI,
         temperature=None,

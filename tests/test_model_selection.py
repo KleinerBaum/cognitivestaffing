@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import types
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -18,6 +19,7 @@ import config
 import core.esco_utils as esco_utils
 import openai_utils
 from openai_utils import ChatCallResult
+from openai import BadRequestError
 from components import model_selector as model_selector_component
 
 
@@ -153,6 +155,53 @@ def test_marking_unavailable_is_cleared_on_reload() -> None:
     importlib.reload(config)
     reloaded_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
     assert config.get_model_for(config.ModelTask.EXTRACTION) == reloaded_chain[0]
+
+
+def test_call_chat_api_switches_to_fallback_on_unavailable(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """call_chat_api should retry with gpt-4o when gpt-5.1-mini is unavailable."""
+
+    st.session_state.clear()
+    caplog.set_level("WARNING", logger="cognitive_needs.openai")
+
+    attempts: list[str] = []
+
+    def _fake_create_response(payload: dict[str, Any]) -> Any:
+        model = payload.get("model")
+        attempts.append(str(model))
+        if len(attempts) == 1:
+            fake_response = types.SimpleNamespace(
+                request=types.SimpleNamespace(
+                    method="POST",
+                    url="https://api.openai.com/v1/responses",
+                ),
+                status_code=503,
+                headers={},
+            )
+            raise BadRequestError(
+                message="The model gpt-5.1-mini is currently overloaded.",
+                response=fake_response,
+                body=None,
+            )
+        return types.SimpleNamespace(
+            output_text="OK",
+            output=[],
+            usage={"input_tokens": 2, "output_tokens": 3},
+            id="resp-final",
+        )
+
+    monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _fake_create_response)
+
+    result = openai_utils.api.call_chat_api(
+        messages=[{"role": "user", "content": "hi"}],
+        task=config.ModelTask.EXTRACTION,
+    )
+
+    assert result.content == "OK"
+    assert attempts[0] in {config.GPT5_MINI, config.GPT5_NANO}
+    assert attempts[1] == config.GPT4O
+    assert any("retrying with fallback" in record.message for record in caplog.records)
 
 
 def test_model_selector_uses_translations(monkeypatch: pytest.MonkeyPatch) -> None:
