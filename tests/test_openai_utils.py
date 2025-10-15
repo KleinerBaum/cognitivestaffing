@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from types import SimpleNamespace
 from typing import Any, Mapping, Sequence
 
@@ -28,6 +29,30 @@ def reset_temperature_cache(monkeypatch):
 
     monkeypatch.setattr(openai_utils.api, "_MODELS_WITHOUT_TEMPERATURE", set(), raising=False)
     yield
+
+
+@pytest.fixture
+def tool_response_event() -> dict[str, Any]:
+    """Return a mocked ``response.tool_response`` payload."""
+
+    return {
+        "type": "response.tool_response",
+        "id": "tool-response-1",
+        "call_id": "call-123",
+        "output": [
+            {
+                "type": "text",
+                "text": "done",
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def tool_response_object(tool_response_event: Mapping[str, Any]) -> SimpleNamespace:
+    """Return a response-like object that exposes the tool response event."""
+
+    return SimpleNamespace(output=[tool_response_event], output_text="", usage={})
 
 
 def test_call_chat_api_raises_when_no_api_key(monkeypatch):
@@ -86,6 +111,22 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[0]["function"]["arguments"] == '{"job_title": "x"}'
     assert out.tool_calls[1]["call_id"] == "legacy"
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
+
+
+def test_collect_tool_calls_handles_tool_response(
+    tool_response_object: SimpleNamespace, tool_response_event: Mapping[str, Any]
+):
+    """Tool responses should be normalised with serialised output payloads."""
+
+    tool_calls = openai_utils.api._collect_tool_calls(tool_response_object)
+
+    assert len(tool_calls) == 1
+    call = tool_calls[0]
+    assert call["call_id"] == "call-123"
+    assert call["type"] == "response.tool_response"
+    expected_payload = json.dumps(tool_response_event["output"])
+    assert call["output"] == expected_payload
+    assert call["content"] == call["output"]
 
 
 def test_tool_loop_sets_previous_response_id(monkeypatch):
@@ -150,6 +191,55 @@ def test_tool_loop_sets_previous_response_id(monkeypatch):
     assert calls[1]["previous_response_id"] == "resp-1"
     assert result.content == "done"
     assert result.response_id == "resp-2"
+
+
+def test_tool_response_replayed_between_turns(monkeypatch, tool_response_event):
+    """Tool responses emitted by the API should be replayed into the next turn."""
+
+    st.session_state.clear()
+
+    expected_payload = json.dumps(tool_response_event["output"])
+    calls: list[list[dict[str, Any]]] = []
+
+    class _ToolResponse:
+        def __init__(self) -> None:
+            self.output = [tool_response_event]
+            self.output_text = ""
+            self.usage = {"input_tokens": 1}
+            self.id = "resp-tool"
+
+    class _FinalResponse:
+        def __init__(self) -> None:
+            self.output = []
+            self.output_text = "assistant"
+            self.usage = {"output_tokens": 2}
+            self.id = "resp-final"
+
+    class _FakeResponses:
+        def __init__(self) -> None:
+            self._index = 0
+
+        def create(self, **kwargs: Any) -> Any:
+            calls.append(deepcopy(kwargs.get("input", [])))
+            self._index += 1
+            return _ToolResponse() if self._index == 1 else _FinalResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+
+    result = call_chat_api([{"role": "user", "content": "hi"}])
+
+    assert len(calls) == 2
+    assert calls[1][-1] == {
+        "role": "tool",
+        "tool_call_id": tool_response_event["call_id"],
+        "content": expected_payload,
+    }
+    assert result.tool_calls[0]["type"] == "response.tool_response"
+    assert result.tool_calls[0]["output"] == expected_payload
+    assert result.content == "assistant"
 
 
 def test_call_chat_api_returns_output_json(monkeypatch):
