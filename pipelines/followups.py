@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask, get_model_for
+from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
 from schemas import FOLLOW_UPS_SCHEMA
 
@@ -37,4 +37,5 @@ def generate_followups(
         tools=tools or None,
         json_schema={"name": "FollowUpQuestions", "schema": FOLLOW_UPS_SCHEMA},
         task=ModelTask.FOLLOW_UP_QUESTIONS,
+        verbosity=get_active_verbosity(),
     )

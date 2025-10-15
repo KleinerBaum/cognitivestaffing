@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask, get_model_for
+from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
 from schemas import CANDIDATE_MATCHES_SCHEMA
 
@@ -28,4 +28,5 @@ def match_candidates(vacancy_json: dict, candidate_summaries: list[dict]) -> Any
         temperature=0.1,
         json_schema={"name": "CandidateMatches", "schema": CANDIDATE_MATCHES_SCHEMA},
         task=ModelTask.CANDIDATE_MATCHING,
+        verbosity=get_active_verbosity(),
     )

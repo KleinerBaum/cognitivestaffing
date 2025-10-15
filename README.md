@@ -68,11 +68,12 @@ export OPENAI_API_KEY="sk-..."
 export OPENAI_BASE_URL="https://api.openai.com/v1"          # use https://eu.api.openai.com/v1 for EU residency
 export OPENAI_MODEL="gpt-5-mini"                             # default model override
 export REASONING_EFFORT="medium"                             # minimal | low | medium | high
+export VERBOSITY="medium"                                     # low | medium | high (Antwort-Detailgrad)
 export VECTOR_STORE_ID="vs_XXXXXXXXXXXXXXXX"                 # enable RAG lookups (optional)
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.example/v1/traces"  # optional tracing
 export OTEL_SERVICE_NAME="cognitive-staffing"
 ```
-You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
+You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
 
 ### 5. (Optional) Configure OCR & branding
 - Set `OCR_BACKEND=none` to disable OCR (default). Provide `OCR_BACKEND=openai` to use OpenAI Vision for image/PDF parsing.
@@ -86,7 +87,7 @@ Streamlit prints a local URL; open it in your browser to start the wizard.
 
 ## Usage Guide
 1. **Load a job ad:** Upload a PDF/DOCX/TXT file or paste a URL/text snippet. Extraction runs automatically, locking high-confidence fields.
-2. **Review the overview:** The sidebar highlights which fields were rule-matched, inferred by AI, or still missing.
+2. **Review the overview:** The sidebar highlights which fields were rule-matched, inferred by AI, or still missing. Adjust the **Response verbosity** setting (Deutsch: *Antwort-Detailgrad*) to switch between concise and detailed AI explanations.
 3. **Answer follow-ups:** The Follow-up Question Generator asks targeted questions. Enable *Auto follow-ups* to let the agent re-run until all critical gaps are closed.
 4. **Enrich requirements:** Accept AI suggestions for skills, benefits, salary ranges, and responsibilities. Tooltips explain why suggestions might be empty (e.g., locked fields, missing context, or disabled RAG).
 5. **Generate deliverables:** Use the summary step to stream job ads, interview guides, and Boolean search strings. Each generation shows usage metrics and supports instant regeneration with new instructions.
