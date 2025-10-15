@@ -8,6 +8,7 @@ class UIKeys:
     INPUT_METHOD = "ui.input_method"
     COMPANY_LOGO = "ui.company_logo"
     MODEL_SELECT = "ui.model_select"
+    VERBOSITY_SELECT = "ui.verbosity_select"
     REASONING_SELECT = "ui.reasoning_select"
     SALARY_ESTIMATE = "ui.salary.estimate"
     SALARY_REFRESH = "ui.salary.refresh"

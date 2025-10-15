@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask, get_model_for
+from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
 from schemas import INTERVIEW_GUIDE_SCHEMA
 
@@ -28,4 +28,5 @@ def generate_interview_guide(vacancy_json: dict, lang: str) -> Any:
         temperature=0.3,
         json_schema={"name": "InterviewGuide", "schema": INTERVIEW_GUIDE_SCHEMA},
         task=ModelTask.INTERVIEW_GUIDE,
+        verbosity=get_active_verbosity(),
     )

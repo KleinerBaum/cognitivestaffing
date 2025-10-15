@@ -18,7 +18,7 @@ from openai_utils import call_chat_api
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
-from config import REASONING_EFFORT, ModelTask, get_model_for
+from config import REASONING_EFFORT, ModelTask, get_active_verbosity, get_model_for
 from models.need_analysis import NeedAnalysisProfile
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -103,6 +103,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         model=payload["model"],
         temperature=0,
         reasoning_effort=payload.get("reasoning_effort"),
+        verbosity=payload.get("verbosity"),
         json_schema={
             "name": "need_analysis_profile",
             "schema": NEED_ANALYSIS_SCHEMA,
@@ -184,6 +185,7 @@ def extract_json(
                     "messages": messages,
                     "model": model,
                     "reasoning_effort": effort,
+                    "verbosity": get_active_verbosity(),
                 }
             )
         except ValidationError as err:
@@ -212,6 +214,7 @@ def extract_json(
                 model=model,
                 temperature=0,
                 reasoning_effort=effort,
+                verbosity=get_active_verbosity(),
                 task=ModelTask.EXTRACTION,
             )
         except Exception as exc2:  # pragma: no cover - network/SDK issues

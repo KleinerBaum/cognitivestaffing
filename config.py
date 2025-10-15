@@ -89,6 +89,7 @@ def _detect_default_model() -> str:
 
 DEFAULT_MODEL = _detect_default_model()
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
+VERBOSITY_LEVELS = ("low", "medium", "high")
 
 
 def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -> str:
@@ -111,6 +112,26 @@ def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -
 REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
 
 
+def normalise_verbosity(value: object | None, *, default: str = "medium") -> str:
+    """Return a supported verbosity level or ``default`` when invalid."""
+
+    if not isinstance(value, str):
+        return default
+    candidate = value.strip().lower()
+    if not candidate:
+        return default
+    if candidate in VERBOSITY_LEVELS:
+        return candidate
+    warnings.warn(
+        "Unsupported VERBOSITY '%s'; falling back to '%s'." % (candidate, default),
+        RuntimeWarning,
+    )
+    return default
+
+
+VERBOSITY = normalise_verbosity(os.getenv("VERBOSITY", "medium"))
+
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
@@ -122,6 +143,7 @@ try:
     OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
     OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
     VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
+    VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
     openai_secrets = None
 
@@ -130,6 +152,11 @@ try:
         st.secrets.get("REASONING_EFFORT", REASONING_EFFORT),
         default=REASONING_EFFORT,
     )
+except Exception:
+    pass
+
+try:
+    VERBOSITY = normalise_verbosity(st.secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
     pass
 
@@ -326,6 +353,16 @@ def get_first_available_model(task: ModelTask | str, *, override: str | None = N
         if is_model_available(candidate):
             return candidate
     return candidates[-1] if candidates else GPT5_MINI
+
+
+def get_active_verbosity() -> str:
+    """Return the current verbosity level with session overrides."""
+
+    try:
+        value = st.session_state.get("verbosity")
+    except Exception:  # pragma: no cover - Streamlit session not initialised
+        value = None
+    return normalise_verbosity(value, default=VERBOSITY)
 
 
 if OPENAI_API_KEY:

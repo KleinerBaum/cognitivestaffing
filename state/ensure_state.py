@@ -17,9 +17,11 @@ from config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     REASONING_EFFORT,
+    VERBOSITY,
     OPENAI_MODEL,
     normalise_model_name,
     normalise_model_override,
+    normalise_verbosity,
 )
 from core.schema import ALIASES, coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
@@ -137,6 +139,14 @@ def ensure_state() -> None:
         st.session_state["auto_reask_total"] = 0
     if "reasoning_effort" not in st.session_state:
         st.session_state["reasoning_effort"] = REASONING_EFFORT
+    else:
+        effort = st.session_state.get("reasoning_effort")
+        st.session_state["reasoning_effort"] = effort if isinstance(effort, str) else REASONING_EFFORT
+    if "verbosity" not in st.session_state:
+        st.session_state["verbosity"] = VERBOSITY
+    else:
+        current_verbosity = normalise_verbosity(st.session_state.get("verbosity"), default=VERBOSITY)
+        st.session_state["verbosity"] = current_verbosity
     if "dark_mode" not in st.session_state:
         st.session_state["dark_mode"] = True
     if "skip_intro" not in st.session_state:

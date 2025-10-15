@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask, get_model_for
+from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
 from schemas import PROFILE_SUMMARY_SCHEMA
 
@@ -31,4 +31,5 @@ def summarize_candidate(cv_text: str, lang: str, candidate_id: str) -> Any:
             "schema": PROFILE_SUMMARY_SCHEMA,
         },
         task=ModelTask.PROFILE_SUMMARY,
+        verbosity=get_active_verbosity(),
     )

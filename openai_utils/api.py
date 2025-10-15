@@ -37,10 +37,13 @@ from config import (
     OPENAI_BASE_URL,
     REASONING_EFFORT,
     STRICT_JSON,
+    VERBOSITY,
     ModelTask,
+    get_active_verbosity,
     get_first_available_model,
     get_model_for,
     mark_model_unavailable,
+    normalise_verbosity,
 )
 from constants.keys import StateKeys
 from llm.cost_router import route_model_for_messages
@@ -541,6 +544,7 @@ def _prepare_payload(
     tool_choice: Optional[Any],
     tool_functions: Optional[Mapping[str, Callable[..., Any]]],
     reasoning_effort: Optional[str],
+    verbosity: Optional[str],
     extra: Optional[dict],
     include_analysis_tools: bool = True,
     task: ModelTask | str | None = None,
@@ -564,22 +568,27 @@ def _prepare_payload(
             model = base_model
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+    if verbosity is None:
+        verbosity = get_active_verbosity()
+    else:
+        verbosity = normalise_verbosity(verbosity, default=VERBOSITY)
 
     def _normalise_tool_spec(spec: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         """Return a copy of ``spec`` normalised to the Responses API schema."""
 
         prepared = dict(spec)
-        function_payload = prepared.get("function")
+        raw_function_payload = prepared.get("function")
+        function_payload = raw_function_payload if isinstance(raw_function_payload, Mapping) else None
         tool_type = prepared.get("type")
-        has_function_payload = isinstance(function_payload, Mapping)
-        has_parameters = "parameters" in prepared or (has_function_payload and "parameters" in function_payload)
+        has_function_payload = function_payload is not None
+        has_parameters = "parameters" in prepared or (function_payload is not None and "parameters" in function_payload)
         is_function_tool = bool(tool_type == "function" or has_function_payload or has_parameters)
 
         if not is_function_tool:
             prepared.pop("name", None)
             return prepared, False
 
-        if has_function_payload:
+        if function_payload is not None:
             function_dict = dict(function_payload)
         else:
             function_dict = {}
@@ -672,6 +681,8 @@ def _prepare_payload(
         payload["temperature"] = temperature
     if model_supports_reasoning(model):
         payload["reasoning"] = {"effort": reasoning_effort}
+    if verbosity:
+        payload["verbosity"] = verbosity
     if max_tokens is not None:
         payload["max_output_tokens"] = max_tokens
     if json_schema is not None:
@@ -891,6 +902,7 @@ def _call_chat_api_single(
     tool_choice: Optional[Any] = None,
     tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
     reasoning_effort: str | None = None,
+    verbosity: str | None = None,
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
     include_raw_response: bool = False,
@@ -909,6 +921,7 @@ def _call_chat_api_single(
         tool_choice=tool_choice,
         tool_functions=tool_functions,
         reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
         extra=extra,
         task=task,
         previous_response_id=previous_response_id,
@@ -1028,6 +1041,7 @@ def call_chat_api(
     tool_choice: Optional[Any] = None,
     tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
     reasoning_effort: str | None = None,
+    verbosity: str | None = None,
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
     include_raw_response: bool = False,
@@ -1054,6 +1068,7 @@ def call_chat_api(
         "tool_choice": tool_choice,
         "tool_functions": tool_functions,
         "reasoning_effort": reasoning_effort,
+        "verbosity": verbosity,
         "extra": extra,
         "task": task,
         "include_raw_response": include_raw_response,
@@ -1086,6 +1101,7 @@ def call_chat_api(
         "tool_choice",
         "tool_functions",
         "reasoning_effort",
+        "verbosity",
         "extra",
         "task",
         "previous_response_id",
@@ -1161,6 +1177,7 @@ def stream_chat_api(
     max_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     reasoning_effort: str | None = None,
+    verbosity: str | None = None,
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
 ) -> ChatStream:
@@ -1181,6 +1198,7 @@ def stream_chat_api(
         tool_choice=None,
         tool_functions=None,
         reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
         extra=extra,
         include_analysis_tools=False,
         task=task,

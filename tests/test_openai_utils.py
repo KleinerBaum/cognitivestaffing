@@ -260,6 +260,7 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
         tool_choice: Any | None = None,
         tool_functions: Mapping[str, Any] | None = None,
         reasoning_effort: str | None = None,
+        verbosity: str | None = None,
         extra: Mapping[str, Any] | None = None,
         task: Any | None = None,
         include_raw_response: bool = False,
@@ -277,6 +278,7 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
                 "tool_choice": tool_choice,
                 "tool_functions": tool_functions,
                 "reasoning_effort": reasoning_effort,
+                "verbosity": verbosity,
                 "extra": extra,
                 "task": task,
                 "include_raw_response": include_raw_response,
@@ -549,6 +551,7 @@ def test_prepare_payload_includes_web_search_tools():
         tool_choice=None,
         tool_functions={},
         reasoning_effort=None,
+        verbosity=None,
         extra=None,
         include_analysis_tools=True,
     )
@@ -583,6 +586,7 @@ def test_prepare_payload_normalises_legacy_tool_choice():
         },
         tool_functions={"fn": lambda: None},
         reasoning_effort=None,
+        verbosity=None,
         extra=None,
         include_analysis_tools=False,
     )
@@ -713,6 +717,60 @@ def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
         reasoning_effort="high",
     )
     assert "reasoning" not in captured
+
+
+def test_call_chat_api_includes_explicit_verbosity(monkeypatch):
+    """Explicit verbosity settings should be forwarded to the API payload."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = "hi"
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        verbosity="high",
+    )
+    assert captured["verbosity"] == "high"
+
+
+def test_call_chat_api_uses_session_verbosity_default(monkeypatch):
+    """When omitted the helper should fall back to the session verbosity."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        output: list[dict[str, Any]] = []
+        output_text = "hi"
+        usage: dict[str, int] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    class _FakeClient:
+        responses = _FakeResponses()
+
+    st.session_state.clear()
+    st.session_state["verbosity"] = "low"
+
+    monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+    )
+    assert captured["verbosity"] == "low"
 
 
 def test_call_chat_api_skips_temperature_for_reasoning_model(monkeypatch):
