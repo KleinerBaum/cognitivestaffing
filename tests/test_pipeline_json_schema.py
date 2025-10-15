@@ -32,6 +32,16 @@ class _FakeResult(ChatCallResult):
         super().__init__(content="{}", tool_calls=[], usage={})
 
 
+def _contains_json_ref(value: Any) -> bool:
+    if isinstance(value, dict):
+        if "$ref" in value:
+            return True
+        return any(_contains_json_ref(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_json_ref(item) for item in value)
+    return False
+
+
 @pytest.fixture(autouse=True)
 def _reset_state(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("streamlit.session_state", {}, raising=False)
@@ -51,6 +61,7 @@ def test_extract_vacancy_passes_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "VacancyExtraction"
     assert schema_cfg["schema"] == VACANCY_EXTRACTION_SCHEMA
+    assert not _contains_json_ref(schema_cfg["schema"])
     assert captured["model"] == "model-extraction"
 
 

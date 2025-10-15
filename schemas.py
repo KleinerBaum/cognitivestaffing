@@ -1,3 +1,20 @@
+SKILL_ENTRY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["name"],
+    "properties": {
+        "name": {"type": "string"},
+        "normalized_name": {"type": "string"},
+        "esco_uri": {"type": "string"},
+        "weight": {"type": "number", "minimum": 0, "maximum": 1},
+    },
+}
+
+SKILL_ARRAY_SCHEMA = {
+    "type": "array",
+    "items": SKILL_ENTRY_SCHEMA,
+}
+
 VACANCY_EXTRACTION_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "VacancyExtraction",
@@ -92,40 +109,13 @@ VACANCY_EXTRACTION_SCHEMA = {
             "required": ["must_have", "nice_to_have"],
             "properties": {
                 "must_have": {
-                    "type": "array",
                     "minItems": 0,
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["name"],
-                        "properties": {
-                            "name": {"type": "string"},
-                            "normalized_name": {"type": "string"},
-                            "esco_uri": {"type": "string"},
-                            "weight": {"type": "number", "minimum": 0, "maximum": 1},
-                        },
-                    },
+                    **SKILL_ARRAY_SCHEMA,
                 },
-                "nice_to_have": {"$ref": "#/$defs/SkillArray"},
+                "nice_to_have": SKILL_ARRAY_SCHEMA,
             },
         },
-        "$defs": {
-            "SkillArray": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["name"],
-                    "properties": {
-                        "name": {"type": "string"},
-                        "normalized_name": {"type": "string"},
-                        "esco_uri": {"type": "string"},
-                        "weight": {"type": "number", "minimum": 0, "maximum": 1},
-                    },
-                },
-            }
-        },
-        "technologies": {"$ref": "#/$defs/SkillArray"},
+        "technologies": SKILL_ARRAY_SCHEMA,
         "responsibilities": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "benefits": {"type": "array", "items": {"type": "string"}},
         "education": {
