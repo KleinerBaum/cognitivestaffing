@@ -383,15 +383,26 @@ def read_job_text(
         try:
             with path.open("rb") as handle:
                 doc = extract_text_from_file(handle)
-        except ValueError:
-            continue
+        except ValueError as exc:
+            message = str(exc).strip()
+            suffix = path.suffix.lower()
+            if suffix and "unsupported file type" in message.lower():
+                raise ValueError(
+                    f"{path.name}: unsupported file type – upload a PDF, DOCX or text file."
+                ) from exc
+            detail = f" ({message})" if message else ""
+            raise ValueError(f"{path.name}: failed to read file.{detail}") from exc
         documents.append(clean_structured_document(doc))
 
     if url:
         try:
             documents.append(clean_structured_document(extract_text_from_url(url)))
-        except ValueError:
-            pass
+        except ValueError as exc:
+            message = str(exc).strip()
+            detail = f" ({message})" if message else ""
+            raise ValueError(
+                f"Failed to fetch {url}. Check if the site is reachable or if access is blocked.{detail}"
+            ) from exc
 
     if pasted:
         documents.append(
