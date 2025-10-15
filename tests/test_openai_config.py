@@ -1,4 +1,5 @@
 import importlib
+import os
 import sys
 from pathlib import Path
 
@@ -128,3 +129,36 @@ def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_al
 
     assert config.OPENAI_MODEL == config.GPT5_MINI
     assert st.session_state["model"] == config.GPT5_MINI
+
+
+@pytest.mark.parametrize("env_value", ["", "   "])
+def test_default_model_falls_back_to_gpt5_mini_for_blank_env(monkeypatch, env_value):
+    previous_env = os.environ.get("DEFAULT_MODEL")
+
+    try:
+        monkeypatch.setenv("DEFAULT_MODEL", env_value)
+        importlib.reload(config)
+
+        assert config.DEFAULT_MODEL == config.GPT5_MINI
+    finally:
+        if previous_env is None:
+            monkeypatch.delenv("DEFAULT_MODEL", raising=False)
+        else:
+            monkeypatch.setenv("DEFAULT_MODEL", previous_env)
+        importlib.reload(config)
+
+
+def test_default_model_alias_falls_back_to_gpt5_mini(monkeypatch):
+    previous_env = os.environ.get("DEFAULT_MODEL")
+
+    try:
+        monkeypatch.setenv("DEFAULT_MODEL", "gpt-5-mini")
+        importlib.reload(config)
+
+        assert config.DEFAULT_MODEL == config.GPT5_MINI
+    finally:
+        if previous_env is None:
+            monkeypatch.delenv("DEFAULT_MODEL", raising=False)
+        else:
+            monkeypatch.setenv("DEFAULT_MODEL", previous_env)
+        importlib.reload(config)
