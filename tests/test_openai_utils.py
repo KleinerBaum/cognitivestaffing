@@ -724,6 +724,30 @@ def test_build_extraction_tool_marks_required_recursively() -> None:
     assert outer["properties"]["inner"]["type"] == ["string", "null"]
 
 
+def test_build_extraction_tool_can_relax_required_fields() -> None:
+    """Callers may opt-out of auto-marking every property as required."""
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "outer": {
+                "type": "object",
+                "properties": {
+                    "inner": {"type": "string"},
+                    "optional": {"type": "integer"},
+                },
+            }
+        },
+    }
+
+    tool = openai_utils.build_extraction_tool("extract", schema, require_all_fields=False)
+    params = tool[0]["function"]["parameters"]
+    assert "required" not in params
+    outer = params["properties"]["outer"]
+    assert "required" not in outer
+    assert outer["properties"]["inner"]["type"] == ["string", "null"]
+
+
 def test_call_chat_api_includes_reasoning_for_supported_models(monkeypatch):
     """Reasoning effort should be forwarded when the model accepts it."""
 
