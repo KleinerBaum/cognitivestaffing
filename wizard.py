@@ -7853,6 +7853,16 @@ def _build_field_section_map() -> dict[str, int]:
 FIELD_SECTION_MAP = _build_field_section_map()
 CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
 
+# Fields collected early in the wizard but only blocking later sections when
+# filtering via ``max_section``. The location city is displayed in the company
+# step but shouldn't block the early company/role sections because salary and
+# requirements insights can still run with just the country. Once the full
+# wizard is considered we still treat it as critical.
+_MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
+SECTION_FILTER_OVERRIDES: dict[str, int] = {
+    "location.primary_city": _MAX_SECTION_INDEX,
+}
+
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     """Return critical fields missing from state or profile data.
@@ -7867,7 +7877,8 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     missing: list[str] = []
     profile_data = st.session_state.get(StateKeys.PROFILE, {})
     for field in CRITICAL_FIELDS:
-        if max_section is not None and FIELD_SECTION_MAP.get(field, 0) > max_section:
+        field_section = SECTION_FILTER_OVERRIDES.get(field, FIELD_SECTION_MAP.get(field, 0))
+        if max_section is not None and field_section > max_section:
             continue
         value = st.session_state.get(field)
         if not value:

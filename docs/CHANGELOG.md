@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- fix: delay critical location city gating to later wizard sections so early validation only flags the company country (EN/DE)
+  - Fix: verschiebt die kritische Prüfung der Stadt auf spätere Wizard-Abschnitte, damit zu Beginn nur das Unternehmensland verlangt wird (DE/EN)
 - feat: auto-describe extraction tools with highlighted schema fields while keeping custom overrides for salary and other agents (EN/DE)
   - Feature: beschreibt Extraktions-Tools automatisch mit hervorgehobenen Schemafeldern und erlaubt weiter maßgeschneiderte Texte für Gehalts- oder andere Agenten (DE/EN)
 - refactor: rename structured extraction handles to `NeedAnalysisProfile` and salary responses to `SalaryExpectationResponse` for consistent schema naming (EN/DE)
