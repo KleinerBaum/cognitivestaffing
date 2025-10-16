@@ -51,14 +51,18 @@ class GapContext:
         body = "\n\n".join(filter(None, parts)).strip()
         return f"【ESCO】\n{body}" if body else ""
 
-    def rag_block(self, lang: str) -> str:
+    def rag_block(self, lang: str, *, max_snippets: int | None = None) -> str:
         snippets = [str(item).strip() for item in (self.rag_snippets or []) if str(item).strip()]
         if not snippets:
             return ""
         header = "【RAG】\n" + (
             "Top Hinweise aus Wissensbasis:" if lang.startswith("de") else "Top knowledge base snippets:"
         )
-        lines = "\n".join(f"- {snippet}" for snippet in snippets[:_DEFAULT_TOP_K])
+        # NOTE: ``max_snippets`` replaces the previously unused ``top_k``
+        # helper and lets callers adjust the limit while keeping the same
+        # default behaviour.
+        limit = max_snippets if max_snippets is not None else _DEFAULT_TOP_K
+        lines = "\n".join(f"- {snippet}" for snippet in snippets[: max(1, limit)])
         return f"{header}\n{lines}".strip()
 
 
@@ -67,16 +71,14 @@ def retrieve_from_vector_store(
     *,
     vector_store_id: str | None = None,
     top_k: int = _DEFAULT_TOP_K,
-    client: Any | None = None,
 ) -> list[str]:
     """Return text snippets from the configured vector store for ``query``."""
 
+    # NOTE: ``call_chat_api`` manages its own OpenAI client, so the legacy
+    # ``client`` parameter has been removed to avoid a misleading knob.
     store_id = (vector_store_id or VECTOR_STORE_ID or "").strip()
     if not store_id or not str(query or "").strip():
         return []
-
-    if client is not None:  # pragma: no cover - backwards compatibility shim
-        logger.debug("Custom OpenAI client overrides are ignored by call_chat_api")
 
     try:
         result = call_chat_api(
@@ -252,11 +254,15 @@ def analyze_vacancy(
             snippets = retrieve_from_vector_store(
                 retrieval_query,
                 vector_store_id=effective_store_id,
-                client=client,
             )
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Vector store helper failed: %s", exc)
             snippets = []
+
+    if client is not None:  # pragma: no cover - backwards compatibility shim
+        # NOTE: ``client`` is kept for compatibility with older call-sites but
+        # has no effect because ``call_chat_api`` owns the transport layer.
+        logger.debug("Custom OpenAI client overrides are ignored by analyze_vacancy")
 
     context = GapContext(
         occupation=occupation,
