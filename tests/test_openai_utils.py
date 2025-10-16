@@ -151,8 +151,8 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
-def test_responses_payload_includes_top_level_tool_names(monkeypatch):
-    """Responses payloads must preserve tool names for compatibility."""
+def test_responses_payload_omits_top_level_tool_names(monkeypatch):
+    """Responses payloads should not expose top-level tool names."""
 
     monkeypatch.setattr("core.analysis_tools.build_analysis_tools", lambda: ([], {}))
 
@@ -174,7 +174,7 @@ def test_responses_payload_includes_top_level_tool_names(monkeypatch):
     assert "tools" in sent_payload
     assert sent_payload["tools"], "Expected at least one tool in the payload"
     for tool_spec in sent_payload["tools"]:
-        assert tool_spec.get("name") == "say_hi"
+        assert "name" not in tool_spec
         if tool_spec.get("type") == "function":
             function_block = tool_spec.get("function", {})
             assert function_block.get("name") == "say_hi"
@@ -1027,10 +1027,9 @@ def test_call_chat_api_normalises_tool_schema(monkeypatch):
                     fn_block = tool.get("function", {})
                     assert "name" in fn_block and fn_block["name"]
                     assert "parameters" in fn_block
-                    assert tool.get("name") == fn_block.get("name")
                 else:
                     assert "function" not in tool
-                    assert tool.get("name") == tool.get("type")
+                    assert tool.get("name") in {None, tool.get("type")}
             return type("R", (), {"output": [], "output_text": "", "usage": {}})()
 
     class _FakeClient:
@@ -1078,9 +1077,9 @@ def test_prepare_payload_includes_analysis_helpers():
         if tool.get("type") == "function":
             fn_payload = tool.get("function", {})
             assert fn_payload.get("name")
-            assert tool.get("name") == fn_payload.get("name")
+            assert "name" not in tool
         else:
-            assert tool.get("name") == tool.get("type")
+            assert tool.get("name") in {None, tool.get("type")}
 
 
 def test_prepare_payload_normalises_legacy_tool_choice():
