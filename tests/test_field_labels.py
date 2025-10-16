@@ -32,9 +32,7 @@ def test_summary_omits_missing_field_warning(monkeypatch: pytest.MonkeyPatch) ->
         def __enter__(self) -> None:  # pragma: no cover - trivial
             return None
 
-        def __exit__(
-            self, exc_type, exc, tb
-        ) -> Literal[False]:  # pragma: no cover - trivial
+        def __exit__(self, exc_type, exc, tb) -> Literal[False]:  # pragma: no cover - trivial
             return False
 
     monkeypatch.setattr(st, "tabs", lambda labels: [DummyTab() for _ in labels])

@@ -235,9 +235,7 @@ def get_skill_suggestions(
     if occupation and occupation.get("uri"):
         staged: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
 
-        staged_seen: Dict[str, Dict[str, set[str]]] = defaultdict(
-            lambda: defaultdict(set)
-        )
+        staged_seen: Dict[str, Dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
 
         def _stage(field: str, group: str, value: str) -> None:
             marker = value.casefold()
@@ -262,10 +260,9 @@ def get_skill_suggestions(
             group_name = f"{prefix}_{category}"
             _stage(field, group_name, normalized)
 
-        missing_pool = (
-            [str(term).strip() for term in (missing_skills or []) if str(term).strip()]
-            or _fetch_missing_esco_skills_from_state()
-        )
+        missing_pool = [
+            str(term).strip() for term in (missing_skills or []) if str(term).strip()
+        ] or _fetch_missing_esco_skills_from_state()
         for item in missing_pool:
             _process_esco_skill(item, is_missing=True)
 

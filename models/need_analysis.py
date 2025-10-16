@@ -22,9 +22,7 @@ class Company(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE
-    )
+    _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
     name: Optional[str] = None
     brand_name: Optional[str] = None

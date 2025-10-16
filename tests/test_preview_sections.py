@@ -22,10 +22,7 @@ def test_prefilled_preview_hidden_until_data_present() -> None:
     st.session_state[StateKeys.PROFILE] = empty_profile
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {}
 
-    assert (
-        build_prefilled_sections()
-        == []
-    ), "Default profile values should not trigger the preview"
+    assert build_prefilled_sections() == [], "Default profile values should not trigger the preview"
 
     profile_with_data = NeedAnalysisProfile().model_dump()
     profile_with_data["company"]["name"] = "Acme Corp"
@@ -34,8 +31,6 @@ def test_prefilled_preview_hidden_until_data_present() -> None:
     sections = build_prefilled_sections()
 
     assert sections, "Once values exist the preview should become visible"
-    assert any(
-        path == "company.name"
-        for _, entries in sections
-        for path, _ in entries
-    ), "Stored values should appear in the preview"
+    assert any(path == "company.name" for _, entries in sections for path, _ in entries), (
+        "Stored values should appear in the preview"
+    )

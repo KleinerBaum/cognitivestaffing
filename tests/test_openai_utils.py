@@ -1067,9 +1067,7 @@ def test_prepare_payload_includes_analysis_helpers():
     assert "web_search_preview" in tool_types
 
     function_names = {
-        tool.get("function", {}).get("name")
-        for tool in payload["tools"]
-        if tool.get("type") == "function"
+        tool.get("function", {}).get("name") for tool in payload["tools"] if tool.get("type") == "function"
     }
     assert "convert_currency" in function_names
     assert "normalise_date" in function_names

@@ -40,12 +40,8 @@ def test_valid_base_url_us_does_not_set_flag(monkeypatch):
     st.session_state.clear()
     monkeypatch.setattr(config, "OPENAI_API_KEY", "x", raising=False)
     monkeypatch.setattr(es, "OPENAI_API_KEY", "x", raising=False)
-    monkeypatch.setattr(
-        config, "OPENAI_BASE_URL", "https://api.openai.com/v1", raising=False
-    )
-    monkeypatch.setattr(
-        es, "OPENAI_BASE_URL", "https://api.openai.com/v1", raising=False
-    )
+    monkeypatch.setattr(config, "OPENAI_BASE_URL", "https://api.openai.com/v1", raising=False)
+    monkeypatch.setattr(es, "OPENAI_BASE_URL", "https://api.openai.com/v1", raising=False)
 
     try:
         es.ensure_state()
@@ -58,12 +54,8 @@ def test_valid_base_url_eu_does_not_set_flag(monkeypatch):
     st.session_state.clear()
     monkeypatch.setattr(config, "OPENAI_API_KEY", "x", raising=False)
     monkeypatch.setattr(es, "OPENAI_API_KEY", "x", raising=False)
-    monkeypatch.setattr(
-        config, "OPENAI_BASE_URL", "https://eu.api.openai.com/v1", raising=False
-    )
-    monkeypatch.setattr(
-        es, "OPENAI_BASE_URL", "https://eu.api.openai.com/v1", raising=False
-    )
+    monkeypatch.setattr(config, "OPENAI_BASE_URL", "https://eu.api.openai.com/v1", raising=False)
+    monkeypatch.setattr(es, "OPENAI_BASE_URL", "https://eu.api.openai.com/v1", raising=False)
 
     try:
         es.ensure_state()

@@ -32,9 +32,7 @@ def test_classify_occupation_keyword_fallback() -> None:
 
     result = classify_occupation("Senior Sales Manager")
     assert result
-    assert result["group"].casefold() == (
-        "sales, marketing and public relations professionals"
-    )
+    assert result["group"].casefold() == ("sales, marketing and public relations professionals")
 
 
 def test_normalize_skills_dedupes_without_esco() -> None:

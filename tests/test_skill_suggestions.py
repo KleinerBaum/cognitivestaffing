@@ -22,9 +22,7 @@ def fake_call(messages, **kwargs):
 
 def test_suggest_skills_for_role(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
-    monkeypatch.setattr(
-        "core.esco_utils.normalize_skills", lambda skills, lang="en": skills
-    )
+    monkeypatch.setattr("core.esco_utils.normalize_skills", lambda skills, lang="en": skills)
     out = suggest_skills_for_role("Engineer")
     assert out["tools_and_technologies"] == [f"T{i}" for i in range(1, 11)]
     assert out["hard_skills"] == ["H1", "H2"]

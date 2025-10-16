@@ -24,14 +24,10 @@ def test_generate_followups_wrapper(monkeypatch):
             {"field": "location.primary_city", "question": "Location?"},
         ]
 
-    monkeypatch.setattr(
-        "questions.generate._generate_followup_questions", fake_generate
-    )
+    monkeypatch.setattr("questions.generate._generate_followup_questions", fake_generate)
 
     profile = NeedAnalysisProfile()
-    questions = generate_followup_questions(
-        profile, num_questions=2, lang="de", use_rag=False
-    )
+    questions = generate_followup_questions(profile, num_questions=2, lang="de", use_rag=False)
 
     assert questions == ["Company name?", "Location?"]
     assert captured["num_questions"] == 2
@@ -43,9 +39,7 @@ def test_generate_followups_wrapper_empty(monkeypatch):
     def fake_generate(data, num_questions=None, lang="en", use_rag=True):
         return []
 
-    monkeypatch.setattr(
-        "questions.generate._generate_followup_questions", fake_generate
-    )
+    monkeypatch.setattr("questions.generate._generate_followup_questions", fake_generate)
 
     profile = NeedAnalysisProfile()
     assert generate_followup_questions(profile) == []

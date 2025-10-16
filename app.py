@@ -87,11 +87,7 @@ def inject_global_css() -> None:
     theme = "cognitive_needs.css" if dark_mode else "cognitive_needs_light.css"
     css = (ROOT / "styles" / theme).read_text(encoding="utf-8")
     encoded_bg = _load_background_image(dark_mode)
-    bg_style = (
-        f":root {{ --bg-image: url('data:image/jpeg;base64,{encoded_bg}'); }}"
-        if encoded_bg
-        else ""
-    )
+    bg_style = f":root {{ --bg-image: url('data:image/jpeg;base64,{encoded_bg}'); }}" if encoded_bg else ""
     st.markdown(
         f"<style>{css}\n{bg_style}</style>",
         unsafe_allow_html=True,

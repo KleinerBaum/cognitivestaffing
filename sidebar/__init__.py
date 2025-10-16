@@ -34,6 +34,7 @@ STEP_LABELS: list[tuple[str, str]] = [
     ("summary", tr("Summary", "Summary")),
 ]
 
+
 @dataclass(slots=True)
 class SidebarContext:
     """Convenience bundle with precomputed sidebar data."""
@@ -142,7 +143,7 @@ def _render_branding(logo_bytes: bytes) -> None:
     """Display the Cognitive Needs logo in the sidebar."""
 
     st.image(logo_bytes, width="stretch")
-    st.markdown("<div style=\"margin-bottom: 0.5rem;\"></div>", unsafe_allow_html=True)
+    st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
 
 
 def _ensure_ui_defaults() -> None:
@@ -152,9 +153,7 @@ def _ensure_ui_defaults() -> None:
         st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
     st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
     if "ui.lang_toggle" not in st.session_state:
-        st.session_state["ui.lang_toggle"] = (
-            st.session_state[UIKeys.LANG_SELECT] == "en"
-        )
+        st.session_state["ui.lang_toggle"] = st.session_state[UIKeys.LANG_SELECT] == "en"
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
 
@@ -164,9 +163,7 @@ def _build_context() -> SidebarContext:
 
     profile: Mapping[str, Any] = st.session_state.get(StateKeys.PROFILE, {})
     summary: Mapping[str, Any] = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
-    skill_buckets: Mapping[str, Iterable[str]] = st.session_state.get(
-        StateKeys.SKILL_BUCKETS, {}
-    )
+    skill_buckets: Mapping[str, Iterable[str]] = st.session_state.get(StateKeys.SKILL_BUCKETS, {})
 
     missing = set(get_missing_critical_fields())
     missing_by_section: dict[int, list[str]] = {}
@@ -195,9 +192,7 @@ def _render_settings() -> None:
         st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
     def _on_lang_toggle() -> None:
-        st.session_state[UIKeys.LANG_SELECT] = (
-            "en" if st.session_state["ui.lang_toggle"] else "de"
-        )
+        st.session_state[UIKeys.LANG_SELECT] = "en" if st.session_state["ui.lang_toggle"] else "de"
         st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
 
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
@@ -257,6 +252,7 @@ def _render_hero(context: SidebarContext) -> None:
                     unsafe_allow_html=True,
                 )
 
+
 def _render_step_context(context: SidebarContext) -> None:
     """Render contextual guidance for the active wizard step."""
 
@@ -297,12 +293,8 @@ def _build_initial_extraction_entries(
     summary = context.extraction_summary
     known_step_keys = set(step_order)
     if isinstance(summary, Mapping):
-        is_step_grouped = (
-            summary
-            and all(
-                isinstance(value, Mapping) and key in known_step_keys
-                for key, value in summary.items()
-            )
+        is_step_grouped = summary and all(
+            isinstance(value, Mapping) and key in known_step_keys for key, value in summary.items()
         )
         if is_step_grouped:
             for step_key, values in summary.items():
@@ -386,15 +378,11 @@ def _render_basic_context(context: SidebarContext) -> None:
         city = location.get("primary_city")
         country = location.get("country")
         if city or country:
-            st.markdown(
-                f"- **{tr('Standort', 'Location')}:** {', '.join(part for part in [city, country] if part)}"
-            )
+            st.markdown(f"- **{tr('Standort', 'Location')}:** {', '.join(part for part in [city, country] if part)}")
     employment = context.profile.get("employment", {})
     if employment.get("work_policy"):
         policy = employment["work_policy"]
-        st.caption(
-            tr("Aktuelle Arbeitsform:", "Current work policy:") + f" {policy}"
-        )
+        st.caption(tr("Aktuelle Arbeitsform:", "Current work policy:") + f" {policy}")
     _render_missing_hint(context, section=2)
 
 
@@ -443,9 +431,7 @@ def _render_compensation_context(context: SidebarContext) -> None:
         st.markdown(f"- **{tr('Variable Vergütung', 'Variable pay')}**: ✅")
     benefits = compensation.get("benefits", [])
     if benefits:
-        st.markdown(
-            f"- **{tr('Benefits', 'Benefits')}**: {', '.join(benefits[:8])}"
-        )
+        st.markdown(f"- **{tr('Benefits', 'Benefits')}**: {', '.join(benefits[:8])}")
     if not (salary_min or salary_max or benefits):
         st.caption(
             tr(
@@ -463,16 +449,10 @@ def _render_process_context(context: SidebarContext) -> None:
     if stakeholders:
         lead = next((s for s in stakeholders if s.get("primary")), None)
         if lead:
-            st.markdown(
-                f"- **{tr('Lead Recruiter', 'Lead recruiter')}**: {lead.get('name', '')}"
-            )
-        st.markdown(
-            f"- **{tr('Stakeholder gesamt', 'Stakeholders total')}**: {len(stakeholders)}"
-        )
+            st.markdown(f"- **{tr('Lead Recruiter', 'Lead recruiter')}**: {lead.get('name', '')}")
+        st.markdown(f"- **{tr('Stakeholder gesamt', 'Stakeholders total')}**: {len(stakeholders)}")
     if phases:
-        st.markdown(
-            f"- **{tr('Prozessphasen', 'Process phases')}**: {len(phases)}"
-        )
+        st.markdown(f"- **{tr('Prozessphasen', 'Process phases')}**: {len(phases)}")
     if process.get("notes"):
         st.caption(f"{tr('Hinweis', 'Note')}: {process['notes']}")
     if not (stakeholders or phases or process.get("notes")):
@@ -498,10 +478,7 @@ def _render_summary_context(context: SidebarContext) -> None:
     usage = st.session_state.get(StateKeys.USAGE)
     if usage:
         in_tok, out_tok, total_tok = usage_totals(usage)
-        summary = (
-            tr("Tokenverbrauch", "Token usage")
-            + f": {in_tok} + {out_tok} = {total_tok}"
-        )
+        summary = tr("Tokenverbrauch", "Token usage") + f": {in_tok} + {out_tok} = {total_tok}"
         table = build_usage_markdown(usage)
         if table:
             with st.expander(summary):
@@ -515,9 +492,7 @@ def _render_missing_hint(context: SidebarContext, *, section: int) -> None:
     if not missing:
         return
     fields = ", ".join(_format_field_name(field) for field in missing[:6])
-    st.warning(
-        tr("Fehlende Pflichtfelder:", "Missing mandatory fields:") + f" {fields}"
-    )
+    st.warning(tr("Fehlende Pflichtfelder:", "Missing mandatory fields:") + f" {fields}")
 
 
 def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
@@ -527,9 +502,7 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
         width="stretch",
         key="update_salary_expectation",
     ):
-        with st.spinner(
-            tr("Berechne neue Gehaltseinschätzung…", "Calculating salary estimate…")
-        ):
+        with st.spinner(tr("Berechne neue Gehaltseinschätzung…", "Calculating salary estimate…")):
             estimate_salary_expectation()
 
     estimate: Mapping[str, Any] | None = st.session_state.get(UIKeys.SALARY_ESTIMATE)
@@ -539,10 +512,7 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     if timestamp:
         try:
             dt = datetime.fromisoformat(timestamp)
-            st.caption(
-                tr("Zuletzt aktualisiert", "Last refreshed")
-                + f": {dt.strftime('%d.%m.%Y %H:%M')}"
-            )
+            st.caption(tr("Zuletzt aktualisiert", "Last refreshed") + f": {dt.strftime('%d.%m.%Y %H:%M')}")
         except ValueError:
             pass
 
@@ -559,14 +529,11 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             st.caption(str(explanation))
         return
 
-    currency = estimate.get("currency") or profile.get("compensation", {}).get(
-        "currency"
-    )
+    currency = estimate.get("currency") or profile.get("compensation", {}).get("currency")
     salary_min = estimate.get("salary_min")
     salary_max = estimate.get("salary_max")
     st.markdown(
-        f"**{tr('Erwartete Spanne', 'Expected range')}**: "
-        f"{_format_salary_range(salary_min, salary_max, currency)}"
+        f"**{tr('Erwartete Spanne', 'Expected range')}**: {_format_salary_range(salary_min, salary_max, currency)}"
     )
 
     user_comp = profile.get("compensation", {})
@@ -645,9 +612,7 @@ def _format_field_name(path: str) -> str:
     return path.replace("_", " ").replace(".", " → ").title()
 
 
-def _format_salary_range(
-    salary_min: Any, salary_max: Any, currency: str | None
-) -> str:
+def _format_salary_range(salary_min: Any, salary_max: Any, currency: str | None) -> str:
     """Format a salary range for display."""
 
     currency = currency or ""
@@ -813,9 +778,7 @@ def _factor_impact(
             user_value,
             impact.get("user_currency") or user_currency or benchmark_currency,
         )
-        parts.append(
-            tr("vs. Eingabe {value}", "vs. input {value}").format(value=user_value_text)
-        )
+        parts.append(tr("vs. Eingabe {value}", "vs. input {value}").format(value=user_value_text))
 
     filtered = [segment for segment in parts if segment]
     if not filtered:
@@ -955,9 +918,7 @@ def _format_factor_option(entry: SalaryFactorEntry) -> str:
         parts.append(entry.value_display)
     option_text = " · ".join(part for part in parts if part)
     if entry.impact_summary:
-        option_text = (
-            option_text + (" — " if option_text else "") + str(entry.impact_summary)
-        )
+        option_text = option_text + (" — " if option_text else "") + str(entry.impact_summary)
     return option_text
 
 

@@ -93,9 +93,7 @@ def USER_JSON_EXTRACT_TEMPLATE(
         else:
             instructions += "\nFocus on the following fields:\n" + field_lines
     else:
-        instructions += (
-            "\nAll schema keys currently have locked values. Return the JSON object while preserving the schema and the provided locked values exactly, and only augment information when new details are available."
-        )
+        instructions += "\nAll schema keys currently have locked values. Return the JSON object while preserving the schema and the provided locked values exactly, and only augment information when new details are available."
 
     blocks: list[str] = []
     if extras_block:
@@ -162,10 +160,7 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     brand_keywords = _stringify_brand_keywords(payload.get("brand_keywords"))
     cta_hint = str(payload.get("cta_hint") or "").strip()
     company_info = payload.get("company") or {}
-    company_names = [
-        str(company_info.get(key) or "").strip()
-        for key in ("display_name", "brand_name", "legal_name")
-    ]
+    company_names = [str(company_info.get(key) or "").strip() for key in ("display_name", "brand_name", "legal_name")]
     company_names = [name for name in company_names if name]
     if company_names:
         deduped = list(dict.fromkeys(company_names))
@@ -174,9 +169,7 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
         company_line = ""
 
     sections: Sequence[Mapping[str, Any]] = payload.get("sections", []) or []
-    manual_sections: Sequence[Mapping[str, Any]] = (
-        payload.get("manual_sections") or []
-    )
+    manual_sections: Sequence[Mapping[str, Any]] = payload.get("manual_sections") or []
     sections_label = tr("Strukturierte Abschnitte", "Structured sections", lang)
 
     instruction_lines = [
@@ -217,53 +210,33 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
         ),
         tr(
             f"Arbeite jede einzelne Information aus dem Block „{sections_label}“ sowie alle manuellen Zusatzabschnitte vollständig in den Anzeigentext ein – nichts weglassen oder zusammenfassen.",
-            f"Incorporate every item from the \"{sections_label}\" block and any manual sections directly into the advertisement copy—do not omit or merge details.",
+            f'Incorporate every item from the "{sections_label}" block and any manual sections directly into the advertisement copy—do not omit or merge details.',
             lang,
         ),
     ]
 
     meta_lines: list[str] = []
     if heading:
-        meta_lines.append(
-            f"{tr('Überschrift', 'Heading', lang)}: {heading}"
-        )
+        meta_lines.append(f"{tr('Überschrift', 'Heading', lang)}: {heading}")
     if location:
-        meta_lines.append(
-            f"{tr('Standort', 'Location', lang)}: {location}"
-        )
+        meta_lines.append(f"{tr('Standort', 'Location', lang)}: {location}")
     if summary:
-        meta_lines.append(
-            f"{tr('Kurzprofil', 'Role summary', lang)}: {summary}"
-        )
+        meta_lines.append(f"{tr('Kurzprofil', 'Role summary', lang)}: {summary}")
     if company_line:
-        meta_lines.append(
-            f"{tr('Unternehmen', 'Company', lang)}: {company_line}"
-        )
+        meta_lines.append(f"{tr('Unternehmen', 'Company', lang)}: {company_line}")
     if audience:
-        meta_lines.append(
-            f"{tr('Zielgruppe', 'Target audience', lang)}: {audience}"
-        )
+        meta_lines.append(f"{tr('Zielgruppe', 'Target audience', lang)}: {audience}")
     if tone:
-        meta_lines.append(
-            f"{tr('Ton', 'Tone', lang)}: {tone}"
-        )
+        meta_lines.append(f"{tr('Ton', 'Tone', lang)}: {tone}")
     if brand_keywords:
         label = tr("Brand-Keywords", "Brand keywords", lang)
         meta_lines.append(f"{label}: {brand_keywords}")
     if style_reference:
-        meta_lines.append(
-            f"{tr('Stilreferenz', 'Style reference', lang)}: {style_reference}"
-        )
+        meta_lines.append(f"{tr('Stilreferenz', 'Style reference', lang)}: {style_reference}")
     if cta_hint:
-        meta_lines.append(
-            f"{tr('CTA-Hinweis', 'CTA hint', lang)}: {cta_hint}"
-        )
+        meta_lines.append(f"{tr('CTA-Hinweis', 'CTA hint', lang)}: {cta_hint}")
 
-    section_blocks = [
-        block
-        for block in (_format_section_block(section) for section in sections)
-        if block
-    ]
+    section_blocks = [block for block in (_format_section_block(section) for section in sections) if block]
 
     manual_lines: list[str] = []
     for section in manual_sections:
@@ -282,9 +255,7 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     if section_blocks:
         parts.append(f"{sections_label}:\n" + "\n\n".join(section_blocks))
     if manual_lines:
-        label = tr(
-            "Kuratiere diese Zusatzabschnitte unverändert", "Include these curated sections verbatim", lang
-        )
+        label = tr("Kuratiere diese Zusatzabschnitte unverändert", "Include these curated sections verbatim", lang)
         parts.append(f"{label}:\n" + "\n".join(manual_lines))
 
     user_msg = "\n\n".join(part for part in parts if part).strip()

@@ -24,9 +24,7 @@ def test_skip_source_resets_session(monkeypatch: pytest.MonkeyPatch) -> None:
     st.session_state[StateKeys.PROFILE] = {"position": {"job_title": "X"}}
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {"foo": "bar"}
     st.session_state[StateKeys.EXTRACTION_MISSING] = ["company.name"]
-    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {
-        "requirements": {"hard_skills_required": ["Python"]}
-    }
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {"requirements": {"hard_skills_required": ["Python"]}}
     st.session_state[StateKeys.ESCO_SKILLS] = ["Data Analysis"]
     st.session_state[StateKeys.SKILL_BUCKETS] = {
         "must": ["Python"],
@@ -71,14 +69,8 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_coerce(data: dict) -> NeedAnalysisProfile:
         return NeedAnalysisProfile.model_validate(data)
 
-    def fake_followups(
-        payload: dict, model: str | None = None, vector_store_id: str | None = None
-    ) -> dict:
-        return {
-            "questions": [
-                {"field": "company.name", "question": "?", "priority": "critical"}
-            ]
-        }
+    def fake_followups(payload: dict, model: str | None = None, vector_store_id: str | None = None) -> dict:
+        return {"questions": [{"field": "company.name", "question": "?", "priority": "critical"}]}
 
     class _DummySpinner:
         def __enter__(self):
@@ -95,9 +87,7 @@ def test_extract_and_summarize_auto_reask(monkeypatch: pytest.MonkeyPatch) -> No
 
     _extract_and_summarize("text", {})
 
-    assert st.session_state[StateKeys.FOLLOWUPS] == [
-        {"field": "company.name", "question": "?", "priority": "critical"}
-    ]
+    assert st.session_state[StateKeys.FOLLOWUPS] == [{"field": "company.name", "question": "?", "priority": "critical"}]
     assert StateKeys.EXTRACTION_RAW_PROFILE in st.session_state
     assert StateKeys.SKILL_BUCKETS in st.session_state
     assert st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] == COMPANY_STEP_INDEX
@@ -117,9 +107,7 @@ def test_extract_and_summarize_auto_reask_with_no_missing(
     st.session_state.vector_store_id = ""
     st.session_state["auto_reask_round"] = 3
     st.session_state["auto_reask_total"] = 3
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
 
     def fake_extract(
         text: str,
@@ -138,9 +126,7 @@ def test_extract_and_summarize_auto_reask_with_no_missing(
     monkeypatch.setattr("wizard.coerce_and_fill", fake_coerce)
     monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, t, **_: p)
     monkeypatch.setattr("wizard.CRITICAL_FIELDS", [])
-    monkeypatch.setattr(
-        "wizard.ask_followups", lambda *_, **__: pytest.fail("ask_followups called")
-    )
+    monkeypatch.setattr("wizard.ask_followups", lambda *_, **__: pytest.fail("ask_followups called"))
 
     class _DummySpinner:
         def __enter__(self):
@@ -159,9 +145,7 @@ def test_extract_and_summarize_auto_reask_with_no_missing(
     assert st.session_state["auto_reask_total"] == 0
     assert StateKeys.FOLLOWUPS not in st.session_state
     assert st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] is None
-    assert st.session_state[StateKeys.COMPLETED_SECTIONS] == list(
-        CRITICAL_SECTION_ORDER
-    )
+    assert st.session_state[StateKeys.COMPLETED_SECTIONS] == list(CRITICAL_SECTION_ORDER)
     assert not st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP]
 
 

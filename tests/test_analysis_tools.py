@@ -34,4 +34,3 @@ def test_normalise_date_honours_custom_formats() -> None:
     assert result["utc_offset_minutes"] == 120
     assert result["inferred_format"] == "%d-%m-%Y %H:%M %z"
     assert result["error"] is None
-

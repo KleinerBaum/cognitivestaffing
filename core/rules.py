@@ -340,9 +340,7 @@ def _iter_block_matches(block: ContentBlock, index: int) -> Iterable[RuleMatch]:
     return results
 
 
-def _regex_email_matches(
-    text: str, index: int, block: ContentBlock
-) -> Iterable[RuleMatch]:
+def _regex_email_matches(text: str, index: int, block: ContentBlock) -> Iterable[RuleMatch]:
     match = _EMAIL_RE.search(text)
     if not match:
         return []
@@ -360,9 +358,7 @@ def _regex_email_matches(
     ]
 
 
-def _regex_phone_matches(
-    text: str, index: int, block: ContentBlock
-) -> Iterable[RuleMatch]:
+def _regex_phone_matches(text: str, index: int, block: ContentBlock) -> Iterable[RuleMatch]:
     extracted = _extract_phone(text)
     if not extracted:
         return []
@@ -380,29 +376,20 @@ def _regex_phone_matches(
     ]
 
 
-def _regex_salary_matches(
-    text: str, index: int, block: ContentBlock
-) -> Iterable[RuleMatch]:
+def _regex_salary_matches(text: str, index: int, block: ContentBlock) -> Iterable[RuleMatch]:
     match = _SALARY_RE.search(text)
     if not match:
         return []
     if not (
-        match.group("currency")
-        or match.group("currency_mid")
-        or match.group("currency_after")
-        or match.group("prefix")
+        match.group("currency") or match.group("currency_mid") or match.group("currency_after") or match.group("prefix")
     ):
         return []
     span = match.group(0)
     currency = _normalize_currency(
-        match.group("currency")
-        or match.group("currency_mid")
-        or match.group("currency_after")
+        match.group("currency") or match.group("currency_mid") or match.group("currency_after")
     )
     minimum = _normalize_salary_value(match.group("min"))
-    maximum = (
-        _normalize_salary_value(match.group("max")) if match.group("max") else None
-    )
+    maximum = _normalize_salary_value(match.group("max")) if match.group("max") else None
     if maximum is None:
         maximum = minimum
     results: list[RuleMatch] = []
@@ -472,9 +459,7 @@ def _extract_phone(text: str) -> tuple[str, str] | None:
     return normalized, source or normalized
 
 
-def _regex_location_matches(
-    text: str, index: int, block: ContentBlock
-) -> Iterable[RuleMatch]:
+def _regex_location_matches(text: str, index: int, block: ContentBlock) -> Iterable[RuleMatch]:
     city, country = _extract_location(text)
     if not city and not country:
         return []
@@ -509,9 +494,7 @@ def _regex_location_matches(
     return results
 
 
-def _regex_industry_matches(
-    text: str, index: int, block: ContentBlock
-) -> Iterable[RuleMatch]:
+def _regex_industry_matches(text: str, index: int, block: ContentBlock) -> Iterable[RuleMatch]:
     match = _INDUSTRY_LINE_RE.search(text)
     if not match:
         return []
@@ -750,9 +733,7 @@ def _finalize_location(
     return city, normalized_country
 
 
-def _infer_country_from_city(
-    city: str, *, entities: LocationEntities | None
-) -> str | None:
+def _infer_country_from_city(city: str, *, entities: LocationEntities | None) -> str | None:
     lookup_key = city.casefold()
     mapped = _CITY_TO_COUNTRY.get(lookup_key)
     if mapped:
@@ -791,9 +772,7 @@ def _safe_location_entities(text: str) -> LocationEntities | None:
         return None
 
 
-def _is_valid_city_candidate(
-    candidate: str, *, entities: LocationEntities | None
-) -> bool:
+def _is_valid_city_candidate(candidate: str, *, entities: LocationEntities | None) -> bool:
     candidate = candidate.strip()
     if not candidate:
         return False
@@ -822,9 +801,7 @@ def _is_valid_city_candidate(
     return False
 
 
-def _is_valid_country_candidate(
-    candidate: str, *, entities: LocationEntities | None
-) -> bool:
+def _is_valid_country_candidate(candidate: str, *, entities: LocationEntities | None) -> bool:
     candidate = candidate.strip()
     if not candidate:
         return False

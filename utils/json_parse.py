@@ -200,9 +200,7 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
     last_err = None
 
     def _process(payload: str) -> NeedAnalysisProfile:
-        data = _coerce_types(
-            _filter_unknown_fields(_apply_aliases(json.loads(payload)))
-        )
+        data = _coerce_types(_filter_unknown_fields(_apply_aliases(json.loads(payload))))
         return NeedAnalysisProfile.model_validate(data)
 
     # 1) direct parse

@@ -40,9 +40,7 @@ def test_followup_updates_trigger_regeneration(monkeypatch) -> None:
         return True
 
     monkeypatch.setattr("wizard._generate_job_ad_content", _fake_job_ad)
-    monkeypatch.setattr(
-        "wizard._generate_interview_guide_content", _fake_interview
-    )
+    monkeypatch.setattr("wizard._generate_interview_guide_content", _fake_interview)
 
     data: dict[str, object] = {"company": {}}
     filtered_profile = {"company": {}}
@@ -129,14 +127,8 @@ def test_summary_boolean_ui_uses_synonyms_and_skills(monkeypatch) -> None:
     assert st.session_state[StateKeys.BOOLEAN_STR] == expected_query
 
     title_key = _boolean_widget_key("boolean.title", "Data Engineer")
-    synonym_keys = [
-        _boolean_widget_key("boolean.synonym", synonym)
-        for synonym in boolean_title_synonyms
-    ]
-    skill_keys = [
-        _boolean_widget_key("boolean.skill", skill)
-        for skill in boolean_skill_terms
-    ]
+    synonym_keys = [_boolean_widget_key("boolean.synonym", synonym) for synonym in boolean_title_synonyms]
+    skill_keys = [_boolean_widget_key("boolean.skill", skill) for skill in boolean_skill_terms]
     expected_keys = sorted(set([title_key, *synonym_keys, *skill_keys]))
     assert st.session_state[BOOLEAN_WIDGET_KEYS] == expected_keys
     assert sorted(set(recorded_keys)) == expected_keys

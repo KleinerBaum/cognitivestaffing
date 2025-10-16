@@ -83,16 +83,12 @@ def test_chart_specs_update_when_skills_change() -> None:
 
     python_salary_spec = build_salary_chart_spec(python_records, lang="de")
     java_salary_spec = build_salary_chart_spec(java_records, lang="de")
-    python_availability_spec = build_availability_chart_spec(
-        python_records, lang="de"
-    )
+    python_availability_spec = build_availability_chart_spec(python_records, lang="de")
     java_availability_spec = build_availability_chart_spec(java_records, lang="de")
 
-    assert (
-        python_salary_spec["data"]["values"]
-        != java_salary_spec["data"]["values"]
-    ), "Salary chart should change when the skill selection changes."
-    assert (
-        python_availability_spec["data"]["values"]
-        != java_availability_spec["data"]["values"]
-    ), "Availability chart should change when the skill selection changes."
+    assert python_salary_spec["data"]["values"] != java_salary_spec["data"]["values"], (
+        "Salary chart should change when the skill selection changes."
+    )
+    assert python_availability_spec["data"]["values"] != java_availability_spec["data"]["values"], (
+        "Availability chart should change when the skill selection changes."
+    )

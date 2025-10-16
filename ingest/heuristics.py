@@ -83,9 +83,7 @@ _LOCATION_KEYWORDS = {
     "nrw",
 }
 
-_LOCATION_KEYWORD_NORMALIZED = {
-    re.sub(r"[\W_]+", "", keyword).casefold() for keyword in _LOCATION_KEYWORDS
-}
+_LOCATION_KEYWORD_NORMALIZED = {re.sub(r"[\W_]+", "", keyword).casefold() for keyword in _LOCATION_KEYWORDS}
 
 _JOB_TYPE_MAP = {
     "apprenticeship": [
@@ -497,12 +495,8 @@ def _dedupe_skill_tiers(requirements: Requirements) -> None:
 
     requirements.hard_skills_required = hard_req
     requirements.soft_skills_required = soft_req
-    requirements.hard_skills_optional = _dedupe_secondary(
-        requirements.hard_skills_optional, hard_req_markers
-    )
-    requirements.soft_skills_optional = _dedupe_secondary(
-        requirements.soft_skills_optional, soft_req_markers
-    )
+    requirements.hard_skills_optional = _dedupe_secondary(requirements.hard_skills_optional, hard_req_markers)
+    requirements.soft_skills_optional = _dedupe_secondary(requirements.soft_skills_optional, soft_req_markers)
 
 
 def _parse_salary_value(raw: str) -> Optional[float]:
@@ -756,9 +750,7 @@ def extract_responsibilities(text: str) -> List[str]:
                 if items:
                     break
                 continue
-            if (lower in _RESP_HEADINGS or line.endswith(":")) and not _is_bullet_line(
-                line
-            ):
+            if (lower in _RESP_HEADINGS or line.endswith(":")) and not _is_bullet_line(line):
                 break
             if _is_bullet_line(line):
                 items.append(_clean_bullet(raw_line))
@@ -835,17 +827,12 @@ def _looks_like_location_line(line: str, known_locations: set[str]) -> bool:
         segments = [seg.strip() for seg in re.split(r"[|/•·,]", stripped) if seg.strip()]
         if not segments:
             return True
-        if all(
-            _is_location_token(segment, known_locations) or _POSTAL_CODE_RE.search(segment)
-            for segment in segments
-        ):
+        if all(_is_location_token(segment, known_locations) or _POSTAL_CODE_RE.search(segment) for segment in segments):
             return True
     segments = [seg.strip() for seg in re.split(r"[|/•·,]", stripped) if seg.strip()]
     if len(segments) > 1:
         if all(
-            _is_location_token(segment, known_locations)
-            or _POSTAL_CODE_RE.search(segment)
-            or _segment_is_city(segment)
+            _is_location_token(segment, known_locations) or _POSTAL_CODE_RE.search(segment) or _segment_is_city(segment)
             for segment in segments
         ):
             return True
@@ -940,14 +927,10 @@ def guess_job_title(
     if not lines:
         return ""
     known_values = {
-        _normalize_for_compare(value)
-        for value in skip_phrases or []
-        if isinstance(value, str) and value.strip()
+        _normalize_for_compare(value) for value in skip_phrases or [] if isinstance(value, str) and value.strip()
     }
     location_values = {
-        _normalize_for_compare(value)
-        for value in known_locations or []
-        if isinstance(value, str) and value.strip()
+        _normalize_for_compare(value) for value in known_locations or [] if isinstance(value, str) and value.strip()
     }
     for index, first_line in enumerate(lines):
         if _should_skip_line(first_line, known_values, location_values):
@@ -1089,19 +1072,9 @@ def apply_basic_fallbacks(
     if not isinstance(autodetect_lang, str):
         autodetect_lang = metadata.get("_autodetect_language")
     language_hint = autodetect_lang if isinstance(autodetect_lang, str) else None
-    invalid_fields = {
-        field for field in metadata.get("invalid_fields", []) if isinstance(field, str)
-    }
-    high_confidence = {
-        field
-        for field in metadata.get("high_confidence_fields", [])
-        if isinstance(field, str)
-    }
-    locked_fields = {
-        field
-        for field in metadata.get("locked_fields", [])
-        if isinstance(field, str)
-    }
+    invalid_fields = {field for field in metadata.get("invalid_fields", []) if isinstance(field, str)}
+    high_confidence = {field for field in metadata.get("high_confidence_fields", []) if isinstance(field, str)}
+    locked_fields = {field for field in metadata.get("locked_fields", []) if isinstance(field, str)}
     city_field = "location.primary_city"
     country_field = "location.country"
     city_invalid = city_field in invalid_fields
@@ -1117,27 +1090,13 @@ def apply_basic_fallbacks(
     location_entities = None
 
     if not profile.position.job_title and "position.job_title" not in locked_fields:
-        company_hints = _coerce_strings(
-            [profile.company.name, profile.company.brand_name]
-        )
-        company_hints.extend(
-            _collect_locked_values(metadata, "company.name", locked_fields)
-        )
-        company_hints.extend(
-            _collect_locked_values(metadata, "company.brand_name", locked_fields)
-        )
-        location_hints = _coerce_strings(
-            [profile.location.primary_city, profile.location.country]
-        )
-        location_hints.extend(
-            _collect_locked_values(metadata, "location.primary_city", locked_fields)
-        )
-        location_hints.extend(
-            _collect_locked_values(metadata, "location.country", locked_fields)
-        )
-        skip_phrases = company_hints + _collect_locked_values(
-            metadata, "position.job_title", locked_fields
-        )
+        company_hints = _coerce_strings([profile.company.name, profile.company.brand_name])
+        company_hints.extend(_collect_locked_values(metadata, "company.name", locked_fields))
+        company_hints.extend(_collect_locked_values(metadata, "company.brand_name", locked_fields))
+        location_hints = _coerce_strings([profile.location.primary_city, profile.location.country])
+        location_hints.extend(_collect_locked_values(metadata, "location.primary_city", locked_fields))
+        location_hints.extend(_collect_locked_values(metadata, "location.country", locked_fields))
+        skip_phrases = company_hints + _collect_locked_values(metadata, "position.job_title", locked_fields)
         title_guess = guess_job_title(
             text,
             skip_phrases=skip_phrases,
@@ -1235,9 +1194,7 @@ def apply_basic_fallbacks(
                         compensation.currency = "EUR"
                     compensation.salary_provided = True
     if not compensation.variable_pay:
-        if re.search(
-            r"variable|bonus|provision|prämie|commission", text, re.IGNORECASE
-        ):
+        if re.search(r"variable|bonus|provision|prämie|commission", text, re.IGNORECASE):
             compensation.variable_pay = True
         pct = _BONUS_PERCENT_RE.search(text)
         if pct:
@@ -1254,15 +1211,11 @@ def apply_basic_fallbacks(
         if merged_benefits:
             compensation.benefits = merged_benefits
             if isinstance(metadata, MutableMapping):
-                locked = set(
-                    str(field) for field in metadata.get("locked_fields", []) if isinstance(field, str)
-                )
+                locked = set(str(field) for field in metadata.get("locked_fields", []) if isinstance(field, str))
                 locked.add("compensation.benefits")
                 metadata["locked_fields"] = sorted(locked)
                 high_conf = set(
-                    str(field)
-                    for field in metadata.get("high_confidence_fields", [])
-                    if isinstance(field, str)
+                    str(field) for field in metadata.get("high_confidence_fields", []) if isinstance(field, str)
                 )
                 high_conf.add("compensation.benefits")
                 metadata["high_confidence_fields"] = sorted(high_conf)

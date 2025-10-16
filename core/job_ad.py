@@ -324,9 +324,7 @@ def suggest_target_audiences(
         title_de = "Ambitionierte Fachkräfte"
         title_en = "Ambitious Professionals"
         description_de = (
-            f"Betont Entwicklungschancen und Mentoring für {job_title}"
-            if job_title
-            else "Betont Entwicklungschancen"
+            f"Betont Entwicklungschancen und Mentoring für {job_title}" if job_title else "Betont Entwicklungschancen"
         )
         description_en = (
             f"Highlights growth opportunities and mentoring for {job_title}"
@@ -351,8 +349,7 @@ def suggest_target_audiences(
             + location_note_de
         )
         description_en = (
-            "Focuses on flexible work setups, digital collaboration and clear communication routines"
-            + location_note_en
+            "Focuses on flexible work setups, digital collaboration and clear communication routines" + location_note_en
         )
         key = "remote"
     else:
@@ -360,14 +357,8 @@ def suggest_target_audiences(
         title_en = "Local Talent"
         location_phrase_de = f" im Raum {location}" if location else ""
         location_phrase_en = f" around {location}" if location else ""
-        description_de = (
-            "Betont die Präsenzkultur, kurze Entscheidungswege und Teamzusammenhalt"
-            + location_phrase_de
-        )
-        description_en = (
-            "Highlights on-site collaboration, quick decisions and close-knit teams"
-            + location_phrase_en
-        )
+        description_de = "Betont die Präsenzkultur, kurze Entscheidungswege und Teamzusammenhalt" + location_phrase_de
+        description_en = "Highlights on-site collaboration, quick decisions and close-knit teams" + location_phrase_en
         key = "local"
     audience.append(
         TargetAudienceSuggestion(
@@ -382,9 +373,7 @@ def suggest_target_audiences(
         title_en = "Culture & Benefits Driven Candidates"
         if benefits:
             perks = ", ".join(benefits[:3])
-            desc_de = (
-                f"Stellt Benefits wie {perks} und gelebte Werte in den Mittelpunkt"
-            )
+            desc_de = f"Stellt Benefits wie {perks} und gelebte Werte in den Mittelpunkt"
             desc_en = f"Puts benefits such as {perks} and company values at the centre"
         elif culture:
             desc_de = f"Hervorhebung der Unternehmenskultur: {culture}"

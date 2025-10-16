@@ -107,9 +107,7 @@ _DEFAULT_SKILL_MARKET_DATA: dict[str, dict[str, object]] = {
                 {"max_radius": 25, "salary_delta_pct": 0.2, "availability_index": 78.0},
                 {"salary_delta_pct": 0.1, "availability_index": 80.0},
             ],
-            "de": [
-                {"salary_delta_pct": 0.0, "availability_index": 82.0}
-            ],
+            "de": [{"salary_delta_pct": 0.0, "availability_index": 82.0}],
         },
     },
     "german": {
@@ -203,9 +201,7 @@ def _prepare_region_bands(raw_regions: object) -> dict[str, list[dict[str, float
             )
         if not bands:
             continue
-        bands.sort(
-            key=lambda item: float("inf") if item["max_radius"] is None else float(item["max_radius"])
-        )
+        bands.sort(key=lambda item: float("inf") if item["max_radius"] is None else float(item["max_radius"]))
         prepared[normalized_region] = bands
     return prepared
 
@@ -266,12 +262,7 @@ def _derive_location_keys(location: Mapping[str, object] | None) -> list[str]:
     keys: list[str] = []
     city = str(location.get("primary_city", "") or "").strip()
     country = str(location.get("country", "") or "").strip()
-    region = str(
-        location.get("region")
-        or location.get("state")
-        or location.get("province")
-        or ""
-    ).strip()
+    region = str(location.get("region") or location.get("state") or location.get("province") or "").strip()
     if city and country:
         keys.append(f"{city} {country}")
     if region and country:
@@ -322,12 +313,7 @@ def _compose_location_label(location: Mapping[str, object] | None) -> str:
     if not isinstance(location, Mapping):
         return ""
     city = str(location.get("primary_city", "") or "").strip()
-    region = str(
-        location.get("region")
-        or location.get("state")
-        or location.get("province")
-        or ""
-    ).strip()
+    region = str(location.get("region") or location.get("state") or location.get("province") or "").strip()
     country = str(location.get("country", "") or "").strip()
     parts = [part for part in (city, region, country) if part]
     return ", ".join(dict.fromkeys(parts))
@@ -571,9 +557,7 @@ def _render_summary(
         radius_text: str | None = None
         if radius_values:
             radius = sorted(radius_values)[-1]
-            radius_text = tr("Radius: {radius:.0f} km", "Radius: {radius:.0f} km", lang=lang).format(
-                radius=radius
-            )
+            radius_text = tr("Radius: {radius:.0f} km", "Radius: {radius:.0f} km", lang=lang).format(radius=radius)
         if region_label or radius_text:
             if region_label and radius_text:
                 combined = f"{region_label} · {radius_text}"

@@ -76,6 +76,7 @@ def _patch_common_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "caption", lambda *_, **__: None)
     monkeypatch.setattr(st, "button", lambda *_, **__: False)
     monkeypatch.setattr(st, "slider", lambda *_, value, **__: value)
+
     def _fake_text_input(*_, key=None, value="", **__):
         if key is not None and key not in st.session_state:
             st.session_state[key] = value

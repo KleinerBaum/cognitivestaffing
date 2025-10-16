@@ -55,10 +55,7 @@ def _assert_closed_schema(schema: dict[str, Any]) -> None:
     _walk(schema)
     if refs:
         report = "\n".join(refs)
-        raise ValueError(
-            "Foreign key references are not allowed in function-calling schema:\n"
-            + report
-        )
+        raise ValueError("Foreign key references are not allowed in function-calling schema:\n" + report)
 
 
 def _generate_error_report(instance: dict[str, Any]) -> str:
@@ -79,9 +76,7 @@ def _generate_error_report(instance: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
-)
+SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
 with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
     raw = _f.read()
     cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
@@ -204,9 +199,7 @@ def extract_json(
             span.record_exception(err)
             span.add_event("structured_validation_failed")
         except Exception as exc:  # pragma: no cover - network/SDK issues
-            logger.warning(
-                "Structured extraction failed, falling back to plain text: %s", exc
-            )
+            logger.warning("Structured extraction failed, falling back to plain text: %s", exc)
             span.record_exception(exc)
             span.add_event("structured_call_failed")
         else:

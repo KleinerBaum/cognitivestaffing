@@ -22,9 +22,7 @@ def _strip_optional(tp: Any) -> Any:
     return tp
 
 
-def _collect_fields(
-    model: type[BaseModel], prefix: str = ""
-) -> Tuple[List[str], set[str], Dict[str, Any]]:
+def _collect_fields(model: type[BaseModel], prefix: str = "") -> Tuple[List[str], set[str], Dict[str, Any]]:
     """Recursively collect field paths, list-typed fields and types."""
 
     paths: List[str] = []

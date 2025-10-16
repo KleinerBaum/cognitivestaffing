@@ -58,13 +58,9 @@ class InterviewGuideMetadata(BaseModel):
     heading: str = Field(default="", description="Display heading for the guide document.")
     job_title: str = Field(default="", description="Job title or role name.")
     audience: str = Field(default="", description="Audience short code or identifier.")
-    audience_label: str | None = Field(
-        default=None, description="Localised label describing the interview audience."
-    )
+    audience_label: str | None = Field(default=None, description="Localised label describing the interview audience.")
     tone: str = Field(default="", description="Tone descriptor supplied by the user or model.")
-    tone_label: str | None = Field(
-        default=None, description="Optional localised label to render the tone heading."
-    )
+    tone_label: str | None = Field(default=None, description="Optional localised label to render the tone heading.")
     culture_note: str | None = Field(
         default=None,
         description="Optional description of the company culture to remind the panel.",
@@ -123,11 +119,7 @@ class InterviewGuide(BaseModel):
         return "Focus", "Evaluation guidance"
 
     def _evaluation_heading(self) -> str:
-        return (
-            "Bewertungsschwerpunkte"
-            if self.metadata.normalised_language() == "de"
-            else "Evaluation notes"
-        )
+        return "Bewertungsschwerpunkte" if self.metadata.normalised_language() == "de" else "Evaluation notes"
 
     def render_markdown(self) -> str:
         """Render a Markdown document from the structured content."""

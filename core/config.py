@@ -64,9 +64,7 @@ def load_settings() -> Settings:
     api_key = _get("OPENAI_API_KEY")
     org = _get("OPENAI_ORG")
     if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY is missing. Set the variable or define it in st.secrets."
-        )
+        raise RuntimeError("OPENAI_API_KEY is missing. Set the variable or define it in st.secrets.")
 
     return Settings(
         openai_api_key=api_key,

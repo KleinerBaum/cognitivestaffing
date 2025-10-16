@@ -613,9 +613,7 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
     meta = st.session_state[StateKeys.SKILL_BOARD_META]
     assert captured_payload, "sort_items should receive a payload"
     first_payload = captured_payload[0]
-    esco_container = next(
-        container for container in first_payload if container.get("header") == esco_header
-    )
+    esco_container = next(container for container in first_payload if container.get("header") == esco_header)
     esco_items_markup = esco_container.get("items", []) or []
     assert esco_items_markup, "ESCO container should start with items"
     moved_labels = [meta[item]["label"] for item in board_state["target_must"] if item in meta]
