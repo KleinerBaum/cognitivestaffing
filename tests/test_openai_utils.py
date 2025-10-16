@@ -1843,6 +1843,41 @@ def test_extract_with_function_json_fallback_reuses_payload(monkeypatch):
     assert payload["fields"][0]["context"][0]["text"].startswith("Job Title")
 
 
+def test_extract_with_function_best_effort_fallback(monkeypatch):
+    """When both primary strategies fail, a best-effort retry should run."""
+
+    calls: list[dict[str, Any]] = []
+
+    responses = [
+        ChatCallResult(None, [], {}),
+        ChatCallResult("   ", [], {}),
+        ChatCallResult('{"job_title": "Fallback"}', [], {}),
+    ]
+
+    def _fake_call(messages: Sequence[dict[str, str]], **kwargs: Any) -> ChatCallResult:
+        calls.append({"messages": messages, "kwargs": kwargs})
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+
+    from core import schema as cs
+
+    class _FakeProfile:
+        def __init__(self, data: dict[str, Any]) -> None:
+            self._data = data
+
+        def model_dump(self) -> dict[str, Any]:
+            return self._data
+
+    monkeypatch.setattr(cs, "coerce_and_fill", lambda data: _FakeProfile(data))
+
+    result = extract_with_function("Some job text", {})
+
+    assert result.data["job_title"] == "Fallback"
+    assert len(calls) == 3
+    assert "Return ONLY a JSON object" in calls[2]["messages"][0]["content"]
+
+
 def test_extract_with_function_parses_json_payload(monkeypatch):
     """Structured extraction should accept strictly formatted JSON payloads."""
 
@@ -1881,8 +1916,10 @@ def test_extract_with_function_parses_json_payload(monkeypatch):
 def test_extract_with_function_raises_for_malformed_json(monkeypatch):
     """Malformed JSON payloads should surface a clear ``ValueError``."""
 
-    def _fake_call(messages, **kwargs):  # noqa: ANN001 - API signature is dynamic
-        return ChatCallResult(
+    calls: list[dict[str, Any]] = []
+
+    responses = [
+        ChatCallResult(
             None,
             [
                 {
@@ -1892,7 +1929,13 @@ def test_extract_with_function_raises_for_malformed_json(monkeypatch):
                 }
             ],
             {},
-        )
+        ),
+        ChatCallResult("{", [], {}),
+    ]
+
+    def _fake_call(messages, **kwargs):  # noqa: ANN001 - API signature is dynamic
+        calls.append({"messages": messages, "kwargs": kwargs})
+        return responses[len(calls) - 1]
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
 
@@ -1901,6 +1944,7 @@ def test_extract_with_function_raises_for_malformed_json(monkeypatch):
 
     assert str(excinfo.value) == "Model returned invalid JSON"
     assert isinstance(excinfo.value.__cause__, Exception)
+    assert len(calls) == 2
 
 
 def test_extract_with_function_propagates_validation_error(monkeypatch):
