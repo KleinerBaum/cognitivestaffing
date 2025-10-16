@@ -19,7 +19,6 @@ from config import (
     OPENAI_BASE_URL,
     REASONING_EFFORT,
     VERBOSITY,
-    OPENAI_MODEL,  # noqa: F401 - re-exported after normalization to keep module parity
     normalise_model_name,
     normalise_model_override,
     normalise_verbosity,
@@ -118,8 +117,6 @@ def ensure_state() -> None:
     canonical_model = normalise_model_name(app_config.OPENAI_MODEL) or GPT4O
     if app_config.OPENAI_MODEL != canonical_model:
         app_config.OPENAI_MODEL = canonical_model
-    global OPENAI_MODEL
-    OPENAI_MODEL = canonical_model
 
     if "model" not in st.session_state:
         st.session_state["model"] = canonical_model
