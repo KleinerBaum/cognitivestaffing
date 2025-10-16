@@ -60,7 +60,10 @@ def build_extract_messages(
 
     system_content = SYSTEM_JSON_EXTRACTOR
     if locked_fields:
-        system_content = f"{SYSTEM_JSON_EXTRACTOR} Keep provided locked values unchanged in the JSON output."
+        system_content = (
+            f"{SYSTEM_JSON_EXTRACTOR} Keep locked fields unchanged in the JSON output; "
+            "the application will supply their stored values."
+        )
 
     return [
         {"role": "system", "content": system_content},

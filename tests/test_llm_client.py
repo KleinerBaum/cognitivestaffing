@@ -133,6 +133,28 @@ def test_extract_json_forwards_context(monkeypatch):
     assert captured["messages"][0]["content"] == "sys"
 
 
+def test_extract_json_reapplies_locked_fields(monkeypatch):
+    """Locked field hints should be merged back into the final payload."""
+
+    locked_values = {
+        "company.contact_email": "m.m@rheinbahn.de",
+        "location.primary_city": "Flexible Arbeitszeiten",
+    }
+
+    def _fake(messages, *, json_schema=None, **kwargs):
+        assert json_schema is not None
+        profile = NeedAnalysisProfile()
+        profile.company.contact_email = "override@example.com"
+        profile.location.primary_city = "Düsseldorf"
+        return ChatCallResult(content=profile.model_dump_json(), tool_calls=[], usage={})
+
+    monkeypatch.setattr(client, "call_chat_api", _fake)
+    out = client.extract_json("text", locked_fields=locked_values)
+    payload = json.loads(out)
+    assert payload["company"]["contact_email"] == "m.m@rheinbahn.de"
+    assert payload["location"]["primary_city"] == "Flexible Arbeitszeiten"
+
+
 def test_assert_closed_schema_raises() -> None:
     """The helper should detect foreign key references."""
 

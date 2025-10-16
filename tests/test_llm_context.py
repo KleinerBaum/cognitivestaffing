@@ -26,11 +26,12 @@ def test_build_messages_include_locked_fields():
         },
     )
     system = msgs[0]["content"]
-    assert "Keep provided locked values unchanged" in system
+    assert "Keep locked fields unchanged" in system
     user = msgs[1]["content"]
-    assert "Locked values (reuse exactly):" in user
-    assert "- position.job_title: Engineer" in user
-    assert "- company.name: Acme Corp" in user
+    assert "Locked fields (preserve existing values):" in user
+    assert "  - position.job_title" in user
+    assert "  - company.name" in user
+    assert "- position.job_title: Engineer" not in user
 
 
 def test_locked_fields_are_excluded_from_field_list():

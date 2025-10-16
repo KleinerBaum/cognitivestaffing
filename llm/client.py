@@ -6,6 +6,7 @@ import json
 import re
 import logging
 from pathlib import Path
+from collections.abc import MutableMapping
 from typing import Any, Mapping, Optional
 
 from jsonschema import Draft7Validator
@@ -26,6 +27,38 @@ tracer = trace.get_tracer(__name__)
 
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
+
+
+def _set_nested_value(target: MutableMapping[str, Any], path: str, value: Any) -> None:
+    """Assign ``value`` to ``path`` within ``target`` using dot-notation."""
+
+    parts = path.split(".")
+    cursor: MutableMapping[str, Any] = target
+    for part in parts[:-1]:
+        child = cursor.get(part)
+        if not isinstance(child, MutableMapping):
+            child = {}
+            cursor[part] = child
+        cursor = child
+    cursor[parts[-1]] = value
+
+
+def _merge_locked_fields(payload: MutableMapping[str, Any], locked_fields: Mapping[str, Any] | None) -> None:
+    """Apply locked field values to the extracted payload in-place."""
+
+    if not locked_fields:
+        return
+
+    for field, value in locked_fields.items():
+        if value is None:
+            continue
+        final_value = value
+        if isinstance(value, str):
+            sanitized = value.strip().replace("\n", " ")
+            if not sanitized:
+                continue
+            final_value = sanitized
+        _set_nested_value(payload, field, final_value)
 
 
 def _assert_closed_schema(schema: dict[str, Any]) -> None:
@@ -189,6 +222,10 @@ def extract_json(
                     "verbosity": get_active_verbosity(),
                 }
             )
+            if locked_fields:
+                data = json.loads(output)
+                _merge_locked_fields(data, locked_fields)
+                output = json.dumps(data, ensure_ascii=False)
         except ValidationError as err:
             notes = "\n".join(getattr(err, "__notes__", ()))
             detail = notes or str(err)
