@@ -262,6 +262,7 @@ def _best_effort_json_retry(
     system_prompt = prompt_registry.format("llm.json_extractor.system")
     guidance = textwrap.dedent(
         """
+        Return ONLY a JSON object that strictly matches the provided schema.
         Always respond with a valid JSON object. Provide best-effort values for the schema
         using empty strings, empty arrays, or null for unknown fields. If evidence is missing,
         omit the key rather than inventing values. Never return prose.
