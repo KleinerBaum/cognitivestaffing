@@ -1,7 +1,6 @@
 # Changelog
 
 ## Unreleased
-_TBD / Noch offen_
 
 - feat: refactor wizard helpers into the `wizard/` package, localise follow-up presets via i18n, and load prompts from the central registry
   - Feature: Wizard-Helfer in Paket `wizard/`, Follow-up-Vorlagen lokalisiert und Prompts aus der Registry geladen
