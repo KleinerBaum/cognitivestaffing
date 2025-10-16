@@ -61,7 +61,6 @@ def test_retrieve_from_vector_store_parses_results(monkeypatch):
     result = gap_analysis.retrieve_from_vector_store(
         "query",
         vector_store_id="store-123",
-        client=object(),
         top_k=2,
     )
     assert result == ["First snippet", "Second snippet"]
