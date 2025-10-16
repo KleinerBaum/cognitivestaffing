@@ -44,8 +44,8 @@ __all__ = [
 ]
 
 
-def _load_legacy_module() -> None:
-    """Load the historic ``wizard.py`` module and re-export its attributes."""
+def _load_legacy_module() -> list[str]:
+    """Load the historic ``wizard.py`` module and return the exported names."""
 
     module_path = Path(__file__).resolve().parent.parent / "wizard.py"
     source = module_path.read_text(encoding="utf-8")
@@ -54,12 +54,19 @@ def _load_legacy_module() -> None:
     before = set(exec_globals.keys())
     exec(code, exec_globals, exec_globals)
     after = set(exec_globals.keys())
+
+    legacy_exports: list[str] = []
     for name in sorted(after - before):
         if name.startswith("__"):
             continue
-        if name not in __all__:
-            __all__.append(name)
+        legacy_exports.append(name)
+    return legacy_exports
 
+
+LEGACY_EXPORTS: list[str] = []
 
 if not TYPE_CHECKING:
-    _load_legacy_module()
+    LEGACY_EXPORTS = [
+        name for name in _load_legacy_module() if name not in __all__
+    ]
+    __all__.extend(LEGACY_EXPORTS)
