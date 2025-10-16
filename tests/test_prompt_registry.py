@@ -14,7 +14,7 @@ def test_prompt_registry_locale_resolution() -> None:
 
 
 def test_prompt_registry_formatting(tmp_path) -> None:
-    registry_file = tmp_path / "registry.json"
-    registry_file.write_text('{"example": {"system": "Call {name}"}}', encoding="utf-8")
+    registry_file = tmp_path / "registry.yaml"
+    registry_file.write_text("example:\n  system: 'Call {name}'\n", encoding="utf-8")
     registry = PromptRegistry(path=registry_file)
     assert registry.format("example.system", name="Alice") == "Call Alice"
