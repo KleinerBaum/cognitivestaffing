@@ -9,6 +9,8 @@ _TBD / Noch offen_
   - Chore: Modell-Fallbacks um einen GPT-4-Schritt erweitert und zweisprachige Deployment-Doku ergänzt
 - fix: normalise role-specific follow-up questions via translation keys instead of hard-coded English strings
   - Fix: Rollenspezifische Nachfragen per Übersetzungsschlüssel statt fest verdrahteter Englisch-Texte
+- fix: keep URL text extraction functional when BeautifulSoup is unavailable by falling back to a builtin parser
+  - Fix: Sichert die URL-Textextraktion ab, falls BeautifulSoup fehlt, und nutzt einen eingebauten Parser als Fallback
 - fix: default the application language to English on first load
 - fix: keep the wizard next button enabled and surface a hint for missing required fields
 - fix: darken light-mode hero background image for stronger visual contrast

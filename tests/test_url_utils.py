@@ -2,11 +2,10 @@ import pytest
 
 import utils
 from utils.url_utils import is_supported_url
+import utils.url_utils as url_utils
 
 
-def test_extract_text_from_url(monkeypatch: pytest.MonkeyPatch) -> None:
-    html = "<html><body><h1>Title</h1><p>Hello URL</p><script>nope</script></body></html>"
-
+def _install_request_stub(monkeypatch: pytest.MonkeyPatch, html: str) -> None:
     class Resp:
         text = html
 
@@ -20,8 +19,24 @@ def test_extract_text_from_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(requests, "get", fake_get)
 
+
+def test_extract_text_from_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = "<html><body><h1>Title</h1><p>Hello URL</p><script>nope</script></body></html>"
+    _install_request_stub(monkeypatch, html)
     text = utils.extract_text_from_url("http://example.com")
     assert "Hello URL" in text
+    assert "nope" not in text
+
+
+def test_extract_text_from_url_without_beautifulsoup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    html = "<html><body><main><p>Fallback text</p></main><script>ignore me</script></body></html>"
+    _install_request_stub(monkeypatch, html)
+    monkeypatch.setattr(url_utils, "BeautifulSoup", None)
+    text = utils.extract_text_from_url("http://example.com")
+    assert "Fallback text" in text
+    assert "ignore me" not in text
 
 
 @pytest.mark.parametrize(
