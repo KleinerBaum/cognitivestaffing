@@ -37,7 +37,7 @@ The Streamlit entrypoint (`app.py`) wires UI components from `components/` and t
 ```
 streamlit app.py
   ├─ wizard.py + components/      → build the UI flow & session state
-  │    └─ wizard_tools.py         → Streamlit function tools (ingest, reruns, SME merge)
+  │    └─ wizard_tools/           → Streamlit function tools (ingest, reruns, SME merge)
   ├─ core/ + question_logic.py    → vacancy domain logic & schema synchronisation
   └─ agents (AGENTS.md)
        ├─ llm/responses.py        → ChatCallResult wrapper & tool runner
