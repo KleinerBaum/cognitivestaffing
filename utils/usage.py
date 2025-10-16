@@ -27,7 +27,7 @@ _TASK_LABELS: dict[str, tuple[str, str]] = {
     ModelTask.CANDIDATE_MATCHING.value: ("Kandidat:innen-Matching", "Candidate matching"),
     ModelTask.DOCUMENT_REFINEMENT.value: ("Dokument-Feinschliff", "Document refinement"),
     ModelTask.EXPLANATION.value: ("Erklärungen", "Explanations"),
-    "salary_estimate": ("Gehaltsprognose", "Salary estimate"),
+    ModelTask.SALARY_ESTIMATE.value: ("Gehaltsprognose", "Salary estimate"),
 }
 
 
