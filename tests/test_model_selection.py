@@ -57,8 +57,8 @@ def test_suggest_benefits_model(monkeypatch: pytest.MonkeyPatch) -> None:
         return ChatCallResult("- BenefitA\n- BenefitB", [], {})
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-    out = openai_utils.suggest_benefits("Engineer", lang="en", model=config.GPT5_NANO)
-    assert captured["model"] == config.GPT5_NANO
+    out = openai_utils.suggest_benefits("Engineer", lang="en", model=config.GPT4O_MINI)
+    assert captured["model"] == config.GPT4O_MINI
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -72,7 +72,7 @@ def test_suggest_benefits_dispatch_default(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.GPT5_NANO
+    assert captured["model"] == config.GPT4O_MINI
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -102,7 +102,7 @@ def test_legacy_override_aliases_to_current_model(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.GPT5_NANO
+    assert captured["model"] == config.GPT4O_MINI
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -129,8 +129,8 @@ def test_primary_model_used_when_available() -> None:
     assert selected == fallback_chain[0]
 
 
-def test_falls_back_to_gpt4_when_gpt5_missing() -> None:
-    """When GPT-5 is unavailable the helper should choose GPT-4."""
+def test_falls_back_to_gpt35_when_gpt4o_missing() -> None:
+    """When GPT-4o is unavailable the helper should choose GPT-3.5."""
 
     fallback_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
     assert len(fallback_chain) >= 2, "Expected a secondary fallback entry"
@@ -140,17 +140,17 @@ def test_falls_back_to_gpt4_when_gpt5_missing() -> None:
     assert selected == fallback_chain[1]
 
 
-def test_falls_back_to_gpt35_when_gpt5_and_gpt4_missing() -> None:
-    """If GPT-5 and GPT-4 fail, the router should pick GPT-3.5."""
+def test_falls_back_to_last_candidate_when_all_marked() -> None:
+    """If every candidate is unavailable the router still returns the last option."""
 
     fallback_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
-    assert len(fallback_chain) >= 3, "Expected a tertiary fallback entry"
+    assert fallback_chain, "Expected at least one candidate"
 
-    config.mark_model_unavailable(fallback_chain[0])
-    config.mark_model_unavailable(fallback_chain[1])
+    for candidate in fallback_chain:
+        config.mark_model_unavailable(candidate)
 
     selected = config.get_model_for(config.ModelTask.EXTRACTION)
-    assert selected == fallback_chain[2]
+    assert selected == fallback_chain[-1]
 
 
 def test_marking_unavailable_is_cleared_on_reload() -> None:
@@ -171,7 +171,7 @@ def test_marking_unavailable_is_cleared_on_reload() -> None:
 def test_call_chat_api_switches_to_fallback_on_unavailable(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """call_chat_api should retry with gpt-4o when gpt-5.1-mini is unavailable."""
+    """call_chat_api should retry with gpt-3.5 when gpt-4o is unavailable."""
 
     st.session_state.clear()
     caplog.set_level("WARNING", logger="cognitive_needs.openai")
@@ -191,7 +191,7 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
                 headers={},
             )
             raise BadRequestError(
-                message="The model gpt-5.1-mini is currently overloaded.",
+                message="The model gpt-4o is currently overloaded.",
                 response=fake_response,
                 body=None,
             )
@@ -210,8 +210,8 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     )
 
     assert result.content == "OK"
-    assert attempts[0] in {config.GPT5_MINI, config.GPT5_NANO}
-    assert attempts[1] == config.GPT4O
+    assert attempts[0] == config.GPT4O
+    assert attempts[1] == "gpt-3.5-turbo"
     assert any("retrying with fallback" in record.message for record in caplog.records)
 
 
@@ -255,7 +255,7 @@ def test_model_selector_updates_override(monkeypatch: pytest.MonkeyPatch) -> Non
 
     def fake_selectbox(label, options, index=0, key=None, **kwargs):  # type: ignore[no-untyped-def]
         captured["index"] = index
-        choice = options[2]
+        choice = options[4]
         if key is not None:
             st.session_state[key] = choice
         return choice
@@ -292,6 +292,6 @@ def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyP
 
     resolved = model_selector_component.model_selector()
 
-    assert captured["index"] == 2
+    assert captured["index"] == 4
     assert resolved == config.GPT5_NANO
     assert st.session_state["model_override"] == config.GPT5_NANO

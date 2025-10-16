@@ -69,8 +69,8 @@ def test_ensure_state_normalises_legacy_models():
     st.session_state["model"] = "gpt-4o"
     st.session_state["model_override"] = "gpt-4o-mini"
     es.ensure_state()
-    assert st.session_state["model"] == config.GPT5_MINI
-    assert st.session_state["model_override"] == config.GPT5_NANO
+    assert st.session_state["model"] == config.GPT4O
+    assert st.session_state["model_override"] == config.GPT4O_MINI
 
 
 def test_ensure_state_preserves_minimal_reasoning_level():
@@ -131,7 +131,7 @@ def test_default_model_falls_back_to_gpt5_mini_for_blank_env(monkeypatch, env_va
         monkeypatch.setenv("DEFAULT_MODEL", env_value)
         importlib.reload(config)
 
-        assert config.DEFAULT_MODEL == config.GPT5_MINI
+        assert config.DEFAULT_MODEL == config.GPT4O
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)

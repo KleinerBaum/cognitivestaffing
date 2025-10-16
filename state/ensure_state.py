@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from constants.keys import StateKeys
 from config import (
-    GPT5_MINI,
+    GPT4O,
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     REASONING_EFFORT,
@@ -115,7 +115,7 @@ def ensure_state() -> None:
         st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = {}
     if "lang" not in st.session_state:
         st.session_state["lang"] = "en"
-    canonical_model = normalise_model_name(app_config.OPENAI_MODEL) or GPT5_MINI
+    canonical_model = normalise_model_name(app_config.OPENAI_MODEL) or GPT4O
     if app_config.OPENAI_MODEL != canonical_model:
         app_config.OPENAI_MODEL = canonical_model
     global OPENAI_MODEL
