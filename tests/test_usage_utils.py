@@ -1,6 +1,15 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import streamlit as st
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from config import ModelTask
 
 from utils.usage import build_usage_markdown, build_usage_rows, usage_totals
 
@@ -14,7 +23,7 @@ def test_build_usage_markdown_includes_tasks() -> None:
         "by_task": {
             "extraction": {"input": 6, "output": 12},
             "job_ad": {"input": 4, "output": 8},
-            "salary_estimate": {"input": 2, "output": 4},
+            ModelTask.SALARY_ESTIMATE.value: {"input": 2, "output": 4},
         },
     }
 

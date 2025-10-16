@@ -292,6 +292,7 @@ class ModelTask(StrEnum):
     CANDIDATE_MATCHING = "candidate_matching"
     DOCUMENT_REFINEMENT = "document_refinement"
     EXPLANATION = "explanation"
+    SALARY_ESTIMATE = "salary_estimate"
 
 
 MODEL_ROUTING: Dict[str, str] = {
@@ -310,6 +311,7 @@ MODEL_ROUTING: Dict[str, str] = {
     ModelTask.CANDIDATE_MATCHING.value: GPT5_MINI,
     ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
     ModelTask.EXPLANATION.value: GPT5_MINI,
+    ModelTask.SALARY_ESTIMATE.value: GPT5_NANO,
     "embedding": EMBED_MODEL,
 }
 

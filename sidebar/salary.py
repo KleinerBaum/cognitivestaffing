@@ -11,6 +11,7 @@ from typing import Any, Mapping, TypedDict
 import streamlit as st
 from pydantic import BaseModel, Field
 
+from config import ModelTask, get_model_for
 from constants.keys import StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from utils.i18n import tr
@@ -356,6 +357,7 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
 
     schema = SalaryExpectationResponse.model_json_schema()
     tools = build_extraction_tool(FUNCTION_NAME, schema, allow_extra=False)
+    model = get_model_for(ModelTask.SALARY_ESTIMATE)
     result = call_chat_api(
         messages,
         temperature=0.2,
@@ -365,7 +367,8 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
             "type": "function",
             "function": {"name": FUNCTION_NAME},
         },
-        task="salary_estimate",
+        model=model,
+        task=ModelTask.SALARY_ESTIMATE,
     )
 
     arguments = _extract_tool_arguments(result, FUNCTION_NAME)
