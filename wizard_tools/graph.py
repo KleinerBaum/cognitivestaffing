@@ -35,7 +35,17 @@ def add_stage(
 ) -> str:
     """Create a wizard stage node and return {"stage_id": "..."}."""
 
-    return json.dumps({"stage_id": f"stage_{name.lower().replace(' ', '_')}"})
+    stage_id = f"stage_{name.lower().replace(' ', '_')}"
+    return json.dumps(
+        {
+            "stage_id": stage_id,
+            "name": name,
+            "description": description,
+            "kind": kind,
+            "required_fields": required_fields or [],
+            "meta": meta or {},
+        }
+    )
 
 
 @function_tool
@@ -56,7 +66,13 @@ def remove_stage(stage_id: str) -> str:
 def connect_stages(from_stage_id: str, to_stage_id: str, edge_label: Optional[str] = None) -> str:
     """Connect two stages (DAG). Returns {"edge_id": "..."}."""
 
-    return json.dumps({"edge_id": f"edge_{from_stage_id}_to_{to_stage_id}"})
+    edge_id = f"edge_{from_stage_id}_to_{to_stage_id}"
+    return json.dumps({
+        "edge_id": edge_id,
+        "from": from_stage_id,
+        "to": to_stage_id,
+        "label": edge_label,
+    })
 
 
 @function_tool
@@ -77,7 +93,14 @@ def list_graph(vacancy_id: str) -> str:
 def save_graph(vacancy_id: str, graph: GraphState) -> str:
     """Persist the graph layout + metadata. Returns {"saved": true}."""
 
-    return json.dumps({"vacancy_id": vacancy_id, "saved": True})
+    return json.dumps(
+        {
+            "vacancy_id": vacancy_id,
+            "saved": True,
+            "stages": graph.stages,
+            "edges": graph.edges,
+        }
+    )
 
 
 @function_tool

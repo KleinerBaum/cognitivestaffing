@@ -12,7 +12,14 @@ from agents import function_tool
 def run_stage(stage_id: str, inputs: Optional[Dict[str, Any]] = None) -> str:
     """Execute the stage’s domain op."""
 
-    return json.dumps({"stage_id": stage_id, "outputs": {"ok": True}, "reasoning_summary": "Executed."})
+    return json.dumps(
+        {
+            "stage_id": stage_id,
+            "inputs": inputs or {},
+            "outputs": {"ok": True},
+            "reasoning_summary": "Executed.",
+        }
+    )
 
 
 @function_tool

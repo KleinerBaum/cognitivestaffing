@@ -19,14 +19,19 @@ def index_documents(files: List[str]) -> str:
 def semantic_search(query: str, k: int = 5) -> str:
     """Search vector store."""
 
-    return json.dumps({"passages": [{"text": "…", "source": "doc1.pdf"}]})
+    normalized = query.strip()
+    results = [
+        {"text": normalized or "…", "source": f"doc_{idx + 1}.md"}
+        for idx in range(max(1, k))
+    ]
+    return json.dumps({"query": normalized, "k": k, "passages": results})
 
 
 @function_tool
 def attach_context(stage_id: str, passages: List[Dict[str, str]]) -> str:
     """Associate retrieved passages with a stage."""
 
-    return json.dumps({"attached": True, "stage_id": stage_id})
+    return json.dumps({"attached": True, "stage_id": stage_id, "passages": passages})
 
 
 __all__ = ["attach_context", "index_documents", "semantic_search"]
