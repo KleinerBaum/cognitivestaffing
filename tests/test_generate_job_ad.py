@@ -84,7 +84,6 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
             "type": "file_search",
             "name": "file_search",
             "vector_store_ids": ["vs123"],
-            "file_search": {"vector_store_ids": ["vs123"]},
         }
     ]
     assert captured["kwargs"]["tool_choice"] == "auto"

@@ -223,8 +223,8 @@ def build_file_search_tool(
 
     Returns:
         A dictionary matching the OpenAI ``file_search`` tool schema with a
-        guaranteed ``name`` attribute for compatibility with the Chat
-        Completions API.
+        guaranteed ``name`` attribute for compatibility with both the
+        Responses and Chat Completions APIs.
     """
 
     if isinstance(vector_store_ids, str):
@@ -240,7 +240,6 @@ def build_file_search_tool(
         "type": "file_search",
         "name": name,
         "vector_store_ids": cleaned_ids,
-        "file_search": {"vector_store_ids": cleaned_ids},
     }
     return payload
 

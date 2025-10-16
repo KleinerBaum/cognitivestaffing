@@ -165,7 +165,6 @@ def test_analyze_vacancy_handles_service_failures(monkeypatch):
             "type": "file_search",
             "name": "file_search",
             "vector_store_ids": ["store-1"],
-            "file_search": {"vector_store_ids": ["store-1"]},
         }
     ]
     assert captured["kwargs"]["tool_choice"] == "auto"
