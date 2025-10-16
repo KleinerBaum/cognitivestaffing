@@ -6,9 +6,9 @@ import hashlib
 import json
 import textwrap
 from base64 import b64encode
+from dataclasses import dataclass
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date
@@ -45,7 +45,6 @@ from ingest.types import ContentBlock, StructuredDocument, build_plain_text_docu
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from utils.url_utils import is_supported_url
-from config import VECTOR_STORE_ID
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
@@ -53,13 +52,27 @@ from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
+from wizard_agents import (
+    generate_interview_guide_content,
+    generate_job_ad_content,
+)
+from wizard_layout import (
+    COMPACT_STEP_STYLE,
+    inject_salary_slider_styles,
+    render_onboarding_hero,
+)
+from wizard_logic import (
+    SALARY_SLIDER_MAX,
+    SALARY_SLIDER_MIN,
+    SALARY_SLIDER_STEP,
+    _derive_salary_range_defaults,
+    _get_company_logo_bytes,
+    _set_company_logo,
+)
 
 # LLM and Follow-ups
 from openai_utils import (
     extract_company_info,
-    generate_interview_guide,
-    generate_job_ad,
-    stream_job_ad,
     refine_document,
     summarize_company_page,
 )
@@ -91,7 +104,6 @@ from core.job_ad import (
     resolve_job_ad_field_selection,
     suggest_target_audiences,
 )
-from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 
 ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
@@ -111,221 +123,10 @@ MAX_INLINE_VALUE_CHARS = 20
 _SKILL_IDENTIFIER_PATTERN = re.compile(r"^(?:hard|soft):[0-9a-f]{12}$")
 _SKILL_ID_ATTR_PATTERN = re.compile(r"data-skill-id=['\"]([^'\"]+)['\"]")
 
-
-SALARY_SLIDER_MIN = 0
-SALARY_SLIDER_MAX = 500_000
-SALARY_SLIDER_STEP = 1_000
-_SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
-
-_DEFAULT_CURRENCY_BY_ISO: dict[str, str] = {
-    "DE": "EUR",
-    "AT": "EUR",
-    "CH": "CHF",
-    "US": "USD",
-    "GB": "GBP",
-}
-
-
-def _coerce_logo_bytes(data: Any) -> bytes | None:
-    """Return ``data`` as ``bytes`` when it looks like a logo payload."""
-
-    if isinstance(data, (bytes, bytearray)):
-        return bytes(data)
-    return None
-
-
-def _set_company_logo(data: bytes | bytearray | None) -> None:
-    """Persist logo ``data`` under shared session keys for reuse."""
-
-    logo_bytes = _coerce_logo_bytes(data)
-    st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_bytes
-    st.session_state["company_logo"] = logo_bytes
-
-
-def _get_company_logo_bytes() -> bytes | None:
-    """Return the stored company logo, synchronising legacy keys."""
-
-    shared_logo = _coerce_logo_bytes(st.session_state.get(StateKeys.JOB_AD_LOGO_DATA))
-    if shared_logo is not None:
-        st.session_state["company_logo"] = shared_logo
-        return shared_logo
-
-    legacy_logo = _coerce_logo_bytes(st.session_state.get("company_logo"))
-    st.session_state["company_logo"] = legacy_logo
-    st.session_state[StateKeys.JOB_AD_LOGO_DATA] = legacy_logo
-    return legacy_logo
-
-
-@dataclass(frozen=True)
-class _SalaryRangeDefaults:
-    """Container for slider defaults."""
-
-    minimum: int
-    maximum: int
-    currency: str | None
-
-
-def _to_int(value: Any) -> int | None:
-    """Convert ``value`` to ``int`` when possible."""
-
-    if value is None or value == "":
-        return None
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, (int, float)):
-        return int(round(float(value)))
-    try:
-        cleaned = str(value).strip()
-    except Exception:  # noqa: BLE001
-        return None
-    if not cleaned:
-        return None
-    normalized = cleaned.replace(".", "").replace(",", ".")
-    try:
-        return int(round(float(normalized)))
-    except ValueError:
-        return None
-
-
-def _clamp_salary_value(value: int | None) -> int:
-    """Clamp a salary value to the slider boundaries."""
-
-    if value is None:
-        return SALARY_SLIDER_MIN
-    return max(SALARY_SLIDER_MIN, min(SALARY_SLIDER_MAX, int(value)))
-
-
-def _parse_salary_range_text(text: str) -> tuple[int | None, int | None]:
-    """Extract numeric salary bounds from ``text``."""
-
-    if not text:
-        return None, None
-    multiplier = 1_000 if "k" in text.lower() else 1
-    numbers: list[float] = []
-    for raw in re.findall(r"\d+[\d,\.]*", text):
-        normalized = raw.replace(".", "").replace(",", ".")
-        try:
-            numbers.append(float(normalized))
-        except ValueError:
-            continue
-    if not numbers:
-        return None, None
-    if len(numbers) == 1:
-        value = int(round(numbers[0] * multiplier))
-        return value, value
-    first = int(round(numbers[0] * multiplier))
-    second = int(round(numbers[1] * multiplier))
-    return first, second
-
-
-def _infer_currency_from_range(text: str) -> str | None:
-    """Infer a currency identifier from textual salary information."""
-
-    if not text:
-        return None
-    upper = text.upper()
-    if "EUR" in upper or "€" in text:
-        return "EUR"
-    if "USD" in upper or "$" in text:
-        return "USD"
-    if "GBP" in upper or "£" in text:
-        return "GBP"
-    if "CHF" in upper or "CHF" in text:
-        return "CHF"
-    return None
-
-
-def _benchmark_salary_range(
-    profile: Mapping[str, Any],
-) -> tuple[int | None, int | None, str | None]:
-    """Return salary bounds derived from static benchmark data."""
-
-    position = profile.get("position", {}) if isinstance(profile, Mapping) else {}
-    job_title = str(position.get("job_title") or "").strip()
-    if not job_title:
-        return None, None, None
-
-    location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
-    country_raw = str(location.get("country") or "").strip()
-    iso_country = country_to_iso2(country_raw) if country_raw else None
-    benchmark_role = resolve_salary_role(job_title) or job_title
-    bench_country = iso_country or (country_raw.upper() if country_raw else "US")
-    benchmark = get_salary_benchmark(benchmark_role, bench_country)
-    raw_range = str(benchmark.get("salary_range") or "")
-    salary_min, salary_max = _parse_salary_range_text(raw_range)
-    currency = _infer_currency_from_range(raw_range)
-    if currency is None and iso_country:
-        currency = _DEFAULT_CURRENCY_BY_ISO.get(iso_country)
-    return salary_min, salary_max, currency
-
-
-def _derive_salary_range_defaults(profile: Mapping[str, Any]) -> _SalaryRangeDefaults:
-    """Compute slider defaults from profile or benchmark information."""
-
-    compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
-    current_min = _to_int(compensation.get("salary_min"))
-    current_max = _to_int(compensation.get("salary_max"))
-    current_currency = str(compensation.get("currency") or "").strip() or None
-
-    if current_min is not None or current_max is not None:
-        minimum = _clamp_salary_value(current_min or current_max)
-        maximum = _clamp_salary_value(current_max or current_min)
-        if minimum > maximum:
-            minimum, maximum = maximum, minimum
-        return _SalaryRangeDefaults(minimum, maximum, current_currency)
-
-    estimate = st.session_state.get(UIKeys.SALARY_ESTIMATE) or {}
-    estimate_min = _to_int(estimate.get("salary_min"))
-    estimate_max = _to_int(estimate.get("salary_max"))
-    estimate_currency = str(estimate.get("currency") or "").strip() or None
-
-    if estimate_min is not None or estimate_max is not None:
-        minimum = _clamp_salary_value(estimate_min or estimate_max)
-        maximum = _clamp_salary_value(estimate_max or estimate_min)
-        if minimum > maximum:
-            minimum, maximum = maximum, minimum
-        return _SalaryRangeDefaults(minimum, maximum, estimate_currency or current_currency)
-
-    benchmark_min, benchmark_max, benchmark_currency = _benchmark_salary_range(profile)
-    if benchmark_min is not None or benchmark_max is not None:
-        minimum = _clamp_salary_value(benchmark_min or benchmark_max)
-        maximum = _clamp_salary_value(benchmark_max or benchmark_min)
-        if minimum > maximum:
-            minimum, maximum = maximum, minimum
-        currency = benchmark_currency or estimate_currency or current_currency
-        return _SalaryRangeDefaults(minimum, maximum, currency)
-
-    fallback_min, fallback_max = 50_000, 70_000
-    fallback_currency = estimate_currency or current_currency or "EUR"
-    return _SalaryRangeDefaults(fallback_min, fallback_max, fallback_currency)
-
-
-def _inject_salary_slider_styles() -> None:
-    """Inject custom styling for the salary slider once per session."""
-
-    if st.session_state.get(_SALARY_SLIDER_STYLE_KEY):
-        return
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stSlider"] .stSliderTrack {
-            background: linear-gradient(90deg, #1f6feb, #7f00ff);
-            box-shadow: 0 0 12px rgba(31, 111, 235, 0.45);
-        }
-        div[data-testid="stSlider"] div[role="slider"] {
-            background: radial-gradient(circle at 30% 30%, #ffffff, #00f0ff);
-            border: 2px solid rgba(127, 0, 255, 0.75);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.55);
-        }
-        div[data-testid="stSlider"] .stSliderRail {
-            background: linear-gradient(90deg, rgba(31, 111, 235, 0.25), rgba(127, 0, 255, 0.25));
-            border-radius: 999px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.session_state[_SALARY_SLIDER_STYLE_KEY] = True
+# Backwards compatibility for tests monkeypatching legacy helpers
+_generate_job_ad_content = generate_job_ad_content
+_generate_interview_guide_content = generate_interview_guide_content
+_inject_salary_slider_styles = inject_salary_slider_styles
 
 
 def _extract_city_from_text(raw: str) -> str | None:
@@ -461,152 +262,6 @@ def _compact_inline_label(raw: str, *, limit: int = MAX_INLINE_VALUE_CHARS) -> t
         return text, False
     clipped = text[: max(0, limit - 1)].rstrip()
     return f"{clipped}…", True
-
-
-COMPACT_STEP_STYLE = """
-<style>
-section.main div.block-container div[data-testid="stVerticalBlock"] {
-    gap: 0.35rem !important;
-}
-section.main div.block-container div[data-testid="stTextInput"],
-section.main div.block-container div[data-testid="stTextArea"],
-section.main div.block-container div[data-testid="stSelectbox"],
-section.main div.block-container div[data-testid="stMultiSelect"],
-section.main div.block-container div[data-testid="stNumberInput"],
-section.main div.block-container div[data-testid="stCheckbox"],
-section.main div.block-container div[data-testid="stRadio"],
-section.main div.block-container div[data-testid="stSlider"],
-section.main div.block-container div[data-testid="stDateInput"],
-section.main div.block-container div[data-testid="stDownloadButton"],
-section.main div.block-container div[data-testid="stButton"],
-section.main div.block-container div[data-testid="stFormSubmitButton"],
-section.main div.block-container div[data-testid="stFileUploader"],
-section.main div.block-container div[data-testid="stCaptionContainer"],
-section.main div.block-container div[data-testid="stMarkdownContainer"] {
-    margin-bottom: 0.35rem;
-}
-section.main div.block-container h1,
-section.main div.block-container h2,
-section.main div.block-container h3,
-section.main div.block-container h4,
-section.main div.block-container h5,
-section.main div.block-container h6 {
-    margin-top: 0.75rem;
-    margin-bottom: 0.35rem;
-}
-section.main div.block-container hr {
-    margin-top: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-section.main div.block-container div[data-testid="column"] {
-    padding-left: 0.25rem !important;
-    padding-right: 0.25rem !important;
-}
-section.main div.block-container div[data-testid="stHorizontalBlock"] {
-    gap: 0.5rem !important;
-}
-section.main div.block-container .stTabs [data-baseweb="tab-list"] {
-    gap: 0.35rem !important;
-}
-section.main div.block-container .stTabs [data-baseweb="tab"] {
-    padding-top: 0.35rem;
-    padding-bottom: 0.35rem;
-}
-</style>
-"""
-
-ONBOARDING_HERO_STYLE = """
-<style>
-.onboarding-hero {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(1rem, 3vw, 2.75rem);
-    align-items: center;
-    margin: 1.2rem 0 1.4rem;
-}
-.onboarding-hero__logo {
-    flex: 0 1 clamp(200px, 28vw, 320px);
-    display: flex;
-    justify-content: center;
-}
-.onboarding-hero__logo img {
-    width: clamp(180px, 24vw, 320px);
-    height: auto;
-    filter: drop-shadow(0 18px 36px rgba(8, 10, 10, 0.45));
-}
-.onboarding-hero__copy {
-    flex: 1 1 280px;
-}
-.onboarding-hero__eyebrow {
-    font-size: 0.8rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.45rem;
-}
-.onboarding-hero__headline {
-    margin: 0;
-    font-size: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
-    font-weight: 700;
-    color: var(--text-strong);
-}
-.onboarding-hero__subheadline {
-    margin-top: 0.75rem;
-    font-size: clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem);
-    color: var(--text-muted);
-    line-height: 1.55;
-}
-@media (max-width: 768px) {
-    .onboarding-hero {
-        justify-content: center;
-        text-align: center;
-    }
-    .onboarding-hero__copy {
-        flex-basis: 100%;
-    }
-}
-</style>
-"""
-
-
-def _render_onboarding_hero() -> None:
-    """Render the onboarding hero with logo and positioning copy."""
-
-    if not ONBOARDING_ANIMATION_BASE64:
-        return
-
-    st.markdown(ONBOARDING_HERO_STYLE, unsafe_allow_html=True)
-
-    hero_eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
-    hero_title = tr(
-        "Dynamische Recruiting-Analysen zur Identifikation & Nutzung **aller** vakanzspezifischen Informationen",
-        "Cognitive Staffing – precise recruiting analysis in minutes",
-    )
-    hero_subtitle = tr(
-        (
-            "Verbinde strukturierte Extraktion, KI-Validierung und Marktbenchmarks, "
-            "um jede Stellenanzeige verlässlich zu bewerten und gezielt zu optimieren."
-        ),
-        (
-            "Combine structured extraction, AI validation, and market benchmarks to "
-            "review every job ad with confidence and improve it with purpose."
-        ),
-    )
-
-    hero_html = f"""
-    <div class="onboarding-hero">
-        <div class="onboarding-hero__logo">
-            <img src="data:image/png;base64,{ONBOARDING_ANIMATION_BASE64}" alt="Cognitive Staffing logo" />
-        </div>
-        <div class="onboarding-hero__copy">
-            <div class="onboarding-hero__eyebrow">{hero_eyebrow}</div>
-            <h1 class="onboarding-hero__headline">{hero_title}</h1>
-            <p class="onboarding-hero__subheadline">{hero_subtitle}</p>
-        </div>
-    </div>
-    """
-
-    st.markdown(hero_html, unsafe_allow_html=True)
 
 
 T = TypeVar("T")
@@ -4038,197 +3693,6 @@ def _missing_fields_for_section(section_index: int) -> list[str]:
     for field in section_missing:
         _ensure_targeted_followup(field)
     return section_missing
-
-
-def _generate_job_ad_content(
-    filtered_profile: Mapping[str, Any],
-    selected_fields: Collection[str],
-    target_value: str | None,
-    manual_entries: Sequence[dict[str, str]],
-    style_reference: str | None,
-    lang: str,
-    *,
-    show_error: bool = True,
-) -> bool:
-    """Generate the job ad and update session state."""
-
-    if not selected_fields or not target_value:
-        return False
-
-    raw_vector_store = st.session_state.get("vector_store_id") or VECTOR_STORE_ID
-    vector_store_id = str(raw_vector_store).strip() if raw_vector_store else ""
-
-    def _generate_sync() -> str:
-        return generate_job_ad(
-            filtered_profile,
-            list(selected_fields),
-            target_audience=target_value,
-            manual_sections=list(manual_entries),
-            style_reference=style_reference,
-            tone=st.session_state.get(UIKeys.TONE_SELECT),
-            lang=lang,
-            selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
-            vector_store_id=vector_store_id or None,
-        )
-
-    job_ad_md = ""
-    placeholder = st.empty()
-    spinner_label = tr("Anzeige wird generiert…", "Generating job ad…")
-
-    if vector_store_id:
-        try:
-            job_ad_md = _generate_sync()
-            placeholder.markdown(job_ad_md)
-        except Exception as exc:  # pragma: no cover - error path
-            if show_error:
-                st.error(
-                    tr(
-                        "Job Ad Generierung fehlgeschlagen",
-                        "Job ad generation failed",
-                    )
-                    + f": {exc}"
-                )
-            return False
-    else:
-        try:
-            stream, fallback_doc = stream_job_ad(
-                filtered_profile,
-                list(selected_fields),
-                target_audience=target_value,
-                manual_sections=list(manual_entries),
-                style_reference=style_reference,
-                tone=st.session_state.get(UIKeys.TONE_SELECT),
-                lang=lang,
-                selected_values=st.session_state.get(StateKeys.JOB_AD_SELECTED_VALUES, {}),
-            )
-        except Exception:
-            try:
-                job_ad_md = _generate_sync()
-                placeholder.markdown(job_ad_md)
-            except Exception as exc:  # pragma: no cover - error path
-                if show_error:
-                    st.error(
-                        tr(
-                            "Job Ad Generierung fehlgeschlagen",
-                            "Job ad generation failed",
-                        )
-                        + f": {exc}"
-                    )
-                return False
-        else:
-            chunks: list[str] = []
-            try:
-                with st.spinner(spinner_label):
-                    for chunk in stream:
-                        if not chunk:
-                            continue
-                        chunks.append(chunk)
-                        placeholder.markdown("".join(chunks))
-            except Exception as exc:  # pragma: no cover - network/SDK issues
-                if show_error:
-                    st.error(
-                        tr(
-                            "Job Ad Streaming fehlgeschlagen",
-                            "Job ad streaming failed",
-                        )
-                        + f": {exc}"
-                    )
-                try:
-                    job_ad_md = _generate_sync()
-                    placeholder.markdown(job_ad_md)
-                except Exception as sync_exc:  # pragma: no cover - error path
-                    if show_error:
-                        st.error(
-                            tr(
-                                "Job Ad Generierung fehlgeschlagen",
-                                "Job ad generation failed",
-                            )
-                            + f": {sync_exc}"
-                        )
-                    return False
-            else:
-                try:
-                    result = stream.result
-                    job_ad_md = (result.content or stream.text or "").strip()
-                except RuntimeError:
-                    job_ad_md = (stream.text or "").strip()
-                if not job_ad_md:
-                    job_ad_md = fallback_doc
-                placeholder.markdown(job_ad_md)
-
-    st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
-    findings = scan_bias_language(job_ad_md, lang)
-    st.session_state[StateKeys.BIAS_FINDINGS] = findings
-    return True
-
-
-def _generate_interview_guide_content(
-    profile_payload: Mapping[str, Any],
-    lang: str,
-    selected_num: int,
-    *,
-    audience: str = "general",
-    warn_on_length: bool = True,
-    show_error: bool = True,
-) -> bool:
-    """Generate the interview guide and update session state."""
-
-    st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
-    st.session_state.setdefault(UIKeys.AUDIENCE_SELECT, audience)
-
-    requirements_data = dict(profile_payload.get("requirements", {}) or {})
-    extras = (
-        len(requirements_data.get("hard_skills_required", []))
-        + len(requirements_data.get("hard_skills_optional", []))
-        + len(requirements_data.get("soft_skills_required", []))
-        + len(requirements_data.get("soft_skills_optional", []))
-        + (1 if (profile_payload.get("company", {}) or {}).get("culture") else 0)
-    )
-
-    if warn_on_length and selected_num + extras > 15:
-        st.warning(
-            tr(
-                "Viele Fragen erzeugen einen sehr umfangreichen Leitfaden.",
-                "A high question count creates a very long guide.",
-            )
-        )
-
-    responsibilities_text = "\n".join(profile_payload.get("responsibilities", {}).get("items", []))
-
-    raw_vector_store = st.session_state.get("vector_store_id") or VECTOR_STORE_ID
-    vector_store_id = str(raw_vector_store).strip() if raw_vector_store else ""
-
-    try:
-        guide = generate_interview_guide(
-            job_title=profile_payload.get("position", {}).get("job_title", ""),
-            responsibilities=responsibilities_text,
-            hard_skills=(
-                requirements_data.get("hard_skills_required", []) + requirements_data.get("hard_skills_optional", [])
-            ),
-            soft_skills=(
-                requirements_data.get("soft_skills_required", []) + requirements_data.get("soft_skills_optional", [])
-            ),
-            company_culture=profile_payload.get("company", {}).get("culture", ""),
-            audience=audience,
-            lang=lang,
-            tone=st.session_state.get("tone"),
-            num_questions=selected_num,
-            vector_store_id=vector_store_id or None,
-        )
-        guide_md = guide.final_markdown()
-        st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = guide.model_dump()
-    except Exception as exc:  # pragma: no cover - error path
-        if show_error:
-            st.error(
-                tr(
-                    "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
-                    "Interview guide generation failed: {error}. Please try again.",
-                ).format(error=exc)
-            )
-        return False
-
-    st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide_md
-    return True
 
 
 def _apply_followup_updates(
@@ -8118,7 +7582,7 @@ def _step_compensation():
     data = profile
 
     slider_defaults = _derive_salary_range_defaults(profile)
-    _inject_salary_slider_styles()
+    inject_salary_slider_styles()
     slider_label = tr("Gehaltsspanne", "Salary range", lang=lang)
     slider_help = tr(
         "Passe die Spanne per Schieberegler an.",
@@ -9614,7 +9078,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         disabled=disabled,
         type="primary",
     ):
-        _generate_job_ad_content(
+        generate_job_ad_content(
             filtered_profile,
             selected_fields,
             target_value,
@@ -9763,7 +9227,7 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
     if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
-        _generate_interview_guide_content(
+        generate_interview_guide_content(
             profile_payload,
             lang,
             selected_num,
@@ -10164,7 +9628,7 @@ def run_wizard():
     current = st.session_state[StateKeys.STEP]
 
     if current == 0:
-        _render_onboarding_hero()
+        render_onboarding_hero(ONBOARDING_ANIMATION_BASE64)
 
     # Render current step
     _label, renderer = steps[current]

@@ -142,8 +142,8 @@
 - **DE:** `llm/gap_analysis.py` liefert `GapContext`, ESCO-Brücken und Prompt-Builder für den Assistentenbericht. `retrieve_from_vector_store` holt unterstützende Snippets, `analyze_vacancy` führt den kompletten Workflow aus.
 
 ### Wizard Graph Tools / Wizard-Graph-Tools
-- **EN:** `wizard_tools.py` registers Streamlit function tools (via the Agents SDK) to add, update, and connect wizard stages, ingest job ads, trigger extraction, and merge SME answers. Use these tools to experiment with custom agentic flows.
-- **DE:** `wizard_tools.py` registriert Streamlit-Function-Tools (über das Agents SDK), um Wizard-Phasen hinzuzufügen, zu aktualisieren und zu verbinden, Stellenanzeigen zu laden, Extraktionen zu starten und SME-Antworten zusammenzuführen. Damit lassen sich agentische Eigenentwicklungen testen.
+- **EN:** The `wizard_tools/` package registers Streamlit function tools (via the Agents SDK) to add, update, and connect wizard stages, ingest job ads, trigger extraction, and merge SME answers. Use these tools to experiment with custom agentic flows.
+- **DE:** Das Paket `wizard_tools/` registriert Streamlit-Function-Tools (über das Agents SDK), um Wizard-Phasen hinzuzufügen, zu aktualisieren und zu verbinden, Stellenanzeigen zu laden, Extraktionen zu starten und SME-Antworten zusammenzuführen. Damit lassen sich agentische Eigenentwicklungen testen.
 
 ## Compliance & Roadmap / Compliance & Ausblick
 
