@@ -1,6 +1,10 @@
 [project]
 name = "cognitivestaffing"
 version = "0.5.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic[email]>=2.5",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]
