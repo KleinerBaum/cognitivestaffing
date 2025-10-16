@@ -58,7 +58,7 @@ cd cognitivestaffing
 
 ### 2. Create a virtual environment
 ```bash
-python3.11 -m venv .venv  # Python 3.11 or 3.12
+python3.11 -m venv .venv  # Python 3.11
 source .venv/bin/activate
 ```
 

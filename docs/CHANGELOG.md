@@ -7,6 +7,8 @@ _TBD / Noch offen_
   - Feature: Wizard-Helfer in Paket `wizard/`, Follow-up-Vorlagen lokalisiert und Prompts aus der Registry geladen
 - chore: extend model fallback chains with an explicit GPT-4 hop and add bilingual deployment guidance
   - Chore: Modell-Fallbacks um einen GPT-4-Schritt erweitert und zweisprachige Deployment-Doku ergänzt
+- chore: align typing/tooling configuration with Python 3.11 across mypy and developer docs
+  - Chore: Typisierungs- und Tooling-Konfiguration für Python 3.11 vereinheitlicht (mypy & Entwickler-Doku)
 - fix: normalise role-specific follow-up questions via translation keys instead of hard-coded English strings
   - Fix: Rollenspezifische Nachfragen per Übersetzungsschlüssel statt fest verdrahteter Englisch-Texte
 - fix: keep URL text extraction functional when BeautifulSoup is unavailable by falling back to a builtin parser
