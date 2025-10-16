@@ -123,7 +123,14 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     assert "## Questions" in markdown or "## Questions & evaluation guide" in markdown
     assert "Evaluation notes" in markdown
     assert captured["json_schema"]
-    assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["store-1"]}]
+    assert captured["tools"] == [
+        {
+            "type": "file_search",
+            "name": "file_search",
+            "vector_store_ids": ["store-1"],
+            "file_search": {"vector_store_ids": ["store-1"]},
+        }
+    ]
     assert captured["tool_choice"] == "auto"
 
 

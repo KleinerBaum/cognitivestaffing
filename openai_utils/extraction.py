@@ -31,7 +31,7 @@ from pydantic import ValidationError
 from utils.i18n import tr
 from . import api
 from .api import _chat_content
-from .tools import build_extraction_tool
+from .tools import build_extraction_tool, build_file_search_tool
 
 try:  # pragma: no cover - Streamlit not required for CLI usage
     import streamlit as st
@@ -123,13 +123,7 @@ def extract_company_info(
         tools: list[dict[str, Any]] = []
         tool_choice: str | None = None
         if store_id:
-            tools.append(
-                {
-                    "type": "file_search",
-                    "name": "file_search",
-                    "vector_store_ids": [store_id],
-                }
-            )
+            tools.append(build_file_search_tool(store_id))
             tool_choice = "auto"
         else:
             tools.append({"type": "web_search", "name": "web_search"})
@@ -1218,7 +1212,7 @@ def generate_interview_guide(
     tools: list[dict[str, Any]] = []
     tool_choice: str | None = None
     if store_id:
-        tools = [{"type": "file_search", "vector_store_ids": [store_id]}]
+        tools = [build_file_search_tool(store_id)]
         tool_choice = "auto"
 
     try:
@@ -1763,7 +1757,7 @@ def generate_job_ad(
     tools: list[dict[str, Any]] = []
     tool_choice: str | None = None
     if store_id:
-        tools = [{"type": "file_search", "vector_store_ids": [store_id]}]
+        tools = [build_file_search_tool(store_id)]
         tool_choice = "auto"
     try:
         messages = build_job_ad_prompt(structured_payload)

@@ -9,7 +9,7 @@ extraction tasks.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable, Mapping, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from typing import Any, cast
 
@@ -208,4 +208,41 @@ def build_function_tools(
     return tools, functions
 
 
-__all__ = ["build_extraction_tool", "build_function_tools"]
+def build_file_search_tool(
+    vector_store_ids: Sequence[str] | str,
+    *,
+    name: str = "file_search",
+) -> dict[str, Any]:
+    """Return an OpenAI tool spec for the ``file_search`` tool.
+
+    Args:
+        vector_store_ids: Single vector store identifier or sequence of
+            identifiers to associate with the tool.
+        name: Optional name exposed to the model. Defaults to ``"file_search"``
+            to mirror OpenAI's native tool label.
+
+    Returns:
+        A dictionary matching the OpenAI ``file_search`` tool schema with a
+        guaranteed ``name`` attribute for compatibility with the Chat
+        Completions API.
+    """
+
+    if isinstance(vector_store_ids, str):
+        raw_ids = [vector_store_ids]
+    else:
+        raw_ids = list(vector_store_ids)
+
+    cleaned_ids = [str(identifier).strip() for identifier in raw_ids if str(identifier).strip()]
+    if not cleaned_ids:
+        raise ValueError("At least one vector store ID must be provided.")
+
+    payload: dict[str, Any] = {
+        "type": "file_search",
+        "name": name,
+        "vector_store_ids": cleaned_ids,
+        "file_search": {"vector_store_ids": cleaned_ids},
+    }
+    return payload
+
+
+__all__ = ["build_extraction_tool", "build_function_tools", "build_file_search_tool"]

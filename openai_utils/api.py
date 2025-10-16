@@ -1042,7 +1042,16 @@ def _prepare_payload(
 
         if not is_function_tool:
             name_value = prepared.get("name")
-            has_name = isinstance(name_value, str) and bool(name_value.strip())
+            if isinstance(name_value, str) and name_value.strip():
+                prepared["name"] = name_value.strip()
+                has_name = True
+            else:
+                fallback = tool_type.strip() if isinstance(tool_type, str) else ""
+                if fallback:
+                    prepared["name"] = fallback
+                    has_name = True
+                else:
+                    has_name = False
             return prepared, has_name
 
         function_dict = dict(function_payload) if function_payload is not None else {}

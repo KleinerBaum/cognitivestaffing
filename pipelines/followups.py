@@ -6,6 +6,7 @@ from typing import Any
 
 from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
+from openai_utils.tools import build_file_search_tool
 from schemas import FOLLOW_UPS_SCHEMA
 
 __all__ = ["generate_followups"]
@@ -35,7 +36,7 @@ def generate_followups(
     tools: list[dict[str, Any]] = []
     tool_choice: str | None = None
     if vector_store_id:
-        tools.append({"type": "file_search", "vector_store_ids": [vector_store_id]})
+        tools.append(build_file_search_tool(vector_store_id))
         tool_choice = "auto"
 
     return call_chat_api(

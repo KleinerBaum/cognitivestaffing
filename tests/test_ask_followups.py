@@ -56,5 +56,12 @@ def test_ask_followups_enables_vector_store(monkeypatch):
     out = ask_followups({})
 
     assert out == {"questions": []}
-    assert captured["tools"] == [{"type": "file_search", "vector_store_ids": ["vs123"]}]
+    assert captured["tools"] == [
+        {
+            "type": "file_search",
+            "name": "file_search",
+            "vector_store_ids": ["vs123"],
+            "file_search": {"vector_store_ids": ["vs123"]},
+        }
+    ]
     assert captured["tool_choice"] == "auto"
