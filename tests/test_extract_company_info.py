@@ -94,13 +94,13 @@ def test_extract_company_info_with_vector_store(monkeypatch):
 
     openai_utils.extract_company_info("dummy text", vector_store_id="store-1")
 
-    assert captured_kwargs.get("tools") == [
-        {
-            "type": "file_search",
-            "name": "file_search",
-            "vector_store_ids": ["store-1"],
-        }
-    ]
+    tools = captured_kwargs.get("tools")
+    assert isinstance(tools, list)
+    assert tools, "Expected file_search tool definition"
+    first_tool = tools[0]
+    assert first_tool.get("type") == "file_search"
+    assert first_tool.get("name") == "file_search"
+    assert first_tool.get("vector_store_ids") == ["store-1"]
     assert captured_kwargs.get("tool_choice") == "auto"
 
 

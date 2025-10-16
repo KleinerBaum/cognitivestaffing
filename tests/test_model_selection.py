@@ -211,7 +211,7 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
 
     assert result.content == "OK"
     assert attempts[0] == config.GPT4O
-    assert attempts[1] == "gpt-3.5-turbo"
+    assert attempts[1] == config.GPT4
     assert any("retrying with fallback" in record.message for record in caplog.records)
 
 

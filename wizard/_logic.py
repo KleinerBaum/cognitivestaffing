@@ -222,4 +222,3 @@ __all__ = [
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",
 ]
-

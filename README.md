@@ -24,9 +24,9 @@
 - **Content cost router / Kostenrouter für Inhalte**
   **EN:** Each request runs through a prompt cost router that inspects token length and hard-to-translate compounds before selecting the cheapest suitable tier. Short, simple prompts stay on `gpt-4o-mini`, while complex or multilingual payloads automatically escalate to `gpt-4o` for higher quality. Power users can still force GPT-5 mini/nano for premium reasoning.
   **DE:** Jede Anfrage durchläuft einen Kostenrouter, der Tokenlänge und schwer übersetzbare Komposita prüft, bevor das günstigste passende Modell gewählt wird. Kurze, einfache Prompts bleiben auf `gpt-4o-mini`, komplexe oder mehrsprachige Eingaben wechseln automatisch auf `gpt-4o`, um Qualität ohne manuelles Feintuning sicherzustellen. Bei Bedarf lassen sich weiterhin GPT-5 mini/nano für Premium-Reasoning erzwingen.
-- **Fallback chain (GPT-4o/GPT-3.5) / Fallback-Kette (GPT-4o/GPT-3.5)**
-  **EN:** If an API call reports that the primary model is overloaded or deprecated, the platform marks it as unavailable and retries with `gpt-3.5-turbo`. Manual GPT-5 overrides first degrade to `gpt-4o` before reaching `gpt-3.5-turbo`, keeping the wizard responsive during outages while logging which tier delivered the final response.
-  **DE:** Meldet die API, dass das Primärmodell überlastet oder abgekündigt ist, markiert die Plattform es als nicht verfügbar und versucht es erneut mit `gpt-3.5-turbo`. Manuelle GPT-5-Overrides stufen zunächst auf `gpt-4o` und erst danach auf `gpt-3.5-turbo` ab. So bleibt der Wizard auch bei Störungen reaktionsfähig und protokolliert, welches Modell die endgültige Antwort geliefert hat.
+- **Fallback chain (GPT-5 mini → GPT-4o → GPT-4 → GPT-3.5) / Fallback-Kette (GPT-5 mini → GPT-4o → GPT-4 → GPT-3.5)**
+  **EN:** When the primary model is overloaded or deprecated the platform now retries with the expanded chain `gpt-5.1-mini → gpt-4o → gpt-4 → gpt-3.5-turbo`. Each downgrade is recorded in telemetry so we can spot chronic outages.
+  **DE:** Meldet die API, dass das Primärmodell überlastet oder abgekündigt ist, läuft der neue Fallback-Pfad `gpt-5.1-mini → gpt-4o → gpt-4 → gpt-3.5-turbo`. Jeder Schritt wird im Telemetrie-Stream protokolliert, um anhaltende Störungen sichtbar zu machen.
 - **Model override toggle / Modell-Override-Umschalter**
   **EN:** Open the sidebar settings and use the **Base model** select box to force a specific tier. Choosing “Auto” clears the override so routing and fallbacks can operate normally (balanced: `gpt-4o` / `gpt-4o-mini`); selecting “Force GPT-5 mini (`gpt-5.1-mini`)” or “Force GPT-5 nano (`gpt-5.1-nano`)” pins every request to that engine until you switch back.
   **DE:** Öffne die Einstellungen in der Seitenleiste und nutze das Auswahlfeld **Basismodell**, um einen bestimmten Modell-Tier zu erzwingen. „Automatisch“ aktiviert das ausgewogene Routing (`gpt-4o` / `gpt-4o-mini`) mit Fallbacks; „GPT-5 mini (`gpt-5.1-mini`) erzwingen“ bzw. „GPT-5 nano (`gpt-5.1-nano`) erzwingen“ fixiert jede Anfrage auf diese Engine, bis du wieder zurückschaltest.
@@ -44,6 +44,9 @@ streamlit app.py
        │    └─ llm/rag_pipeline.py → OpenAI file_search tool (VECTOR_STORE_ID)
        └─ ingest/ + integrations/ → PDF/HTML/OCR loaders, ESCO API, vector stores
 ```
+
+All LLM prompts are defined in `prompts/registry.json` and loaded via the shared
+`prompt_registry` helper, keeping Streamlit deployments and CLI utilities in sync.
 
 ## Setup
 

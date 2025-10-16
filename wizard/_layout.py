@@ -188,4 +188,3 @@ __all__ = [
     "inject_salary_slider_styles",
     "render_onboarding_hero",
 ]
-

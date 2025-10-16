@@ -46,6 +46,7 @@ CHUNK_OVERLAP = 0.1
 GPT5_FULL = "gpt-5.1"
 GPT5_MINI = "gpt-5.1-mini"
 GPT5_NANO = "gpt-5.1-nano"
+GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
 GPT4O_MINI = "gpt-4o-mini"
 
@@ -324,11 +325,12 @@ for key, value in list(MODEL_ROUTING.items()):
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, GPT4O, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
     _canonical_model_name(GPT5_NANO): [GPT5_NANO, GPT4O, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT4O): [GPT4O, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT4O): [GPT4O, GPT4, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT4): [GPT4, "gpt-3.5-turbo"],
     _canonical_model_name("gpt-3.5-turbo"): ["gpt-3.5-turbo"],
 }
 
