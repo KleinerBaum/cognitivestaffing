@@ -27,10 +27,9 @@ import streamlit as st
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from openai_utils import call_chat_api
-from openai_utils.tools import build_file_search_tool
 from utils.i18n import tr
 from i18n import t as translate_key
+from wizard._openai_bridge import call_chat_api, build_file_search_tool
 
 # ESCO helpers (core utils + offline-aware wrapper)
 from constants.keys import StateKeys
