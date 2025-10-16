@@ -2,7 +2,7 @@
 
 ## EN
 
-This release introduces a unified prompt registry (`prompts/registry.json`) and
+This release introduces a unified prompt registry (`prompts/registry.yaml`) and
 extended model fallback chains. When deploying the application ensure the
 following environment variables are available:
 
@@ -16,7 +16,7 @@ following environment variables are available:
 
 Deployments without `VECTOR_STORE_ID` will automatically skip Retrieval Augment
 ation and show localized hints in the wizard. All LLM calls now load their
-system prompts from the registry; remember to redeploy the updated JSON file
+system prompts from the registry; remember to redeploy the updated YAML file
 alongside the code.
 
 After updating environment variables restart the Streamlit process:
@@ -27,7 +27,7 @@ streamlit run app.py
 
 ## DE
 
-Mit diesem Release wurde das Prompt-Registry (`prompts/registry.json`)
+Mit diesem Release wurde das Prompt-Registry (`prompts/registry.yaml`)
 vereinheitlicht und die Modell-Fallback-Ketten erweitert. Für den Betrieb sind
 folgende Umgebungsvariablen relevant:
 
@@ -41,7 +41,7 @@ folgende Umgebungsvariablen relevant:
 
 Ohne `VECTOR_STORE_ID` läuft die App automatisch ohne Retrieval-Pfad und zeigt
 einen lokalisierten Hinweis in der UI. Da alle Prompts nun aus der Registry
-geladen werden, muss die aktualisierte `registry.json` gemeinsam mit dem Code
+geladen werden, muss die aktualisierte `registry.yaml` gemeinsam mit dem Code
 ausgerollt werden.
 
 Nach einer Konfigurationsänderung die Streamlit-App neu starten:

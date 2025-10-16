@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
-_PROMPTS_PATH = Path(__file__).resolve().parent / "registry.json"
+import yaml
+
+_PROMPTS_PATH = Path(__file__).resolve().parent / "registry.yaml"
 
 
 class PromptRegistry:
-    """Load and serve prompt templates from :mod:`prompts/registry.json`."""
+    """Load and serve prompt templates from :mod:`prompts/registry.yaml`."""
 
     def __init__(self, path: Path | None = None) -> None:
         self._path = path or _PROMPTS_PATH
@@ -24,7 +25,7 @@ class PromptRegistry:
     def _load(self) -> dict[str, Any]:
         if self._cache is None:
             with self._path.open("r", encoding="utf-8") as handle:
-                self._cache = json.load(handle)
+                self._cache = yaml.safe_load(handle)
         return self._cache
 
     def get_raw(self, key: str) -> Any:
