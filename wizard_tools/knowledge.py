@@ -30,4 +30,3 @@ def attach_context(stage_id: str, passages: List[Dict[str, str]]) -> str:
 
 
 __all__ = ["attach_context", "index_documents", "semantic_search"]
-

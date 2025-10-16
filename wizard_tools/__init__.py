@@ -19,4 +19,3 @@ __all__ = [
     *_safety.__all__,
     *_vacancy.__all__,
 ]
-

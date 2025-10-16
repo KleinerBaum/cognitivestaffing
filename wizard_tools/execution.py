@@ -30,9 +30,7 @@ def retry_stage(stage_id: str, strategy: Literal["same_inputs", "regenerate", "r
 
 
 @function_tool
-def set_model(
-    stage_id: Optional[str], model: Literal["gpt-4o", "gpt-4o-mini", "gpt-5.1-nano", "gpt-5.1-mini"]
-) -> str:
+def set_model(stage_id: Optional[str], model: Literal["gpt-4o", "gpt-4o-mini", "gpt-5.1-nano", "gpt-5.1-mini"]) -> str:
     """Set model for a stage or globally."""
 
     return json.dumps({"ok": True, "stage_id": stage_id, "model": model})
@@ -78,4 +76,3 @@ __all__ = [
     "set_temperature",
     "set_tool_choice",
 ]
-

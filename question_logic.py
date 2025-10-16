@@ -30,6 +30,7 @@ from opentelemetry.trace import Status, StatusCode
 from openai_utils import call_chat_api
 from openai_utils.tools import build_file_search_tool
 from utils.i18n import tr
+from i18n import t as translate_key
 
 # ESCO helpers (core utils + offline-aware wrapper)
 from constants.keys import StateKeys
@@ -39,7 +40,14 @@ from core.esco_utils import (
     normalize_skills,
 )
 from core.suggestions import get_benefit_suggestions
-from config import OPENAI_API_KEY, VECTOR_STORE_ID, ModelTask, get_model_for
+from config import (
+    OPENAI_API_KEY,
+    VECTOR_STORE_ID,
+    ModelTask,
+    get_active_verbosity,
+    get_model_for,
+)
+from prompts import prompt_registry
 
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
@@ -59,124 +67,144 @@ ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
     "software developers": [
         {
             "field": "programming_languages",
-            "question": "Which programming languages will the developer use?",
+            "text_key": "role_questions.software_developers.programming_languages",
         },
         {
             "field": "development_methodology",
-            "question": "Which development methodology does the team follow?",
+            "text_key": "role_questions.software_developers.development_methodology",
         },
     ],
     "sales, marketing and public relations professionals": [
         {
             "field": "target_markets",
-            "question": "Which target markets will the salesperson focus on?",
+            "text_key": "role_questions.sales_professionals.target_markets",
         },
         {
             "field": "sales_quota",
-            "question": "What is the sales quota for this role?",
+            "text_key": "role_questions.sales_professionals.sales_quota",
         },
         {
             "field": "campaign_types",
-            "question": "What campaign types will the marketer manage?",
+            "text_key": "role_questions.sales_professionals.campaign_types",
         },
         {
             "field": "digital_marketing_platforms",
-            "question": "Which digital marketing platforms are used?",
+            "text_key": "role_questions.sales_professionals.digital_marketing_platforms",
         },
     ],
     "nursing and midwifery professionals": [
         {
             "field": "shift_schedule",
-            "question": "What is the shift schedule?",
+            "text_key": "role_questions.nursing.shift_schedule",
         },
     ],
     "medical doctors": [
         {
             "field": "board_certification",
-            "question": "What board certifications are required?",
+            "text_key": "role_questions.medical_doctors.board_certification",
         },
         {
             "field": "on_call_requirements",
-            "question": "Are there on-call requirements for this role?",
+            "text_key": "role_questions.medical_doctors.on_call_requirements",
         },
     ],
     "teaching professionals": [
         {
             "field": "grade_level",
-            "question": "Which grade levels will the teacher instruct?",
+            "text_key": "role_questions.teachers.grade_level",
         },
         {
             "field": "teaching_license",
-            "question": "Is a teaching license required?",
+            "text_key": "role_questions.teachers.teaching_license",
         },
     ],
     "graphic and multimedia designers": [
         {
             "field": "design_software_tools",
-            "question": "Which design software tools should the designer be proficient in?",
+            "text_key": "role_questions.designers.design_software_tools",
         },
         {
             "field": "portfolio_url",
-            "question": "What is the portfolio URL?",
+            "text_key": "role_questions.designers.portfolio_url",
         },
     ],
     "business services and administration managers not elsewhere classified": [
         {
             "field": "project_management_methodologies",
-            "question": "Which project management methodologies are used?",
+            "text_key": "role_questions.business_managers.project_management_methodologies",
         },
         {
             "field": "budget_responsibility",
-            "question": "What budget responsibility does this role carry?",
+            "text_key": "role_questions.business_managers.budget_responsibility",
         },
     ],
     "systems analysts": [
         {
             "field": "machine_learning_frameworks",
-            "question": "Which machine learning frameworks are required?",
+            "text_key": "role_questions.systems_analysts.machine_learning_frameworks",
         },
         {
             "field": "data_analysis_tools",
-            "question": "Which data analysis tools are used?",
+            "text_key": "role_questions.systems_analysts.data_analysis_tools",
         },
     ],
     "accountants": [
         {
             "field": "accounting_software",
-            "question": "Which accounting software is used?",
+            "text_key": "role_questions.accountants.accounting_software",
         },
         {
             "field": "professional_certifications",
-            "question": "Which professional certifications are required?",
+            "text_key": "role_questions.accountants.professional_certifications",
         },
     ],
     "human resource professionals": [
         {
             "field": "hr_software_tools",
-            "question": "Which HR software tools are used?",
+            "text_key": "role_questions.hr.hr_software_tools",
         },
         {
             "field": "recruitment_channels",
-            "question": "Which recruitment channels are prioritized?",
+            "text_key": "role_questions.hr.recruitment_channels",
         },
     ],
     "civil engineers": [
         {
             "field": "civil_project_types",
-            "question": "What types of civil projects will the engineer handle?",
+            "text_key": "role_questions.civil_engineers.civil_project_types",
         },
         {
             "field": "engineering_software_tools",
-            "question": "Which engineering software tools are required?",
+            "text_key": "role_questions.civil_engineers.engineering_software_tools",
         },
     ],
     "chefs": [
         {
             "field": "cuisine_specialties",
-            "question": "Which cuisine specialties should the chef have?",
+            "text_key": "role_questions.chefs.cuisine_specialties",
         },
     ],
 }
+
+
+def _resolve_role_questions(group_key: str, lang: str) -> List[Dict[str, str]]:
+    """Return localized role-specific follow-up question entries."""
+
+    resolved: List[Dict[str, str]] = []
+    for item in ROLE_QUESTION_MAP.get(group_key, []):
+        field = item.get("field")
+        if not field:
+            continue
+        text_key = item.get("text_key")
+        if text_key:
+            question = translate_key(text_key, lang)
+        else:
+            question = str(item.get("question") or "").strip()
+        if not question:
+            continue
+        resolved.append({"field": field, "question": question})
+    return resolved
+
 
 SKILL_FIELDS: Set[str] = {
     "requirements.hard_skills_required",
@@ -501,13 +529,10 @@ def _rag_suggestions(
         return {}
     st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
     model = get_model_for(ModelTask.RAG_SUGGESTIONS, override=model)
-    sys = (
-        "You provide short, concrete suggestions to help complete a profile while following GPT-5 prompting discipline. "
-        "Silently plan which fields to address and which sources to use—do not output the plan. Execute each step methodically "
-        "and do not stop until the user's request is fully satisfied. Follow these steps: 1) Inspect the requested fields, 2) "
-        "review retrieved context for each field, 3) craft up to N concise suggestions per field that respect locale and scope. "
-        "Use retrieved context; if none, return empty arrays. Respond as a JSON object mapping each requested field to an array "
-        "of up to N concise suggestions (no explanations)."
+    system_prompt = prompt_registry.format(
+        "question_logic.rag.system",
+        locale=lang,
+        max_items=max_items_per_field,
     )
     user = {
         "job_title": job_title,
@@ -517,7 +542,7 @@ def _rag_suggestions(
         "N": max_items_per_field,
     }
     messages = [
-        {"role": "system", "content": sys},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
     ]
     try:
@@ -538,6 +563,7 @@ def _rag_suggestions(
             tools=[build_file_search_tool(vector_store_id)],
             tool_choice="auto",
             task=ModelTask.RAG_SUGGESTIONS,
+            verbosity=get_active_verbosity(),
         )
         data = json.loads(_normalize_chat_content(res) or "{}")
         out: Dict[str, List[str]] = {}
@@ -625,15 +651,28 @@ def ask_followups(
             tool_choice = "auto"
         previous_response_id = st.session_state.get(StateKeys.FOLLOWUPS_RESPONSE_ID)
 
+        payload_lang = ""
+        if isinstance(payload, dict):
+            meta = payload.get("meta")
+            if isinstance(meta, dict):
+                payload_lang = str(meta.get("lang") or "").strip()
+        session_lang = str(st.session_state.get("lang", "en") or "en")
+        lang = (payload_lang or session_lang or "en").lower()
+        if not lang.startswith("de"):
+            lang = "en"
+        else:
+            lang = "de"
+        span.set_attribute("followups.lang", lang)
+
+        system_prompt = prompt_registry.get("question_logic.followups.system", locale=lang)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ]
+
         try:
             res = call_chat_api(
-                [
-                    {
-                        "role": "system",
-                        "content": "Return ONLY a JSON object with follow-up questions and short answer suggestions.",
-                    },
-                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-                ],
+                messages,
                 model=model,
                 temperature=0.2,
                 json_schema={
@@ -674,6 +713,7 @@ def ask_followups(
                 max_tokens=800,
                 task=ModelTask.FOLLOW_UP_QUESTIONS,
                 previous_response_id=previous_response_id,
+                verbosity=get_active_verbosity(),
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)
@@ -737,9 +777,9 @@ def generate_followup_questions(
     esco_skills: List[str] = []
     esco_missing_skills: List[str] = []
     normalized_esco: List[str] = []
-    existing_skill_values: Dict[str, Set[str]] = {
-        field: _existing_value_keys(extracted, field) for field in ESCO_ESSENTIAL_FIELDS
-    }
+    existing_skill_values: Dict[str, List[str]] = {}
+    for field in ESCO_ESSENTIAL_FIELDS:
+        existing_skill_values[field] = sorted(_existing_value_keys(extracted, field))
 
     st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
 
@@ -758,7 +798,7 @@ def generate_followup_questions(
         group_key = str(occupation.get("group") or "").casefold()
         if group_key:
             role_fields = list(ROLE_FIELD_MAP.get(group_key, []))
-            role_questions_cfg = ROLE_QUESTION_MAP.get(group_key, [])
+            role_questions_cfg = _resolve_role_questions(group_key, lang)
         esco_skills = st.session_state.get(StateKeys.ESCO_SKILLS, [])
         if not esco_skills:
             esco_skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
@@ -818,7 +858,7 @@ def generate_followup_questions(
                 suggestions_map[skill_field] = _merge_suggestions(
                     seeds,
                     suggestions_map.get(skill_field, []),
-                    existing=existing_skill_values.get(skill_field),
+                    existing=set(existing_skill_values.get(skill_field, [])),
                 )
 
     forced_questions: List[Dict[str, Any]] = []
@@ -858,18 +898,23 @@ def generate_followup_questions(
 
     questions: List[Dict[str, Any]] = []
     for cfg in role_questions_cfg:
-        field = cfg.get("field")
-        q_text = cfg.get("question")
-        if not field or not q_text or field in answered_fields:
+        raw_field = cfg.get("field")
+        raw_question = cfg.get("question")
+        if not isinstance(raw_field, str) or not raw_field:
             continue
-        if not _is_empty(_get_field_value(extracted, field, None)):
+        if not isinstance(raw_question, str) or not raw_question:
             continue
+        if raw_field in answered_fields:
+            continue
+        if not _is_empty(_get_field_value(extracted, raw_field, None)):
+            continue
+        question_text = raw_question if raw_question.endswith("?") else raw_question + "?"
         questions.append(
             {
-                "field": field,
-                "question": q_text if q_text.endswith("?") else q_text + "?",
+                "field": raw_field,
+                "question": question_text,
                 "priority": "normal",
-                "suggestions": suggestions_map.get(field, []),
+                "suggestions": suggestions_map.get(raw_field, []),
             }
         )
 

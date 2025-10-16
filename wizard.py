@@ -52,22 +52,18 @@ from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
-from wizard_agents import (
-    generate_interview_guide_content,
-    generate_job_ad_content,
-)
-from wizard_layout import (
+from wizard import (
     COMPACT_STEP_STYLE,
-    inject_salary_slider_styles,
-    render_onboarding_hero,
-)
-from wizard_logic import (
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
+    generate_interview_guide_content,
+    generate_job_ad_content,
+    inject_salary_slider_styles,
+    render_onboarding_hero,
 )
 
 # LLM and Follow-ups
@@ -7428,9 +7424,7 @@ CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.val
 # requirements insights can still run with just the country. Once the full
 # wizard is considered we still treat it as critical.
 _MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
-SECTION_FILTER_OVERRIDES: dict[str, int] = {
-    "location.primary_city": _MAX_SECTION_INDEX,
-}
+SECTION_FILTER_OVERRIDES: dict[str, int] = {}
 
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:

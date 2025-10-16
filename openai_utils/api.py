@@ -1196,7 +1196,6 @@ def _prepare_payload(
             responses_tools: list[dict[str, Any]] = []
             for tool_spec in combined_tools:
                 cleaned_spec = dict(tool_spec)
-                cleaned_spec.pop("name", None)
                 function_block = cleaned_spec.get("function")
                 if isinstance(function_block, Mapping):
                     cleaned_spec["function"] = dict(function_block)

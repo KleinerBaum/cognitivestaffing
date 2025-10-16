@@ -3,6 +3,12 @@
 ## Unreleased
 _TBD / Noch offen_
 
+- feat: refactor wizard helpers into the `wizard/` package, localise follow-up presets via i18n, and load prompts from the central registry
+  - Feature: Wizard-Helfer in Paket `wizard/`, Follow-up-Vorlagen lokalisiert und Prompts aus der Registry geladen
+- chore: extend model fallback chains with an explicit GPT-4 hop and add bilingual deployment guidance
+  - Chore: Modell-Fallbacks um einen GPT-4-Schritt erweitert und zweisprachige Deployment-Doku ergänzt
+- fix: normalise role-specific follow-up questions via translation keys instead of hard-coded English strings
+  - Fix: Rollenspezifische Nachfragen per Übersetzungsschlüssel statt fest verdrahteter Englisch-Texte
 - fix: default the application language to English on first load
 - fix: keep the wizard next button enabled and surface a hint for missing required fields
 - fix: darken light-mode hero background image for stronger visual contrast
