@@ -7,6 +7,8 @@ _TBD / Noch offen_
 - fix: keep the wizard next button enabled and surface a hint for missing required fields
 - fix: darken light-mode hero background image for stronger visual contrast
 - feat: refresh onboarding hero with lighter dark-mode background, smaller logo, and mission-focused copy
+- feat: retune model routing with GPT-4o/GPT-4o-mini defaults, `gpt-3.5-turbo` company extraction, updated docs, and selector tweaks (EN/DE)
+  - Feature: Routing auf GPT-4o/GPT-4o-mini als Standard, `gpt-3.5-turbo` für Unternehmens-Insights sowie aktualisierte Doku und Modell-Auswahl (DE/EN)
 - feat: replace sidebar salary factor table with interactive explanations and top-N selector
 - feat: consolidate requirements insights into dual salary/availability cards with regional radius filtering
 - feat: reorganize company step with grouped inputs for location, team context, and branding assets uploader

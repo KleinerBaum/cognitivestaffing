@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from config import GPT5_MINI, GPT5_NANO, OPENAI_MODEL, normalise_model_override
+from config import GPT4O, GPT4O_MINI, GPT5_MINI, GPT5_NANO, OPENAI_MODEL, normalise_model_override
 from constants.keys import UIKeys
 from utils.i18n import tr
 
@@ -13,7 +13,15 @@ def model_selector(key: str = "model") -> str:
     """Render a selectbox to allow users to choose the OpenAI model."""
 
     option_entries: list[tuple[str | None, str]] = [
-        (None, tr("Automatisch: GPT-5 (empfohlen)", "Auto: GPT-5 (recommended)")),
+        (None, tr("Automatisch: Ausgewogen (empfohlen)", "Auto: Balanced (recommended)")),
+        (
+            GPT4O,
+            tr("GPT-4o (ausgewogen)", "GPT-4o (balanced)"),
+        ),
+        (
+            GPT4O_MINI,
+            tr("GPT-4o mini (günstig)", "GPT-4o mini (cost saver)"),
+        ),
         (
             GPT5_MINI,
             tr("GPT-5 mini (gpt-5.1-mini) erzwingen", "Force GPT-5 mini (gpt-5.1-mini)"),
@@ -50,8 +58,8 @@ def model_selector(key: str = "model") -> str:
         resolved = OPENAI_MODEL
         st.caption(
             tr(
-                "Die App wählt automatisch zwischen GPT-5 mini (`gpt-5.1-mini`) und GPT-5 nano (`gpt-5.1-nano`) je nach Aufgabe.",
-                "The app automatically chooses between GPT-5 mini (`gpt-5.1-mini`) and GPT-5 nano (`gpt-5.1-nano`) per task.",
+                "Auto-Routing nutzt GPT-4o für komplexe Aufgaben und GPT-4o mini für günstige Antworten.",
+                "Auto routing uses GPT-4o for complex tasks and GPT-4o mini for cost-efficient replies.",
             )
         )
     else:

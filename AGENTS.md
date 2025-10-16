@@ -13,8 +13,8 @@
   - **EN:** Optional base URL override. Set to `https://eu.api.openai.com/v1` for EU data residency.
   - **DE:** Optionale Basis-URL. Für EU-Datenresidenz `https://eu.api.openai.com/v1` setzen.
 - `OPENAI_MODEL`
-  - **EN:** Optional global default. Routing still chooses between `gpt-5.1-mini` (GPT-5 mini) and `gpt-5.1-nano` (GPT-5 nano) per task.
-  - **DE:** Optionaler globaler Standard. Das Routing wechselt dennoch je nach Aufgabe zwischen `gpt-5.1-mini` (GPT-5 mini) und `gpt-5.1-nano` (GPT-5 nano).
+  - **EN:** Optional global default. Routing now balances `gpt-4o` (full) and `gpt-4o-mini` (cost-optimised) per task, while manual overrides can force GPT-5 tiers.
+  - **DE:** Optionaler globaler Standard. Das Routing balanciert nun je nach Aufgabe zwischen `gpt-4o` (voll) und `gpt-4o-mini` (kostenoptimiert); manuelle Overrides können weiterhin GPT-5-Tiers erzwingen.
 - `OPENAI_REQUEST_TIMEOUT`
   - **EN:** Timeout in seconds for Responses requests (default: 120s). Increase for long-running generations.
   - **DE:** Timeout in Sekunden für Responses-Anfragen (Standard: 120s). Für lange Generierungen erhöhen.
@@ -57,8 +57,8 @@
   - **EN:** JSON payload `{ "questions": [ { field, question, priority, suggestions } ] }` enforced via Responses JSON schema.
   - **DE:** JSON-Nutzlast `{ "questions": [ { field, question, priority, suggestions } ] }`, abgesichert über die Responses-JSON-Schema-Funktion.
 - **Model & tools / Modell & Tools:**
-  - **EN:** `gpt-5.1-nano` (GPT-5 nano) via `responses.create`. Automatically activates `file_search` when `VECTOR_STORE_ID` is configured.
-  - **DE:** `gpt-5.1-nano` (GPT-5 nano) über `responses.create`. Aktiviert `file_search` automatisch, sobald `VECTOR_STORE_ID` gesetzt ist.
+  - **EN:** `gpt-4o` via `responses.create`. Automatically activates `file_search` when `VECTOR_STORE_ID` is configured.
+  - **DE:** `gpt-4o` über `responses.create`. Aktiviert `file_search` automatisch, sobald `VECTOR_STORE_ID` gesetzt ist.
 - **Lifecycle / Ausführung:**
   - **EN:** Runs after extraction and whenever the user replays follow-ups (manual rerun or Auto re-ask loop).
   - **DE:** Läuft nach der Extraktion und bei jedem erneuten Anstoßen der Nachfragen (manuell oder durch den Auto-Reask-Loop).
@@ -86,7 +86,7 @@
   - **EN:** `rag_suggestions` mapping fields to candidate values and rationales.
   - **DE:** `rag_suggestions`, die Felder auf Kandidatenwerte und Begründungen abbilden.
 - **Model & tools / Modell & Tools:**
-  - **EN/DE:** `gpt-5.1-nano` (GPT-5 nano) with the `file_search` tool against the configured vector store.
+  - **EN/DE:** `gpt-4o` with the `file_search` tool against the configured vector store.
 - **Lifecycle / Ausführung:**
   - **EN:** Runs before the FQG to seed suggestion chips and when users click “Refresh suggestions”.
   - **DE:** Läuft vor dem Nachfragen-Agenten zur Initialbefüllung der Chips und beim Klick auf „Vorschläge aktualisieren“.
@@ -97,7 +97,7 @@
   - **DE:** Extrahiert Unternehmensname, Standort, Mission und Kultur aus geladenen Webseiteninhalten.
 - **Inputs / Eingaben:** Company URL + fetched HTML/PDF text / Unternehmens-URL plus geladener HTML/PDF-Text.
 - **Outputs / Ausgaben:** `{ company_name, location, company_mission, company_culture }` (EN/DE identisch).
-- **Model & tools / Modell & Tools:** `gpt-5.1-mini` (GPT-5 mini) with structured extraction prompts / strukturierte Extraktion.
+- **Model & tools / Modell & Tools:** `gpt-3.5-turbo` with structured extraction prompts / strukturierte Extraktion.
 - **Lifecycle / Ausführung:** On “Fetch from website” or when a URL is supplied / Beim Klick auf „Von Website laden“ oder beim Setzen einer URL.
 
 ### 5. Suggestion Helpers / Vorschlags-Helfer
@@ -105,8 +105,8 @@
   - **EN:** Task, skill, benefit, boolean-query, interview-guide, and job-ad helpers enrich vacancy data with focused outputs.
   - **DE:** Aufgaben-, Skill-, Benefit-, Boolean-Query-, Interviewleitfaden- und Job-Ad-Helfer ergänzen das Profil mit fokussierten Ergebnissen.
 - **Model & tools / Modell & Tools:**
-  - **EN:** Long-form flows (`job_ad`, `interview_guide`, `boolean_query`) run on `gpt-5.1-mini` with streaming; shorter lists (`skills`, `benefits`, `tasks`) use `gpt-5.1-nano`. Setting `USE_CLASSIC_API=1` forces Chat Completions.
-  - **DE:** Langformatige Ausgaben (`job_ad`, `interview_guide`, `boolean_query`) nutzen `gpt-5.1-mini` mit Streaming; kürzere Listen (`skills`, `benefits`, `tasks`) laufen auf `gpt-5.1-nano`. Mit `USE_CLASSIC_API=1` erfolgt der Fallback auf Chat Completions.
+  - **EN:** Long-form flows (`job_ad`, `interview_guide`, `boolean_query`) run on `gpt-4o` with streaming; shorter lists (`skills`, `benefits`, `tasks`) use `gpt-4o-mini`. Setting `USE_CLASSIC_API=1` forces Chat Completions.
+  - **DE:** Langformatige Ausgaben (`job_ad`, `interview_guide`, `boolean_query`) nutzen `gpt-4o` mit Streaming; kürzere Listen (`skills`, `benefits`, `tasks`) laufen auf `gpt-4o-mini`. Mit `USE_CLASSIC_API=1` erfolgt der Fallback auf Chat Completions.
 
 ### 6. Auto Re-ask Loop / Automatischer Nachfragen-Loop
 - **Purpose / Zweck:**
@@ -126,7 +126,7 @@
   - **EN:** Markdown report (`assistant_report`), sorted follow-up questions, list of unresolved critical fields, and the enriched JSON profile.
   - **DE:** Markdown-Report (`assistant_report`), sortierte Nachfragen, Liste ungefüllter Pflichtfelder und das angereicherte JSON-Profil.
 - **Model & tools / Modell & Tools:**
-  - **EN/DE:** Leverages `llm.gap_analysis.analyze_vacancy`, which routes to `gpt-5.1-mini` for narrative output, while `retrieve_from_vector_store` performs `file_search` lookups when a vector store is configured.
+  - **EN/DE:** Leverages `llm.gap_analysis.analyze_vacancy`, which routes to `gpt-4o` for narrative output, while `retrieve_from_vector_store` performs `file_search` lookups when a vector store is configured.
 - **Lifecycle / Ausführung:**
   - **EN:** Available via the Gap Analysis Streamlit page (`ui_views/gap_analysis.py`) and from wizard shortcuts that pre-fill the form after extraction.
   - **DE:** Über die Streamlit-Seite zur Gap-Analyse (`ui_views/gap_analysis.py`) abrufbar; der Wizard füllt das Formular nach der Extraktion automatisch vor.
@@ -152,8 +152,8 @@
 - **DE:** Prüft künftig generierte Inhalte (Job-Ads, Interview-Guides, Nachfragen) auf DSGVO/EEO-Konformität, meldet Verstöße und kann Exporte blockieren. Bindet die Deliberate-Alignment-Routinen in `llm/responses.py` ein und versieht Spans mit OpenTelemetry-Attributen.
 
 ### Tech-Stack Miner *(planned) / geplant*
-- **EN:** Detects missing technologies based on industry, ESCO data, and vector-store hints. Combines heuristics (`skill_market_insights.json`) with LLM reasoning, escalating ambiguous cases from `gpt-5.1-nano` to `gpt-5.1-mini`.
-- **DE:** Identifiziert fehlende Technologien anhand von Branche, ESCO-Daten und Vector-Store-Hinweisen. Kombiniert Heuristiken (`skill_market_insights.json`) mit LLM-Reasoning und eskaliert unklare Fälle von `gpt-5.1-nano` auf `gpt-5.1-mini`.
+- **EN:** Detects missing technologies based on industry, ESCO data, and vector-store hints. Combines heuristics (`skill_market_insights.json`) with LLM reasoning, escalating ambiguous cases from `gpt-4o-mini` to `gpt-4o`.
+- **DE:** Identifiziert fehlende Technologien anhand von Branche, ESCO-Daten und Vector-Store-Hinweisen. Kombiniert Heuristiken (`skill_market_insights.json`) mit LLM-Reasoning und eskaliert unklare Fälle von `gpt-4o-mini` auf `gpt-4o`.
 
 ### DEI Language Auditor *(planned) / geplant*
 - **EN:** Post-processes job ads and interview questions to highlight biased phrasing and propose inclusive alternatives with severity levels for inline UI highlights.

@@ -1,10 +1,11 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-The application now routes requests between OpenAI's GPT-5 family to balance
-quality and cost. ``gpt-5.1-mini`` (GPT-5 mini) serves as the default large
-language model for generative workloads, while ``gpt-5.1-nano`` (GPT-5 nano)
-powers lightweight suggestion flows.
-Structured retrieval now standardises on ``text-embedding-3-large`` (3,072
+The application now routes requests between OpenAI's GPT-4o family for balanced
+cost/latency and the GPT-5 tiers for specialised overrides. ``gpt-4o`` delivers
+structured extraction, long-form narratives, and follow-up reasoning, while
+``gpt-4o-mini`` covers lightweight suggestion flows by default. Teams can still
+override the routing to force GPT-5 mini/nano when premium quality is required.
+Structured retrieval standardises on ``text-embedding-3-large`` (3,072
 dimensions) for higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
@@ -46,6 +47,7 @@ GPT5_FULL = "gpt-5.1"
 GPT5_MINI = "gpt-5.1-mini"
 GPT5_NANO = "gpt-5.1-nano"
 GPT4O = "gpt-4o"
+GPT4O_MINI = "gpt-4o-mini"
 
 
 _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
@@ -58,14 +60,14 @@ _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
 )
 
 _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
-    ("gpt-4o-mini-2024-08-06", GPT5_NANO),
-    ("gpt-4o-mini-2024-07-18", GPT5_NANO),
-    ("gpt-4o-mini-2024-05-13", GPT5_NANO),
-    ("gpt-4o-mini", GPT5_NANO),
-    ("gpt-4o-latest", GPT5_MINI),
-    ("gpt-4o-2024-08-06", GPT5_MINI),
-    ("gpt-4o-2024-05-13", GPT5_MINI),
-    ("gpt-4o", GPT5_MINI),
+    ("gpt-4o-mini-2024-08-06", GPT4O_MINI),
+    ("gpt-4o-mini-2024-07-18", GPT4O_MINI),
+    ("gpt-4o-mini-2024-05-13", GPT4O_MINI),
+    ("gpt-4o-mini", GPT4O_MINI),
+    ("gpt-4o-latest", GPT4O),
+    ("gpt-4o-2024-08-06", GPT4O),
+    ("gpt-4o-2024-05-13", GPT4O),
+    ("gpt-4o", GPT4O),
 )
 
 
@@ -103,7 +105,7 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
     if lowered.startswith("gpt-5"):
         return GPT5_FULL
     if lowered.startswith("gpt-4o-mini"):
-        return GPT5_NANO
+        return GPT4O_MINI
     if lowered.startswith("gpt-4o"):
         return GPT4O
     return candidate
@@ -127,8 +129,8 @@ def _detect_default_model() -> str:
     env_default = os.getenv("DEFAULT_MODEL")
     if env_default:
         normalised = normalise_model_name(env_default)
-        return normalised or GPT5_MINI
-    return GPT5_MINI
+        return normalised or GPT4O
+    return GPT4O
 
 
 DEFAULT_MODEL = _detect_default_model()
@@ -297,21 +299,21 @@ class ModelTask(StrEnum):
 
 MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DEFAULT.value: OPENAI_MODEL,
-    ModelTask.EXTRACTION.value: GPT5_MINI,
-    ModelTask.COMPANY_INFO.value: GPT5_MINI,
-    ModelTask.FOLLOW_UP_QUESTIONS.value: GPT5_NANO,
-    ModelTask.RAG_SUGGESTIONS.value: GPT5_NANO,
-    ModelTask.SKILL_SUGGESTION.value: GPT5_NANO,
-    ModelTask.BENEFIT_SUGGESTION.value: GPT5_NANO,
-    ModelTask.TASK_SUGGESTION.value: GPT5_NANO,
-    ModelTask.ONBOARDING_SUGGESTION.value: GPT5_NANO,
-    ModelTask.JOB_AD.value: GPT5_MINI,
-    ModelTask.INTERVIEW_GUIDE.value: GPT5_MINI,
-    ModelTask.PROFILE_SUMMARY.value: GPT5_NANO,
-    ModelTask.CANDIDATE_MATCHING.value: GPT5_MINI,
-    ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
-    ModelTask.EXPLANATION.value: GPT5_MINI,
-    ModelTask.SALARY_ESTIMATE.value: GPT5_NANO,
+    ModelTask.EXTRACTION.value: GPT4O,
+    ModelTask.COMPANY_INFO.value: "gpt-3.5-turbo",
+    ModelTask.FOLLOW_UP_QUESTIONS.value: GPT4O,
+    ModelTask.RAG_SUGGESTIONS.value: GPT4O,
+    ModelTask.SKILL_SUGGESTION.value: GPT4O_MINI,
+    ModelTask.BENEFIT_SUGGESTION.value: GPT4O_MINI,
+    ModelTask.TASK_SUGGESTION.value: GPT4O_MINI,
+    ModelTask.ONBOARDING_SUGGESTION.value: GPT4O_MINI,
+    ModelTask.JOB_AD.value: GPT4O,
+    ModelTask.INTERVIEW_GUIDE.value: GPT4O,
+    ModelTask.PROFILE_SUMMARY.value: GPT4O_MINI,
+    ModelTask.CANDIDATE_MATCHING.value: GPT4O,
+    ModelTask.DOCUMENT_REFINEMENT.value: GPT4O,
+    ModelTask.EXPLANATION.value: GPT4O,
+    ModelTask.SALARY_ESTIMATE.value: GPT4O_MINI,
     "embedding": EMBED_MODEL,
 }
 
@@ -326,6 +328,7 @@ MODEL_FALLBACKS: Dict[str, list[str]] = {
     _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT4O, "gpt-3.5-turbo"],
     _canonical_model_name(GPT5_NANO): [GPT5_NANO, GPT4O, "gpt-3.5-turbo"],
     _canonical_model_name(GPT4O): [GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, "gpt-3.5-turbo"],
     _canonical_model_name("gpt-3.5-turbo"): ["gpt-3.5-turbo"],
 }
 
@@ -338,7 +341,7 @@ def _build_task_fallbacks() -> Dict[str, list[str]]:
         if task == "embedding":
             mapping[task] = [model_name]
             continue
-        preferred = model_name or GPT5_MINI
+        preferred = model_name or OPENAI_MODEL or GPT4O
         canonical = _canonical_model_name(preferred)
         fallbacks = MODEL_FALLBACKS.get(canonical, [preferred])
         # Ensure the preferred model is first in the list and remove duplicates while preserving order.
@@ -392,7 +395,7 @@ def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
     fallback_chain = TASK_MODEL_FALLBACKS.get(key)
     if fallback_chain is not None:
         return list(fallback_chain)
-    return list(TASK_MODEL_FALLBACKS.get(ModelTask.DEFAULT.value, [GPT5_MINI, "gpt-3.5-turbo"]))
+    return list(TASK_MODEL_FALLBACKS.get(ModelTask.DEFAULT.value, [GPT4O, "gpt-3.5-turbo"]))
 
 
 def normalise_model_override(value: object) -> str | None:
@@ -496,9 +499,9 @@ def get_first_available_model(task: ModelTask | str, *, override: str | None = N
         )
         return candidates[-1]
     logging.getLogger("cognitive_needs.model_routing").error(
-        "No model candidates resolved for task '%s'; falling back to %s.", task, GPT5_MINI
+        "No model candidates resolved for task '%s'; falling back to %s.", task, GPT4O
     )
-    return GPT5_MINI
+    return GPT4O
 
 
 def get_active_verbosity() -> str:

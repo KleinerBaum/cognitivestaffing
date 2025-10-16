@@ -1,6 +1,6 @@
 # Cognitive Staffing
 
-**Cognitive Staffing** automates the extraction and enrichment of vacancy profiles from PDFs, URLs, or pasted text. It turns unstructured job ads into structured JSON, highlights missing data, and orchestrates multiple AI agents to draft follow-up questions, job ads, interview guides, and Boolean searches. By default all LLM calls run through the OpenAI **Responses API** (with the `gpt-5` family) so we can enforce structured outputs, stream long generations, and fall back gracefully when rate limits occur. If needed, set the `USE_CLASSIC_API` environment variable to route every call through the Chat Completions API instead.
+**Cognitive Staffing** automates the extraction and enrichment of vacancy profiles from PDFs, URLs, or pasted text. It turns unstructured job ads into structured JSON, highlights missing data, and orchestrates multiple AI agents to draft follow-up questions, job ads, interview guides, and Boolean searches. By default all LLM calls run through the OpenAI **Responses API** using the `gpt-4o` family (`gpt-4o` for narrative/extraction workflows and `gpt-4o-mini` for short suggestions) so we can enforce structured outputs, stream long generations, and fall back gracefully when rate limits occur. If needed, set the `USE_CLASSIC_API` environment variable to route every call through the Chat Completions API instead.
 
 ![App Screenshot](images/app_screenshot.png)
 
@@ -13,7 +13,7 @@
   **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.
   **DE:** Deterministische Helfer liefern Gehaltsbenchmarks, Währungsumrechnung mit zwischengespeicherten FX-Kursen und ISO-Datumsnormalisierung, damit der Assistent ohne zusätzliche APIs fundiert begründen kann.
 - **Vector-store enrichment:** Provide `VECTOR_STORE_ID` to let the RAG agent retrieve supporting snippets via OpenAI **file_search**, seeding better suggestions when the uploaded job ad is sparse.
-- **Multi-model routing:** The router sends high-complexity tasks to `gpt-5.1-mini` (the official GPT-5 mini endpoint) and lightweight lookups to `gpt-5.1-nano` (GPT-5 nano), keeping costs predictable without sacrificing quality.
+- **Multi-model routing:** The router sends high-complexity tasks to `gpt-4o` and lightweight lookups to `gpt-4o-mini` by default. Manual overrides can escalate to `gpt-5.1-mini` (GPT-5 mini) or `gpt-5.1-nano` (GPT-5 nano) when premium quality is required.
 - **Gap analysis workspace / Gap-Analyse-Arbeitsbereich:**
   **EN:** Launch the **Gap analysis** view to combine ESCO metadata, retrieved snippets, and vacancy text into an executive-ready report that highlights missing information and next steps.
   **DE:** Öffne die Ansicht **Gap-Analyse**, um ESCO-Metadaten, abgerufene Snippets und Ausschreibungstext zu einem Management-tauglichen Bericht mit offenen Punkten und nächsten Schritten zu verbinden.
@@ -21,15 +21,15 @@
 
 ## Model Routing & Cost Controls / Modellrouting & Kostensteuerung
 
-- **Content cost router / Kostenrouter für Inhalte**  
-  **EN:** Each request runs through a prompt cost router that inspects token length and hard-to-translate compounds before selecting the cheapest suitable GPT-5 tier. Short, simple prompts stay on `gpt-5.1-nano` (GPT-5 nano), while complex or multilingual payloads automatically escalate to `gpt-5.1-mini` (GPT-5 mini) for higher quality without manual tuning.
-  **DE:** Jede Anfrage durchläuft einen Kostenrouter, der Tokenlänge und schwer übersetzbare Komposita prüft, bevor das günstigste passende GPT-5-Modell gewählt wird. Kurze, einfache Prompts bleiben auf `gpt-5.1-nano` (GPT-5 nano), komplexe oder mehrsprachige Eingaben wechseln automatisch auf `gpt-5.1-mini` (GPT-5 mini), um Qualität ohne manuelles Feintuning sicherzustellen.
-- **Fallback chain (GPT-4/GPT-3.5) / Fallback-Kette (GPT-4/GPT-3.5)**  
-  **EN:** If an API call reports that a GPT-5 model is overloaded or deprecated, the platform marks it as unavailable and retries with `gpt-4o`, then `gpt-3.5-turbo`. This automatic degradation keeps the wizard responsive during outages while still logging which tier delivered the final response.  
-  **DE:** Meldet die API, dass ein GPT-5-Modell überlastet oder abgekündigt ist, markiert die Plattform es als nicht verfügbar und versucht es erneut mit `gpt-4o`, danach mit `gpt-3.5-turbo`. Diese automatische Abstufung hält den Wizard auch bei Störungen reaktionsfähig und protokolliert, welches Modell die endgültige Antwort geliefert hat.
-- **Model override toggle / Modell-Override-Umschalter**  
-  **EN:** Open the sidebar settings and use the **Base model** select box to force a specific tier. Choosing “Auto” clears the override so routing and fallbacks can operate normally; selecting “Force GPT-5 mini (`gpt-5.1-mini`)” or “Force GPT-5 nano (`gpt-5.1-nano`)” pins every request to that engine until you switch back.  
-  **DE:** Öffne die Einstellungen in der Seitenleiste und nutze das Auswahlfeld **Basismodell**, um einen bestimmten Modell-Tier zu erzwingen. Mit „Automatisch“ wird der Override aufgehoben, sodass Routing und Fallbacks normal greifen; „GPT-5 mini (`gpt-5.1-mini`) erzwingen“ bzw. „GPT-5 nano (`gpt-5.1-nano`) erzwingen“ fixiert jede Anfrage auf diese Engine, bis du wieder zurückschaltest.
+- **Content cost router / Kostenrouter für Inhalte**
+  **EN:** Each request runs through a prompt cost router that inspects token length and hard-to-translate compounds before selecting the cheapest suitable tier. Short, simple prompts stay on `gpt-4o-mini`, while complex or multilingual payloads automatically escalate to `gpt-4o` for higher quality. Power users can still force GPT-5 mini/nano for premium reasoning.
+  **DE:** Jede Anfrage durchläuft einen Kostenrouter, der Tokenlänge und schwer übersetzbare Komposita prüft, bevor das günstigste passende Modell gewählt wird. Kurze, einfache Prompts bleiben auf `gpt-4o-mini`, komplexe oder mehrsprachige Eingaben wechseln automatisch auf `gpt-4o`, um Qualität ohne manuelles Feintuning sicherzustellen. Bei Bedarf lassen sich weiterhin GPT-5 mini/nano für Premium-Reasoning erzwingen.
+- **Fallback chain (GPT-4o/GPT-3.5) / Fallback-Kette (GPT-4o/GPT-3.5)**
+  **EN:** If an API call reports that the primary model is overloaded or deprecated, the platform marks it as unavailable and retries with `gpt-3.5-turbo`. Manual GPT-5 overrides first degrade to `gpt-4o` before reaching `gpt-3.5-turbo`, keeping the wizard responsive during outages while logging which tier delivered the final response.
+  **DE:** Meldet die API, dass das Primärmodell überlastet oder abgekündigt ist, markiert die Plattform es als nicht verfügbar und versucht es erneut mit `gpt-3.5-turbo`. Manuelle GPT-5-Overrides stufen zunächst auf `gpt-4o` und erst danach auf `gpt-3.5-turbo` ab. So bleibt der Wizard auch bei Störungen reaktionsfähig und protokolliert, welches Modell die endgültige Antwort geliefert hat.
+- **Model override toggle / Modell-Override-Umschalter**
+  **EN:** Open the sidebar settings and use the **Base model** select box to force a specific tier. Choosing “Auto” clears the override so routing and fallbacks can operate normally (balanced: `gpt-4o` / `gpt-4o-mini`); selecting “Force GPT-5 mini (`gpt-5.1-mini`)” or “Force GPT-5 nano (`gpt-5.1-nano`)” pins every request to that engine until you switch back.
+  **DE:** Öffne die Einstellungen in der Seitenleiste und nutze das Auswahlfeld **Basismodell**, um einen bestimmten Modell-Tier zu erzwingen. „Automatisch“ aktiviert das ausgewogene Routing (`gpt-4o` / `gpt-4o-mini`) mit Fallbacks; „GPT-5 mini (`gpt-5.1-mini`) erzwingen“ bzw. „GPT-5 nano (`gpt-5.1-nano`) erzwingen“ fixiert jede Anfrage auf diese Engine, bis du wieder zurückschaltest.
 
 ## Architecture at a Glance
 The Streamlit entrypoint (`app.py`) wires UI components from `components/` and the multi-step graph in `wizard.py` into a shared `st.session_state`. Domain rules in `core/` and `question_logic.py` keep the vacancy schema aligned with UI widgets and exports. Agents (see [AGENTS.md](AGENTS.md)) call into `llm/` helpers that return a unified `ChatCallResult`, manage retries, and execute registered tools.
@@ -77,7 +77,7 @@ Set environment variables (or configure `.streamlit/secrets.toml` under the `ope
 export OPENAI_API_KEY="sk-..."
 # Optional overrides
 export OPENAI_BASE_URL="https://api.openai.com/v1"          # use https://eu.api.openai.com/v1 for EU residency
-export OPENAI_MODEL="gpt-5.1-mini"                            # default model override (GPT-5 mini)
+export OPENAI_MODEL="gpt-4o"                                  # default model override (balanced gpt-4o)
 export OPENAI_REQUEST_TIMEOUT="120"                          # seconds; extend for long-running generations
 export REASONING_EFFORT="medium"                             # minimal | low | medium | high
 export VERBOSITY="medium"                                     # low | medium | high (Antwort-Detailgrad)
