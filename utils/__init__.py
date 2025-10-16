@@ -2,39 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import re
 from typing import Any, Mapping
 
 from .url_utils import extract_text_from_url as extract_text_from_url
 from .errors import display_error as display_error
 from models import NeedAnalysisProfile
-
-
-def merge_texts(*parts: str) -> str:
-    """Combine multiple text fragments into one string.
-
-    Empty or whitespace-only parts are ignored. Remaining fragments are
-    joined using newline separators.
-
-    Args:
-        *parts: Arbitrary text snippets.
-
-    Returns:
-        Merged text.
-    """
-
-    cleaned = [p.strip() for p in parts if p and p.strip()]
-    return "\n".join(cleaned)
-
-
-def highlight_keywords(text: str, keywords: list[str]) -> str:
-    """Highlight keywords in ``text`` with Markdown bold markers."""
-
-    if not text or not keywords:
-        return text
-    pattern = re.compile("|".join([re.escape(k) for k in keywords]), re.IGNORECASE)
-    return pattern.sub(lambda m: f"**{m.group(0)}**", text)
 
 
 def build_boolean_query(
@@ -126,12 +99,3 @@ def seo_optimize(text: str, max_keywords: int = 5) -> dict:
         first_sentence = first_sentence[:157] + "..."
     result["meta_description"] = first_sentence.strip()
     return result
-
-
-def ensure_logs_dir() -> None:
-    """Create the logs directory if it does not exist."""
-
-    try:
-        os.makedirs("logs", exist_ok=True)
-    except Exception:
-        pass

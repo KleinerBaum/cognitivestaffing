@@ -5,6 +5,7 @@ from importlib import import_module
 from pathlib import Path
 import sys
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -55,7 +56,7 @@ def test_estimate_uses_city_when_country_missing(monkeypatch) -> None:
     monkeypatch.setattr(salary, "call_chat_api", None)
     monkeypatch.setattr(salary, "build_extraction_tool", None)
 
-    fake_state: dict[str, object] = {}
+    fake_state: dict[str, Any] = {}
     fake_streamlit = SimpleNamespace(session_state=fake_state)
     monkeypatch.setattr(salary, "st", fake_streamlit)
 
