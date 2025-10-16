@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import _agents as agents
 from . import _layout as layout
@@ -60,4 +61,5 @@ def _load_legacy_module() -> None:
             __all__.append(name)
 
 
-_load_legacy_module()
+if not TYPE_CHECKING:
+    _load_legacy_module()
