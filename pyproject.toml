@@ -3,7 +3,8 @@ name = "cognitivestaffing"
 version = "0.5.0"
 requires-python = ">=3.11"
 dependencies = [
-    "pydantic[email]>=2.5",
+    "pydantic>=2.5,<3.0",
+    "email-validator>=2.1",
 ]
 
 [build-system]
