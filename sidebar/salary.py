@@ -120,9 +120,7 @@ def estimate_salary_expectation() -> None:
     explanation: SalaryExplanation | str | None = None
     source = "model"
 
-    if call_chat_api and build_extraction_tool and not st.session_state.get(
-        "openai_api_key_missing"
-    ):
+    if call_chat_api and build_extraction_tool and not st.session_state.get("openai_api_key_missing"):
         try:
             result, explanation = _call_salary_model(inputs)
         except Exception as exc:  # noqa: BLE001
@@ -150,12 +148,8 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
     location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
     employment = profile.get("employment", {}) if isinstance(profile, Mapping) else {}
     company = profile.get("company", {}) if isinstance(profile, Mapping) else {}
-    compensation = (
-        profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
-    )
-    requirements = (
-        profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
-    )
+    compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
+    requirements = profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
 
     def _as_float(value: Any) -> float | None:
         try:
@@ -200,14 +194,10 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
         hard_skills_optional=_as_str_list(requirements.get("hard_skills_optional")),
         soft_skills_optional=_as_str_list(requirements.get("soft_skills_optional")),
         tools_and_technologies=_as_str_list(requirements.get("tools_and_technologies")),
-        certificates=_as_str_list(
-            requirements.get("certificates") or requirements.get("certifications")
-        ),
+        certificates=_as_str_list(requirements.get("certificates") or requirements.get("certifications")),
         languages_required=_as_str_list(requirements.get("languages_required")),
         languages_optional=_as_str_list(requirements.get("languages_optional")),
-        language_level_english=(
-            str(requirements.get("language_level_english") or "").strip() or None
-        ),
+        language_level_english=(str(requirements.get("language_level_english") or "").strip() or None),
     )
 
 
@@ -549,12 +539,8 @@ def _compute_adjustment_percentage(inputs: _SalaryInputs) -> tuple[float, list[s
         if isinstance(max_total, (int, float)):
             pct = min(pct, max_total)
         total += pct
-        applied_de.append(
-            f"{rule['label_de']}: {pct:+.1%} ({rule['description_de']})"
-        )
-        applied_en.append(
-            f"{rule['label_en']}: {pct:+.1%} ({rule['description_en']})"
-        )
+        applied_de.append(f"{rule['label_de']}: {pct:+.1%} ({rule['description_de']})")
+        applied_en.append(f"{rule['label_en']}: {pct:+.1%} ({rule['description_en']})")
 
     level = (inputs.language_level_english or "").strip().lower()
     if level:
@@ -566,12 +552,8 @@ def _compute_adjustment_percentage(inputs: _SalaryInputs) -> tuple[float, list[s
         if matched:
             pct = matched["percent"]
             total += pct
-            applied_de.append(
-                f"{matched['label_de']}: {pct:+.1%} ({matched['description_de']})"
-            )
-            applied_en.append(
-                f"{matched['label_en']}: {pct:+.1%} ({matched['description_en']})"
-            )
+            applied_de.append(f"{matched['label_de']}: {pct:+.1%} ({matched['description_de']})")
+            applied_en.append(f"{matched['label_en']}: {pct:+.1%} ({matched['description_en']})")
 
     total = max(min(total, 0.25), -0.2)
     return total, applied_de, applied_en
@@ -589,16 +571,12 @@ def _fallback_salary(
 ) -> tuple[dict[str, Any] | None, SalaryExplanation | str | None]:
     role_key = _canonical_salary_role(inputs.job_title)
     iso_country = country_to_iso2(inputs.country)
-    bench_country = iso_country or (
-        inputs.country.strip().upper() if inputs.country else None
-    )
+    bench_country = iso_country or (inputs.country.strip().upper() if inputs.country else None)
     benchmark_role = role_key or inputs.job_title
     bench = get_salary_benchmark(benchmark_role, bench_country or "US")
     raw_range = bench.get("salary_range", "")
     salary_min, salary_max = _parse_benchmark_range(raw_range)
-    currency = _infer_currency_from_text(raw_range) or _guess_currency(
-        iso_country or inputs.country
-    )
+    currency = _infer_currency_from_text(raw_range) or _guess_currency(iso_country or inputs.country)
 
     if salary_min is None and salary_max is None:
         message = tr(
@@ -640,9 +618,7 @@ def _fallback_salary(
 
     if applied_de or applied_en:
         adjustments_value_de = "; ".join(applied_de) if applied_de else "Keine Anpassungen"
-        adjustments_value_en = (
-            "; ".join(applied_en) if applied_en else "No adjustments applied"
-        )
+        adjustments_value_en = "; ".join(applied_en) if applied_en else "No adjustments applied"
         structured_explanation.append(
             {
                 "key": "adjustments",
@@ -764,11 +740,7 @@ def _build_salary_impact(
         "user_currency": user_currency,
     }
 
-    if (
-        user_currency
-        and benchmark_currency
-        and user_currency.strip().upper() != benchmark_currency.strip().upper()
-    ):
+    if user_currency and benchmark_currency and user_currency.strip().upper() != benchmark_currency.strip().upper():
         impact["note"] = "currency_mismatch"
 
     return impact

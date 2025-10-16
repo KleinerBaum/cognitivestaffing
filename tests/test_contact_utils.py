@@ -11,10 +11,7 @@ def test_infer_contact_name_from_simple_email() -> None:
 
 
 def test_infer_contact_name_handles_hyphen_and_numbers() -> None:
-    assert (
-        infer_contact_name_from_email("anna-maria.schmidt1985@example.com")
-        == "Anna Maria Schmidt"
-    )
+    assert infer_contact_name_from_email("anna-maria.schmidt1985@example.com") == "Anna Maria Schmidt"
 
 
 def test_infer_contact_name_filters_generic_tokens() -> None:

@@ -47,9 +47,7 @@ def test_apply_rules_detects_email_and_salary() -> None:
     confidence_meta = metadata["field_confidence"]["company.contact_email"]
     assert confidence_meta["tier"] == ConfidenceTier.RULE_STRONG.value
     assert confidence_meta["source"] == "rule"
-    assert confidence_meta["score"] == pytest.approx(
-        matches["company.contact_email"].confidence
-    )
+    assert confidence_meta["score"] == pytest.approx(matches["company.contact_email"].confidence)
 
 
 def test_apply_rules_handles_table_layout() -> None:
@@ -58,9 +56,7 @@ def test_apply_rules_handles_table_layout() -> None:
     table_block = ContentBlock(
         type="table",
         text="Location | Munich, Germany\nEmail | hiring@example.de",
-        metadata={
-            "rows": [["Location", "Munich, Germany"], ["Email", "hiring@example.de"]]
-        },
+        metadata={"rows": [["Location", "Munich, Germany"], ["Email", "hiring@example.de"]]},
     )
     matches = apply_rules([table_block])
     assert matches["location.primary_city"].value == "Munich"

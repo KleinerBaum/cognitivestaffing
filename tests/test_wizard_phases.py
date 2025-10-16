@@ -17,9 +17,7 @@ def test_filter_existing_participants_preserves_known_entries() -> None:
     participants = ["Alice", "Bob"]
     stakeholder_names = ["Alice", "Bob", "Charlie"]
 
-    assert (
-        _filter_existing_participants(participants, stakeholder_names) == participants
-    )
+    assert _filter_existing_participants(participants, stakeholder_names) == participants
 
 
 def test_filter_existing_participants_removes_unknown_entries() -> None:

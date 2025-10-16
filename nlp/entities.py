@@ -206,4 +206,3 @@ def extract_location_entities(text: str, lang: str | None = None) -> LocationEnt
             _append_unique(cities, seen_cities, candidate)
 
     return LocationEntities(cities=cities, countries=countries)
-

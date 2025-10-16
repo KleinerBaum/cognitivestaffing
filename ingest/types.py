@@ -52,9 +52,7 @@ class StructuredDocument:
         return self.text
 
     @classmethod
-    def from_blocks(
-        cls, blocks: Iterable[ContentBlock], *, source: str | None = None
-    ) -> "StructuredDocument":
+    def from_blocks(cls, blocks: Iterable[ContentBlock], *, source: str | None = None) -> "StructuredDocument":
         """Create a structured document from ``blocks``.
 
         Empty blocks are filtered and the resulting text is joined with blank
@@ -89,9 +87,7 @@ def _flush_paragraph(buffer: List[str], blocks: List[ContentBlock]) -> None:
     buffer.clear()
 
 
-def build_plain_text_document(
-    text: str, *, source: str | None = None
-) -> StructuredDocument:
+def build_plain_text_document(text: str, *, source: str | None = None) -> StructuredDocument:
     """Convert raw ``text`` into a :class:`StructuredDocument`.
 
     Bullet points, ordered lists and Markdown headings are detected and mapped

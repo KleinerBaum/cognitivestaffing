@@ -71,4 +71,3 @@ def test_fallback_salary_applies_adjustments(monkeypatch) -> None:
     assert result["salary_max"] == 59000.0
     assert "Zertifikate" in explanation
     assert "Englischniveau" in explanation
-

@@ -322,9 +322,7 @@ tab_labels_en = ["👩‍💼 Line Manager", "🧑‍💻 Recruiter", "🏢 Comp
 def run() -> None:
     """Render the Advantages information page."""
 
-    lang: str = st.radio(
-        "🌐 Sprache / Language", ("Deutsch", "English"), horizontal=True
-    )
+    lang: str = st.radio("🌐 Sprache / Language", ("Deutsch", "English"), horizontal=True)
     st.markdown(title_de if lang == "Deutsch" else title_en)
     st.write(intro_de if lang == "Deutsch" else intro_en)
 

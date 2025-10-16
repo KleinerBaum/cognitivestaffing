@@ -168,9 +168,7 @@ _BOILERPLATE_CONTAINS = {
 
 _EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 _PHONE_RE = re.compile(r"\+?\d[\d\s().\-/]{5,}\d")
-_CONTACT_LABEL_RE = re.compile(
-    r"(kontakt|contact|homepage|telefon|phone|e-?mail)\s*[:–—-]"
-)
+_CONTACT_LABEL_RE = re.compile(r"(kontakt|contact|homepage|telefon|phone|e-?mail)\s*[:–—-]")
 
 
 def _normalize_for_check(text: str) -> str:
@@ -194,14 +192,9 @@ def _looks_like_navigation(line: str) -> bool:
         return True
     if normalized.startswith("©") or normalized.startswith("(c)"):
         return True
-    if ("cookie" in normalized or "all rights reserved" in normalized) and len(
-        normalized
-    ) <= 160:
+    if ("cookie" in normalized or "all rights reserved" in normalized) and len(normalized) <= 160:
         return True
-    if (
-        any(keyword in normalized for keyword in _FOOTER_KEYWORDS)
-        and len(normalized) <= 160
-    ):
+    if any(keyword in normalized for keyword in _FOOTER_KEYWORDS) and len(normalized) <= 160:
         return True
     has_email = bool(_EMAIL_RE.search(stripped))
     has_phone = bool(_PHONE_RE.search(stripped))
@@ -217,10 +210,7 @@ def _looks_like_navigation(line: str) -> bool:
             known = sum(
                 1
                 for tok in tokens
-                if tok in _MENU_TOKENS
-                or tok in _LANGUAGE_TOKENS
-                or tok in _SOCIAL_TOKENS
-                or tok in _SHORT_TOKENS
+                if tok in _MENU_TOKENS or tok in _LANGUAGE_TOKENS or tok in _SOCIAL_TOKENS or tok in _SHORT_TOKENS
             )
             if known / len(tokens) >= 0.7:
                 return True
@@ -230,23 +220,13 @@ def _looks_like_navigation(line: str) -> bool:
         if len(tokens) == 1 and tokens[0] in _SINGLE_WORD_REMOVALS:
             return True
 
-    if (
-        stripped.count("|") >= 2
-        or stripped.count(">") >= 2
-        or stripped.count("/") >= 2
-        or stripped.count("•") >= 3
-    ):
-        segments = [
-            seg.strip().lower() for seg in _NAV_SPLIT_RE.split(stripped) if seg.strip()
-        ]
+    if stripped.count("|") >= 2 or stripped.count(">") >= 2 or stripped.count("/") >= 2 or stripped.count("•") >= 3:
+        segments = [seg.strip().lower() for seg in _NAV_SPLIT_RE.split(stripped) if seg.strip()]
         if segments:
             known = sum(
                 1
                 for seg in segments
-                if seg in _MENU_TOKENS
-                or seg in _LANGUAGE_TOKENS
-                or seg in _SOCIAL_TOKENS
-                or seg in _SHORT_TOKENS
+                if seg in _MENU_TOKENS or seg in _LANGUAGE_TOKENS or seg in _SOCIAL_TOKENS or seg in _SHORT_TOKENS
             )
             if known / len(segments) >= 0.6 or len(segments) >= 5:
                 return True
@@ -387,9 +367,7 @@ def read_job_text(
             message = str(exc).strip()
             suffix = path.suffix.lower()
             if suffix and "unsupported file type" in message.lower():
-                raise ValueError(
-                    f"{path.name}: unsupported file type – upload a PDF, DOCX or text file."
-                ) from exc
+                raise ValueError(f"{path.name}: unsupported file type – upload a PDF, DOCX or text file.") from exc
             detail = f" ({message})" if message else ""
             raise ValueError(f"{path.name}: failed to read file.{detail}") from exc
         documents.append(clean_structured_document(doc))

@@ -77,7 +77,9 @@ class StubUploadedFile(BytesIO):
         ),
     ],
 )
-def test_wizard_handles_pdf_upload_with_followups(monkeypatch: pytest.MonkeyPatch, lang: str, expected: dict[str, Any]) -> None:
+def test_wizard_handles_pdf_upload_with_followups(
+    monkeypatch: pytest.MonkeyPatch, lang: str, expected: dict[str, Any]
+) -> None:
     """Streamlit wizard should ingest a PDF upload and render localized follow-ups."""
 
     # Load the PDF fixture and keep bytes ready for the upload simulation.
@@ -139,15 +141,11 @@ def test_wizard_handles_pdf_upload_with_followups(monkeypatch: pytest.MonkeyPatc
             "certificates": ["Azure"],
         },
     )
-    monkeypatch.setattr(
-        openai_utils,
-        "suggest_benefits",
-        lambda *_, **__: [f"Benefit {lang}"]
-    )
+    monkeypatch.setattr(openai_utils, "suggest_benefits", lambda *_, **__: [f"Benefit {lang}"])
     monkeypatch.setattr(
         openai_utils,
         "suggest_onboarding_plans",
-        lambda *_, **__: [f"Onboarding Schritt {idx+1} ({lang})" for idx in range(5)]
+        lambda *_, **__: [f"Onboarding Schritt {idx + 1} ({lang})" for idx in range(5)],
     )
 
     # Prepare OCR stubs so that _extract_pdf walks the OCR branch.

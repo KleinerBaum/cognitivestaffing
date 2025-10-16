@@ -85,9 +85,7 @@ def build_boolean_search(data: Mapping[str, Any] | NeedAnalysisProfile) -> str:
         Boolean search string combining the job title and gathered skills.
     """
 
-    profile = (
-        data if isinstance(data, NeedAnalysisProfile) else NeedAnalysisProfile(**data)
-    )
+    profile = data if isinstance(data, NeedAnalysisProfile) else NeedAnalysisProfile(**data)
     job_title = profile.position.job_title or ""
     combined = (
         profile.requirements.hard_skills_required

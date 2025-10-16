@@ -89,9 +89,7 @@ def _normalise_schema(node: Any) -> None:
         if isinstance(props, dict):
             existing_required = node.get("required")
             if isinstance(existing_required, list):
-                filtered_required = [
-                    prop for prop in existing_required if prop in props
-                ]
+                filtered_required = [prop for prop in existing_required if prop in props]
                 if filtered_required:
                     node["required"] = filtered_required
                 else:

@@ -77,14 +77,11 @@ def build_prefilled_sections(
     section_entries: SectionEntries = []
     for label, prefixes in sections:
         if include_prefixes and not any(
-            any(candidate.startswith(prefix) for prefix in prefixes)
-            for candidate in include_prefixes
+            any(candidate.startswith(prefix) for prefix in prefixes) for candidate in include_prefixes
         ):
             continue
         entries = [
-            (path, filled[path])
-            for path in sorted(filled)
-            if any(path.startswith(prefix) for prefix in prefixes)
+            (path, filled[path]) for path in sorted(filled) if any(path.startswith(prefix) for prefix in prefixes)
         ]
         if entries:
             section_entries.append((label, entries))
@@ -143,4 +140,3 @@ def _has_value(value: Any) -> bool:
 
 
 __all__ = ["build_prefilled_sections", "preview_value_to_text"]
-

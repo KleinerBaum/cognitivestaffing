@@ -33,14 +33,7 @@ def test_requirements_split_and_languages() -> None:
 
 
 def test_requirements_formal_heading_variant() -> None:
-    text = (
-        "Was Sie mitbringen:\n"
-        "• Kommunikationsstärke\n"
-        "• Erfahrung im Vertrieb\n"
-        "\n"
-        "Ihre Aufgaben:\n"
-        "• Kunden beraten\n"
-    )
+    text = "Was Sie mitbringen:\n• Kommunikationsstärke\n• Erfahrung im Vertrieb\n\nIhre Aufgaben:\n• Kunden beraten\n"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
 
     r = profile.requirements
@@ -50,13 +43,7 @@ def test_requirements_formal_heading_variant() -> None:
 
 
 def test_requirements_new_german_heading_variants() -> None:
-    text = (
-        "Qualifikationen:\n"
-        "- Erfahrung in der Datenanalyse\n"
-        "\n"
-        "Deine Pluspunkte:\n"
-        "- Erfahrung mit Tableau\n"
-    )
+    text = "Qualifikationen:\n- Erfahrung in der Datenanalyse\n\nDeine Pluspunkte:\n- Erfahrung mit Tableau\n"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
 
     r = profile.requirements
@@ -65,13 +52,7 @@ def test_requirements_new_german_heading_variants() -> None:
 
 
 def test_requirements_anforderungsprofil_heading() -> None:
-    text = (
-        "Anforderungsprofil:\n"
-        "- Praxis mit CRM-Systemen\n"
-        "\n"
-        "Das wäre toll:\n"
-        "- Salesforce-Zertifizierung\n"
-    )
+    text = "Anforderungsprofil:\n- Praxis mit CRM-Systemen\n\nDas wäre toll:\n- Salesforce-Zertifizierung\n"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
 
     r = profile.requirements
@@ -98,9 +79,7 @@ def test_duplicate_skills_favor_required_lists() -> None:
     assert all(skill.lower() != "python" for skill in r.hard_skills_optional)
     assert any("aws" in skill.lower() for skill in r.hard_skills_optional)
     assert any("kommunikationsstärke" in skill.lower() for skill in r.soft_skills_required)
-    assert all(
-        "kommunikationsstärke" not in skill.lower() for skill in r.soft_skills_optional
-    )
+    assert all("kommunikationsstärke" not in skill.lower() for skill in r.soft_skills_optional)
 
     tools = {tool.lower() for tool in r.tools_and_technologies}
     assert "python" in tools

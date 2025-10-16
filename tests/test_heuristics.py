@@ -18,10 +18,7 @@ def test_guess_job_title_retains_gender_suffix() -> None:
 
 def test_guess_job_title_multiline_gender_suffix() -> None:
     text = "Senior Data Scientist (m/w/d)\n– RAG, OpenAI & Recruiting Tech"
-    assert (
-        guess_job_title(text)
-        == "Senior Data Scientist (m/w/d) – RAG, OpenAI & Recruiting Tech"
-    )
+    assert guess_job_title(text) == "Senior Data Scientist (m/w/d) – RAG, OpenAI & Recruiting Tech"
 
 
 def test_guess_job_title_skips_location_banner() -> None:
@@ -31,10 +28,7 @@ def test_guess_job_title_skips_location_banner() -> None:
 
 def test_guess_job_title_skips_known_company_banner() -> None:
     text = "Cognitive Needs GmbH\nSenior Data Scientist (m/w/d)"
-    assert (
-        guess_job_title(text, skip_phrases=["Cognitive Needs GmbH"])
-        == "Senior Data Scientist (m/w/d)"
-    )
+    assert guess_job_title(text, skip_phrases=["Cognitive Needs GmbH"]) == "Senior Data Scientist (m/w/d)"
 
 
 def test_prepare_job_ad_payload_adds_gender_marker_for_german_heading() -> None:
@@ -213,18 +207,12 @@ def test_basic_fallback_title_skips_location_banner() -> None:
 
 
 def test_parse_extraction_city_alias() -> None:
-    profile = parse_extraction(
-        '{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}'
-    )
+    profile = parse_extraction('{"position": {"job_title": "Dev"}, "city": "Düsseldorf"}')
     assert profile.location.primary_city == "Düsseldorf"
 
 
 def test_employment_and_start_date_fallbacks() -> None:
-    text = (
-        "Festanstellung | Vollzeit\n"
-        "Hybrid (2-3 Tage/Woche im Office)\n"
-        "Start ab 01.10.2024"
-    )
+    text = "Festanstellung | Vollzeit\nHybrid (2-3 Tage/Woche im Office)\nStart ab 01.10.2024"
     profile = NeedAnalysisProfile()
     profile = apply_basic_fallbacks(profile, text)
     assert profile.employment.job_type == "full_time"
@@ -235,10 +223,7 @@ def test_employment_and_start_date_fallbacks() -> None:
 
 
 def test_remote_days_remote_percentage_inference() -> None:
-    text = (
-        "Werkstudent (m/w/d) Data Team\n"
-        "Arbeitsmodell: 3 Tage/Woche remote, 2 Tage im Büro"
-    )
+    text = "Werkstudent (m/w/d) Data Team\nArbeitsmodell: 3 Tage/Woche remote, 2 Tage im Büro"
     profile = NeedAnalysisProfile()
     profile = apply_basic_fallbacks(profile, text)
     assert profile.employment.job_type == "working_student"
@@ -288,12 +273,7 @@ def test_compensation_fallbacks() -> None:
 
 
 def test_benefit_section_extraction_sets_metadata() -> None:
-    text = (
-        "Unsere Benefits:\n"
-        "- 30 Urlaubstage\n"
-        "- Sabbatical-Option\n"
-        "- 1.000€ Lernbudget\n"
-    )
+    text = "Unsere Benefits:\n- 30 Urlaubstage\n- Sabbatical-Option\n- 1.000€ Lernbudget\n"
     profile = NeedAnalysisProfile()
     metadata: dict[str, object] = {"locked_fields": [], "high_confidence_fields": []}
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
@@ -318,13 +298,7 @@ def test_benefit_inline_list_extraction() -> None:
 
 
 def test_responsibility_fallbacks() -> None:
-    text = (
-        "Dein Spielfeld:\n"
-        "- Features entwickeln\n"
-        "- Team unterstützen\n\n"
-        "Was du mitbringst:\n"
-        "- Python Erfahrung\n"
-    )
+    text = "Dein Spielfeld:\n- Features entwickeln\n- Team unterstützen\n\nWas du mitbringst:\n- Python Erfahrung\n"
     profile = NeedAnalysisProfile()
     profile = apply_basic_fallbacks(profile, text)
     assert profile.responsibilities.items == [
@@ -335,13 +309,7 @@ def test_responsibility_fallbacks() -> None:
 
 
 def test_responsibility_heading_variants() -> None:
-    text = (
-        "Was dich erwartet:\n"
-        "• Kunden beraten\n"
-        "• Angebote erstellen\n"
-        "Dein Profil:\n"
-        "• Kommunikationsstärke\n"
-    )
+    text = "Was dich erwartet:\n• Kunden beraten\n• Angebote erstellen\nDein Profil:\n• Kommunikationsstärke\n"
     profile = NeedAnalysisProfile()
     profile = apply_basic_fallbacks(profile, text)
     assert profile.responsibilities.items == [

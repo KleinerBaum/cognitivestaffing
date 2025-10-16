@@ -34,12 +34,8 @@ def test_cli_uses_ingest_extractor(
         return "router-model"
 
     monkeypatch.setattr("config.get_model_for", fake_get_model_for)
-    monkeypatch.setattr(
-        "ingest.extractors.extract_text_from_file", fake_extract_text_from_file
-    )
-    monkeypatch.setattr(
-        "openai_utils.extract_with_function", fake_extract_with_function
-    )
+    monkeypatch.setattr("ingest.extractors.extract_text_from_file", fake_extract_text_from_file)
+    monkeypatch.setattr("openai_utils.extract_with_function", fake_extract_with_function)
     monkeypatch.setattr("llm.rag_pipeline.build_field_queries", lambda _s: [])
     monkeypatch.setattr("llm.rag_pipeline.collect_field_contexts", lambda *a, **k: {})
     monkeypatch.setattr("llm.rag_pipeline.build_global_context", lambda *_a, **_k: [])
@@ -63,9 +59,7 @@ def test_cli_handles_missing_ocr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     def fake_extract_text_from_file(_fh):
         raise ValueError(message)
 
-    monkeypatch.setattr(
-        "ingest.extractors.extract_text_from_file", fake_extract_text_from_file
-    )
+    monkeypatch.setattr("ingest.extractors.extract_text_from_file", fake_extract_text_from_file)
     monkeypatch.setattr(sys, "argv", ["prog", "--file", str(sample)])
 
     with pytest.raises(SystemExit) as exc:

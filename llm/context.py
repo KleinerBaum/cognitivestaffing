@@ -45,9 +45,7 @@ def build_extract_messages(
     truncated = truncate_smart(text or "", MAX_CHAR_BUDGET)
     locked_mapping: Mapping[str, str] | None = locked_fields
     if locked_mapping:
-        filtered_fields = [
-            field for field in FIELDS_ORDER if not locked_mapping.get(field)
-        ]
+        filtered_fields = [field for field in FIELDS_ORDER if not locked_mapping.get(field)]
         if not filtered_fields:
             filtered_fields = FIELDS_ORDER
     else:
@@ -62,9 +60,7 @@ def build_extract_messages(
 
     system_content = SYSTEM_JSON_EXTRACTOR
     if locked_fields:
-        system_content = (
-            f"{SYSTEM_JSON_EXTRACTOR} Keep provided locked values unchanged in the JSON output."
-        )
+        system_content = f"{SYSTEM_JSON_EXTRACTOR} Keep provided locked values unchanged in the JSON output."
 
     return [
         {"role": "system", "content": system_content},

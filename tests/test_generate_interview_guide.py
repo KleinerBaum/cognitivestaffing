@@ -109,8 +109,7 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     assert isinstance(messages, list) and len(messages) >= 2
     user_prompt = messages[1]["content"]
     assert (
-        "at least one question covering responsibilities, hard skills, soft skills, and company culture"
-        in user_prompt
+        "at least one question covering responsibilities, hard skills, soft skills, and company culture" in user_prompt
     )
     assert "job title and seniority context" in user_prompt
 

@@ -173,9 +173,7 @@ def render_stepper(
 
                 icon = status_icons[status]
                 annotated_label = f"{icon} {button_label}"
-                annotated_steps.append(
-                    f"**{annotated_label}**" if status == "current" else annotated_label
-                )
+                annotated_steps.append(f"**{annotated_label}**" if status == "current" else annotated_label)
 
                 disabled = status == "current" or on_select is None
                 with column:
