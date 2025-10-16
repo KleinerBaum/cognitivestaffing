@@ -167,17 +167,14 @@ def test_responses_payload_omits_top_level_tool_names(monkeypatch):
     call_chat_api(
         [{"role": "user", "content": "hi"}],
         model="gpt-test",
-        tools=[{"type": "function", "function": {"name": "say_hi", "parameters": {}}}],
+        tools=[{"name": "say_hi", "parameters": {"type": "object"}}],
     )
 
     sent_payload = captured["payload"]
-    assert "tools" in sent_payload
-    assert sent_payload["tools"], "Expected at least one tool in the payload"
-    for tool_spec in sent_payload["tools"]:
-        assert "name" not in tool_spec
-        if tool_spec.get("type") == "function":
-            function_block = tool_spec.get("function", {})
-            assert function_block.get("name") == "say_hi"
+    assert "functions" in sent_payload
+    assert sent_payload["functions"], "Expected at least one function in the payload"
+    assert sent_payload["functions"][0]["name"] == "say_hi"
+    assert "tools" not in sent_payload
 
 
 def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
@@ -1061,13 +1058,11 @@ def test_prepare_payload_includes_analysis_helpers():
         include_analysis_tools=True,
     )
 
-    tool_types = {tool.get("type") for tool in payload["tools"]}
+    tool_types = {tool.get("type") for tool in payload.get("tools", [])}
     assert "web_search" in tool_types
     assert "web_search_preview" in tool_types
 
-    function_names = {
-        tool.get("function", {}).get("name") for tool in payload["tools"] if tool.get("type") == "function"
-    }
+    function_names = {fn.get("name") for fn in payload.get("functions", [])}
     assert "convert_currency" in function_names
     assert "normalise_date" in function_names
     assert callable(tool_map["convert_currency"])
@@ -1122,11 +1117,9 @@ def test_build_extraction_tool_has_name_and_parameters():
     schema = {"type": "object", "properties": {}}
     tool = openai_utils.build_extraction_tool("NeedAnalysisProfile", schema)
     spec = tool[0]
-    assert spec["type"] == "function"
-    fn_payload = spec["function"]
-    assert fn_payload["name"] == "NeedAnalysisProfile"
-    assert fn_payload["parameters"]["type"] == "object"
-    assert fn_payload["strict"] is True
+    assert spec["name"] == "NeedAnalysisProfile"
+    assert spec["parameters"]["type"] == "object"
+    assert spec["strict"] is True
 
 
 def test_build_extraction_tool_auto_describes_schema_fields() -> None:
@@ -1148,7 +1141,7 @@ def test_build_extraction_tool_auto_describes_schema_fields() -> None:
     }
 
     tool = openai_utils.build_extraction_tool("extract", schema)
-    description = tool[0]["function"]["description"]
+    description = tool[0]["description"]
 
     assert "requirements.hard_skills_required" in description
     assert "requirements.soft_skills_required" in description
@@ -1162,7 +1155,7 @@ def test_build_extraction_tool_allows_custom_description() -> None:
     custom_description = "Estimate annual salary bands for the vacancy."
 
     tool = openai_utils.build_extraction_tool("salary", schema, description=custom_description)
-    assert tool[0]["function"]["description"] == custom_description
+    assert tool[0]["description"] == custom_description
 
 
 def test_build_function_tools_normalises_specs() -> None:
@@ -1184,13 +1177,11 @@ def test_build_function_tools_normalises_specs() -> None:
     tools, funcs = build_function_tools(specs)
     assert len(tools) == 1
     spec = tools[0]
-    assert spec["type"] == "function"
-    function_payload = spec["function"]
-    assert function_payload["name"] == "describe_skill"
-    assert function_payload["description"] == specs["describe_skill"]["description"]
-    assert function_payload["strict"] is True
-    assert function_payload["parameters"] == parameters
-    assert function_payload["parameters"] is not parameters
+    assert spec["name"] == "describe_skill"
+    assert spec["description"] == specs["describe_skill"]["description"]
+    assert spec["strict"] is True
+    assert spec["parameters"] == parameters
+    assert spec["parameters"] is not parameters
     assert funcs["describe_skill"] is _impl
 
 
@@ -1207,7 +1198,7 @@ def test_build_extraction_tool_marks_required_recursively() -> None:
         },
     }
     tool = openai_utils.build_extraction_tool("extract", schema)
-    params = tool[0]["function"]["parameters"]
+    params = tool[0]["parameters"]
     assert params["required"] == ["outer"]
     outer = params["properties"]["outer"]
     assert outer["required"] == ["inner"]
@@ -1231,7 +1222,7 @@ def test_build_extraction_tool_can_relax_required_fields() -> None:
     }
 
     tool = openai_utils.build_extraction_tool("extract", schema, require_all_fields=False)
-    params = tool[0]["function"]["parameters"]
+    params = tool[0]["parameters"]
     assert "required" not in params
     outer = params["properties"]["outer"]
     assert "required" not in outer
@@ -2036,10 +2027,8 @@ def test_call_chat_api_executes_helper_tool(monkeypatch):
         def create(self, **kwargs):
             self.calls += 1
             if self.calls == 1:
-                tool_names = {
-                    tool.get("function", {}).get("name") for tool in kwargs["tools"] if tool.get("type") == "function"
-                }
-                assert "echo_tool" in tool_names
+                function_names = {fn.get("name") for fn in kwargs.get("functions", [])}
+                assert "echo_tool" in function_names
                 return _FirstResponse()
 
             tool_message = kwargs["input"][-1]

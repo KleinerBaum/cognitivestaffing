@@ -125,13 +125,10 @@ def build_extraction_tool(
 
     return [
         {
-            "type": "function",
-            "function": {
-                "name": name,
-                "description": description,
-                "parameters": params,
-                "strict": not allow_extra,
-            },
+            "name": name,
+            "description": description,
+            "parameters": params,
+            "strict": not allow_extra,
         }
     ]
 
@@ -171,7 +168,7 @@ def build_function_tools(
         if not isinstance(spec, Mapping):
             raise TypeError(f"Tool specification for '{name}' must be a mapping")
 
-        function_payload: dict[str, Any] = {}
+        function_payload: dict[str, Any] = {"name": name}
         callable_obj: Callable[..., Any] | None = None
 
         for key, value in spec.items():
@@ -186,8 +183,6 @@ def build_function_tools(
                 continue
             function_payload[key] = deepcopy(value)
 
-        function_payload["name"] = name
-
         if "parameters" not in function_payload:
             raise ValueError(f"Tool '{name}' must define a 'parameters' schema")
 
@@ -195,7 +190,7 @@ def build_function_tools(
         if not isinstance(parameters, Mapping):
             raise TypeError(f"Tool '{name}' expects 'parameters' to be a mapping, got {type(parameters)!r}")
 
-        tools.append({"type": "function", "function": function_payload})
+        tools.append(function_payload)
 
         if callables and name in callables:
             callable_obj = callables[name]
