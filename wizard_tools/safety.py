@@ -12,14 +12,23 @@ from agents import function_tool
 def redact_pii(text: str) -> str:
     """Mask PII before persistence."""
 
-    return json.dumps({"redacted": text})
+    masked = text.replace("@", "[at]") if text else text
+    return json.dumps({"redacted": masked})
 
 
 @function_tool
 def log_event(vacancy_id: str, stage_id: Optional[str], kind: str, payload: Dict[str, Any]) -> str:
     """Telemetry audit event."""
 
-    return json.dumps({"logged": True})
+    return json.dumps(
+        {
+            "logged": True,
+            "vacancy_id": vacancy_id,
+            "stage_id": stage_id,
+            "kind": kind,
+            "payload": payload,
+        }
+    )
 
 
 @function_tool
