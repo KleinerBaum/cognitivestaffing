@@ -6,6 +6,7 @@ from typing import Any
 
 from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
+from prompts import prompt_registry
 from schemas import INTERVIEW_GUIDE_SCHEMA
 
 __all__ = ["generate_interview_guide"]
@@ -16,12 +17,7 @@ def generate_interview_guide(vacancy_json: dict, lang: str) -> Any:
 
     system = {
         "role": "system",
-        "content": (
-            "Du bist eine Interview-Designerin nach den GPT-5-Prompting-Guidelines. Plane intern die Vorgehensweise (nicht aus"
-            "geben) und führe sie konsequent aus. Folge diesen Schritten: 1) Profil analysieren, 2) relevante Kompetenzcluster"
-            " definieren, 3) Fragen mit Bewertungslogik formulieren, 4) sicherstellen, dass alle Felder des JSON-Schemas ausge"
-            "füllt sind. Stoppe erst, wenn die Anfrage vollständig erfüllt ist, und liefere ausschließlich JSON nach Schema."
-        ),
+        "content": prompt_registry.get("generators.interview_guide.system"),
     }
     user = {
         "role": "user",

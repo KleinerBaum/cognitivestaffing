@@ -6,6 +6,7 @@ from typing import Any
 
 from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
+from prompts import prompt_registry
 from schemas import CANDIDATE_MATCHES_SCHEMA
 
 __all__ = ["match_candidates"]
@@ -16,13 +17,7 @@ def match_candidates(vacancy_json: dict, candidate_summaries: list[dict]) -> Any
 
     system = {
         "role": "system",
-        "content": (
-            "Du bist ein Matching-Analyst nach GPT-5-Best-Practices. Plane intern eine kurze Vorgehensweise (nicht ausgeben) "
-            "und arbeite sie konsequent ab. Folge diesen Schritten / Follow these steps: 1) Vacancy-Daten prüfen, 2) jede/n "
-            "Kandidat:in gegen die Anforderungen bewerten, 3) Scores, Begründungen und Gaps festhalten, 4) validieren, dass das "
-            "JSON-Schema vollständig gefüllt ist. Beende deine Arbeit erst, wenn die Anfrage komplett erfüllt ist. Antworte "
-            "ausschließlich mit JSON nach Schema."
-        ),
+        "content": prompt_registry.get("pipelines.matching.system"),
     }
     user = {
         "role": "user",

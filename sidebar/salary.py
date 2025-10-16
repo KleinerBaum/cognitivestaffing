@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from config import ModelTask, get_model_for
 from constants.keys import StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
+from prompts import prompt_registry
 from utils.i18n import tr
 from utils.normalization import country_to_iso2, normalize_country
 
@@ -335,20 +336,9 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
         "languages_optional": inputs.languages_optional,
         "language_level_english": inputs.language_level_english,
     }
-    system_prompt = (
-        "You are a compensation analyst operating with GPT-5 prompting discipline. "
-        "Mentally draft a brief plan (do not output it) covering inputs to review, "
-        "market adjustments, and validation. Follow the plan step by step and do "
-        "not stop until the user's query is completely resolved. Follow these steps: "
-        "1) Inspect all structured inputs, 2) benchmark against regional and role "
-        "expectations while applying sensible adjustments, 3) validate the final "
-        "range before responding. Estimate an annual salary range in the local "
-        "currency based on the provided job context. Factor in seniority, work "
-        "policy, employment type, team size, industry, city hints, required and "
-        "optional skills, tools, certifications, and language expectations. Respond "
-        f"by calling the function {FUNCTION_NAME}. Prefer realistic mid-market values "
-        "and align with the seniority, work policy, and language level requirements if "
-        "given."
+    system_prompt = prompt_registry.format(
+        "sidebar.salary.system",
+        function_name=FUNCTION_NAME,
     )
     messages = [
         {"role": "system", "content": system_prompt},

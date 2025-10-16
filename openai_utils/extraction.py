@@ -15,6 +15,7 @@ from opentelemetry.trace import Status, StatusCode
 from config import ModelTask, VECTOR_STORE_ID, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt
+from prompts import prompt_registry
 from llm.rag_pipeline import (
     FieldExtractionContext,
     RetrievedChunk,
@@ -284,16 +285,9 @@ def extract_with_function(
                 for ctx in field_contexts.values()
             ],
         }
-        system_prompt = (
-            "You are a vacancy extraction engine applying GPT-5 prompting discipline. "
-            "Start by silently planning how you will align the retrieved snippets to "
-            "each schema field—do not output the plan. Execute the plan step by step, "
-            "persisting until every field is processed. Do not stop until the user's "
-            "request is fully satisfied. Follow these steps: 1) Review the global and "
-            "field-level context, 2) map evidence to the matching schema fields, 3) call "
-            f"the function {FUNCTION_NAME} with validated data. If no relevant snippet "
-            "is provided for a field, return an empty string or empty list. Do not invent "
-            "data."
+        system_prompt = prompt_registry.format(
+            "llm.extraction.context.system",
+            function_name=FUNCTION_NAME,
         )
         user_payload = json.dumps(payload, ensure_ascii=False)
         messages: Sequence[dict[str, str]] = [
@@ -301,14 +295,9 @@ def extract_with_function(
             {"role": "user", "content": user_payload},
         ]
     else:
-        system_prompt = (
-            "You are a vacancy extraction engine operating under GPT-5 best practices. "
-            "Mentally plan how you will parse the text, map it to schema keys, and "
-            "validate the result—never output the plan. Follow the plan meticulously, "
-            "step by step, and do not stop until the user's request is completely resolved. "
-            "Execute these steps: 1) Analyse the vacancy text thoroughly, 2) assign "
-            "evidence to the correct schema fields, 3) validate the structured payload "
-            f"and call the function {FUNCTION_NAME}. Do not return free-form text."
+        system_prompt = prompt_registry.format(
+            "llm.extraction.default.system",
+            function_name=FUNCTION_NAME,
         )
         user_payload = job_text
         messages = [
@@ -673,40 +662,29 @@ def suggest_onboarding_plans(
 
     is_de = lang.lower().startswith("de")
     if is_de:
-        prompt = (
-            "Du bist ein HR-Experte. Plane gedanklich deine Vorgehensweise (nicht ausgeben) und arbeite die Schritte nacheinander ab, bis die Anfrage vollständig erfüllt ist. "
-            "Entwickle fünf kurze, konkrete Vorschläge für den Onboarding-Prozess einer neuen Fachkraft."
-        )
-        prompt += f"\nRolle: {job_title}."
-        if company_name:
-            prompt += f"\nUnternehmen: {company_name}."
-        if industry:
-            prompt += f"\nBranche: {industry}."
-        if culture:
-            prompt += f"\nUnternehmenskultur oder Werte: {culture}."
-        prompt += (
-            "\nFolge diesen Schritten: 1) Kontext prüfen, 2) passende Maßnahmen auswählen, 3) Vorschläge präzise formulieren, 4) Vollständigkeit sicherstellen."
-            "\nJeder Vorschlag sollte eine eigenständige Maßnahme mit Fokus auf Kommunikation, Wissensaufbau oder Integration sein."
-            "\nFormatiere die Ausgabe als JSON-Array mit genau fünf String-Elementen."
-        )
+        role_label = "Rolle"
+        company_label = "Unternehmen"
+        industry_label = "Branche"
+        culture_label = "Unternehmenskultur oder Werte"
     else:
-        prompt = (
-            "You are an HR expert. Silently outline your approach (do not output it), execute each step sequentially, and do not stop until the request is completely satisfied. "
-            "Devise five concise, actionable onboarding initiatives for a new hire."
-        )
-        prompt += f"\nRole: {job_title}."
-        if company_name:
-            prompt += f"\nCompany: {company_name}."
-        if industry:
-            prompt += f"\nIndustry: {industry}."
-        if culture:
-            prompt += f"\nCompany culture or values: {culture}."
-        prompt += (
-            "\nFollow these steps: 1) Review the context, 2) choose relevant activities, 3) articulate each initiative clearly, 4) confirm all five slots are filled."
-            "\nEach suggestion should describe a single activity focusing on communication, knowledge transfer, or integration."
-            "\nReturn the result as a JSON array with exactly five string items."
-        )
+        role_label = "Role"
+        company_label = "Company"
+        industry_label = "Industry"
+        culture_label = "Company culture or values"
 
+    role_line = f"\n{role_label}: {job_title}."
+    company_line = f"\n{company_label}: {company_name}." if company_name else ""
+    industry_line = f"\n{industry_label}: {industry}." if industry else ""
+    culture_line = f"\n{culture_label}: {culture}." if culture else ""
+
+    prompt = prompt_registry.format(
+        "llm.extraction.onboarding_template",
+        locale="de" if is_de else "en",
+        role_line=role_line,
+        company_line=company_line,
+        industry_line=industry_line,
+        culture_line=culture_line,
+    )
     messages = [{"role": "user", "content": prompt}]
     onboarding_schema = {
         "type": "object",
@@ -1120,10 +1098,11 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
 
     lang = str(payload.get("language") or "de").lower()
 
-    system_msg = tr(
-        "Du bist eine erfahrene HR-Coachin, die strukturierte Interviewleitfäden erstellt. Plane deine Schritte kurz im Kopf (nicht ausgeben), führe sie nacheinander aus und brich erst ab, wenn alle Anforderungen erfüllt sind.",
-        "You are an experienced HR coach who designs structured interview guides. Plan your steps briefly in your head (do not output them), execute them sequentially, and do not stop until every requirement is met.",
-        lang,
+    system_default = prompt_registry.get("llm.interview_guide.system", locale="en")
+    system_msg = prompt_registry.get(
+        "llm.interview_guide.system",
+        locale=lang,
+        default=system_default,
     )
 
     instruction_lines = [

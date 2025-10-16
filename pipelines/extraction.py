@@ -6,6 +6,7 @@ from typing import Any
 
 from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
+from prompts import prompt_registry
 from schemas import VACANCY_EXTRACTION_SCHEMA
 
 __all__ = ["extract_vacancy_structured"]
@@ -16,13 +17,7 @@ def extract_vacancy_structured(doc_text: str, lang: str) -> Any:
 
     system = {
         "role": "system",
-        "content": (
-            "Du bist ein präziser HR-Extractor nach den GPT-5-Prompting-Guidelines. "
-            "Plane gedanklich kurz deine Vorgehensweise (nicht ausgeben) und arbeite sie Schritt für Schritt ab. "
-            "Folge diesen Schritten: 1) Kontext lesen, 2) Fakten den Schemafeldern zuordnen, 3) Ergebnis gegen das Schema validieren. "
-            "Stoppe nicht, bevor die Anfrage vollständig erfüllt ist. "
-            "Antworte ausschließlich mit validem JSON gemäß Schema – keine Erklärungen, kein Markdown."
-        ),
+        "content": prompt_registry.get("pipelines.extraction.system"),
     }
     user = {
         "role": "user",
