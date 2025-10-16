@@ -79,7 +79,14 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
     assert "innovative spirit" in prompt_text.lower()
     assert "Culture: We celebrate learning." in prompt_text
     assert "Experienced engineers" in prompt_text
-    assert captured["kwargs"]["tools"] == [{"type": "file_search", "vector_store_ids": ["vs123"]}]
+    assert captured["kwargs"]["tools"] == [
+        {
+            "type": "file_search",
+            "name": "file_search",
+            "vector_store_ids": ["vs123"],
+            "file_search": {"vector_store_ids": ["vs123"]},
+        }
+    ]
     assert captured["kwargs"]["tool_choice"] == "auto"
 
 

@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
 from core.esco_utils import classify_occupation, get_essential_skills, normalize_skills
 from openai_utils.api import ChatCallResult, call_chat_api
+from openai_utils.tools import build_file_search_tool
 
 logger = logging.getLogger("cognitive_needs.gap_analysis")
 
@@ -90,7 +91,7 @@ def retrieve_from_vector_store(
                 }
             ],
             model=get_model_for(ModelTask.RAG_SUGGESTIONS),
-            tools=[{"type": "file_search", "vector_store_ids": [store_id]}],
+            tools=[build_file_search_tool(store_id)],
             tool_choice={"type": "file_search"},
             max_tokens=1,
             extra={"metadata": {"task": "gap_analysis"}},
@@ -270,7 +271,7 @@ def analyze_vacancy(
     tools: list[dict[str, Any]] = []
     tool_choice: str | None = None
     if effective_store_id:
-        tools.append({"type": "file_search", "vector_store_ids": [effective_store_id]})
+        tools.append(build_file_search_tool(effective_store_id))
         tool_choice = "auto"
 
     result = call_chat_api(

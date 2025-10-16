@@ -9,6 +9,7 @@ from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
 
 from openai_utils.api import call_chat_api
+from openai_utils.tools import build_file_search_tool
 
 
 logger = logging.getLogger("cognitive_needs.rag")
@@ -202,7 +203,7 @@ class RAGPipeline:
                     }
                 ],
                 model=self.model,
-                tools=[{"type": "file_search", "vector_store_ids": [self.vector_store_id]}],
+                tools=[build_file_search_tool(self.vector_store_id)],
                 tool_choice={"type": "file_search"},
                 max_tokens=1,
                 extra={"metadata": {"field": spec.field}},

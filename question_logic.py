@@ -28,6 +28,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 from openai_utils import call_chat_api
+from openai_utils.tools import build_file_search_tool
 from utils.i18n import tr
 
 # ESCO helpers (core utils + offline-aware wrapper)
@@ -534,7 +535,7 @@ def _rag_suggestions(
                     },
                 },
             },
-            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
+            tools=[build_file_search_tool(vector_store_id)],
             tool_choice="auto",
             task=ModelTask.RAG_SUGGESTIONS,
         )
@@ -620,7 +621,7 @@ def ask_followups(
         tools: list[Any] = []
         tool_choice: Optional[str] = None
         if vector_store_id:
-            tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
+            tools = [build_file_search_tool(vector_store_id)]
             tool_choice = "auto"
         previous_response_id = st.session_state.get(StateKeys.FOLLOWUPS_RESPONSE_ID)
 
