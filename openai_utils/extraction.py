@@ -246,6 +246,59 @@ def _parse_json_object(payload: Any) -> dict[str, Any]:
     return data
 
 
+def _best_effort_json_retry(
+    *,
+    job_text: str,
+    user_payload: str,
+    schema: dict,
+    model: str,
+    reason: str,
+    previous_response: api.ChatCallResult | None,
+) -> str | None:
+    """Attempt a final JSON extraction without function-calling constraints."""
+
+    logger.warning("Extraction fallback triggered: %s", reason)
+
+    system_prompt = prompt_registry.format("llm.json_extractor.system")
+    guidance = textwrap.dedent(
+        """
+        Always respond with a valid JSON object. Provide best-effort values for the schema
+        using empty strings, empty arrays, or null for unknown fields. If evidence is missing,
+        omit the key rather than inventing values. Never return prose.
+        """
+    ).strip()
+
+    messages: list[dict[str, str]] = [
+        {"role": "system", "content": f"{system_prompt}\n\n{guidance}"},
+    ]
+
+    stripped_job_text = job_text.strip()
+    if stripped_job_text:
+        messages.append({"role": "user", "content": stripped_job_text})
+
+    stripped_payload = user_payload.strip()
+    if stripped_payload and stripped_payload != stripped_job_text:
+        messages.append({"role": "user", "content": stripped_payload})
+
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "temperature": 0.0,
+        "max_tokens": 1400,
+        "json_schema": {"name": FUNCTION_NAME, "schema": schema},
+        "task": ModelTask.EXTRACTION,
+    }
+    if previous_response and previous_response.response_id:
+        kwargs["previous_response_id"] = previous_response.response_id
+
+    try:
+        fallback = api.call_chat_api(messages, **kwargs)
+    except Exception:  # pragma: no cover - network/SDK issues
+        logger.exception("Best-effort extraction fallback failed")
+        return None
+
+    return _chat_content(fallback)
+
+
 def extract_with_function(
     job_text: str,
     schema: dict,
@@ -323,6 +376,7 @@ def extract_with_function(
     )
 
     arguments = _extract_tool_arguments(response)
+    last_response = response
     if not arguments:
         # Some models ignore the tool request and emit plain text. Retry forcing
         # JSON mode to keep the pipeline deterministic.
@@ -352,14 +406,36 @@ def extract_with_function(
             previous_response_id=response.response_id,
         )
         arguments = _chat_content(second)
+        last_response = second
 
-    if not arguments or not str(arguments).strip():
+    raw: dict[str, Any] | None = None
+    parse_error: Exception | None = None
+
+    if arguments and str(arguments).strip():
+        try:
+            raw = _parse_json_object(arguments)
+        except Exception as exc:  # noqa: BLE001
+            parse_error = exc
+
+    if raw is None:
+        fallback_arguments = _best_effort_json_retry(
+            job_text=job_text,
+            user_payload=user_payload,
+            schema=schema,
+            model=model,
+            reason="invalid_json" if parse_error else "empty_response",
+            previous_response=last_response,
+        )
+        if fallback_arguments and str(fallback_arguments).strip():
+            try:
+                raw = _parse_json_object(fallback_arguments)
+            except Exception as exc:  # noqa: BLE001
+                parse_error = exc
+
+    if raw is None:
+        if parse_error is not None:
+            raise ValueError("Model returned invalid JSON") from parse_error
         raise RuntimeError("Extraction failed: no structured data received from LLM.")
-
-    try:
-        raw = _parse_json_object(arguments)
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError("Model returned invalid JSON") from exc
 
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import coerce_and_fill
