@@ -8,9 +8,9 @@ import streamlit as st
 
 from config import VECTOR_STORE_ID
 from constants.keys import StateKeys, UIKeys
-from openai_utils import generate_interview_guide, generate_job_ad, stream_job_ad
 from utils.i18n import tr
 from nlp.bias import scan_bias_language
+from wizard._openai_bridge import generate_interview_guide, generate_job_ad, stream_job_ad
 
 
 def generate_job_ad_content(
