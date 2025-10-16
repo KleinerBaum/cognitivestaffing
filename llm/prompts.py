@@ -51,28 +51,29 @@ def USER_JSON_EXTRACT_TEMPLATE(
     extras_block = "\n".join(extras_lines)
 
     locked = locked_fields or {}
-    locked_lines = []
+    locked_fields_list: list[str] = []
     for field, value in locked.items():
-        if not value:
+        if value is None:
             continue
-        sanitized_value = str(value).strip().replace("\n", " ")
-        if not sanitized_value:
+        if isinstance(value, str) and not value.strip():
             continue
-        locked_lines.append(f"- {field}: {sanitized_value}")
+        locked_fields_list.append(field)
     locked_block = ""
-    if locked_lines:
-        locked_block = "Locked values (reuse exactly):\n" + "\n".join(locked_lines)
+    if locked_fields_list:
+        locked_block = "Locked fields (preserve existing values):\n" + "\n".join(
+            f"  - {field}" for field in locked_fields_list
+        )
 
     field_lines = "\n".join(f"- {f}" for f in fields_list)
 
     instructions = (
         "Follow these steps carefully and persist until every step succeeds: "
-        "1) Review the extras, locked values, and schema keys. 2) Scan the text for each field. 3) Populate the JSON with exact matches, using empty strings/lists when missing. "
+        "1) Review the extras, locked fields, and schema keys. 2) Scan the text for each field. 3) Populate the JSON with exact matches, using empty strings/lists when missing. "
         "Extract the vacancy data and respond with a JSON object containing the schema keys. Use position.job_title for the main job title without gender markers, map the employer name to company.name, and map the primary city to location.primary_city. "
         "List each responsibility/task separately in responsibilities.items."
     )
     if locked_block:
-        instructions += " Reuse the locked values exactly as provided."
+        instructions += " Do not alter the locked fields; the application will supply the stored values."
 
     reduced_fields = len(fields_list) < len(FIELDS_ORDER)
 
@@ -82,7 +83,7 @@ def USER_JSON_EXTRACT_TEMPLATE(
         else:
             instructions += "\nFocus on the following fields:\n" + field_lines
     else:
-        instructions += "\nAll schema keys currently have locked values. Return the JSON object while preserving the schema and the provided locked values exactly, and only augment information when new details are available."
+        instructions += "\nAll schema keys currently have locked entries. Return the JSON object while preserving the schema, and only augment information when new details are available."
 
     blocks: list[str] = []
     if extras_block:
