@@ -6535,15 +6535,21 @@ def _step_requirements():
             <style>
             .requirement-panel {
                 border-radius: 0.9rem;
-                border: 1px solid rgba(148, 163, 184, 0.35);
-                background: #f1f5f9;
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
+                background: var(--surface-1, #f1f5f9);
                 padding: 1.25rem 1.4rem;
                 margin-bottom: 1.2rem;
             }
             .requirement-panel--insights {
-                background: #f1f5f9;
-                border: 1px solid rgba(59, 130, 246, 0.22);
-                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+                background: var(--surface-accent-soft, rgba(59, 130, 246, 0.08));
+                border: 1px solid var(
+                    --interactive-border-strong,
+                    rgba(59, 130, 246, 0.22)
+                );
+                box-shadow: inset 0 0 0 1px var(
+                    --surface-accent-strong,
+                    rgba(37, 99, 235, 0.12)
+                );
             }
             .requirement-panel__header {
                 display: flex;
@@ -6553,12 +6559,12 @@ def _step_requirements():
                 font-size: 1.05rem;
             }
             .requirement-panel__caption {
-                color: #475569;
+                color: var(--tone-200, #d4d4d8);
                 margin: 0.15rem 0 0.95rem 0;
                 font-size: 0.92rem;
             }
             .requirement-panel--insights .requirement-panel__caption {
-                color: #1e3a8a;
+                color: var(--tone-100, #e2e8f0);
             }
             .requirement-panel__icon {
                 font-size: 1.1rem;
@@ -6570,8 +6576,8 @@ def _step_requirements():
                 margin-top: 0.6rem;
                 padding: 0.75rem 0.85rem;
                 border-radius: 0.75rem;
-                border: 1px dashed rgba(14, 165, 233, 0.6);
-                background: #f1f5f9;
+                border: 1px dashed var(--interactive-border-strong, rgba(14, 165, 233, 0.6));
+                background: var(--surface-accent-soft, #f1f5f9);
             }
             .ai-suggestion-box__title {
                 font-weight: 600;
@@ -6579,7 +6585,7 @@ def _step_requirements():
             }
             .ai-suggestion-box__caption {
                 font-size: 0.85rem;
-                color: #0369a1;
+                color: var(--accent, #0369a1);
                 margin-bottom: 0.5rem;
             }
             .skill-suggestion-table {
@@ -6587,8 +6593,8 @@ def _step_requirements():
             }
             .skill-suggestion-table [data-testid="stDataFrame"] {
                 border-radius: 0.75rem;
-                border: 1px solid rgba(148, 163, 184, 0.35);
-                background: #f1f5f9;
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
+                background: var(--surface-0, #f8fafc);
                 overflow: hidden;
             }
             .skill-suggestion-table table {
