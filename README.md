@@ -143,6 +143,11 @@ python -m cli.rebuild_vector_store vs_existing_store_id
 - **Rate limits:** The `llm` utilities automatically apply exponential backoff and display user-friendly error banners with retry guidance.
 - **Telemetry:** If OpenTelemetry variables are set, traces include model name, latency, token usage, and retry metadata for each agent.
 
+## Prompt Registry / Prompt-Registry
+
+- **EN:** All LLM system and user templates now live in `prompts/registry.json`. Each entry can define a `system` message, optional locale variants, and metadata like model hints. Import `prompts.prompt_registry` to fetch or format templates dynamically (e.g., `prompt_registry.format("llm.extraction.context.system", function_name="NeedAnalysisProfile")`). Updating or adding prompts no longer requires code changes—edit the JSON file and the wizard picks up the change on the next run.
+- **DE:** Sämtliche System- und User-Prompts der LLMs liegen jetzt in `prompts/registry.json`. Jede Registry-Zeile kann eine `system`-Nachricht, optionale Sprachvarianten und Metadaten wie Modellhinweise enthalten. Über `prompts.prompt_registry` lassen sich Templates dynamisch abrufen bzw. mit Parametern formatieren (z. B. `prompt_registry.format("llm.extraction.context.system", function_name="NeedAnalysisProfile")`). Neue oder geänderte Prompts erfordern keinen Code-Change mehr – JSON anpassen, App neu starten, fertig.
+
 ## Further Reading
 - [AGENTS.md](AGENTS.md) for an overview of every autonomous agent (Follow-up generator, ESCO enricher, RAG assistant, compliance plans, etc.).
 - [docs/](docs/) for schema references, JSON pipelines, and changelogs.

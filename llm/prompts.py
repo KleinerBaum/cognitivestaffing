@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from core.schema import ALL_FIELDS
+from prompts import prompt_registry
 from utils.i18n import tr
 
 # ----------------------------------------------------------------------------
@@ -24,19 +25,7 @@ def render_field_bullets() -> str:
 # Extraction templates
 # ----------------------------------------------------------------------------
 
-SYSTEM_JSON_EXTRACTOR: str = (
-    "You are an extractor following GPT-5 best practices. Before responding, silently outline a short plan covering identification, field mapping, and validation—do not expose the plan. "
-    "Execute the plan step by step, persisting until every schema key is handled. Do not stop until the user's request is completely satisfied. Return ONLY a JSON object with the exact keys provided. "
-    "Use empty strings for missing values and empty lists for missing arrays. No prose. Lock JSON structure to the schema at all times. "
-    "Provide the main job title without gender markers in position.job_title, the company's legal name in company.name, and the primary city in location.primary_city. "
-    "Map common terms: 'Vollzeit' or 'Full-time' -> employment.job_type='full_time', 'Teilzeit' -> 'part_time', 'Festanstellung' or 'Permanent' -> employment.contract_type='permanent', 'Befristet' or 'Fixed term' -> employment.contract_type='fixed_term'. "
-    "Detect work policy keywords like 'Remote', 'Home-Office', or 'Hybrid' and map them to employment.work_policy. If office days per week or remote percentages are mentioned, estimate employment.remote_percentage using a 5-day work week. "
-    "Extract salary ranges like '65.000–85.000 €' into numeric compensation.salary_min and compensation.salary_max and set compensation.currency to an ISO code (e.g. EUR). If variable pay or bonuses such as '10% Variable' are mentioned, set compensation.variable_pay=true and capture the percentage in compensation.bonus_percentage. "
-    "List every benefit/perk separately in compensation.benefits as a JSON array of strings. Collect each key task or responsibility (especially bullet points) in responsibilities.items as a JSON array of strings. "
-    "Separate technical vs. social skills: place mandatory hard skills in requirements.hard_skills_required and optional ones in requirements.hard_skills_optional. Soft skills like communication or teamwork go into requirements.soft_skills_required or requirements.soft_skills_optional depending on whether they are required or marked as nice-to-have. "
-    "List programming languages, frameworks, and tools in requirements.tools_and_technologies (in addition to hard skill lists). Extract spoken language requirements into requirements.languages_required and optional languages into requirements.languages_optional. "
-    "Put mentioned certifications (e.g. 'AWS ML Specialty') into requirements.certificates (mirror to requirements.certifications). Extract start dates (e.g. '01.10.2024', '2024-10-01', 'ab Herbst 2025') into meta.target_start_date in ISO format."
-)
+SYSTEM_JSON_EXTRACTOR: str = prompt_registry.get("llm.json_extractor.system")
 
 
 def USER_JSON_EXTRACT_TEMPLATE(

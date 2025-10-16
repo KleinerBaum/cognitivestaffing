@@ -10,6 +10,7 @@ from config import VECTOR_STORE_ID, ModelTask, get_model_for
 from core.esco_utils import classify_occupation, get_essential_skills, normalize_skills
 from openai_utils.api import ChatCallResult, call_chat_api
 from openai_utils.tools import build_file_search_tool
+from prompts import prompt_registry
 
 logger = logging.getLogger("cognitive_needs.gap_analysis")
 
@@ -150,9 +151,10 @@ def build_gap_prompt(
             "4. Empfohlene nächste Schritte",
         ]
     )
+    base_instruction = prompt_registry.get("llm.gap_analysis.system_base")
     system_prompt = "\n".join(
         [
-            "You are a hiring operations co-pilot. Silently plan how you will build the report—do not output the plan. Execute your plan step by step and do not stop until the user's needs are fully met.",
+            base_instruction,
             heading_intro,
             ("Antwort in Markdown mit Überschriften" if locale == "de" else "Respond in Markdown with headings"),
             (

@@ -7,6 +7,7 @@ from typing import Any
 from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
 from openai_utils.tools import build_file_search_tool
+from prompts import prompt_registry
 from schemas import FOLLOW_UPS_SCHEMA
 
 __all__ = ["generate_followups"]
@@ -21,13 +22,7 @@ def generate_followups(
 
     system = {
         "role": "system",
-        "content": (
-            "Du bist eine GPT-5-konforme Nachfrage-Strategin. Plane gedanklich deine Schritte (nicht ausgeben) und arbeite sie "
-            "gewissenhaft ab. Folge diesen Schritten: 1) Profil auf fehlende oder widersprüchliche Angaben prüfen, 2) die kritis"
-            "chsten Lücken priorisieren, 3) präzise Fragen samt Priorität formulieren, 4) prüfen, dass jede Frage das Schema erfü"
-            "llt. Stoppe nicht, bevor alle Schritte erledigt sind, und liefere ausschließlich strukturierte Fragen im JSON-Schem"
-            "a."
-        ),
+        "content": prompt_registry.get("pipelines.followups.system"),
     }
     user = {
         "role": "user",

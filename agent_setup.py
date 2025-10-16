@@ -1,5 +1,6 @@
 # agent_setup.py
 from agents import Agent, FileSearchTool, WebSearchTool  # hosted tools
+from prompts import prompt_registry
 from wizard_tools import (
     add_stage,
     update_stage,
@@ -80,12 +81,7 @@ def build_wizard_agent(vector_store_ids: list[str] | None = None) -> Agent:
 
     return Agent(
         name="Recruitment Wizard",
-        instructions=(
-            "You are a recruitment workflow agent. "
-            "Always keep the vacancy graph consistent (DAG). "
-            "Prefer minimal reasoning for graph edits; raise effort for extraction/validation. "
-            "Call the appropriate tool for each user intent; do not hallucinate fields."
-        ),
+        instructions=prompt_registry.get("agent.workflow.instructions"),
         tools=hosted + function_tools,
         # Model config is specified when running; Agents SDK uses OpenAI Responses under the hood.
     )
