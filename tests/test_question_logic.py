@@ -179,7 +179,6 @@ def test_rag_suggestions_tool_payload(monkeypatch) -> None:
             "type": "file_search",
             "name": "file_search",
             "vector_store_ids": ["vs123"],
-            "file_search": {"vector_store_ids": ["vs123"]},
         }
     ]
     assert captured["tool_choice"] == "auto"

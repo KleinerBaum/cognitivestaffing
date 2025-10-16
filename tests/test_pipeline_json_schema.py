@@ -84,7 +84,6 @@ def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> Non
             "type": "file_search",
             "name": "file_search",
             "vector_store_ids": ["store-id"],
-            "file_search": {"vector_store_ids": ["store-id"]},
         }
     ]
     assert captured["tool_choice"] == "auto"

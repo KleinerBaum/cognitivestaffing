@@ -7423,14 +7423,11 @@ FIELD_SECTION_MAP = _build_field_section_map()
 CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
 
 # Fields collected early in the wizard but only blocking later sections when
-# filtering via ``max_section``. The location city is displayed in the company
-# step but shouldn't block the early company/role sections because salary and
-# requirements insights can still run with just the country. Once the full
-# wizard is considered we still treat it as critical.
+# filtering via ``max_section``. This mapping is currently empty so every
+# critical field is evaluated against the section returned by
+# :func:`_build_field_section_map`.
 _MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
-SECTION_FILTER_OVERRIDES: dict[str, int] = {
-    "location.primary_city": _MAX_SECTION_INDEX,
-}
+SECTION_FILTER_OVERRIDES: dict[str, int] = {}
 
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:

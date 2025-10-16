@@ -128,7 +128,6 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
             "type": "file_search",
             "name": "file_search",
             "vector_store_ids": ["store-1"],
-            "file_search": {"vector_store_ids": ["store-1"]},
         }
     ]
     assert captured["tool_choice"] == "auto"

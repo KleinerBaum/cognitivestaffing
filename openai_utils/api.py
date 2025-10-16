@@ -1196,10 +1196,16 @@ def _prepare_payload(
             responses_tools: list[dict[str, Any]] = []
             for tool_spec in combined_tools:
                 cleaned_spec = dict(tool_spec)
-                cleaned_spec.pop("name", None)
                 function_block = cleaned_spec.get("function")
                 if isinstance(function_block, Mapping):
-                    cleaned_spec["function"] = dict(function_block)
+                    copied_function = dict(function_block)
+                    if (
+                        cleaned_spec.get("name")
+                        and not copied_function.get("name")
+                        and isinstance(cleaned_spec["name"], str)
+                    ):
+                        copied_function["name"] = cleaned_spec["name"]
+                    cleaned_spec["function"] = copied_function
                 responses_tools.append(cleaned_spec)
             payload["tools"] = responses_tools
             if normalised_tool_choice is not None:
