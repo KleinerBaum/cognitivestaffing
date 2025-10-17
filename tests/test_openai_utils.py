@@ -171,10 +171,13 @@ def test_responses_payload_omits_top_level_tool_names(monkeypatch):
     )
 
     sent_payload = captured["payload"]
-    assert "functions" in sent_payload
-    assert sent_payload["functions"], "Expected at least one function in the payload"
-    assert sent_payload["functions"][0]["name"] == "say_hi"
-    assert "tools" not in sent_payload
+    assert "functions" not in sent_payload
+    assert "tools" in sent_payload
+    assert sent_payload["tools"], "Expected at least one tool in the payload"
+    tool_entry = sent_payload["tools"][0]
+    assert tool_entry.get("type") == "function"
+    assert "name" not in tool_entry
+    assert tool_entry.get("function", {}).get("name") == "say_hi"
 
 
 def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
@@ -1062,7 +1065,11 @@ def test_prepare_payload_includes_analysis_helpers():
     assert "web_search" in tool_types
     assert "web_search_preview" in tool_types
 
-    function_names = {fn.get("name") for fn in payload.get("functions", [])}
+    function_names = {
+        tool.get("function", {}).get("name")
+        for tool in payload.get("tools", [])
+        if tool.get("type") == "function"
+    }
     assert "convert_currency" in function_names
     assert "normalise_date" in function_names
     assert callable(tool_map["convert_currency"])
@@ -2071,7 +2078,11 @@ def test_call_chat_api_executes_helper_tool(monkeypatch):
         def create(self, **kwargs):
             self.calls += 1
             if self.calls == 1:
-                function_names = {fn.get("name") for fn in kwargs.get("functions", [])}
+                function_names = {
+                    tool.get("function", {}).get("name")
+                    for tool in kwargs.get("tools", [])
+                    if tool.get("type") == "function"
+                }
                 assert "echo_tool" in function_names
                 return _FirstResponse()
 
