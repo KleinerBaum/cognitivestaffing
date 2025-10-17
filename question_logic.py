@@ -36,6 +36,7 @@ from constants.keys import StateKeys
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
+    get_group_skills,
     normalize_skills,
 )
 from core.suggestions import get_benefit_suggestions
@@ -798,11 +799,19 @@ def generate_followup_questions(
         if group_key:
             role_fields = list(ROLE_FIELD_MAP.get(group_key, []))
             role_questions_cfg = _resolve_role_questions(group_key, lang)
+        source_had_skills = bool(st.session_state.get(StateKeys.ESCO_SKILLS))
         esco_skills = st.session_state.get(StateKeys.ESCO_SKILLS, [])
         if not esco_skills:
             esco_skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
             if esco_skills:
                 st.session_state[StateKeys.ESCO_SKILLS] = esco_skills
+        if esco_skills and group_key:
+            fallback_skills = get_group_skills(occupation.get("group", ""))
+            if fallback_skills and not source_had_skills:
+                merged = _merge_suggestions(esco_skills, fallback_skills)
+                if merged != esco_skills:
+                    esco_skills = merged
+                    st.session_state[StateKeys.ESCO_SKILLS] = esco_skills
     answered_fields = set(_get_followups_answered(extracted))
     fields_to_check = list(CRITICAL_FIELDS)
     for extra in role_fields:
@@ -862,7 +871,12 @@ def generate_followup_questions(
 
     forced_questions: List[Dict[str, Any]] = []
     esco_followup_field = "requirements.hard_skills_required"
-    if esco_missing_skills and esco_followup_field not in missing_fields and esco_followup_field not in answered_fields:
+    if (
+        esco_missing_skills
+        and esco_followup_field in fields_to_check
+        and esco_followup_field not in missing_fields
+        and esco_followup_field not in answered_fields
+    ):
         forced_questions.append(
             {
                 "field": esco_followup_field,
