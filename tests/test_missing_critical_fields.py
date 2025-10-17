@@ -20,8 +20,15 @@ def test_section_filtering() -> None:
     assert {"location.primary_city", "location.country"} <= section_one_missing
 
     st.session_state["location.primary_city"] = "Berlin"
-    assert set(get_missing_critical_fields(max_section=1)) == {"location.country"}
+    missing_after_city = set(get_missing_critical_fields(max_section=1))
+    assert missing_after_city == {
+        "location.country",
+        "company.contact_name",
+        "company.contact_email",
+    }
 
+    st.session_state["company.contact_name"] = "Max"
+    st.session_state["company.contact_email"] = "max@example.com"
     st.session_state["location.country"] = "DE"
     assert get_missing_critical_fields(max_section=1) == []
 
