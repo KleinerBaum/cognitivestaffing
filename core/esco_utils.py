@@ -251,6 +251,26 @@ def _offline_essential_skills(uri: str) -> List[str]:
     return []
 
 
+def get_group_skills(group: str) -> List[str]:
+    """Return cached offline skills for an ESCO group when available."""
+
+    key = str(group or "").strip().casefold()
+    if not key:
+        return []
+    meta = _GROUP_FALLBACKS.get(key)
+    if not meta:
+        return []
+    skills = meta.get("skills")
+    if not isinstance(skills, Iterable):
+        return []
+    cleaned: List[str] = []
+    for skill in skills:
+        label = str(skill or "").strip()
+        if label:
+            cleaned.append(label)
+    return cleaned
+
+
 def _select_label(preferred: Any, fallback: str, lang: str) -> str:
     if isinstance(preferred, dict):
         lang_norm = _normalize_lang(lang)
@@ -327,10 +347,11 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
     if not str(title or "").strip():
         return None
 
+    offline_match = _offline_classify(title)
+
     if _is_offline():
-        result = _offline_classify(title)
-        if result:
-            return result
+        if offline_match:
+            return offline_match
         log.info("No offline ESCO occupation match for '%s'", title)
         return None
 
@@ -338,12 +359,18 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
         matches = _api_search_occupations(title, lang=lang, limit=1)
     except EscoServiceError as exc:
         log.warning("ESCO occupation search failed (%s); falling back to cache", exc)
-        return _offline_classify(title)
+        return offline_match
 
     if matches:
-        return matches[0]
+        result = matches[0]
+        if offline_match:
+            api_group = str(result.get("group") or "").strip().casefold()
+            offline_group = str(offline_match.get("group") or "").strip().casefold()
+            if offline_group and offline_group != api_group:
+                return offline_match
+        return result
 
-    return _offline_classify(title)
+    return offline_match
 
 
 def search_occupations(
@@ -449,6 +476,41 @@ def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
     return data
 
 
+def _friendly_skill_label(original: str, preferred: str) -> str:
+    """Return a human-friendly label for a skill.
+
+    The ESCO API often returns verbose entries such as
+    ``"Python (computer programming)"``. For display and matching purposes we
+    prefer compact variants while keeping the canonical casing when helpful.
+    """
+
+    original_clean = str(original or "").strip()
+    preferred_clean = str(preferred or "").strip()
+    if not preferred_clean:
+        return original_clean
+
+    display = preferred_clean
+    if "(" in preferred_clean and ")" in preferred_clean:
+        head = preferred_clean.split("(", 1)[0].strip()
+        if head:
+            display = head
+
+    if original_clean:
+        if display.casefold() == original_clean.casefold():
+            if original_clean.islower() or original_clean.isupper():
+                return display
+            return original_clean
+        preferred_cf = preferred_clean.casefold()
+        original_cf = original_clean.casefold()
+        if preferred_cf.startswith(original_cf):
+            return original_clean
+        if original_cf.startswith(preferred_cf):
+            return original_clean
+        return original_clean
+
+    return display
+
+
 def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
     """Normalize skill labels via ESCO when possible."""
 
@@ -459,10 +521,11 @@ def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
         if not raw_label:
             continue
         meta = lookup_esco_skill(raw_label, lang=lang)
-        label = str(meta.get("preferredLabel") or raw_label).strip()
-        key = label.casefold()
+        preferred_label = str(meta.get("preferredLabel") or raw_label).strip()
+        display_label = _friendly_skill_label(raw_label, preferred_label)
+        key = (display_label or preferred_label).casefold()
         if key in seen:
             continue
         seen.add(key)
-        deduped.append(label)
+        deduped.append(display_label or preferred_label)
     return deduped

@@ -84,5 +84,6 @@ def test_normalize_skills_uses_lookup(monkeypatch):
     monkeypatch.setattr(esco, "_fetch_json", fake_fetch)
 
     out = esco.normalize_skills(["python", "Python", " data"], lang="en")
-    # ``search_skill_python`` resolves to the canonical mixed-case label.
-    assert out == ["Python (computer programming)", "data"]
+    # ``search_skill_python`` resolves to the canonical label but we prefer a
+    # compact human-readable variant for display.
+    assert out == ["Python", "data"]
