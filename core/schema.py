@@ -60,6 +60,12 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "city": "location.primary_city",
         "brand name": "company.brand_name",
         "application deadline": "meta.application_deadline",
+        "hr_contact_name": "company.contact_name",
+        "hr_contact_email": "company.contact_email",
+        "hr_contact_phone": "company.contact_phone",
+        "hiring_manager_name": "process.hiring_manager_name",
+        "hiring_manager_role": "process.hiring_manager_role",
+        "reporting_manager_name": "position.reporting_manager_name",
     }
 )
 
