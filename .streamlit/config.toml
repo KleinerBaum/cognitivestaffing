@@ -1,20 +1,20 @@
 [theme]
 base = "dark"
-primaryColor = "#DFE3E3"         # light graphite accent
+primaryColor = "#DFE3E3"
 backgroundColor = "#111414"
 secondaryBackgroundColor = "#1A1E1E"
 textColor = "#F7F9F9"
 font = "sans serif"
 
 [client]
-toolbarMode = "minimal"          # cleaner top-right menu
+toolbarMode = "minimal"
 
 [browser]
-gatherUsageStats = false         # disable telemetry for privacy
+gatherUsageStats = false
 
 [server]
-enableCORS = false               # allow cross-origin access (needed for cloud dev environments)
-enableXsrfProtection = false     # disable CSRF checks for simpler embedding
-fileWatcherType = "poll"         # use polling to reduce inotify usage
+enableCORS = false
+enableXsrfProtection = false
+fileWatcherType = "poll"
 folderWatchBlacklist = ["^llm/", "^core/", "^components/"]
 headless = true
