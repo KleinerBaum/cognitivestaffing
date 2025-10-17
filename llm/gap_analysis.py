@@ -51,18 +51,15 @@ class GapContext:
         body = "\n\n".join(filter(None, parts)).strip()
         return f"【ESCO】\n{body}" if body else ""
 
-    def rag_block(self, lang: str, *, max_snippets: int | None = None) -> str:
+    def rag_block(self, lang: str, *, top_k: int | None = None) -> str:
         snippets = [str(item).strip() for item in (self.rag_snippets or []) if str(item).strip()]
         if not snippets:
             return ""
         header = "【RAG】\n" + (
             "Top Hinweise aus Wissensbasis:" if lang.startswith("de") else "Top knowledge base snippets:"
         )
-        # NOTE: ``max_snippets`` replaces the previously unused ``top_k``
-        # helper and lets callers adjust the limit while keeping the same
-        # default behaviour.
-        limit = max_snippets if max_snippets is not None else _DEFAULT_TOP_K
-        lines = "\n".join(f"- {snippet}" for snippet in snippets[: max(1, limit)])
+        limit = _DEFAULT_TOP_K if top_k is None else max(1, top_k)
+        lines = "\n".join(f"- {snippet}" for snippet in snippets[:limit])
         return f"{header}\n{lines}".strip()
 
 
@@ -138,7 +135,7 @@ def build_gap_prompt(
         if locale == "de"
         else "Create a concise gap report in English."
     )
-    structure_lines = (
+    section_layout = (
         [
             "1. Vacancy snapshot (2 bullet points)",
             "2. ESCO alignment (occupation + essential skills)",
@@ -165,7 +162,7 @@ def build_gap_prompt(
                 else "Follow these steps strictly: 1) Absorb context, 2) map content to each section, 3) write the sections, 4) verify completeness."
             ),
             "Use the exact numbered section layout:",
-            *structure_lines,
+            *section_layout,
             (
                 "Halte jede Liste auf maximal 3 Punkte."
                 if locale == "de"
