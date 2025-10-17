@@ -43,6 +43,8 @@ def test_process_model_supports_stakeholders_and_phases():
         process_notes="Notes",
         application_instructions="Send one PDF",
         onboarding_process="Buddy program",
+        hiring_manager_name="Max Mustermann",
+        hiring_manager_role="Head of Engineering",
     )
     profile = NeedAnalysisProfile(process=process)
     assert profile.process.interview_stages == 2
@@ -51,6 +53,8 @@ def test_process_model_supports_stakeholders_and_phases():
     assert profile.process.stakeholders[2].email is None
     assert profile.process.stakeholders[3].email is None
     assert profile.process.phases[1].participants == ["Bob"]
+    assert profile.process.hiring_manager_name == "Max Mustermann"
+    assert profile.process.hiring_manager_role == "Head of Engineering"
 
 
 def test_stakeholder_blank_email_coerced_to_none():

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: capture HR contacts, hiring managers, and qualification summaries in the vacancy extraction schema and wizard UI
+  - Feature: Erfasst HR-Kontakte, Hiring-Manager:innen und Qualifikationszusammenfassungen in Schema und Wizard-Oberfläche
 - feat: forward optional OpenAI organization/project IDs from env/secrets to the shared client
   - Feature: OpenAI-Organisation und -Projekt aus Umgebungsvariablen/Secrets an den gemeinsamen Client durchreichen
 - feat: refactor wizard helpers into the `wizard/` package, localise follow-up presets via i18n, and load prompts from the central registry

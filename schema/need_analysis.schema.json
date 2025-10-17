@@ -113,6 +113,12 @@
                         "null"
                     ]
                 },
+                "reporting_manager_name": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
                 "role_summary": {
                     "type": [
                         "string",
@@ -455,6 +461,18 @@
                 "interview_stages": {
                     "type": [
                         "integer",
+                        "null"
+                    ]
+                },
+                "hiring_manager_name": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "hiring_manager_role": {
+                    "type": [
+                        "string",
                         "null"
                     ]
                 },

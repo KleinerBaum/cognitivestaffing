@@ -75,6 +75,7 @@ class Position(BaseModel):
     department: Optional[str] = None
     team_structure: Optional[str] = None
     reporting_line: Optional[str] = None
+    reporting_manager_name: Optional[str] = None
     role_summary: Optional[str] = None
     occupation_label: Optional[str] = None
     occupation_uri: Optional[str] = None
@@ -273,6 +274,8 @@ class Process(BaseModel):
     process_notes: Optional[str] = None
     application_instructions: Optional[str] = None
     onboarding_process: Optional[str] = None
+    hiring_manager_name: Optional[str] = None
+    hiring_manager_role: Optional[str] = None
 
 
 class Meta(BaseModel):

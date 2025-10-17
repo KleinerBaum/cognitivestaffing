@@ -6223,22 +6223,27 @@ def _step_position():
         placeholder=tr("z. B. Junior", "e.g., Junior"),
     )
 
-    summary_cols = st.columns((1, 1))
-    position["reporting_line"] = summary_cols[0].text_input(
+    reporting_cols = st.columns((1, 1))
+    position["reporting_line"] = reporting_cols[0].text_input(
         tr("Reports an", "Reports to"),
         value=position.get("reporting_line", ""),
         placeholder=tr("z. B. CTO", "e.g., CTO"),
     )
+    position["reporting_manager_name"] = reporting_cols[1].text_input(
+        tr("Vorgesetzte Person", "Reporting manager"),
+        value=position.get("reporting_manager_name", ""),
+        placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+    )
     summary_label = tr("Rollen-Summary", "Role summary")
     if "position.role_summary" in missing_here:
         summary_label += REQUIRED_SUFFIX
-    position["role_summary"] = summary_cols[1].text_area(
+    position["role_summary"] = st.text_area(
         summary_label,
         value=position.get("role_summary", ""),
         height=120,
     )
     if "position.role_summary" in missing_here and not position.get("role_summary"):
-        summary_cols[1].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     st.markdown("#### " + tr("Zeitplan", "Timing"))
 
@@ -7916,6 +7921,16 @@ def _step_process():
             )
         )
 
+    hiring_cols = st.columns(2)
+    data["hiring_manager_name"] = hiring_cols[0].text_input(
+        tr("Hiring Manager", "Hiring manager"),
+        value=data.get("hiring_manager_name", ""),
+    )
+    data["hiring_manager_role"] = hiring_cols[1].text_input(
+        tr("Rolle des Hiring Managers", "Hiring manager role"),
+        value=data.get("hiring_manager_role", ""),
+    )
+
     _render_stakeholders(data, "ui.process.stakeholders")
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
 
@@ -8017,6 +8032,22 @@ def _summary_company() -> None:
         value=st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS, ""),
         key=UIKeys.COMPANY_BRAND_KEYWORDS,
     )
+    contact_cols = st.columns((1.2, 1.2, 1))
+    contact_name = contact_cols[0].text_input(
+        tr("HR-Kontakt", "HR contact"),
+        value=data["company"].get("contact_name", ""),
+        key="ui.summary.company.contact_name",
+    )
+    contact_email = contact_cols[1].text_input(
+        tr("HR-E-Mail", "HR email"),
+        value=data["company"].get("contact_email", ""),
+        key="ui.summary.company.contact_email",
+    )
+    contact_phone = contact_cols[2].text_input(
+        tr("HR-Telefon", "HR phone"),
+        value=data["company"].get("contact_phone", ""),
+        key="ui.summary.company.contact_phone",
+    )
     logo_bytes = _get_company_logo_bytes()
     if logo_bytes:
         try:
@@ -8032,6 +8063,9 @@ def _summary_company() -> None:
     _update_profile("company.mission", mission)
     _update_profile("company.culture", culture)
     _update_profile("company.brand_keywords", brand)
+    _update_profile("company.contact_name", contact_name)
+    _update_profile("company.contact_email", contact_email)
+    _update_profile("company.contact_phone", contact_phone)
 
 
 def _summary_position() -> None:
@@ -8072,12 +8106,18 @@ def _summary_position() -> None:
         value=data["position"].get("team_structure", ""),
         key="ui.summary.position.team_structure",
     )
-    reporting = c1.text_input(
+    reporting_cols = st.columns(2)
+    reporting = reporting_cols[0].text_input(
         tr("Reports an", "Reports to"),
         value=data["position"].get("reporting_line", ""),
         key="ui.summary.position.reporting_line",
     )
-    role_summary = c2.text_area(
+    reporting_manager = reporting_cols[1].text_input(
+        tr("Vorgesetzte Person", "Reporting manager"),
+        value=data["position"].get("reporting_manager_name", ""),
+        key="ui.summary.position.reporting_manager_name",
+    )
+    role_summary = st.text_area(
         tr("Rollen-Summary", "Role summary") + REQUIRED_SUFFIX,
         value=data["position"].get("role_summary", ""),
         height=120,
@@ -8118,6 +8158,7 @@ def _summary_position() -> None:
     _update_profile("position.department", department)
     _update_profile("position.team_structure", team)
     _update_profile("position.reporting_line", reporting)
+    _update_profile("position.reporting_manager_name", reporting_manager)
     _update_profile("position.role_summary", role_summary)
     _update_profile("location.primary_city", loc_city)
     _update_profile("location.country", loc_country)
@@ -8486,6 +8527,18 @@ def _summary_process() -> None:
 
     process = st.session_state[StateKeys.PROFILE]["process"]
 
+    hiring_cols = st.columns(2)
+    hiring_manager = hiring_cols[0].text_input(
+        tr("Hiring Manager", "Hiring manager"),
+        value=process.get("hiring_manager_name", ""),
+        key="ui.summary.process.hiring_manager_name",
+    )
+    hiring_role = hiring_cols[1].text_input(
+        tr("Rolle des Hiring Managers", "Hiring manager role"),
+        value=process.get("hiring_manager_role", ""),
+        key="ui.summary.process.hiring_manager_role",
+    )
+
     _render_stakeholders(process, "ui.summary.process.stakeholders")
     _update_profile("process.stakeholders", process.get("stakeholders", []))
 
@@ -8529,6 +8582,8 @@ def _summary_process() -> None:
     _update_profile("process.process_notes", notes)
     _update_profile("process.application_instructions", instructions)
     _update_profile("process.onboarding_process", onboarding)
+    _update_profile("process.hiring_manager_name", hiring_manager)
+    _update_profile("process.hiring_manager_role", hiring_role)
 
 
 def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:

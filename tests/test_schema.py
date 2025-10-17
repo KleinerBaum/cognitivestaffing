@@ -80,11 +80,23 @@ def test_coerce_and_fill_alias_mapping() -> None:
         "requirements": {"hard_skills": ["Python"]},
         "city": "Berlin",
         "date_of_employment_start": "2024-01-01",
+        "hr_contact_name": "Max Mustermann",
+        "hr_contact_email": "max@example.com",
+        "hr_contact_phone": "+49 30 1234567",
+        "hiring_manager_name": "Julia Schmidt",
+        "hiring_manager_role": "Head of Engineering",
+        "reporting_manager_name": "Petra Müller",
     }
     profile = coerce_and_fill(data)
     assert profile.requirements.hard_skills_required == ["Python"]
     assert profile.location.primary_city == "Berlin"
     assert profile.meta.target_start_date == "2024-01-01"
+    assert profile.company.contact_name == "Max Mustermann"
+    assert profile.company.contact_email == "max@example.com"
+    assert profile.company.contact_phone == "+49 30 1234567"
+    assert profile.process.hiring_manager_name == "Julia Schmidt"
+    assert profile.process.hiring_manager_role == "Head of Engineering"
+    assert profile.position.reporting_manager_name == "Petra Müller"
 
 
 def test_default_insertion() -> None:
