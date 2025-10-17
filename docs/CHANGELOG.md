@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: forward optional OpenAI organization/project IDs from env/secrets to the shared client
+  - Feature: OpenAI-Organisation und -Projekt aus Umgebungsvariablen/Secrets an den gemeinsamen Client durchreichen
 - feat: refactor wizard helpers into the `wizard/` package, localise follow-up presets via i18n, and load prompts from the central registry
   - Feature: Wizard-Helfer in Paket `wizard/`, Follow-up-Vorlagen lokalisiert und Prompts aus der Registry geladen
 - chore: extend model fallback chains with an explicit GPT-4 hop and add bilingual deployment guidance

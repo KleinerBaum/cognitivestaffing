@@ -2116,6 +2116,54 @@ def test_get_client_uses_configured_timeout(monkeypatch):
     assert captured["timeout"] == 321.0
 
 
+def test_get_client_forwards_optional_org_and_project(monkeypatch):
+    """Organisation and project overrides should be forwarded to the SDK."""
+
+    captured: dict[str, Any] = {}
+
+    class _DummyClient:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+            self.responses = SimpleNamespace()
+
+    monkeypatch.setattr(openai_utils.api, "client", None, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_BASE_URL", "", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 120.0, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_ORGANIZATION", "org_123", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_PROJECT", "proj_456", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OpenAI", _DummyClient)
+
+    openai_utils.api.get_client()
+
+    assert captured["organization"] == "org_123"
+    assert captured["project"] == "proj_456"
+
+
+def test_get_client_skips_blank_optional_identifiers(monkeypatch):
+    """Blank organisation/project identifiers should not be forwarded."""
+
+    captured: dict[str, Any] = {}
+
+    class _DummyClient:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+            self.responses = SimpleNamespace()
+
+    monkeypatch.setattr(openai_utils.api, "client", None, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_BASE_URL", "", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_REQUEST_TIMEOUT", 120.0, raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_ORGANIZATION", "", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OPENAI_PROJECT", "   ", raising=False)
+    monkeypatch.setattr(openai_utils.api, "OpenAI", _DummyClient)
+
+    openai_utils.api.get_client()
+
+    assert "organization" not in captured
+    assert "project" not in captured
+
+
 def test_execute_response_uses_configured_timeout(monkeypatch):
     """Responses.create should include the configured timeout argument."""
 

@@ -82,6 +82,8 @@ export OPENAI_API_KEY="sk-..."
 export OPENAI_BASE_URL="https://api.openai.com/v1"          # use https://eu.api.openai.com/v1 for EU residency
 export OPENAI_MODEL="gpt-4o"                                  # default model override (balanced gpt-4o)
 export OPENAI_REQUEST_TIMEOUT="120"                          # seconds; extend for long-running generations
+export OPENAI_ORGANIZATION="org_XXXXXXXXXXXX"                # optional: route usage to a specific organization
+export OPENAI_PROJECT="proj_XXXXXXXXXXXX"                    # optional: scope API traffic to an OpenAI project
 export REASONING_EFFORT="medium"                             # minimal | low | medium | high
 export VERBOSITY="medium"                                     # low | medium | high (Antwort-Detailgrad)
 export VECTOR_STORE_ID="vs_XXXXXXXXXXXXXXXX"                 # enable RAG lookups (optional)
@@ -89,7 +91,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.example/v1/traces"  # optional 
 export OTEL_SERVICE_NAME="cognitive-staffing"
 export USE_CLASSIC_API="1"                                    # set to 1 to force Chat Completions (Responses bleibt Standard)
 ```
-You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
+You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
 
 > **EN:** Leave `USE_CLASSIC_API` unset to keep the Responses client as the default. Set it to `1` if you need to fall back to the legacy Chat Completions API for compatibility.
 > **DE:** Lass `USE_CLASSIC_API` leer, damit standardmäßig der Responses-Client genutzt wird. Setze den Wert auf `1`, wenn du aus Kompatibilitätsgründen auf die klassische Chat-Completions-API zurückfallen musst.
