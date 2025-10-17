@@ -1195,23 +1195,13 @@ def _prepare_payload(
             text_config["format"] = format_config
             payload["text"] = text_config
         if combined_tools:
-            function_tools = [
-                spec for spec in combined_tools if str(spec.get("type") or "").strip().lower() == "function"
-            ]
-            other_tools = [spec for spec in combined_tools if str(spec.get("type") or "").strip().lower() != "function"]
-
-            functions_payload = _convert_tools_to_functions(function_tools)
-            if functions_payload:
-                payload["functions"] = functions_payload
-
-            if other_tools:
-                responses_tools: list[dict[str, Any]] = []
-                for tool_spec in other_tools:
-                    cleaned_spec = dict(tool_spec)
-                    cleaned_spec.pop("name", None)
-                    responses_tools.append(cleaned_spec)
-                if responses_tools:
-                    payload["tools"] = responses_tools
+            responses_tools: list[dict[str, Any]] = []
+            for tool_spec in combined_tools:
+                cleaned_spec = dict(tool_spec)
+                cleaned_spec.pop("name", None)
+                responses_tools.append(cleaned_spec)
+            if responses_tools:
+                payload["tools"] = responses_tools
 
         if normalised_tool_choice is not None:
             payload["tool_choice"] = normalised_tool_choice
