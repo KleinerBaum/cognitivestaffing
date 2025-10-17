@@ -72,10 +72,7 @@ def _to_int(value: Any) -> int | None:
         return int(value)
     if isinstance(value, (int, float)):
         return int(round(float(value)))
-    try:
-        cleaned = str(value).strip()
-    except Exception:  # noqa: BLE001
-        return None
+    cleaned = str(value).strip()
     if not cleaned:
         return None
     normalized = cleaned.replace(".", "").replace(",", ".")
