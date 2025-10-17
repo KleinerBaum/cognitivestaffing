@@ -1,6 +1,8 @@
 {
     "critical": [
         "company.name",
+        "company.contact_name",
+        "company.contact_email",
         "position.job_title",
         "position.role_summary",
         "location.primary_city",

@@ -5688,6 +5688,9 @@ def _step_company():
 
 _step_company.handled_fields = [  # type: ignore[attr-defined]
     "company.name",
+    "company.contact_name",
+    "company.contact_email",
+    "company.contact_phone",
     "company.brand_name",
     "company.industry",
     "company.hq_location",

@@ -14,3 +14,5 @@ def test_all_critical_fields_mapped() -> None:
 def test_city_field_maps_to_company_section() -> None:
     """The city should be handled in the company section to gate section 1."""
     assert FIELD_SECTION_MAP.get("location.primary_city") == 1
+    assert FIELD_SECTION_MAP.get("company.contact_email") == 1
+    assert FIELD_SECTION_MAP.get("company.contact_name") == 1
