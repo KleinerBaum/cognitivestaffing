@@ -235,6 +235,8 @@ def _normalise_bool(value: object | None, *, default: bool = False) -> bool:
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
+OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
+OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
 USE_CLASSIC_API = _normalise_bool(os.getenv("USE_CLASSIC_API"), default=False)
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
@@ -244,6 +246,8 @@ try:
     OPENAI_API_KEY = openai_secrets.get("OPENAI_API_KEY", OPENAI_API_KEY)
     OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
     OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
+    OPENAI_ORGANIZATION = openai_secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
+    OPENAI_PROJECT = openai_secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
     timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
     OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
     if "USE_CLASSIC_API" in openai_secrets:
@@ -252,6 +256,12 @@ try:
     VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
     openai_secrets = None
+
+try:
+    OPENAI_ORGANIZATION = st.secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
+    OPENAI_PROJECT = st.secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
+except Exception:
+    pass
 
 try:
     OPENAI_REQUEST_TIMEOUT = _normalise_timeout(

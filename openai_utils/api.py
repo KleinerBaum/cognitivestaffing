@@ -36,6 +36,8 @@ import streamlit as st
 from config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
+    OPENAI_ORGANIZATION,
+    OPENAI_PROJECT,
     OPENAI_REQUEST_TIMEOUT,
     USE_CLASSIC_API,
     REASONING_EFFORT,
@@ -1196,9 +1198,7 @@ def _prepare_payload(
             function_tools = [
                 spec for spec in combined_tools if str(spec.get("type") or "").strip().lower() == "function"
             ]
-            other_tools = [
-                spec for spec in combined_tools if str(spec.get("type") or "").strip().lower() != "function"
-            ]
+            other_tools = [spec for spec in combined_tools if str(spec.get("type") or "").strip().lower() != "function"]
 
             functions_payload = _convert_tools_to_functions(function_tools)
             if functions_payload:
@@ -1401,7 +1401,18 @@ def get_client() -> OpenAI:
                 "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
             )
         base = OPENAI_BASE_URL or None
-        client = OpenAI(api_key=key, base_url=base, timeout=OPENAI_REQUEST_TIMEOUT)
+        init_kwargs: dict[str, Any] = {
+            "api_key": key,
+            "base_url": base,
+            "timeout": OPENAI_REQUEST_TIMEOUT,
+        }
+        organisation = OPENAI_ORGANIZATION.strip() if isinstance(OPENAI_ORGANIZATION, str) else OPENAI_ORGANIZATION
+        if organisation:
+            init_kwargs["organization"] = organisation
+        project = OPENAI_PROJECT.strip() if isinstance(OPENAI_PROJECT, str) else OPENAI_PROJECT
+        if project:
+            init_kwargs["project"] = project
+        client = OpenAI(**init_kwargs)
     return client
 
 
