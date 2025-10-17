@@ -56,6 +56,25 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
     remaining_redirects = 15
     current_url = url
     visited_urls = {current_url}
+
+    def _get_location(headers: Any) -> str | None:
+        if hasattr(headers, "get"):
+            return headers.get("Location") or headers.get("location")
+        return None
+
+    def _follow_redirect(location: str) -> None:
+        nonlocal current_url, remaining_redirects
+        if remaining_redirects <= 0:
+            logger.warning("Redirect limit exceeded for %s", url)
+            raise ValueError("too many redirects while fetching URL")
+        next_url = urljoin(current_url, location)
+        if next_url in visited_urls:
+            logger.warning("Redirect loop detected for %s", url)
+            raise ValueError("redirect loop detected")
+        visited_urls.add(next_url)
+        current_url = next_url
+        remaining_redirects -= 1
+
     while True:
         try:
             resp: Response = requests.get(
@@ -69,60 +88,20 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
             status = getattr(response, "status_code", None)
             headers = getattr(response, "headers", {}) if response is not None else {}
             if status in _REDIRECT_STATUSES:
-                location = None
-                if hasattr(headers, "get"):
-                    location = headers.get("Location") or headers.get("location")
-                elif isinstance(headers, dict):
-                    location = headers.get("Location") or headers.get("location")
-                if location and remaining_redirects > 0:
-                    next_url = urljoin(current_url, location)
-                    if next_url in visited_urls:
-                        logger.warning("Redirect loop detected for %s", url)
-                        raise ValueError("redirect loop detected")
-                    visited_urls.add(next_url)
-                    remaining_redirects -= 1
-                    previous_url = current_url
-                    current_url = next_url
-                    logger.debug(
-                        "Redirecting fetch from %s to %s (remaining=%s)",
-                        previous_url,
-                        current_url,
-                        remaining_redirects,
-                    )
-                    continue
+                location = _get_location(headers)
                 if location:
-                    logger.warning("Redirect limit exceeded for %s", url)
-                    raise ValueError("too many redirects while fetching URL")
+                    _follow_redirect(location)
+                    continue
             status_display = status if status is not None else "unknown"
             logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
             raise ValueError(f"failed to fetch URL (status {status_display})") from exc
         status = getattr(resp, "status_code", None)
         headers = getattr(resp, "headers", {}) or {}
         if status in _REDIRECT_STATUSES:
-            location = None
-            if hasattr(headers, "get"):
-                location = headers.get("Location") or headers.get("location")
-            elif isinstance(headers, dict):
-                location = headers.get("Location") or headers.get("location")
-            if location and remaining_redirects > 0:
-                next_url = urljoin(current_url, location)
-                if next_url in visited_urls:
-                    logger.warning("Redirect loop detected for %s", url)
-                    raise ValueError("redirect loop detected")
-                visited_urls.add(next_url)
-                remaining_redirects -= 1
-                previous_url = current_url
-                current_url = next_url
-                logger.debug(
-                    "Redirecting fetch from %s to %s (remaining=%s)",
-                    previous_url,
-                    current_url,
-                    remaining_redirects,
-                )
-                continue
+            location = _get_location(headers)
             if location:
-                logger.warning("Redirect limit exceeded for %s", url)
-                raise ValueError("too many redirects while fetching URL")
+                _follow_redirect(location)
+                continue
             status_display = status if status is not None else "unknown"
             logger.warning("Redirect response missing location for %s", current_url)
             raise ValueError(f"failed to fetch URL (status {status_display})")
