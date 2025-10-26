@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Mapping, Optional
 
+from prompts import prompt_registry
 from .prompts import (
     FIELDS_ORDER,
     SYSTEM_JSON_EXTRACTOR,
@@ -60,12 +61,12 @@ def build_extract_messages(
 
     system_content = SYSTEM_JSON_EXTRACTOR
     if locked_fields:
-        system_content = (
-            f"{SYSTEM_JSON_EXTRACTOR} Keep locked fields unchanged in the JSON output; "
-            "the application will supply their stored values."
-        )
+        system_content = f"{SYSTEM_JSON_EXTRACTOR} {LOCKED_SYSTEM_HINT}"
 
     return [
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_prompt},
     ]
+
+
+LOCKED_SYSTEM_HINT = prompt_registry.get("llm.json_extractor.locked_system_hint")

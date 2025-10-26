@@ -32,6 +32,7 @@ from openai import (
     RateLimitError,
 )
 import streamlit as st
+from prompts import prompt_registry
 
 from config import (
     OPENAI_API_KEY,
@@ -83,27 +84,9 @@ _INVALID_REQUEST_ERROR_MESSAGE = (
 )
 
 
-_VERBOSITY_HINTS: dict[str, str] = {
-    "low": (
-        "Antwort-Detailgrad: Halte dich extrem kurz und fokussiere dich auf zwingend notwendige Fakten.\n"
-        "Verbosity preference: Respond very concisely and only cover essential information."
-    ),
-    "medium": (
-        "Antwort-Detailgrad: Formuliere prägnante, aber informative Antworten mit kurzen Erläuterungen.\n"
-        "Verbosity preference: Provide balanced answers that stay concise while offering brief clarifications."
-    ),
-    "high": (
-        "Antwort-Detailgrad: Liefere ausführliche, wohlstrukturierte Antworten mit nachvollziehbarer Begründung.\n"
-        "Verbosity preference: Respond with thorough, well-structured explanations that include relevant reasoning."
-    ),
-}
-
-_VERBOSITY_FORMAT_GUARD = (
-    "Formatanforderung: Wenn ein strukturiertes Format (z. B. JSON oder Markdown) vorgegeben ist, halte dich strikt daran und "
-    "füge keine Meta-Kommentare hinzu.\n"
-    "Format requirement: When a structured format (e.g. JSON or Markdown) is requested, follow it exactly and avoid adding "
-    "extra meta comments."
-)
+_VERBOSITY_CONFIG: dict[str, str] = prompt_registry.get("openai_utils.api.verbosity")
+_VERBOSITY_FORMAT_GUARD = _VERBOSITY_CONFIG["format_guard"]
+_VERBOSITY_HINTS = {level: hint for level, hint in _VERBOSITY_CONFIG.items() if level != "format_guard"}
 
 
 def _resolve_verbosity(value: Optional[str]) -> str:

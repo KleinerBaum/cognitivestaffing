@@ -71,6 +71,21 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
+def _format_prompt(
+    key: str,
+    *,
+    locale: str | None = None,
+    **params: Any,
+) -> str:
+    """Return a registry prompt with braces escaped for ``str.format``."""
+
+    safe_params = {
+        name: value.replace("{", "{{").replace("}", "}}") if isinstance(value, str) else value
+        for name, value in params.items()
+    }
+    return prompt_registry.format(key, locale=locale, **safe_params)
+
+
 def _resolve_vector_store_id(candidate: str | None) -> str:
     """Return the active vector store ID based on runtime configuration."""
 
@@ -113,13 +128,7 @@ def extract_company_info(
         expected_fields = ("name", "location", "mission", "culture")
         properties = {field: {"type": "string"} for field in expected_fields}
 
-        prompt = (
-            "Analyze the following company website text and extract: the official "
-            "company name, the primary location or headquarters, the company's "
-            "mission or mission statement, core values or culture. Respond in JSON "
-            "with keys name, location, mission, culture.\n\n"
-            f"{text}"
-        )
+        prompt = _format_prompt("llm.extraction.company_info.user", text=text)
         messages = [{"role": "user", "content": prompt}]
         store_id = _resolve_vector_store_id(vector_store_id)
         tools: list[dict[str, Any]] = []
@@ -261,14 +270,7 @@ def _best_effort_json_retry(
     logger.warning("Extraction fallback triggered: %s", reason)
 
     system_prompt = prompt_registry.format("llm.json_extractor.system")
-    guidance = textwrap.dedent(
-        """
-        Return ONLY a JSON object that strictly matches the provided schema.
-        Always respond with a valid JSON object. Provide best-effort values for the schema
-        using empty strings, empty arrays, or null for unknown fields. If evidence is missing,
-        omit the key rather than inventing values. Never return prose.
-        """
-    ).strip()
+    guidance = prompt_registry.get("llm.extraction.best_effort_guidance")
 
     messages: list[dict[str, str]] = [
         {"role": "system", "content": f"{system_prompt}\n\n{guidance}"},
@@ -403,15 +405,16 @@ def extract_with_function(
         for index, message in enumerate(messages):
             updated = dict(message)
             if index == 0:
-                updated["content"] = (
-                    f"{message.get('content', '')} Return only valid JSON that conforms exactly to the provided schema."
-                )
+                retry_hint = prompt_registry.get("llm.extraction.json_retry_hint")
+                prefix = str(message.get("content", ""))
+                separator = " " if prefix and not prefix.endswith(" ") else ""
+                updated["content"] = f"{prefix}{separator}{retry_hint}".strip()
             retry_messages.append(updated)
         if not retry_messages:
             retry_messages = [
                 {
                     "role": "system",
-                    "content": ("Return only valid JSON that conforms exactly to the provided schema."),
+                    "content": prompt_registry.get("llm.extraction.json_retry_hint"),
                 },
                 {"role": "user", "content": user_payload},
             ]
@@ -535,26 +538,20 @@ def suggest_skills_for_role(
 
     focus_terms = [str(term).strip() for term in (focus_terms or []) if str(term).strip()]
 
-    if lang.startswith("de"):
-        prompt = (
-            "Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 "
-            "relevante Zertifikate für den Jobtitel "
-            f"'{job_title}'. Antworte als JSON mit den Schlüsseln "
-            "'tools_and_technologies', 'hard_skills', 'soft_skills' und "
-            "'certificates'."
+    locale = "de" if lang.lower().startswith("de") else "en"
+    focus_clause = ""
+    if focus_terms:
+        focus_clause = _format_prompt(
+            "llm.extraction.skill_suggestions.focus_clause",
+            locale=locale,
+            focus_terms=", ".join(focus_terms),
         )
-        if focus_terms:
-            prompt += " Berücksichtige diese Schwerpunkte bei der Auswahl: " + ", ".join(focus_terms) + "."
-    else:
-        prompt = (
-            "List exactly 12 IT technologies, 12 hard skills, 12 soft skills, "
-            "and 12 relevant certificates for the job title "
-            f"'{job_title}'. Respond with JSON using the keys "
-            "'tools_and_technologies', 'hard_skills', 'soft_skills', and "
-            "'certificates'."
-        )
-        if focus_terms:
-            prompt += " Prioritise options connected to: " + ", ".join(focus_terms) + "."
+    prompt = _format_prompt(
+        "llm.extraction.skill_suggestions.user",
+        locale=locale,
+        job_title=job_title,
+        focus_clause=focus_clause,
+    )
 
     messages = [{"role": "user", "content": prompt}]
     res = api.call_chat_api(
@@ -669,24 +666,36 @@ def suggest_benefits(
     if model is None:
         model = get_model_for(ModelTask.BENEFIT_SUGGESTION)
     focus_areas = [str(area).strip() for area in (focus_areas or []) if str(area).strip()]
-    if lang.startswith("de"):
-        prompt = f"Nenne bis zu 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title} üblich sind"
-        if industry:
-            prompt += f" in der Branche {industry}"
-        prompt += ". Antworte als JSON-Liste und vermeide Vorteile, die bereits in der Liste unten stehen.\n"
-        if existing_benefits:
-            prompt += f"Bereits aufgelistet: {existing_benefits}"
-        if focus_areas:
-            prompt += " Betone folgende Kategorien besonders: " + ", ".join(focus_areas) + "."
-    else:
-        prompt = f"List up to 5 benefits or perks commonly offered for a {job_title} role"
-        if industry:
-            prompt += f" in the {industry} industry"
-        prompt += ". Respond as a JSON array and avoid mentioning any benefit already listed below.\n"
-        if existing_benefits:
-            prompt += f"Already listed: {existing_benefits}"
-        if focus_areas:
-            prompt += " Emphasise the following categories: " + ", ".join(focus_areas) + "."
+    locale = "de" if lang.lower().startswith("de") else "en"
+    industry_clause = ""
+    if industry:
+        industry_clause = _format_prompt(
+            "llm.extraction.benefits.industry_clause",
+            locale=locale,
+            industry=industry,
+        )
+    existing_clause = ""
+    if existing_benefits:
+        existing_clause = _format_prompt(
+            "llm.extraction.benefits.existing_clause",
+            locale=locale,
+            existing_benefits=existing_benefits,
+        )
+    focus_clause = ""
+    if focus_areas:
+        focus_clause = _format_prompt(
+            "llm.extraction.benefits.focus_clause",
+            locale=locale,
+            focus_areas=", ".join(focus_areas),
+        )
+    prompt = _format_prompt(
+        "llm.extraction.benefits.user",
+        locale=locale,
+        job_title=job_title,
+        industry_clause=industry_clause,
+        existing_clause=existing_clause,
+        focus_clause=focus_clause,
+    )
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "nano" in model else 200
     res = api.call_chat_api(
@@ -1221,48 +1230,8 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
         default=system_default,
     )
 
-    instruction_lines = [
-        tr(
-            "Erstelle eine strukturierte Liste von Interviewfragen mit Bewertungsleitfaden.",
-            "Create a structured list of interview questions with evaluation guidance.",
-            lang,
-        ),
-        tr(
-            "Arbeite strikt nach diesen Schritten: 1) Kontext prüfen, 2) Fragenbereiche planen, 3) Fragen mit Bewertung ausformulieren, 4) JSON gegen das Schema prüfen.",
-            "Follow these steps strictly: 1) Review the context, 2) plan the question coverage, 3) draft questions with scoring guidance, 4) validate the JSON against the schema.",
-            lang,
-        ),
-        tr(
-            "Nutze die bereitgestellten Aufgaben, Skills und kulturellen Hinweise als Kontext.",
-            "Use the provided responsibilities, skills, and culture notes as context.",
-            lang,
-        ),
-        tr(
-            "Stelle sicher, dass mindestens eine Frage zu Verantwortlichkeiten, Hard Skills, Soft Skills und – falls vorhanden – Unternehmenskultur gestellt wird.",
-            "Ensure there is at least one question covering responsibilities, hard skills, soft skills, and company culture when provided.",
-            lang,
-        ),
-        tr(
-            "Beziehe dich in jeder Frage ausdrücklich auf die Stellenbezeichnung und Seniorität aus dem Kontext.",
-            "Explicitly reference the provided job title and seniority context in every question.",
-            lang,
-        ),
-        tr(
-            "Passe Ton und Zielgruppe an und halte dich an die gewünschte Fragenanzahl.",
-            "Match the requested tone and audience and respect the desired question count.",
-            lang,
-        ),
-        tr(
-            "Füge 3-5 allgemeine Bewertungshinweise als Liste 'evaluation_notes' hinzu.",
-            "Provide 3-5 general evaluation notes in the 'evaluation_notes' list.",
-            lang,
-        ),
-        tr(
-            "Liefere ausschließlich JSON, das exakt dem angegebenen Schema entspricht.",
-            "Return only JSON that exactly matches the provided schema.",
-            lang,
-        ),
-    ]
+    instruction_templates = prompt_registry.get("llm.interview_guide.instructions", locale=lang)
+    instruction_lines = [str(template) for template in instruction_templates]
 
     context_json = json.dumps(payload, ensure_ascii=False, indent=2)
     user_message = "\n".join(instruction_lines) + "\n\nContext:\n```json\n" + context_json + "\n```"
@@ -1938,18 +1907,13 @@ def summarize_company_page(
         span.set_attribute("document.section", section)
         span.set_attribute("document.lang", lang)
 
-        if lang.lower().startswith("de"):
-            prompt = (
-                "Fasse den folgenden Text in maximal vier Sätzen zusammen."
-                " Hebe nur die wichtigsten Fakten hervor. Abschnitt: "
-                f"{section}.\n\n{cleaned}"
-            )
-        else:
-            prompt = (
-                "Summarise the following text in at most four sentences,"
-                " focusing on the key facts only. Section: "
-                f"{section}.\n\n{cleaned}"
-            )
+        locale = "de" if lang.lower().startswith("de") else "en"
+        prompt = _format_prompt(
+            "llm.extraction.company_summary.user",
+            locale=locale,
+            section=section,
+            text=cleaned,
+        )
 
         messages = [{"role": "user", "content": prompt}]
         try:
@@ -1985,10 +1949,10 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
         span.set_attribute("llm.model", model)
         span.set_attribute("document.feedback_length", len(feedback or ""))
 
-        prompt = (
-            "Revise the following document based on the user instructions.\n"
-            f"Document:\n{original}\n\n"
-            f"Instructions: {feedback}"
+        prompt = _format_prompt(
+            "llm.extraction.document_refine.user",
+            document=original,
+            instructions=feedback,
         )
         messages = [{"role": "user", "content": prompt}]
         try:
@@ -2025,9 +1989,13 @@ def what_happened(
         span.set_attribute("document.type", doc_type)
         keys_used = [k for k, v in session_data.items() if v]
         span.set_attribute("document.source_key_count", len(keys_used))
-        prompt = (
-            f"Explain how the following {doc_type} was generated using the keys: {', '.join(keys_used)}.\n"
-            f"{doc_type.title()}:\n{output}"
+        keys_joined = ", ".join(keys_used)
+        prompt = _format_prompt(
+            "llm.extraction.document_explain.user",
+            doc_type=doc_type,
+            keys=keys_joined,
+            doc_heading=doc_type.title(),
+            output=output,
         )
         messages = [{"role": "user", "content": prompt}]
         try:

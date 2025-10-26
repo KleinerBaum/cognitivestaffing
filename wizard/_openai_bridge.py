@@ -18,15 +18,13 @@ from typing import Any, Mapping, Protocol, Sequence, Tuple, cast
 class CallChatApi(Protocol):
     """Callable signature for ``openai_utils.call_chat_api``."""
 
-    def __call__(self, messages: Sequence[Mapping[str, Any]] | Any, /, **kwargs: Any) -> Any:
-        ...
+    def __call__(self, messages: Sequence[Mapping[str, Any]] | Any, /, **kwargs: Any) -> Any: ...
 
 
 class BuildFileSearchTool(Protocol):
     """Callable signature for ``openai_utils.tools.build_file_search_tool``."""
 
-    def __call__(self, vector_store_ids: Sequence[str] | str, /, **kwargs: Any) -> dict[str, Any]:
-        ...
+    def __call__(self, vector_store_ids: Sequence[str] | str, /, **kwargs: Any) -> dict[str, Any]: ...
 
 
 class GenerateJobAd(Protocol):
@@ -46,8 +44,7 @@ class GenerateJobAd(Protocol):
         model: str | None = None,
         selected_values: Mapping[str, Any] | None = None,
         vector_store_id: str | None = None,
-    ) -> str:
-        ...
+    ) -> str: ...
 
 
 class StreamJobAd(Protocol):
@@ -67,8 +64,7 @@ class StreamJobAd(Protocol):
         model: str | None = None,
         selected_values: Mapping[str, Any] | None = None,
         vector_store_id: str | None = None,
-    ) -> Tuple[Any, str]:
-        ...
+    ) -> Tuple[Any, str]: ...
 
 
 class GenerateInterviewGuide(Protocol):
@@ -87,8 +83,7 @@ class GenerateInterviewGuide(Protocol):
         tone: str | None = None,
         vector_store_id: str | None = None,
         model: str | None = None,
-    ) -> Any:
-        ...
+    ) -> Any: ...
 
 
 @lru_cache(maxsize=1)

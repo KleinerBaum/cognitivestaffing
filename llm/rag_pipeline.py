@@ -10,6 +10,7 @@ from config import VECTOR_STORE_ID, ModelTask, get_model_for
 
 from openai_utils.api import call_chat_api
 from openai_utils.tools import build_file_search_tool
+from prompts import prompt_registry
 
 
 logger = logging.getLogger("cognitive_needs.rag")
@@ -121,10 +122,10 @@ class RAGPipeline:
         self._last_response_id: str | None = None
 
     def _build_query(self, spec: FieldSpec) -> str:
-        return (
-            "Identify the most relevant passages for the following vacancy field. "
-            "Return concise snippets only: "
-            f"{spec.field}. Instruction: {spec.instruction}"
+        return prompt_registry.format(
+            "llm.rag_pipeline.query",
+            field=spec.field,
+            instruction=spec.instruction,
         )
 
     def _collect_results(self, entries: Sequence[Mapping[str, Any]] | None) -> list[RetrievedChunk]:

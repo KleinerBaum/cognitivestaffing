@@ -15,9 +15,10 @@ __all__ = ["generate_job_ad"]
 def generate_job_ad(vacancy_json: dict, lang: str, tone: str = "professional") -> Any:
     """Generate a structured job ad JSON payload."""
 
+    locale = str(lang or "de")
     system = {
         "role": "system",
-        "content": prompt_registry.get("generators.job_ad.system"),
+        "content": prompt_registry.get("generators.job_ad.system", locale=locale),
     }
     user = {
         "role": "user",

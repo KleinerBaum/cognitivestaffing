@@ -26,6 +26,12 @@ def render_field_bullets() -> str:
 # ----------------------------------------------------------------------------
 
 SYSTEM_JSON_EXTRACTOR: str = prompt_registry.get("llm.json_extractor.system")
+USER_JSON_EXTRACT_BASE: str = prompt_registry.get("llm.json_extractor.user_base")
+USER_JSON_EXTRACT_LOCKED_HINT: str = prompt_registry.get("llm.json_extractor.locked_user_hint")
+LOCKED_BLOCK_HEADING: str = prompt_registry.get("llm.json_extractor.locked_block_heading")
+FOCUS_REMAINING_HINT: str = prompt_registry.get("llm.json_extractor.focus_remaining_hint")
+FOCUS_FIELDS_HINT: str = prompt_registry.get("llm.json_extractor.focus_fields_hint")
+ALL_LOCKED_HINT: str = prompt_registry.get("llm.json_extractor.all_locked_hint")
 
 
 def USER_JSON_EXTRACT_TEMPLATE(
@@ -60,30 +66,23 @@ def USER_JSON_EXTRACT_TEMPLATE(
         locked_fields_list.append(field)
     locked_block = ""
     if locked_fields_list:
-        locked_block = "Locked fields (preserve existing values):\n" + "\n".join(
-            f"  - {field}" for field in locked_fields_list
-        )
+        locked_block = "\n".join([LOCKED_BLOCK_HEADING] + [f"  - {field}" for field in locked_fields_list])
 
     field_lines = "\n".join(f"- {f}" for f in fields_list)
 
-    instructions = (
-        "Follow these steps carefully and persist until every step succeeds: "
-        "1) Review the extras, locked fields, and schema keys. 2) Scan the text for each field. 3) Populate the JSON with exact matches, using empty strings/lists when missing. "
-        "Extract the vacancy data and respond with a JSON object containing the schema keys. Use position.job_title for the main job title without gender markers, map the employer name to company.name, and map the primary city to location.primary_city. "
-        "List each responsibility/task separately in responsibilities.items."
-    )
+    instructions = USER_JSON_EXTRACT_BASE
     if locked_block:
-        instructions += " Do not alter the locked fields; the application will supply the stored values."
+        instructions = f"{instructions} {USER_JSON_EXTRACT_LOCKED_HINT}"
 
     reduced_fields = len(fields_list) < len(FIELDS_ORDER)
 
     if fields_list:
         if locked_block and reduced_fields:
-            instructions += "\nFocus on the remaining unlocked fields:\n" + field_lines
+            instructions += "\n" + FOCUS_REMAINING_HINT + field_lines
         else:
-            instructions += "\nFocus on the following fields:\n" + field_lines
+            instructions += "\n" + FOCUS_FIELDS_HINT + field_lines
     else:
-        instructions += "\nAll schema keys currently have locked entries. Return the JSON object while preserving the schema, and only augment information when new details are available."
+        instructions += "\n" + ALL_LOCKED_HINT
 
     blocks: list[str] = []
     if extras_block:
@@ -135,11 +134,7 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
 
     lang = str(payload.get("language") or "de").lower()
 
-    system_msg = tr(
-        "Du bist eine erfahrene Texterin für Stellenanzeigen. Plane gedanklich kurz die Struktur, gib diesen Plan nicht aus und arbeite die Schritte nacheinander ab. Schreibe klar, inklusiv und überzeugend und höre erst auf, wenn alle Anforderungen erfüllt sind.",
-        "You are an experienced recruitment copywriter. Briefly plan the structure internally (do not output it), execute the steps sequentially, write clearly, inclusively, and persuasively, and do not stop until every requirement is satisfied.",
-        lang,
-    )
+    system_msg = prompt_registry.get("generators.job_ad.system", locale=lang)
 
     heading = str(payload.get("heading") or payload.get("job_title") or "").strip()
     location = str(payload.get("location") or "").strip()
@@ -162,48 +157,8 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     manual_sections: Sequence[Mapping[str, Any]] = payload.get("manual_sections") or []
     sections_label = tr("Strukturierte Abschnitte", "Structured sections", lang)
 
-    instruction_lines = [
-        tr(
-            "Schreibe eine wirkungsvolle Stellenanzeige in Markdown basierend auf den folgenden Daten.",
-            "Write a compelling job advertisement in Markdown based on the structured data below.",
-            lang,
-        ),
-        tr(
-            "Folge diesen Schritten strikt: 1) Lies Kontext und Abschnitte, 2) lege die Gliederung fest, 3) schreibe die Abschnitte, 4) prüfe, ob alle Punkte enthalten sind.",
-            "Follow these steps strictly: 1) Review context and sections, 2) decide on the outline, 3) write the sections, 4) verify every point is included.",
-            lang,
-        ),
-        tr(
-            "Beginne mit einer aufmerksamkeitsstarken H1-Überschrift und verwende klare Zwischenüberschriften.",
-            "Start with an attention-grabbing H1 headline and use clear sub-headings.",
-            lang,
-        ),
-        tr(
-            "Verknüpfe Zielgruppe, Ton und Brand-Keywords auf natürliche Weise.",
-            "Weave the audience, tone, and brand keywords naturally into the copy.",
-            lang,
-        ),
-        tr(
-            "Erwähne Jobtitel und wichtige Skills für SEO immer wieder organisch im Text.",
-            "Repeat the job title and key skills naturally throughout the copy for SEO.",
-            lang,
-        ),
-        tr(
-            "Nutze Aufzählungen nur dort, wo sie den Text auflockern.",
-            "Use bullet lists only when they improve readability.",
-            lang,
-        ),
-        tr(
-            "Schließe mit einem motivierenden Call-to-Action, der Bewerber:innen direkt anspricht.",
-            "Close with a motivating call to action that directly invites candidates to apply.",
-            lang,
-        ),
-        tr(
-            f"Arbeite jede einzelne Information aus dem Block „{sections_label}“ sowie alle manuellen Zusatzabschnitte vollständig in den Anzeigentext ein – nichts weglassen oder zusammenfassen.",
-            f'Incorporate every item from the "{sections_label}" block and any manual sections directly into the advertisement copy—do not omit or merge details.',
-            lang,
-        ),
-    ]
+    instruction_templates = prompt_registry.get("generators.job_ad.instructions", locale=lang)
+    instruction_lines = [str(template).format(sections_label=sections_label) for template in instruction_templates]
 
     meta_lines: list[str] = []
     if heading:

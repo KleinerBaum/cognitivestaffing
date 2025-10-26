@@ -150,9 +150,7 @@ def generate_jd(profile_json: Dict[str, Any], tone: str = "professional", lang: 
     company = profile.get("company", {}).get("name") or "your organisation"
     title = profile.get("position", {}).get("job_title") or "Team member"
     intro = f"Join {company} as a {title}. We are looking for {tone} contributors ready to grow with us."
-    detailed = (
-        f"{intro} Responsibilities include collaborating across teams and delivering outcomes in line with our {tone} culture."
-    )
+    detailed = f"{intro} Responsibilities include collaborating across teams and delivering outcomes in line with our {tone} culture."
     drafts = [
         {"kind": "short", "text": intro, "lang": lang},
         {"kind": "long", "text": detailed, "lang": lang},
@@ -165,11 +163,13 @@ def export_profile(profile_json: Dict[str, Any], format: str = "json") -> str:
     """Export the profile in a given format."""
 
     preview = (profile_json or {}).get("position", {}).get("job_title")
-    return json.dumps({
-        "file_url": f"https://files/export/profile.{format}",
-        "format": format,
-        "preview": preview,
-    })
+    return json.dumps(
+        {
+            "file_url": f"https://files/export/profile.{format}",
+            "format": format,
+            "preview": preview,
+        }
+    )
 
 
 __all__ = [

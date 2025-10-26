@@ -16,6 +16,7 @@ from pydantic import ValidationError
 import streamlit as st
 
 from openai_utils import call_chat_api
+from prompts import prompt_registry
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
@@ -195,14 +196,9 @@ def _minimal_messages(text: str) -> list[dict[str, str]]:
     """Build a minimal prompt asking for raw JSON output."""
 
     keys = ", ".join(FIELDS_ORDER)
+    system_content = prompt_registry.format("llm.client.minimal_system", keys=keys)
     return [
-        {
-            "role": "system",
-            "content": (
-                "Follow GPT-5 discipline: plan silently, execute sequentially, and do not stop until the request is complete. "
-                f"Return JSON only with these keys: {keys}"
-            ),
-        },
+        {"role": "system", "content": system_content},
         {"role": "user", "content": text},
     ]
 
