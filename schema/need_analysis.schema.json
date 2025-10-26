@@ -464,18 +464,6 @@
                         "null"
                     ]
                 },
-                "hiring_manager_name": {
-                    "type": [
-                        "string",
-                        "null"
-                    ]
-                },
-                "hiring_manager_role": {
-                    "type": [
-                        "string",
-                        "null"
-                    ]
-                },
                 "stakeholders": {
                     "items": {
                         "additionalProperties": false,
@@ -581,6 +569,18 @@
                     ]
                 },
                 "onboarding_process": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "hiring_manager_name": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "hiring_manager_role": {
                     "type": [
                         "string",
                         "null"

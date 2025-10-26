@@ -5567,6 +5567,34 @@ def _step_company():
         key="ui.company.culture",
     )
 
+    contact_cols = st.columns((1.2, 1.2, 1), gap="small")
+    contact_name = contact_cols[0].text_input(
+        tr("Kontaktperson", "Primary contact"),
+        value=company.get("contact_name", ""),
+        placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+        key="ui.company.contact_name",
+    )
+    contact_email = contact_cols[1].text_input(
+        tr("Kontakt-E-Mail", "Contact email"),
+        value=company.get("contact_email", ""),
+        placeholder="name@example.com",
+        key="ui.company.contact_email",
+    )
+    contact_phone = contact_cols[2].text_input(
+        tr("Telefon", "Phone"),
+        value=company.get("contact_phone", ""),
+        placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
+        key="ui.company.contact_phone",
+    )
+
+    company["contact_name"] = contact_name
+    company["contact_email"] = contact_email
+    company["contact_phone"] = contact_phone
+
+    _update_profile("company.contact_name", contact_name)
+    _update_profile("company.contact_email", contact_email)
+    _update_profile("company.contact_phone", contact_phone)
+
     city_col, country_col = st.columns(2, gap="small")
     city_lock = _field_lock_config(
         "location.primary_city",
@@ -7972,6 +8000,8 @@ def _step_process():
         tr("Rolle des Hiring Managers", "Hiring manager role"),
         value=data.get("hiring_manager_role", ""),
     )
+    _update_profile("process.hiring_manager_name", data.get("hiring_manager_name", ""))
+    _update_profile("process.hiring_manager_role", data.get("hiring_manager_role", ""))
 
     _render_stakeholders(data, "ui.process.stakeholders")
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
@@ -8768,6 +8798,19 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
     hard_value = ", ".join(hard_skills) if hard_skills else placeholder
     soft_value = ", ".join(soft_skills) if soft_skills else placeholder
 
+    benefits_entries: list[str] = []
+    seen_benefits: set[str] = set()
+    for entry in profile.compensation.benefits:
+        normalized = (entry or "").strip()
+        if not normalized:
+            continue
+        lowered = normalized.casefold()
+        if lowered in seen_benefits:
+            continue
+        seen_benefits.add(lowered)
+        benefits_entries.append(normalized)
+    benefits_value = ", ".join(benefits_entries[:5]) if benefits_entries else ""
+
     highlight_title = tr("Wesentliche Eckdaten", "Key highlights")
     job_title_label = tr("Jobtitel", "Job title")
     company_label = tr("Unternehmen", "Company")
@@ -8775,6 +8818,7 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
     salary_label = tr("Vergütung", "Compensation")
     hard_label = tr("Fachliche Skills", "Hard skills")
     soft_label = tr("Soziale Skills", "Soft skills")
+    benefits_label = tr("Benefits", "Benefits")
 
     bullets = [
         tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=job_title_label, value=job_title),
@@ -8784,6 +8828,14 @@ def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
         tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=hard_label, value=hard_value),
         tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=soft_label, value=soft_value),
     ]
+
+    if benefits_entries:
+        bullets.append(
+            tr("- **{label}:** {value}", "- **{label}:** {value}").format(
+                label=benefits_label,
+                value=benefits_value,
+            )
+        )
 
     with st.container():
         st.markdown(f"#### {highlight_title}")
