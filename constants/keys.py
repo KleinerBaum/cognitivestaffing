@@ -112,8 +112,6 @@ class StateKeys:
     ESCO_OCCUPATION_OPTIONS = UI_ESCO_OCCUPATION_OPTIONS
     SUMMARY_FOLLOWUP_SNAPSHOT = "data.summary.followup_snapshot"
     SUMMARY_SELECTED_GROUP = UIKeys.SUMMARY_SELECTED_GROUP
-    GAP_ANALYSIS_TEXT = "gap_analysis.text"
-    GAP_ANALYSIS_TITLE = "gap_analysis.title"
     COMPLETED_SECTIONS = "wizard.completed_sections"
     FIRST_INCOMPLETE_SECTION = "wizard.first_incomplete_section"
     PENDING_INCOMPLETE_JUMP = "wizard.pending_incomplete_jump"
