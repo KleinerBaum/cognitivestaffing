@@ -2518,7 +2518,7 @@ def on_file_uploaded() -> None:
                 ),
                 str(e),
             )
-        elif "requires ocr support" in msg:
+        elif "requires ocr support" in msg or "possibly scanned pdf" in msg:
             display_error(
                 tr(
                     "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
@@ -2579,19 +2579,20 @@ def on_url_changed() -> None:
         )
         st.session_state["source_error"] = True
         return
+    st.session_state.pop("source_error", None)
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     try:
         doc = clean_structured_document(extract_text_from_url(url))
         txt = doc.text
     except Exception as e:  # pragma: no cover - defensive
         st.session_state.pop("__prefill_profile_doc__", None)
         st.session_state[StateKeys.RAW_BLOCKS] = []
-        display_error(
-            tr(
-                "URL konnte nicht geladen werden. Prüfen Sie Erreichbarkeit oder Firewall-Einstellungen.",
-                "Failed to fetch URL. Check if the site is reachable or if access is blocked.",
-            ),
-            str(e),
+        error_message = tr(
+            "❌ URL konnte nicht geladen werden. Bitte Adresse prüfen.",
+            "❌ URL could not be fetched. Please check the address.",
         )
+        display_error(error_message, str(e))
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = error_message
         st.session_state["source_error"] = True
         return
     if not txt or not txt.strip():

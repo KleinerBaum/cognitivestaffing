@@ -1,5 +1,6 @@
 import json
 from copy import deepcopy
+import logging
 from types import SimpleNamespace
 from typing import Any, Callable, Mapping, Sequence
 
@@ -1720,6 +1721,65 @@ def test_extract_with_function(monkeypatch):
 
     result = extract_with_function("text", {})
     assert result.data["job_title"] == "Dev"
+
+
+def test_extract_with_function_backfills_missing_sections(monkeypatch, caplog):
+    """Heuristic fallbacks should supplement missing LLM sections."""
+
+    job_text = """
+Data Scientist (m/w/d)
+Daten GmbH sucht Verstärkung!
+Standort: Berlin
+Deine Aufgaben:
+- Entwickle Machine-Learning-Modelle
+Benefits:
+- Home Office
+""".strip()
+
+    payload = {
+        "company": {},
+        "position": {},
+        "location": {},
+        "responsibilities": {},
+        "requirements": {},
+        "employment": {},
+        "compensation": {},
+        "process": {},
+        "meta": {},
+    }
+
+    call_result = ChatCallResult(
+        None,
+        [
+            {
+                "function": {
+                    "input": payload,
+                }
+            }
+        ],
+        {},
+    )
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", lambda *a, **k: call_result)
+
+    with caplog.at_level(logging.INFO, logger="openai_utils.extraction"):
+        result = extract_with_function(job_text, {})
+
+    company_name = result.data["company"]["name"]
+    title = result.data["position"]["job_title"]
+    city = result.data["location"]["primary_city"]
+    benefits = result.data["compensation"]["benefits"]
+    responsibilities = result.data["responsibilities"]["items"]
+
+    assert company_name == "Daten GmbH"
+    assert title and "Data Scientist" in title
+    assert city == "Berlin"
+    assert benefits and "Home Office" in benefits[0]
+    assert responsibilities and "Machine-Learning" in responsibilities[0]
+    assert any(
+        record.name == "openai_utils.extraction" and record.getMessage().startswith("Heuristics backfilled")
+        for record in caplog.records
+    )
 
 
 def test_extract_with_function_falls_back_to_json_mode(monkeypatch):

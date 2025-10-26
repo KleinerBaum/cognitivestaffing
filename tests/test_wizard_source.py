@@ -156,6 +156,16 @@ def test_on_file_uploaded_populates_state(monkeypatch: pytest.MonkeyPatch) -> No
             "Requires OCR support for scanned input",
             "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
         ),
+        (
+            "de",
+            "File could not be read, possibly scanned PDF",
+            "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
+        ),
+        (
+            "en",
+            "File could not be read, possibly scanned PDF",
+            "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
+        ),
     ],
 )
 def test_on_file_uploaded_shows_localized_errors(
@@ -263,6 +273,53 @@ def test_on_url_changed_rejects_invalid_schema(
     assert st.session_state.get("source_error") is True
     assert st.session_state.get("__run_extraction__") is not True
     assert errors
+
+
+def test_on_url_changed_sets_summary_on_fetch_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """URL fetch failures should surface a localized summary message."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = {"previous": "summary"}
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://invalid.example"
+    st.session_state[StateKeys.RAW_BLOCKS] = [ContentBlock(type="paragraph", text="old")]
+
+    errors: list[str] = []
+
+    def fake_error(message: str, *_args: Any, **_kwargs: Any) -> None:
+        errors.append(message)
+
+    monkeypatch.setattr("wizard.display_error", fake_error)
+    monkeypatch.setattr(
+        "wizard.extract_text_from_url",
+        lambda _u: (_ for _ in ()).throw(ValueError("failed to fetch URL (status 404)")),
+    )
+
+    on_url_changed()
+
+    expected_message = "❌ URL could not be fetched. Please check the address."
+    assert errors and errors[0] == expected_message
+    assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == expected_message
+    assert st.session_state.get("__run_extraction__") is not True
+    assert st.session_state.get("source_error") is True
+    assert st.session_state[StateKeys.RAW_BLOCKS] == []
+
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://valid.example"
+
+    monkeypatch.setattr(
+        "wizard.extract_text_from_url",
+        lambda _u: StructuredDocument(
+            text="url text",
+            blocks=[ContentBlock(type="paragraph", text="url text")],
+        ),
+    )
+
+    on_url_changed()
+
+    assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == {}
+    assert st.session_state.get("source_error") in (None, False)
+    assert st.session_state["__prefill_profile_doc__"].text == "url text"
+    assert st.session_state["__run_extraction__"] is True
 
 
 def test_onboarding_transfers_prefill_to_raw_text(
