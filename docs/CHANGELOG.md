@@ -8,6 +8,8 @@
   - Fix: Arbeitsmodell-, Standort-, Kontakt- und Benefit-Felder zwischen Schema, UI-State und Exporten angleichen
 - fix: treat HR contact fields as critical so wizard steps and follow-ups flag missing details consistently
   - Fix: HR-Kontaktfelder als kritisch markieren, damit Wizard-Schritte und Follow-ups fehlende Angaben zuverlässig anzeigen
+- chore: remove the sidebar base-model and response-verbosity selectors in favour of automatic routing
+  - Chore: Auswahlfelder für Basismodell und Antwort-Detailgrad aus der Seitenleiste entfernen und automatisches Routing nutzen
 - feat: capture HR contacts, hiring managers, and qualification summaries in the vacancy extraction schema and wizard UI
   - Feature: Erfasst HR-Kontakte, Hiring-Manager:innen und Qualifikationszusammenfassungen in Schema und Wizard-Oberfläche
 - feat: forward optional OpenAI organization/project IDs from env/secrets to the shared client
