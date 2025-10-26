@@ -16,7 +16,7 @@ def test_render_esco_occupation_selector_updates_profile(
     st.session_state.lang = "en"
     st.session_state[StateKeys.PROFILE] = {"position": {}}
     position = st.session_state[StateKeys.PROFILE]["position"]
-    st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [
+    st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = [
         {
             "preferredLabel": "Data Scientist",
             "group": "Science professionals",

@@ -72,8 +72,10 @@ def ensure_state() -> None:
         st.session_state[StateKeys.ESCO_SKILLS] = []
     if StateKeys.ESCO_MISSING_SKILLS not in st.session_state:
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
-    if StateKeys.ESCO_OCCUPATION_OPTIONS not in st.session_state:
-        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+    if StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS not in st.session_state:
+        st.session_state[StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS] = []
+    if StateKeys.UI_ESCO_OCCUPATION_OPTIONS not in st.session_state:
+        st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = []
     if StateKeys.ESCO_SELECTED_OCCUPATIONS not in st.session_state:
         st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
     if StateKeys.SKILL_BUCKETS not in st.session_state:
@@ -88,8 +90,8 @@ def ensure_state() -> None:
         st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = False
     if StateKeys.WIZARD_STEP_COUNT not in st.session_state:
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = 0
-    if StateKeys.AUTOFILL_DECISIONS not in st.session_state:
-        st.session_state[StateKeys.AUTOFILL_DECISIONS] = {}
+    if StateKeys.WIZARD_AUTOFILL_DECISIONS not in st.session_state:
+        st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {}
     if StateKeys.COMPANY_PAGE_SUMMARIES not in st.session_state:
         st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
     if StateKeys.COMPANY_PAGE_BASE not in st.session_state:

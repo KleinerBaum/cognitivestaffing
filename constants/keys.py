@@ -83,7 +83,12 @@ class StateKeys:
     PROFILE_METADATA = "profile_metadata"
     ESCO_SKILLS = "extraction_esco_skills"
     ESCO_MISSING_SKILLS = "extraction_esco_missing_skills"
-    ESCO_OCCUPATION_OPTIONS = "extraction_esco_occupation_options"
+    # NOTE: ``ESCO_OCCUPATION_OPTIONS`` was historically reused for both the
+    # extraction snapshot and the UI cache.  The names were split in 2024-08 to
+    # prevent UI refreshes from wiping extraction results.  Keep the
+    # ``EXTRACTION_*`` key for data snapshots and the ``UI_*`` key for the
+    # interactive picker cache.
+    EXTRACTION_ESCO_OCCUPATION_OPTIONS = "extraction_esco_occupation_options"
     ESCO_SELECTED_OCCUPATIONS = "data.esco_selected_occupations"
     BIAS_FINDINGS = "data.bias_findings"
     SKILL_BUCKETS = "skill_buckets"
@@ -99,7 +104,10 @@ class StateKeys:
     JOB_AD_FONT_CHOICE = "data.job_ad.font"
     JOB_AD_LOGO_DATA = "data.job_ad.logo"
     INTERVIEW_AUDIENCE = "data.interview.audience"
-    ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
+    UI_ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
+    # Backwards compatibility for legacy imports; prefer
+    # ``UI_ESCO_OCCUPATION_OPTIONS`` going forward.
+    ESCO_OCCUPATION_OPTIONS = UI_ESCO_OCCUPATION_OPTIONS
     SUMMARY_FOLLOWUP_SNAPSHOT = "data.summary.followup_snapshot"
     SUMMARY_SELECTED_GROUP = UIKeys.SUMMARY_SELECTED_GROUP
     GAP_ANALYSIS_TEXT = "gap_analysis.text"
@@ -109,4 +117,4 @@ class StateKeys:
     PENDING_INCOMPLETE_JUMP = "wizard.pending_incomplete_jump"
     WIZARD_STEP_COUNT = "wizard.step_count"
     STEPPER_WARNING = "wizard.stepper_warning"
-    AUTOFILL_DECISIONS = "wizard.autofill_decisions"
+    WIZARD_AUTOFILL_DECISIONS = "wizard.autofill_decisions"

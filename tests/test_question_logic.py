@@ -36,7 +36,7 @@ def test_role_specific_questions_from_esco_state(monkeypatch) -> None:
     """Role-specific prompts should activate when ESCO provides a group."""
 
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"position.job_title"})
-    st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [
+    st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = [
         {
             "preferredLabel": "Software developers",
             "group": "Information and communications technology professionals",
@@ -66,7 +66,7 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
         "question_logic.CRITICAL_FIELDS",
         {"requirements.hard_skills_required"},
     )
-    st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = [
+    st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = [
         {
             "preferredLabel": "Software developers",
             "group": "Information and communications technology professionals",

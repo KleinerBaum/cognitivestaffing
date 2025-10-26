@@ -34,7 +34,7 @@ def search_occupation(title: str, lang: str = "en") -> Dict[str, str]:
 
     occupation = classify_occupation(title, lang=lang) or {}
     options = search_occupations(title, lang=lang, limit=5) if occupation else []
-    _set_state(StateKeys.ESCO_OCCUPATION_OPTIONS, options)
+    _set_state(StateKeys.UI_ESCO_OCCUPATION_OPTIONS, options)
     if occupation:
         skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
         _set_state(StateKeys.ESCO_SKILLS, skills)
@@ -55,7 +55,7 @@ def search_occupation_options(
     """Return occupation candidates for ``title`` and update session state."""
 
     options = search_occupations(title, lang=lang, limit=limit)
-    _set_state(StateKeys.ESCO_OCCUPATION_OPTIONS, options)
+    _set_state(StateKeys.UI_ESCO_OCCUPATION_OPTIONS, options)
     return options
 
 
