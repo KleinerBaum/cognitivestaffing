@@ -10253,25 +10253,74 @@ def _render_skills_review_step() -> None:
         )
 
 
+def step_jobad(context: WizardContext) -> None:
+    """Render the job ad intake step using ``context``."""
+
+    _render_jobad_step_v2(context.schema)
+
+
+def step_company(context: WizardContext) -> None:
+    """Render the company step."""
+
+    _step_company()
+
+
+def step_team(context: WizardContext) -> None:
+    """Render the team/position step."""
+
+    _step_position()
+
+
+def step_role_tasks(context: WizardContext) -> None:
+    """Render the role tasks step."""
+
+    _step_requirements()
+
+
+def step_skills(context: WizardContext) -> None:
+    """Render the skills review step."""
+
+    _render_skills_review_step()
+
+
+def step_benefits(context: WizardContext) -> None:
+    """Render the benefits and compensation step."""
+
+    _step_compensation()
+
+
+def step_interview(context: WizardContext) -> None:
+    """Render the interview/process step."""
+
+    _step_process()
+
+
+def step_summary(context: WizardContext) -> None:
+    """Render the summary step using ``context`` for schema and critical fields."""
+
+    _step_summary(context.schema, context.critical_fields)
+
+
+STEP_RENDERERS: dict[str, StepRenderer] = {
+    "jobad": StepRenderer(step_jobad, legacy_index=0),
+    "company": StepRenderer(step_company, legacy_index=1),
+    "team": StepRenderer(step_team, legacy_index=2),
+    "role_tasks": StepRenderer(step_role_tasks, legacy_index=3),
+    "skills": StepRenderer(step_skills, legacy_index=3),
+    "benefits": StepRenderer(step_benefits, legacy_index=4),
+    "interview": StepRenderer(step_interview, legacy_index=5),
+    "summary": StepRenderer(step_summary, legacy_index=6),
+}
+
+
 def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(WIZARD_PAGES)
     _update_section_progress()
 
     context = WizardContext(schema=schema, critical_fields=critical)
-    renderers: dict[str, StepRenderer] = {
-        "jobad": StepRenderer(lambda ctx: _render_jobad_step_v2(schema), legacy_index=0),
-        "company": StepRenderer(lambda ctx: _step_company(), legacy_index=1),
-        "team": StepRenderer(lambda ctx: _step_position(), legacy_index=2),
-        "role_tasks": StepRenderer(lambda ctx: _step_requirements(), legacy_index=3),
-        "skills": StepRenderer(lambda ctx: _render_skills_review_step(), legacy_index=3),
-        "benefits": StepRenderer(lambda ctx: _step_compensation(), legacy_index=4),
-        "interview": StepRenderer(lambda ctx: _step_process(), legacy_index=5),
-        "summary": StepRenderer(lambda ctx: _step_summary(schema, critical), legacy_index=6),
-    }
-
     router = WizardRouter(
         pages=WIZARD_PAGES,
-        renderers=renderers,
+        renderers=STEP_RENDERERS,
         context=context,
         value_resolver=get_in,
     )
