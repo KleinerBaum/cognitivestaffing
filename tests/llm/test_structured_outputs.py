@@ -18,7 +18,7 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     usage_updates: list[dict] = []
 
     class _DummyResponses:
-        def create(self, **payload):  # type: ignore[override]
+        def create(self, **payload):
             payload_box["payload"] = payload
             return object()
 
@@ -55,5 +55,5 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload["model"] == "gpt-4o-mini"
     assert payload["temperature"] == pytest.approx(0.1)
     assert payload["max_output_tokens"] == 256
-    assert payload["response_format"] == fmt
+    assert payload["text"]["format"] == fmt
     assert payload["input"][0]["role"] == "user"

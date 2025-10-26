@@ -849,10 +849,12 @@ def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
         json_schema=schema,
     )
 
-    assert captured["text"]["format"]["type"] == "json_schema"
-    assert captured["text"]["format"]["name"] == schema["name"]
-    assert captured["text"]["format"]["schema"] == schema["schema"]
-    assert captured["text"]["format"]["strict"] is True
+    format_block = captured["text"]["format"]
+    assert format_block["type"] == "json_schema"
+    schema_block = format_block["json_schema"]
+    assert schema_block["name"] == schema["name"]
+    assert schema_block["schema"] == schema["schema"]
+    assert schema_block["strict"] is True
 
 
 def test_stream_chat_api_yields_chunks(monkeypatch):

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- chore: pin Streamlit deployment config to `requirements.txt` to suppress duplicate requirements warnings
+  - Chore: Deployment-Konfiguration auf `requirements.txt` fixieren, um doppelte Requirements-Warnungen zu unterdrücken
+- test: assert ESCO essential skill lookups fall back to the offline cache when HTTP 404 errors occur
+  - Test: Prüft, dass ESCO-Kernkompetenzabfragen bei HTTP-404-Fehlern auf den Offline-Cache zurückfallen
 - fix: extend rule heuristics for benefits, remote policies, and required-field logging coverage
   - Fix: Regex-Heuristiken für Benefits, Remote-Modelle und Logging pflichtiger Felder erweitern
 - fix: align work policy, location, contact, and benefits fields across schema, UI state, and exports

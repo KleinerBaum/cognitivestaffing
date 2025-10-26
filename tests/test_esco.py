@@ -87,3 +87,21 @@ def test_normalize_skills_uses_lookup(monkeypatch):
     # ``search_skill_python`` resolves to the canonical label but we prefer a
     # compact human-readable variant for display.
     assert out == ["Python", "data"]
+
+
+def test_get_essential_skills_falls_back_to_cache(monkeypatch):
+    """Essential skill lookup should reuse the offline cache on HTTP errors."""
+
+    monkeypatch.setattr(esco, "_is_offline", lambda: False)
+    monkeypatch.setattr(
+        esco,
+        "_api_essential_skills",
+        lambda *_a, **_k: (_ for _ in ()).throw(esco.EscoServiceError("404")),
+    )
+
+    uri = "http://data.europa.eu/esco/occupation/12345"
+    expected = esco._offline_essential_skills(uri)
+    assert expected, "offline cache must provide fallback skills"
+
+    skills = esco.get_essential_skills(uri, lang="en")
+    assert skills == expected
