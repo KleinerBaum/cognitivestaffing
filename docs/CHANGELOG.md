@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- docs: refresh README with grouped wizard sections, tone presets, and automatic company research highlights
+  - Dokumentation: README mit gruppierten Wizard-Schritten, Tonalitätswahl und automatischer Unternehmensrecherche aktualisiert
+- schema: describe the optional `company.size` field in the NeedAnalysisProfile JSON schema for downstream validation
+  - Schema: Optionales Feld `company.size` im NeedAnalysisProfile-JSON-Schema für nachgelagerte Validierung beschrieben
 - feat: add on-demand AI buttons for skills and benefits with contextual filtering
   - Feature: KI-Vorschlagsbuttons für Skills und Benefits mit kontextuellem Duplikatfilter
 - feat: add ESCO occupation search and cached skill import to the requirements step UI

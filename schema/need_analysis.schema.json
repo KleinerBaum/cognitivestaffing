@@ -29,6 +29,7 @@
                     ]
                 },
                 "size": {
+                    "description": "Approximate number of employees in the company",
                     "type": [
                         "string",
                         "null"

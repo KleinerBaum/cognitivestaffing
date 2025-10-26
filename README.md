@@ -8,7 +8,16 @@
 - **Structured extraction:** JSON schemas and Pydantic validation keep 20+ vacancy fields aligned with `NeedAnalysisProfile`. Locked fields such as **job_title** or **company** are auto-filled when rule matches fire and stay protected until you unlock them.
 - **Interactive follow-ups:** A Follow-up Question Generator agent produces prioritized follow-up questions with suggestion chips. When ESCO metadata is available the assistant injects normalized essential skills into the prompts, and the auto re-ask loop keeps rerunning critical prompts until every must-have field is answered.
 - **ESCO integration:** When enabled, the ESCO enricher normalizes job titles, proposes essential skills, and flags missing competencies directly in the UI.
-- **AI-assisted suggestions:** Dedicated helpers surface skills, benefits, responsibilities, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI stays responsive during longer generations. The requirements and compensation steps now ship with on-demand “Suggest additional skills” and “Suggest benefits” actions that factor in existing context to avoid duplicates.
+- **AI-assisted suggestions:** Dedicated helpers surface responsibilities, skills, benefits, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI stays responsive during longer generations, and the requirements and compensation steps now ship with on-demand “Suggest additional skills” and “Suggest benefits” actions that factor in existing context to avoid duplicates.
+- **Guided wizard sections / Geführte Wizard-Abschnitte:**
+  **EN:** Steps are grouped into Onboarding, Company, Team & Structure, Role & Tasks, Skills & Requirements, Compensation, Hiring Process, and Summary so recruiters can follow a consistent flow with inline help for each section.
+  **DE:** Schritte sind in Onboarding, Unternehmen, Team & Struktur, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, damit Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen folgen können.
+- **Tone control / Tonalitätssteuerung:**
+  **EN:** Choose between concise, professional, or casual writing styles before generating job ads, interview guides, or follow-up emails.
+  **DE:** Wähle vor der Generierung von Stellenanzeigen, Interview-Guides oder Follow-up-E-Mails zwischen prägnantem, professionellem oder lockerem Schreibstil.
+- **Automatic company research / Automatische Unternehmensrecherche:**
+  **EN:** After uploading a job ad the wizard fetches mission, culture, and approximate company size from the web to pre-fill the company section.
+  **DE:** Nach dem Upload einer Ausschreibung ruft der Wizard Mission, Kultur und ungefähre Unternehmensgröße aus dem Web ab und füllt den Unternehmensbereich vor.
 - **Analysis helpers / Analyse-Helfer:**
   **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.
   **DE:** Deterministische Helfer liefern Gehaltsbenchmarks, Währungsumrechnung mit zwischengespeicherten FX-Kursen und ISO-Datumsnormalisierung, damit der Assistent ohne zusätzliche APIs fundiert begründen kann.
@@ -17,7 +26,7 @@
 - **Gap analysis workspace / Gap-Analyse-Arbeitsbereich:**
   **EN:** Launch the **Gap analysis** view to combine ESCO metadata, retrieved snippets, and vacancy text into an executive-ready report that highlights missing information and next steps.
   **DE:** Öffne die Ansicht **Gap-Analyse**, um ESCO-Metadaten, abgerufene Snippets und Ausschreibungstext zu einem Management-tauglichen Bericht mit offenen Punkten und nächsten Schritten zu verbinden.
-- **Deliberate UX:** Wizard steps expose inline help that explains why fields are locked or why suggestions may be missing, a sidebar tracks progress, and branded dark/light themes align with Cognitive Staffing colors.
+- **Deliberate UX:** Wizard sections combine inline help, locking indicators, and progress-aware navigation so teams always know why a field is frozen, which suggestions are pending, and how far they are from completion. Branded dark/light themes align with Cognitive Staffing colors.
 
 ## Model Routing & Cost Controls / Modellrouting & Kostensteuerung
 
