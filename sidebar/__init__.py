@@ -26,11 +26,12 @@ from .salary import estimate_salary_expectation
 STEP_LABELS: list[tuple[str, str]] = [
     ("onboarding", tr("Onboarding", "Onboarding")),
     ("company", tr("Unternehmen", "Company")),
-    ("basic", tr("Basisdaten", "Basic info")),
-    ("requirements", tr("Anforderungen", "Requirements")),
-    ("compensation", tr("Leistungen & Benefits", "Rewards & Benefits")),
-    ("process", tr("Prozess", "Process")),
-    ("summary", tr("Summary", "Summary")),
+    ("team", tr("Team & Struktur", "Team & Structure")),
+    ("role", tr("Rolle & Aufgaben", "Role & Tasks")),
+    ("skills", tr("Skills & Anforderungen", "Skills & Requirements")),
+    ("compensation", tr("Vergütung & Benefits", "Compensation & Benefits")),
+    ("process", tr("Interview-Prozess", "Interview Process")),
+    ("summary", tr("Summary & Export", "Summary & Export")),
 ]
 
 
@@ -257,11 +258,12 @@ def _render_step_context(context: SidebarContext) -> None:
     renderers = {
         0: _render_onboarding_context,
         1: _render_company_context,
-        2: _render_basic_context,
-        3: _render_requirements_context,
-        4: _render_compensation_context,
-        5: _render_process_context,
-        6: _render_summary_context,
+        2: _render_team_context,
+        3: _render_role_context,
+        4: _render_skills_context,
+        5: _render_compensation_context,
+        6: _render_process_context,
+        7: _render_summary_context,
     }
     renderer = renderers.get(current)
     if renderer is None:
@@ -326,11 +328,12 @@ def _initial_extraction_section_map() -> dict[str, str]:
 
     return {
         tr("Unternehmen", "Company"): "company",
-        tr("Basisdaten", "Basic info"): "basic",
-        tr("Beschäftigung", "Employment"): "basic",
-        tr("Anforderungen", "Requirements"): "requirements",
-        tr("Leistungen & Benefits", "Rewards & Benefits"): "compensation",
-        tr("Prozess", "Process"): "process",
+        tr("Team & Struktur", "Team & Structure"): "team",
+        tr("Rolle & Aufgaben", "Role & Tasks"): "role",
+        tr("Beschäftigung", "Employment"): "employment",
+        tr("Skills & Anforderungen", "Skills & Requirements"): "skills",
+        tr("Vergütung & Benefits", "Compensation & Benefits"): "compensation",
+        tr("Interview-Prozess", "Interview Process"): "process",
     }
 
 
@@ -360,30 +363,70 @@ def _render_company_context(context: SidebarContext) -> None:
     _render_missing_hint(context, section=1)
 
 
-def _render_basic_context(context: SidebarContext) -> None:
-    st.markdown(f"#### {tr('Rollenüberblick', 'Role snapshot')}")
+def _render_team_context(context: SidebarContext) -> None:
+    st.markdown(f"#### {tr('Team & Struktur', 'Team & Structure')}")
     position = context.profile.get("position", {})
     location = context.profile.get("location", {})
-    if not position and not location:
-        st.caption(tr("Noch keine Basisdaten hinterlegt.", "No basic info yet."))
+    entries: list[tuple[str, str]] = []
+    for key in ("department", "team_structure"):
+        value = position.get(key)
+        if value:
+            entries.append((f"position.{key}", str(value)))
+    for key in ("team_size", "supervises"):
+        value = position.get(key)
+        if isinstance(value, (int, float)) and value:
+            entries.append((f"position.{key}", str(int(value))))
+    for key in ("reporting_line", "reporting_manager_name"):
+        value = position.get(key)
+        if value:
+            entries.append((f"position.{key}", str(value)))
+
+    if entries:
+        for field, value in entries:
+            st.markdown(f"- **{_format_field_name(field)}**: {value}")
     else:
-        for key in ("job_title", "seniority_level", "department"):
-            value = position.get(key)
-            if value:
-                st.markdown(f"- **{_format_field_name(f'position.{key}')}**: {value}")
-        city = location.get("primary_city")
-        country = location.get("country")
-        if city or country:
-            st.markdown(f"- **{tr('Standort', 'Location')}:** {', '.join(part for part in [city, country] if part)}")
-    employment = context.profile.get("employment", {})
-    if employment.get("work_policy"):
-        policy = employment["work_policy"]
-        st.caption(tr("Aktuelle Arbeitsform:", "Current work policy:") + f" {policy}")
+        st.caption(tr("Noch keine Teamangaben hinterlegt.", "No team details yet."))
+
+    city = location.get("primary_city")
+    country = location.get("country")
+    if city or country:
+        st.markdown(f"- **{tr('Standort', 'Location')}:** {', '.join(part for part in [city, country] if part)}")
+
     _render_missing_hint(context, section=2)
 
 
-def _render_requirements_context(context: SidebarContext) -> None:
-    st.markdown(f"#### {tr('Skill-Portfolio', 'Skill portfolio')}")
+def _render_role_context(context: SidebarContext) -> None:
+    st.markdown(f"#### {tr('Rollenüberblick', 'Role snapshot')}")
+    position = context.profile.get("position", {})
+    responsibilities = context.profile.get("responsibilities", {})
+    if not position:
+        st.caption(tr("Noch keine Rollenangaben hinterlegt.", "No role details yet."))
+    else:
+        for key in ("job_title", "seniority_level", "key_projects"):
+            value = position.get(key)
+            if value:
+                st.markdown(f"- **{_format_field_name(f'position.{key}')}**: {value}")
+        summary = position.get("role_summary")
+        if summary:
+            st.markdown(f"- **{_format_field_name('position.role_summary')}**: {summary}")
+    resp_items = []
+    if isinstance(responsibilities, Mapping):
+        resp_items = [
+            str(item).strip()
+            for item in responsibilities.get("items", [])
+            if isinstance(item, str) and str(item).strip()
+        ]
+    if resp_items:
+        preview = ", ".join(resp_items[:6])
+        st.caption(tr("Kernaufgaben: {tasks}", "Core responsibilities: {tasks}").format(tasks=preview))
+    else:
+        st.caption(tr("Noch keine Aufgaben hinterlegt.", "No responsibilities captured yet."))
+
+    _render_missing_hint(context, section=3)
+
+
+def _render_skills_context(context: SidebarContext) -> None:
+    st.markdown(f"#### {tr('Skills & Anforderungen', 'Skills & Requirements')}")
     must = list(context.skill_buckets.get("must", []))
     nice = list(context.skill_buckets.get("nice", []))
     if not must and not nice:
@@ -410,7 +453,7 @@ def _render_requirements_context(context: SidebarContext) -> None:
                 "ESCO still flags missing essentials: {skills}",
             ).format(skills=outstanding)
         )
-    _render_missing_hint(context, section=3)
+    _render_missing_hint(context, section=4)
 
 
 def _render_compensation_context(context: SidebarContext) -> None:
@@ -438,7 +481,7 @@ def _render_compensation_context(context: SidebarContext) -> None:
 
 
 def _render_process_context(context: SidebarContext) -> None:
-    st.markdown(f"#### {tr('Hiring-Prozess', 'Hiring process')}")
+    st.markdown(f"#### {tr('Interview-Prozess', 'Interview process')}")
     process = context.profile.get("process", {})
     stakeholders = process.get("stakeholders", [])
     phases = process.get("phases", [])

@@ -47,16 +47,16 @@ def test_section_filtering() -> None:
     st.session_state["location.country"] = "DE"
     assert get_missing_critical_fields(max_section=1) == []
 
-    # Section 2 requires job title and role summary
-    missing = get_missing_critical_fields(max_section=2)
+    # Section 3 requires job title and role summary
+    missing = get_missing_critical_fields(max_section=3)
     assert {"position.job_title", "position.role_summary"} <= set(missing)
 
     st.session_state["position.job_title"] = "Engineer"
-    missing = get_missing_critical_fields(max_section=2)
+    missing = get_missing_critical_fields(max_section=3)
     assert "position.role_summary" in missing
 
     st.session_state["position.role_summary"] = "Build models"
-    assert get_missing_critical_fields(max_section=2) == []
+    assert get_missing_critical_fields(max_section=3) == []
 
 
 def test_followup_critical_detection() -> None:

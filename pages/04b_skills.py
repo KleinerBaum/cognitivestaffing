@@ -5,7 +5,7 @@ from .base import WizardPage
 
 PAGE = WizardPage(
     key="skills",
-    label=("Kompetenzen", "Skills"),
+    label=("Skills & Anforderungen", "Skills & Requirements"),
     panel_header=("Skill-Portfolio", "Skill portfolio"),
     panel_subheader=("Muss & Nice-to-have", "Must & nice-to-have"),
     panel_intro_variants=(

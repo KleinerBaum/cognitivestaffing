@@ -5,23 +5,24 @@ from .base import WizardPage
 
 PAGE = WizardPage(
     key="team",
-    label=("Team & Kontext", "Team & context"),
-    panel_header=("Rahmen der Rolle", "Role context"),
-    panel_subheader=("Berichtslinien & Timing", "Reporting & timing"),
+    label=("Team & Struktur", "Team & Structure"),
+    panel_header=("Rahmen & Berichtslinien", "Context & reporting"),
+    panel_subheader=("Struktur, Größe & Ansprechpartner", "Structure, size & stakeholders"),
     panel_intro_variants=(
         (
-            "Definiere Titel, Seniorität und Ansprechpartner für die Rolle.",
-            "Define title, seniority, and reporting lines for the role.",
+            "Skizziere Abteilung, Teamaufbau und Berichtslinien.",
+            "Outline department, team setup, and reporting lines.",
         ),
         (
-            "Diese Angaben steuern Follow-ups und Teamdarstellung.",
-            "These inputs shape follow-ups and how the team is presented.",
+            "Diese Angaben helfen bei Follow-ups und der Teamdarstellung.",
+            "These inputs guide follow-ups and how the team is presented.",
         ),
     ),
-    required_fields=("position.job_title",),
+    required_fields=(),
     summary_fields=(
-        "position.job_title",
-        "position.seniority_level",
+        "position.department",
+        "position.team_structure",
+        "position.team_size",
         "position.reporting_line",
         "position.reporting_manager_name",
     ),

@@ -1711,9 +1711,10 @@ def _prepare_job_ad_payload(
         filtered_entries.append(entry)
 
     group_order = [
-        "basic",
         "company",
-        "requirements",
+        "team",
+        "role",
+        "skills",
         "employment",
         "compensation",
         "process",
