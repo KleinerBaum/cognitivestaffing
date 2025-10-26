@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import json
 import re
 import textwrap
+import copy
+import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -16,6 +17,7 @@ from config import ModelTask, VECTOR_STORE_ID, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt
 from prompts import prompt_registry
+from ingest.heuristics import apply_basic_fallbacks
 from llm.rag_pipeline import (
     FieldExtractionContext,
     RetrievedChunk,
@@ -69,6 +71,86 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+
+_HEURISTIC_FIELD_PREFIXES: tuple[str, ...] = (
+    "company.",
+    "position.",
+    "location.",
+    "employment.",
+    "compensation.",
+    "requirements.",
+    "responsibilities.",
+    "meta.",
+)
+
+
+def _flatten_field_values(data: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
+    """Return ``data`` flattened into dotted paths for heuristic inspection."""
+
+    flattened: dict[str, Any] = {}
+    for key, value in data.items():
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, Mapping):
+            if not value:
+                flattened[path] = value
+            else:
+                flattened.update(_flatten_field_values(value, path))
+            continue
+        flattened[path] = value
+    return flattened
+
+
+def _value_is_empty(value: Any) -> bool:
+    """Return ``True`` if ``value`` should be treated as missing."""
+
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, Mapping):
+        return all(_value_is_empty(v) for v in value.values())
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        if not value:
+            return True
+        return all(_value_is_empty(v) for v in value)
+    return False
+
+
+def _collect_invalid_fields(raw: Mapping[str, Any], profile_data: Mapping[str, Any]) -> set[str]:
+    """Return dotted field paths missing from the LLM payload."""
+
+    invalid: set[str] = set()
+    if not isinstance(raw, Mapping):
+        raw = {}
+    raw_flat = _flatten_field_values(raw)
+    profile_flat = _flatten_field_values(profile_data)
+    missing_marker = object()
+    for path, value in profile_flat.items():
+        if not path.startswith(_HEURISTIC_FIELD_PREFIXES):
+            continue
+        if not _value_is_empty(value):
+            continue
+        raw_value = raw_flat.get(path, missing_marker)
+        if raw_value is missing_marker or _value_is_empty(raw_value):
+            invalid.add(path)
+    return invalid
+
+
+def _collect_backfilled_fields(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[str]:
+    """Return dotted paths that gained data between ``before`` and ``after``."""
+
+    before_flat = _flatten_field_values(before)
+    after_flat = _flatten_field_values(after)
+    filled: list[str] = []
+    for path, value in after_flat.items():
+        if not path.startswith(_HEURISTIC_FIELD_PREFIXES):
+            continue
+        if _value_is_empty(value):
+            continue
+        if _value_is_empty(before_flat.get(path)):
+            filled.append(path)
+    return filled
 
 
 def _format_prompt(
@@ -498,8 +580,23 @@ def extract_with_function(
             global_context=global_context or [],
         )
 
+    profile_dump = profile.model_dump()
+    if isinstance(profile, NeedAnalysisProfile):
+        before_dump = copy.deepcopy(profile_dump)
+        invalid_fields = _collect_invalid_fields(raw or {}, profile_dump)
+        metadata: dict[str, Any] = {"invalid_fields": sorted(invalid_fields)}
+        profile = apply_basic_fallbacks(profile, job_text, metadata=metadata)
+        profile_dump = profile.model_dump()
+        backfilled = _collect_backfilled_fields(before_dump, profile_dump)
+        if backfilled:
+            logger.info(
+                "Heuristics backfilled %d fields after extraction",
+                len(backfilled),
+                extra={"heuristic_backfill_fields": sorted(backfilled)},
+            )
+
     return ExtractionResult(
-        data=profile.model_dump(),
+        data=profile_dump,
         field_contexts=field_contexts or {},
         global_context=global_context or [],
     )

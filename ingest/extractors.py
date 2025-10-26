@@ -198,19 +198,25 @@ def extract_text_from_file(file) -> StructuredDocument:
         raise ValueError("file too large")
 
     suffix = Path(name).suffix.lower()
-    if suffix == ".pdf":
-        return _extract_pdf(io.BytesIO(data), name)
-    if suffix == ".docx":
-        return _extract_docx(io.BytesIO(data), name)
-    if suffix == ".doc":
-        try:
-            converted = _convert_doc_to_docx_bytes(data)
-        except _DocConversionUnavailableError as exc:
-            raise ValueError("doc conversion unavailable: convert the file to .docx and try again") from exc
-        except _DocConversionFailedError as exc:
-            raise ValueError("doc conversion failed: convert the file to .docx and try again") from exc
-        new_name = re.sub(r"\.doc$", ".docx", name)
-        return _extract_docx(io.BytesIO(converted), new_name)
+    try:
+        if suffix == ".pdf":
+            return _extract_pdf(io.BytesIO(data), name)
+        if suffix == ".docx":
+            return _extract_docx(io.BytesIO(data), name)
+        if suffix == ".doc":
+            try:
+                converted = _convert_doc_to_docx_bytes(data)
+            except _DocConversionUnavailableError as exc:
+                raise ValueError("doc conversion unavailable: convert the file to .docx and try again") from exc
+            except _DocConversionFailedError as exc:
+                raise ValueError("doc conversion failed: convert the file to .docx and try again") from exc
+            new_name = re.sub(r"\.doc$", ".docx", name)
+            return _extract_docx(io.BytesIO(converted), new_name)
+    except ValueError:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Failed to extract structured content from %s", name or "<upload>")
+        raise ValueError("file could not be read") from exc
     text_suffixes = {
         ".txt",
         ".md",
@@ -409,14 +415,23 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
         reader = PdfReader(buf)
     except PdfReadError as exc:  # pragma: no cover - invalid PDFs
         raise ValueError("invalid pdf") from exc
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.exception("PyPDF failed to open %s", name)
+        raise ValueError("file could not be read") from exc
 
     blocks: list[ContentBlock] = []
+    page_count = 0
     ocr_help = (
         "scanned PDF extraction requires OCR support. Install pdf2image, "
         "pytesseract, and the Tesseract OCR engine, then retry."
     )
     for idx, page in enumerate(reader.pages, start=1):
-        page_text = page.extract_text() or ""
+        page_count += 1
+        try:
+            page_text = page.extract_text() or ""
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception("PyPDF failed to extract text from page %s of %s", idx, name)
+            raise ValueError("file could not be read") from exc
         if not page_text.strip():
             try:
                 from pdf2image import convert_from_bytes
@@ -443,6 +458,8 @@ def _extract_pdf(buf: io.BytesIO, name: str) -> StructuredDocument:
                     metadata={"page": idx, "position": pos},
                 )
             )
+    if not blocks and page_count > 0:
+        raise ValueError("File could not be read, possibly scanned PDF")
     return StructuredDocument.from_blocks(blocks, source=name)
 
 
