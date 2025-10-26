@@ -58,6 +58,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "requirements.hard_skills": "requirements.hard_skills_required",
         "requirements.soft_skills": "requirements.soft_skills_required",
         "city": "location.primary_city",
+        "location.city": "location.primary_city",
         "brand name": "company.brand_name",
         "application deadline": "meta.application_deadline",
         "hr_contact_name": "company.contact_name",
@@ -66,6 +67,8 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "hiring_manager_name": "process.hiring_manager_name",
         "hiring_manager_role": "process.hiring_manager_role",
         "reporting_manager_name": "position.reporting_manager_name",
+        "work_model": "employment.work_policy",
+        "employment.work_model": "employment.work_policy",
     }
 )
 

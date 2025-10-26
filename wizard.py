@@ -3466,10 +3466,15 @@ def _update_job_ad_font() -> None:
 
 
 def _prepare_job_ad_data(data: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a deep-copied profile for job-ad generation."""
+    """Return a sanitized profile payload for job-ad generation."""
 
-    base = dict(data) if not isinstance(data, dict) else data
-    return deepcopy(base)
+    if not isinstance(data, Mapping):
+        return NeedAnalysisProfile().model_dump(mode="json")
+
+    base = deepcopy(dict(data))
+    base.pop("lang", None)
+    profile = coerce_and_fill(base)
+    return profile.model_dump(mode="json")
 
 
 def _job_ad_style_reference(data: Mapping[str, Any], base_url: str | None) -> str:
@@ -6330,7 +6335,7 @@ def _step_position():
     policy_default = employment.get("work_policy", policy_keys[0])
     policy_index = policy_keys.index(policy_default) if policy_default in policy_keys else 0
     employment["work_policy"] = job_cols[2].selectbox(
-        tr("Arbeitsmodell", "Work model"),
+        tr("Arbeitsmodell", "Work policy"),
         options=policy_keys,
         index=policy_index,
         format_func=lambda key: policy_options[key],
@@ -8282,7 +8287,7 @@ def _summary_employment() -> None:
     )
     policy_options = ["onsite", "hybrid", "remote"]
     work_policy = c2.selectbox(
-        tr("Policy", "Policy"),
+        tr("Arbeitsmodell", "Work policy"),
         options=policy_options,
         index=(
             policy_options.index(data["employment"].get("work_policy"))
@@ -8510,6 +8515,7 @@ def _summary_compensation() -> None:
 
     _update_profile("compensation.salary_min", salary_min)
     _update_profile("compensation.salary_max", salary_max)
+    _update_profile("compensation.salary_provided", bool(salary_min or salary_max))
     _update_profile("compensation.currency", currency)
     _update_profile("compensation.period", period)
     _update_profile("compensation.variable_pay", variable)
