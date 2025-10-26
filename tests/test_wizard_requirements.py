@@ -219,7 +219,7 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
         count = spec if isinstance(spec, int) else len(spec)
         return tuple(FakePanel() for _ in range(count))
 
-    responsibilities_key = "ui.requirements.responsibilities"
+    responsibilities_key = "ui.role.responsibilities"
     responsibilities_seed_key = f"{responsibilities_key}.__seed"
     user_inputs = ["- Updated KPI ownership", None]
     call_history: list[dict[str, object]] = []

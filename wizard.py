@@ -5777,9 +5777,142 @@ _step_company.handled_fields = [  # type: ignore[attr-defined]
     "company.culture",
     "location.primary_city",
     "location.country",
+]
+
+
+def _step_team_structure():
+    """Render the Team & Structure step."""
+
+    profile = _get_profile_state()
+    profile_context = _build_profile_context(profile)
+
+    team_header = _format_dynamic_message(
+        default=("Team & Struktur", "Team & Structure"),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Team & Struktur bei {company_name}",
+                    "Team & Structure at {company_name}",
+                ),
+                ("company_name",),
+            ),
+            (
+                (
+                    "Team & Struktur für {job_title}",
+                    "Team & Structure for {job_title}",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    st.subheader(team_header)
+
+    team_caption = _format_dynamic_message(
+        default=(
+            "Rahmen des Teams, Berichtslinien und Größen eintragen.",
+            "Capture team context, reporting lines, and size.",
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Rahmen des Teams bei {company_name} festhalten.",
+                    "Capture the team context at {company_name}.",
+                ),
+                ("company_name",),
+            ),
+        ],
+    )
+    st.caption(team_caption)
+
+    data = profile
+    position = data.setdefault("position", {})
+    missing_here = _missing_fields_for_section(4)
+
+    structure_cols = st.columns(2, gap="small")
+    department_label = tr("Abteilung", "Department")
+    if "position.department" in missing_here:
+        department_label += REQUIRED_SUFFIX
+    position["department"] = structure_cols[0].text_input(
+        department_label,
+        value=position.get("department", ""),
+        placeholder=tr("z. B. Entwicklung", "e.g., Engineering"),
+    )
+    _update_profile("position.department", position["department"])
+
+    team_structure_label = tr("Teamstruktur", "Team structure")
+    if "position.team_structure" in missing_here:
+        team_structure_label += REQUIRED_SUFFIX
+    position["team_structure"] = structure_cols[1].text_input(
+        team_structure_label,
+        value=position.get("team_structure", ""),
+        placeholder=tr("z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"),
+    )
+    _update_profile("position.team_structure", position["team_structure"])
+
+    metrics_cols = st.columns(2, gap="small")
+    team_size_default = position.get("team_size")
+    try:
+        team_size_value = int(team_size_default)
+    except (TypeError, ValueError):
+        team_size_value = 0
+    team_size_value = metrics_cols[0].number_input(
+        tr("Teamgröße", "Team size"),
+        min_value=0,
+        value=team_size_value,
+        step=1,
+    )
+    position["team_size"] = int(team_size_value)
+    _update_profile("position.team_size", position["team_size"])
+
+    supervises_default = position.get("supervises")
+    try:
+        supervises_value = int(supervises_default)
+    except (TypeError, ValueError):
+        supervises_value = 0
+    supervises_value = metrics_cols[1].number_input(
+        tr("Direkt unterstellte Personen", "Direct reports"),
+        min_value=0,
+        value=supervises_value,
+        step=1,
+    )
+    position["supervises"] = int(supervises_value)
+    _update_profile("position.supervises", position["supervises"])
+
+    reporting_cols = st.columns(2, gap="small")
+    position["reporting_line"] = reporting_cols[0].text_input(
+        tr("Reports an", "Reports to"),
+        value=position.get("reporting_line", ""),
+        placeholder=tr("z. B. CTO", "e.g., CTO"),
+    )
+    _update_profile("position.reporting_line", position["reporting_line"])
+
+    position["reporting_manager_name"] = reporting_cols[1].text_input(
+        tr("Vorgesetzte Person", "Reporting manager"),
+        value=position.get("reporting_manager_name", ""),
+        placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+    )
+    _update_profile("position.reporting_manager_name", position["reporting_manager_name"])
+
+    _render_followups_for_section(
+        (
+            "position.department",
+            "position.team_",
+            "position.reporting_",
+            "position.supervises",
+        ),
+        data,
+    )
+
+
+_step_team_structure.handled_fields = [  # type: ignore[attr-defined]
     "position.department",
     "position.team_structure",
-    "position.key_projects",
+    "position.team_size",
+    "position.supervises",
+    "position.reporting_line",
+    "position.reporting_manager_name",
 ]
 
 
@@ -6196,8 +6329,8 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
     process["onboarding_process"] = "\n".join(cleaned)
 
 
-def _step_position():
-    """Render the position details step.",
+def _step_role_tasks():
+    """Render the Role & Tasks step.
 
     Returns:
         None
@@ -6206,22 +6339,15 @@ def _step_position():
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
     position_header = _format_dynamic_message(
-        default=("Basisdaten", "Basic data"),
+        default=("Rolle & Aufgaben", "Role & Tasks"),
         context=profile_context,
         variants=[
             (
                 (
-                    "{job_title} bei {company_name}",
-                    "{job_title} at {company_name}",
+                    "Rolle: {job_title} bei {company_name}",
+                    "Role: {job_title} at {company_name}",
                 ),
                 ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "{job_title} in {location_combined}",
-                    "{job_title} in {location_combined}",
-                ),
-                ("job_title", "location_combined"),
             ),
             (
                 (
@@ -6235,29 +6361,22 @@ def _step_position():
     st.subheader(position_header)
     position_caption = _format_dynamic_message(
         default=(
-            "Kerninformationen zur Rolle und Rahmenbedingungen erfassen.",
-            "Capture key information about the role and overall context.",
+            "Kernaufgaben, Erwartungen und Rahmenbedingungen festhalten.",
+            "Capture the core tasks, expectations, and context for the role.",
         ),
         context=profile_context,
         variants=[
             (
                 (
-                    "Kerninformationen zur Rolle {job_title} bei {company_name} festhalten.",
-                    "Capture the key information for {job_title} at {company_name}.",
+                    "Kernaufgaben für {job_title} bei {company_name} definieren.",
+                    "Define the core tasks for {job_title} at {company_name}.",
                 ),
                 ("job_title", "company_name"),
             ),
             (
                 (
-                    "Kerninformationen zur Rolle {job_title} in {location_combined} festhalten.",
-                    "Capture the key information for {job_title} in {location_combined}.",
-                ),
-                ("job_title", "location_combined"),
-            ),
-            (
-                (
-                    "Kerninformationen zur Rolle {job_title} festhalten.",
-                    "Capture the key information for the {job_title} role.",
+                    "Kernaufgaben für {job_title} festhalten.",
+                    "Capture the core tasks for {job_title}.",
                 ),
                 ("job_title",),
             ),
@@ -6270,6 +6389,7 @@ def _step_position():
     data.setdefault("location", {})
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
+    responsibilities = data.setdefault("responsibilities", {})
 
     missing_here = _missing_fields_for_section(2)
 
@@ -6303,17 +6423,6 @@ def _step_position():
         placeholder=tr("z. B. Junior", "e.g., Junior"),
     )
 
-    reporting_cols = st.columns((1, 1))
-    position["reporting_line"] = reporting_cols[0].text_input(
-        tr("Reports an", "Reports to"),
-        value=position.get("reporting_line", ""),
-        placeholder=tr("z. B. CTO", "e.g., CTO"),
-    )
-    position["reporting_manager_name"] = reporting_cols[1].text_input(
-        tr("Vorgesetzte Person", "Reporting manager"),
-        value=position.get("reporting_manager_name", ""),
-        placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
-    )
     summary_label = tr("Rollen-Summary", "Role summary")
     if "position.role_summary" in missing_here:
         summary_label += REQUIRED_SUFFIX
@@ -6325,9 +6434,56 @@ def _step_position():
     if "position.role_summary" in missing_here and not position.get("role_summary"):
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
+    position["key_projects"] = st.text_area(
+        tr("Schlüsselprojekte", "Key projects"),
+        value=position.get("key_projects", ""),
+        height=90,
+    )
+
+    responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
+    responsibilities_text = "\n".join(responsibilities_items)
+    responsibilities_key = "ui.role.responsibilities"
+    responsibilities_seed_key = f"{responsibilities_key}.__seed"
+    current_seed = st.session_state.get(responsibilities_seed_key)
+    if current_seed != responsibilities_text:
+        st.session_state[responsibilities_seed_key] = responsibilities_text
+        if responsibilities_key in st.session_state:
+            st.session_state[responsibilities_key] = responsibilities_text
+
+    responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
+    responsibilities_required = "responsibilities.items" in missing_here
+    display_label = (
+        f"{responsibilities_label}{REQUIRED_SUFFIX}" if responsibilities_required else responsibilities_label
+    )
+
+    with st.expander(
+        tr("Aufgaben & Verantwortlichkeiten", "Responsibilities & deliverables"),
+        expanded=True,
+    ):
+        text_area_kwargs = {
+            "label": display_label,
+            "key": responsibilities_key,
+            "height": 220,
+            "placeholder": tr(
+                "z. B. Produkt-Roadmap planen\nStakeholder-Workshops moderieren",
+                "e.g., Plan the product roadmap\nFacilitate stakeholder workshops",
+            ),
+        }
+        if responsibilities_key not in st.session_state:
+            text_area_kwargs["value"] = responsibilities_text
+
+        raw_responsibilities = st.text_area(**text_area_kwargs)
+        cleaned_responsibilities = [
+            re.sub(r"^[\-\*•]+\s*", "", line.strip()) for line in raw_responsibilities.splitlines() if line.strip()
+        ]
+        responsibilities["items"] = cleaned_responsibilities
+        if responsibilities_required and not cleaned_responsibilities:
+            st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+        st.session_state[responsibilities_seed_key] = "\n".join(cleaned_responsibilities)
+
     st.markdown("#### " + tr("Zeitplan", "Timing"))
 
-    timing_cols = st.columns(3)
+    timing_cols = st.columns(2)
     target_start_default = _default_date(meta_data.get("target_start_date"))
     start_selection = timing_cols[0].date_input(
         tr("Gewünschtes Startdatum", "Desired start date"),
@@ -6343,13 +6499,6 @@ def _step_position():
         format="YYYY-MM-DD",
     )
     meta_data["application_deadline"] = deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
-
-    position["supervises"] = timing_cols[2].number_input(
-        tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
-        min_value=0,
-        value=position.get("supervises", 0),
-        step=1,
-    )
 
     with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
         position["performance_indicators"] = st.text_area(
@@ -6585,13 +6734,29 @@ def _step_position():
     else:
         employment.pop("relocation_details", None)
 
-    # Inline follow-up questions for Position, Location and Employment section
-    _render_followups_for_section(("position.", "location.", "meta.", "employment."), data)
+    # Inline follow-up questions for role details and employment section
+    _render_followups_for_section(
+        (
+            "position.job_title",
+            "position.role_summary",
+            "position.key_projects",
+            "position.performance_indicators",
+            "position.decision_authority",
+            "responsibilities.",
+            "meta.",
+            "employment.",
+        ),
+        data,
+    )
 
 
-_step_position.handled_fields = [  # type: ignore[attr-defined]
+_step_role_tasks.handled_fields = [  # type: ignore[attr-defined]
     "position.job_title",
     "position.role_summary",
+    "position.key_projects",
+    "responsibilities.items",
+    "meta.target_start_date",
+    "meta.application_deadline",
 ]
 
 
@@ -6872,7 +7037,7 @@ def _step_requirements():
     )
     st.caption(requirements_caption)
 
-    missing_here = _missing_fields_for_section(3)
+    missing_here = _missing_fields_for_section(4)
 
     def _render_required_caption(condition: bool) -> None:
         if condition:
@@ -7058,56 +7223,6 @@ def _step_requirements():
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = False
             st.rerun()
-
-    responsibilities = data.setdefault("responsibilities", {})
-    responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
-    responsibilities_text = "\n".join(responsibilities_items)
-    responsibilities_key = "ui.requirements.responsibilities"
-    responsibilities_seed_key = f"{responsibilities_key}.__seed"
-    current_seed = st.session_state.get(responsibilities_seed_key)
-    if current_seed != responsibilities_text:
-        st.session_state[responsibilities_seed_key] = responsibilities_text
-        if responsibilities_key in st.session_state:
-            st.session_state[responsibilities_key] = responsibilities_text
-
-    responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
-    responsibilities_required = "responsibilities.items" in missing_here
-    display_label = (
-        f"{responsibilities_label}{REQUIRED_SUFFIX}" if responsibilities_required else responsibilities_label
-    )
-
-    with requirement_panel(
-        icon="🧠",
-        title=tr("Aufgaben & Verantwortlichkeiten", "Responsibilities & deliverables"),
-        caption=tr(
-            "Wichtigste Aufgaben als Liste erfassen (eine Zeile je Punkt).",
-            "Capture the key responsibilities as a list (one line per item).",
-        ),
-        tooltip=tr(
-            "Nutze Stichpunkte, um klare Verantwortlichkeiten für die Rolle zu dokumentieren.",
-            "Use bullet-style lines to document the role's core responsibilities.",
-        ),
-    ):
-        text_area_kwargs = {
-            "label": display_label,
-            "key": responsibilities_key,
-            "height": 200,
-            "placeholder": tr(
-                "z. B. Produkt-Roadmap planen\nStakeholder-Workshops moderieren",
-                "e.g., Plan the product roadmap\nFacilitate stakeholder workshops",
-            ),
-        }
-        if responsibilities_key not in st.session_state:
-            text_area_kwargs["value"] = responsibilities_text
-
-        raw_responsibilities = st.text_area(**text_area_kwargs)
-        cleaned_responsibilities = [
-            re.sub(r"^[\-\*•]+\s*", "", line.strip()) for line in raw_responsibilities.splitlines() if line.strip()
-        ]
-        responsibilities["items"] = cleaned_responsibilities
-        if responsibilities_required and not cleaned_responsibilities:
-            _render_required_caption(True)
-        st.session_state[responsibilities_seed_key] = "\n".join(cleaned_responsibilities)
 
     llm_skill_sources: dict[str, dict[str, list[str]]] = {}
     for pool_key in ("hard_skills", "soft_skills"):
@@ -7481,9 +7596,12 @@ def _step_requirements():
 
 
 _step_requirements.handled_fields = [  # type: ignore[attr-defined]
-    "responsibilities.items",
     "requirements.hard_skills_required",
     "requirements.soft_skills_required",
+    "requirements.tools_and_technologies",
+    "requirements.languages_required",
+    "requirements.languages_optional",
+    "requirements.certificates",
 ]
 
 
@@ -7498,24 +7616,19 @@ def _build_field_section_map() -> dict[str, int]:
         Mapping of field paths to section numbers.
     """
 
-    ordered_steps = [_step_company, _step_position, _step_requirements]
+    ordered_steps = [
+        _step_company,
+        _step_team_structure,
+        _step_role_tasks,
+        _step_requirements,
+        _step_compensation,
+        _step_process,
+    ]
     mapping: dict[str, int] = {}
     for idx, step in enumerate(ordered_steps, start=1):
         for field in getattr(step, "handled_fields", []):
             mapping[field] = idx
     return mapping
-
-
-FIELD_SECTION_MAP = _build_field_section_map()
-CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
-
-# Fields collected early in the wizard but only blocking later sections when
-# filtering via ``max_section``. The location city is displayed in the company
-# step but shouldn't block the early company/role sections because salary and
-# requirements insights can still run with just the country. Once the full
-# wizard is considered we still treat it as critical.
-_MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
-SECTION_FILTER_OVERRIDES: dict[str, int] = {}
 
 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
@@ -7926,6 +8039,18 @@ def _step_compensation():
     _render_followups_for_section(("compensation.",), data)
 
 
+_step_compensation.handled_fields = [  # type: ignore[attr-defined]
+    "compensation.salary_min",
+    "compensation.salary_max",
+    "compensation.currency",
+    "compensation.period",
+    "compensation.variable_pay",
+    "compensation.equity_offered",
+    "compensation.bonus_percentage",
+    "compensation.benefits",
+]
+
+
 def _step_process():
     """Render the hiring process step."""
 
@@ -8047,6 +8172,28 @@ def _step_process():
     _render_followups_for_section(("process.",), profile)
 
 
+_step_process.handled_fields = [  # type: ignore[attr-defined]
+    "process.stakeholders",
+    "process.interview_stages",
+    "process.phases",
+    "process.application_instructions",
+    "process.process_notes",
+    "process.onboarding_process",
+]
+
+
+FIELD_SECTION_MAP = _build_field_section_map()
+CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
+
+# Fields collected early in the wizard but only blocking later sections when
+# filtering via ``max_section``. The location city is displayed in the company
+# step but shouldn't block the early company/role sections because salary and
+# requirements insights can still run with just the country. Once the full
+# wizard is considered we still treat it as critical.
+_MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
+SECTION_FILTER_OVERRIDES: dict[str, int] = {}
+
+
 def _summary_company() -> None:
     """Editable summary tab for company information."""
 
@@ -8150,10 +8297,100 @@ def _summary_company() -> None:
     _update_profile("company.contact_phone", contact_phone)
 
 
-def _summary_position() -> None:
-    """Editable summary tab for position details."""
+def _summary_team() -> None:
+    """Editable summary tab for team and structure."""
 
     data = st.session_state[StateKeys.PROFILE]
+    position = data.setdefault("position", {})
+    location = data.setdefault("location", {})
+
+    team_cols = st.columns(2)
+    department = team_cols[0].text_input(
+        tr("Abteilung", "Department"),
+        value=position.get("department", ""),
+        key="ui.summary.position.department",
+    )
+    team_structure = team_cols[1].text_input(
+        tr("Teamstruktur", "Team structure"),
+        value=position.get("team_structure", ""),
+        key="ui.summary.position.team_structure",
+    )
+
+    metrics_cols = st.columns(2)
+    team_size = metrics_cols[0].number_input(
+        tr("Teamgröße", "Team size"),
+        min_value=0,
+        value=int(position.get("team_size") or 0),
+        step=1,
+        key="ui.summary.position.team_size",
+    )
+    supervises = metrics_cols[1].number_input(
+        tr("Direkt unterstellte Personen", "Direct reports"),
+        min_value=0,
+        value=int(position.get("supervises") or 0),
+        step=1,
+        key="ui.summary.position.supervises",
+    )
+
+    reporting_cols = st.columns(2)
+    reporting_line = reporting_cols[0].text_input(
+        tr("Reports an", "Reports to"),
+        value=position.get("reporting_line", ""),
+        key="ui.summary.position.reporting_line",
+    )
+    reporting_manager = reporting_cols[1].text_input(
+        tr("Vorgesetzte Person", "Reporting manager"),
+        value=position.get("reporting_manager_name", ""),
+        key="ui.summary.position.reporting_manager_name",
+    )
+
+    location_cols = st.columns(2)
+    summary_city_lock = _field_lock_config(
+        "location.primary_city",
+        tr("Stadt", "City"),
+        container=location_cols[0],
+        context="summary",
+    )
+    loc_city = location_cols[0].text_input(
+        summary_city_lock["label"],
+        value=location.get("primary_city", ""),
+        **_apply_field_lock_kwargs(
+            summary_city_lock,
+            {"key": "ui.summary.location.primary_city"},
+        ),
+    )
+    summary_country_lock = _field_lock_config(
+        "location.country",
+        tr("Land", "Country"),
+        container=location_cols[1],
+        context="summary",
+    )
+    loc_country = location_cols[1].text_input(
+        summary_country_lock["label"],
+        value=location.get("country", ""),
+        **_apply_field_lock_kwargs(
+            summary_country_lock,
+            {"key": "ui.summary.location.country"},
+        ),
+    )
+
+    _update_profile("position.department", department)
+    _update_profile("position.team_structure", team_structure)
+    _update_profile("position.team_size", int(team_size))
+    _update_profile("position.supervises", int(supervises))
+    _update_profile("position.reporting_line", reporting_line)
+    _update_profile("position.reporting_manager_name", reporting_manager)
+    _update_profile("location.primary_city", loc_city)
+    _update_profile("location.country", loc_country)
+
+
+def _summary_role() -> None:
+    """Editable summary tab for role details."""
+
+    data = st.session_state[StateKeys.PROFILE]
+    position = data.setdefault("position", {})
+    responsibilities = data.setdefault("responsibilities", {})
+
     c1, c2 = st.columns(2)
     summary_title_label = tr("Jobtitel", "Job title") + REQUIRED_SUFFIX
     summary_title_lock = _field_lock_config(
@@ -8164,7 +8401,7 @@ def _summary_position() -> None:
     )
     job_title = c1.text_input(
         summary_title_lock["label"],
-        value=data["position"].get("job_title", ""),
+        value=position.get("job_title", ""),
         **_apply_field_lock_kwargs(
             summary_title_lock,
             {
@@ -8175,75 +8412,45 @@ def _summary_position() -> None:
     )
     seniority = c2.text_input(
         tr("Seniorität", "Seniority"),
-        value=data["position"].get("seniority_level", ""),
+        value=position.get("seniority_level", ""),
         key="ui.summary.position.seniority",
     )
-    department = c1.text_input(
-        tr("Abteilung", "Department"),
-        value=data["position"].get("department", ""),
-        key="ui.summary.position.department",
-    )
-    team = c2.text_input(
-        tr("Teamstruktur", "Team structure"),
-        value=data["position"].get("team_structure", ""),
-        key="ui.summary.position.team_structure",
-    )
-    reporting_cols = st.columns(2)
-    reporting = reporting_cols[0].text_input(
-        tr("Reports an", "Reports to"),
-        value=data["position"].get("reporting_line", ""),
-        key="ui.summary.position.reporting_line",
-    )
-    reporting_manager = reporting_cols[1].text_input(
-        tr("Vorgesetzte Person", "Reporting manager"),
-        value=data["position"].get("reporting_manager_name", ""),
-        key="ui.summary.position.reporting_manager_name",
-    )
+
     role_summary = st.text_area(
         tr("Rollen-Summary", "Role summary") + REQUIRED_SUFFIX,
-        value=data["position"].get("role_summary", ""),
-        height=120,
+        value=position.get("role_summary", ""),
+        height=140,
         key="ui.summary.position.role_summary",
         help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
-    summary_city_lock = _field_lock_config(
-        "location.primary_city",
-        tr("Stadt", "City"),
-        container=c1,
-        context="summary",
+
+    key_projects = st.text_area(
+        tr("Schlüsselprojekte", "Key projects"),
+        value=position.get("key_projects", ""),
+        key="ui.summary.position.key_projects",
+        height=90,
     )
-    loc_city = c1.text_input(
-        summary_city_lock["label"],
-        value=data.get("location", {}).get("primary_city", ""),
-        **_apply_field_lock_kwargs(
-            summary_city_lock,
-            {"key": "ui.summary.location.primary_city"},
-        ),
+
+    responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
+    responsibilities_text = "\n".join(responsibilities_items)
+    responsibilities_input = st.text_area(
+        tr("Kernaufgaben (eine je Zeile)", "Core responsibilities (one per line)") + REQUIRED_SUFFIX,
+        value=responsibilities_text,
+        key="ui.summary.role.responsibilities",
+        height=200,
     )
-    summary_country_lock = _field_lock_config(
-        "location.country",
-        tr("Land", "Country"),
-        container=c2,
-        context="summary",
-    )
-    loc_country = c2.text_input(
-        summary_country_lock["label"],
-        value=data.get("location", {}).get("country", ""),
-        **_apply_field_lock_kwargs(
-            summary_country_lock,
-            {"key": "ui.summary.location.country"},
-        ),
-    )
+    cleaned_responsibilities = [
+        re.sub(r"^[\-\*•]+\s*", "", line.strip()) for line in responsibilities_input.splitlines() if line.strip()
+    ]
+    if not cleaned_responsibilities:
+        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    responsibilities["items"] = cleaned_responsibilities
 
     _update_profile("position.job_title", job_title)
     _update_profile("position.seniority_level", seniority)
-    _update_profile("position.department", department)
-    _update_profile("position.team_structure", team)
-    _update_profile("position.reporting_line", reporting)
-    _update_profile("position.reporting_manager_name", reporting_manager)
     _update_profile("position.role_summary", role_summary)
-    _update_profile("location.primary_city", loc_city)
-    _update_profile("location.country", loc_country)
+    _update_profile("position.key_projects", key_projects)
+    _update_profile("responsibilities.items", cleaned_responsibilities)
 
 
 def _summary_requirements() -> None:
@@ -8907,16 +9114,18 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     tab_labels = [
         tr("Unternehmen", "Company"),
-        tr("Basisdaten", "Basic info"),
-        tr("Anforderungen", "Requirements"),
+        tr("Team & Struktur", "Team & Structure"),
+        tr("Rolle & Aufgaben", "Role & Tasks"),
+        tr("Skills & Anforderungen", "Skills & Requirements"),
         tr("Beschäftigung", "Employment"),
-        tr("Leistungen & Benefits", "Rewards & Benefits"),
-        tr("Prozess", "Process"),
+        tr("Vergütung & Benefits", "Compensation & Benefits"),
+        tr("Interview-Prozess", "Interview Process"),
     ]
     group_keys = [
         "company",
-        "basic",
-        "requirements",
+        "team",
+        "role",
+        "skills",
         "employment",
         "compensation",
         "process",
@@ -8925,8 +9134,9 @@ def _step_summary(schema: dict, _critical: list[str]):
     tab_definitions = list(zip(group_keys, tab_labels))
     summary_helpers: dict[str, Callable[[], None]] = {
         "company": _summary_company,
-        "basic": _summary_position,
-        "requirements": _summary_requirements,
+        "team": _summary_team,
+        "role": _summary_role,
+        "skills": _summary_requirements,
         "employment": _summary_employment,
         "compensation": _summary_compensation,
         "process": _summary_process,
@@ -9767,11 +9977,12 @@ def _run_wizard_legacy(schema: Mapping[str, object], critical: Sequence[str]) ->
     steps = [
         (tr("Onboarding", "Onboarding"), lambda: _step_onboarding(schema)),
         (tr("Unternehmen", "Company"), _step_company),
-        (tr("Basisdaten", "Basic info"), _step_position),
-        (tr("Anforderungen", "Requirements"), _step_requirements),
-        (tr("Leistungen & Benefits", "Rewards & Benefits"), _step_compensation),
-        (tr("Prozess", "Process"), _step_process),
-        (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
+        (tr("Team & Struktur", "Team & Structure"), _step_team_structure),
+        (tr("Rolle & Aufgaben", "Role & Tasks"), _step_role_tasks),
+        (tr("Skills & Anforderungen", "Skills & Requirements"), _step_requirements),
+        (tr("Vergütung & Benefits", "Compensation & Benefits"), _step_compensation),
+        (tr("Interview-Prozess", "Interview Process"), _step_process),
+        (tr("Zusammenfassung & Export", "Summary & Export"), lambda: _step_summary(schema, critical)),
     ]
 
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(steps)
@@ -9854,12 +10065,12 @@ def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> Non
     renderers: dict[str, StepRenderer] = {
         "jobad": StepRenderer(lambda ctx: _render_jobad_step_v2(schema), legacy_index=0),
         "company": StepRenderer(lambda ctx: _step_company(), legacy_index=1),
-        "team": StepRenderer(lambda ctx: _step_position(), legacy_index=2),
-        "role_tasks": StepRenderer(lambda ctx: _step_requirements(), legacy_index=3),
-        "skills": StepRenderer(lambda ctx: _render_skills_review_step(), legacy_index=3),
-        "benefits": StepRenderer(lambda ctx: _step_compensation(), legacy_index=4),
-        "interview": StepRenderer(lambda ctx: _step_process(), legacy_index=5),
-        "summary": StepRenderer(lambda ctx: _step_summary(schema, critical), legacy_index=6),
+        "team": StepRenderer(lambda ctx: _step_team_structure(), legacy_index=2),
+        "role_tasks": StepRenderer(lambda ctx: _step_role_tasks(), legacy_index=3),
+        "skills": StepRenderer(lambda ctx: _step_requirements(), legacy_index=4),
+        "benefits": StepRenderer(lambda ctx: _step_compensation(), legacy_index=5),
+        "interview": StepRenderer(lambda ctx: _step_process(), legacy_index=6),
+        "summary": StepRenderer(lambda ctx: _step_summary(schema, critical), legacy_index=7),
     }
 
     router = WizardRouter(

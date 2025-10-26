@@ -5,7 +5,7 @@ from .base import WizardPage
 
 PAGE = WizardPage(
     key="role_tasks",
-    label=("Aufgaben", "Role tasks"),
+    label=("Rolle & Aufgaben", "Role & Tasks"),
     panel_header=("Kernaufgaben", "Core responsibilities"),
     panel_subheader=("Deliverables & Wirkung", "Deliverables & impact"),
     panel_intro_variants=(
