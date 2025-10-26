@@ -9,6 +9,7 @@ components and instead focus on data coercion, defaults, and state updates.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -204,6 +205,58 @@ def _derive_salary_range_defaults(profile: Mapping[str, Any]) -> _SalaryRangeDef
     return _SalaryRangeDefaults(fallback_min, fallback_max, fallback_currency)
 
 
+_BULLET_PREFIX = re.compile(r"^[\-\*•]+\s*")
+
+
+def unique_normalized(values: Iterable[str] | None) -> list[str]:
+    """Return ``values`` without duplicates, normalised for comparison."""
+
+    seen: set[str] = set()
+    result: list[str] = []
+    if not values:
+        return result
+    for value in values:
+        if value is None:
+            continue
+        cleaned = str(value).strip()
+        if not cleaned:
+            continue
+        marker = cleaned.casefold()
+        if marker in seen:
+            continue
+        seen.add(marker)
+        result.append(cleaned)
+    return result
+
+
+def merge_unique_items(existing: Sequence[str] | None, additions: Iterable[str] | None) -> list[str]:
+    """Combine ``existing`` items with ``additions`` removing duplicates."""
+
+    base = list(existing) if existing else []
+    if not additions:
+        return unique_normalized(base)
+    combined = list(base)
+    combined.extend(str(item) for item in additions if item is not None)
+    return unique_normalized(combined)
+
+
+def normalize_text_area_list(raw_text: str, *, strip_bullets: bool = True) -> list[str]:
+    """Split ``raw_text`` into cleaned list items for multi-line inputs."""
+
+    if not raw_text:
+        return []
+    items: list[str] = []
+    for line in raw_text.splitlines():
+        cleaned = line.strip()
+        if not cleaned:
+            continue
+        if strip_bullets:
+            cleaned = _BULLET_PREFIX.sub("", cleaned).strip()
+        if cleaned:
+            items.append(cleaned)
+    return items
+
+
 __all__ = [
     "_SalaryRangeDefaults",
     "_benchmark_salary_range",
@@ -215,7 +268,10 @@ __all__ = [
     "_parse_salary_range_text",
     "_set_company_logo",
     "_to_int",
+    "merge_unique_items",
+    "normalize_text_area_list",
     "SALARY_SLIDER_MAX",
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",
+    "unique_normalized",
 ]

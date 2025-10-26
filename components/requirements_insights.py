@@ -6,6 +6,7 @@ import streamlit as st
 
 from config_loader import load_json
 from utils.i18n import tr
+from wizard._logic import unique_normalized
 
 
 @dataclass
@@ -616,14 +617,7 @@ def render_skill_market_insights(
         )
         return
 
-    unique_skills: list[str] = []
-    seen_norm: set[str] = set()
-    for skill in cleaned_skills:
-        norm = skill.casefold()
-        if norm in seen_norm:
-            continue
-        seen_norm.add(norm)
-        unique_skills.append(skill)
+    unique_skills = unique_normalized(cleaned_skills)
 
     option_map: dict[str, str] = {}
     options: list[str] = []

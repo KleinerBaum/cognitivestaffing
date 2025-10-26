@@ -15,6 +15,7 @@ from ._agents import (
 from ._layout import (
     COMPACT_STEP_STYLE,
     inject_salary_slider_styles,
+    render_list_text_area,
     render_onboarding_hero,
     render_step_heading,
 )
@@ -25,6 +26,9 @@ from ._logic import (
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
+    merge_unique_items,
+    normalize_text_area_list,
+    unique_normalized,
 )
 
 __all__ = [
@@ -33,11 +37,15 @@ __all__ = [
     "logic",
     "COMPACT_STEP_STYLE",
     "inject_salary_slider_styles",
+    "merge_unique_items",
+    "normalize_text_area_list",
+    "render_list_text_area",
     "render_onboarding_hero",
     "render_step_heading",
     "SALARY_SLIDER_MAX",
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",
+    "unique_normalized",
     "_derive_salary_range_defaults",
     "_get_company_logo_bytes",
     "_set_company_logo",
