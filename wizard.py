@@ -3627,11 +3627,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
             st.session_state[highlight_sentinel] = False
     ans = st.session_state.get(key, "")
     if ans:
-        set_in(data, field, ans)
-        completed = data.setdefault("meta", {}).setdefault("followups_answered", [])
-        if field not in completed:
-            completed.append(field)
-        st.session_state[StateKeys.FOLLOWUPS].remove(q)
+        _update_profile(field, ans)
         st.session_state.pop(focus_sentinel, None)
         st.session_state.pop(highlight_sentinel, None)
 
@@ -4287,8 +4283,13 @@ def _update_profile(path: str, value) -> None:
     data = _get_profile_state()
     data.setdefault("location", {})
     value = _normalize_value_for_path(path, value)
+    normalized_value = _normalize_semantic_empty(value)
+    if normalized_value is None:
+        st.session_state.pop(path, None)
+    else:
+        st.session_state[path] = value
     current = get_in(data, path)
-    if _normalize_semantic_empty(current) != _normalize_semantic_empty(value):
+    if _normalize_semantic_empty(current) != normalized_value:
         set_in(data, path, value)
         _clear_generated()
         _remove_field_lock_metadata(path)
@@ -5581,12 +5582,17 @@ def _step_company():
         placeholder="name@example.com",
         key="ui.company.contact_email",
     )
+    phone_label = tr("Telefon", "Phone")
+    if "company.contact_phone" in missing_here:
+        phone_label += REQUIRED_SUFFIX
     contact_phone = contact_cols[2].text_input(
-        tr("Telefon", "Phone"),
+        phone_label,
         value=company.get("contact_phone", ""),
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
         key="ui.company.contact_phone",
     )
+    if "company.contact_phone" in missing_here and not (contact_phone or "").strip():
+        contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     company["contact_name"] = contact_name
     company["contact_email"] = contact_email

@@ -420,6 +420,12 @@ def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, 
             "In which country is this position located?",
             lang=lang,
         )
+    elif field == "company.contact_phone":
+        base = tr(
+            "Unter welcher Telefonnummer können sich Kandidat:innen melden?",
+            "What is the best contact phone number for candidates to reach out?",
+            lang=lang,
+        )
     elif field == "compensation.benefits":
         base = tr(
             "Welche Zusatzleistungen bietet das Unternehmen (z. B. betriebliche Altersvorsorge, Dienstwagen)?",

@@ -3,6 +3,7 @@
         "company.name",
         "company.contact_name",
         "company.contact_email",
+        "company.contact_phone",
         "position.job_title",
         "position.role_summary",
         "location.primary_city",
