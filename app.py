@@ -196,6 +196,7 @@ wizard_page = st.Page(
     title=tr("Assistent", "Wizard"),
     icon=":material/auto_awesome:",
     url_path="wizard",
+    default=True,
 )
 gap_analysis_page = st.Page(
     gap_analysis.run,
