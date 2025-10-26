@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: introduce the RecruitingWizard single-source schema with source attribution, canonical keys, and SCHEMA_WIZARD_V1 flag
+  - Feature: neues RecruitingWizard-Masterschema mit Source-Attribution, kanonischen Keys und Feature-Flag `SCHEMA_WIZARD_V1`
 - chore: pin Streamlit deployment config to `requirements.txt` to suppress duplicate requirements warnings
   - Chore: Deployment-Konfiguration auf `requirements.txt` fixieren, um doppelte Requirements-Warnungen zu unterdrücken
 - test: assert ESCO essential skill lookups fall back to the offline cache when HTTP 404 errors occur

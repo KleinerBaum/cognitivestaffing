@@ -1,5 +1,6 @@
 from models.need_analysis import NeedAnalysisProfile
-from core.schema import coerce_and_fill, LIST_FIELDS
+from core.schema import LIST_FIELDS, RecruitingWizard, coerce_and_fill
+from core.schema_defaults import default_recruiting_wizard
 
 
 def test_list_fields_contains_base_lists() -> None:
@@ -122,3 +123,13 @@ def test_salary_provided_defaults_to_false_when_missing_or_null() -> None:
     null_payload = {"compensation": {"salary_provided": None}}
     profile_null = coerce_and_fill(null_payload)
     assert profile_null.compensation.salary_provided is False
+
+
+def test_schema_roundtrip() -> None:
+    """The RecruitingWizard schema should survive JSON roundtrips."""
+
+    payload = default_recruiting_wizard()
+    dumped = payload.model_dump(mode="json")
+    reloaded = RecruitingWizard.model_validate(dumped)
+    assert reloaded == payload
+    assert set(dumped["sources"].keys()) == set(payload.sources.root.keys())
