@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence, cast
@@ -13,6 +14,8 @@ from ingest.types import ContentBlock
 from utils.normalization import country_to_iso2, normalize_country
 
 from core.confidence import RULE_LOCK_TIER
+
+LOGGER = logging.getLogger(__name__)
 
 EMAIL_FIELD = "company.contact_email"
 PHONE_FIELD = "company.contact_phone"
@@ -102,61 +105,64 @@ _CITY_COUNTRY_RE = re.compile(
     r"\b([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)*)\s*,\s*([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)\b"
 )
 
+COMMON_CITY_NAMES = (
+    "Berlin",
+    "Düsseldorf",
+    "Munich",
+    "München",
+    "Hamburg",
+    "Stuttgart",
+    "Frankfurt",
+    "Cologne",
+    "Köln",
+    "Leipzig",
+    "Bonn",
+    "Essen",
+    "Dortmund",
+    "Dresden",
+    "Nuremberg",
+    "Nürnberg",
+    "Hannover",
+    "Bremen",
+    "Mannheim",
+    "Karlsruhe",
+    "Münster",
+    "Aachen",
+    "Augsburg",
+    "Braunschweig",
+    "Chemnitz",
+    "Erfurt",
+    "Freiburg",
+    "Heilbronn",
+    "Kassel",
+    "Kiel",
+    "Ludwigshafen",
+    "Magdeburg",
+    "Potsdam",
+    "Rostock",
+    "Saarbrücken",
+    "Ulm",
+    "Wiesbaden",
+    "Würzburg",
+    "Zurich",
+    "Zürich",
+    "Vienna",
+    "Wien",
+    "Basel",
+    "Bern",
+    "Geneva",
+    "Genf",
+)
+
 _KNOWN_CITY_NAMES = {
-    "berlin",
-    "düsseldorf",
+    *{name.lower() for name in COMMON_CITY_NAMES},
     "duesseldorf",
-    "munich",
-    "münchen",
     "muenchen",
-    "hamburg",
-    "stuttgart",
-    "frankfurt",
-    "cologne",
-    "köln",
     "koeln",
-    "leipzig",
-    "bonn",
-    "essen",
-    "dortmund",
-    "dresden",
-    "nuremberg",
-    "nürnberg",
     "nuernberg",
-    "hannover",
-    "bremen",
-    "mannheim",
-    "karlsruhe",
-    "münster",
     "muenster",
-    "aachen",
-    "augsburg",
-    "braunschweig",
-    "chemnitz",
-    "erfurt",
-    "freiburg",
-    "heilbronn",
-    "kassel",
-    "kiel",
-    "ludwigshafen",
-    "magdeburg",
-    "potsdam",
-    "rostock",
-    "saarbrücken",
     "saarbruecken",
-    "ulm",
-    "wiesbaden",
-    "würzburg",
-    "wuerzburg",
-    "zurich",
-    "zürich",
     "zuerich",
-    "vienna",
-    "wien",
-    "basel",
-    "bern",
-    "geneva",
-    "genf",
 }
 
 _CITY_TO_COUNTRY = {
@@ -214,6 +220,13 @@ _CITY_TO_COUNTRY = {
     "bern": "CH",
     "geneva": "CH",
     "genf": "CH",
+}
+
+_REQUIRED_RULE_FIELDS = {
+    EMAIL_FIELD,
+    PHONE_FIELD,
+    CITY_FIELD,
+    COUNTRY_FIELD,
 }
 
 _DISQUALIFIED_CITY_TOKENS = {
@@ -276,6 +289,9 @@ def apply_rules(blocks: Sequence[ContentBlock]) -> dict[str, RuleMatch]:
                 continue
             if _is_better_match(match, current):
                 matches[match.field] = match
+    missing_required = sorted(field for field in _REQUIRED_RULE_FIELDS if field not in matches)
+    for field in missing_required:
+        LOGGER.warning("apply_rules: required field not found: %s", field, extra={"field": field})
     return matches
 
 
