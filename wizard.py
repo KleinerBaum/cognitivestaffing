@@ -4863,13 +4863,43 @@ def _render_esco_occupation_selector(
 
     selected_ids = [sid for sid in selected_ids if sid in option_ids]
 
-    widget_value = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
-    if not widget_value:
-        widget_value = list(selected_ids)
+    override_sentinel = object()
+    override_raw = st.session_state.pop(
+        StateKeys.UI_ESCO_OCCUPATION_OVERRIDE, override_sentinel
+    )
+    if override_raw is override_sentinel:
+        widget_value = [
+            sid
+            for sid in _coerce_occupation_ids(
+                st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
+            )
+            if sid in option_ids
+        ]
+        if not widget_value:
+            widget_value = list(selected_ids)
     else:
-        widget_value = [sid for sid in widget_value if sid in option_ids]
+        widget_value = [
+            sid for sid in _coerce_occupation_ids(override_raw) if sid in option_ids
+        ]
 
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
+
+    def _current_selection() -> list[str]:
+        if StateKeys.UI_ESCO_OCCUPATION_OVERRIDE in st.session_state:
+            return [
+                sid
+                for sid in _coerce_occupation_ids(
+                    st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE)
+                )
+                if sid in option_ids
+            ]
+        return [
+            sid
+            for sid in _coerce_occupation_ids(
+                st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
+            )
+            if sid in option_ids
+        ]
 
     container = parent.container() if parent is not None else st.container()
     render_target = container
@@ -4912,7 +4942,7 @@ def _render_esco_occupation_selector(
     )
 
     def _on_change() -> None:
-        current_ids = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
+        current_ids = _current_selection()
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
@@ -4957,7 +4987,7 @@ def _render_esco_occupation_selector(
                     type="secondary",
                     width="stretch",
                 ):
-                    st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
+                    st.session_state[StateKeys.UI_ESCO_OCCUPATION_OVERRIDE] = []
                     _on_change()
                     st.rerun()
             clicked_selected = _render_chip_button_grid(
@@ -4969,7 +4999,7 @@ def _render_esco_occupation_selector(
             if clicked_selected is not None:
                 removed_id = selected_ids[clicked_selected]
                 new_selection = [sid for sid in selected_ids if sid != removed_id]
-                st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
+                st.session_state[StateKeys.UI_ESCO_OCCUPATION_OVERRIDE] = new_selection
                 _on_change()
                 st.rerun()
         else:
@@ -4989,13 +5019,13 @@ def _render_esco_occupation_selector(
             if clicked_available is not None:
                 added_id = available_ids[clicked_available]
                 new_selection = selected_ids + [added_id]
-                st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = new_selection
+                st.session_state[StateKeys.UI_ESCO_OCCUPATION_OVERRIDE] = new_selection
                 _on_change()
                 st.rerun()
         elif not selected_labels:
             available_col.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
 
-    current_ids = _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
+    current_ids = _current_selection()
     _apply_esco_selection(current_ids, options, lang=lang_code)
 
     if compact:

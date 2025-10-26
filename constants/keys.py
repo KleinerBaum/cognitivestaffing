@@ -107,6 +107,7 @@ class StateKeys:
     JOB_AD_LOGO_DATA = "data.job_ad.logo"
     INTERVIEW_AUDIENCE = "data.interview.audience"
     UI_ESCO_OCCUPATION_OPTIONS = "data.esco_occupation_options"
+    UI_ESCO_OCCUPATION_OVERRIDE = "ui.esco_occupation_override"
     # Backwards compatibility for legacy imports; prefer
     # ``UI_ESCO_OCCUPATION_OPTIONS`` going forward.
     ESCO_OCCUPATION_OPTIONS = UI_ESCO_OCCUPATION_OPTIONS
