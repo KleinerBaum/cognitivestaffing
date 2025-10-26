@@ -30,6 +30,7 @@ from models.interview_guide import (
 from pydantic import ValidationError
 
 from utils.i18n import tr
+from constants.keys import StateKeys
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool, build_file_search_tool
@@ -300,6 +301,23 @@ def _best_effort_json_retry(
     return _chat_content(fallback)
 
 
+def _flag_partial_extraction(
+    field_contexts: Mapping[str, FieldExtractionContext] | None,
+) -> None:
+    """Record extraction failure details in session state when available."""
+
+    if st is None:  # pragma: no cover - CLI usage without Streamlit
+        return
+
+    try:
+        missing = []
+        if field_contexts:
+            missing = [ctx.field for ctx in field_contexts.values() if getattr(ctx, "field", None)]
+        st.session_state[StateKeys.EXTRACTION_MISSING] = list(dict.fromkeys(missing))
+    except Exception:  # pragma: no cover - defensive guard when session missing
+        logger.debug("Unable to flag partial extraction in session state", exc_info=True)
+
+
 def extract_with_function(
     job_text: str,
     schema: dict,
@@ -434,9 +452,20 @@ def extract_with_function(
                 parse_error = exc
 
     if raw is None:
-        if parse_error is not None:
-            raise ValueError("Model returned invalid JSON") from parse_error
-        raise RuntimeError("Extraction failed: no structured data received from LLM.")
+        _flag_partial_extraction(field_contexts)
+        if st is None:
+            if parse_error is not None:
+                raise ValueError("Model returned invalid JSON") from parse_error
+            raise RuntimeError("Extraction failed: no structured data received from LLM.")
+        logger.warning("Extraction returned no structured payload; using empty profile")
+        from models.need_analysis import NeedAnalysisProfile
+
+        empty_profile = NeedAnalysisProfile()
+        return ExtractionResult(
+            data=empty_profile.model_dump(),
+            field_contexts=field_contexts or {},
+            global_context=global_context or [],
+        )
 
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import coerce_and_fill
@@ -455,7 +484,17 @@ def extract_with_function(
         if len(errors) > 5:
             detail = f"{detail} (+{len(errors) - 5} more)"
         logger.debug("NeedAnalysisProfile validation failed: %s", detail, exc_info=exc)
-        raise ValueError(f"Model returned JSON that does not fit NeedAnalysisProfile: {detail}") from exc
+        if st is None:
+            raise ValueError(f"Model returned JSON that does not fit NeedAnalysisProfile: {detail}") from exc
+        _flag_partial_extraction(field_contexts)
+        logger.warning("Validation failed for structured payload; using empty profile")
+        empty_profile = NeedAnalysisProfile()
+        return ExtractionResult(
+            data=empty_profile.model_dump(),
+            field_contexts=field_contexts or {},
+            global_context=global_context or [],
+        )
+
     return ExtractionResult(
         data=profile.model_dump(),
         field_contexts=field_contexts or {},

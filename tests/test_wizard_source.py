@@ -1,7 +1,7 @@
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import pytest
 import streamlit as st
@@ -14,6 +14,8 @@ import question_logic
 
 from constants.keys import StateKeys, UIKeys
 from core.confidence import ConfidenceTier
+from core.errors import ExtractionError
+from core.rules import RuleMatch
 from models.need_analysis import NeedAnalysisProfile
 from ingest.types import ContentBlock, StructuredDocument
 from wizard import (
@@ -649,6 +651,65 @@ def test_extract_and_summarize_auto_reask_warns_on_invalid_payload(
     ]
     assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is initial_flag
     assert st.session_state.get("source_error") is not True
+
+
+def test_extract_and_summarize_uses_rules_on_llm_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rule-based matches should populate the profile when the LLM fails."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = False
+    st.session_state.vector_store_id = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {}
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
+
+    company_match = RuleMatch(
+        field="company.name",
+        value="ACME GmbH",
+        confidence=0.95,
+        source_text="ACME GmbH",
+        rule="test.company",
+    )
+    title_match = RuleMatch(
+        field="position.job_title",
+        value="AI Engineer",
+        confidence=0.9,
+        source_text="AI Engineer",
+        rule="test.title",
+    )
+
+    def _matches(*_: Any) -> Mapping[str, RuleMatch]:
+        return {"company.name": company_match, "position.job_title": title_match}
+
+    monkeypatch.setattr("wizard.apply_rules", _matches)
+    monkeypatch.setattr("wizard._annotate_rule_metadata", lambda *a, **k: {})
+    monkeypatch.setattr("wizard._ensure_mapping", lambda value: dict(value or {}))
+
+    def _raise_extraction(*_: Any, **__: Any) -> str:
+        raise ExtractionError("LLM returned empty response")
+
+    monkeypatch.setattr("wizard.extract_json", _raise_extraction)
+    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
+    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+    monkeypatch.setattr("wizard._refresh_esco_skills", lambda *a, **k: None)
+    monkeypatch.setattr("wizard.ask_followups", lambda *a, **k: {"questions": []})
+    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
+    monkeypatch.setattr("wizard._update_section_progress", lambda: (None, []))
+
+    _extract_and_summarize("Job text", {})
+
+    profile = st.session_state[StateKeys.PROFILE]
+    assert profile["company"]["name"] == "ACME GmbH"
+    assert profile["position"]["job_title"] == "AI Engineer"
+    metadata = st.session_state[StateKeys.PROFILE_METADATA]
+    assert metadata["llm_errors"]["extraction"] == "LLM returned empty response"
+    assert "position.job_title" not in st.session_state[StateKeys.EXTRACTION_MISSING]
 
 
 def test_extract_and_summarize_passes_locked_context(
