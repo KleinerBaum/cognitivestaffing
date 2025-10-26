@@ -24,6 +24,7 @@ try:
 except FileNotFoundError:
     APP_LOGO_BYTES = None
 
+from config import WIZARD_ORDER_V2  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
@@ -44,6 +45,10 @@ st.set_page_config(
 # --- Helpers zum Laden lokaler JSON-Configs ---
 ROOT = APP_ROOT
 ensure_state()
+
+if WIZARD_ORDER_V2:
+    wizard_state = st.session_state.setdefault("wizard", {})
+    wizard_state.setdefault("feature", "order_v2")
 
 if st.session_state.get("openai_api_key_missing"):
     st.warning(
