@@ -30,7 +30,16 @@ def from_session_state(ss: dict) -> NeedAnalysisProfile:
     for key, value in ss.items():
         target = ALIASES.get(key, key)
         if target in LIST_FIELDS and isinstance(value, str):
-            value = [line for line in value.splitlines() if line.strip()]
+            if target != "responsibilities.items":
+                parts_list: list[str] = []
+                for line_val in value.splitlines():
+                    for piece in line_val.split(","):
+                        cleaned = piece.strip()
+                        if cleaned:
+                            parts_list.append(cleaned)
+                value = parts_list
+            else:
+                value = [line.strip() for line in value.splitlines() if line.strip()]
         parts = target.split(".")
         cursor = data
         for part in parts[:-1]:
