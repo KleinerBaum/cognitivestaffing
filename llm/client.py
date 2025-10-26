@@ -262,7 +262,11 @@ def extract_json(
                 detail,
             )
             span.record_exception(err)
-            span.add_event("structured_validation_failed")
+            span.set_status(Status(StatusCode.ERROR, "structured_validation_failed"))
+            span.add_event(
+                "structured_validation_failed",
+                {"error.detail": detail[:512]},
+            )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             logger.warning("Structured extraction failed, falling back to plain text: %s", exc)
             span.record_exception(exc)

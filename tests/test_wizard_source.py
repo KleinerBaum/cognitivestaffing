@@ -411,6 +411,10 @@ def test_maybe_run_extraction_handles_errors(monkeypatch: pytest.MonkeyPatch, la
     assert st.session_state.get("__last_extracted_hash__") is None
     assert st.session_state.get("_analyze_attempted") is True
     assert st.session_state.get("source_error") is not True
+    summary_message = st.session_state[StateKeys.EXTRACTION_SUMMARY]
+    assert isinstance(summary_message, str)
+    assert "⚠️" in summary_message
+    assert st.session_state[StateKeys.STEPPER_WARNING] == summary_message
 
 
 def test_extract_and_summarize_does_not_enrich_skills(

@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from ingest.heuristics import (
@@ -156,6 +158,34 @@ def test_language_normalization_for_german_text() -> None:
     text = "Sprachen: Deutsch und Englisch"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
     assert set(profile.requirements.languages_required) == {"German", "English"}
+
+
+def test_apply_basic_fallbacks_logs_city(caplog: pytest.LogCaptureFixture) -> None:
+    text = "Standort: Stuttgart"
+    with caplog.at_level(logging.INFO, logger="cognitive_needs.heuristics"):
+        profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert profile.location.primary_city == "Stuttgart"
+    record = next(
+        (rec for rec in caplog.records if getattr(rec, "heuristic_field", "") == "location.primary_city"),
+        None,
+    )
+    assert record is not None
+    assert record.heuristic_rule in {"city_regex", "city_entity", "city_regex_retry"}
+
+
+def test_apply_basic_fallbacks_logs_benefits(caplog: pytest.LogCaptureFixture) -> None:
+    text = "Benefits:\n- Lunch subsidy\n- Gym membership"
+    with caplog.at_level(logging.INFO, logger="cognitive_needs.heuristics"):
+        profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert profile.compensation.benefits == ["Lunch subsidy", "Gym membership"]
+    record = next(
+        (rec for rec in caplog.records if getattr(rec, "heuristic_field", "") == "compensation.benefits"),
+        None,
+    )
+    assert record is not None
+    assert record.heuristic_rule == "benefits_section"
 
 
 def test_spacy_respects_invalid_metadata() -> None:

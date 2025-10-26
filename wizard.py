@@ -34,6 +34,9 @@ import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 from streamlit_sortables import sort_items
 
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+
 from utils.i18n import tr
 from i18n import t as translate_key
 from constants.keys import UIKeys, StateKeys
@@ -125,6 +128,8 @@ _SKILL_ID_ATTR_PATTERN = re.compile(r"data-skill-id=['\"]([^'\"]+)['\"]")
 _generate_job_ad_content = generate_job_ad_content
 _generate_interview_guide_content = generate_interview_guide_content
 _inject_salary_slider_styles = inject_salary_slider_styles
+
+WIZARD_TRACER = trace.get_tracer(__name__)
 
 
 def _extract_city_from_text(raw: str) -> str | None:
@@ -3026,10 +3031,21 @@ def _maybe_run_extraction(schema: dict) -> None:
     st.session_state["__last_extracted_hash__"] = digest
     _autodetect_lang(raw_clean)
     try:
-        _extract_and_summarize(raw_clean, schema)
-        st.rerun()
+        with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
+            try:
+                _extract_and_summarize(raw_clean, schema)
+            except Exception as span_exc:
+                span.record_exception(span_exc)
+                span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
+                raise
     except Exception as exc:
         st.session_state.pop("__last_extracted_hash__", None)
+        warning_message = tr(
+            "⚠️ Extraktion fehlgeschlagen – bitte prüfen Sie die Felder manuell.",
+            "⚠️ Extraction failed – please review the fields manually.",
+        )
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_message
+        st.session_state[StateKeys.STEPPER_WARNING] = warning_message
         display_error(
             tr(
                 "Automatische Extraktion fehlgeschlagen",
@@ -3037,6 +3053,8 @@ def _maybe_run_extraction(schema: dict) -> None:
             ),
             str(exc),
         )
+    else:
+        st.rerun()
 
 
 def _skip_source() -> None:
