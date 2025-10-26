@@ -158,6 +158,8 @@ python -m cli.rebuild_vector_store vs_existing_store_id
 2. **Review the overview:** The sidebar highlights which fields were rule-matched, inferred by AI, or still missing. Use the inline help to understand why fields are locked or which follow-ups remain outstanding.
 3. **Answer follow-ups:** The Follow-up Question Generator asks targeted questions. Enable *Auto follow-ups* to let the agent re-run until all critical gaps are closed.
 4. **Enrich requirements:** Accept AI suggestions for skills, benefits, salary ranges, and responsibilities. Tooltips explain why suggestions might be empty (e.g., locked fields, missing context, or disabled RAG).
+   - **EN:** Use the ESCO search input in the requirements step to look up occupations and import their essential skills with one click.
+   - **DE:** Nutze die ESCO-Suche im Anforderungsschritt, um Berufe zu finden und deren Pflicht-Skills direkt zu übernehmen.
 5. **Generate deliverables:** Use the summary step to stream job ads, interview guides, and Boolean search strings. Each generation shows usage metrics and supports instant regeneration with new instructions.
 6. **Export:** Download the structured vacancy JSON, job ad Markdown, and interview guide directly from the summary workspace.
 

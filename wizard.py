@@ -1990,6 +1990,24 @@ def _remember_company_page_text(cache_key: str, text: str) -> None:
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
+def _cached_esco_search(query: str, *, lang: str, limit: int) -> list[dict[str, str]]:
+    """Return ESCO occupation matches with shared caching."""
+
+    if not str(query or "").strip():
+        return []
+    return search_occupations(query, lang=lang, limit=limit)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_esco_skills(occupation_uri: str, *, lang: str) -> list[str]:
+    """Return ESCO essential skills with shared caching."""
+
+    if not str(occupation_uri or "").strip():
+        return []
+    return get_essential_skills(occupation_uri, lang=lang)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
 def _cached_fetch_company_page_text(url: str) -> str:
     """Return page text for ``url`` with shared caching."""
 
@@ -4555,7 +4573,7 @@ def _refresh_esco_skills(
         uri = str(entry.get("uri") or "").strip()
         if not uri:
             continue
-        for skill in get_essential_skills(uri, lang=lang):
+        for skill in _cached_esco_skills(uri, lang=lang):
             cleaned = str(skill or "").strip()
             if not cleaned:
                 continue
@@ -4598,11 +4616,118 @@ def _apply_esco_selection(
     _write_occupation_to_profile(primary)
 
     esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
+    if resolved and not esco_opted_in:
+        st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
+        esco_opted_in = True
     if esco_opted_in:
         _refresh_esco_skills(resolved, lang=lang)
     else:
         st.session_state[StateKeys.ESCO_SKILLS] = []
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+
+
+def _render_requirements_esco_search(
+    position: Mapping[str, Any] | None,
+    *,
+    parent: DeltaGenerator | None = None,
+    lang: str,
+) -> None:
+    """Render the ESCO occupation search controls for the requirements step."""
+
+    container = parent.container() if parent is not None else st.container()
+    default_query = ""
+    if isinstance(position, Mapping):
+        default_query = str(position.get("job_title") or "").strip()
+
+    stored_query = st.session_state.get(UIKeys.REQUIREMENTS_OCC_SEARCH)
+    if stored_query is None and default_query:
+        st.session_state[UIKeys.REQUIREMENTS_OCC_SEARCH] = default_query
+
+    search_label = tr("ESCO-Beruf suchen", "Search ESCO occupation", lang=lang)
+    search_placeholder = tr("z. B. Data Scientist", "e.g. Data Scientist", lang=lang)
+    search_help = tr(
+        "Nach offiziellen ESCO-Berufsprofilen suchen, um Pflichtskills zu übernehmen.",
+        "Search official ESCO occupation profiles to import essential skills.",
+        lang=lang,
+    )
+    container.text_input(
+        search_label,
+        key=UIKeys.REQUIREMENTS_OCC_SEARCH,
+        placeholder=search_placeholder,
+        help=search_help,
+    )
+
+    button_label = tr("🔎 ESCO-Profile finden", "🔎 Find ESCO occupations", lang=lang)
+    if container.button(
+        button_label,
+        key=UIKeys.REQUIREMENTS_OCC_SELECT,
+        type="secondary",
+        help=tr(
+            "Aktualisiert die Vorschlagsliste mit Treffern aus dem ESCO-Katalog.",
+            "Refresh the suggestions list with matches from the ESCO catalogue.",
+            lang=lang,
+        ),
+    ):
+        query = str(st.session_state.get(UIKeys.REQUIREMENTS_OCC_SEARCH, "") or "").strip()
+        if not query:
+            container.warning(
+                tr(
+                    "Bitte gib einen Jobtitel oder ein Stichwort ein.",
+                    "Please enter a job title or keyword before searching.",
+                    lang=lang,
+                )
+            )
+            return
+        try:
+            with container.spinner(tr("Lade ESCO-Berufe…", "Loading ESCO occupations…", lang=lang)):
+                options = _cached_esco_search(query, lang=lang, limit=8)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            if st.session_state.get("debug"):
+                st.session_state["esco_search_error"] = str(exc)
+            container.warning(
+                tr(
+                    "ESCO-Suche derzeit nicht verfügbar.",
+                    "ESCO search is currently unavailable.",
+                    lang=lang,
+                )
+            )
+            return
+
+        sanitized = _sanitize_esco_options(options)
+        if sanitized:
+            st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = sanitized
+            available_ids = [
+                str(entry.get("uri") or "").strip() for entry in sanitized if str(entry.get("uri") or "").strip()
+            ]
+            current_ids = [
+                sid
+                for sid in _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
+                if sid in available_ids
+            ]
+            if not current_ids and available_ids:
+                current_ids = [available_ids[0]]
+            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = current_ids
+            _apply_esco_selection(current_ids, sanitized, lang=lang)
+            container.success(
+                tr(
+                    "ESCO-Profile aktualisiert – Vorschläge sind im Skill-Board verfügbar.",
+                    "ESCO occupations updated – suggestions are ready in the skill board.",
+                    lang=lang,
+                )
+            )
+        else:
+            st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = []
+            st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
+            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
+            st.session_state[StateKeys.ESCO_SKILLS] = []
+            st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+            container.warning(
+                tr(
+                    "Keine passenden ESCO-Berufe gefunden.",
+                    "No matching ESCO occupations found.",
+                    lang=lang,
+                )
+            )
 
 
 def _render_esco_occupation_selector(
@@ -6810,6 +6935,8 @@ def _step_requirements():
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
     with helper_columns[1]:
+        lang_code = st.session_state.get("lang", "de") or "de"
+        _render_requirements_esco_search(position_mapping, lang=lang_code)
         _render_esco_occupation_selector(position_mapping, compact=True)
         current_esco_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
         esco_button_label = (

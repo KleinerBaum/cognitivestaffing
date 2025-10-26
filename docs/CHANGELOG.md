@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: add ESCO occupation search and cached skill import to the requirements step UI
+  - Feature: ESCO-Berufssuche und gecachte Skill-Übernahme im Anforderungsschritt ergänzen
 - feat: surface AI responsibility suggestions in the requirements step with contextual prompts
   - Feature: KI-Aufgaben-Vorschläge im Anforderungsschritt mit kontextuellem Prompt integrieren
 - feat: introduce the RecruitingWizard single-source schema with source attribution, canonical keys, and SCHEMA_WIZARD_V1 flag
