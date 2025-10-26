@@ -24,6 +24,12 @@
           "de": " Berücksichtige diese Schwerpunkte bei der Auswahl: {focus_terms}."
         }
       },
+      "responsibility_suggestions": {
+        "user": {
+          "en": "Generate 5-7 core responsibilities for the role \"{job_title}\". Focus on the major duties, ownership areas, and success outcomes that define the position.{context_clause}\nRespond in JSON with an array field named \"responsibilities\" containing concise bullet-style strings.",
+          "de": "Formuliere 5-7 zentrale Aufgaben für die Position \"{job_title}\". Konzentriere dich auf Verantwortungsbereiche, Zielbilder und Erfolgskriterien dieser Rolle.{context_clause}\nAntworte als JSON mit einem Array-Feld \"responsibilities\", das prägnante Stichpunkte enthält."
+        }
+      },
       "benefits": {
         "user": {
           "en": "List up to 5 benefits or perks commonly offered for a {job_title} role{industry_clause}. Respond as a JSON array and avoid mentioning any benefit already listed below.{existing_clause}{focus_clause}",

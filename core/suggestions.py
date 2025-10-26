@@ -8,6 +8,7 @@ from typing import Dict, List, Sequence, Tuple
 from openai_utils import (
     suggest_benefits,
     suggest_onboarding_plans,
+    suggest_responsibilities_for_role,
     suggest_skills_for_role,
 )
 
@@ -19,6 +20,7 @@ from core.esco_utils import (
 
 __all__ = [
     "get_skill_suggestions",
+    "get_responsibility_suggestions",
     "get_benefit_suggestions",
     "get_onboarding_suggestions",
     "get_static_benefit_shortlist",
@@ -293,6 +295,52 @@ def get_skill_suggestions(
     cleaned = {key: value for key, value in grouped.items() if value}
 
     return cleaned, "; ".join(errors) if errors else None
+
+
+def get_responsibility_suggestions(
+    job_title: str,
+    *,
+    lang: str = "en",
+    tone_style: str | None = None,
+    company_name: str | None = None,
+    team_structure: str | None = None,
+    industry: str | None = None,
+    existing_items: Sequence[str] | None = None,
+) -> Tuple[List[str], str | None]:
+    """Fetch AI-generated responsibility suggestions for a role."""
+
+    job_title = (job_title or "").strip()
+    if not job_title:
+        return [], None
+
+    existing_markers = {
+        str(item).strip().casefold() for item in (existing_items or []) if isinstance(item, str) and str(item).strip()
+    }
+
+    try:
+        suggestions = suggest_responsibilities_for_role(
+            job_title,
+            lang=lang,
+            tone_style=tone_style,
+            company_name=company_name or "",
+            team_structure=team_structure or "",
+            industry=industry or "",
+        )
+    except Exception as exc:  # pragma: no cover - error path tested separately
+        return [], str(exc)
+
+    cleaned: List[str] = []
+    seen: set[str] = set(existing_markers)
+    for raw in suggestions:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        marker = value.casefold()
+        if marker in seen:
+            continue
+        seen.add(marker)
+        cleaned.append(value)
+    return cleaned, None
 
 
 def get_benefit_suggestions(
