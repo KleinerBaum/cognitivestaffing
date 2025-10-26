@@ -57,6 +57,9 @@ from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
+from config import WIZARD_ORDER_V2
+from pages import WIZARD_PAGES
+from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard import (
     COMPACT_STEP_STYLE,
     SALARY_SLIDER_MAX,
@@ -9739,33 +9742,28 @@ def _render_wizard_navigation(
 
 
 # --- Haupt-Wizard-Runner ---
-def run_wizard():
-    """Run the multi-step profile creation wizard.
+def _load_wizard_configuration() -> tuple[dict, list[str]]:
+    """Return schema and critical field configuration from state or disk."""
 
-    Returns:
-        None
-    """
-
-    st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
-
-    # Schema/Config aus app.py Session übernehmen
     schema: dict = st.session_state.get("_schema") or {}
     critical: list[str] = st.session_state.get("_critical_list") or []
 
-    # Falls nicht durch app.py injiziert, lokal nachladen (failsafe)
     if not schema:
         try:
-            with (ROOT / "schema" / "need_analysis.schema.json").open("r", encoding="utf-8") as f:
-                schema = json.load(f)
+            with (ROOT / "schema" / "need_analysis.schema.json").open("r", encoding="utf-8") as file:
+                schema = json.load(file)
         except Exception:
             schema = {}
     if not critical:
         try:
-            with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as f:
-                critical = json.load(f).get("critical", [])
+            with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as file:
+                critical = json.load(file).get("critical", [])
         except Exception:
             critical = []
+    return schema, critical
 
+
+def _run_wizard_legacy(schema: Mapping[str, object], critical: Sequence[str]) -> None:
     steps = [
         (tr("Onboarding", "Onboarding"), lambda: _step_onboarding(schema)),
         (tr("Unternehmen", "Company"), _step_company),
@@ -9787,11 +9785,99 @@ def run_wizard():
     if current == 0:
         render_onboarding_hero(ONBOARDING_ANIMATION_BASE64)
 
-    # Render current step
     _label, renderer = steps[current]
-
     renderer()
+    _apply_pending_scroll_reset()
+    _render_wizard_navigation(steps, completed_sections=completed_sections)
 
+
+def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
+    render_onboarding_hero(ONBOARDING_ANIMATION_BASE64)
+    _step_onboarding(schema)
+
+
+def _render_skills_review_step() -> None:
+    profile = _get_profile_state()
+    lang = st.session_state.get("lang", "de")
+    st.subheader(tr("Überblick Anforderungen", "Requirements overview"))
+    responsibilities = profile.get("responsibilities", {}) if isinstance(profile, Mapping) else {}
+    requirement_data = profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
+
+    resp_items = []
+    if isinstance(responsibilities, Mapping):
+        resp_items = [
+            str(item).strip() for item in responsibilities.get("items", []) if isinstance(item, str) and item.strip()
+        ]
+    if resp_items:
+        st.markdown("\n".join(f"- {item}" for item in resp_items))
+    else:
+        st.info(tr("Noch keine Aufgaben hinterlegt.", "No responsibilities captured yet."))
+
+    def _render_chip_group(title_de: str, title_en: str, values: Iterable[str]) -> None:
+        cleaned = [value.strip() for value in values if isinstance(value, str) and value.strip()]
+        title = title_de if lang.lower().startswith("de") else title_en
+        st.markdown(f"**{title}**")
+        if not cleaned:
+            st.caption(tr("Keine Einträge", "No entries"))
+            return
+        chips = "".join(f"<span class='wizard-chip'>{html.escape(value)}</span>" for value in cleaned)
+        st.markdown(f"<div class='wizard-chip-list'>{chips}</div>", unsafe_allow_html=True)
+
+    if isinstance(requirement_data, Mapping):
+        _render_chip_group(
+            "Muss-Hard-Skills",
+            "Must-have hard skills",
+            requirement_data.get("hard_skills_required", []),
+        )
+        _render_chip_group(
+            "Muss-Soft-Skills",
+            "Must-have soft skills",
+            requirement_data.get("soft_skills_required", []),
+        )
+        _render_chip_group(
+            "Tools & Technologien",
+            "Tools & technologies",
+            requirement_data.get("tools_and_technologies", []),
+        )
+        _render_chip_group(
+            "Sprachen",
+            "Languages",
+            requirement_data.get("languages_required", []),
+        )
+
+
+def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(WIZARD_PAGES)
+    _update_section_progress()
+
+    context = WizardContext(schema=schema, critical_fields=critical)
+    renderers: dict[str, StepRenderer] = {
+        "jobad": StepRenderer(lambda ctx: _render_jobad_step_v2(schema), legacy_index=0),
+        "company": StepRenderer(lambda ctx: _step_company(), legacy_index=1),
+        "team": StepRenderer(lambda ctx: _step_position(), legacy_index=2),
+        "role_tasks": StepRenderer(lambda ctx: _step_requirements(), legacy_index=3),
+        "skills": StepRenderer(lambda ctx: _render_skills_review_step(), legacy_index=3),
+        "benefits": StepRenderer(lambda ctx: _step_compensation(), legacy_index=4),
+        "interview": StepRenderer(lambda ctx: _step_process(), legacy_index=5),
+        "summary": StepRenderer(lambda ctx: _step_summary(schema, critical), legacy_index=6),
+    }
+
+    router = WizardRouter(
+        pages=WIZARD_PAGES,
+        renderers=renderers,
+        context=context,
+        value_resolver=get_in,
+    )
+    router.run()
     _apply_pending_scroll_reset()
 
-    _render_wizard_navigation(steps, completed_sections=completed_sections)
+
+def run_wizard() -> None:
+    """Run the multi-step profile creation wizard."""
+
+    st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
+    schema, critical = _load_wizard_configuration()
+    if WIZARD_ORDER_V2:
+        _run_wizard_v2(schema, critical)
+    else:
+        _run_wizard_legacy(schema, critical)

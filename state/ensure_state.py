@@ -179,6 +179,12 @@ def ensure_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = ""
 
+    wizard_state = st.session_state.get("wizard")
+    if not isinstance(wizard_state, dict):
+        st.session_state["wizard"] = {"current_step": "jobad"}
+    else:
+        wizard_state.setdefault("current_step", "jobad")
+
 
 def _sanitize_profile(data: Mapping[str, Any]) -> dict[str, Any]:
     """Remove unsupported fields while preserving valid values."""

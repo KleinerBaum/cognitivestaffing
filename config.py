@@ -137,6 +137,12 @@ def _detect_default_model() -> str:
 DEFAULT_MODEL = _detect_default_model()
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
 VERBOSITY_LEVELS = ("low", "medium", "high")
+WIZARD_ORDER_V2 = os.getenv("WIZARD_ORDER_V2", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -> str:
