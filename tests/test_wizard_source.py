@@ -496,7 +496,7 @@ def test_extract_and_summarize_enriches_esco_metadata(
     assert data["position"]["occupation_label"] == occupation["preferredLabel"]
     assert data["position"]["occupation_uri"] == occupation["uri"]
     assert data["position"]["occupation_group"] == occupation["group"]
-    assert st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] == [occupation]
+    assert st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] == [occupation]
     assert st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] == [occupation]
     assert st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] == [occupation["uri"]]
     assert st.session_state[StateKeys.ESCO_SKILLS] == skills

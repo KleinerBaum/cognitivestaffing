@@ -2837,7 +2837,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
                 selected_ids = [first_uri]
 
     if occupation_options:
-        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = occupation_options
+        st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = occupation_options
         selected_entries = [
             dict(entry) for entry in occupation_options if str(entry.get("uri") or "").strip() in set(selected_ids)
         ]
@@ -2861,7 +2861,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             profile.position.occupation_group = None
             st.session_state[StateKeys.ESCO_SKILLS] = []
     else:
-        st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = []
+        st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = []
         st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
         st.session_state[StateKeys.ESCO_SKILLS] = []
         st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
@@ -4265,7 +4265,7 @@ def _normalize_autofill_value(value: str | None) -> str:
 def _load_autofill_decisions() -> dict[str, list[str]]:
     """Return a copy of stored autofill rejection decisions."""
 
-    raw = st.session_state.get(StateKeys.AUTOFILL_DECISIONS)
+    raw = st.session_state.get(StateKeys.WIZARD_AUTOFILL_DECISIONS)
     if not isinstance(raw, Mapping):
         return {}
     decisions: dict[str, list[str]] = {}
@@ -4281,7 +4281,7 @@ def _load_autofill_decisions() -> dict[str, list[str]]:
 def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
     """Persist ``decisions`` to session state."""
 
-    st.session_state[StateKeys.AUTOFILL_DECISIONS] = {key: list(value) for key, value in decisions.items()}
+    st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {key: list(value) for key, value in decisions.items()}
 
 
 def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:
@@ -4554,7 +4554,7 @@ def _render_esco_occupation_selector(
 ) -> None:
     """Render a picker for ESCO occupation suggestions."""
 
-    raw_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, []) or []
+    raw_options = st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OPTIONS, []) or []
     options = [entry for entry in _sanitize_esco_options(raw_options) if entry.get("uri")]
     if not options:
         return

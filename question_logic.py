@@ -783,7 +783,7 @@ def generate_followup_questions(
 
     st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
 
-    occupation_options = st.session_state.get(StateKeys.ESCO_OCCUPATION_OPTIONS, [])
+    occupation_options = st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OPTIONS, [])
     selected_occupations = st.session_state.get(StateKeys.ESCO_SELECTED_OCCUPATIONS, []) or []
     occupation = selected_occupations[0] if selected_occupations else None
     if not occupation and occupation_options:
@@ -792,7 +792,7 @@ def generate_followup_questions(
         occupation = classify_occupation(job_title, lang=lang)
         if occupation:
             occupation_options = [occupation]
-            st.session_state[StateKeys.ESCO_OCCUPATION_OPTIONS] = occupation_options
+            st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = occupation_options
             st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = [occupation]
     if occupation:
         group_key = str(occupation.get("group") or "").casefold()
