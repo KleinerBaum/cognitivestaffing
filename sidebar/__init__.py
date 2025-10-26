@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from typing import Any, Iterable, Mapping
 
 import streamlit as st
+import plotly.graph_objects as go
 
 from constants.keys import StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
@@ -215,7 +216,6 @@ def _render_settings() -> None:
             key="ui.lang_toggle",
             on_change=_on_lang_toggle,
         )
-
 
 
 def _render_hero(context: SidebarContext) -> None:
@@ -550,28 +550,19 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     )
     if factors:
         st.markdown(f"### {tr('Größte Einflussfaktoren', 'Top influencing factors')}")
-        st.caption(
-            tr(
-                "Wähle aus, wie viele Faktoren angezeigt werden sollen und tippe auf einen Eintrag für Details.",
-                "Choose how many factors to display and tap an entry for the details.",
-            )
-        )
 
         max_count = len(factors)
-        if max_count > 1:
-            default_count = min(3, max_count)
-            factor_count = st.slider(
-                tr(
-                    "Anzahl der angezeigten Einflussfaktoren",
-                    "Number of influencing factors to show",
-                ),
-                min_value=1,
-                max_value=max_count,
-                value=default_count,
-                key="ui.salary.factor.count",
-            )
-        else:
-            factor_count = 1
+        default_count = min(3, max_count)
+        factor_count = st.slider(
+            tr(
+                "Anzahl der angezeigten Einflussfaktoren",
+                "Number of influencing factors to show",
+            ),
+            min_value=1,
+            max_value=max_count,
+            value=default_count,
+            key="ui.salary.factor.count",
+        )
 
         top_factors = sorted(
             factors,
@@ -579,27 +570,75 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             reverse=True,
         )[:factor_count]
 
-        radio_key = "ui.salary.factor.selected"
-        if st.session_state.get(radio_key, 0) >= len(top_factors):
-            st.session_state[radio_key] = 0
-
-        selected_index = st.radio(
-            tr(
-                "Einflussfaktor auswählen",
-                "Select an influencing factor",
-            ),
-            options=list(range(len(top_factors))),
-            index=st.session_state.get(radio_key, 0),
-            format_func=lambda idx: _format_factor_option(top_factors[idx]),
-            key=radio_key,
-        )
-
-        selected_factor = top_factors[selected_index]
-        st.info(selected_factor.explanation)
+        if top_factors:
+            fig = _build_factor_influence_chart(top_factors)
+            st.plotly_chart(fig, use_container_width=True)
     elif isinstance(explanation, str) and explanation:
         st.caption(explanation)
     elif explanation and not isinstance(explanation, str):
         st.caption(str(explanation))
+
+
+def _build_factor_influence_chart(factors: list[SalaryFactorEntry]) -> go.Figure:
+    """Create a 3D-styled pie chart for the selected salary factors."""
+
+    labels = [_format_factor_option(factor) for factor in factors]
+    magnitudes = [abs(factor.magnitude) for factor in factors]
+    total = sum(magnitudes)
+    if total == 0:
+        magnitudes = [1 for _ in factors]
+        total = len(factors)
+    percentages = [(value / total) * 100 for value in magnitudes]
+    colors = _generate_factor_colors(len(factors))
+
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=percentages,
+                hole=0.25,
+                textinfo="label+percent",
+                hoverinfo="label+percent",
+                marker=dict(
+                    colors=colors,
+                    line=dict(color="rgba(0, 0, 0, 0.3)", width=2),
+                ),
+                pull=[0.05] * len(labels),
+                direction="clockwise",
+                sort=False,
+            )
+        ]
+    )
+
+    fig.update_traces(
+        textfont=dict(color="#ffffff", size=14),
+        insidetextorientation="radial",
+    )
+    fig.update_layout(
+        showlegend=False,
+        margin=dict(l=0, r=0, t=10, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+def _generate_factor_colors(count: int) -> list[str]:
+    """Return a palette with gentle gradients to mimic a 3D appearance."""
+
+    base_palette = [
+        "#3b5bdb",
+        "#7950f2",
+        "#4dabf7",
+        "#15aabf",
+        "#12b886",
+        "#fab005",
+        "#f76707",
+        "#e8590c",
+    ]
+    if count <= len(base_palette):
+        return base_palette[:count]
+    return [base_palette[index % len(base_palette)] for index in range(count)]
 
 
 def _format_field_name(path: str) -> str:
