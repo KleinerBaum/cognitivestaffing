@@ -1982,6 +1982,17 @@ def _get_company_page_text_cache() -> dict[str, str]:
     return cache
 
 
+def _get_company_info_cache() -> dict[str, Mapping[str, Any]]:
+    """Return the mutable cache storing structured company lookups."""
+
+    cache = st.session_state.get(StateKeys.COMPANY_INFO_CACHE)
+    if isinstance(cache, dict):
+        return cache
+    cache = {}
+    st.session_state[StateKeys.COMPANY_INFO_CACHE] = cache
+    return cache
+
+
 def _remember_company_page_text(cache_key: str, text: str) -> None:
     """Persist ``text`` for ``cache_key`` in the in-memory session cache."""
 
@@ -2103,6 +2114,51 @@ def _extract_company_size(text: str) -> str | None:
     return re.sub(r"\s+", " ", value).strip(" .,;") or None
 
 
+def _record_company_enrichment_entry(
+    metadata: dict[str, Any],
+    *,
+    field: str,
+    value: str,
+    rule: str,
+    source_kind: str,
+    source_label: str | None = None,
+    source_section: str | None = None,
+    source_url: str | None = None,
+) -> None:
+    """Update ``metadata`` with provenance for a company field."""
+
+    rules_raw = metadata.get("rules")
+    if isinstance(rules_raw, Mapping):
+        rules = dict(rules_raw)
+    else:
+        rules = {}
+    entry = dict(rules.get(field) or {})
+    entry.update(
+        {
+            "rule": rule,
+            "value": value,
+            "source_kind": source_kind,
+            "inferred": True,
+        }
+    )
+    snippet = _truncate_snippet(value)
+    if snippet:
+        entry["source_text"] = snippet
+    if source_section:
+        entry["source_section"] = source_section
+    if source_label:
+        entry["source_section_label"] = source_label
+    if source_url:
+        entry["source_url"] = source_url
+    rules[field] = entry
+    metadata["rules"] = rules
+    llm_fields_raw = metadata.get("llm_fields")
+    llm_fields: set[str] = {field}
+    if isinstance(llm_fields_raw, list):
+        llm_fields.update({item for item in llm_fields_raw if isinstance(item, str)})
+    metadata["llm_fields"] = sorted(llm_fields)
+
+
 def _record_company_page_source(
     field: str,
     value: str,
@@ -2115,31 +2171,16 @@ def _record_company_page_source(
 
     raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
     metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
-    rules = metadata.get("rules")
-    if isinstance(rules, Mapping):
-        updated_rules = dict(rules)
-    else:
-        updated_rules = {}
-    entry = dict(updated_rules.get(field) or {})
-    entry.update(
-        {
-            "rule": f"company_page.{section_key}",
-            "value": value,
-            "source_text": _truncate_snippet(value),
-            "source_kind": "company_page",
-            "source_section": section_key,
-            "source_section_label": section_label,
-            "source_url": source_url,
-            "inferred": True,
-        }
+    _record_company_enrichment_entry(
+        metadata,
+        field=field,
+        value=value,
+        rule=f"company_page.{section_key}",
+        source_kind="company_page",
+        source_label=section_label,
+        source_section=section_key,
+        source_url=source_url,
     )
-    updated_rules[field] = entry
-    metadata["rules"] = updated_rules
-    llm_fields = metadata.get("llm_fields")
-    current = {field}
-    if isinstance(llm_fields, list):
-        current.update({item for item in llm_fields if isinstance(item, str)})
-    metadata["llm_fields"] = sorted(current)
     st.session_state[StateKeys.PROFILE_METADATA] = metadata
 
 
@@ -2176,6 +2217,7 @@ def _enrich_company_profile_from_about(
             "name": "name",
             "location": "hq_location",
             "mission": "mission",
+            "culture": "culture",
         }
         for source, target in mapping.items():
             if target not in company or not str(company.get(target, "")).strip():
@@ -2202,6 +2244,88 @@ def _enrich_company_profile_from_about(
                 section_key="about",
                 section_label=section_label,
             )
+
+
+def _enrich_company_profile_via_web(
+    profile: NeedAnalysisProfile,
+    metadata: dict[str, Any],
+    *,
+    vector_store_id: str | None = None,
+) -> None:
+    """Populate missing company fields via web enrichment."""
+
+    company = getattr(profile, "company", None)
+    if company is None:
+        return
+
+    name_candidates = [
+        str(company.name or "").strip(),
+        str(company.brand_name or "").strip(),
+    ]
+    company_name = next((candidate for candidate in name_candidates if candidate), "")
+    if not company_name:
+        return
+
+    missing_attrs: set[str] = set()
+    for attr in ("name", "hq_location", "mission", "culture", "size"):
+        current_value = getattr(company, attr, None)
+        if isinstance(current_value, str):
+            if current_value.strip():
+                continue
+        elif current_value is not None:
+            continue
+        missing_attrs.add(attr)
+
+    if not missing_attrs:
+        return
+
+    cache = _get_company_info_cache()
+    cache_key = company_name.casefold()
+    cached = cache.get(cache_key)
+    if cached is None:
+        context_parts = [company_name]
+        website_hint = str(getattr(company, "website", "") or "").strip()
+        if website_hint:
+            context_parts.append(f"Website: {website_hint}")
+        query_text = "\n".join(part for part in context_parts if part)
+        try:
+            fetched = extract_company_info(query_text, vector_store_id=vector_store_id)
+        except Exception:
+            fetched = {}
+        cache[cache_key] = dict(fetched) if isinstance(fetched, Mapping) else {}
+        cached = cache[cache_key]
+
+    if not isinstance(cached, Mapping) or not cached:
+        return
+
+    lang = getattr(st.session_state, "lang", None)
+    source_label = tr("Websuche", "Web search", lang=lang)
+    field_map = {
+        "name": "name",
+        "location": "hq_location",
+        "mission": "mission",
+        "culture": "culture",
+        "size": "size",
+    }
+    for source, attr in field_map.items():
+        if attr not in missing_attrs:
+            continue
+        raw_value = cached.get(source)
+        if not isinstance(raw_value, str):
+            continue
+        normalized = raw_value.strip()
+        if not normalized:
+            continue
+        setattr(company, attr, normalized)
+        _record_company_enrichment_entry(
+            metadata,
+            field=f"company.{attr}",
+            value=normalized,
+            rule="company_web.auto_enrich",
+            source_kind="web_search",
+            source_label=source_label,
+            source_section="web_search",
+        )
 
 
 def _store_company_page_section(
@@ -2846,6 +2970,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
 
     profile = coerce_and_fill(extracted_data)
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
+    _enrich_company_profile_via_web(profile, metadata, vector_store_id=vector_store_id or None)
     lang = getattr(st.session_state, "lang", "en") or "en"
     job_title_value = (profile.position.job_title or "").strip()
     occupation_options: list[dict[str, str]] = []

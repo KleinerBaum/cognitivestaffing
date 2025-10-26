@@ -16,6 +16,7 @@ def test_extract_company_info_parses_json(monkeypatch):
                 "location": "Berlin, Germany",
                 "mission": "Make widgets greener",
                 "culture": "Collaborative and inclusive",
+                "size": "250 employees",
             }
         )
         return ChatCallResult(payload, [], {})
@@ -28,6 +29,7 @@ def test_extract_company_info_parses_json(monkeypatch):
         "location": "Berlin, Germany",
         "mission": "Make widgets greener",
         "culture": "Collaborative and inclusive",
+        "size": "250 employees",
     }
 
 
@@ -44,6 +46,7 @@ def test_extract_company_info_required_keys(monkeypatch):
                 "location": "Berlin, Germany",
                 "mission": "Make widgets greener",
                 "culture": "Collaborative and inclusive",
+                "size": "250 employees",
             }
         )
         return ChatCallResult(payload, [], {})
@@ -67,6 +70,7 @@ def test_extract_company_info_required_keys(monkeypatch):
             "location",
             "mission",
             "culture",
+            "size",
         ]
     )
     assert captured_kwargs.get("tools") == [{"type": "web_search", "name": "web_search"}]
@@ -86,6 +90,7 @@ def test_extract_company_info_with_vector_store(monkeypatch):
                 "location": "Berlin, Germany",
                 "mission": "Make widgets greener",
                 "culture": "Collaborative and inclusive",
+                "size": "250 employees",
             }
         )
         return ChatCallResult(payload, [], {})

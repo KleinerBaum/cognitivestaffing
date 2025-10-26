@@ -252,7 +252,7 @@ def extract_company_info(
             model = get_model_for(ModelTask.COMPANY_INFO)
         span.set_attribute("llm.model", model)
 
-        expected_fields = ("name", "location", "mission", "culture")
+        expected_fields = ("name", "location", "mission", "culture", "size")
         properties = {field: {"type": "string"} for field in expected_fields}
 
         prompt = _format_prompt("llm.extraction.company_info.user", text=text)

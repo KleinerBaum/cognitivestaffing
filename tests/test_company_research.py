@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import sys
 from pathlib import Path
-from typing import Sequence, cast
+from typing import Any, Sequence, cast
 
 import requests
 
@@ -20,12 +20,14 @@ from wizard import (
     _candidate_company_page_urls,
     _bulk_fetch_company_sections,
     _enrich_company_profile_from_about,
+    _enrich_company_profile_via_web,
     _extract_company_size,
     _fetch_company_page,
     _load_company_page_section,
     _normalise_company_base_url,
     _store_company_page_section,
 )
+from models.need_analysis import NeedAnalysisProfile
 
 
 def test_normalise_company_base_url() -> None:
@@ -222,6 +224,54 @@ def test_enrich_company_profile_respects_existing_values(monkeypatch) -> None:
     assert StateKeys.PROFILE_METADATA not in st.session_state or not st.session_state[StateKeys.PROFILE_METADATA].get(
         "rules"
     )
+
+
+def test_enrich_company_profile_via_web_populates_missing(monkeypatch) -> None:
+    """Web enrichment should populate missing company details and reuse cache."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.COMPANY_INFO_CACHE] = {}
+    st.session_state["lang"] = "en"
+
+    calls: list[str] = []
+
+    def fake_extract(text: str, vector_store_id: str | None = None) -> dict[str, str]:
+        calls.append(text)
+        return {
+            "name": "Acme GmbH",
+            "location": "Berlin",
+            "mission": "Empower teams",
+            "culture": "Inclusive culture",
+            "size": "250 employees",
+        }
+
+    monkeypatch.setattr("wizard.extract_company_info", fake_extract)
+
+    profile = NeedAnalysisProfile()
+    profile.company.name = "Acme GmbH"
+    metadata: dict[str, Any] = {}
+
+    _enrich_company_profile_via_web(profile, metadata)
+
+    assert profile.company.hq_location == "Berlin"
+    assert profile.company.mission == "Empower teams"
+    assert profile.company.culture == "Inclusive culture"
+    assert profile.company.size == "250 employees"
+    rules = metadata.get("rules", {})
+    mission_meta = rules.get("company.mission", {})
+    assert mission_meta.get("source_kind") == "web_search"
+
+    profile.company.hq_location = ""
+    profile.company.mission = ""
+    profile.company.culture = ""
+    profile.company.size = ""
+    metadata_second: dict[str, Any] = {}
+
+    _enrich_company_profile_via_web(profile, metadata_second)
+
+    assert len(calls) == 1, "Expected cached web enrichment to avoid repeated calls"
+    second_rules = metadata_second.get("rules", {})
+    assert second_rules.get("company.size", {}).get("value") == "250 employees"
 
 
 def test_bulk_fetch_company_sections_returns_success_and_miss(monkeypatch) -> None:
