@@ -36,7 +36,7 @@ def test_get_skill_suggestions(monkeypatch):
     monkeypatch.setattr(
         suggestions,
         "suggest_skills_for_role",
-        lambda title, lang="en", focus_terms=None, tone_style=None: {
+        lambda title, lang="en", focus_terms=None, tone_style=None, **_kwargs: {
             "tools_and_technologies": ["T"],
             "hard_skills": ["Go"],
             "soft_skills": [],
