@@ -65,7 +65,7 @@ VACANCY_EXTRACTION_SCHEMA = {
                     "type": "string",
                     "enum": ["full_time", "part_time", "contract", "temp", "intern", "working_student", "freelancer"],
                 },
-                "work_model": {"type": "string", "enum": ["onsite", "hybrid", "remote"]},
+                "work_policy": {"type": "string", "enum": ["onsite", "hybrid", "remote"]},
                 "travel_required_percent": {"type": "number", "minimum": 0, "maximum": 100},
                 "relocation": {"type": "boolean"},
                 "remote_timezone": {"type": "string"},

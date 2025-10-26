@@ -86,6 +86,7 @@ def test_coerce_and_fill_alias_mapping() -> None:
         "hiring_manager_name": "Julia Schmidt",
         "hiring_manager_role": "Head of Engineering",
         "reporting_manager_name": "Petra Müller",
+        "employment": {"work_model": "remote"},
     }
     profile = coerce_and_fill(data)
     assert profile.requirements.hard_skills_required == ["Python"]
@@ -94,6 +95,7 @@ def test_coerce_and_fill_alias_mapping() -> None:
     assert profile.company.contact_name == "Max Mustermann"
     assert profile.company.contact_email == "max@example.com"
     assert profile.company.contact_phone == "+49 30 1234567"
+    assert profile.employment.work_policy == "remote"
     assert profile.process.hiring_manager_name == "Julia Schmidt"
     assert profile.process.hiring_manager_role == "Head of Engineering"
     assert profile.position.reporting_manager_name == "Petra Müller"

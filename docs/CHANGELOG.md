@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- fix: align work policy, location, contact, and benefits fields across schema, UI state, and exports
+  - Fix: Arbeitsmodell-, Standort-, Kontakt- und Benefit-Felder zwischen Schema, UI-State und Exporten angleichen
 - fix: treat HR contact fields as critical so wizard steps and follow-ups flag missing details consistently
   - Fix: HR-Kontaktfelder als kritisch markieren, damit Wizard-Schritte und Follow-ups fehlende Angaben zuverlässig anzeigen
 - feat: capture HR contacts, hiring managers, and qualification summaries in the vacancy extraction schema and wizard UI
