@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
@@ -6,6 +7,26 @@ from core.rules import COMMON_CITY_NAMES
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import normalize_country, normalize_language_list
+
+
+HEURISTICS_LOGGER = logging.getLogger("cognitive_needs.heuristics")
+
+
+def _log_heuristic_fill(field: str, rule: str, *, detail: str | None = None) -> None:
+    """Emit a structured log entry describing a heuristic patch."""
+
+    message = f"Heuristic filled {field}"
+    if detail:
+        message = f"{message} {detail}"
+    message = f"{message} (rule: {rule})"
+    extra = {
+        "heuristic_field": field,
+        "heuristic_rule": rule,
+    }
+    if detail:
+        extra["heuristic_detail"] = detail
+    HEURISTICS_LOGGER.info(message, extra=extra)
+
 
 # Matches gender suffixes appended to job titles such as "(m/w/d)" or "all genders".
 # Handles German abbreviations (m/w/d, m/w/x, etc.) separated by slashes and ignores
@@ -1095,21 +1116,42 @@ def apply_basic_fallbacks(
         )
         if title_guess:
             profile.position.job_title = title_guess
+            _log_heuristic_fill(
+                "position.job_title",
+                "job_title_guess",
+                detail=f"with value {title_guess!r}",
+            )
     if not profile.company.name:
         name, brand = guess_company(text)
         if name:
             profile.company.name = name
+            _log_heuristic_fill(
+                "company.name",
+                "company_name_guess",
+                detail=f"with value {name!r}",
+            )
         if brand and not profile.company.brand_name:
             profile.company.brand_name = brand
+            _log_heuristic_fill(
+                "company.brand_name",
+                "company_brand_guess",
+                detail=f"with value {brand!r}",
+            )
     elif not profile.company.brand_name:
         _, brand = guess_company(text)
         if brand:
             profile.company.brand_name = brand
+            _log_heuristic_fill(
+                "company.brand_name",
+                "company_brand_guess",
+                detail=f"with value {brand!r}",
+            )
     if _needs_value(profile.location.primary_city, city_field):
         # City fallback order: reuse regex-based guess_city first, then fall back to
         # spaCy entity extraction (if available) before retrying the regex when the
         # field is marked invalid.
         city_guess = "" if city_invalid else guess_city(text)
+        city_rule = "city_regex" if city_guess else None
         if not city_guess or city_invalid:
             if location_entities is None:
                 location_entities = extract_location_entities(text, lang=language_hint)
@@ -1119,10 +1161,18 @@ def apply_basic_fallbacks(
                 spa_city = ""
             if spa_city:
                 city_guess = spa_city
+                city_rule = "city_entity"
             elif city_invalid:
                 city_guess = guess_city(text)
+                if city_guess:
+                    city_rule = "city_regex_retry"
         if city_guess:
             profile.location.primary_city = city_guess
+            _log_heuristic_fill(
+                "location.primary_city",
+                city_rule or "city_guess",
+                detail=f"with value {city_guess!r}",
+            )
     if _needs_value(profile.location.country, country_field):
         # Country fallback order mirrors the city logic: prefer spaCy geo entities and
         # only fall back to heuristics when no entity is found and the field was invalid.
@@ -1130,34 +1180,76 @@ def apply_basic_fallbacks(
             location_entities = extract_location_entities(text, lang=language_hint)
         if location_entities:
             country_guess = location_entities.primary_country or ""
+            country_rule = "country_entity" if country_guess else None
         else:
             country_guess = ""
+            country_rule = None
         if not country_guess and country_invalid:
             country_guess = ""
         if country_guess:
             profile.location.country = country_guess
+            _log_heuristic_fill(
+                "location.country",
+                country_rule or "country_guess",
+                detail=f"with value {country_guess!r}",
+            )
     # Employment classification: regex heuristics via guess_employment_details decide
     # job type, contract type, work policy, and remote percentage before any manual
     # overrides.
     job, contract, policy, remote_pct = guess_employment_details(text)
     if not profile.employment.job_type and job:
         profile.employment.job_type = job
+        _log_heuristic_fill(
+            "employment.job_type",
+            "employment_details",
+            detail=f"with value {job!r}",
+        )
     if not profile.employment.contract_type and contract:
         profile.employment.contract_type = contract
+        _log_heuristic_fill(
+            "employment.contract_type",
+            "employment_details",
+            detail=f"with value {contract!r}",
+        )
     if not profile.employment.work_policy and policy:
         profile.employment.work_policy = policy
+        _log_heuristic_fill(
+            "employment.work_policy",
+            "employment_details",
+            detail=f"with value {policy!r}",
+        )
     if remote_pct is not None and profile.employment.remote_percentage is None:
         profile.employment.remote_percentage = remote_pct
+        _log_heuristic_fill(
+            "employment.remote_percentage",
+            "employment_details",
+            detail=f"with value {remote_pct!r}",
+        )
     if not profile.meta.target_start_date:
         start = guess_start_date(text)
         if start:
             profile.meta.target_start_date = start
+            _log_heuristic_fill(
+                "meta.target_start_date",
+                "start_date_guess",
+                detail=f"with value {start!r}",
+            )
     if not profile.responsibilities.items:
         tasks = extract_responsibilities(text)
         if tasks:
             profile.responsibilities.items = tasks
+            _log_heuristic_fill(
+                "responsibilities.items",
+                "responsibilities_section",
+                detail=f"with {len(tasks)} entries",
+            )
     if not profile.position.role_summary and profile.responsibilities.items:
         profile.position.role_summary = profile.responsibilities.items[0]
+        _log_heuristic_fill(
+            "position.role_summary",
+            "responsibilities_first_item",
+            detail="with first responsibility",
+        )
     # Compensation heuristics: attempt range detection first, then single-value
     # mentions, and finally flag variable pay + bonus percentage if keywords appear.
     compensation = profile.compensation
@@ -1172,6 +1264,16 @@ def apply_basic_fallbacks(
                 if not compensation.currency:
                     compensation.currency = "EUR"
                 compensation.salary_provided = True
+                _log_heuristic_fill(
+                    "compensation.salary_min",
+                    "salary_range_regex",
+                    detail=f"with value {minimum!r}",
+                )
+                _log_heuristic_fill(
+                    "compensation.salary_max",
+                    "salary_range_regex",
+                    detail=f"with value {maximum!r}",
+                )
     if not (compensation.salary_min and compensation.salary_max):
         single_match = _SALARY_SINGLE_RE.search(text)
         if single_match:
@@ -1184,17 +1286,42 @@ def apply_basic_fallbacks(
                     if not compensation.currency:
                         compensation.currency = "EUR"
                     compensation.salary_provided = True
+                    _log_heuristic_fill(
+                        "compensation.salary_min",
+                        "salary_single_regex",
+                        detail=f"with value {value!r}",
+                    )
+                    _log_heuristic_fill(
+                        "compensation.salary_max",
+                        "salary_single_regex",
+                        detail=f"with value {value!r}",
+                    )
     if not compensation.variable_pay:
         if re.search(r"variable|bonus|provision|prämie|commission", text, re.IGNORECASE):
             compensation.variable_pay = True
+            _log_heuristic_fill(
+                "compensation.variable_pay",
+                "variable_pay_keywords",
+                detail="detected compensation keywords",
+            )
         pct = _BONUS_PERCENT_RE.search(text)
         if pct:
             compensation.bonus_percentage = float(pct.group(1))
             compensation.variable_pay = True
+            _log_heuristic_fill(
+                "compensation.bonus_percentage",
+                "bonus_percentage_regex",
+                detail=f"with value {float(pct.group(1))!r}",
+            )
         if compensation.variable_pay and not compensation.commission_structure:
             btxt = _BONUS_TEXT_RE.search(text)
             if btxt:
                 compensation.commission_structure = btxt.group(0).strip()
+                _log_heuristic_fill(
+                    "compensation.commission_structure",
+                    "commission_structure_regex",
+                    detail="captured incentive description",
+                )
     benefits = _extract_benefits_from_text(text)
     if benefits:
         existing_benefits = list(compensation.benefits or [])
@@ -1210,6 +1337,11 @@ def apply_basic_fallbacks(
                 )
                 high_conf.add("compensation.benefits")
                 metadata["high_confidence_fields"] = sorted(high_conf)
+            _log_heuristic_fill(
+                "compensation.benefits",
+                "benefits_section",
+                detail=f"with {len(merged_benefits)} entries",
+            )
     country = normalize_country(profile.location.country)
     profile.location.country = country
     return refine_requirements(profile, text)
