@@ -60,6 +60,35 @@ _CITY_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 _COMMON_CITIES: Tuple[str, ...] = COMMON_CITY_NAMES
+_COMMON_CITY_KEYS: set[str] = {city.casefold() for city in _COMMON_CITIES}
+
+
+def _clean_city_candidate(city: str | None) -> str:
+    """Return the first non-empty line of ``city`` stripped of whitespace."""
+
+    if not city:
+        return ""
+    return city.splitlines()[0].strip()
+
+
+def _city_candidate_is_trustworthy(city: str, text: str, regex_hint: str) -> bool:
+    """Return ``True`` if ``city`` looks like a reliable location candidate."""
+
+    normalized = city.strip()
+    if not normalized:
+        return False
+    lowered = normalized.casefold()
+    if regex_hint and lowered == regex_hint.casefold():
+        return True
+    if lowered in _COMMON_CITY_KEYS:
+        return True
+    match = _CITY_HINT_RE.search(text)
+    if match:
+        hint = match.group(1).split("|")[0].split(",")[0].strip()
+        if hint and lowered == hint.casefold():
+            return True
+    return False
+
 
 _LOCATION_KEYWORDS = {
     "remote",
@@ -1150,28 +1179,32 @@ def apply_basic_fallbacks(
         # City fallback order: reuse regex-based guess_city first, then fall back to
         # spaCy entity extraction (if available) before retrying the regex when the
         # field is marked invalid.
-        city_guess = "" if city_invalid else guess_city(text)
+        regex_city = _clean_city_candidate(guess_city(text))
+        city_guess = "" if city_invalid else regex_city
         city_rule = "city_regex" if city_guess else None
         if not city_guess or city_invalid:
             if location_entities is None:
                 location_entities = extract_location_entities(text, lang=language_hint)
             if location_entities:
-                spa_city = location_entities.primary_city or ""
+                spa_city = _clean_city_candidate(location_entities.primary_city)
             else:
                 spa_city = ""
             if spa_city:
                 city_guess = spa_city
                 city_rule = "city_entity"
-            elif city_invalid:
-                city_guess = guess_city(text)
-                if city_guess:
-                    city_rule = "city_regex_retry"
-        if city_guess:
-            profile.location.primary_city = city_guess
+            elif city_invalid and regex_city:
+                city_guess = regex_city
+                city_rule = "city_regex_retry"
+        candidate_city = _clean_city_candidate(city_guess)
+        if candidate_city:
+            if regex_city and not _city_candidate_is_trustworthy(candidate_city, text, regex_city):
+                candidate_city = regex_city
+                city_rule = "city_regex_retry" if city_invalid else "city_regex"
+            profile.location.primary_city = candidate_city
             _log_heuristic_fill(
                 "location.primary_city",
                 city_rule or "city_guess",
-                detail=f"with value {city_guess!r}",
+                detail=f"with value {candidate_city!r}",
             )
     if _needs_value(profile.location.country, country_field):
         # Country fallback order mirrors the city logic: prefer spaCy geo entities and

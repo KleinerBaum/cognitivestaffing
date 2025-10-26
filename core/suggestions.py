@@ -198,6 +198,7 @@ def get_skill_suggestions(
     *,
     focus_terms: Sequence[str] | None = None,
     missing_skills: Sequence[str] | None = None,
+    tone_style: str | None = None,
 ) -> Tuple[Dict[str, Dict[str, List[str]]], str | None]:
     """Fetch skill suggestions for a role title.
 
@@ -279,6 +280,7 @@ def get_skill_suggestions(
             job_title,
             lang=lang,
             focus_terms=focus_terms,
+            tone_style=tone_style,
         )
     except Exception as err:  # pragma: no cover - error path is tested
         errors.append(str(err))
@@ -300,6 +302,7 @@ def get_benefit_suggestions(
     lang: str = "en",
     *,
     focus_areas: Sequence[str] | None = None,
+    tone_style: str | None = None,
 ) -> Tuple[List[str], str | None, bool]:
     """Fetch benefit suggestions for a role.
 
@@ -326,6 +329,7 @@ def get_benefit_suggestions(
                 existing_benefits,
                 lang=lang,
                 focus_areas=focus_areas,
+                tone_style=tone_style,
             )
         )
     except Exception as err:  # pragma: no cover - error path is tested
@@ -344,6 +348,7 @@ def get_onboarding_suggestions(
     industry: str = "",
     culture: str = "",
     lang: str = "en",
+    tone_style: str | None = None,
 ) -> Tuple[List[str], str | None]:
     """Fetch onboarding process suggestions for the given role context."""
 
@@ -354,6 +359,7 @@ def get_onboarding_suggestions(
             industry=industry,
             culture=culture,
             lang=lang,
+            tone_style=tone_style,
         )
         return suggestions, None
     except Exception as err:  # pragma: no cover - API failure path

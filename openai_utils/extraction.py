@@ -32,6 +32,7 @@ from models.interview_guide import (
 from pydantic import ValidationError
 
 from utils.i18n import tr
+from constants.style_variants import STYLE_VARIANTS
 from constants.keys import StateKeys
 from . import api
 from .api import _chat_content
@@ -71,6 +72,50 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+
+def _style_lang(lang: str | None) -> str:
+    """Return normalized language code for style texts."""
+
+    return "de" if str(lang or "de").lower().startswith("de") else "en"
+
+
+def _style_instruction_text(tone_style: str | None, lang: str | None) -> str:
+    """Return localized instruction text for ``tone_style`` if available."""
+
+    key = str(tone_style or "").strip()
+    if not key:
+        return ""
+    variant = STYLE_VARIANTS.get(key)
+    if variant is None:
+        return key
+    return tr(*variant.instruction, lang=_style_lang(lang))
+
+
+def _style_prompt_hint(tone_style: str | None, lang: str | None) -> str:
+    """Return localized prompt hint for ``tone_style`` if defined."""
+
+    key = str(tone_style or "").strip()
+    if not key:
+        return ""
+    variant = STYLE_VARIANTS.get(key)
+    if variant is None:
+        return ""
+    return tr(*variant.prompt_hint, lang=_style_lang(lang))
+
+
+def _style_display_label(tone_style: str | None, lang: str | None) -> str:
+    """Return localized display label for ``tone_style``."""
+
+    key = str(tone_style or "").strip()
+    if not key:
+        return ""
+    variant = STYLE_VARIANTS.get(key)
+    if variant is None:
+        if " " in key:
+            return key
+        return key.replace("_", " ").title()
+    return tr(*variant.label, lang=_style_lang(lang))
 
 
 _HEURISTIC_FIELD_PREFIXES: tuple[str, ...] = (
@@ -608,6 +653,7 @@ def suggest_skills_for_role(
     lang: str = "en",
     model: str | None = None,
     focus_terms: Sequence[str] | None = None,
+    tone_style: str | None = None,
 ) -> dict[str, list[str]]:
     """Suggest tools, skills, and certificates for a job title.
 
@@ -649,6 +695,9 @@ def suggest_skills_for_role(
         job_title=job_title,
         focus_clause=focus_clause,
     )
+    tone_hint = _style_prompt_hint(tone_style, locale)
+    if tone_hint:
+        prompt += f"\n{tone_hint}"
 
     messages = [{"role": "user", "content": prompt}]
     res = api.call_chat_api(
@@ -744,6 +793,7 @@ def suggest_benefits(
     model: str | None = None,
     *,
     focus_areas: Sequence[str] | None = None,
+    tone_style: str | None = None,
 ) -> list[str]:
     """Suggest common benefits/perks for the given role.
 
@@ -793,6 +843,9 @@ def suggest_benefits(
         existing_clause=existing_clause,
         focus_clause=focus_clause,
     )
+    tone_hint = _style_prompt_hint(tone_style, locale)
+    if tone_hint:
+        prompt += f"\n{tone_hint}"
     messages = [{"role": "user", "content": prompt}]
     max_tokens = 150 if not model or "nano" in model else 200
     res = api.call_chat_api(
@@ -870,6 +923,7 @@ def suggest_onboarding_plans(
     culture: str = "",
     lang: str = "en",
     model: str | None = None,
+    tone_style: str | None = None,
 ) -> list[str]:
     """Generate onboarding program suggestions tailored to the role context."""
 
@@ -907,6 +961,9 @@ def suggest_onboarding_plans(
         industry_line=industry_line,
         culture_line=culture_line,
     )
+    tone_hint = _style_prompt_hint(tone_style, "de" if is_de else "en")
+    if tone_hint:
+        prompt += f"\n{tone_hint}"
     messages = [{"role": "user", "content": prompt}]
     onboarding_schema = {
         "type": "object",
@@ -1272,9 +1329,10 @@ def _prepare_interview_guide_payload(
     soft_list = _normalise_guide_list(soft_skills)
     responsibilities_list = _normalise_guide_list(responsibilities)
 
-    tone_text = tone.strip() if isinstance(tone, str) else ""
+    tone_text_raw = tone.strip() if isinstance(tone, str) else ""
     lang_code = (lang or "de").lower()
     is_de = lang_code.startswith("de")
+    tone_text = _style_instruction_text(tone_text_raw, lang_code)
     if not tone_text:
         tone_text = tr(
             "professionell und strukturiert",
@@ -1726,7 +1784,11 @@ def _prepare_job_ad_payload(
     def _tr(text_de: str, text_en: str) -> str:
         return text_de if is_de else text_en
 
-    tone_value = (tone or "").strip()
+    tone_key = (tone or "").strip()
+    tone_prompt = _style_instruction_text(tone_key, lang_code)
+    if not tone_prompt and tone_key:
+        tone_prompt = tone_key
+    tone_display_value = _style_display_label(tone_key, lang_code) if tone_key else ""
     raw_brand_keywords = _value_override("company.brand_keywords")
     if raw_brand_keywords in (None, "", []):
         raw_brand_keywords = _resolve("company.brand_keywords")
@@ -1786,7 +1848,7 @@ def _prepare_job_ad_payload(
     structured_payload: dict[str, Any] = {
         "language": lang_code,
         "audience": audience_text,
-        "tone": tone_value,
+        "tone": tone_prompt,
         "style_reference": (style_reference or "").strip(),
         "heading": heading,
         "job_title": job_title_value,
@@ -1808,18 +1870,9 @@ def _prepare_job_ad_payload(
         document_lines.append(f"**{_tr('Standort', 'Location')}:** {location_text}")
     document_lines.append(f"*{_tr('Zielgruppe', 'Target audience')}: {audience_text}*")
     meta_bits: list[str] = []
-    if tone_value:
-        tone_labels = {
-            "formal": _tr("Formell", "Formal"),
-            "casual": _tr("Locker", "Casual"),
-            "creative": _tr("Kreativ", "Creative"),
-            "diversity_focused": _tr("Diversität im Fokus", "Diversity-focused"),
-        }
-        tone_display = tone_labels.get(
-            tone_value,
-            tone_value.replace("_", " ").title(),
-        )
-        meta_bits.append(f"{_tr('Ton', 'Tone')}: {tone_display}")
+    tone_meta_display = tone_display_value or tone_prompt
+    if tone_meta_display:
+        meta_bits.append(f"{_tr('Ton', 'Tone')}: {tone_meta_display}")
     if brand_keywords_text:
         meta_bits.append(f"{_tr('Brand-Keywords', 'Brand keywords')}: {brand_keywords_text}")
     if meta_bits:

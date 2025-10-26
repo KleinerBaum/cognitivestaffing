@@ -72,6 +72,7 @@ from wizard import (
     generate_job_ad_content,
     inject_salary_slider_styles,
     render_onboarding_hero,
+    render_step_heading,
 )
 
 # LLM and Follow-ups
@@ -108,6 +109,7 @@ from core.job_ad import (
     resolve_job_ad_field_selection,
     suggest_target_audiences,
 )
+from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
@@ -817,6 +819,14 @@ def _render_skill_board(
     """Render the combined drag-and-drop board for skill selection."""
 
     _ensure_skill_board_style()
+
+    render_step_heading(
+        tr("Anforderungen & Qualifikationen", "Requirements & qualifications"),
+        tr(
+            "Lege Skills, Tools und Zertifikate fest. KI- und Marktinputs helfen bei der Priorisierung.",
+            "Define skills, tools, and certificates. Let AI and market insights guide the prioritisation.",
+        ),
+    )
 
     ai_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
     esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
@@ -3539,6 +3549,10 @@ def _job_ad_style_reference(data: Mapping[str, Any], base_url: str | None) -> st
 def _render_followup_question(q: dict, data: dict) -> None:
     """Render a follow-up question with optional suggestion chips."""
 
+    profile_state = st.session_state.get(StateKeys.PROFILE)
+    if isinstance(data, dict) and profile_state is not data:
+        st.session_state[StateKeys.PROFILE] = data
+
     field = q.get("field", "")
     prompt = q.get("question", "")
     suggestions = q.get("suggestions") or []
@@ -5310,7 +5324,6 @@ def _step_onboarding(schema: dict) -> None:
             ),
         ],
     )
-    st.subheader(onboarding_header)
     onboarding_caption = _format_dynamic_message(
         default=(
             "Gebe ein paar Informationen zu Deiner Vakanz und starte die dynamisch angepasste Analyse",
@@ -5334,7 +5347,7 @@ def _step_onboarding(schema: dict) -> None:
             ),
         ],
     )
-    st.caption(onboarding_caption)
+    render_step_heading(onboarding_header, onboarding_caption)
 
     st.divider()
 
@@ -5469,7 +5482,6 @@ def _step_company():
             ),
         ],
     )
-    st.subheader(company_header)
     company_caption = _format_dynamic_message(
         default=(
             "Basisinformationen zum Unternehmen angeben.",
@@ -5493,7 +5505,7 @@ def _step_company():
             ),
         ],
     )
-    st.caption(company_caption)
+    render_step_heading(company_header, company_caption)
     data = profile
     company = data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -6155,6 +6167,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
                 industry=industry,
                 culture=culture,
                 lang=lang,
+                tone_style=st.session_state.get(UIKeys.TONE_SELECT),
             )
             if err or not suggestions:
                 st.warning(
@@ -6232,7 +6245,6 @@ def _step_position():
             ),
         ],
     )
-    st.subheader(position_header)
     position_caption = _format_dynamic_message(
         default=(
             "Kerninformationen zur Rolle und Rahmenbedingungen erfassen.",
@@ -6263,7 +6275,7 @@ def _step_position():
             ),
         ],
     )
-    st.caption(position_caption)
+    render_step_heading(position_header, position_caption)
     data = profile
     data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -6738,6 +6750,7 @@ def _step_requirements():
                 job_title,
                 lang=lang,
                 focus_terms=list(focus_terms),
+                tone_style=st.session_state.get(UIKeys.TONE_SELECT),
             )
             st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
                 "_title": job_title,
@@ -7639,7 +7652,6 @@ def _step_compensation():
             ),
         ],
     )
-    st.subheader(compensation_header)
     compensation_caption = _format_dynamic_message(
         default=(
             "Gehaltsspanne und Zusatzleistungen erfassen.",
@@ -7663,7 +7675,7 @@ def _step_compensation():
             ),
         ],
     )
-    st.caption(compensation_caption)
+    render_step_heading(compensation_header, compensation_caption)
     data = profile
 
     slider_defaults = _derive_salary_range_defaults(profile)
@@ -7875,6 +7887,7 @@ def _step_compensation():
             existing,
             lang=lang,
             focus_areas=selected_benefit_focus,
+            tone_style=st.session_state.get(UIKeys.TONE_SELECT),
         )
         if used_fallback:
             st.info(
@@ -7951,7 +7964,6 @@ def _step_process():
             ),
         ],
     )
-    st.subheader(process_header)
     process_caption = _format_dynamic_message(
         default=(
             "Ablauf des Bewerbungsprozesses skizzieren.",
@@ -7975,7 +7987,7 @@ def _step_process():
             ),
         ],
     )
-    st.caption(process_caption)
+    render_step_heading(process_header, process_caption)
     data = profile["process"]
 
     stakeholders_raw = data.get("stakeholders")
@@ -8883,9 +8895,14 @@ def _step_summary(schema: dict, _critical: list[str]):
         safe_stem = "need-analysis-profile"
     profile_filename = f"{safe_stem}.{profile_ext}"
 
+    summary_title = tr("Zusammenfassung", "Summary")
+    summary_subtitle = tr(
+        "Überprüfen Sie Ihre Angaben und laden Sie das saubere JSON-Profil über den Button herunter.",
+        "Review your entries and use the button to download the clean JSON profile.",
+    )
     header_cols = st.columns((1, 0.45), gap="small")
     with header_cols[0]:
-        st.subheader(tr("Zusammenfassung", "Summary"))
+        render_step_heading(summary_title, summary_subtitle)
     with header_cols[1]:
         st.download_button(
             tr("⬇️ JSON-Profil exportieren", "⬇️ Export JSON profile"),
@@ -8895,13 +8912,6 @@ def _step_summary(schema: dict, _critical: list[str]):
             width="stretch",
             key="download_profile_json",
         )
-
-    st.caption(
-        tr(
-            "Überprüfen Sie Ihre Angaben und laden Sie das saubere JSON-Profil über den Button herunter.",
-            "Review your entries and use the button to download the clean JSON profile.",
-        )
-    )
 
     _render_summary_highlights(profile)
 
@@ -8979,15 +8989,27 @@ def _step_summary(schema: dict, _critical: list[str]):
     boolean_title_synonyms = _boolean_title_synonyms(profile)
 
     tone_presets = load_json("tone_presets.json", {}) or {}
-    tone_options = tone_presets.get(st.session_state.lang, {})
-    tone_labels = {
-        "formal": tr("Formell", "Formal"),
-        "casual": tr("Locker", "Casual"),
-        "creative": tr("Kreativ", "Creative"),
-        "diversity_focused": tr("Diversität im Fokus", "Diversity-Focused"),
-    }
-    if UIKeys.TONE_SELECT not in st.session_state:
-        st.session_state[UIKeys.TONE_SELECT] = "formal"
+    lang_code = st.session_state.get("lang", "de")
+    selected_style = st.session_state.get(UIKeys.TONE_SELECT, STYLE_VARIANT_ORDER[1])
+    if selected_style not in STYLE_VARIANTS:
+        selected_style = STYLE_VARIANT_ORDER[1]
+        st.session_state[UIKeys.TONE_SELECT] = selected_style
+    variant = STYLE_VARIANTS.get(selected_style)
+    preset_options = tone_presets.get(lang_code, {}) if isinstance(tone_presets, Mapping) else {}
+    if variant is not None:
+        style_instruction = preset_options.get(selected_style) or tr(*variant.instruction, lang=lang_code)
+        st.session_state["tone"] = style_instruction
+        st.session_state["style_prompt_hint"] = tr(*variant.prompt_hint, lang=lang_code)
+        style_label = tr(*variant.label, lang=lang_code)
+        style_description = tr(*variant.description, lang=lang_code)
+        style_example = tr(*variant.example, lang=lang_code)
+    else:
+        style_instruction = str(selected_style)
+        style_label = selected_style.replace("_", " ").title()
+        style_description = ""
+        style_example = ""
+        st.session_state["tone"] = style_instruction
+        st.session_state["style_prompt_hint"] = style_instruction
 
     base_url = st.session_state.get(StateKeys.COMPANY_PAGE_BASE) or ""
     style_reference = _job_ad_style_reference(profile_payload, base_url or None)
@@ -9002,6 +9024,11 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     with next_step_cols[0]:
         st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
+        st.markdown(f"**{tr('Ausgewählter Stil', 'Selected style')}**: {style_label}")
+        if style_description:
+            st.caption(style_description)
+        if style_example:
+            st.caption(style_example)
         brand_profile_value = data.get("company", {}).get("brand_keywords")
         brand_profile_text = brand_profile_value if isinstance(brand_profile_value, str) else ""
         if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state and brand_profile_text:
@@ -9348,13 +9375,16 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     tone_col, question_col = st.columns((1, 1), gap="small")
     with tone_col:
-        selected_tone = st.selectbox(
-            tr("Interviewleitfaden-Ton", "Interview guide tone"),
-            options=list(tone_options.keys()),
-            format_func=lambda k: tone_labels.get(k, k),
-            key=UIKeys.TONE_SELECT,
+        st.markdown(f"**{tr('Interviewleitfaden-Stil', 'Interview guide style')}**")
+        st.caption(style_label)
+        if style_description:
+            st.caption(style_description)
+        st.caption(
+            tr(
+                "Passe den Stil jederzeit über die Einstellungen in der Sidebar an.",
+                "Adjust the style at any time via the settings in the sidebar.",
+            )
         )
-        st.session_state["tone"] = tone_options.get(selected_tone)
 
     with question_col:
         if UIKeys.NUM_QUESTIONS not in st.session_state:
