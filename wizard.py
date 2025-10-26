@@ -70,9 +70,12 @@ from wizard import (
     _set_company_logo,
     generate_interview_guide_content,
     generate_job_ad_content,
+    merge_unique_items,
     inject_salary_slider_styles,
+    render_list_text_area,
     render_onboarding_hero,
     render_step_heading,
+    unique_normalized,
 )
 
 # LLM and Follow-ups
@@ -232,7 +235,7 @@ def _generate_local_benefits(profile: Mapping[str, Any], *, lang: str) -> list[s
     """Return locally flavoured benefit ideas based on profile context."""
 
     compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
-    existing_values = _unique_normalized(str(item) for item in (compensation.get("benefits", []) or []))
+    existing_values = unique_normalized(str(item) for item in (compensation.get("benefits", []) or []))
     existing = {value.casefold() for value in existing_values}
     location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
     country_raw = str(location.get("country") or "").strip()
@@ -259,7 +262,7 @@ def _generate_local_benefits(profile: Mapping[str, Any], *, lang: str) -> list[s
             continue
         seen.add(marker)
         suggestions.append(normalized)
-    normalized_suggestions = _unique_normalized(suggestions)
+    normalized_suggestions = unique_normalized(suggestions)
     return normalized_suggestions[:5]
 
 
@@ -836,8 +839,8 @@ def _render_skill_board(
     )
     lang_code = st.session_state.get("lang", "de")
     labels = _skill_board_labels(lang_code)
-    esco_candidates = _unique_normalized(esco_skills if esco_opted_in else [])
-    normalized_missing = _unique_normalized(missing_esco_skills if esco_opted_in else [])
+    esco_candidates = unique_normalized(esco_skills if esco_opted_in else [])
+    normalized_missing = unique_normalized(missing_esco_skills if esco_opted_in else [])
 
     stored_state = st.session_state.get(StateKeys.SKILL_BOARD_STATE)
     board_state: dict[SkillContainerType, list[str]] = {container: [] for container in _SKILL_CONTAINER_ORDER}
@@ -1359,14 +1362,14 @@ def _render_skill_board(
             if label not in final_nice_hard:
                 final_nice_hard.append(label)
 
-    requirements["hard_skills_required"] = _unique_normalized(final_must_hard)
-    requirements["soft_skills_required"] = _unique_normalized(final_must_soft)
-    requirements["hard_skills_optional"] = _unique_normalized(final_nice_hard)
-    requirements["soft_skills_optional"] = _unique_normalized(final_nice_soft)
+    requirements["hard_skills_required"] = unique_normalized(final_must_hard)
+    requirements["soft_skills_required"] = unique_normalized(final_must_soft)
+    requirements["hard_skills_optional"] = unique_normalized(final_nice_hard)
+    requirements["soft_skills_optional"] = unique_normalized(final_nice_soft)
 
     st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": _unique_normalized(final_must_hard + final_must_soft),
-        "nice": _unique_normalized(final_nice_hard + final_nice_soft),
+        "must": unique_normalized(final_must_hard + final_must_soft),
+        "nice": unique_normalized(final_nice_hard + final_nice_soft),
     }
 
 
@@ -3085,8 +3088,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     if soft_total:
         summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
     st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": _unique_normalized(data.get("requirements", {}).get("hard_skills_required", [])),
-        "nice": _unique_normalized(data.get("requirements", {}).get("hard_skills_optional", [])),
+        "must": unique_normalized(data.get("requirements", {}).get("hard_skills_required", [])),
+        "nice": unique_normalized(data.get("requirements", {}).get("hard_skills_optional", [])),
     }
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
@@ -3406,7 +3409,7 @@ def _merge_requirement_aliases() -> None:
         return
 
     for target, values in aggregated.items():
-        cleaned = _unique_normalized(values)
+        cleaned = unique_normalized(values)
         if not cleaned:
             continue
         _update_profile(target, cleaned)
@@ -4576,34 +4579,6 @@ def _slugify_label(label: str) -> str:
     return cleaned or "field"
 
 
-def _unique_normalized(values: Iterable[str] | None) -> list[str]:
-    """Return values without duplicates, normalized for comparison.
-
-    Args:
-        values: Iterable of strings that may include duplicates or blanks.
-
-    Returns:
-        List of trimmed values without case-insensitive duplicates.
-    """
-
-    seen: set[str] = set()
-    result: list[str] = []
-    if not values:
-        return result
-    for value in values:
-        if value is None:
-            continue
-        cleaned = value.strip()
-        if not cleaned:
-            continue
-        marker = cleaned.casefold()
-        if marker in seen:
-            continue
-        seen.add(marker)
-        result.append(cleaned)
-    return result
-
-
 def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]:
     """Return combined certificate entries across legacy keys."""
 
@@ -4613,13 +4588,13 @@ def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]
             items = requirements.get(key, [])
             if isinstance(items, Sequence) and not isinstance(items, (str, bytes, bytearray)):
                 raw_values.extend(str(item) for item in items)
-    return _unique_normalized(raw_values)
+    return unique_normalized(raw_values)
 
 
 def _set_requirement_certificates(requirements: dict[str, Any], values: Iterable[str]) -> None:
     """Synchronize certificate lists under both legacy keys."""
 
-    normalized = _unique_normalized(list(values))
+    normalized = unique_normalized(list(values))
     requirements["certificates"] = normalized
     requirements["certifications"] = list(normalized)
 
@@ -4706,7 +4681,7 @@ def _refresh_esco_skills(
                 continue
             seen.add(marker)
             aggregated.append(cleaned)
-    normalized_aggregated = _unique_normalized(aggregated)
+    normalized_aggregated = unique_normalized(aggregated)
     st.session_state[StateKeys.ESCO_SKILLS] = normalized_aggregated
     if not normalized_aggregated:
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
@@ -5041,7 +5016,7 @@ def _boolean_skill_terms(profile: NeedAnalysisProfile) -> list[str]:
         + profile.requirements.soft_skills_optional
         + profile.requirements.tools_and_technologies
     )
-    return _unique_normalized(combined)
+    return unique_normalized(combined)
 
 
 def _boolean_title_synonyms(profile: NeedAnalysisProfile) -> list[str]:
@@ -5058,7 +5033,7 @@ def _boolean_title_synonyms(profile: NeedAnalysisProfile) -> list[str]:
         cleaned = str(occupation_label).strip()
         if cleaned and cleaned.casefold() != job_title.casefold():
             synonyms.append(cleaned)
-    return _unique_normalized(synonyms)
+    return unique_normalized(synonyms)
 
 
 def _boolean_profile_signature(profile: NeedAnalysisProfile) -> str:
@@ -5335,18 +5310,18 @@ def _chip_multiselect(
     last_added_key = f"ui.chip_last_added.{slug}"
     clear_flag_key = f"{input_key}.__clear"
 
-    base_options = _unique_normalized(options)
-    base_values = _unique_normalized(values)
+    base_options = unique_normalized(options)
+    base_values = unique_normalized(values)
 
-    stored_options = _unique_normalized(st.session_state.get(options_key, []))
-    available_options = _unique_normalized(stored_options + base_options + base_values)
+    stored_options = unique_normalized(st.session_state.get(options_key, []))
+    available_options = unique_normalized(stored_options + base_options + base_values)
     available_options = sorted(available_options, key=str.casefold)
     st.session_state[options_key] = available_options
 
     if ms_key not in st.session_state:
         st.session_state[ms_key] = base_values
 
-    current_values = _unique_normalized(st.session_state.get(ms_key, []))
+    current_values = unique_normalized(st.session_state.get(ms_key, []))
 
     if st.session_state.get(clear_flag_key):
         st.session_state[input_key] = ""
@@ -5370,10 +5345,10 @@ def _chip_multiselect(
             return
 
         updated_options = sorted(
-            _unique_normalized(st.session_state.get(options_key, []) + [candidate]),
+            unique_normalized(st.session_state.get(options_key, []) + [candidate]),
             key=str.casefold,
         )
-        updated_values = _unique_normalized(current_values + [candidate])
+        updated_values = unique_normalized(current_values + [candidate])
 
         st.session_state[options_key] = updated_options
         st.session_state[ms_key] = updated_values
@@ -5434,7 +5409,7 @@ def _chip_multiselect(
             )
             if clicked_available is not None:
                 value = available_pool[clicked_available]
-                updated = _unique_normalized(selected_values + [value])
+                updated = unique_normalized(selected_values + [value])
                 st.session_state[ms_key] = updated
                 st.session_state[last_added_key] = value
                 st.session_state[clear_flag_key] = True
@@ -5442,7 +5417,7 @@ def _chip_multiselect(
         elif not selected_values:
             st.caption(tr("Keine Vorschläge verfügbar.", "No suggestions available."))
 
-    return _unique_normalized(st.session_state.get(ms_key, []))
+    return unique_normalized(st.session_state.get(ms_key, []))
 
 
 def _chip_multiselect_mapped(
@@ -7399,14 +7374,8 @@ def _step_requirements():
 
     responsibilities = data.setdefault("responsibilities", {})
     responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
-    responsibilities_text = "\n".join(responsibilities_items)
     responsibilities_key = "ui.requirements.responsibilities"
     responsibilities_seed_key = f"{responsibilities_key}.__seed"
-    current_seed = st.session_state.get(responsibilities_seed_key)
-    if current_seed != responsibilities_text:
-        st.session_state[responsibilities_seed_key] = responsibilities_text
-        if responsibilities_key in st.session_state:
-            st.session_state[responsibilities_key] = responsibilities_text
 
     responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
     responsibilities_required = "responsibilities.items" in missing_here
@@ -7426,26 +7395,19 @@ def _step_requirements():
             "Use bullet-style lines to document the role's core responsibilities.",
         ),
     ):
-        text_area_kwargs = {
-            "label": display_label,
-            "key": responsibilities_key,
-            "height": 200,
-            "placeholder": tr(
+        cleaned_responsibilities = render_list_text_area(
+            label=display_label,
+            session_key=responsibilities_key,
+            items=responsibilities_items,
+            placeholder=tr(
                 "z. B. Produkt-Roadmap planen\nStakeholder-Workshops moderieren",
                 "e.g., Plan the product roadmap\nFacilitate stakeholder workshops",
             ),
-        }
-        if responsibilities_key not in st.session_state:
-            text_area_kwargs["value"] = responsibilities_text
-
-        raw_responsibilities = st.text_area(**text_area_kwargs)
-        cleaned_responsibilities = [
-            re.sub(r"^[\-\*•]+\s*", "", line.strip()) for line in raw_responsibilities.splitlines() if line.strip()
-        ]
+            height=200,
+            required=responsibilities_required,
+            on_required=_render_required_caption,
+        )
         responsibilities["items"] = cleaned_responsibilities
-        if responsibilities_required and not cleaned_responsibilities:
-            _render_required_caption(True)
-        st.session_state[responsibilities_seed_key] = "\n".join(cleaned_responsibilities)
 
         lang_code = st.session_state.get("lang", "de")
         last_ai_state = st.session_state.get(StateKeys.RESPONSIBILITY_SUGGESTIONS)
@@ -7514,7 +7476,7 @@ def _step_requirements():
                     st.session_state["responsibility_suggest_error"] = error
             else:
                 if suggestions:
-                    merged = _unique_normalized([*cleaned_responsibilities, *suggestions])
+                    merged = merge_unique_items(cleaned_responsibilities, suggestions)
                     responsibilities["items"] = merged
                     joined = "\n".join(merged)
                     st.session_state[responsibilities_key] = joined
@@ -7547,14 +7509,14 @@ def _step_requirements():
         if normalized_groups:
             llm_skill_sources[pool_key] = normalized_groups
 
-    esco_skill_candidates = _unique_normalized(
+    esco_skill_candidates = unique_normalized(
         [
             str(skill).strip()
             for skill in st.session_state.get(StateKeys.ESCO_SKILLS, []) or []
             if isinstance(skill, str) and str(skill).strip()
         ]
     )
-    missing_esco_skills = _unique_normalized(
+    missing_esco_skills = unique_normalized(
         [
             str(skill).strip()
             for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
@@ -8183,22 +8145,21 @@ def _step_compensation():
         benefit_state = {"llm": [], "fallback": fallback_benefits, "_lang": lang}
     else:
         benefit_state.setdefault("fallback", fallback_benefits)
-    llm_benefits = _unique_normalized(str(item) for item in benefit_state.get("llm", []))
-    fallback_pool = _unique_normalized(str(item) for item in benefit_state.get("fallback", fallback_benefits))
+    llm_benefits = unique_normalized(str(item) for item in benefit_state.get("llm", []))
+    fallback_pool = unique_normalized(str(item) for item in benefit_state.get("fallback", fallback_benefits))
     benefit_state["llm"] = llm_benefits
     benefit_state["fallback"] = fallback_pool
     st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
-    existing_benefits = _unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
-    benefit_options = sorted(
-        _unique_normalized(existing_benefits + fallback_pool + llm_benefits),
-        key=str.casefold,
-    )
+    existing_benefits = unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
+    combined_options = merge_unique_items(existing_benefits, fallback_pool)
+    combined_options = merge_unique_items(combined_options, llm_benefits)
+    benefit_options = sorted(combined_options, key=str.casefold)
     selected_benefits = _chip_multiselect(
         tr("Leistungen", "Benefits", lang=lang),
         options=benefit_options,
         values=existing_benefits,
     )
-    data["compensation"]["benefits"] = _unique_normalized(selected_benefits)
+    data["compensation"]["benefits"] = unique_normalized(selected_benefits)
 
     stored_benefit_focus = st.session_state.get(StateKeys.BENEFIT_SUGGESTION_HINTS, [])
     benefit_focus_options = sorted(
@@ -8279,7 +8240,7 @@ def _step_compensation():
             _group, value = clicked_entry
             current_benefits = list(data["compensation"].get("benefits", []))
             merged = sorted(
-                _unique_normalized(current_benefits + [value]),
+                merge_unique_items(current_benefits, [value]),
                 key=str.casefold,
             )
             data["compensation"]["benefits"] = merged
@@ -8331,9 +8292,9 @@ def _step_compensation():
             benefit_state["_lang"] = lang
             if used_fallback:
                 benefit_state["llm"] = []
-                benefit_state["fallback"] = _unique_normalized(str(item) for item in new_sugg)
+                benefit_state["fallback"] = unique_normalized(str(item) for item in new_sugg)
             else:
-                benefit_state["llm"] = _unique_normalized(str(item) for item in new_sugg)
+                benefit_state["llm"] = unique_normalized(str(item) for item in new_sugg)
                 benefit_state["fallback"] = fallback_pool
             st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
             st.rerun()
@@ -8684,7 +8645,7 @@ def _summary_requirements() -> None:
         if isinstance(skill, str) and str(skill).strip()
     ]
     if missing_esco:
-        outstanding = ", ".join(_unique_normalized(missing_esco[:8]))
+        outstanding = ", ".join(unique_normalized(missing_esco[:8]))
         st.info(
             tr(
                 "Noch ausstehende ESCO-Pflichtskills: {skills}",
@@ -9008,10 +8969,10 @@ def _summary_compensation() -> None:
             "Team events",
         ],
     }
-    preset_options = _unique_normalized(preset_benefits.get(lang, []))
-    existing_benefits = _unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
+    preset_options = unique_normalized(preset_benefits.get(lang, []))
+    existing_benefits = unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
     benefit_options = sorted(
-        _unique_normalized(existing_benefits + preset_options),
+        unique_normalized(existing_benefits + preset_options),
         key=str.casefold,
     )
     benefits = _chip_multiselect(
@@ -9019,7 +8980,7 @@ def _summary_compensation() -> None:
         options=benefit_options,
         values=existing_benefits,
     )
-    benefits = _unique_normalized(benefits)
+    benefits = unique_normalized(benefits)
 
     _update_profile("compensation.salary_min", salary_min)
     _update_profile("compensation.salary_max", salary_max)

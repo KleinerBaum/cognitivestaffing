@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import streamlit as st
 
-from typing import Optional
+from typing import Callable, Optional, Sequence
 
 from utils.i18n import tr
+
+from ._logic import normalize_text_area_list
 
 
 _SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
@@ -193,8 +195,50 @@ def render_step_heading(title: str, subtitle: Optional[str] = None) -> None:
         st.subheader(subtitle)
 
 
+def render_list_text_area(
+    *,
+    label: str,
+    session_key: str,
+    items: Sequence[str] | None = None,
+    placeholder: str | None = None,
+    height: int = 200,
+    required: bool = False,
+    on_required: Callable[[bool], None] | None = None,
+    strip_bullets: bool = True,
+) -> list[str]:
+    """Render a multi-line text area bound to a list value."""
+
+    current_items = [str(item).strip() for item in (items or []) if isinstance(item, str) and str(item).strip()]
+    text_value = "\n".join(current_items)
+    seed_key = f"{session_key}.__seed"
+    if st.session_state.get(seed_key) != text_value:
+        st.session_state[seed_key] = text_value
+        if session_key in st.session_state:
+            st.session_state[session_key] = text_value
+
+    widget_args: dict[str, object] = {
+        "label": label,
+        "key": session_key,
+        "height": height,
+    }
+    if placeholder:
+        widget_args["placeholder"] = placeholder
+    if session_key not in st.session_state:
+        widget_args["value"] = text_value
+
+    raw_value = st.text_area(**widget_args)
+    cleaned_items = normalize_text_area_list(raw_value, strip_bullets=strip_bullets)
+    st.session_state[seed_key] = "\n".join(cleaned_items)
+
+    if required and not cleaned_items and on_required is not None:
+        on_required(True)
+
+    return cleaned_items
+
+
 __all__ = [
     "COMPACT_STEP_STYLE",
+    "render_list_text_area",
     "inject_salary_slider_styles",
     "render_onboarding_hero",
     "render_step_heading",
