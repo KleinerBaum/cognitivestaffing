@@ -1181,7 +1181,6 @@ def _prepare_payload(
             responses_tools: list[dict[str, Any]] = []
             for tool_spec in combined_tools:
                 cleaned_spec = dict(tool_spec)
-                cleaned_spec.pop("name", None)
                 responses_tools.append(cleaned_spec)
             if responses_tools:
                 payload["tools"] = responses_tools
