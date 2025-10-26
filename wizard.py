@@ -84,6 +84,7 @@ from openai_utils import (
 from core.suggestions import (
     get_benefit_suggestions,
     get_onboarding_suggestions,
+    get_responsibility_suggestions,
     get_skill_suggestions,
     get_static_benefit_shortlist,
 )
@@ -7121,6 +7122,91 @@ def _step_requirements():
         if responsibilities_required and not cleaned_responsibilities:
             _render_required_caption(True)
         st.session_state[responsibilities_seed_key] = "\n".join(cleaned_responsibilities)
+
+        lang_code = st.session_state.get("lang", "de")
+        last_ai_state = st.session_state.get(StateKeys.RESPONSIBILITY_SUGGESTIONS)
+        if isinstance(last_ai_state, Mapping) and last_ai_state.get("_lang") == lang_code:
+            status = last_ai_state.get("status")
+            if status in {"applied", "empty"}:
+                if status == "applied" and last_ai_state.get("items"):
+                    st.success(
+                        tr(
+                            "KI-Aufgaben eingefügt – bitte nach Bedarf feinjustieren.",
+                            "AI responsibilities inserted – adjust them as needed.",
+                        )
+                    )
+                    st.markdown("\n".join(f"- {item}" for item in last_ai_state.get("items", [])))
+                elif status == "empty":
+                    st.info(
+                        tr(
+                            "Keine neuen Aufgaben gefunden – ergänze mehr Kontext oder formuliere sie manuell.",
+                            "No new responsibilities were generated – add more context or enter them manually.",
+                        )
+                    )
+                updated_state = dict(last_ai_state)
+                updated_state["status"] = None
+                st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = updated_state
+
+        job_title = str(data.get("position", {}).get("job_title") or "").strip()
+        company_name = str(data.get("company", {}).get("name") or "").strip()
+        team_structure = str(data.get("position", {}).get("team_structure") or "").strip()
+        industry = str(data.get("company", {}).get("industry") or "").strip()
+        tone_style = st.session_state.get(UIKeys.TONE_SELECT)
+
+        button_label = "💡 " + tr("Aufgaben vorschlagen", "Suggest responsibilities")
+        disabled_reason = ""
+        if not job_title:
+            disabled_reason = tr(
+                "Jobtitel erforderlich, um KI-Vorschläge zu erhalten.",
+                "Add a job title to enable AI suggestions.",
+            )
+
+        if disabled_reason:
+            st.caption(disabled_reason)
+
+        if st.button(
+            button_label,
+            key=UIKeys.RESPONSIBILITY_SUGGEST,
+            disabled=bool(disabled_reason),
+        ):
+            with st.spinner(tr("KI schlägt Aufgaben vor…", "Fetching AI responsibilities…")):
+                suggestions, error = get_responsibility_suggestions(
+                    job_title,
+                    lang=lang_code,
+                    tone_style=tone_style,
+                    company_name=company_name,
+                    team_structure=team_structure,
+                    industry=industry,
+                    existing_items=cleaned_responsibilities,
+                )
+            if error:
+                st.error(
+                    tr(
+                        "Aufgaben-Vorschläge fehlgeschlagen: {error}",
+                        "Responsibility suggestions failed: {error}",
+                    ).format(error=error)
+                )
+                if st.session_state.get("debug"):
+                    st.session_state["responsibility_suggest_error"] = error
+            else:
+                if suggestions:
+                    merged = _unique_normalized([*cleaned_responsibilities, *suggestions])
+                    responsibilities["items"] = merged
+                    joined = "\n".join(merged)
+                    st.session_state[responsibilities_key] = joined
+                    st.session_state[responsibilities_seed_key] = joined
+                    st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
+                        "_lang": lang_code,
+                        "items": suggestions,
+                        "status": "applied",
+                    }
+                else:
+                    st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
+                        "_lang": lang_code,
+                        "items": [],
+                        "status": "empty",
+                    }
+                st.rerun()
 
     llm_skill_sources: dict[str, dict[str, list[str]]] = {}
     for pool_key in ("hard_skills", "soft_skills"):

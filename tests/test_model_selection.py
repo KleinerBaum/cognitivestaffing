@@ -49,6 +49,26 @@ def test_suggest_skills_for_role_model(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["certificates"] == ["Certificate 1"]
 
 
+def test_suggest_responsibilities_for_role_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str | None] = {}
+
+    payload = {"responsibilities": ["Define roadmap"]}
+
+    def fake_call_chat_api(messages: Any, model: str | None = None, **kwargs: Any) -> ChatCallResult:
+        captured["model"] = model
+        return ChatCallResult(json.dumps(payload), [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
+    result = openai_utils.suggest_responsibilities_for_role(
+        "Product Manager",
+        model=config.GPT5_MINI,
+        company_name="Acme",
+    )
+
+    assert captured["model"] == config.GPT5_MINI
+    assert result == ["Define roadmap"]
+
+
 def test_suggest_benefits_model(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, str | None] = {}
 

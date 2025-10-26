@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: surface AI responsibility suggestions in the requirements step with contextual prompts
+  - Feature: KI-Aufgaben-Vorschläge im Anforderungsschritt mit kontextuellem Prompt integrieren
 - feat: introduce the RecruitingWizard single-source schema with source attribution, canonical keys, and SCHEMA_WIZARD_V1 flag
   - Feature: neues RecruitingWizard-Masterschema mit Source-Attribution, kanonischen Keys und Feature-Flag `SCHEMA_WIZARD_V1`
 - chore: pin Streamlit deployment config to `requirements.txt` to suppress duplicate requirements warnings

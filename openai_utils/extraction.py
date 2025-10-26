@@ -785,6 +785,107 @@ def suggest_skills_for_role(
     }
 
 
+def suggest_responsibilities_for_role(
+    job_title: str,
+    *,
+    lang: str = "en",
+    model: str | None = None,
+    company_name: str | None = None,
+    team_structure: str | None = None,
+    industry: str | None = None,
+    tone_style: str | None = None,
+) -> list[str]:
+    """Suggest core responsibilities for a job title."""
+
+    job_title = job_title.strip()
+    if not job_title:
+        return []
+    if model is None:
+        model = get_model_for(ModelTask.TASK_SUGGESTION)
+
+    locale = "de" if lang.lower().startswith("de") else "en"
+
+    def _clean_context(value: str | None) -> str:
+        cleaned = str(value or "").strip()
+        return cleaned
+
+    context_lines: list[str] = []
+    company = _clean_context(company_name)
+    if company:
+        context_lines.append("Unternehmen: " + company if locale == "de" else "Company: " + company)
+    team = _clean_context(team_structure)
+    if team:
+        context_lines.append("Teamstruktur: " + team if locale == "de" else "Team structure: " + team)
+    industry_value = _clean_context(industry)
+    if industry_value:
+        context_lines.append("Branche: " + industry_value if locale == "de" else "Industry: " + industry_value)
+
+    context_clause = ""
+    if context_lines:
+        header = "Kontext:" if locale == "de" else "Context:"
+        context_clause = "\n" + header + "\n" + "\n".join(f"- {line}" for line in context_lines)
+
+    prompt = _format_prompt(
+        "llm.extraction.responsibility_suggestions.user",
+        locale=locale,
+        job_title=job_title,
+        context_clause=context_clause,
+    )
+    tone_hint = _style_prompt_hint(tone_style, locale)
+    if tone_hint:
+        prompt += f"\n{tone_hint}"
+
+    messages = [{"role": "user", "content": prompt}]
+    res = api.call_chat_api(
+        messages,
+        model=model,
+        json_schema={
+            "name": "responsibility_suggestions",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "responsibilities": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    }
+                },
+                "required": ["responsibilities"],
+                "additionalProperties": False,
+            },
+        },
+        max_tokens=400,
+        temperature=0.4,
+        task=ModelTask.TASK_SUGGESTION,
+    )
+    raw = _chat_content(res)
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {}
+
+    def _clean(items: Any) -> list[str]:
+        if not isinstance(items, list):
+            return []
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for raw_item in items:
+            if not isinstance(raw_item, str):
+                continue
+            entry = raw_item.strip()
+            if not entry:
+                continue
+            marker = entry.casefold()
+            if marker in seen:
+                continue
+            seen.add(marker)
+            cleaned.append(entry)
+            if len(cleaned) == 7:
+                break
+        return cleaned
+
+    return _clean(data.get("responsibilities"))
+
+
 def suggest_benefits(
     job_title: str,
     industry: str = "",
@@ -2172,6 +2273,7 @@ __all__ = [
     "extract_with_function",
     "ExtractionResult",
     "suggest_skills_for_role",
+    "suggest_responsibilities_for_role",
     "suggest_benefits",
     "suggest_onboarding_plans",
     "generate_interview_guide",

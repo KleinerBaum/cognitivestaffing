@@ -7,6 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from core import suggestions
 from core.suggestions import (
     get_benefit_suggestions,
+    get_responsibility_suggestions,
     get_skill_suggestions,
     get_static_benefit_shortlist,
 )
@@ -77,6 +78,39 @@ def test_get_skill_suggestions_error(monkeypatch):
     sugg, err = get_skill_suggestions("Engineer")
     assert sugg == {"hard_skills": {"esco_skill": ["PYTHON"]}}
     assert err == "fail"
+
+
+def test_get_responsibility_suggestions(monkeypatch):
+    monkeypatch.setattr(
+        suggestions,
+        "suggest_responsibilities_for_role",
+        lambda *_, **__: ["Lead roadmap", "lead roadmap", "Coordinate stakeholders"],
+    )
+
+    values, err = get_responsibility_suggestions(
+        "Product Manager",
+        existing_items=["Lead Roadmap"],
+        company_name="Acme",
+    )
+
+    assert values == ["Coordinate stakeholders"]
+    assert err is None
+
+
+def test_get_responsibility_suggestions_error(monkeypatch):
+    def raiser(*_args, **_kwargs):
+        raise RuntimeError("kaputt")
+
+    monkeypatch.setattr(suggestions, "suggest_responsibilities_for_role", raiser)
+    values, err = get_responsibility_suggestions("Engineer")
+    assert values == []
+    assert err == "kaputt"
+
+
+def test_get_responsibility_suggestions_empty_title():
+    values, err = get_responsibility_suggestions("")
+    assert values == []
+    assert err is None
 
 
 def test_get_benefit_suggestions(monkeypatch):
