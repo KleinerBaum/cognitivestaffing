@@ -9,8 +9,6 @@ from typing import Any, Iterable, Mapping
 
 import streamlit as st
 
-from components.model_selector import model_selector
-from components.verbosity_selector import verbosity_selector
 from constants.keys import StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
 from utils.i18n import tr
@@ -218,8 +216,6 @@ def _render_settings() -> None:
             on_change=_on_lang_toggle,
         )
 
-    model_selector()
-    verbosity_selector()
 
 
 def _render_hero(context: SidebarContext) -> None:

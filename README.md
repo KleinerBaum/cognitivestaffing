@@ -13,7 +13,7 @@
   **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.
   **DE:** Deterministische Helfer liefern Gehaltsbenchmarks, Währungsumrechnung mit zwischengespeicherten FX-Kursen und ISO-Datumsnormalisierung, damit der Assistent ohne zusätzliche APIs fundiert begründen kann.
 - **Vector-store enrichment:** Provide `VECTOR_STORE_ID` to let the RAG agent retrieve supporting snippets via OpenAI **file_search**, seeding better suggestions when the uploaded job ad is sparse.
-- **Multi-model routing:** The router sends high-complexity tasks to `gpt-4o` and lightweight lookups to `gpt-4o-mini` by default. Manual overrides can escalate to `gpt-5.1-mini` (GPT-5 mini) or `gpt-5.1-nano` (GPT-5 nano) when premium quality is required.
+- **Multi-model routing:** The router sends high-complexity tasks to `gpt-4o` and lightweight lookups to `gpt-4o-mini` by default. Administrators can still pin a specific tier via configuration (for example by setting `OPENAI_MODEL`), but the sidebar now focuses on automated routing.
 - **Gap analysis workspace / Gap-Analyse-Arbeitsbereich:**
   **EN:** Launch the **Gap analysis** view to combine ESCO metadata, retrieved snippets, and vacancy text into an executive-ready report that highlights missing information and next steps.
   **DE:** Öffne die Ansicht **Gap-Analyse**, um ESCO-Metadaten, abgerufene Snippets und Ausschreibungstext zu einem Management-tauglichen Bericht mit offenen Punkten und nächsten Schritten zu verbinden.
@@ -27,9 +27,9 @@
 - **Fallback chain (GPT-5 mini → GPT-4o → GPT-4 → GPT-3.5) / Fallback-Kette (GPT-5 mini → GPT-4o → GPT-4 → GPT-3.5)**
   **EN:** When the primary model is overloaded or deprecated the platform now retries with the expanded chain `gpt-5.1-mini → gpt-4o → gpt-4 → gpt-3.5-turbo`. Each downgrade is recorded in telemetry so we can spot chronic outages.
   **DE:** Meldet die API, dass das Primärmodell überlastet oder abgekündigt ist, läuft der neue Fallback-Pfad `gpt-5.1-mini → gpt-4o → gpt-4 → gpt-3.5-turbo`. Jeder Schritt wird im Telemetrie-Stream protokolliert, um anhaltende Störungen sichtbar zu machen.
-- **Model override toggle / Modell-Override-Umschalter**
-  **EN:** Open the sidebar settings and use the **Base model** select box to force a specific tier. Choosing “Auto” clears the override so routing and fallbacks can operate normally (balanced: `gpt-4o` / `gpt-4o-mini`); selecting “Force GPT-5 mini (`gpt-5.1-mini`)” or “Force GPT-5 nano (`gpt-5.1-nano`)” pins every request to that engine until you switch back.
-  **DE:** Öffne die Einstellungen in der Seitenleiste und nutze das Auswahlfeld **Basismodell**, um einen bestimmten Modell-Tier zu erzwingen. „Automatisch“ aktiviert das ausgewogene Routing (`gpt-4o` / `gpt-4o-mini`) mit Fallbacks; „GPT-5 mini (`gpt-5.1-mini`) erzwingen“ bzw. „GPT-5 nano (`gpt-5.1-nano`) erzwingen“ fixiert jede Anfrage auf diese Engine, bis du wieder zurückschaltest.
+- **Model override via configuration / Modell-Override über Konfiguration**
+  **EN:** Use environment variables or secrets (e.g., `OPENAI_MODEL` or `st.session_state["model_override"]`) to pin a specific tier when necessary. Clearing the override restores automatic routing (`gpt-4o` / `gpt-4o-mini`) and fallback behaviour.
+  **DE:** Setze bei Bedarf Umgebungsvariablen oder Secrets (z. B. `OPENAI_MODEL` oder `st.session_state["model_override"]`), um ein bestimmtes Modell festzulegen. Ohne Override greift wieder das automatische Routing (`gpt-4o` / `gpt-4o-mini`) inklusive Fallback-Kette.
 
 ## Architecture at a Glance
 The Streamlit entrypoint (`app.py`) wires UI components from `components/` and the multi-step graph in `wizard.py` into a shared `st.session_state`. Domain rules in `core/` and `question_logic.py` keep the vacancy schema aligned with UI widgets and exports. Agents (see [AGENTS.md](AGENTS.md)) call into `llm/` helpers that return a unified `ChatCallResult`, manage retries, and execute registered tools.
@@ -122,7 +122,7 @@ python -m cli.rebuild_vector_store vs_existing_store_id
 
 ## Usage Guide
 1. **Load a job ad:** Upload a PDF/DOCX/TXT file or paste a URL/text snippet. Extraction runs automatically, locking high-confidence fields.
-2. **Review the overview:** The sidebar highlights which fields were rule-matched, inferred by AI, or still missing. Adjust the **Response verbosity** setting (Deutsch: *Antwort-Detailgrad*) to switch between concise and detailed AI explanations.
+2. **Review the overview:** The sidebar highlights which fields were rule-matched, inferred by AI, or still missing. Use the inline help to understand why fields are locked or which follow-ups remain outstanding.
 3. **Answer follow-ups:** The Follow-up Question Generator asks targeted questions. Enable *Auto follow-ups* to let the agent re-run until all critical gaps are closed.
 4. **Enrich requirements:** Accept AI suggestions for skills, benefits, salary ranges, and responsibilities. Tooltips explain why suggestions might be empty (e.g., locked fields, missing context, or disabled RAG).
 5. **Generate deliverables:** Use the summary step to stream job ads, interview guides, and Boolean search strings. Each generation shows usage metrics and supports instant regeneration with new instructions.
