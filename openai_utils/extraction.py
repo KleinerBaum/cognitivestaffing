@@ -654,6 +654,8 @@ def suggest_skills_for_role(
     model: str | None = None,
     focus_terms: Sequence[str] | None = None,
     tone_style: str | None = None,
+    existing_items: Sequence[str] | None = None,
+    responsibilities: Sequence[str] | None = None,
 ) -> dict[str, list[str]]:
     """Suggest tools, skills, and certificates for a job title.
 
@@ -680,6 +682,12 @@ def suggest_skills_for_role(
         model = get_model_for(ModelTask.SKILL_SUGGESTION)
 
     focus_terms = [str(term).strip() for term in (focus_terms or []) if str(term).strip()]
+    existing_pool = [
+        str(item).strip() for item in (existing_items or []) if isinstance(item, str) and str(item).strip()
+    ]
+    responsibility_pool = [
+        str(item).strip() for item in (responsibilities or []) if isinstance(item, str) and str(item).strip()
+    ]
 
     locale = "de" if lang.lower().startswith("de") else "en"
     focus_clause = ""
@@ -689,11 +697,27 @@ def suggest_skills_for_role(
             locale=locale,
             focus_terms=", ".join(focus_terms),
         )
+    existing_clause = ""
+    if existing_pool:
+        existing_clause = _format_prompt(
+            "llm.extraction.skill_suggestions.existing_clause",
+            locale=locale,
+            existing_items="; ".join(existing_pool[:30]),
+        )
+    responsibility_clause = ""
+    if responsibility_pool:
+        responsibility_clause = _format_prompt(
+            "llm.extraction.skill_suggestions.responsibility_clause",
+            locale=locale,
+            responsibilities="; ".join(responsibility_pool[:12]),
+        )
     prompt = _format_prompt(
         "llm.extraction.skill_suggestions.user",
         locale=locale,
         job_title=job_title,
         focus_clause=focus_clause,
+        existing_clause=existing_clause,
+        responsibility_clause=responsibility_clause,
     )
     tone_hint = _style_prompt_hint(tone_style, locale)
     if tone_hint:

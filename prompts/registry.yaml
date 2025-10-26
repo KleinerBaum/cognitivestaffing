@@ -16,12 +16,20 @@
       },
       "skill_suggestions": {
         "user": {
-          "en": "List exactly 12 IT technologies, 12 hard skills, 12 soft skills, and 12 relevant certificates for the job title '{job_title}'. Respond with JSON using the keys 'tools_and_technologies', 'hard_skills', 'soft_skills', and 'certificates'.{focus_clause}",
-          "de": "Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 relevante Zertifikate für den Jobtitel '{job_title}'. Antworte als JSON mit den Schlüsseln 'tools_and_technologies', 'hard_skills', 'soft_skills' und 'certificates'.{focus_clause}"
+          "en": "List exactly 12 IT technologies, 12 hard skills, 12 soft skills, and 12 relevant certificates for the job title '{job_title}'. Respond with JSON using the keys 'tools_and_technologies', 'hard_skills', 'soft_skills', and 'certificates'.{focus_clause}{existing_clause}{responsibility_clause}",
+          "de": "Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 relevante Zertifikate für den Jobtitel '{job_title}'. Antworte als JSON mit den Schlüsseln 'tools_and_technologies', 'hard_skills', 'soft_skills' und 'certificates'.{focus_clause}{existing_clause}{responsibility_clause}"
         },
         "focus_clause": {
           "en": " Prioritise options connected to: {focus_terms}.",
           "de": " Berücksichtige diese Schwerpunkte bei der Auswahl: {focus_terms}."
+        },
+        "existing_clause": {
+          "en": " Avoid repeating already listed items: {existing_items}.",
+          "de": " Vermeide bereits aufgeführte Punkte: {existing_items}."
+        },
+        "responsibility_clause": {
+          "en": " Align suggestions with these core responsibilities: {responsibilities}.",
+          "de": " Richte die Vorschläge an diesen Kernaufgaben aus: {responsibilities}."
         }
       },
       "responsibility_suggestions": {

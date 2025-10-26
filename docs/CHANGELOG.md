@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: add on-demand AI buttons for skills and benefits with contextual filtering
+  - Feature: KI-Vorschlagsbuttons für Skills und Benefits mit kontextuellem Duplikatfilter
 - feat: add ESCO occupation search and cached skill import to the requirements step UI
   - Feature: ESCO-Berufssuche und gecachte Skill-Übernahme im Anforderungsschritt ergänzen
 - feat: surface AI responsibility suggestions in the requirements step with contextual prompts

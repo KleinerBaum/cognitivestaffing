@@ -829,8 +829,11 @@ def _render_skill_board(
         ),
     )
 
-    ai_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
     esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
+    llm_available = any(
+        bool(groups) and any(group_values for group_values in groups.values())
+        for groups in (llm_suggestions or {}).values()
+    )
     lang_code = st.session_state.get("lang", "de")
     labels = _skill_board_labels(lang_code)
     esco_candidates = _unique_normalized(esco_skills if esco_opted_in else [])
@@ -862,8 +865,6 @@ def _render_skill_board(
                     continue
                 board_state[target_container].append(cleaned_item)
 
-    if not ai_opted_in:
-        board_state["source_ai"] = []
     if not esco_opted_in:
         board_state["source_esco"] = []
 
@@ -1073,10 +1074,8 @@ def _render_skill_board(
                 )
             _add_if_absent(display, "source_extracted")
 
-    effective_llm_suggestions = llm_suggestions if ai_opted_in else None
-
-    if effective_llm_suggestions:
-        for bucket_key, grouped_values in effective_llm_suggestions.items():
+    if llm_suggestions:
+        for bucket_key, grouped_values in llm_suggestions.items():
             if bucket_key not in {"hard_skills", "soft_skills"}:
                 continue
             category: SkillCategory = "hard" if bucket_key == "hard_skills" else "soft"
@@ -1252,7 +1251,7 @@ def _render_skill_board(
 
     source_parts_de: list[str] = ["„Extrahierte Anforderungen“"]
     source_parts_en: list[str] = ["“Extracted requirements”"]
-    if ai_opted_in:
+    if llm_available:
         source_parts_de.append("„KI-Vorschläge“")
         source_parts_en.append("“AI suggestions”")
     if esco_opted_in:
@@ -6744,9 +6743,7 @@ def _step_requirements():
         requirements = {}
         data["requirements"] = requirements
 
-    ai_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
     esco_opted_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
-    st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = ai_opted_in
     st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = esco_opted_in
 
     requirements_style_key = "ui.requirements_styles"
@@ -6846,46 +6843,45 @@ def _step_requirements():
     def _load_skill_suggestions(
         focus_terms: Sequence[str],
     ) -> tuple[dict[str, dict[str, list[str]]], str | None, str | None]:
-        if not st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN):
-            return {}, None, "ai_opt_in_required"
-
-        local_store = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {})
+        local_store = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {}) or {}
         focus_signature_local = tuple(sorted(focus_terms, key=str.casefold))
         if job_title and not has_missing_key:
-            if (
-                local_store.get("_title") == job_title
-                and local_store.get("_lang") == lang
-                and tuple(local_store.get("_focus", [])) == focus_signature_local
-            ):
-                return (
-                    {
-                        key: local_store.get(key, {})
-                        for key in (
-                            "hard_skills",
-                            "soft_skills",
-                            "tools_and_technologies",
-                            "certificates",
-                        )
-                    },
-                    None,
-                    None,
-                )
-            fetched, error = get_skill_suggestions(
-                job_title,
-                lang=lang,
-                focus_terms=list(focus_terms),
-                tone_style=st.session_state.get(UIKeys.TONE_SELECT),
-            )
-            st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
-                "_title": job_title,
-                "_lang": lang,
-                "_focus": list(focus_signature_local),
-                **fetched,
-            }
-            return fetched, error, None
+            stored_title = str(local_store.get("_title") or "")
+            stored_lang = str(local_store.get("_lang") or "")
+            stored_focus = tuple(str(item) for item in local_store.get("_focus", []))
+            if stored_title == job_title and stored_lang == lang and stored_focus == focus_signature_local:
+                payload: dict[str, dict[str, list[str]]] = {}
+                for field in (
+                    "hard_skills",
+                    "soft_skills",
+                    "tools_and_technologies",
+                    "certificates",
+                ):
+                    raw_groups = local_store.get(field)
+                    if not isinstance(raw_groups, Mapping):
+                        continue
+                    cleaned_groups: dict[str, list[str]] = {}
+                    for group_name, values in raw_groups.items():
+                        if not isinstance(group_name, str):
+                            continue
+                        cleaned_values = [
+                            str(value).strip()
+                            for value in (values or [])
+                            if isinstance(value, str) and str(value).strip()
+                        ]
+                        if cleaned_values:
+                            cleaned_groups[group_name] = cleaned_values
+                    if cleaned_groups:
+                        payload[field] = cleaned_groups
+                cached_error = str(local_store.get("_error") or "") or None
+                return payload, cached_error, None
+            if local_store:
+                st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
         if has_missing_key:
             return {}, None, "missing_key"
-        return {}, None, "missing_title"
+        if not job_title:
+            return {}, None, "missing_title"
+        return {}, None, "fetch_required"
 
     def _show_suggestion_warning(error: str | None) -> None:
         if not error:
@@ -6902,6 +6898,25 @@ def _step_requirements():
     raw_position = data.get("position")
     position_mapping: Mapping[str, Any] | None = raw_position if isinstance(raw_position, Mapping) else None
 
+    def _collect_existing_requirement_terms() -> list[str]:
+        collected: list[str] = []
+        source_keys = (
+            "hard_skills_required",
+            "hard_skills_optional",
+            "soft_skills_required",
+            "soft_skills_optional",
+            "tools_and_technologies",
+            "certificates",
+        )
+        for key_name in source_keys:
+            for entry in requirements.get(key_name, []) or []:
+                if not isinstance(entry, str):
+                    continue
+                cleaned = entry.strip()
+                if cleaned:
+                    collected.append(cleaned)
+        return collected
+
     helper_columns = st.columns((2.5, 1.5), gap="large")
     with helper_columns[0]:
         focus_selection = _chip_multiselect(
@@ -6915,25 +6930,85 @@ def _step_requirements():
             ),
             dropdown=True,
         )
-        current_ai_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN))
-        ai_button_label = (
-            tr("✨ KI-Vorschläge laden", "✨ Fetch suggestions from AI")
-            if not current_ai_opt_in
-            else tr("🔌 KI-Vorschläge deaktivieren", "🔌 Disable AI suggestions")
-        )
         if st.button(
-            ai_button_label,
+            "💡 " + tr("KI-Skills vorschlagen", "Suggest additional skills"),
             key=UIKeys.REQUIREMENTS_FETCH_AI_SUGGESTIONS,
-            type="secondary",
+            type="primary",
             help=tr(
-                "Schaltet KI-Vorschläge für Skills ein oder aus.",
-                "Toggle AI-powered skill suggestions on or off.",
+                "Lässt die KI zusätzliche passende Skills vorschlagen.",
+                "Ask the AI for additional relevant skills.",
             ),
         ):
-            new_value = not current_ai_opt_in
-            st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = new_value
-            st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
-            st.rerun()
+            if has_missing_key:
+                st.info(
+                    tr(
+                        "Hinterlege zuerst einen OpenAI API Key in den Einstellungen.",
+                        "Add an OpenAI API key in the settings first.",
+                    )
+                )
+            elif not job_title:
+                st.info(
+                    tr(
+                        "Bitte gib einen Jobtitel an, um Skill-Vorschläge zu erhalten.",
+                        "Provide a job title to unlock skill suggestions.",
+                    )
+                )
+            else:
+                focus_signature_local = tuple(sorted(focus_selection, key=str.casefold))
+                existing_terms = _collect_existing_requirement_terms()
+                responsibility_items = [
+                    str(item).strip()
+                    for item in (data.get("responsibilities", {}) or {}).get("items", [])
+                    if isinstance(item, str) and str(item).strip()
+                ]
+                spinner_label = tr(
+                    "Generiere Skill-Vorschläge…",
+                    "Generating skill suggestions…",
+                    lang=lang,
+                )
+                with st.spinner(spinner_label):
+                    fetched, error = get_skill_suggestions(
+                        job_title,
+                        lang=lang,
+                        focus_terms=list(focus_selection),
+                        tone_style=st.session_state.get(UIKeys.TONE_SELECT),
+                        existing_skills=existing_terms,
+                        responsibilities=responsibility_items,
+                    )
+                normalized_payload: dict[str, dict[str, list[str]]] = {}
+                for field, groups in fetched.items():
+                    if not isinstance(groups, Mapping):
+                        continue
+                    field_groups: dict[str, list[str]] = {}
+                    for group, values in groups.items():
+                        if not isinstance(group, str):
+                            continue
+                        cleaned_values = [
+                            str(value).strip()
+                            for value in (values or [])
+                            if isinstance(value, str) and str(value).strip()
+                        ]
+                        if cleaned_values:
+                            field_groups[group] = cleaned_values
+                    if field_groups:
+                        normalized_payload[field] = field_groups
+                st.session_state[StateKeys.SKILL_SUGGESTIONS] = {
+                    "_title": job_title,
+                    "_lang": lang,
+                    "_focus": list(focus_signature_local),
+                    "_error": error,
+                    **normalized_payload,
+                }
+                if error and st.session_state.get("debug"):
+                    st.session_state["skill_suggest_error"] = error
+                if not normalized_payload and not error:
+                    st.info(
+                        tr(
+                            "Keine neuen Skill-Ideen gefunden – passe Fokus oder vorhandene Anforderungen an.",
+                            "No new skill ideas found – adjust the focus tags or existing requirements.",
+                        )
+                    )
+
     with helper_columns[1]:
         lang_code = st.session_state.get("lang", "de") or "de"
         _render_requirements_esco_search(position_mapping, lang=lang_code)
@@ -7064,15 +7139,6 @@ def _step_requirements():
         caption: str,
         show_hint: bool = False,
     ) -> None:
-        if not st.session_state.get(StateKeys.REQUIREMENTS_AI_OPT_IN) or suggestion_hint == "ai_opt_in_required":
-            if show_hint:
-                st.info(
-                    tr(
-                        "Klicke auf „✨ KI-Vorschläge laden“, um Vorschläge anzuzeigen.",
-                        "Press “✨ Fetch suggestions from AI” to reveal suggestions.",
-                    )
-                )
-            return
         if suggestion_hint == "missing_key":
             if show_hint:
                 st.info(
@@ -7088,6 +7154,15 @@ def _step_requirements():
                     tr(
                         "Füge einen Jobtitel hinzu, um KI-Vorschläge zu erhalten.",
                         "Add a job title to unlock AI suggestions.",
+                    )
+                )
+            return
+        if suggestion_hint == "fetch_required":
+            if show_hint:
+                st.info(
+                    tr(
+                        "Klicke auf „KI-Skills vorschlagen“, um neue Ideen abzurufen.",
+                        "Press “Suggest additional skills” to request fresh ideas.",
                     )
                 )
             return
@@ -7195,7 +7270,6 @@ def _step_requirements():
             width="stretch",
         ):
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
-            st.session_state[StateKeys.REQUIREMENTS_AI_OPT_IN] = False
             st.rerun()
 
     responsibilities = data.setdefault("responsibilities", {})
@@ -8092,14 +8166,20 @@ def _step_compensation():
         existing = "\n".join(data["compensation"].get("benefits", []))
         local_benefits = _generate_local_benefits(profile, lang=lang)
         st.session_state[StateKeys.LOCAL_BENEFIT_SUGGESTIONS] = local_benefits
-        new_sugg, err, used_fallback = get_benefit_suggestions(
-            job_title,
-            industry,
-            existing,
+        spinner_label = tr(
+            "Generiere Benefit-Vorschläge…",
+            "Generating benefit suggestions…",
             lang=lang,
-            focus_areas=selected_benefit_focus,
-            tone_style=st.session_state.get(UIKeys.TONE_SELECT),
         )
+        with st.spinner(spinner_label):
+            new_sugg, err, used_fallback = get_benefit_suggestions(
+                job_title,
+                industry,
+                existing,
+                lang=lang,
+                focus_areas=selected_benefit_focus,
+                tone_style=st.session_state.get(UIKeys.TONE_SELECT),
+            )
         if used_fallback:
             st.info(
                 tr(

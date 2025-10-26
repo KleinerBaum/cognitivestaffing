@@ -201,6 +201,8 @@ def get_skill_suggestions(
     focus_terms: Sequence[str] | None = None,
     missing_skills: Sequence[str] | None = None,
     tone_style: str | None = None,
+    existing_skills: Sequence[str] | None = None,
+    responsibilities: Sequence[str] | None = None,
 ) -> Tuple[Dict[str, Dict[str, List[str]]], str | None]:
     """Fetch skill suggestions for a role title.
 
@@ -209,6 +211,13 @@ def get_skill_suggestions(
     """
 
     focus_terms = [str(term).strip() for term in (focus_terms or []) if str(term).strip()]
+    existing_pool = [
+        str(item).strip() for item in (existing_skills or []) if isinstance(item, str) and str(item).strip()
+    ]
+    responsibility_pool = [
+        str(item).strip() for item in (responsibilities or []) if isinstance(item, str) and str(item).strip()
+    ]
+    existing_markers = {value.casefold() for value in existing_pool}
 
     grouped: Dict[str, Dict[str, List[str]]] = {
         "tools_and_technologies": {},
@@ -226,7 +235,7 @@ def get_skill_suggestions(
             if not value:
                 continue
             marker = value.casefold()
-            if marker in seen[field]:
+            if marker in seen[field] or marker in existing_markers:
                 continue
             seen[field].add(marker)
             cleaned.append(value)
@@ -283,6 +292,8 @@ def get_skill_suggestions(
             lang=lang,
             focus_terms=focus_terms,
             tone_style=tone_style,
+            existing_items=existing_pool,
+            responsibilities=responsibility_pool,
         )
     except Exception as err:  # pragma: no cover - error path is tested
         errors.append(str(err))

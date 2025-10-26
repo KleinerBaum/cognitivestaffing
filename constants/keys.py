@@ -71,7 +71,6 @@ class StateKeys:
     SKILL_SUGGESTION_HINTS = "skill_suggestion_hints"
     SKILL_BOARD_STATE = "ui.requirements.skill_board"
     SKILL_BOARD_META = "ui.requirements.skill_board_meta"
-    REQUIREMENTS_AI_OPT_IN = "requirements.ai_opt_in"
     REQUIREMENTS_ESCO_OPT_IN = "requirements.esco_opt_in"
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     BENEFIT_SUGGESTION_HINTS = "benefit_suggestion_hints"
