@@ -52,24 +52,25 @@ FLOAT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is float}
 
 # Alias map for backward compatibility with legacy field names
 # Using MappingProxyType to prevent accidental mutation.
-ALIASES: Mapping[str, str] = MappingProxyType(
-    {
-        "date_of_employment_start": "meta.target_start_date",
-        "requirements.hard_skills": "requirements.hard_skills_required",
-        "requirements.soft_skills": "requirements.soft_skills_required",
-        "city": "location.primary_city",
-        "work_model": "employment.work_policy",
-        "employment.work_model": "employment.work_policy",
-        "brand name": "company.brand_name",
-        "application deadline": "meta.application_deadline",
-        "hr_contact_name": "company.contact_name",
-        "hr_contact_email": "company.contact_email",
-        "hr_contact_phone": "company.contact_phone",
-        "hiring_manager_name": "process.hiring_manager_name",
-        "hiring_manager_role": "process.hiring_manager_role",
-        "reporting_manager_name": "position.reporting_manager_name",
-    }
-)
+   ALIASES: Mapping[str, str] = MappingProxyType(
+        {
+            "date_of_employment_start": "meta.target_start_date",
+            "requirements.hard_skills": "requirements.hard_skills_required",
+            "requirements.soft_skills": "requirements.soft_skills_required",
+            "city": "location.primary_city",
+            "location.city": "location.primary_city",
+            "brand name": "company.brand_name",
+            "application deadline": "meta.application_deadline",
+            "hr_contact_name": "company.contact_name",
+            "hr_contact_email": "company.contact_email",
+            "hr_contact_phone": "company.contact_phone",
+            "hiring_manager_name": "process.hiring_manager_name",
+            "hiring_manager_role": "process.hiring_manager_role",
+            "reporting_manager_name": "position.reporting_manager_name",
+            "work_model": "employment.work_policy",
+            "employment.work_model": "employment.work_policy",
+        }
+    )
 
 
 def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
