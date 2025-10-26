@@ -3009,8 +3009,6 @@ def _maybe_run_extraction(schema: dict) -> None:
     _autodetect_lang(raw_clean)
     try:
         _extract_and_summarize(raw_clean, schema)
-        st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
-        st.session_state[StateKeys.EXTRACTION_MISSING] = []
         st.rerun()
     except Exception as exc:
         st.session_state.pop("__last_extracted_hash__", None)
