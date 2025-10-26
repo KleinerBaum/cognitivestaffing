@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- fix: extend rule heuristics for benefits, remote policies, and required-field logging coverage
+  - Fix: Regex-Heuristiken für Benefits, Remote-Modelle und Logging pflichtiger Felder erweitern
 - fix: align work policy, location, contact, and benefits fields across schema, UI state, and exports
   - Fix: Arbeitsmodell-, Standort-, Kontakt- und Benefit-Felder zwischen Schema, UI-State und Exporten angleichen
 - fix: treat HR contact fields as critical so wizard steps and follow-ups flag missing details consistently

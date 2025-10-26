@@ -4,6 +4,7 @@ from ingest.heuristics import (
     apply_basic_fallbacks,
     guess_city,
     guess_company,
+    guess_employment_details,
     guess_job_title,
 )
 from openai_utils.extraction import _prepare_job_ad_payload
@@ -238,6 +239,14 @@ def test_remote_percentage_from_explicit_percent() -> None:
     assert profile.employment.remote_percentage == 80
 
 
+def test_remote_percentage_from_days_without_week_suffix() -> None:
+    text = "Hybrid role with 3 days remote and 2 days onsite"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.employment.work_policy == "hybrid"
+    assert profile.employment.remote_percentage == 60
+
+
 def test_apprenticeship_job_type_detection() -> None:
     text = "Ausbildung zum Fachinformatiker (m/w/d) | Vollzeit"
     profile = NeedAnalysisProfile()
@@ -250,6 +259,20 @@ def test_trainee_program_job_type_detection() -> None:
     profile = NeedAnalysisProfile()
     profile = apply_basic_fallbacks(profile, text)
     assert profile.employment.job_type == "trainee_program"
+
+
+def test_guess_employment_details_handles_homeoffice_percent() -> None:
+    text = "Arbeitsmodell: 80% Homeoffice möglich"
+    _, _, policy, percentage = guess_employment_details(text)
+    assert policy == "remote"
+    assert percentage == 80
+
+
+def test_guess_employment_details_detects_work_anywhere() -> None:
+    text = "We offer work from anywhere within Germany"
+    _, _, policy, percentage = guess_employment_details(text)
+    assert policy == "remote"
+    assert percentage is None
 
 
 def test_immediate_start_phrases() -> None:
@@ -294,6 +317,16 @@ def test_benefit_inline_list_extraction() -> None:
         "30 Urlaubstage",
         "Sabbatical-Option",
         "1.000€ Lernbudget",
+    ]
+
+
+def test_benefit_section_handles_our_offer_heading() -> None:
+    text = "Our Offer:\n· Flexible working hours\n· Remote stipend"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.compensation.benefits == [
+        "Flexible working hours",
+        "Remote stipend",
     ]
 
 

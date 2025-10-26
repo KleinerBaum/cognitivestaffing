@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
+from core.rules import COMMON_CITY_NAMES
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import normalize_country, normalize_language_list
@@ -37,29 +38,7 @@ _CITY_HINT_RE = re.compile(
     r"(?:city|ort|location|standort|arbeitsort|einsatzort)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
     re.IGNORECASE,
 )
-_COMMON_CITIES = [
-    "Berlin",
-    "Düsseldorf",
-    "Munich",
-    "München",
-    "Hamburg",
-    "Stuttgart",
-    "Frankfurt",
-    "Cologne",
-    "Köln",
-    "Leipzig",
-    "Bonn",
-    "Essen",
-    "Dortmund",
-    "Dresden",
-    "Nuremberg",
-    "Nürnberg",
-    "Hannover",
-    "Bremen",
-    "Mannheim",
-    "Karlsruhe",
-    "Münster",
-]
+_COMMON_CITIES: Tuple[str, ...] = COMMON_CITY_NAMES
 
 _LOCATION_KEYWORDS = {
     "remote",
@@ -133,6 +112,11 @@ _WORK_POLICY_MAP = {
         "fully remote",
         "work from home",
         "work-from-home",
+        "work from anywhere",
+        "work-from-anywhere",
+        "work anywhere",
+        "work-anywhere",
+        "location independent",
         "mobile work",
         "mobiles arbeiten",
         "ortsunabhängig",
@@ -165,7 +149,9 @@ _REMOTE_DAYS_OFFICE_RE = re.compile(
 # so we can gauge remote days per week.
 _REMOTE_DAYS_REMOTE_RE = re.compile(
     r"(?:(?P<min>\d{1,2})[–-](?P<max>\d{1,2})|(?P<single>\d{1,2}))\s*"
-    r"(?:Tag(?:e)?|day(?:s)?)\s*/\s*Woche[^\n]*?(?:remote|Home[-\s]*Office|von\s+zu\s+Hause|"
+    r"(?:Tag(?:e)?|day(?:s)?)"
+    r"(?:\s*(?:/|pro|per)\s*(?:Woche|week))?[^\n]*?"
+    r"(?:remote|Home[-\s]*Office|von\s+zu\s+Hause|work\s+from\s+home|work\s+from\s+anywhere|"
     r"mobile\s+work|mobiles?\s+Arbeiten?)",
     re.IGNORECASE,
 )
@@ -335,10 +321,13 @@ _BENEFIT_HEADINGS = {
     "unsere benefits",
     "deine benefits",
     "our benefits",
+    "our offer",
+    "our offers",
     "perks",
     "perks & benefits",
     "perks and benefits",
     "what we offer",
+    "what we provide",
     "what you get",
     "was wir bieten",
     "was wir dir bieten",
@@ -347,9 +336,11 @@ _BENEFIT_HEADINGS = {
     "deine vorteile",
     "vorteile",
     "leistungen",
+    "unser angebot",
+    "angebote",
 }
 
-_BENEFIT_SEP_RE = re.compile(r"[•,;\n]+")
+_BENEFIT_SEP_RE = re.compile(r"[•·∙,;\n]+")
 
 
 def _is_bullet_line(line: str) -> bool:
