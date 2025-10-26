@@ -319,6 +319,35 @@ def test_maybe_run_extraction_uses_prefill_before_raw_text(
     assert warnings == []
 
 
+def test_maybe_run_extraction_preserves_summary_and_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Summary and missing data set during extraction remain available afterwards."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state[StateKeys.RAW_TEXT] = "Job description"
+    st.session_state["__run_extraction__"] = True
+
+    expected_summary = {"summary": "value"}
+    expected_missing = ["company.name"]
+
+    def fake_extract(text: str, schema: dict) -> None:
+        assert text == "Job description"
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = expected_summary
+        st.session_state[StateKeys.EXTRACTION_MISSING] = expected_missing
+
+    monkeypatch.setattr("wizard._extract_and_summarize", fake_extract)
+    monkeypatch.setattr("wizard._autodetect_lang", lambda _text: None)
+    monkeypatch.setattr(st, "rerun", lambda: None)
+
+    _maybe_run_extraction({})
+
+    assert st.session_state[StateKeys.EXTRACTION_SUMMARY] is expected_summary
+    assert st.session_state[StateKeys.EXTRACTION_MISSING] is expected_missing
+
+
 def test_onboarding_triggers_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
     """When the extraction flag is set the onboarding step should invoke it."""
 
