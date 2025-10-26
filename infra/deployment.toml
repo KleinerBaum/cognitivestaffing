@@ -1,0 +1,6 @@
+# Streamlit deployment defaults for Cognitive Staffing.
+# EN: Pin the Python runtime and requirements file to avoid multiple-requirements warnings.
+# DE: Fixiert Python-Laufzeit und Requirements-Datei, um Warnungen zu mehrfachen Requirements zu vermeiden.
+[python]
+version = "3.11"
+requirements = "requirements.txt"

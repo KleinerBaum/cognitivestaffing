@@ -1142,6 +1142,8 @@ def _prepare_payload(
     messages_payload = [dict(message) for message in messages]
     normalised_tool_choice = _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
 
+    payload: dict[str, Any]
+
     if USE_CLASSIC_API:
         payload = {"model": model, "messages": messages_payload}
         if temperature is not None and model_supports_temperature(model):
@@ -1149,9 +1151,13 @@ def _prepare_payload(
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         if json_schema is not None:
-            format_config: dict[str, Any] = {"type": "json_schema", "json_schema": dict(json_schema)}
+            schema_payload = dict(json_schema)
             if STRICT_JSON:
-                format_config["strict"] = True
+                schema_payload.setdefault("strict", True)
+            format_config: dict[str, Any] = {
+                "type": "json_schema",
+                "json_schema": schema_payload,
+            }
             payload["response_format"] = format_config
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
@@ -1171,10 +1177,14 @@ def _prepare_payload(
         if max_tokens is not None:
             payload["max_output_tokens"] = max_tokens
         if json_schema is not None:
-            text_config = payload.get("text", {}).copy()
-            format_config = {"type": "json_schema", **json_schema}
+            text_config: dict[str, Any] = dict(payload.get("text") or {})
+            schema_payload = dict(json_schema)
             if STRICT_JSON:
-                format_config["strict"] = True
+                schema_payload.setdefault("strict", True)
+            format_config = {
+                "type": "json_schema",
+                "json_schema": schema_payload,
+            }
             text_config["format"] = format_config
             payload["text"] = text_config
         if combined_tools:
@@ -1191,8 +1201,8 @@ def _prepare_payload(
             payload.update(extra)
 
         if router_estimate is not None:
-            metadata = dict(payload.get("metadata") or {})
-            router_info = dict(metadata.get("router") or {})
+            metadata: dict[str, Any] = dict(payload.get("metadata") or {})
+            router_info: dict[str, Any] = dict(metadata.get("router") or {})
             router_info.update(
                 {
                     "complexity": router_estimate.complexity.value,

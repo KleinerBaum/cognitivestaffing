@@ -14,6 +14,11 @@ following environment variables are available:
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optional reasoning effort hint (`minimal` … `high`). |
 
+The Streamlit Community Cloud deployment reads `infra/deployment.toml`. Keep the
+`[python]` → `requirements` entry pointing to `requirements.txt` to silence
+"multiple requirements" warnings when both Poetry and pip files exist in the
+repository.
+
 Deployments without `VECTOR_STORE_ID` will automatically skip Retrieval Augment
 ation and show localized hints in the wizard. All LLM calls now load their
 system prompts from the registry; remember to redeploy the updated YAML file
@@ -38,6 +43,11 @@ folgende Umgebungsvariablen relevant:
 | `VECTOR_STORE_ID` | Optionale OpenAI-Vector-Store-ID für RAG. |
 | `VERBOSITY` | Optionale UI-Erklärtiefe (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`minimal` … `high`). |
+
+Das Deployment auf Streamlit Community Cloud nutzt `infra/deployment.toml`.
+Belasse den Eintrag `[python]` → `requirements` auf `requirements.txt`, damit
+keine Warnung über mehrere Requirements-Dateien erscheint, wenn sowohl Poetry-
+als auch pip-Dateien im Repo liegen.
 
 Ohne `VECTOR_STORE_ID` läuft die App automatisch ohne Retrieval-Pfad und zeigt
 einen lokalisierten Hinweis in der UI. Da alle Prompts nun aus der Registry

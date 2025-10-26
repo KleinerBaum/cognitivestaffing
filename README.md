@@ -74,6 +74,10 @@ The requirements list includes Streamlit, OpenAI, Pydantic, jsonschema, vector r
 > **EN:** Dependency management is now unified in `requirements.txt` for both runtime and developer tooling. Remove legacy `pip install -e .` flows—the lint/type-check configuration now lives in `pyproject.toml`.
 > **DE:** Die Abhängigkeitsverwaltung erfolgt vollständig über `requirements.txt` – sowohl für Laufzeit als auch Entwickler-Tools. Bitte ältere Workflows mit `pip install -e .` nicht mehr verwenden; die Lint-/Typisierungsregeln stehen jetzt in `pyproject.toml`.
 
+> **Deployment config / Deployment-Konfiguration:**
+> **EN:** Streamlit Community Cloud deployments read `infra/deployment.toml`; keep `[python].requirements` set to `requirements.txt` to silence duplicate-requirements warnings.
+> **DE:** Streamlit-Community-Deployments lesen `infra/deployment.toml`; belasse `[python].requirements` auf `requirements.txt`, um Warnungen zu mehrfachen Requirements-Dateien zu vermeiden.
+
 ### 4. Provide OpenAI credentials
 Set environment variables (or configure `.streamlit/secrets.toml` under the `openai` key):
 ```bash

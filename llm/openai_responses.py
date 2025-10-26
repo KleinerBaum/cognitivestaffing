@@ -50,7 +50,7 @@ def build_json_schema_format(
     schema: Mapping[str, Any],
     strict: bool | None = None,
 ) -> dict[str, Any]:
-    """Return a ``response_format`` payload for JSON schema outputs."""
+    """Return a ``text.format`` payload for JSON schema outputs."""
 
     if not isinstance(name, str) or not name.strip():
         raise ValueError("A non-empty schema name is required for response_format.")
@@ -95,9 +95,12 @@ def call_responses(
     payload: dict[str, Any] = {
         "model": model,
         "input": _prepare_messages(messages),
-        "response_format": dict(response_format),
         "timeout": OPENAI_REQUEST_TIMEOUT,
     }
+
+    text_payload = dict(payload.get("text") or {})
+    text_payload["format"] = dict(response_format)
+    payload["text"] = text_payload
 
     if temperature is not None and model_supports_temperature(model):
         payload["temperature"] = float(temperature)
