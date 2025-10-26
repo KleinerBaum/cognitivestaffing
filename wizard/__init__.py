@@ -66,7 +66,5 @@ def _load_legacy_module() -> list[str]:
 LEGACY_EXPORTS: list[str] = []
 
 if not TYPE_CHECKING:
-    LEGACY_EXPORTS = [
-        name for name in _load_legacy_module() if name not in __all__
-    ]
+    LEGACY_EXPORTS = [name for name in _load_legacy_module() if name not in __all__]
     __all__.extend(LEGACY_EXPORTS)

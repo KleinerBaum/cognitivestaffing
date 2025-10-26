@@ -67,12 +67,14 @@ def connect_stages(from_stage_id: str, to_stage_id: str, edge_label: Optional[st
     """Connect two stages (DAG). Returns {"edge_id": "..."}."""
 
     edge_id = f"edge_{from_stage_id}_to_{to_stage_id}"
-    return json.dumps({
-        "edge_id": edge_id,
-        "from": from_stage_id,
-        "to": to_stage_id,
-        "label": edge_label,
-    })
+    return json.dumps(
+        {
+            "edge_id": edge_id,
+            "from": from_stage_id,
+            "to": to_stage_id,
+            "label": edge_label,
+        }
+    )
 
 
 @function_tool

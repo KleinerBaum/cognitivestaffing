@@ -13,6 +13,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from typing import Any, cast
 
+from prompts import prompt_registry
+
 
 def _prepare_schema(obj: dict[str, Any], *, require_all: bool) -> dict[str, Any]:
     """Inject ``required`` arrays and nullable types into ``obj`` in-place."""
@@ -117,11 +119,13 @@ def build_extraction_tool(
     if description is None:
         fields = _collect_schema_fields(schema)
         if fields:
-            description = (
-                f"Return structured profile data that fits the schema exactly. Key fields: {', '.join(fields)}."
+            fields_text = ", ".join(fields)
+            description = prompt_registry.format(
+                "openai_utils.tools.schema_description_with_fields",
+                fields=fields_text,
             )
         else:
-            description = "Return structured profile data that fits the schema exactly."
+            description = prompt_registry.get("openai_utils.tools.schema_description_base")
 
     return [
         {

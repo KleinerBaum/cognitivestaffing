@@ -20,10 +20,7 @@ def semantic_search(query: str, k: int = 5) -> str:
     """Search vector store."""
 
     normalized = query.strip()
-    results = [
-        {"text": normalized or "…", "source": f"doc_{idx + 1}.md"}
-        for idx in range(max(1, k))
-    ]
+    results = [{"text": normalized or "…", "source": f"doc_{idx + 1}.md"} for idx in range(max(1, k))]
     return json.dumps({"query": normalized, "k": k, "passages": results})
 
 
