@@ -1,14 +1,12 @@
 {
     "en": {
-        "formal": "professional and helpful",
-        "casual": "friendly, approachable, and direct",
-        "creative": "creative and engaging",
-        "diversity_focused": "inclusive, welcoming, and bias-aware"
+        "short_pragmatic": "short, pragmatic, and action-oriented",
+        "professional": "professional, technically precise, and well-structured",
+        "casual": "casual, friendly, and encouraging"
     },
     "de": {
-        "formal": "professionell und hilfreich",
-        "casual": "freundlich, nahbar und direkt",
-        "creative": "kreativ und inspirierend",
-        "diversity_focused": "inklusiv, einladend und vorurteilsbewusst"
+        "short_pragmatic": "kurz, pragmatisch und handlungsorientiert",
+        "professional": "fachlich präzise, strukturiert und professionell",
+        "casual": "locker, freundlich und motivierend"
     }
 }

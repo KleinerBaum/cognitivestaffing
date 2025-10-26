@@ -1058,10 +1058,8 @@ def _prepare_payload(
             function_name = function_name.strip()
 
         if function_name:
-            prepared["name"] = function_name
             function_dict["name"] = function_name
-        else:
-            prepared.pop("name", None)
+        prepared.pop("name", None)
 
         prepared["type"] = "function"
         prepared["function"] = function_dict
@@ -1134,7 +1132,6 @@ def _prepare_payload(
             raise ValueError("Function tools must define a 'name'.")
 
         function_block["name"] = fallback_name
-        converted_tools[index]["name"] = fallback_name
         used_names.add(fallback_name)
 
     combined_tools = converted_tools

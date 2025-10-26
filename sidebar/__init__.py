@@ -19,6 +19,7 @@ from streamlit.delta_generator import DeltaGenerator
 from streamlit.navigation.page import StreamlitPage
 
 from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
+from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from .salary import estimate_salary_expectation
 
@@ -155,6 +156,33 @@ def _ensure_ui_defaults() -> None:
         st.session_state["ui.lang_toggle"] = st.session_state[UIKeys.LANG_SELECT] == "en"
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
+    _ensure_style_defaults()
+
+
+def _ensure_style_defaults() -> None:
+    """Ensure a valid style variant is present in session state."""
+
+    lang_code = st.session_state.get("lang", "de")
+    default_key = STYLE_VARIANT_ORDER[1]
+    current_key = st.session_state.get(UIKeys.TONE_SELECT)
+    if current_key not in STYLE_VARIANTS:
+        st.session_state[UIKeys.TONE_SELECT] = default_key
+    _sync_style_instruction(lang_code)
+
+
+def _sync_style_instruction(lang_code: str) -> None:
+    """Update derived tone instructions for the selected style variant."""
+
+    selected_key = st.session_state.get(UIKeys.TONE_SELECT, STYLE_VARIANT_ORDER[1])
+    variant = STYLE_VARIANTS.get(selected_key)
+    if variant is None:
+        fallback = str(selected_key or "").strip()
+        st.session_state["tone"] = fallback
+        st.session_state["style_prompt_hint"] = fallback
+        return
+
+    st.session_state["tone"] = tr(*variant.instruction, lang=lang_code)
+    st.session_state["style_prompt_hint"] = tr(*variant.prompt_hint, lang=lang_code)
 
 
 def _build_context() -> SidebarContext:
@@ -193,6 +221,7 @@ def _render_settings() -> None:
     def _on_lang_toggle() -> None:
         st.session_state[UIKeys.LANG_SELECT] = "en" if st.session_state["ui.lang_toggle"] else "de"
         st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
+        _sync_style_instruction(st.session_state["lang"])
 
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
     dark_col, lang_col = st.columns(2)
@@ -216,6 +245,29 @@ def _render_settings() -> None:
             key="ui.lang_toggle",
             on_change=_on_lang_toggle,
         )
+
+    st.markdown(f"#### 🎨 {tr('Stil & Tonalität', 'Style & tone')}")
+    lang_code = st.session_state.get("lang", "de")
+    options = list(STYLE_VARIANT_ORDER)
+
+    def _format_style(option: str) -> str:
+        variant = STYLE_VARIANTS.get(option)
+        if variant is None:
+            return option.replace("_", " ").title()
+        return tr(*variant.label, lang=lang_code)
+
+    selected_style = st.radio(
+        tr("Ton auswählen", "Choose tone"),
+        options,
+        key=UIKeys.TONE_SELECT,
+        format_func=_format_style,
+    )
+    variant = STYLE_VARIANTS.get(selected_style)
+    if variant is not None:
+        st.caption(tr(*variant.description, lang=lang_code))
+        st.caption(tr(*variant.example, lang=lang_code))
+
+    _sync_style_instruction(lang_code)
 
 
 def _render_hero(context: SidebarContext) -> None:

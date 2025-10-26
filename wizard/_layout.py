@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+from typing import Optional
+
 from utils.i18n import tr
 
 
@@ -183,8 +185,17 @@ def render_onboarding_hero(animation_base64: str) -> None:
     st.markdown(hero_html, unsafe_allow_html=True)
 
 
+def render_step_heading(title: str, subtitle: Optional[str] = None) -> None:
+    """Render a consistent heading block for wizard steps."""
+
+    st.header(title)
+    if subtitle:
+        st.subheader(subtitle)
+
+
 __all__ = [
     "COMPACT_STEP_STYLE",
     "inject_salary_slider_styles",
     "render_onboarding_hero",
+    "render_step_heading",
 ]

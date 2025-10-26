@@ -16,6 +16,7 @@ from ._layout import (
     COMPACT_STEP_STYLE,
     inject_salary_slider_styles,
     render_onboarding_hero,
+    render_step_heading,
 )
 from ._logic import (
     SALARY_SLIDER_MAX,
@@ -33,6 +34,7 @@ __all__ = [
     "COMPACT_STEP_STYLE",
     "inject_salary_slider_styles",
     "render_onboarding_hero",
+    "render_step_heading",
     "SALARY_SLIDER_MAX",
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",

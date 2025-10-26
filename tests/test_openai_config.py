@@ -131,7 +131,7 @@ def test_default_model_falls_back_to_gpt5_mini_for_blank_env(monkeypatch, env_va
         monkeypatch.setenv("DEFAULT_MODEL", env_value)
         importlib.reload(config)
 
-        assert config.DEFAULT_MODEL == config.GPT4O
+        assert config.DEFAULT_MODEL == config.GPT5_MINI
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)

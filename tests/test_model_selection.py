@@ -72,7 +72,7 @@ def test_suggest_benefits_dispatch_default(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.GPT4O_MINI
+    assert captured["model"] == config.GPT5_NANO
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -171,7 +171,7 @@ def test_marking_unavailable_is_cleared_on_reload() -> None:
 def test_call_chat_api_switches_to_fallback_on_unavailable(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """call_chat_api should retry with gpt-3.5 when gpt-4o is unavailable."""
+    """call_chat_api should retry with the next fallback when the primary fails."""
 
     st.session_state.clear()
     caplog.set_level("WARNING", logger="cognitive_needs.openai")
@@ -191,7 +191,7 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
                 headers={},
             )
             raise BadRequestError(
-                message="The model gpt-4o is currently overloaded.",
+                message="The model gpt-5.1-nano is currently overloaded.",
                 response=fake_response,
                 body=None,
             )
@@ -210,8 +210,8 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     )
 
     assert result.content == "OK"
-    assert attempts[0] == config.GPT4O
-    assert attempts[1] == config.GPT4
+    assert attempts[0] == config.GPT5_NANO
+    assert attempts[1] == config.GPT5_MINI
     assert any("retrying with fallback" in record.message for record in caplog.records)
 
 
