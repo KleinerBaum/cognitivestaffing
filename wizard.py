@@ -37,6 +37,7 @@ from streamlit_sortables import sort_items
 from utils.i18n import tr
 from i18n import t as translate_key
 from constants.keys import UIKeys, StateKeys
+from core.errors import ExtractionError
 from utils.session import bind_textarea
 from state import ensure_state, reset_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
@@ -2693,6 +2694,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
     metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
     confidence_map = _ensure_mapping(metadata.get("field_confidence"))
+    rule_patch: dict[str, Any] = {}
     if rule_matches:
         rule_patch = matches_to_patch(rule_matches)
         st.session_state[StateKeys.PROFILE] = rule_patch
@@ -2756,17 +2758,36 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     title_hint = locked_hints.get("position.job_title")
     company_hint = locked_hints.get("company.name")
 
-    raw_json = extract_json(
-        text,
-        title=title_hint,
-        company=company_hint,
-        url=url_hint,
-        locked_fields=locked_hints or None,
-    )
+    llm_error: Exception | None = None
+    extracted_data: dict[str, Any] = {}
+    recovered = False
     try:
-        extracted_data, recovered = parse_structured_payload(raw_json)
-    except InvalidExtractionPayload as exc:
-        raise ValueError(str(exc)) from exc
+        raw_json = extract_json(
+            text,
+            title=title_hint,
+            company=company_hint,
+            url=url_hint,
+            locked_fields=locked_hints or None,
+        )
+    except ExtractionError as exc:
+        llm_error = exc
+    else:
+        try:
+            extracted_data, recovered = parse_structured_payload(raw_json)
+        except InvalidExtractionPayload as exc:
+            llm_error = exc
+
+    if llm_error:
+        extracted_data = deepcopy(rule_patch)
+        errors_map = metadata.get("llm_errors")
+        if isinstance(errors_map, Mapping):
+            errors_map = dict(errors_map)
+        else:
+            errors_map = {}
+        errors_map["extraction"] = str(llm_error)
+        metadata["llm_errors"] = errors_map
+    elif not extracted_data:
+        extracted_data = {}
 
     llm_meta = _build_llm_metadata(extracted_data, rule_matches, doc)
     if llm_meta:
@@ -2918,6 +2939,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         "global_context": [],
         "answers": {},
     }
+    st.session_state[StateKeys.EXTRACTION_MISSING] = missing
     st.session_state[StateKeys.PROFILE_METADATA] = metadata
     if st.session_state.get("auto_reask"):
         if not missing:

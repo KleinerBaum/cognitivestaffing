@@ -23,7 +23,7 @@ import streamlit as st
 
 from constants.keys import StateKeys
 from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
-from pydantic import ValidationError
+from models.need_analysis import NeedAnalysisProfile
 
 
 @pytest.fixture(autouse=True)
@@ -1066,9 +1066,7 @@ def test_prepare_payload_includes_analysis_helpers():
     assert "web_search_preview" in tool_types
 
     function_names = {
-        tool.get("function", {}).get("name")
-        for tool in payload.get("tools", [])
-        if tool.get("type") == "function"
+        tool.get("function", {}).get("name") for tool in payload.get("tools", []) if tool.get("type") == "function"
     }
     assert "convert_currency" in function_names
     assert "normalise_date" in function_names
@@ -1920,9 +1918,10 @@ def test_extract_with_function_parses_json_payload(monkeypatch):
     assert result.data["job_title"] == "QA"
 
 
-def test_extract_with_function_raises_for_malformed_json(monkeypatch):
-    """Malformed JSON payloads should surface a clear ``ValueError``."""
+def test_extract_with_function_handles_malformed_json(monkeypatch):
+    """Malformed JSON payloads should fall back to an empty profile in the UI."""
 
+    st.session_state.clear()
     calls: list[dict[str, Any]] = []
 
     responses = [
@@ -1946,17 +1945,17 @@ def test_extract_with_function_raises_for_malformed_json(monkeypatch):
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
 
-    with pytest.raises(ValueError) as excinfo:
-        extract_with_function("ignored", {})
+    result = extract_with_function("ignored", {})
 
-    assert str(excinfo.value) == "Model returned invalid JSON"
-    assert isinstance(excinfo.value.__cause__, Exception)
+    assert result.data == NeedAnalysisProfile().model_dump()
     assert len(calls) == 2
+    assert st.session_state.get(StateKeys.EXTRACTION_MISSING) == []
 
 
-def test_extract_with_function_propagates_validation_error(monkeypatch):
-    """Schema validation errors from ``NeedAnalysisProfile`` should propagate."""
+def test_extract_with_function_handles_validation_error(monkeypatch):
+    """Schema validation errors should trigger a partial extraction fallback."""
 
+    st.session_state.clear()
     payload = {
         "requirements": {
             "hard_skills_required": "python",
@@ -1978,13 +1977,45 @@ def test_extract_with_function_propagates_validation_error(monkeypatch):
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
 
+    result = extract_with_function("ignored", {})
+
+    assert result.data == NeedAnalysisProfile().model_dump()
+    assert st.session_state.get(StateKeys.EXTRACTION_MISSING) == []
+
+
+def test_extract_with_function_cli_mode_still_raises(monkeypatch):
+    """When Streamlit is unavailable the helper should raise on invalid JSON."""
+
+    calls: list[dict[str, Any]] = []
+
+    responses = [
+        ChatCallResult(
+            None,
+            [
+                {
+                    "function": {
+                        "input": "{",
+                    }
+                }
+            ],
+            {},
+        ),
+        ChatCallResult("{", [], {}),
+    ]
+
+    def _fake_call(messages, **kwargs):  # noqa: ANN001 - API signature is dynamic
+        calls.append({"messages": messages, "kwargs": kwargs})
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", _fake_call)
+    monkeypatch.setattr("openai_utils.extraction.st", None, raising=False)
+
     with pytest.raises(ValueError) as excinfo:
         extract_with_function("ignored", {})
 
-    message = str(excinfo.value)
-    assert message.startswith("Model returned JSON that does not fit NeedAnalysisProfile")
-    assert "requirements.hard_skills_required" in message
-    assert isinstance(excinfo.value.__cause__, ValidationError)
+    assert str(excinfo.value) == "Model returned invalid JSON"
+    assert isinstance(excinfo.value.__cause__, Exception)
+    assert len(calls) == 2
 
 
 def test_call_chat_api_executes_tool(monkeypatch):
