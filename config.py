@@ -239,6 +239,10 @@ OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
 OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
 USE_CLASSIC_API = _normalise_bool(os.getenv("USE_CLASSIC_API"), default=False)
+USE_RESPONSES_API = _normalise_bool(
+    os.getenv("USE_RESPONSES_API"),
+    default=not USE_CLASSIC_API,
+)
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
@@ -252,6 +256,11 @@ try:
     OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
     if "USE_CLASSIC_API" in openai_secrets:
         USE_CLASSIC_API = _normalise_bool(openai_secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+    if "USE_RESPONSES_API" in openai_secrets:
+        USE_RESPONSES_API = _normalise_bool(
+            openai_secrets.get("USE_RESPONSES_API"),
+            default=USE_RESPONSES_API,
+        )
     VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
     VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
@@ -270,8 +279,18 @@ try:
     )
     if "USE_CLASSIC_API" in st.secrets:
         USE_CLASSIC_API = _normalise_bool(st.secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+    if "USE_RESPONSES_API" in st.secrets:
+        USE_RESPONSES_API = _normalise_bool(
+            st.secrets.get("USE_RESPONSES_API"),
+            default=USE_RESPONSES_API,
+        )
 except Exception:
     pass
+
+if USE_RESPONSES_API:
+    USE_CLASSIC_API = False
+else:
+    USE_CLASSIC_API = True
 
 try:
     REASONING_EFFORT = _normalise_reasoning_effort(

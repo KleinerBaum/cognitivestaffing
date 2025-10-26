@@ -49,6 +49,7 @@ from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
+from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse_structured_payload
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
@@ -2763,16 +2764,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         locked_fields=locked_hints or None,
     )
     try:
-        extracted_data = json.loads(raw_json)
-    except json.JSONDecodeError as exc:
-        start = raw_json.find("{")
-        end = raw_json.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise ValueError("Model returned invalid JSON") from exc
-        fragment = raw_json[start : end + 1]
-        extracted_data = json.loads(fragment)
-    if not isinstance(extracted_data, dict):
-        raise ValueError("Model returned JSON that is not an object.")
+        extracted_data, recovered = parse_structured_payload(raw_json)
+    except InvalidExtractionPayload as exc:
+        raise ValueError(str(exc)) from exc
 
     llm_meta = _build_llm_metadata(extracted_data, rule_matches, doc)
     if llm_meta:
@@ -2882,6 +2876,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             },
         )
     metadata["field_confidence"] = confidence_map
+    if recovered:
+        mark_low_confidence(metadata, data)
     st.session_state[StateKeys.PROFILE] = data
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data
     summary: dict[str, str] = {}

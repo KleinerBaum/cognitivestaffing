@@ -1,0 +1,154 @@
+"""Helpers for invoking the OpenAI Responses API with structured outputs."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Any, Mapping, Sequence
+
+import backoff
+from opentelemetry import trace
+from openai import (
+    APIConnectionError,
+    APIError,
+    APITimeoutError,
+    BadRequestError,
+    OpenAIError,
+    RateLimitError,
+)
+
+from config import OPENAI_REQUEST_TIMEOUT, STRICT_JSON, ModelTask
+from openai_utils.api import (
+    _coerce_token_count,
+    _extract_output_text,
+    _extract_response_id,
+    _extract_usage_block,
+    _normalise_usage,
+    _update_usage_counters,
+    get_client,
+    model_supports_reasoning,
+    model_supports_temperature,
+)
+
+logger = logging.getLogger("cognitive_needs.llm.responses")
+tracer = trace.get_tracer(__name__)
+
+
+@dataclass(slots=True)
+class ResponsesCallResult:
+    """Structured return value for :func:`call_responses`."""
+
+    content: str
+    usage: dict[str, int]
+    response_id: str | None
+    raw_response: Any
+
+
+def build_json_schema_format(
+    *,
+    name: str,
+    schema: Mapping[str, Any],
+    strict: bool | None = None,
+) -> dict[str, Any]:
+    """Return a ``response_format`` payload for JSON schema outputs."""
+
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("A non-empty schema name is required for response_format.")
+    if not isinstance(schema, Mapping):
+        raise TypeError("Schema must be a mapping when building response_format.")
+
+    schema_payload = {"name": name, "schema": dict(schema)}
+    strict_flag = STRICT_JSON if strict is None else bool(strict)
+    if strict_flag:
+        schema_payload["strict"] = True
+
+    return {"type": "json_schema", "json_schema": schema_payload}
+
+
+def _prepare_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Return ``messages`` as a list of plain dictionaries."""
+
+    prepared: list[dict[str, Any]] = []
+    for message in messages:
+        if not isinstance(message, Mapping):
+            raise TypeError("Messages must be mappings when calling the Responses API.")
+        prepared.append({str(key): value for key, value in message.items()})
+    return prepared
+
+
+def call_responses(
+    messages: Sequence[Mapping[str, Any]],
+    *,
+    model: str,
+    response_format: Mapping[str, Any],
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    reasoning_effort: str | None = None,
+    retries: int = 2,
+    task: ModelTask | str | None = None,
+) -> ResponsesCallResult:
+    """Execute a Responses API call with retries and return the parsed result."""
+
+    if not isinstance(response_format, Mapping):
+        raise TypeError("response_format must be a mapping payload.")
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "input": _prepare_messages(messages),
+        "response_format": dict(response_format),
+        "timeout": OPENAI_REQUEST_TIMEOUT,
+    }
+
+    if temperature is not None and model_supports_temperature(model):
+        payload["temperature"] = float(temperature)
+
+    if max_tokens is not None:
+        payload["max_output_tokens"] = int(max_tokens)
+
+    if reasoning_effort and model_supports_reasoning(model):
+        payload["reasoning"] = {"effort": reasoning_effort}
+
+    max_tries = max(1, int(retries) + 1)
+
+    @backoff.on_exception(  # type: ignore[misc]
+        backoff.expo,
+        (APITimeoutError, APIConnectionError, RateLimitError, APIError),
+        max_tries=max_tries,
+        jitter=backoff.full_jitter,
+        logger=logger,
+    )
+    def _dispatch() -> Any:
+        with tracer.start_as_current_span("openai.responses_call") as span:
+            span.set_attribute("llm.model", model)
+            span.set_attribute("llm.has_schema", True)
+            if "temperature" in payload:
+                span.set_attribute("llm.temperature", payload["temperature"])
+            if "reasoning" in payload and isinstance(payload["reasoning"], Mapping):
+                span.set_attribute("llm.reasoning.effort", payload["reasoning"].get("effort"))
+            return get_client().responses.create(**payload)
+
+    try:
+        response = _dispatch()
+    except BadRequestError as err:
+        logger.error("Responses API rejected the request: %s", getattr(err, "message", err))
+        raise
+    except OpenAIError:
+        raise
+
+    content = _extract_output_text(response) or ""
+    response_id = _extract_response_id(response)
+    usage_block = _extract_usage_block(response) or {}
+    usage = {key: _coerce_token_count(value) for key, value in _normalise_usage(usage_block).items()}
+
+    if usage:
+        _update_usage_counters(usage, task=task)
+
+    return ResponsesCallResult(
+        content=content,
+        usage=usage,
+        response_id=response_id,
+        raw_response=response,
+    )
+
+
+__all__ = ["ResponsesCallResult", "build_json_schema_format", "call_responses"]

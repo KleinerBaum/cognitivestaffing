@@ -10,18 +10,29 @@ from openai_utils import ChatCallResult
 
 import llm.client as client
 from models.need_analysis import NeedAnalysisProfile
+from llm.openai_responses import ResponsesCallResult
 
 
-def fake_call_chat_api(*args, **kwargs):  # noqa: D401
-    """Return a fake OpenAI chat call result."""
+def fake_responses_call(*args, **kwargs):  # noqa: D401
+    """Return a fake Responses API result."""
 
-    return ChatCallResult(content=NeedAnalysisProfile().model_dump_json(), tool_calls=[], usage={})
+    return ResponsesCallResult(
+        content=NeedAnalysisProfile().model_dump_json(),
+        usage={},
+        response_id="resp_123",
+        raw_response={},
+    )
 
 
 def test_extract_json_smoke(monkeypatch):
     """Smoke test for the extraction helper."""
 
-    monkeypatch.setattr(client, "call_chat_api", fake_call_chat_api)
+    monkeypatch.setattr(client, "call_responses", fake_responses_call)
+    monkeypatch.setattr(
+        client,
+        "call_chat_api",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("fallback not expected")),
+    )
     out = client.extract_json("text")
     assert isinstance(out, str) and out != ""
 
@@ -31,7 +42,16 @@ def test_extract_json_validation_failure_triggers_fallback(monkeypatch):
 
     calls = {"structured": 0, "fallback": 0}
 
-    def _fake(messages, *, json_schema=None, **kwargs):
+    def _fake_responses(messages, *, response_format=None, **kwargs):
+        calls["structured"] += 1
+        return ResponsesCallResult(
+            content=json.dumps({"company": "acme"}),
+            usage={},
+            response_id="resp_1",
+            raw_response={},
+        )
+
+    def _fake_chat(messages, *, json_schema=None, **kwargs):
         if json_schema is not None:
             calls["structured"] += 1
             return ChatCallResult(
@@ -42,7 +62,8 @@ def test_extract_json_validation_failure_triggers_fallback(monkeypatch):
         calls["fallback"] += 1
         return ChatCallResult(content=json.dumps({"fallback": True}), tool_calls=[], usage={})
 
-    monkeypatch.setattr(client, "call_chat_api", _fake)
+    monkeypatch.setattr(client, "call_responses", _fake_responses)
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     out = client.extract_json("text")
     payload = json.loads(out)
     assert payload == {"fallback": True}
@@ -54,17 +75,21 @@ def test_extract_json_minimal_prompt(monkeypatch):
 
     captured: dict[str, list[dict[str, str]]] = {}
 
-    def _fake(messages, *, json_schema=None, **kwargs):
-        if json_schema is not None:
-            captured["messages"] = list(messages)
-            return ChatCallResult(
-                content=NeedAnalysisProfile().model_dump_json(),
-                tool_calls=[],
-                usage={},
-            )
-        raise AssertionError("fallback should not be used when structured call succeeds")
+    def _fake(messages, *, response_format=None, **kwargs):
+        captured["messages"] = list(messages)
+        return ResponsesCallResult(
+            content=NeedAnalysisProfile().model_dump_json(),
+            usage={},
+            response_id="resp_min",
+            raw_response={},
+        )
 
-    monkeypatch.setattr(client, "call_chat_api", _fake)
+    monkeypatch.setattr(client, "call_responses", _fake)
+    monkeypatch.setattr(
+        client,
+        "call_chat_api",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("fallback not expected")),
+    )
     out = client.extract_json("text", minimal=True)
     assert "Return JSON only" in captured["messages"][0]["content"]
     assert json.loads(out)["company"]

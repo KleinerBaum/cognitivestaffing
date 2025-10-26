@@ -19,14 +19,22 @@ from openai_utils import call_chat_api
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
 from core.errors import ExtractionError
-from config import REASONING_EFFORT, ModelTask, get_active_verbosity, get_model_for
+from config import (
+    REASONING_EFFORT,
+    USE_RESPONSES_API,
+    ModelTask,
+    get_active_verbosity,
+    get_model_for,
+)
 from models.need_analysis import NeedAnalysisProfile
+from .openai_responses import build_json_schema_format, call_responses
 
 logger = logging.getLogger("cognitive_needs.llm")
 tracer = trace.get_tracer(__name__)
 
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
+_STRUCTURED_RESPONSE_RETRIES = 2
 
 
 def _set_nested_value(target: MutableMapping[str, Any], path: str, value: Any) -> None:
@@ -126,19 +134,42 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
     if chain is not None:
         return chain.invoke(payload)
 
-    result = call_chat_api(
-        payload["messages"],
-        model=payload["model"],
-        temperature=0,
-        reasoning_effort=payload.get("reasoning_effort"),
-        verbosity=payload.get("verbosity"),
-        json_schema={
-            "name": "need_analysis_profile",
-            "schema": NEED_ANALYSIS_SCHEMA,
-        },
-        task=ModelTask.EXTRACTION,
-    )
-    content = (result.content or "").strip()
+    content: str | None = None
+    if USE_RESPONSES_API:
+        response_format = build_json_schema_format(
+            name="need_analysis_profile",
+            schema=NEED_ANALYSIS_SCHEMA,
+        )
+        try:
+            result = call_responses(
+                payload["messages"],
+                model=payload["model"],
+                response_format=response_format,
+                temperature=0,
+                reasoning_effort=payload.get("reasoning_effort"),
+                max_tokens=payload.get("max_tokens"),
+                retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
+                task=ModelTask.EXTRACTION,
+            )
+        except Exception as exc:  # pragma: no cover - network/SDK issues
+            logger.warning("Responses API call failed; falling back to chat completions: %s", exc)
+        else:
+            content = (result.content or "").strip()
+
+    if content is None:
+        call_result = call_chat_api(
+            payload["messages"],
+            model=payload["model"],
+            temperature=0,
+            reasoning_effort=payload.get("reasoning_effort"),
+            verbosity=payload.get("verbosity"),
+            json_schema={
+                "name": "need_analysis_profile",
+                "schema": NEED_ANALYSIS_SCHEMA,
+            },
+            task=ModelTask.EXTRACTION,
+        )
+        content = (call_result.content or "").strip()
     if not content:
         raise ValueError("LLM returned empty response")
 
@@ -220,6 +251,7 @@ def extract_json(
                     "model": model,
                     "reasoning_effort": effort,
                     "verbosity": get_active_verbosity(),
+                    "retries": _STRUCTURED_RESPONSE_RETRIES,
                 }
             )
             if locked_fields:
