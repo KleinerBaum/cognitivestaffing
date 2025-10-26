@@ -30,7 +30,7 @@ from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from sidebar import SidebarPlan, render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
-from ui_views import advantages, gap_analysis  # noqa: E402
+from ui_views import advantages  # noqa: E402
 
 setup_tracing()
 
@@ -203,12 +203,6 @@ wizard_page = st.Page(
     url_path="wizard",
     default=True,
 )
-gap_analysis_page = st.Page(
-    gap_analysis.run,
-    title=tr("Gap-Analyse", "Gap analysis"),
-    icon="🧠",
-    url_path="gap-analysis",
-)
 advantages_page = st.Page(
     advantages.run,
     title=tr("Vorteile", "Advantages"),
@@ -218,7 +212,7 @@ advantages_page = st.Page(
 
 sidebar_plan = render_sidebar(
     logo_bytes=APP_LOGO_BYTES,
-    pages=[wizard_page, gap_analysis_page, advantages_page],
+    pages=[wizard_page, advantages_page],
     defer=True,
 )
 
