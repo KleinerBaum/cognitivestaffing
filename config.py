@@ -1,12 +1,12 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-The application now routes requests between OpenAI's GPT-4o family for balanced
-cost/latency and the GPT-5 tiers for specialised overrides. ``gpt-4o`` delivers
-structured extraction, long-form narratives, and follow-up reasoning, while
-``gpt-4o-mini`` covers lightweight suggestion flows by default. Teams can still
-override the routing to force GPT-5 mini/nano when premium quality is required.
-Structured retrieval standardises on ``text-embedding-3-large`` (3,072
-dimensions) for higher-fidelity RAG vectors.
+The application now favours OpenAI's cost-optimised GPT-5.1 tiers for most
+tasks. ``gpt-5.1-nano`` and ``gpt-5.1-mini`` handle extraction, suggestions and
+summaries by default, with automatic fallbacks to ``gpt-4o`` → ``gpt-4`` →
+``gpt-3.5-turbo`` when capacity constraints occur. Teams can still override the
+routing to force premium models when required. Structured retrieval continues to
+use ``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG
+vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
 ``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
@@ -130,8 +130,8 @@ def _detect_default_model() -> str:
     env_default = os.getenv("DEFAULT_MODEL")
     if env_default:
         normalised = normalise_model_name(env_default)
-        return normalised or GPT4O
-    return GPT4O
+        return normalised or GPT5_MINI
+    return GPT5_MINI
 
 
 DEFAULT_MODEL = _detect_default_model()
@@ -329,21 +329,21 @@ class ModelTask(StrEnum):
 
 MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DEFAULT.value: OPENAI_MODEL,
-    ModelTask.EXTRACTION.value: GPT4O,
-    ModelTask.COMPANY_INFO.value: "gpt-3.5-turbo",
-    ModelTask.FOLLOW_UP_QUESTIONS.value: GPT4O,
-    ModelTask.RAG_SUGGESTIONS.value: GPT4O,
-    ModelTask.SKILL_SUGGESTION.value: GPT4O_MINI,
-    ModelTask.BENEFIT_SUGGESTION.value: GPT4O_MINI,
-    ModelTask.TASK_SUGGESTION.value: GPT4O_MINI,
-    ModelTask.ONBOARDING_SUGGESTION.value: GPT4O_MINI,
-    ModelTask.JOB_AD.value: GPT4O,
-    ModelTask.INTERVIEW_GUIDE.value: GPT4O,
-    ModelTask.PROFILE_SUMMARY.value: GPT4O_MINI,
-    ModelTask.CANDIDATE_MATCHING.value: GPT4O,
-    ModelTask.DOCUMENT_REFINEMENT.value: GPT4O,
-    ModelTask.EXPLANATION.value: GPT4O,
-    ModelTask.SALARY_ESTIMATE.value: GPT4O_MINI,
+    ModelTask.EXTRACTION.value: GPT5_NANO,
+    ModelTask.COMPANY_INFO.value: GPT5_MINI,
+    ModelTask.FOLLOW_UP_QUESTIONS.value: GPT5_MINI,
+    ModelTask.RAG_SUGGESTIONS.value: GPT5_MINI,
+    ModelTask.SKILL_SUGGESTION.value: GPT5_NANO,
+    ModelTask.BENEFIT_SUGGESTION.value: GPT5_NANO,
+    ModelTask.TASK_SUGGESTION.value: GPT5_NANO,
+    ModelTask.ONBOARDING_SUGGESTION.value: GPT5_NANO,
+    ModelTask.JOB_AD.value: GPT5_MINI,
+    ModelTask.INTERVIEW_GUIDE.value: GPT5_MINI,
+    ModelTask.PROFILE_SUMMARY.value: GPT5_MINI,
+    ModelTask.CANDIDATE_MATCHING.value: GPT5_MINI,
+    ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
+    ModelTask.EXPLANATION.value: GPT5_MINI,
+    ModelTask.SALARY_ESTIMATE.value: GPT5_MINI,
     "embedding": EMBED_MODEL,
 }
 
@@ -354,9 +354,9 @@ for key, value in list(MODEL_ROUTING.items()):
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_NANO): [GPT5_NANO, GPT4O, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, GPT5_NANO, GPT4O, GPT4, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT5_NANO, GPT4O, GPT4, "gpt-3.5-turbo"],
+    _canonical_model_name(GPT5_NANO): [GPT5_NANO, GPT5_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
     _canonical_model_name(GPT4O): [GPT4O, GPT4, "gpt-3.5-turbo"],
     _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
     _canonical_model_name(GPT4): [GPT4, "gpt-3.5-turbo"],
@@ -515,23 +515,27 @@ def get_first_available_model(task: ModelTask | str, *, override: str | None = N
     """Return the first available model for ``task`` using the configured fallbacks."""
 
     candidates = _collect_candidate_models(task, override)
-    for index, candidate in enumerate(candidates):
+    logger = logging.getLogger("cognitive_needs.model_routing")
+    attempted: list[str] = []
+    for candidate in candidates:
+        attempted.append(candidate)
         if is_model_available(candidate):
-            if index > 0:
-                logging.getLogger("cognitive_needs.model_routing").warning(
-                    "Model '%s' unavailable; using fallback '%s'.", candidates[0], candidate
+            if len(attempted) > 1:
+                logger.warning(
+                    "Model routing fallback for task '%s': unavailable candidates %s → using '%s'.",
+                    task,
+                    ", ".join(attempted[:-1]),
+                    candidate,
                 )
             return candidate
     if candidates:
-        logging.getLogger("cognitive_needs.model_routing").warning(
+        logger.warning(
             "All configured models unavailable for task '%s'; using last candidate '%s'.",
             task,
             candidates[-1],
         )
         return candidates[-1]
-    logging.getLogger("cognitive_needs.model_routing").error(
-        "No model candidates resolved for task '%s'; falling back to %s.", task, GPT4O
-    )
+    logger.error("No model candidates resolved for task '%s'; falling back to %s.", task, GPT4O)
     return GPT4O
 
 
