@@ -12,7 +12,7 @@
     },
     "extraction": {
       "company_info": {
-        "user": "Analyze the following company website text and extract: the official company name, the primary location or headquarters, the company's mission or mission statement, core values or culture. Respond in JSON with keys name, location, mission, culture.\n\n{text}"
+        "user": "Analyze the following company website text or company context and extract: the official company name, the primary location or headquarters, the company's mission or mission statement, core values or culture, and the approximate employee count or company size. Respond in JSON with keys name, location, mission, culture, size.\n\n{text}"
       },
       "skill_suggestions": {
         "user": {
