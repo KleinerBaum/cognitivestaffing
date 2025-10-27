@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -23,12 +25,15 @@ PAGE = WizardPage(
         ),
     ),
     required_fields=(
-        "position.role_summary",
-        "responsibilities.items",
+        ProfilePaths.POSITION_ROLE_SUMMARY,
+        ProfilePaths.RESPONSIBILITIES_ITEMS,
     ),
     summary_fields=(
-        "position.role_summary",
-        "responsibilities.items",
+        ProfilePaths.POSITION_ROLE_SUMMARY,
+        ProfilePaths.RESPONSIBILITIES_ITEMS,
+        ProfilePaths.POSITION_KEY_PROJECTS,
+        ProfilePaths.POSITION_PERFORMANCE_INDICATORS,
+        ProfilePaths.POSITION_DECISION_AUTHORITY,
     ),
     allow_skip=False,
 )

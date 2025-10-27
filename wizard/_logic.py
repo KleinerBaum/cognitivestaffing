@@ -219,9 +219,7 @@ def _sync_followup_completion(path: str, value: Any, profile: dict[str, Any]) ->
 
     followups = st.session_state.get(StateKeys.FOLLOWUPS)
     if isinstance(followups, list):
-        remaining = [
-            q for q in followups if not (isinstance(q, Mapping) and q.get("field") == path)
-        ]
+        remaining = [q for q in followups if not (isinstance(q, Mapping) and q.get("field") == path)]
         st.session_state[StateKeys.FOLLOWUPS] = remaining
     st.session_state.pop(f"fu_{path}", None)
     if path not in answered:
@@ -256,9 +254,7 @@ def _load_autofill_decisions() -> dict[str, list[str]]:
 def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
     """Persist ``decisions`` to session state."""
 
-    st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {
-        key: list(value) for key, value in decisions.items()
-    }
+    st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {key: list(value) for key, value in decisions.items()}
 
 
 def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:

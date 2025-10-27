@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -24,10 +26,34 @@ PAGE = WizardPage(
     ),
     required_fields=(),
     summary_fields=(
-        "compensation.salary_min",
-        "compensation.salary_max",
-        "compensation.currency",
-        "compensation.benefits",
+        ProfilePaths.COMPENSATION_SALARY_PROVIDED,
+        ProfilePaths.COMPENSATION_SALARY_MIN,
+        ProfilePaths.COMPENSATION_SALARY_MAX,
+        ProfilePaths.COMPENSATION_CURRENCY,
+        ProfilePaths.COMPENSATION_PERIOD,
+        ProfilePaths.COMPENSATION_VARIABLE_PAY,
+        ProfilePaths.COMPENSATION_BONUS_PERCENTAGE,
+        ProfilePaths.COMPENSATION_COMMISSION_STRUCTURE,
+        ProfilePaths.COMPENSATION_EQUITY_OFFERED,
+        ProfilePaths.COMPENSATION_BENEFITS,
+        ProfilePaths.EMPLOYMENT_JOB_TYPE,
+        ProfilePaths.EMPLOYMENT_WORK_POLICY,
+        ProfilePaths.EMPLOYMENT_WORK_SCHEDULE,
+        ProfilePaths.EMPLOYMENT_CONTRACT_TYPE,
+        ProfilePaths.EMPLOYMENT_CONTRACT_END,
+        ProfilePaths.EMPLOYMENT_REMOTE_PERCENTAGE,
+        ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED,
+        ProfilePaths.EMPLOYMENT_TRAVEL_SHARE,
+        ProfilePaths.EMPLOYMENT_TRAVEL_REGION_SCOPE,
+        ProfilePaths.EMPLOYMENT_TRAVEL_REGIONS,
+        ProfilePaths.EMPLOYMENT_TRAVEL_CONTINENTS,
+        ProfilePaths.EMPLOYMENT_TRAVEL_DETAILS,
+        ProfilePaths.EMPLOYMENT_OVERTIME_EXPECTED,
+        ProfilePaths.EMPLOYMENT_SHIFT_WORK,
+        ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT,
+        ProfilePaths.EMPLOYMENT_RELOCATION_DETAILS,
+        ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP,
+        ProfilePaths.EMPLOYMENT_SECURITY_CLEARANCE_REQUIRED,
     ),
     allow_skip=True,
 )

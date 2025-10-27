@@ -86,7 +86,6 @@ from ._logic import (
     get_in,
     _normalize_semantic_empty,
     merge_unique_items,
-    normalize_text_area_list,
     set_in,
     unique_normalized,
 )
@@ -126,9 +125,6 @@ from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.normalization import (
     extract_company_size,
     extract_company_size_snippet,
-    normalize_company_size,
-    normalize_country,
-    normalize_language_list,
     country_to_iso2,
 )
 from utils.export import prepare_clean_json, prepare_download_data
