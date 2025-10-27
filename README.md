@@ -11,14 +11,18 @@ career page URL is provided, Cognitive Staffing detects the company logo,
 dominant brand colour, and slogan, then applies them to the sidebar hero,
 exports, and downstream JSON (`company.logo_url`, `company.brand_color`,
 `company.claim`). The screenshot below shows an example sidebar that picked up a
-logo and tone-on-tone accent colour without any manual configuration.
+logo and tone-on-tone accent colour without any manual configuration. The
+branding parser (`ingest/branding.py`) also exposes the resolved assets via the
+profile store so follow-up tools can render the same logo and claim.
 
 **DE:** Der Wizard erkennt Employer-Branding-Assets jetzt automatisch. Sobald
 eine Karriereseiten-URL vorliegt, ermittelt Cognitive Staffing Logo,
 Hauptfarbe und Claim des Unternehmens und übernimmt sie in die Sidebar,
 Exporte sowie das JSON (`company.logo_url`, `company.brand_color`,
 `company.claim`). Der Screenshot unten zeigt eine Sidebar, die Logo und
-Akzentfarbe ohne manuelle Einstellungen übernommen hat.
+Akzentfarbe ohne manuelle Einstellungen übernommen hat. Der Branding-Parser
+(`ingest/branding.py`) stellt die ermittelten Assets auch im Profil bereit,
+sodass Folgeaktionen Logo und Claim identisch anzeigen können.
 
 ![Branding example sidebar](images/branding_sidebar.svg)
 
@@ -29,6 +33,29 @@ Akzentfarbe ohne manuelle Einstellungen übernommen hat.
 >
 > **DE:** Die Branding-Erkennung funktioniert derzeit für öffentliche Websites.
 > Private Portale oder reine PDF-Uploads nutzen weiterhin das Standard-Theme.
+
+> **Contrast / Kontrast:**
+> **EN:** The sidebar only applies `company.brand_color` when it passes the
+> accessible contrast checks in `sidebar/_accessible_brand_colors`. Low-contrast
+> values fall back to the default accent to keep the UI legible.
+> **DE:** Die Sidebar übernimmt `company.brand_color` nur, wenn die Farbe die
+> Kontrastprüfung in `sidebar/_accessible_brand_colors` besteht. Bei zu geringem
+> Kontrast greift automatisch die Standard-Akzentfarbe, um die Lesbarkeit zu
+> erhalten.
+
+## What's new in v1.1.0 / Neu in v1.1.0
+- **Branding pipeline:**
+  **EN:** Company logo, brand colour, and claim are parsed from URLs and populate the sidebar hero plus exports via `company.logo_url`, `company.brand_color`, and `company.claim`.
+  **DE:** Logo, Markenfarbe und Claim werden aus URLs extrahiert und über `company.logo_url`, `company.brand_color` und `company.claim` in Sidebar und Exporte übernommen.
+- **Setup clarity:**
+  **EN:** README now documents OpenAI key sourcing (environment, Streamlit secrets, EU base URL) and the warning banners shown when `OPENAI_API_KEY` is missing.
+  **DE:** README beschreibt jetzt, wie der OpenAI-Schlüssel (Umgebung, Streamlit-Secrets, EU-Basis-URL) hinterlegt wird und welche Warnbanner ohne `OPENAI_API_KEY` erscheinen.
+- **Normalization overview:**
+  **EN:** Added a contributor-friendly walkthrough of the extraction → rules → LLM → normalisation flow with module-level entry points.
+  **DE:** Ein beitragendenfreundlicher Überblick erklärt den Ablauf Extraktion → Regeln → LLM → Normalisierung mit den zuständigen Modulen.
+- **Developer guidance:**
+  **EN:** New `docs/DEV_GUIDE.md` shares snippets for adding wizard sections, extending rules, and running lint/tests.
+  **DE:** Das neue `docs/DEV_GUIDE.md` liefert Snippets zum Ergänzen von Wizard-Abschnitten, zum Erweitern der Regeln und zum Ausführen von Linting/Tests.
 
 ## What's new in v1.0.0 / Neu in v1.0.0
 - **Wizard overhaul & schema alignment:**
@@ -106,6 +133,27 @@ streamlit app.py
 All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
 `prompt_registry` helper, keeping Streamlit deployments and CLI utilities in sync.
 
+## Extraction & Normalisation Pipeline / Extraktions- & Normalisierungspipeline
+
+1. **Input ingestion / Eingangsdaten**
+   - **EN:** Raw text and documents enter via `ingest/` loaders. PDFs and DOCX files are converted to text (`ingest/loaders/pdf.py`, `ingest/loaders/docx.py`), while URLs go through the readability pipeline.
+   - **DE:** Rohtexte und Dokumente gelangen über die Loader in `ingest/` hinein. PDFs und DOCX werden in Text konvertiert (`ingest/loaders/pdf.py`, `ingest/loaders/docx.py`), URLs laufen durch die Readability-Pipeline.
+2. **Rules-first extraction / Regelbasierte Extraktion zuerst**
+   - **EN:** Deterministic patterns in `core/rules.py` and `ingest/heuristics.py` capture quick wins (emails, phones, salary hints) and seed the profile before any LLM call.
+   - **DE:** Deterministische Muster in `core/rules.py` und `ingest/heuristics.py` greifen einfache Treffer (E-Mail, Telefon, Gehalt) ab und befüllen das Profil vor jedem LLM-Call.
+3. **LLM enrichment / LLM-Anreicherung**
+   - **EN:** `openai_utils/extraction.py` submits the cleaned text to the OpenAI Responses API for structured JSON (`NeedAnalysisProfile`). When the structured call fails, the function logs the reason and falls back to heuristics-only payloads or a plain-text extraction path.
+   - **DE:** `openai_utils/extraction.py` sendet den bereinigten Text an die OpenAI-Responses-API, um strukturiertes JSON (`NeedAnalysisProfile`) zu erhalten. Schlägt der Call fehl, protokolliert die Funktion den Grund und nutzt heuristische Payloads bzw. einen Plain-Text-Fallback.
+4. **Merge & repair / Zusammenführen & Reparatur**
+   - **EN:** The wizard merges rule hits and LLM payloads, then runs `core.schema.coerce_and_fill()` to align aliases before invoking `utils.normalization.normalize_profile()`.
+   - **DE:** Der Wizard führt Regel- und LLM-Ergebnisse zusammen, ruft `core.schema.coerce_and_fill()` für Alias-Angleichungen auf und startet anschließend `utils.normalization.normalize_profile()`.
+5. **Normalisation / Normalisierung**
+   - **EN:** Normalisation trims whitespace, harmonises casing, converts countries to ISO codes, normalises phone numbers, and validates hex colours for branding (`utils/normalization.py`). When validation still fails, the JSON repair helper re-asks the model and revalidates.
+   - **DE:** Die Normalisierung entfernt Leerzeichen, vereinheitlicht Groß-/Kleinschreibung, wandelt Länder in ISO-Codes um, normalisiert Telefonnummern und prüft Branding-Farben (`utils/normalization.py`). Scheitert die Validierung, fragt der JSON-Reparaturhelfer die LLM erneut und validiert nochmals.
+6. **Fallback logging / Fallback-Protokollierung**
+   - **EN:** Logs clearly note when the pipeline fell back to heuristics so you can inspect Streamlit console output for `Extraction fallback triggered` entries.
+   - **DE:** Logs weisen explizit darauf hin, wenn die Pipeline auf Heuristiken zurückgefallen ist (`Extraction fallback triggered`), sodass du die Ausgaben in der Streamlit-Konsole prüfen kannst.
+
 ## UI Binding Rules / UI-Bindungsregeln
 
 **EN:**
@@ -124,6 +172,24 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
   consistent casing, whitespace, and list deduplication. The normaliser returns
   a validated dictionary payload and triggers the JSON repair fallback only
   when the cleaned payload would otherwise violate the schema.
+- Profile paths are centralised in `constants/keys.py::ProfilePaths`. Fetch values with
+  `wizard._logic.get_value(ProfilePaths.COMPANY_NAME)` and reuse the same enum as the widget key.
+- To add a new field, extend the schema (e.g. `models/need_analysis.py`), add a
+  `ProfilePaths` entry, and bind the widget as shown below:
+
+  ```python
+  from constants.keys import ProfilePaths
+  from wizard import profile_text_input
+
+  value = get_value(ProfilePaths.POSITION_JOB_TITLE)
+  profile_text_input(
+      ProfilePaths.POSITION_JOB_TITLE,
+      label="Job title",
+      value=value or "",
+  )
+  ```
+
+  The helper updates `st.session_state[StateKeys.PROFILE]` automatically via `_update_profile`.
 
 **DE:**
 
@@ -141,6 +207,25 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
   Listen-Bereinigung konsistent sind. Der Normalisierer liefert ein validiertes
   Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Payload die
   Schemaregeln verletzen würde.
+- Profilpfade sind in `constants/keys.py::ProfilePaths` gebündelt. Werte holst du über
+  `wizard._logic.get_value(ProfilePaths.COMPANY_NAME)` ab und nutzt das Enum
+  gleichzeitig als Widget-Key.
+- Für ein neues Feld Schema erweitern (z. B. `models/need_analysis.py`), einen
+  `ProfilePaths`-Eintrag hinzufügen und das Widget wie folgt binden:
+
+  ```python
+  from constants.keys import ProfilePaths
+  from wizard import profile_text_input
+
+  value = get_value(ProfilePaths.POSITION_JOB_TITLE)
+  profile_text_input(
+      ProfilePaths.POSITION_JOB_TITLE,
+      label="Jobtitel",
+      value=value or "",
+  )
+  ```
+
+  Der Helfer aktualisiert `st.session_state[StateKeys.PROFILE]` automatisch über `_update_profile`.
 
 ## RecruitingWizard Schema – Single Source of Truth / Master-Schema RecruitingWizard
 
@@ -206,6 +291,16 @@ The requirements list includes Streamlit, OpenAI, Pydantic, jsonschema, vector r
 > **EN:** Streamlit Community Cloud deployments read `infra/deployment.toml`; keep `[python].requirements` set to `requirements.txt` to silence duplicate-requirements warnings.
 > **DE:** Streamlit-Community-Deployments lesen `infra/deployment.toml`; belasse `[python].requirements` auf `requirements.txt`, um Warnungen zu mehrfachen Requirements-Dateien zu vermeiden.
 
+> **System dependencies / Systemvoraussetzungen:**
+> **EN:** PDF rendering relies on Poppler (`brew install poppler` on macOS,
+> `apt-get install poppler-utils` on Debian/Ubuntu). OCR helpers fall back to
+> Tesseract (`brew install tesseract` / `apt-get install tesseract-ocr`) when the
+> OpenAI Vision backend is disabled.
+> **DE:** Für die PDF-Verarbeitung wird Poppler benötigt (`brew install poppler`
+> auf macOS, `apt-get install poppler-utils` unter Debian/Ubuntu). Die OCR-Helfer
+> greifen auf Tesseract zurück (`brew install tesseract` / `apt-get install
+> tesseract-ocr`), wenn das OpenAI-Vision-Backend deaktiviert ist.
+
 ### 4. Provide OpenAI credentials
 Set environment variables (or configure `.streamlit/secrets.toml` under the `openai` key):
 ```bash
@@ -226,7 +321,17 @@ export USE_CLASSIC_API="1"                                    # set to 1 to forc
 Copy `.env.example` to `.env` if you prefer dotenv-style loading during development. The file lists the most commonly used
 flags so you can enable/disable RAG or model overrides without touching your shell profile.
 
-You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
+You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region. If neither Streamlit secrets nor the environment define `OPENAI_API_KEY`, `config.get_openai_api_key()` logs `OPENAI_API_KEY not configured; LLM-powered features are disabled until a key is provided.` and `openai_utils.api` surfaces an in-app banner:
+
+```
+🔑 OpenAI-API-Schlüssel fehlt. Bitte `OPENAI_API_KEY` in der Umgebung oder in den Streamlit-Secrets hinterlegen.
+OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets.
+```
+
+The UI keeps running in heuristic-only mode until you add the key, then unlocks
+LLM-powered features automatically. `OPENAI_BASE_URL` lets you route traffic to
+compatible OpenAI endpoints (including EU residency). Leave it empty to use the
+default OpenAI cloud.
 
 > **JSON repair / JSON-Reparatur:** Automatic payload repair uses the
 > `coerce_and_fill` + `normalize_profile` pipeline together with an OpenAI
@@ -252,6 +357,18 @@ You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_RE
 streamlit run app.py
 ```
 Streamlit prints a local URL; open it in your browser to start the wizard.
+
+### 6b. Configuration flags / Konfigurations-Flags
+
+- **WIZARD_ORDER_V2:**
+  - **EN:** Toggle the modern step order (`onboarding → company → role → summary`) introduced in `wizard.py`. Set `WIZARD_ORDER_V2=1` to enable, `0` to keep the legacy order. The flag is read in `app.py` and `wizard.py`.
+  - **DE:** Aktiviert die neue Schritt-Reihenfolge (`Onboarding → Unternehmen → Rolle → Zusammenfassung`) aus `wizard.py`. Setze `WIZARD_ORDER_V2=1`, um sie zu aktivieren, `0` für die bisherige Reihenfolge. Das Flag wird in `app.py` und `wizard.py` ausgewertet.
+- **Model routing:**
+  - **EN:** `config.py` centralises overrides such as `OPENAI_MODEL`, `DEFAULT_MODEL`, `REASONING_EFFORT`, and `VERBOSITY`. Adjust them via environment variables or Streamlit secrets when experimenting with different model tiers.
+  - **DE:** `config.py` bündelt Overrides wie `OPENAI_MODEL`, `DEFAULT_MODEL`, `REASONING_EFFORT` und `VERBOSITY`. Passe sie über Umgebungsvariablen oder Streamlit-Secrets an, wenn du unterschiedliche Modellstufen testen möchtest.
+- **Feature previews:**
+  - **EN:** New toggles live next to existing settings inside `config.py`. Search for `CS_SCHEMA_PROPAGATE` in the repository to identify schema changes that require aligning logic, UI, and exports behind the same flag.
+  - **DE:** Neue Schalter findest du in `config.py` neben den bestehenden Einstellungen. Suche im Repo nach `CS_SCHEMA_PROPAGATE`, um Schemaänderungen zu erkennen, die Logik, UI und Exporte gemeinsam aktivieren müssen.
 
 ### 7. Optional: Build a vector store for RAG / Optional: Vector-Store für RAG erstellen
 
@@ -302,5 +419,6 @@ python -m cli.rebuild_vector_store vs_existing_store_id
 ## Further Reading
 - [AGENTS.md](AGENTS.md) for an overview of every autonomous agent (Follow-up generator, ESCO enricher, RAG assistant, compliance plans, etc.).
 - [docs/](docs/) for schema references, JSON pipelines, and changelogs.
+- [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) for hands-on recipes when adding wizard steps, tweaking rules, or running tests.
 
 Happy hiring!
