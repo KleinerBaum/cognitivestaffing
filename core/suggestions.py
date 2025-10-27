@@ -338,9 +338,10 @@ def get_responsibility_suggestions(
     if not job_title:
         return [], None
 
-    existing_markers = {
-        str(item).strip().casefold() for item in (existing_items or []) if isinstance(item, str) and str(item).strip()
-    }
+    cleaned_existing = [
+        str(item).strip() for item in (existing_items or []) if isinstance(item, str) and str(item).strip()
+    ]
+    existing_markers = {value.casefold() for value in cleaned_existing}
 
     try:
         suggestions = suggest_responsibilities_for_role(
@@ -350,6 +351,7 @@ def get_responsibility_suggestions(
             company_name=company_name or "",
             team_structure=team_structure or "",
             industry=industry or "",
+            existing_responsibilities=cleaned_existing,
         )
     except Exception as exc:  # pragma: no cover - error path tested separately
         return [], str(exc)

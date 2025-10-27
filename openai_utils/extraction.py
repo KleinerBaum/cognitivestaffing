@@ -827,6 +827,7 @@ def suggest_responsibilities_for_role(
     team_structure: str | None = None,
     industry: str | None = None,
     tone_style: str | None = None,
+    existing_responsibilities: Sequence[str] | None = None,
 ) -> list[str]:
     """Suggest core responsibilities for a job title."""
 
@@ -858,11 +859,23 @@ def suggest_responsibilities_for_role(
         header = "Kontext:" if locale == "de" else "Context:"
         context_clause = "\n" + header + "\n" + "\n".join(f"- {line}" for line in context_lines)
 
+    existing_values = [
+        str(item).strip() for item in (existing_responsibilities or []) if isinstance(item, str) and str(item).strip()
+    ]
+    existing_clause = ""
+    if existing_values:
+        existing_clause = _format_prompt(
+            "llm.extraction.responsibility_suggestions.existing_clause",
+            locale=locale,
+            existing_responsibilities="; ".join(existing_values[:8]),
+        )
+
     prompt = _format_prompt(
         "llm.extraction.responsibility_suggestions.user",
         locale=locale,
         job_title=job_title,
         context_clause=context_clause,
+        existing_clause=existing_clause,
     )
     tone_hint = _style_prompt_hint(tone_style, locale)
     if tone_hint:
@@ -912,7 +925,7 @@ def suggest_responsibilities_for_role(
                 continue
             seen.add(marker)
             cleaned.append(entry)
-            if len(cleaned) == 7:
+            if len(cleaned) == 5:
                 break
         return cleaned
 
