@@ -28,7 +28,7 @@ from config import (
     get_model_for,
 )
 from models.need_analysis import NeedAnalysisProfile
-from .openai_responses import build_json_schema_format, call_responses
+from .openai_responses import build_json_schema_format, call_responses_safe
 
 logger = logging.getLogger("cognitive_needs.llm")
 tracer = trace.get_tracer(__name__)
@@ -141,20 +141,19 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             name="need_analysis_profile",
             schema=NEED_ANALYSIS_SCHEMA,
         )
-        try:
-            result = call_responses(
-                payload["messages"],
-                model=payload["model"],
-                response_format=response_format,
-                temperature=0,
-                reasoning_effort=payload.get("reasoning_effort"),
-                max_tokens=payload.get("max_tokens"),
-                retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
-                task=ModelTask.EXTRACTION,
-            )
-        except Exception as exc:  # pragma: no cover - network/SDK issues
-            logger.warning("Responses API call failed; falling back to chat completions: %s", exc)
-        else:
+        result = call_responses_safe(
+            payload["messages"],
+            model=payload["model"],
+            response_format=response_format,
+            temperature=0,
+            reasoning_effort=payload.get("reasoning_effort"),
+            max_tokens=payload.get("max_tokens"),
+            retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
+            task=ModelTask.EXTRACTION,
+            logger_instance=logger,
+            context="structured extraction",
+        )
+        if result is not None:
             content = (result.content or "").strip()
 
     if content is None:
@@ -177,6 +176,10 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
     try:
         data = json.loads(content)
     except json.JSONDecodeError as err:
+        logger.warning(
+            "Responses API structured extraction returned invalid JSON; falling back to plain text.",
+            exc_info=err,
+        )
         raise ValueError("Structured extraction did not return valid JSON") from err
 
     try:

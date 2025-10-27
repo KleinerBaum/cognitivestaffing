@@ -7,7 +7,7 @@ import logging
 from typing import Any, Sequence
 
 from config import ModelTask, REASONING_EFFORT, USE_CLASSIC_API, get_model_for
-from llm.openai_responses import build_json_schema_format, call_responses
+from llm.openai_responses import build_json_schema_format, call_responses_safe
 from openai_utils.extraction import _format_prompt, _style_prompt_hint
 
 logger = logging.getLogger(__name__)
@@ -234,35 +234,36 @@ def suggest_skills_for_role(
             responsibilities=responsibilities,
         )
 
-    try:
-        response = call_responses(
-            [{"role": "user", "content": prompt}],
-            model=model,
-            response_format=build_json_schema_format(
-                name="skill_suggestions",
-                schema={
-                    "type": "object",
-                    "properties": {
-                        "tools_and_technologies": {"type": "array", "items": {"type": "string"}},
-                        "hard_skills": {"type": "array", "items": {"type": "string"}},
-                        "soft_skills": {"type": "array", "items": {"type": "string"}},
-                        "certificates": {"type": "array", "items": {"type": "string"}},
-                    },
-                    "required": [
-                        "tools_and_technologies",
-                        "hard_skills",
-                        "soft_skills",
-                        "certificates",
-                    ],
-                    "additionalProperties": False,
+    response = call_responses_safe(
+        [{"role": "user", "content": prompt}],
+        model=model,
+        response_format=build_json_schema_format(
+            name="skill_suggestions",
+            schema={
+                "type": "object",
+                "properties": {
+                    "tools_and_technologies": {"type": "array", "items": {"type": "string"}},
+                    "hard_skills": {"type": "array", "items": {"type": "string"}},
+                    "soft_skills": {"type": "array", "items": {"type": "string"}},
+                    "certificates": {"type": "array", "items": {"type": "string"}},
                 },
-            ),
-            max_tokens=400,
-            reasoning_effort=REASONING_EFFORT,
-            task=ModelTask.SKILL_SUGGESTION,
-        )
-    except Exception:
-        logger.exception("Responses API skill suggestion failed; falling back to legacy backend")
+                "required": [
+                    "tools_and_technologies",
+                    "hard_skills",
+                    "soft_skills",
+                    "certificates",
+                ],
+                "additionalProperties": False,
+            },
+        ),
+        max_tokens=400,
+        reasoning_effort=REASONING_EFFORT,
+        task=ModelTask.SKILL_SUGGESTION,
+        logger_instance=logger,
+        context="skill suggestion",
+    )
+    if response is None:
+        logger.warning("Falling back to legacy skill suggestion backend after Responses API failure")
         return _fallback_skills_via_legacy(
             job_title,
             lang=lang,
@@ -276,8 +277,19 @@ def suggest_skills_for_role(
     try:
         payload = json.loads(response.content or "{}")
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive parsing
-        logger.warning("Failed to decode skill suggestion payload: %s", exc)
-        payload = {}
+        logger.warning(
+            "Responses API skill suggestion returned invalid JSON; falling back to legacy backend.",
+            exc_info=exc,
+        )
+        return _fallback_skills_via_legacy(
+            job_title,
+            lang=lang,
+            model=model,
+            focus_terms=focus_terms,
+            tone_style=tone_style,
+            existing_items=existing_items,
+            responsibilities=responsibilities,
+        )
 
     tools = _clean_string_list(payload.get("tools_and_technologies"), limit=12)
     hard = _clean_string_list(payload.get("hard_skills"), limit=12)
@@ -389,32 +401,33 @@ def suggest_benefits(
             tone_style=tone_style,
         )
 
-    try:
-        response = call_responses(
-            [{"role": "user", "content": prompt}],
-            model=model,
-            response_format=build_json_schema_format(
-                name="benefit_suggestions",
-                schema={
-                    "type": "object",
-                    "properties": {
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "maxItems": 5,
-                        }
-                    },
-                    "required": ["items"],
-                    "additionalProperties": False,
+    response = call_responses_safe(
+        [{"role": "user", "content": prompt}],
+        model=model,
+        response_format=build_json_schema_format(
+            name="benefit_suggestions",
+            schema={
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 5,
+                    }
                 },
-            ),
-            temperature=0.5,
-            max_tokens=200,
-            reasoning_effort=REASONING_EFFORT,
-            task=ModelTask.BENEFIT_SUGGESTION,
-        )
-    except Exception:
-        logger.exception("Responses API benefit suggestion failed; using static fallback")
+                "required": ["items"],
+                "additionalProperties": False,
+            },
+        ),
+        temperature=0.5,
+        max_tokens=200,
+        reasoning_effort=REASONING_EFFORT,
+        task=ModelTask.BENEFIT_SUGGESTION,
+        logger_instance=logger,
+        context="benefit suggestion",
+    )
+    if response is None:
+        logger.warning("Responses API benefit suggestion failed; using static fallback")
         return _fallback_benefits_static(
             lang=lang,
             industry=industry,
@@ -425,8 +438,16 @@ def suggest_benefits(
     try:
         payload = json.loads(response.content or "{}")
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive parsing
-        logger.warning("Failed to decode benefit suggestion payload: %s", exc)
-        payload = None
+        logger.warning(
+            "Responses API benefit suggestion returned invalid JSON; using static fallback.",
+            exc_info=exc,
+        )
+        return _fallback_benefits_static(
+            lang=lang,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            focus_areas=focus_areas,
+        )
 
     def _extract_items(data: Any) -> list[str]:
         if isinstance(data, list):

@@ -154,4 +154,61 @@ def call_responses(
     )
 
 
-__all__ = ["ResponsesCallResult", "build_json_schema_format", "call_responses"]
+def call_responses_safe(
+    messages: Sequence[Mapping[str, Any]],
+    *,
+    model: str,
+    response_format: Mapping[str, Any],
+    logger_instance: logging.Logger | None = None,
+    context: str = "call",
+    allow_empty: bool = False,
+    **kwargs: Any,
+) -> ResponsesCallResult | None:
+    """Return a Responses result or ``None`` when the call should fall back.
+
+    The helper wraps :func:`call_responses` with defensive error handling so
+    callers can centralise fallback behaviour. All keyword arguments other than
+    ``logger_instance``, ``context`` and ``allow_empty`` are forwarded to
+    :func:`call_responses`.
+    """
+
+    active_logger = logger_instance or logger
+    try:
+        result = call_responses(
+            messages,
+            model=model,
+            response_format=response_format,
+            **kwargs,
+        )
+    except OpenAIError as exc:
+        active_logger.warning(
+            "Responses API %s failed; triggering fallback: %s",
+            context,
+            exc,
+        )
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        active_logger.warning(
+            "Unexpected error during Responses API %s; triggering fallback",
+            context,
+            exc_info=exc,
+        )
+        return None
+
+    content = (result.content or "").strip()
+    if not allow_empty and not content:
+        active_logger.warning(
+            "Responses API %s returned empty content; triggering fallback",
+            context,
+        )
+        return None
+
+    return result
+
+
+__all__ = [
+    "ResponsesCallResult",
+    "build_json_schema_format",
+    "call_responses",
+    "call_responses_safe",
+]
