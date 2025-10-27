@@ -109,6 +109,44 @@ _CONTACT_NAME_STOPWORDS = {
     "liebe",
     "bewerbung",
 }
+_TEAM_STRUCTURE_PAREN_RE = re.compile(r"\(([^)]*team[^)]*)\)", re.IGNORECASE)
+_TEAM_STRUCTURE_CONNECTOR_RE = re.compile(r"^(?:mit|with|in)\s+", re.IGNORECASE)
+_ROLE_CONTACT_RE = re.compile(
+    r"(?P<title>[A-ZÄÖÜ][^:\n]{0,80}?)\s*:\s*(?P<name>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){0,3})(?=[\s,;|).]|$)",
+)
+_REPORTING_EXCLUDE_KEYWORDS = tuple(
+    {
+        *(_CONTACT_KEYWORDS),
+        *(_HR_HINTS),
+        "ansprechpartnerin",
+        "ansprechpersonen",
+        "ansprechperson",
+        "people partner",
+        "talent manager",
+        "talent managerin",
+        "recruiter",
+    }
+)
+_LEADERSHIP_KEYWORDS = (
+    "leiter",
+    "leitung",
+    "lead",
+    "manager",
+    "head",
+    "director",
+    "chief",
+    "geschäftsführer",
+    "geschaeftsfuehrer",
+    "geschäftsleitung",
+    "bereichsleitung",
+    "vorstand",
+    "vp",
+    "vice president",
+)
+_LEADERSHIP_ACRONYM_RE = re.compile(
+    r"^(?:c[aitmsodpfr]{1,2}o|ceo|cto|cfo|cio|cco|cmo|cpo|cso|cro|cdo|ciso|cio|coo|cgo|cxo|vp|svp|evp|md|gm)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(slots=True)
@@ -364,6 +402,94 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
             )
             return [candidate]
     return []
+
+
+def _clean_team_phrase(raw: str) -> str:
+    """Return ``raw`` stripped of bullets, connectors, and trailing punctuation."""
+
+    cleaned = raw.strip()
+    cleaned = re.sub(r"^[•*·\-\u2022\u2023\u2043\u25E6\u2219\u204C\u204D\u00B7\s]+", "", cleaned)
+    cleaned = _TEAM_STRUCTURE_CONNECTOR_RE.sub("", cleaned)
+    cleaned = cleaned.strip(" ,.;:!?–—-")
+    return re.sub(r"\s+", " ", cleaned)
+
+
+def _extract_team_structure(text: str) -> str:
+    """Return a concise description of the team setup from ``text`` if found."""
+
+    if not text:
+        return ""
+
+    for match in _TEAM_STRUCTURE_PAREN_RE.finditer(text):
+        candidate = _clean_team_phrase(match.group(1))
+        if candidate and len(candidate) <= 180:
+            return candidate
+
+    segments = re.split(r"[\n.;]", text)
+    for segment in segments:
+        if "team" not in segment.casefold():
+            continue
+        candidate = _clean_team_phrase(segment)
+        if candidate:
+            if len(candidate) > 200:
+                candidate = candidate[:200].rstrip(" ,.;:")
+            return candidate
+    return ""
+
+
+def _normalize_role_title(raw: str) -> str:
+    """Return ``raw`` trimmed of bullets and extra whitespace."""
+
+    cleaned = re.sub(r"^[•*·\-\u2022\s]+", "", raw.strip())
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip(" ,.;:!?")
+
+
+def _is_reporting_title_excluded(title_lower: str) -> bool:
+    """Return ``True`` if ``title_lower`` refers to HR/contact personnel."""
+
+    return any(keyword in title_lower for keyword in _REPORTING_EXCLUDE_KEYWORDS)
+
+
+def _is_leadership_title(title: str) -> bool:
+    """Return ``True`` if ``title`` appears to denote a leadership role."""
+
+    normalized = re.sub(r"\(.*?\)", "", title).casefold()
+    normalized = normalized.replace("-", " ")
+    if _LEADERSHIP_ACRONYM_RE.match(normalized):
+        return True
+    return any(keyword in normalized for keyword in _LEADERSHIP_KEYWORDS)
+
+
+def _extract_reporting_line(text: str) -> tuple[str, str]:
+    """Return reporting line title and manager name inferred from ``text``."""
+
+    if not text:
+        return "", ""
+
+    candidates: list[tuple[int, str, str]] = []
+    fallback: list[tuple[int, str, str]] = []
+
+    for match in _ROLE_CONTACT_RE.finditer(text):
+        title = _normalize_role_title(match.group("title"))
+        name = match.group("name").strip()
+        if not title or not name:
+            continue
+        if not _NAME_RE.fullmatch(name):
+            continue
+        lowered_title = title.casefold()
+        if _is_reporting_title_excluded(lowered_title):
+            continue
+        bucket = candidates if _is_leadership_title(title) else fallback
+        bucket.append((match.start(), title, name))
+
+    if candidates:
+        _, title, name = min(candidates, key=lambda item: item[0])
+        return title, name
+    if fallback:
+        _, title, name = min(fallback, key=lambda item: item[0])
+        return title, name
+    return "", ""
 
 
 def _extract_company_website(text: str) -> str | None:
@@ -1610,6 +1736,40 @@ def apply_basic_fallbacks(
             "responsibilities_first_item",
             detail="with first responsibility",
         )
+    team_field = "position.team_structure"
+    if not _is_locked(team_field) and _needs_value(profile.position.team_structure, team_field):
+        team_structure = _extract_team_structure(text)
+        if team_structure:
+            profile.position.team_structure = team_structure
+            _log_heuristic_fill(
+                team_field,
+                "team_structure_phrase",
+                detail=f"with value {team_structure!r}",
+            )
+    reporting_line_field = "position.reporting_line"
+    manager_name_field = "position.reporting_manager_name"
+    reporting_line_needed = not _is_locked(reporting_line_field) and _needs_value(
+        profile.position.reporting_line, reporting_line_field
+    )
+    manager_name_needed = not _is_locked(manager_name_field) and _needs_value(
+        profile.position.reporting_manager_name, manager_name_field
+    )
+    if reporting_line_needed or manager_name_needed:
+        reporting_line, manager_name = _extract_reporting_line(text)
+        if reporting_line_needed and reporting_line:
+            profile.position.reporting_line = reporting_line
+            _log_heuristic_fill(
+                reporting_line_field,
+                "reporting_line_match",
+                detail=f"with value {reporting_line!r}",
+            )
+        if manager_name_needed and manager_name:
+            profile.position.reporting_manager_name = manager_name
+            _log_heuristic_fill(
+                manager_name_field,
+                "reporting_line_match",
+                detail=f"with value {manager_name!r}",
+            )
     # Contact heuristics: look for labelled HR contact sections and company websites
     # to backfill missing company metadata in the wizard sidebar.
     contact_name_field = "company.contact_name"
