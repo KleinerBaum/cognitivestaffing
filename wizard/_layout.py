@@ -16,7 +16,7 @@ _SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
 COMPACT_STEP_STYLE = """
 <style>
 section.main div.block-container div[data-testid="stVerticalBlock"] {
-    gap: var(--space-xs, 0.35rem) !important;
+    gap: var(--space-sm, 0.5rem) !important;
 }
 section.main div.block-container div[data-testid="stTextInput"],
 section.main div.block-container div[data-testid="stTextArea"],
@@ -33,7 +33,7 @@ section.main div.block-container div[data-testid="stFormSubmitButton"],
 section.main div.block-container div[data-testid="stFileUploader"],
 section.main div.block-container div[data-testid="stCaptionContainer"],
 section.main div.block-container div[data-testid="stMarkdownContainer"] {
-    margin-bottom: var(--space-xs, 0.35rem);
+    margin-bottom: var(--space-xs, 0.4rem);
 }
 section.main div.block-container h1,
 section.main div.block-container h2,
@@ -44,9 +44,76 @@ section.main div.block-container h6 {
     margin-top: var(--space-md, 0.75rem);
     margin-bottom: var(--space-xs, 0.35rem);
 }
+section.main div.block-container h1:first-child {
+    margin-top: 0;
+}
+section.main div.block-container h2 {
+    color: var(--text-strong);
+}
+section.main div.block-container h3,
+section.main div.block-container h4,
+section.main div.block-container h5 {
+    color: var(--text-muted);
+    font-weight: 600;
+}
 section.main div.block-container hr {
     margin-top: var(--space-md, 0.75rem);
     margin-bottom: var(--space-md, 0.75rem);
+}
+section.main div.block-container [data-testid="stMarkdownContainer"] p {
+    margin-top: 0;
+    margin-bottom: var(--space-xs, 0.35rem);
+    line-height: 1.6;
+    color: var(--text-soft);
+}
+section.main div.block-container [data-testid="stMarkdownContainer"] p strong {
+    color: var(--text-strong);
+}
+section.main div.block-container [data-testid="stMarkdownContainer"] p em {
+    color: var(--text-muted);
+}
+section.main div.block-container [data-testid="stMarkdownContainer"] ul,
+section.main div.block-container [data-testid="stMarkdownContainer"] ol {
+    margin-top: 0;
+    margin-bottom: var(--space-xs, 0.35rem);
+    padding-left: 1.1rem;
+}
+section.main div.block-container [data-testid="stMarkdownContainer"] li {
+    margin-bottom: var(--space-2xs, 0.25rem);
+}
+section.main div.block-container label {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+}
+section.main div.block-container div[data-testid="stCaptionContainer"] {
+    margin-top: calc(var(--space-2xs, 0.25rem) * -0.5);
+}
+section.main div.block-container div[data-testid="stCaptionContainer"] p {
+    margin: 0;
+    color: var(--text-soft);
+}
+section.main div.block-container div[data-testid="stRadio"] label,
+section.main div.block-container div[data-testid="stCheckbox"] > label {
+    padding: 0.4rem 0.6rem;
+    border-radius: 12px;
+    transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+section.main div.block-container div[data-testid="stRadio"] label:hover,
+section.main div.block-container div[data-testid="stCheckbox"] > label:hover {
+    background: var(--surface-hover);
+}
+section.main div.block-container div[data-testid="stRadio"] label:focus-within,
+section.main div.block-container div[data-testid="stCheckbox"] > label:focus-within {
+    background: var(--surface-press);
+    box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+}
+section.main div.block-container div[data-testid="stSlider"] .stSliderTickBar {
+    color: var(--text-soft);
 }
 section.main div.block-container div[data-testid="column"] {
     padding-left: var(--space-2xs, 0.25rem) !important;
@@ -57,10 +124,11 @@ section.main div.block-container div[data-testid="stHorizontalBlock"] {
 }
 section.main div.block-container .stTabs [data-baseweb="tab-list"] {
     gap: var(--space-xs, 0.35rem) !important;
+    padding: var(--space-2xs, 0.25rem);
 }
 section.main div.block-container .stTabs [data-baseweb="tab"] {
-    padding-top: var(--space-xs, 0.35rem);
-    padding-bottom: var(--space-xs, 0.35rem);
+    padding-top: var(--space-2xs, 0.3rem);
+    padding-bottom: var(--space-2xs, 0.3rem);
 }
 
 @media (max-width: 900px) {
@@ -82,17 +150,44 @@ section.main div.block-container .stTabs [data-baseweb="tab"] {
         width: 100%;
     }
 }
+
+@media (max-width: 640px) {
+    section.main div.block-container h1 {
+        font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.1rem);
+    }
+    section.main div.block-container h2 {
+        font-size: clamp(1.35rem, 1.1rem + 0.8vw, 1.7rem);
+    }
+}
 </style>
 """
 
 ONBOARDING_HERO_STYLE = """
 <style>
 .onboarding-hero {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: clamp(1rem, 3vw, 2.75rem);
     align-items: center;
     margin: 1.2rem 0 1.4rem;
+    padding: clamp(1.4rem, 1rem + 2vw, 2.4rem);
+    background: var(--hero-panel-bg);
+    border: 1px solid var(--hero-panel-border);
+    border-radius: clamp(1.2rem, 0.8rem + 1vw, 1.75rem);
+    box-shadow: var(--shadow-medium);
+    overflow: hidden;
+}
+.onboarding-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--hero-overlay);
+    pointer-events: none;
+}
+.onboarding-hero > * {
+    position: relative;
+    z-index: 1;
 }
 .onboarding-hero__logo {
     flex: 0 1 clamp(200px, 28vw, 320px);
@@ -102,29 +197,31 @@ ONBOARDING_HERO_STYLE = """
 .onboarding-hero__logo img {
     width: clamp(180px, 24vw, 320px);
     height: auto;
-    filter: drop-shadow(0 18px 36px rgba(8, 10, 10, 0.45));
+    filter: var(--hero-image-filter);
 }
 .onboarding-hero__copy {
     flex: 1 1 280px;
+    max-width: var(--hero-copy-max-width, 640px);
 }
 .onboarding-hero__eyebrow {
     font-size: 0.8rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--accent);
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.5rem;
 }
 .onboarding-hero__headline {
     margin: 0;
     font-size: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
     font-weight: 700;
+    line-height: 1.2;
     color: var(--text-strong);
 }
 .onboarding-hero__subheadline {
-    margin-top: 0.75rem;
+    margin-top: 0.85rem;
     font-size: clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem);
     color: var(--text-muted);
-    line-height: 1.55;
+    line-height: 1.6;
 }
 @media (max-width: 768px) {
     .onboarding-hero {
@@ -133,6 +230,12 @@ ONBOARDING_HERO_STYLE = """
     }
     .onboarding-hero__copy {
         flex-basis: 100%;
+        max-width: 100%;
+    }
+}
+@media (max-width: 540px) {
+    .onboarding-hero {
+        padding: clamp(1.1rem, 0.9rem + 1.2vw, 1.6rem);
     }
 }
 </style>
@@ -148,17 +251,34 @@ def inject_salary_slider_styles() -> None:
         """
         <style>
         div[data-testid="stSlider"] .stSliderTrack {
-            background: linear-gradient(90deg, #1f6feb, #7f00ff);
-            box-shadow: 0 0 12px rgba(31, 111, 235, 0.45);
-        }
-        div[data-testid="stSlider"] div[role="slider"] {
-            background: radial-gradient(circle at 30% 30%, #ffffff, #00f0ff);
-            border: 2px solid rgba(127, 0, 255, 0.75);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.55);
+            background: linear-gradient(
+                90deg,
+                var(--slider-track-start, var(--accent)),
+                var(--slider-track-end, var(--accent-2))
+            );
+            box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.18), 0 12px 24px rgba(15, 23, 42, 0.22);
+            border-radius: 999px;
+            transition: box-shadow 0.2s ease;
         }
         div[data-testid="stSlider"] .stSliderRail {
-            background: linear-gradient(90deg, rgba(31, 111, 235, 0.25), rgba(127, 0, 255, 0.25));
+            background: var(--slider-rail, rgba(148, 163, 184, 0.25));
             border-radius: 999px;
+        }
+        div[data-testid="stSlider"] div[role="slider"] {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--slider-thumb-fill, var(--surface-contrast));
+            border: 2px solid var(--slider-thumb-border, var(--accent));
+            box-shadow: var(--slider-thumb-shadow, 0 0 0 3px rgba(30, 136, 247, 0.18));
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        div[data-testid="stSlider"] div[role="slider"]:hover {
+            transform: scale(1.05);
+        }
+        div[data-testid="stSlider"] div[role="slider"]:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
         }
         </style>
         """,

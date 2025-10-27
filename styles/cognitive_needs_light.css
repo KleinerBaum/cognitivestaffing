@@ -28,7 +28,7 @@
   --accent: var(--brand-cyan-400);
   --accent-2: var(--brand-amber-200);
   --text-strong: var(--tone-900);
-  --text-muted: rgba(37, 58, 95, 0.72);
+  --text-muted: rgba(37, 58, 95, 0.74);
   --text-soft: rgba(52, 83, 129, 0.56);
   --text-inverse: var(--tone-50);
   --text-contrast-strong: var(--tone-900);
@@ -36,30 +36,33 @@
   --text-contrast-soft: rgba(37, 58, 95, 0.5);
   --text-on-accent: var(--text-inverse);
 
-  --surface-0: rgba(255, 255, 255, 0.96);
-  --surface-1: rgba(255, 255, 255, 0.92);
+  --surface-0: rgba(255, 255, 255, 0.97);
+  --surface-1: rgba(255, 255, 255, 0.94);
   --surface-2: rgba(255, 255, 255, 0.98);
-  --surface-3: rgba(30, 136, 247, 0.08);
+  --surface-3: rgba(30, 136, 247, 0.1);
   --surface-contrast: rgba(255, 255, 255, 0.98);
   --surface-accent-soft: rgba(30, 136, 247, 0.12);
-  --surface-accent-strong: rgba(30, 136, 247, 0.18);
-  --surface-accent-secondary: rgba(255, 206, 115, 0.16);
-  --surface-hover: rgba(30, 136, 247, 0.12);
-  --surface-press: rgba(30, 136, 247, 0.18);
+  --surface-accent-strong: rgba(30, 136, 247, 0.2);
+  --surface-accent-secondary: rgba(255, 206, 115, 0.18);
+  --surface-hover: rgba(30, 136, 247, 0.16);
+  --surface-press: rgba(30, 136, 247, 0.24);
   --surface-critical: rgba(214, 90, 78, 0.18);
   --control-surface: rgba(42, 74, 133, 0.08);
 
-  --border-subtle: rgba(42, 74, 133, 0.16);
-  --border-strong: rgba(42, 74, 133, 0.26);
-  --border-contrast: rgba(42, 74, 133, 0.34);
+  --border-subtle: rgba(42, 74, 133, 0.18);
+  --border-strong: rgba(42, 74, 133, 0.3);
+  --border-contrast: rgba(42, 74, 133, 0.38);
 
   --radius: 14px;
   --shadow-soft: 0 10px 24px rgba(37, 58, 95, 0.12);
   --shadow-medium: 0 16px 34px rgba(37, 58, 95, 0.16);
   --shadow-strong: 0 22px 44px rgba(37, 58, 95, 0.2);
   --focus-ring: rgba(30, 136, 247, 0.3);
+  --focus-ring-contrast: rgba(227, 239, 255, 0.9);
   --accent-glow: drop-shadow(0 0 10px rgba(30, 136, 247, 0.22));
   --button-gradient: linear-gradient(135deg, rgba(30, 136, 247, 0.95), rgba(70, 109, 165, 0.92));
+  --button-gradient-hover: linear-gradient(135deg, rgba(42, 149, 255, 1), rgba(64, 104, 164, 0.98));
+  --button-gradient-active: linear-gradient(135deg, rgba(25, 108, 214, 0.96), rgba(52, 88, 145, 0.96));
   --summary-primary-gradient: linear-gradient(120deg, rgba(30, 136, 247, 0.12), rgba(70, 109, 165, 0.1));
   --sidebar-top: #f2f6fd;
   --sidebar-gradient: linear-gradient(
@@ -84,10 +87,25 @@
   --scrollbar-thumb-border: rgba(244, 247, 254, 0.32);
 
   --interactive-surface: rgba(30, 136, 247, 0.08);
-  --interactive-hover: rgba(30, 136, 247, 0.14);
-  --interactive-current: rgba(30, 136, 247, 0.18);
-  --interactive-done: rgba(70, 109, 165, 0.16);
-  --interactive-border-strong: rgba(30, 136, 247, 0.28);
+  --interactive-hover: rgba(30, 136, 247, 0.16);
+  --interactive-current: rgba(30, 136, 247, 0.22);
+  --interactive-done: rgba(70, 109, 165, 0.18);
+  --interactive-border-strong: rgba(30, 136, 247, 0.32);
+  --chip-hover: rgba(30, 136, 247, 0.18);
+  --chip-active: rgba(30, 136, 247, 0.24);
+
+  --slider-track-start: rgba(30, 136, 247, 0.95);
+  --slider-track-end: rgba(52, 83, 129, 0.9);
+  --slider-rail: rgba(30, 136, 247, 0.2);
+  --slider-thumb-border: rgba(30, 136, 247, 0.75);
+  --slider-thumb-shadow: 0 0 0 3px rgba(30, 136, 247, 0.2);
+  --slider-thumb-fill: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(30, 136, 247, 0.45));
+
+  --hero-panel-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(239, 245, 255, 0.9));
+  --hero-overlay: linear-gradient(135deg, rgba(236, 243, 255, 0.75), rgba(236, 243, 255, 0.6));
+  --hero-panel-border: rgba(30, 136, 247, 0.16);
+  --hero-image-filter: drop-shadow(0 18px 32px rgba(30, 62, 102, 0.25));
+  --hero-copy-max-width: 640px;
 
   --blur: 10px;
   --bg-image: none;
@@ -145,6 +163,20 @@ section.main > div.block-container {
   box-shadow: var(--shadow-medium);
 }
 
+@media (max-width: 900px) {
+  section.main > div.block-container {
+    padding: var(--space-lg) var(--space-lg);
+    margin-top: var(--space-md);
+  }
+}
+
+@media (max-width: 640px) {
+  section.main > div.block-container {
+    padding: var(--space-md) var(--space-md);
+    margin-top: var(--space-sm);
+  }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-family-heading);
   letter-spacing: .3px;
@@ -177,6 +209,12 @@ a {
 a:hover {
   text-decoration: none;
   filter: var(--accent-glow);
+}
+
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+  border-radius: 6px;
 }
 
 [data-testid="stSidebar"] {
@@ -216,26 +254,83 @@ a:hover {
   color: var(--sidebar-text-color);
 }
 
-.stButton > button {
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
-  padding: .6rem 1.05rem;
+.stButton > button,
+div[data-testid="stFormSubmitButton"] > button,
+div[data-testid="stDownloadButton"] > button {
+  border-radius: 14px;
+  border: 1px solid var(--interactive-border-strong);
+  padding: 0.65rem 1.1rem;
+  min-height: 2.6rem;
   background: var(--button-gradient);
+  color: var(--text-on-accent);
+  font-weight: 650;
+  letter-spacing: 0.25px;
+  box-shadow: 0 10px 28px rgba(37, 58, 95, 0.18);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    color 0.12s ease;
+  cursor: pointer;
+}
+
+.stButton > button[kind="secondary"],
+div[data-testid="stFormSubmitButton"] > button[kind="secondary"],
+div[data-testid="stDownloadButton"] > button[kind="secondary"],
+.stButton > button:not([kind]) {
+  background: var(--interactive-surface);
   color: var(--text-strong);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
   font-weight: 600;
-  letter-spacing: .2px;
-  box-shadow: 0 8px 18px rgba(46, 50, 50, 0.12);
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease,
-    color .12s ease;
 }
-.stButton > button:hover {
+
+.stButton > button:hover:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button:hover:not(:disabled),
+div[data-testid="stDownloadButton"] > button:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(226, 228, 228, 0.94));
-  box-shadow: 0 12px 26px rgba(46, 50, 50, 0.16);
+  background: var(--button-gradient-hover);
+  box-shadow: 0 16px 34px rgba(37, 58, 95, 0.24);
 }
-.stButton > button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+
+.stButton > button[kind="secondary"]:hover:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button[kind="secondary"]:hover:not(:disabled),
+div[data-testid="stDownloadButton"] > button[kind="secondary"]:hover:not(:disabled),
+.stButton > button:not([kind]):hover:not(:disabled) {
+  background: var(--interactive-hover);
+  color: var(--text-strong);
+  box-shadow: none;
+}
+
+.stButton > button:active:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button:active:not(:disabled),
+div[data-testid="stDownloadButton"] > button:active:not(:disabled) {
+  transform: translateY(0);
+  background: var(--button-gradient-active);
+  box-shadow: 0 12px 24px rgba(37, 58, 95, 0.2);
+}
+
+.stButton > button[kind="secondary"]:active:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button[kind="secondary"]:active:not(:disabled),
+div[data-testid="stDownloadButton"] > button[kind="secondary"]:active:not(:disabled),
+.stButton > button:not([kind]):active:not(:disabled) {
+  background: var(--interactive-current);
+  box-shadow: none;
+}
+
+.stButton > button:focus-visible,
+div[data-testid="stFormSubmitButton"] > button:focus-visible,
+div[data-testid="stDownloadButton"] > button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+}
+
+.stButton > button:disabled,
+div[data-testid="stFormSubmitButton"] > button:disabled,
+div[data-testid="stDownloadButton"] > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 :where(input, textarea, select) {
@@ -243,9 +338,26 @@ a:hover {
   border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
   border-radius: 12px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
+
+:where(input, textarea)::placeholder {
+  color: var(--text-soft) !important;
+}
+
+:where(input, textarea, select):hover {
+  border-color: var(--interactive-border-strong) !important;
+}
+
 :where(input, textarea, select):focus {
-  outline: 2px solid var(--focus-ring) !important;
+  outline: none !important;
+  border-color: var(--interactive-border-strong) !important;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring) !important;
+}
+
+:where(input, textarea, select):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Wizard inputs should adapt to their content instead of stretching full width */
@@ -345,18 +457,23 @@ div[data-testid="stAlert"] svg {
 .stTabs [data-baseweb="tab"] {
   border-radius: 10px !important;
   padding: 0.45rem 0.85rem !important;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
   color: var(--text-soft);
 }
 
+.stTabs [data-baseweb="tab"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+}
+
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
-  background: var(--sidebar-active-bg);
+  background: var(--interactive-current);
   color: var(--text-contrast-strong);
-  box-shadow: 0 8px 16px rgba(46, 50, 50, 0.12);
+  box-shadow: 0 10px 20px rgba(37, 58, 95, 0.16);
 }
 
 .stTabs [data-baseweb="tab"]:hover {
-  background: var(--sidebar-hover-bg);
+  background: var(--interactive-hover);
   color: var(--text-strong);
 }
 
@@ -430,9 +547,6 @@ pre {
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
-}
-.stTabs [data-baseweb="tab-list"] button {
-  border-radius: 10px;
 }
 
 .summary-field-card {

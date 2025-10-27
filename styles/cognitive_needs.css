@@ -32,29 +32,29 @@
   --accent: var(--brand-cyan-300);
   --accent-2: var(--brand-amber-300);
   --text-strong: #f5f7fa;
-  --text-muted: rgba(216, 227, 243, 0.76);
-  --text-soft: rgba(216, 227, 243, 0.58);
+  --text-muted: rgba(216, 227, 243, 0.78);
+  --text-soft: rgba(216, 227, 243, 0.6);
   --text-inverse: var(--tone-950);
   --text-contrast-strong: var(--tone-950);
-  --text-contrast-muted: rgba(15, 23, 42, 0.75);
-  --text-contrast-soft: rgba(15, 23, 42, 0.55);
+  --text-contrast-muted: rgba(15, 23, 42, 0.78);
+  --text-contrast-soft: rgba(15, 23, 42, 0.58);
   --text-on-accent: var(--text-inverse);
 
-  --surface-0: rgba(12, 20, 36, 0.94);
-  --surface-1: rgba(15, 27, 49, 0.9);
-  --surface-2: rgba(24, 41, 68, 0.78);
-  --surface-3: rgba(97, 143, 187, 0.12);
+  --surface-0: rgba(10, 18, 34, 0.92);
+  --surface-1: rgba(13, 24, 43, 0.9);
+  --surface-2: rgba(20, 36, 60, 0.82);
+  --surface-3: rgba(71, 118, 168, 0.18);
   --surface-contrast: rgba(248, 250, 252, 0.96);
   --surface-accent-soft: rgba(94, 207, 254, 0.14);
-  --surface-accent-strong: rgba(51, 182, 255, 0.18);
-  --surface-accent-secondary: rgba(247, 185, 85, 0.18);
-  --surface-hover: rgba(148, 188, 241, 0.16);
-  --surface-press: rgba(94, 207, 254, 0.24);
+  --surface-accent-strong: rgba(51, 182, 255, 0.2);
+  --surface-accent-secondary: rgba(247, 185, 85, 0.2);
+  --surface-hover: rgba(94, 207, 254, 0.22);
+  --surface-press: rgba(51, 182, 255, 0.28);
   --surface-critical: rgba(214, 90, 78, 0.26);
-  --control-surface: rgba(18, 35, 60, 0.86);
+  --control-surface: rgba(18, 35, 60, 0.88);
 
-  --border-subtle: rgba(138, 170, 212, 0.22);
-  --border-strong: rgba(214, 222, 233, 0.34);
+  --border-subtle: rgba(138, 170, 212, 0.26);
+  --border-strong: rgba(214, 222, 233, 0.38);
   --border-contrast: rgba(5, 10, 20, 0.55);
 
   --font-family-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
@@ -91,8 +91,11 @@
   --shadow-medium: 0 18px 40px rgba(3, 8, 20, 0.6);
   --shadow-strong: 0 28px 52px rgba(3, 8, 20, 0.7);
   --focus-ring: rgba(94, 207, 254, 0.5);
+  --focus-ring-contrast: rgba(3, 9, 19, 0.9);
   --accent-glow: drop-shadow(0 0 14px rgba(94, 207, 254, 0.28));
   --button-gradient: linear-gradient(135deg, rgba(51, 182, 255, 0.95), rgba(17, 94, 181, 0.92));
+  --button-gradient-hover: linear-gradient(135deg, rgba(51, 182, 255, 1), rgba(15, 76, 147, 0.98));
+  --button-gradient-active: linear-gradient(135deg, rgba(24, 113, 196, 0.96), rgba(9, 54, 113, 0.96));
   --summary-primary-gradient: linear-gradient(120deg, rgba(51, 182, 255, 0.16), rgba(17, 94, 181, 0.2));
   --sidebar-top: #f2f6fb;
   --sidebar-gradient: linear-gradient(
@@ -121,6 +124,21 @@
   --interactive-current: rgba(51, 182, 255, 0.28);
   --interactive-done: rgba(17, 94, 181, 0.22);
   --interactive-border-strong: rgba(94, 207, 254, 0.45);
+  --chip-hover: rgba(94, 207, 254, 0.26);
+  --chip-active: rgba(51, 182, 255, 0.32);
+
+  --slider-track-start: rgba(51, 182, 255, 0.95);
+  --slider-track-end: rgba(21, 92, 174, 0.95);
+  --slider-rail: rgba(51, 182, 255, 0.24);
+  --slider-thumb-border: rgba(94, 207, 254, 0.85);
+  --slider-thumb-shadow: 0 0 0 3px rgba(51, 182, 255, 0.2);
+  --slider-thumb-fill: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(51, 182, 255, 0.4));
+
+  --hero-panel-bg: linear-gradient(135deg, rgba(14, 28, 52, 0.92), rgba(7, 18, 35, 0.88));
+  --hero-overlay: linear-gradient(135deg, rgba(7, 16, 31, 0.6), rgba(7, 16, 31, 0.38));
+  --hero-panel-border: rgba(94, 207, 254, 0.24);
+  --hero-image-filter: brightness(0.88) saturate(0.92) drop-shadow(0 18px 36px rgba(8, 10, 10, 0.5));
+  --hero-copy-max-width: 640px;
 
   --blur: 12px;
   --bg-image: none;
@@ -149,6 +167,20 @@ section.main > div.block-container {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius);
   box-shadow: var(--shadow-medium);
+}
+
+@media (max-width: 900px) {
+  section.main > div.block-container {
+    padding: var(--space-lg) var(--space-lg);
+    margin-top: var(--space-md);
+  }
+}
+
+@media (max-width: 640px) {
+  section.main > div.block-container {
+    padding: var(--space-md) var(--space-md);
+    margin-top: var(--space-sm);
+  }
 }
 
 /* Headings */
@@ -184,6 +216,12 @@ a {
 a:hover {
   text-decoration: none;
   filter: var(--accent-glow);
+}
+
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+  border-radius: 6px;
 }
 
 /* Sidebar: glass panel + tidy nav */
@@ -226,26 +264,83 @@ a:hover {
 }
 
 /* Buttons */
-.stButton > button {
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
-  padding: .6rem 1.05rem;
+.stButton > button,
+div[data-testid="stFormSubmitButton"] > button,
+div[data-testid="stDownloadButton"] > button {
+  border-radius: 14px;
+  border: 1px solid var(--interactive-border-strong);
+  padding: 0.65rem 1.1rem;
+  min-height: 2.75rem;
   background: var(--button-gradient);
-  color: var(--text-inverse);
+  color: var(--text-on-accent);
+  font-weight: 650;
+  letter-spacing: 0.25px;
+  box-shadow: 0 16px 36px rgba(3, 8, 20, 0.55);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    color 0.12s ease;
+  cursor: pointer;
+}
+
+.stButton > button[kind="secondary"],
+div[data-testid="stFormSubmitButton"] > button[kind="secondary"],
+div[data-testid="stDownloadButton"] > button[kind="secondary"],
+.stButton > button:not([kind]) {
+  background: var(--interactive-surface);
+  color: var(--text-strong);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
   font-weight: 600;
-  letter-spacing: .2px;
-  box-shadow: 0 10px 24px rgba(8, 10, 10, 0.45);
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease,
-    color .12s ease;
 }
-.stButton > button:hover {
+
+.stButton > button:hover:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button:hover:not(:disabled),
+div[data-testid="stDownloadButton"] > button:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: linear-gradient(135deg, rgba(239, 242, 242, 0.98), rgba(210, 214, 214, 0.92));
-  box-shadow: 0 14px 30px rgba(8, 10, 10, 0.55);
+  background: var(--button-gradient-hover);
+  box-shadow: 0 20px 42px rgba(3, 8, 20, 0.65);
 }
-.stButton > button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+
+.stButton > button[kind="secondary"]:hover:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button[kind="secondary"]:hover:not(:disabled),
+div[data-testid="stDownloadButton"] > button[kind="secondary"]:hover:not(:disabled),
+.stButton > button:not([kind]):hover:not(:disabled) {
+  background: var(--interactive-hover);
+  color: var(--text-strong);
+  box-shadow: none;
+}
+
+.stButton > button:active:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button:active:not(:disabled),
+div[data-testid="stDownloadButton"] > button:active:not(:disabled) {
+  transform: translateY(0);
+  background: var(--button-gradient-active);
+  box-shadow: 0 12px 24px rgba(3, 8, 20, 0.55);
+}
+
+.stButton > button[kind="secondary"]:active:not(:disabled),
+div[data-testid="stFormSubmitButton"] > button[kind="secondary"]:active:not(:disabled),
+div[data-testid="stDownloadButton"] > button[kind="secondary"]:active:not(:disabled),
+.stButton > button:not([kind]):active:not(:disabled) {
+  background: var(--interactive-current);
+  box-shadow: none;
+}
+
+.stButton > button:focus-visible,
+div[data-testid="stFormSubmitButton"] > button:focus-visible,
+div[data-testid="stDownloadButton"] > button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+}
+
+.stButton > button:disabled,
+div[data-testid="stFormSubmitButton"] > button:disabled,
+div[data-testid="stDownloadButton"] > button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* Inputs (broad fallback; avoids fragile classnames) */
@@ -254,9 +349,26 @@ a:hover {
   border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
   border-radius: 12px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
+
+:where(input, textarea)::placeholder {
+  color: var(--text-soft) !important;
+}
+
+:where(input, textarea, select):hover {
+  border-color: var(--interactive-border-strong) !important;
+}
+
 :where(input, textarea, select):focus {
-  outline: 2px solid var(--focus-ring) !important;
+  outline: none !important;
+  border-color: var(--interactive-border-strong) !important;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring) !important;
+}
+
+:where(input, textarea, select):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Wizard inputs should adapt to their content instead of stretching full width */
@@ -356,8 +468,31 @@ div[data-testid="stAlert"] svg {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
 }
-.stTabs [data-baseweb="tab-list"] button {
-  border-radius: 10px;
+.stTabs [data-baseweb="tab-list"] {
+  gap: 0.4rem;
+  padding: 0.25rem;
+  background: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+.stTabs [data-baseweb="tab"] {
+  border-radius: 10px !important;
+  padding: 0.45rem 0.85rem !important;
+  transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  color: var(--text-soft);
+}
+.stTabs [data-baseweb="tab"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background: var(--interactive-current);
+  color: var(--text-strong);
+  box-shadow: 0 12px 22px rgba(3, 8, 20, 0.45);
+}
+.stTabs [data-baseweb="tab"]:hover {
+  background: var(--interactive-hover);
+  color: var(--text-strong);
 }
 
 .summary-field-card {

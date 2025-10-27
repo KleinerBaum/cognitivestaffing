@@ -35,12 +35,19 @@ _COLLECTED_STYLE = """
     border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
     padding: 1rem 1.25rem;
     margin-bottom: 1.25rem;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+    color: var(--text-strong, #0f172a);
 }
 .wizard-collected-panel h4 {
     margin: 0 0 0.35rem 0;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text-strong, #0f172a);
 }
 .wizard-collected-panel p {
     margin: 0 0 0.75rem 0;
+    color: var(--text-soft, rgba(15, 23, 42, 0.7));
+    line-height: 1.55;
 }
 .wizard-chip-list {
     display: flex;
@@ -52,10 +59,20 @@ _COLLECTED_STYLE = """
     align-items: center;
     border-radius: 999px;
     padding: 0.25rem 0.75rem;
-    background: var(--surface-accent, rgba(59, 130, 246, 0.08));
+    background: var(--interactive-surface, rgba(59, 130, 246, 0.12));
     color: var(--text-strong, #0f172a);
+    border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
     font-size: 0.85rem;
     font-weight: 600;
+}
+.wizard-chip.is-empty {
+    background: transparent;
+    border-style: dashed;
+}
+@media (max-width: 640px) {
+    .wizard-collected-panel {
+        padding: 0.85rem 1rem;
+    }
 }
 </style>
 """
@@ -64,9 +81,9 @@ _NAVIGATION_STYLE = """
 <style>
 .wizard-nav-marker + div[data-testid="stHorizontalBlock"] {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--space-sm, 0.6rem);
     align-items: stretch;
-    margin: 1.1rem 0 0.5rem;
+    margin: 1.2rem 0 0.65rem;
 }
 
 .wizard-nav-marker
@@ -87,29 +104,32 @@ _NAVIGATION_STYLE = """
     + div[data-testid="stHorizontalBlock"]
     button {
     width: 100%;
+    border-radius: 14px;
 }
 
 .wizard-nav-marker
     + div[data-testid="stHorizontalBlock"]
     .wizard-nav-next button[kind="primary"] {
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 16px 32px rgba(37, 58, 95, 0.2);
 }
 
 .wizard-nav-marker
     + div[data-testid="stHorizontalBlock"]
     .wizard-nav-next button[kind="primary"]:hover:not(:disabled) {
-    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 20px 40px rgba(37, 58, 95, 0.26);
 }
 
 .wizard-nav-marker
     + div[data-testid="stHorizontalBlock"]
     .wizard-nav-next button:disabled {
     box-shadow: none;
-    opacity: 0.7;
+    opacity: 0.55;
 }
 
 .wizard-nav-hint {
     margin-top: 0.35rem;
+    color: var(--text-soft, rgba(15, 23, 42, 0.7));
+    font-size: 0.9rem;
 }
 
 @media (max-width: 768px) {
@@ -129,6 +149,7 @@ _NAVIGATION_STYLE = """
         position: sticky;
         bottom: 1rem;
         z-index: 10;
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.22);
     }
 
     .wizard-nav-marker
