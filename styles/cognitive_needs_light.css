@@ -204,6 +204,26 @@ a:hover {
   outline: 2px solid var(--focus-ring) !important;
 }
 
+/* Wizard inputs should adapt to their content instead of stretching full width */
+div[data-testid="stTextInput"] > div:first-of-type,
+div[data-testid="stNumberInput"] > div:first-of-type,
+div[data-testid="stDateInput"] > div:first-of-type,
+div[data-testid="stTimeInput"] > div:first-of-type,
+div[data-testid="stSelectbox"] > div:first-of-type,
+div[data-testid="stMultiSelect"] > div:first-of-type {
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+}
+
+.stTextInput input,
+[data-testid="stNumberInput"] input,
+[data-baseweb="select"] > div:first-of-type {
+  width: auto !important;
+  min-width: 12ch;
+  max-width: 100%;
+}
+
 .stMultiSelect [data-baseweb="tag"] {
   max-width: 100%;
   background: var(--control-surface) !important;

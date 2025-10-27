@@ -830,7 +830,8 @@ def test_field_lock_config_shows_rule_indicator() -> None:
     assert "🔎" in config["confidence_icon"]
     assert "Pattern match" in config["confidence_message"]
     assert config["confidence_source"] == "rule"
-    assert "🔒" in config["label"]
+    assert config.get("unlocked") is True
+    assert "🔒" not in config["label"]
 
 
 def test_field_lock_config_shows_ai_indicator() -> None:
