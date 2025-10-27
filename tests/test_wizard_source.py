@@ -25,6 +25,7 @@ from wizard import (
     _maybe_run_extraction,
     _step_onboarding,
     _extract_and_summarize,
+    _prime_widget_state_from_profile,
 )
 
 
@@ -70,6 +71,21 @@ def _prepare_minimal_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
     monkeypatch.setattr("wizard._refresh_esco_skills", lambda *a, **k: None)
     monkeypatch.setattr("wizard._update_section_progress", lambda: (None, []))
+
+
+def test_prime_widget_state_from_profile_sets_session() -> None:
+    """Widget priming should mirror scalar profile fields into session state."""
+
+    st.session_state.clear()
+    payload = {
+        "company": {"name": "Example GmbH", "size": "500"},
+        "location": {"primary_city": "Berlin"},
+    }
+    _prime_widget_state_from_profile(payload)
+
+    assert st.session_state["company.name"] == "Example GmbH"
+    assert st.session_state["company.size"] == "500"
+    assert st.session_state["location.primary_city"] == "Berlin"
 
 
 def _patch_onboarding_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:

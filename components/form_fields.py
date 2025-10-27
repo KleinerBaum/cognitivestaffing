@@ -31,6 +31,7 @@ def text_input_with_state(
     value_formatter: Formatter | None = None,
     widget_factory: WidgetFactory | None = None,
     default: Any | None = None,
+    state_path: str | None = None,
     **text_input_kwargs: Any,
 ) -> str:
     """Render a text input and synchronise its value back to ``target``.
@@ -61,18 +62,28 @@ def text_input_with_state(
     formatter = value_formatter or _default_formatter
     widget_kwargs = {k: v for k, v in text_input_kwargs.items() if v is not None}
 
-    if "value" in widget_kwargs:
-        widget_kwargs["value"] = formatter(widget_kwargs["value"])
+    explicit_value = widget_kwargs.pop("value", None)
+    resolved_value: Any
+    if state_path is not None and state_path in st.session_state:
+        resolved_value = st.session_state[state_path]
+    elif explicit_value is not None:
+        resolved_value = explicit_value
     elif target is not None and field is not None:
-        widget_kwargs["value"] = formatter(target.get(field))
+        resolved_value = target.get(field)
     elif default is not None:
-        widget_kwargs["value"] = formatter(default)
+        resolved_value = default
     else:
-        widget_kwargs.setdefault("value", "")
+        resolved_value = ""
+
+    widget_kwargs["value"] = formatter(resolved_value)
+    if state_path and "key" not in widget_kwargs:
+        widget_kwargs["key"] = state_path
 
     factory = widget_factory or st.text_input
     value = factory(label, **widget_kwargs)
 
+    if state_path:
+        st.session_state[state_path] = value
     if target is not None and field is not None:
         target[field] = value
     return value

@@ -104,7 +104,12 @@ from components.form_fields import text_input_with_state
 from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
-from utils.normalization import normalize_country, normalize_language_list, country_to_iso2
+from utils.normalization import (
+    normalize_company_size,
+    normalize_country,
+    normalize_language_list,
+    country_to_iso2,
+)
 from utils.export import prepare_clean_json, prepare_download_data
 from utils.usage import build_usage_markdown, usage_totals
 from nlp.bias import scan_bias_language
@@ -2188,8 +2193,11 @@ def _extract_company_size(text: str) -> str | None:
     match = _SIZE_REGEX.search(normalised)
     if not match:
         return None
-    value = match.group(0)
-    return re.sub(r"\s+", " ", value).strip(" .,;") or None
+    value = re.sub(r"\s+", " ", match.group(0)).strip(" .,;")
+    normalized = normalize_company_size(value)
+    if normalized:
+        return normalized
+    return value or None
 
 
 def _record_company_enrichment_entry(
@@ -3138,6 +3146,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     if recovered:
         mark_low_confidence(metadata, data)
     st.session_state[StateKeys.PROFILE] = data
+    _prime_widget_state_from_profile(data)
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data
     summary: dict[str, str] = {}
     if profile.position.job_title:
@@ -4062,6 +4071,30 @@ def _normalize_value_for_path(path: str, value: Any) -> Any:
             return normalize_language_list(parts)
         return normalize_language_list([])
     return value
+
+
+def _iter_profile_scalars(data: Mapping[str, Any], prefix: str = "") -> Iterable[tuple[str, Any]]:
+    """Yield dot-paths for scalar values within ``data``."""
+
+    for key, value in (data or {}).items():
+        path = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, Mapping):
+            yield from _iter_profile_scalars(value, path)
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            continue
+        else:
+            yield path, value
+
+
+def _prime_widget_state_from_profile(data: Mapping[str, Any]) -> None:
+    """Synchronise Streamlit widget state from ``data``."""
+
+    for path, value in _iter_profile_scalars(data):
+        normalized = _normalize_semantic_empty(value)
+        if normalized is None:
+            st.session_state.pop(path, None)
+        else:
+            st.session_state[path] = value
 
 
 def _document_origin_label(source: str | None) -> str | None:
@@ -5562,6 +5595,7 @@ def _step_company():
         field="name",
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
+        state_path="company.name",
         **company_kwargs,
     )
     _update_profile("company.name", company["name"])
@@ -5583,6 +5617,7 @@ def _step_company():
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
         key=UIKeys.COMPANY_HQ_LOCATION,
         value_formatter=_string_or_empty,
+        state_path="company.hq_location",
     )
     company["size"] = text_input_with_state(
         tr("Größe", "Size"),
@@ -5591,6 +5626,7 @@ def _step_company():
         widget_factory=size_col.text_input,
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
+        state_path="company.size",
     )
     company["industry"] = text_input_with_state(
         tr("Branche", "Industry"),
@@ -5599,6 +5635,7 @@ def _step_company():
         widget_factory=industry_col.text_input,
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
+        state_path="company.industry",
     )
 
     _render_company_research_tools(company.get("website", ""))
@@ -5612,6 +5649,7 @@ def _step_company():
         value_formatter=_string_or_empty,
         placeholder="https://example.com",
         key="ui.company.website",
+        state_path="company.website",
     )
     company["mission"] = text_input_with_state(
         tr("Mission", "Mission"),
@@ -5624,6 +5662,7 @@ def _step_company():
             "e.g., Promote sustainable mobility",
         ),
         key="ui.company.mission",
+        state_path="company.mission",
     )
 
     company["culture"] = text_input_with_state(
@@ -5636,6 +5675,7 @@ def _step_company():
             "e.g., Team-oriented, innovation-driven",
         ),
         key="ui.company.culture",
+        state_path="company.culture",
     )
 
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
@@ -5647,6 +5687,7 @@ def _step_company():
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
         key="ui.company.contact_name",
+        state_path="company.contact_name",
     )
     contact_email = text_input_with_state(
         tr("Kontakt-E-Mail", "Contact email"),
@@ -5656,6 +5697,7 @@ def _step_company():
         value_formatter=_string_or_empty,
         placeholder="name@example.com",
         key="ui.company.contact_email",
+        state_path="company.contact_email",
     )
     phone_label = tr("Telefon", "Phone")
     if "company.contact_phone" in missing_here:
@@ -5668,6 +5710,7 @@ def _step_company():
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
         key="ui.company.contact_phone",
+        state_path="company.contact_phone",
     )
     if "company.contact_phone" in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
@@ -5691,6 +5734,7 @@ def _step_company():
         widget_factory=city_col.text_input,
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
+        state_path="location.primary_city",
         **city_kwargs,
     )
     _update_profile("location.primary_city", location_data["primary_city"])
@@ -5712,6 +5756,7 @@ def _step_company():
         widget_factory=country_col.text_input,
         value_formatter=_string_or_empty,
         placeholder=tr("z. B. DE", "e.g., DE"),
+        state_path="location.country",
         **country_kwargs,
     )
     _update_profile("location.country", location_data["country"])
@@ -6310,10 +6355,14 @@ def _step_position():
         context="step",
     )
     job_title_kwargs = _apply_field_lock_kwargs(title_lock)
-    position["job_title"] = role_cols[0].text_input(
+    position["job_title"] = text_input_with_state(
         title_lock["label"],
-        value=position.get("job_title", ""),
+        target=position,
+        field="job_title",
+        widget_factory=role_cols[0].text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
+        state_path="position.job_title",
         **job_title_kwargs,
     )
     _update_profile("position.job_title", position["job_title"])
@@ -6322,30 +6371,43 @@ def _step_position():
 
     _render_esco_occupation_selector(position)
 
-    position["seniority_level"] = role_cols[1].text_input(
+    position["seniority_level"] = text_input_with_state(
         tr("Seniorität", "Seniority"),
-        value=position.get("seniority_level", ""),
+        target=position,
+        field="seniority_level",
+        widget_factory=role_cols[1].text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Junior", "e.g., Junior"),
+        state_path="position.seniority_level",
     )
 
     reporting_cols = st.columns((1, 1))
-    position["reporting_line"] = reporting_cols[0].text_input(
+    position["reporting_line"] = text_input_with_state(
         tr("Reports an", "Reports to"),
-        value=position.get("reporting_line", ""),
+        target=position,
+        field="reporting_line",
+        widget_factory=reporting_cols[0].text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. CTO", "e.g., CTO"),
+        state_path="position.reporting_line",
     )
-    position["reporting_manager_name"] = reporting_cols[1].text_input(
+    position["reporting_manager_name"] = text_input_with_state(
         tr("Vorgesetzte Person", "Reporting manager"),
-        value=position.get("reporting_manager_name", ""),
+        target=position,
+        field="reporting_manager_name",
+        widget_factory=reporting_cols[1].text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+        state_path="position.reporting_manager_name",
     )
     summary_label = tr("Rollen-Summary", "Role summary")
     if "position.role_summary" in missing_here:
         summary_label += REQUIRED_SUFFIX
     position["role_summary"] = st.text_area(
         summary_label,
-        value=position.get("role_summary", ""),
+        value=st.session_state.get("position.role_summary", position.get("role_summary", "")),
         height=120,
+        key="position.role_summary",
     )
     if "position.role_summary" in missing_here and not position.get("role_summary"):
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
