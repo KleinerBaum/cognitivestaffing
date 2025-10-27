@@ -44,6 +44,7 @@ class StructuredDocument:
     text: str
     blocks: list[ContentBlock]
     source: str | None = None
+    raw_html: str | None = None
 
     def __bool__(self) -> bool:  # pragma: no cover - convenience
         return bool(self.text)
@@ -52,7 +53,13 @@ class StructuredDocument:
         return self.text
 
     @classmethod
-    def from_blocks(cls, blocks: Iterable[ContentBlock], *, source: str | None = None) -> "StructuredDocument":
+    def from_blocks(
+        cls,
+        blocks: Iterable[ContentBlock],
+        *,
+        source: str | None = None,
+        raw_html: str | None = None,
+    ) -> "StructuredDocument":
         """Create a structured document from ``blocks``.
 
         Empty blocks are filtered and the resulting text is joined with blank
@@ -62,7 +69,7 @@ class StructuredDocument:
         block_list = [block for block in blocks if block.text and block.text.strip()]
         text_parts = [block.render() for block in block_list if block.render().strip()]
         text = "\n\n".join(text_parts).strip()
-        return cls(text=text, blocks=block_list, source=source)
+        return cls(text=text, blocks=block_list, source=source, raw_html=raw_html)
 
 
 _BULLET_RE = re.compile(r"^([*\u2022\-\u2013\u2023])\s+(.*)")
@@ -87,7 +94,9 @@ def _flush_paragraph(buffer: List[str], blocks: List[ContentBlock]) -> None:
     buffer.clear()
 
 
-def build_plain_text_document(text: str, *, source: str | None = None) -> StructuredDocument:
+def build_plain_text_document(
+    text: str, *, source: str | None = None, raw_html: str | None = None
+) -> StructuredDocument:
     """Convert raw ``text`` into a :class:`StructuredDocument`.
 
     Bullet points, ordered lists and Markdown headings are detected and mapped
@@ -95,7 +104,7 @@ def build_plain_text_document(text: str, *, source: str | None = None) -> Struct
     """
 
     if not text:
-        return StructuredDocument(text="", blocks=[], source=source)
+        return StructuredDocument(text="", blocks=[], source=source, raw_html=raw_html)
 
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
     lines = normalized.splitlines()
@@ -151,4 +160,4 @@ def build_plain_text_document(text: str, *, source: str | None = None) -> Struct
 
     _flush_paragraph(buffer, blocks)
 
-    return StructuredDocument.from_blocks(blocks, source=source)
+    return StructuredDocument.from_blocks(blocks, source=source, raw_html=raw_html)

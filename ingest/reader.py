@@ -311,7 +311,7 @@ def clean_structured_document(doc: StructuredDocument) -> StructuredDocument:
     """Apply :func:`clean_job_text` rules to a structured document."""
 
     if not doc.text and not doc.blocks:
-        return StructuredDocument(text="", blocks=[], source=doc.source)
+        return StructuredDocument(text="", blocks=[], source=doc.source, raw_html=doc.raw_html)
 
     cleaned_text = clean_job_text(doc.text)
     cleaned_blocks: list[ContentBlock] = []
@@ -335,14 +335,15 @@ def clean_structured_document(doc: StructuredDocument) -> StructuredDocument:
         )
 
     if not cleaned_blocks:
-        return StructuredDocument(text=cleaned_text, blocks=[], source=doc.source)
+        return StructuredDocument(text=cleaned_text, blocks=[], source=doc.source, raw_html=doc.raw_html)
 
-    combined = StructuredDocument.from_blocks(cleaned_blocks, source=doc.source)
+    combined = StructuredDocument.from_blocks(cleaned_blocks, source=doc.source, raw_html=doc.raw_html)
     if cleaned_text and cleaned_text != combined.text:
         return StructuredDocument(
             text=cleaned_text,
             blocks=combined.blocks,
             source=doc.source,
+            raw_html=doc.raw_html,
         )
     return combined
 

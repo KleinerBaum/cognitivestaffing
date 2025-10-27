@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import html
+import logging
 import hashlib
 import json
 import textwrap
 from base64 import b64encode
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -46,6 +47,7 @@ from state import ensure_state, reset_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
 from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
+from ingest.branding import extract_brand_assets
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from utils.url_utils import is_supported_url
@@ -78,6 +80,9 @@ from wizard import (
     render_step_heading,
     unique_normalized,
 )
+
+
+logger = logging.getLogger(__name__)
 
 # LLM and Follow-ups
 from openai_utils import (
@@ -2076,6 +2081,65 @@ def _get_company_info_cache() -> dict[str, Mapping[str, Any]]:
     return cache
 
 
+def _cache_brand_assets_from_html(url: str, raw_html: str | None) -> None:
+    """Extract and cache branding assets from the provided HTML snippet."""
+
+    if not raw_html or not raw_html.strip():
+        return
+    try:
+        assets = extract_brand_assets(raw_html, base_url=url)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("Brand asset extraction failed for %s: %s", url, exc)
+        return
+    if not any((assets.logo_url, assets.brand_color, assets.claim)):
+        return
+    cache = _get_company_info_cache()
+    cache["branding"] = asdict(assets)
+
+
+def _get_cached_brand_assets() -> Mapping[str, Any]:
+    cache = _get_company_info_cache()
+    branding = cache.get("branding")
+    if isinstance(branding, Mapping):
+        return branding
+    return {}
+
+
+def _coerce_brand_string(value: Any) -> str | None:
+    if isinstance(value, str):
+        candidate = value.strip()
+        return candidate or None
+    return None
+
+
+def _coerce_brand_color(value: Any) -> str | None:
+    candidate = _coerce_brand_string(value)
+    if not candidate:
+        return None
+    upper = candidate.upper()
+    if re.fullmatch(r"#?[0-9A-F]{6}", upper):
+        return upper if upper.startswith("#") else f"#{upper}"
+    return candidate
+
+
+def _apply_branding_to_profile(profile: NeedAnalysisProfile) -> None:
+    branding = _get_cached_brand_assets()
+    if not branding:
+        return
+
+    logo_url = _coerce_brand_string(branding.get("logo_url"))
+    if logo_url and not profile.company.logo_url:
+        profile.company.logo_url = logo_url
+
+    brand_color = _coerce_brand_color(branding.get("brand_color"))
+    if brand_color and not profile.company.brand_color:
+        profile.company.brand_color = brand_color
+
+    claim = _coerce_brand_string(branding.get("claim"))
+    if claim and not profile.company.claim:
+        profile.company.claim = claim
+
+
 def _remember_company_page_text(cache_key: str, text: str) -> None:
     """Persist ``text`` for ``cache_key`` in the in-memory session cache."""
 
@@ -2824,6 +2888,7 @@ def on_url_changed() -> None:
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     try:
         doc = clean_structured_document(extract_text_from_url(url))
+        _cache_brand_assets_from_html(url, getattr(doc, "raw_html", None))
         txt = doc.text
     except Exception as e:  # pragma: no cover - defensive
         st.session_state.pop("__prefill_profile_doc__", None)
@@ -3055,6 +3120,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         set_in(extracted_data, field, match.value)
 
     profile = coerce_and_fill(extracted_data)
+    _apply_branding_to_profile(profile)
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
     _enrich_company_profile_via_web(profile, metadata, vector_store_id=vector_store_id or None)
     lang = getattr(st.session_state, "lang", "en") or "en"
@@ -5825,8 +5891,23 @@ def _step_company():
         value=_string_or_empty(company.get("brand_name")),
         placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
     )
+    company["claim"] = brand_cols[0].text_input(
+        tr("Claim/Slogan", "Claim/Tagline"),
+        value=_string_or_empty(company.get("claim")),
+        placeholder=tr("z. B. Einfach. Immer. Da.", "e.g., Simply. Always. There."),
+    )
+    company["brand_color"] = brand_cols[0].text_input(
+        tr("Markenfarbe (Hex)", "Brand color (hex)"),
+        value=_string_or_empty(company.get("brand_color")),
+        placeholder="#0057B8",
+    )
 
     with brand_cols[1]:
+        company["logo_url"] = st.text_input(
+            tr("Logo-URL", "Logo URL"),
+            value=_string_or_empty(company.get("logo_url")),
+            placeholder="https://example.com/logo.png",
+        )
         brand_upload = st.file_uploader(
             tr("Branding-Assets", "Brand assets"),
             type=["png", "jpg", "jpeg", "svg", "pdf"],

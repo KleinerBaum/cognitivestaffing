@@ -1,3 +1,5 @@
+import pytest
+
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import LIST_FIELDS, RecruitingWizard, coerce_and_fill
 from core.schema_defaults import default_recruiting_wizard
@@ -47,7 +49,7 @@ def test_coerce_and_fill_basic() -> None:
     assert profile.position.supervises == 3
     assert profile.position.team_size == 10
     assert profile.meta.target_start_date == "2024-01-01"
-    assert profile.compensation.benefits == ["Gym", "Gym"]
+    assert profile.compensation.benefits == ["Gym"]
     assert profile.compensation.bonus_percentage == 10.0
     assert profile.compensation.commission_structure == "10% of sales"
     assert profile.compensation.salary_provided is False
@@ -88,6 +90,11 @@ def test_coerce_and_fill_alias_mapping() -> None:
         "hiring_manager_role": "Head of Engineering",
         "reporting_manager_name": "Petra Müller",
         "employment": {"work_model": "remote"},
+        "company": {
+            "brand_colour": "#123abc",
+            "logo": "https://example.com/logo.svg",
+            "tagline": "Einfach. Immer. Da.",
+        },
     }
     profile = coerce_and_fill(data)
     assert profile.requirements.hard_skills_required == ["Python"]
@@ -100,6 +107,26 @@ def test_coerce_and_fill_alias_mapping() -> None:
     assert profile.process.hiring_manager_name == "Julia Schmidt"
     assert profile.process.hiring_manager_role == "Head of Engineering"
     assert profile.position.reporting_manager_name == "Petra Müller"
+    assert profile.company.brand_color == "#123ABC"
+    assert str(profile.company.logo_url) == "https://example.com/logo.svg"
+    assert profile.company.claim == "Einfach. Immer. Da."
+
+
+def test_coerce_and_fill_repair_flow(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_repair(payload, *, errors=None):  # type: ignore[unused-ignore]
+        calls["payload"] = payload
+        calls["errors"] = errors
+        return {"company": {"logo": "https://example.com/fixed-logo.png"}}
+
+    monkeypatch.setattr("core.schema.repair_profile_payload", fake_repair)
+
+    profile = coerce_and_fill({"company": {"logo_url": "not-a-url"}})
+
+    assert str(profile.company.logo_url) == "https://example.com/fixed-logo.png"
+    assert calls["payload"] == {"company": {"logo_url": "not-a-url"}}
+    assert isinstance(calls["errors"], list)
 
 
 def test_default_insertion() -> None:

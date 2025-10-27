@@ -35,6 +35,12 @@
 - **Automatic company research / Automatische Unternehmensrecherche:**
   **EN:** After uploading a job ad the wizard fetches mission, culture, and approximate company size from the web to pre-fill the company section.
   **DE:** Nach dem Upload einer Ausschreibung ruft der Wizard Mission, Kultur und ungefähre Unternehmensgröße aus dem Web ab und füllt den Unternehmensbereich vor.
+- **Normalization & JSON repair / Normalisierung & JSON-Reparatur:**
+  **EN:** A repository-wide normalisation pipeline trims noise, harmonises genders and locations, uppercases country codes, and automatically repairs malformed profile JSON via the OpenAI Responses API when validation fails.
+  **DE:** Eine Repository-weite Normalisierung entfernt Rauschen, bereinigt Gender-Zusätze und Ortsangaben, wandelt Ländercodes in Großbuchstaben und repariert ungültiges Profil-JSON automatisch über die OpenAI-Responses-API, falls die Validierung scheitert.
+- **Branding auto-detect / Branding-Autoerkennung:**
+  **EN:** Brand assets (logo, favicon, dominant colour, and company claim) are scraped from career pages, cached, and injected into the wizard sidebar, exports, and editing forms.
+  **DE:** Branding-Assets (Logo, Favicon, dominante Farbe und Unternehmensclaim) werden aus Karriereseiten extrahiert, zwischengespeichert und im Wizard-Sidebar, Export sowie in den Eingabemasken angezeigt.
 - **Analysis helpers / Analyse-Helfer:**
   **EN:** Deterministic tools expose salary benchmarks, currency conversion with cached FX rates, and ISO date normalisation so the assistant can ground reasoning steps without extra API calls.
   **DE:** Deterministische Helfer liefern Gehaltsbenchmarks, Währungsumrechnung mit zwischengespeicherten FX-Kursen und ISO-Datumsnormalisierung, damit der Assistent ohne zusätzliche APIs fundiert begründen kann.

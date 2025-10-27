@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
 from .url_utils import extract_text_from_url as extract_text_from_url
 from .errors import display_error as display_error
-from models import NeedAnalysisProfile
+
+if TYPE_CHECKING:  # pragma: no cover - import for typing only
+    from models.need_analysis import NeedAnalysisProfile
 
 
 def build_boolean_query(
@@ -48,7 +50,7 @@ def build_boolean_query(
     return ""
 
 
-def build_boolean_search(data: Mapping[str, Any] | NeedAnalysisProfile) -> str:
+def build_boolean_search(data: Mapping[str, Any] | "NeedAnalysisProfile") -> str:
     """Build a Boolean search string from profile data.
 
     Args:
@@ -58,7 +60,12 @@ def build_boolean_search(data: Mapping[str, Any] | NeedAnalysisProfile) -> str:
         Boolean search string combining the job title and gathered skills.
     """
 
-    profile = data if isinstance(data, NeedAnalysisProfile) else NeedAnalysisProfile(**data)
+    if isinstance(data, Mapping):
+        from models.need_analysis import NeedAnalysisProfile as _NeedAnalysisProfile
+
+        profile = _NeedAnalysisProfile(**data)
+    else:
+        profile = data
     job_title = profile.position.job_title or ""
     combined = (
         profile.requirements.hard_skills_required

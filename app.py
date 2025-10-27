@@ -120,6 +120,35 @@ SIDEBAR_STYLE = """
     box-shadow: var(--shadow-medium);
     margin-bottom: 1.3rem;
 }
+.sidebar-hero__visual {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+.sidebar-hero__logo {
+    max-width: 56px;
+    max-height: 56px;
+    object-fit: contain;
+}
+.sidebar-hero__avatar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 1.4rem;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-strong);
+}
 .sidebar-hero__icon {
     font-size: 2.4rem;
 }

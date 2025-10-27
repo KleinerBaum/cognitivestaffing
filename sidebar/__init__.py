@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import html
 import math
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from collections.abc import Sequence
 from typing import Any, Iterable, Mapping
+from urllib.parse import urlparse
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -140,13 +142,126 @@ def _render_sidebar_sections(
 
 
 def _render_branding(logo_bytes: bytes) -> None:
-    """Display the Cognitive Needs logo in the sidebar."""
+    """Display company-specific branding when available, otherwise fallback."""
 
+    if not _render_company_branding():
+        _render_app_branding(logo_bytes)
+    else:
+        _render_app_version()
+
+
+def _render_app_branding(logo_bytes: bytes) -> None:
     st.image(logo_bytes, width="stretch")
     st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
+    _render_app_version()
+
+
+def _render_app_version() -> None:
     app_version = st.session_state.get("app_version")
     if app_version:
         st.caption(tr(f"Version {app_version}", f"Version {app_version}"))
+
+
+def _render_company_branding() -> bool:
+    profile = st.session_state.get(StateKeys.PROFILE, {})
+    company = profile.get("company") if isinstance(profile, Mapping) else {}
+    if not isinstance(company, Mapping):
+        company = {}
+    branding_cache = st.session_state.get(StateKeys.COMPANY_INFO_CACHE, {})
+    branding = branding_cache.get("branding") if isinstance(branding_cache, Mapping) else {}
+    if not isinstance(branding, Mapping):
+        branding = {}
+
+    def _get_value(key: str) -> str:
+        value = company.get(key)
+        if not value:
+            value = branding.get(key)
+        if isinstance(value, str):
+            return value.strip()
+        return ""
+
+    company_name = _get_value("name") or _get_value("brand_name")
+    logo_url = _get_value("logo_url")
+    brand_color = _get_value("brand_color")
+    claim = _get_value("claim")
+
+    if logo_url:
+        parsed = urlparse(logo_url)
+        if parsed.scheme not in {"http", "https"}:
+            logo_url = ""
+
+    if brand_color and not brand_color.startswith("#") and re.fullmatch(r"[0-9A-Fa-f]{6}", brand_color):
+        brand_color = f"#{brand_color.upper()}"
+
+    if not any((company_name, logo_url, brand_color, claim)):
+        return False
+
+    visual_html: str
+    if logo_url:
+        safe_url = html.escape(logo_url)
+        alt = html.escape(company_name or tr("Unternehmen", "Company"))
+        visual_html = f'<img src="{safe_url}" alt="{alt} logo" class="sidebar-hero__logo" />'
+    else:
+        initial = (company_name[:1] if company_name else "•").upper()
+        visual_html = f'<div class="sidebar-hero__avatar">{html.escape(initial)}</div>'
+
+    eyebrow = tr("Unternehmen", "Company")
+    title = html.escape(company_name or eyebrow)
+    subtitle = f'<p class="sidebar-hero__subtitle">{html.escape(claim)}</p>' if claim else ""
+
+    if brand_color:
+        text_color = _brand_text_color(brand_color)
+        st.markdown(
+            """
+            <style>
+            .sidebar-hero.sidebar-hero--company {
+                background: linear-gradient(135deg, %s1A, %s);
+                border-color: %s33;
+            }
+            .sidebar-hero.sidebar-hero--company .sidebar-hero__title,
+            .sidebar-hero.sidebar-hero--company .sidebar-hero__subtitle,
+            .sidebar-hero.sidebar-hero--company .sidebar-hero__eyebrow {
+                color: %s !important;
+            }
+            .sidebar-hero__avatar {
+                background: %s;
+                color: %s;
+            }
+            </style>
+            """
+            % (brand_color, brand_color, brand_color, text_color, brand_color, text_color),
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        """
+        <div class="sidebar-hero sidebar-hero--company">
+            <div class="sidebar-hero__visual">%s</div>
+            <div>
+                <p class="sidebar-hero__eyebrow">%s</p>
+                <h4 class="sidebar-hero__title">%s</h4>
+                %s
+            </div>
+        </div>
+        """
+        % (visual_html, html.escape(eyebrow), title, subtitle),
+        unsafe_allow_html=True,
+    )
+    return True
+
+
+def _brand_text_color(hex_color: str) -> str:
+    value = hex_color.lstrip("#")
+    if len(value) != 6:
+        return "#FFFFFF"
+    try:
+        r = int(value[0:2], 16)
+        g = int(value[2:4], 16)
+        b = int(value[4:6], 16)
+    except ValueError:
+        return "#FFFFFF"
+    luminance = 0.299 * r + 0.587 * g + 0.114 * b
+    return "#000000" if luminance >= 186 else "#FFFFFF"
 
 
 def _ensure_ui_defaults() -> None:

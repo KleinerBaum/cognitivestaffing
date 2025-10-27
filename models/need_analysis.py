@@ -12,6 +12,7 @@ from pydantic import (
     ConfigDict,
     EmailStr,
     Field,
+    HttpUrl,
     field_validator,
     model_validator,
 )
@@ -38,6 +39,9 @@ class Company(BaseModel):
     contact_email: EmailStr | None = None
     contact_phone: Optional[str] = None
     brand_keywords: Optional[str] = None
+    logo_url: HttpUrl | None = None
+    brand_color: Optional[str] = None
+    claim: Optional[str] = None
 
     @field_validator("contact_email", mode="before")
     @classmethod
