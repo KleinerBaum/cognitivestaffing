@@ -10,7 +10,8 @@ from config import VECTOR_STORE_ID
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 from nlp.bias import scan_bias_language
-from wizard._openai_bridge import generate_interview_guide, generate_job_ad, stream_job_ad
+from llm.interview import generate_interview_guide
+from wizard._openai_bridge import generate_job_ad, stream_job_ad
 
 
 def generate_job_ad_content(
@@ -168,11 +169,8 @@ def generate_interview_guide_content(
 
     responsibilities_text = "\n".join(profile_payload.get("responsibilities", {}).get("items", []))
 
-    raw_vector_store = st.session_state.get("vector_store_id") or VECTOR_STORE_ID
-    vector_store_id = str(raw_vector_store).strip() if raw_vector_store else ""
-
     try:
-        guide = generate_interview_guide(
+        result = generate_interview_guide(
             job_title=profile_payload.get("position", {}).get("job_title", ""),
             responsibilities=responsibilities_text,
             hard_skills=(
@@ -186,10 +184,7 @@ def generate_interview_guide_content(
             lang=lang,
             tone=st.session_state.get("tone"),
             num_questions=selected_num,
-            vector_store_id=vector_store_id or None,
         )
-        guide_md = guide.final_markdown()
-        st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = guide.model_dump()
     except Exception as exc:  # pragma: no cover - error path
         if show_error:
             st.error(
@@ -200,7 +195,18 @@ def generate_interview_guide_content(
             )
         return False
 
-    st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide_md
+    guide = result.guide
+    st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = guide.model_dump()
+    st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide.final_markdown()
+
+    if result.used_fallback and show_error:
+        st.info(
+            tr(
+                "Interviewleitfaden aus Vorlage, da die KI nicht erreichbar war.",
+                "Showing fallback interview guide because the AI service was unavailable.",
+            )
+        )
+
     return True
 
 
