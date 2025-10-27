@@ -4240,8 +4240,6 @@ def _field_lock_config(
     else:  # pragma: no cover - defensive branch
         metadata = {}
 
-    locked_fields = set(metadata.get("locked_fields") or [])
-    high_conf_fields = set(metadata.get("high_confidence_fields") or [])
     confidence_map = _ensure_mapping(metadata.get("field_confidence"))
     confidence_entry = confidence_map.get(path)
     confidence_tier = ""
@@ -4258,17 +4256,17 @@ def _field_lock_config(
                 confidence_source,
             ) = _confidence_indicator(confidence_tier)
 
-    is_locked = path in locked_fields
-    is_high_conf = path in high_conf_fields or (confidence_tier == ConfidenceTier.RULE_STRONG.value)
-    was_locked = is_locked or is_high_conf
+    # Historically, high-confidence values were locked behind an explicit
+    # "Edit value" toggle. The wizard should now present all fields as
+    # directly editable while still surfacing confidence context. We keep the
+    # high confidence and provenance indicators but skip the locking behaviour
+    # entirely so the widgets render in an enabled state by default.
 
     source_info = _resolve_field_source_info(path)
 
     icons: list[str] = []
     if confidence_icon:
         icons.append(confidence_icon)
-    if is_locked:
-        icons.append("🔒")
     if source_info:
         icons.append("ℹ️")
     icon_prefix = " ".join(filter(None, icons))
@@ -4277,25 +4275,6 @@ def _field_lock_config(
     help_bits: list[str] = []
     if confidence_message:
         help_bits.append(confidence_message)
-    if is_locked:
-        help_bits.append(
-            tr(
-                "Automatisch gesperrt – zum Bearbeiten zuerst entsperren.",
-                "Locked automatically – unlock before editing.",
-            )
-        )
-        help_bits.append(
-            tr(
-                "Der Wert stammt direkt aus dem Dokument oder einer Regel und bleibt unverändert, bis du ihn manuell freigibst.",
-                "The value comes directly from the source document or rule logic and stays frozen until you explicitly unlock it.",
-            )
-        )
-        help_bits.append(
-            tr(
-                "Nach dem Entsperren überschreiben deine Eingaben zukünftige Auto-Aktualisierungen.",
-                "Once unlocked, your input will override future automatic updates.",
-            )
-        )
     if source_info:
         descriptor_plain = source_info.descriptor
         descriptor_full = source_info.descriptor_with_context()
@@ -4322,7 +4301,7 @@ def _field_lock_config(
             help_bits.append(source_info.url)
     help_text = "\n\n".join(help_bits)
 
-    config: FieldLockConfig = {"label": label_with_icon, "was_locked": was_locked}
+    config: FieldLockConfig = {"label": label_with_icon, "was_locked": False}
     if confidence_tier:
         config["confidence_tier"] = confidence_tier
     if confidence_icon:
@@ -4334,22 +4313,7 @@ def _field_lock_config(
     if help_text:
         config["help_text"] = help_text
 
-    if not was_locked:
-        config["unlocked"] = True
-        return config
-
-    container = container or st
-    unlock_key = _field_unlock_key(path, context)
-    unlocked_default = bool(st.session_state.get(unlock_key, False))
-    unlocked = container.toggle(
-        tr("Wert bearbeiten", "Edit value"),
-        value=unlocked_default,
-        key=unlock_key,
-        help=help_text or None,
-    )
-    config["unlocked"] = bool(unlocked)
-    if not unlocked:
-        config["disabled"] = True
+    config["unlocked"] = True
     return config
 
 
@@ -4864,23 +4828,17 @@ def _render_esco_occupation_selector(
     selected_ids = [sid for sid in selected_ids if sid in option_ids]
 
     override_sentinel = object()
-    override_raw = st.session_state.pop(
-        StateKeys.UI_ESCO_OCCUPATION_OVERRIDE, override_sentinel
-    )
+    override_raw = st.session_state.pop(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE, override_sentinel)
     if override_raw is override_sentinel:
         widget_value = [
             sid
-            for sid in _coerce_occupation_ids(
-                st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
-            )
+            for sid in _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
             if sid in option_ids
         ]
         if not widget_value:
             widget_value = list(selected_ids)
     else:
-        widget_value = [
-            sid for sid in _coerce_occupation_ids(override_raw) if sid in option_ids
-        ]
+        widget_value = [sid for sid in _coerce_occupation_ids(override_raw) if sid in option_ids]
 
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
 
@@ -4888,16 +4846,12 @@ def _render_esco_occupation_selector(
         if StateKeys.UI_ESCO_OCCUPATION_OVERRIDE in st.session_state:
             return [
                 sid
-                for sid in _coerce_occupation_ids(
-                    st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE)
-                )
+                for sid in _coerce_occupation_ids(st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE))
                 if sid in option_ids
             ]
         return [
             sid
-            for sid in _coerce_occupation_ids(
-                st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION)
-            )
+            for sid in _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
             if sid in option_ids
         ]
 
@@ -5808,6 +5762,8 @@ def _step_company():
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
     )
 
+    _render_company_research_tools(company.get("website", ""))
+
     website_col, mission_col = st.columns(2, gap="small")
     company["website"] = website_col.text_input(
         tr("Website", "Website"),
@@ -5824,8 +5780,6 @@ def _step_company():
         ),
         key="ui.company.mission",
     )
-
-    _render_company_research_tools(company.get("website", ""))
 
     company["culture"] = st.text_input(
         tr("Unternehmenskultur", "Company culture"),
