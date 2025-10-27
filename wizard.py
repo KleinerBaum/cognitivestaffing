@@ -4631,6 +4631,44 @@ def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
     st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {key: list(value) for key, value in decisions.items()}
 
 
+def _load_pending_autofill_values() -> dict[str, str]:
+    """Return pending widget autofill values queued for the next rerun."""
+
+    raw = st.session_state.get(StateKeys.PENDING_AUTOFILL_VALUES)
+    if not isinstance(raw, Mapping):
+        return {}
+    pending: dict[str, str] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            continue
+        if value is None:
+            continue
+        pending[key] = str(value)
+    return pending
+
+
+def _queue_pending_autofill_value(widget_key: str, value: str) -> None:
+    """Store ``value`` for ``widget_key`` until the next rerun."""
+
+    pending = _load_pending_autofill_values()
+    pending[widget_key] = value
+    st.session_state[StateKeys.PENDING_AUTOFILL_VALUES] = pending
+
+
+def _consume_pending_autofill_value(widget_key: str) -> str | None:
+    """Return and remove any queued autofill value for ``widget_key``."""
+
+    pending = _load_pending_autofill_values()
+    value = pending.pop(widget_key, None)
+    if value is None:
+        return None
+    if pending:
+        st.session_state[StateKeys.PENDING_AUTOFILL_VALUES] = pending
+    else:
+        st.session_state.pop(StateKeys.PENDING_AUTOFILL_VALUES, None)
+    return value
+
+
 def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:
     """Return ``True`` when ``suggestion`` was rejected for ``field_path``."""
 
@@ -4695,7 +4733,7 @@ def _render_autofill_suggestion(
             type="primary",
         ):
             if widget_key:
-                st.session_state[widget_key] = suggestion
+                _queue_pending_autofill_value(widget_key, suggestion)
             _update_profile(field_path, suggestion)
             st.toast(success_message, icon=success_icon)
             st.rerun()
@@ -5638,6 +5676,11 @@ def _step_company():
     company = data.setdefault("company", {})
     position = data.setdefault("position", {})
     location_data = data.setdefault("location", {})
+    pending_hq = _consume_pending_autofill_value(UIKeys.COMPANY_HQ_LOCATION)
+    if pending_hq is not None:
+        st.session_state[UIKeys.COMPANY_HQ_LOCATION] = pending_hq
+        st.session_state["company.hq_location"] = pending_hq
+        company["hq_location"] = pending_hq
     combined_certificates = _collect_combined_certificates(data["requirements"])
     _set_requirement_certificates(data["requirements"], combined_certificates)
     missing_here = _missing_fields_for_section(1)
