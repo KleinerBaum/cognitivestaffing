@@ -119,4 +119,3 @@ class StateKeys:
     WIZARD_STEP_COUNT = "wizard.step_count"
     STEPPER_WARNING = "wizard.stepper_warning"
     WIZARD_AUTOFILL_DECISIONS = "wizard.autofill_decisions"
-    PENDING_AUTOFILL_VALUES = "wizard.pending_autofill_values"
