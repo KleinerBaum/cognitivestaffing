@@ -163,6 +163,14 @@ def _render_app_version() -> None:
 
 
 def _render_company_branding() -> bool:
+    """Inject cached company branding assets into the sidebar hero.
+
+    Branding metadata originates from `wizard._apply_branding_to_profile`, which
+    stores logo URL, brand colour, and claim in `st.session_state`. The sidebar
+    prefers profile values but falls back to the cached scraping results so the
+    UI, exports, and stored JSON stay aligned.
+    """
+
     profile = st.session_state.get(StateKeys.PROFILE, {})
     company = profile.get("company") if isinstance(profile, Mapping) else {}
     if not isinstance(company, Mapping):

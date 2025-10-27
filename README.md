@@ -4,6 +4,32 @@
 
 ![App Screenshot](images/app_screenshot.png)
 
+## Branding Integration / Branding-Integration
+
+**EN:** The wizard now recognises employer branding assets automatically. When a
+career page URL is provided, Cognitive Staffing detects the company logo,
+dominant brand colour, and slogan, then applies them to the sidebar hero,
+exports, and downstream JSON (`company.logo_url`, `company.brand_color`,
+`company.claim`). The screenshot below shows an example sidebar that picked up a
+logo and tone-on-tone accent colour without any manual configuration.
+
+**DE:** Der Wizard erkennt Employer-Branding-Assets jetzt automatisch. Sobald
+eine Karriereseiten-URL vorliegt, ermittelt Cognitive Staffing Logo,
+Hauptfarbe und Claim des Unternehmens und übernimmt sie in die Sidebar,
+Exporte sowie das JSON (`company.logo_url`, `company.brand_color`,
+`company.claim`). Der Screenshot unten zeigt eine Sidebar, die Logo und
+Akzentfarbe ohne manuelle Einstellungen übernommen hat.
+
+![Branding example sidebar](images/branding_sidebar.svg)
+
+> **Limitations / Einschränkungen**
+>
+> **EN:** Branding detection currently targets public websites. Private portals
+> or PDF-only uploads fall back to the default Cognitive Staffing theme.
+>
+> **DE:** Die Branding-Erkennung funktioniert derzeit für öffentliche Websites.
+> Private Portale oder reine PDF-Uploads nutzen weiterhin das Standard-Theme.
+
 ## What's new in v1.0.0 / Neu in v1.0.0
 - **Wizard overhaul & schema alignment:**
   **EN:** Every wizard step now shares a consistent header/subheader/intro layout that maps one-to-one to the `NeedAnalysisProfile` schema, ensuring exports remain perfectly synced.
@@ -157,6 +183,11 @@ export OTEL_SERVICE_NAME="cognitive-staffing"
 export USE_CLASSIC_API="1"                                    # set to 1 to force Chat Completions (Responses bleibt Standard)
 ```
 You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
+
+> **JSON repair / JSON-Reparatur:** Automatic payload repair uses the
+> `coerce_and_fill` + `normalize_profile` pipeline together with an OpenAI
+> fallback. Make sure the API key has access to the Responses API; without it
+> the wizard still runs, but invalid JSON can no longer be auto-corrected.
 
 > **EN:** Leave `USE_CLASSIC_API` unset to keep the Responses client as the default. Set it to `1` if you need to fall back to the legacy Chat Completions API for compatibility.
 > **DE:** Lass `USE_CLASSIC_API` leer, damit standardmäßig der Responses-Client genutzt wird. Setze den Wert auf `1`, wenn du aus Kompatibilitätsgründen auf die klassische Chat-Completions-API zurückfallen musst.

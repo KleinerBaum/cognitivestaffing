@@ -1,0 +1,31 @@
+<svg width="720" height="420" viewBox="0 0 720 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="420" rx="24" fill="#0F172A"/>
+  <rect x="28" y="28" width="664" height="364" rx="20" fill="#111C36" stroke="#1E2A4A" stroke-width="2"/>
+  <rect x="52" y="56" width="220" height="308" rx="18" fill="#152445" stroke="#1F2F55" stroke-width="2"/>
+  <rect x="302" y="56" width="332" height="60" rx="14" fill="#16213C" stroke="#22345C" stroke-width="2"/>
+  <rect x="302" y="132" width="332" height="232" rx="14" fill="#16213C" stroke="#22345C" stroke-width="2"/>
+  <rect x="76" y="92" width="172" height="100" rx="16" fill="#FEE2E2"/>
+  <path d="M92 124C92 110.745 102.745 100 116 100H208C221.255 100 232 110.745 232 124V160C232 173.255 221.255 184 208 184H116C102.745 184 92 173.255 92 160V124Z" fill="#F97316"/>
+  <text x="108" y="148" font-family="'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="700" fill="white">Acme</text>
+  <rect x="96" y="210" width="132" height="14" rx="7" fill="#1F2A45"/>
+  <rect x="96" y="236" width="148" height="14" rx="7" fill="#1F2A45"/>
+  <rect x="96" y="262" width="116" height="14" rx="7" fill="#1F2A45"/>
+  <rect x="96" y="288" width="156" height="14" rx="7" fill="#1F2A45"/>
+  <rect x="96" y="314" width="172" height="14" rx="7" fill="#1F2A45"/>
+  <rect x="324" y="78" width="92" height="16" rx="8" fill="#1F2A45"/>
+  <rect x="324" y="106" width="164" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="154" width="284" height="14" rx="7" fill="#1F2A45"/>
+  <rect x="324" y="178" width="312" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="202" width="292" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="226" width="216" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="250" width="284" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="274" width="200" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="298" width="268" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="322" width="176" height="12" rx="6" fill="#1F2A45"/>
+  <rect x="324" y="346" width="188" height="12" rx="6" fill="#1F2A45"/>
+  <text x="92" y="82" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#F1F5F9">Company sidebar hero</text>
+  <text x="324" y="70" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#F1F5F9">Wizard context</text>
+  <text x="324" y="140" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#F1F5F9">Brand-aware highlights</text>
+  <text x="76" y="352" font-family="'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#94A3B8">Brand colour applied to hero background and avatar.</text>
+  <text x="76" y="372" font-family="'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#94A3B8">Logo, claim, and accent propagate to exports automatically.</text>
+</svg>

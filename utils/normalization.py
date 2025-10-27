@@ -481,7 +481,14 @@ def _normalize_profile_mapping(data: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def normalize_profile(profile: "NeedAnalysisProfile") -> "NeedAnalysisProfile":
-    """Return a normalised copy of ``profile`` with cleaned scalar fields."""
+    """Return a normalised copy of ``profile`` with cleaned scalar fields.
+
+    The helper is the final step in the ingestion pipeline (`coerce_and_fill`
+    → `NeedAnalysisProfile` → `normalize_profile`). It re-dumps the validated
+    profile, cleans strings, deduplicates list entries, and revalidates the
+    result so downstream code always receives a schema-compliant instance with
+    harmonised casing, country codes, and optional branding metadata.
+    """
 
     try:
         data = profile.model_dump()

@@ -85,3 +85,26 @@
 - `locked_fields` enthält Felder, die vor Änderungen aktiv entsperrt werden müssen. Überschneidungen mit `high_confidence_fields` deuten auf hohe Regel-Sicherheit hin.
 
 *EN/DE:* Alle drei Strukturen liegen in `profile_metadata`, überleben erneute Extraktionsläufe und stellen sicher, dass bestehende Sperren und Hinweise respektiert werden.
+
+## Normalisation & Key Alignment / Normalisierung & Key-Ausrichtung
+
+**EN:** Every ingestion route must pass raw dictionaries through `coerce_and_fill`
+before storing them in `st.session_state["profile"]`. The helper applies the
+`ALIASES` mapping (e.g. `company.logo` → `company.logo_url`), drops unknown
+keys, coerces obvious scalar types, and then validates the payload with
+`NeedAnalysisProfile`. If validation fails, the pipeline triggers the OpenAI
+JSON repair helper and re-runs validation on the repaired payload. Finally,
+`normalize_profile` cleans strings, deduplicates list values, and harmonises
+country/language codes. New aliases belong in `core/schema.py::ALIASES` to keep
+legacy inputs working consistently across UI, exports, and the schema.
+
+**DE:** Alle Ingestion-Pfade müssen Rohdaten vor dem Speichern in
+`st.session_state["profile"]` durch `coerce_and_fill` schicken. Der Helfer
+wendet die `ALIASES`-Zuordnung an (z. B. `company.logo` → `company.logo_url`),
+entfernt unbekannte Keys, wandelt offensichtliche Skalartypen und validiert das
+Payload anschließend mit `NeedAnalysisProfile`. Schlägt die Validierung fehl,
+startet der Prozess die OpenAI-JSON-Reparatur und validiert die korrigierten
+Daten erneut. Zum Schluss sorgt `normalize_profile` für saubere Strings,
+deduplizierte Listen sowie harmonisierte Länder- und Sprachcodes. Neue Aliasse
+gehören in `core/schema.py::ALIASES`, damit Legacy-Inputs in UI, Exporten und
+Schema konsistent bleiben.
