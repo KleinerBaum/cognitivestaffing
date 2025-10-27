@@ -9,6 +9,7 @@ import streamlit as st
 from config import VECTOR_STORE_ID
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
+from utils.llm_state import is_llm_available, llm_disabled_message
 from nlp.bias import scan_bias_language
 from llm.interview import generate_interview_guide
 from wizard._openai_bridge import generate_job_ad, stream_job_ad
@@ -27,6 +28,11 @@ def generate_job_ad_content(
     """Generate the job ad and update session state."""
 
     if not selected_fields or not target_value:
+        return False
+
+    if not is_llm_available():
+        if show_error:
+            st.info(llm_disabled_message())
         return False
 
     raw_vector_store = st.session_state.get("vector_store_id") or VECTOR_STORE_ID
@@ -146,6 +152,11 @@ def generate_interview_guide_content(
     show_error: bool = True,
 ) -> bool:
     """Generate the interview guide and update session state."""
+
+    if not is_llm_available():
+        if show_error:
+            st.info(llm_disabled_message())
+        return False
 
     st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
     st.session_state.setdefault(UIKeys.AUDIENCE_SELECT, audience)

@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 from constants.keys import StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
 from utils.i18n import tr
+from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.usage import build_usage_markdown, usage_totals
 
 from streamlit.delta_generator import DeltaGenerator
@@ -762,13 +763,18 @@ def _render_missing_hint(context: SidebarContext, *, section: int) -> None:
 
 def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     st.markdown(f"### 💰 {tr('Gehaltserwartung', 'Salary expectation')}")
+    llm_available = is_llm_available()
     if st.button(
         tr("Gehaltserwartung aktualisieren", "Update salary expectation"),
         width="stretch",
         key="update_salary_expectation",
+        disabled=not llm_available,
     ):
         with st.spinner(tr("Berechne neue Gehaltseinschätzung…", "Calculating salary estimate…")):
             estimate_salary_expectation()
+
+    if not llm_available:
+        st.caption(llm_disabled_message())
 
     estimate: Mapping[str, Any] | None = st.session_state.get(UIKeys.SALARY_ESTIMATE)
     explanation = st.session_state.get(UIKeys.SALARY_EXPLANATION)

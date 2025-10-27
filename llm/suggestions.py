@@ -82,11 +82,7 @@ def _fallback_benefits_static(
     """Return a deterministic shortlist of benefits for failure scenarios."""
 
     focus_seq = [str(area).strip() for area in (focus_areas or []) if str(area).strip()]
-    existing_set = {
-        line.strip().lower()
-        for line in str(existing_benefits or "").splitlines()
-        if line.strip()
-    }
+    existing_set = {line.strip().lower() for line in str(existing_benefits or "").splitlines() if line.strip()}
 
     shortlist: list[str] = []
     try:
