@@ -62,6 +62,26 @@ section.main div.block-container .stTabs [data-baseweb="tab"] {
     padding-top: 0.35rem;
     padding-bottom: 0.35rem;
 }
+
+@media (max-width: 900px) {
+    section.main div.block-container div[data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    section.main div.block-container div[data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    section.main div.block-container div[data-testid="stButton"] button,
+    section.main div.block-container div[data-testid="stFormSubmitButton"] button,
+    section.main div.block-container div[data-testid="stDownloadButton"] button {
+        width: 100%;
+    }
+}
 </style>
 """
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from typing import Callable, Sequence
 
 import streamlit as st
@@ -13,7 +14,7 @@ _STYLE_STATE_KEY = "_workflow_stepper_styles_v1"
 # The wizard stepper is currently disabled to streamline the flow between steps.
 # Keeping the rendering function as a no-op maintains backward compatibility for
 # callers that still import it (e.g., tests that monkeypatch the helper).
-STEP_NAVIGATION_ENABLED = False
+STEP_NAVIGATION_ENABLED = True
 
 
 def _inject_workflow_styles() -> None:
@@ -30,13 +31,13 @@ def _inject_workflow_styles() -> None:
             display: flex;
             gap: 0.75rem;
             align-items: stretch;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
         }
 
         .workflow-stepper-marker
             + div[data-testid="stHorizontalBlock"]
             > div[data-testid="column"] {
-            flex: 1;
+            flex: 1 1 0;
             position: relative;
         }
 
@@ -45,15 +46,16 @@ def _inject_workflow_styles() -> None:
             > div[data-testid="column"]::after {
             content: "";
             position: absolute;
-            top: 50%;
+            top: calc(50% - 1px);
             right: -0.375rem;
             width: 0.75rem;
-            height: 1px;
+            height: 2px;
             background: linear-gradient(
                 90deg,
                 var(--border-subtle),
                 rgba(0, 0, 0, 0)
             );
+            border-radius: 999px;
         }
 
         .workflow-stepper-marker
@@ -64,6 +66,8 @@ def _inject_workflow_styles() -> None:
 
         .workflow-stepper__step {
             height: 100%;
+            border-radius: 1rem;
+            overflow: hidden;
         }
 
         .workflow-stepper__step button[kind="secondary"] {
@@ -75,6 +79,7 @@ def _inject_workflow_styles() -> None:
             justify-content: flex-start;
             gap: 0.5rem;
             padding: 0.65rem 0.9rem;
+            transition: all 0.2s ease;
         }
 
         .workflow-stepper__step button[kind="secondary"]:hover:not(:disabled) {
@@ -86,12 +91,14 @@ def _inject_workflow_styles() -> None:
             border-color: var(--interactive-border-strong);
             background: var(--interactive-done);
             color: var(--text-strong);
+            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
         }
 
         .workflow-stepper__step--current button[kind="secondary"] {
             border-color: var(--interactive-border-strong);
             background: var(--interactive-current);
             color: var(--text-strong);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
         }
 
         .workflow-stepper__step--upcoming button[kind="secondary"] {
@@ -114,6 +121,45 @@ def _inject_workflow_styles() -> None:
             + div[data-testid="stHorizontalBlock"]
             button span {
             white-space: normal;
+        }
+
+        .workflow-stepper__summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0.25rem 0 0.75rem;
+        }
+
+        .workflow-stepper__summary span[data-state="current"] {
+            color: var(--text-strong);
+            font-weight: 600;
+        }
+
+        .workflow-stepper__summary span[data-state="done"] {
+            color: var(--text-strong);
+        }
+
+        .workflow-stepper__summary span[aria-hidden="true"] {
+            color: var(--border-strong);
+        }
+
+        @media (max-width: 900px) {
+            .workflow-stepper-marker + div[data-testid="stHorizontalBlock"] {
+                flex-direction: column;
+                gap: 0.65rem;
+            }
+
+            .workflow-stepper-marker
+                + div[data-testid="stHorizontalBlock"]
+                > div[data-testid="column"]::after {
+                display: none;
+            }
+
+            .workflow-stepper__step button[kind="secondary"] {
+                width: 100%;
+            }
         }
         </style>
         """,
@@ -156,7 +202,7 @@ def render_stepper(
             "<div class='workflow-stepper-marker'></div>",
             unsafe_allow_html=True,
         )
-        annotated_steps: list[str] = []
+        summary_segments: list[str] = []
         for start in range(0, total, 3):
             chunk = labels[start : start + 3]
             columns = st.columns([1] * len(chunk), gap="small")
@@ -173,7 +219,7 @@ def render_stepper(
 
                 icon = status_icons[status]
                 annotated_label = f"{icon} {button_label}"
-                annotated_steps.append(f"**{annotated_label}**" if status == "current" else annotated_label)
+                summary_segments.append(f"<span data-state='{status}'>{html.escape(annotated_label)}</span>")
 
                 disabled = status == "current" or on_select is None
                 with column:
@@ -192,4 +238,9 @@ def render_stepper(
                             on_select(idx)
                     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.caption(" → ".join(annotated_steps))
+    if summary_segments:
+        arrow = "<span aria-hidden='true'>→</span>"
+        st.markdown(
+            "<div class='workflow-stepper__summary'>" + arrow.join(summary_segments) + "</div>",
+            unsafe_allow_html=True,
+        )
