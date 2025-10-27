@@ -1,6 +1,6 @@
 [project]
 name = "cognitivestaffing"
-version = "1.0.0"
+version = "1.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.5,<3.0",

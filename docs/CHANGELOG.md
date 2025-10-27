@@ -2,40 +2,35 @@
 
 ## Unreleased
 
+- _No changes yet / Keine Einträge._
+
+## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
+
 ### Added / Neu
-- **EN:** Automatic normalisation pipeline harmonises scraped fields (addresses noisy cities, boolean flags, currency formats).
-  **DE:** Automatisierte Normalisierung harmonisiert extrahierte Felder (bereinigt Städte, Boolesche Werte, Währungsformate).
-- **EN:** Company branding integration fetches logo, dominant colour, and claim for the wizard sidebar, exports, and JSON.
-  **DE:** Unternehmensbranding integriert Logo, Leitfarbe und Claim in Sidebar, Exporte und JSON.
-- **EN:** Codex prompting guide entries captured in this changelog to align internal task history.
-  **DE:** Codex-Prompting-Guide-Einträge im Changelog ergänzt, um interne Aufgabenhistorie abzubilden.
-- **EN:** Unified wizard widget factories (`components.widget_factory`) to bind schema
-  paths with automatic `_update_profile` callbacks across all steps.
-  **DE:** Vereinheitlichte Wizard-Widget-Fabriken (`components.widget_factory`), die
-  Schema-Pfade mit automatischen `_update_profile`-Callbacks in allen Schritten koppeln.
+- **EN:** Branding parser now enriches profiles with `company.logo_url`, `company.brand_color`, and `company.claim`, wiring the logo and claim into the sidebar hero and exports.
+  **DE:** Der Branding-Parser ergänzt Profile um `company.logo_url`, `company.brand_color` und `company.claim`, sodass Logo und Claim in Sidebar und Exporten erscheinen.
+- **EN:** Documented OpenAI configuration pathways (environment variables, Streamlit secrets, EU base URL) including in-app warnings when the key is missing.
+  **DE:** OpenAI-Konfigurationswege (Umgebungsvariablen, Streamlit-Secrets, EU-Basis-URL) dokumentiert – inklusive In-App-Warnung, falls der Schlüssel fehlt.
+- **EN:** Added contributor guidance for the normalization pipeline, feature flags, and `ProfilePaths` widget bindings in README and developer docs.
+  **DE:** Entwicklerleitfaden für Normalisierungspipeline, Feature-Flags und `ProfilePaths`-Widget-Bindungen in README und Doku ergänzt.
 
 ### Fixed / Behoben
-- **EN:** Centralised wizard profile key constants and session defaults so schema paths map through a single registry (CS_SCHEMA_PROPAGATE).
-  **DE:** Profil-Schlüssel und Session-Defaults des Wizards zentralisiert, sodass Schema-Pfade über einen einzigen Katalog laufen (CS_SCHEMA_PROPAGATE).
-- **EN:** Canonical NeedAnalysisProfile key registry now drives aliases and state/export sanitisation so legacy keys disappear after ingestion (CS_SCHEMA_PROPAGATE).
-  **DE:** Der kanonische NeedAnalysisProfile-Key-Index steuert Alias- und State/Export-Bereinigung, sodass nach dem Import keine Legacy-Keys mehr verbleiben (CS_SCHEMA_PROPAGATE).
-- **EN:** City normalization now strips leading prepositions, removes trailing fragments, and falls back to a structured LLM
-  extraction when regex cleanup fails to find a result.
-  **DE:** Die Städtereinigung entfernt führende Präpositionen, kappt kleingeschriebene Fragmente und nutzt bei leerem Regex-Ergebnis
-  einen strukturierten LLM-Fallback.
-- **EN:** Resolved synchronization gaps so extracted data reliably populates wizard forms after repair.
-  **DE:** Synchronisationslücken geschlossen, damit extrahierte Daten nach Reparaturen zuverlässig in den Formularen landen.
-- **EN:** Hardened OpenAI API key loading (Streamlit secrets → environment) and gated LLM-powered features when no key is present
-  to prevent runtime warnings. **DE:** Laden des OpenAI-Schlüssels robuster gestaltet (Streamlit-Secrets → Umgebung) und LLM-
-  Funktionen ohne Schlüssel sauber deaktiviert, damit zur Laufzeit keine Warnungen mehr erscheinen.
+- **EN:** Resolved the Company step autofill crash caused by branding assets missing dominant colours.
+  **DE:** Absturz der Unternehmens-Autofill-Logik behoben, wenn Branding-Assets keine dominanten Farben lieferten.
+- **EN:** Hardened structured extraction payload handling to recover gracefully from invalid JSON envelopes.
+  **DE:** Verarbeitung der strukturierten Extraktions-Payload gehärtet, sodass ungültige JSON-Hüllen sauber abgefangen werden.
+- **EN:** Fixed media uploads that previously failed when file names contained non-ASCII characters.
+  **DE:** Fehler bei Medien-Uploads korrigiert, wenn Dateinamen Nicht-ASCII-Zeichen enthielten.
+
+### Refactored / Refaktoriert
+- **EN:** Unified schema keys via `constants.keys.ProfilePaths` across wizard steps, state synchronisation, and exports (CS_SCHEMA_PROPAGATE).
+  **DE:** Schema-Keys über `constants.keys.ProfilePaths` zwischen Wizard, State-Sync und Exporten vereinheitlicht (CS_SCHEMA_PROPAGATE).
 
 ### Docs / Doku
-- **EN:** Extended README, developer notes, and screenshots for normalisation, JSON repair, and branding caches.
-  **DE:** README, Entwicklerhinweise und Screenshots zu Normalisierung, JSON-Reparatur und Branding-Caches erweitert.
-- **EN:** Documented `.env.example`, the new LLM fallback behaviour, and setup notes for local development.
-  **DE:** `.env.example`, das neue LLM-Fallback-Verhalten und Setup-Hinweise für die lokale Entwicklung dokumentiert.
-- **EN:** Updated README with guidance on the widget factory pattern.
-  **DE:** README mit Hinweisen zum Widget-Factory-Pattern aktualisiert.
+- **EN:** README now highlights feature flags, Poppler/Tesseract prerequisites, and the extraction → normalisation pipeline.
+  **DE:** README weist nun auf Feature-Flags, Poppler/Tesseract-Voraussetzungen und die Extraktions-→-Normalisierungspipeline hin.
+- **EN:** Added developer snippets for creating wizard fields and extending rule-based extraction.
+  **DE:** Entwickler-Snippets für neue Wizard-Felder und die Erweiterung regelbasierter Extraktion ergänzt.
 
 ## v1.0.0 – Wizard-Vollmodernisierung & KI-Assistenten (2025-10-27)
 
