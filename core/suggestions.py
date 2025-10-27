@@ -6,11 +6,25 @@ from collections import defaultdict
 from typing import Dict, List, Sequence, Tuple
 
 from openai_utils import (
-    suggest_benefits,
     suggest_onboarding_plans,
     suggest_responsibilities_for_role,
-    suggest_skills_for_role,
 )
+from openai_utils import suggest_benefits as legacy_suggest_benefits
+from openai_utils import suggest_skills_for_role as legacy_suggest_skills
+
+try:  # Prefer Responses API implementations when available
+    from llm.suggestions import (  # type: ignore[attr-defined]
+        suggest_benefits as responses_suggest_benefits,
+        suggest_skills_for_role as responses_suggest_skills,
+    )
+except ModuleNotFoundError:  # pragma: no cover - optional dependency during tests
+    responses_suggest_benefits = None
+    responses_suggest_skills = None
+
+# Public aliases resolve to the active backend so external modules (and tests)
+# can monkeypatch ``suggestions.suggest_*`` regardless of the implementation.
+suggest_skills_for_role = responses_suggest_skills or legacy_suggest_skills
+suggest_benefits = responses_suggest_benefits or legacy_suggest_benefits
 
 from core.esco_utils import (
     classify_occupation,
