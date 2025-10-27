@@ -62,7 +62,7 @@ def build_json_schema_format(
     if strict_flag:
         schema_payload["strict"] = True
 
-    return {"type": "json_schema", "json_schema": schema_payload}
+    return {"type": "json_schema", "name": name, "json_schema": schema_payload}
 
 
 def _prepare_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
