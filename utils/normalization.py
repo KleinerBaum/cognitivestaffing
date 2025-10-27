@@ -237,7 +237,7 @@ _CITY_EXTRACTION_SYSTEM_PROMPT = (
 
 _CITY_TOKEN_STRIP_RE = re.compile(r"^[\s,.;:()\[\]\-]+|[\s,.;:()\[\]\-]+$")
 
-_COMPANY_SIZE_NUMBER_RE = re.compile(r"\d+(?:[.\s]\d{3})*(?:,\d+)?")
+_COMPANY_SIZE_NUMBER_RE = re.compile(r"\d+(?:[.\s,]\d{3})*(?:[.,]\d+)?")
 _COMPANY_SIZE_PLUS_MARKERS = (
     "über",
     "mehr als",
@@ -248,6 +248,81 @@ _COMPANY_SIZE_PLUS_MARKERS = (
     "plus",
     "+",
 )
+
+_COMPANY_SIZE_SNIPPET_RE = re.compile(
+    r"""
+    (?P<prefix>\b(?:über|ueber|mehr\s+als|mindestens|at\s+least|ab|around|approx(?:\.?)|approximately|rund|circa|ca\.?,?|etwa|ungefähr|ungefaehr|knapp|more\s+than)\s+)?
+    (?P<first>\d{1,3}(?:[.\s,]\d{3})*(?:[.,]\d+)?)
+    (?P<range>
+        \s*(?:[-–—]\s*|bis\s+|to\s+)
+        (?P<second>\d{1,3}(?:[.\s,]\d{3})*(?:[.,]\d+)?)
+    )?
+    (?P<suffix>\s*\+)?\s*
+    (?P<unit>Mitarbeiter(?::innen)?|Mitarbeiterinnen|Mitarbeitende|Beschäftigte[n]?|Angestellte|Menschen|people|employees|staff)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_COMPANY_SIZE_THOUSAND_SEP_RE = re.compile(r"(?<=\d)[.,](?=\d{3}(?:\D|$))")
+
+
+def _normalize_company_size_input(value: str) -> str:
+    """Return ``value`` with normalised spacing for consistent parsing."""
+
+    replacements = {
+        "\u202f": " ",
+        "\u2009": " ",
+        "\u200a": " ",
+        "\u2007": " ",
+        "\u00a0": " ",
+    }
+    candidate = value
+    for original, replacement in replacements.items():
+        candidate = candidate.replace(original, replacement)
+    return candidate
+
+
+def _coerce_company_size_token(token: str) -> int | None:
+    """Convert ``token`` into an integer employee count when possible."""
+
+    cleaned = token.strip()
+    if not cleaned:
+        return None
+    cleaned = _normalize_company_size_input(cleaned)
+    cleaned = cleaned.replace(" ", "")
+    cleaned = cleaned.replace("'", "").replace("’", "")
+    cleaned = _COMPANY_SIZE_THOUSAND_SEP_RE.sub("", cleaned)
+    integer_part = re.split(r"[.,]", cleaned)[0]
+    if not integer_part:
+        return None
+    try:
+        return int(integer_part)
+    except ValueError:
+        return None
+
+
+def extract_company_size_snippet(value: str | None) -> str:
+    """Return the matching size snippet from ``value`` if present."""
+
+    if not value:
+        return ""
+    candidate = _normalize_company_size_input(value)
+    match = _COMPANY_SIZE_SNIPPET_RE.search(candidate)
+    if not match:
+        return ""
+    snippet = match.group(0)
+    snippet = " ".join(snippet.strip().split())
+    return snippet
+
+
+def extract_company_size(value: str | None) -> str:
+    """Return a normalised employee count extracted from ``value``."""
+
+    snippet = extract_company_size_snippet(value)
+    if not snippet:
+        return ""
+    normalised = normalize_company_size(snippet)
+    return normalised
 
 
 def _normalize_city_tokens(tokens: list[str]) -> list[str]:
@@ -358,15 +433,12 @@ def normalize_city_name(value: Optional[str]) -> str:
 
 def _parse_company_numbers(value: str) -> list[int]:
     numbers: list[int] = []
-    for match in _COMPANY_SIZE_NUMBER_RE.finditer(value):
+    candidate = _normalize_company_size_input(value)
+    for match in _COMPANY_SIZE_NUMBER_RE.finditer(candidate):
         token = match.group(0)
-        token = token.replace(".", "").replace(" ", "")
-        if "," in token:
-            token = token.split(",", 1)[0]
-        try:
-            numbers.append(int(token))
-        except ValueError:
-            continue
+        coerced = _coerce_company_size_token(token)
+        if coerced is not None:
+            numbers.append(coerced)
     return numbers
 
 
@@ -375,7 +447,8 @@ def normalize_company_size(value: Optional[str]) -> str:
 
     if value is None:
         return ""
-    candidate = " ".join(value.strip().split())
+    candidate = _normalize_company_size_input(value)
+    candidate = " ".join(candidate.strip().split())
     if not candidate:
         return ""
     lowered = candidate.casefold()
@@ -654,4 +727,6 @@ __all__ = [
     "normalize_city_name",
     "normalize_company_size",
     "normalize_profile",
+    "extract_company_size",
+    "extract_company_size_snippet",
 ]

@@ -110,6 +110,8 @@ from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.normalization import (
+    extract_company_size,
+    extract_company_size_snippet,
     normalize_company_size,
     normalize_country,
     normalize_language_list,
@@ -2001,15 +2003,6 @@ class _CompanySectionConfig(TypedDict):
     slugs: Sequence[str]
 
 
-_SIZE_REGEX = re.compile(
-    r"((?:über|mehr als|rund|circa|ca\.?|etwa|ungefähr|around|approx(?:\.?|imately)?|knapp|more than)\s+)?"
-    r"(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?)"
-    r"(?:\s*(?:[-–]\s*)\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?)?"
-    r"\s*(Mitarbeiter(?:innen)?|Mitarbeitende|Beschäftigte[n]?|Angestellte|Menschen|people|employees|staff)",
-    re.IGNORECASE,
-)
-
-
 def _normalise_company_base_url(url: str) -> str | None:
     """Return the normalised base URL for the company website."""
 
@@ -2254,16 +2247,13 @@ def _extract_company_size(text: str) -> str | None:
 
     if not text:
         return None
-    cleaned = text.replace("\xa0", " ")
-    normalised = re.sub(r"\s+", " ", cleaned)
-    match = _SIZE_REGEX.search(normalised)
-    if not match:
-        return None
-    value = re.sub(r"\s+", " ", match.group(0)).strip(" .,;")
-    normalized = normalize_company_size(value)
+    normalized = extract_company_size(text)
     if normalized:
         return normalized
-    return value or None
+    snippet = extract_company_size_snippet(text)
+    if snippet:
+        return snippet.strip(" .,;") or None
+    return None
 
 
 def _record_company_enrichment_entry(
@@ -4124,6 +4114,14 @@ def _normalize_semantic_empty(value: Any) -> Any:
 def _normalize_value_for_path(path: str, value: Any) -> Any:
     """Apply field-specific normalisation before persisting ``value``."""
 
+    if path == "company.size":
+        if value is None:
+            return ""
+        candidate = value if isinstance(value, str) else str(value)
+        normalized = normalize_company_size(candidate)
+        if normalized:
+            return normalized
+        return " ".join(candidate.strip().split())
     if path == "location.country":
         if isinstance(value, str) or value is None:
             return normalize_country(value)

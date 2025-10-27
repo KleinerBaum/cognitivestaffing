@@ -28,6 +28,7 @@ PAGE = WizardPage(
     summary_fields=(
         "company.name",
         "company.industry",
+        "company.size",
         "location.primary_city",
         "location.country",
     ),
