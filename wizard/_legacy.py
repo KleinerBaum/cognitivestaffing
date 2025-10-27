@@ -62,21 +62,32 @@ from config import WIZARD_ORDER_V2
 from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
-from wizard import (
+from ._agents import (
+    generate_interview_guide_content,
+    generate_job_ad_content,
+)
+from ._layout import (
     COMPACT_STEP_STYLE,
+    inject_salary_slider_styles,
+    _render_autofill_suggestion,
+    render_list_text_area,
+    render_onboarding_hero,
+    render_step_heading,
+)
+from ._logic import (
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
-    generate_interview_guide_content,
-    generate_job_ad_content,
+    _autofill_was_rejected,
+    _update_profile,
+    get_in,
+    _normalize_semantic_empty,
     merge_unique_items,
-    inject_salary_slider_styles,
-    render_list_text_area,
-    render_onboarding_hero,
-    render_step_heading,
+    normalize_text_area_list,
+    set_in,
     unique_normalized,
 )
 
@@ -3628,30 +3639,6 @@ def _delete_path(d: dict | None, path: str) -> None:
         cursor.pop(parts[-1], None)
 
 
-def set_in(d: dict, path: str, value) -> None:
-    """Assign a value in a nested dict via dot-separated path."""
-
-    cur = d
-    parts = path.split(".")
-    for p in parts[:-1]:
-        if p not in cur or not isinstance(cur[p], dict):
-            cur[p] = {}
-        cur = cur[p]
-    cur[parts[-1]] = value
-
-
-def get_in(d: dict, path: str, default=None):
-    """Retrieve a value from a nested dict via dot-separated path."""
-
-    cur = d
-    for p in path.split("."):
-        if isinstance(cur, dict) and p in cur:
-            cur = cur[p]
-        else:
-            return default
-    return cur
-
-
 def _job_ad_get_value(data: Mapping[str, Any], key: str) -> Any:
     """Return a value for ``key`` supporting both nested and dotted lookups."""
 
@@ -4114,65 +4101,6 @@ def _apply_followup_updates(
     return job_generated, interview_generated
 
 
-def _clear_generated() -> None:
-    """Remove cached generated outputs from ``st.session_state``."""
-
-    for key in (
-        StateKeys.JOB_AD_MD,
-        StateKeys.BOOLEAN_STR,
-        StateKeys.INTERVIEW_GUIDE_MD,
-        StateKeys.INTERVIEW_GUIDE_DATA,
-    ):
-        st.session_state.pop(key, None)
-    for key in (
-        UIKeys.JOB_AD_OUTPUT,
-        UIKeys.INTERVIEW_OUTPUT,
-    ):
-        st.session_state.pop(key, None)
-
-
-def _normalize_semantic_empty(value: Any) -> Any:
-    """Return a canonical representation for semantically empty values."""
-
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value if value.strip() else None
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return None if len(value) == 0 else value
-    if isinstance(value, dict):
-        return None if len(value) == 0 else value
-    return value
-
-
-def _normalize_value_for_path(path: str, value: Any) -> Any:
-    """Apply field-specific normalisation before persisting ``value``."""
-
-    if path == "company.size":
-        if value is None:
-            return ""
-        candidate = value if isinstance(value, str) else str(value)
-        normalized = normalize_company_size(candidate)
-        if normalized:
-            return normalized
-        return " ".join(candidate.strip().split())
-    if path == "location.country":
-        if isinstance(value, str) or value is None:
-            return normalize_country(value)
-        return normalize_country(str(value))
-    if path in {
-        "requirements.languages_required",
-        "requirements.languages_optional",
-    }:
-        if isinstance(value, list):
-            return normalize_language_list(value)
-        if isinstance(value, str):
-            parts = [part.strip() for part in value.split(",") if part.strip()]
-            return normalize_language_list(parts)
-        return normalize_language_list([])
-    return value
-
-
 def _iter_profile_scalars(data: Mapping[str, Any], prefix: str = "") -> Iterable[tuple[str, Any]]:
     """Yield dot-paths for scalar values within ``data``."""
 
@@ -4528,222 +4456,6 @@ def _field_lock_config(
 
     config["unlocked"] = True
     return config
-
-
-def _clear_field_unlock_state(path: str) -> None:
-    """Remove stored unlock toggles for ``path`` across contexts."""
-
-    normalized = path.replace(".", "_")
-    prefix = f"{_FIELD_LOCK_BASE_KEY}."
-    keys_to_remove = [
-        key
-        for key in list(st.session_state.keys())
-        if isinstance(key, str) and key.startswith(prefix) and key.split(".")[-1] == normalized
-    ]
-    for key in keys_to_remove:
-        st.session_state.pop(key, None)
-
-
-def _remove_field_lock_metadata(path: str) -> None:
-    """Drop lock/high-confidence metadata for ``path`` once the value changes."""
-
-    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
-    if not isinstance(raw_metadata, Mapping):  # pragma: no cover - defensive guard
-        return
-    metadata = dict(raw_metadata)
-    changed = False
-    for key in ("locked_fields", "high_confidence_fields"):
-        values = metadata.get(key)
-        if isinstance(values, list) and path in values:
-            metadata[key] = [item for item in values if item != path]
-            changed = True
-    confidence_map = metadata.get("field_confidence")
-    if isinstance(confidence_map, Mapping) and path in confidence_map:
-        updated = dict(confidence_map)
-        if updated.pop(path, None) is not None:
-            metadata["field_confidence"] = updated
-            changed = True
-    if changed:
-        st.session_state[StateKeys.PROFILE_METADATA] = metadata
-        _clear_field_unlock_state(path)
-
-
-def _ensure_profile_meta(profile: dict[str, Any]) -> dict[str, Any]:
-    """Return the ``meta`` dict for ``profile``, creating it when missing."""
-
-    meta = profile.get("meta")
-    if isinstance(meta, dict):
-        return meta
-    meta = {}
-    profile["meta"] = meta
-    return meta
-
-
-def _ensure_followups_answered(profile: dict[str, Any]) -> list[str]:
-    """Return the mutable follow-up completion list for ``profile``."""
-
-    meta = _ensure_profile_meta(profile)
-    answered = meta.get("followups_answered")
-    if isinstance(answered, list):
-        cleaned = [item for item in answered if isinstance(item, str)]
-        if cleaned is not answered:
-            meta["followups_answered"] = cleaned
-            return cleaned
-        return answered
-    meta["followups_answered"] = []
-    return meta["followups_answered"]
-
-
-def _sync_followup_completion(path: str, value: Any, profile: dict[str, Any]) -> None:
-    """Synchronize follow-up bookkeeping for ``path`` based on ``value``."""
-
-    normalized = _normalize_semantic_empty(value)
-    meta = _ensure_profile_meta(profile)
-    answered = _ensure_followups_answered(profile)
-
-    if normalized is None:
-        if path in answered:
-            meta["followups_answered"] = [item for item in answered if item != path]
-        return
-
-    followups = st.session_state.get(StateKeys.FOLLOWUPS)
-    if isinstance(followups, list):
-        remaining = [q for q in followups if not (isinstance(q, Mapping) and q.get("field") == path)]
-        st.session_state[StateKeys.FOLLOWUPS] = remaining
-    st.session_state.pop(f"fu_{path}", None)
-    if path not in answered:
-        answered.append(path)
-
-
-def _update_profile(path: str, value) -> None:
-    """Update profile data and clear derived outputs if changed."""
-
-    data = _get_profile_state()
-    data.setdefault("location", {})
-    value = _normalize_value_for_path(path, value)
-    normalized_value = _normalize_semantic_empty(value)
-    if normalized_value is None:
-        st.session_state.pop(path, None)
-    else:
-        current_session_value = st.session_state.get(path, _MISSING)
-        if current_session_value is _MISSING or current_session_value != value:
-            st.session_state[path] = value
-    current = get_in(data, path)
-    if _normalize_semantic_empty(current) != normalized_value:
-        set_in(data, path, value)
-        _clear_generated()
-        _remove_field_lock_metadata(path)
-        _sync_followup_completion(path, value, data)
-
-
-def _normalize_autofill_value(value: str | None) -> str:
-    """Normalize ``value`` for comparison in autofill tracking."""
-
-    if not value:
-        return ""
-    normalized = " ".join(value.strip().split()).casefold()
-    return normalized
-
-
-def _load_autofill_decisions() -> dict[str, list[str]]:
-    """Return a copy of stored autofill rejection decisions."""
-
-    raw = st.session_state.get(StateKeys.WIZARD_AUTOFILL_DECISIONS)
-    if not isinstance(raw, Mapping):
-        return {}
-    decisions: dict[str, list[str]] = {}
-    for key, value in raw.items():
-        if not isinstance(key, str):
-            continue
-        if isinstance(value, list):
-            items = [str(item) for item in value if isinstance(item, str)]
-            decisions[key] = items
-    return decisions
-
-
-def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
-    """Persist ``decisions`` to session state."""
-
-    st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {key: list(value) for key, value in decisions.items()}
-
-
-def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:
-    """Return ``True`` when ``suggestion`` was rejected for ``field_path``."""
-
-    normalized = _normalize_autofill_value(suggestion)
-    if not normalized:
-        return False
-    decisions = _load_autofill_decisions()
-    rejected = decisions.get(field_path, [])
-    return normalized in rejected
-
-
-def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
-    """Remember that ``suggestion`` was rejected for ``field_path``."""
-
-    normalized = _normalize_autofill_value(suggestion)
-    if not normalized:
-        return
-    decisions = _load_autofill_decisions()
-    current = set(decisions.get(field_path, []))
-    if normalized in current:
-        return
-    current.add(normalized)
-    decisions[field_path] = sorted(current)
-    _store_autofill_decisions(decisions)
-
-
-def _render_autofill_suggestion(
-    *,
-    field_path: str,
-    suggestion: str,
-    title: str,
-    description: str,
-    icon: str = "✨",
-    success_message: str | None = None,
-    rejection_message: str | None = None,
-    success_icon: str = "✅",
-    rejection_icon: str = "🗑️",
-) -> None:
-    """Render an optional autofill prompt for ``suggestion``.
-
-    Autofill now updates the profile data directly via :func:`_update_profile`
-    so that bound widgets pick up the change on the subsequent rerun without
-    touching their Streamlit session state keys (see CS_TASK:102).
-    """
-
-    suggestion = suggestion.strip()
-    if not suggestion:
-        return
-
-    accept_label = f"{icon} {suggestion}" if icon else suggestion
-    reject_label = tr("Ignorieren", "Dismiss")
-    success_message = success_message or tr("Vorschlag übernommen.", "Suggestion applied.")
-    rejection_message = rejection_message or tr("Vorschlag verworfen.", "Suggestion dismissed.")
-
-    suggestion_hash = hashlib.sha1(f"{field_path}:{suggestion}".encode("utf-8")).hexdigest()[:10]
-
-    with st.container(border=True):
-        st.markdown(f"**{title}**")
-        if description:
-            st.caption(description)
-        st.markdown(f"`{suggestion}`")
-        accept_col, reject_col = st.columns((1.4, 1))
-        if accept_col.button(
-            accept_label,
-            key=f"autofill.accept.{field_path}.{suggestion_hash}",
-            type="primary",
-        ):
-            _update_profile(field_path, suggestion)
-            st.toast(success_message, icon=success_icon)
-            st.rerun()
-        if reject_col.button(
-            reject_label,
-            key=f"autofill.reject.{field_path}.{suggestion_hash}",
-        ):
-            _record_autofill_rejection(field_path, suggestion)
-            st.toast(rejection_message, icon=rejection_icon)
-            st.rerun()
 
 
 def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]:

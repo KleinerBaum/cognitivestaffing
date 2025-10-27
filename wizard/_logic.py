@@ -16,9 +16,15 @@ from typing import Any, Callable, Mapping
 import streamlit as st
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
+from models.need_analysis import NeedAnalysisProfile
 from state import ensure_state
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
-from utils.normalization import country_to_iso2
+from utils.normalization import (
+    country_to_iso2,
+    normalize_company_size,
+    normalize_country,
+    normalize_language_list,
+)
 
 
 SALARY_SLIDER_MIN = 0
@@ -27,6 +33,279 @@ SALARY_SLIDER_STEP = 1_000
 
 
 _MISSING = object()
+
+
+_FIELD_LOCK_BASE_KEY = "ui.locked_field_unlock"
+
+
+def set_in(data: dict, path: str, value: Any) -> None:
+    """Assign ``value`` in ``data`` following a dot-separated ``path``."""
+
+    cursor = data
+    parts = path.split(".")
+    for part in parts[:-1]:
+        next_cursor = cursor.get(part)
+        if not isinstance(next_cursor, dict):
+            next_cursor = {}
+            cursor[part] = next_cursor
+        cursor = next_cursor
+    cursor[parts[-1]] = value
+
+
+def get_in(data: Mapping[str, Any] | None, path: str, default: Any = None) -> Any:
+    """Return the nested value for ``path`` from ``data`` when available."""
+
+    cursor: Any = data
+    for part in path.split("."):
+        if isinstance(cursor, Mapping) and part in cursor:
+            cursor = cursor[part]
+        else:
+            return default
+    return cursor
+
+
+def _get_profile_state() -> dict[str, Any]:
+    """Return the mutable profile mapping from session state."""
+
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if isinstance(profile, dict):
+        return profile
+    ensure_state()
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if isinstance(profile, dict):
+        return profile
+    if isinstance(profile, Mapping):
+        coerced = dict(profile)
+        st.session_state[StateKeys.PROFILE] = coerced
+        return coerced
+    fallback = NeedAnalysisProfile().model_dump()
+    st.session_state[StateKeys.PROFILE] = fallback
+    return fallback
+
+
+def _clear_generated() -> None:
+    """Remove cached generated outputs from ``st.session_state``."""
+
+    for key in (
+        StateKeys.JOB_AD_MD,
+        StateKeys.BOOLEAN_STR,
+        StateKeys.INTERVIEW_GUIDE_MD,
+        StateKeys.INTERVIEW_GUIDE_DATA,
+    ):
+        st.session_state.pop(key, None)
+    for key in (
+        UIKeys.JOB_AD_OUTPUT,
+        UIKeys.INTERVIEW_OUTPUT,
+    ):
+        st.session_state.pop(key, None)
+
+
+def _normalize_semantic_empty(value: Any) -> Any:
+    """Return ``None`` for semantically empty ``value`` entries."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value if value.strip() else None
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return None if len(value) == 0 else value
+    if isinstance(value, dict):
+        return None if len(value) == 0 else value
+    return value
+
+
+def _normalize_value_for_path(path: str, value: Any) -> Any:
+    """Apply field-specific normalisation before persisting ``value``."""
+
+    if path == "company.size":
+        if value is None:
+            return ""
+        candidate = value if isinstance(value, str) else str(value)
+        normalized = normalize_company_size(candidate)
+        if normalized:
+            return normalized
+        return " ".join(candidate.strip().split())
+    if path == "location.country":
+        if isinstance(value, str) or value is None:
+            return normalize_country(value)
+        return normalize_country(str(value))
+    if path in {
+        "requirements.languages_required",
+        "requirements.languages_optional",
+    }:
+        if isinstance(value, list):
+            return normalize_language_list(value)
+        if isinstance(value, str):
+            parts = [part.strip() for part in value.split(",") if part.strip()]
+            return normalize_language_list(parts)
+        return normalize_language_list([])
+    return value
+
+
+def _clear_field_unlock_state(path: str) -> None:
+    """Remove stored unlock toggles for ``path`` across contexts."""
+
+    normalized = path.replace(".", "_")
+    prefix = f"{_FIELD_LOCK_BASE_KEY}."
+    keys_to_remove = [
+        key
+        for key in list(st.session_state.keys())
+        if isinstance(key, str) and key.startswith(prefix) and key.split(".")[-1] == normalized
+    ]
+    for key in keys_to_remove:
+        st.session_state.pop(key, None)
+
+
+def _remove_field_lock_metadata(path: str) -> None:
+    """Drop lock/high-confidence metadata for ``path`` once the value changes."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    if not isinstance(raw_metadata, Mapping):  # pragma: no cover - defensive guard
+        return
+    metadata = dict(raw_metadata)
+    changed = False
+    for key in ("locked_fields", "high_confidence_fields"):
+        values = metadata.get(key)
+        if isinstance(values, list) and path in values:
+            metadata[key] = [item for item in values if item != path]
+            changed = True
+    confidence_map = metadata.get("field_confidence")
+    if isinstance(confidence_map, Mapping) and path in confidence_map:
+        updated = dict(confidence_map)
+        if updated.pop(path, None) is not None:
+            metadata["field_confidence"] = updated
+            changed = True
+    if changed:
+        st.session_state[StateKeys.PROFILE_METADATA] = metadata
+        _clear_field_unlock_state(path)
+
+
+def _ensure_profile_meta(profile: dict[str, Any]) -> dict[str, Any]:
+    """Return the ``meta`` dict for ``profile``, creating it when missing."""
+
+    meta = profile.get("meta")
+    if isinstance(meta, dict):
+        return meta
+    meta = {}
+    profile["meta"] = meta
+    return meta
+
+
+def _ensure_followups_answered(profile: dict[str, Any]) -> list[str]:
+    """Return the mutable follow-up completion list for ``profile``."""
+
+    meta = _ensure_profile_meta(profile)
+    answered = meta.get("followups_answered")
+    if isinstance(answered, list):
+        cleaned = [item for item in answered if isinstance(item, str)]
+        if cleaned is not answered:
+            meta["followups_answered"] = cleaned
+            return cleaned
+        return answered
+    meta["followups_answered"] = []
+    return meta["followups_answered"]
+
+
+def _sync_followup_completion(path: str, value: Any, profile: dict[str, Any]) -> None:
+    """Synchronise follow-up bookkeeping for ``path`` based on ``value``."""
+
+    answered = _ensure_followups_answered(profile)
+    normalized = _normalize_semantic_empty(value)
+    if normalized is None:
+        if path in answered:
+            profile_meta = _ensure_profile_meta(profile)
+            profile_meta["followups_answered"] = [item for item in answered if item != path]
+        return
+
+    followups = st.session_state.get(StateKeys.FOLLOWUPS)
+    if isinstance(followups, list):
+        remaining = [
+            q for q in followups if not (isinstance(q, Mapping) and q.get("field") == path)
+        ]
+        st.session_state[StateKeys.FOLLOWUPS] = remaining
+    st.session_state.pop(f"fu_{path}", None)
+    if path not in answered:
+        answered.append(path)
+
+
+def _normalize_autofill_value(value: str | None) -> str:
+    """Normalize ``value`` for comparison in autofill tracking."""
+
+    if not value:
+        return ""
+    normalized = " ".join(value.strip().split()).casefold()
+    return normalized
+
+
+def _load_autofill_decisions() -> dict[str, list[str]]:
+    """Return a copy of stored autofill rejection decisions."""
+
+    raw = st.session_state.get(StateKeys.WIZARD_AUTOFILL_DECISIONS)
+    if not isinstance(raw, Mapping):
+        return {}
+    decisions: dict[str, list[str]] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            continue
+        if isinstance(value, list):
+            items = [str(item) for item in value if isinstance(item, str)]
+            decisions[key] = items
+    return decisions
+
+
+def _store_autofill_decisions(decisions: Mapping[str, list[str]]) -> None:
+    """Persist ``decisions`` to session state."""
+
+    st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {
+        key: list(value) for key, value in decisions.items()
+    }
+
+
+def _autofill_was_rejected(field_path: str, suggestion: str) -> bool:
+    """Return ``True`` when ``suggestion`` was rejected for ``field_path``."""
+
+    normalized = _normalize_autofill_value(suggestion)
+    if not normalized:
+        return False
+    decisions = _load_autofill_decisions()
+    rejected = decisions.get(field_path, [])
+    return normalized in rejected
+
+
+def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
+    """Remember that ``suggestion`` was rejected for ``field_path``."""
+
+    normalized = _normalize_autofill_value(suggestion)
+    if not normalized:
+        return
+    decisions = _load_autofill_decisions()
+    current = set(decisions.get(field_path, []))
+    if normalized in current:
+        return
+    current.add(normalized)
+    decisions[field_path] = sorted(current)
+    _store_autofill_decisions(decisions)
+
+
+def _update_profile(path: str, value: Any) -> None:
+    """Update profile data and clear derived outputs if changed."""
+
+    data = _get_profile_state()
+    data.setdefault("location", {})
+    normalized_value_for_path = _normalize_value_for_path(path, value)
+    normalized_value = _normalize_semantic_empty(normalized_value_for_path)
+    if normalized_value is None:
+        st.session_state.pop(path, None)
+    else:
+        current_session_value = st.session_state.get(path, _MISSING)
+        if current_session_value is _MISSING or current_session_value != normalized_value_for_path:
+            st.session_state[path] = normalized_value_for_path
+    current = get_in(data, path)
+    if _normalize_semantic_empty(current) != normalized_value:
+        set_in(data, path, normalized_value_for_path)
+        _clear_generated()
+        _remove_field_lock_metadata(path)
+        _sync_followup_completion(path, normalized_value_for_path, data)
 
 
 def _ensure_profile_mapping() -> Mapping[str, Any]:
@@ -334,10 +613,17 @@ __all__ = [
     "_get_company_logo_bytes",
     "_infer_currency_from_range",
     "_parse_salary_range_text",
+    "_autofill_was_rejected",
+    "_load_autofill_decisions",
+    "_record_autofill_rejection",
+    "_store_autofill_decisions",
+    "_update_profile",
     "_set_company_logo",
     "_to_int",
+    "get_in",
     "merge_unique_items",
     "normalize_text_area_list",
+    "set_in",
     "SALARY_SLIDER_MAX",
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",
