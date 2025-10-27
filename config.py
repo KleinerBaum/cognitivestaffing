@@ -19,7 +19,7 @@ import warnings
 
 import streamlit as st
 from enum import StrEnum
-from typing import Dict
+from typing import Dict, Mapping
 
 try:
     from dotenv import load_dotenv
@@ -27,6 +27,9 @@ try:
     load_dotenv()
 except ImportError:
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 EMBED_MODEL = "text-embedding-3-large"  # RAG
@@ -238,7 +241,66 @@ def _normalise_bool(value: object | None, *, default: bool = False) -> bool:
     return default
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+_missing_api_key_logged = False
+
+
+def _coerce_secret_value(value: object) -> str:
+    """Return ``value`` as a trimmed string without raising on unexpected types."""
+
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            return value.decode("utf-8").strip()
+        except Exception:  # pragma: no cover - defensive branch for binary blobs
+            return ""
+    return str(value).strip()
+
+
+def get_openai_api_key() -> str:
+    """Return the configured OpenAI API key from secrets or environment variables."""
+
+    global _missing_api_key_logged
+
+    # 1. Streamlit secrets (top-level key)
+    try:
+        direct_secret = st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        direct_secret = None
+    key = _coerce_secret_value(direct_secret)
+    if key:
+        _missing_api_key_logged = False
+        return key
+
+    # 2. Streamlit secrets (``openai`` section)
+    try:
+        openai_section = st.secrets["openai"]
+    except Exception:
+        openai_section = None
+    if isinstance(openai_section, Mapping):
+        section_key = _coerce_secret_value(openai_section.get("OPENAI_API_KEY"))
+        if section_key:
+            _missing_api_key_logged = False
+            return section_key
+
+    # 3. Environment variable fallback
+    env_key = _coerce_secret_value(os.getenv("OPENAI_API_KEY"))
+    if env_key:
+        _missing_api_key_logged = False
+        return env_key
+
+    if not _missing_api_key_logged:
+        logger.info(
+            "OPENAI_API_KEY not configured; LLM-powered features are disabled until a key is provided.",
+        )
+        _missing_api_key_logged = True
+
+    return ""
+
+
+OPENAI_API_KEY = get_openai_api_key()
 OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
 OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
@@ -253,22 +315,27 @@ VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
     openai_secrets = st.secrets["openai"]
-    OPENAI_API_KEY = openai_secrets.get("OPENAI_API_KEY", OPENAI_API_KEY)
-    OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
-    OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
-    OPENAI_ORGANIZATION = openai_secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
-    OPENAI_PROJECT = openai_secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
-    timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
-    OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
-    if "USE_CLASSIC_API" in openai_secrets:
-        USE_CLASSIC_API = _normalise_bool(openai_secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
-    if "USE_RESPONSES_API" in openai_secrets:
-        USE_RESPONSES_API = _normalise_bool(
-            openai_secrets.get("USE_RESPONSES_API"),
-            default=USE_RESPONSES_API,
-        )
-    VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
-    VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
+    if isinstance(openai_secrets, Mapping):
+        section_key = _coerce_secret_value(openai_secrets.get("OPENAI_API_KEY"))
+        if section_key:
+            OPENAI_API_KEY = section_key
+        OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
+        OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
+        OPENAI_ORGANIZATION = openai_secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
+        OPENAI_PROJECT = openai_secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
+        timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
+        OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
+        if "USE_CLASSIC_API" in openai_secrets:
+            USE_CLASSIC_API = _normalise_bool(openai_secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+        if "USE_RESPONSES_API" in openai_secrets:
+            USE_RESPONSES_API = _normalise_bool(
+                openai_secrets.get("USE_RESPONSES_API"),
+                default=USE_RESPONSES_API,
+            )
+        VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
+        VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
+    else:
+        openai_secrets = None
 except Exception:
     openai_secrets = None
 
@@ -293,6 +360,8 @@ try:
 except Exception:
     pass
 
+LLM_ENABLED = bool(OPENAI_API_KEY)
+
 if USE_RESPONSES_API:
     USE_CLASSIC_API = False
 else:
@@ -310,6 +379,12 @@ try:
     VERBOSITY = normalise_verbosity(st.secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
 except Exception:
     pass
+
+
+def is_llm_enabled() -> bool:
+    """Return ``True`` when an OpenAI API key is configured."""
+
+    return bool(OPENAI_API_KEY)
 
 
 class ModelTask(StrEnum):
@@ -566,11 +641,6 @@ if OPENAI_API_KEY:
             openai.base_url = OPENAI_BASE_URL
     except ImportError:
         pass
-else:
-    warnings.warn(
-        "OpenAI API key is not set. Set the OPENAI_API_KEY environment variable or add it to Streamlit secrets.",
-        RuntimeWarning,
-    )
 
 SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
 # (Moved UIKeys and DataKeys to constants/keys.py; import if needed)

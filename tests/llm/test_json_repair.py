@@ -21,7 +21,7 @@ class DummyResponse:
 
 
 def test_repair_profile_payload_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(json_repair, "OPENAI_API_KEY", "")
+    monkeypatch.setattr(json_repair, "is_llm_enabled", lambda: False)
     json_repair._load_schema.cache_clear()
 
     result = repair_profile_payload({"company": {}}, errors=[])
@@ -30,7 +30,7 @@ def test_repair_profile_payload_requires_api_key(monkeypatch: pytest.MonkeyPatch
 
 
 def test_repair_profile_payload_invokes_responses(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(json_repair, "OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(json_repair, "is_llm_enabled", lambda: True)
     json_repair._load_schema.cache_clear()
 
     schema = {"type": "object", "properties": {}, "additionalProperties": True}

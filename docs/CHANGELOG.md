@@ -13,10 +13,15 @@
 ### Fixed / Behoben
 - **EN:** Resolved synchronization gaps so extracted data reliably populates wizard forms after repair.
   **DE:** Synchronisationslücken geschlossen, damit extrahierte Daten nach Reparaturen zuverlässig in den Formularen landen.
+- **EN:** Hardened OpenAI API key loading (Streamlit secrets → environment) and gated LLM-powered features when no key is present
+  to prevent runtime warnings. **DE:** Laden des OpenAI-Schlüssels robuster gestaltet (Streamlit-Secrets → Umgebung) und LLM-
+  Funktionen ohne Schlüssel sauber deaktiviert, damit zur Laufzeit keine Warnungen mehr erscheinen.
 
 ### Docs / Doku
 - **EN:** Extended README, developer notes, and screenshots for normalisation, JSON repair, and branding caches.
   **DE:** README, Entwicklerhinweise und Screenshots zu Normalisierung, JSON-Reparatur und Branding-Caches erweitert.
+- **EN:** Documented `.env.example`, the new LLM fallback behaviour, and setup notes for local development.
+  **DE:** `.env.example`, das neue LLM-Fallback-Verhalten und Setup-Hinweise für die lokale Entwicklung dokumentiert.
 
 ## v1.0.0 – Wizard-Vollmodernisierung & KI-Assistenten (2025-10-27)
 
