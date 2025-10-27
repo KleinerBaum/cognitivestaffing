@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+import importlib
+from typing import Any
 
 import pytest
 import streamlit as st
 
 from components import widget_factory
-from constants.keys import StateKeys
+from constants.keys import StateKeys, UIKeys
 from state import ensure_state
 from wizard._logic import get_value
 
@@ -84,3 +86,124 @@ def test_bindings(monkeypatch: pytest.MonkeyPatch) -> None:
     st.session_state["position.seniority_level"] = "Mid"
     callbacks["position.seniority_level"]()
     assert get_value("position.seniority_level") == "Mid"
+
+
+def test_text_input_syncs_when_profile_updates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Widget factory should push profile changes back into widget state."""
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile["company"]["hq_location"] = ""
+
+    captured_values: list[str] = []
+
+    def fake_text_input(
+        label: str,
+        *,
+        value: str = "",
+        key: str | None = None,
+        on_change: Callable[[], None] | None = None,
+        **_: object,
+    ) -> str:
+        captured_values.append(value)
+        if key is not None:
+            st.session_state[key] = value
+        if on_change is not None:
+            on_change()
+        return value
+
+    monkeypatch.setattr(st, "text_input", fake_text_input)
+
+    widget_factory.text_input(
+        "company.hq_location",
+        "Headquarters",
+        key=UIKeys.COMPANY_HQ_LOCATION,
+    )
+    assert captured_values[-1] == ""
+
+    profile["company"]["hq_location"] = "Berlin, DE"
+
+    widget_factory.text_input(
+        "company.hq_location",
+        "Headquarters",
+        key=UIKeys.COMPANY_HQ_LOCATION,
+    )
+    assert captured_values[-1] == "Berlin, DE"
+
+
+def test_autofill_accept_updates_profile_and_requests_rerun(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Accepting an autofill suggestion updates the profile and reruns."""
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile["company"]["hq_location"] = ""
+
+    def fake_text_input(
+        label: str,
+        *,
+        value: str = "",
+        key: str | None = None,
+        on_change: Callable[[], None] | None = None,
+        **_: object,
+    ) -> str:
+        if key is not None:
+            st.session_state[key] = value
+        return value
+
+    monkeypatch.setattr(st, "text_input", fake_text_input)
+    widget_factory.text_input(
+        "company.hq_location",
+        "Headquarters",
+        key=UIKeys.COMPANY_HQ_LOCATION,
+    )
+
+    class _Container:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class _Column:
+        def __init__(self, clicked: bool) -> None:
+            self._clicked = clicked
+
+        def button(self, *_: object, **__: object) -> bool:
+            return self._clicked
+
+    monkeypatch.setattr(st, "container", lambda **_: _Container())
+    monkeypatch.setattr(st, "columns", lambda *_args, **_kwargs: (_Column(True), _Column(False)))
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "toast", lambda *_, **__: None)
+
+    rerun_called = False
+
+    def fake_rerun() -> None:
+        nonlocal rerun_called
+        rerun_called = True
+        raise RuntimeError("rerun triggered")
+
+    monkeypatch.setattr(st, "rerun", fake_rerun)
+
+    module = importlib.import_module("wizard")
+    render_autofill: Any = getattr(module, "_render_autofill_suggestion")
+
+    with pytest.raises(RuntimeError, match="rerun triggered"):
+        render_autofill(
+            field_path="company.hq_location",
+            suggestion="Berlin, DE",
+            title="HQ",
+            description="Suggested",
+        )
+
+    assert rerun_called is True
+    assert get_value("company.hq_location") == "Berlin, DE"
+
+    widget_factory.text_input(
+        "company.hq_location",
+        "Headquarters",
+        key=UIKeys.COMPANY_HQ_LOCATION,
+    )
+
+    assert st.session_state[UIKeys.COMPANY_HQ_LOCATION] == "Berlin, DE"

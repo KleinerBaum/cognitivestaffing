@@ -33,9 +33,10 @@ def _legacy_update_profile() -> UpdateProfileFn:
 
 
 def _ensure_widget_state(key: str, value: Any) -> None:
-    """Seed ``st.session_state`` with ``value`` when ``key`` is missing."""
+    """Keep the widget state for ``key`` in sync with ``value``."""
 
-    if key not in st.session_state:
+    current = st.session_state.get(key, None)
+    if current != value:
         st.session_state[key] = value
 
 
