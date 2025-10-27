@@ -111,7 +111,7 @@ def test_step_compensation_localizes_labels(
     _patch_common_streamlit(monkeypatch)
 
     monkeypatch.setattr(
-        "wizard._chip_multiselect",
+        "wizard.chip_multiselect",
         lambda label, *, options, values, **__: chip_labels.append(label) or values,
     )
 
@@ -145,7 +145,7 @@ def test_summary_compensation_localizes_labels(
     _patch_common_streamlit(monkeypatch)
 
     monkeypatch.setattr(
-        "wizard._chip_multiselect",
+        "wizard.chip_multiselect",
         lambda label, *, options, values, **__: chip_labels.append(label) or values,
     )
     monkeypatch.setattr("wizard._update_profile", lambda *_, **__: None)
