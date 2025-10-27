@@ -13,6 +13,7 @@ from typing import Any, Mapping, Sequence
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+import config as app_config
 from config import ModelTask, VECTOR_STORE_ID, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt
@@ -72,6 +73,44 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+
+def _llm_is_available() -> bool:
+    """Return ``True`` when LLM-powered features may be used."""
+
+    if app_config.is_llm_enabled():
+        return True
+    try:
+        api_key = getattr(api, "OPENAI_API_KEY", "")
+    except Exception:  # pragma: no cover - defensive fallback during tests
+        api_key = ""
+    return bool(api_key)
+
+
+def _log_llm_disabled(operation: str) -> None:
+    """Log that ``operation`` falls back to heuristics because no API key is present."""
+
+    logger.info(
+        "LLM disabled for %s; continuing with heuristics-only mode.",
+        operation,
+    )
+
+
+def _heuristic_extraction_result(
+    job_text: str,
+    field_contexts: Mapping[str, FieldExtractionContext] | None,
+    global_context: Sequence[RetrievedChunk] | None,
+) -> ExtractionResult:
+    """Return an :class:`ExtractionResult` populated via heuristic fallbacks."""
+
+    from models.need_analysis import NeedAnalysisProfile
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), job_text, metadata={})
+    return ExtractionResult(
+        data=profile.model_dump(),
+        field_contexts=field_contexts or {},
+        global_context=global_context or [],
+    )
 
 
 def _style_lang(lang: str | None) -> str:
@@ -262,42 +301,50 @@ def extract_company_info(
         )
         properties = {field: {"type": "string"} for field in expected_fields}
 
-        prompt = _format_prompt("llm.extraction.company_info.user", text=text)
-        messages = [{"role": "user", "content": prompt}]
-        store_id = _resolve_vector_store_id(vector_store_id)
-        tools: list[dict[str, Any]] = []
-        tool_choice: str | None = None
-        if store_id:
-            tools.append(build_file_search_tool(store_id))
-            tool_choice = "auto"
-        else:
-            tools.append({"type": "web_search", "name": "web_search"})
-        span.set_attribute("llm.vector_store", bool(store_id))
-        span.set_attribute("llm.tools", ",".join(tool["type"] for tool in tools))
-        try:
-            res = api.call_chat_api(
-                messages,
-                model=model,
-                temperature=0.1,
-                max_tokens=500,
-                json_schema={
-                    "name": "company_info",
-                    "schema": {
-                        "type": "object",
-                        "properties": properties,
-                        "required": list(properties.keys()),
-                        "additionalProperties": False,
+        llm_active = _llm_is_available()
+        span.set_attribute("llm.enabled", llm_active)
+        data: dict[str, Any] = {}
+
+        if llm_active:
+            prompt = _format_prompt("llm.extraction.company_info.user", text=text)
+            messages = [{"role": "user", "content": prompt}]
+            store_id = _resolve_vector_store_id(vector_store_id)
+            tools: list[dict[str, Any]] = []
+            tool_choice: str | None = None
+            if store_id:
+                tools.append(build_file_search_tool(store_id))
+                tool_choice = "auto"
+            else:
+                tools.append({"type": "web_search", "name": "web_search"})
+            span.set_attribute("llm.vector_store", bool(store_id))
+            span.set_attribute("llm.tools", ",".join(tool["type"] for tool in tools))
+            try:
+                res = api.call_chat_api(
+                    messages,
+                    model=model,
+                    temperature=0.1,
+                    max_tokens=500,
+                    json_schema={
+                        "name": "company_info",
+                        "schema": {
+                            "type": "object",
+                            "properties": properties,
+                            "required": list(properties.keys()),
+                            "additionalProperties": False,
+                        },
                     },
-                },
-                task=ModelTask.COMPANY_INFO,
-                tools=tools,
-                tool_choice=tool_choice,
-            )
-            data = json.loads(_chat_content(res))
-        except Exception as exc:  # pragma: no cover - network/SDK issues
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, "api_error"))
-            data = {}
+                    task=ModelTask.COMPANY_INFO,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                )
+                data = json.loads(_chat_content(res))
+            except Exception as exc:  # pragma: no cover - network/SDK issues
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, "api_error"))
+                data = {}
+        else:
+            span.add_event("llm_disabled")
+            _log_llm_disabled("extract_company_info")
 
         result: dict[str, str] = {}
         if isinstance(data, dict):
@@ -478,6 +525,10 @@ def extract_with_function(
 
     if model is None:
         model = get_model_for(ModelTask.EXTRACTION)
+
+    if not _llm_is_available():
+        _log_llm_disabled("extract_with_function")
+        return _heuristic_extraction_result(job_text, field_contexts, global_context)
 
     if field_contexts:
         if global_context is None:
@@ -687,6 +738,14 @@ def suggest_skills_for_role(
             "soft_skills": [],
             "certificates": [],
         }
+    if not _llm_is_available():
+        _log_llm_disabled("suggest_skills_for_role")
+        return {
+            "tools_and_technologies": [],
+            "hard_skills": [],
+            "soft_skills": [],
+            "certificates": [],
+        }
     if model is None:
         model = get_model_for(ModelTask.SKILL_SUGGESTION)
 
@@ -834,6 +893,9 @@ def suggest_responsibilities_for_role(
     job_title = job_title.strip()
     if not job_title:
         return []
+    if not _llm_is_available():
+        _log_llm_disabled("suggest_responsibilities_for_role")
+        return []
     if model is None:
         model = get_model_for(ModelTask.TASK_SUGGESTION)
 
@@ -960,6 +1022,28 @@ def suggest_benefits(
     if model is None:
         model = get_model_for(ModelTask.BENEFIT_SUGGESTION)
     focus_areas = [str(area).strip() for area in (focus_areas or []) if str(area).strip()]
+    if not _llm_is_available():
+        _log_llm_disabled("suggest_benefits")
+        existing_lines = [line.strip("-•* \t") for line in str(existing_benefits or "").splitlines() if line.strip()]
+        seen_fallback: set[str] = set()
+        fallback: list[str] = []
+        for entry in existing_lines:
+            marker = entry.lower()
+            if marker in seen_fallback:
+                continue
+            seen_fallback.add(marker)
+            fallback.append(entry)
+            if len(fallback) == 5:
+                return fallback
+        for area in focus_areas:
+            marker = area.lower()
+            if marker in seen_fallback:
+                continue
+            seen_fallback.add(marker)
+            fallback.append(area)
+            if len(fallback) == 5:
+                break
+        return fallback
     locale = "de" if lang.lower().startswith("de") else "en"
     industry_clause = ""
     if industry:
@@ -1082,6 +1166,9 @@ def suggest_onboarding_plans(
     culture = culture.strip()
     if model is None:
         model = get_model_for(ModelTask.ONBOARDING_SUGGESTION)
+    if not _llm_is_available():
+        _log_llm_disabled("suggest_onboarding_plans")
+        return []
 
     is_de = lang.lower().startswith("de")
     if is_de:
@@ -1573,6 +1660,10 @@ def generate_interview_guide(
 
     if model is None:
         model = get_model_for(ModelTask.INTERVIEW_GUIDE)
+
+    if not _llm_is_available():
+        _log_llm_disabled("generate_interview_guide")
+        return fallback
 
     store_id = _resolve_vector_store_id(vector_store_id)
     tools: list[dict[str, Any]] = []
@@ -2111,6 +2202,10 @@ def generate_job_ad(
         selected_values=selected_values,
     )
 
+    if not _llm_is_available():
+        _log_llm_disabled("generate_job_ad")
+        return document
+
     if model is None:
         model = get_model_for(ModelTask.JOB_AD)
 
@@ -2164,6 +2259,10 @@ def stream_job_ad(
         selected_values=selected_values,
     )
 
+    if not _llm_is_available():
+        _log_llm_disabled("stream_job_ad")
+        raise RuntimeError("LLM disabled; streaming is unavailable.")
+
     if model is None:
         model = get_model_for(ModelTask.JOB_AD)
 
@@ -2203,6 +2302,15 @@ def summarize_company_page(
         span.set_attribute("llm.model", model)
         span.set_attribute("document.section", section)
         span.set_attribute("document.lang", lang)
+
+        llm_active = _llm_is_available()
+        span.set_attribute("llm.enabled", llm_active)
+        if not llm_active:
+            span.add_event("llm_disabled")
+            _log_llm_disabled("summarize_company_page")
+            fallback = textwrap.shorten(cleaned, width=420, placeholder="…")
+            span.add_event("fallback_summary")
+            return fallback
 
         locale = "de" if lang.lower().startswith("de") else "en"
         prompt = _format_prompt(
@@ -2246,6 +2354,13 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
         span.set_attribute("llm.model", model)
         span.set_attribute("document.feedback_length", len(feedback or ""))
 
+        llm_active = _llm_is_available()
+        span.set_attribute("llm.enabled", llm_active)
+        if not llm_active:
+            span.add_event("llm_disabled")
+            _log_llm_disabled("refine_document")
+            return original
+
         prompt = _format_prompt(
             "llm.extraction.document_refine.user",
             document=original,
@@ -2287,6 +2402,14 @@ def what_happened(
         keys_used = [k for k, v in session_data.items() if v]
         span.set_attribute("document.source_key_count", len(keys_used))
         keys_joined = ", ".join(keys_used)
+
+        llm_active = _llm_is_available()
+        span.set_attribute("llm.enabled", llm_active)
+        if not llm_active:
+            span.add_event("llm_disabled")
+            _log_llm_disabled("what_happened")
+            return ""
+
         prompt = _format_prompt(
             "llm.extraction.document_explain.user",
             doc_type=doc_type,

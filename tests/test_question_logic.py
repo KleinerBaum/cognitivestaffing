@@ -167,7 +167,7 @@ def test_rag_suggestions_merge(monkeypatch) -> None:
         "question_logic._rag_suggestions",
         lambda *a, **k: {"location.primary_city": ["Berlin"]},
     )
-    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "test")
+    monkeypatch.setattr("question_logic.is_llm_enabled", lambda: True)
     out = generate_followup_questions({}, num_questions=1, use_rag=True)
     assert out[0]["field"] == "location.primary_city"
     assert out[0]["suggestions"] == ["Berlin"]
@@ -340,7 +340,7 @@ def test_generate_followups_benefit_defaults(monkeypatch) -> None:
     """Benefit follow-ups should provide default suggestions when no API key is set."""
 
     monkeypatch.setattr("question_logic.CRITICAL_FIELDS", {"compensation.benefits"})
-    monkeypatch.setattr("question_logic.OPENAI_API_KEY", "")
+    monkeypatch.setattr("question_logic.is_llm_enabled", lambda: False)
 
     data = {
         "position": {"job_title": "Engineer"},

@@ -15,7 +15,6 @@ from pydantic import ValidationError
 from constants.keys import StateKeys
 from config import (
     GPT4O,
-    OPENAI_API_KEY,
     OPENAI_BASE_URL,
     REASONING_EFFORT,
     VERBOSITY,
@@ -135,7 +134,9 @@ def ensure_state() -> None:
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "openai_api_key_missing" not in st.session_state:
-        st.session_state["openai_api_key_missing"] = not OPENAI_API_KEY
+        st.session_state["openai_api_key_missing"] = not app_config.is_llm_enabled()
+    if "llm_enabled" not in st.session_state:
+        st.session_state["llm_enabled"] = app_config.is_llm_enabled()
     if "openai_base_url_invalid" not in st.session_state:
         if OPENAI_BASE_URL:
             parsed = urlparse(OPENAI_BASE_URL)

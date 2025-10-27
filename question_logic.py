@@ -57,11 +57,11 @@ from core.esco_utils import (
 )
 from core.suggestions import get_benefit_suggestions
 from config import (
-    OPENAI_API_KEY,
     VECTOR_STORE_ID,
     ModelTask,
     get_active_verbosity,
     get_model_for,
+    is_llm_enabled,
 )
 from prompts import prompt_registry
 
@@ -851,7 +851,7 @@ def generate_followup_questions(
             implausible_map["compensation.salary_range"] = combined_reason
 
     suggestions_map: Dict[str, List[str]] = {}
-    if use_rag and OPENAI_API_KEY and missing_fields:
+    if use_rag and is_llm_enabled() and missing_fields:
         suggestions_map = _rag_suggestions(
             job_title,
             industry,
@@ -916,7 +916,7 @@ def generate_followup_questions(
         else:
             existing_text = str(existing_raw or "")
         benefit_suggestions: List[str] = []
-        if OPENAI_API_KEY and job_title:
+        if is_llm_enabled() and job_title:
             benefit_suggestions, _err, _used_fallback = get_benefit_suggestions(
                 job_title,
                 industry=industry,

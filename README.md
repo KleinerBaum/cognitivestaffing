@@ -182,6 +182,9 @@ export OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.example/v1/traces"  # optional 
 export OTEL_SERVICE_NAME="cognitive-staffing"
 export USE_CLASSIC_API="1"                                    # set to 1 to force Chat Completions (Responses bleibt Standard)
 ```
+Copy `.env.example` to `.env` if you prefer dotenv-style loading during development. The file lists the most commonly used
+flags so you can enable/disable RAG or model overrides without touching your shell profile.
+
 You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_REQUEST_TIMEOUT`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, `VERBOSITY`, and `VECTOR_STORE_ID` to `st.secrets` if you prefer Streamlit's secret storage. When `OPENAI_BASE_URL` points to `https://eu.api.openai.com/v1`, all traffic stays within the EU region.
 
 > **JSON repair / JSON-Reparatur:** Automatic payload repair uses the
@@ -191,6 +194,10 @@ You can also add `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_RE
 
 > **EN:** Leave `USE_CLASSIC_API` unset to keep the Responses client as the default. Set it to `1` if you need to fall back to the legacy Chat Completions API for compatibility.
 > **DE:** Lass `USE_CLASSIC_API` leer, damit standardmäßig der Responses-Client genutzt wird. Setze den Wert auf `1`, wenn du aus Kompatibilitätsgründen auf die klassische Chat-Completions-API zurückfallen musst.
+
+> **LLM fallback / LLM-Fallback:** Without an OpenAI API key the wizard continues to run using heuristic extraction and RAG-only
+> features. LLM-dependent actions (structured extraction, interview guides, proposals) are gated behind the key to avoid runtime
+> warnings.
 
 ### 5. (Optional) Configure OCR & branding
 - Set `OCR_BACKEND=none` to disable OCR (default). Provide `OCR_BACKEND=openai` to use OpenAI Vision for image/PDF parsing.

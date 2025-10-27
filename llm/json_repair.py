@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from config import OPENAI_API_KEY, ModelTask, get_model_for
+from config import ModelTask, get_model_for, is_llm_enabled
 from llm.openai_responses import build_json_schema_format, call_responses
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def repair_profile_payload(
 ) -> Mapping[str, Any] | None:
     """Return a repaired NeedAnalysisProfile payload using an LLM fallback."""
 
-    if not OPENAI_API_KEY:
+    if not is_llm_enabled():
         logger.debug("Skipping JSON repair because no OpenAI API key is configured.")
         return None
 
