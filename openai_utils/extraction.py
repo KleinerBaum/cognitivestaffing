@@ -630,6 +630,8 @@ def extract_with_function(
         before_dump = copy.deepcopy(profile_dump)
         invalid_fields = _collect_invalid_fields(raw or {}, profile_dump)
         metadata: dict[str, Any] = {"invalid_fields": sorted(invalid_fields)}
+        # Heuristics post-processing fills missing company contact details and other
+        # structured fields that the LLM might have skipped.
         profile = apply_basic_fallbacks(profile, job_text, metadata=metadata)
         profile_dump = profile.model_dump()
         backfilled = _collect_backfilled_fields(before_dump, profile_dump)

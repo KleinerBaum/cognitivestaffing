@@ -389,3 +389,33 @@ def test_salary_single_value_detection() -> None:
     assert profile.compensation.salary_max == 75000.0
     assert profile.compensation.currency == "EUR"
     assert profile.compensation.salary_provided is True
+
+
+def test_contact_extraction_prefers_hr_section() -> None:
+    text = """
+    Ihre Ansprechpartner:
+    Benjamin Erben – HR Business Partner
+    Telefon: 0211/123
+    E-Mail: benjamin.erben@rheinbahn.de
+
+    Max Mustermann – IT-Leitung
+    E-Mail: m.m@rheinbahn.de
+    """
+
+    profile = NeedAnalysisProfile()
+    profile.company.contact_email = "m.m@rheinbahn.de"
+
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.company.contact_name == "Benjamin Erben"
+    assert updated.company.contact_email == "benjamin.erben@rheinbahn.de"
+    assert updated.company.contact_phone == "0211/123"
+
+
+def test_company_website_extraction() -> None:
+    text = "Mehr über uns auf https://www.rheinbahn.de/ und in den sozialen Medien."
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.company.website == "https://www.rheinbahn.de/"
