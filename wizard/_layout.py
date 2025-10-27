@@ -89,6 +89,7 @@ section.main div.block-container label {
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text-muted);
+    transition: color var(--transition-base, 0.18s ease-out);
 }
 section.main div.block-container div[data-testid="stCaptionContainer"] {
     margin-top: calc(var(--space-2xs, 0.25rem) * -0.5);
@@ -110,7 +111,7 @@ section.main div.block-container div[data-testid="stCheckbox"] > label:hover {
 section.main div.block-container div[data-testid="stRadio"] label:focus-within,
 section.main div.block-container div[data-testid="stCheckbox"] > label:focus-within {
     background: var(--surface-press);
-    box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+    box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
 }
 section.main div.block-container div[data-testid="stSlider"] .stSliderTickBar {
     color: var(--text-soft);
@@ -131,7 +132,7 @@ section.main div.block-container .stTabs [data-baseweb="tab"] {
     padding-bottom: var(--space-2xs, 0.3rem);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
     section.main div.block-container div[data-testid="stHorizontalBlock"] {
         flex-direction: column !important;
         align-items: stretch !important;

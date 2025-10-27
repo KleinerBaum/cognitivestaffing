@@ -6,6 +6,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
+  color-scheme: light;
   --brand-navy-200: #e6efff;
   --brand-navy-500: #2a4a85;
   --brand-cyan-400: #1e88f7;
@@ -25,40 +26,48 @@
   --tone-900: #253a5f;
   --tone-950: #152544;
 
+  --brand: var(--brand-navy-500);
+  --brand-strong: #1e335b;
+  --brand-soft: #3c5a96;
   --accent: var(--brand-cyan-400);
+  --accent-strong: #0f6ed6;
   --accent-2: var(--brand-amber-200);
   --text-strong: var(--tone-900);
-  --text-muted: rgba(37, 58, 95, 0.74);
-  --text-soft: rgba(52, 83, 129, 0.56);
+  --text-muted: rgba(37, 58, 95, 0.78);
+  --text-soft: rgba(37, 58, 95, 0.62);
   --text-inverse: var(--tone-50);
   --text-contrast-strong: var(--tone-900);
   --text-contrast-muted: rgba(37, 58, 95, 0.7);
   --text-contrast-soft: rgba(37, 58, 95, 0.5);
   --text-on-accent: var(--text-inverse);
 
-  --surface-0: rgba(255, 255, 255, 0.97);
-  --surface-1: rgba(255, 255, 255, 0.94);
-  --surface-2: rgba(255, 255, 255, 0.98);
-  --surface-3: rgba(30, 136, 247, 0.1);
+  --surface-0: rgba(255, 255, 255, 0.98);
+  --surface-1: rgba(255, 255, 255, 0.95);
+  --surface-2: rgba(245, 249, 255, 0.96);
+  --surface-3: rgba(30, 136, 247, 0.12);
   --surface-contrast: rgba(255, 255, 255, 0.98);
-  --surface-accent-soft: rgba(30, 136, 247, 0.12);
-  --surface-accent-strong: rgba(30, 136, 247, 0.2);
-  --surface-accent-secondary: rgba(255, 206, 115, 0.18);
+  --surface-accent-soft: rgba(30, 136, 247, 0.14);
+  --surface-accent-strong: rgba(30, 136, 247, 0.22);
+  --surface-accent-secondary: rgba(255, 206, 115, 0.2);
   --surface-hover: rgba(30, 136, 247, 0.16);
-  --surface-press: rgba(30, 136, 247, 0.24);
-  --surface-critical: rgba(214, 90, 78, 0.18);
-  --control-surface: rgba(42, 74, 133, 0.08);
+  --surface-press: rgba(30, 136, 247, 0.26);
+  --surface-critical: rgba(214, 90, 78, 0.2);
+  --control-surface: rgba(226, 234, 247, 0.65);
 
   --border-subtle: rgba(42, 74, 133, 0.18);
   --border-strong: rgba(42, 74, 133, 0.3);
   --border-contrast: rgba(42, 74, 133, 0.38);
 
+  --radius-xs: 6px;
+  --radius-sm: 12px;
+  --radius-md: 14px;
+
   --radius: 14px;
   --shadow-soft: 0 10px 24px rgba(37, 58, 95, 0.12);
   --shadow-medium: 0 16px 34px rgba(37, 58, 95, 0.16);
   --shadow-strong: 0 22px 44px rgba(37, 58, 95, 0.2);
-  --focus-ring: rgba(30, 136, 247, 0.3);
-  --focus-ring-contrast: rgba(227, 239, 255, 0.9);
+  --focus-ring: rgba(30, 136, 247, 0.35);
+  --focus-ring-contrast: rgba(227, 239, 255, 0.95);
   --accent-glow: drop-shadow(0 0 10px rgba(30, 136, 247, 0.22));
   --button-gradient: linear-gradient(135deg, rgba(30, 136, 247, 0.95), rgba(70, 109, 165, 0.92));
   --button-gradient-hover: linear-gradient(135deg, rgba(42, 149, 255, 1), rgba(64, 104, 164, 0.98));
@@ -109,6 +118,8 @@
 
   --blur: 10px;
   --bg-image: none;
+
+  --transition-base: 0.18s ease-out;
 
   --font-family-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
   --font-family-heading: 'Space Grotesk', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
@@ -163,7 +174,7 @@ section.main > div.block-container {
   box-shadow: var(--shadow-medium);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   section.main > div.block-container {
     padding: var(--space-lg) var(--space-lg);
     margin-top: var(--space-md);
@@ -205,6 +216,8 @@ p, li {
 
 a {
   color: var(--color-primary);
+  transition: color var(--transition-base), filter var(--transition-base),
+    text-decoration-color var(--transition-base);
 }
 a:hover {
   text-decoration: none;
@@ -213,8 +226,8 @@ a:hover {
 
 a:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
-  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
+  border-radius: var(--radius-xs);
 }
 
 [data-testid="stSidebar"] {
@@ -244,6 +257,8 @@ a:focus-visible {
   border-radius: 10px;
   color: var(--sidebar-text-color);
   padding: .35rem .55rem;
+  transition: background var(--transition-base), color var(--transition-base),
+    box-shadow var(--transition-base);
 }
 [data-testid="stSidebarNavItems"] a[aria-current="page"] {
   background: var(--sidebar-active-bg);
@@ -252,6 +267,10 @@ a:focus-visible {
 [data-testid="stSidebarNavItems"] a:hover {
   background: var(--sidebar-hover-bg);
   color: var(--sidebar-text-color);
+}
+[data-testid="stSidebarNavItems"] a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
 }
 
 .stButton > button,
@@ -266,8 +285,9 @@ div[data-testid="stDownloadButton"] > button {
   font-weight: 650;
   letter-spacing: 0.25px;
   box-shadow: 0 10px 28px rgba(37, 58, 95, 0.18);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
-    color 0.12s ease;
+  transition: transform var(--transition-base),
+    box-shadow var(--transition-base), background var(--transition-base),
+    color var(--transition-base);
   cursor: pointer;
 }
 
@@ -321,7 +341,7 @@ div[data-testid="stDownloadButton"] > button[kind="secondary"]:active:not(:disab
 div[data-testid="stFormSubmitButton"] > button:focus-visible,
 div[data-testid="stDownloadButton"] > button:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
 }
 
 .stButton > button:disabled,
@@ -338,7 +358,8 @@ div[data-testid="stDownloadButton"] > button:disabled {
   border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
   border-radius: 12px !important;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: border-color var(--transition-base),
+    box-shadow var(--transition-base), background var(--transition-base);
 }
 
 :where(input, textarea)::placeholder {
@@ -352,7 +373,7 @@ div[data-testid="stDownloadButton"] > button:disabled {
 :where(input, textarea, select):focus {
   outline: none !important;
   border-color: var(--interactive-border-strong) !important;
-  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring) !important;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring) !important;
 }
 
 :where(input, textarea, select):disabled {

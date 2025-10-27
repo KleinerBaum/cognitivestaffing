@@ -200,6 +200,8 @@ def _render_company_branding() -> bool:
 
     if brand_color and not brand_color.startswith("#") and re.fullmatch(r"[0-9A-Fa-f]{6}", brand_color):
         brand_color = f"#{brand_color.upper()}"
+    if brand_color and re.fullmatch(r"#[0-9A-Fa-f]{6}", brand_color):
+        brand_color = brand_color.upper()
 
     if not any((company_name, logo_url, brand_color, claim)):
         return False
@@ -217,8 +219,14 @@ def _render_company_branding() -> bool:
     title = html.escape(company_name or eyebrow)
     subtitle = f'<p class="sidebar-hero__subtitle">{html.escape(claim)}</p>' if claim else ""
 
+    gradient_color: str | None = None
+    text_color: str | None = None
     if brand_color:
-        text_color = _brand_text_color(brand_color)
+        accessible = _accessible_brand_colors(brand_color)
+        if accessible:
+            gradient_color, text_color = accessible
+
+    if gradient_color and text_color:
         st.markdown(
             """
             <style>
@@ -237,7 +245,14 @@ def _render_company_branding() -> bool:
             }
             </style>
             """
-            % (brand_color, brand_color, brand_color, text_color, brand_color, text_color),
+            % (
+                gradient_color,
+                gradient_color,
+                gradient_color,
+                text_color,
+                gradient_color,
+                text_color,
+            ),
             unsafe_allow_html=True,
         )
 
@@ -270,6 +285,56 @@ def _brand_text_color(hex_color: str) -> str:
         return "#FFFFFF"
     luminance = 0.299 * r + 0.587 * g + 0.114 * b
     return "#000000" if luminance >= 186 else "#FFFFFF"
+
+
+AA_CONTRAST_THRESHOLD = 4.5
+
+
+def _accessible_brand_colors(hex_color: str) -> tuple[str, str] | None:
+    """Return brand/background and text colours when the contrast meets AA."""
+
+    normalized = hex_color.upper()
+    if not normalized.startswith("#"):
+        normalized = f"#{normalized}"
+
+    brand_rgb = _hex_to_rgb(normalized)
+    text_hex = _brand_text_color(normalized)
+    text_rgb = _hex_to_rgb(text_hex)
+    if brand_rgb is None or text_rgb is None:
+        return None
+
+    contrast = _contrast_ratio(brand_rgb, text_rgb)
+    if contrast < AA_CONTRAST_THRESHOLD:
+        return None
+
+    return normalized, text_hex
+
+
+def _hex_to_rgb(value: str) -> tuple[int, int, int] | None:
+    stripped = value.lstrip("#")
+    if len(stripped) != 6:
+        return None
+    try:
+        return tuple(int(stripped[i : i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def _relative_luminance(rgb: tuple[int, int, int]) -> float:
+    def _channel(component: int) -> float:
+        srgb = component / 255
+        if srgb <= 0.03928:
+            return srgb / 12.92
+        return ((srgb + 0.055) / 1.055) ** 2.4
+
+    r, g, b = rgb
+    return 0.2126 * _channel(r) + 0.7152 * _channel(g) + 0.0722 * _channel(b)
+
+
+def _contrast_ratio(color_a: tuple[int, int, int], color_b: tuple[int, int, int]) -> float:
+    lighter = max(_relative_luminance(color_a), _relative_luminance(color_b))
+    darker = min(_relative_luminance(color_a), _relative_luminance(color_b))
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 def _ensure_ui_defaults() -> None:
