@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from base64 import b64encode
 from importlib import import_module
 from typing import Any, Callable, Optional, Sequence, TypeVar, cast
 
@@ -466,13 +467,15 @@ def inject_salary_slider_styles() -> None:
     st.session_state[_SALARY_SLIDER_STYLE_KEY] = True
 
 
-def render_onboarding_hero(animation_base64: str) -> None:
+def render_onboarding_hero(animation_bytes: bytes | None, *, mime_type: str = "image/gif") -> None:
     """Render the onboarding hero with logo and positioning copy."""
 
-    if not animation_base64:
+    if not animation_bytes:
         return
 
     st.markdown(ONBOARDING_HERO_STYLE, unsafe_allow_html=True)
+
+    animation_base64 = b64encode(animation_bytes).decode("ascii")
 
     hero_eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
     hero_title = tr(
@@ -493,7 +496,7 @@ def render_onboarding_hero(animation_base64: str) -> None:
     hero_html = f"""
     <div class="onboarding-hero">
         <div class="onboarding-hero__logo">
-            <img src="data:image/png;base64,{animation_base64}" alt="Cognitive Staffing logo" />
+            <img src="data:{mime_type};base64,{animation_base64}" alt="Cognitive Staffing logo" />
         </div>
         <div class="onboarding-hero__copy">
             <div class="onboarding-hero__eyebrow">{hero_eyebrow}</div>
