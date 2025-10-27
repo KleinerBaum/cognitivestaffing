@@ -1,5 +1,10 @@
 """Tests for the normalisation utilities."""
 
+import json
+from types import SimpleNamespace
+
+import pytest
+
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
     normalize_city_name,
@@ -28,6 +33,32 @@ def test_normalize_language_handles_german_variants() -> None:
 def test_normalize_city_name_strips_prefix_and_suffix() -> None:
     assert normalize_city_name("in Düsseldorf eine") == "Düsseldorf"
     assert normalize_city_name("bei Berlin, remote möglich") == "Berlin"
+
+
+def test_normalize_city_name_uses_llm_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from utils import normalization
+
+    calls: list[list[dict[str, str]]] = []
+
+    monkeypatch.setattr(normalization, "USE_RESPONSES_API", True, raising=False)
+    monkeypatch.setattr(normalization, "is_llm_enabled", lambda: True)
+    monkeypatch.setattr(normalization, "get_model_for", lambda *_, **__: "gpt-test")
+
+    def fake_call_responses(messages, **kwargs):
+        calls.append(messages)
+        return SimpleNamespace(
+            content=json.dumps({"city": "Hamburg"}),
+            usage={},
+            response_id=None,
+            raw_response={},
+        )
+
+    monkeypatch.setattr(normalization, "call_responses", fake_call_responses)
+
+    result = normalization.normalize_city_name(" remote möglich")
+
+    assert result == "Hamburg"
+    assert calls and calls[0][0]["role"] == "system"
 
 
 def test_normalize_company_size_parses_numbers() -> None:

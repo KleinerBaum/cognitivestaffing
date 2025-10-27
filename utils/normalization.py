@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from typing import Any, Callable, List, Optional, Sequence, TYPE_CHECKING
 
+from config import ModelTask, USE_RESPONSES_API, get_model_for, is_llm_enabled
+from llm.openai_responses import build_json_schema_format, call_responses
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
@@ -214,6 +217,22 @@ _CITY_LEADING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_CITY_EXTRACTION_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "city": {
+            "type": "string",
+            "description": "Primary city name without prefixes, suffixes, or country information.",
+        }
+    },
+    "required": ["city"],
+}
+
+_CITY_EXTRACTION_SYSTEM_PROMPT = (
+    "Extract the primary city mentioned in the given text. Respond strictly with JSON "
+    "containing a single 'city' field. Use an empty string when no city is present."
+)
+
 _CITY_TOKEN_STRIP_RE = re.compile(r"^[\s,.;:()\[\]\-]+|[\s,.;:()\[\]\-]+$")
 
 _COMPANY_SIZE_NUMBER_RE = re.compile(r"\d+(?:[.\s]\d{3})*(?:,\d+)?")
@@ -246,7 +265,7 @@ def _normalize_city_tokens(tokens: list[str]) -> list[str]:
     return tokens
 
 
-def normalize_city_name(value: Optional[str]) -> str:
+def _normalize_city_with_regex(value: Optional[str]) -> str:
     """Return ``value`` cleaned from leading articles and trailing fragments."""
 
     if value is None:
@@ -273,6 +292,66 @@ def normalize_city_name(value: Optional[str]) -> str:
     if not normalized or not any(ch.isalpha() for ch in normalized):
         return ""
     return normalized
+
+
+def _llm_extract_city(value: str) -> str:
+    """Return a city extracted from ``value`` using the Responses API fallback."""
+
+    if not USE_RESPONSES_API or not is_llm_enabled():
+        return ""
+    cleaned = value.strip()
+    if not cleaned:
+        return ""
+    response_format = build_json_schema_format(
+        name="extract_city",
+        schema=_CITY_EXTRACTION_SCHEMA,
+        strict=True,
+    )
+    messages = [
+        {"role": "system", "content": _CITY_EXTRACTION_SYSTEM_PROMPT},
+        {"role": "user", "content": cleaned},
+    ]
+    try:
+        result = call_responses(
+            messages,
+            model=get_model_for(ModelTask.EXTRACTION),
+            response_format=response_format,
+            temperature=0,
+            max_tokens=40,
+            reasoning_effort="minimal",
+            task=ModelTask.EXTRACTION,
+        )
+    except Exception:
+        logger.debug("City extraction fallback failed", exc_info=True)
+        return ""
+    content = (result.content or "").strip()
+    if not content:
+        return ""
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        logger.debug("City extraction fallback returned non-JSON payload: %s", content)
+        return ""
+    city_value = payload.get("city")
+    if not isinstance(city_value, str):
+        return ""
+    normalized = _normalize_city_with_regex(city_value)
+    return normalized or city_value.strip()
+
+
+def normalize_city_name(value: Optional[str]) -> str:
+    """Return ``value`` as a cleaned city name with an LLM fallback when needed."""
+
+    normalized = _normalize_city_with_regex(value)
+    if normalized:
+        return normalized
+    original = value.strip() if isinstance(value, str) else ""
+    if not original:
+        return ""
+    fallback = _llm_extract_city(original)
+    if fallback:
+        return fallback
+    return ""
 
 
 def _parse_company_numbers(value: str) -> list[int]:

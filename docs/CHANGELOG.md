@@ -11,6 +11,10 @@
   **DE:** Codex-Prompting-Guide-Einträge im Changelog ergänzt, um interne Aufgabenhistorie abzubilden.
 
 ### Fixed / Behoben
+- **EN:** City normalization now strips leading prepositions, removes trailing fragments, and falls back to a structured LLM
+  extraction when regex cleanup fails to find a result.
+  **DE:** Die Städtereinigung entfernt führende Präpositionen, kappt kleingeschriebene Fragmente und nutzt bei leerem Regex-Ergebnis
+  einen strukturierten LLM-Fallback.
 - **EN:** Resolved synchronization gaps so extracted data reliably populates wizard forms after repair.
   **DE:** Synchronisationslücken geschlossen, damit extrahierte Daten nach Reparaturen zuverlässig in den Formularen landen.
 - **EN:** Hardened OpenAI API key loading (Streamlit secrets → environment) and gated LLM-powered features when no key is present
