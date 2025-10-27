@@ -605,10 +605,10 @@ def extract_with_function(
         )
 
     from models.need_analysis import NeedAnalysisProfile
-    from core.schema import coerce_and_fill
+    from core.schema import process_extracted_profile
 
     try:
-        profile: NeedAnalysisProfile = coerce_and_fill(raw)
+        profile: NeedAnalysisProfile = process_extracted_profile(raw)
     except ValidationError as exc:  # pragma: no cover - defensive logging
         errors = exc.errors()
         summaries: list[str] = []

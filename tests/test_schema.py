@@ -112,6 +112,25 @@ def test_coerce_and_fill_alias_mapping() -> None:
     assert profile.company.claim == "Einfach. Immer. Da."
 
 
+def test_coerce_and_fill_alias_mapping_case_insensitive() -> None:
+    profile = coerce_and_fill({"Brand Name": "Acme", "CITY": "Hamburg"})
+    assert profile.company.brand_name == "Acme"
+    assert profile.location.primary_city == "Hamburg"
+
+
+def test_coerce_and_fill_coerces_scalar_types() -> None:
+    data = {
+        "requirements": {"hard_skills_required": "Python, SQL"},
+        "employment": {"travel_required": "yes", "remote_percentage": "50%"},
+        "compensation": {"equity_offered": "false"},
+    }
+    profile = coerce_and_fill(data)
+    assert profile.requirements.hard_skills_required == ["Python", "SQL"]
+    assert profile.employment.travel_required is True
+    assert profile.employment.remote_percentage == 50
+    assert profile.compensation.equity_offered is False
+
+
 def test_coerce_and_fill_repair_flow(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, object] = {}
 

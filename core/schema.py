@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from collections.abc import ItemsView
 from enum import StrEnum
 from typing import Any, Dict, List, Mapping, Tuple, Union, get_args, get_origin
@@ -392,57 +393,181 @@ ALIASES: Mapping[str, str] = MappingProxyType(
     }
 )
 
+_LIST_SPLIT_RE = re.compile(r"[,\n;•]+")
+_TRUE_VALUES = {"true", "yes", "1", "ja"}
+_FALSE_VALUES = {"false", "no", "0", "nein"}
+
+
+def _to_mutable(data: Any) -> Any:
+    if isinstance(data, Mapping):
+        return {str(key): _to_mutable(value) for key, value in data.items()}
+    if isinstance(data, list):
+        return [_to_mutable(item) for item in data]
+    return data
+
+
+def _find_key_casefold(container: Mapping[str, Any], key: str) -> str | None:
+    needle = key.casefold()
+    for candidate in container.keys():
+        if candidate.casefold() == needle:
+            return candidate
+    return None
+
+
+def _path_has_meaningful_value(data: Mapping[str, Any], path: str) -> bool:
+    parts = path.split(".")
+    cursor: Any = data
+    for part in parts:
+        if not isinstance(cursor, Mapping):
+            return False
+        actual = _find_key_casefold(cursor, part)
+        if actual is None:
+            return False
+        cursor = cursor[actual]
+    if cursor in (None, ""):
+        return False
+    if isinstance(cursor, (list, tuple, set, dict)):
+        return bool(cursor)
+    return True
+
+
+def _pop_path_casefold(obj: dict[str, Any], path: str, default: Any) -> Any:
+    parts = path.split(".")
+    cursor: Any = obj
+    parents: list[dict[str, Any]] = []
+    keys: list[str] = []
+    for part in parts[:-1]:
+        if not isinstance(cursor, dict):
+            return default
+        actual = _find_key_casefold(cursor, part)
+        if actual is None:
+            return default
+        parents.append(cursor)
+        keys.append(actual)
+        cursor = cursor[actual]
+    if not isinstance(cursor, dict):
+        return default
+    last_key = _find_key_casefold(cursor, parts[-1])
+    if last_key is None:
+        return default
+    return cursor.pop(last_key, default)
+
+
+def _set_path(obj: dict[str, Any], path: str, value: Any, *, overwrite: bool = True) -> None:
+    parts = path.split(".")
+    cursor: Any = obj
+    for part in parts[:-1]:
+        next_value = cursor.get(part)
+        if not isinstance(next_value, dict):
+            next_value = {}
+            cursor[part] = next_value
+        cursor = next_value
+    if overwrite or not _path_has_meaningful_value(obj, path):
+        cursor[parts[-1]] = value
+
+
+def _apply_aliases(payload: dict[str, Any]) -> dict[str, Any]:
+    sentinel = object()
+    for alias, target in ALIASES.items():
+        value = _pop_path_casefold(payload, alias, sentinel)
+        if value is sentinel:
+            continue
+        _set_path(payload, target, value, overwrite=False)
+    return payload
+
+
+def _filter_unknown_fields(data: dict[str, Any]) -> None:
+    def _walk(node: dict[str, Any], prefix: str = "") -> None:
+        for key in list(node.keys()):
+            path = f"{prefix}{key}" if not prefix else f"{prefix}.{key}"
+            value = node[key]
+            if isinstance(value, dict):
+                has_children = any(field.startswith(path + ".") for field in ALL_FIELDS)
+                if path in ALL_FIELDS or has_children:
+                    _walk(value, path)
+                    if not value and path not in ALL_FIELDS:
+                        del node[key]
+                else:
+                    del node[key]
+            else:
+                if path not in ALL_FIELDS:
+                    del node[key]
+
+    _walk(data)
+
+
+def _coerce_scalar_types(data: dict[str, Any]) -> None:
+    def _walk(node: dict[str, Any], prefix: str = "") -> None:
+        for key, value in list(node.items()):
+            path = f"{prefix}{key}" if not prefix else f"{prefix}.{key}"
+            if isinstance(value, dict):
+                _walk(value, path)
+                continue
+            if path in LIST_FIELDS and isinstance(value, str):
+                cleaned = re.sub(r"^[^:]*:\s*", "", value)
+                node[key] = [part.strip() for part in _LIST_SPLIT_RE.split(cleaned) if part.strip()]
+            elif path in BOOL_FIELDS and isinstance(value, str):
+                lower = value.strip().casefold()
+                if lower in _TRUE_VALUES:
+                    node[key] = True
+                elif lower in _FALSE_VALUES:
+                    node[key] = False
+            elif path in INT_FIELDS and isinstance(value, str):
+                match = re.search(r"-?\d+", value)
+                if match:
+                    node[key] = int(match.group())
+            elif path in FLOAT_FIELDS and isinstance(value, str):
+                match = re.search(r"-?\d+(?:\.\d+)?", value.replace(",", "."))
+                if match:
+                    node[key] = float(match.group())
+
+    _walk(data)
+
+
+def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return a sanitized mapping ready for NeedAnalysisProfile validation."""
+
+    if data is None:
+        return {}
+    mutable = _to_mutable(data)
+    if not isinstance(mutable, dict):
+        return {}
+    payload = _apply_aliases(mutable)
+    _filter_unknown_fields(payload)
+    _coerce_scalar_types(payload)
+    return payload
+
 
 def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """Validate ``data`` and ensure required fields are present.
 
-    The function also maps legacy alias keys defined in ``ALIASES`` to the
-    current schema paths before validation. Nested paths use dot-notation and
-    are created on demand.
+    Incoming payloads are canonicalised so that alias keys, obvious type
+    mismatches and stray fields are handled in a single place before validation.
     """
 
-    def _pop_path(obj: dict[str, Any], path: str, default: Any) -> Any:
-        parts = path.split(".")
-        cursor: Any = obj
-        for part in parts[:-1]:
-            if not isinstance(cursor, dict) or part not in cursor:
-                return default
-            cursor = cursor[part]
-        return cursor.pop(parts[-1], default)
-
-    def _set_path(obj: dict[str, Any], path: str, value: Any) -> None:
-        parts = path.split(".")
-        cursor: Any = obj
-        for part in parts[:-1]:
-            cursor = cursor.setdefault(part, {})
-        cursor[parts[-1]] = value
-
-    data = {**(data or {})}
-    sentinel = object()
-    for alias, target in ALIASES.items():
-        val = _pop_path(data, alias, sentinel)
-        if val is not sentinel:
-            _set_path(data, target, val)
+    payload = canonicalize_profile_payload(data)
 
     try:
-        profile = NeedAnalysisProfile.model_validate(data)
+        profile = NeedAnalysisProfile.model_validate(payload)
     except ValidationError as exc:
-        repaired_payload = repair_profile_payload(data, errors=exc.errors())
+        repaired_payload = repair_profile_payload(payload, errors=exc.errors())
         if not repaired_payload:
             raise
-        repaired = {**repaired_payload}
-        for alias, target in ALIASES.items():
-            val = _pop_path(repaired, alias, sentinel)
-            if val is not sentinel:
-                _set_path(repaired, target, val)
+        canonical_repaired = canonicalize_profile_payload(repaired_payload)
         try:
-            profile = NeedAnalysisProfile.model_validate(repaired)
+            profile = NeedAnalysisProfile.model_validate(canonical_repaired)
         except ValidationError:
             raise
         logger.info("Repaired NeedAnalysisProfile payload via JSON repair fallback.")
-        data = repaired
+        payload = canonical_repaired
 
     return normalize_profile(profile)
+
+
+def process_extracted_profile(raw_profile: Mapping[str, Any] | None) -> NeedAnalysisProfile:
+    """Convert a raw extraction payload into a normalised profile."""
+
+    return coerce_and_fill(raw_profile)
 
 
 # Backwards compatibility aliases

@@ -23,7 +23,7 @@ from config import (
     normalise_model_override,
     normalise_verbosity,
 )
-from core.schema import ALIASES, coerce_and_fill
+from core.schema import canonicalize_profile_payload, coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
 
 
@@ -191,23 +191,11 @@ def ensure_state() -> None:
 def _sanitize_profile(data: Mapping[str, Any]) -> dict[str, Any]:
     """Remove unsupported fields while preserving valid values."""
 
-    canonical = _apply_aliases(data)
+    canonical = canonicalize_profile_payload(data)
     template = NeedAnalysisProfile().model_dump()
     sanitized = deepcopy(template)
     _merge_known_fields(sanitized, canonical)
     return sanitized
-
-
-def _apply_aliases(data: Mapping[str, Any]) -> dict[str, Any]:
-    """Expand profile aliases to their canonical paths."""
-
-    mutable = _to_mutable_dict(data)
-    sentinel = object()
-    for alias, target in ALIASES.items():
-        value = _pop_path(mutable, alias, sentinel)
-        if value is not sentinel:
-            _set_path(mutable, target, value)
-    return mutable
 
 
 def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> None:
@@ -221,46 +209,6 @@ def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> No
             _merge_known_fields(current, value)
         else:
             target[key] = value
-
-
-def _to_mutable_dict(data: Any) -> Any:
-    """Convert mappings to plain dictionaries for mutation."""
-
-    if isinstance(data, Mapping):
-        return {key: _to_mutable_dict(value) for key, value in data.items()}
-    if isinstance(data, list):
-        return [_to_mutable_dict(item) for item in data]
-    return data
-
-
-def _pop_path(obj: dict[str, Any], path: str, default: Any) -> Any:
-    """Pop a dotted path from ``obj`` if present."""
-
-    parts = path.split(".")
-    cursor: Any = obj
-    for part in parts[:-1]:
-        if not isinstance(cursor, dict):
-            return default
-        if part not in cursor:
-            return default
-        cursor = cursor[part]
-    if not isinstance(cursor, dict):
-        return default
-    return cursor.pop(parts[-1], default)
-
-
-def _set_path(obj: dict[str, Any], path: str, value: Any) -> None:
-    """Set ``value`` at ``path`` within ``obj`` creating nested dictionaries."""
-
-    parts = path.split(".")
-    cursor: Any = obj
-    for part in parts[:-1]:
-        next_value = cursor.get(part)
-        if not isinstance(next_value, dict):
-            next_value = {}
-            cursor[part] = next_value
-        cursor = next_value
-    cursor[parts[-1]] = value
 
 
 def reset_state() -> None:
