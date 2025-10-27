@@ -34,8 +34,12 @@
       },
       "responsibility_suggestions": {
         "user": {
-          "en": "Generate 5-7 core responsibilities for the role \"{job_title}\". Focus on the major duties, ownership areas, and success outcomes that define the position.{context_clause}\nRespond in JSON with an array field named \"responsibilities\" containing concise bullet-style strings.",
-          "de": "Formuliere 5-7 zentrale Aufgaben für die Position \"{job_title}\". Konzentriere dich auf Verantwortungsbereiche, Zielbilder und Erfolgskriterien dieser Rolle.{context_clause}\nAntworte als JSON mit einem Array-Feld \"responsibilities\", das prägnante Stichpunkte enthält."
+          "en": "Generate 3-5 core responsibilities for the role \"{job_title}\". Focus on the major duties, ownership areas, and success outcomes that define the position.{context_clause}{existing_clause}\nRespond in JSON with an array field named \"responsibilities\" containing concise bullet-style strings.",
+          "de": "Formuliere 3-5 zentrale Aufgaben für die Position \"{job_title}\". Konzentriere dich auf Verantwortungsbereiche, Zielbilder und Erfolgskriterien dieser Rolle.{context_clause}{existing_clause}\nAntworte als JSON mit einem Array-Feld \"responsibilities\", das prägnante Stichpunkte enthält."
+        },
+        "existing_clause": {
+          "en": "\nAlready covered responsibilities: {existing_responsibilities}",
+          "de": "\nBereits abgedeckte Aufgaben: {existing_responsibilities}"
         }
       },
       "benefits": {

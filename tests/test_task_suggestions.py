@@ -33,8 +33,6 @@ def test_suggest_responsibilities_for_role(monkeypatch):
         "Ship releases",
         "Report KPIs",
         "Facilitate workshops",
-        "Align with leadership",
-        "Mentor peers",
     ]
 
 
@@ -52,12 +50,14 @@ def test_suggest_responsibilities_for_role_context(monkeypatch):
         company_name="Acme GmbH",
         team_structure="3er Produktteam",
         industry="SaaS",
+        existing_responsibilities=["Code-Reviews", "Pair Programming"],
     )
     prompt = captured["prompt"]
     assert "Kontext:" in prompt
     assert "Acme GmbH" in prompt
     assert "3er Produktteam" in prompt
     assert "SaaS" in prompt
+    assert "Bereits abgedeckte Aufgaben: Code-Reviews; Pair Programming" in prompt
 
 
 def test_suggest_responsibilities_for_role_empty_title():
