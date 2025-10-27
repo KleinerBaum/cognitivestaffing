@@ -27,9 +27,10 @@ T = TypeVar("T")
 def _ensure_widget_state(key: str, value: Any) -> None:
     """Keep the widget state for ``key`` in sync with ``value``."""
 
-    current = st.session_state.get(key, None)
-    if current != value:
-        st.session_state[key] = value
+    normalized_value = _normalize_session_value(value)
+    current = _normalize_session_value(st.session_state.get(key, None))
+    if key not in st.session_state or current != normalized_value:
+        st.session_state[key] = normalized_value
 
 
 def _normalize_session_value(value: Any) -> Any:
@@ -572,10 +573,12 @@ def render_list_text_area(
     current_items = [str(item).strip() for item in (items or []) if isinstance(item, str) and str(item).strip()]
     text_value = "\n".join(current_items)
     seed_key = f"{session_key}.__seed"
-    if st.session_state.get(seed_key) != text_value:
-        st.session_state[seed_key] = text_value
-        if session_key in st.session_state:
-            st.session_state[session_key] = text_value
+    seed_state = st.session_state.get(seed_key)
+    if seed_state != text_value:
+        _ensure_widget_state(seed_key, text_value)
+        _ensure_widget_state(session_key, text_value)
+    elif session_key not in st.session_state:
+        _ensure_widget_state(session_key, text_value)
 
     widget_args: dict[str, object] = {
         "label": label,
@@ -584,12 +587,12 @@ def render_list_text_area(
     }
     if placeholder:
         widget_args["placeholder"] = placeholder
-    if session_key not in st.session_state:
-        widget_args["value"] = text_value
 
     raw_value = st.text_area(**widget_args)
     cleaned_items = normalize_text_area_list(raw_value, strip_bullets=strip_bullets)
-    st.session_state[seed_key] = "\n".join(cleaned_items)
+    updated_seed_value = "\n".join(cleaned_items)
+    if st.session_state.get(seed_key) != updated_seed_value:
+        _ensure_widget_state(seed_key, updated_seed_value)
 
     if required and not cleaned_items and on_required is not None:
         on_required(True)

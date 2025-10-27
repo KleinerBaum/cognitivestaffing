@@ -6,8 +6,8 @@
 
 ## Unreleased updates / Aktuelle Änderungen
 
-- **EN:** Guard wizard session-state updates against redundant writes so Streamlit widgets keep their own keys without raising collisions.
-  **DE:** Sichert die Session-State-Aktualisierung im Wizard gegen redundante Schreibzugriffe ab, damit Streamlit-Widgets ihre Keys ohne Kollisionen verwalten können.
+- **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so text inputs and list editors seed before rendering, avoiding Streamlit "Cannot set widget" errors on reruns.
+  **DE:** Normalisiert die Widget-Defaults im Wizard über `_ensure_widget_state()`, damit Textfelder und Listen-Editoren vor dem Rendern initialisiert werden und beim erneuten Ausführen keine "Cannot set widget"-Fehler mehr auftreten.
 - **EN:** Disable all AI suggestion buttons and generation actions when no OpenAI API key is configured, displaying a bilingual lock hint instead of triggering backend calls.
   **DE:** Deaktiviert sämtliche KI-Vorschlagsbuttons und Generierungsaktionen, sobald kein OpenAI-API-Schlüssel hinterlegt ist, und zeigt stattdessen einen zweisprachigen Hinweis an.
 - **EN:** Unified Responses API retry handling now logs warnings and automatically falls back to chat completions or static content when structured calls fail or return invalid JSON.

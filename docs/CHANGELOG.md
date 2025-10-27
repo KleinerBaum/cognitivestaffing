@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- **EN:** Prevent redundant session-state writes for unchanged wizard inputs to avoid Streamlit widget collisions.
-  **DE:** Verhindert redundante Session-State-Schreibzugriffe bei unveränderten Wizard-Eingaben und beseitigt damit Streamlit-Kollisionen.
+- **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so inputs seed before rendering and Streamlit no longer raises "Cannot set widget" exceptions.
+  **DE:** Normalisiert die Widget-Defaults im Wizard über `_ensure_widget_state()`, damit Eingaben vor dem Rendern initialisiert werden und Streamlit keine "Cannot set widget"-Ausnahmen mehr auslöst.
 - **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur (`USE_CLASSIC_API` now enforces the legacy path).
   **DE:** Skill- und Benefit-Vorschläge nutzen bei Ausfällen automatisch die Chat-Completions-API oder statische Shortlists; `USE_CLASSIC_API` erzwingt künftig den Legacy-Pfad.
 - **EN:** Gated all AI suggestion buttons and document generations behind the OpenAI API key; the UI now shows a lock message instead of firing requests when the key is missing.
