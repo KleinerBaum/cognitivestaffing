@@ -60,6 +60,7 @@ from llm.client import extract_json
 from config import WIZARD_ORDER_V2
 from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
+from wizard.interview_step import render_interview_guide_section
 from wizard import (
     COMPACT_STEP_STYLE,
     SALARY_SLIDER_MAX,
@@ -9703,98 +9704,13 @@ def _step_summary(schema: dict, _critical: list[str]):
             except Exception as e:
                 st.error(tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {e}")
 
-    st.markdown(tr("### 2. Interview-Prep-Sheet", "### 2. Interview prep sheet"))
-    st.caption(
-        tr(
-            "Erstelle Leitfäden und passe sie an verschiedene Zielgruppen an.",
-            "Generate guides and tailor them for different audiences.",
-        )
+    render_interview_guide_section(
+        profile,
+        profile_payload,
+        lang=lang,
+        style_label=style_label,
+        style_description=style_description,
     )
-
-    tone_col, question_col = st.columns((1, 1), gap="small")
-    with tone_col:
-        st.markdown(f"**{tr('Interviewleitfaden-Stil', 'Interview guide style')}**")
-        st.caption(style_label)
-        if style_description:
-            st.caption(style_description)
-        st.caption(
-            tr(
-                "Passe den Stil jederzeit über die Einstellungen in der Sidebar an.",
-                "Adjust the style at any time via the settings in the sidebar.",
-            )
-        )
-
-    with question_col:
-        if UIKeys.NUM_QUESTIONS not in st.session_state:
-            st.session_state[UIKeys.NUM_QUESTIONS] = 5
-        st.slider(
-            tr("Anzahl Interviewfragen", "Number of interview questions"),
-            min_value=3,
-            max_value=10,
-            key=UIKeys.NUM_QUESTIONS,
-        )
-
-    audience_labels = {
-        "general": tr("Allgemeines Interviewteam", "General interview panel"),
-        "technical": tr("Technisches Fachpublikum", "Technical panel"),
-        "leadership": tr("Führungsteam", "Leadership panel"),
-    }
-    if UIKeys.AUDIENCE_SELECT not in st.session_state:
-        st.session_state[UIKeys.AUDIENCE_SELECT] = st.session_state.get(StateKeys.INTERVIEW_AUDIENCE, "general")
-    audience = st.selectbox(
-        tr("Interview-Zielgruppe", "Interview audience"),
-        options=list(audience_labels.keys()),
-        format_func=lambda key: audience_labels.get(key, key),
-        key=UIKeys.AUDIENCE_SELECT,
-        help=tr(
-            "Steuert Fokus und Tonfall des generierten Leitfadens.",
-            "Controls the focus and tone of the generated guide.",
-        ),
-    )
-    st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
-
-    selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
-    if st.button(tr("🗂️ Interviewleitfaden generieren", "🗂️ Generate guide")):
-        generate_interview_guide_content(
-            profile_payload,
-            lang,
-            selected_num,
-            audience=audience,
-        )
-
-    guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
-    if guide_text:
-        output_key = UIKeys.INTERVIEW_OUTPUT
-        if output_key not in st.session_state or st.session_state.get(output_key) != guide_text:
-            st.session_state[output_key] = guide_text
-        st.text_area(
-            tr("Generierter Leitfaden", "Generated guide"),
-            height=_textarea_height(guide_text),
-            key=output_key,
-        )
-        guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
-        font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-        logo_bytes = _get_company_logo_bytes()
-        guide_title = profile.position.job_title or "interview-guide"
-        safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-") or "interview-guide"
-        export_font = font_choice if guide_format in {"docx", "pdf"} else None
-        export_logo = logo_bytes if guide_format in {"docx", "pdf"} else None
-        payload, mime, ext = prepare_download_data(
-            guide_text,
-            guide_format,
-            key="interview",
-            title=guide_title,
-            font=export_font,
-            logo=export_logo,
-            company_name=profile.company.name,
-        )
-        st.download_button(
-            tr("⬇️ Leitfaden herunterladen", "⬇️ Download guide"),
-            payload,
-            file_name=f"{safe_stem}.{ext}",
-            mime=mime,
-            key="download_interview",
-        )
 
     st.markdown(tr("### 3. Boolean Searchstring", "### 3. Boolean search string"))
     st.caption(
