@@ -50,6 +50,22 @@ class UIKeys:
     JOB_AD_BRAND_TONE_SYNC_FLAG = "ui.summary.job_ad.brand_keywords.sync"
 
 
+class ProfilePaths:
+    """Canonical dot-paths for profile-bound wizard widgets."""
+
+    COMPANY_NAME = "company.name"
+    COMPANY_INDUSTRY = "company.industry"
+    COMPANY_CONTACT_NAME = "company.contact_name"
+    COMPANY_CONTACT_EMAIL = "company.contact_email"
+    COMPANY_CONTACT_PHONE = "company.contact_phone"
+    LOCATION_PRIMARY_CITY = "location.primary_city"
+    LOCATION_COUNTRY = "location.country"
+    POSITION_JOB_TITLE = "position.job_title"
+    POSITION_SENIORITY = "position.seniority_level"
+    RESPONSIBILITIES_ITEMS = "responsibilities.items"
+    REQUIREMENTS_HARD_SKILLS_REQUIRED = "requirements.hard_skills_required"
+
+
 class StateKeys:
     """Keys for data stored in ``st.session_state``."""
 
