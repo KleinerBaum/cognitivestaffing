@@ -61,9 +61,6 @@ def test_suggest_skills_for_role_focus_terms(monkeypatch):
 def test_responses_skill_suggestions_fall_back_to_legacy(monkeypatch):
     import llm.suggestions as responses_suggestions
 
-    def boom(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("Responses failure")
-
     legacy_payload = {
         "tools_and_technologies": ["Legacy Tool"],
         "hard_skills": ["Legacy Hard"],
@@ -71,7 +68,7 @@ def test_responses_skill_suggestions_fall_back_to_legacy(monkeypatch):
         "certificates": ["Legacy Cert"],
     }
 
-    monkeypatch.setattr(responses_suggestions, "call_responses", boom)
+    monkeypatch.setattr(responses_suggestions, "call_responses_safe", lambda *a, **k: None)
     monkeypatch.setattr(
         "openai_utils.suggest_skills_for_role",
         lambda *args, **kwargs: legacy_payload,
@@ -84,12 +81,9 @@ def test_responses_skill_suggestions_fall_back_to_legacy(monkeypatch):
 def test_responses_benefit_suggestions_return_static_shortlist(monkeypatch):
     import llm.suggestions as responses_suggestions
 
-    def boom(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("Responses failure")
-
     static_shortlist = ["Static One", "Static Two"]
 
-    monkeypatch.setattr(responses_suggestions, "call_responses", boom)
+    monkeypatch.setattr(responses_suggestions, "call_responses_safe", lambda *a, **k: None)
     monkeypatch.setattr(
         "core.suggestions.get_static_benefit_shortlist",
         lambda **_kwargs: static_shortlist,
@@ -97,3 +91,52 @@ def test_responses_benefit_suggestions_return_static_shortlist(monkeypatch):
 
     out = responses_suggestions.suggest_benefits("Engineer", lang="en")
     assert out == static_shortlist
+
+
+def test_skill_suggestions_log_warning_on_failure(monkeypatch, caplog):
+    import llm.suggestions as responses_suggestions
+
+    caplog.set_level("WARNING")
+
+    legacy_payload = {
+        "tools_and_technologies": ["Legacy Tool"],
+        "hard_skills": ["Legacy Hard"],
+        "soft_skills": ["Legacy Soft"],
+        "certificates": ["Legacy Cert"],
+    }
+
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("Responses failure")
+
+    monkeypatch.setattr("llm.openai_responses.call_responses", _boom)
+    monkeypatch.setattr(
+        "openai_utils.suggest_skills_for_role",
+        lambda *args, **kwargs: legacy_payload,
+    )
+
+    out = responses_suggestions.suggest_skills_for_role("Engineer")
+    assert out == legacy_payload
+    assert any("skill suggestion" in record.getMessage() for record in caplog.records if record.levelname == "WARNING")
+
+
+def test_benefit_suggestions_log_warning_on_failure(monkeypatch, caplog):
+    import llm.suggestions as responses_suggestions
+
+    caplog.set_level("WARNING")
+
+    static_shortlist = ["Static One", "Static Two"]
+
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("Responses failure")
+
+    monkeypatch.setattr("llm.openai_responses.call_responses", _boom)
+    monkeypatch.setattr(
+        "core.suggestions.get_static_benefit_shortlist",
+        lambda **_kwargs: static_shortlist,
+    )
+
+    out = responses_suggestions.suggest_benefits("Engineer", lang="en")
+    assert out == static_shortlist
+    assert any(
+        "benefit suggestion" in record.getMessage() for record in caplog.records if record.levelname == "WARNING"
+    )

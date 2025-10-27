@@ -16,6 +16,9 @@ from llm.openai_responses import ResponsesCallResult
 def fake_responses_call(*args, **kwargs):  # noqa: D401
     """Return a fake Responses API result."""
 
+    kwargs.pop("logger_instance", None)
+    kwargs.pop("context", None)
+    kwargs.pop("allow_empty", None)
     return ResponsesCallResult(
         content=NeedAnalysisProfile().model_dump_json(),
         usage={},
@@ -27,7 +30,7 @@ def fake_responses_call(*args, **kwargs):  # noqa: D401
 def test_extract_json_smoke(monkeypatch):
     """Smoke test for the extraction helper."""
 
-    monkeypatch.setattr(client, "call_responses", fake_responses_call)
+    monkeypatch.setattr(client, "call_responses_safe", fake_responses_call)
     monkeypatch.setattr(
         client,
         "call_chat_api",
@@ -62,7 +65,7 @@ def test_extract_json_validation_failure_triggers_fallback(monkeypatch):
         calls["fallback"] += 1
         return ChatCallResult(content=json.dumps({"fallback": True}), tool_calls=[], usage={})
 
-    monkeypatch.setattr(client, "call_responses", _fake_responses)
+    monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     out = client.extract_json("text")
     payload = json.loads(out)
@@ -84,7 +87,7 @@ def test_extract_json_minimal_prompt(monkeypatch):
             raw_response={},
         )
 
-    monkeypatch.setattr(client, "call_responses", _fake)
+    monkeypatch.setattr(client, "call_responses_safe", _fake)
     monkeypatch.setattr(
         client,
         "call_chat_api",
@@ -156,6 +159,34 @@ def test_extract_json_forwards_context(monkeypatch):
         "company.name": "Locked Corp",
     }
     assert captured["messages"][0]["content"] == "sys"
+
+
+def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
+    """A Responses outage should log a warning and fall back to chat completions."""
+
+    caplog.set_level("WARNING")
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("Responses failure")
+
+    monkeypatch.setattr("llm.openai_responses.call_responses", _boom)
+
+    fallback_payload = {"fallback": True}
+
+    def _fake_chat(messages, *, json_schema=None, **kwargs):
+        return ChatCallResult(
+            content=json.dumps(fallback_payload),
+            tool_calls=[],
+            usage={},
+        )
+
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+
+    out = client.extract_json("Example text")
+    assert json.loads(out) == fallback_payload
+    assert any(
+        "structured extraction" in record.getMessage() for record in caplog.records if record.levelname == "WARNING"
+    )
 
 
 def test_extract_json_reapplies_locked_fields(monkeypatch):
