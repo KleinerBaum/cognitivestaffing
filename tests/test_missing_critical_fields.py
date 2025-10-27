@@ -92,3 +92,21 @@ def test_contact_fallback_populates_missing_company_details() -> None:
     assert updated.company.contact_name == "Benjamin Erben"
     assert updated.company.contact_email == "benjamin.erben@rheinbahn.de"
     assert updated.company.contact_phone == "0211/123"
+
+
+def test_location_invalid_value_is_replaced_and_reassigned() -> None:
+    """Invalid city strings should be discarded in favour of real cities."""
+
+    text = """
+    Die Rheinbahn sucht dich in Düsseldorf.
+    Wir bieten dir Flexible Arbeitszeiten und ein starkes Team.
+    """
+
+    profile = NeedAnalysisProfile()
+    profile.location.primary_city = "Flexible Arbeitszeiten"
+
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.location.primary_city == "Düsseldorf"
+    assert updated.company.hq_location == "Düsseldorf"
+    assert updated.employment.work_schedule == "Flexible Arbeitszeiten"
