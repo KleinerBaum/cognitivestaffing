@@ -8,6 +8,8 @@
 
 - **EN:** Guard wizard session-state updates against redundant writes so Streamlit widgets keep their own keys without raising collisions.
   **DE:** Sichert die Session-State-Aktualisierung im Wizard gegen redundante Schreibzugriffe ab, damit Streamlit-Widgets ihre Keys ohne Kollisionen verwalten können.
+- **EN:** Disable all AI suggestion buttons and generation actions when no OpenAI API key is configured, displaying a bilingual lock hint instead of triggering backend calls.
+  **DE:** Deaktiviert sämtliche KI-Vorschlagsbuttons und Generierungsaktionen, sobald kein OpenAI-API-Schlüssel hinterlegt ist, und zeigt stattdessen einen zweisprachigen Hinweis an.
 
 ## Branding Integration / Branding-Integration
 

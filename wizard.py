@@ -111,6 +111,7 @@ from components.form_fields import text_input_with_state
 from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
+from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.normalization import (
     extract_company_size,
     extract_company_size_snippet,
@@ -6346,6 +6347,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
         job_title = str((profile.get("position") or {}).get("job_title") or "").strip()
 
     if allow_generate:
+        llm_available = is_llm_available()
         if not job_title:
             st.info(
                 tr(
@@ -6353,12 +6355,14 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
                     "Please provide a job title to generate onboarding suggestions.",
                 )
             )
+        if not llm_available:
+            st.caption(llm_disabled_message())
         generate_clicked = st.button(
             "🤖 " + tr("Onboarding-Vorschläge generieren", "Generate onboarding suggestions"),
             key=f"{key_prefix}.generate",
-            disabled=not job_title,
+            disabled=not job_title or not llm_available,
         )
-        if generate_clicked and job_title:
+        if generate_clicked and job_title and llm_available:
             company_data = profile.get("company") if isinstance(profile, Mapping) else {}
             company_name = ""
             industry = ""
@@ -6998,6 +7002,18 @@ def _step_requirements():
             ),
             dropdown=True,
         )
+        disabled_hints: list[str] = []
+        if has_missing_key:
+            disabled_hints.append(llm_disabled_message())
+        if not job_title:
+            disabled_hints.append(
+                tr(
+                    "Bitte gib einen Jobtitel an, um Skill-Vorschläge zu erhalten.",
+                    "Provide a job title to unlock skill suggestions.",
+                )
+            )
+        for hint in disabled_hints:
+            st.caption(hint)
         if st.button(
             "💡 " + tr("KI-Skills vorschlagen", "Suggest additional skills"),
             key=UIKeys.REQUIREMENTS_FETCH_AI_SUGGESTIONS,
@@ -7006,43 +7022,29 @@ def _step_requirements():
                 "Lässt die KI zusätzliche passende Skills vorschlagen.",
                 "Ask the AI for additional relevant skills.",
             ),
+            disabled=bool(disabled_hints),
         ):
-            if has_missing_key:
-                st.info(
-                    tr(
-                        "Hinterlege zuerst einen OpenAI API Key in den Einstellungen.",
-                        "Add an OpenAI API key in the settings first.",
-                    )
-                )
-            elif not job_title:
-                st.info(
-                    tr(
-                        "Bitte gib einen Jobtitel an, um Skill-Vorschläge zu erhalten.",
-                        "Provide a job title to unlock skill suggestions.",
-                    )
-                )
-            else:
-                focus_signature_local = tuple(sorted(focus_selection, key=str.casefold))
-                existing_terms = _collect_existing_requirement_terms()
-                responsibility_items = [
-                    str(item).strip()
-                    for item in (data.get("responsibilities", {}) or {}).get("items", [])
-                    if isinstance(item, str) and str(item).strip()
-                ]
-                spinner_label = tr(
-                    "Generiere Skill-Vorschläge…",
-                    "Generating skill suggestions…",
+            focus_signature_local = tuple(sorted(focus_selection, key=str.casefold))
+            existing_terms = _collect_existing_requirement_terms()
+            responsibility_items = [
+                str(item).strip()
+                for item in (data.get("responsibilities", {}) or {}).get("items", [])
+                if isinstance(item, str) and str(item).strip()
+            ]
+            spinner_label = tr(
+                "Generiere Skill-Vorschläge…",
+                "Generating skill suggestions…",
+                lang=lang,
+            )
+            with st.spinner(spinner_label):
+                fetched, error = get_skill_suggestions(
+                    job_title,
                     lang=lang,
+                    focus_terms=list(focus_selection),
+                    tone_style=st.session_state.get(UIKeys.TONE_SELECT),
+                    existing_skills=existing_terms,
+                    responsibilities=responsibility_items,
                 )
-                with st.spinner(spinner_label):
-                    fetched, error = get_skill_suggestions(
-                        job_title,
-                        lang=lang,
-                        focus_terms=list(focus_selection),
-                        tone_style=st.session_state.get(UIKeys.TONE_SELECT),
-                        existing_skills=existing_terms,
-                        responsibilities=responsibility_items,
-                    )
                 normalized_payload: dict[str, dict[str, list[str]]] = {}
                 for field, groups in fetched.items():
                     if not isinstance(groups, Mapping):
@@ -7411,20 +7413,24 @@ def _step_requirements():
         tone_style = st.session_state.get(UIKeys.TONE_SELECT)
 
         button_label = "💡 " + tr("Aufgaben vorschlagen", "Suggest responsibilities")
-        disabled_reason = ""
+        disabled_reasons: list[str] = []
+        if has_missing_key:
+            disabled_reasons.append(llm_disabled_message())
         if not job_title:
-            disabled_reason = tr(
-                "Jobtitel erforderlich, um KI-Vorschläge zu erhalten.",
-                "Add a job title to enable AI suggestions.",
+            disabled_reasons.append(
+                tr(
+                    "Jobtitel erforderlich, um KI-Vorschläge zu erhalten.",
+                    "Add a job title to enable AI suggestions.",
+                )
             )
 
-        if disabled_reason:
-            st.caption(disabled_reason)
+        for reason in disabled_reasons:
+            st.caption(reason)
 
         if st.button(
             button_label,
             key=UIKeys.RESPONSIBILITY_SUGGEST,
-            disabled=bool(disabled_reason),
+            disabled=bool(disabled_reasons),
         ):
             with st.spinner(tr("KI schlägt Aufgaben vor…", "Fetching AI responsibilities…")):
                 suggestions, error = get_responsibility_suggestions(
@@ -8166,7 +8172,13 @@ def _step_compensation():
             data["compensation"]["benefits"] = merged
             st.rerun()
 
-    if st.button("💡 " + tr("Benefits vorschlagen", "Suggest Benefits", lang=lang)):
+    llm_available = is_llm_available()
+    if not llm_available:
+        st.caption(llm_disabled_message(lang=lang))
+    if st.button(
+        "💡 " + tr("Benefits vorschlagen", "Suggest Benefits", lang=lang),
+        disabled=not llm_available,
+    ):
         job_title = data.get("position", {}).get("job_title", "")
         industry = data.get("company", {}).get("industry", "")
         existing = "\n".join(data["compensation"].get("benefits", []))
@@ -9529,7 +9541,10 @@ def _step_summary(schema: dict, _critical: list[str]):
                     st.rerun()
 
     has_content = bool(selected_fields)
-    disabled = not has_content or not target_value
+    llm_available = is_llm_available()
+    disabled = not has_content or not target_value or not llm_available
+    if not llm_available:
+        st.caption(llm_disabled_message())
     if st.button(
         tr("📝 Stellenanzeige generieren", "📝 Generate job ad"),
         disabled=disabled,
@@ -9622,9 +9637,13 @@ def _step_summary(schema: dict, _critical: list[str]):
             tr("Was soll angepasst werden?", "What should be adjusted?"),
             key=UIKeys.JOB_AD_FEEDBACK,
         )
+        refine_disabled = not llm_available
+        if not llm_available:
+            st.caption(llm_disabled_message())
         if st.button(
             tr("🔄 Anzeige anpassen", "🔄 Refine job ad"),
             key=UIKeys.REFINE_JOB_AD,
+            disabled=refine_disabled,
         ):
             try:
                 refined = refine_document(job_ad_text, feedback)

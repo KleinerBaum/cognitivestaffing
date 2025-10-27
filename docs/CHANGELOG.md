@@ -6,6 +6,8 @@
   **DE:** Verhindert redundante Session-State-Schreibzugriffe bei unveränderten Wizard-Eingaben und beseitigt damit Streamlit-Kollisionen.
 - **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur (`USE_CLASSIC_API` now enforces the legacy path).
   **DE:** Skill- und Benefit-Vorschläge nutzen bei Ausfällen automatisch die Chat-Completions-API oder statische Shortlists; `USE_CLASSIC_API` erzwingt künftig den Legacy-Pfad.
+- **EN:** Gated all AI suggestion buttons and document generations behind the OpenAI API key; the UI now shows a lock message instead of firing requests when the key is missing.
+  **DE:** Sperrt sämtliche KI-Vorschläge und Dokumentgenerierungen, solange kein OpenAI-API-Schlüssel vorliegt, und blendet statt API-Aufrufen einen Hinweis mit Schloss-Symbol ein.
 
 ## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 

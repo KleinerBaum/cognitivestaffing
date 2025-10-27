@@ -12,6 +12,7 @@ from constants.keys import StateKeys, UIKeys
 from models.need_analysis import NeedAnalysisProfile
 from utils.export import prepare_download_data
 from utils.i18n import tr
+from utils.llm_state import is_llm_available, llm_disabled_message
 from wizard._agents import generate_interview_guide_content
 from wizard._logic import _get_company_logo_bytes
 
@@ -97,7 +98,12 @@ def render_interview_guide_section(
     selected_num = st.session_state.get(UIKeys.NUM_QUESTIONS, 5)
 
     generate_label = tr("Interviewleitfaden generieren", "Generate Interview Guide")
-    if st.button(generate_label, type="primary"):
+    llm_available = is_llm_available()
+    if not llm_available:
+        st.caption(llm_disabled_message())
+    if st.button(generate_label, type="primary", disabled=not llm_available):
+        if not llm_available:
+            return
         with st.spinner(tr("Leitfaden wird generiert…", "Generating interview guide…")):
             try:
                 success = generate_interview_guide_content(

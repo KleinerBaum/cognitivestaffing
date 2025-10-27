@@ -56,6 +56,7 @@ from config import (
 from constants.keys import StateKeys
 from llm.cost_router import route_model_for_messages
 from utils.errors import display_error
+from utils.llm_state import llm_disabled_message
 
 logger = logging.getLogger("cognitive_needs.openai")
 tracer = trace.get_tracer(__name__)
@@ -78,6 +79,19 @@ _MISSING_API_KEY_ALERT_MESSAGE = (
 
 _AUTHENTICATION_ERROR_MESSAGE = "OpenAI API key invalid or quota exceeded."
 _RATE_LIMIT_ERROR_MESSAGE = "OpenAI API rate limit exceeded. Please retry later."
+
+
+def _llm_disabled() -> bool:
+    """Return ``True`` when API calls should be blocked due to missing credentials."""
+
+    if not OPENAI_API_KEY:
+        return True
+    try:
+        return bool(st.session_state.get("openai_api_key_missing"))
+    except Exception:  # pragma: no cover - Streamlit not initialised
+        return False
+
+
 _NETWORK_ERROR_MESSAGE = "Network error communicating with OpenAI. Please check your connection and retry."
 _INVALID_REQUEST_ERROR_MESSAGE = (
     "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)"
@@ -1754,6 +1768,9 @@ def call_chat_api(
     metadata so callers can decide which variant to keep.
     """
 
+    if _llm_disabled():
+        raise RuntimeError(llm_disabled_message())
+
     single_kwargs: dict[str, Any] = {
         "model": model,
         "temperature": temperature,
@@ -1882,6 +1899,9 @@ def stream_chat_api(
     ``tools``/``tool_functions`` are intentionally not accepted to avoid
     partially-executed tool calls.
     """
+
+    if _llm_disabled():
+        raise RuntimeError(llm_disabled_message())
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 

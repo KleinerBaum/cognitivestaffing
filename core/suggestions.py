@@ -22,6 +22,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency during tes
     responses_suggest_skills = None
 
 from config import USE_CLASSIC_API
+from utils.llm_state import is_llm_available
 
 # Public aliases resolve to the active backend so external modules (and tests)
 # can monkeypatch ``suggestions.suggest_*`` regardless of the implementation.
@@ -306,22 +307,23 @@ def get_skill_suggestions(
             for group_name, values in groups.items():
                 _add_group(field, group_name, values)
 
-    try:
-        ai_suggestions = suggest_skills_for_role(
-            job_title,
-            lang=lang,
-            focus_terms=focus_terms,
-            tone_style=tone_style,
-            existing_items=existing_pool,
-            responsibilities=responsibility_pool,
-        )
-    except Exception as err:  # pragma: no cover - error path is tested
-        errors.append(str(err))
-    else:
-        for field in grouped:
-            values = ai_suggestions.get(field, [])
-            if values:
-                _add_group(field, "llm", values)
+    if is_llm_available():
+        try:
+            ai_suggestions = suggest_skills_for_role(
+                job_title,
+                lang=lang,
+                focus_terms=focus_terms,
+                tone_style=tone_style,
+                existing_items=existing_pool,
+                responsibilities=responsibility_pool,
+            )
+        except Exception as err:  # pragma: no cover - error path is tested
+            errors.append(str(err))
+        else:
+            for field in grouped:
+                values = ai_suggestions.get(field, [])
+                if values:
+                    _add_group(field, "llm", values)
 
     cleaned = {key: value for key, value in grouped.items() if value}
 
@@ -348,6 +350,9 @@ def get_responsibility_suggestions(
         str(item).strip() for item in (existing_items or []) if isinstance(item, str) and str(item).strip()
     ]
     existing_markers = {value.casefold() for value in cleaned_existing}
+
+    if not is_llm_available():
+        return [], None
 
     try:
         suggestions = suggest_responsibilities_for_role(
@@ -402,19 +407,22 @@ def get_benefit_suggestions(
     """
 
     fallback = get_static_benefit_shortlist(lang=lang, industry=industry)
-    try:
-        suggestions = _unique(
-            suggest_benefits(
-                job_title,
-                industry,
-                existing_benefits,
-                lang=lang,
-                focus_areas=focus_areas,
-                tone_style=tone_style,
+    if is_llm_available():
+        try:
+            suggestions = _unique(
+                suggest_benefits(
+                    job_title,
+                    industry,
+                    existing_benefits,
+                    lang=lang,
+                    focus_areas=focus_areas,
+                    tone_style=tone_style,
+                )
             )
-        )
-    except Exception as err:  # pragma: no cover - error path is tested
-        return fallback, str(err), True
+        except Exception as err:  # pragma: no cover - error path is tested
+            return fallback, str(err), True
+    else:
+        suggestions = []
 
     if suggestions:
         return suggestions, None, False
@@ -432,6 +440,9 @@ def get_onboarding_suggestions(
     tone_style: str | None = None,
 ) -> Tuple[List[str], str | None]:
     """Fetch onboarding process suggestions for the given role context."""
+
+    if not is_llm_available():
+        return [], None
 
     try:
         suggestions = suggest_onboarding_plans(
