@@ -58,7 +58,7 @@ from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
 from config import WIZARD_ORDER_V2
-from pages import WIZARD_PAGES
+from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard import (
     COMPACT_STEP_STYLE,
@@ -126,6 +126,8 @@ except FileNotFoundError:
 ensure_state()
 
 WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
+
+PAGE_LOOKUP: dict[str, WizardPage] = {page.key: page for page in WIZARD_PAGES}
 
 MAX_INLINE_VALUE_CHARS = 20
 
@@ -1746,6 +1748,44 @@ def _build_profile_context(profile: Mapping[str, Any]) -> dict[str, str]:
     }
 
     return context
+
+
+def _resolve_step_copy(
+    page_key: str,
+    profile: Mapping[str, Any] | None = None,
+    *,
+    context: Mapping[str, str] | None = None,
+) -> tuple[str, str, list[str]]:
+    """Resolve the localized header, subheader, and intro copy for a step."""
+
+    page = PAGE_LOOKUP.get(page_key)
+    if page is None:
+        return "", "", []
+
+    lang = st.session_state.get("lang", "de")
+    title = page.header_for(lang)
+    subtitle = page.subheader_for(lang)
+
+    intro_context: Mapping[str, str]
+    if context is not None:
+        intro_context = context
+    elif isinstance(profile, Mapping):
+        intro_context = _build_profile_context(profile)
+    else:
+        intro_context = {}
+
+    intros: list[str] = []
+    for variant in page.panel_intro_variants:
+        template = page.translate(variant, lang)
+        try:
+            formatted = template.format(**intro_context)
+        except Exception:
+            formatted = template
+        cleaned = formatted.strip()
+        if cleaned:
+            intros.append(cleaned)
+
+    return title, subtitle, intros
 
 
 def _format_dynamic_message(
@@ -6444,65 +6484,10 @@ def _step_position():
     """
 
     profile = _get_profile_state()
-    profile_context = _build_profile_context(profile)
-    position_header = _format_dynamic_message(
-        default=("Basisdaten", "Basic data"),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "{job_title} bei {company_name}",
-                    "{job_title} at {company_name}",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "{job_title} in {location_combined}",
-                    "{job_title} in {location_combined}",
-                ),
-                ("job_title", "location_combined"),
-            ),
-            (
-                (
-                    "Rolle: {job_title}",
-                    "Role: {job_title}",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    position_caption = _format_dynamic_message(
-        default=(
-            "Kerninformationen zur Rolle und Rahmenbedingungen erfassen.",
-            "Capture key information about the role and overall context.",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Kerninformationen zur Rolle {job_title} bei {company_name} festhalten.",
-                    "Capture the key information for {job_title} at {company_name}.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Kerninformationen zur Rolle {job_title} in {location_combined} festhalten.",
-                    "Capture the key information for {job_title} in {location_combined}.",
-                ),
-                ("job_title", "location_combined"),
-            ),
-            (
-                (
-                    "Kerninformationen zur Rolle {job_title} festhalten.",
-                    "Capture the key information for the {job_title} role.",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    render_step_heading(position_header, position_caption)
+    title, subtitle, intros = _resolve_step_copy("team", profile)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
     data = profile
     data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -6666,15 +6651,34 @@ def _step_position():
         "other": tr("Sonstiges", "Other"),
     }
     schedule_keys = list(schedule_options.keys())
-    schedule_default = employment.get("work_schedule", schedule_keys[0])
+    stored_schedule = str(employment.get("work_schedule") or "").strip()
+    custom_schedule_value = ""
+    if stored_schedule and stored_schedule not in schedule_keys:
+        custom_schedule_value = stored_schedule
+        schedule_default = "other"
+    else:
+        schedule_default = stored_schedule or schedule_keys[0]
     schedule_index = schedule_keys.index(schedule_default) if schedule_default in schedule_keys else 0
     schedule_cols = st.columns(3)
-    employment["work_schedule"] = schedule_cols[0].selectbox(
+    schedule_selection = schedule_cols[0].selectbox(
         tr("Arbeitszeitmodell", "Work schedule"),
         options=schedule_keys,
         index=schedule_index,
         format_func=lambda key: schedule_options[key],
     )
+    if schedule_selection == "other":
+        custom_value = (
+            schedule_cols[0]
+            .text_input(
+                tr("Individuelles Modell", "Custom schedule"),
+                value=custom_schedule_value,
+                placeholder=tr("z. B. Flexible Arbeitszeiten", "e.g., Flexible working hours"),
+            )
+            .strip()
+        )
+        employment["work_schedule"] = custom_value
+    else:
+        employment["work_schedule"] = schedule_selection
 
     remote_col = schedule_cols[1]
     if employment.get("work_policy") in {"hybrid", "remote"}:
@@ -6838,6 +6842,10 @@ def _step_requirements():
     """Render the requirements step for skills and certifications."""
 
     data = _get_profile_state()
+    title, subtitle, intros = _resolve_step_copy("role_tasks", data)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
     location_data = data.setdefault("location", {})
 
     raw_requirements = data.get("requirements")
@@ -7987,7 +7995,10 @@ def _step_compensation():
     """
 
     profile = _get_profile_state()
-    profile_context = _build_profile_context(profile)
+    title, subtitle, intros = _resolve_step_copy("benefits", profile)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
     lang = st.session_state.get("lang", "de")
     position = profile.get("position", {}) if isinstance(profile, Mapping) else {}
     job_title = str(position.get("job_title") or "").strip()
@@ -8001,57 +8012,6 @@ def _step_compensation():
         st.session_state[StateKeys.LOCAL_BENEFIT_CONTEXT] = local_context
         st.session_state[StateKeys.LOCAL_BENEFIT_SUGGESTIONS] = []
 
-    compensation_header = _format_dynamic_message(
-        default=("Leistungen & Benefits", "Rewards & Benefits"),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Vergütung für {job_title} bei {company_name}",
-                    "Compensation for {job_title} at {company_name}",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Vergütung für {job_title}",
-                    "Compensation for {job_title}",
-                ),
-                ("job_title",),
-            ),
-            (
-                (
-                    "Leistungen bei {company_name}",
-                    "Rewards at {company_name}",
-                ),
-                ("company_name",),
-            ),
-        ],
-    )
-    compensation_caption = _format_dynamic_message(
-        default=(
-            "Gehaltsspanne und Zusatzleistungen erfassen.",
-            "Capture salary range and benefits.",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Gehalt und Benefits für {job_title} bei {company_name} festhalten.",
-                    "Capture salary and benefits for {job_title} at {company_name}.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Gehalt und Benefits für {job_title} festhalten.",
-                    "Capture salary and benefits for {job_title}.",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    render_step_heading(compensation_header, compensation_caption)
     data = profile
 
     slider_defaults = _derive_salary_range_defaults(profile)
@@ -8324,51 +8284,10 @@ def _step_process():
     """Render the hiring process step."""
 
     profile = _get_profile_state()
-    profile_context = _build_profile_context(profile)
-    process_header = _format_dynamic_message(
-        default=("Prozess", "Process"),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Bewerbungsprozess bei {company_name}",
-                    "Hiring process at {company_name}",
-                ),
-                ("company_name",),
-            ),
-            (
-                (
-                    "Prozess für {job_title}",
-                    "Process for {job_title}",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    process_caption = _format_dynamic_message(
-        default=(
-            "Ablauf des Bewerbungsprozesses skizzieren.",
-            "Outline the hiring process steps.",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Ablauf für den {job_title}-Prozess bei {company_name} skizzieren.",
-                    "Outline the {job_title} process at {company_name}.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Ablauf für den {job_title}-Prozess skizzieren.",
-                    "Outline the {job_title} process steps.",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    render_step_heading(process_header, process_caption)
+    title, subtitle, intros = _resolve_step_copy("interview", profile)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
     data = profile["process"]
 
     stakeholders_raw = data.get("stakeholders")
@@ -8795,17 +8714,31 @@ def _summary_employment() -> None:
         "weekend": tr("Wochenendarbeit", "Weekend work"),
         "other": tr("Sonstiges", "Other"),
     }
-    work_schedule = c4.selectbox(
+    stored_schedule = str(data["employment"].get("work_schedule") or "").strip()
+    custom_schedule_value = ""
+    if stored_schedule and stored_schedule not in schedule_options:
+        custom_schedule_value = stored_schedule
+        schedule_default = "other"
+    else:
+        schedule_default = stored_schedule or "standard"
+    schedule_keys = list(schedule_options.keys())
+    schedule_index = schedule_keys.index(schedule_default) if schedule_default in schedule_keys else 0
+    schedule_selection = c4.selectbox(
         tr("Arbeitszeitmodell", "Work schedule"),
-        options=list(schedule_options.keys()),
+        options=schedule_keys,
         format_func=lambda x: schedule_options[x],
-        index=(
-            list(schedule_options.keys()).index(data["employment"].get("work_schedule"))
-            if data["employment"].get("work_schedule") in schedule_options
-            else 0
-        ),
+        index=schedule_index,
         key="ui.summary.employment.work_schedule",
     )
+    if schedule_selection == "other":
+        work_schedule = c4.text_input(
+            tr("Individuelles Modell", "Custom schedule"),
+            value=custom_schedule_value,
+            placeholder=tr("z. B. Flexible Arbeitszeiten", "e.g., Flexible working hours"),
+            key="ui.summary.employment.work_schedule_other",
+        ).strip()
+    else:
+        work_schedule = schedule_selection
 
     if work_policy in ["hybrid", "remote"]:
         remote_percentage = st.number_input(
@@ -9276,14 +9209,12 @@ def _step_summary(schema: dict, _critical: list[str]):
         safe_stem = "need-analysis-profile"
     profile_filename = f"{safe_stem}.{profile_ext}"
 
-    summary_title = tr("Zusammenfassung", "Summary")
-    summary_subtitle = tr(
-        "Überprüfen Sie Ihre Angaben und laden Sie das saubere JSON-Profil über den Button herunter.",
-        "Review your entries and use the button to download the clean JSON profile.",
-    )
+    title, subtitle, intros = _resolve_step_copy("summary", data)
     header_cols = st.columns((1, 0.45), gap="small")
     with header_cols[0]:
-        render_step_heading(summary_title, summary_subtitle)
+        render_step_heading(title, subtitle)
+        for intro in intros:
+            st.caption(intro)
     with header_cols[1]:
         st.download_button(
             tr("⬇️ JSON-Profil exportieren", "⬇️ Export JSON profile"),
@@ -10210,7 +10141,10 @@ def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
 def _render_skills_review_step() -> None:
     profile = _get_profile_state()
     lang = st.session_state.get("lang", "de")
-    st.subheader(tr("Überblick Anforderungen", "Requirements overview"))
+    title, subtitle, intros = _resolve_step_copy("skills", profile)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
     responsibilities = profile.get("responsibilities", {}) if isinstance(profile, Mapping) else {}
     requirement_data = profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
 
