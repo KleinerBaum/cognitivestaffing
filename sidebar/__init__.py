@@ -401,13 +401,39 @@ def _render_onboarding_context(_: SidebarContext) -> None:
 def _render_company_context(context: SidebarContext) -> None:
     st.markdown(f"#### {tr('Unternehmensdaten', 'Company details')}")
     company = context.profile.get("company", {})
-    if not company:
+    if not isinstance(company, Mapping):
+        company = {}
+    display_fields: list[tuple[str, str]] = [
+        ("name", tr("Unternehmen", "Company")),
+        ("industry", tr("Branche", "Industry")),
+        ("hq_location", tr("Hauptsitz", "Headquarters")),
+        ("size", tr("Größe", "Size")),
+        ("website", tr("Website", "Website")),
+        ("contact_name", tr("Kontaktperson", "Primary contact")),
+        ("contact_email", tr("Kontakt-E-Mail", "Contact email")),
+        ("contact_phone", tr("Telefon", "Phone")),
+        ("mission", tr("Mission", "Mission")),
+    ]
+
+    rendered = 0
+    for key, label in display_fields:
+        raw_value = company.get(key)
+        if raw_value is None:
+            continue
+        value = str(raw_value).strip()
+        if not value:
+            continue
+        rendered += 1
+        safe_label = html.escape(label)
+        safe_value = html.escape(value)
+        st.markdown(
+            f"- **{safe_label}**: {safe_value}",
+            unsafe_allow_html=True,
+        )
+
+    if rendered == 0:
         st.caption(tr("Noch keine Firmendaten hinterlegt.", "No company details yet."))
         return
-    for key in ("name", "industry", "hq_location", "size", "mission"):
-        value = company.get(key)
-        if value:
-            st.markdown(f"- **{_format_field_name(f'company.{key}')}**: {value}")
 
     _render_missing_hint(context, section=1)
 

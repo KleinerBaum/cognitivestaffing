@@ -166,6 +166,16 @@ def _profile_city(profile: Mapping[str, Any]) -> str | None:
     return _extract_city_from_text(str(company.get("hq_location") or ""))
 
 
+def _string_or_empty(value: Any) -> str:
+    """Return ``value`` as a string, normalising ``None`` to an empty string."""
+
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 _LOCAL_BENEFIT_COUNTRY_PRESETS: dict[str, list[tuple[str, str]]] = {
     "DE": [
         (
@@ -3239,6 +3249,11 @@ def _skip_source() -> None:
 
 FIELD_LABELS: dict[str, tuple[str, str]] = {
     "company.name": ("Firmenname", "Company Name"),
+    "company.hq_location": ("Hauptsitz", "Headquarters"),
+    "company.website": ("Website", "Website"),
+    "company.contact_name": ("Kontaktperson", "Primary Contact"),
+    "company.contact_email": ("Kontakt-E-Mail", "Contact Email"),
+    "company.contact_phone": ("Telefon", "Phone"),
     "position.job_title": ("Jobtitel", "Job Title"),
     "position.role_summary": ("Rollenbeschreibung", "Role Summary"),
     "location.country": ("Land", "Country"),
@@ -5736,7 +5751,7 @@ def _step_company():
     )
     company["name"] = st.text_input(
         company_lock["label"],
-        value=company.get("name", ""),
+        value=_string_or_empty(company.get("name")),
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
         **company_kwargs,
     )
@@ -5745,20 +5760,25 @@ def _step_company():
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     hq_col, size_col, industry_col = st.columns(3, gap="small")
+    hq_initial = _string_or_empty(company.get("hq_location"))
+    if not hq_initial.strip():
+        city_hint = _string_or_empty(location_data.get("primary_city"))
+        if city_hint.strip():
+            hq_initial = city_hint.strip()
     company["hq_location"] = hq_col.text_input(
         tr("Hauptsitz", "Headquarters"),
-        value=company.get("hq_location", ""),
+        value=hq_initial,
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
         key=UIKeys.COMPANY_HQ_LOCATION,
     )
     company["size"] = size_col.text_input(
         tr("Größe", "Size"),
-        value=company.get("size", ""),
+        value=_string_or_empty(company.get("size")),
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
     company["industry"] = industry_col.text_input(
         tr("Branche", "Industry"),
-        value=company.get("industry", ""),
+        value=_string_or_empty(company.get("industry")),
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
     )
 
@@ -5767,13 +5787,13 @@ def _step_company():
     website_col, mission_col = st.columns(2, gap="small")
     company["website"] = website_col.text_input(
         tr("Website", "Website"),
-        value=company.get("website", ""),
+        value=_string_or_empty(company.get("website")),
         placeholder="https://example.com",
         key="ui.company.website",
     )
     company["mission"] = mission_col.text_input(
         tr("Mission", "Mission"),
-        value=company.get("mission", ""),
+        value=_string_or_empty(company.get("mission")),
         placeholder=tr(
             "z. B. Nachhaltige Mobilität fördern",
             "e.g., Promote sustainable mobility",
@@ -5783,7 +5803,7 @@ def _step_company():
 
     company["culture"] = st.text_input(
         tr("Unternehmenskultur", "Company culture"),
-        value=company.get("culture", ""),
+        value=_string_or_empty(company.get("culture")),
         placeholder=tr(
             "z. B. Teamorientiert, innovationsgetrieben",
             "e.g., Team-oriented, innovation-driven",
@@ -5794,13 +5814,13 @@ def _step_company():
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
     contact_name = contact_cols[0].text_input(
         tr("Kontaktperson", "Primary contact"),
-        value=company.get("contact_name", ""),
+        value=_string_or_empty(company.get("contact_name")),
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
         key="ui.company.contact_name",
     )
     contact_email = contact_cols[1].text_input(
         tr("Kontakt-E-Mail", "Contact email"),
-        value=company.get("contact_email", ""),
+        value=_string_or_empty(company.get("contact_email")),
         placeholder="name@example.com",
         key="ui.company.contact_email",
     )
@@ -5809,7 +5829,7 @@ def _step_company():
         phone_label += REQUIRED_SUFFIX
     contact_phone = contact_cols[2].text_input(
         phone_label,
-        value=company.get("contact_phone", ""),
+        value=_string_or_empty(company.get("contact_phone")),
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
         key="ui.company.contact_phone",
     )
@@ -5834,7 +5854,7 @@ def _step_company():
     city_kwargs = _apply_field_lock_kwargs(city_lock)
     location_data["primary_city"] = city_col.text_input(
         city_lock["label"],
-        value=location_data.get("primary_city", ""),
+        value=_string_or_empty(location_data.get("primary_city")),
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
         **city_kwargs,
     )
@@ -5852,7 +5872,7 @@ def _step_company():
     country_kwargs = _apply_field_lock_kwargs(country_lock)
     location_data["country"] = country_col.text_input(
         country_lock["label"],
-        value=location_data.get("country", ""),
+        value=_string_or_empty(location_data.get("country")),
         placeholder=tr("z. B. DE", "e.g., DE"),
         **country_kwargs,
     )
@@ -5919,7 +5939,7 @@ def _step_company():
     brand_cols = st.columns((2, 1), gap="small")
     company["brand_name"] = brand_cols[0].text_input(
         tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
-        value=company.get("brand_name", ""),
+        value=_string_or_empty(company.get("brand_name")),
         placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
     )
 
