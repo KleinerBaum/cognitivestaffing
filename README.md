@@ -4,6 +4,11 @@
 
 ![App Screenshot](images/app_screenshot.png)
 
+## Unreleased updates / Aktuelle Änderungen
+
+- **EN:** Guard wizard session-state updates against redundant writes so Streamlit widgets keep their own keys without raising collisions.
+  **DE:** Sichert die Session-State-Aktualisierung im Wizard gegen redundante Schreibzugriffe ab, damit Streamlit-Widgets ihre Keys ohne Kollisionen verwalten können.
+
 ## Branding Integration / Branding-Integration
 
 **EN:** The wizard now recognises employer branding assets automatically. When a career page URL is provided, Cognitive Staffing detects the company logo, dominant brand colour, and slogan, then applies them to the sidebar hero, exports, and downstream JSON (`company.logo_url`, `company.brand_color`, `company.claim`). The screenshot below shows an example sidebar that picked up a logo and tone-on-tone accent colour without any manual configuration.

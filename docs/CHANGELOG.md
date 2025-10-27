@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- _No changes yet / Keine Einträge._
+- **EN:** Prevent redundant session-state writes for unchanged wizard inputs to avoid Streamlit widget collisions.
+  **DE:** Verhindert redundante Session-State-Schreibzugriffe bei unveränderten Wizard-Eingaben und beseitigt damit Streamlit-Kollisionen.
 
 ## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 

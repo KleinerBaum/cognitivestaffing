@@ -83,6 +83,8 @@ from wizard import (
 
 logger = logging.getLogger(__name__)
 
+_MISSING = object()
+
 # LLM and Follow-ups
 from openai_utils import (
     extract_company_info,
@@ -4622,7 +4624,9 @@ def _update_profile(path: str, value) -> None:
     if normalized_value is None:
         st.session_state.pop(path, None)
     else:
-        st.session_state[path] = value
+        current_session_value = st.session_state.get(path, _MISSING)
+        if current_session_value is _MISSING or current_session_value != value:
+            st.session_state[path] = value
     current = get_in(data, path)
     if _normalize_semantic_empty(current) != normalized_value:
         set_in(data, path, value)
