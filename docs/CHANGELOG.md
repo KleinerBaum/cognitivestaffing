@@ -2,112 +2,33 @@
 
 ## Unreleased
 
-- fix: ensure invalid city strings fall back to contextual locations and move flexible hours into work schedule (CS_SCHEMA_PROPAGATE)
-  - Fix: Ungültige Städtewerte werden mit Kontext-Städten ersetzt und "Flexible Arbeitszeiten" in den Arbeitszeitplan verschoben (CS_SCHEMA_PROPAGATE)
-- fix: require explicit AI trigger for wizard skill suggestions and clear cached payloads on refresh
-  - Fix: KI-Skill-Vorschläge starten nur nach aktivem Klick und der Cache wird bei "Aktualisieren" geleert
-- docs: capture shared light/dark design tokens with typography and spacing guidance
-  - Dokumentation: Gemeinsame Light/Dark-Design-Tokens inkl. Typografie- und Abstandsskala dokumentiert
-- chore: remove duplicate BeautifulSoup dependency to silence pip build warnings
-  - Chore: Doppelte BeautifulSoup-Abhängigkeit entfernt, um Pip-Build-Warnungen zu vermeiden
-- feat: extend OpenAI company info extraction to include official website URLs in the structured response
-  - Feature: OpenAI-Unternehmensanalyse liefert nun die offizielle Website im strukturierten Ergebnis mit
-- docs: refresh README with grouped wizard sections, tone presets, and automatic company research highlights
-  - Dokumentation: README mit gruppierten Wizard-Schritten, Tonalitätswahl und automatischer Unternehmensrecherche aktualisiert
-- schema: describe the optional `company.size` field in the NeedAnalysisProfile JSON schema for downstream validation
-  - Schema: Optionales Feld `company.size` im NeedAnalysisProfile-JSON-Schema für nachgelagerte Validierung beschrieben
-- feat: add on-demand AI buttons for skills and benefits with contextual filtering
-  - Feature: KI-Vorschlagsbuttons für Skills und Benefits mit kontextuellem Duplikatfilter
-- feat: add ESCO occupation search and cached skill import to the requirements step UI
-  - Feature: ESCO-Berufssuche und gecachte Skill-Übernahme im Anforderungsschritt ergänzen
-- feat: surface AI responsibility suggestions in the requirements step with contextual prompts
-  - Feature: KI-Aufgaben-Vorschläge im Anforderungsschritt mit kontextuellem Prompt integrieren
-- feat: introduce the RecruitingWizard single-source schema with source attribution, canonical keys, and SCHEMA_WIZARD_V1 flag
-  - Feature: neues RecruitingWizard-Masterschema mit Source-Attribution, kanonischen Keys und Feature-Flag `SCHEMA_WIZARD_V1`
-- chore: pin Streamlit deployment config to `requirements.txt` to suppress duplicate requirements warnings
-  - Chore: Deployment-Konfiguration auf `requirements.txt` fixieren, um doppelte Requirements-Warnungen zu unterdrücken
-- test: assert ESCO essential skill lookups fall back to the offline cache when HTTP 404 errors occur
-  - Test: Prüft, dass ESCO-Kernkompetenzabfragen bei HTTP-404-Fehlern auf den Offline-Cache zurückfallen
-- fix: extend rule heuristics for benefits, remote policies, and required-field logging coverage
-  - Fix: Regex-Heuristiken für Benefits, Remote-Modelle und Logging pflichtiger Felder erweitern
-- fix: align work policy, location, contact, and benefits fields across schema, UI state, and exports
-  - Fix: Arbeitsmodell-, Standort-, Kontakt- und Benefit-Felder zwischen Schema, UI-State und Exporten angleichen
-- fix: treat HR contact fields as critical so wizard steps and follow-ups flag missing details consistently
-  - Fix: HR-Kontaktfelder als kritisch markieren, damit Wizard-Schritte und Follow-ups fehlende Angaben zuverlässig anzeigen
-- chore: remove the sidebar base-model and response-verbosity selectors in favour of automatic routing
-  - Chore: Auswahlfelder für Basismodell und Antwort-Detailgrad aus der Seitenleiste entfernen und automatisches Routing nutzen
-- feat: capture HR contacts, hiring managers, and qualification summaries in the vacancy extraction schema and wizard UI
-  - Feature: Erfasst HR-Kontakte, Hiring-Manager:innen und Qualifikationszusammenfassungen in Schema und Wizard-Oberfläche
-- feat: forward optional OpenAI organization/project IDs from env/secrets to the shared client
-  - Feature: OpenAI-Organisation und -Projekt aus Umgebungsvariablen/Secrets an den gemeinsamen Client durchreichen
-- feat: refactor wizard helpers into the `wizard/` package, localise follow-up presets via i18n, and load prompts from the central registry
-  - Feature: Wizard-Helfer in Paket `wizard/`, Follow-up-Vorlagen lokalisiert und Prompts aus der Registry geladen
-- chore: extend model fallback chains with an explicit GPT-4 hop and add bilingual deployment guidance
-  - Chore: Modell-Fallbacks um einen GPT-4-Schritt erweitert und zweisprachige Deployment-Doku ergänzt
-- chore: align typing/tooling configuration with Python 3.11 across mypy and developer docs
-  - Chore: Typisierungs- und Tooling-Konfiguration für Python 3.11 vereinheitlicht (mypy & Entwickler-Doku)
-- fix: normalise role-specific follow-up questions via translation keys instead of hard-coded English strings
-  - Fix: Rollenspezifische Nachfragen per Übersetzungsschlüssel statt fest verdrahteter Englisch-Texte
-- fix: keep URL text extraction functional when BeautifulSoup is unavailable by falling back to a builtin parser
-  - Fix: Sichert die URL-Textextraktion ab, falls BeautifulSoup fehlt, und nutzt einen eingebauten Parser als Fallback
-- fix: default the application language to English on first load
-- fix: keep the wizard next button enabled and surface a hint for missing required fields
-- fix: darken light-mode hero background image for stronger visual contrast
-- feat: refresh onboarding hero with lighter dark-mode background, smaller logo, and mission-focused copy
-- feat: retune model routing with GPT-4o/GPT-4o-mini defaults, `gpt-3.5-turbo` company extraction, updated docs, and selector tweaks (EN/DE)
-  - Feature: Routing auf GPT-4o/GPT-4o-mini als Standard, `gpt-3.5-turbo` für Unternehmens-Insights sowie aktualisierte Doku und Modell-Auswahl (DE/EN)
-- feat: replace sidebar salary factor table with interactive explanations and top-N selector
-- feat: consolidate requirements insights into dual salary/availability cards with regional radius filtering
-- feat: reorganize company step with grouped inputs for location, team context, and branding assets uploader
-- feat: surface ESCO occupation multi-select after extraction and limit skill suggestions to chosen profiles
-- feat: categorize ESCO skill suggestions by type and highlight outstanding essentials in wizard panels
-- feat: surface ESCO occupation and essential skill pickers in wizard with sidebar todo hints
-- feat: allow focus tags for skill/benefit suggestions and present grouped multi-select pickers for LLM outputs
-- fix: keep wizard navigation sequential and ensure each next step scrolls to the top
-- feat: detail salary fallback factors with structured deltas and localized table view
-- feat: add localized overview/edit toggle to summary tabs with inline editing helpers
-- feat: show summary highlights with role, company, location, salary, and skills above wizard tabs
-- chore: raise OpenAI SDK floor to 1.40.0 for built-in JSON schema text.format support
-- fix: adapt Responses payloads to use the ``text.format`` JSON schema config instead of ``response_format``
-- feat: surface extraction confidence tiers with rule vs. AI indicators and UI legend
-- chore: refresh offline ESCO cache to the v1.1.1 snapshot (2025-10-09) and document refresh cadence
-- fix: enforce strict JSON schema payloads across extraction utilities
-- feat: suggest HQ and contact defaults with optional autofill + rejection memory
-- feat: parse benefits sections into normalized, locked compensation perks via heuristics fallback
-- feat: show extraction source tooltips and AI inference indicators in wizard fields and summary tables
-- feat: capture company culture, contacts, and responsibility lists in wizard company/requirements steps
-- chore: add regeneration utility for need analysis schema to keep Phase fields in sync
-- feat: replace sidebar hero copy with collapsible extraction overview and remove tips section
-- feat: externalize salary benchmark catalog with canonical role normalization and German aliases
-- feat: generate interview guide via LLM JSON schema with evaluation notes and structured fallback
-- feat: refresh analysis helper datasets with IT & project-management benchmarks
-- feat: refactor job ad generation to use tone-aware LLM prompts with Markdown fallback
-- feat: auto-regenerate job ad and interview outputs when summary follow-up answers are applied
-- feat: redesign requirements step with vertical panels and inline AI suggestions
-- feat: add requirements skill market insights with salary/availability bubble chart
-- fix: prevent wizard navigation deadlock when job title is missing
-- feat: route CLI file extraction through ingest.extractors for OCR and text support
-- fix: surface consistent OCR requirement errors when scanned PDFs lack dependencies
-- fix: show user-friendly labels for missing critical fields
-- fix: stack columns and buttons on small screens for mobile usability
-- fix: send valid OpenAI tool definitions to avoid missing name errors
-- feat: inject required arrays and nullable fields into extraction schema
-- fix: map "Einsatzort"/"Branche" cues to location and industry in rule-based parsing
-- fix: restore the classic "Weiter" CTA in the onboarding step with highlighted styling
-- feat: add an in-house validation loop that replays extraction against NeedAnalysisProfile with graceful fallbacks
-- docs: clarify Responses API migration and removal of Assistants/Threads usage
-- docs: add bilingual legal information page including ESCO licensing notice
-- docs: document confidence indicators and locking metadata in README and pipeline guide
-- docs: expand local OCR setup instructions for CLI ingestion workflows
-- fix: show localized warning in requirements step when skill suggestions fail
-- fix: infer salary estimate country from primary city/HQ hints when explicit country is missing
-- feat: pass primary city and required skill context to the salary estimate model payload
-- feat: require explicit unlock before editing high-confidence company and job fields in the wizard
-- fix: decouple job-ad brand tone widget state from company summary brand keywords syncing
-- fix: prevent brand tone input normalization from mutating Streamlit widget state mid-run
-- feat: polish light theme widgets with improved tabs, alerts, metrics, and dataframe styling
-- feat: enrich salary fallback explanations with structured summary and adjustment rows
-- fix: swap sidebar and onboarding visuals to keep Cognitive Staffing branding consistent
+- _No unreleased changes yet._
+  - _Noch keine Änderungen verfügbar._
+
+## v1.0.0 – Wizard-Vollmodernisierung & KI-Assistenten (2025-10-27)
+
+- feat: standardise wizard layout, schema keys, and export mapping across all steps (CS_SCHEMA_PROPAGATE)
+  - Feature: Wizard-Layout, Schema-Keys und Export-Mapping für alle Schritte vereinheitlicht (CS_SCHEMA_PROPAGATE)
+- feat: add pragmatic/formal/casual intro captions (EN/DE) to every step via `panel_intro_variants`
+  - Feature: Pragmatische, formelle und lockere Intro-Captions (DE/EN) für jeden Schritt über `panel_intro_variants`
+- feat: expand AI helpers with refreshed skill/benefit/responsibility suggestions and interview guide generation
+  - Feature: KI-Helfer für Skills, Benefits, Verantwortlichkeiten und Interview-Guides erweitert
+- refactor: extract reusable wizard components for suggestion chips, inputs, and state sync
+  - Refactor: Wiederverwendbare Wizard-Komponenten für Suggestion-Chips, Eingaben und State-Sync extrahiert
+- feat: streamline navigation UX with top-of-step focus, responsive layout, and mobile stacking
+  - Feature: Navigations-UX mit Top-of-Step-Fokus, responsivem Layout und Mobile-Stacking optimiert
+- fix: correct invalid city fallbacks and reassign flexible hours to employment work schedule (CS_SCHEMA_PROPAGATE)
+  - Fix: Ungültige Städtewerte korrigiert und flexible Arbeitszeiten dem Arbeitszeitplan zugeordnet (CS_SCHEMA_PROPAGATE)
+- fix: gate AI suggestions behind explicit user triggers and reset caches on refresh
+  - Fix: KI-Vorschläge nur nach aktiver Auslösung und Cache-Reset bei Aktualisierung
+- fix: cover outstanding wizard regression tests for skill board, legacy state, and error banners
+  - Fix: Ausstehende Wizard-Regressionstests für Skill-Board, Legacy-State und Fehlermeldungen abgedeckt
+- docs: capture unified design tokens, hover/focus styling, and mobile accessibility guidance
+  - Dokumentation: Einheitliche Design-Tokens, Hover/Fokus-Styling und mobile Accessibility-Anleitung dokumentiert
+- chore: align linting, mypy checks, and deployment requirements for the release train
+  - Chore: Linting-, mypy-Prüfungen und Deployment-Requirements für den Release-Train abgestimmt
+- docs: update README and changelog, bump version identifiers to 1.0.0, and confirm release readiness
+  - Dokumentation: README und Changelog aktualisiert, Versionsnummern auf 1.0.0 gesetzt und Release-Bereitschaft bestätigt
 
 ## v0.5 – GPT-5-Updates und RAG-Support (2025-02-18)
 - docs: refresh README, agent catalog, and telemetry guides with bilingual RAG + gap-analysis instructions (EN/DE)
