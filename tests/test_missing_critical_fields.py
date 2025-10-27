@@ -3,6 +3,8 @@
 import streamlit as st
 
 from constants.keys import StateKeys
+from ingest.heuristics import apply_basic_fallbacks
+from models.need_analysis import NeedAnalysisProfile
 from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
 
 
@@ -72,3 +74,21 @@ def test_followup_critical_detection() -> None:
 
     missing = get_missing_critical_fields(max_section=99)
     assert missing == ["compensation.salary_min"]
+
+
+def test_contact_fallback_populates_missing_company_details() -> None:
+    """Contact information should be auto-filled when present in the document text."""
+
+    text = """
+    Ansprechpartner HR:
+    Benjamin Erben (HR Business Partner)
+    Telefon 0211/123
+    E-Mail: benjamin.erben@rheinbahn.de
+    """
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.company.contact_name == "Benjamin Erben"
+    assert updated.company.contact_email == "benjamin.erben@rheinbahn.de"
+    assert updated.company.contact_phone == "0211/123"

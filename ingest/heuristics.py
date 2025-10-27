@@ -1,5 +1,6 @@
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
@@ -61,6 +62,329 @@ _CITY_HINT_RE = re.compile(
 )
 _COMMON_CITIES: Tuple[str, ...] = COMMON_CITY_NAMES
 _COMMON_CITY_KEYS: set[str] = {city.casefold() for city in _COMMON_CITIES}
+
+_EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+_PHONE_RE = re.compile(r"\+?\d[\d\s()\/.-]{5,}\d")
+_URL_RE = re.compile(r"(?:(?:https?://|www\.)[^\s<>()]+)", re.IGNORECASE)
+_NAME_RE = re.compile(r"([A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){1,3})")
+_CONTACT_KEYWORDS = (
+    "ansprechpartner",
+    "ansprechperson",
+    "kontakt",
+    "kontaktperson",
+    "contact",
+    "human resources",
+    "hr",
+    "people & culture",
+    "talent acquisition",
+    "recruiting",
+    "personalabteilung",
+    "bewerbung",
+)
+_HR_HINTS = (
+    "hr",
+    "human resources",
+    "people & culture",
+    "people and culture",
+    "recruiting",
+    "talent acquisition",
+    "personal",
+    "personalabteilung",
+)
+_CONTACT_NAME_STOPWORDS = {
+    "ansprechpartner",
+    "ansprechpartnerin",
+    "ansprechpersonen",
+    "ansprechperson",
+    "kontakt",
+    "kontaktperson",
+    "contact",
+    "hr",
+    "team",
+    "unsere",
+    "ihre",
+    "ihr",
+    "dein",
+    "deine",
+    "liebe",
+    "bewerbung",
+}
+
+
+@dataclass(slots=True)
+class _ContactCandidate:
+    """Normalized candidate for a company contact extracted from raw text."""
+
+    name: str
+    email: str | None
+    phone: str | None
+    line_index: int
+    hr_score: int
+    label_score: int
+    email_score: int
+    phone_score: int
+
+
+def _tokenize_name(name: str) -> list[str]:
+    """Return significant lowercase tokens for ``name`` suitable for matching."""
+
+    tokens = [part for part in re.split(r"[\s-]+", name) if part]
+    normalized: list[str] = []
+    for token in tokens:
+        lowered = token.casefold()
+        if len(lowered) < 2:
+            continue
+        if lowered in _CONTACT_NAME_STOPWORDS:
+            continue
+        normalized.append(lowered)
+    return normalized
+
+
+def _email_matches_name(email: str, name: str) -> bool:
+    """Return ``True`` if ``email`` appears to belong to ``name``."""
+
+    if not email or not name:
+        return False
+    local_part = email.split("@", 1)[0].casefold()
+    tokens = _tokenize_name(name)
+    return any(token and token in local_part for token in tokens if len(token) >= 3)
+
+
+def _normalize_phone(raw: str) -> str:
+    """Return ``raw`` stripped of trailing punctuation and normalized spacing."""
+
+    cleaned = raw.strip().rstrip(".,;)")
+    return re.sub(r"\s+", " ", cleaned)
+
+
+def _collect_emails(lines: Sequence[str]) -> list[tuple[str, int]]:
+    """Return list of emails with their source line indices."""
+
+    results: list[tuple[str, int]] = []
+    for idx, line in enumerate(lines):
+        for match in _EMAIL_RE.finditer(line):
+            results.append((match.group(0).lower(), idx))
+    return results
+
+
+def _collect_phones(lines: Sequence[str]) -> list[tuple[str, int]]:
+    """Return list of phone numbers with their source line indices."""
+
+    results: list[tuple[str, int]] = []
+    for idx, line in enumerate(lines):
+        for match in _PHONE_RE.finditer(line):
+            candidate = _normalize_phone(match.group(0))
+            digits = re.sub(r"\D", "", candidate)
+            if len(digits) < 6:
+                continue
+            results.append((candidate, idx))
+    return results
+
+
+def _find_best_email(
+    tokens: Sequence[str],
+    line_index: int,
+    emails: Sequence[tuple[str, int]],
+    *,
+    max_distance: int = 8,
+) -> tuple[str | None, int]:
+    """Return the most plausible email for a contact name."""
+
+    best_email: str | None = None
+    best_score = 0
+    for email, idx in emails:
+        distance = abs(idx - line_index)
+        if distance > max_distance:
+            continue
+        local_part = email.split("@", 1)[0]
+        matches = sum(1 for token in tokens if len(token) >= 3 and token in local_part)
+        score = matches * 5
+        if matches:
+            score += 3
+        if distance <= 1:
+            score += 3
+        elif distance <= 3:
+            score += 1
+        score -= distance
+        if matches == 0 and distance > 2:
+            continue
+        if score > best_score:
+            best_score = score
+            best_email = email
+    return best_email, best_score
+
+
+def _find_best_phone(
+    line_index: int,
+    phones: Sequence[tuple[str, int]],
+    *,
+    max_distance: int = 8,
+) -> tuple[str | None, int]:
+    """Return the most relevant phone number near ``line_index``."""
+
+    best_phone: str | None = None
+    best_score = 0
+    for phone, idx in phones:
+        distance = abs(idx - line_index)
+        if distance > max_distance:
+            continue
+        digits = re.sub(r"\D", "", phone)
+        score = max(0, 6 - distance) + min(len(digits), 14)
+        if score > best_score:
+            best_score = score
+            best_phone = phone
+    return best_phone, best_score
+
+
+def _paragraphs_with_indices(lines: Sequence[str]) -> list[list[tuple[int, str]]]:
+    """Return paragraphs retaining the original line indices."""
+
+    paragraphs: list[list[tuple[int, str]]] = []
+    current: list[tuple[int, str]] = []
+    for idx, line in enumerate(lines):
+        if line.strip():
+            current.append((idx, line))
+        elif current:
+            paragraphs.append(current)
+            current = []
+    if current:
+        paragraphs.append(current)
+    return paragraphs
+
+
+def _contact_rank(candidate: _ContactCandidate) -> tuple[int, int, int, int, int]:
+    """Sorting key to prioritise reliable contact candidates."""
+
+    return (
+        -candidate.hr_score,
+        -candidate.label_score,
+        -candidate.email_score,
+        -candidate.phone_score,
+        candidate.line_index,
+    )
+
+
+def _is_viable_contact_name(name: str) -> bool:
+    """Return ``True`` if ``name`` looks like a person rather than a label."""
+
+    tokens = _tokenize_name(name)
+    return len(tokens) >= 2
+
+
+def _collect_local_context(
+    paragraph: Sequence[tuple[int, str]],
+    target_index: int,
+    *,
+    window: int = 2,
+) -> str:
+    """Return lowercased context around ``target_index`` within ``paragraph``."""
+
+    parts: list[str] = []
+    for line_idx, content in paragraph:
+        if abs(line_idx - target_index) <= window:
+            parts.append(content)
+    return " ".join(parts).casefold()
+
+
+def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
+    """Return a list of potential company contacts extracted from ``text``."""
+
+    lines = text.splitlines()
+    emails = _collect_emails(lines)
+    phones = _collect_phones(lines)
+    paragraphs = _paragraphs_with_indices(lines)
+    candidates: dict[str, _ContactCandidate] = {}
+
+    for paragraph in paragraphs:
+        paragraph_text = "\n".join(line for _, line in paragraph)
+        paragraph_lower = paragraph_text.casefold()
+        if not any(keyword in paragraph_lower for keyword in _CONTACT_KEYWORDS):
+            continue
+        for line_index, line in paragraph:
+            for match in _NAME_RE.finditer(line):
+                name = match.group(0).strip()
+                if not _is_viable_contact_name(name):
+                    continue
+                tokens = _tokenize_name(name)
+                if not tokens:
+                    continue
+                context_lower = _collect_local_context(paragraph, line_index)
+                hr_score = sum(1 for hint in _HR_HINTS if hint in context_lower)
+                label_score = 0
+                if "ansprechpartner" in context_lower or "ansprechperson" in context_lower:
+                    label_score += 2
+                if "kontakt" in context_lower or "contact" in context_lower:
+                    label_score += 1
+                email, email_score = _find_best_email(tokens, line_index, emails)
+                phone, phone_score = _find_best_phone(line_index, phones)
+                if hr_score == 0 and label_score == 0 and email_score == 0 and phone_score == 0:
+                    continue
+                candidate = _ContactCandidate(
+                    name=name,
+                    email=email,
+                    phone=phone,
+                    line_index=line_index,
+                    hr_score=hr_score,
+                    label_score=label_score,
+                    email_score=email_score,
+                    phone_score=phone_score,
+                )
+                key = name.casefold()
+                previous = candidates.get(key)
+                if previous is None or _contact_rank(candidate) < _contact_rank(previous):
+                    candidates[key] = candidate
+
+    ordered = sorted(candidates.values(), key=_contact_rank)
+    if ordered:
+        return ordered
+
+    # Fallback: attempt to pair the most name-like line with an adjacent email if
+    # no labelled contact section was found.
+    for idx, line in enumerate(lines):
+        for match in _NAME_RE.finditer(line):
+            name = match.group(0).strip()
+            if not _is_viable_contact_name(name):
+                continue
+            tokens = _tokenize_name(name)
+            if not tokens:
+                continue
+            email, email_score = _find_best_email(tokens, idx, emails)
+            if not email:
+                continue
+            phone, phone_score = _find_best_phone(idx, phones)
+            candidate = _ContactCandidate(
+                name=name,
+                email=email,
+                phone=phone,
+                line_index=idx,
+                hr_score=0,
+                label_score=0,
+                email_score=email_score,
+                phone_score=phone_score,
+            )
+            return [candidate]
+    return []
+
+
+def _extract_company_website(text: str) -> str | None:
+    """Return the first plausible website URL from ``text``."""
+
+    for match in _URL_RE.finditer(text):
+        url = match.group(0).strip()
+        if "@" in url:
+            continue
+        cleaned = url.rstrip('.,;)"')
+        if not cleaned:
+            continue
+        lowered = cleaned.casefold()
+        if lowered.startswith("www."):
+            normalized = f"https://{cleaned}"
+        elif lowered.startswith(("http://", "https://")):
+            normalized = cleaned
+        else:
+            normalized = f"https://{cleaned}"
+        return normalized
+    return None
 
 
 def _clean_city_candidate(city: str | None) -> str:
@@ -1128,6 +1452,9 @@ def apply_basic_fallbacks(
             return True
         return not (value and value.strip())
 
+    def _is_locked(field: str) -> bool:
+        return field in locked_fields
+
     location_entities = None
 
     if not profile.position.job_title and "position.job_title" not in locked_fields:
@@ -1283,6 +1610,86 @@ def apply_basic_fallbacks(
             "responsibilities_first_item",
             detail="with first responsibility",
         )
+    # Contact heuristics: look for labelled HR contact sections and company websites
+    # to backfill missing company metadata in the wizard sidebar.
+    contact_name_field = "company.contact_name"
+    contact_email_field = "company.contact_email"
+    contact_phone_field = "company.contact_phone"
+    website_field = "company.website"
+    existing_contact_email = str(profile.company.contact_email) if profile.company.contact_email else None
+    contact_name_needed = not _is_locked(contact_name_field) and _needs_value(
+        profile.company.contact_name, contact_name_field
+    )
+    contact_email_needed = not _is_locked(contact_email_field) and _needs_value(
+        existing_contact_email, contact_email_field
+    )
+    contact_phone_needed = not _is_locked(contact_phone_field) and _needs_value(
+        profile.company.contact_phone, contact_phone_field
+    )
+    email_mismatch = False
+    if (
+        not _is_locked(contact_email_field)
+        and contact_email_field not in high_confidence
+        and existing_contact_email
+        and profile.company.contact_name
+        and not _needs_value(profile.company.contact_name, contact_name_field)
+    ):
+        email_mismatch = not _email_matches_name(existing_contact_email, profile.company.contact_name)
+    contact_candidate: _ContactCandidate | None = None
+    if contact_name_needed or contact_email_needed or contact_phone_needed or email_mismatch:
+        candidates = _extract_contact_candidates(text)
+        if candidates:
+            contact_candidate = candidates[0]
+    if contact_candidate:
+        if contact_name_needed and not _is_locked(contact_name_field):
+            if profile.company.contact_name != contact_candidate.name:
+                profile.company.contact_name = contact_candidate.name
+                _log_heuristic_fill(
+                    contact_name_field,
+                    "contact_section",
+                    detail=f"with value {contact_candidate.name!r}",
+                )
+        updated_contact_name = profile.company.contact_name or contact_candidate.name
+        existing_contact_email = str(profile.company.contact_email) if profile.company.contact_email else None
+        email_should_update = False
+        if contact_candidate.email and not _is_locked(contact_email_field):
+            if contact_email_needed:
+                email_should_update = True
+            elif (
+                updated_contact_name
+                and existing_contact_email
+                and contact_email_field not in high_confidence
+                and not _email_matches_name(existing_contact_email, updated_contact_name)
+            ):
+                email_should_update = True
+        if email_should_update and contact_candidate.email:
+            if existing_contact_email != contact_candidate.email:
+                profile.company.contact_email = contact_candidate.email
+                _log_heuristic_fill(
+                    contact_email_field,
+                    "contact_section",
+                    detail=f"with value {contact_candidate.email!r}",
+                )
+        if contact_candidate.phone and not _is_locked(contact_phone_field):
+            if contact_phone_needed or (
+                not profile.company.contact_phone and contact_phone_field not in high_confidence
+            ):
+                if profile.company.contact_phone != contact_candidate.phone:
+                    profile.company.contact_phone = contact_candidate.phone
+                    _log_heuristic_fill(
+                        contact_phone_field,
+                        "contact_section",
+                        detail=f"with value {contact_candidate.phone!r}",
+                    )
+    if not _is_locked(website_field) and _needs_value(profile.company.website, website_field):
+        website = _extract_company_website(text)
+        if website:
+            profile.company.website = website
+            _log_heuristic_fill(
+                website_field,
+                "company_website_regex",
+                detail=f"with value {website!r}",
+            )
     # Compensation heuristics: attempt range detection first, then single-value
     # mentions, and finally flag variable pay + bonus percentage if keywords appear.
     compensation = profile.compensation
