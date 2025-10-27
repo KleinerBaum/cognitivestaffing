@@ -1716,6 +1716,7 @@ def apply_basic_fallbacks(
         discarded_city = profile.location.primary_city
         profile.location.primary_city = None
         city_invalid = True
+        invalid_fields.add(city_field)
         HEURISTICS_LOGGER.info(
             "Discarding invalid location candidate %s (marker: %s)",
             discarded_city,
@@ -1726,13 +1727,24 @@ def apply_basic_fallbacks(
                 "heuristic_detail": invalid_marker,
             },
         )
-        if _city_value_suits_work_schedule(discarded_city) and not profile.employment.work_schedule:
-            profile.employment.work_schedule = discarded_city
-            _log_heuristic_fill(
-                "employment.work_schedule",
-                "work_schedule_from_location",
-                detail=f"with value {discarded_city!r}",
-            )
+        if _city_value_suits_work_schedule(discarded_city):
+            existing_schedule = (profile.employment.work_schedule or "").strip()
+            schedule_candidates = [existing_schedule, discarded_city]
+            merged_schedule: list[str] = []
+            for entry in schedule_candidates:
+                cleaned = entry.strip()
+                if not cleaned:
+                    continue
+                marker = cleaned.casefold()
+                if marker and all(marker != seen.casefold() for seen in merged_schedule):
+                    merged_schedule.append(cleaned)
+            if merged_schedule:
+                profile.employment.work_schedule = ", ".join(merged_schedule)
+                _log_heuristic_fill(
+                    "employment.work_schedule",
+                    "work_schedule_from_location",
+                    detail=f"with value {profile.employment.work_schedule!r}",
+                )
 
     def _needs_value(value: Optional[str], field: str) -> bool:
         if field in high_confidence and field not in invalid_fields:

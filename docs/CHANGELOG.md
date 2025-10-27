@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- fix: ensure invalid city strings fall back to contextual locations and move flexible hours into work schedule (CS_SCHEMA_PROPAGATE)
+  - Fix: Ungültige Städtewerte werden mit Kontext-Städten ersetzt und "Flexible Arbeitszeiten" in den Arbeitszeitplan verschoben (CS_SCHEMA_PROPAGATE)
+- fix: require explicit AI trigger for wizard skill suggestions and clear cached payloads on refresh
+  - Fix: KI-Skill-Vorschläge starten nur nach aktivem Klick und der Cache wird bei "Aktualisieren" geleert
+- docs: capture shared light/dark design tokens with typography and spacing guidance
+  - Dokumentation: Gemeinsame Light/Dark-Design-Tokens inkl. Typografie- und Abstandsskala dokumentiert
+- chore: remove duplicate BeautifulSoup dependency to silence pip build warnings
+  - Chore: Doppelte BeautifulSoup-Abhängigkeit entfernt, um Pip-Build-Warnungen zu vermeiden
 - feat: extend OpenAI company info extraction to include official website URLs in the structured response
   - Feature: OpenAI-Unternehmensanalyse liefert nun die offizielle Website im strukturierten Ergebnis mit
 - docs: refresh README with grouped wizard sections, tone presets, and automatic company research highlights
