@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
+from constants.keys import ProfilePaths
 from core.schema import ALIASES, ALL_FIELDS, KEYS_CANONICAL, canonicalize_profile_payload
+from models.need_analysis import NeedAnalysisProfile
+from pages import WIZARD_PAGES
 
 
 def _set_path(payload: dict[str, object], path: str, value: object) -> None:
@@ -27,6 +30,19 @@ def _get_path(payload: Mapping[str, object], path: str) -> object | None:
             return None
         cursor = cursor[part]
     return cursor
+
+
+def _flatten_paths(data: object, prefix: str = "") -> Iterable[str]:
+    if isinstance(data, Mapping):
+        for key, value in data.items():
+            next_prefix = f"{prefix}.{key}" if prefix else key
+            if isinstance(value, Mapping):
+                yield from _flatten_paths(value, next_prefix)
+            else:
+                yield next_prefix
+    else:
+        if prefix:
+            yield prefix
 
 
 def test_alias_mapping_complete() -> None:
@@ -53,3 +69,24 @@ def test_alias_mapping_complete() -> None:
             assert canonical_value, f"Alias '{alias}' produced empty list for '{target}'"
         else:
             assert canonical_value == sentinel, f"Alias '{alias}' value changed unexpectedly for '{target}'"
+
+
+def test_profile_paths_cover_schema_and_ui() -> None:
+    profile_dump = NeedAnalysisProfile().model_dump()
+    dump_paths = set(_flatten_paths(profile_dump))
+    canonical_paths = set(KEYS_CANONICAL)
+    assert dump_paths == canonical_paths
+
+    enum_paths = {member.value for member in ProfilePaths}
+    assert enum_paths == canonical_paths
+
+    wizard_paths: set[str] = set()
+    for page in WIZARD_PAGES:
+        wizard_paths.update(str(field) for field in page.required_fields)
+        wizard_paths.update(str(field) for field in page.summary_fields)
+
+    missing = canonical_paths - wizard_paths
+    assert not missing, f"Wizard pages missing coverage for: {sorted(missing)}"
+
+    stray = wizard_paths - canonical_paths
+    assert not stray, f"Wizard pages reference non-canonical paths: {sorted(stray)}"

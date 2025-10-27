@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -24,9 +26,15 @@ PAGE = WizardPage(
     ),
     required_fields=(),
     summary_fields=(
-        "process.stages",
-        "process.stakeholders",
-        "process.onboarding_process",
+        ProfilePaths.PROCESS_INTERVIEW_STAGES,
+        ProfilePaths.PROCESS_PHASES,
+        ProfilePaths.PROCESS_STAKEHOLDERS,
+        ProfilePaths.PROCESS_RECRUITMENT_TIMELINE,
+        ProfilePaths.PROCESS_PROCESS_NOTES,
+        ProfilePaths.PROCESS_APPLICATION_INSTRUCTIONS,
+        ProfilePaths.PROCESS_ONBOARDING_PROCESS,
+        ProfilePaths.PROCESS_HIRING_MANAGER_NAME,
+        ProfilePaths.PROCESS_HIRING_MANAGER_ROLE,
     ),
     allow_skip=True,
 )

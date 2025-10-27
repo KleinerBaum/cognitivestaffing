@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -23,14 +25,20 @@ PAGE = WizardPage(
         ),
     ),
     required_fields=(
-        "requirements.hard_skills_required",
-        "requirements.soft_skills_required",
+        ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
+        ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,
     ),
     summary_fields=(
-        "requirements.hard_skills_required",
-        "requirements.soft_skills_required",
-        "requirements.tools_and_technologies",
-        "requirements.languages_required",
+        ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
+        ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL,
+        ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,
+        ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL,
+        ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES,
+        ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,
+        ProfilePaths.REQUIREMENTS_LANGUAGES_OPTIONAL,
+        ProfilePaths.REQUIREMENTS_LANGUAGE_LEVEL_ENGLISH,
+        ProfilePaths.REQUIREMENTS_CERTIFICATIONS,
+        ProfilePaths.REQUIREMENTS_CERTIFICATES,
     ),
     allow_skip=False,
 )

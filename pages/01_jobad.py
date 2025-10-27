@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -20,9 +22,9 @@ PAGE = WizardPage(
     ),
     required_fields=(),
     summary_fields=(
-        "meta.input_method",
-        "meta.source_url",
-        "meta.upload_filename",
+        ProfilePaths.META_TARGET_START_DATE,
+        ProfilePaths.META_APPLICATION_DEADLINE,
+        ProfilePaths.META_FOLLOWUPS_ANSWERED,
     ),
     allow_skip=False,
 )

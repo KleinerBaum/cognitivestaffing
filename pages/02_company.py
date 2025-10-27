@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -19,18 +21,31 @@ PAGE = WizardPage(
         ),
     ),
     required_fields=(
-        "company.name",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "location.country",
+        ProfilePaths.COMPANY_NAME,
+        ProfilePaths.COMPANY_CONTACT_NAME,
+        ProfilePaths.COMPANY_CONTACT_EMAIL,
+        ProfilePaths.COMPANY_CONTACT_PHONE,
+        ProfilePaths.LOCATION_COUNTRY,
     ),
     summary_fields=(
-        "company.name",
-        "company.industry",
-        "company.size",
-        "location.primary_city",
-        "location.country",
+        ProfilePaths.COMPANY_NAME,
+        ProfilePaths.COMPANY_BRAND_NAME,
+        ProfilePaths.COMPANY_BRAND_KEYWORDS,
+        ProfilePaths.COMPANY_BRAND_COLOR,
+        ProfilePaths.COMPANY_CLAIM,
+        ProfilePaths.COMPANY_INDUSTRY,
+        ProfilePaths.COMPANY_SIZE,
+        ProfilePaths.COMPANY_HQ_LOCATION,
+        ProfilePaths.COMPANY_WEBSITE,
+        ProfilePaths.COMPANY_MISSION,
+        ProfilePaths.COMPANY_CULTURE,
+        ProfilePaths.COMPANY_CONTACT_NAME,
+        ProfilePaths.COMPANY_CONTACT_EMAIL,
+        ProfilePaths.COMPANY_CONTACT_PHONE,
+        ProfilePaths.COMPANY_LOGO_URL,
+        ProfilePaths.LOCATION_PRIMARY_CITY,
+        ProfilePaths.LOCATION_COUNTRY,
+        ProfilePaths.LOCATION_ONSITE_RATIO,
     ),
     allow_skip=False,
 )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from constants.keys import ProfilePaths
+
 from .base import WizardPage
 
 
@@ -22,12 +24,19 @@ PAGE = WizardPage(
             "Let us know who the new hire reports to and when they’ll get started.",
         ),
     ),
-    required_fields=("position.job_title",),
+    required_fields=(ProfilePaths.POSITION_JOB_TITLE,),
     summary_fields=(
-        "position.job_title",
-        "position.seniority_level",
-        "position.reporting_line",
-        "position.reporting_manager_name",
+        ProfilePaths.POSITION_JOB_TITLE,
+        ProfilePaths.POSITION_SENIORITY,
+        ProfilePaths.POSITION_DEPARTMENT,
+        ProfilePaths.POSITION_TEAM_STRUCTURE,
+        ProfilePaths.POSITION_TEAM_SIZE,
+        ProfilePaths.POSITION_SUPERVISES,
+        ProfilePaths.POSITION_REPORTING_LINE,
+        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+        ProfilePaths.POSITION_OCCUPATION_LABEL,
+        ProfilePaths.POSITION_OCCUPATION_URI,
+        ProfilePaths.POSITION_OCCUPATION_GROUP,
     ),
     allow_skip=False,
 )
