@@ -1,3 +1,6 @@
+from enum import StrEnum
+
+
 class UIKeys:
     """Keys for UI widgets in ``st.session_state``."""
 
@@ -50,18 +53,32 @@ class UIKeys:
     JOB_AD_BRAND_TONE_SYNC_FLAG = "ui.summary.job_ad.brand_keywords.sync"
 
 
-class ProfilePaths:
+class ProfilePaths(StrEnum):
     """Canonical dot-paths for profile-bound wizard widgets."""
 
     COMPANY_NAME = "company.name"
     COMPANY_INDUSTRY = "company.industry"
+    COMPANY_SIZE = "company.size"
+    COMPANY_HQ_LOCATION = "company.hq_location"
+    COMPANY_WEBSITE = "company.website"
+    COMPANY_MISSION = "company.mission"
+    COMPANY_CULTURE = "company.culture"
     COMPANY_CONTACT_NAME = "company.contact_name"
     COMPANY_CONTACT_EMAIL = "company.contact_email"
     COMPANY_CONTACT_PHONE = "company.contact_phone"
+    COMPANY_BRAND_KEYWORDS = "company.brand_keywords"
     LOCATION_PRIMARY_CITY = "location.primary_city"
     LOCATION_COUNTRY = "location.country"
     POSITION_JOB_TITLE = "position.job_title"
     POSITION_SENIORITY = "position.seniority_level"
+    POSITION_DEPARTMENT = "position.department"
+    POSITION_TEAM_STRUCTURE = "position.team_structure"
+    POSITION_REPORTING_LINE = "position.reporting_line"
+    POSITION_REPORTING_MANAGER_NAME = "position.reporting_manager_name"
+    POSITION_ROLE_SUMMARY = "position.role_summary"
+    POSITION_OCCUPATION_LABEL = "position.occupation_label"
+    POSITION_OCCUPATION_URI = "position.occupation_uri"
+    POSITION_OCCUPATION_GROUP = "position.occupation_group"
     RESPONSIBILITIES_ITEMS = "responsibilities.items"
     REQUIREMENTS_HARD_SKILLS_REQUIRED = "requirements.hard_skills_required"
 

@@ -15,6 +15,8 @@
   Schema-Pfade mit automatischen `_update_profile`-Callbacks in allen Schritten koppeln.
 
 ### Fixed / Behoben
+- **EN:** Centralised wizard profile key constants and session defaults so schema paths map through a single registry (CS_SCHEMA_PROPAGATE).
+  **DE:** Profil-Schlüssel und Session-Defaults des Wizards zentralisiert, sodass Schema-Pfade über einen einzigen Katalog laufen (CS_SCHEMA_PROPAGATE).
 - **EN:** Canonical NeedAnalysisProfile key registry now drives aliases and state/export sanitisation so legacy keys disappear after ingestion (CS_SCHEMA_PROPAGATE).
   **DE:** Der kanonische NeedAnalysisProfile-Key-Index steuert Alias- und State/Export-Bereinigung, sodass nach dem Import keine Legacy-Keys mehr verbleiben (CS_SCHEMA_PROPAGATE).
 - **EN:** City normalization now strips leading prepositions, removes trailing fragments, and falls back to a structured LLM

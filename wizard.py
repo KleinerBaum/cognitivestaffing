@@ -39,7 +39,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from utils.i18n import tr
 from i18n import t as translate_key
-from constants.keys import UIKeys, StateKeys
+from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
 from utils.session import bind_textarea
 from state import ensure_state, reset_state
@@ -4807,9 +4807,9 @@ def _write_occupation_to_profile(meta: Mapping[str, Any] | None) -> None:
     uri = str(meta.get("uri") or "").strip() if meta else None
     group = str(meta.get("group") or "").strip() if meta else None
 
-    _update_profile("position.occupation_label", label or None)
-    _update_profile("position.occupation_uri", uri or None)
-    _update_profile("position.occupation_group", group or None)
+    _update_profile(ProfilePaths.POSITION_OCCUPATION_LABEL, label or None)
+    _update_profile(ProfilePaths.POSITION_OCCUPATION_URI, uri or None)
+    _update_profile(ProfilePaths.POSITION_OCCUPATION_GROUP, group or None)
 
     raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
     if isinstance(raw_profile, dict):
@@ -5679,7 +5679,7 @@ def _step_company():
     if "company.name" in missing_here:
         label_company += REQUIRED_SUFFIX
     company_lock = _field_lock_config(
-        "company.name",
+        ProfilePaths.COMPANY_NAME,
         label_company,
         container=st,
         context="step",
@@ -5689,14 +5689,14 @@ def _step_company():
         {"help": tr("Offizieller Firmenname", "Official company name")},
     )
     company["name"] = widget_factory.text_input(
-        "company.name",
+        ProfilePaths.COMPANY_NAME,
         company_lock["label"],
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
         value_formatter=_string_or_empty,
         **company_kwargs,
     )
-    _update_profile("company.name", company["name"])
-    if "company.name" in missing_here and not company["name"]:
+    _update_profile(ProfilePaths.COMPANY_NAME, company["name"])
+    if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     hq_col, size_col, industry_col = st.columns(3, gap="small")
@@ -5706,7 +5706,7 @@ def _step_company():
         if city_hint.strip():
             hq_initial = city_hint.strip()
     company["hq_location"] = widget_factory.text_input(
-        "company.hq_location",
+        ProfilePaths.COMPANY_HQ_LOCATION,
         tr("Hauptsitz", "Headquarters"),
         widget_factory=hq_col.text_input,
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
@@ -5715,14 +5715,14 @@ def _step_company():
         value_formatter=_string_or_empty,
     )
     company["size"] = widget_factory.text_input(
-        "company.size",
+        ProfilePaths.COMPANY_SIZE,
         tr("Größe", "Size"),
         widget_factory=size_col.text_input,
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
         value_formatter=_string_or_empty,
     )
     company["industry"] = widget_factory.text_input(
-        "company.industry",
+        ProfilePaths.COMPANY_INDUSTRY,
         tr("Branche", "Industry"),
         widget_factory=industry_col.text_input,
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
@@ -5733,7 +5733,7 @@ def _step_company():
 
     website_col, mission_col = st.columns(2, gap="small")
     company["website"] = widget_factory.text_input(
-        "company.website",
+        ProfilePaths.COMPANY_WEBSITE,
         tr("Website", "Website"),
         widget_factory=website_col.text_input,
         placeholder="https://example.com",
@@ -5741,7 +5741,7 @@ def _step_company():
         value_formatter=_string_or_empty,
     )
     company["mission"] = widget_factory.text_input(
-        "company.mission",
+        ProfilePaths.COMPANY_MISSION,
         tr("Mission", "Mission"),
         widget_factory=mission_col.text_input,
         placeholder=tr(
@@ -5753,7 +5753,7 @@ def _step_company():
     )
 
     company["culture"] = widget_factory.text_input(
-        "company.culture",
+        ProfilePaths.COMPANY_CULTURE,
         tr("Unternehmenskultur", "Company culture"),
         placeholder=tr(
             "z. B. Teamorientiert, innovationsgetrieben",
@@ -5765,7 +5765,7 @@ def _step_company():
 
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
     contact_name = widget_factory.text_input(
-        "company.contact_name",
+        ProfilePaths.COMPANY_CONTACT_NAME,
         tr("Kontaktperson", "Primary contact"),
         widget_factory=contact_cols[0].text_input,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
@@ -5773,7 +5773,7 @@ def _step_company():
         value_formatter=_string_or_empty,
     )
     contact_email = widget_factory.text_input(
-        "company.contact_email",
+        ProfilePaths.COMPANY_CONTACT_EMAIL,
         tr("Kontakt-E-Mail", "Contact email"),
         widget_factory=contact_cols[1].text_input,
         placeholder="name@example.com",
@@ -5781,61 +5781,61 @@ def _step_company():
         value_formatter=_string_or_empty,
     )
     phone_label = tr("Telefon", "Phone")
-    if "company.contact_phone" in missing_here:
+    if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here:
         phone_label += REQUIRED_SUFFIX
     contact_phone = widget_factory.text_input(
-        "company.contact_phone",
+        ProfilePaths.COMPANY_CONTACT_PHONE,
         phone_label,
         widget_factory=contact_cols[2].text_input,
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
         key="ui.company.contact_phone",
         value_formatter=_string_or_empty,
     )
-    if "company.contact_phone" in missing_here and not (contact_phone or "").strip():
+    if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    _update_profile("company.contact_name", contact_name)
-    _update_profile("company.contact_email", contact_email)
-    _update_profile("company.contact_phone", contact_phone)
+    _update_profile(ProfilePaths.COMPANY_CONTACT_NAME, contact_name)
+    _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, contact_email)
+    _update_profile(ProfilePaths.COMPANY_CONTACT_PHONE, contact_phone)
 
     city_col, country_col = st.columns(2, gap="small")
     city_lock = _field_lock_config(
-        "location.primary_city",
+        ProfilePaths.LOCATION_PRIMARY_CITY,
         tr("Stadt", "City"),
         container=city_col,
         context="step",
     )
     city_kwargs = _apply_field_lock_kwargs(city_lock)
     location_data["primary_city"] = widget_factory.text_input(
-        "location.primary_city",
+        ProfilePaths.LOCATION_PRIMARY_CITY,
         city_lock["label"],
         widget_factory=city_col.text_input,
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
         value_formatter=_string_or_empty,
         **city_kwargs,
     )
-    _update_profile("location.primary_city", location_data["primary_city"])
+    _update_profile(ProfilePaths.LOCATION_PRIMARY_CITY, location_data["primary_city"])
 
     country_label = tr("Land", "Country")
-    if "location.country" in missing_here:
+    if ProfilePaths.LOCATION_COUNTRY in missing_here:
         country_label += REQUIRED_SUFFIX
     country_lock = _field_lock_config(
-        "location.country",
+        ProfilePaths.LOCATION_COUNTRY,
         country_label,
         container=country_col,
         context="step",
     )
     country_kwargs = _apply_field_lock_kwargs(country_lock)
     location_data["country"] = widget_factory.text_input(
-        "location.country",
+        ProfilePaths.LOCATION_COUNTRY,
         country_lock["label"],
         widget_factory=country_col.text_input,
         placeholder=tr("z. B. DE", "e.g., DE"),
         value_formatter=_string_or_empty,
         **country_kwargs,
     )
-    _update_profile("location.country", location_data["country"])
-    if "location.country" in missing_here and not location_data.get("country"):
+    _update_profile(ProfilePaths.LOCATION_COUNTRY, location_data["country"])
+    if ProfilePaths.LOCATION_COUNTRY in missing_here and not location_data.get("country"):
         country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     city_value = (location_data.get("primary_city") or "").strip()
@@ -5843,7 +5843,7 @@ def _step_company():
     hq_value = (company.get("hq_location") or "").strip()
     suggested_hq_parts = [part for part in (city_value, country_value) if part]
     suggested_hq = ", ".join(suggested_hq_parts)
-    if suggested_hq and not hq_value and not _autofill_was_rejected("company.hq_location", suggested_hq):
+    if suggested_hq and not hq_value and not _autofill_was_rejected(ProfilePaths.COMPANY_HQ_LOCATION, suggested_hq):
         if city_value and country_value:
             description = tr(
                 "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
@@ -5860,7 +5860,7 @@ def _step_company():
                 "Only country provided – use it as headquarters?",
             )
         _render_autofill_suggestion(
-            field_path="company.hq_location",
+            field_path=ProfilePaths.COMPANY_HQ_LOCATION,
             suggestion=suggested_hq,
             title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),
             description=description,
@@ -6438,28 +6438,28 @@ def _step_position():
     if "position.job_title" in missing_here:
         title_label += REQUIRED_SUFFIX
     title_lock = _field_lock_config(
-        "position.job_title",
+        ProfilePaths.POSITION_JOB_TITLE,
         title_label,
         container=role_cols[0],
         context="step",
     )
     job_title_kwargs = _apply_field_lock_kwargs(title_lock)
     position["job_title"] = widget_factory.text_input(
-        "position.job_title",
+        ProfilePaths.POSITION_JOB_TITLE,
         title_lock["label"],
         widget_factory=role_cols[0].text_input,
         placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
         value_formatter=_string_or_empty,
         **job_title_kwargs,
     )
-    _update_profile("position.job_title", position["job_title"])
-    if "position.job_title" in missing_here and not position.get("job_title"):
+    _update_profile(ProfilePaths.POSITION_JOB_TITLE, position["job_title"])
+    if ProfilePaths.POSITION_JOB_TITLE in missing_here and not position.get("job_title"):
         role_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     _render_esco_occupation_selector(position)
 
     position["seniority_level"] = widget_factory.text_input(
-        "position.seniority_level",
+        ProfilePaths.POSITION_SENIORITY,
         tr("Seniorität", "Seniority"),
         widget_factory=role_cols[1].text_input,
         placeholder=tr("z. B. Junior", "e.g., Junior"),
@@ -6468,29 +6468,29 @@ def _step_position():
 
     reporting_cols = st.columns((1, 1))
     position["reporting_line"] = widget_factory.text_input(
-        "position.reporting_line",
+        ProfilePaths.POSITION_REPORTING_LINE,
         tr("Reports an", "Reports to"),
         widget_factory=reporting_cols[0].text_input,
         placeholder=tr("z. B. CTO", "e.g., CTO"),
         value_formatter=_string_or_empty,
     )
     position["reporting_manager_name"] = widget_factory.text_input(
-        "position.reporting_manager_name",
+        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
         tr("Vorgesetzte Person", "Reporting manager"),
         widget_factory=reporting_cols[1].text_input,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
         value_formatter=_string_or_empty,
     )
     summary_label = tr("Rollen-Summary", "Role summary")
-    if "position.role_summary" in missing_here:
+    if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
         summary_label += REQUIRED_SUFFIX
     position["role_summary"] = st.text_area(
         summary_label,
-        value=st.session_state.get("position.role_summary", position.get("role_summary", "")),
+        value=st.session_state.get(ProfilePaths.POSITION_ROLE_SUMMARY, position.get("role_summary", "")),
         height=120,
-        key="position.role_summary",
+        key=ProfilePaths.POSITION_ROLE_SUMMARY,
     )
-    if "position.role_summary" in missing_here and not position.get("role_summary"):
+    if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     st.markdown("#### " + tr("Zeitplan", "Timing"))
@@ -8401,17 +8401,17 @@ def _summary_company() -> None:
         except Exception:
             st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
 
-    _update_profile("company.name", name)
-    _update_profile("company.industry", industry)
-    _update_profile("company.hq_location", hq)
-    _update_profile("company.size", size)
-    _update_profile("company.website", website)
-    _update_profile("company.mission", mission)
-    _update_profile("company.culture", culture)
-    _update_profile("company.brand_keywords", brand)
-    _update_profile("company.contact_name", contact_name)
-    _update_profile("company.contact_email", contact_email)
-    _update_profile("company.contact_phone", contact_phone)
+    _update_profile(ProfilePaths.COMPANY_NAME, name)
+    _update_profile(ProfilePaths.COMPANY_INDUSTRY, industry)
+    _update_profile(ProfilePaths.COMPANY_HQ_LOCATION, hq)
+    _update_profile(ProfilePaths.COMPANY_SIZE, size)
+    _update_profile(ProfilePaths.COMPANY_WEBSITE, website)
+    _update_profile(ProfilePaths.COMPANY_MISSION, mission)
+    _update_profile(ProfilePaths.COMPANY_CULTURE, culture)
+    _update_profile(ProfilePaths.COMPANY_BRAND_KEYWORDS, brand)
+    _update_profile(ProfilePaths.COMPANY_CONTACT_NAME, contact_name)
+    _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, contact_email)
+    _update_profile(ProfilePaths.COMPANY_CONTACT_PHONE, contact_phone)
 
 
 def _summary_position() -> None:
@@ -8471,7 +8471,7 @@ def _summary_position() -> None:
         help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
     summary_city_lock = _field_lock_config(
-        "location.primary_city",
+        ProfilePaths.LOCATION_PRIMARY_CITY,
         tr("Stadt", "City"),
         container=c1,
         context="summary",
@@ -8485,7 +8485,7 @@ def _summary_position() -> None:
         ),
     )
     summary_country_lock = _field_lock_config(
-        "location.country",
+        ProfilePaths.LOCATION_COUNTRY,
         tr("Land", "Country"),
         container=c2,
         context="summary",
@@ -8499,15 +8499,15 @@ def _summary_position() -> None:
         ),
     )
 
-    _update_profile("position.job_title", job_title)
-    _update_profile("position.seniority_level", seniority)
-    _update_profile("position.department", department)
-    _update_profile("position.team_structure", team)
-    _update_profile("position.reporting_line", reporting)
-    _update_profile("position.reporting_manager_name", reporting_manager)
-    _update_profile("position.role_summary", role_summary)
-    _update_profile("location.primary_city", loc_city)
-    _update_profile("location.country", loc_country)
+    _update_profile(ProfilePaths.POSITION_JOB_TITLE, job_title)
+    _update_profile(ProfilePaths.POSITION_SENIORITY, seniority)
+    _update_profile(ProfilePaths.POSITION_DEPARTMENT, department)
+    _update_profile(ProfilePaths.POSITION_TEAM_STRUCTURE, team)
+    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, reporting)
+    _update_profile(ProfilePaths.POSITION_REPORTING_MANAGER_NAME, reporting_manager)
+    _update_profile(ProfilePaths.POSITION_ROLE_SUMMARY, role_summary)
+    _update_profile(ProfilePaths.LOCATION_PRIMARY_CITY, loc_city)
+    _update_profile(ProfilePaths.LOCATION_COUNTRY, loc_country)
 
 
 def _summary_requirements() -> None:
