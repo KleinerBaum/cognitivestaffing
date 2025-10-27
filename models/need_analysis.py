@@ -85,6 +85,23 @@ class Company(BaseModel):
             return cleaned or None
         return value  # type: ignore[return-value]
 
+    @field_validator("brand_color", mode="before")
+    @classmethod
+    def _normalise_brand_color(cls, value: object) -> Optional[str]:
+        """Ensure brand colours are stored as uppercase hex values with ``#``."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            upper = candidate.upper()
+            if re.fullmatch(r"#?[0-9A-F]{6}", upper):
+                return upper if upper.startswith("#") else f"#{upper}"
+            return candidate
+        return value  # type: ignore[return-value]
+
 
 class Position(BaseModel):
     """Information describing the open position."""
