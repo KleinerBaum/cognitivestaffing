@@ -21,7 +21,7 @@ from utils.normalization import normalize_company_size
 
 
 class Company(BaseModel):
-    """Details about the hiring company."""
+    """Details about the hiring company and its branding metadata."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -310,7 +310,13 @@ class Meta(BaseModel):
 
 
 class NeedAnalysisProfile(BaseModel):
-    """Aggregate need analysis profile model."""
+    """Aggregate need analysis profile model with normalised sub-sections.
+
+    Instances are produced via `core.schema.coerce_and_fill`, which applies
+    schema aliases, triggers OpenAI-backed JSON repair, and calls
+    `normalize_profile` so every consumer receives harmonised location data,
+    deduplicated skill lists, and optional branding fields.
+    """
 
     model_config = ConfigDict(extra="forbid")
 

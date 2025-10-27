@@ -40,7 +40,18 @@ This document describes the end-to-end flow for extracting structured vacancy pr
   - If the model returns a normal message instead of a tool call, the function retries with a JSON-mode style prompt that instructs the model to emit schema-conforming JSON.
 - **Validation**: `_extract_tool_arguments()` extracts the raw JSON. The payload is parsed and validated via `NeedAnalysisProfile` (Pydantic), ensuring strong typing before the profile enters the wizard state.
 
-## 5. Error Handling & Retries
+## 5. Normalisation & Repair
+
+1. **Canonicalisation**
+   - `core.schema.coerce_and_fill()` applies `ALIASES`, filters unknown keys, and coerces scalar types before validation.
+2. **LLM repair fallback**
+   - When validation fails, the helper calls the OpenAI Responses API JSON repair routine (`repair_profile_payload`) with the validation errors.
+   - Repaired payloads are canonicalised again and revalidated to ensure schema compliance.
+3. **Post-validation cleanup**
+   - `utils.normalization.normalize_profile()` strips noise (whitespace, duplicate list entries, inconsistent casing) and harmonises countries, languages, and booleans.
+   - Normalised payloads flow back into `NeedAnalysisProfile` instances to guarantee type safety before reaching Streamlit state.
+
+## 6. Error Handling & Retries
 
 - All LLM invocations return a `ChatCallResult` wrapper (`ok`, `usage`, `error`, `raw`). Downstream UI components translate errors into localized feedback and expose retry actions with exponential backoff.
 - When RAG is disabled (`VECTOR_STORE_ID` missing), the pipeline gracefully falls back to text-only extraction without surfacing retrieval errors to the user.

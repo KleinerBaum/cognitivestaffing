@@ -2,14 +2,21 @@
 
 ## Unreleased
 
-- feat: add end-to-end field normalisation with regex heuristics, logging, and safe fallbacks (CS_AGENT/1.0)
-  - Feature: End-to-end-Feldnormalisierung mit Regex-Heuristiken, Logging und sicheren Fallbacks (CS_AGENT/1.0)
-- feat: repair invalid NeedAnalysisProfile payloads via OpenAI JSON schema output with alias reapplication (CS_SCHEMA_PROPAGATE)
-  - Feature: Repariert ungültige NeedAnalysisProfile-Payloads über OpenAI-JSON-Schema-Ausgabe inklusive Alias-Neuzuordnung (CS_SCHEMA_PROPAGATE)
-- feat: auto-detect company branding (logo, color, claim) from scraped HTML and surface it across the wizard UI/export
-  - Feature: Automatische Erkennung von Unternehmensbranding (Logo, Farbe, Claim) aus HTML mit Anzeige im Wizard und Export
-- test/docs: extend regression coverage and README guidance for normalisation, JSON repair, and branding caches
-  - Tests/Doku: Regressionstests und README-Hinweise für Normalisierung, JSON-Reparatur und Branding-Caches erweitert
+### Added / Neu
+- **EN:** Automatic normalisation pipeline harmonises scraped fields (addresses noisy cities, boolean flags, currency formats).
+  **DE:** Automatisierte Normalisierung harmonisiert extrahierte Felder (bereinigt Städte, Boolesche Werte, Währungsformate).
+- **EN:** Company branding integration fetches logo, dominant colour, and claim for the wizard sidebar, exports, and JSON.
+  **DE:** Unternehmensbranding integriert Logo, Leitfarbe und Claim in Sidebar, Exporte und JSON.
+- **EN:** Codex prompting guide entries captured in this changelog to align internal task history.
+  **DE:** Codex-Prompting-Guide-Einträge im Changelog ergänzt, um interne Aufgabenhistorie abzubilden.
+
+### Fixed / Behoben
+- **EN:** Resolved synchronization gaps so extracted data reliably populates wizard forms after repair.
+  **DE:** Synchronisationslücken geschlossen, damit extrahierte Daten nach Reparaturen zuverlässig in den Formularen landen.
+
+### Docs / Doku
+- **EN:** Extended README, developer notes, and screenshots for normalisation, JSON repair, and branding caches.
+  **DE:** README, Entwicklerhinweise und Screenshots zu Normalisierung, JSON-Reparatur und Branding-Caches erweitert.
 
 ## v1.0.0 – Wizard-Vollmodernisierung & KI-Assistenten (2025-10-27)
 
