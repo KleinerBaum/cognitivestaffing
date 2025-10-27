@@ -93,6 +93,14 @@ from core.suggestions import (
     get_static_benefit_shortlist,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
+from components.chip_multiselect import (
+    CHIP_INLINE_VALUE_LIMIT,
+    chip_multiselect,
+    chip_multiselect_mapped,
+    group_chip_options_by_label,
+    render_chip_button_grid,
+)
+from components.form_fields import text_input_with_state
 from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
@@ -130,7 +138,7 @@ WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and
 
 PAGE_LOOKUP: dict[str, WizardPage] = {page.key: page for page in WIZARD_PAGES}
 
-MAX_INLINE_VALUE_CHARS = 20
+MAX_INLINE_VALUE_CHARS = CHIP_INLINE_VALUE_LIMIT
 
 INTRO_TONES: tuple[str, ...] = ("pragmatic", "formal", "casual")
 DEFAULT_INTRO_TONE = INTRO_TONES[0]
@@ -280,16 +288,6 @@ def _generate_local_benefits(profile: Mapping[str, Any], *, lang: str) -> list[s
         suggestions.append(normalized)
     normalized_suggestions = unique_normalized(suggestions)
     return normalized_suggestions[:5]
-
-
-def _compact_inline_label(raw: str, *, limit: int = MAX_INLINE_VALUE_CHARS) -> tuple[str, bool]:
-    """Return a single-line label truncated to ``limit`` characters when needed."""
-
-    text = re.sub(r"\s+", " ", str(raw).strip())
-    if len(text) <= limit:
-        return text, False
-    clipped = text[: max(0, limit - 1)].rstrip()
-    return f"{clipped}…", True
 
 
 T = TypeVar("T")
@@ -4611,20 +4609,6 @@ def _render_autofill_suggestion(
             st.rerun()
 
 
-def _slugify_label(label: str) -> str:
-    """Convert a widget label into a slug suitable for state keys.
-
-    Args:
-        label: Original widget label.
-
-    Returns:
-        Slugified representation of the label.
-    """
-
-    cleaned = re.sub(r"[^0-9a-zA-Z]+", "_", label).strip("_").lower()
-    return cleaned or "field"
-
-
 def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]:
     """Return combined certificate entries across legacy keys."""
 
@@ -5026,7 +5010,7 @@ def _render_esco_occupation_selector(
                     st.session_state[StateKeys.UI_ESCO_OCCUPATION_OVERRIDE] = []
                     _on_change()
                     st.rerun()
-            clicked_selected = _render_chip_button_grid(
+            clicked_selected = render_chip_button_grid(
                 selected_labels,
                 key_prefix="esco.occupations.selected",
                 button_type="primary",
@@ -5047,7 +5031,7 @@ def _render_esco_occupation_selector(
             unsafe_allow_html=True,
         )
         if available_labels:
-            clicked_available = _render_chip_button_grid(
+            clicked_available = render_chip_button_grid(
                 available_labels,
                 key_prefix="esco.occupations.available",
                 columns=3,
@@ -5301,250 +5285,6 @@ def missing_keys(data: dict, critical: List[str], ignore: Optional[set[str]] = N
     flat = flatten(data)
     ignore = ignore or set()
     return [k for k in critical if k not in ignore and ((k not in flat) or (flat[k] in (None, "", [], {})))]
-
-
-# --- UI-Komponenten ---
-def _render_chip_button_grid(
-    options: Sequence[str],
-    *,
-    key_prefix: str,
-    button_type: Literal["primary", "secondary"] = "secondary",
-    columns: int = 3,
-) -> int | None:
-    """Render a responsive grid of clickable buttons representing chip choices."""
-
-    if not options:
-        return None
-
-    per_row = max(1, min(columns, len(options)))
-    grid_columns = st.columns(per_row)
-    clicked_index: int | None = None
-
-    for idx, option in enumerate(options):
-        option_text = str(option)
-        display_text, was_truncated = _compact_inline_label(option_text)
-        if idx and idx % per_row == 0:
-            remaining = len(options) - idx
-            per_row = max(1, min(columns, remaining))
-            grid_columns = st.columns(per_row)
-        col = grid_columns[idx % per_row]
-        with col:
-            pressed = st.button(
-                display_text,
-                key=f"{key_prefix}.{idx}",
-                type=button_type,
-                width="stretch",
-                help=option_text if was_truncated else None,
-            )
-        if pressed and clicked_index is None:
-            clicked_index = idx
-
-    return clicked_index
-
-
-def _group_chip_options_by_label(entries: Iterable[tuple[str, str, str]]) -> list[tuple[str, list[tuple[str, str]]]]:
-    """Group chip entries by their translated label while preserving order."""
-
-    grouped: dict[str, list[tuple[str, str]]] = {}
-    for group_key, value, label in entries:
-        grouped.setdefault(label, []).append((group_key, value))
-    return [(label, values) for label, values in grouped.items()]
-
-
-def _chip_multiselect(
-    label: str,
-    options: List[str],
-    values: List[str],
-    *,
-    key_suffix: str | None = None,
-    help_text: str | None = None,
-    dropdown: bool = False,
-) -> List[str]:
-    """Render an interactive chip-based multiselect with free-text additions.
-
-    ``key_suffix`` can be used to disambiguate widgets that share the same
-    label, ensuring that the session state keys remain unique.
-    """
-
-    slug_parts = [_slugify_label(label)]
-    if key_suffix:
-        slug_parts.append(_slugify_label(str(key_suffix)))
-    slug = ".".join(slug_parts)
-    ms_key = f"ms_{slug}"
-    options_key = f"ui.chip_options.{slug}"
-    input_key = f"ui.chip_input.{slug}"
-    last_added_key = f"ui.chip_last_added.{slug}"
-    clear_flag_key = f"{input_key}.__clear"
-
-    base_options = unique_normalized(options)
-    base_values = unique_normalized(values)
-
-    stored_options = unique_normalized(st.session_state.get(options_key, []))
-    available_options = unique_normalized(stored_options + base_options + base_values)
-    available_options = sorted(available_options, key=str.casefold)
-    st.session_state[options_key] = available_options
-
-    if ms_key not in st.session_state:
-        st.session_state[ms_key] = base_values
-
-    current_values = unique_normalized(st.session_state.get(ms_key, []))
-
-    if st.session_state.get(clear_flag_key):
-        st.session_state[input_key] = ""
-        st.session_state.pop(clear_flag_key, None)
-
-    def _add_chip_entry() -> None:
-        raw_value = st.session_state.get(input_key, "")
-        candidate = raw_value.strip() if isinstance(raw_value, str) else ""
-
-        if not candidate:
-            st.session_state[input_key] = ""
-            st.session_state[last_added_key] = ""
-            return
-
-        last_added = st.session_state.get(last_added_key, "")
-        current_markers = {item.casefold() for item in current_values}
-        candidate_marker = candidate.casefold()
-
-        if candidate_marker in current_markers and candidate_marker == str(last_added).casefold():
-            st.session_state[input_key] = ""
-            return
-
-        updated_options = sorted(
-            unique_normalized(st.session_state.get(options_key, []) + [candidate]),
-            key=str.casefold,
-        )
-        updated_values = unique_normalized(current_values + [candidate])
-
-        st.session_state[options_key] = updated_options
-        st.session_state[ms_key] = updated_values
-        st.session_state[last_added_key] = candidate
-        st.session_state[input_key] = ""
-        st.rerun()
-
-    container = st.expander(label, expanded=True) if dropdown else st.container()
-    with container:
-        if not dropdown:
-            st.markdown(f"**{label}**")
-        if help_text:
-            st.caption(help_text)
-
-        st.text_input(
-            tr("Neuen Wert hinzufügen", "Add new value"),
-            key=input_key,
-            placeholder=tr("Neuen Wert hinzufügen …", "Add new value …"),
-            label_visibility="collapsed",
-            on_change=_add_chip_entry,
-        )
-
-        selected_label = tr("Ausgewählt", "Selected")
-        available_label = tr("Weitere Optionen", "More options")
-
-        selected_values = list(current_values)
-        available_pool = [option for option in available_options if option not in selected_values]
-
-        if selected_values:
-            st.markdown(
-                f"<p class='chip-section-title'>{selected_label}</p>",
-                unsafe_allow_html=True,
-            )
-            clicked_selected = _render_chip_button_grid(
-                selected_values,
-                key_prefix=f"{ms_key}.selected",
-                button_type="primary",
-            )
-            if clicked_selected is not None:
-                value = selected_values[clicked_selected]
-                updated = [item for item in selected_values if item != value]
-                st.session_state[ms_key] = updated
-                st.session_state[last_added_key] = ""
-                st.session_state[clear_flag_key] = True
-                st.rerun()
-        else:
-            st.caption(tr("Noch keine Auswahl getroffen.", "No values selected yet."))
-
-        if available_pool:
-            st.markdown(
-                f"<p class='chip-section-title chip-section-title--secondary'>{available_label}</p>",
-                unsafe_allow_html=True,
-            )
-            clicked_available = _render_chip_button_grid(
-                available_pool,
-                key_prefix=f"{ms_key}.available",
-                button_type="secondary",
-            )
-            if clicked_available is not None:
-                value = available_pool[clicked_available]
-                updated = unique_normalized(selected_values + [value])
-                st.session_state[ms_key] = updated
-                st.session_state[last_added_key] = value
-                st.session_state[clear_flag_key] = True
-                st.rerun()
-        elif not selected_values:
-            st.caption(tr("Keine Vorschläge verfügbar.", "No suggestions available."))
-
-    return unique_normalized(st.session_state.get(ms_key, []))
-
-
-def _chip_multiselect_mapped(
-    label: str,
-    option_pairs: Sequence[tuple[str, str]],
-    values: Sequence[str],
-    *,
-    help_text: str | None = None,
-    dropdown: bool = False,
-    key_suffix: str | None = None,
-) -> list[str]:
-    """Render a chip multiselect while mapping display labels to stored values."""
-
-    normalized_map: dict[str, str] = {}
-    display_options: list[str] = []
-    selected_display: list[str] = []
-
-    def _register_option(value: str, display: str, preselect: bool = False) -> None:
-        cleaned_display = display.strip()
-        if not cleaned_display:
-            cleaned_display = value.strip()
-        if not cleaned_display:
-            return
-        candidate = cleaned_display
-        suffix = 2
-        while candidate.casefold() in normalized_map:
-            candidate = f"{cleaned_display} ({suffix})"
-            suffix += 1
-        normalized_map[candidate.casefold()] = value
-        display_options.append(candidate)
-        if preselect:
-            selected_display.append(candidate)
-
-    for raw_value, display in option_pairs:
-        value = str(raw_value)
-        display_text = str(display)
-        preselect = any(value == str(existing) for existing in values)
-        _register_option(value, display_text, preselect=preselect)
-
-    existing_markers = {str(item) for item in normalized_map.values()}
-    for raw_value in values:
-        value = str(raw_value)
-        if value in existing_markers:
-            continue
-        _register_option(value, value, preselect=True)
-
-    chosen_displays = _chip_multiselect(
-        label,
-        options=display_options,
-        values=selected_display,
-        key_suffix=key_suffix,
-        help_text=help_text,
-        dropdown=dropdown,
-    )
-
-    result: list[str] = []
-    for display in chosen_displays:
-        marker = display.casefold()
-        if marker in normalized_map:
-            result.append(normalized_map[marker])
-    return result
 
 
 # --- Step-Renderers ---
@@ -5816,9 +5556,11 @@ def _step_company():
         company_lock,
         {"help": tr("Offizieller Firmenname", "Official company name")},
     )
-    company["name"] = st.text_input(
+    company["name"] = text_input_with_state(
         company_lock["label"],
-        value=_string_or_empty(company.get("name")),
+        target=company,
+        field="name",
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
         **company_kwargs,
     )
@@ -5832,35 +5574,51 @@ def _step_company():
         city_hint = _string_or_empty(location_data.get("primary_city"))
         if city_hint.strip():
             hq_initial = city_hint.strip()
-    company["hq_location"] = hq_col.text_input(
+    company["hq_location"] = text_input_with_state(
         tr("Hauptsitz", "Headquarters"),
+        target=company,
+        field="hq_location",
+        widget_factory=hq_col.text_input,
         value=hq_initial,
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
         key=UIKeys.COMPANY_HQ_LOCATION,
+        value_formatter=_string_or_empty,
     )
-    company["size"] = size_col.text_input(
+    company["size"] = text_input_with_state(
         tr("Größe", "Size"),
-        value=_string_or_empty(company.get("size")),
+        target=company,
+        field="size",
+        widget_factory=size_col.text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
     )
-    company["industry"] = industry_col.text_input(
+    company["industry"] = text_input_with_state(
         tr("Branche", "Industry"),
-        value=_string_or_empty(company.get("industry")),
+        target=company,
+        field="industry",
+        widget_factory=industry_col.text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
     )
 
     _render_company_research_tools(company.get("website", ""))
 
     website_col, mission_col = st.columns(2, gap="small")
-    company["website"] = website_col.text_input(
+    company["website"] = text_input_with_state(
         tr("Website", "Website"),
-        value=_string_or_empty(company.get("website")),
+        target=company,
+        field="website",
+        widget_factory=website_col.text_input,
+        value_formatter=_string_or_empty,
         placeholder="https://example.com",
         key="ui.company.website",
     )
-    company["mission"] = mission_col.text_input(
+    company["mission"] = text_input_with_state(
         tr("Mission", "Mission"),
-        value=_string_or_empty(company.get("mission")),
+        target=company,
+        field="mission",
+        widget_factory=mission_col.text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr(
             "z. B. Nachhaltige Mobilität fördern",
             "e.g., Promote sustainable mobility",
@@ -5868,9 +5626,11 @@ def _step_company():
         key="ui.company.mission",
     )
 
-    company["culture"] = st.text_input(
+    company["culture"] = text_input_with_state(
         tr("Unternehmenskultur", "Company culture"),
-        value=_string_or_empty(company.get("culture")),
+        target=company,
+        field="culture",
+        value_formatter=_string_or_empty,
         placeholder=tr(
             "z. B. Teamorientiert, innovationsgetrieben",
             "e.g., Team-oriented, innovation-driven",
@@ -5879,33 +5639,38 @@ def _step_company():
     )
 
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
-    contact_name = contact_cols[0].text_input(
+    contact_name = text_input_with_state(
         tr("Kontaktperson", "Primary contact"),
-        value=_string_or_empty(company.get("contact_name")),
+        target=company,
+        field="contact_name",
+        widget_factory=contact_cols[0].text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
         key="ui.company.contact_name",
     )
-    contact_email = contact_cols[1].text_input(
+    contact_email = text_input_with_state(
         tr("Kontakt-E-Mail", "Contact email"),
-        value=_string_or_empty(company.get("contact_email")),
+        target=company,
+        field="contact_email",
+        widget_factory=contact_cols[1].text_input,
+        value_formatter=_string_or_empty,
         placeholder="name@example.com",
         key="ui.company.contact_email",
     )
     phone_label = tr("Telefon", "Phone")
     if "company.contact_phone" in missing_here:
         phone_label += REQUIRED_SUFFIX
-    contact_phone = contact_cols[2].text_input(
+    contact_phone = text_input_with_state(
         phone_label,
-        value=_string_or_empty(company.get("contact_phone")),
+        target=company,
+        field="contact_phone",
+        widget_factory=contact_cols[2].text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
         key="ui.company.contact_phone",
     )
     if "company.contact_phone" in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-
-    company["contact_name"] = contact_name
-    company["contact_email"] = contact_email
-    company["contact_phone"] = contact_phone
 
     _update_profile("company.contact_name", contact_name)
     _update_profile("company.contact_email", contact_email)
@@ -5919,9 +5684,12 @@ def _step_company():
         context="step",
     )
     city_kwargs = _apply_field_lock_kwargs(city_lock)
-    location_data["primary_city"] = city_col.text_input(
+    location_data["primary_city"] = text_input_with_state(
         city_lock["label"],
-        value=_string_or_empty(location_data.get("primary_city")),
+        target=location_data,
+        field="primary_city",
+        widget_factory=city_col.text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
         **city_kwargs,
     )
@@ -5937,9 +5705,12 @@ def _step_company():
         context="step",
     )
     country_kwargs = _apply_field_lock_kwargs(country_lock)
-    location_data["country"] = country_col.text_input(
+    location_data["country"] = text_input_with_state(
         country_lock["label"],
-        value=_string_or_empty(location_data.get("country")),
+        target=location_data,
+        field="country",
+        widget_factory=country_col.text_input,
+        value_formatter=_string_or_empty,
         placeholder=tr("z. B. DE", "e.g., DE"),
         **country_kwargs,
     )
@@ -6282,7 +6053,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
                 for index in phase_indices
             ]
             selected_phase_strings = [str(index) for index in existing_selection]
-            chosen_phase_values = _chip_multiselect_mapped(
+            chosen_phase_values = chip_multiselect_mapped(
                 tr("Informationsloop-Phasen", "Information loop phases"),
                 option_pairs=label_pairs,
                 values=selected_phase_strings,
@@ -6378,9 +6149,10 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
 
     for idx, phase in enumerate(phases):
         with st.expander(f"{tr('Phase', 'Phase')} {idx + 1}", expanded=False):
-            phase["name"] = st.text_input(
+            phase["name"] = text_input_with_state(
                 tr("Phasen-Name", "Phase name"),
-                value=phase.get("name", ""),
+                target=phase,
+                field="name",
                 key=f"{key_prefix}.{idx}.name",
             )
             value_options = [v for v, _ in format_options]
@@ -6398,15 +6170,16 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
             )
             phase_participants = _filter_existing_participants(phase.get("participants", []), stakeholder_names)
             participant_pairs = [(name, name) for name in stakeholder_names if isinstance(name, str) and name]
-            phase["participants"] = _chip_multiselect_mapped(
+            phase["participants"] = chip_multiselect_mapped(
                 tr("Beteiligte", "Participants"),
                 option_pairs=participant_pairs,
                 values=phase_participants,
                 key_suffix=f"{key_prefix}.{idx}.participants",
             )
-            phase["docs_required"] = st.text_input(
+            phase["docs_required"] = text_input_with_state(
                 tr("Benötigte Unterlagen/Assignments", "Required docs/assignments"),
-                value=phase.get("docs_required", ""),
+                target=phase,
+                field="docs_required",
                 key=f"{key_prefix}.{idx}.docs",
             )
             phase["assessment_tests"] = st.checkbox(
@@ -6414,9 +6187,10 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 value=phase.get("assessment_tests", False),
                 key=f"{key_prefix}.{idx}.assessment",
             )
-            phase["timeframe"] = st.text_input(
+            phase["timeframe"] = text_input_with_state(
                 tr("Geplanter Zeitrahmen", "Timeframe"),
-                value=phase.get("timeframe", ""),
+                target=phase,
+                field="timeframe",
                 key=f"{key_prefix}.{idx}.timeframe",
             )
 
@@ -6482,7 +6256,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
     current_suggestions = st.session_state.get(StateKeys.ONBOARDING_SUGGESTIONS, []) or []
     options = list(dict.fromkeys(current_suggestions + existing_entries))
     defaults = [opt for opt in options if opt in existing_entries]
-    selected = _chip_multiselect(
+    selected = chip_multiselect(
         tr("Onboarding-Prozess", "Onboarding process"),
         options=options,
         values=defaults,
@@ -6833,9 +6607,11 @@ def _step_position():
                 )
                 employment["travel_regions"] = selected_countries
 
-            employment["travel_details"] = col_details.text_input(
+            employment["travel_details"] = text_input_with_state(
                 tr("Zusatzinfos", "Additional details"),
-                value=employment.get("travel_details", ""),
+                target=employment,
+                field="travel_details",
+                widget_factory=col_details.text_input,
             )
     else:
         for field_name in (
@@ -6848,9 +6624,10 @@ def _step_position():
             employment.pop(field_name, None)
 
     if employment.get("relocation_support"):
-        employment["relocation_details"] = st.text_input(
+        employment["relocation_details"] = text_input_with_state(
             tr("Relocation-Details", "Relocation details"),
-            value=employment.get("relocation_details", ""),
+            target=employment,
+            field="relocation_details",
         )
     else:
         employment.pop("relocation_details", None)
@@ -7058,7 +6835,7 @@ def _step_requirements():
 
     helper_columns = st.columns((2.5, 1.5), gap="large")
     with helper_columns[0]:
-        focus_selection = _chip_multiselect(
+        focus_selection = chip_multiselect(
             tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
             options=focus_options,
             values=stored_focus,
@@ -7375,12 +7152,12 @@ def _step_requirements():
                 "Click a tile to add the suggestion.",
             )
         )
-        grouped_options = _group_chip_options_by_label(formatted_options)
+        grouped_options = group_chip_options_by_label(formatted_options)
         clicked_entry: tuple[str, str] | None = None
         for group_index, (label, group_entries) in enumerate(grouped_options):
             st.caption(label)
             values_only = [value for _group, value in group_entries]
-            clicked_index = _render_chip_button_grid(
+            clicked_index = render_chip_button_grid(
                 values_only,
                 key_prefix=f"{widget_prefix}.chips.{group_index}",
                 columns=3,
@@ -7591,7 +7368,7 @@ def _step_requirements():
         if "requirements.hard_skills_required" in missing_here:
             label_hard_req += REQUIRED_SUFFIX
         with must_cols[0]:
-            data["requirements"]["hard_skills_required"] = _chip_multiselect(
+            data["requirements"]["hard_skills_required"] = chip_multiselect(
                 label_hard_req,
                 options=data["requirements"].get("hard_skills_required", []),
                 values=data["requirements"].get("hard_skills_required", []),
@@ -7619,7 +7396,7 @@ def _step_requirements():
         if "requirements.soft_skills_required" in missing_here:
             label_soft_req += REQUIRED_SUFFIX
         with must_cols[1]:
-            data["requirements"]["soft_skills_required"] = _chip_multiselect(
+            data["requirements"]["soft_skills_required"] = chip_multiselect(
                 label_soft_req,
                 options=data["requirements"].get("soft_skills_required", []),
                 values=data["requirements"].get("soft_skills_required", []),
@@ -7658,7 +7435,7 @@ def _step_requirements():
     ):
         nice_cols = st.columns(2, gap="large")
         with nice_cols[0]:
-            data["requirements"]["hard_skills_optional"] = _chip_multiselect(
+            data["requirements"]["hard_skills_optional"] = chip_multiselect(
                 tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
                 options=data["requirements"].get("hard_skills_optional", []),
                 values=data["requirements"].get("hard_skills_optional", []),
@@ -7678,7 +7455,7 @@ def _step_requirements():
                 ),
             )
         with nice_cols[1]:
-            data["requirements"]["soft_skills_optional"] = _chip_multiselect(
+            data["requirements"]["soft_skills_optional"] = chip_multiselect(
                 tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
                 options=data["requirements"].get("soft_skills_optional", []),
                 values=data["requirements"].get("soft_skills_optional", []),
@@ -7713,7 +7490,7 @@ def _step_requirements():
     ):
         tech_cert_cols = st.columns(2, gap="large")
         with tech_cert_cols[0]:
-            data["requirements"]["tools_and_technologies"] = _chip_multiselect(
+            data["requirements"]["tools_and_technologies"] = chip_multiselect(
                 tr("Tools & Tech", "Tools & Tech"),
                 options=data["requirements"].get("tools_and_technologies", []),
                 values=data["requirements"].get("tools_and_technologies", []),
@@ -7734,7 +7511,7 @@ def _step_requirements():
             )
         with tech_cert_cols[1]:
             certificate_options = _collect_combined_certificates(data["requirements"])
-            selected_certificates = _chip_multiselect(
+            selected_certificates = chip_multiselect(
                 tr("Zertifikate", "Certificates"),
                 options=certificate_options,
                 values=certificate_options,
@@ -7770,7 +7547,7 @@ def _step_requirements():
     ):
         lang_cols = st.columns(2, gap="large")
         with lang_cols[0]:
-            data["requirements"]["languages_required"] = _chip_multiselect(
+            data["requirements"]["languages_required"] = chip_multiselect(
                 tr("Sprachen", "Languages"),
                 options=data["requirements"].get("languages_required", []),
                 values=data["requirements"].get("languages_required", []),
@@ -7781,7 +7558,7 @@ def _step_requirements():
                 dropdown=True,
             )
         with lang_cols[1]:
-            data["requirements"]["languages_optional"] = _chip_multiselect(
+            data["requirements"]["languages_optional"] = chip_multiselect(
                 tr("Optionale Sprachen", "Optional languages"),
                 options=data["requirements"].get("languages_optional", []),
                 values=data["requirements"].get("languages_optional", []),
@@ -8145,7 +7922,7 @@ def _step_compensation():
     combined_options = merge_unique_items(existing_benefits, fallback_pool)
     combined_options = merge_unique_items(combined_options, llm_benefits)
     benefit_options = sorted(combined_options, key=str.casefold)
-    selected_benefits = _chip_multiselect(
+    selected_benefits = chip_multiselect(
         tr("Leistungen", "Benefits", lang=lang),
         options=benefit_options,
         values=existing_benefits,
@@ -8159,7 +7936,7 @@ def _step_compensation():
         ),
         key=str.casefold,
     )
-    selected_benefit_focus = _chip_multiselect(
+    selected_benefit_focus = chip_multiselect(
         tr(
             "Fokus für Benefit-Vorschläge",
             "Focus for AI benefit suggestions",
@@ -8214,12 +7991,12 @@ def _step_compensation():
                 lang=lang,
             )
         )
-        grouped_benefits = _group_chip_options_by_label(formatted_benefits)
+        grouped_benefits = group_chip_options_by_label(formatted_benefits)
         clicked_entry: tuple[str, str] | None = None
         for group_index, (label, group_entries) in enumerate(grouped_benefits):
             st.caption(label)
             display_values = [value for _group, value in group_entries]
-            clicked_index = _render_chip_button_grid(
+            clicked_index = render_chip_button_grid(
                 display_values,
                 key_prefix=f"{suggestion_key}.{group_index}",
                 columns=3,
@@ -8807,18 +8584,20 @@ def _summary_employment() -> None:
     )
 
     if travel:
-        travel_details = st.text_input(
+        travel_details = text_input_with_state(
             tr("Reisedetails", "Travel details"),
-            value=data["employment"].get("travel_details", ""),
+            target=data["employment"],
+            field="travel_details",
             key="ui.summary.employment.travel_details",
         )
     else:
         travel_details = None
 
     if relocation:
-        relocation_details = st.text_input(
+        relocation_details = text_input_with_state(
             tr("Umzugsunterstützung", "Relocation details"),
-            value=data["employment"].get("relocation_details", ""),
+            target=data["employment"],
+            field="relocation_details",
             key="ui.summary.employment.relocation_details",
         )
     else:
@@ -8939,7 +8718,7 @@ def _summary_compensation() -> None:
         unique_normalized(existing_benefits + preset_options),
         key=str.casefold,
     )
-    benefits = _chip_multiselect(
+    benefits = chip_multiselect(
         tr("Leistungen", "Benefits"),
         options=benefit_options,
         values=existing_benefits,
@@ -9538,7 +9317,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 st.session_state[widget_key] = sanitized_values
 
         option_pairs = [(key, field_labels.get(key, key)) for key in options]
-        selected_group_values = _chip_multiselect_mapped(
+        selected_group_values = chip_multiselect_mapped(
             widget_label,
             option_pairs=option_pairs,
             values=default_values,
@@ -9763,7 +9542,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                 if phase_indices:
                     label_pairs = [(index, _phase_label_formatter(phase_labels)(index)) for index in phase_indices]
                     selected_phase_strings = [str(index) for index in existing_selection]
-                    chosen_summary_phases = _chip_multiselect_mapped(
+                    chosen_summary_phases = chip_multiselect_mapped(
                         tr("Phasen", "Phases"),
                         option_pairs=label_pairs,
                         values=selected_phase_strings,

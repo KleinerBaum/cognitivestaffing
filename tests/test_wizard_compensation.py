@@ -115,9 +115,9 @@ def test_step_compensation_normalizes_benefit_options(monkeypatch: pytest.Monkey
             return ["Gym Membership", "Health Insurance"]
         return values
 
-    monkeypatch.setattr("wizard._chip_multiselect", fake_chip_multiselect)
-    monkeypatch.setattr("wizard._group_chip_options_by_label", lambda entries: [("", list(entries))])
-    monkeypatch.setattr("wizard._render_chip_button_grid", lambda values, **_: None)
+    monkeypatch.setattr("wizard.chip_multiselect", fake_chip_multiselect)
+    monkeypatch.setattr("wizard.group_chip_options_by_label", lambda entries: [("", list(entries))])
+    monkeypatch.setattr("wizard.render_chip_button_grid", lambda values, **_: None)
     monkeypatch.setattr(
         "wizard._render_followups_for_section",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(StopWizard()),

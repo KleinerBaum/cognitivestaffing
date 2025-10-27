@@ -151,7 +151,7 @@ def test_step_requirements_initializes_requirements(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
     monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
     monkeypatch.setattr("wizard.get_skill_suggestions", lambda *_args, **_kwargs: ({}, None))
-    monkeypatch.setattr("wizard._chip_multiselect", lambda *_, **__: [])
+    monkeypatch.setattr("wizard.chip_multiselect", lambda *_, **__: [])
 
     class FakePanel:
         def __enter__(self) -> "FakePanel":
@@ -251,7 +251,7 @@ def test_responsibilities_seed_preserves_user_input(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
     monkeypatch.setattr("wizard.get_missing_critical_fields", lambda *, max_section=None: [])
     monkeypatch.setattr("wizard.get_skill_suggestions", lambda *_args, **_kwargs: ({}, None))
-    monkeypatch.setattr("wizard._chip_multiselect", lambda *_, **__: [])
+    monkeypatch.setattr("wizard.chip_multiselect", lambda *_, **__: [])
 
     class FakePanel:
         def __enter__(self) -> "FakePanel":

@@ -29,7 +29,23 @@ from opentelemetry.trace import Status, StatusCode
 
 from utils.i18n import tr
 from i18n import t as translate_key
-from wizard._openai_bridge import call_chat_api, build_file_search_tool
+
+
+def call_chat_api(*args: Any, **kwargs: Any) -> Any:
+    """Proxy to lazily import :func:`wizard._openai_bridge.call_chat_api`."""
+
+    from wizard._openai_bridge import call_chat_api as _call_chat_api
+
+    return _call_chat_api(*args, **kwargs)
+
+
+def build_file_search_tool(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Proxy to lazily import :func:`wizard._openai_bridge.build_file_search_tool`."""
+
+    from wizard._openai_bridge import build_file_search_tool as _build_file_search_tool
+
+    return _build_file_search_tool(*args, **kwargs)
+
 
 # ESCO helpers (core utils + offline-aware wrapper)
 from constants.keys import StateKeys
