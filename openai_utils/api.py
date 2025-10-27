@@ -1059,11 +1059,15 @@ def _prepare_payload(
 
         if function_name:
             function_dict["name"] = function_name
-        prepared.pop("name", None)
+            prepared["name"] = function_name
+            has_name = True
+        else:
+            prepared.pop("name", None)
+            has_name = False
 
         prepared["type"] = "function"
         prepared["function"] = function_dict
-        return prepared, bool(function_name)
+        return prepared, has_name
 
     def _normalise_tool_choice_spec(choice: Any) -> Any:
         """Translate legacy function ``tool_choice`` payloads to the new schema."""
@@ -1132,6 +1136,7 @@ def _prepare_payload(
             raise ValueError("Function tools must define a 'name'.")
 
         function_block["name"] = fallback_name
+        converted_tools[index]["name"] = fallback_name
         used_names.add(fallback_name)
 
     combined_tools = converted_tools
@@ -1151,10 +1156,13 @@ def _prepare_payload(
             schema_payload = dict(json_schema)
             if STRICT_JSON:
                 schema_payload.setdefault("strict", True)
+            schema_name = schema_payload.get("name")
             format_config: dict[str, Any] = {
                 "type": "json_schema",
                 "json_schema": schema_payload,
             }
+            if isinstance(schema_name, str) and schema_name.strip():
+                format_config["name"] = schema_name.strip()
             payload["response_format"] = format_config
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
@@ -1178,10 +1186,13 @@ def _prepare_payload(
             schema_payload = dict(json_schema)
             if STRICT_JSON:
                 schema_payload.setdefault("strict", True)
+            schema_name = schema_payload.get("name")
             format_config = {
                 "type": "json_schema",
                 "json_schema": schema_payload,
             }
+            if isinstance(schema_name, str) and schema_name.strip():
+                format_config["name"] = schema_name.strip()
             text_config["format"] = format_config
             payload["text"] = text_config
         if combined_tools:

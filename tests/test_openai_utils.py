@@ -152,8 +152,8 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
-def test_responses_payload_omits_top_level_tool_names(monkeypatch):
-    """Responses payloads should not expose top-level tool names."""
+def test_responses_payload_includes_top_level_tool_names(monkeypatch):
+    """Responses payloads should expose tool names for function entries."""
 
     monkeypatch.setattr("core.analysis_tools.build_analysis_tools", lambda: ([], {}))
 
@@ -177,7 +177,7 @@ def test_responses_payload_omits_top_level_tool_names(monkeypatch):
     assert sent_payload["tools"], "Expected at least one tool in the payload"
     tool_entry = sent_payload["tools"][0]
     assert tool_entry.get("type") == "function"
-    assert "name" not in tool_entry
+    assert tool_entry.get("name") == "say_hi"
     assert tool_entry.get("function", {}).get("name") == "say_hi"
 
 
@@ -1030,6 +1030,7 @@ def test_call_chat_api_normalises_tool_schema(monkeypatch):
                     fn_block = tool.get("function", {})
                     assert "name" in fn_block and fn_block["name"]
                     assert "parameters" in fn_block
+                    assert tool.get("name") == fn_block["name"]
                 else:
                     assert "function" not in tool
                     assert tool.get("name") in {None, tool.get("type")}
@@ -1080,7 +1081,7 @@ def test_prepare_payload_includes_analysis_helpers():
         if tool.get("type") == "function":
             fn_payload = tool.get("function", {})
             assert fn_payload.get("name")
-            assert "name" not in tool
+            assert tool.get("name") == fn_payload.get("name")
         else:
             assert tool.get("name") in {None, tool.get("type")}
 
