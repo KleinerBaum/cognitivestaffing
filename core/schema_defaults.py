@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from .schema import (
-    KEYS_CANONICAL,
     OnCallRequirement,
     RecruitingWizard,
     SourceType,
     WorkModel,
+    WIZARD_KEYS_CANONICAL,
 )
 
 
@@ -146,11 +146,11 @@ def default_recruiting_wizard() -> RecruitingWizard:
     """Return the default wizard payload used for smoke tests and roundtrips."""
 
     payload = RecruitingWizard.model_validate(_DEFAULT_WIZARD_DATA)
-    if KEYS_CANONICAL:  # defensive: ensure the schema stayed aligned.
+    if WIZARD_KEYS_CANONICAL:  # defensive: ensure the schema stayed aligned.
         missing = sorted(
             key
             for key in payload.sources.root
-            if key not in KEYS_CANONICAL  # type: ignore[attr-defined]
+            if key not in WIZARD_KEYS_CANONICAL  # type: ignore[attr-defined]
         )
         if missing:
             raise ValueError(f"Source map not aligned with canonical keys: {missing}")

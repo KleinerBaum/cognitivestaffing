@@ -11,6 +11,8 @@
   **DE:** Codex-Prompting-Guide-Einträge im Changelog ergänzt, um interne Aufgabenhistorie abzubilden.
 
 ### Fixed / Behoben
+- **EN:** Canonical NeedAnalysisProfile key registry now drives aliases and state/export sanitisation so legacy keys disappear after ingestion (CS_SCHEMA_PROPAGATE).
+  **DE:** Der kanonische NeedAnalysisProfile-Key-Index steuert Alias- und State/Export-Bereinigung, sodass nach dem Import keine Legacy-Keys mehr verbleiben (CS_SCHEMA_PROPAGATE).
 - **EN:** City normalization now strips leading prepositions, removes trailing fragments, and falls back to a structured LLM
   extraction when regex cleanup fails to find a result.
   **DE:** Die Städtereinigung entfernt führende Präpositionen, kappt kleingeschriebene Fragmente und nutzt bei leerem Regex-Ergebnis

@@ -143,27 +143,32 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
 **EN:** The new RecruitingWizard master schema (see `core/schema.py`) unifies the
 company, team, role, skills, benefits, interview process, and summary payloads that
 power the wizard UI, downstream logic, and exports. Each field is represented by a
-typed Pydantic model, and `KEYS_CANONICAL` exposes the canonical dot-paths so other
+typed Pydantic model, and `WIZARD_KEYS_CANONICAL` exposes the canonical dot-paths so other
 modules (`wizard/`, `question_logic.py`, exports) stay in sync. Source tracking and
 gap analysis are first-class citizens via `SourceMap` (`user` | `extract` | `web`
 with confidence and `source_url`) and `MissingFieldMap` entries that carry owners
 and reminders. Enable the schema by setting `SCHEMA_WIZARD_V1=1`; a feature flag is
 kept for gradual rollout. The helper in `core/schema_defaults.py` provides a sample
 payload for tests, while `exports/models.py` wraps validated payloads for JSON/MD
-deliverables.
+deliverables. The ingestion/export profile continues to use `NeedAnalysisProfile`;
+the canonical dot-paths are exposed via `core.schema.KEYS_CANONICAL` and legacy
+bridges live in `core.schema.ALIASES`.
 
 **DE:** Das neue RecruitingWizard-Masterschema (`core/schema.py`) bündelt Unternehmens-,
 Team-, Rollen-, Skill-, Benefit-, Interview- und Zusammenfassungsdaten als zentrale
-Wahrheit für Wizard, Logik und Exporte. Alle Felder sind typisiert, `KEYS_CANONICAL`
+Wahrheit für Wizard, Logik und Exporte. Alle Felder sind typisiert, `WIZARD_KEYS_CANONICAL`
 liefert die kanonischen Dot-Pfade, damit UI (`wizard/`), Business-Logik und Exporte
 identisch bleiben. `SourceMap` (`user` | `extract` | `web` mit Confidence &
 `source_url`) sowie `MissingFieldMap` inklusive Owner/Reminder halten Lücken sichtbar.
 Die Aktivierung erfolgt über `SCHEMA_WIZARD_V1=1`; das Feature-Flag ermöglicht einen
 gestaffelten Rollout. `core/schema_defaults.py` stellt ein Beispieldataset für Tests
 bereit, `exports/models.py` kapselt validierte Payloads für JSON- und Markdown-Exports.
+Der Ingest-/Exportpfad nutzt weiterhin das `NeedAnalysisProfile`; die kanonischen
+Dot-Pfade liefert `core.schema.KEYS_CANONICAL`, die Legacy-Zuordnungen liegen in
+`core.schema.ALIASES`.
 
 > **Migration note / Migrationshinweis:** Align wizard widgets and downstream
-> processors with the canonical keys from `core/schema.py::KEYS_CANONICAL`. During the
+> processors with the canonical keys from `core/schema.py::WIZARD_KEYS_CANONICAL`. During the
 > rollout keep legacy handling behind the feature flag disabled until UI and exports
 > reference the new schema end-to-end.
 

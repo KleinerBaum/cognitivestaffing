@@ -15,7 +15,7 @@ from typing import Any, Mapping
 
 import streamlit as st
 
-from constants.keys import StateKeys, UIKeys
+from constants.keys import ProfilePaths, StateKeys, UIKeys
 from state import ensure_state
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from utils.normalization import country_to_iso2
@@ -172,18 +172,16 @@ def _benchmark_salary_range(
 ) -> tuple[int | None, int | None, str | None]:
     """Return salary bounds derived from static benchmark data."""
 
-    position = profile.get("position", {}) if isinstance(profile, Mapping) else {}
-    job_title = str(position.get("job_title") or "").strip()
+    job_title = str(_get_profile_value(profile, ProfilePaths.POSITION_JOB_TITLE) or "").strip()
     if not job_title:
         return None, None, None
 
-    location = profile.get("location", {}) if isinstance(profile, Mapping) else {}
-    country_raw = str(location.get("country") or "").strip()
+    country_raw = str(_get_profile_value(profile, ProfilePaths.LOCATION_COUNTRY) or "").strip()
     iso_country = country_to_iso2(country_raw) if country_raw else None
     benchmark_role = resolve_salary_role(job_title) or job_title
     bench_country = iso_country or (country_raw.upper() if country_raw else "US")
     benchmark = get_salary_benchmark(benchmark_role, bench_country)
-    raw_range = str(benchmark.get("salary_range") or "")
+    raw_range = str((benchmark or {}).get("salary_range") or "")
     salary_min, salary_max = _parse_salary_range_text(raw_range)
     currency = _infer_currency_from_range(raw_range)
     if currency is None and iso_country:
@@ -200,13 +198,25 @@ _DEFAULT_CURRENCY_BY_ISO: dict[str, str] = {
 }
 
 
+def _get_profile_value(profile: Mapping[str, Any], field_path: str) -> Any:
+    """Return the nested value stored under ``field_path`` within ``profile``."""
+
+    current: Any = profile
+    for part in field_path.split("."):
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+        if current is None:
+            return None
+    return current
+
+
 def _derive_salary_range_defaults(profile: Mapping[str, Any]) -> _SalaryRangeDefaults:
     """Compute slider defaults from profile or benchmark information."""
 
-    compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
-    current_min = _to_int(compensation.get("salary_min"))
-    current_max = _to_int(compensation.get("salary_max"))
-    current_currency = str(compensation.get("currency") or "").strip() or None
+    current_min = _to_int(_get_profile_value(profile, "compensation.salary_min"))
+    current_max = _to_int(_get_profile_value(profile, "compensation.salary_max"))
+    current_currency = str(_get_profile_value(profile, "compensation.currency") or "").strip() or None
 
     if current_min is not None or current_max is not None:
         minimum = _clamp_salary_value(current_min or current_max)
