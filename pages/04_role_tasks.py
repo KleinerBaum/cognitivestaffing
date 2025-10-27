@@ -10,12 +10,16 @@ PAGE = WizardPage(
     panel_subheader=("Deliverables & Wirkung", "Deliverables & impact"),
     panel_intro_variants=(
         (
-            "Beschreibe, was die Rolle wöchentlich leisten soll.",
-            "Capture what the role delivers week-to-week.",
+            "Fasse zusammen, welche Ergebnisse die Rolle kurzfristig liefern muss.",
+            "Summarise the outcomes this role needs to deliver in the near term.",
         ),
         (
-            "Die Liste fließt in Anzeigen- und Interviewleitfäden ein.",
-            "This list powers job ads and interview guides.",
+            "Konkret benannte Deliverables helfen bei Automatisierung von Anzeigen, Scorecards und Onboarding.",
+            "Explicit deliverables feed automation for job ads, scorecards, and onboarding.",
+        ),
+        (
+            "Schreibe locker runter, woran die Person in den ersten Monaten wirklich arbeitet.",
+            "Jot down what this person will actually be tackling in the first months.",
         ),
     ),
     required_fields=(

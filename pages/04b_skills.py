@@ -10,12 +10,16 @@ PAGE = WizardPage(
     panel_subheader=("Muss & Nice-to-have", "Must & nice-to-have"),
     panel_intro_variants=(
         (
-            "Halte die wichtigsten Skills strukturiert fest.",
-            "Capture the key skills in a structured way.",
+            "Lege fest, welche Kompetenzen zwingend und welche optional sind.",
+            "Specify which competencies are mandatory and which are optional.",
         ),
         (
-            "Diese Angaben steuern Matching, Benchmarks und Exporte.",
-            "These values power matching, benchmarks, and exports.",
+            "Sauber strukturierte Skill-Daten verbessern Scoring, Marktvergleiche und Exportqualität.",
+            "Well-structured skill data improves scoring, market benchmarks, and export quality.",
+        ),
+        (
+            "Markiere locker, was die Person wirklich können muss – den Rest packen wir unter Nice-to-have.",
+            "Flag what this person absolutely needs to know and we’ll park the rest as nice-to-have.",
         ),
     ),
     required_fields=(

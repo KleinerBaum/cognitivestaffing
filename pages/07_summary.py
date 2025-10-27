@@ -10,12 +10,16 @@ PAGE = WizardPage(
     panel_subheader=("Prüfe Ergebnisse", "Review the results"),
     panel_intro_variants=(
         (
-            "Überprüfe Datenpunkte, generiere Anzeige oder Interviewleitfaden.",
-            "Review the data points and generate the job ad or interview guide.",
+            "Prüfe die wichtigsten Angaben und starte anschließend Export oder KI-Outputs.",
+            "Double-check the key inputs before triggering exports or AI outputs.",
         ),
         (
-            "Von hier aus kannst du JSON, Markdown oder Analysen exportieren.",
-            "From here you can export JSON, Markdown, or analysis outputs.",
+            "Saubere Validierung hier stellt konsistente Daten für Anzeigen, Reports und Integrationen sicher.",
+            "Thorough validation here ensures consistent data for ads, reports, and integrations.",
+        ),
+        (
+            "Gönn dir einen letzten Blick, dann kannst du mit einem Klick exportieren oder teilen.",
+            "Take one last look and then share or export everything with a single click.",
         ),
     ),
     required_fields=(),
