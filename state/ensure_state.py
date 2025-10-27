@@ -6,11 +6,13 @@ import logging
 import os
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 import streamlit as st
 from pydantic import ValidationError
+
+from types import MappingProxyType
 
 from constants.keys import StateKeys
 from config import (
@@ -31,6 +33,52 @@ import config as app_config
 
 
 logger = logging.getLogger(__name__)
+
+
+_DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
+    {
+        StateKeys.RAW_TEXT: lambda: "",
+        StateKeys.RAW_BLOCKS: list,
+        StateKeys.STEP: lambda: 0,
+        StateKeys.EXTRACTION_SUMMARY: dict,
+        StateKeys.EXTRACTION_MISSING: list,
+        StateKeys.EXTRACTION_RAW_PROFILE: dict,
+        StateKeys.ESCO_SKILLS: list,
+        StateKeys.ESCO_MISSING_SKILLS: list,
+        StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS: list,
+        StateKeys.UI_ESCO_OCCUPATION_OPTIONS: list,
+        StateKeys.ESCO_SELECTED_OCCUPATIONS: list,
+        StateKeys.SKILL_BUCKETS: lambda: {"must": [], "nice": []},
+        StateKeys.FOLLOWUPS: list,
+        StateKeys.COMPLETED_SECTIONS: list,
+        StateKeys.FIRST_INCOMPLETE_SECTION: lambda: None,
+        StateKeys.PENDING_INCOMPLETE_JUMP: lambda: False,
+        StateKeys.WIZARD_STEP_COUNT: lambda: 0,
+        StateKeys.WIZARD_AUTOFILL_DECISIONS: dict,
+        StateKeys.COMPANY_PAGE_SUMMARIES: dict,
+        StateKeys.COMPANY_PAGE_BASE: lambda: "",
+        StateKeys.COMPANY_PAGE_TEXT_CACHE: dict,
+        StateKeys.COMPANY_INFO_CACHE: dict,
+        StateKeys.JOB_AD_SELECTED_FIELDS: set,
+        StateKeys.JOB_AD_SELECTED_VALUES: dict,
+        StateKeys.JOB_AD_MANUAL_ENTRIES: list,
+        StateKeys.JOB_AD_SELECTED_AUDIENCE: lambda: "",
+        StateKeys.JOB_AD_FONT_CHOICE: lambda: "Helvetica",
+        StateKeys.JOB_AD_LOGO_DATA: lambda: None,
+        StateKeys.INTERVIEW_AUDIENCE: lambda: "general",
+        StateKeys.INTERVIEW_GUIDE_DATA: dict,
+        StateKeys.JOB_AD_MD: lambda: "",
+        StateKeys.BOOLEAN_STR: lambda: "",
+        StateKeys.INTERVIEW_GUIDE_MD: lambda: "",
+        "lang": lambda: "en",
+        "auto_reask": lambda: True,
+        "auto_reask_round": lambda: 0,
+        "auto_reask_total": lambda: 0,
+        "dark_mode": lambda: True,
+        "skip_intro": lambda: False,
+        "wizard": lambda: {"current_step": "jobad"},
+    }
+)
 
 
 def ensure_state() -> None:
@@ -58,68 +106,9 @@ def ensure_state() -> None:
                     sanitized_error,
                 )
                 st.session_state[StateKeys.PROFILE] = normalize_profile(NeedAnalysisProfile())
-    if StateKeys.RAW_TEXT not in st.session_state:
-        st.session_state[StateKeys.RAW_TEXT] = ""
-    if StateKeys.RAW_BLOCKS not in st.session_state:
-        st.session_state[StateKeys.RAW_BLOCKS] = []
-    if StateKeys.STEP not in st.session_state:
-        st.session_state[StateKeys.STEP] = 0
-    if StateKeys.EXTRACTION_SUMMARY not in st.session_state:
-        st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
-    if StateKeys.EXTRACTION_MISSING not in st.session_state:
-        st.session_state[StateKeys.EXTRACTION_MISSING] = []
-    if StateKeys.EXTRACTION_RAW_PROFILE not in st.session_state:
-        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {}
-    if StateKeys.ESCO_SKILLS not in st.session_state:
-        st.session_state[StateKeys.ESCO_SKILLS] = []
-    if StateKeys.ESCO_MISSING_SKILLS not in st.session_state:
-        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
-    if StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS not in st.session_state:
-        st.session_state[StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS] = []
-    if StateKeys.UI_ESCO_OCCUPATION_OPTIONS not in st.session_state:
-        st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = []
-    if StateKeys.ESCO_SELECTED_OCCUPATIONS not in st.session_state:
-        st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
-    if StateKeys.SKILL_BUCKETS not in st.session_state:
-        st.session_state[StateKeys.SKILL_BUCKETS] = {"must": [], "nice": []}
-    if StateKeys.FOLLOWUPS not in st.session_state:
-        st.session_state[StateKeys.FOLLOWUPS] = []
-    if StateKeys.COMPLETED_SECTIONS not in st.session_state:
-        st.session_state[StateKeys.COMPLETED_SECTIONS] = []
-    if StateKeys.FIRST_INCOMPLETE_SECTION not in st.session_state:
-        st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = None
-    if StateKeys.PENDING_INCOMPLETE_JUMP not in st.session_state:
-        st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = False
-    if StateKeys.WIZARD_STEP_COUNT not in st.session_state:
-        st.session_state[StateKeys.WIZARD_STEP_COUNT] = 0
-    if StateKeys.WIZARD_AUTOFILL_DECISIONS not in st.session_state:
-        st.session_state[StateKeys.WIZARD_AUTOFILL_DECISIONS] = {}
-    if StateKeys.COMPANY_PAGE_SUMMARIES not in st.session_state:
-        st.session_state[StateKeys.COMPANY_PAGE_SUMMARIES] = {}
-    if StateKeys.COMPANY_PAGE_BASE not in st.session_state:
-        st.session_state[StateKeys.COMPANY_PAGE_BASE] = ""
-    if StateKeys.COMPANY_PAGE_TEXT_CACHE not in st.session_state:
-        st.session_state[StateKeys.COMPANY_PAGE_TEXT_CACHE] = {}
-    if StateKeys.COMPANY_INFO_CACHE not in st.session_state:
-        st.session_state[StateKeys.COMPANY_INFO_CACHE] = {}
-    if StateKeys.JOB_AD_SELECTED_FIELDS not in st.session_state:
-        st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set()
-    if StateKeys.JOB_AD_SELECTED_VALUES not in st.session_state:
-        st.session_state[StateKeys.JOB_AD_SELECTED_VALUES] = {}
-    if StateKeys.JOB_AD_MANUAL_ENTRIES not in st.session_state:
-        st.session_state[StateKeys.JOB_AD_MANUAL_ENTRIES] = []
-    if StateKeys.JOB_AD_SELECTED_AUDIENCE not in st.session_state:
-        st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = ""
-    if StateKeys.JOB_AD_FONT_CHOICE not in st.session_state:
-        st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = "Helvetica"
-    if StateKeys.JOB_AD_LOGO_DATA not in st.session_state:
-        st.session_state[StateKeys.JOB_AD_LOGO_DATA] = None
-    if StateKeys.INTERVIEW_AUDIENCE not in st.session_state:
-        st.session_state[StateKeys.INTERVIEW_AUDIENCE] = "general"
-    if StateKeys.INTERVIEW_GUIDE_DATA not in st.session_state:
-        st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = {}
-    if "lang" not in st.session_state:
-        st.session_state["lang"] = "en"
+    for key, factory in _DEFAULT_STATE_FACTORIES.items():
+        if key not in st.session_state:
+            st.session_state[key] = factory()
     canonical_model = normalise_model_name(app_config.OPENAI_MODEL) or GPT4O
     if app_config.OPENAI_MODEL != canonical_model:
         app_config.OPENAI_MODEL = canonical_model
@@ -146,12 +135,6 @@ def ensure_state() -> None:
             st.session_state["openai_base_url_invalid"] = not (parsed.scheme and parsed.netloc)
         else:
             st.session_state["openai_base_url_invalid"] = False
-    if "auto_reask" not in st.session_state:
-        st.session_state["auto_reask"] = True
-    if "auto_reask_round" not in st.session_state:
-        st.session_state["auto_reask_round"] = 0
-    if "auto_reask_total" not in st.session_state:
-        st.session_state["auto_reask_total"] = 0
     if "reasoning_effort" not in st.session_state:
         st.session_state["reasoning_effort"] = REASONING_EFFORT
     else:
@@ -162,10 +145,6 @@ def ensure_state() -> None:
     else:
         current_verbosity = normalise_verbosity(st.session_state.get("verbosity"), default=VERBOSITY)
         st.session_state["verbosity"] = current_verbosity
-    if "dark_mode" not in st.session_state:
-        st.session_state["dark_mode"] = True
-    if "skip_intro" not in st.session_state:
-        st.session_state["skip_intro"] = False
     if StateKeys.USAGE not in st.session_state:
         st.session_state[StateKeys.USAGE] = {
             "input_tokens": 0,
@@ -177,14 +156,6 @@ def ensure_state() -> None:
         usage_state.setdefault("input_tokens", 0)
         usage_state.setdefault("output_tokens", 0)
         usage_state.setdefault("by_task", {})
-    for key in (
-        StateKeys.JOB_AD_MD,
-        StateKeys.BOOLEAN_STR,
-        StateKeys.INTERVIEW_GUIDE_MD,
-    ):
-        if key not in st.session_state:
-            st.session_state[key] = ""
-
     wizard_state = st.session_state.get("wizard")
     if not isinstance(wizard_state, dict):
         st.session_state["wizard"] = {"current_step": "jobad"}
