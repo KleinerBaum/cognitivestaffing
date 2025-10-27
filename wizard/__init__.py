@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 from . import _agents as agents
 from . import _layout as layout
 from . import _logic as logic
+from . import _legacy as legacy
 from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
@@ -15,6 +15,7 @@ from ._agents import (
 from ._layout import (
     COMPACT_STEP_STYLE,
     inject_salary_slider_styles,
+    _render_autofill_suggestion,
     render_list_text_area,
     render_onboarding_hero,
     render_step_heading,
@@ -23,9 +24,11 @@ from ._logic import (
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
+    _autofill_was_rejected,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
+    _update_profile,
     merge_unique_items,
     normalize_text_area_list,
     unique_normalized,
@@ -42,6 +45,7 @@ __all__ = [
     "render_list_text_area",
     "render_onboarding_hero",
     "render_step_heading",
+    "_render_autofill_suggestion",
     "SALARY_SLIDER_MAX",
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",
@@ -49,32 +53,20 @@ __all__ = [
     "_derive_salary_range_defaults",
     "_get_company_logo_bytes",
     "_set_company_logo",
+    "_autofill_was_rejected",
+    "_update_profile",
     "generate_interview_guide_content",
     "generate_job_ad_content",
 ]
 
 
-def _load_legacy_module() -> list[str]:
-    """Load the historic ``wizard.py`` module and return the exported names."""
-
-    module_path = Path(__file__).resolve().parent.parent / "wizard.py"
-    source = module_path.read_text(encoding="utf-8")
-    code = compile(source, str(module_path), "exec")
-    exec_globals = globals()
-    before = set(exec_globals.keys())
-    exec(code, exec_globals, exec_globals)
-    after = set(exec_globals.keys())
-
-    legacy_exports: list[str] = []
-    for name in sorted(after - before):
-        if name.startswith("__"):
-            continue
-        legacy_exports.append(name)
-    return legacy_exports
-
-
 LEGACY_EXPORTS: list[str] = []
 
-if not TYPE_CHECKING:
-    LEGACY_EXPORTS = [name for name in _load_legacy_module() if name not in __all__]
-    __all__.extend(LEGACY_EXPORTS)
+for _name in sorted(dir(legacy)):
+    if _name.startswith("__") or _name in __all__:
+        continue
+    value: Any = getattr(legacy, _name)
+    globals()[_name] = value
+    LEGACY_EXPORTS.append(_name)
+
+__all__.extend(LEGACY_EXPORTS)

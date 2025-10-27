@@ -10,6 +10,8 @@
   **DE:** Sperrt sämtliche KI-Vorschläge und Dokumentgenerierungen, solange kein OpenAI-API-Schlüssel vorliegt, und blendet statt API-Aufrufen einen Hinweis mit Schloss-Symbol ein.
 - **EN:** Unified Responses API retry handling logs warnings and triggers chat/static fallbacks whenever calls fail or return invalid JSON payloads.
   **DE:** Vereinheitlichte Responses-Retry-Logik protokolliert Warnungen und aktiviert Chat-/statische Fallbacks, sobald Aufrufe scheitern oder ungültiges JSON liefern.
+- **EN:** Moved the remaining legacy wizard helpers into the modular package, exposing `_update_profile` and autofill rendering without dynamic imports for clearer navigation.
+  **DE:** Verbleibende Wizard-Helfer wurden in das modulare Paket verlagert; `_update_profile` und die Autofill-Darstellung stehen nun ohne dynamische Importe für bessere Übersicht zur Verfügung.
 
 ## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 

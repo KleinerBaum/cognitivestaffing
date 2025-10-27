@@ -2,35 +2,26 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+import hashlib
 from base64 import b64encode
-from importlib import import_module
 from typing import Any, Callable, Optional, Sequence, TypeVar, cast
 
 import streamlit as st
 
 from utils.i18n import tr
 
-from ._logic import get_value, normalize_text_area_list, resolve_display_value
+from ._logic import (
+    _record_autofill_rejection,
+    _update_profile,
+    get_value,
+    normalize_text_area_list,
+    resolve_display_value,
+)
 
 
 _SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
 
 T = TypeVar("T")
-
-
-UpdateProfileFn = Callable[[str, Any], None]
-
-
-@lru_cache(maxsize=1)
-def _legacy_update_profile() -> UpdateProfileFn:
-    """Return the historic ``_update_profile`` helper lazily."""
-
-    module = import_module("wizard")
-    update = getattr(module, "_update_profile", None)
-    if not callable(update):  # pragma: no cover - defensive guard
-        raise AttributeError("wizard._update_profile is not available")
-    return cast(UpdateProfileFn, update)
 
 
 def _ensure_widget_state(key: str, value: Any) -> None:
@@ -56,7 +47,7 @@ def _build_on_change(path: str, key: str) -> Callable[[], None]:
 
     def _callback() -> None:
         value = _normalize_session_value(st.session_state.get(key))
-        _legacy_update_profile()(path, value)
+        _update_profile(path, value)
 
     return _callback
 
@@ -190,6 +181,54 @@ def profile_multiselect(
             **kwargs,
         )
     )
+
+
+def _render_autofill_suggestion(
+    *,
+    field_path: str,
+    suggestion: str,
+    title: str,
+    description: str,
+    icon: str = "✨",
+    success_message: str | None = None,
+    rejection_message: str | None = None,
+    success_icon: str = "✅",
+    rejection_icon: str = "🗑️",
+) -> None:
+    """Render an optional autofill prompt for ``suggestion``."""
+
+    cleaned_suggestion = suggestion.strip()
+    if not cleaned_suggestion:
+        return
+
+    accept_label = f"{icon} {cleaned_suggestion}" if icon else cleaned_suggestion
+    reject_label = tr("Ignorieren", "Dismiss")
+    success_message = success_message or tr("Vorschlag übernommen.", "Suggestion applied.")
+    rejection_message = rejection_message or tr("Vorschlag verworfen.", "Suggestion dismissed.")
+
+    suggestion_hash = hashlib.sha1(f"{field_path}:{cleaned_suggestion}".encode("utf-8")).hexdigest()[:10]
+
+    with st.container(border=True):
+        st.markdown(f"**{title}**")
+        if description:
+            st.caption(description)
+        st.markdown(f"`{cleaned_suggestion}`")
+        accept_col, reject_col = st.columns((1.4, 1))
+        if accept_col.button(
+            accept_label,
+            key=f"autofill.accept.{field_path}.{suggestion_hash}",
+            type="primary",
+        ):
+            _update_profile(field_path, cleaned_suggestion)
+            st.toast(success_message, icon=success_icon)
+            st.rerun()
+        if reject_col.button(
+            reject_label,
+            key=f"autofill.reject.{field_path}.{suggestion_hash}",
+        ):
+            _record_autofill_rejection(field_path, cleaned_suggestion)
+            st.toast(rejection_message, icon=rejection_icon)
+            st.rerun()
 
 
 COMPACT_STEP_STYLE = """
