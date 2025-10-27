@@ -4,11 +4,28 @@
 
 ![App Screenshot](images/app_screenshot.png)
 
+## What's new in v1.0.0 / Neu in v1.0.0
+- **Wizard overhaul & schema alignment:**
+  **EN:** Every wizard step now shares a consistent header/subheader/intro layout that maps one-to-one to the `NeedAnalysisProfile` schema, ensuring exports remain perfectly synced.
+  **DE:** Alle Wizard-Schritte nutzen jetzt ein einheitliches Header-/Subheader-/Intro-Layout mit direkter 1:1-Abbildung auf das `NeedAnalysisProfile`-Schema, sodass Exporte lückenlos synchron bleiben.
+- **Multi-tone guidance for each step:**
+  **EN:** New pragmatic, formal, and casual intro texts (EN/DE) explain what to capture on every step and adapt automatically to the selected language.
+  **DE:** Neue pragmatische, formelle und lockere Intro-Texte (DE/EN) erläutern pro Schritt, welche Angaben benötigt werden, und passen sich automatisch der gewählten Sprache an.
+- **Expanded AI assistance:**
+  **EN:** Skills, benefits, and responsibilities now feature refreshed AI/ESCO suggestion buttons with better error handling, while the interview step generates full guides with graceful fallbacks.
+  **DE:** Skills, Benefits und Verantwortlichkeiten erhalten aktualisierte KI-/ESCO-Vorschlagsbuttons mit robuster Fehlerbehandlung, und der Interview-Schritt erzeugt komplette Leitfäden inklusive Fallbacks.
+- **Design system & mobile polish:**
+  **EN:** Light/dark themes share one design token set with improved spacing, focus states, and responsive navigation for mobile recruiters.
+  **DE:** Light-/Dark-Themes greifen auf einen gemeinsamen Design-Token-Pool mit optimierten Abständen, Fokuszuständen und responsiver Navigation für mobile Recruiter:innen zurück.
+
 ## Feature Highlights
 - **Structured extraction:** JSON schemas and Pydantic validation keep 20+ vacancy fields aligned with `NeedAnalysisProfile`. Locked fields such as **job_title** or **company** are auto-filled when rule matches fire and stay protected until you unlock them.
 - **Interactive follow-ups:** A Follow-up Question Generator agent produces prioritized follow-up questions with suggestion chips. When ESCO metadata is available the assistant injects normalized essential skills into the prompts, and the auto re-ask loop keeps rerunning critical prompts until every must-have field is answered.
 - **ESCO integration:** When enabled, the ESCO enricher normalizes job titles, proposes essential skills, and flags missing competencies directly in the UI.
-- **AI-assisted suggestions:** Dedicated helpers surface responsibilities, skills, benefits, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI stays responsive during longer generations, and the requirements and compensation steps now ship with on-demand “Suggest additional skills” and “Suggest benefits” actions that factor in existing context to avoid duplicates.
+- **AI-assisted suggestions:** Dedicated helpers surface responsibilities, skills, benefits, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI stays responsive during longer generations, and the requirements, role, and compensation steps now ship with on-demand “Suggest responsibilities”, “Suggest additional skills”, and “Suggest benefits” actions that factor in existing context to avoid duplicates.
+- **Step intros & captions / Schritt-Intros & Hinweise:**
+  **EN:** Each wizard page opens with a localized caption in your chosen tone so teams immediately understand which details matter most.
+  **DE:** Jede Wizard-Seite startet mit einer lokalisierten Caption im gewünschten Tonfall, damit Teams sofort wissen, welche Angaben entscheidend sind.
 - **Guided wizard sections / Geführte Wizard-Abschnitte:**
   **EN:** Steps are grouped into Onboarding, Company, Team & Structure, Role & Tasks, Skills & Requirements, Compensation, Hiring Process, and Summary so recruiters can follow a consistent flow with inline help for each section.
   **DE:** Schritte sind in Onboarding, Unternehmen, Team & Struktur, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, damit Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen folgen können.

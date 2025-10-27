@@ -32,6 +32,8 @@ from sidebar import SidebarPlan, render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 from ui_views import advantages  # noqa: E402
 
+APP_VERSION = "1.0.0"
+
 setup_tracing()
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
@@ -45,6 +47,7 @@ st.set_page_config(
 # --- Helpers zum Laden lokaler JSON-Configs ---
 ROOT = APP_ROOT
 ensure_state()
+st.session_state.setdefault("app_version", APP_VERSION)
 
 if WIZARD_ORDER_V2:
     wizard_state = st.session_state.setdefault("wizard", {})

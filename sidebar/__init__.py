@@ -144,6 +144,9 @@ def _render_branding(logo_bytes: bytes) -> None:
 
     st.image(logo_bytes, width="stretch")
     st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
+    app_version = st.session_state.get("app_version")
+    if app_version:
+        st.caption(tr(f"Version {app_version}", f"Version {app_version}"))
 
 
 def _ensure_ui_defaults() -> None:
