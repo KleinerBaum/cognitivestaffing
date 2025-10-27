@@ -4,6 +4,8 @@
 
 - **EN:** Prevent redundant session-state writes for unchanged wizard inputs to avoid Streamlit widget collisions.
   **DE:** Verhindert redundante Session-State-Schreibzugriffe bei unveränderten Wizard-Eingaben und beseitigt damit Streamlit-Kollisionen.
+- **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur (`USE_CLASSIC_API` now enforces the legacy path).
+  **DE:** Skill- und Benefit-Vorschläge nutzen bei Ausfällen automatisch die Chat-Completions-API oder statische Shortlists; `USE_CLASSIC_API` erzwingt künftig den Legacy-Pfad.
 
 ## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 

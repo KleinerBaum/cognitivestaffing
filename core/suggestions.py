@@ -21,10 +21,16 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency during tes
     responses_suggest_benefits = None
     responses_suggest_skills = None
 
+from config import USE_CLASSIC_API
+
 # Public aliases resolve to the active backend so external modules (and tests)
 # can monkeypatch ``suggestions.suggest_*`` regardless of the implementation.
-suggest_skills_for_role = responses_suggest_skills or legacy_suggest_skills
-suggest_benefits = responses_suggest_benefits or legacy_suggest_benefits
+if USE_CLASSIC_API:
+    suggest_skills_for_role = legacy_suggest_skills
+    suggest_benefits = legacy_suggest_benefits
+else:
+    suggest_skills_for_role = responses_suggest_skills or legacy_suggest_skills
+    suggest_benefits = responses_suggest_benefits or legacy_suggest_benefits
 
 from core.esco_utils import (
     classify_occupation,
