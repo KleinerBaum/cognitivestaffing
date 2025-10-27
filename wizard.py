@@ -6,7 +6,6 @@ import logging
 import hashlib
 import json
 import textwrap
-from base64 import b64encode
 from dataclasses import dataclass, asdict
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -141,10 +140,41 @@ ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
 # lived in the sidebar
 ONBOARDING_ANIMATION_PATH = ROOT / "images" / "color1_logo_transparent_background.png"
-try:
-    ONBOARDING_ANIMATION_BASE64 = b64encode(ONBOARDING_ANIMATION_PATH.read_bytes()).decode("ascii")
-except FileNotFoundError:
-    ONBOARDING_ANIMATION_BASE64 = ""
+
+
+def _guess_mime_type(path: Path) -> str:
+    """Return a reasonable MIME type for ``path`` based on its suffix."""
+
+    mapping = {
+        ".gif": "image/gif",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+    }
+    return mapping.get(path.suffix.lower(), "application/octet-stream")
+
+
+ONBOARDING_ANIMATION_MIME_TYPE = _guess_mime_type(ONBOARDING_ANIMATION_PATH)
+
+
+def _load_onboarding_animation_bytes() -> bytes | None:
+    """Read the onboarding hero animation from disk on demand."""
+
+    try:
+        return ONBOARDING_ANIMATION_PATH.read_bytes()
+    except FileNotFoundError:
+        return None
+
+
+def _render_onboarding_hero() -> None:
+    """Render the onboarding hero with freshly loaded media bytes."""
+
+    animation_bytes = _load_onboarding_animation_bytes()
+    render_onboarding_hero(animation_bytes, mime_type=ONBOARDING_ANIMATION_MIME_TYPE)
+
+
 ensure_state()
 
 WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
@@ -9964,7 +9994,7 @@ def _run_wizard_legacy(schema: Mapping[str, object], critical: Sequence[str]) ->
     current = st.session_state[StateKeys.STEP]
 
     if current == 0:
-        render_onboarding_hero(ONBOARDING_ANIMATION_BASE64)
+        _render_onboarding_hero()
 
     _label, renderer = steps[current]
     renderer()
@@ -9973,7 +10003,7 @@ def _run_wizard_legacy(schema: Mapping[str, object], critical: Sequence[str]) ->
 
 
 def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
-    render_onboarding_hero(ONBOARDING_ANIMATION_BASE64)
+    _render_onboarding_hero()
     _step_onboarding(schema)
 
 
