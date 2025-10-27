@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat: extend OpenAI company info extraction to include official website URLs in the structured response
+  - Feature: OpenAI-Unternehmensanalyse liefert nun die offizielle Website im strukturierten Ergebnis mit
 - docs: refresh README with grouped wizard sections, tone presets, and automatic company research highlights
   - Dokumentation: README mit gruppierten Wizard-Schritten, Tonalitätswahl und automatischer Unternehmensrecherche aktualisiert
 - schema: describe the optional `company.size` field in the NeedAnalysisProfile JSON schema for downstream validation
