@@ -98,6 +98,7 @@ from core.suggestions import (
     get_static_benefit_shortlist,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
+from components import widget_factory
 from components.chip_multiselect import (
     CHIP_INLINE_VALUE_LIMIT,
     chip_multiselect,
@@ -5657,13 +5658,11 @@ def _step_company():
         company_lock,
         {"help": tr("Offizieller Firmenname", "Official company name")},
     )
-    company["name"] = text_input_with_state(
+    company["name"] = widget_factory.text_input(
+        "company.name",
         company_lock["label"],
-        target=company,
-        field="name",
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
-        state_path="company.name",
+        value_formatter=_string_or_empty,
         **company_kwargs,
     )
     _update_profile("company.name", company["name"])
@@ -5676,109 +5675,91 @@ def _step_company():
         city_hint = _string_or_empty(location_data.get("primary_city"))
         if city_hint.strip():
             hq_initial = city_hint.strip()
-    company["hq_location"] = text_input_with_state(
+    company["hq_location"] = widget_factory.text_input(
+        "company.hq_location",
         tr("Hauptsitz", "Headquarters"),
-        target=company,
-        field="hq_location",
         widget_factory=hq_col.text_input,
-        value=hq_initial,
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
         key=UIKeys.COMPANY_HQ_LOCATION,
+        default=hq_initial,
         value_formatter=_string_or_empty,
-        state_path="company.hq_location",
     )
-    company["size"] = text_input_with_state(
+    company["size"] = widget_factory.text_input(
+        "company.size",
         tr("Größe", "Size"),
-        target=company,
-        field="size",
         widget_factory=size_col.text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. 50-100", "e.g., 50-100"),
-        state_path="company.size",
-    )
-    company["industry"] = text_input_with_state(
-        tr("Branche", "Industry"),
-        target=company,
-        field="industry",
-        widget_factory=industry_col.text_input,
         value_formatter=_string_or_empty,
+    )
+    company["industry"] = widget_factory.text_input(
+        "company.industry",
+        tr("Branche", "Industry"),
+        widget_factory=industry_col.text_input,
         placeholder=tr("z. B. IT-Services", "e.g., IT services"),
-        state_path="company.industry",
+        value_formatter=_string_or_empty,
     )
 
     _render_company_research_tools(company.get("website", ""))
 
     website_col, mission_col = st.columns(2, gap="small")
-    company["website"] = text_input_with_state(
+    company["website"] = widget_factory.text_input(
+        "company.website",
         tr("Website", "Website"),
-        target=company,
-        field="website",
         widget_factory=website_col.text_input,
-        value_formatter=_string_or_empty,
         placeholder="https://example.com",
         key="ui.company.website",
-        state_path="company.website",
-    )
-    company["mission"] = text_input_with_state(
-        tr("Mission", "Mission"),
-        target=company,
-        field="mission",
-        widget_factory=mission_col.text_input,
         value_formatter=_string_or_empty,
+    )
+    company["mission"] = widget_factory.text_input(
+        "company.mission",
+        tr("Mission", "Mission"),
+        widget_factory=mission_col.text_input,
         placeholder=tr(
             "z. B. Nachhaltige Mobilität fördern",
             "e.g., Promote sustainable mobility",
         ),
         key="ui.company.mission",
-        state_path="company.mission",
+        value_formatter=_string_or_empty,
     )
 
-    company["culture"] = text_input_with_state(
+    company["culture"] = widget_factory.text_input(
+        "company.culture",
         tr("Unternehmenskultur", "Company culture"),
-        target=company,
-        field="culture",
-        value_formatter=_string_or_empty,
         placeholder=tr(
             "z. B. Teamorientiert, innovationsgetrieben",
             "e.g., Team-oriented, innovation-driven",
         ),
         key="ui.company.culture",
-        state_path="company.culture",
+        value_formatter=_string_or_empty,
     )
 
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
-    contact_name = text_input_with_state(
+    contact_name = widget_factory.text_input(
+        "company.contact_name",
         tr("Kontaktperson", "Primary contact"),
-        target=company,
-        field="contact_name",
         widget_factory=contact_cols[0].text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
         key="ui.company.contact_name",
-        state_path="company.contact_name",
-    )
-    contact_email = text_input_with_state(
-        tr("Kontakt-E-Mail", "Contact email"),
-        target=company,
-        field="contact_email",
-        widget_factory=contact_cols[1].text_input,
         value_formatter=_string_or_empty,
+    )
+    contact_email = widget_factory.text_input(
+        "company.contact_email",
+        tr("Kontakt-E-Mail", "Contact email"),
+        widget_factory=contact_cols[1].text_input,
         placeholder="name@example.com",
         key="ui.company.contact_email",
-        state_path="company.contact_email",
+        value_formatter=_string_or_empty,
     )
     phone_label = tr("Telefon", "Phone")
     if "company.contact_phone" in missing_here:
         phone_label += REQUIRED_SUFFIX
-    contact_phone = text_input_with_state(
+    contact_phone = widget_factory.text_input(
+        "company.contact_phone",
         phone_label,
-        target=company,
-        field="contact_phone",
         widget_factory=contact_cols[2].text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
         key="ui.company.contact_phone",
-        state_path="company.contact_phone",
+        value_formatter=_string_or_empty,
     )
     if "company.contact_phone" in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
@@ -5795,14 +5776,12 @@ def _step_company():
         context="step",
     )
     city_kwargs = _apply_field_lock_kwargs(city_lock)
-    location_data["primary_city"] = text_input_with_state(
+    location_data["primary_city"] = widget_factory.text_input(
+        "location.primary_city",
         city_lock["label"],
-        target=location_data,
-        field="primary_city",
         widget_factory=city_col.text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Berlin", "e.g., Berlin"),
-        state_path="location.primary_city",
+        value_formatter=_string_or_empty,
         **city_kwargs,
     )
     _update_profile("location.primary_city", location_data["primary_city"])
@@ -5817,14 +5796,12 @@ def _step_company():
         context="step",
     )
     country_kwargs = _apply_field_lock_kwargs(country_lock)
-    location_data["country"] = text_input_with_state(
+    location_data["country"] = widget_factory.text_input(
+        "location.country",
         country_lock["label"],
-        target=location_data,
-        field="country",
         widget_factory=country_col.text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. DE", "e.g., DE"),
-        state_path="location.country",
+        value_formatter=_string_or_empty,
         **country_kwargs,
     )
     _update_profile("location.country", location_data["country"])
@@ -6437,14 +6414,12 @@ def _step_position():
         context="step",
     )
     job_title_kwargs = _apply_field_lock_kwargs(title_lock)
-    position["job_title"] = text_input_with_state(
+    position["job_title"] = widget_factory.text_input(
+        "position.job_title",
         title_lock["label"],
-        target=position,
-        field="job_title",
         widget_factory=role_cols[0].text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
-        state_path="position.job_title",
+        value_formatter=_string_or_empty,
         **job_title_kwargs,
     )
     _update_profile("position.job_title", position["job_title"])
@@ -6453,34 +6428,28 @@ def _step_position():
 
     _render_esco_occupation_selector(position)
 
-    position["seniority_level"] = text_input_with_state(
+    position["seniority_level"] = widget_factory.text_input(
+        "position.seniority_level",
         tr("Seniorität", "Seniority"),
-        target=position,
-        field="seniority_level",
         widget_factory=role_cols[1].text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. Junior", "e.g., Junior"),
-        state_path="position.seniority_level",
+        value_formatter=_string_or_empty,
     )
 
     reporting_cols = st.columns((1, 1))
-    position["reporting_line"] = text_input_with_state(
+    position["reporting_line"] = widget_factory.text_input(
+        "position.reporting_line",
         tr("Reports an", "Reports to"),
-        target=position,
-        field="reporting_line",
         widget_factory=reporting_cols[0].text_input,
-        value_formatter=_string_or_empty,
         placeholder=tr("z. B. CTO", "e.g., CTO"),
-        state_path="position.reporting_line",
-    )
-    position["reporting_manager_name"] = text_input_with_state(
-        tr("Vorgesetzte Person", "Reporting manager"),
-        target=position,
-        field="reporting_manager_name",
-        widget_factory=reporting_cols[1].text_input,
         value_formatter=_string_or_empty,
+    )
+    position["reporting_manager_name"] = widget_factory.text_input(
+        "position.reporting_manager_name",
+        tr("Vorgesetzte Person", "Reporting manager"),
+        widget_factory=reporting_cols[1].text_input,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
-        state_path="position.reporting_manager_name",
+        value_formatter=_string_or_empty,
     )
     summary_label = tr("Rollen-Summary", "Role summary")
     if "position.role_summary" in missing_here:
@@ -7725,14 +7694,11 @@ def _step_requirements():
         language_level_options = list(CEFR_LANGUAGE_LEVELS)
         if current_language_level and current_language_level not in language_level_options:
             language_level_options.append(current_language_level)
-        selected_level = st.selectbox(
+        selected_level = widget_factory.select(
+            "requirements.language_level_english",
             tr("Englischniveau", "English level"),
-            options=language_level_options,
-            index=(
-                language_level_options.index(current_language_level)
-                if current_language_level in language_level_options
-                else 0
-            ),
+            language_level_options,
+            default=current_language_level,
             format_func=_format_language_level_option,
             help=tr(
                 "Wähle das minimale Englischniveau für die Rolle.",

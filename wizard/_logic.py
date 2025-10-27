@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 import streamlit as st
 
@@ -59,6 +59,26 @@ def get_value(field_path: str, default: Any | None = None) -> Any:
             return default
         current = candidate
     return current
+
+
+def resolve_display_value(
+    field_path: str,
+    *,
+    default: Any | None = None,
+    formatter: Callable[[Any | None], str] | None = None,
+) -> str:
+    """Return the formatted display string for ``field_path``."""
+
+    value = get_value(field_path)
+    if value is None:
+        value = default
+    if formatter is not None:
+        return formatter(value)
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
 
 
 def _coerce_logo_bytes(data: Any) -> bytes | None:
@@ -305,6 +325,7 @@ def normalize_text_area_list(raw_text: str, *, strip_bullets: bool = True) -> li
 
 __all__ = [
     "get_value",
+    "resolve_display_value",
     "_SalaryRangeDefaults",
     "_benchmark_salary_range",
     "_clamp_salary_value",

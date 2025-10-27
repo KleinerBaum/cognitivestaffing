@@ -115,10 +115,10 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
   of truth and already contains schema defaults.
 - Use schema paths (e.g., `"company.name"`, `"location.primary_city"`) as widget
   keys. Avoid binding inputs to legacy `ui.*` keys for data reads.
-- Prefer the helpers in `wizard.wizard`—`profile_text_input`,
-  `profile_selectbox`, and `profile_multiselect`—when rendering inputs. They hook
-  the widget into `_update_profile` automatically so sidebar, summary, and
-  exports stay in sync.
+- Prefer the helpers in `components.widget_factory`—`text_input`, `select`,
+  and `multiselect` (re-exported from `wizard.wizard`)—when rendering inputs.
+  They hook the widget into `_update_profile` automatically so sidebar,
+  summary, and exports stay in sync.
 - After ingestion (URL, PDF, manual paste) run
   `coerce_and_fill()` **and** `normalize_profile()` before rendering to ensure
   consistent casing, whitespace, and list deduplication. The normaliser returns
@@ -132,10 +132,10 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
   Wahrheitsquelle und enthalten bereits Schema-Defaults.
 - Verwende Schema-Pfade (z. B. `"company.name"`, `"location.primary_city"`) als
   Widget-Keys. Für Datenbindungen keine veralteten `ui.*`-Keys nutzen.
-- Nutze beim Rendern die Helfer aus `wizard.wizard`
-  (`profile_text_input`, `profile_selectbox`, `profile_multiselect`). Sie hängen
-  automatisch an `_update_profile`, sodass Sidebar, Zusammenfassung und Exporte
-  stets synchron bleiben.
+- Nutze beim Rendern die Helfer aus `components.widget_factory`
+  (`text_input`, `select`, `multiselect`, auch via `wizard.wizard` verfügbar).
+  Sie hängen automatisch an `_update_profile`, sodass Sidebar,
+  Zusammenfassung und Exporte stets synchron bleiben.
 - Nach dem Import (URL, PDF, Text) immer `coerce_and_fill()` **plus**
   `normalize_profile()` ausführen, damit Groß-/Kleinschreibung, Whitespace und
   Listen-Bereinigung konsistent sind. Der Normalisierer liefert ein validiertes
