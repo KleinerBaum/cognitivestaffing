@@ -9,6 +9,10 @@
   **DE:** Unternehmensbranding integriert Logo, Leitfarbe und Claim in Sidebar, Exporte und JSON.
 - **EN:** Codex prompting guide entries captured in this changelog to align internal task history.
   **DE:** Codex-Prompting-Guide-Einträge im Changelog ergänzt, um interne Aufgabenhistorie abzubilden.
+- **EN:** Unified wizard widget factories (`components.widget_factory`) to bind schema
+  paths with automatic `_update_profile` callbacks across all steps.
+  **DE:** Vereinheitlichte Wizard-Widget-Fabriken (`components.widget_factory`), die
+  Schema-Pfade mit automatischen `_update_profile`-Callbacks in allen Schritten koppeln.
 
 ### Fixed / Behoben
 - **EN:** Canonical NeedAnalysisProfile key registry now drives aliases and state/export sanitisation so legacy keys disappear after ingestion (CS_SCHEMA_PROPAGATE).
@@ -28,6 +32,8 @@
   **DE:** README, Entwicklerhinweise und Screenshots zu Normalisierung, JSON-Reparatur und Branding-Caches erweitert.
 - **EN:** Documented `.env.example`, the new LLM fallback behaviour, and setup notes for local development.
   **DE:** `.env.example`, das neue LLM-Fallback-Verhalten und Setup-Hinweise für die lokale Entwicklung dokumentiert.
+- **EN:** Updated README with guidance on the widget factory pattern.
+  **DE:** README mit Hinweisen zum Widget-Factory-Pattern aktualisiert.
 
 ## v1.0.0 – Wizard-Vollmodernisierung & KI-Assistenten (2025-10-27)
 
