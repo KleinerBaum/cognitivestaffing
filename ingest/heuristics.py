@@ -11,8 +11,8 @@ from llm.openai_responses import build_json_schema_format, call_responses
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import (
+    extract_company_size,
     normalize_city_name,
-    normalize_company_size,
     normalize_country,
     normalize_language_list,
     normalize_profile,
@@ -193,15 +193,6 @@ _CITY_TRAILING_STOPWORDS = {
     "working",
     "hours",
 }
-
-_COMPANY_SIZE_RE = re.compile(
-    r"((?:über|mehr als|mindestens|ab|around|approx(?:\.?|imately)?|rund|circa|ca\.?|etwa|ungefähr|knapp|more than)\s+)?"
-    r"(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?)"
-    r"(?:\s*(?:[-–]\s*|bis\s+|to\s+)(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?))?"
-    r"(?:\s*\+)?"
-    r"\s*(?:Mitarbeiter(?::innen)?|Mitarbeiterinnen|Mitarbeitende|Beschäftigte|Beschäftigten|Angestellte|Menschen|employees|people|staff)",
-    re.IGNORECASE,
-)
 
 _CITY_FIX_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -1605,12 +1596,7 @@ def guess_company_size(text: str) -> str:
 
     if not text:
         return ""
-    match = _COMPANY_SIZE_RE.search(text)
-    if not match:
-        return ""
-    snippet = match.group(0)
-    normalized = normalize_company_size(snippet)
-    return normalized
+    return extract_company_size(text)
 
 
 def guess_city(text: str) -> str:

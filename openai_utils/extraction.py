@@ -33,6 +33,7 @@ from models.interview_guide import (
 from pydantic import ValidationError
 
 from utils.i18n import tr
+from utils.normalization import extract_company_size
 from constants.style_variants import STYLE_VARIANTS
 from constants.keys import StateKeys
 from . import api
@@ -356,6 +357,17 @@ def extract_company_info(
                     result[key] = val
         span.set_attribute("extraction.company_fields", len(result))
         if result:
+            size_value = result.get("size")
+            if isinstance(size_value, str):
+                normalised_size = extract_company_size(size_value)
+                if normalised_size:
+                    result["size"] = normalised_size
+                else:
+                    result["size"] = size_value.strip()
+            if not result.get("size"):
+                fallback_size = extract_company_size(text)
+                if fallback_size:
+                    result["size"] = fallback_size
             return result
 
         # Fallback: simple keyword extraction if the model call fails.
