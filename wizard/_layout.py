@@ -16,7 +16,7 @@ _SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
 COMPACT_STEP_STYLE = """
 <style>
 section.main div.block-container div[data-testid="stVerticalBlock"] {
-    gap: 0.35rem !important;
+    gap: var(--space-xs, 0.35rem) !important;
 }
 section.main div.block-container div[data-testid="stTextInput"],
 section.main div.block-container div[data-testid="stTextArea"],
@@ -33,7 +33,7 @@ section.main div.block-container div[data-testid="stFormSubmitButton"],
 section.main div.block-container div[data-testid="stFileUploader"],
 section.main div.block-container div[data-testid="stCaptionContainer"],
 section.main div.block-container div[data-testid="stMarkdownContainer"] {
-    margin-bottom: 0.35rem;
+    margin-bottom: var(--space-xs, 0.35rem);
 }
 section.main div.block-container h1,
 section.main div.block-container h2,
@@ -41,26 +41,26 @@ section.main div.block-container h3,
 section.main div.block-container h4,
 section.main div.block-container h5,
 section.main div.block-container h6 {
-    margin-top: 0.75rem;
-    margin-bottom: 0.35rem;
+    margin-top: var(--space-md, 0.75rem);
+    margin-bottom: var(--space-xs, 0.35rem);
 }
 section.main div.block-container hr {
-    margin-top: 0.75rem;
-    margin-bottom: 0.75rem;
+    margin-top: var(--space-md, 0.75rem);
+    margin-bottom: var(--space-md, 0.75rem);
 }
 section.main div.block-container div[data-testid="column"] {
-    padding-left: 0.25rem !important;
-    padding-right: 0.25rem !important;
+    padding-left: var(--space-2xs, 0.25rem) !important;
+    padding-right: var(--space-2xs, 0.25rem) !important;
 }
 section.main div.block-container div[data-testid="stHorizontalBlock"] {
-    gap: 0.5rem !important;
+    gap: var(--space-sm, 0.5rem) !important;
 }
 section.main div.block-container .stTabs [data-baseweb="tab-list"] {
-    gap: 0.35rem !important;
+    gap: var(--space-xs, 0.35rem) !important;
 }
 section.main div.block-container .stTabs [data-baseweb="tab"] {
-    padding-top: 0.35rem;
-    padding-bottom: 0.35rem;
+    padding-top: var(--space-xs, 0.35rem);
+    padding-bottom: var(--space-xs, 0.35rem);
 }
 
 @media (max-width: 900px) {

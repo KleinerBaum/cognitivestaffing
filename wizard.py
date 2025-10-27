@@ -6793,9 +6793,14 @@ def _step_requirements():
                 return payload, cached_error, None
             if local_store:
                 st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+                st.session_state.pop("skill_suggest_error", None)
         if has_missing_key:
+            st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+            st.session_state.pop("skill_suggest_error", None)
             return {}, None, "missing_key"
         if not job_title:
+            st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
+            st.session_state.pop("skill_suggest_error", None)
             return {}, None, "missing_title"
         return {}, None, "fetch_required"
 
@@ -6915,8 +6920,11 @@ def _step_requirements():
                     "_error": error,
                     **normalized_payload,
                 }
-                if error and st.session_state.get("debug"):
-                    st.session_state["skill_suggest_error"] = error
+                if error:
+                    if st.session_state.get("debug"):
+                        st.session_state["skill_suggest_error"] = error
+                else:
+                    st.session_state.pop("skill_suggest_error", None)
                 if not normalized_payload and not error:
                     st.info(
                         tr(

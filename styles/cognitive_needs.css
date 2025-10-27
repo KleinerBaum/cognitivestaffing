@@ -57,6 +57,35 @@
   --border-strong: rgba(214, 222, 233, 0.34);
   --border-contrast: rgba(5, 10, 20, 0.55);
 
+  --font-family-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
+  --font-family-heading: 'Space Grotesk', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
+  --font-size-body: 1rem;
+  --font-size-small: 0.94rem;
+  --font-size-caption: 0.85rem;
+  --font-size-h1: clamp(1.6rem, 1.2rem + 1.4vw, 2.1rem);
+  --font-size-h2: clamp(1.35rem, 1.05rem + 1vw, 1.75rem);
+  --font-size-h3: clamp(1.15rem, 1rem + 0.6vw, 1.4rem);
+  --line-height-body: 1.6;
+  --line-height-heading: 1.25;
+
+  --space-2xs: 0.25rem;
+  --space-xs: 0.35rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2.25rem;
+
+  --container-max-width: 1200px;
+
+  --color-primary: var(--accent);
+  --color-secondary: var(--accent-2);
+  --color-surface: var(--surface-0);
+  --color-surface-elevated: var(--surface-1);
+  --color-text-strong: var(--text-strong);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+
   --radius: 14px;
   --shadow-soft: 0 12px 28px rgba(3, 8, 20, 0.52);
   --shadow-medium: 0 18px 40px rgba(3, 8, 20, 0.6);
@@ -103,40 +132,54 @@
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
-  color: var(--text-strong);
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
+  color: var(--color-text-strong);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
 }
 
 /* Main content container: glass card */
 section.main > div.block-container {
-  max-width: 1200px;
-  margin-top: 1.2rem;
-  padding: 1.6rem 1.8rem;
+  max-width: var(--container-max-width);
+  margin-top: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   background: var(--surface-1);
   backdrop-filter: blur(var(--blur)) saturate(120%);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius);
   box-shadow: var(--shadow-medium);
 }
 
 /* Headings */
 h1, h2, h3, h4 {
-  font-family: 'Space Grotesk', Inter, system-ui;
+  font-family: var(--font-family-heading);
   letter-spacing: .3px;
 }
 h1 {
   font-weight: 700;
-  font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.1rem);
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-heading);
 }
 h2 {
   font-weight: 600;
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-heading);
   opacity: .95;
+}
+h3, h4 {
+  font-size: var(--font-size-h3);
+  line-height: var(--line-height-heading);
+}
+
+p, li {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
 }
 
 /* Links */
 a {
-  color: var(--accent);
+  color: var(--color-primary);
 }
 a:hover {
   text-decoration: none;
