@@ -119,6 +119,7 @@ SIDEBAR_STYLE = """
     border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-medium);
     margin-bottom: 1.3rem;
+    transition: box-shadow var(--transition-base), background var(--transition-base);
 }
 .sidebar-hero__visual {
     flex-shrink: 0;
@@ -127,8 +128,9 @@ SIDEBAR_STYLE = """
     justify-content: center;
     width: 56px;
     height: 56px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    background: var(--surface-accent-soft);
+    border: 1px solid var(--border-subtle);
     overflow: hidden;
 }
 .sidebar-hero__logo {
@@ -143,11 +145,11 @@ SIDEBAR_STYLE = """
     justify-content: center;
     width: 56px;
     height: 56px;
-    border-radius: 14px;
+    border-radius: var(--radius-sm);
     font-weight: 700;
     font-size: 1.4rem;
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--text-strong);
+    background: var(--surface-accent-strong);
+    color: var(--text-on-accent);
 }
 .sidebar-hero__icon {
     font-size: 2.4rem;
@@ -191,6 +193,7 @@ SIDEBAR_STYLE = """
     gap: 0.45rem;
     padding: 0.25rem 0;
     font-size: 0.9rem;
+    transition: color var(--transition-base);
 }
 .sidebar-step__badge {
     width: 1.6rem;
@@ -206,7 +209,7 @@ SIDEBAR_STYLE = """
     color: var(--text-soft);
 }
 .sidebar-step--current .sidebar-step__label {
-    color: var(--accent);
+    color: var(--accent-strong);
 }
 .sidebar-step--warning .sidebar-step__note,
 .sidebar-step--blocked .sidebar-step__note {
@@ -222,6 +225,24 @@ SIDEBAR_STYLE = """
 }
 [data-testid="stSidebar"] .stMarkdown ul {
     margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1rem;
+    }
+    .sidebar-hero {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .sidebar-hero__visual {
+        width: 48px;
+        height: 48px;
+    }
+    .sidebar-hero__logo {
+        max-width: 48px;
+        max-height: 48px;
+    }
 }
 </style>
 """

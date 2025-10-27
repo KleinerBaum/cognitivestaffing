@@ -7,6 +7,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
+  color-scheme: dark;
   --brand-navy-900: #071327;
   --brand-navy-800: #0c1f3d;
   --brand-navy-700: #132d52;
@@ -29,33 +30,41 @@
   --tone-900: #16253c;
   --tone-950: #0a1628;
 
+  --brand: var(--brand-navy-800);
+  --brand-strong: var(--brand-navy-900);
+  --brand-soft: var(--brand-navy-600);
   --accent: var(--brand-cyan-300);
+  --accent-strong: var(--brand-cyan-400);
   --accent-2: var(--brand-amber-300);
   --text-strong: #f5f7fa;
-  --text-muted: rgba(216, 227, 243, 0.78);
-  --text-soft: rgba(216, 227, 243, 0.6);
+  --text-muted: rgba(216, 227, 243, 0.82);
+  --text-soft: rgba(216, 227, 243, 0.66);
   --text-inverse: var(--tone-950);
   --text-contrast-strong: var(--tone-950);
   --text-contrast-muted: rgba(15, 23, 42, 0.78);
   --text-contrast-soft: rgba(15, 23, 42, 0.58);
   --text-on-accent: var(--text-inverse);
 
-  --surface-0: rgba(10, 18, 34, 0.92);
+  --surface-0: rgba(10, 18, 34, 0.94);
   --surface-1: rgba(13, 24, 43, 0.9);
   --surface-2: rgba(20, 36, 60, 0.82);
-  --surface-3: rgba(71, 118, 168, 0.18);
+  --surface-3: rgba(71, 118, 168, 0.2);
   --surface-contrast: rgba(248, 250, 252, 0.96);
-  --surface-accent-soft: rgba(94, 207, 254, 0.14);
-  --surface-accent-strong: rgba(51, 182, 255, 0.2);
+  --surface-accent-soft: rgba(94, 207, 254, 0.18);
+  --surface-accent-strong: rgba(51, 182, 255, 0.26);
   --surface-accent-secondary: rgba(247, 185, 85, 0.2);
   --surface-hover: rgba(94, 207, 254, 0.22);
-  --surface-press: rgba(51, 182, 255, 0.28);
+  --surface-press: rgba(51, 182, 255, 0.3);
   --surface-critical: rgba(214, 90, 78, 0.26);
   --control-surface: rgba(18, 35, 60, 0.88);
 
   --border-subtle: rgba(138, 170, 212, 0.26);
   --border-strong: rgba(214, 222, 233, 0.38);
   --border-contrast: rgba(5, 10, 20, 0.55);
+
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 14px;
 
   --font-family-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
   --font-family-heading: 'Space Grotesk', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;
@@ -86,12 +95,12 @@
   --color-text-muted: var(--text-muted);
   --color-border-subtle: var(--border-subtle);
 
-  --radius: 14px;
-  --shadow-soft: 0 12px 28px rgba(3, 8, 20, 0.52);
+  --radius: var(--radius-md);
+  --shadow-soft: 0 12px 28px rgba(3, 8, 20, 0.5);
   --shadow-medium: 0 18px 40px rgba(3, 8, 20, 0.6);
   --shadow-strong: 0 28px 52px rgba(3, 8, 20, 0.7);
-  --focus-ring: rgba(94, 207, 254, 0.5);
-  --focus-ring-contrast: rgba(3, 9, 19, 0.9);
+  --focus-ring: rgba(94, 207, 254, 0.55);
+  --focus-ring-contrast: rgba(3, 9, 19, 0.92);
   --accent-glow: drop-shadow(0 0 14px rgba(94, 207, 254, 0.28));
   --button-gradient: linear-gradient(135deg, rgba(51, 182, 255, 0.95), rgba(17, 94, 181, 0.92));
   --button-gradient-hover: linear-gradient(135deg, rgba(51, 182, 255, 1), rgba(15, 76, 147, 0.98));
@@ -134,6 +143,8 @@
   --slider-thumb-shadow: 0 0 0 3px rgba(51, 182, 255, 0.2);
   --slider-thumb-fill: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(51, 182, 255, 0.4));
 
+  --transition-base: 0.18s ease-out;
+
   --hero-panel-bg: linear-gradient(135deg, rgba(14, 28, 52, 0.92), rgba(7, 18, 35, 0.88));
   --hero-overlay: linear-gradient(135deg, rgba(7, 16, 31, 0.6), rgba(7, 16, 31, 0.38));
   --hero-panel-border: rgba(94, 207, 254, 0.24);
@@ -169,7 +180,7 @@ section.main > div.block-container {
   box-shadow: var(--shadow-medium);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   section.main > div.block-container {
     padding: var(--space-lg) var(--space-lg);
     margin-top: var(--space-md);
@@ -212,6 +223,8 @@ p, li {
 /* Links */
 a {
   color: var(--color-primary);
+  transition: color var(--transition-base), filter var(--transition-base),
+    text-decoration-color var(--transition-base);
 }
 a:hover {
   text-decoration: none;
@@ -220,8 +233,8 @@ a:hover {
 
 a:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
-  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
+  border-radius: var(--radius-xs);
 }
 
 /* Sidebar: glass panel + tidy nav */
@@ -253,6 +266,8 @@ a:focus-visible {
   border-radius: 10px;
   color: var(--sidebar-text-color);
   padding: .35rem .55rem;
+  transition: background var(--transition-base), color var(--transition-base),
+    box-shadow var(--transition-base);
 }
 [data-testid="stSidebarNavItems"] a[aria-current="page"] {
   background: var(--sidebar-active-bg);
@@ -261,6 +276,10 @@ a:focus-visible {
 [data-testid="stSidebarNavItems"] a:hover {
   background: var(--sidebar-hover-bg);
   color: var(--sidebar-text-color);
+}
+[data-testid="stSidebarNavItems"] a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
 }
 
 /* Buttons */
@@ -276,8 +295,9 @@ div[data-testid="stDownloadButton"] > button {
   font-weight: 650;
   letter-spacing: 0.25px;
   box-shadow: 0 16px 36px rgba(3, 8, 20, 0.55);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
-    color 0.12s ease;
+  transition: transform var(--transition-base),
+    box-shadow var(--transition-base), background var(--transition-base),
+    color var(--transition-base);
   cursor: pointer;
 }
 
@@ -331,7 +351,7 @@ div[data-testid="stDownloadButton"] > button[kind="secondary"]:active:not(:disab
 div[data-testid="stFormSubmitButton"] > button:focus-visible,
 div[data-testid="stDownloadButton"] > button:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring);
 }
 
 .stButton > button:disabled,
@@ -349,7 +369,8 @@ div[data-testid="stDownloadButton"] > button:disabled {
   border: 1px solid var(--border-strong) !important;
   color: var(--text-strong) !important;
   border-radius: 12px !important;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: border-color var(--transition-base),
+    box-shadow var(--transition-base), background var(--transition-base);
 }
 
 :where(input, textarea)::placeholder {
@@ -363,7 +384,7 @@ div[data-testid="stDownloadButton"] > button:disabled {
 :where(input, textarea, select):focus {
   outline: none !important;
   border-color: var(--interactive-border-strong) !important;
-  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 5px var(--focus-ring) !important;
+  box-shadow: 0 0 0 2px var(--focus-ring-contrast), 0 0 0 6px var(--focus-ring) !important;
 }
 
 :where(input, textarea, select):disabled {
