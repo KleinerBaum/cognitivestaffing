@@ -153,7 +153,7 @@ def test_extract_company_size_detects_employee_count() -> None:
     """The size extractor should capture employee count statements."""
 
     text = "Die Rheinbahn beschäftigt rund 3.370 Menschen und bewegt Düsseldorf."
-    assert _extract_company_size(text) == "rund 3.370 Menschen"
+    assert _extract_company_size(text) == "3370"
 
 
 def test_enrich_company_profile_from_about_updates_missing_fields(monkeypatch) -> None:
@@ -185,7 +185,7 @@ def test_enrich_company_profile_from_about_updates_missing_fields(monkeypatch) -
     assert company["name"] == "Rheinbahn AG"
     assert company["hq_location"] == "Düsseldorf"
     assert company["mission"] == "Mobilität für alle"
-    assert company["size"] == "rund 3.370 Menschen"
+    assert company["size"] == "3370"
     metadata = st.session_state[StateKeys.PROFILE_METADATA]
     name_meta = metadata["rules"]["company.name"]
     assert name_meta["source_kind"] == "company_page"

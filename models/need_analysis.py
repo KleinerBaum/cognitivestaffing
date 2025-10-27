@@ -16,6 +16,8 @@ from pydantic import (
     model_validator,
 )
 
+from utils.normalization import normalize_company_size
+
 
 class Company(BaseModel):
     """Details about the hiring company."""
@@ -63,6 +65,21 @@ class Company(BaseModel):
         except EmailNotValidError:
             return None
         return validated.normalized.casefold()
+
+    @field_validator("size", mode="before")
+    @classmethod
+    def _normalise_size(cls, value: object) -> Optional[str]:
+        """Normalise the employee count representation when determinable."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = normalize_company_size(value)
+            if normalized:
+                return normalized
+            cleaned = value.strip()
+            return cleaned or None
+        return value  # type: ignore[return-value]
 
 
 class Position(BaseModel):

@@ -1,13 +1,21 @@
+import json
 import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
+from config import ModelTask, get_model_for
 from core.rules import COMMON_CITY_NAMES
+from llm.openai_responses import build_json_schema_format, call_responses
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
-from utils.normalization import normalize_country, normalize_language_list
+from utils.normalization import (
+    normalize_city_name,
+    normalize_company_size,
+    normalize_country,
+    normalize_language_list,
+)
 
 
 HEURISTICS_LOGGER = logging.getLogger("cognitive_needs.heuristics")
@@ -195,6 +203,26 @@ _CITY_TRAILING_STOPWORDS = {
     "office",
     "working",
     "hours",
+}
+
+_COMPANY_SIZE_RE = re.compile(
+    r"((?:über|mehr als|mindestens|ab|around|approx(?:\.?|imately)?|rund|circa|ca\.?|etwa|ungefähr|knapp|more than)\s+)?"
+    r"(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?)"
+    r"(?:\s*(?:[-–]\s*|bis\s+|to\s+)(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?))?"
+    r"(?:\s*\+)?"
+    r"\s*(?:Mitarbeiter(?::innen)?|Mitarbeiterinnen|Mitarbeitende|Beschäftigte|Beschäftigten|Angestellte|Menschen|employees|people|staff)",
+    re.IGNORECASE,
+)
+
+_CITY_FIX_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "city": {
+            "type": "string",
+            "description": "Primary city name without prefixes, suffixes, or country information.",
+        }
+    },
+    "required": ["city"],
 }
 
 
@@ -1582,6 +1610,19 @@ def guess_company(text: str) -> Tuple[str, str]:
     return "", ""
 
 
+def guess_company_size(text: str) -> str:
+    """Return a normalised employee count extracted from ``text``."""
+
+    if not text:
+        return ""
+    match = _COMPANY_SIZE_RE.search(text)
+    if not match:
+        return ""
+    snippet = match.group(0)
+    normalized = normalize_company_size(snippet)
+    return normalized
+
+
 def guess_city(text: str) -> str:
     """Guess primary city from ``text``."""
     if not text:
@@ -1589,13 +1630,13 @@ def guess_city(text: str) -> str:
     m = _CITY_HINT_RE.search(text)
     if m:
         candidate = _clean_city_candidate(m.group(1).split("|")[0].split(",")[0])
-        candidate = _trim_city_stopwords(candidate)
+        candidate = normalize_city_name(_trim_city_stopwords(candidate))
         if _city_candidate_is_plausible(candidate):
             return _canonicalize_city_name(candidate)
     for match in _CITY_IN_RE.finditer(text):
         candidate = _clean_city_candidate(match.group(1))
         candidate = re.split(r"[|,/]", candidate)[0].strip()
-        candidate = _trim_city_stopwords(candidate)
+        candidate = normalize_city_name(_trim_city_stopwords(candidate))
         if not _city_candidate_is_plausible(candidate):
             continue
         return _canonicalize_city_name(candidate)
@@ -1609,6 +1650,51 @@ def guess_city(text: str) -> str:
         if re.search(rf"\b{re.escape(city)}\b", text):
             return city
     return ""
+
+
+def _llm_extract_primary_city(text: str) -> str:
+    """Use an LLM to recover a plausible city name from ``text``."""
+
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return ""
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Extract the primary city mentioned in the following job advertisement snippet. "
+                "Respond with JSON containing only a 'city' field. Return an empty string when no city is present."
+            ),
+        },
+        {"role": "user", "content": cleaned},
+    ]
+    response_format = build_json_schema_format(
+        name="primary_city_extraction",
+        schema=_CITY_FIX_SCHEMA,
+    )
+    try:
+        result = call_responses(
+            messages,
+            model=get_model_for(ModelTask.EXTRACTION),
+            response_format=response_format,
+            temperature=0,
+            max_tokens=40,
+            reasoning_effort="minimal",
+            task=ModelTask.EXTRACTION,
+        )
+    except Exception:
+        return ""
+    content = (result.content or "").strip()
+    if not content:
+        return ""
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        return ""
+    city_value = payload.get("city")
+    if not isinstance(city_value, str):
+        return ""
+    return normalize_city_name(city_value)
 
 
 def guess_employment_details(
@@ -1707,6 +1793,7 @@ def apply_basic_fallbacks(
     locked_fields = _string_set_from_metadata("locked_fields")
     city_field = "location.primary_city"
     country_field = "location.country"
+    size_field = "company.size"
     city_invalid = city_field in invalid_fields
     country_invalid = country_field in invalid_fields
 
@@ -1806,15 +1893,18 @@ def apply_basic_fallbacks(
     if _needs_value(profile.location.primary_city, city_field):
         # City fallback order: reuse regex-based guess_city first, then fall back to
         # spaCy entity extraction (if available) before retrying the regex when the
-        # field is marked invalid.
-        regex_city = _clean_city_candidate(guess_city(text))
+        # field is marked invalid. As a last resort, trigger a lightweight LLM call
+        # when heuristics cannot provide a plausible city name.
+        regex_city_raw = _clean_city_candidate(guess_city(text))
+        regex_city = normalize_city_name(_trim_city_stopwords(regex_city_raw))
         city_guess = "" if city_invalid else regex_city
         city_rule = "city_regex" if city_guess else None
         if not city_guess or city_invalid:
             if location_entities is None:
                 location_entities = extract_location_entities(text, lang=language_hint)
             if location_entities:
-                spa_city = _clean_city_candidate(location_entities.primary_city)
+                spa_city_raw = _clean_city_candidate(location_entities.primary_city)
+                spa_city = normalize_city_name(_trim_city_stopwords(spa_city_raw))
             else:
                 spa_city = ""
             if spa_city:
@@ -1823,24 +1913,39 @@ def apply_basic_fallbacks(
             elif city_invalid and regex_city:
                 city_guess = regex_city
                 city_rule = "city_regex_retry"
-        candidate_city = _clean_city_candidate(city_guess)
-        if candidate_city:
-            if regex_city and not _city_candidate_is_trustworthy(candidate_city, text, regex_city):
-                candidate_city = regex_city
-                city_rule = "city_regex_retry" if city_invalid else "city_regex"
-            profile.location.primary_city = candidate_city
+        candidate_city = normalize_city_name(_trim_city_stopwords(_clean_city_candidate(city_guess)))
+        if candidate_city and regex_city and not _city_candidate_is_trustworthy(candidate_city, text, regex_city):
+            candidate_city = regex_city
+            city_rule = "city_regex_retry" if city_invalid else "city_regex"
+        if not candidate_city:
+            llm_city = _llm_extract_primary_city(text)
+            if llm_city and _city_candidate_is_plausible(llm_city):
+                candidate_city = llm_city
+                city_rule = "city_llm"
+        if candidate_city and _city_candidate_is_plausible(candidate_city):
+            canonical_city = _canonicalize_city_name(candidate_city)
+            profile.location.primary_city = canonical_city
             _log_heuristic_fill(
                 "location.primary_city",
                 city_rule or "city_guess",
-                detail=f"with value {candidate_city!r}",
+                detail=f"with value {canonical_city!r}",
             )
             if not profile.company.hq_location:
-                profile.company.hq_location = candidate_city
+                profile.company.hq_location = canonical_city
                 _log_heuristic_fill(
                     "company.hq_location",
                     "hq_from_primary_city",
-                    detail=f"with value {candidate_city!r}",
+                    detail=f"with value {canonical_city!r}",
                 )
+    if not _is_locked(size_field) and _needs_value(profile.company.size, size_field):
+        size_guess = guess_company_size(text)
+        if size_guess:
+            profile.company.size = size_guess
+            _log_heuristic_fill(
+                size_field,
+                "company_size_regex",
+                detail=f"with value {size_guess!r}",
+            )
     if _needs_value(profile.location.country, country_field):
         # Country fallback order mirrors the city logic: prefer spaCy geo entities and
         # only fall back to heuristics when no entity is found and the field was invalid.

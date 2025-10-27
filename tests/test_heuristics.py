@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+import ingest.heuristics as heuristics
 
 from ingest.heuristics import (
     apply_basic_fallbacks,
@@ -106,6 +107,31 @@ def test_spacy_fallback_city_and_country_lowercase() -> None:
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
     assert profile.location.primary_city == "Düsseldorf"
     assert profile.location.country == "Germany"
+
+
+def test_apply_basic_fallbacks_trims_city_tokens() -> None:
+    text = "Arbeitsort: in Düsseldorf eine neue Filiale"
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+    assert profile.location.primary_city == "Düsseldorf"
+
+
+def test_apply_basic_fallbacks_populates_company_size() -> None:
+    text = "Unser Unternehmen beschäftigt rund 3.370 Menschen an unserem Standort."
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+    assert profile.company.size == "3370"
+
+
+def test_apply_basic_fallbacks_uses_llm_city(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_llm(text: str) -> str:
+        calls.append(text)
+        return "Berlin"
+
+    monkeypatch.setattr(heuristics, "_llm_extract_primary_city", fake_llm)
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), "Arbeitsort: ausschließlich remote")
+    assert profile.location.primary_city == "Berlin"
+    assert calls
 
 
 def test_spacy_fallback_uses_english_pipeline(
