@@ -1,6 +1,7 @@
 """Tests for the normalisation utilities."""
 
 import json
+from typing import Mapping
 from types import SimpleNamespace
 
 import pytest
@@ -81,7 +82,8 @@ def test_normalize_profile_applies_string_rules() -> None:
         }
     )
 
-    normalized = normalize_profile(profile)
+    normalized_payload = normalize_profile(profile)
+    normalized = NeedAnalysisProfile.model_validate(normalized_payload)
 
     assert normalized.position.job_title == "Lead Developer"
     assert normalized.location.primary_city == "Düsseldorf"
@@ -89,3 +91,20 @@ def test_normalize_profile_applies_string_rules() -> None:
     assert normalized.company.brand_color == "#99CC00"
     assert normalized.requirements.hard_skills_required == ["Python"]
     assert normalized.responsibilities.items == ["Build APIs"]
+
+
+def test_normalize_profile_uses_json_repair_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[Mapping[str, object]] = []
+
+    def fake_repair(payload: Mapping[str, object], *, errors: object | None = None) -> Mapping[str, object] | None:
+        calls.append(payload)
+        return {"company": {"name": "Acme"}}
+
+    monkeypatch.setattr("llm.json_repair.repair_profile_payload", fake_repair, raising=False)
+
+    invalid_payload = {"company": "Acme"}
+
+    normalized = normalize_profile(invalid_payload)
+
+    assert normalized["company"]["name"] == "Acme"
+    assert calls, "Expected JSON repair fallback to be invoked"

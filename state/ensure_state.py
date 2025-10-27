@@ -41,22 +41,23 @@ def ensure_state() -> None:
 
     existing = st.session_state.get(StateKeys.PROFILE)
     if not isinstance(existing, Mapping):
-        st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+        st.session_state[StateKeys.PROFILE] = normalize_profile(NeedAnalysisProfile())
     else:
         try:
-            st.session_state[StateKeys.PROFILE] = coerce_and_fill(existing).model_dump()
+            profile = coerce_and_fill(existing)
+            st.session_state[StateKeys.PROFILE] = normalize_profile(profile)
         except ValidationError as error:
             logger.debug("Validation error when coercing profile: %s", error)
             sanitized = _sanitize_profile(existing)
             try:
                 validated = NeedAnalysisProfile.model_validate(sanitized)
-                st.session_state[StateKeys.PROFILE] = normalize_profile(validated).model_dump()
+                st.session_state[StateKeys.PROFILE] = normalize_profile(validated)
             except ValidationError as sanitized_error:
                 logger.warning(
                     "Failed to sanitize profile data; resetting to defaults: %s",
                     sanitized_error,
                 )
-                st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+                st.session_state[StateKeys.PROFILE] = normalize_profile(NeedAnalysisProfile())
     if StateKeys.RAW_TEXT not in st.session_state:
         st.session_state[StateKeys.RAW_TEXT] = ""
     if StateKeys.RAW_BLOCKS not in st.session_state:
