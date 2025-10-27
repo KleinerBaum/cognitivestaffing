@@ -15,6 +15,7 @@ from utils.normalization import (
     normalize_company_size,
     normalize_country,
     normalize_language_list,
+    normalize_profile,
 )
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
@@ -1358,7 +1359,8 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     certs = _extract_certifications(text)
     r.certifications = _merge_unique(r.certifications, certs)
     r.certificates = _merge_unique(r.certificates, certs)
-    return profile
+    normalized_payload = normalize_profile(profile)
+    return NeedAnalysisProfile.model_validate(normalized_payload)
 
 
 def extract_responsibilities(text: str) -> List[str]:

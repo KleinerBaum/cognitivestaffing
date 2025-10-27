@@ -596,7 +596,8 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
         logger.info("Repaired NeedAnalysisProfile payload via JSON repair fallback.")
         payload = canonical_repaired
 
-    return normalize_profile(profile)
+    normalized_payload = normalize_profile(profile)
+    return NeedAnalysisProfile.model_validate(normalized_payload)
 
 
 def process_extracted_profile(raw_profile: Mapping[str, Any] | None) -> NeedAnalysisProfile:

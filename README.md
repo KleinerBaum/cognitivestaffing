@@ -121,7 +121,9 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
   exports stay in sync.
 - After ingestion (URL, PDF, manual paste) run
   `coerce_and_fill()` **and** `normalize_profile()` before rendering to ensure
-  consistent casing, whitespace, and list deduplication.
+  consistent casing, whitespace, and list deduplication. The normaliser returns
+  a validated dictionary payload and triggers the JSON repair fallback only
+  when the cleaned payload would otherwise violate the schema.
 
 **DE:**
 
@@ -136,7 +138,9 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via the shared
   stets synchron bleiben.
 - Nach dem Import (URL, PDF, Text) immer `coerce_and_fill()` **plus**
   `normalize_profile()` ausführen, damit Groß-/Kleinschreibung, Whitespace und
-  Listen-Bereinigung konsistent sind.
+  Listen-Bereinigung konsistent sind. Der Normalisierer liefert ein validiertes
+  Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Payload die
+  Schemaregeln verletzen würde.
 
 ## RecruitingWizard Schema – Single Source of Truth / Master-Schema RecruitingWizard
 

@@ -94,9 +94,12 @@ before storing them in `st.session_state["profile"]`. The helper applies the
 keys, coerces obvious scalar types, and then validates the payload with
 `NeedAnalysisProfile`. If validation fails, the pipeline triggers the OpenAI
 JSON repair helper and re-runs validation on the repaired payload. Finally,
-`normalize_profile` cleans strings, deduplicates list values, and harmonises
-country/language codes. New aliases belong in `core/schema.py::ALIASES` to keep
-legacy inputs working consistently across UI, exports, and the schema.
+`normalize_profile` cleans strings, deduplicates list values, harmonises
+country/language codes, and validates the cleaned payload again. When the
+post-normalisation payload breaks schema rules, it optionally reuses the JSON
+repair helper before falling back to the previous valid snapshot. New aliases
+belong in `core/schema.py::ALIASES` to keep legacy inputs working consistently
+across UI, exports, and the schema.
 
 **DE:** Alle Ingestion-Pfade müssen Rohdaten vor dem Speichern in
 `st.session_state["profile"]` durch `coerce_and_fill` schicken. Der Helfer
@@ -105,6 +108,8 @@ entfernt unbekannte Keys, wandelt offensichtliche Skalartypen und validiert das
 Payload anschließend mit `NeedAnalysisProfile`. Schlägt die Validierung fehl,
 startet der Prozess die OpenAI-JSON-Reparatur und validiert die korrigierten
 Daten erneut. Zum Schluss sorgt `normalize_profile` für saubere Strings,
-deduplizierte Listen sowie harmonisierte Länder- und Sprachcodes. Neue Aliasse
+deduplizierte Listen sowie harmonisierte Länder- und Sprachcodes **und** prüft
+das bereinigte Payload erneut. Bei Verstößen nutzt der Helfer optional die JSON-
+Reparatur, bevor er zur letzten gültigen Variante zurückkehrt. Neue Aliasse
 gehören in `core/schema.py::ALIASES`, damit Legacy-Inputs in UI, Exporten und
 Schema konsistent bleiben.

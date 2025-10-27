@@ -48,7 +48,8 @@ This document describes the end-to-end flow for extracting structured vacancy pr
    - When validation fails, the helper calls the OpenAI Responses API JSON repair routine (`repair_profile_payload`) with the validation errors.
    - Repaired payloads are canonicalised again and revalidated to ensure schema compliance.
 3. **Post-validation cleanup**
-   - `utils.normalization.normalize_profile()` strips noise (whitespace, duplicate list entries, inconsistent casing) and harmonises countries, languages, and booleans.
+   - `utils.normalization.normalize_profile()` strips noise (whitespace, duplicate list entries, inconsistent casing), harmonises countries/languages, and validates the cleaned dictionary.
+   - If cleanup introduces schema issues, the helper invokes JSON repair once more before falling back to the last valid snapshot.
    - Normalised payloads flow back into `NeedAnalysisProfile` instances to guarantee type safety before reaching Streamlit state.
 
 ## 6. Error Handling & Retries

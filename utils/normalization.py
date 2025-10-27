@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
-from typing import Any, Callable, List, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Callable, List, Optional, TYPE_CHECKING
+
+from pydantic import ValidationError
 
 from config import ModelTask, USE_RESPONSES_API, get_model_for, is_llm_enabled
 from llm.openai_responses import build_json_schema_format, call_responses
@@ -559,30 +561,89 @@ def _normalize_profile_mapping(data: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def normalize_profile(profile: "NeedAnalysisProfile") -> "NeedAnalysisProfile":
-    """Return a normalised copy of ``profile`` with cleaned scalar fields.
+def _validate_profile_payload(payload: Mapping[str, Any]) -> tuple[dict[str, Any] | None, ValidationError | None]:
+    """Validate ``payload`` against :class:`NeedAnalysisProfile`."""
 
-    The helper is the final step in the ingestion pipeline (`coerce_and_fill`
-    → `NeedAnalysisProfile` → `normalize_profile`). It re-dumps the validated
-    profile, cleans strings, deduplicates list entries, and revalidates the
-    result so downstream code always receives a schema-compliant instance with
-    harmonised casing, country codes, and optional branding metadata.
+    from models.need_analysis import NeedAnalysisProfile as _Profile
+
+    try:
+        model = _Profile.model_validate(payload)
+    except ValidationError as exc:
+        return None, exc
+    return model.model_dump(), None
+
+
+def _attempt_llm_repair(
+    payload: Mapping[str, Any],
+    *,
+    errors: Sequence[Mapping[str, Any]] | None,
+) -> dict[str, Any] | None:
+    """Try to repair ``payload`` via the JSON repair fallback."""
+
+    try:
+        from llm.json_repair import repair_profile_payload
+    except Exception:  # pragma: no cover - defensive fallback when imports fail
+        logger.exception("Unable to import JSON repair helper")
+        return None
+
+    repaired = repair_profile_payload(payload, errors=errors)
+    if not repaired:
+        return None
+    if not isinstance(repaired, Mapping):
+        return None
+    normalized_repair = _normalize_profile_mapping(repaired)
+    return normalized_repair
+
+
+def normalize_profile(profile: Mapping[str, Any] | "NeedAnalysisProfile") -> dict[str, Any]:
+    """Return a validated, cleaned dictionary representation of ``profile``.
+
+    The helper cleans scalar strings, deduplicates list entries, harmonises
+    known fields (job title, city, country, branding metadata) and re-validates
+    the resulting payload. If normalisation yields an invalid payload, it uses
+    the OpenAI JSON repair fallback to recover when available.
     """
 
-    try:
-        data = profile.model_dump()
-    except AttributeError:
-        return profile
-    normalized = _normalize_profile_mapping(data)
-    if normalized == data:
-        return profile
-    try:
-        from models.need_analysis import NeedAnalysisProfile as _Profile
+    is_model_input = hasattr(profile, "model_dump")
+    if is_model_input:
+        data = profile.model_dump()  # type: ignore[assignment]
+    elif isinstance(profile, Mapping):
+        data = dict(profile)
+    else:  # pragma: no cover - defensive branch
+        raise TypeError("profile must be a mapping or NeedAnalysisProfile instance")
 
-        return _Profile.model_validate(normalized)
-    except Exception:  # pragma: no cover - defensive fallback
-        logger.exception("Failed to validate normalized profile; returning original")
-        return profile
+    normalized = _normalize_profile_mapping(data)
+
+    if is_model_input and normalized == data:
+        return dict(normalized)
+
+    validated, error = _validate_profile_payload(normalized)
+    if validated is not None:
+        return validated
+
+    errors = error.errors() if error else None
+    repaired_payload = _attempt_llm_repair(normalized, errors=errors)
+    if repaired_payload is not None:
+        repaired_validated, repair_error = _validate_profile_payload(repaired_payload)
+        if repaired_validated is not None:
+            logger.info("Normalized profile repaired via JSON fallback.")
+            return repaired_validated
+        logger.warning(
+            "JSON repair fallback returned invalid payload: %s",
+            repair_error,
+        )
+
+    if is_model_input:
+        logger.warning(
+            "Normalization produced invalid payload; returning original model dump.",
+        )
+        return dict(data)
+
+    logger.warning(
+        "Normalization could not validate payload; returning NeedAnalysisProfile defaults.",
+    )
+    default_model, _ = _validate_profile_payload({})
+    return default_model if default_model is not None else {}
 
 
 __all__ = [
