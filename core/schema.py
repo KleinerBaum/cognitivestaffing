@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import ItemsView
 from enum import StrEnum
@@ -9,11 +10,13 @@ from typing import Any, Dict, List, Mapping, Tuple, Union, get_args, get_origin
 
 from types import MappingProxyType
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, RootModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, RootModel, ValidationError, field_validator, model_validator
 
 from models.need_analysis import NeedAnalysisProfile
+from utils.normalization import normalize_profile
 
 from .validators import deduplicate_preserve_order, ensure_canonical_keys
+from llm.json_repair import repair_profile_payload
 
 
 def _is_flag_enabled(value: str | None) -> bool:
@@ -361,6 +364,9 @@ FLOAT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is float}
 
 # Alias map for backward compatibility with legacy field names
 # Using MappingProxyType to prevent accidental mutation.
+logger = logging.getLogger(__name__)
+
+
 ALIASES: Mapping[str, str] = MappingProxyType(
     {
         "date_of_employment_start": "meta.target_start_date",
@@ -378,6 +384,11 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "reporting_manager_name": "position.reporting_manager_name",
         "work_model": "employment.work_policy",
         "employment.work_model": "employment.work_policy",
+        "company.tagline": "company.claim",
+        "company.logo": "company.logo_url",
+        "company.logoUrl": "company.logo_url",
+        "company.brand_color_hex": "company.brand_color",
+        "company.brand_colour": "company.brand_color",
     }
 )
 
@@ -412,7 +423,26 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
         val = _pop_path(data, alias, sentinel)
         if val is not sentinel:
             _set_path(data, target, val)
-    return NeedAnalysisProfile.model_validate(data)
+
+    try:
+        profile = NeedAnalysisProfile.model_validate(data)
+    except ValidationError as exc:
+        repaired_payload = repair_profile_payload(data, errors=exc.errors())
+        if not repaired_payload:
+            raise
+        repaired = {**repaired_payload}
+        for alias, target in ALIASES.items():
+            val = _pop_path(repaired, alias, sentinel)
+            if val is not sentinel:
+                _set_path(repaired, target, val)
+        try:
+            profile = NeedAnalysisProfile.model_validate(repaired)
+        except ValidationError:
+            raise
+        logger.info("Repaired NeedAnalysisProfile payload via JSON repair fallback.")
+        data = repaired
+
+    return normalize_profile(profile)
 
 
 # Backwards compatibility aliases

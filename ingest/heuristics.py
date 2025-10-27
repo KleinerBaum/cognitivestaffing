@@ -16,6 +16,7 @@ from utils.normalization import (
     normalize_country,
     normalize_language_list,
 )
+from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
 
 HEURISTICS_LOGGER = logging.getLogger("cognitive_needs.heuristics")
@@ -37,19 +38,6 @@ def _log_heuristic_fill(field: str, rule: str, *, detail: str | None = None) -> 
     HEURISTICS_LOGGER.info(message, extra=extra)
 
 
-# Matches gender suffixes appended to job titles such as "(m/w/d)" or "all genders".
-# Handles German abbreviations (m/w/d, m/w/x, etc.) separated by slashes and ignores
-# optional punctuation before the suffix.
-_GENDER_RE = re.compile(
-    r"(?P<prefix>\s*[-–—:,/|]*)?(?P<suffix>\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)",
-    re.IGNORECASE,
-)
-# Finds gender suffixes at the very end of a line so we can strip trailing markers like
-# "Junior Developer (m/w/d)" without affecting inline occurrences.
-_GENDER_SUFFIX_END_RE = re.compile(
-    r"(?:\((?:[mwfd]\s*/\s*){2}[mwfd]\)|all genders)\s*$",
-    re.IGNORECASE,
-)
 # Captures phrases such as "Brand, ein Unternehmen der ParentGmbH" to pull both the
 # consumer brand and the legal entity. German legal forms like GmbH/AG are covered.
 _BRAND_OF_RE = re.compile(
@@ -1403,7 +1391,7 @@ def extract_responsibilities(text: str) -> List[str]:
 
 
 def _line_ends_with_gender_marker(line: str) -> bool:
-    return bool(_GENDER_SUFFIX_END_RE.search(line.strip()))
+    return bool(GENDER_SUFFIX_TRAILING_RE.search(line.strip()))
 
 
 def _should_include_second_line(line: str) -> bool:
@@ -1420,7 +1408,7 @@ def _normalize_gender_suffix(title: str) -> str:
         suffix = match.group("suffix").strip()
         return f" {suffix}"
 
-    normalized = _GENDER_RE.sub(_replace, title)
+    normalized = GENDER_SUFFIX_INLINE_RE.sub(_replace, title)
     normalized = re.sub(r"\s{2,}", " ", normalized).strip()
     return normalized.rstrip("-–—:,/|").strip()
 

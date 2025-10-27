@@ -2,8 +2,14 @@
 
 ## Unreleased
 
-- _No unreleased changes yet._
-  - _Noch keine Änderungen verfügbar._
+- feat: add end-to-end field normalisation with regex heuristics, logging, and safe fallbacks (CS_AGENT/1.0)
+  - Feature: End-to-end-Feldnormalisierung mit Regex-Heuristiken, Logging und sicheren Fallbacks (CS_AGENT/1.0)
+- feat: repair invalid NeedAnalysisProfile payloads via OpenAI JSON schema output with alias reapplication (CS_SCHEMA_PROPAGATE)
+  - Feature: Repariert ungültige NeedAnalysisProfile-Payloads über OpenAI-JSON-Schema-Ausgabe inklusive Alias-Neuzuordnung (CS_SCHEMA_PROPAGATE)
+- feat: auto-detect company branding (logo, color, claim) from scraped HTML and surface it across the wizard UI/export
+  - Feature: Automatische Erkennung von Unternehmensbranding (Logo, Farbe, Claim) aus HTML mit Anzeige im Wizard und Export
+- test/docs: extend regression coverage and README guidance for normalisation, JSON repair, and branding caches
+  - Tests/Doku: Regressionstests und README-Hinweise für Normalisierung, JSON-Reparatur und Branding-Caches erweitert
 
 ## v1.0.0 – Wizard-Vollmodernisierung & KI-Assistenten (2025-10-27)
 

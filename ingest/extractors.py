@@ -132,7 +132,7 @@ def extract_text_from_url(url: str) -> StructuredDocument:
     doc: StructuredDocument | None = None
     text = ""
     if blocks:
-        doc = StructuredDocument.from_blocks(blocks, source=url)
+        doc = StructuredDocument.from_blocks(blocks, source=url, raw_html=html)
         text = doc.text
 
     has_structure = bool(doc and any(block.type in {"heading", "paragraph"} for block in doc.blocks))
@@ -156,18 +156,18 @@ def extract_text_from_url(url: str) -> StructuredDocument:
                     or ""
                 )
         if recovered_text and len(recovered_text) > len(text):
-            return build_plain_text_document(recovered_text, source=url)
+            return build_plain_text_document(recovered_text, source=url, raw_html=html)
 
     if not text and not recovered_text:
         raise ValueError("URL contains no extractable text")
 
     if not blocks:
         final_text = recovered_text or text
-        return build_plain_text_document(final_text, source=url)
+        return build_plain_text_document(final_text, source=url, raw_html=html)
 
     if doc is None or not doc.text:
         final_text = recovered_text or text
-        return build_plain_text_document(final_text, source=url)
+        return build_plain_text_document(final_text, source=url, raw_html=html)
 
     return doc
 

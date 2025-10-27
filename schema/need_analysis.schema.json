@@ -77,6 +77,29 @@
                         "string",
                         "null"
                     ]
+                },
+                "logo_url": {
+                    "description": "Company logo image URL",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "format": "uri"
+                },
+                "brand_color": {
+                    "description": "Primary brand colour as a hex value (e.g. #0057B8)",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^#?[0-9A-Fa-f]{6}$"
+                },
+                "claim": {
+                    "description": "Company slogan or brand claim",
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
             "type": "object"

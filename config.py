@@ -331,6 +331,7 @@ class ModelTask(StrEnum):
     DOCUMENT_REFINEMENT = "document_refinement"
     EXPLANATION = "explanation"
     SALARY_ESTIMATE = "salary_estimate"
+    JSON_REPAIR = "json_repair"
 
 
 MODEL_ROUTING: Dict[str, str] = {
@@ -350,6 +351,7 @@ MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
     ModelTask.EXPLANATION.value: GPT5_MINI,
     ModelTask.SALARY_ESTIMATE.value: GPT5_MINI,
+    ModelTask.JSON_REPAIR.value: GPT4O_MINI,
     "embedding": EMBED_MODEL,
 }
 
