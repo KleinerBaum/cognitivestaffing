@@ -1304,7 +1304,9 @@ def _render_skill_board(
         tooltip_map.setdefault(identifier, []).append(label_text)
 
     if tooltip_map:
-        tooltip_payload = json.dumps(tooltip_map, ensure_ascii=False).replace("</", "<\/")
+        # ``<\/`` ensures the JSON payload stays valid inside the ``<script>`` tag
+        # and avoids ``SyntaxWarning: invalid escape sequence`` during parsing.
+        tooltip_payload = json.dumps(tooltip_map, ensure_ascii=False).replace("</", "<\\/")
         st.markdown(
             """
             <script>
