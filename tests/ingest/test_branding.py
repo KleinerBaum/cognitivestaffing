@@ -67,3 +67,26 @@ def test_extract_brand_assets_handles_empty_html() -> None:
     assets = extract_brand_assets("", base_url=None)
 
     assert assets == BrandAssets()
+
+
+def test_extract_brand_assets_uses_meta_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = """
+    <html>
+      <head>
+        <meta property="og:image" content="/assets/og-logo.png" />
+      </head>
+      <body>
+        <img src="/images/team.jpg" alt="Team photo" width="400" height="250" />
+      </body>
+    </html>
+    """
+
+    monkeypatch.setattr(
+        "ingest.branding._download_image",
+        lambda _: _png_bytes((200, 50, 50)),
+    )
+
+    assets = extract_brand_assets(html, base_url="https://logo.example/careers")
+
+    assert assets.logo_url == "https://logo.example/assets/og-logo.png"
+    assert assets.brand_color == "#C83232"

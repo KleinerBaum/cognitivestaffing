@@ -13,15 +13,24 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
+_PILImage: Any
 try:  # pragma: no cover - optional dependency guard
-    from PIL import Image
+    from PIL import Image as _PILImage
 except ImportError:  # pragma: no cover - optional dependency
-    Image = None
-
+    _PILImage = None
 
 logger = logging.getLogger(__name__)
 
 _LOGO_HINT_RE = re.compile(r"logo", re.IGNORECASE)
+_META_LOGO_ATTRS: tuple[tuple[int, str, re.Pattern[str]], ...] = (
+    (12, "property", re.compile(r"og:logo", re.IGNORECASE)),
+    (11, "itemprop", re.compile(r"logo", re.IGNORECASE)),
+    (10, "name", re.compile(r"og:logo", re.IGNORECASE)),
+    (9, "property", re.compile(r"og:image", re.IGNORECASE)),
+    (8, "name", re.compile(r"og:image", re.IGNORECASE)),
+    (7, "name", re.compile(r"twitter:image", re.IGNORECASE)),
+    (7, "property", re.compile(r"twitter:image", re.IGNORECASE)),
+)
 _TAGLINE_STOPWORDS = {
     "jobs",
     "stellen",
@@ -114,19 +123,43 @@ def _score_image(tag) -> int:
 
 
 def _select_logo_url(soup: BeautifulSoup, base_url: str | None) -> str | None:
-    candidates: list[tuple[int, str]] = []
+    candidates: dict[str, int] = {}
+
+    def _add_candidate(raw_url: str | Sequence[Any] | None, score: int) -> None:
+        resolved = _resolve_url(base_url, raw_url)
+        if not resolved:
+            return
+        existing = candidates.get(resolved)
+        if existing is None or score > existing:
+            candidates[resolved] = score
+
+    for score, attr, pattern in _META_LOGO_ATTRS:
+        for tag in soup.find_all("meta", attrs={attr: pattern}):
+            content = tag.get("content")
+            _add_candidate(content, score)
+
+    for link in soup.find_all("link"):
+        rel = link.get("rel")
+        href = link.get("href")
+        if not href or not rel:
+            continue
+        if isinstance(rel, Sequence) and not isinstance(rel, str):
+            rel_tokens = " ".join(str(token) for token in rel)
+        else:
+            rel_tokens = str(rel)
+        if _LOGO_HINT_RE.search(rel_tokens):
+            _add_candidate(href, 11)
+
     for img in soup.find_all("img"):
         src = img.get("src") or img.get("data-src") or img.get("data-original")
-        resolved = _resolve_url(base_url, src)
-        if not resolved:
-            continue
         score = _score_image(img)
         if score:
-            candidates.append((score, resolved))
-    if candidates:
-        candidates.sort(key=lambda item: item[0], reverse=True)
-        return candidates[0][1]
-    return None
+            _add_candidate(src, score)
+
+    if not candidates:
+        return None
+
+    return max(candidates.items(), key=lambda item: (item[1], item[0]))[0]
 
 
 def _extract_icon_url(soup: BeautifulSoup, base_url: str | None) -> str | None:
@@ -150,10 +183,10 @@ def _download_image(url: str) -> bytes | None:
 
 
 def _dominant_color(image_bytes: bytes) -> str | None:
-    if Image is None:  # pragma: no cover - optional dependency missing
+    if _PILImage is None:  # pragma: no cover - optional dependency missing
         return None
     try:
-        with Image.open(BytesIO(image_bytes)) as img:
+        with _PILImage.open(BytesIO(image_bytes)) as img:
             img = img.convert("RGBA")
             img = img.resize((64, 64))
             colors = img.getcolors(64 * 64)
