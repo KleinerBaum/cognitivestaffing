@@ -82,3 +82,36 @@
 
 The Streamlit entry point (`app.py`) wires UI components from `components/` and the multi-step flow in `wizard.py` into a shared `st.session_state`. Domain rules in `core/` and `question_logic.py` keep the vacancy schema aligned with UI widgets and exports. Agents (see [AGENTS.md](AGENTS.md)) delegate LLM calls to `llm/` helpers that return a unified `ChatCallResult`, manage retries, and execute any registered tools.
 
+streamlit app.py
+├─ wizard.py + components/ → builds the UI flow & session state
+│ └─ wizard_tools/ → Streamlit function tools (ingest, reruns, SME merge)
+├─ core/ + question_logic.py → vacancy domain logic & schema synchronization
+└─ agents (AGENTS.md)
+├─ llm/responses.py → ChatCallResult wrapper & tool runner
+│ └─ llm/rag_pipeline.py → OpenAI file_search tool (uses VECTOR_STORE_ID)
+└─ ingest/ + integrations/ → PDF/HTML/OCR loaders, ESCO API clients, vector store handlers
+
+
+All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `prompt_registry` helper, keeping the Streamlit UI and CLI utilities in sync.
+
+## UI Binding Rules / UI-Bindungsregeln
+
+**EN:**
+
+- Always get widget default values via `wizard._logic.get_value("<path>")`. The profile stored in `st.session_state[StateKeys.PROFILE]` is the single source of truth and already includes schema defaults.
+- Use schema paths (e.g., `"company.name"`, `"location.primary_city"`) as widget keys. Avoid binding inputs to legacy keys like `ui.*` when reading data.
+- Prefer using the helper functions in `components.widget_factory`—such as `text_input`, `select`, and `multiselect` (re-exported in `wizard.wizard`)—when creating widgets. They automatically hook into `_update_profile` so that the sidebar, summary, and exports stay in sync.
+- After ingestion (via URL, PDF, or text paste), run `coerce_and_fill()` **and** `normalize_profile()` before rendering the form. This ensures consistent casing, whitespace, and de-duplication of lists. The normalizer returns a validated dictionary and will trigger the JSON “repair” fallback only if the cleaned payload would violate the schema.
+
+**DE:**
+
+- Widget-Vorgabewerte immer über `wizard._logic.get_value("<Pfad>")` beziehen. Die Daten in `st.session_state[StateKeys.PROFILE]` sind die einzige Wahrheitsquelle und enthalten bereits Schema-Defaults.
+- Verwende Schema-Pfade (z. B. `"company.name"`, `"location.primary_city"`) als Widget-Keys. Binde Eingaben nicht an veraltete `ui.*`-Keys, wenn Daten ausgelesen werden.
+- Nutze zum Rendern die Helfer in `components.widget_factory` (`text_input`, `select`, `multiselect`, auch via `wizard.wizard` verfügbar). Diese binden das Widget automatisch an `_update_profile`, sodass Sidebar, Zusammenfassung und Exporte stets synchron bleiben.
+- Führe nach dem Import (URL, PDF oder Texteingabe) immer `coerce_and_fill()` **und** `normalize_profile()` aus, bevor das Formular gerendert wird. So werden Groß-/Kleinschreibung, Leerzeichen und Duplikate in Listen vereinheitlicht. Der Normalisierer liefert ein valides Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Profil sonst gegen das Schema verstoßen würde.
+
+## RecruitingWizard Schema – Single Source of Truth / Master-Schema RecruitingWizard
+
+**EN:** The new RecruitingWizard master schema (see `core/schema.py`) unifies the company, team, role, skills, benefits, interview process, and summary data that power the wizard UI, business logic, and exports. Each field is represented by a typed Pydantic model, and `WIZARD_KEYS_CANONICAL` provides the canonical dot-paths so that other modules (`wizard/`, `question_logic.py`, exports) remain in sync. Source tracking and gap analysis are first-class citizens via `SourceMap` entries (`origin: user|extract|web` with confidence and `source_url`) and `MissingFieldMap` flags that carry field ownership and reminders. Enable this schema by setting `SCHEMA_WIZARD_V1=1` (a feature flag is in place for gradual rollout). The helper in `core/schema_defaults.py` provides a sample payload for tests, while `exports/models.py` wraps validated payloads for JSON and Markdown outputs. The ingestion/export processes still use the legacy `NeedAnalysisProfile`; the canonical dot-paths are exposed via `core.schema.KEYS_CANONICAL` and legacy aliases remain in `core.schema.ALIASES`.
+
+**DE:** Das neue Master-Schema der RecruitingWizard-Anwendung (`core/schema.py`) vereint die Daten zu Unternehmen, Team, Rolle, Skills, Benefits, Interview-Prozess und Zusammenfassung als zentrale Wahrheitsquelle für Wizard, Logik und Exporte. Jedes Feld wird durch ein typisiertes Pydantic-Modell repräsentiert, und `WIZARD_KEYS_CANONICAL` liefert die kanonischen Dot-Pfade, damit UI (`wizard/`), Business-Logik und Exporte identisch bleiben. Source-Tracking und Gap-Analyse sind über `SourceMap`-Einträge (Herkunft: user|extract|web mit Confidence und `source_url`) und `MissingFieldMap`-Markierungen mit Verantwortlichen und Hinweisen direkt unterstützt. Aktiviere das Schema mit `SCHEMA_WIZARD_V1=1` (ein Feature-Flag ermöglicht einen gestaffelten Rollout). Der Helfer in `core/schema_defaults.py` stellt ein Beispiel-Payload für Tests bereit, und `exports/models.py` kapselt validierte Payloads für JSON- und Markdown-Exporte. Der Import-/Exportprozess nutzt weiterhin das alte `NeedAnalysisProfile`; die kanonischen Dot-Pfade sind über `core.schema.KEYS_CANONICAL` verfügbar und alte Bezeichner sind in `core.schema.ALIASES` hinterlegt.
