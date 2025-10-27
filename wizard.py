@@ -131,6 +131,9 @@ PAGE_LOOKUP: dict[str, WizardPage] = {page.key: page for page in WIZARD_PAGES}
 
 MAX_INLINE_VALUE_CHARS = 20
 
+INTRO_TONES: tuple[str, ...] = ("pragmatic", "formal", "casual")
+DEFAULT_INTRO_TONE = INTRO_TONES[0]
+
 
 _SKILL_IDENTIFIER_PATTERN = re.compile(r"^(?:hard|soft):[0-9a-f]{12}$")
 _SKILL_ID_ATTR_PATTERN = re.compile(r"data-skill-id=['\"]([^'\"]+)['\"]")
@@ -1750,6 +1753,28 @@ def _build_profile_context(profile: Mapping[str, Any]) -> dict[str, str]:
     return context
 
 
+def _selected_intro_variant(variants: Sequence[tuple[str, str]]) -> tuple[str, str] | None:
+    """Return the intro variant matching the configured tone."""
+
+    if not variants:
+        return None
+
+    tone_value = st.session_state.get("wizard_intro_tone")
+    tone = DEFAULT_INTRO_TONE
+    if isinstance(tone_value, str):
+        candidate = tone_value.strip().lower()
+        if candidate in INTRO_TONES:
+            tone = candidate
+
+    try:
+        tone_index = INTRO_TONES.index(tone)
+    except ValueError:  # pragma: no cover - defensive fallback
+        tone_index = 0
+
+    safe_index = min(tone_index, len(variants) - 1)
+    return variants[safe_index]
+
+
 def _resolve_step_copy(
     page_key: str,
     profile: Mapping[str, Any] | None = None,
@@ -1775,7 +1800,8 @@ def _resolve_step_copy(
         intro_context = {}
 
     intros: list[str] = []
-    for variant in page.panel_intro_variants:
+    variant = _selected_intro_variant(page.panel_intro_variants)
+    if variant:
         template = page.translate(variant, lang)
         try:
             formatted = template.format(**intro_context)

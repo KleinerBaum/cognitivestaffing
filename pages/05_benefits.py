@@ -10,12 +10,16 @@ PAGE = WizardPage(
     panel_subheader=("Gehalt & Zusatzleistungen", "Salary & perks"),
     panel_intro_variants=(
         (
-            "Definiere Rahmen, Bonus und Benefits – wichtig für Marktplatz & Ad.",
-            "Define ranges, bonuses, and perks – vital for marketplace & ads.",
+            "Lege Gehaltsrahmen, Bonusmodell und Benefits transparent fest.",
+            "Set a clear salary range, bonus model, and benefit package.",
         ),
         (
-            "Nutze Benchmarks, um Erwartungen realistisch zu halten.",
-            "Use benchmarks to keep expectations realistic.",
+            "Strukturierte Vergütungsdaten verbessern Marktplatz-Matching, Benchmarks und Angebotsunterlagen.",
+            "Structured compensation data improves marketplace matching, benchmarking, and offer collateral.",
+        ),
+        (
+            "Sag offen, was ihr zahlt und womit ihr Kandidat:innen begeistert.",
+            "Be upfront about pay and the perks that make candidates excited.",
         ),
     ),
     required_fields=(),

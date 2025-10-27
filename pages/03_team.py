@@ -10,12 +10,16 @@ PAGE = WizardPage(
     panel_subheader=("Berichtslinien & Timing", "Reporting & timing"),
     panel_intro_variants=(
         (
-            "Definiere Titel, Seniorität und Ansprechpartner für die Rolle.",
-            "Define title, seniority, and reporting lines for the role.",
+            "Skizziere Struktur, Berichtslinien und Startzeitpunkt der Rolle.",
+            "Outline the team structure, reporting line, and start timing for the role.",
         ),
         (
-            "Diese Angaben steuern Follow-ups und Teamdarstellung.",
-            "These inputs shape follow-ups and how the team is presented.",
+            "Präzise Angaben zu Seniorität, Reporting und Standort steuern Folgefragen und Automatisierung.",
+            "Precise details on seniority, reporting, and location inform follow-up prompts and automation.",
+        ),
+        (
+            "Erzähl kurz, wer die neue Person an die Hand nimmt und ab wann es losgeht.",
+            "Let us know who the new hire reports to and when they’ll get started.",
         ),
     ),
     required_fields=("position.job_title",),

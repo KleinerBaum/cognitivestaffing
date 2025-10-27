@@ -10,12 +10,16 @@ PAGE = WizardPage(
     panel_subheader=("Phasen & Beteiligte", "Stages & stakeholders"),
     panel_intro_variants=(
         (
-            "Skizziere Schritte, Dauer und Stakeholder für einen klaren Prozess.",
-            "Outline steps, timing, and stakeholders for a clear process.",
+            "Skizziere Recruiting-Phasen, Dauer und beteiligte Personen für einen verlässlichen Ablauf.",
+            "Map out the interview stages, timing, and stakeholders for a reliable journey.",
         ),
         (
-            "Diese Infos landen im Interviewleitfaden und der Zusammenfassung.",
-            "These details power the interview guide and summary.",
+            "Standardisierte Prozessdaten sichern Erwartungsmanagement, Candidate Experience und Auswertbarkeit.",
+            "Standardised process data supports expectation management, candidate experience, and reporting.",
+        ),
+        (
+            "Erzähl locker, wie Bewerber:innen durch euren Prozess gehen und wer sie dabei trifft.",
+            "Give a quick rundown of how candidates move through your process and who they meet.",
         ),
     ),
     required_fields=(),
