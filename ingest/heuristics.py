@@ -1659,6 +1659,7 @@ def _llm_extract_primary_city(text: str) -> str:
     response_format = build_json_schema_format(
         name="primary_city_extraction",
         schema=_CITY_FIX_SCHEMA,
+        strict=True,
     )
     try:
         result = call_responses(
