@@ -10,6 +10,9 @@
   - Utils: `utils/`
 - Schema propagation (greppable): `CS_SCHEMA_PROPAGATE`
   - When adding/changing a field, **change everywhere**: Pydantic schema ↔ logic ↔ UI ↔ exports.
+- UI binding rules:
+  - Read defaults via `wizard._logic.get_value()` – the profile in `st.session_state[StateKeys.PROFILE]` is the only source of truth.
+  - Use schema paths (`company.name`, `location.primary_city`, …) as widget keys and wire widgets through `wizard.wizard.profile_*` helpers so `_update_profile` stays in sync.
 - Never hardcode secrets. Read keys via `os.getenv` or `st.secrets["openai"]`.
 
 ## Commands to run (blocking checks)

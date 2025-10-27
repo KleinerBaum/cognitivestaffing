@@ -16,6 +16,7 @@ from typing import Any, Mapping
 import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
+from state import ensure_state
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from utils.normalization import country_to_iso2
 
@@ -23,6 +24,41 @@ from utils.normalization import country_to_iso2
 SALARY_SLIDER_MIN = 0
 SALARY_SLIDER_MAX = 500_000
 SALARY_SLIDER_STEP = 1_000
+
+
+_MISSING = object()
+
+
+def _ensure_profile_mapping() -> Mapping[str, Any]:
+    """Return the profile mapping stored in session state."""
+
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if not isinstance(profile, Mapping):
+        ensure_state()
+        profile = st.session_state.get(StateKeys.PROFILE)
+    if isinstance(profile, Mapping):
+        return profile
+    return {}
+
+
+def get_value(field_path: str, default: Any | None = None) -> Any:
+    """Return the value stored under ``field_path`` within the profile."""
+
+    if not field_path:
+        raise ValueError("field_path must not be empty")
+
+    current: Any = _ensure_profile_mapping()
+    for part in field_path.split("."):
+        if part == "":
+            return default
+        if isinstance(current, Mapping):
+            candidate = current.get(part, _MISSING)
+        else:
+            candidate = _MISSING
+        if candidate is _MISSING:
+            return default
+        current = candidate
+    return current
 
 
 def _coerce_logo_bytes(data: Any) -> bytes | None:
@@ -258,6 +294,7 @@ def normalize_text_area_list(raw_text: str, *, strip_bullets: bool = True) -> li
 
 
 __all__ = [
+    "get_value",
     "_SalaryRangeDefaults",
     "_benchmark_salary_range",
     "_clamp_salary_value",

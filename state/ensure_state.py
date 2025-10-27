@@ -24,6 +24,7 @@ from config import (
 )
 from core.schema import canonicalize_profile_payload, coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
+from utils.normalization import normalize_profile
 
 
 import config as app_config
@@ -48,7 +49,8 @@ def ensure_state() -> None:
             logger.debug("Validation error when coercing profile: %s", error)
             sanitized = _sanitize_profile(existing)
             try:
-                st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile.model_validate(sanitized).model_dump()
+                validated = NeedAnalysisProfile.model_validate(sanitized)
+                st.session_state[StateKeys.PROFILE] = normalize_profile(validated).model_dump()
             except ValidationError as sanitized_error:
                 logger.warning(
                     "Failed to sanitize profile data; resetting to defaults: %s",
