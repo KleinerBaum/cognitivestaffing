@@ -94,6 +94,12 @@ class SourceMap(RootModel[dict[str, SourceAttribution]]):
     def get(self, key: str, default: SourceAttribution | None = None) -> SourceAttribution | None:
         return self.root.get(key, default)
 
+    @model_validator(mode="after")
+    def _ensure_canonical_paths(self) -> "SourceMap":
+        if WIZARD_KEYS_CANONICAL:
+            ensure_canonical_keys(self.root, WIZARD_KEYS_CANONICAL, context="source map")
+        return self
+
 
 class MissingFieldEntry(BaseModel):
     """Description for a missing or outstanding canonical field."""
@@ -115,6 +121,12 @@ class MissingFieldMap(RootModel[dict[str, MissingFieldEntry]]):
 
     def get(self, key: str, default: MissingFieldEntry | None = None) -> MissingFieldEntry | None:
         return self.root.get(key, default)
+
+    @model_validator(mode="after")
+    def _ensure_canonical_paths(self) -> "MissingFieldMap":
+        if WIZARD_KEYS_CANONICAL:
+            ensure_canonical_keys(self.root, WIZARD_KEYS_CANONICAL, context="missing field map")
+        return self
 
 
 class Company(BaseModel):
@@ -280,7 +292,7 @@ class Summary(BaseModel):
         return deduplicate_preserve_order(value)
 
 
-KEYS_CANONICAL: tuple[str, ...] = ()  # Populated after ``RecruitingWizard`` definition.
+WIZARD_KEYS_CANONICAL: tuple[str, ...] = ()  # Populated after ``RecruitingWizard`` definition.
 
 
 class RecruitingWizard(BaseModel):
@@ -302,9 +314,9 @@ class RecruitingWizard(BaseModel):
 
     @model_validator(mode="after")
     def _validate_maps(self) -> "RecruitingWizard":
-        if KEYS_CANONICAL:
-            ensure_canonical_keys(self.sources.root, KEYS_CANONICAL, context="source map")
-            ensure_canonical_keys(self.missing_fields.root, KEYS_CANONICAL, context="missing field map")
+        if WIZARD_KEYS_CANONICAL:
+            ensure_canonical_keys(self.sources.root, WIZARD_KEYS_CANONICAL, context="source map")
+            ensure_canonical_keys(self.missing_fields.root, WIZARD_KEYS_CANONICAL, context="missing field map")
         return self
 
 
@@ -354,11 +366,13 @@ def _collect_fields(model: type[BaseModel], prefix: str = "") -> Tuple[List[str]
 RECRUITING_WIZARD_FIELDS, RECRUITING_WIZARD_LIST_FIELDS, RECRUITING_WIZARD_FIELD_TYPES = _collect_fields(
     RecruitingWizard
 )
-# KEYS_CANONICAL ensures all modules use the same canonical wizard dot-paths.  # CS_SCHEMA_PROPAGATE
-KEYS_CANONICAL = tuple(sorted(RECRUITING_WIZARD_FIELDS))
+# WIZARD_KEYS_CANONICAL ensures all modules use the same canonical wizard dot-paths.  # CS_SCHEMA_PROPAGATE
+WIZARD_KEYS_CANONICAL = tuple(sorted(RECRUITING_WIZARD_FIELDS))
 
 
 ALL_FIELDS, LIST_FIELDS, FIELD_TYPES = _collect_fields(NeedAnalysisProfile)
+# KEYS_CANONICAL exposes the canonical NeedAnalysisProfile dot-paths.  # CS_SCHEMA_PROPAGATE
+KEYS_CANONICAL = tuple(sorted(ALL_FIELDS))
 BOOL_FIELDS = {p for p, t in FIELD_TYPES.items() if t is bool}
 INT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is int}
 FLOAT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is float}
@@ -375,6 +389,10 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "requirements.soft_skills": "requirements.soft_skills_required",
         "city": "location.primary_city",
         "location.city": "location.primary_city",
+        "company.location.city": "location.primary_city",
+        "company.location.country": "location.country",
+        "company.location.country_code": "location.country",
+        "company.hq": "company.hq_location",
         "brand name": "company.brand_name",
         "application deadline": "meta.application_deadline",
         "hr_contact_name": "company.contact_name",
@@ -383,6 +401,14 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "hiring_manager_name": "process.hiring_manager_name",
         "hiring_manager_role": "process.hiring_manager_role",
         "reporting_manager_name": "position.reporting_manager_name",
+        "role.title": "position.job_title",
+        "role.department": "position.department",
+        "role.team": "position.team_structure",
+        "role.seniority": "position.seniority_level",
+        "role.employment_type": "employment.job_type",
+        "role.work_policy": "employment.work_policy",
+        "role.travel_required_percent": "employment.travel_share",
+        "role.relocation": "employment.relocation_support",
         "work_model": "employment.work_policy",
         "employment.work_model": "employment.work_policy",
         "company.tagline": "company.claim",
@@ -390,6 +416,11 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "company.logoUrl": "company.logo_url",
         "company.brand_color_hex": "company.brand_color",
         "company.brand_colour": "company.brand_color",
+        "responsibilities": "responsibilities.items",
+        "compensation.min": "compensation.salary_min",
+        "compensation.max": "compensation.salary_max",
+        "compensation.currency_code": "compensation.currency",
+        "compensation.periodicity": "compensation.period",
     }
 )
 
@@ -472,6 +503,10 @@ def _apply_aliases(payload: dict[str, Any]) -> dict[str, Any]:
         value = _pop_path_casefold(payload, alias, sentinel)
         if value is sentinel:
             continue
+        if isinstance(value, Mapping):
+            last_part = target.split(".")[-1]
+            if last_part in value:
+                value = value[last_part]
         _set_path(payload, target, value, overwrite=False)
     return payload
 

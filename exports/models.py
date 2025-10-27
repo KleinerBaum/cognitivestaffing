@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from core.schema import KEYS_CANONICAL, RecruitingWizard, is_wizard_schema_enabled
+from core.schema import RecruitingWizard, WIZARD_KEYS_CANONICAL, is_wizard_schema_enabled
 
 
 class WizardExportError(RuntimeError):
@@ -40,7 +40,7 @@ class RecruitingWizardExport:
     def canonical_keys(self) -> tuple[str, ...]:
         """Expose the canonical dot-paths for downstream processors."""
 
-        return KEYS_CANONICAL
+        return WIZARD_KEYS_CANONICAL
 
 
 __all__ = ["RecruitingWizardExport", "WizardExportError"]
