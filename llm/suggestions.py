@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, Sequence
 
-from config import ModelTask, REASONING_EFFORT, get_model_for
+from config import ModelTask, REASONING_EFFORT, USE_CLASSIC_API, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses
 from openai_utils.extraction import _format_prompt, _style_prompt_hint
 
@@ -36,6 +36,121 @@ def _clean_string_list(items: Any, *, limit: int | None = None) -> list[str]:
         if limit and len(cleaned) >= limit:
             break
     return cleaned
+
+
+def _fallback_skills_via_legacy(
+    job_title: str,
+    *,
+    lang: str,
+    model: str | None,
+    focus_terms: Sequence[str] | None,
+    tone_style: str | None,
+    existing_items: Sequence[str] | None,
+    responsibilities: Sequence[str] | None,
+) -> dict[str, list[str]]:
+    """Return suggestions via the legacy Chat Completions backend."""
+
+    try:
+        from openai_utils import suggest_skills_for_role as legacy_suggest_skills
+
+        return legacy_suggest_skills(
+            job_title,
+            lang=lang,
+            model=model,
+            focus_terms=focus_terms,
+            tone_style=tone_style,
+            existing_items=existing_items,
+            responsibilities=responsibilities,
+        )
+    except Exception:  # pragma: no cover - legacy backend should rarely fail
+        logger.exception("Legacy skill suggestion fallback failed")
+        return {
+            "tools_and_technologies": [],
+            "hard_skills": [],
+            "soft_skills": [],
+            "certificates": [],
+        }
+
+
+def _fallback_benefits_static(
+    *,
+    lang: str,
+    industry: str,
+    existing_benefits: str,
+    focus_areas: Sequence[str] | None,
+) -> list[str]:
+    """Return a deterministic shortlist of benefits for failure scenarios."""
+
+    focus_seq = [str(area).strip() for area in (focus_areas or []) if str(area).strip()]
+    existing_set = {
+        line.strip().lower()
+        for line in str(existing_benefits or "").splitlines()
+        if line.strip()
+    }
+
+    shortlist: list[str] = []
+    try:
+        from core.suggestions import get_static_benefit_shortlist
+
+        shortlist = list(get_static_benefit_shortlist(lang=lang, industry=industry))
+    except Exception:  # pragma: no cover - defensive guard against circular import issues
+        logger.exception("Static benefit shortlist fallback failed")
+
+    filtered: list[str] = []
+    seen: set[str] = set()
+    for benefit in shortlist:
+        marker = benefit.strip().lower()
+        if not marker or marker in existing_set or marker in seen:
+            continue
+        seen.add(marker)
+        filtered.append(benefit.strip())
+        if len(filtered) >= 5:
+            break
+
+    for focus in focus_seq:
+        marker = focus.lower()
+        if marker in existing_set or marker in seen:
+            continue
+        seen.add(marker)
+        filtered.append(focus)
+        if len(filtered) >= 5:
+            break
+
+    return filtered
+
+
+def _fallback_benefits_via_legacy(
+    job_title: str,
+    *,
+    industry: str,
+    existing_benefits: str,
+    lang: str,
+    model: str | None,
+    focus_areas: Sequence[str] | None,
+    tone_style: str | None,
+) -> list[str]:
+    """Return benefit suggestions using the legacy Chat Completions backend."""
+
+    try:
+        from openai_utils import suggest_benefits as legacy_suggest_benefits
+
+        return legacy_suggest_benefits(
+            job_title,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            lang=lang,
+            model=model,
+            focus_areas=focus_areas,
+            tone_style=tone_style,
+        )
+    except Exception:  # pragma: no cover - legacy backend should rarely fail
+        logger.exception("Legacy benefit suggestion fallback failed")
+        return _fallback_benefits_static(
+            lang=lang,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            focus_areas=focus_areas,
+        )
 
 
 def suggest_skills_for_role(
@@ -111,32 +226,56 @@ def suggest_skills_for_role(
     if tone_hint:
         prompt += f"\n{tone_hint}"
 
-    response = call_responses(
-        [{"role": "user", "content": prompt}],
-        model=model,
-        response_format=build_json_schema_format(
-            name="skill_suggestions",
-            schema={
-                "type": "object",
-                "properties": {
-                    "tools_and_technologies": {"type": "array", "items": {"type": "string"}},
-                    "hard_skills": {"type": "array", "items": {"type": "string"}},
-                    "soft_skills": {"type": "array", "items": {"type": "string"}},
-                    "certificates": {"type": "array", "items": {"type": "string"}},
+    if USE_CLASSIC_API:
+        logger.info("Using legacy chat API for skill suggestions due to USE_CLASSIC_API flag")
+        return _fallback_skills_via_legacy(
+            job_title,
+            lang=lang,
+            model=model,
+            focus_terms=focus_terms,
+            tone_style=tone_style,
+            existing_items=existing_items,
+            responsibilities=responsibilities,
+        )
+
+    try:
+        response = call_responses(
+            [{"role": "user", "content": prompt}],
+            model=model,
+            response_format=build_json_schema_format(
+                name="skill_suggestions",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "tools_and_technologies": {"type": "array", "items": {"type": "string"}},
+                        "hard_skills": {"type": "array", "items": {"type": "string"}},
+                        "soft_skills": {"type": "array", "items": {"type": "string"}},
+                        "certificates": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": [
+                        "tools_and_technologies",
+                        "hard_skills",
+                        "soft_skills",
+                        "certificates",
+                    ],
+                    "additionalProperties": False,
                 },
-                "required": [
-                    "tools_and_technologies",
-                    "hard_skills",
-                    "soft_skills",
-                    "certificates",
-                ],
-                "additionalProperties": False,
-            },
-        ),
-        max_tokens=400,
-        reasoning_effort=REASONING_EFFORT,
-        task=ModelTask.SKILL_SUGGESTION,
-    )
+            ),
+            max_tokens=400,
+            reasoning_effort=REASONING_EFFORT,
+            task=ModelTask.SKILL_SUGGESTION,
+        )
+    except Exception:
+        logger.exception("Responses API skill suggestion failed; falling back to legacy backend")
+        return _fallback_skills_via_legacy(
+            job_title,
+            lang=lang,
+            model=model,
+            focus_terms=focus_terms,
+            tone_style=tone_style,
+            existing_items=existing_items,
+            responsibilities=responsibilities,
+        )
 
     try:
         payload = json.loads(response.content or "{}")
@@ -242,29 +381,50 @@ def suggest_benefits(
     if tone_hint:
         prompt += f"\n{tone_hint}"
 
-    response = call_responses(
-        [{"role": "user", "content": prompt}],
-        model=model,
-        response_format=build_json_schema_format(
-            name="benefit_suggestions",
-            schema={
-                "type": "object",
-                "properties": {
-                    "items": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "maxItems": 5,
-                    }
+    if USE_CLASSIC_API:
+        logger.info("Using legacy chat API for benefit suggestions due to USE_CLASSIC_API flag")
+        return _fallback_benefits_via_legacy(
+            job_title,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            lang=lang,
+            model=model,
+            focus_areas=focus_areas,
+            tone_style=tone_style,
+        )
+
+    try:
+        response = call_responses(
+            [{"role": "user", "content": prompt}],
+            model=model,
+            response_format=build_json_schema_format(
+                name="benefit_suggestions",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "maxItems": 5,
+                        }
+                    },
+                    "required": ["items"],
+                    "additionalProperties": False,
                 },
-                "required": ["items"],
-                "additionalProperties": False,
-            },
-        ),
-        temperature=0.5,
-        max_tokens=200,
-        reasoning_effort=REASONING_EFFORT,
-        task=ModelTask.BENEFIT_SUGGESTION,
-    )
+            ),
+            temperature=0.5,
+            max_tokens=200,
+            reasoning_effort=REASONING_EFFORT,
+            task=ModelTask.BENEFIT_SUGGESTION,
+        )
+    except Exception:
+        logger.exception("Responses API benefit suggestion failed; using static fallback")
+        return _fallback_benefits_static(
+            lang=lang,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            focus_areas=focus_areas,
+        )
 
     try:
         payload = json.loads(response.content or "{}")

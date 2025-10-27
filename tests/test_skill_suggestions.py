@@ -56,3 +56,44 @@ def test_suggest_skills_for_role_focus_terms(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     suggest_skills_for_role("Engineer", focus_terms=["Cloud", "Security"])
     assert "Cloud, Security" in captured["prompt"]
+
+
+def test_responses_skill_suggestions_fall_back_to_legacy(monkeypatch):
+    import llm.suggestions as responses_suggestions
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("Responses failure")
+
+    legacy_payload = {
+        "tools_and_technologies": ["Legacy Tool"],
+        "hard_skills": ["Legacy Hard"],
+        "soft_skills": ["Legacy Soft"],
+        "certificates": ["Legacy Cert"],
+    }
+
+    monkeypatch.setattr(responses_suggestions, "call_responses", boom)
+    monkeypatch.setattr(
+        "openai_utils.suggest_skills_for_role",
+        lambda *args, **kwargs: legacy_payload,
+    )
+
+    out = responses_suggestions.suggest_skills_for_role("Engineer")
+    assert out == legacy_payload
+
+
+def test_responses_benefit_suggestions_return_static_shortlist(monkeypatch):
+    import llm.suggestions as responses_suggestions
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("Responses failure")
+
+    static_shortlist = ["Static One", "Static Two"]
+
+    monkeypatch.setattr(responses_suggestions, "call_responses", boom)
+    monkeypatch.setattr(
+        "core.suggestions.get_static_benefit_shortlist",
+        lambda **_kwargs: static_shortlist,
+    )
+
+    out = responses_suggestions.suggest_benefits("Engineer", lang="en")
+    assert out == static_shortlist
