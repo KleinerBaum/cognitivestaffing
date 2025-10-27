@@ -60,6 +60,11 @@ _CITY_HINT_RE = re.compile(
     r"(?:city|ort|location|standort|arbeitsort|einsatzort)[:\-\s]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\s-]+)",
     re.IGNORECASE,
 )
+_CITY_IN_RE = re.compile(
+    r"\b(?:in|bei)\s+(?:dem\s+herzen\s+von\s+|der\s+stadt\s+|der\s+metropole\s+|mitte\s+von\s+)?"
+    r"([A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+){0,2})",
+    re.IGNORECASE,
+)
 _COMMON_CITIES: Tuple[str, ...] = COMMON_CITY_NAMES
 _COMMON_CITY_KEYS: set[str] = {city.casefold() for city in _COMMON_CITIES}
 
@@ -147,6 +152,50 @@ _LEADERSHIP_ACRONYM_RE = re.compile(
     r"^(?:c[aitmsodpfr]{1,2}o|ceo|cto|cfo|cio|cco|cmo|cpo|cso|cro|cdo|ciso|cio|coo|cgo|cxo|vp|svp|evp|md|gm)\b",
     re.IGNORECASE,
 )
+
+_INVALID_CITY_KEYWORDS: Tuple[str, ...] = (
+    "remote",
+    "hybrid",
+    "home office",
+    "home-office",
+    "homeoffice",
+    "work from home",
+    "working from home",
+    "flexible arbeitszeit",
+    "flexible arbeitszeiten",
+    "arbeitszeit",
+    "arbeitszeiten",
+    "working hour",
+    "working hours",
+    "work schedule",
+    "flexible working hours",
+    "flexible working hour",
+    "deutschland",
+    "germany",
+    "österreich",
+    "austria",
+    "schweiz",
+    "switzerland",
+    "europa",
+    "europe",
+)
+_INVALID_CITY_SUFFIXES: Tuple[str, ...] = ("zeiten", "hours")
+_CITY_TRAILING_STOPWORDS = {
+    "flexible",
+    "arbeitszeit",
+    "arbeitszeiten",
+    "vollzeit",
+    "teilzeit",
+    "remote",
+    "hybrid",
+    "benefits",
+    "homeoffice",
+    "home-office",
+    "home",
+    "office",
+    "working",
+    "hours",
+}
 
 
 @dataclass(slots=True)
@@ -518,7 +567,80 @@ def _clean_city_candidate(city: str | None) -> str:
 
     if not city:
         return ""
-    return city.splitlines()[0].strip()
+    cleaned = city.splitlines()[0].strip()
+    return cleaned.rstrip(",.;:")
+
+
+def _trim_city_stopwords(city: str) -> str:
+    """Return ``city`` without trailing stop words that are not part of a place name."""
+
+    tokens = [token for token in city.split() if token]
+    if not tokens:
+        return city
+    trimmed: list[str] = []
+    for token in tokens:
+        normalized = token.strip(",.;:").casefold()
+        if normalized in _CITY_TRAILING_STOPWORDS:
+            break
+        trimmed.append(token.strip(",.;:"))
+    if not trimmed:
+        return city
+    return " ".join(trimmed).strip()
+
+
+def _canonicalize_city_name(city: str) -> str:
+    """Return ``city`` normalised to a known common city when possible."""
+
+    lowered = city.casefold()
+    for known_city in _COMMON_CITIES:
+        if known_city.casefold() == lowered:
+            return known_city
+    return city
+
+
+def _city_value_is_invalid(city: str | None) -> str | None:
+    """Return the marker that deems ``city`` invalid or ``None`` if it looks fine."""
+
+    if not city:
+        return None
+    normalized = city.strip()
+    if not normalized:
+        return None
+    lowered = normalized.casefold()
+    for keyword in _INVALID_CITY_KEYWORDS:
+        if keyword in lowered:
+            return keyword
+    for suffix in _INVALID_CITY_SUFFIXES:
+        if lowered.endswith(suffix):
+            return suffix
+    return None
+
+
+def _city_candidate_is_plausible(city: str) -> bool:
+    """Return ``True`` if ``city`` appears to be a real geographic location."""
+
+    if not city:
+        return False
+    marker = _city_value_is_invalid(city)
+    if marker:
+        return False
+    tokens = [token for token in re.split(r"[\s-]+", city) if token]
+    if not tokens:
+        return False
+    if any(token.isdigit() for token in tokens):
+        return False
+    if not any(token[0].isalpha() for token in tokens):
+        return False
+    return True
+
+
+def _city_value_suits_work_schedule(city: str | None) -> bool:
+    """Return ``True`` if ``city`` contains hints about work schedule details."""
+
+    if not city:
+        return False
+    lowered = city.casefold()
+    return "arbeitszeit" in lowered or "working hour" in lowered or lowered.endswith("zeiten")
 
 
 def _city_candidate_is_trustworthy(city: str, text: str, regex_hint: str) -> bool:
@@ -1466,7 +1588,17 @@ def guess_city(text: str) -> str:
         return ""
     m = _CITY_HINT_RE.search(text)
     if m:
-        return m.group(1).split("|")[0].split(",")[0].strip()
+        candidate = _clean_city_candidate(m.group(1).split("|")[0].split(",")[0])
+        candidate = _trim_city_stopwords(candidate)
+        if _city_candidate_is_plausible(candidate):
+            return _canonicalize_city_name(candidate)
+    for match in _CITY_IN_RE.finditer(text):
+        candidate = _clean_city_candidate(match.group(1))
+        candidate = re.split(r"[|,/]", candidate)[0].strip()
+        candidate = _trim_city_stopwords(candidate)
+        if not _city_candidate_is_plausible(candidate):
+            continue
+        return _canonicalize_city_name(candidate)
     first_line = text.strip().splitlines()[0]
     parts = [p.strip() for p in first_line.split("|")]
     for part in parts:
@@ -1563,13 +1695,44 @@ def apply_basic_fallbacks(
     if not isinstance(autodetect_lang, str):
         autodetect_lang = metadata.get("_autodetect_language")
     language_hint = autodetect_lang if isinstance(autodetect_lang, str) else None
-    invalid_fields = {field for field in metadata.get("invalid_fields", []) if isinstance(field, str)}
-    high_confidence = {field for field in metadata.get("high_confidence_fields", []) if isinstance(field, str)}
-    locked_fields = {field for field in metadata.get("locked_fields", []) if isinstance(field, str)}
+
+    def _string_set_from_metadata(key: str) -> set[str]:
+        value = metadata.get(key, ())
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            return {item for item in value if isinstance(item, str)}
+        return set()
+
+    invalid_fields = _string_set_from_metadata("invalid_fields")
+    high_confidence = _string_set_from_metadata("high_confidence_fields")
+    locked_fields = _string_set_from_metadata("locked_fields")
     city_field = "location.primary_city"
     country_field = "location.country"
     city_invalid = city_field in invalid_fields
     country_invalid = country_field in invalid_fields
+
+    discarded_city: str | None = None
+    invalid_marker = _city_value_is_invalid(profile.location.primary_city)
+    if invalid_marker:
+        discarded_city = profile.location.primary_city
+        profile.location.primary_city = None
+        city_invalid = True
+        HEURISTICS_LOGGER.info(
+            "Discarding invalid location candidate %s (marker: %s)",
+            discarded_city,
+            invalid_marker,
+            extra={
+                "heuristic_field": city_field,
+                "heuristic_rule": "city_invalid_marker",
+                "heuristic_detail": invalid_marker,
+            },
+        )
+        if _city_value_suits_work_schedule(discarded_city) and not profile.employment.work_schedule:
+            profile.employment.work_schedule = discarded_city
+            _log_heuristic_fill(
+                "employment.work_schedule",
+                "work_schedule_from_location",
+                detail=f"with value {discarded_city!r}",
+            )
 
     def _needs_value(value: Optional[str], field: str) -> bool:
         if field in high_confidence and field not in invalid_fields:
@@ -1659,6 +1822,13 @@ def apply_basic_fallbacks(
                 city_rule or "city_guess",
                 detail=f"with value {candidate_city!r}",
             )
+            if not profile.company.hq_location:
+                profile.company.hq_location = candidate_city
+                _log_heuristic_fill(
+                    "company.hq_location",
+                    "hq_from_primary_city",
+                    detail=f"with value {candidate_city!r}",
+                )
     if _needs_value(profile.location.country, country_field):
         # Country fallback order mirrors the city logic: prefer spaCy geo entities and
         # only fall back to heuristics when no entity is found and the field was invalid.
