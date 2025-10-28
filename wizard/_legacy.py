@@ -110,6 +110,7 @@ from core.suggestions import (
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components import widget_factory
+from wizard.wizard import profile_text_input
 from components.chip_multiselect import (
     CHIP_INLINE_VALUE_LIMIT,
     chip_multiselect,
@@ -9475,27 +9476,23 @@ def _step_summary(schema: dict, _critical: list[str]):
         st.divider()
         st.markdown(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
 
-        entry_specs: list[tuple[str, str, str]] = []
+        entry_specs: list[tuple[str, str]] = []
         for item in followup_items:
             field_path = item.get("field") or item.get("key") or ""
             question_text = item.get("question") or ""
             if not field_path or not question_text:
                 continue
-            input_key = f"fu_{field_path}"
-            existing_value = str(get_in(data, field_path, "") or "")
-            if input_key not in st.session_state:
-                st.session_state[input_key] = existing_value
-            entry_specs.append((field_path, question_text, input_key))
+            entry_specs.append((field_path, question_text))
 
         if entry_specs:
             stored_snapshot = dict(st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {}))
             with st.form("summary_followups_form"):
-                for field_path, question_text, input_key in entry_specs:
+                for field_path, question_text in entry_specs:
                     st.markdown(f"**{question_text}**")
-                    st.text_input(
+                    profile_text_input(
+                        field_path,
                         question_text,
-                        key=input_key,
-                        value=st.session_state.get(input_key, ""),
+                        key=f"fu_{field_path}",
                         label_visibility="collapsed",
                     )
                 submit_label = tr(
@@ -9506,11 +9503,13 @@ def _step_summary(schema: dict, _critical: list[str]):
 
             if submitted:
                 answers = {
-                    field_path: st.session_state.get(input_key, "") for field_path, _question, input_key in entry_specs
+                    field_path: st.session_state.get(f"fu_{field_path}", "")
+                    for field_path, _question in entry_specs
                 }
                 trimmed_answers = {field: value.strip() for field, value in answers.items()}
-                for field_path, _question, input_key in entry_specs:
-                    st.session_state[input_key] = trimmed_answers.get(field_path, "")
+                for field_path, value in trimmed_answers.items():
+                    if value:
+                        _update_profile(field_path, value)
                 changed = trimmed_answers != stored_snapshot
                 st.session_state[StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT] = trimmed_answers
 
