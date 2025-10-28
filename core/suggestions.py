@@ -406,7 +406,7 @@ def get_benefit_suggestions(
         when the API call failed, otherwise ``None``.
     """
 
-    fallback = get_static_benefit_shortlist(lang=lang, industry=industry)
+    fallback = list(get_static_benefit_shortlist(lang=lang, industry=industry))
     if is_llm_available():
         try:
             suggestions = _unique(
@@ -420,14 +420,14 @@ def get_benefit_suggestions(
                 )
             )
         except Exception as err:  # pragma: no cover - error path is tested
-            return fallback, str(err), True
+            return list(fallback), str(err), True
     else:
         suggestions = []
 
     if suggestions:
-        return suggestions, None, False
+        return list(suggestions), None, False
 
-    return fallback, None, True
+    return list(fallback), None, True
 
 
 def get_onboarding_suggestions(
