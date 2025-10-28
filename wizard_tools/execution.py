@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from agents import function_tool
 
-ModelName = Literal["gpt-4o", "gpt-4o-mini", "gpt-5.1-nano", "gpt-5.1-mini"]
+ModelName = Literal["gpt-4o", "gpt-4o-mini", "gpt-5-nano", "gpt-5.1-nano", "gpt-5.1-mini"]
 ReasoningEffort = Literal["minimal", "medium", "high"]
 ToolChoiceMode = Literal["auto", "none", "force"]
 RetryStrategy = Literal["same_inputs", "regenerate", "raise_effort"]

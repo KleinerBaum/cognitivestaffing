@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- **EN:** Rerouted lightweight tasks to `gpt-4o-mini` (GPT-4.1-nano) while keeping summarisation/explanation flows on `gpt-5.1-nano`; environment overrides now normalise to these tiers.
-  **DE:** Leichte Aufgaben laufen nun auf `gpt-4o-mini` (GPT-4.1-nano), während Zusammenfassungen und Erklärungen weiterhin `gpt-5.1-nano` nutzen; Umgebungs-Overrides werden auf diese Stufen normalisiert.
+- **EN:** Rerouted lightweight tasks to `gpt-4o-mini` (GPT-4.1-nano) while keeping summarisation/explanation flows on `gpt-5-nano` (`gpt-5.1-nano` endpoint); environment overrides now normalise to these tiers.
+  **DE:** Leichte Aufgaben laufen nun auf `gpt-4o-mini` (GPT-4.1-nano), während Zusammenfassungen und Erklärungen weiterhin `gpt-5-nano` (Endpoint `gpt-5.1-nano`) nutzen; Umgebungs-Overrides werden auf diese Stufen normalisiert.
 
 ## v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
 

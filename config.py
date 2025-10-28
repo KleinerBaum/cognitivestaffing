@@ -1,13 +1,13 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
 The application now routes lightweight tasks (extraction, basic Q&A,
-classification) to OpenAI's ``gpt-4o-mini`` (GPT-4.1-nano) tier and reserves
-``gpt-5.1-nano`` for reasoning-heavy workflows such as summarisation and
-explanations. Automatic fallbacks remain in place (``gpt-5.1-nano`` →
-``gpt-4o`` → ``gpt-4`` → ``gpt-3.5-turbo``) when capacity constraints occur, and
-teams can still override the routing to force premium models when required.
-Structured retrieval continues to use ``text-embedding-3-large`` (3,072
-dimensions) for higher-fidelity RAG vectors.
+classification) to OpenAI's ``gpt-4o-mini`` – documented as ``gpt-4.1-nano`` –
+and reserves ``gpt-5.1-nano`` (aka ``gpt-5-nano``) for reasoning-heavy
+workflows such as summarisation and explanations. Automatic fallbacks remain in
+place (``gpt-5.1-nano`` → ``gpt-4o`` → ``gpt-4`` → ``gpt-3.5-turbo``) when
+capacity constraints occur, and teams can still override the routing to force
+premium models when required. Structured retrieval continues to use
+``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
 ``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
@@ -42,11 +42,9 @@ CHUNK_OVERLAP = 0.1
 # Canonical GPT-5 model identifiers as exposed by the OpenAI API.
 #
 # OpenAI's public documentation describes the "GPT-5" tiers as "GPT-5", "GPT-5
-# mini" and "GPT-5 nano". The actual API endpoints follow the ``gpt-5.1-*``
-# naming pattern (with dated suffices such as ``-latest`` or a concrete release
-# date). ``normalise_model_name`` below maps historic aliases to these
-# canonical identifiers so the rest of the application only sees the official
-# names.
+# mini" and "GPT-5 nano" (with "GPT-5.1" variants exposed via the API). The
+# ``normalise_model_name`` helper below maps historic aliases to these canonical
+# identifiers so the rest of the application only sees the official names.
 GPT5_FULL = "gpt-5.1"
 GPT5_MINI = "gpt-5.1-mini"
 GPT5_NANO = "gpt-5.1-nano"
@@ -62,6 +60,8 @@ _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-5-nano-latest", GPT5_NANO),
     ("gpt-5", GPT5_FULL),
     ("gpt-5-latest", GPT5_FULL),
+    ("gpt-4.1-nano", GPT4O_MINI),
+    ("gpt-4.1-nano-latest", GPT4O_MINI),
 )
 
 _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
@@ -109,6 +109,8 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         return GPT5_MINI
     if lowered.startswith("gpt-5"):
         return GPT5_FULL
+    if lowered.startswith("gpt-4.1-nano"):
+        return GPT4O_MINI
     if lowered.startswith("gpt-4o-mini"):
         return GPT4O_MINI
     if lowered.startswith("gpt-4o"):

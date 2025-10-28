@@ -28,7 +28,10 @@ def model_selector(key: str = "model") -> str:
         ),
         (
             GPT5_NANO,
-            tr("GPT-5 nano (gpt-5.1-nano) erzwingen", "Force GPT-5 nano (gpt-5.1-nano)"),
+            tr(
+                "GPT-5 nano (gpt-5-nano / gpt-5.1-nano) erzwingen",
+                "Force GPT-5 nano (gpt-5-nano / gpt-5.1-nano)",
+            ),
         ),
     ]
 
@@ -58,8 +61,8 @@ def model_selector(key: str = "model") -> str:
         resolved = OPENAI_MODEL
         st.caption(
             tr(
-                "Auto-Routing nutzt GPT-4o für komplexe Aufgaben und GPT-4o mini für günstige Antworten.",
-                "Auto routing uses GPT-4o for complex tasks and GPT-4o mini for cost-efficient replies.",
+                "Auto-Routing nutzt GPT-5 nano für komplexe Aufgaben und GPT-4o mini für günstige Antworten.",
+                "Auto routing uses GPT-5 nano for complex tasks and GPT-4o mini for cost-efficient replies.",
             )
         )
     else:
