@@ -5683,28 +5683,8 @@ def _step_company():
                 _set_company_logo(None)
                 st.rerun()
 
-    # Inline follow-up questions for Company section
+# Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
-
-
-_step_company.handled_fields = [  # type: ignore[attr-defined]
-    "company.name",
-    "company.contact_name",
-    "company.contact_email",
-    "company.contact_phone",
-    "company.brand_name",
-    "company.industry",
-    "company.hq_location",
-    "company.size",
-    "company.website",
-    "company.mission",
-    "company.culture",
-    "location.primary_city",
-    "location.country",
-    "position.department",
-    "position.team_structure",
-    "position.key_projects",
-]
 
 
 def _phase_display_labels(phases: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -6493,12 +6473,6 @@ def _step_position():
 
     # Inline follow-up questions for Position, Location and Employment section
     _render_followups_for_section(("position.", "location.", "meta.", "employment."), data)
-
-
-_step_position.handled_fields = [  # type: ignore[attr-defined]
-    "position.job_title",
-    "position.role_summary",
-]
 
 
 def _step_requirements():
@@ -7547,19 +7521,43 @@ def _step_requirements():
     _render_followups_for_section(("requirements.",), data)
 
 
-_step_requirements.handled_fields = [  # type: ignore[attr-defined]
-    "responsibilities.items",
-    "requirements.hard_skills_required",
-    "requirements.soft_skills_required",
-]
+_STEP_HANDLED_FIELDS: dict[Callable[[], None], tuple[str, ...]] = {
+    _step_company: (
+        "company.name",
+        "company.contact_name",
+        "company.contact_email",
+        "company.contact_phone",
+        "company.brand_name",
+        "company.industry",
+        "company.hq_location",
+        "company.size",
+        "company.website",
+        "company.mission",
+        "company.culture",
+        "location.primary_city",
+        "location.country",
+        "position.department",
+        "position.team_structure",
+        "position.key_projects",
+    ),
+    _step_position: (
+        "position.job_title",
+        "position.role_summary",
+    ),
+    _step_requirements: (
+        "responsibilities.items",
+        "requirements.hard_skills_required",
+        "requirements.soft_skills_required",
+    ),
+}
 
 
 def _build_field_section_map() -> dict[str, int]:
     """Derive mapping of schema fields to wizard sections.
 
-    Each step declares the fields it handles via ``handled_fields``. This
-    function iterates over the step order and builds a reverse lookup to avoid
-    mismatches between UI steps and critical field checks.
+    Each step declares the fields it handles via ``_STEP_HANDLED_FIELDS``.
+    This function iterates over the step order and builds a reverse lookup to
+    avoid mismatches between UI steps and critical field checks.
 
     Returns:
         Mapping of field paths to section numbers.
@@ -7568,7 +7566,7 @@ def _build_field_section_map() -> dict[str, int]:
     ordered_steps = [_step_company, _step_position, _step_requirements]
     mapping: dict[str, int] = {}
     for idx, step in enumerate(ordered_steps, start=1):
-        for field in getattr(step, "handled_fields", []):
+        for field in _STEP_HANDLED_FIELDS.get(step, ()):  # pragma: no branch - deterministic
             mapping[field] = idx
     return mapping
 
