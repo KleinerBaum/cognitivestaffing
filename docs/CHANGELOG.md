@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Harmonised WizardRouter navigation so `?step` stays in sync, every step change scrolls to the top, optional skips count as completed, and first-incomplete jumps reuse the new back helper and tests.
+  **DE:** WizardRouter-Navigation synchronisiert nun `?step`, löst bei jedem Schrittwechsel einen Scroll-to-Top aus, markiert optionale Skips als erledigt und nutzt den neuen Zurück-Helfer plus Tests für First-Incomplete-Sprünge.
 - **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so inputs seed before rendering and Streamlit no longer raises "Cannot set widget" exceptions.
   **DE:** Normalisiert die Widget-Defaults im Wizard über `_ensure_widget_state()`, damit Eingaben vor dem Rendern initialisiert werden und Streamlit keine "Cannot set widget"-Ausnahmen mehr auslöst.
 - **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur (`USE_CLASSIC_API` now enforces the legacy path).

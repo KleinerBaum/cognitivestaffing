@@ -179,15 +179,40 @@ class WizardRouter:
         self._context = context
         self._resolve_value = value_resolver
         self._ensure_state_defaults()
+        st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
         self._sync_with_query_params()
+        self._update_section_progress()
+        self._apply_pending_incomplete_jump()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+    def navigate(
+        self,
+        target_key: str,
+        *,
+        mark_current_complete: bool = False,
+        skipped: bool = False,
+    ) -> None:
+        """Navigate to ``target_key`` and trigger a rerun."""
+
+        if target_key not in self._page_map:
+            return
+
+        current_key = self._state.get("current_step")
+        if mark_current_complete and isinstance(current_key, str):
+            self._mark_step_completed(current_key, skipped=skipped)
+
+        st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
+        self._set_current_step(target_key)
+        st.session_state["_wizard_scroll_to_top"] = True
+        st.rerun()
+
     def run(self) -> None:
         """Render the current step with harmonised navigation controls."""
 
         st.markdown(_COLLECTED_STYLE + _NAVIGATION_STYLE, unsafe_allow_html=True)
+        self._update_section_progress()
         self._ensure_current_is_valid()
         current_key = self._state["current_step"]
         page = self._page_map[current_key]
@@ -198,6 +223,10 @@ class WizardRouter:
 
         st.session_state[StateKeys.STEP] = renderer.legacy_index
         missing = self._missing_required_fields(page)
+        last_rendered = self._state.get("_last_rendered_step")
+        if last_rendered != current_key:
+            st.session_state["_wizard_scroll_to_top"] = True
+            self._state["_last_rendered_step"] = current_key
         self._maybe_scroll_to_top()
         self._render_collected_panel(page)
         renderer.callback(self._context)
@@ -219,10 +248,12 @@ class WizardRouter:
         params = st.experimental_get_query_params()
         step_param = params.get("step", [None])[0]
         if step_param and step_param in self._page_map:
-            self._state["current_step"] = step_param
+            desired = step_param
         else:
-            params.pop("step", None)
-            params["step"] = [self._state["current_step"]]
+            current = self._state.get("current_step")
+            desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
+        self._state["current_step"] = desired
+        params["step"] = [desired]
         st.experimental_set_query_params(**params)
 
     def _ensure_current_is_valid(self) -> None:
@@ -345,7 +376,7 @@ class WizardRouter:
                 key=f"wizard_prev_{page.key}",
                 use_container_width=True,
             ):
-                self._navigate_to(prev_key)
+                self.navigate(prev_key)
         else:
             cols[0].write("")
 
@@ -372,7 +403,7 @@ class WizardRouter:
                     type="primary",
                     use_container_width=True,
                 ):
-                    self._navigate_to(next_key)
+                    self.navigate(next_key, mark_current_complete=True)
                 st.markdown("</div>", unsafe_allow_html=True)
         else:
             cols[1].write("")
@@ -384,17 +415,9 @@ class WizardRouter:
                     key=f"wizard_skip_{page.key}",
                     use_container_width=True,
                 ):
-                    self._navigate_to(next_key)
+                    self.navigate(next_key, mark_current_complete=True, skipped=True)
         else:
             cols[2].write("")
-
-    def _navigate_to(self, target_key: str) -> None:
-        self._state["current_step"] = target_key
-        params = st.experimental_get_query_params()
-        params["step"] = [target_key]
-        st.experimental_set_query_params(**params)
-        st.session_state["_wizard_scroll_to_top"] = True
-        st.rerun()
 
     def _maybe_scroll_to_top(self) -> None:
         if not st.session_state.pop("_wizard_scroll_to_top", False):
@@ -415,3 +438,81 @@ class WizardRouter:
             """,
             unsafe_allow_html=True,
         )
+
+    def _update_section_progress(self) -> tuple[int | None, list[int]]:
+        from wizard import CRITICAL_SECTION_ORDER, FIELD_SECTION_MAP, get_missing_critical_fields
+
+        missing_fields = list(dict.fromkeys(get_missing_critical_fields()))
+        sections_with_missing: set[int] = set()
+        for field in missing_fields:
+            section = FIELD_SECTION_MAP.get(field)
+            if section is None:
+                if CRITICAL_SECTION_ORDER:
+                    section = CRITICAL_SECTION_ORDER[0]
+                else:
+                    continue
+            sections_with_missing.add(section)
+
+        first_incomplete: int | None = None
+        for section in CRITICAL_SECTION_ORDER:
+            if section in sections_with_missing:
+                first_incomplete = section
+                break
+
+        if first_incomplete is None and sections_with_missing:
+            first_incomplete = min(sections_with_missing)
+
+        if first_incomplete is None:
+            completed_sections = list(CRITICAL_SECTION_ORDER)
+        else:
+            completed_sections = [
+                section
+                for section in CRITICAL_SECTION_ORDER
+                if section < first_incomplete and section not in sections_with_missing
+            ]
+
+        st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
+        st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = first_incomplete
+        st.session_state[StateKeys.COMPLETED_SECTIONS] = completed_sections
+        return first_incomplete, completed_sections
+
+    def _apply_pending_incomplete_jump(self) -> None:
+        if not st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False):
+            return
+        first_incomplete = st.session_state.get(StateKeys.FIRST_INCOMPLETE_SECTION)
+        if not isinstance(first_incomplete, int):
+            return
+        target_key = self._resolve_step_key_for_legacy_index(first_incomplete)
+        if target_key is None:
+            return
+        self._set_current_step(target_key)
+        st.session_state["_wizard_scroll_to_top"] = True
+
+    def _resolve_step_key_for_legacy_index(self, index: int) -> str | None:
+        for page in self._pages:
+            renderer = self._renderers.get(page.key)
+            if renderer is not None and renderer.legacy_index == index:
+                return page.key
+        return None
+
+    def _set_current_step(self, target_key: str) -> None:
+        self._state["current_step"] = target_key
+        params = st.experimental_get_query_params()
+        params["step"] = [target_key]
+        st.experimental_set_query_params(**params)
+
+    def _mark_step_completed(self, step_key: str, *, skipped: bool) -> None:
+        completed = self._state.get("completed_steps")
+        if isinstance(completed, list):
+            if step_key not in completed:
+                completed.append(step_key)
+        else:
+            self._state["completed_steps"] = [step_key]
+
+        if skipped:
+            skipped_steps = self._state.get("skipped_steps")
+            if isinstance(skipped_steps, list):
+                if step_key not in skipped_steps:
+                    skipped_steps.append(step_key)
+            else:
+                self._state["skipped_steps"] = [step_key]
