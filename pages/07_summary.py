@@ -1,6 +1,20 @@
 from __future__ import annotations
 
+from core.schema import is_wizard_schema_enabled
+
 from .base import WizardPage
+
+
+_SUMMARY_FIELDS = (
+    (
+        "summary.headline",
+        "summary.value_proposition",
+        "summary.culture_highlights",
+        "summary.next_steps",
+    )
+    if is_wizard_schema_enabled()
+    else ()
+)
 
 
 PAGE = WizardPage(
@@ -23,6 +37,6 @@ PAGE = WizardPage(
         ),
     ),
     required_fields=(),
-    summary_fields=(),
+    summary_fields=_SUMMARY_FIELDS,
     allow_skip=False,
 )

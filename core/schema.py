@@ -7,7 +7,7 @@ import os
 import re
 from collections.abc import ItemsView
 from enum import StrEnum
-from typing import Any, Dict, List, Mapping, Tuple, Union, get_args, get_origin
+from typing import Any, Collection, Dict, List, Mapping, Tuple, Union, get_args, get_origin
 
 from types import MappingProxyType
 
@@ -377,6 +377,10 @@ BOOL_FIELDS = {p for p, t in FIELD_TYPES.items() if t is bool}
 INT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is int}
 FLOAT_FIELDS = {p for p, t in FIELD_TYPES.items() if t is float}
 
+WIZARD_BOOL_FIELDS = {p for p, t in RECRUITING_WIZARD_FIELD_TYPES.items() if t is bool}
+WIZARD_INT_FIELDS = {p for p, t in RECRUITING_WIZARD_FIELD_TYPES.items() if t is int}
+WIZARD_FLOAT_FIELDS = {p for p, t in RECRUITING_WIZARD_FIELD_TYPES.items() if t is float}
+
 # Alias map for backward compatibility with legacy field names
 # Using MappingProxyType to prevent accidental mutation.
 logger = logging.getLogger(__name__)
@@ -421,6 +425,46 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "compensation.max": "compensation.salary_max",
         "compensation.currency_code": "compensation.currency",
         "compensation.periodicity": "compensation.period",
+    }
+)
+
+WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
+    {
+        "company.brand_name": "company.legal_name",
+        "company.claim": "company.tagline",
+        "company.hq_location": "company.headquarters",
+        "company.brand_keywords": "company.values",
+        "position.job_title": "role.title",
+        "position.role_summary": "role.purpose",
+        "position.department": "department.name",
+        "position.team_structure": "team.name",
+        "position.reporting_line": "team.reporting_line",
+        "position.reporting_manager_name": "department.leader_name",
+        "position.team_size": "team.headcount_target",
+        "position.supervises": "team.headcount_current",
+        "position.seniority_level": "role.seniority",
+        "employment.job_type": "role.employment_type",
+        "employment.work_policy": "role.work_model",
+        "employment.relocation_support": "benefits.relocation_support",
+        "responsibilities.items": "tasks.core",
+        "requirements.hard_skills_required": "skills.must_have",
+        "requirements.soft_skills_required": "skills.must_have",
+        "requirements.hard_skills_optional": "skills.nice_to_have",
+        "requirements.soft_skills_optional": "skills.nice_to_have",
+        "requirements.tools_and_technologies": "skills.tools",
+        "requirements.languages_required": "skills.languages",
+        "requirements.languages_optional": "skills.languages",
+        "requirements.certifications": "skills.certifications",
+        "requirements.certificates": "skills.certifications",
+        "compensation.currency": "benefits.currency",
+        "compensation.variable_pay": "benefits.bonus",
+        "process.hiring_manager_name": "department.leader_name",
+        "process.hiring_manager_role": "department.leader_title",
+        "process.interview_stages": "interview_process.steps",
+        "process.stakeholders": "interview_process.interviewers",
+        "process.recruitment_timeline": "interview_process.decision_timeline",
+        "process.process_notes": "interview_process.notes",
+        "location.primary_city": "role.work_location",
     }
 )
 
@@ -497,9 +541,9 @@ def _set_path(obj: dict[str, Any], path: str, value: Any, *, overwrite: bool = T
         cursor[parts[-1]] = value
 
 
-def _apply_aliases(payload: dict[str, Any]) -> dict[str, Any]:
+def _apply_aliases(payload: dict[str, Any], aliases: Mapping[str, str]) -> dict[str, Any]:
     sentinel = object()
-    for alias, target in ALIASES.items():
+    for alias, target in aliases.items():
         value = _pop_path_casefold(payload, alias, sentinel)
         if value is sentinel:
             continue
@@ -511,47 +555,54 @@ def _apply_aliases(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _filter_unknown_fields(data: dict[str, Any]) -> None:
+def _filter_unknown_fields(data: dict[str, Any], *, canonical_fields: Collection[str]) -> None:
     def _walk(node: dict[str, Any], prefix: str = "") -> None:
         for key in list(node.keys()):
             path = f"{prefix}{key}" if not prefix else f"{prefix}.{key}"
             value = node[key]
             if isinstance(value, dict):
-                has_children = any(field.startswith(path + ".") for field in ALL_FIELDS)
-                if path in ALL_FIELDS or has_children:
+                has_children = any(field.startswith(path + ".") for field in canonical_fields)
+                if path in canonical_fields or has_children:
                     _walk(value, path)
-                    if not value and path not in ALL_FIELDS:
+                    if not value and path not in canonical_fields:
                         del node[key]
                 else:
                     del node[key]
             else:
-                if path not in ALL_FIELDS:
+                if path not in canonical_fields:
                     del node[key]
 
     _walk(data)
 
 
-def _coerce_scalar_types(data: dict[str, Any]) -> None:
+def _coerce_scalar_types(
+    data: dict[str, Any],
+    *,
+    list_fields: Collection[str],
+    bool_fields: Collection[str],
+    int_fields: Collection[str],
+    float_fields: Collection[str],
+) -> None:
     def _walk(node: dict[str, Any], prefix: str = "") -> None:
         for key, value in list(node.items()):
             path = f"{prefix}{key}" if not prefix else f"{prefix}.{key}"
             if isinstance(value, dict):
                 _walk(value, path)
                 continue
-            if path in LIST_FIELDS and isinstance(value, str):
+            if path in list_fields and isinstance(value, str):
                 cleaned = re.sub(r"^[^:]*:\s*", "", value)
                 node[key] = [part.strip() for part in _LIST_SPLIT_RE.split(cleaned) if part.strip()]
-            elif path in BOOL_FIELDS and isinstance(value, str):
+            elif path in bool_fields and isinstance(value, str):
                 lower = value.strip().casefold()
                 if lower in _TRUE_VALUES:
                     node[key] = True
                 elif lower in _FALSE_VALUES:
                     node[key] = False
-            elif path in INT_FIELDS and isinstance(value, str):
+            elif path in int_fields and isinstance(value, str):
                 match = re.search(r"-?\d+", value)
                 if match:
                     node[key] = int(match.group())
-            elif path in FLOAT_FIELDS and isinstance(value, str):
+            elif path in float_fields and isinstance(value, str):
                 match = re.search(r"-?\d+(?:\.\d+)?", value.replace(",", "."))
                 if match:
                     node[key] = float(match.group())
@@ -567,9 +618,35 @@ def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, An
     mutable = _to_mutable(data)
     if not isinstance(mutable, dict):
         return {}
-    payload = _apply_aliases(mutable)
-    _filter_unknown_fields(payload)
-    _coerce_scalar_types(payload)
+    payload = _apply_aliases(mutable, ALIASES)
+    _filter_unknown_fields(payload, canonical_fields=ALL_FIELDS)
+    _coerce_scalar_types(
+        payload,
+        list_fields=LIST_FIELDS,
+        bool_fields=BOOL_FIELDS,
+        int_fields=INT_FIELDS,
+        float_fields=FLOAT_FIELDS,
+    )
+    return payload
+
+
+def canonicalize_wizard_payload(data: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return a sanitized mapping ready for RecruitingWizard validation."""
+
+    if data is None:
+        return {}
+    mutable = _to_mutable(data)
+    if not isinstance(mutable, dict):
+        return {}
+    payload = _apply_aliases(mutable, WIZARD_ALIASES)
+    _filter_unknown_fields(payload, canonical_fields=RECRUITING_WIZARD_FIELDS)
+    _coerce_scalar_types(
+        payload,
+        list_fields=RECRUITING_WIZARD_LIST_FIELDS,
+        bool_fields=WIZARD_BOOL_FIELDS,
+        int_fields=WIZARD_INT_FIELDS,
+        float_fields=WIZARD_FLOAT_FIELDS,
+    )
     return payload
 
 
@@ -600,10 +677,26 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     return NeedAnalysisProfile.model_validate(normalized_payload)
 
 
+def coerce_and_fill_wizard(data: Mapping[str, Any] | None) -> RecruitingWizard:
+    """Validate ``data`` against the RecruitingWizard schema."""
+
+    payload = canonicalize_wizard_payload(data)
+    return RecruitingWizard.model_validate(payload)
+
+
 def process_extracted_profile(raw_profile: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """Convert a raw extraction payload into a normalised profile."""
 
     return coerce_and_fill(raw_profile)
+
+
+# Backwards compatibility helpers -------------------------------------------------
+
+
+def active_canonical_keys() -> tuple[str, ...]:
+    """Return the canonical field paths for the currently active schema."""
+
+    return WIZARD_KEYS_CANONICAL if is_wizard_schema_enabled() else KEYS_CANONICAL
 
 
 # Backwards compatibility aliases
