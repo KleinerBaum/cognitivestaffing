@@ -47,6 +47,20 @@ class Company(BaseModel):
     brand_color: Optional[str] = None
     claim: Optional[str] = None
 
+    @field_validator("logo_url", mode="before")
+    @classmethod
+    def _normalise_logo_url(cls, value: object) -> object | None:
+        """Treat empty strings or whitespace-only inputs as ``None``."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            return candidate
+        return value
+
     @field_validator("contact_email", mode="before")
     @classmethod
     def _extract_first_email(cls, value: str | None) -> str | None:

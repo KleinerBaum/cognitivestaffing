@@ -1,7 +1,7 @@
 import pytest
 
 from models.need_analysis import NeedAnalysisProfile
-from core.schema import LIST_FIELDS, RecruitingWizard, coerce_and_fill
+from core.schema import LIST_FIELDS, RecruitingWizard, SourceAttribution, coerce_and_fill
 from core.schema_defaults import default_recruiting_wizard
 
 
@@ -118,6 +118,11 @@ def test_coerce_and_fill_alias_mapping_case_insensitive() -> None:
     assert profile.location.primary_city == "Hamburg"
 
 
+def test_coerce_and_fill_treats_empty_logo_url_as_none() -> None:
+    profile = coerce_and_fill({"company": {"logo_url": ""}})
+    assert profile.company.logo_url is None
+
+
 def test_coerce_and_fill_coerces_scalar_types() -> None:
     data = {
         "requirements": {"hard_skills_required": "Python, SQL"},
@@ -179,3 +184,8 @@ def test_schema_roundtrip() -> None:
     reloaded = RecruitingWizard.model_validate(dumped)
     assert reloaded == payload
     assert set(dumped["sources"].keys()) == set(payload.sources.root.keys())
+
+
+def test_source_attribution_accepts_blank_urls() -> None:
+    attribution = SourceAttribution(source_url="   ")
+    assert attribution.source_url is None
