@@ -25,44 +25,43 @@ def reset_model_availability() -> None:
 
 
 def test_extraction_uses_cost_optimised_chain() -> None:
-    """Extraction should start on nano and cascade through mini → 4o → 4."""
+    """Extraction should start on GPT-4.1 nano and cascade through 4o → 4."""
 
     fallbacks = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
-    assert fallbacks[:5] == [
-        config.GPT5_NANO,
-        config.GPT5_MINI,
+    assert fallbacks[:4] == [
+        config.GPT4O_MINI,
         config.GPT4O,
         config.GPT4,
         "gpt-3.5-turbo",
     ]
 
 
-def test_fallback_to_mini_when_nano_unavailable(caplog: pytest.LogCaptureFixture) -> None:
-    """When nano is unavailable we should warn and fall back to mini."""
+def test_fallback_to_gpt4o_when_mini_unavailable(caplog: pytest.LogCaptureFixture) -> None:
+    """When GPT-4.1 nano is unavailable we should warn and fall back to GPT-4o."""
 
-    config.mark_model_unavailable(config.GPT5_NANO)
-    with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):
-        model = config.get_first_available_model(config.ModelTask.EXTRACTION)
-    assert model == config.GPT5_MINI
-    assert "gpt-5.1-nano" in caplog.text
-    assert config.GPT5_MINI in caplog.text
-
-
-def test_fallback_cascades_to_gpt4o(caplog: pytest.LogCaptureFixture) -> None:
-    """If both nano and mini are down, gpt-4o should be selected with telemetry."""
-
-    config.mark_model_unavailable(config.GPT5_NANO)
-    config.mark_model_unavailable(config.GPT5_MINI)
+    config.mark_model_unavailable(config.GPT4O_MINI)
     with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):
         model = config.get_first_available_model(config.ModelTask.EXTRACTION)
     assert model == config.GPT4O
-    assert config.GPT5_NANO in caplog.text
-    assert config.GPT5_MINI in caplog.text
+    assert config.GPT4O_MINI in caplog.text
     assert config.GPT4O in caplog.text
 
 
-def test_default_model_prefers_cost_optimised_tier() -> None:
-    """The module-level defaults should prefer GPT-5.1 mini when unset."""
+def test_fallback_cascades_to_gpt4(caplog: pytest.LogCaptureFixture) -> None:
+    """If GPT-4.1 nano and GPT-4o are down, GPT-4 should be selected with telemetry."""
 
-    assert config.DEFAULT_MODEL == config.GPT5_MINI
-    assert config.OPENAI_MODEL == config.GPT5_MINI
+    config.mark_model_unavailable(config.GPT4O_MINI)
+    config.mark_model_unavailable(config.GPT4O)
+    with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):
+        model = config.get_first_available_model(config.ModelTask.EXTRACTION)
+    assert model == config.GPT4
+    assert config.GPT4O_MINI in caplog.text
+    assert config.GPT4O in caplog.text
+    assert config.GPT4 in caplog.text
+
+
+def test_default_model_prefers_cost_optimised_tier() -> None:
+    """The module-level defaults should prefer the configured reasoning tier."""
+
+    assert config.DEFAULT_MODEL == config.REASONING_MODEL
+    assert config.OPENAI_MODEL == config.REASONING_MODEL
