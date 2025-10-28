@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Downgraded rule-matcher logs when phone or country values are absent so optional contact fields no longer emit warning-level noise.
+  **DE:** Log-Ausgabe des Regelabgleichs herabgestuft, wenn Telefon- oder Länderdaten fehlen, sodass optionale Kontaktfelder keine Warnungen mehr erzeugen.
 - **EN:** Rerouted lightweight tasks to `gpt-4o-mini` (GPT-4.1-nano) while keeping summarisation/explanation flows on `gpt-5-nano` (`gpt-5.1-nano` endpoint); environment overrides now normalise to these tiers.
   **DE:** Leichte Aufgaben laufen nun auf `gpt-4o-mini` (GPT-4.1-nano), während Zusammenfassungen und Erklärungen weiterhin `gpt-5-nano` (Endpoint `gpt-5.1-nano`) nutzen; Umgebungs-Overrides werden auf diese Stufen normalisiert.
 - **EN:** Resolved duplicate Streamlit widget keys for branding uploads by giving the legacy wizard uploader its own identifier and clearing both caches together.

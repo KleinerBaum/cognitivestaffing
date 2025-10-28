@@ -224,8 +224,11 @@ _CITY_TO_COUNTRY = {
 
 _REQUIRED_RULE_FIELDS = {
     EMAIL_FIELD,
-    PHONE_FIELD,
     CITY_FIELD,
+}
+
+_OPTIONAL_RULE_FIELDS = {
+    PHONE_FIELD,
     COUNTRY_FIELD,
 }
 
@@ -292,6 +295,14 @@ def apply_rules(blocks: Sequence[ContentBlock]) -> dict[str, RuleMatch]:
     missing_required = sorted(field for field in _REQUIRED_RULE_FIELDS if field not in matches)
     for field in missing_required:
         LOGGER.warning("apply_rules: required field not found: %s", field, extra={"field": field})
+
+    missing_optional = sorted(field for field in _OPTIONAL_RULE_FIELDS if field not in matches)
+    for field in missing_optional:
+        LOGGER.info(
+            "apply_rules: optional field not found: %s",
+            field,
+            extra={"field": field, "required": False},
+        )
     return matches
 
 
