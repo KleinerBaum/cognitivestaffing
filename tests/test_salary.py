@@ -31,9 +31,7 @@ def test_sidebar_benefits_use_fallback_when_llm_empty(monkeypatch) -> None:
     salary = import_module("sidebar.salary")
 
     fallback = ["Flexible working hours", "Remote-friendly work"]
-    fake_state: dict[str, Any] = {
-        StateKeys.BENEFIT_SUGGESTIONS: {"llm": [], "fallback": fallback}
-    }
+    fake_state: dict[str, Any] = {StateKeys.BENEFIT_SUGGESTIONS: {"llm": [], "fallback": fallback}}
     fake_streamlit = SimpleNamespace(session_state=fake_state)
     monkeypatch.setattr(salary, "st", fake_streamlit)
 

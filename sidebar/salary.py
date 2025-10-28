@@ -334,8 +334,7 @@ def resolve_sidebar_benefits(
     state = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, {})
     llm_pool = _normalize_suggestion_list(state.get("llm", []))
     fallback_pool = _normalize_suggestion_list(
-        state.get("fallback", [])
-        or get_static_benefit_shortlist(lang=lang, industry=industry)
+        state.get("fallback", []) or get_static_benefit_shortlist(lang=lang, industry=industry)
     )
 
     if llm_pool:
@@ -436,9 +435,7 @@ def _factor_impact(
             user_value,
             impact.get("user_currency") or user_currency or benchmark_currency,
         )
-        parts.append(
-            tr("vs. Eingabe {value}", "vs. input {value}").format(value=user_value_text)
-        )
+        parts.append(tr("vs. Eingabe {value}", "vs. input {value}").format(value=user_value_text))
 
     filtered = [segment for segment in parts if segment]
     if not filtered:

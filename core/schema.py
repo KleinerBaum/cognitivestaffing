@@ -143,11 +143,29 @@ class Company(BaseModel):
     industries: list[str] = Field(default_factory=list)
     website: str | None = None
     values: list[str] = Field(default_factory=list)
+    logo_url: HttpUrl | None = None
+    brand_color: str | None = None
+    claim: str | None = None
 
     @field_validator("locations", "industries", "values", mode="before")
     @classmethod
     def _normalise_list(cls, value: object) -> list[str]:
         return deduplicate_preserve_order(value)
+
+    @field_validator("brand_color", mode="before")
+    @classmethod
+    def _normalise_brand_color(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            upper = candidate.upper()
+            if re.fullmatch(r"#?[0-9A-F]{6}", upper):
+                return upper if upper.startswith("#") else f"#{upper}"
+            return candidate
+        return str(value)
 
 
 class Department(BaseModel):

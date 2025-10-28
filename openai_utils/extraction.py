@@ -1767,6 +1767,17 @@ def _prepare_job_ad_payload(
                 unique.append(entry)
         return unique
 
+    def _normalize_hex_color(value: str | None) -> str:
+        if value is None:
+            return ""
+        candidate = value.strip()
+        if not candidate:
+            return ""
+        upper = candidate.upper()
+        if re.fullmatch(r"#?[0-9A-F]{6}", upper):
+            return upper if upper.startswith("#") else f"#{upper}"
+        return candidate
+
     list_field_keys = {
         "responsibilities.items",
         "requirements.hard_skills_required",
@@ -1808,6 +1819,15 @@ def _prepare_job_ad_payload(
             return None
         collected.sort(key=lambda item: item[0] if item[0] is not None else 0)
         return [val for _idx, val in collected]
+
+    def _string_field(field_key: str) -> str:
+        override_value = _value_override(field_key)
+        if isinstance(override_value, str):
+            return override_value.strip()
+        raw_value = _resolve(field_key)
+        if isinstance(raw_value, str):
+            return raw_value.strip()
+        return ""
 
     def _compose_field_value(field_key: str) -> str | list[str] | None:
         override = _value_override(field_key)
@@ -2084,6 +2104,10 @@ def _prepare_job_ad_payload(
         ", ".join(brand_keywords_value) if isinstance(brand_keywords_value, list) else str(brand_keywords_value).strip()
     )
 
+    brand_color_value = _normalize_hex_color(_string_field("company.brand_color"))
+    claim_value = _string_field("company.claim")
+    logo_url_value = _string_field("company.logo_url")
+
     if audience_text:
         cta_text = _tr(
             f"Fühlst du dich angesprochen ({audience_text})? Bewirb dich jetzt – wir freuen uns auf dich!",
@@ -2106,6 +2130,9 @@ def _prepare_job_ad_payload(
             "display_name": company_display,
             "brand_name": company_brand,
             "legal_name": company_name,
+            "logo_url": logo_url_value,
+            "brand_color": brand_color_value,
+            "claim": claim_value,
         },
         "location": location_text,
         "summary": role_summary_value or "",
@@ -2113,6 +2140,11 @@ def _prepare_job_ad_payload(
         "manual_sections": manual_sections_payload,
         "brand_keywords": brand_keywords_value,
         "cta_hint": cta_text,
+        "branding": {
+            "logo_url": logo_url_value,
+            "brand_color": brand_color_value,
+            "claim": claim_value,
+        },
     }
 
     document_lines: list[str] = [heading]
@@ -2125,6 +2157,12 @@ def _prepare_job_ad_payload(
         meta_bits.append(f"{_tr('Ton', 'Tone')}: {tone_meta_display}")
     if brand_keywords_text:
         meta_bits.append(f"{_tr('Brand-Keywords', 'Brand keywords')}: {brand_keywords_text}")
+    if claim_value:
+        meta_bits.append(f"{_tr('Claim/Slogan', 'Claim/tagline')}: {claim_value}")
+    if brand_color_value:
+        meta_bits.append(f"{_tr('Markenfarbe', 'Brand colour')}: {brand_color_value}")
+    if logo_url_value:
+        meta_bits.append(f"{_tr('Logo-Quelle', 'Logo source')}: {logo_url_value}")
     if meta_bits:
         document_lines.append(f"*{' | '.join(meta_bits)}*")
     style_note = (style_reference or "").strip()

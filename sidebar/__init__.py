@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime
 from collections.abc import Sequence
@@ -10,7 +11,9 @@ from urllib.parse import urlparse
 
 import streamlit as st
 
-from constants.keys import StateKeys, UIKeys
+from streamlit.runtime.uploaded_file_manager import UploadedFile
+
+from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
 from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
@@ -19,8 +22,10 @@ from utils.usage import build_usage_markdown, usage_totals
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.navigation.page import StreamlitPage
 
-from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
+from wizard import FIELD_SECTION_MAP, _update_profile, get_missing_critical_fields, logic
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
+
+from ingest.branding import DEFAULT_BRAND_COLOR
 
 from .salary import (
     SalaryFactorEntry,
@@ -64,6 +69,191 @@ class SidebarPlan:
     settings: DeltaGenerator
     navigation: DeltaGenerator
     body: DeltaGenerator
+
+
+@dataclass(slots=True)
+class _BrandingDisplay:
+    company_name: str
+    brand_color: str | None
+    claim: str | None
+    logo_src: str | None
+    logo_is_uploaded: bool
+
+
+def _store_branding_asset(upload: UploadedFile) -> None:
+    """Persist an uploaded branding asset in session state."""
+
+    try:
+        data = upload.getvalue()
+    except Exception:  # pragma: no cover - streamlit error surface
+        return
+    if not data:
+        return
+    st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
+        "name": getattr(upload, "name", ""),
+        "type": getattr(upload, "type", ""),
+        "data": bytes(data),
+    }
+
+
+def _clear_branding_asset() -> None:
+    """Remove any cached branding upload."""
+
+    st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
+    st.session_state.pop(UIKeys.COMPANY_BRANDING_UPLOAD, None)
+
+
+def _asset_to_data_uri(asset: Mapping[str, Any] | None) -> tuple[str | None, bool]:
+    if not isinstance(asset, Mapping):
+        return None, False
+    data = asset.get("data")
+    if not isinstance(data, (bytes, bytearray)):
+        return None, False
+    mime = str(asset.get("type") or "image/png").strip() or "image/png"
+    if not mime.lower().startswith("image/"):
+        return None, False
+    encoded = b64encode(bytes(data)).decode("ascii")
+    return f"data:{mime};base64,{encoded}", True
+
+
+def _normalize_brand_color(value: str | None) -> str | None:
+    if value is None:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    upper = candidate.upper()
+    if re.fullmatch(r"#?[0-9A-F]{6}", upper):
+        return upper if upper.startswith("#") else f"#{upper}"
+    return candidate
+
+
+def _sanitize_logo_url(value: str | None) -> str | None:
+    if not value:
+        return None
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    return value
+
+
+def _coerce_brand_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
+def _collect_branding_display() -> _BrandingDisplay | None:
+    profile = st.session_state.get(StateKeys.PROFILE, {})
+    company = profile.get("company") if isinstance(profile, Mapping) else {}
+    if not isinstance(company, Mapping):
+        company = {}
+
+    cache = st.session_state.get(StateKeys.COMPANY_INFO_CACHE, {})
+    branding = cache.get("branding") if isinstance(cache, Mapping) else {}
+    if not isinstance(branding, Mapping):
+        branding = {}
+
+    def _pick(key: str) -> str:
+        primary = _coerce_brand_value(company.get(key))
+        if primary:
+            return primary
+        return _coerce_brand_value(branding.get(key))
+
+    company_name = _pick("name") or _pick("brand_name")
+    claim = _pick("claim")
+    raw_color = _pick("brand_color")
+    brand_color = _normalize_brand_color(raw_color)
+    raw_logo_url = _sanitize_logo_url(_pick("logo_url"))
+
+    uploaded_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
+    logo_src, is_uploaded = _asset_to_data_uri(uploaded_asset)
+    if not logo_src:
+        logo_src = raw_logo_url
+        is_uploaded = False
+
+    if not any((company_name, logo_src, brand_color, claim)):
+        return None
+
+    return _BrandingDisplay(
+        company_name=company_name,
+        brand_color=brand_color,
+        claim=claim,
+        logo_src=logo_src,
+        logo_is_uploaded=is_uploaded,
+    )
+
+
+def _sync_brand_color() -> None:
+    _update_profile(
+        ProfilePaths.COMPANY_BRAND_COLOR.value, st.session_state.get(ProfilePaths.COMPANY_BRAND_COLOR.value)
+    )
+
+
+def _sync_brand_claim() -> None:
+    _update_profile(ProfilePaths.COMPANY_CLAIM.value, st.session_state.get(ProfilePaths.COMPANY_CLAIM.value))
+
+
+def _sync_logo_url() -> None:
+    _update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
+
+
+def _render_branding_overrides() -> None:
+    st.caption(
+        tr(
+            "Passe Branding-Farben, Claim oder Logo manuell an.",
+            "Manually adjust branding colour, claim, or logo.",
+        )
+    )
+    stored_color = logic.get_value(ProfilePaths.COMPANY_BRAND_COLOR.value)
+    normalized_color = _normalize_brand_color(stored_color if isinstance(stored_color, str) else None)
+    color_value = normalized_color or DEFAULT_BRAND_COLOR
+    st.color_picker(
+        tr("Markenfarbe überschreiben", "Override brand colour"),
+        value=color_value,
+        key=ProfilePaths.COMPANY_BRAND_COLOR.value,
+        on_change=_sync_brand_color,
+    )
+
+    current_claim = logic.get_value(ProfilePaths.COMPANY_CLAIM.value) or ""
+    st.text_input(
+        tr("Claim/Slogan anpassen", "Adjust claim/tagline"),
+        value=str(current_claim),
+        key=ProfilePaths.COMPANY_CLAIM.value,
+        placeholder=tr("z. B. Einfach. Immer. Da.", "e.g., Simply. Always. There."),
+        on_change=_sync_brand_claim,
+    )
+
+    current_logo = logic.get_value(ProfilePaths.COMPANY_LOGO_URL.value) or ""
+    st.text_input(
+        tr("Logo-URL überschreiben", "Override logo URL"),
+        value=str(current_logo),
+        key=ProfilePaths.COMPANY_LOGO_URL.value,
+        placeholder="https://example.com/logo.svg",
+        on_change=_sync_logo_url,
+    )
+
+    brand_upload = st.file_uploader(
+        tr("Logo oder Branding-Datei hochladen", "Upload logo or brand asset"),
+        type=["png", "jpg", "jpeg", "svg", "webp"],
+        key=UIKeys.COMPANY_BRANDING_UPLOAD,
+    )
+    if isinstance(brand_upload, UploadedFile):
+        _store_branding_asset(brand_upload)
+
+    asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
+    if isinstance(asset, Mapping):
+        asset_name = asset.get("name") or tr("Hochgeladene Datei", "Uploaded file")
+        st.caption(tr("Aktuelle Datei: {name}", "Current asset: {name}").format(name=asset_name))
+        preview_src, _uploaded = _asset_to_data_uri(asset)
+        if preview_src:
+            try:
+                st.image(preview_src, width=160)
+            except Exception:  # pragma: no cover - preview guard
+                pass
+        if st.button(tr("Datei entfernen", "Remove file"), key="company.branding.remove.sidebar"):
+            _clear_branding_asset()
+            st.rerun()
 
 
 def render_sidebar(
@@ -159,66 +349,30 @@ def _render_app_version() -> None:
 
 
 def _render_company_branding() -> bool:
-    """Inject cached company branding assets into the sidebar hero.
+    """Inject cached company branding assets into the sidebar hero."""
 
-    Branding metadata originates from `wizard._apply_branding_to_profile`, which
-    stores logo URL, brand colour, and claim in `st.session_state`. The sidebar
-    prefers profile values but falls back to the cached scraping results so the
-    UI, exports, and stored JSON stay aligned.
-    """
-
-    profile = st.session_state.get(StateKeys.PROFILE, {})
-    company = profile.get("company") if isinstance(profile, Mapping) else {}
-    if not isinstance(company, Mapping):
-        company = {}
-    branding_cache = st.session_state.get(StateKeys.COMPANY_INFO_CACHE, {})
-    branding = branding_cache.get("branding") if isinstance(branding_cache, Mapping) else {}
-    if not isinstance(branding, Mapping):
-        branding = {}
-
-    def _get_value(key: str) -> str:
-        value = company.get(key)
-        if not value:
-            value = branding.get(key)
-        if isinstance(value, str):
-            return value.strip()
-        return ""
-
-    company_name = _get_value("name") or _get_value("brand_name")
-    logo_url = _get_value("logo_url")
-    brand_color = _get_value("brand_color")
-    claim = _get_value("claim")
-
-    if logo_url:
-        parsed = urlparse(logo_url)
-        if parsed.scheme not in {"http", "https"}:
-            logo_url = ""
-
-    if brand_color and not brand_color.startswith("#") and re.fullmatch(r"[0-9A-Fa-f]{6}", brand_color):
-        brand_color = f"#{brand_color.upper()}"
-    if brand_color and re.fullmatch(r"#[0-9A-Fa-f]{6}", brand_color):
-        brand_color = brand_color.upper()
-
-    if not any((company_name, logo_url, brand_color, claim)):
+    display = _collect_branding_display()
+    if display is None:
         return False
 
+    eyebrow = tr("Unternehmen", "Company")
+    company_name = display.company_name or ""
+    title = html.escape(company_name or eyebrow)
+    claim_html = f'<p class="sidebar-hero__subtitle">{html.escape(display.claim)}</p>' if display.claim else ""
+
     visual_html: str
-    if logo_url:
-        safe_url = html.escape(logo_url)
-        alt = html.escape(company_name or tr("Unternehmen", "Company"))
-        visual_html = f'<img src="{safe_url}" alt="{alt} logo" class="sidebar-hero__logo" />'
+    if display.logo_src:
+        safe_src = html.escape(display.logo_src)
+        alt = html.escape(company_name or eyebrow)
+        visual_html = f'<img src="{safe_src}" alt="{alt} logo" class="sidebar-hero__logo" />'
     else:
         initial = (company_name[:1] if company_name else "•").upper()
         visual_html = f'<div class="sidebar-hero__avatar">{html.escape(initial)}</div>'
 
-    eyebrow = tr("Unternehmen", "Company")
-    title = html.escape(company_name or eyebrow)
-    subtitle = f'<p class="sidebar-hero__subtitle">{html.escape(claim)}</p>' if claim else ""
-
     gradient_color: str | None = None
     text_color: str | None = None
-    if brand_color:
-        accessible = _accessible_brand_colors(brand_color)
+    if display.brand_color:
+        accessible = _accessible_brand_colors(display.brand_color)
         if accessible:
             gradient_color, text_color = accessible
 
@@ -263,7 +417,7 @@ def _render_company_branding() -> bool:
             </div>
         </div>
         """
-        % (visual_html, html.escape(eyebrow), title, subtitle),
+        % (visual_html, html.escape(eyebrow), title, claim_html),
         unsafe_allow_html=True,
     )
     return True
@@ -455,6 +609,10 @@ def _render_settings() -> None:
         st.caption(tr(*variant.example, lang=lang_code))
 
     _sync_style_instruction(lang_code)
+
+    st.markdown(f"#### 🪪 {tr('Branding', 'Branding')}")
+    with st.expander(tr("Branding-Einstellungen", "Branding settings"), expanded=False):
+        _render_branding_overrides()
 
 
 def _render_hero(context: SidebarContext) -> None:
@@ -686,7 +844,7 @@ def _render_compensation_context(context: SidebarContext) -> None:
     currency = compensation.get("currency") or ""
     if salary_min or salary_max:
         st.markdown(
-            f"- **{tr('Aktuelle Spanne', 'Current range')}**: {_format_salary_range(salary_min, salary_max, currency)}"
+            f"- **{tr('Aktuelle Spanne', 'Current range')}**: {format_salary_range(salary_min, salary_max, currency)}"
         )
     if compensation.get("variable_pay"):
         st.markdown(f"- **{tr('Variable Vergütung', 'Variable pay')}**: ✅")
@@ -807,17 +965,12 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
 
     if user_min or user_max:
         st.markdown(
-            f"**{tr('Eingegebene Spanne', 'Entered range')}**: "
-            f"{format_salary_range(user_min, user_max, user_currency)}"
+            f"**{tr('Eingegebene Spanne', 'Entered range')}**: {format_salary_range(user_min, user_max, user_currency)}"
         )
 
     source_label = _salary_source_label(str(estimate.get("source", "")))
     if source_label:
-        st.caption(
-            tr("Quelle der Schätzung: {source}", "Estimate source: {source}").format(
-                source=source_label
-            )
-        )
+        st.caption(tr("Quelle der Schätzung: {source}", "Estimate source: {source}").format(source=source_label))
 
     factors = prepare_salary_factor_entries(
         explanation,
@@ -892,11 +1045,7 @@ def _salary_source_label(source: str) -> str:
 def _render_benefit_suggestions(profile: Mapping[str, Any]) -> None:
     from components.chip_multiselect import render_chip_button_grid
 
-    lang = str(
-        st.session_state.get(UIKeys.LANG_SELECT)
-        or st.session_state.get("lang")
-        or "de"
-    )
+    lang = str(st.session_state.get(UIKeys.LANG_SELECT) or st.session_state.get("lang") or "de")
     company = profile.get("company", {}) if isinstance(profile, Mapping) else {}
     industry = str(company.get("industry") or "")
     bundle = resolve_sidebar_benefits(lang=lang, industry=industry)
