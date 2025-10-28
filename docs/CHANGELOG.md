@@ -20,6 +20,8 @@
   **DE:** Mit aktiviertem `SCHEMA_WIZARD_V1` arbeitet die Oberfläche jetzt vollständig auf dem RecruitingWizard-Schema: Der Session-State speichert die neuen Company-/Department-/Team-Daten, die Wizard-Seiten zeigen die kanonischen Felder und Exporte nutzen `WIZARD_KEYS_CANONICAL` mit Alias-Fallbacks.
 - **EN:** Enforced full NeedAnalysisProfile ↔ wizard alignment by enumerating every schema path in `ProfilePaths`, surfacing them on wizard pages, and verifying coverage via automated tests.
   **DE:** Vollständige NeedAnalysisProfile↔Wizard-Ausrichtung umgesetzt, indem sämtliche Schema-Pfade in `ProfilePaths` erfasst, in den Wizard-Seiten angezeigt und per automatisierten Tests abgesichert werden.
+- **EN:** Improved the salary expectation sidebar: it now surfaces the last estimate with its fallback/source label, visualises factor impacts with Plotly, and reuses the static benefit shortlist whenever the AI call returns no items.
+  **DE:** Salary-Sidebar verbessert: Zeigt die letzte Schätzung inklusive Fallback-/Quellenhinweis, visualisiert Einflussfaktoren mit Plotly und nutzt die statische Benefit-Shortlist, sobald der KI-Aufruf keine Einträge liefert.
 
 ## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 

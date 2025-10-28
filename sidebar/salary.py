@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Mapping, TypedDict
+from typing import Any, Mapping, Sequence, TypedDict
 
 import streamlit as st
 from pydantic import BaseModel, Field
+import plotly.graph_objects as go
 
 from config import ModelTask, get_model_for
 from constants.keys import StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
+from core.suggestions import get_static_benefit_shortlist
 from prompts import prompt_registry
 from utils.i18n import tr
 from utils.normalization import country_to_iso2, normalize_country
@@ -76,6 +79,61 @@ class _SalaryInputs:
     languages_required: list[str]
     languages_optional: list[str]
     language_level_english: str | None
+
+
+@dataclass(slots=True)
+class SalaryFactorEntry:
+    """Normalized entry describing a factor influencing the salary estimate."""
+
+    key: str
+    label: str
+    value_display: str
+    impact_summary: str
+    explanation: str
+    magnitude: float
+
+
+@dataclass(slots=True)
+class BenefitSuggestionBundle:
+    """Resolved benefit suggestions grouped by source."""
+
+    suggestions: list[str]
+    llm_suggestions: list[str]
+    fallback_suggestions: list[str]
+    source: str
+
+
+_FACTOR_LABELS: dict[str, tuple[str, str]] = {
+    "source": ("Quelle", "Source"),
+    "benchmark_role": ("Benchmark-Rolle", "Benchmark role"),
+    "benchmark_country": ("Benchmark-Land", "Benchmark country"),
+    "benchmark_range_raw": ("Rohbereich", "Raw range"),
+    "currency": ("Währung", "Currency"),
+    "salary_min": ("Unteres Benchmark-Ende", "Benchmark lower bound"),
+    "salary_max": ("Oberes Benchmark-Ende", "Benchmark upper bound"),
+    "summary": ("Zusammenfassung", "Summary"),
+    "adjustments": ("Angewandte Anpassungen", "Applied adjustments"),
+}
+
+
+_IMPACT_NOTES: dict[str, tuple[str, str]] = {
+    "fallback_source": (
+        "Automatischer Fallback auf Benchmark-Daten",
+        "Automatic fallback to benchmark data",
+    ),
+    "no_user_input": (
+        "Keine Nutzereingabe zum Vergleich",
+        "No user input to compare",
+    ),
+    "no_benchmark_value": (
+        "Keine Benchmark-Werte verfügbar",
+        "No benchmark values available",
+    ),
+    "currency_mismatch": (
+        "Nutzereingabe in anderer Währung",
+        "User input uses different currency",
+    ),
+}
 
 
 class SalaryImpact(TypedDict, total=False):
@@ -143,6 +201,401 @@ def estimate_salary_expectation() -> None:
     st.session_state[UIKeys.SALARY_ESTIMATE] = {**result, "source": source}
     st.session_state[UIKeys.SALARY_EXPLANATION] = explanation
     st.session_state[UIKeys.SALARY_REFRESH] = _now_iso()
+
+
+def prepare_salary_factor_entries(
+    explanation: object,
+    *,
+    benchmark_currency: str | None,
+    user_currency: str | None,
+) -> list[SalaryFactorEntry]:
+    """Normalize explanation data for rendering in the sidebar."""
+
+    factors: list[Mapping[str, Any]] = []
+    if isinstance(explanation, list):
+        factors = [item for item in explanation if isinstance(item, Mapping)]
+    elif isinstance(explanation, Mapping):
+        candidate = explanation.get("factors") if "factors" in explanation else None
+        if isinstance(candidate, list):
+            factors = [item for item in candidate if isinstance(item, Mapping)]
+        else:
+            for key, value in explanation.items():
+                if isinstance(value, Mapping):
+                    item = dict(value)
+                    item.setdefault("key", key)
+                    factors.append(item)
+                else:
+                    factors.append({"key": key, "value": value, "impact": None})
+
+    entries: list[SalaryFactorEntry] = []
+    for factor in factors:
+        key = str(factor.get("key", ""))
+        label = _factor_label(key)
+        value_display = _factor_value(key, factor.get("value"), benchmark_currency)
+        impact_mapping = factor.get("impact")
+        impact_summary = _factor_impact(
+            impact_mapping,
+            benchmark_currency,
+            user_currency,
+        )
+        explanation_text = _factor_explanation(
+            label,
+            value_display,
+            impact_mapping,
+            benchmark_currency,
+            user_currency,
+        )
+        entries.append(
+            SalaryFactorEntry(
+                key=key,
+                label=label,
+                value_display=value_display,
+                impact_summary=impact_summary,
+                explanation=explanation_text,
+                magnitude=_factor_magnitude(impact_mapping),
+            )
+        )
+
+    return entries
+
+
+def build_factor_influence_chart(factors: Sequence[SalaryFactorEntry]) -> go.Figure:
+    """Create a pie chart describing the most influential salary factors."""
+
+    labels = [_format_factor_option(factor) for factor in factors]
+    magnitudes = [abs(factor.magnitude) for factor in factors]
+    total = sum(magnitudes)
+    if total == 0:
+        magnitudes = [1 for _ in factors]
+        total = len(factors)
+    percentages = [(value / total) * 100 for value in magnitudes]
+    colors = _generate_factor_colors(len(factors))
+
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=percentages,
+                hole=0.25,
+                textinfo="label+percent",
+                hoverinfo="label+percent",
+                marker=dict(
+                    colors=colors,
+                    line=dict(color="rgba(0, 0, 0, 0.3)", width=2),
+                ),
+                pull=[0.05] * len(labels),
+                direction="clockwise",
+                sort=False,
+            )
+        ]
+    )
+
+    fig.update_traces(
+        textfont=dict(color="#ffffff", size=14),
+        insidetextorientation="radial",
+    )
+    fig.update_layout(
+        showlegend=False,
+        margin=dict(l=0, r=0, t=10, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+def format_salary_range(salary_min: Any, salary_max: Any, currency: str | None) -> str:
+    """Format a salary range for display."""
+
+    currency = currency or ""
+    if salary_min is None and salary_max is None:
+        return tr("Keine Angaben", "No data")
+
+    def _fmt(value: Any) -> str:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+        formatted = f"{numeric:,.0f}".replace(",", "·")
+        return f"{formatted} {currency}".strip() if currency else formatted
+
+    if salary_min is not None and salary_max is not None:
+        return f"{_fmt(salary_min)} – {_fmt(salary_max)}"
+    value = salary_min if salary_min is not None else salary_max
+    return _fmt(value)
+
+
+def resolve_sidebar_benefits(
+    *,
+    lang: str,
+    industry: str,
+) -> BenefitSuggestionBundle:
+    """Return benefit suggestions for the sidebar with fallback awareness."""
+
+    state = st.session_state.get(StateKeys.BENEFIT_SUGGESTIONS, {})
+    llm_pool = _normalize_suggestion_list(state.get("llm", []))
+    fallback_pool = _normalize_suggestion_list(
+        state.get("fallback", [])
+        or get_static_benefit_shortlist(lang=lang, industry=industry)
+    )
+
+    if llm_pool:
+        source = "llm"
+        primary = llm_pool
+    elif fallback_pool:
+        source = "fallback"
+        primary = fallback_pool
+    else:
+        source = "none"
+        primary = []
+
+    return BenefitSuggestionBundle(
+        suggestions=primary,
+        llm_suggestions=llm_pool,
+        fallback_suggestions=fallback_pool,
+        source=source,
+    )
+
+
+def _normalize_suggestion_list(raw: object) -> list[str]:
+    if not raw:
+        return []
+    items: list[str] = []
+    seen: set[str] = set()
+    if isinstance(raw, Mapping):
+        iterable = raw.values()
+    elif isinstance(raw, (list, tuple, set)):
+        iterable = raw
+    else:
+        iterable = [raw]
+    for entry in iterable:
+        text = str(entry or "").strip()
+        if not text:
+            continue
+        marker = text.casefold()
+        if marker in seen:
+            continue
+        seen.add(marker)
+        items.append(text)
+    return items
+
+
+def _factor_label(key: str) -> str:
+    de, en = _FACTOR_LABELS.get(
+        key,
+        (key.replace("_", " ").replace(".", " → ").title(),) * 2,
+    )
+    return tr(de, en)
+
+
+def _factor_value(key: str, value: Any, currency: str | None) -> str:
+    if value is None or value == "":
+        return tr("Keine Angaben", "No data")
+    if key in {"salary_min", "salary_max"}:
+        return _format_salary_value(value, currency)
+    if isinstance(value, float):
+        return f"{value:,.0f}".replace(",", "·")
+    return str(value)
+
+
+def _impact_note_text(note: Any) -> str | None:
+    if not note:
+        return None
+    lookup = _IMPACT_NOTES.get(str(note))
+    if lookup:
+        return tr(*lookup)
+    return str(note)
+
+
+def _factor_impact(
+    impact: Any,
+    benchmark_currency: str | None,
+    user_currency: str | None,
+) -> str:
+    if not impact:
+        return tr("Keine Auswirkung berechnet", "No impact calculated")
+    if not isinstance(impact, Mapping):
+        return str(impact)
+
+    parts: list[str] = []
+    note_text = _impact_note_text(impact.get("note"))
+    if note_text:
+        parts.append(note_text)
+
+    absolute = impact.get("absolute")
+    currency_to_use = impact.get("user_currency") or user_currency or benchmark_currency
+    if isinstance(absolute, (int, float)) and not math.isnan(absolute):
+        parts.append(_format_salary_value(absolute, currency_to_use, signed=True))
+
+    relative = impact.get("relative")
+    if isinstance(relative, (int, float)) and math.isfinite(relative):
+        parts.append(f"({relative:+.1%})")
+
+    user_value = impact.get("user_value")
+    if user_value is not None:
+        user_value_text = _format_salary_value(
+            user_value,
+            impact.get("user_currency") or user_currency or benchmark_currency,
+        )
+        parts.append(
+            tr("vs. Eingabe {value}", "vs. input {value}").format(value=user_value_text)
+        )
+
+    filtered = [segment for segment in parts if segment]
+    if not filtered:
+        return tr("Keine Auswirkung berechnet", "No impact calculated")
+    return " · ".join(filtered)
+
+
+def _factor_explanation(
+    label: str,
+    value_display: str,
+    impact: Any,
+    benchmark_currency: str | None,
+    user_currency: str | None,
+) -> str:
+    base_sentence = tr(
+        "Faktor {label} mit Referenzwert {value}",
+        "Factor {label} with reference value {value}",
+    ).format(label=label, value=value_display)
+
+    if not impact:
+        second = tr(
+            "Für diesen Faktor liegt keine konkrete Auswirkung vor.",
+            "There is no concrete impact available for this factor.",
+        )
+        return f"{base_sentence} {second}"
+
+    if not isinstance(impact, Mapping):
+        return f"{base_sentence} {impact}."
+
+    currency_to_use = impact.get("user_currency") or user_currency or benchmark_currency
+    absolute = impact.get("absolute")
+    absolute_text: str | None = None
+    if isinstance(absolute, (int, float)) and math.isfinite(absolute):
+        absolute_text = _format_salary_value(absolute, currency_to_use, signed=True)
+
+    relative = impact.get("relative")
+    relative_text: str | None = None
+    if isinstance(relative, (int, float)) and math.isfinite(relative):
+        relative_text = f"{relative:+.1%}"
+
+    user_value = impact.get("user_value")
+    user_value_text: str | None = None
+    if user_value is not None:
+        user_value_text = _format_salary_value(
+            user_value,
+            impact.get("user_currency") or user_currency or benchmark_currency,
+        )
+
+    detail_parts: list[str] = []
+    if absolute_text and relative_text:
+        detail_parts.append(
+            tr(
+                "einer Anpassung von {absolute} (entspricht {relative})",
+                "an adjustment of {absolute} (equal to {relative})",
+            ).format(absolute=absolute_text, relative=relative_text)
+        )
+    elif absolute_text:
+        detail_parts.append(
+            tr(
+                "einer Anpassung von {absolute}",
+                "an adjustment of {absolute}",
+            ).format(absolute=absolute_text)
+        )
+    elif relative_text:
+        detail_parts.append(
+            tr(
+                "einer Veränderung von {relative}",
+                "a change of {relative}",
+            ).format(relative=relative_text)
+        )
+
+    if user_value_text:
+        detail_parts.append(
+            tr(
+                "verglichen mit deiner Eingabe {value}",
+                "compared to your input {value}",
+            ).format(value=user_value_text)
+        )
+
+    second_sentence = ""
+    if detail_parts:
+        details = " und ".join(detail_parts)
+        second_sentence = tr(
+            "Das führt zu {details} in der Schätzung.",
+            "This results in {details} for the estimate.",
+        ).format(details=details)
+
+    note_text = _impact_note_text(impact.get("note"))
+    if note_text:
+        reason_text = tr("Grund: {note}.", "Reason: {note}.").format(note=note_text)
+        if second_sentence:
+            second_sentence = f"{second_sentence} {reason_text}"
+        else:
+            second_sentence = reason_text
+
+    if not second_sentence:
+        second_sentence = tr(
+            "Für diesen Faktor liegt keine konkrete Auswirkung vor.",
+            "There is no concrete impact available for this factor.",
+        )
+
+    if not base_sentence.endswith("."):
+        base_sentence = f"{base_sentence}."
+    if not second_sentence.endswith("."):
+        second_sentence = f"{second_sentence}."
+
+    return f"{base_sentence} {second_sentence}"
+
+
+def _factor_magnitude(impact: Any) -> float:
+    if isinstance(impact, Mapping):
+        absolute = impact.get("absolute")
+        if isinstance(absolute, (int, float)) and math.isfinite(absolute):
+            return abs(float(absolute))
+        relative = impact.get("relative")
+        if isinstance(relative, (int, float)) and math.isfinite(relative):
+            return abs(float(relative))
+    return 0.0
+
+
+def _format_salary_value(value: Any, currency: str | None, *, signed: bool = False) -> str:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    fmt = f"{numeric:+,.0f}" if signed else f"{numeric:,.0f}"
+    fmt = fmt.replace(",", "·")
+    if currency:
+        return f"{fmt} {currency}".strip()
+    return fmt
+
+
+def _format_factor_option(entry: SalaryFactorEntry) -> str:
+    parts: list[str] = [entry.label]
+    if entry.value_display:
+        parts.append(entry.value_display)
+    option_text = " · ".join(part for part in parts if part)
+    if entry.impact_summary:
+        option_text = option_text + (" — " if option_text else "") + str(entry.impact_summary)
+    return option_text
+
+
+def _generate_factor_colors(count: int) -> list[str]:
+    base_palette = [
+        "#3b5bdb",
+        "#7950f2",
+        "#4dabf7",
+        "#15aabf",
+        "#12b886",
+        "#fab005",
+        "#f76707",
+        "#e8590c",
+    ]
+    if count <= len(base_palette):
+        return base_palette[:count]
+    return [base_palette[index % len(base_palette)] for index in range(count)]
 
 
 def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
@@ -847,4 +1300,12 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = ["estimate_salary_expectation"]
+__all__ = [
+    "estimate_salary_expectation",
+    "prepare_salary_factor_entries",
+    "build_factor_influence_chart",
+    "format_salary_range",
+    "resolve_sidebar_benefits",
+    "SalaryFactorEntry",
+    "BenefitSuggestionBundle",
+]
