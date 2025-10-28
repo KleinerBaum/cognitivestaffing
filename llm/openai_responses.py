@@ -23,6 +23,8 @@ from openai_utils.api import (
     _extract_output_text,
     _extract_response_id,
     _extract_usage_block,
+    _is_temperature_unsupported_error,
+    _mark_model_without_temperature,
     _normalise_usage,
     _update_usage_counters,
     get_client,
@@ -57,12 +59,17 @@ def build_json_schema_format(
     if not isinstance(schema, Mapping):
         raise TypeError("Schema must be a mapping when building response_format.")
 
-    schema_payload = {"name": name, "schema": dict(schema)}
+    schema_payload = dict(schema)
+    format_payload: dict[str, Any] = {
+        "type": "json_schema",
+        "name": name,
+        "schema": schema_payload,
+    }
     strict_flag = STRICT_JSON if strict is None else bool(strict)
     if strict_flag:
-        schema_payload["strict"] = True
+        format_payload["strict"] = True
 
-    return {"type": "json_schema", "name": name, "json_schema": schema_payload}
+    return format_payload
 
 
 def _prepare_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -99,6 +106,7 @@ def call_responses(
     }
 
     text_payload = dict(payload.get("text") or {})
+    text_payload.setdefault("type", "text")
     text_payload["format"] = dict(response_format)
     payload["text"] = text_payload
 
@@ -133,8 +141,19 @@ def call_responses(
     try:
         response = _dispatch()
     except BadRequestError as err:
-        logger.error("Responses API rejected the request: %s", getattr(err, "message", err))
-        raise
+        if "temperature" in payload and _is_temperature_unsupported_error(err):
+            logger.warning(
+                "Responses model %s rejected temperature; retrying without it.",
+                model,
+            )
+            payload.pop("temperature", None)
+            _mark_model_without_temperature(model)
+            response = _dispatch()
+        else:
+            logger.error(
+                "Responses API rejected the request: %s", getattr(err, "message", err)
+            )
+            raise
     except OpenAIError:
         raise
 

@@ -854,10 +854,10 @@ def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
 
     format_block = captured["text"]["format"]
     assert format_block["type"] == "json_schema"
-    schema_block = format_block["json_schema"]
-    assert schema_block["name"] == schema["name"]
-    assert schema_block["schema"] == schema["schema"]
-    assert schema_block["strict"] is True
+    assert captured["text"]["type"] == "text"
+    assert format_block["name"] == schema["name"]
+    assert format_block["schema"] == schema["schema"]
+    assert format_block["strict"] is True
 
 
 def test_stream_chat_api_yields_chunks(monkeypatch):
