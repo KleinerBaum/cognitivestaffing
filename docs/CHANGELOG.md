@@ -2,14 +2,18 @@
 
 ## Unreleased
 
-- **EN:** Harmonised WizardRouter navigation so `?step` stays in sync, every step change scrolls to the top, optional skips count as completed, and first-incomplete jumps reuse the new back helper and tests.
-  **DE:** WizardRouter-Navigation synchronisiert nun `?step`, löst bei jedem Schrittwechsel einen Scroll-to-Top aus, markiert optionale Skips als erledigt und nutzt den neuen Zurück-Helfer plus Tests für First-Incomplete-Sprünge.
+- _No changes yet._
+
+## v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
+
+- **EN:** Harmonised WizardRouter navigation so `?step` stays in sync, every step change scrolls to the top, optional skips count as completed, and first-incomplete jumps reuse the new back helper and regression tests.
+  **DE:** WizardRouter-Navigation synchronisiert nun `?step`, löst bei jedem Schrittwechsel einen Scroll-to-Top aus, markiert optionale Skips als erledigt und nutzt den neuen Zurück-Helfer plus Regressionstests für First-Incomplete-Sprünge.
 - **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so inputs seed before rendering and Streamlit no longer raises "Cannot set widget" exceptions.
   **DE:** Normalisiert die Widget-Defaults im Wizard über `_ensure_widget_state()`, damit Eingaben vor dem Rendern initialisiert werden und Streamlit keine "Cannot set widget"-Ausnahmen mehr auslöst.
 - **EN:** Normalised company contact phone numbers and websites across the wizard, cleaning noisy values and storing cleared fields as `None` for consistent profile state.
   **DE:** Unternehmens-Telefonnummern und Websites im Wizard normalisiert, Störzeichen entfernt und geleerte Felder als `None` im Profil hinterlegt, um den Zustand konsistent zu halten.
-- **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur (`USE_CLASSIC_API` now enforces the legacy path).
-  **DE:** Skill- und Benefit-Vorschläge nutzen bei Ausfällen automatisch die Chat-Completions-API oder statische Shortlists; `USE_CLASSIC_API` erzwingt künftig den Legacy-Pfad.
+- **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur; `USE_RESPONSES_API` now coordinates with `USE_CLASSIC_API` so administrators can force either pipeline explicitly.
+  **DE:** Skill- und Benefit-Vorschläge nutzen bei Ausfällen automatisch die Chat-Completions-API oder statische Shortlists; `USE_RESPONSES_API` koordiniert mit `USE_CLASSIC_API`, sodass Administrator:innen gezielt einen der Pfade erzwingen können.
 - **EN:** Gated all AI suggestion buttons and document generations behind the OpenAI API key; the UI now shows a lock message instead of firing requests when the key is missing.
   **DE:** Sperrt sämtliche KI-Vorschläge und Dokumentgenerierungen, solange kein OpenAI-API-Schlüssel vorliegt, und blendet statt API-Aufrufen einen Hinweis mit Schloss-Symbol ein.
 - **EN:** Unified Responses API retry handling logs warnings and triggers chat/static fallbacks whenever calls fail or return invalid JSON payloads.
@@ -25,7 +29,7 @@
 - **EN:** Improved the salary expectation sidebar: it now surfaces the last estimate with its fallback/source label, visualises factor impacts with Plotly, and reuses the static benefit shortlist whenever the AI call returns no items.
   **DE:** Salary-Sidebar verbessert: Zeigt die letzte Schätzung inklusive Fallback-/Quellenhinweis, visualisiert Einflussfaktoren mit Plotly und nutzt die statische Benefit-Shortlist, sobald der KI-Aufruf keine Einträge liefert.
 
-## v1.1.0 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
+## v1.0.1 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 
 ### Added / Neu
 - **EN:** Branding parser now enriches profiles with `company.logo_url`, `company.brand_color`, and `company.claim`, wiring the logo and claim into the sidebar hero and exports.

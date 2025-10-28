@@ -33,6 +33,8 @@ Make sure these checks pass locally (they run in CI for every PR):
 
 ## API & tools integration
 - **OpenAI usage:** Use the **OpenAI Responses API** with available tools (e.g. `WebSearchTool`, `FileSearchTool`) and always request **structured outputs** (validated via Pydantic models or JSON schema). The default model is `gpt-4o-mini` for cost-efficiency and speed. If the user selects “genau” (precise mode), switch to a higher reasoning model (e.g. `gpt-4o` or `gpt-5.1-mini`) based on the `REASONING_EFFORT` setting.
+- **Responses vs. Chat completions:** `USE_RESPONSES_API` is on by default and must stay in sync with `USE_CLASSIC_API`. Clearing the Responses flag (or setting `USE_CLASSIC_API=1`) forces all calls through the legacy Chat Completions API. Suggestion helpers should preserve the retry cascade: Responses → Chat → curated static copy when outages persist.
+- **Missing API key guard:** When `OPENAI_API_KEY` is absent, keep AI-triggering widgets disabled and surface the bilingual lock hint (no background calls).
 - **Model configuration:** The API base URL can be changed for the EU region – use `OPENAI_API_BASE_URL="https://eu.api.openai.com/v1"` if needed. Always respect configured timeouts for OpenAI API calls and implement retries with exponential backoff on failure.
 - **Agents SDK:** If you modify agent logic or tool wiring, update `agent_setup.py` accordingly. Only allowed tools are enabled in the cloud environment (currently `WebSearchTool` and `FileSearchTool`).
 - **RAG (vector store):** If `VECTOR_STORE_ID` is set, enable retrieval-augmented generation by querying the corresponding OpenAI vector store for context. If not set, the agents should proceed without vector retrieval.
@@ -60,6 +62,7 @@ To get the best results when instructing the Codex coding agent (for example, vi
 - **Split big tasks:** For large implementations, ask the agent to tackle the work in smaller, reviewable chunks or separate PRs. This ensures easier review and testing.
 - **Include logs and errors:** When debugging, paste the full error messages or stack traces. Full logs give the agent more context than summaries.
 - **Ask open-ended questions:** Besides direct fixes, you can ask the agent for refactoring suggestions, help to identify potential bugs, ideas to improve performance, to brainstorm a solution approach, or even to draft documentation. Leverage the agent’s capabilities for these exploratory tasks as well.
+- **Flag selection:** Let the agent know whether `SCHEMA_WIZARD_V1` or the Responses/Chat flags are active so it can follow the correct schema paths and API client.
 
 ## Repo quick map (greppable IDs)
 - `agent_setup.py` (**CS_AGENT_SETUP**): Defines the configured tools and agent initialization for Cognitive Staffing.
