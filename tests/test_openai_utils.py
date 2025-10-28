@@ -25,6 +25,7 @@ import streamlit as st
 from constants.keys import StateKeys
 from llm.rag_pipeline import FieldExtractionContext, RetrievedChunk
 from models.need_analysis import NeedAnalysisProfile
+from utils.errors import resolve_message
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +82,7 @@ def test_missing_api_key_triggers_ui_alert_once(monkeypatch):
     """Missing API keys should surface a bilingual UI hint exactly once per session."""
 
     st.session_state.clear()
+    st.session_state["lang"] = "en"
 
     recorded: list[str] = []
 
@@ -94,13 +96,14 @@ def test_missing_api_key_triggers_ui_alert_once(monkeypatch):
     with pytest.raises(RuntimeError):
         call_chat_api([{"role": "user", "content": "hi"}])
 
-    assert recorded == [openai_utils.api._MISSING_API_KEY_ALERT_MESSAGE]
+    expected_alert = resolve_message(openai_utils.api._MISSING_API_KEY_ALERT_MESSAGE, lang="en")
+    assert recorded == [expected_alert]
     assert st.session_state.get(openai_utils.api._MISSING_API_KEY_ALERT_STATE_KEY) is True
 
     with pytest.raises(RuntimeError):
         call_chat_api([{"role": "user", "content": "hi"}])
 
-    assert recorded == [openai_utils.api._MISSING_API_KEY_ALERT_MESSAGE]
+    assert recorded == [expected_alert]
 
 
 def test_call_chat_api_tool_call(monkeypatch):
@@ -2378,6 +2381,7 @@ def test_chat_stream_routes_streaming_errors(monkeypatch):
         recorded.append(msg)
 
     monkeypatch.setattr(st, "error", _capture_error)
+    st.session_state["lang"] = "en"
 
     class _FakeStream:
         def __init__(self) -> None:
@@ -2412,5 +2416,6 @@ def test_chat_stream_routes_streaming_errors(monkeypatch):
     with pytest.raises(RuntimeError) as exc_info:
         list(stream)
 
-    assert recorded == [openai_utils.api._RATE_LIMIT_ERROR_MESSAGE]
-    assert str(exc_info.value) == openai_utils.api._RATE_LIMIT_ERROR_MESSAGE
+    expected_message = resolve_message(openai_utils.api._RATE_LIMIT_ERROR_MESSAGE, lang="en")
+    assert recorded == [expected_message]
+    assert str(exc_info.value) == expected_message

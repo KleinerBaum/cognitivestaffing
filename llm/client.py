@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import logging
 from pathlib import Path
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from typing import Any, Mapping, Optional
 
 from jsonschema import Draft7Validator
@@ -36,6 +37,33 @@ tracer = trace.get_tracer(__name__)
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 2
+
+
+def _summarise_prompt(messages: Sequence[Mapping[str, Any]] | None) -> str:
+    """Return a short digest for ``messages`` without leaking sensitive data."""
+
+    if not messages:
+        return "messages=0"
+
+    total = len(messages)
+    latest: Mapping[str, Any] | None = None
+    for message in reversed(messages):
+        if not isinstance(message, Mapping):
+            continue
+        role = str(message.get("role", "")).strip().lower()
+        if role == "user":
+            latest = message
+            break
+        if latest is None:
+            latest = message
+
+    if latest is None:
+        return f"messages={total}, latest_user_chars=0"
+
+    content = str(latest.get("content") or "")
+    length = len(content)
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:8] if content else "0" * 8
+    return f"messages={total}, latest_user_chars={length}, latest_user_hash={digest}"
 
 
 def _set_nested_value(target: MutableMapping[str, Any], path: str, value: Any) -> None:
@@ -156,6 +184,8 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         if result is not None:
             content = (result.content or "").strip()
 
+    prompt_digest = _summarise_prompt(payload.get("messages"))
+
     if content is None:
         call_result = call_chat_api(
             payload["messages"],
@@ -171,13 +201,15 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         )
         content = (call_result.content or "").strip()
     if not content:
+        logger.warning("Structured extraction returned empty response for %s", prompt_digest)
         raise ValueError("LLM returned empty response")
 
     try:
         data = json.loads(content)
     except json.JSONDecodeError as err:
         logger.warning(
-            "Responses API structured extraction returned invalid JSON; falling back to plain text.",
+            "Structured extraction JSON decode failed for %s; falling back to plain text.",
+            prompt_digest,
             exc_info=err,
         )
         raise ValueError("Structured extraction did not return valid JSON") from err
@@ -190,6 +222,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             logger.debug("Schema validation errors:\n%s", report)
             if hasattr(err, "add_note"):
                 err.add_note(report)
+        logger.warning(
+            "Structured extraction validation failed for %s (%d error(s)).",
+            prompt_digest,
+            len(err.errors()),
+        )
         raise
 
     return json.dumps(profile.model_dump(mode="json"), ensure_ascii=False)

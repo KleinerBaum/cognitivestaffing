@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
-from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple, Final
 
 import backoff
 from opentelemetry import trace
@@ -55,7 +55,7 @@ from config import (
 )
 from constants.keys import StateKeys
 from llm.cost_router import route_model_for_messages
-from utils.errors import display_error
+from utils.errors import display_error, resolve_message
 from utils.llm_state import llm_disabled_message
 
 logger = logging.getLogger("cognitive_needs.openai")
@@ -72,13 +72,23 @@ _USAGE_LOCK = Lock()
 
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
-_MISSING_API_KEY_ALERT_MESSAGE = (
-    "\U0001f511 OpenAI-API-Schlüssel fehlt. Bitte `OPENAI_API_KEY` in der Umgebung oder in den Streamlit-Secrets hinterlegen.\n"
-    "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
+_MISSING_API_KEY_ALERT_MESSAGE: Final[tuple[str, str]] = (
+    "\U0001f511 OpenAI-API-Schlüssel fehlt. Bitte `OPENAI_API_KEY` in der Umgebung oder in den Streamlit-Secrets hinterlegen.",
+    "\U0001f511 OpenAI API key missing. Please set `OPENAI_API_KEY` via environment variable or Streamlit secrets.",
+)
+_MISSING_API_KEY_RUNTIME_MESSAGE: Final[tuple[str, str]] = (
+    "OpenAI-API-Schlüssel nicht konfiguriert. Setze OPENAI_API_KEY in der Umgebung oder in den Streamlit-Secrets.",
+    "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets.",
 )
 
-_AUTHENTICATION_ERROR_MESSAGE = "OpenAI API key invalid or quota exceeded."
-_RATE_LIMIT_ERROR_MESSAGE = "OpenAI API rate limit exceeded. Please retry later."
+_AUTHENTICATION_ERROR_MESSAGE: Final[tuple[str, str]] = (
+    "OpenAI-API-Schlüssel ungültig oder Kontingent aufgebraucht.",
+    "OpenAI API key invalid or quota exceeded.",
+)
+_RATE_LIMIT_ERROR_MESSAGE: Final[tuple[str, str]] = (
+    "OpenAI-API-Rate-Limit erreicht. Bitte später erneut versuchen.",
+    "OpenAI API rate limit exceeded. Please retry later.",
+)
 
 
 def _llm_disabled() -> bool:
@@ -92,9 +102,13 @@ def _llm_disabled() -> bool:
         return False
 
 
-_NETWORK_ERROR_MESSAGE = "Network error communicating with OpenAI. Please check your connection and retry."
-_INVALID_REQUEST_ERROR_MESSAGE = (
-    "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)"
+_NETWORK_ERROR_MESSAGE: Final[tuple[str, str]] = (
+    "Netzwerkfehler bei der Kommunikation mit OpenAI. Bitte Verbindung prüfen und erneut versuchen.",
+    "Network error communicating with OpenAI. Please check your connection and retry.",
+)
+_INVALID_REQUEST_ERROR_MESSAGE: Final[tuple[str, str]] = (
+    "❌ Interner Fehler bei der Verarbeitung der Anfrage. (Die App hat eine ungültige Anfrage an das KI-Modell gesendet.)",
+    "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)",
 )
 
 
@@ -1401,9 +1415,7 @@ def get_client() -> OpenAI:
         key = OPENAI_API_KEY
         if not key:
             _show_missing_api_key_alert()
-            raise RuntimeError(
-                "OpenAI API key not configured. Set OPENAI_API_KEY in the environment or Streamlit secrets."
-            )
+            raise RuntimeError(resolve_message(_MISSING_API_KEY_RUNTIME_MESSAGE))
         base = OPENAI_BASE_URL or None
         init_kwargs: dict[str, Any] = {
             "api_key": key,
@@ -1434,7 +1446,7 @@ def _show_missing_api_key_alert() -> None:
         if emitter is None:
             continue
         try:
-            emitter(_MISSING_API_KEY_ALERT_MESSAGE)
+            emitter(resolve_message(_MISSING_API_KEY_ALERT_MESSAGE))
             emitted = True
             break
         except Exception:  # noqa: BLE001 - fall back to next emitter
@@ -1453,24 +1465,39 @@ def _describe_openai_error(error: OpenAIError) -> tuple[str, str]:
     """Return the user-facing and log messages for an OpenAI error."""
 
     if isinstance(error, AuthenticationError):
-        return _AUTHENTICATION_ERROR_MESSAGE, _AUTHENTICATION_ERROR_MESSAGE
+        detail = getattr(error, "message", str(error))
+        return (
+            resolve_message(_AUTHENTICATION_ERROR_MESSAGE),
+            f"OpenAI authentication error: {detail}",
+        )
 
     if isinstance(error, RateLimitError):
-        return _RATE_LIMIT_ERROR_MESSAGE, _RATE_LIMIT_ERROR_MESSAGE
+        detail = getattr(error, "message", str(error))
+        return (
+            resolve_message(_RATE_LIMIT_ERROR_MESSAGE),
+            f"OpenAI rate limit error: {detail}",
+        )
 
     if isinstance(error, (APIConnectionError, APITimeoutError)):
-        return _NETWORK_ERROR_MESSAGE, _NETWORK_ERROR_MESSAGE
+        detail = getattr(error, "message", str(error))
+        return (
+            resolve_message(_NETWORK_ERROR_MESSAGE),
+            f"OpenAI network error: {detail}",
+        )
 
     if isinstance(error, BadRequestError) or getattr(error, "type", "") == "invalid_request_error":
         detail = getattr(error, "message", str(error))
         log_msg = f"OpenAI invalid request: {detail}"
-        return _INVALID_REQUEST_ERROR_MESSAGE, log_msg
+        return resolve_message(_INVALID_REQUEST_ERROR_MESSAGE), log_msg
 
     if isinstance(error, APIError):
         detail = getattr(error, "message", str(error))
-        return f"OpenAI API error: {detail}", f"OpenAI API error: {detail}"
+        user_msg = resolve_message((f"OpenAI-API-Fehler: {detail}", f"OpenAI API error: {detail}"))
+        return user_msg, f"OpenAI API error: {detail}"
 
-    return f"Unexpected OpenAI error: {error}", f"Unexpected OpenAI error: {error}"
+    fallback = str(error)
+    user_msg = resolve_message((f"Unerwarteter OpenAI-Fehler: {fallback}", f"Unexpected OpenAI error: {fallback}"))
+    return user_msg, f"Unexpected OpenAI error: {fallback}"
 
 
 def _handle_openai_error(error: OpenAIError) -> None:
@@ -1496,19 +1523,19 @@ def _handle_streaming_error(error: Exception) -> None:
     lowered = message.lower()
 
     if "rate limit" in lowered or "429" in lowered or "too many requests" in lowered:
-        user_msg = _RATE_LIMIT_ERROR_MESSAGE
+        user_msg = resolve_message(_RATE_LIMIT_ERROR_MESSAGE)
         log_msg = f"OpenAI streaming rate limit: {message}"
     elif any(keyword in lowered for keyword in ("timeout", "timed out", "connection", "network", "dns", "503", "504")):
-        user_msg = _NETWORK_ERROR_MESSAGE
+        user_msg = resolve_message(_NETWORK_ERROR_MESSAGE)
         log_msg = f"OpenAI streaming network error: {message}"
     elif any(
         keyword in lowered
         for keyword in ("invalid", "bad request", "prompt", "context length", "length limit", "unsupported")
     ):
-        user_msg = _INVALID_REQUEST_ERROR_MESSAGE
+        user_msg = resolve_message(_INVALID_REQUEST_ERROR_MESSAGE)
         log_msg = f"OpenAI streaming invalid request: {message}"
     else:
-        user_msg = f"Unexpected OpenAI error: {message}"
+        user_msg = resolve_message((f"Unerwarteter OpenAI-Fehler: {message}", f"Unexpected OpenAI error: {message}"))
         log_msg = user_msg
 
     logger.error(log_msg, exc_info=error)
@@ -1769,6 +1796,7 @@ def call_chat_api(
     """
 
     if _llm_disabled():
+        _show_missing_api_key_alert()
         raise RuntimeError(llm_disabled_message())
 
     single_kwargs: dict[str, Any] = {
@@ -1901,6 +1929,7 @@ def stream_chat_api(
     """
 
     if _llm_disabled():
+        _show_missing_api_key_alert()
         raise RuntimeError(llm_disabled_message())
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
