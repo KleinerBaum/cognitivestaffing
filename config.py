@@ -1,12 +1,13 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-The application now favours OpenAI's cost-optimised GPT-5.1 tiers for most
-tasks. ``gpt-5.1-nano`` and ``gpt-5.1-mini`` handle extraction, suggestions and
-summaries by default, with automatic fallbacks to ``gpt-4o`` → ``gpt-4`` →
-``gpt-3.5-turbo`` when capacity constraints occur. Teams can still override the
-routing to force premium models when required. Structured retrieval continues to
-use ``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG
-vectors.
+The application now routes lightweight tasks (extraction, basic Q&A,
+classification) to OpenAI's ``gpt-4o-mini`` (GPT-4.1-nano) tier and reserves
+``gpt-5.1-nano`` for reasoning-heavy workflows such as summarisation and
+explanations. Automatic fallbacks remain in place (``gpt-5.1-nano`` →
+``gpt-4o`` → ``gpt-4`` → ``gpt-3.5-turbo``) when capacity constraints occur, and
+teams can still override the routing to force premium models when required.
+Structured retrieval continues to use ``text-embedding-3-large`` (3,072
+dimensions) for higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
 ``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
@@ -118,34 +119,7 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
 
-
-def _canonical_model_name(value: str | None) -> str:
-    """Return a lower-cased identifier suitable for availability tracking."""
-
-    if not value:
-        return ""
-    return value.strip().lower()
-
-
-def _detect_default_model() -> str:
-    """Determine the default model for generic chat workloads."""
-
-    env_default = os.getenv("DEFAULT_MODEL")
-    if env_default:
-        normalised = normalise_model_name(env_default)
-        return normalised or GPT5_MINI
-    return GPT5_MINI
-
-
-DEFAULT_MODEL = _detect_default_model()
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
-VERBOSITY_LEVELS = ("low", "medium", "high")
-WIZARD_ORDER_V2 = os.getenv("WIZARD_ORDER_V2", "0").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
 
 
 def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -> str:
@@ -166,6 +140,72 @@ def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -
 
 
 REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
+
+LIGHTWEIGHT_MODEL = GPT4O_MINI
+REASONING_MODEL = GPT5_NANO
+
+_REASONING_MODEL_MAP: Dict[str, str] = {
+    "minimal": LIGHTWEIGHT_MODEL,
+    "low": LIGHTWEIGHT_MODEL,
+    "medium": REASONING_MODEL,
+    "high": REASONING_MODEL,
+}
+
+
+def _model_for_reasoning_level(level: str) -> str:
+    """Return the preferred model for ``level`` of reasoning effort."""
+
+    return _REASONING_MODEL_MAP.get(level, REASONING_MODEL)
+
+
+_SUPPORTED_MODEL_CHOICES = {LIGHTWEIGHT_MODEL, REASONING_MODEL}
+
+
+def _resolve_supported_model(value: str | None, fallback: str) -> str:
+    """Normalise overrides to supported defaults with graceful degradation."""
+
+    if not value:
+        return fallback
+    candidate = normalise_model_name(value)
+    if candidate in _SUPPORTED_MODEL_CHOICES:
+        return candidate
+    if candidate in {GPT4O, GPT4}:
+        return LIGHTWEIGHT_MODEL
+    if candidate in {GPT5_FULL, GPT5_MINI}:
+        return REASONING_MODEL
+    if candidate:
+        warnings.warn(
+            "Unsupported default model '%s'; falling back to '%s'." % (candidate, fallback),
+            RuntimeWarning,
+        )
+    return fallback
+
+
+def _canonical_model_name(value: str | None) -> str:
+    """Return a lower-cased identifier suitable for availability tracking."""
+
+    if not value:
+        return ""
+    return value.strip().lower()
+
+
+def _detect_default_model() -> str:
+    """Determine the default model for generic chat workloads."""
+
+    env_default = os.getenv("DEFAULT_MODEL")
+    if env_default:
+        return _resolve_supported_model(env_default, _model_for_reasoning_level(REASONING_EFFORT))
+    return _model_for_reasoning_level(REASONING_EFFORT)
+
+
+DEFAULT_MODEL = _detect_default_model()
+VERBOSITY_LEVELS = ("low", "medium", "high")
+WIZARD_ORDER_V2 = os.getenv("WIZARD_ORDER_V2", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def normalise_verbosity(value: object | None, *, default: str = "medium") -> str:
@@ -301,7 +341,7 @@ def get_openai_api_key() -> str:
 
 
 OPENAI_API_KEY = get_openai_api_key()
-OPENAI_MODEL = normalise_model_name(os.getenv("OPENAI_MODEL", DEFAULT_MODEL)) or DEFAULT_MODEL
+OPENAI_MODEL = _resolve_supported_model(os.getenv("OPENAI_MODEL"), DEFAULT_MODEL)
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
 OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
 OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
@@ -319,7 +359,7 @@ try:
         section_key = _coerce_secret_value(openai_secrets.get("OPENAI_API_KEY"))
         if section_key:
             OPENAI_API_KEY = section_key
-        OPENAI_MODEL = normalise_model_name(openai_secrets.get("OPENAI_MODEL", OPENAI_MODEL)) or OPENAI_MODEL
+        OPENAI_MODEL = _resolve_supported_model(openai_secrets.get("OPENAI_MODEL"), OPENAI_MODEL)
         OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
         OPENAI_ORGANIZATION = openai_secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
         OPENAI_PROJECT = openai_secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
@@ -411,22 +451,22 @@ class ModelTask(StrEnum):
 
 MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DEFAULT.value: OPENAI_MODEL,
-    ModelTask.EXTRACTION.value: GPT5_NANO,
-    ModelTask.COMPANY_INFO.value: GPT5_MINI,
-    ModelTask.FOLLOW_UP_QUESTIONS.value: GPT5_MINI,
-    ModelTask.RAG_SUGGESTIONS.value: GPT5_MINI,
-    ModelTask.SKILL_SUGGESTION.value: GPT5_NANO,
-    ModelTask.BENEFIT_SUGGESTION.value: GPT5_NANO,
-    ModelTask.TASK_SUGGESTION.value: GPT5_NANO,
-    ModelTask.ONBOARDING_SUGGESTION.value: GPT5_NANO,
-    ModelTask.JOB_AD.value: GPT5_MINI,
-    ModelTask.INTERVIEW_GUIDE.value: GPT5_MINI,
-    ModelTask.PROFILE_SUMMARY.value: GPT5_MINI,
-    ModelTask.CANDIDATE_MATCHING.value: GPT5_MINI,
-    ModelTask.DOCUMENT_REFINEMENT.value: GPT5_MINI,
-    ModelTask.EXPLANATION.value: GPT5_MINI,
-    ModelTask.SALARY_ESTIMATE.value: GPT5_MINI,
-    ModelTask.JSON_REPAIR.value: GPT4O_MINI,
+    ModelTask.EXTRACTION.value: LIGHTWEIGHT_MODEL,
+    ModelTask.COMPANY_INFO.value: LIGHTWEIGHT_MODEL,
+    ModelTask.FOLLOW_UP_QUESTIONS.value: REASONING_MODEL,
+    ModelTask.RAG_SUGGESTIONS.value: REASONING_MODEL,
+    ModelTask.SKILL_SUGGESTION.value: REASONING_MODEL,
+    ModelTask.BENEFIT_SUGGESTION.value: REASONING_MODEL,
+    ModelTask.TASK_SUGGESTION.value: REASONING_MODEL,
+    ModelTask.ONBOARDING_SUGGESTION.value: REASONING_MODEL,
+    ModelTask.JOB_AD.value: REASONING_MODEL,
+    ModelTask.INTERVIEW_GUIDE.value: REASONING_MODEL,
+    ModelTask.PROFILE_SUMMARY.value: REASONING_MODEL,
+    ModelTask.CANDIDATE_MATCHING.value: REASONING_MODEL,
+    ModelTask.DOCUMENT_REFINEMENT.value: REASONING_MODEL,
+    ModelTask.EXPLANATION.value: REASONING_MODEL,
+    ModelTask.SALARY_ESTIMATE.value: REASONING_MODEL,
+    ModelTask.JSON_REPAIR.value: LIGHTWEIGHT_MODEL,
     "embedding": EMBED_MODEL,
 }
 

@@ -211,7 +211,7 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
                 headers={},
             )
             raise BadRequestError(
-                message="The model gpt-5.1-nano is currently overloaded.",
+                message="The model gpt-4o-mini is currently overloaded.",
                 response=fake_response,
                 body=None,
             )
@@ -230,8 +230,8 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     )
 
     assert result.content == "OK"
-    assert attempts[0] == config.GPT5_NANO
-    assert attempts[1] == config.GPT5_MINI
+    assert attempts[0] == config.GPT4O_MINI
+    assert attempts[1] == config.GPT4O
     assert any("retrying with fallback" in record.message for record in caplog.records)
 
 

@@ -114,24 +114,30 @@ def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_al
         {"openai": {"OPENAI_MODEL": model_alias}},
         raising=False,
     )
-    monkeypatch.setattr(config, "OPENAI_MODEL", model_alias, raising=False)
-    monkeypatch.setattr(es, "OPENAI_MODEL", model_alias, raising=False)
+    importlib.reload(config)
+    importlib.reload(es)
 
-    es.ensure_state()
+    try:
+        es.ensure_state()
 
-    assert config.OPENAI_MODEL == config.GPT5_MINI
-    assert st.session_state["model"] == config.GPT5_MINI
+        assert config.OPENAI_MODEL == config.REASONING_MODEL
+        assert st.session_state["model"] == config.REASONING_MODEL
+    finally:
+        st.session_state.clear()
+        monkeypatch.setattr(st, "secrets", {}, raising=False)
+        importlib.reload(config)
+        importlib.reload(es)
 
 
 @pytest.mark.parametrize("env_value", ["", "   "])
-def test_default_model_falls_back_to_gpt5_mini_for_blank_env(monkeypatch, env_value):
+def test_default_model_falls_back_to_reasoning_tier_for_blank_env(monkeypatch, env_value):
     previous_env = os.environ.get("DEFAULT_MODEL")
 
     try:
         monkeypatch.setenv("DEFAULT_MODEL", env_value)
         importlib.reload(config)
 
-        assert config.DEFAULT_MODEL == config.GPT5_MINI
+        assert config.DEFAULT_MODEL == config.REASONING_MODEL
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)
@@ -140,14 +146,14 @@ def test_default_model_falls_back_to_gpt5_mini_for_blank_env(monkeypatch, env_va
         importlib.reload(config)
 
 
-def test_default_model_alias_falls_back_to_gpt5_mini(monkeypatch):
+def test_default_model_alias_falls_back_to_reasoning_tier(monkeypatch):
     previous_env = os.environ.get("DEFAULT_MODEL")
 
     try:
         monkeypatch.setenv("DEFAULT_MODEL", "gpt-5-mini")
         importlib.reload(config)
 
-        assert config.DEFAULT_MODEL == config.GPT5_MINI
+        assert config.DEFAULT_MODEL == config.REASONING_MODEL
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)
