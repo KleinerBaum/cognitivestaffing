@@ -100,7 +100,11 @@ def _clear_branding_asset() -> None:
     """Remove any cached branding upload."""
 
     st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
-    st.session_state.pop(UIKeys.COMPANY_BRANDING_UPLOAD, None)
+    for key in (
+        UIKeys.COMPANY_BRANDING_UPLOAD,
+        UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+    ):
+        st.session_state.pop(key, None)
 
 
 def _asset_to_data_uri(asset: Mapping[str, Any] | None) -> tuple[str | None, bool]:
