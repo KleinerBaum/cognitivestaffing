@@ -12,6 +12,8 @@
   **DE:** Leichte Aufgaben laufen nun auf `gpt-4o-mini` (GPT-4.1-nano), während Zusammenfassungen und Erklärungen weiterhin `gpt-5-nano` (Endpoint `gpt-5.1-nano`) nutzen; Umgebungs-Overrides werden auf diese Stufen normalisiert.
 - **EN:** Resolved duplicate Streamlit widget keys for branding uploads by giving the legacy wizard uploader its own identifier and clearing both caches together.
   **DE:** Doppelte Streamlit-Widget-Keys beim Branding-Upload behoben, indem der Legacy-Wizard einen eigenen Schlüssel erhält und beide Caches gemeinsam geleert werden.
+- **EN:** Consolidated dependency management so `requirements.txt` is the deployment source of truth and Streamlit no longer detects competing requirement files.
+  **DE:** Abhängigkeitsverwaltung konsolidiert, sodass `requirements.txt` als Deployment-Quelle dient und Streamlit keine konkurrierenden Requirements-Dateien mehr meldet.
 
 ## v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
 
