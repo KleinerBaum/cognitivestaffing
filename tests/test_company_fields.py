@@ -39,6 +39,16 @@ def test_contact_email_with_concatenated_string() -> None:
     assert company.contact_email == "m.m@rheinbahn.de"
 
 
+def test_contact_phone_is_normalised() -> None:
+    company = Company(contact_phone="  +49 (0)30-123 45 67 Ext 12 ")
+    assert company.contact_phone == "+49 30 1234567 ext 12"
+
+
+def test_company_website_is_normalised() -> None:
+    company = Company(website="www.Example.com/jobs/")
+    assert company.website == "https://www.example.com/jobs"
+
+
 def test_apply_rules_locks_contact_phone() -> None:
     block = ContentBlock(type="paragraph", text="Telefon: +49 30 1234567")
     matches = apply_rules([block])

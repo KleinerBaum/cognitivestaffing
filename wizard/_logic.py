@@ -24,6 +24,8 @@ from utils.normalization import (
     normalize_company_size,
     normalize_country,
     normalize_language_list,
+    normalize_phone_number,
+    normalize_website_url,
 )
 
 
@@ -125,6 +127,18 @@ def _normalize_value_for_path(path: str, value: Any) -> Any:
         if normalized:
             return normalized
         return " ".join(candidate.strip().split())
+    if path == "company.contact_phone":
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return normalize_phone_number(value)
+        return normalize_phone_number(str(value))
+    if path == "company.website":
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return normalize_website_url(value)
+        return normalize_website_url(str(value))
     if path == "location.country":
         if isinstance(value, str) or value is None:
             return normalize_country(value)
@@ -298,7 +312,14 @@ def _update_profile(path: str, value: Any) -> None:
             st.session_state[path] = normalized_value_for_path
     current = get_in(data, path)
     if _normalize_semantic_empty(current) != normalized_value:
-        set_in(data, path, normalized_value_for_path)
+        if normalized_value is None and not isinstance(
+            normalized_value_for_path,
+            (list, tuple, set, frozenset, dict),
+        ):
+            stored_value: Any = None
+        else:
+            stored_value = normalized_value_for_path
+        set_in(data, path, stored_value)
         _clear_generated()
         _remove_field_lock_metadata(path)
         _sync_followup_completion(path, normalized_value_for_path, data)

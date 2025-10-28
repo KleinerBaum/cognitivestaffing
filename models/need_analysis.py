@@ -17,7 +17,11 @@ from pydantic import (
     model_validator,
 )
 
-from utils.normalization import normalize_company_size
+from utils.normalization import (
+    normalize_company_size,
+    normalize_phone_number,
+    normalize_website_url,
+)
 
 
 class Company(BaseModel):
@@ -84,6 +88,26 @@ class Company(BaseModel):
             cleaned = value.strip()
             return cleaned or None
         return value  # type: ignore[return-value]
+
+    @field_validator("website", mode="before")
+    @classmethod
+    def _normalise_website(cls, value: object) -> Optional[str]:
+        """Ensure company websites use a canonical HTTPS format."""
+
+        if value is None:
+            return None
+        normalized = normalize_website_url(value if isinstance(value, str) else str(value))
+        return normalized
+
+    @field_validator("contact_phone", mode="before")
+    @classmethod
+    def _normalise_contact_phone(cls, value: object) -> Optional[str]:
+        """Normalise contact phone numbers to a stable representation."""
+
+        if value is None:
+            return None
+        normalized = normalize_phone_number(value if isinstance(value, str) else str(value))
+        return normalized
 
     @field_validator("brand_color", mode="before")
     @classmethod

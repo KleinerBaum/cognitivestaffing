@@ -6,6 +6,8 @@
   **DE:** WizardRouter-Navigation synchronisiert nun `?step`, löst bei jedem Schrittwechsel einen Scroll-to-Top aus, markiert optionale Skips als erledigt und nutzt den neuen Zurück-Helfer plus Tests für First-Incomplete-Sprünge.
 - **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so inputs seed before rendering and Streamlit no longer raises "Cannot set widget" exceptions.
   **DE:** Normalisiert die Widget-Defaults im Wizard über `_ensure_widget_state()`, damit Eingaben vor dem Rendern initialisiert werden und Streamlit keine "Cannot set widget"-Ausnahmen mehr auslöst.
+- **EN:** Normalised company contact phone numbers and websites across the wizard, cleaning noisy values and storing cleared fields as `None` for consistent profile state.
+  **DE:** Unternehmens-Telefonnummern und Websites im Wizard normalisiert, Störzeichen entfernt und geleerte Felder als `None` im Profil hinterlegt, um den Zustand konsistent zu halten.
 - **EN:** Hardened skill/benefit suggestion fallbacks to auto-switch from the Responses API to the legacy chat backend or static shortlists when outages occur (`USE_CLASSIC_API` now enforces the legacy path).
   **DE:** Skill- und Benefit-Vorschläge nutzen bei Ausfällen automatisch die Chat-Completions-API oder statische Shortlists; `USE_CLASSIC_API` erzwingt künftig den Legacy-Pfad.
 - **EN:** Gated all AI suggestion buttons and document generations behind the OpenAI API key; the UI now shows a lock message instead of firing requests when the key is missing.
