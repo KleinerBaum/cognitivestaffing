@@ -45,6 +45,9 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
             "brand_name": "Acme Labs",
             "name": "Acme Corp",
             "mission": "Build the future of collaboration",
+            "brand_color": "#12ab34",
+            "claim": "Engineering for good.",
+            "logo_url": "https://example.com/logo.svg",
         },
         "location": {"primary_city": "Berlin"},
         "responsibilities": {"items": ["Develop features", "Review code"]},
@@ -79,6 +82,9 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
     assert "innovative spirit" in prompt_text.lower()
     assert "Culture: We celebrate learning." in prompt_text
     assert "Experienced engineers" in prompt_text
+    assert "Engineering for good" in prompt_text
+    assert "#12AB34" in prompt_text
+    assert "Logo source: https://example.com/logo.svg" in prompt_text
     assert captured["kwargs"]["tools"] == [
         {
             "type": "file_search",
@@ -136,6 +142,9 @@ def test_generate_job_ad_fallback_highlights_tone_and_cta(monkeypatch):
         "company": {
             "name": "Beispiel GmbH",
             "brand_keywords": ["inklusive Sprache", "Teamgeist"],
+            "brand_color": "#445566",
+            "claim": "Immer zuverlässig.",
+            "logo_url": "https://beispiel.de/logo.svg",
         },
         "employment": {"work_policy": "Hybrid", "remote_percentage": 60},
         "lang": "de",
@@ -161,6 +170,9 @@ def test_generate_job_ad_fallback_highlights_tone_and_cta(monkeypatch):
     assert any("ton" in line.lower() for line in lines)
     assert "bewirb" in output.lower()
     assert "Teamgeist" in output
+    assert "#445566" in output
+    assert "Immer zuverlässig." in output
+    assert "Logo-Quelle" in output
 
 
 def test_generate_job_ad_requires_content():

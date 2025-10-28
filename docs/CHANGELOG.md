@@ -16,6 +16,8 @@
   **DE:** Vereinheitlichte Responses-Retry-Logik protokolliert Warnungen und aktiviert Chat-/statische Fallbacks, sobald Aufrufe scheitern oder ungültiges JSON liefern.
 - **EN:** Moved the remaining legacy wizard helpers into the modular package, exposing `_update_profile` and autofill rendering without dynamic imports for clearer navigation.
   **DE:** Verbleibende Wizard-Helfer wurden in das modulare Paket verlagert; `_update_profile` und die Autofill-Darstellung stehen nun ohne dynamische Importe für bessere Übersicht zur Verfügung.
+- **EN:** Extended branding integration with sidebar overrides—logo uploads, colour pickers, and claim edits now feed exports, while job ads and fallbacks mention the slogan and brand colour by default.
+  **DE:** Branding-Integration ausgebaut: Sidebar-Overrides für Logo, Farbe und Claim fließen in Exporte ein; Stellenanzeigen und Fallbacks referenzieren Claim und Markenfarbe automatisch.
 - **EN:** Enabling `SCHEMA_WIZARD_V1` now boots the UI on the RecruitingWizard schema: session state stores the new Company/Department/Team payload, wizard pages highlight the canonical fields, and exports read `WIZARD_KEYS_CANONICAL` with alias-backed fallbacks.
   **DE:** Mit aktiviertem `SCHEMA_WIZARD_V1` arbeitet die Oberfläche jetzt vollständig auf dem RecruitingWizard-Schema: Der Session-State speichert die neuen Company-/Department-/Team-Daten, die Wizard-Seiten zeigen die kanonischen Felder und Exporte nutzen `WIZARD_KEYS_CANONICAL` mit Alias-Fallbacks.
 - **EN:** Enforced full NeedAnalysisProfile ↔ wizard alignment by enumerating every schema path in `ProfilePaths`, surfacing them on wizard pages, and verifying coverage via automated tests.

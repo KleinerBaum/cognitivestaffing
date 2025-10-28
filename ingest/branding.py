@@ -48,6 +48,8 @@ _TAGLINE_STOPWORDS = {
     "vakanz",
 }
 
+DEFAULT_BRAND_COLOR = "#2563EB"
+
 
 @dataclass(slots=True)
 class BrandAssets:
@@ -269,4 +271,37 @@ def extract_brand_assets(html: str, *, base_url: str | None = None) -> BrandAsse
     )
 
 
-__all__ = ["BrandAssets", "extract_brand_assets"]
+def fetch_branding_assets(url: str, *, timeout: float = 8.0) -> BrandAssets:
+    """Return branding assets for ``url`` with a safe default colour."""
+
+    cleaned_url = (url or "").strip()
+    if not cleaned_url:
+        return BrandAssets(brand_color=DEFAULT_BRAND_COLOR)
+
+    try:
+        response = requests.get(
+            cleaned_url,
+            timeout=timeout,
+            headers={"User-Agent": "CognitiveStaffing/1.0"},
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:  # pragma: no cover - network errors
+        logger.debug("Failed to download branding source %s: %s", cleaned_url, exc)
+        return BrandAssets(brand_color=DEFAULT_BRAND_COLOR)
+
+    html = response.text or ""
+    base_url = response.url or cleaned_url
+
+    try:
+        assets = extract_brand_assets(html, base_url=base_url)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.debug("Brand asset extraction crashed for %s: %s", cleaned_url, exc)
+        return BrandAssets(brand_color=DEFAULT_BRAND_COLOR)
+
+    if not assets.brand_color:
+        assets.brand_color = DEFAULT_BRAND_COLOR
+
+    return assets
+
+
+__all__ = ["DEFAULT_BRAND_COLOR", "BrandAssets", "extract_brand_assets", "fetch_branding_assets"]

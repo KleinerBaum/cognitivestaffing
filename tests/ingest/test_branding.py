@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from io import BytesIO
 
 import pytest
 
 PIL_Image = pytest.importorskip("PIL.Image")
 
-from ingest.branding import BrandAssets, extract_brand_assets
+from ingest.branding import (
+    DEFAULT_BRAND_COLOR,
+    BrandAssets,
+    extract_brand_assets,
+    fetch_branding_assets,
+)
 
 
 def _png_bytes(color: tuple[int, int, int]) -> bytes:
@@ -90,3 +96,24 @@ def test_extract_brand_assets_uses_meta_image(monkeypatch: pytest.MonkeyPatch) -
 
     assert assets.logo_url == "https://logo.example/assets/og-logo.png"
     assert assets.brand_color == "#C83232"
+
+
+def test_fetch_branding_assets_returns_default_colour(monkeypatch: pytest.MonkeyPatch) -> None:
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "branding_page.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    class _StubResponse:
+        def __init__(self, text: str) -> None:
+            self.text = text
+            self.url = "https://example.com/careers"
+
+        def raise_for_status(self) -> None:
+            return None
+
+    monkeypatch.setattr("ingest.branding.requests.get", lambda *_, **__: _StubResponse(html))
+    monkeypatch.setattr("ingest.branding._download_image", lambda _url: None)
+
+    assets = fetch_branding_assets("https://example.com/careers")
+
+    assert assets.brand_color == DEFAULT_BRAND_COLOR
+    assert assets.logo_url == "https://example.com/assets/logo.svg"

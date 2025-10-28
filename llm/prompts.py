@@ -176,6 +176,16 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     if brand_keywords:
         label = tr("Brand-Keywords", "Brand keywords", lang)
         meta_lines.append(f"{label}: {brand_keywords}")
+    branding_info = payload.get("branding") or {}
+    claim = str(branding_info.get("claim") or company_info.get("claim") or "").strip()
+    brand_color = str(branding_info.get("brand_color") or company_info.get("brand_color") or "").strip()
+    logo_url = str(branding_info.get("logo_url") or company_info.get("logo_url") or "").strip()
+    if claim:
+        meta_lines.append(f"{tr('Claim/Slogan', 'Claim/tagline', lang)}: {claim}")
+    if brand_color:
+        meta_lines.append(f"{tr('Markenfarbe', 'Brand colour', lang)}: {brand_color}")
+    if logo_url:
+        meta_lines.append(f"{tr('Logo-Quelle', 'Logo source', lang)}: {logo_url}")
     if style_reference:
         meta_lines.append(f"{tr('Stilreferenz', 'Style reference', lang)}: {style_reference}")
     if cta_hint:
