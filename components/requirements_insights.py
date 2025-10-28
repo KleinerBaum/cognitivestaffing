@@ -1,12 +1,24 @@
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 import streamlit as st
 
 from config_loader import load_json
-from utils.i18n import tr
-from wizard._logic import unique_normalized
+from utils.i18n import (
+    SKILL_MARKET_AVAILABILITY_METRIC_LABEL,
+    SKILL_MARKET_FALLBACK_CAPTION,
+    SKILL_MARKET_METRIC_CAPTION,
+    SKILL_MARKET_SALARY_METRIC_LABEL,
+    SKILL_MARKET_SELECT_SKILL_LABEL,
+    tr,
+)
+
+
+def _unique_normalized(values: Iterable[str]) -> list[str]:
+    from wizard._logic import unique_normalized as _unique_normalized_impl
+
+    return _unique_normalized_impl(values)
 
 
 @dataclass
@@ -385,6 +397,12 @@ def prepare_skill_market_records(
     return records
 
 
+def _translate_pair(pair: tuple[str, str], *, lang: str) -> str:
+    """Return the translated string for ``pair`` in ``lang``."""
+
+    return tr(pair[0], pair[1], lang=lang)
+
+
 def build_salary_chart_spec(
     records: Sequence[SkillMarketRecord],
     *,
@@ -404,7 +422,8 @@ def build_salary_chart_spec(
                 "region": record.region_label or tr("Global", "Global", lang=lang),
             }
         )
-    title = tr("Gehaltswirkung in %", "Salary impact in %", lang=lang)
+    base_label = _translate_pair(SKILL_MARKET_SALARY_METRIC_LABEL, lang=lang)
+    title = f"{base_label} (%)"
     return {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {"values": values},
@@ -438,7 +457,7 @@ def build_salary_chart_spec(
                 {
                     "field": "value",
                     "type": "quantitative",
-                    "title": tr("Gehaltswirkung", "Salary impact", lang=lang),
+                    "title": base_label,
                     "format": "+.1f",
                 },
                 {"field": "region", "type": "nominal"},
@@ -467,7 +486,8 @@ def build_availability_chart_spec(
                 "region": record.region_label or tr("Global", "Global", lang=lang),
             }
         )
-    title = tr("Talentverfügbarkeit (0–100)", "Talent availability (0–100)", lang=lang)
+    base_label = _translate_pair(SKILL_MARKET_AVAILABILITY_METRIC_LABEL, lang=lang)
+    title = f"{base_label} (0–100)"
     return {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {"values": values},
@@ -501,7 +521,7 @@ def build_availability_chart_spec(
                 {
                     "field": "value",
                     "type": "quantitative",
-                    "title": tr("Verfügbarkeit", "Availability", lang=lang),
+                    "title": base_label,
                     "format": ".0f",
                 },
                 {"field": "region", "type": "nominal"},
@@ -523,24 +543,14 @@ def _render_summary(
         avg_salary = sum(record.salary_delta_pct for record in benchmarks) / len(benchmarks)
         avg_availability = sum(record.availability_index for record in benchmarks) / len(benchmarks)
         st.caption(
-            tr(
-                "{segment}: Ø Gehaltswirkung {salary:+.1f}% · Ø Verfügbarkeit {availability:.0f}/100",
-                "{segment}: Avg. salary impact {salary:+.1f}% · Avg. availability {availability:.0f}/100",
-                lang=lang,
-            ).format(
-                segment=segment_label,
+            _translate_pair(SKILL_MARKET_METRIC_CAPTION, lang=lang).format(
+                skill=segment_label,
                 salary=avg_salary,
                 availability=avg_availability,
             )
         )
     else:
-        st.caption(
-            tr(
-                "{segment}: Keine Benchmarks gefunden – neutrale Platzhalter (0%, 50/100).",
-                "{segment}: No benchmarks found – using neutral placeholders (0%, 50/100).",
-                lang=lang,
-            ).format(segment=segment_label)
-        )
+        st.caption(_translate_pair(SKILL_MARKET_FALLBACK_CAPTION, lang=lang).format(skill=segment_label))
     fallback_skills = [record.skill for record in records if not record.has_benchmark]
     if fallback_skills:
         st.caption(
@@ -617,7 +627,7 @@ def render_skill_market_insights(
         )
         return
 
-    unique_skills = unique_normalized(cleaned_skills)
+    unique_skills = _unique_normalized(cleaned_skills)
 
     option_map: dict[str, str] = {}
     options: list[str] = []
@@ -630,11 +640,7 @@ def render_skill_market_insights(
         option_map[label] = skill
         options.append(label)
 
-    multiselect_label = tr(
-        "Welche Anforderungen sollen analysiert werden?",
-        "Which requirements should be analysed?",
-        lang=lang_code,
-    )
+    multiselect_label = _translate_pair(SKILL_MARKET_SELECT_SKILL_LABEL, lang=lang_code)
     selected_labels = st.multiselect(
         multiselect_label,
         options,
