@@ -5632,7 +5632,7 @@ def _step_company():
         brand_upload = st.file_uploader(
             tr("Branding-Assets", "Brand assets"),
             type=["png", "jpg", "jpeg", "svg", "pdf"],
-            key=UIKeys.COMPANY_BRANDING_UPLOAD,
+            key=UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
         )
         if brand_upload is not None:
             st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
@@ -5662,7 +5662,11 @@ def _step_company():
                 key="company.branding.remove",
             ):
                 st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
-                st.session_state.pop(UIKeys.COMPANY_BRANDING_UPLOAD, None)
+                for upload_key in (
+                    UIKeys.COMPANY_BRANDING_UPLOAD,
+                    UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+                ):
+                    st.session_state.pop(upload_key, None)
                 st.rerun()
 
         logo_upload = st.file_uploader(
