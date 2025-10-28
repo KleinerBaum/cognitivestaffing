@@ -1237,7 +1237,7 @@ def _prepare_payload(
                 format_config["strict"] = strict_override
             elif strict_override is not None:
                 format_config["strict"] = bool(strict_override)
-            text_config.setdefault("type", "text")
+            text_config.pop("type", None)
             text_config["format"] = format_config
             payload["text"] = text_config
         if combined_tools:
