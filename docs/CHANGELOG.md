@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Ensured the Poetry dependency set requires `openai>=1.99.3` so the Responses API tooling matches the pip requirements.
+  **DE:** Poetry-Abhängigkeiten verlangen nun `openai>=1.99.3`, damit das Responses-API-Tooling mit den pip-Requirements übereinstimmt.
 - **EN:** Sanitised optional profile URLs so empty logo or source links persist as `None` rather than wiping the profile on validation.
   **DE:** Optionale Profil-URLs bereinigt, damit leere Logo- oder Quellen-Links als `None` erhalten bleiben und bei der Validierung kein Profil-Reset auslösen.
 - **EN:** Downgraded rule-matcher logs when phone or country values are absent so optional contact fields no longer emit warning-level noise.
