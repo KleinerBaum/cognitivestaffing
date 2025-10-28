@@ -854,7 +854,7 @@ def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
 
     format_block = captured["text"]["format"]
     assert format_block["type"] == "json_schema"
-    assert captured["text"]["type"] == "text"
+    assert "type" not in captured["text"]
     assert format_block["name"] == schema["name"]
     assert format_block["schema"] == schema["schema"]
     assert format_block["strict"] is True
