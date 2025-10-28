@@ -106,7 +106,6 @@ def call_responses(
     }
 
     text_payload = dict(payload.get("text") or {})
-    text_payload.setdefault("type", "text")
     text_payload["format"] = dict(response_format)
     payload["text"] = text_payload
 
