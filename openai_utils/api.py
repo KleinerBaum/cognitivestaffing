@@ -1182,15 +1182,23 @@ def _prepare_payload(
             payload["max_tokens"] = max_tokens
         if json_schema is not None:
             schema_payload = dict(json_schema)
-            if STRICT_JSON:
-                schema_payload.setdefault("strict", True)
-            schema_name = schema_payload.get("name")
-            format_config: dict[str, Any] = {
+            schema_body = schema_payload.get("schema")
+            if not isinstance(schema_body, Mapping):
+                raise TypeError("json_schema['schema'] must be a mapping")
+            format_config = {
                 "type": "json_schema",
-                "json_schema": schema_payload,
+                "schema": dict(schema_body),
             }
+            schema_name = schema_payload.get("name")
             if isinstance(schema_name, str) and schema_name.strip():
                 format_config["name"] = schema_name.strip()
+            strict_override = schema_payload.get("strict")
+            if STRICT_JSON:
+                format_config["strict"] = True
+            elif isinstance(strict_override, bool):
+                format_config["strict"] = strict_override
+            elif strict_override is not None:
+                format_config["strict"] = bool(strict_override)
             payload["response_format"] = format_config
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
@@ -1212,21 +1220,32 @@ def _prepare_payload(
         if json_schema is not None:
             text_config: dict[str, Any] = dict(payload.get("text") or {})
             schema_payload = dict(json_schema)
-            if STRICT_JSON:
-                schema_payload.setdefault("strict", True)
-            schema_name = schema_payload.get("name")
-            format_config = {
+            schema_body = schema_payload.get("schema")
+            if not isinstance(schema_body, Mapping):
+                raise TypeError("json_schema['schema'] must be a mapping")
+            format_config: dict[str, Any] = {
                 "type": "json_schema",
-                "json_schema": schema_payload,
+                "schema": dict(schema_body),
             }
+            schema_name = schema_payload.get("name")
             if isinstance(schema_name, str) and schema_name.strip():
                 format_config["name"] = schema_name.strip()
+            strict_override = schema_payload.get("strict")
+            if STRICT_JSON:
+                format_config["strict"] = True
+            elif isinstance(strict_override, bool):
+                format_config["strict"] = strict_override
+            elif strict_override is not None:
+                format_config["strict"] = bool(strict_override)
+            text_config.setdefault("type", "text")
             text_config["format"] = format_config
             payload["text"] = text_config
         if combined_tools:
             responses_tools: list[dict[str, Any]] = []
             for tool_spec in combined_tools:
                 cleaned_spec = dict(tool_spec)
+                if cleaned_spec.get("type") != "function":
+                    cleaned_spec.pop("name", None)
                 responses_tools.append(cleaned_spec)
             if responses_tools:
                 payload["tools"] = responses_tools
