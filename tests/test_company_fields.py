@@ -49,6 +49,11 @@ def test_company_website_is_normalised() -> None:
     assert company.website == "https://www.example.com/jobs"
 
 
+def test_company_logo_url_allows_empty_strings() -> None:
+    company = Company(logo_url="   ")
+    assert company.logo_url is None
+
+
 def test_apply_rules_locks_contact_phone() -> None:
     block = ContentBlock(type="paragraph", text="Telefon: +49 30 1234567")
     matches = apply_rules([block])

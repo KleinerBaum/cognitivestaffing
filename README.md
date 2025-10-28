@@ -9,6 +9,11 @@
 - **EN:** Current release: **v1.1.0** (November 2025) – see below for highlights.
 - **DE:** Aktuelle Version: **v1.1.0** (November 2025) – Highlights siehe unten.
 
+## Unreleased
+
+- **EN:** Sanitised optional profile URLs so empty logo or source links now resolve to `None` instead of triggering schema resets.
+  **DE:** Optionale Profil-URLs bereinigt, damit leere Logo- oder Quellen-Links als `None` gespeichert werden und keine Schema-Resets mehr auslösen.
+
 ## What's new in v1.1.0 / Neu in v1.1.0
 
 - **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so text inputs and list editors seed before rendering, avoiding Streamlit "Cannot set widget" errors on reruns.

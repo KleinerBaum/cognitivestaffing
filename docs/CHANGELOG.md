@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Sanitised optional profile URLs so empty logo or source links persist as `None` rather than wiping the profile on validation.
+  **DE:** Optionale Profil-URLs bereinigt, damit leere Logo- oder Quellen-Links als `None` erhalten bleiben und bei der Validierung kein Profil-Reset auslösen.
 - **EN:** Downgraded rule-matcher logs when phone or country values are absent so optional contact fields no longer emit warning-level noise.
   **DE:** Log-Ausgabe des Regelabgleichs herabgestuft, wenn Telefon- oder Länderdaten fehlen, sodass optionale Kontaktfelder keine Warnungen mehr erzeugen.
 - **EN:** Rerouted lightweight tasks to `gpt-4o-mini` (GPT-4.1-nano) while keeping summarisation/explanation flows on `gpt-5-nano` (`gpt-5.1-nano` endpoint); environment overrides now normalise to these tiers.

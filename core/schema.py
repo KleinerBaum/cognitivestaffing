@@ -82,6 +82,20 @@ class SourceAttribution(BaseModel):
     source_url: HttpUrl | None = None
     notes: str | None = None
 
+    @field_validator("source_url", mode="before")
+    @classmethod
+    def _normalise_source_url(cls, value: object) -> object | None:
+        """Allow blank strings by converting them to ``None`` before validation."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            return candidate
+        return value
+
 
 class SourceMap(RootModel[dict[str, SourceAttribution]]):
     """Mapping of canonical dot-paths to their source metadata."""
@@ -151,6 +165,20 @@ class Company(BaseModel):
     @classmethod
     def _normalise_list(cls, value: object) -> list[str]:
         return deduplicate_preserve_order(value)
+
+    @field_validator("logo_url", mode="before")
+    @classmethod
+    def _normalise_logo_url(cls, value: object) -> object | None:
+        """Convert empty strings to ``None`` for optional logo URLs."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            return candidate
+        return value
 
     @field_validator("brand_color", mode="before")
     @classmethod
