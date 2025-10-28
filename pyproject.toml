@@ -2,13 +2,7 @@
 name = "cognitivestaffing"
 version = "1.1.0"
 requires-python = ">=3.11"
-dependencies = [
-    "pydantic>=2.5,<3.0",
-    "email-validator>=2.1",
-    "PyYAML>=6.0",
-    "plotly>=5.20",
-    "openai>=1.99.3",
-]
+# Dependencies are managed exclusively via requirements.txt to avoid duplicate sources.
 
 [build-system]
 requires = ["setuptools>=61.0"]
