@@ -77,6 +77,17 @@ _COLLECTED_STYLE = """
 </style>
 """
 
+_SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
+    ("Onboarding", "Onboarding"),
+    ("Unternehmen", "Company"),
+    ("Basisdaten", "Basic info"),
+    ("Anforderungen", "Requirements"),
+    ("Leistungen & Benefits", "Rewards & Benefits"),
+    ("Prozess", "Process"),
+    ("Summary", "Summary"),
+)
+
+
 _NAVIGATION_STYLE = """
 <style>
 .wizard-nav-marker + div[data-testid="stHorizontalBlock"] {
@@ -229,6 +240,9 @@ class WizardRouter:
             self._state["_last_rendered_step"] = current_key
         self._maybe_scroll_to_top()
         self._render_collected_panel(page)
+        lang = st.session_state.get("lang", "de")
+        summary_labels = [tr(de, en, lang=lang) for de, en in _SUMMARY_LABELS]
+        st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
         renderer.callback(self._context)
         self._render_navigation(page, missing)
 
