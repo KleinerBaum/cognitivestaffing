@@ -7,6 +7,7 @@ from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from config import ModelTask, get_model_for
 from core.rules import COMMON_CITY_NAMES
+from core.regexes import CITY_REGEX_IN_PATTERN, FOOTER_CONTACT_PARSE
 from llm.openai_responses import build_json_schema_format, call_responses
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
@@ -194,6 +195,17 @@ _CITY_TRAILING_STOPWORDS = {
     "hours",
 }
 
+BENEFIT_LEXICON: dict[str, str] = {
+    "flexible arbeitszeiten": "Flexible Arbeitszeiten",
+    "flexible arbeitszeit": "Flexible Arbeitszeiten",
+    "mobiles arbeiten": "Mobiles Arbeiten",
+    "mobile working": "Mobiles Arbeiten",
+    "betriebliche altersvorsorge": "Betriebliche Altersvorsorge",
+    "jobticket": "Jobticket",
+    "hybrides arbeiten": "Hybrides Arbeiten",
+    "homeoffice": "Homeoffice",
+}
+
 _CITY_FIX_SCHEMA: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -379,6 +391,44 @@ def _collect_local_context(
         if abs(line_idx - target_index) <= window:
             parts.append(content)
     return " ".join(parts).casefold()
+
+
+def _extract_footer_contact_details(text: str) -> dict[str, str | None]:
+    """Return structured footer contact details if present in ``text``."""
+
+    match = FOOTER_CONTACT_PARSE.search(text)
+    if not match:
+        return {}
+    details: dict[str, str | None] = {}
+    hr_name = (match.group("hr") or "").strip()
+    manager_name = (match.group("mgr") or "").strip()
+    if hr_name:
+        details["hr_name"] = hr_name
+    if manager_name:
+        details["manager_name"] = manager_name
+    raw_segment = match.group(0)
+    emails = [email.group(0).lower() for email in _EMAIL_RE.finditer(raw_segment)]
+    hr_email: str | None = None
+    if hr_name:
+        tokens = [token for token in _tokenize_name(hr_name) if len(token) >= 3]
+    else:
+        tokens = []
+    for email in emails:
+        local_part = email.split("@", 1)[0]
+        if any(token in local_part for token in tokens):
+            hr_email = email
+            break
+    if hr_email is None and emails:
+        hr_email = emails[-1]
+    if hr_email:
+        details["hr_email"] = hr_email
+    phone = match.group("phone")
+    if phone:
+        details["phone"] = _normalize_phone(phone)
+    website = match.group("website")
+    if website:
+        details["website"] = website.strip()
+    return details
 
 
 def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
@@ -603,6 +653,9 @@ def _canonicalize_city_name(city: str) -> str:
     for known_city in _COMMON_CITIES:
         if known_city.casefold() == lowered:
             return known_city
+        prefix = known_city.casefold()
+        if lowered.startswith(f"{prefix} ") or lowered.startswith(f"{prefix}-") or lowered.startswith(f"{prefix}/"):
+            return known_city
     return city
 
 
@@ -628,6 +681,8 @@ def _city_candidate_is_plausible(city: str) -> bool:
     """Return ``True`` if ``city`` appears to be a real geographic location."""
 
     if not city:
+        return False
+    if _benefit_label_for_phrase(city):
         return False
     marker = _city_value_is_invalid(city)
     if marker:
@@ -1007,6 +1062,24 @@ def _normalize_benefit_entries(values: List[str]) -> List[str]:
             seen.add(key)
             normalized.append(cleaned)
     return normalized
+
+
+def _benefit_label_for_phrase(phrase: str) -> str | None:
+    """Return canonical benefit label for ``phrase`` if known."""
+
+    key = re.sub(r"\s+", " ", phrase.strip()).casefold()
+    return BENEFIT_LEXICON.get(key)
+
+
+def _extract_benefits_from_lexicon(text: str) -> List[str]:
+    """Return benefit entries detected via :data:`BENEFIT_LEXICON`."""
+
+    lowered = text.casefold()
+    matches: list[str] = []
+    for marker, label in BENEFIT_LEXICON.items():
+        if marker in lowered:
+            matches.append(label)
+    return _normalize_benefit_entries(matches)
 
 
 def _match_benefit_heading(line: str) -> Tuple[bool, str]:
@@ -1603,6 +1676,12 @@ def guess_city(text: str) -> str:
     """Guess primary city from ``text``."""
     if not text:
         return ""
+    inline_match = CITY_REGEX_IN_PATTERN.search(text)
+    if inline_match:
+        candidate = _clean_city_candidate(inline_match.group("city"))
+        candidate = normalize_city_name(_trim_city_stopwords(candidate))
+        if _city_candidate_is_plausible(candidate):
+            return _canonicalize_city_name(candidate)
     m = _CITY_HINT_RE.search(text)
     if m:
         candidate = _clean_city_candidate(m.group(1).split("|")[0].split(",")[0])
@@ -1822,6 +1901,32 @@ def apply_basic_fallbacks(
 
     location_entities = None
 
+    def _mark_field_confidence(field: str, rule: str, *, confidence: float = 0.9) -> None:
+        """Record ``field`` as confidently filled via ``rule``."""
+
+        if field not in locked_fields:
+            locked_fields.add(field)
+        if field not in high_confidence:
+            high_confidence.add(field)
+        if not isinstance(metadata, MutableMapping):
+            return
+        metadata["locked_fields"] = sorted(locked_fields)
+        metadata["high_confidence_fields"] = sorted(high_confidence)
+        sources = metadata.get("field_sources")
+        if not isinstance(sources, MutableMapping):
+            sources = {}
+        else:
+            sources = dict(sources)
+        sources[field] = {"source": "heuristic", "rule": rule, "confidence": confidence}
+        metadata["field_sources"] = dict(sorted(sources.items()))
+        confidence_map = metadata.get("field_confidence")
+        if not isinstance(confidence_map, MutableMapping):
+            confidence_map = {}
+        else:
+            confidence_map = dict(confidence_map)
+        confidence_map[field] = confidence
+        metadata["field_confidence"] = dict(sorted(confidence_map.items()))
+
     if not profile.position.job_title and "position.job_title" not in locked_fields:
         company_hints = _coerce_strings([profile.company.name, profile.company.brand_name])
         company_hints.extend(_collect_locked_values(metadata, "company.name", locked_fields))
@@ -1902,6 +2007,7 @@ def apply_basic_fallbacks(
         if candidate_city and _city_candidate_is_plausible(candidate_city):
             canonical_city = _canonicalize_city_name(candidate_city)
             profile.location.primary_city = canonical_city
+            _mark_field_confidence(city_field, city_rule or "city_guess")
             _log_heuristic_fill(
                 "location.primary_city",
                 city_rule or "city_guess",
@@ -1909,6 +2015,7 @@ def apply_basic_fallbacks(
             )
             if not profile.company.hq_location:
                 profile.company.hq_location = canonical_city
+                _mark_field_confidence("company.hq_location", "hq_from_primary_city")
                 _log_heuristic_fill(
                     "company.hq_location",
                     "hq_from_primary_city",
@@ -2059,6 +2166,73 @@ def apply_basic_fallbacks(
         and not _needs_value(profile.company.contact_name, contact_name_field)
     ):
         email_mismatch = not _email_matches_name(existing_contact_email, profile.company.contact_name)
+    footer_details = _extract_footer_contact_details(text)
+    if footer_details:
+        footer_name = footer_details.get("hr_name") or footer_details.get("manager_name")
+        if footer_name and not _is_locked(contact_name_field):
+            should_update_name = contact_name_needed or (
+                profile.company.contact_name
+                and profile.company.contact_name != footer_name
+                and contact_name_field not in high_confidence
+            )
+            if should_update_name:
+                profile.company.contact_name = footer_name
+                contact_name_needed = False
+                _mark_field_confidence(contact_name_field, "footer_contact", confidence=0.95)
+                _log_heuristic_fill(
+                    contact_name_field,
+                    "footer_contact",
+                    detail=f"with value {footer_name!r}",
+                )
+        footer_email = footer_details.get("hr_email")
+        if footer_email and not _is_locked(contact_email_field):
+            should_update_email = contact_email_needed or (
+                existing_contact_email
+                and existing_contact_email != footer_email
+                and contact_email_field not in high_confidence
+            )
+            if should_update_email:
+                profile.company.contact_email = footer_email
+                existing_contact_email = footer_email
+                contact_email_needed = False
+                _mark_field_confidence(contact_email_field, "footer_contact", confidence=0.95)
+                _log_heuristic_fill(
+                    contact_email_field,
+                    "footer_contact",
+                    detail=f"with value {footer_email!r}",
+                )
+        footer_phone = footer_details.get("phone")
+        if footer_phone and not _is_locked(contact_phone_field):
+            should_update_phone = contact_phone_needed or (
+                profile.company.contact_phone
+                and profile.company.contact_phone != footer_phone
+                and contact_phone_field not in high_confidence
+            )
+            if should_update_phone:
+                profile.company.contact_phone = footer_phone
+                contact_phone_needed = False
+                _mark_field_confidence(contact_phone_field, "footer_contact", confidence=0.95)
+                _log_heuristic_fill(
+                    contact_phone_field,
+                    "footer_contact",
+                    detail=f"with value {footer_phone!r}",
+                )
+        footer_website = footer_details.get("website")
+        if footer_website and not _is_locked(website_field):
+            should_update_website = _needs_value(profile.company.website, website_field) or (
+                profile.company.website
+                and profile.company.website != footer_website
+                and website_field not in high_confidence
+            )
+            if should_update_website:
+                profile.company.website = footer_website
+                _mark_field_confidence(website_field, "footer_contact", confidence=0.9)
+                _log_heuristic_fill(
+                    website_field,
+                    "footer_contact",
+                    detail=f"with value {footer_website!r}",
+                )
+        email_mismatch = False
     contact_candidate: _ContactCandidate | None = None
     if contact_name_needed or contact_email_needed or contact_phone_needed or email_mismatch:
         candidates = _extract_contact_candidates(text)
@@ -2068,6 +2242,7 @@ def apply_basic_fallbacks(
         if contact_name_needed and not _is_locked(contact_name_field):
             if profile.company.contact_name != contact_candidate.name:
                 profile.company.contact_name = contact_candidate.name
+                _mark_field_confidence(contact_name_field, "contact_section")
                 _log_heuristic_fill(
                     contact_name_field,
                     "contact_section",
@@ -2089,6 +2264,7 @@ def apply_basic_fallbacks(
         if email_should_update and contact_candidate.email:
             if existing_contact_email != contact_candidate.email:
                 profile.company.contact_email = contact_candidate.email
+                _mark_field_confidence(contact_email_field, "contact_section")
                 _log_heuristic_fill(
                     contact_email_field,
                     "contact_section",
@@ -2100,6 +2276,7 @@ def apply_basic_fallbacks(
             ):
                 if profile.company.contact_phone != contact_candidate.phone:
                     profile.company.contact_phone = contact_candidate.phone
+                    _mark_field_confidence(contact_phone_field, "contact_section")
                     _log_heuristic_fill(
                         contact_phone_field,
                         "contact_section",
@@ -2109,6 +2286,7 @@ def apply_basic_fallbacks(
         website = _extract_company_website(text)
         if website:
             profile.company.website = website
+            _mark_field_confidence(website_field, "company_website_regex")
             _log_heuristic_fill(
                 website_field,
                 "company_website_regex",
@@ -2192,19 +2370,23 @@ def apply_basic_fallbacks(
         merged_benefits = _normalize_benefit_entries(existing_benefits + benefits)
         if merged_benefits:
             compensation.benefits = merged_benefits
-            if isinstance(metadata, MutableMapping):
-                locked = set(str(field) for field in metadata.get("locked_fields", []) if isinstance(field, str))
-                locked.add("compensation.benefits")
-                metadata["locked_fields"] = sorted(locked)
-                high_conf = set(
-                    str(field) for field in metadata.get("high_confidence_fields", []) if isinstance(field, str)
-                )
-                high_conf.add("compensation.benefits")
-                metadata["high_confidence_fields"] = sorted(high_conf)
+            _mark_field_confidence("compensation.benefits", "benefits_section")
             _log_heuristic_fill(
                 "compensation.benefits",
                 "benefits_section",
                 detail=f"with {len(merged_benefits)} entries",
+            )
+    company_benefits = _extract_benefits_from_lexicon(text)
+    if company_benefits:
+        existing_company_benefits = list(profile.company.benefits or [])
+        merged_company_benefits = _normalize_benefit_entries(existing_company_benefits + company_benefits)
+        if merged_company_benefits:
+            profile.company.benefits = merged_company_benefits
+            _mark_field_confidence("company.benefits", "benefit_lexicon")
+            _log_heuristic_fill(
+                "company.benefits",
+                "benefit_lexicon",
+                detail=f"with {len(merged_company_benefits)} entries",
             )
     country = normalize_country(profile.location.country)
     profile.location.country = country

@@ -245,7 +245,7 @@ def test_basic_fallback_title_skips_company_banner() -> None:
     }
     text = "Cognitive Needs GmbH\nBerlin\nSenior Data Scientist (m/w/d)"
     updated = apply_basic_fallbacks(profile, text, metadata=metadata)
-    assert updated.position.job_title == "Senior Data Scientist (m/w/d)"
+    assert updated.position.job_title == "Senior Data Scientist"
     assert updated.company.name == "Cognitive Needs GmbH"
     assert updated.location.primary_city == "Berlin"
 
@@ -259,7 +259,7 @@ def test_basic_fallback_title_skips_location_banner() -> None:
     }
     text = "Berlin | Germany\nSenior Data Scientist (m/w/d)"
     updated = apply_basic_fallbacks(profile, text, metadata=metadata)
-    assert updated.position.job_title == "Senior Data Scientist (m/w/d)"
+    assert updated.position.job_title == "Senior Data Scientist"
     assert updated.location.primary_city == "Berlin"
 
 
@@ -435,7 +435,7 @@ def test_contact_extraction_prefers_hr_section() -> None:
 
     assert updated.company.contact_name == "Benjamin Erben"
     assert updated.company.contact_email == "benjamin.erben@rheinbahn.de"
-    assert updated.company.contact_phone == "0211/123"
+    assert updated.company.contact_phone == "0211 123"
 
 
 def test_company_website_extraction() -> None:
