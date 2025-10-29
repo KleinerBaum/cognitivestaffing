@@ -75,43 +75,47 @@ def _fetch_url(url: str, timeout: float = 15.0) -> str:
         current_url = next_url
         remaining_redirects -= 1
 
-    while True:
-        try:
-            resp: Response = requests.get(
-                current_url,
-                timeout=timeout,
-                headers={"User-Agent": "CognitiveNeeds/1.0"},
-                allow_redirects=False,
-            )
-        except requests.RequestException as exc:  # pragma: no cover - network
-            response = getattr(exc, "response", None)
-            status = getattr(response, "status_code", None)
-            headers = getattr(response, "headers", {}) if response is not None else {}
+    user_agent_header = {"User-Agent": "CognitiveNeeds/1.0"}
+
+    with requests.Session() as session:
+        session.headers.update(user_agent_header)
+
+        while True:
+            try:
+                resp: Response = session.get(
+                    current_url,
+                    timeout=timeout,
+                    allow_redirects=False,
+                )
+            except requests.RequestException as exc:  # pragma: no cover - network
+                response = getattr(exc, "response", None)
+                status = getattr(response, "status_code", None)
+                headers = getattr(response, "headers", {}) if response is not None else {}
+                if status in _REDIRECT_STATUSES:
+                    location = _get_location(headers)
+                    if location:
+                        _follow_redirect(location)
+                        continue
+                status_display = status if status is not None else "unknown"
+                logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
+                raise ValueError(f"failed to fetch URL (status {status_display})") from exc
+            status = getattr(resp, "status_code", None)
+            headers = getattr(resp, "headers", {}) or {}
             if status in _REDIRECT_STATUSES:
                 location = _get_location(headers)
                 if location:
                     _follow_redirect(location)
                     continue
-            status_display = status if status is not None else "unknown"
-            logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
-            raise ValueError(f"failed to fetch URL (status {status_display})") from exc
-        status = getattr(resp, "status_code", None)
-        headers = getattr(resp, "headers", {}) or {}
-        if status in _REDIRECT_STATUSES:
-            location = _get_location(headers)
-            if location:
-                _follow_redirect(location)
-                continue
-            status_display = status if status is not None else "unknown"
-            logger.warning("Redirect response missing location for %s", current_url)
-            raise ValueError(f"failed to fetch URL (status {status_display})")
-        try:
-            resp.raise_for_status()
-        except requests.RequestException as exc:  # pragma: no cover - network
-            status_display = status if status is not None else "unknown"
-            logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
-            raise ValueError(f"failed to fetch URL (status {status_display})") from exc
-        return resp.text
+                status_display = status if status is not None else "unknown"
+                logger.warning("Redirect response missing location for %s", current_url)
+                raise ValueError(f"failed to fetch URL (status {status_display})")
+            try:
+                resp.raise_for_status()
+            except requests.RequestException as exc:  # pragma: no cover - network
+                status_display = status if status is not None else "unknown"
+                logger.warning("Failed to fetch %s (status %s)", current_url, status_display)
+                raise ValueError(f"failed to fetch URL (status {status_display})") from exc
+            return resp.text
 
 
 def extract_text_from_url(url: str) -> StructuredDocument:
