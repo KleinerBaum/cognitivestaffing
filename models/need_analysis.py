@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from core.normalization import sanitize_optional_url_value
 from utils.normalization import (
     normalize_company_size,
     normalize_phone_number,
@@ -53,14 +54,8 @@ class Company(BaseModel):
     def _normalise_logo_url(cls, value: object) -> object | None:
         """Treat empty strings or whitespace-only inputs as ``None``."""
 
-        if value is None:
-            return None
-        if isinstance(value, str):
-            candidate = value.strip()
-            if not candidate:
-                return None
-            return candidate
-        return value
+        sanitized = sanitize_optional_url_value(value)
+        return sanitized
 
     @field_validator("contact_email", mode="before")
     @classmethod

@@ -11,8 +11,8 @@
 
 ## Unreleased
 
-- **EN:** Sanitised optional profile URLs so empty logo or source links now resolve to `None` instead of triggering schema resets.
-  **DE:** Optionale Profil-URLs bereinigt, damit leere Logo- oder Quellen-Links als `None` gespeichert werden und keine Schema-Resets mehr auslösen.
+- **EN:** Hardened optional profile URL sanitisation so canonicalisation and wizard updates trim blanks to `None`, preventing schema resets.
+  **DE:** Optionale Profil-URLs weiter gehärtet: Kanonisierung und Wizard-Updates kürzen leere Werte jetzt auf `None`, sodass keine Schema-Resets mehr ausgelöst werden.
 - **EN:** Streamlined dependency management so `requirements.txt` remains the single source of truth and deployment no longer reports multiple requirement files.
   **DE:** Abhängigkeitsverwaltung gestrafft, sodass `requirements.txt` die einzige Quelle bleibt und beim Deployment keine Warnung zu mehreren Requirements-Dateien mehr erscheint.
 
