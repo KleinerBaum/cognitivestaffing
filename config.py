@@ -353,6 +353,11 @@ USE_RESPONSES_API = _normalise_bool(
     os.getenv("USE_RESPONSES_API"),
     default=not USE_CLASSIC_API,
 )
+# NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
+RESPONSES_ALLOW_TOOLS = _normalise_bool(
+    os.getenv("RESPONSES_ALLOW_TOOLS"),
+    default=False,
+)
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 
 try:
@@ -373,6 +378,11 @@ try:
             USE_RESPONSES_API = _normalise_bool(
                 openai_secrets.get("USE_RESPONSES_API"),
                 default=USE_RESPONSES_API,
+            )
+        if "RESPONSES_ALLOW_TOOLS" in openai_secrets:
+            RESPONSES_ALLOW_TOOLS = _normalise_bool(
+                openai_secrets.get("RESPONSES_ALLOW_TOOLS"),
+                default=RESPONSES_ALLOW_TOOLS,
             )
         VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
         VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
@@ -398,6 +408,11 @@ try:
         USE_RESPONSES_API = _normalise_bool(
             st.secrets.get("USE_RESPONSES_API"),
             default=USE_RESPONSES_API,
+        )
+    if "RESPONSES_ALLOW_TOOLS" in st.secrets:
+        RESPONSES_ALLOW_TOOLS = _normalise_bool(
+            st.secrets.get("RESPONSES_ALLOW_TOOLS"),
+            default=RESPONSES_ALLOW_TOOLS,
         )
 except Exception:
     pass

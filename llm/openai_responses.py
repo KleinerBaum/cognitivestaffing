@@ -46,16 +46,22 @@ class ResponsesCallResult:
     raw_response: Any
 
 
+class ResponsesSchemaError(ValueError):
+    """Raised when a Responses payload lacks a JSON schema."""
+
+
 def build_json_schema_format(
     *,
     name: str,
-    schema: Mapping[str, Any],
+    schema: Mapping[str, Any] | None,
     strict: bool | None = None,
 ) -> dict[str, Any]:
     """Return a ``text.format`` payload for JSON schema outputs."""
 
     if not isinstance(name, str) or not name.strip():
         raise ValueError("A non-empty schema name is required for response_format.")
+    if schema is None:
+        raise ResponsesSchemaError("Responses schema payload cannot be None. [RESPONSES_PAYLOAD_GUARD]")
     if not isinstance(schema, Mapping):
         raise TypeError("Schema must be a mapping when building response_format.")
 
@@ -99,6 +105,12 @@ def call_responses(
     if not isinstance(response_format, Mapping):
         raise TypeError("response_format must be a mapping payload.")
 
+    schema_payload = response_format.get("schema") if isinstance(response_format, Mapping) else None
+    if schema_payload is None:
+        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+    if not isinstance(schema_payload, Mapping):
+        raise TypeError("response_format['schema'] must be a mapping payload.")
+
     payload: dict[str, Any] = {
         "model": model,
         "input": _prepare_messages(messages),
@@ -106,10 +118,11 @@ def call_responses(
     }
 
     text_payload = dict(payload.get("text") or {})
+    text_payload.pop("type", None)
     text_payload["format"] = dict(response_format)
     payload["text"] = text_payload
 
-    if temperature is not None and model_supports_temperature(model):
+    if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
         payload["temperature"] = float(temperature)
 
     if max_tokens is not None:
@@ -196,6 +209,13 @@ def call_responses_safe(
             response_format=response_format,
             **kwargs,
         )
+    except ResponsesSchemaError as exc:
+        active_logger.warning(
+            "Responses payload guard blocked %s call; falling back: %s",
+            context,
+            exc,
+        )
+        return None
     except OpenAIError as exc:
         active_logger.warning(
             "Responses API %s failed; triggering fallback: %s",
