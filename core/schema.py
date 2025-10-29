@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from collections.abc import ItemsView
+from collections.abc import ItemsView, Mapping
 from copy import deepcopy
 import types
 from enum import StrEnum
@@ -14,7 +14,6 @@ from typing import (
     Collection,
     Dict,
     List,
-    Mapping,
     Tuple,
     Union,
     get_args,
@@ -699,19 +698,30 @@ def _strip_annotated(tp: Any) -> Any:
     return tp
 
 
-def _strip_optional_type(tp: Any) -> Any:
-    """Remove ``NoneType`` members from ``Union`` annotations."""
+def _split_optional_type(tp: Any) -> tuple[Any, bool]:
+    """Return ``tp`` without ``NoneType`` union members and a nullability flag."""
 
     candidate = _strip_annotated(tp)
     origin = get_origin(candidate)
     if origin in _UNION_TYPES:
-        args = [arg for arg in get_args(candidate) if arg is not type(None)]
-        if len(args) == 1:
-            return _strip_optional_type(args[0])
-        if not args:
-            return Any
-        return Union[tuple(args)]  # type: ignore[arg-type]
-    return candidate
+        allows_null = False
+        non_null_args: list[Any] = []
+        for arg in get_args(candidate):
+            if arg is type(None):
+                allows_null = True
+                continue
+            non_null_args.append(arg)
+
+        if not non_null_args:
+            return type(None), True
+
+        if len(non_null_args) == 1:
+            nested, nested_allows_null = _split_optional_type(non_null_args[0])
+            return nested, allows_null or nested_allows_null
+
+        return Union[tuple(non_null_args)], allows_null  # type: ignore[arg-type]
+
+    return candidate, False
 
 
 def _build_array_schema(item_type: Any) -> dict[str, Any]:
@@ -721,10 +731,39 @@ def _build_array_schema(item_type: Any) -> dict[str, Any]:
     return {"type": "array", "items": item_schema}
 
 
-def _schema_from_type(tp: Any) -> dict[str, Any]:
-    """Return JSON schema fragment for ``tp`` compatible with Responses."""
+def _allow_null(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a copy of ``schema`` updated to allow ``null`` values."""
 
-    candidate = _strip_optional_type(tp)
+    candidate = deepcopy(dict(schema))
+    marker = candidate.get("type")
+
+    if isinstance(marker, str):
+        if marker == "null":
+            return candidate
+        candidate["type"] = [marker, "null"]
+        return candidate
+
+    if isinstance(marker, list):
+        if "null" not in marker:
+            candidate["type"] = [*marker, "null"]
+        return candidate
+
+    any_of = candidate.get("anyOf")
+    if isinstance(any_of, list):
+        if not any(isinstance(option, Mapping) and option.get("type") == "null" for option in any_of):
+            candidate["anyOf"] = [*any_of, {"type": "null"}]
+        return candidate
+
+    return {"anyOf": [candidate, {"type": "null"}]}
+
+
+def _schema_from_non_nullable_type(tp: Any) -> dict[str, Any]:
+    """Return JSON schema for ``tp`` assuming ``None`` is not permitted."""
+
+    candidate = _strip_annotated(tp)
+    if candidate is type(None):
+        return {"type": "null"}
+
     origin = get_origin(candidate)
 
     if origin in _UNION_TYPES:
@@ -767,6 +806,16 @@ def _schema_from_type(tp: Any) -> dict[str, Any]:
     raise ValueError(f"Unsupported annotation for JSON schema: {candidate!r}")
 
 
+def _schema_from_type(tp: Any) -> dict[str, Any]:
+    """Return JSON schema fragment for ``tp`` compatible with Responses."""
+
+    candidate, allows_null = _split_optional_type(tp)
+    schema = _schema_from_non_nullable_type(candidate)
+    if allows_null:
+        schema = _allow_null(schema)
+    return schema
+
+
 def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
     """Return JSON schema for ``model`` suitable for the Responses API."""
 
@@ -775,19 +824,16 @@ def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return deepcopy(cached)
 
     properties: dict[str, Any] = {}
-    required: list[str] = []
-
     for name, field in model.model_fields.items():
         annotation = field.annotation or Any
         properties[name] = _schema_from_type(annotation)
-        if field.is_required():
-            required.append(name)
 
     schema: dict[str, Any] = {
         "type": "object",
         "additionalProperties": False,
         "properties": properties,
     }
+    required = list(properties.keys())
     if required:
         schema["required"] = required
 
