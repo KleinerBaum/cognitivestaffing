@@ -51,10 +51,10 @@ from config import (
     get_active_verbosity,
     get_first_available_model,
     get_model_candidates,
-    get_model_for,
     is_model_available,
     mark_model_unavailable,
     normalise_verbosity,
+    select_model,
 )
 from constants.keys import StateKeys
 from llm.cost_router import route_model_for_messages
@@ -1061,7 +1061,7 @@ def _prepare_payload(
     router_estimate = None
     candidate_override = model
     if model is None:
-        base_model = get_model_for(selected_task)
+        base_model = select_model(selected_task)
         chosen_model, router_estimate = route_model_for_messages(messages, default_model=base_model)
         if chosen_model != base_model:
             candidate_override = chosen_model

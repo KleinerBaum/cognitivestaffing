@@ -1,13 +1,13 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
 The application now routes lightweight tasks (extraction, basic Q&A,
-classification) to OpenAI's ``gpt-4o-mini`` – documented as ``gpt-4.1-nano`` –
-and reserves ``gpt-5.1-nano`` (aka ``gpt-5-nano``) for reasoning-heavy
-workflows such as summarisation and explanations. Automatic fallbacks remain in
-place (``gpt-5.1-nano`` → ``gpt-4o`` → ``gpt-4`` → ``gpt-3.5-turbo``) when
-capacity constraints occur, and teams can still override the routing to force
-premium models when required. Structured retrieval continues to use
-``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
+classification) to OpenAI's ``gpt-4.1-nano`` and reserves ``gpt-5.1-nano``
+(aka ``gpt-5-nano``) for reasoning-heavy workflows such as summarisation and
+explanations. Automatic fallbacks remain in place (``gpt-5.1-nano`` → ``gpt-4o``
+→ ``gpt-4`` → ``gpt-3.5-turbo``) when capacity constraints occur, and teams can
+still override the routing to force premium models when required. Structured
+retrieval continues to use ``text-embedding-3-large`` (3,072 dimensions) for
+higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
 ``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
@@ -50,7 +50,7 @@ GPT5_MINI = "gpt-5.1-mini"
 GPT5_NANO = "gpt-5.1-nano"
 GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
-GPT4O_MINI = "gpt-4o-mini"
+GPT4O_MINI = "gpt-4.1-nano"
 
 
 _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
@@ -487,6 +487,14 @@ MODEL_ROUTING: Dict[str, str] = {
     "embedding": EMBED_MODEL,
 }
 
+# MODEL_ROUTING_NANO: lightweight vs reasoning shortcuts for generic callers.
+MODEL_ROUTING.update(
+    {
+        "non_reasoning": LIGHTWEIGHT_MODEL,
+        "reasoning": REASONING_MODEL,
+    }
+)
+
 for key, value in list(MODEL_ROUTING.items()):
     if key == "embedding":
         continue
@@ -610,6 +618,23 @@ def get_model_for(task: ModelTask | str, *, override: str | None = None) -> str:
     """Return the configured model for ``task`` respecting manual overrides."""
 
     return get_first_available_model(task, override=override)
+
+
+def select_model(task_type: ModelTask | str | None, *, override: str | None = None) -> str:
+    """Return the preferred model for ``task_type`` or fallback to defaults.
+
+    The helper understands both :class:`ModelTask` members and shorthand labels
+    (``"non_reasoning"``/``"reasoning"``) so callers that only care about the
+    reasoning tier can rely on a single entry point.
+    """  # REASONING_SELECTOR
+
+    if task_type is None:
+        return get_model_for(ModelTask.DEFAULT, override=override)
+    if isinstance(task_type, ModelTask):
+        return get_model_for(task_type, override=override)
+
+    key = str(task_type).strip().lower() or ModelTask.DEFAULT.value
+    return get_model_for(key, override=override)
 
 
 def _collect_candidate_models(task: ModelTask | str, override: str | None) -> list[str]:
