@@ -26,7 +26,7 @@ from config import (
     USE_RESPONSES_API,
     ModelTask,
     get_active_verbosity,
-    get_model_for,
+    select_model,
 )
 from models.need_analysis import NeedAnalysisProfile
 from .openai_responses import build_json_schema_format, call_responses_safe
@@ -277,7 +277,7 @@ def extract_json(
             )
         )
         effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
-        model = get_model_for(ModelTask.EXTRACTION)
+        model = select_model(ModelTask.EXTRACTION)
         span.set_attribute("llm.model", model)
         span.set_attribute("llm.extract.minimal", minimal)
         try:

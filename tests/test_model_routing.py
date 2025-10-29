@@ -65,3 +65,11 @@ def test_default_model_prefers_cost_optimised_tier() -> None:
 
     assert config.DEFAULT_MODEL == config.REASONING_MODEL
     assert config.OPENAI_MODEL == config.REASONING_MODEL
+
+
+def test_reasoning_switch() -> None:
+    """select_model should flip between nano tiers for reasoning workloads."""
+
+    assert config.select_model("non_reasoning") == config.GPT4O_MINI
+    assert config.select_model("reasoning") == config.GPT5_NANO
+    assert config.select_model(config.ModelTask.EXTRACTION) == config.GPT4O_MINI
