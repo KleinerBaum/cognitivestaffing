@@ -157,6 +157,7 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - Always get widget default values via `wizard._logic.get_value("<path>")`. The profile stored in `st.session_state[StateKeys.PROFILE]` is the single source of truth and already includes schema defaults.
 - Use schema paths (e.g., `"company.name"`, `"location.primary_city"`) as widget keys. Avoid binding inputs to legacy keys like `ui.*` when reading data.
 - Prefer using the helper functions in `components.widget_factory`—such as `text_input`, `select`, and `multiselect` (re-exported in `wizard.wizard`)—when creating widgets. They automatically hook into `_update_profile` so that the sidebar, summary, and exports stay in sync.
+- Call `state.ensure_state.ensure_state()` early; it now migrates legacy flat keys like `company_name` or `contact_email` into the canonical schema paths (`company.name`, `company.contact_email`) so scraped data prefills the forms.
 - After ingestion (via URL, PDF, or text paste), run `coerce_and_fill()` **and** `normalize_profile()` before rendering the form. This ensures consistent casing, whitespace, and de-duplication of lists. The normalizer returns a validated dictionary and will trigger the JSON “repair” fallback only if the cleaned payload would violate the schema.
 
 **DE:**
@@ -164,6 +165,7 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - Widget-Vorgabewerte immer über `wizard._logic.get_value("<Pfad>")` beziehen. Die Daten in `st.session_state[StateKeys.PROFILE]` sind die einzige Wahrheitsquelle und enthalten bereits Schema-Defaults.
 - Verwende Schema-Pfade (z. B. `"company.name"`, `"location.primary_city"`) als Widget-Keys. Binde Eingaben nicht an veraltete `ui.*`-Keys, wenn Daten ausgelesen werden.
 - Nutze zum Rendern die Helfer in `components.widget_factory` (`text_input`, `select`, `multiselect`, auch via `wizard.wizard` verfügbar). Diese binden das Widget automatisch an `_update_profile`, sodass Sidebar, Zusammenfassung und Exporte stets synchron bleiben.
+- Rufe früh `state.ensure_state.ensure_state()` auf; dort werden Legacy-Schlüssel wie `company_name` oder `contact_email` auf die kanonischen Schema-Pfade (`company.name`, `company.contact_email`) migriert, damit Scrapes die Formulare vorbefüllen.
 - Führe nach dem Import (URL, PDF oder Texteingabe) immer `coerce_and_fill()` **und** `normalize_profile()` aus, bevor das Formular gerendert wird. So werden Groß-/Kleinschreibung, Leerzeichen und Duplikate in Listen vereinheitlicht. Der Normalisierer liefert ein valides Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Profil sonst gegen das Schema verstoßen würde.
 
 ## RecruitingWizard Schema – Single Source of Truth / Master-Schema RecruitingWizard

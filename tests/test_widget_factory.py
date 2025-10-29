@@ -8,7 +8,7 @@ import pytest
 import streamlit as st
 
 from components import widget_factory
-from constants.keys import StateKeys, UIKeys
+from constants.keys import StateKeys
 from state import ensure_state
 from wizard._logic import get_value
 
@@ -113,20 +113,12 @@ def test_text_input_syncs_when_profile_updates(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(st, "text_input", fake_text_input)
 
-    widget_factory.text_input(
-        "company.hq_location",
-        "Headquarters",
-        key=UIKeys.COMPANY_HQ_LOCATION,
-    )
+    widget_factory.text_input("company.hq_location", "Headquarters")
     assert captured_values[-1] == ""
 
     profile["company"]["hq_location"] = "Berlin, DE"
 
-    widget_factory.text_input(
-        "company.hq_location",
-        "Headquarters",
-        key=UIKeys.COMPANY_HQ_LOCATION,
-    )
+    widget_factory.text_input("company.hq_location", "Headquarters")
     assert captured_values[-1] == "Berlin, DE"
 
 
@@ -151,11 +143,7 @@ def test_autofill_accept_updates_profile_and_requests_rerun(
         return value
 
     monkeypatch.setattr(st, "text_input", fake_text_input)
-    widget_factory.text_input(
-        "company.hq_location",
-        "Headquarters",
-        key=UIKeys.COMPANY_HQ_LOCATION,
-    )
+    widget_factory.text_input("company.hq_location", "Headquarters")
 
     class _Container:
         def __enter__(self):
@@ -200,10 +188,6 @@ def test_autofill_accept_updates_profile_and_requests_rerun(
     assert rerun_called is True
     assert get_value("company.hq_location") == "Berlin, DE"
 
-    widget_factory.text_input(
-        "company.hq_location",
-        "Headquarters",
-        key=UIKeys.COMPANY_HQ_LOCATION,
-    )
+    widget_factory.text_input("company.hq_location", "Headquarters")
 
-    assert st.session_state[UIKeys.COMPANY_HQ_LOCATION] == "Berlin, DE"
+    assert st.session_state["company.hq_location"] == "Berlin, DE"

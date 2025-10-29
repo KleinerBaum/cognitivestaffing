@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from types import MappingProxyType
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from config import (
     GPT4O,
     OPENAI_BASE_URL,
@@ -37,6 +37,28 @@ from utils.normalization import normalize_profile
 
 
 import config as app_config
+
+
+_LEGACY_PROFILE_KEY_ALIASES: Mapping[str, str] = MappingProxyType(
+    {
+        "company_name": ProfilePaths.COMPANY_NAME.value,
+        "company_hq": ProfilePaths.COMPANY_HQ_LOCATION.value,
+        "company_headquarters": ProfilePaths.COMPANY_HQ_LOCATION.value,
+        "company_size": ProfilePaths.COMPANY_SIZE.value,
+        "company_industry": ProfilePaths.COMPANY_INDUSTRY.value,
+        "company_website": ProfilePaths.COMPANY_WEBSITE.value,
+        "company_mission": ProfilePaths.COMPANY_MISSION.value,
+        "company_culture": ProfilePaths.COMPANY_CULTURE.value,
+        "contact_name": ProfilePaths.COMPANY_CONTACT_NAME.value,
+        "contact_email": ProfilePaths.COMPANY_CONTACT_EMAIL.value,
+        "contact_phone": ProfilePaths.COMPANY_CONTACT_PHONE.value,
+        "hq_location": ProfilePaths.COMPANY_HQ_LOCATION.value,
+        "primary_city": ProfilePaths.LOCATION_PRIMARY_CITY.value,
+        "city": ProfilePaths.LOCATION_PRIMARY_CITY.value,
+        "country": ProfilePaths.LOCATION_COUNTRY.value,
+        "company_country": ProfilePaths.LOCATION_COUNTRY.value,
+    }
+)
 
 
 logger = logging.getLogger(__name__)
@@ -88,12 +110,98 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
 )
 
 
+def _is_meaningful(value: Any) -> bool:
+    """Return ``True`` when ``value`` should override an existing field."""
+
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return bool(value)
+    if isinstance(value, Mapping):
+        return bool(value)
+    return True
+
+
+def _get_path(data: Mapping[str, Any], path: str) -> Any:
+    """Return the value stored at ``path`` within ``data`` when available."""
+
+    cursor: Any = data
+    for part in path.split("."):
+        if isinstance(cursor, Mapping) and part in cursor:
+            cursor = cursor[part]
+        else:
+            return None
+    return cursor
+
+
+def _set_path(target: dict[str, Any], path: str, value: Any) -> None:
+    """Assign ``value`` inside ``target`` following ``path`` segments."""
+
+    cursor: dict[str, Any] = target
+    parts = path.split(".")
+    for part in parts[:-1]:
+        next_value = cursor.get(part)
+        if not isinstance(next_value, dict):
+            next_value = {}
+            cursor[part] = next_value
+        cursor = next_value
+    cursor[parts[-1]] = value
+
+
+def _pop_casefold(source: Mapping[str, Any], key: str) -> tuple[bool, Any]:
+    """Return and remove ``key`` from ``source`` irrespective of casing."""
+
+    if not isinstance(source, dict):
+        return False, None
+    lower = key.casefold()
+    for actual in list(source.keys()):
+        if isinstance(actual, str) and actual.casefold() == lower:
+            value = source.pop(actual)
+            return True, value
+    return False, None
+
+
+def _migrate_legacy_profile_keys() -> None:
+    """Promote legacy flat session keys to canonical profile paths."""
+
+    session = st.session_state
+    existing = session.get(StateKeys.PROFILE)
+    profile: dict[str, Any]
+    if isinstance(existing, Mapping):
+        profile = dict(existing)
+    else:
+        profile = {}
+
+    migrated = False
+    for alias, canonical in _LEGACY_PROFILE_KEY_ALIASES.items():
+        moved = False
+        value: Any | None = None
+        if alias in session:
+            value = session.pop(alias)
+            moved = True
+        else:
+            moved, value = _pop_casefold(profile, alias)
+        if not moved or not _is_meaningful(value):
+            continue
+        current = _get_path(profile, canonical)
+        if _is_meaningful(current):
+            continue
+        _set_path(profile, canonical, value)
+        migrated = True
+
+    if migrated or (profile and not isinstance(existing, Mapping)):
+        session[StateKeys.PROFILE] = profile
+
+
 def ensure_state() -> None:
     """Initialize ``st.session_state`` with required keys.
 
     Existing keys are preserved to respect user interactions or URL params.
     """
 
+    _migrate_legacy_profile_keys()
     existing = st.session_state.get(StateKeys.PROFILE)
     if is_wizard_schema_enabled():
         _ensure_wizard_profile(existing)
