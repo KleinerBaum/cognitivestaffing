@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+from copy import deepcopy
+from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
@@ -69,6 +71,36 @@ _REASONING_MODEL_PATTERN = re.compile(r"^o\d")
 _MODELS_WITHOUT_TEMPERATURE: set[str] = set()
 _MODELS_WITHOUT_REASONING: set[str] = set()
 _USAGE_LOCK = Lock()
+
+
+@lru_cache(maxsize=1)
+def _need_analysis_schema() -> dict[str, Any]:
+    """Return cached NeedAnalysis schema for Responses structured output."""
+
+    from core.schema import build_need_analysis_responses_schema
+
+    return build_need_analysis_responses_schema()
+
+
+def _sanitize_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate ``schema`` for Responses usage without circular imports."""
+
+    from core.schema import ensure_responses_json_schema
+
+    return ensure_responses_json_schema(schema)
+
+
+def build_need_analysis_json_schema_payload() -> dict[str, Any]:
+    """Return the JSON schema payload for need analysis responses.
+
+    The payload is used for both Chat Completions and Responses requests and
+    always includes the canonical schema name.  # RESPONSES_V2025_SCHEMA_FIX
+    """
+
+    return {
+        "name": "need_analysis_profile",
+        "schema": deepcopy(_need_analysis_schema()),
+    }
 
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
@@ -1187,7 +1219,7 @@ def _prepare_payload(
                 raise TypeError("json_schema['schema'] must be a mapping")
             format_config = {
                 "type": "json_schema",
-                "schema": dict(schema_body),
+                "schema": _sanitize_json_schema(schema_body),
             }
             schema_name = schema_payload.get("name")
             if isinstance(schema_name, str) and schema_name.strip():
@@ -1225,7 +1257,7 @@ def _prepare_payload(
                 raise TypeError("json_schema['schema'] must be a mapping")
             format_config: dict[str, Any] = {
                 "type": "json_schema",
-                "schema": dict(schema_body),
+                "schema": _sanitize_json_schema(schema_body),
             }
             schema_name = schema_payload.get("name")
             if isinstance(schema_name, str) and schema_name.strip():
@@ -2005,4 +2037,5 @@ __all__ = [
     "model_supports_reasoning",
     "model_supports_temperature",
     "_chat_content",
+    "build_need_analysis_json_schema_payload",
 ]

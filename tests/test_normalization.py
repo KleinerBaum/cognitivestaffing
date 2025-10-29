@@ -80,9 +80,7 @@ def test_normalize_company_size_parses_numbers() -> None:
         (None, None),
     ],
 )
-def test_normalize_phone_number_variants(
-    raw: str | None, expected: str | None
-) -> None:
+def test_normalize_phone_number_variants(raw: str | None, expected: str | None) -> None:
     assert normalize_phone_number(raw) == expected
 
 
@@ -95,9 +93,7 @@ def test_normalize_phone_number_variants(
         (None, None),
     ],
 )
-def test_normalize_website_url_variants(
-    raw: str | None, expected: str | None
-) -> None:
+def test_normalize_website_url_variants(raw: str | None, expected: str | None) -> None:
     assert normalize_website_url(raw) == expected
 
 

@@ -6,12 +6,35 @@ import logging
 import os
 import re
 from collections.abc import ItemsView
+from copy import deepcopy
+import types
 from enum import StrEnum
-from typing import Any, Collection, Dict, List, Mapping, Tuple, Union, get_args, get_origin
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    List,
+    Mapping,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from types import MappingProxyType
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, RootModel, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    RootModel,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+from pydantic import AnyUrl
 
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import normalize_profile
@@ -654,6 +677,186 @@ def _coerce_scalar_types(
                     node[key] = float(match.group())
 
     _walk(data)
+
+
+# Responses schema builder ------------------------------------------------------
+
+
+_JSON_PRIMITIVE_TYPES: set[str] = {"string", "number", "integer", "boolean", "object", "array", "null"}
+_UNION_TYPES = {Union, types.UnionType}
+_RESPONSES_SCHEMA_CACHE: dict[type[BaseModel], dict[str, Any]] = {}
+
+
+def _strip_annotated(tp: Any) -> Any:
+    """Return the underlying type when ``tp`` uses ``Annotated``."""
+
+    origin = get_origin(tp)
+    if origin is None:
+        return tp
+    if str(origin).endswith("Annotated"):
+        args = get_args(tp)
+        if args:
+            return _strip_annotated(args[0])
+    return tp
+
+
+def _strip_optional_type(tp: Any) -> Any:
+    """Remove ``NoneType`` members from ``Union`` annotations."""
+
+    candidate = _strip_annotated(tp)
+    origin = get_origin(candidate)
+    if origin in _UNION_TYPES:
+        args = [arg for arg in get_args(candidate) if arg is not type(None)]
+        if len(args) == 1:
+            return _strip_optional_type(args[0])
+        if not args:
+            return Any
+        return Union[tuple(args)]  # type: ignore[arg-type]
+    return candidate
+
+
+def _build_array_schema(item_type: Any) -> dict[str, Any]:
+    """Return JSON schema for homogeneous array annotations."""
+
+    item_schema = _schema_from_type(item_type)
+    return {"type": "array", "items": item_schema}
+
+
+def _schema_from_type(tp: Any) -> dict[str, Any]:
+    """Return JSON schema fragment for ``tp`` compatible with Responses."""
+
+    candidate = _strip_optional_type(tp)
+    origin = get_origin(candidate)
+
+    if origin in _UNION_TYPES:
+        return {"anyOf": [_schema_from_type(arg) for arg in get_args(candidate)]}
+
+    if origin in {list, List, tuple, Tuple, set, frozenset}:
+        args = get_args(candidate)
+        item_type = args[0] if args else Any
+        return _build_array_schema(item_type)
+
+    if origin in {dict, Dict, Mapping}:
+        args = get_args(candidate)
+        value_type = args[1] if len(args) >= 2 else Any
+        value_schema = _schema_from_type(value_type)
+        return {"type": "object", "additionalProperties": value_schema}
+
+    if isinstance(candidate, type):
+        if issubclass(candidate, BaseModel):
+            return _build_model_schema(candidate)
+        if issubclass(candidate, EmailStr):
+            return {"type": "string", "format": "email"}
+        if issubclass(candidate, AnyUrl):
+            return {"type": "string", "format": "uri"}
+        if issubclass(candidate, bool):
+            return {"type": "boolean"}
+        if issubclass(candidate, int) and not issubclass(candidate, bool):
+            return {"type": "integer"}
+        if issubclass(candidate, float):
+            return {"type": "number"}
+        if issubclass(candidate, str):
+            return {"type": "string"}
+
+    if candidate is EmailStr:
+        return {"type": "string", "format": "email"}
+    if candidate in {HttpUrl, AnyUrl}:
+        return {"type": "string", "format": "uri"}
+    if candidate is Any:
+        return {}
+
+    raise ValueError(f"Unsupported annotation for JSON schema: {candidate!r}")
+
+
+def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """Return JSON schema for ``model`` suitable for the Responses API."""
+
+    cached = _RESPONSES_SCHEMA_CACHE.get(model)
+    if cached is not None:
+        return deepcopy(cached)
+
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for name, field in model.model_fields.items():
+        annotation = field.annotation or Any
+        properties[name] = _schema_from_type(annotation)
+        if field.is_required():
+            required.append(name)
+
+    schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": properties,
+    }
+    if required:
+        schema["required"] = required
+
+    _RESPONSES_SCHEMA_CACHE[model] = deepcopy(schema)
+    return schema
+
+
+def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
+    """Raise ``ValueError`` when ``node`` uses unsupported ``type`` markers."""
+
+    if isinstance(node, dict):
+        typ = node.get("type")
+        if isinstance(typ, list):
+            cleaned: list[str] = []
+            for entry in typ:
+                if entry not in _JSON_PRIMITIVE_TYPES:
+                    raise ValueError(f"Invalid JSON schema type '{entry}' at {path}")
+                if entry not in cleaned:
+                    cleaned.append(entry)
+            node["type"] = cleaned if len(cleaned) > 1 else cleaned[0]
+        elif isinstance(typ, str):
+            if typ not in _JSON_PRIMITIVE_TYPES:
+                raise ValueError(f"Invalid JSON schema type '{typ}' at {path}")
+        elif typ is not None:
+            raise TypeError(f"JSON schema type at {path} must be a string or list of strings")
+
+        fmt = node.get("format")
+        if isinstance(fmt, str) and fmt in {"uri", "email"}:
+            existing_type = node.get("type")
+            if existing_type is None:
+                node["type"] = "string"
+            elif isinstance(existing_type, list):
+                if "string" not in existing_type:
+                    raise ValueError(f"Schema at {path} with format '{fmt}' must include type 'string'")
+            elif existing_type != "string":
+                raise ValueError(f"Schema at {path} with format '{fmt}' must use type 'string'")
+
+        for key, value in node.items():
+            if isinstance(value, (dict, list)):
+                child_path = f"{path}.{key}" if path != "$" else key
+                _ensure_valid_json_schema(value, path=child_path)
+
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            _ensure_valid_json_schema(item, path=f"{path}[{index}]")
+
+
+def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a validated copy of ``schema`` for Responses output."""
+
+    sanitized = deepcopy(schema)
+    _ensure_valid_json_schema(sanitized)
+    return sanitized
+
+
+def build_need_analysis_responses_schema() -> dict[str, Any]:
+    """Return the structured output schema for ``NeedAnalysisProfile``.
+
+    This builder keeps Responses output expectations in sync with the
+    Pydantic model and guards against invalid schema ``type`` markers.
+    URL and email fields are always represented using the canonical
+    ``{"type": "string", "format": ...}`` mapping.  # CS_SCHEMA_PROPAGATE
+    """
+
+    schema = _build_model_schema(NeedAnalysisProfile)
+    schema.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
+    schema.setdefault("title", NeedAnalysisProfile.__name__)
+    return ensure_responses_json_schema(schema)
 
 
 def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, Any]:

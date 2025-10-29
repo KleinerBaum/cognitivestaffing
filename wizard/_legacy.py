@@ -5688,7 +5688,7 @@ def _step_company():
                 _set_company_logo(None)
                 st.rerun()
 
-# Inline follow-up questions for Company section
+    # Inline follow-up questions for Company section
     _render_followups_for_section(("company.",), data)
 
 
@@ -9503,8 +9503,7 @@ def _step_summary(schema: dict, _critical: list[str]):
 
             if submitted:
                 answers = {
-                    field_path: st.session_state.get(f"fu_{field_path}", "")
-                    for field_path, _question in entry_specs
+                    field_path: st.session_state.get(f"fu_{field_path}", "") for field_path, _question in entry_specs
                 }
                 trimmed_answers = {field: value.strip() for field, value in answers.items()}
                 for field_path, value in trimmed_answers.items():

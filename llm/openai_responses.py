@@ -149,9 +149,7 @@ def call_responses(
             _mark_model_without_temperature(model)
             response = _dispatch()
         else:
-            logger.error(
-                "Responses API rejected the request: %s", getattr(err, "message", err)
-            )
+            logger.error("Responses API rejected the request: %s", getattr(err, "message", err))
             raise
     except OpenAIError:
         raise
