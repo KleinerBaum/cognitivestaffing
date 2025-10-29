@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Improved Rheinbahn ingestion heuristics: detect "suchen wir in …" cities, route benefit keywords to `company.benefits`, and parse footer contacts with confidence metadata.
+  **DE:** Rheinbahn-Heuristiken verbessert: Städte aus "suchen wir in …" erkennen, Benefit-Schlagworte nach `company.benefits` mappen und Footer-Kontakte inklusive Vertrauensmetadaten parsen.
 - **EN:** Ensured the Poetry dependency set requires `openai>=1.99.3` so the Responses API tooling matches the pip requirements.
   **DE:** Poetry-Abhängigkeiten verlangen nun `openai>=1.99.3`, damit das Responses-API-Tooling mit den pip-Requirements übereinstimmt.
 - **EN:** Sanitised optional profile URLs so empty logo or source links persist as `None` rather than wiping the profile on validation.

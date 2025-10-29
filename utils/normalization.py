@@ -699,6 +699,7 @@ _STRING_LIST_FIELDS = {
     "employment.travel_regions",
     "employment.travel_continents",
     "compensation.benefits",
+    "company.benefits",
 }
 
 

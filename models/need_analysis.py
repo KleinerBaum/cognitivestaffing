@@ -46,6 +46,7 @@ class Company(BaseModel):
     logo_url: HttpUrl | None = None
     brand_color: Optional[str] = None
     claim: Optional[str] = None
+    benefits: List[str] = Field(default_factory=list)
 
     @field_validator("logo_url", mode="before")
     @classmethod
