@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import sys
 from pathlib import Path
@@ -73,3 +74,15 @@ def test_reasoning_switch() -> None:
     assert config.select_model("non_reasoning") == config.GPT4O_MINI
     assert config.select_model("reasoning") == config.GPT5_NANO
     assert config.select_model(config.ModelTask.EXTRACTION) == config.GPT4O_MINI
+
+
+def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Environment variables should override the routing configuration."""
+
+    monkeypatch.setenv("MODEL_ROUTING__REASONING", "gpt-5.1-mini")
+    try:
+        reloaded = importlib.reload(config)
+        assert reloaded.select_model("reasoning") == reloaded.GPT5_MINI
+    finally:
+        monkeypatch.delenv("MODEL_ROUTING__REASONING", raising=False)
+        importlib.reload(config)

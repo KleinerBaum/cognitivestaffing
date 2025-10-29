@@ -143,8 +143,47 @@ def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -
 
 REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
 
-LIGHTWEIGHT_MODEL = GPT4O_MINI
-REASONING_MODEL = GPT5_NANO
+LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
+REASONING_MODEL_DEFAULT = GPT5_NANO
+
+_SUPPORTED_MODEL_CHOICES = {
+    LIGHTWEIGHT_MODEL_DEFAULT,
+    REASONING_MODEL_DEFAULT,
+    GPT5_FULL,
+    GPT5_MINI,
+    GPT4O,
+    GPT4,
+}
+
+
+def _resolve_supported_model(value: str | None, fallback: str) -> str:
+    """Normalise overrides to supported defaults with graceful degradation."""
+
+    if not value:
+        return fallback
+    candidate = normalise_model_name(value)
+    if candidate in _SUPPORTED_MODEL_CHOICES:
+        return candidate
+    if candidate in {GPT4O, GPT4}:
+        return fallback or LIGHTWEIGHT_MODEL_DEFAULT
+    if candidate in {GPT5_FULL, GPT5_MINI}:
+        return fallback or REASONING_MODEL_DEFAULT
+    if candidate:
+        warnings.warn(
+            "Unsupported default model '%s'; falling back to '%s'." % (candidate, fallback),
+            RuntimeWarning,
+        )
+    return fallback
+
+
+LIGHTWEIGHT_MODEL = _resolve_supported_model(
+    os.getenv("LIGHTWEIGHT_MODEL"),
+    LIGHTWEIGHT_MODEL_DEFAULT,
+)
+REASONING_MODEL = _resolve_supported_model(
+    os.getenv("REASONING_MODEL"),
+    REASONING_MODEL_DEFAULT,
+)
 
 _REASONING_MODEL_MAP: Dict[str, str] = {
     "minimal": LIGHTWEIGHT_MODEL,
@@ -158,29 +197,6 @@ def _model_for_reasoning_level(level: str) -> str:
     """Return the preferred model for ``level`` of reasoning effort."""
 
     return _REASONING_MODEL_MAP.get(level, REASONING_MODEL)
-
-
-_SUPPORTED_MODEL_CHOICES = {LIGHTWEIGHT_MODEL, REASONING_MODEL}
-
-
-def _resolve_supported_model(value: str | None, fallback: str) -> str:
-    """Normalise overrides to supported defaults with graceful degradation."""
-
-    if not value:
-        return fallback
-    candidate = normalise_model_name(value)
-    if candidate in _SUPPORTED_MODEL_CHOICES:
-        return candidate
-    if candidate in {GPT4O, GPT4}:
-        return LIGHTWEIGHT_MODEL
-    if candidate in {GPT5_FULL, GPT5_MINI}:
-        return REASONING_MODEL
-    if candidate:
-        warnings.warn(
-            "Unsupported default model '%s'; falling back to '%s'." % (candidate, fallback),
-            RuntimeWarning,
-        )
-    return fallback
 
 
 def _canonical_model_name(value: str | None) -> str:
@@ -466,6 +482,39 @@ class ModelTask(StrEnum):
     JSON_REPAIR = "json_repair"
 
 
+def _load_model_routing_overrides() -> Dict[str, str]:
+    """Return MODEL_ROUTING overrides sourced from env vars or secrets."""
+
+    overrides: Dict[str, str] = {}
+    prefix = "MODEL_ROUTING__"
+    for env_key, env_value in os.environ.items():
+        if not env_key.startswith(prefix):
+            continue
+        raw_key = env_key[len(prefix) :].strip().lower()
+        if not raw_key:
+            continue
+        value = _coerce_secret_value(env_value)
+        if value:
+            overrides[raw_key] = value
+
+    try:
+        secrets_overrides = st.secrets.get("MODEL_ROUTING")
+    except Exception:
+        secrets_overrides = None
+    if isinstance(secrets_overrides, Mapping):
+        for raw_key, raw_value in secrets_overrides.items():
+            if not isinstance(raw_key, str):
+                continue
+            normalised_key = raw_key.strip().lower()
+            if not normalised_key:
+                continue
+            value = _coerce_secret_value(raw_value)
+            if value:
+                overrides[normalised_key] = value
+
+    return overrides
+
+
 MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DEFAULT.value: OPENAI_MODEL,
     ModelTask.EXTRACTION.value: LIGHTWEIGHT_MODEL,
@@ -494,6 +543,16 @@ MODEL_ROUTING.update(
         "reasoning": REASONING_MODEL,
     }
 )
+
+_MODEL_ROUTING_OVERRIDES = _load_model_routing_overrides()
+if _MODEL_ROUTING_OVERRIDES:
+    default_fallback = MODEL_ROUTING.get(ModelTask.DEFAULT.value, DEFAULT_MODEL) or DEFAULT_MODEL
+    for override_key, override_value in _MODEL_ROUTING_OVERRIDES.items():
+        if override_key == "embedding":
+            MODEL_ROUTING[override_key] = override_value
+            continue
+        fallback = MODEL_ROUTING.get(override_key, default_fallback) or default_fallback
+        MODEL_ROUTING[override_key] = _resolve_supported_model(override_value, fallback)
 
 for key, value in list(MODEL_ROUTING.items()):
     if key == "embedding":
