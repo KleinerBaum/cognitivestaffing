@@ -16,9 +16,10 @@ from typing import Any, Callable, Mapping
 import streamlit as st
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
+from core.analysis_tools import get_salary_benchmark, resolve_salary_role
+from core.normalization import sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
 from state import ensure_state
-from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from utils.normalization import (
     country_to_iso2,
     normalize_company_size,
@@ -127,6 +128,8 @@ def _normalize_value_for_path(path: str, value: Any) -> Any:
         if normalized:
             return normalized
         return " ".join(candidate.strip().split())
+    if path == "company.logo_url":
+        return sanitize_optional_url_value(value)
     if path == "company.contact_phone":
         if value is None:
             return None

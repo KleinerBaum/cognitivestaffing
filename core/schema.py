@@ -36,6 +36,7 @@ from pydantic import (
 )
 from pydantic import AnyUrl
 
+from core.normalization import sanitize_optional_url_fields, sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import normalize_profile
 
@@ -194,14 +195,7 @@ class Company(BaseModel):
     def _normalise_logo_url(cls, value: object) -> object | None:
         """Convert empty strings to ``None`` for optional logo URLs."""
 
-        if value is None:
-            return None
-        if isinstance(value, str):
-            candidate = value.strip()
-            if not candidate:
-                return None
-            return candidate
-        return value
+        return sanitize_optional_url_value(value)
 
     @field_validator("brand_color", mode="before")
     @classmethod
@@ -876,6 +870,7 @@ def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, An
         int_fields=INT_FIELDS,
         float_fields=FLOAT_FIELDS,
     )
+    sanitize_optional_url_fields(payload)
     return payload
 
 
@@ -896,6 +891,7 @@ def canonicalize_wizard_payload(data: Mapping[str, Any] | None) -> dict[str, Any
         int_fields=WIZARD_INT_FIELDS,
         float_fields=WIZARD_FLOAT_FIELDS,
     )
+    sanitize_optional_url_fields(payload)
     return payload
 
 
