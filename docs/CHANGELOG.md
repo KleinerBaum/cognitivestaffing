@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Enforced an 88% coverage floor in CI, uploaded coverage HTML/XML artifacts, and defaulted `llm`-tagged tests to opt-in mode so heuristics stay guarded without blocking offline contributors.
+  **DE:** In der CI gilt jetzt eine Abdeckungsuntergrenze von 88 %, Coverage-HTML/XML-Artefakte werden hochgeladen und `llm`-markierte Tests bleiben optional, sodass Heuristiken geschützt werden, ohne Offline-Contributor:innen auszubremsen.
 - **EN:** Prevented Streamlit duplicate-key crashes for branding uploads by namespacing the sidebar uploader and persisting assets via safe callbacks.
   **DE:** Streamlit-Abstürze durch doppelte Branding-Upload-Keys verhindert, indem der Sidebar-Uploader einen eigenen Namespace erhält und Assets über sichere Callbacks gespeichert werden.
 - **EN:** Migrated legacy session keys such as `company_name` and `contact_email` to the canonical wizard schema paths so scraped profiles prefill the company/contact forms, and aligned the widget factories with the default `get_value`/`_update_profile` callbacks.
