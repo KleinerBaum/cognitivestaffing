@@ -104,9 +104,10 @@ class Company(BaseModel):
     def _normalise_website(cls, value: object) -> Optional[str]:
         """Ensure company websites use a canonical HTTPS format."""
 
-        if value is None:
+        sanitized = sanitize_optional_url_value(value)
+        if sanitized is None:
             return None
-        normalized = normalize_website_url(value if isinstance(value, str) else str(value))
+        normalized = normalize_website_url(sanitized)
         return normalized
 
     @field_validator("contact_phone", mode="before")

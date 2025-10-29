@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import MutableMapping
 from typing import Any
 
 __all__ = [
     "sanitize_optional_url_value",
     "sanitize_optional_url_fields",
+    "normalize_url",
 ]
+
+
+_URL_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
 
 
 def sanitize_optional_url_value(value: object) -> str | None:
@@ -48,3 +53,13 @@ def sanitize_optional_url_fields(data: MutableMapping[str, Any]) -> None:
 
     _walk(data)
 
+
+def normalize_url(value: str | None) -> str | None:
+    """Return a trimmed URL when matching the HTTP(S) pattern, else ``None``."""
+
+    if value is None:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    return candidate if _URL_RE.match(candidate) else None
