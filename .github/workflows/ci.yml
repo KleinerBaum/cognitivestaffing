@@ -51,9 +51,13 @@ jobs:
           if [ -z "${OPENAI_API_KEY}" ]; then
             export PYTEST_ADDOPTS="${PYTEST_ADDOPTS} -m 'not llm'"
             echo "OPENAI_API_KEY missing – skipping LLM-marked tests."
+          else
+            echo "OPENAI_API_KEY detected – LLM tests stay opt-in; pass -m llm to include them."
           fi
           coverage run -m pytest -q --junitxml=pytest.xml || test_exit=$?
+          coverage report --fail-under=88 || coverage_exit=$? # CI_COVERAGE_THRESHOLD
           coverage xml || coverage_exit=$?
+          coverage html || coverage_exit=$?
           if [ "$coverage_exit" -ne 0 ]; then
             exit "$coverage_exit"
           fi
@@ -73,5 +77,6 @@ jobs:
           path: |
             pytest.xml
             coverage.xml
+            htmlcov/
             screens/
             dist/
