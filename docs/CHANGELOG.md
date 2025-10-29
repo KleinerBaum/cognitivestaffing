@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Replaced unsupported `format: "uri"` markers in the Need Analysis schema with URL patterns, added a whitelist-based sanitizer before Responses API calls, and kept the persisted schema in lockstep.
+  **DE:** Nicht unterstützte `format: "uri"`-Marker im Need-Analysis-Schema durch URL-Pattern ersetzt, einen Whitelist-Sanitizer vor Responses-Aufrufen ergänzt und das persistierte Schema synchronisiert.
 - **EN:** Enforced an 88% coverage floor in CI, uploaded coverage HTML/XML artifacts, and defaulted `llm`-tagged tests to opt-in mode so heuristics stay guarded without blocking offline contributors.
   **DE:** In der CI gilt jetzt eine Abdeckungsuntergrenze von 88 %, Coverage-HTML/XML-Artefakte werden hochgeladen und `llm`-markierte Tests bleiben optional, sodass Heuristiken geschützt werden, ohne Offline-Contributor:innen auszubremsen.
 - **EN:** Prevented Streamlit duplicate-key crashes for branding uploads by namespacing the sidebar uploader and persisting assets via safe callbacks.

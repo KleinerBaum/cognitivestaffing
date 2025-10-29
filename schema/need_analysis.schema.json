@@ -45,7 +45,7 @@
                 },
                 "logo_url": {
                     "type": "string",
-                    "format": "uri"
+                    "pattern": "^https?://\\S+$"
                 },
                 "brand_color": {
                     "type": "string"

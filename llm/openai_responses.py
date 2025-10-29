@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from copy import deepcopy
 from typing import Any, Mapping, Sequence
 
 import backoff
@@ -65,7 +66,9 @@ def build_json_schema_format(
     if not isinstance(schema, Mapping):
         raise TypeError("Schema must be a mapping when building response_format.")
 
-    schema_payload = dict(schema)
+    from core.schema import _prune_unsupported_formats
+
+    schema_payload = _prune_unsupported_formats(deepcopy(dict(schema)))
     format_payload: dict[str, Any] = {
         "type": "json_schema",
         "name": name,

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from core.normalization import normalize_url
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
     normalize_city_name,
@@ -95,6 +96,20 @@ def test_normalize_phone_number_variants(raw: str | None, expected: str | None) 
 )
 def test_normalize_website_url_variants(raw: str | None, expected: str | None) -> None:
     assert normalize_website_url(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("https://example.com", "https://example.com"),
+        (" http://foo.bar/path ", "http://foo.bar/path"),
+        ("", None),
+        (None, None),
+        ("notaurl", None),
+    ],
+)
+def test_normalize_url_pattern_guard(value: str | None, expected: str | None) -> None:
+    assert normalize_url(value) == expected
 
 
 def test_normalize_profile_applies_string_rules() -> None:

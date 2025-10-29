@@ -44,6 +44,11 @@ from .validators import deduplicate_preserve_order, ensure_canonical_keys
 from llm.json_repair import repair_profile_payload
 
 
+ALLOWED_STRING_FORMATS: set[str] = {"email", "date-time", "date", "time", "uuid"}
+
+_URL_PATTERN = r"^https?://\S+$"
+
+
 def _is_flag_enabled(value: str | None) -> bool:
     """Return ``True`` when the given feature flag value should be considered enabled."""
 
@@ -742,7 +747,7 @@ def _schema_from_type(tp: Any) -> dict[str, Any]:
         if issubclass(candidate, EmailStr):
             return {"type": "string", "format": "email"}
         if issubclass(candidate, AnyUrl):
-            return {"type": "string", "format": "uri"}
+            return {"type": "string", "pattern": _URL_PATTERN}
         if issubclass(candidate, bool):
             return {"type": "boolean"}
         if issubclass(candidate, int) and not issubclass(candidate, bool):
@@ -755,7 +760,7 @@ def _schema_from_type(tp: Any) -> dict[str, Any]:
     if candidate is EmailStr:
         return {"type": "string", "format": "email"}
     if candidate in {HttpUrl, AnyUrl}:
-        return {"type": "string", "format": "uri"}
+        return {"type": "string", "pattern": _URL_PATTERN}
     if candidate is Any:
         return {}
 
@@ -790,8 +795,50 @@ def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
     return schema
 
 
+def _is_string_type_marker(marker: Any) -> bool:
+    """Return ``True`` when ``marker`` designates a JSON string type."""
+
+    if marker == "string":
+        return True
+    if isinstance(marker, list):
+        return any(entry == "string" for entry in marker)
+    return False
+
+
+def _prune_unsupported_formats(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``schema`` without unsupported string ``format`` markers."""
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            updated: dict[str, Any] = {}
+            marker = node.get("type")
+            is_string = _is_string_type_marker(marker)
+            needs_url_pattern = False
+
+            for key, value in node.items():
+                if key == "format" and isinstance(value, str):
+                    if is_string and value in ALLOWED_STRING_FORMATS:
+                        updated[key] = value
+                    else:
+                        if is_string and value == "uri":
+                            needs_url_pattern = True
+                        continue
+                updated[key] = _walk(value)
+
+            if needs_url_pattern and "pattern" not in updated:
+                updated["pattern"] = _URL_PATTERN
+            return updated
+
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+
+        return node
+
+    return _walk(dict(schema))
+
+
 def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
-    """Raise ``ValueError`` when ``node`` uses unsupported ``type`` markers."""
+    """Raise ``ValueError`` when ``node`` uses unsupported ``type``/``format`` markers."""
 
     if isinstance(node, dict):
         typ = node.get("type")
@@ -810,7 +857,9 @@ def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
             raise TypeError(f"JSON schema type at {path} must be a string or list of strings")
 
         fmt = node.get("format")
-        if isinstance(fmt, str) and fmt in {"uri", "email"}:
+        if isinstance(fmt, str):
+            if fmt not in ALLOWED_STRING_FORMATS:
+                raise ValueError(f"Unsupported JSON schema format '{fmt}' at {path}")
             existing_type = node.get("type")
             if existing_type is None:
                 node["type"] = "string"
@@ -819,6 +868,8 @@ def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
                     raise ValueError(f"Schema at {path} with format '{fmt}' must include type 'string'")
             elif existing_type != "string":
                 raise ValueError(f"Schema at {path} with format '{fmt}' must use type 'string'")
+        elif fmt is not None and not isinstance(fmt, str):
+            raise TypeError(f"JSON schema format at {path} must be a string when present")
 
         for key, value in node.items():
             if isinstance(value, (dict, list)):
@@ -833,7 +884,7 @@ def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
 def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     """Return a validated copy of ``schema`` for Responses output."""
 
-    sanitized = deepcopy(schema)
+    sanitized = _prune_unsupported_formats(deepcopy(schema))
     _ensure_valid_json_schema(sanitized)
     return sanitized
 
@@ -842,9 +893,9 @@ def build_need_analysis_responses_schema() -> dict[str, Any]:
     """Return the structured output schema for ``NeedAnalysisProfile``.
 
     This builder keeps Responses output expectations in sync with the
-    Pydantic model and guards against invalid schema ``type`` markers.
-    URL and email fields are always represented using the canonical
-    ``{"type": "string", "format": ...}`` mapping.  # CS_SCHEMA_PROPAGATE
+    Pydantic model and guards against invalid schema ``type``/``format``
+    markers. URL fields rely on patterns to stay compatible with the
+    Responses JSON schema whitelist.  # CS_SCHEMA_PROPAGATE
     """
 
     schema = _build_model_schema(NeedAnalysisProfile)
