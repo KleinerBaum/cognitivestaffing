@@ -14,6 +14,10 @@
   **DE:** Doppelte Streamlit-Widget-Keys beim Branding-Upload behoben, indem der Legacy-Wizard einen eigenen Schlüssel erhält und beide Caches gemeinsam geleert werden.
 - **EN:** Consolidated dependency management so `requirements.txt` is the deployment source of truth and Streamlit no longer detects competing requirement files.
   **DE:** Abhängigkeitsverwaltung konsolidiert, sodass `requirements.txt` als Deployment-Quelle dient und Streamlit keine konkurrierenden Requirements-Dateien mehr meldet.
+- **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.
+  **DE:** Die ungenutzten Abhängigkeiten `configloader` und `tenacity` aus `requirements.txt` entfernt, um Deployments schlanker zu halten.
+- **EN:** Added regression tests for phone number and website URL normalisation to guard the wizard’s new validation paths.
+  **DE:** Regressions-Tests für die Normalisierung von Telefonnummern und Website-URLs ergänzt, um die neuen Validierungspfade des Wizards zu schützen.
 
 ## v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
 
