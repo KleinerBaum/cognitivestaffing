@@ -13,7 +13,9 @@ from utils.normalization import (
     normalize_country,
     normalize_language,
     normalize_language_list,
+    normalize_phone_number,
     normalize_profile,
+    normalize_website_url,
 )
 
 
@@ -66,6 +68,37 @@ def test_normalize_company_size_parses_numbers() -> None:
     assert normalize_company_size("rund 3.370 Menschen") == "3370"
     assert normalize_company_size("mehr als 500 Mitarbeiter") == "500+"
     assert normalize_company_size("501 – 1000 Mitarbeitende") == "501-1000"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (" +49 (0)30-123 4567 ext. 89 ", "+49 30 1234567 ext 89"),
+        ("030/1234567", "030 1234567"),
+        ("tel.: 123", "123"),
+        ("call me maybe", None),
+        (None, None),
+    ],
+)
+def test_normalize_phone_number_variants(
+    raw: str | None, expected: str | None
+) -> None:
+    assert normalize_phone_number(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (" example.com/jobs ", "https://example.com/jobs"),
+        ("HTTP://Sub.Example.com/jobs/", "http://sub.example.com/jobs"),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_normalize_website_url_variants(
+    raw: str | None, expected: str | None
+) -> None:
+    assert normalize_website_url(raw) == expected
 
 
 def test_normalize_profile_applies_string_rules() -> None:
