@@ -46,7 +46,8 @@ class UIKeys:
     INTERVIEW_FORMAT = "ui.summary.interview_format"
     SUMMARY_SELECTED_GROUP = "ui.summary.selected_group"
     COMPANY_HQ_LOCATION = "ui.company.hq_location"
-    COMPANY_BRANDING_UPLOAD = "ui.company.branding_upload"
+    # BRANDING_UPLOAD_KEY_FIX
+    COMPANY_BRANDING_UPLOAD = "ui.company.branding_upload:sidebar"
     COMPANY_BRANDING_UPLOAD_LEGACY = "ui.company.branding_upload.legacy"
     COMPANY_BRAND_KEYWORDS = "ui.summary.company.brand_keywords"
     JOB_AD_BRAND_TONE = "ui.summary.job_ad.brand_keywords"

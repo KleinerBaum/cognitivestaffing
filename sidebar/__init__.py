@@ -6,6 +6,7 @@ from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime
 from collections.abc import Sequence
+from functools import partial
 from typing import Any, Iterable, Mapping
 from urllib.parse import urlparse
 
@@ -105,6 +106,17 @@ def _clear_branding_asset() -> None:
         UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
     ):
         st.session_state.pop(key, None)
+
+
+def _persist_branding_upload_from_state(key: str) -> None:
+    """Store or clear the branding asset based on the widget state."""
+
+    value = st.session_state.get(key)
+    if isinstance(value, UploadedFile):
+        _store_branding_asset(value)
+        return
+    if value is None:
+        _clear_branding_asset()
 
 
 def _asset_to_data_uri(asset: Mapping[str, Any] | None) -> tuple[str | None, bool]:
@@ -237,13 +249,12 @@ def _render_branding_overrides() -> None:
         on_change=_sync_logo_url,
     )
 
-    brand_upload = st.file_uploader(
+    st.file_uploader(
         tr("Logo oder Branding-Datei hochladen", "Upload logo or brand asset"),
         type=["png", "jpg", "jpeg", "svg", "webp"],
         key=UIKeys.COMPANY_BRANDING_UPLOAD,
+        on_change=partial(_persist_branding_upload_from_state, UIKeys.COMPANY_BRANDING_UPLOAD),
     )
-    if isinstance(brand_upload, UploadedFile):
-        _store_branding_asset(brand_upload)
 
     asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
     if isinstance(asset, Mapping):
