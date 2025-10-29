@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Migrated legacy session keys such as `company_name` and `contact_email` to the canonical wizard schema paths so scraped profiles prefill the company/contact forms, and aligned the widget factories with the default `get_value`/`_update_profile` callbacks.
+  **DE:** Legacy-Session-Keys wie `company_name` und `contact_email` werden nun auf die kanonischen Wizard-Schema-Pfade gemappt, sodass Scrapes die Unternehmens- und Kontakt-Formulare vorbefüllen; die Widget-Factories nutzen dabei standardmäßig das `get_value`/`_update_profile`-Callback-Muster.
 - **EN:** Improved Rheinbahn ingestion heuristics: detect "suchen wir in …" cities, route benefit keywords to `company.benefits`, and parse footer contacts with confidence metadata.
   **DE:** Rheinbahn-Heuristiken verbessert: Städte aus "suchen wir in …" erkennen, Benefit-Schlagworte nach `company.benefits` mappen und Footer-Kontakte inklusive Vertrauensmetadaten parsen.
 - **EN:** Ensured the Poetry dependency set requires `openai>=1.99.3` so the Responses API tooling matches the pip requirements.

@@ -5409,7 +5409,6 @@ def _step_company():
         value_formatter=_string_or_empty,
         **company_kwargs,
     )
-    _update_profile(ProfilePaths.COMPANY_NAME, company["name"])
     if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
@@ -5424,7 +5423,6 @@ def _step_company():
         tr("Hauptsitz", "Headquarters"),
         widget_factory=hq_col.text_input,
         placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
-        key=UIKeys.COMPANY_HQ_LOCATION,
         default=hq_initial,
         value_formatter=_string_or_empty,
     )
@@ -5451,7 +5449,6 @@ def _step_company():
         tr("Website", "Website"),
         widget_factory=website_col.text_input,
         placeholder="https://example.com",
-        key="ui.company.website",
         value_formatter=_string_or_empty,
     )
     company["mission"] = widget_factory.text_input(
@@ -5462,7 +5459,6 @@ def _step_company():
             "z. B. Nachhaltige Mobilität fördern",
             "e.g., Promote sustainable mobility",
         ),
-        key="ui.company.mission",
         value_formatter=_string_or_empty,
     )
 
@@ -5473,25 +5469,22 @@ def _step_company():
             "z. B. Teamorientiert, innovationsgetrieben",
             "e.g., Team-oriented, innovation-driven",
         ),
-        key="ui.company.culture",
         value_formatter=_string_or_empty,
     )
 
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
-    contact_name = widget_factory.text_input(
+    widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_NAME,
         tr("Kontaktperson", "Primary contact"),
         widget_factory=contact_cols[0].text_input,
         placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
-        key="ui.company.contact_name",
         value_formatter=_string_or_empty,
     )
-    contact_email = widget_factory.text_input(
+    widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
         tr("Kontakt-E-Mail", "Contact email"),
         widget_factory=contact_cols[1].text_input,
         placeholder="name@example.com",
-        key="ui.company.contact_email",
         value_formatter=_string_or_empty,
     )
     phone_label = tr("Telefon", "Phone")
@@ -5502,15 +5495,10 @@ def _step_company():
         phone_label,
         widget_factory=contact_cols[2].text_input,
         placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
-        key="ui.company.contact_phone",
         value_formatter=_string_or_empty,
     )
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-
-    _update_profile(ProfilePaths.COMPANY_CONTACT_NAME, contact_name)
-    _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, contact_email)
-    _update_profile(ProfilePaths.COMPANY_CONTACT_PHONE, contact_phone)
 
     city_col, country_col = st.columns(2, gap="small")
     city_lock = _field_lock_config(
@@ -5528,7 +5516,6 @@ def _step_company():
         value_formatter=_string_or_empty,
         **city_kwargs,
     )
-    _update_profile(ProfilePaths.LOCATION_PRIMARY_CITY, location_data["primary_city"])
 
     country_label = tr("Land", "Country")
     if ProfilePaths.LOCATION_COUNTRY in missing_here:
@@ -5548,7 +5535,6 @@ def _step_company():
         value_formatter=_string_or_empty,
         **country_kwargs,
     )
-    _update_profile(ProfilePaths.LOCATION_COUNTRY, location_data["country"])
     if ProfilePaths.LOCATION_COUNTRY in missing_here and not location_data.get("country"):
         country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
