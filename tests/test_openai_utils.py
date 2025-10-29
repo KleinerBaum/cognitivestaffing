@@ -155,15 +155,16 @@ def test_call_chat_api_tool_call(monkeypatch):
     assert out.tool_calls[1]["function"]["arguments"] == '{"foo": "bar"}'
 
 
-def test_responses_payload_includes_top_level_tool_names(monkeypatch):
-    """Responses payloads should expose tool names for function entries."""
+def test_tool_requests_force_classic_payload(monkeypatch):
+    """Tool-enabled prompts should route through the classic chat API."""
 
     monkeypatch.setattr("core.analysis_tools.build_analysis_tools", lambda: ([], {}))
 
     captured: dict[str, Any] = {}
 
-    def _fake_create(payload: Mapping[str, Any]) -> SimpleNamespace:
+    def _fake_create(payload: Mapping[str, Any], *, api_mode: str | None = None) -> SimpleNamespace:
         captured["payload"] = dict(payload)
+        captured["api_mode"] = api_mode
         return SimpleNamespace(output=[], output_text="", usage={}, id="resp-1")
 
     monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _fake_create)
@@ -175,13 +176,10 @@ def test_responses_payload_includes_top_level_tool_names(monkeypatch):
     )
 
     sent_payload = captured["payload"]
-    assert "functions" not in sent_payload
-    assert "tools" in sent_payload
-    assert sent_payload["tools"], "Expected at least one tool in the payload"
-    tool_entry = sent_payload["tools"][0]
-    assert tool_entry.get("type") == "function"
-    assert tool_entry.get("name") == "say_hi"
-    assert tool_entry.get("function", {}).get("name") == "say_hi"
+    assert "messages" in sent_payload
+    assert "functions" in sent_payload
+    assert "tools" not in sent_payload
+    assert captured.get("api_mode") == "chat"
 
 
 def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
@@ -243,8 +241,10 @@ def test_call_chat_api_executes_interview_capacity_tool(monkeypatch):
     responses = iter([first_response, second_response])
     recorded_inputs: list[list[dict[str, Any]]] = []
 
-    def _fake_execute_response(payload: dict[str, Any], model: str | None):
-        recorded_inputs.append(deepcopy(payload.get("input", [])))
+    def _fake_execute_response(payload: dict[str, Any], model: str | None, *, api_mode: str | None = None):
+        key = "messages" if "messages" in payload else "input"
+        recorded_inputs.append(deepcopy(payload.get(key, [])))
+        assert api_mode in {None, "chat"}
         try:
             return next(responses)
         except StopIteration as exc:  # pragma: no cover - defensive
@@ -433,7 +433,7 @@ def test_call_chat_api_classic_mode(monkeypatch):
             self.usage = {"prompt_tokens": 3, "completion_tokens": 5}
             self.id = "chat-123"
 
-    def _fake_create(payload: Mapping[str, Any]) -> Any:
+    def _fake_create(payload: Mapping[str, Any], *, api_mode: str | None = None) -> Any:
         captured.append(dict(payload))
         return _FakeCompletion()
 
@@ -620,7 +620,7 @@ def test_call_chat_api_propagates_bad_request_without_retry(monkeypatch):
 
     calls: list[dict[str, Any]] = []
 
-    def _raise_bad_request(payload: Mapping[str, Any]) -> None:
+    def _raise_bad_request(payload: Mapping[str, Any], *, api_mode: str | None = None) -> None:
         calls.append(dict(payload))
         request = httpx.Request("POST", "https://api.openai.com/v1/responses")
         response = httpx.Response(
@@ -643,7 +643,7 @@ def test_call_chat_api_retries_transient_timeout(monkeypatch):
 
     attempts = 0
 
-    def _maybe_timeout(payload: Mapping[str, Any]) -> Any:
+    def _maybe_timeout(payload: Mapping[str, Any], *, api_mode: str | None = None) -> Any:
         nonlocal attempts
         attempts += 1
         if attempts == 1:
@@ -726,7 +726,7 @@ def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
     def _fake_prepare(messages: Sequence[dict[str, Any]], **_: Any):
         return ({"model": "test", "input": list(messages)}, "test", [], {}, ["test"])
 
-    def _fake_execute(_: Mapping[str, Any], __: str | None):
+    def _fake_execute(_: Mapping[str, Any], __: str | None, *, api_mode: str | None = None):
         return responses.pop(0)
 
     monkeypatch.setattr(openai_utils.api, "_prepare_payload", _fake_prepare)

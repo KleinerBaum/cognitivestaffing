@@ -46,6 +46,7 @@ from config import (
     REASONING_EFFORT,
     STRICT_JSON,
     VERBOSITY,
+    RESPONSES_ALLOW_TOOLS,
     ModelTask,
     get_active_verbosity,
     get_first_available_model,
@@ -356,23 +357,25 @@ def _is_reasoning_unsupported_error(error: OpenAIError) -> bool:
     return _is_parameter_unsupported_error(error, "reasoning")
 
 
-def _create_response_with_timeout(payload: Dict[str, Any]) -> Any:
+def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: str | None = None) -> Any:
     """Execute a Responses create call with configured timeout handling."""
 
     request_kwargs = dict(payload)
+    api_mode = api_mode or request_kwargs.pop("_api_mode", None)
     timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
-    if USE_CLASSIC_API:
+    mode = api_mode or ("chat" if USE_CLASSIC_API else "responses")
+    if mode == "chat":
         return get_client().chat.completions.create(timeout=timeout, **request_kwargs)
     return get_client().responses.create(timeout=timeout, **request_kwargs)
 
 
-def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
+def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode: str | None = None) -> Any:
     """Send ``payload`` to the configured OpenAI API with retry handling."""
 
     with tracer.start_as_current_span("openai.execute_response") as span:
         if model:
             span.set_attribute("llm.model", model)
-        span.set_attribute("llm.has_tools", "functions" in payload)
+        span.set_attribute("llm.has_tools", "functions" in payload or "tools" in payload)
         if "temperature" in payload:
             temperature_value = payload.get("temperature")
             if isinstance(temperature_value, (int, float)):
@@ -380,19 +383,19 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str]) -> Any:
             elif temperature_value is not None:
                 span.set_attribute("llm.temperature", str(temperature_value))
         try:
-            return _create_response_with_timeout(payload)
+            return _create_response_with_timeout(payload, api_mode=api_mode)
         except BadRequestError as err:
             span.record_exception(err)
             if "temperature" in payload and _is_temperature_unsupported_error(err):
                 span.add_event("retry_without_temperature")
                 _mark_model_without_temperature(model)
                 payload.pop("temperature", None)
-                return _create_response_with_timeout(payload)
+                return _create_response_with_timeout(payload, api_mode=api_mode)
             if "reasoning" in payload and _is_reasoning_unsupported_error(err):
                 span.add_event("retry_without_reasoning")
                 _mark_model_without_reasoning(model)
                 payload.pop("reasoning", None)
-                return _create_response_with_timeout(payload)
+                return _create_response_with_timeout(payload, api_mode=api_mode)
             if model and _should_mark_model_unavailable(err):
                 mark_model_unavailable(model)
             span.set_status(Status(StatusCode.ERROR, str(err)))
@@ -1161,7 +1164,9 @@ def _prepare_payload(
 
     raw_tools = [dict(tool) for tool in (tools or [])]
     tool_map = dict(tool_functions or {})
-    if include_analysis_tools:
+    requested_tools = bool(raw_tools or tool_map)
+    analysis_tools_enabled = include_analysis_tools and (USE_CLASSIC_API or requested_tools or RESPONSES_ALLOW_TOOLS)
+    if analysis_tools_enabled:
         from core import analysis_tools
 
         base_tools, base_funcs = analysis_tools.build_analysis_tools()
@@ -1206,9 +1211,15 @@ def _prepare_payload(
 
     payload: dict[str, Any]
 
-    if USE_CLASSIC_API:
+    force_classic_for_tools = False
+    if converted_tools and not (USE_CLASSIC_API or RESPONSES_ALLOW_TOOLS):
+        force_classic_for_tools = True  # NO_TOOLS_IN_RESPONSES
+
+    use_classic_api = USE_CLASSIC_API or force_classic_for_tools
+
+    if use_classic_api:
         payload = {"model": model, "messages": messages_payload}
-        if temperature is not None and model_supports_temperature(model):
+        if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
             payload["temperature"] = temperature
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -1243,7 +1254,7 @@ def _prepare_payload(
         payload = {"model": model, "input": messages_payload}
         if previous_response_id:
             payload["previous_response_id"] = previous_response_id
-        if temperature is not None and model_supports_temperature(model):
+        if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
             payload["temperature"] = temperature
         if model_supports_reasoning(model):
             payload["reasoning"] = {"effort": reasoning_effort}
@@ -1272,18 +1283,6 @@ def _prepare_payload(
             text_config.pop("type", None)
             text_config["format"] = format_config
             payload["text"] = text_config
-        if combined_tools:
-            responses_tools: list[dict[str, Any]] = []
-            for tool_spec in combined_tools:
-                cleaned_spec = dict(tool_spec)
-                if cleaned_spec.get("type") != "function":
-                    cleaned_spec.pop("name", None)
-                responses_tools.append(cleaned_spec)
-            if responses_tools:
-                payload["tools"] = responses_tools
-
-        if normalised_tool_choice is not None:
-            payload["tool_choice"] = normalised_tool_choice
         if extra:
             payload.update(extra)
 
@@ -1299,6 +1298,9 @@ def _prepare_payload(
             )
             metadata["router"] = router_info
             payload["metadata"] = metadata
+
+    if force_classic_for_tools and not USE_CLASSIC_API:
+        payload["_api_mode"] = "chat"
 
     return payload, model, combined_tools, tool_map, candidate_models
 
@@ -1645,6 +1647,8 @@ def _call_chat_api_single(
         previous_response_id=previous_response_id,
     )
 
+    api_mode_override = payload.pop("_api_mode", None)
+
     message_key = "messages" if "messages" in payload else "input"
     base_messages = payload.get(message_key)
     if isinstance(base_messages, list):
@@ -1672,7 +1676,7 @@ def _call_chat_api_single(
 
     while True:
         try:
-            response = _execute_response(payload, current_model)
+            response = _execute_response(payload, current_model, api_mode=api_mode_override)
         except OpenAIError as err:
             attempted.add(current_model)
             if is_model_available(current_model):
@@ -1700,7 +1704,7 @@ def _call_chat_api_single(
             continue
 
         response_id = _extract_response_id(response)
-        if response_id and not USE_CLASSIC_API:
+        if response_id and not USE_CLASSIC_API and api_mode_override != "chat":
             payload["previous_response_id"] = response_id
 
         content = _extract_output_text(response)
