@@ -34,7 +34,6 @@ from .salary import (
     estimate_salary_expectation,
     format_salary_range,
     prepare_salary_factor_entries,
-    resolve_sidebar_benefits,
 )
 
 
@@ -963,7 +962,6 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             )
         )
         _render_explanation_text(explanation)
-        _render_benefit_suggestions(profile)
         return
 
     currency = estimate.get("currency") or profile.get("compensation", {}).get("currency")
@@ -997,7 +995,6 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     else:
         _render_explanation_text(explanation)
 
-    _render_benefit_suggestions(profile)
 
 
 def _render_salary_factor_section(factors: list[SalaryFactorEntry]) -> None:
@@ -1055,52 +1052,6 @@ def _salary_source_label(source: str) -> str:
     if label:
         return label
     return source.strip()
-
-
-def _render_benefit_suggestions(profile: Mapping[str, Any]) -> None:
-    from components.chip_multiselect import render_chip_button_grid
-
-    lang = str(st.session_state.get(UIKeys.LANG_SELECT) or st.session_state.get("lang") or "de")
-    company = profile.get("company", {}) if isinstance(profile, Mapping) else {}
-    industry = str(company.get("industry") or "")
-    bundle = resolve_sidebar_benefits(lang=lang, industry=industry)
-
-    if not bundle.suggestions:
-        return
-
-    st.divider()
-    st.markdown(f"### {tr('Benefit-Ideen', 'Benefit ideas')}")
-    st.caption(
-        tr(
-            "Inspiration aus den letzten Vorschlägen.",
-            "Inspiration based on the latest suggestions.",
-        )
-    )
-
-    if bundle.source == "fallback" and not bundle.llm_suggestions:
-        st.caption(
-            tr(
-                "Keine KI-Vorschläge verfügbar – zeige Standardliste.",
-                "No AI suggestions available – showing fallback shortlist.",
-            )
-        )
-
-    groups: list[tuple[str, list[str]]] = []
-    if bundle.llm_suggestions:
-        groups.append((tr("LLM-Vorschläge", "LLM suggestions"), bundle.llm_suggestions))
-    if bundle.fallback_suggestions:
-        groups.append((tr("Standardliste", "Fallback shortlist"), bundle.fallback_suggestions))
-
-    for index, (label, options) in enumerate(groups):
-        if not options:
-            continue
-        st.caption(label)
-        render_chip_button_grid(
-            options,
-            key_prefix=f"sidebar.benefits.{index}",
-            columns=3,
-            widget_factory=_chip_button_with_tooltip,
-        )
 
 
 def _chip_button_with_tooltip(

@@ -112,6 +112,7 @@ from core.suggestions import (
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
 from components import widget_factory
+from components.stepper import render_stepper as _render_stepper
 from wizard.wizard import profile_text_input
 from components.chip_multiselect import (
     CHIP_INLINE_VALUE_LIMIT,
@@ -120,8 +121,9 @@ from components.chip_multiselect import (
     group_chip_options_by_label,
     render_chip_button_grid,
 )
+
+render_stepper = _render_stepper
 from components.form_fields import text_input_with_state
-from components.stepper import render_stepper
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.llm_state import is_llm_available, llm_disabled_message
@@ -148,6 +150,7 @@ from core.job_ad import (
     suggest_target_audiences,
 )
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
+from sidebar.salary import resolve_sidebar_benefits
 
 ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
@@ -7796,6 +7799,10 @@ def _step_compensation():
     benefit_state["llm"] = llm_benefits
     benefit_state["fallback"] = fallback_pool
     st.session_state[StateKeys.BENEFIT_SUGGESTIONS] = benefit_state
+
+    suggestion_bundle = resolve_sidebar_benefits(lang=lang, industry=industry_context)
+    llm_benefits = list(suggestion_bundle.llm_suggestions)
+    fallback_pool = list(suggestion_bundle.fallback_suggestions)
     existing_benefits = unique_normalized(str(item) for item in data["compensation"].get("benefits", []))
     combined_options = merge_unique_items(existing_benefits, fallback_pool)
     combined_options = merge_unique_items(combined_options, llm_benefits)
@@ -7830,6 +7837,27 @@ def _step_compensation():
         dropdown=True,
     )
     st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
+
+    show_benefit_section = bool(suggestion_bundle.suggestions)
+    if show_benefit_section:
+        st.markdown(
+            f"### {tr('Benefit-Ideen', 'Benefit ideas', lang=lang)}"
+        )
+        st.caption(
+            tr(
+                "Inspiration aus den letzten Vorschlägen.",
+                "Inspiration based on the latest suggestions.",
+                lang=lang,
+            )
+        )
+        if suggestion_bundle.source == "fallback" and not suggestion_bundle.llm_suggestions:
+            st.caption(
+                tr(
+                    "Keine KI-Vorschläge verfügbar – zeige Standardliste.",
+                    "No AI suggestions available – showing fallback shortlist.",
+                    lang=lang,
+                )
+            )
 
     suggestion_entries: list[tuple[str, str, str]] = []
     existing_benefit_markers = {str(item).casefold() for item in data["compensation"].get("benefits", []) or []}
@@ -7891,6 +7919,14 @@ def _step_compensation():
             )
             data["compensation"]["benefits"] = merged
             st.rerun()
+    elif show_benefit_section:
+        st.caption(
+            tr(
+                "Alle vorgeschlagenen Benefits wurden bereits übernommen.",
+                "All suggested benefits are already part of your list.",
+                lang=lang,
+            )
+        )
 
     llm_available = is_llm_available()
     if not llm_available:
@@ -9603,18 +9639,9 @@ def _render_wizard_navigation(
         st.session_state[StateKeys.STEP] = target_index
         st.rerun()
 
-    if current > 0:
-        with st.container():
-            render_stepper(
-                current,
-                [label for label, _ in steps],
-                on_select=_handle_step_selection,
-            )
-            warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
-            if warning_message:
-                st.warning(warning_message)
-    else:
-        st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+    warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+    if warning_message:
+        st.warning(warning_message)
 
     section = current - 1
     missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
@@ -9735,6 +9762,8 @@ def _run_wizard_legacy(schema: Mapping[str, object], critical: Sequence[str]) ->
 
     if current == 0:
         _render_onboarding_hero()
+
+    st.session_state["_wizard_step_summary"] = (current, [label for label, _ in steps])
 
     _label, renderer = steps[current]
     renderer()

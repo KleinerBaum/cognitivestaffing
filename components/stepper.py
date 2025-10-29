@@ -167,80 +167,58 @@ def _inject_workflow_styles() -> None:
     )
 
 
-def render_stepper(
-    current: int,
-    labels: Sequence[str],
-    *,
-    on_select: Callable[[int], None] | None = None,
-) -> None:
-    """Render a progress indicator with contextual labels.
-
-    Args:
-        current: Current step index (0-based).
-        labels: Ordered list of step labels.
-        on_select: Optional callback invoked when the user requests a step
-            change. Receives the selected index.
-    """
-
-    if not STEP_NAVIGATION_ENABLED:
-        return
-
-    total = len(labels)
-    if total == 0:
-        return
-
-    _inject_workflow_styles()
+def _build_summary_segments(current: int, labels: Sequence[str]) -> list[str]:
+    """Return HTML segments representing the wizard step summary."""
 
     status_icons = {
         "done": "✔︎",
         "current": "➤",
         "upcoming": "•",
     }
-
-    with st.container():
-        st.markdown(
-            "<div class='workflow-stepper-marker'></div>",
-            unsafe_allow_html=True,
+    segments: list[str] = []
+    for idx, label in enumerate(labels):
+        button_label = f"{idx + 1}. {label}"
+        if idx < current:
+            status = "done"
+        elif idx == current:
+            status = "current"
+        else:
+            status = "upcoming"
+        icon = status_icons[status]
+        annotated_label = f"{icon} {button_label}"
+        segments.append(
+            f"<span data-state='{status}'>{html.escape(annotated_label)}</span>"
         )
-        summary_segments: list[str] = []
-        for start in range(0, total, 3):
-            chunk = labels[start : start + 3]
-            columns = st.columns([1] * len(chunk), gap="small")
+    return segments
 
-            for offset, (column, label) in enumerate(zip(columns, chunk)):
-                idx = start + offset
-                button_label = f"{idx + 1}. {label}"
-                if idx < current:
-                    status = "done"
-                elif idx == current:
-                    status = "current"
-                else:
-                    status = "upcoming"
 
-                icon = status_icons[status]
-                annotated_label = f"{icon} {button_label}"
-                summary_segments.append(f"<span data-state='{status}'>{html.escape(annotated_label)}</span>")
+def render_step_summary(current: int, labels: Sequence[str]) -> None:
+    """Render the condensed wizard step summary above the step heading."""
 
-                disabled = status == "current" or on_select is None
-                with column:
-                    st.markdown(
-                        f"<div class='workflow-stepper__step workflow-stepper__step--{status}'>",
-                        unsafe_allow_html=True,
-                    )
-                    if st.button(
-                        annotated_label,
-                        key=f"wizard_stepper_{idx}",
-                        width="stretch",
-                        type="secondary",
-                        disabled=disabled,
-                    ):
-                        if on_select is not None and not disabled:
-                            on_select(idx)
-                    st.markdown("</div>", unsafe_allow_html=True)
+    if not labels:
+        return
 
-    if summary_segments:
-        arrow = "<span aria-hidden='true'>→</span>"
-        st.markdown(
-            "<div class='workflow-stepper__summary'>" + arrow.join(summary_segments) + "</div>",
-            unsafe_allow_html=True,
-        )
+    _inject_workflow_styles()
+    summary_segments = _build_summary_segments(current, labels)
+    if not summary_segments:
+        return
+
+    arrow = "<span aria-hidden='true'>→</span>"
+    st.markdown(
+        "<div class='workflow-stepper__summary'>" + arrow.join(summary_segments) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_stepper(
+    current: int,
+    labels: Sequence[str],
+    *,
+    on_select: Callable[[int], None] | None = None,
+) -> None:
+    """Deprecated wrapper retained for compatibility; renders the summary only."""
+
+    if not STEP_NAVIGATION_ENABLED:
+        return
+
+    render_step_summary(current, labels)
