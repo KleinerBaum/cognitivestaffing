@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date
+from functools import partial
 from pathlib import Path
 from typing import (
     Any,
@@ -32,6 +33,7 @@ from urllib.parse import urljoin, urlparse
 import re
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 from streamlit_sortables import sort_items
 
 from opentelemetry import trace
@@ -196,6 +198,29 @@ MAX_INLINE_VALUE_CHARS = CHIP_INLINE_VALUE_LIMIT
 
 INTRO_TONES: tuple[str, ...] = ("pragmatic", "formal", "casual")
 DEFAULT_INTRO_TONE = INTRO_TONES[0]
+
+
+def _persist_branding_asset_from_state(key: str) -> None:
+    """Store the uploaded branding asset in session state."""
+
+    value = st.session_state.get(key)
+    if isinstance(value, UploadedFile):
+        try:
+            data = value.getvalue()
+        except Exception:  # pragma: no cover - streamlit guard
+            return
+        if not data:
+            st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
+            return
+        st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
+            "name": getattr(value, "name", ""),
+            "type": getattr(value, "type", ""),
+            "data": bytes(data),
+        }
+        return
+
+    if value is None:
+        st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
 
 
 _SKILL_IDENTIFIER_PATTERN = re.compile(r"^(?:hard|soft):[0-9a-f]{12}$")
@@ -5616,17 +5641,15 @@ def _step_company():
             value=_string_or_empty(company.get("logo_url")),
             placeholder="https://example.com/logo.png",
         )
-        brand_upload = st.file_uploader(
+        st.file_uploader(
             tr("Branding-Assets", "Brand assets"),
             type=["png", "jpg", "jpeg", "svg", "pdf"],
             key=UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+            on_change=partial(
+                _persist_branding_asset_from_state,
+                UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+            ),
         )
-        if brand_upload is not None:
-            st.session_state[StateKeys.COMPANY_BRANDING_ASSET] = {
-                "name": brand_upload.name,
-                "type": brand_upload.type,
-                "data": brand_upload.getvalue(),
-            }
 
         branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
         if branding_asset:
