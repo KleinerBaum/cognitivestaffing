@@ -16,8 +16,8 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
    Bind widgets with the helpers exposed from `wizard` (`profile_text_input`,
    `profile_selectbox`, …) and resolve defaults via
    `wizard._logic.get_value(ProfilePaths.<FIELD>)`.
-4. Register the step inside the navigation order (search for
-   `WIZARD_ORDER_V2_STEPS`) and update `wizard_router.py` if the entry appears in
+4. Register the step inside the navigation order by updating the sequence in
+   `pages/__init__.py` and adjust `wizard_router.py` if the entry appears in
    other flows (summary/export routes).
 5. Add regression coverage: extend `tests/test_value_binding.py` for bindings and
    place functional tests in `tests/wizard/test_<topic>.py`.
@@ -34,9 +34,9 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
    `wizard/sections/*.py` anlegen. Widgets mit den in `wizard` reexportierten
    Helfern binden (`profile_text_input`, `profile_selectbox`, …) und
    Vorgabewerte über `wizard._logic.get_value(ProfilePaths.<FELD>)` beziehen.
-4. Schritt in die Navigationsreihenfolge aufnehmen (nach `WIZARD_ORDER_V2_STEPS`
-   suchen) und `wizard_router.py` prüfen, falls der Eintrag in anderen Flows
-   verwendet wird (Zusammenfassung/Export).
+4. Schritt in die Navigationsreihenfolge aufnehmen, indem du die Reihenfolge in
+   `pages/__init__.py` anpasst, und `wizard_router.py` prüfen, falls der Eintrag
+   in anderen Flows verwendet wird (Zusammenfassung/Export).
 5. Regressionstests erweitern: Bindings in `tests/test_value_binding.py`
    ergänzen und Funktionstests unter `tests/wizard/test_<thema>.py` ablegen.
 6. Dokumentation (`README.md`, `docs/CHANGELOG.md`) mit dem neuen Schritt und

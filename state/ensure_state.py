@@ -199,6 +199,12 @@ def ensure_state() -> None:
     """Initialize ``st.session_state`` with required keys.
 
     Existing keys are preserved to respect user interactions or URL params.
+    When the RecruitingWizard schema flag is active we normalise the profile
+    through :func:`coerce_and_fill_wizard` so all aliases collapse into the
+    unified schema before widgets render.
+    Legacy payloads still pass through the NeedAnalysisProfile branch and are
+    upgraded via
+    :func:`_migrate_legacy_profile_keys`.
     """
 
     _migrate_legacy_profile_keys()

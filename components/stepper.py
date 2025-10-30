@@ -186,9 +186,7 @@ def _build_summary_segments(current: int, labels: Sequence[str]) -> list[str]:
             status = "upcoming"
         icon = status_icons[status]
         annotated_label = f"{icon} {button_label}"
-        segments.append(
-            f"<span data-state='{status}'>{html.escape(annotated_label)}</span>"
-        )
+        segments.append(f"<span data-state='{status}'>{html.escape(annotated_label)}</span>")
     return segments
 
 

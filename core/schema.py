@@ -972,7 +972,14 @@ def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, An
 
 
 def canonicalize_wizard_payload(data: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Return a sanitized mapping ready for RecruitingWizard validation."""
+    """Return a sanitized mapping ready for RecruitingWizard validation.
+
+    The helper keeps the unified wizard schema consistent by applying
+    :data:`WIZARD_ALIASES` (for older payloads) and trimming unknown fields
+    before Pydantic validation.
+    With the legacy split removed this function is the central place where
+    external data is folded into the canonical RecruitingWizard structure.
+    """
 
     if data is None:
         return {}

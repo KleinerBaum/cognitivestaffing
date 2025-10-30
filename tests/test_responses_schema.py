@@ -108,7 +108,5 @@ def test_responses_schema_marks_required_and_allows_null_for_optional_fields() -
     employment_props = schema["properties"]["employment"]["properties"]
     assert _allows_null(employment_props["travel_required"])
 
-    stakeholder_email = (
-        schema["properties"]["process"]["properties"]["stakeholders"]["items"]["properties"]["email"]
-    )
+    stakeholder_email = schema["properties"]["process"]["properties"]["stakeholders"]["items"]["properties"]["email"]
     assert _allows_null(stakeholder_email)

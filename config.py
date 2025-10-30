@@ -40,6 +40,8 @@ STRICT_JSON = True
 CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
+_TRUTHY_ENV_VALUES: tuple[str, ...] = ("1", "true", "yes", "on")
+
 
 # Canonical model identifiers as exposed by the OpenAI Responses API.
 GPT4 = "gpt-4"
@@ -79,6 +81,14 @@ _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-4o-2024-05-13", GPT4O),
     ("gpt-4o", GPT4O),
 )
+
+
+def _is_truthy_flag(value: str | None) -> bool:
+    """Return ``True`` when ``value`` matches a truthy environment token."""
+
+    if value is None:
+        return False
+    return value.strip().lower() in _TRUTHY_ENV_VALUES
 
 
 def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> str:
@@ -224,12 +234,11 @@ def _detect_default_model() -> str:
 
 DEFAULT_MODEL = _detect_default_model()
 VERBOSITY_LEVELS = ("low", "medium", "high")
-WIZARD_ORDER_V2 = os.getenv("WIZARD_ORDER_V2", "0").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
+_wizard_step_order_flag = os.getenv("WIZARD_STEP_ORDER")
+if _wizard_step_order_flag is None:
+    # Backwards compatibility with the former WIZARD_ORDER_V2 toggle.
+    _wizard_step_order_flag = os.getenv("WIZARD_ORDER_V2")
+WIZARD_STEP_ORDER_ENABLED = _is_truthy_flag(_wizard_step_order_flag)
 
 
 def normalise_verbosity(value: object | None, *, default: str = "medium") -> str:
