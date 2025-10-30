@@ -55,6 +55,7 @@ from core.esco_utils import (
     get_group_skills,
     normalize_skills,
 )
+from core.validation import is_placeholder
 from core.suggestions import get_benefit_suggestions
 from config import (
     VECTOR_STORE_ID,
@@ -250,19 +251,6 @@ YES_NO_FIELDS: Set[str] = {
     "requirements.reference_check_required",
 }
 
-PLACEHOLDER_STRINGS: Set[str] = {
-    "tbd",
-    "to be defined",
-    "n/a",
-    "na",
-    "keine",
-    "kein",
-    "none",
-    "unknown",
-    "?",
-    "-",
-}
-
 DEFAULT_BENEFIT_SUGGESTIONS: Dict[str, List[str]] = {
     "en": [
         "Health insurance",
@@ -283,12 +271,6 @@ DEFAULT_BENEFIT_SUGGESTIONS: Dict[str, List[str]] = {
 }
 
 MAX_FOLLOWUP_QUESTIONS = 12
-
-
-def _normalize_str(value: Any) -> str:
-    if isinstance(value, str):
-        return value.strip().lower()
-    return str(value).strip().lower()
 
 
 def _value_to_text(value: Any) -> str:
@@ -356,21 +338,15 @@ def _coerce_to_float(value: Any) -> Optional[float]:
         return None
 
 
-def _is_placeholder(value: Any) -> bool:
-    if isinstance(value, str):
-        return _normalize_str(value) in PLACEHOLDER_STRINGS
-    return False
-
-
 def _detect_implausible(field: str, value: Any) -> Optional[Tuple[str, Any]]:
     if _is_empty(value):
         return None
     if isinstance(value, (list, tuple, set)):
         items = [str(v).strip() for v in value if str(v).strip()]
-        if items and all(_is_placeholder(v) for v in items):
+        if items and all(is_placeholder(v) for v in items):
             return ("placeholder", items)
         return None
-    if isinstance(value, str) and _is_placeholder(value):
+    if isinstance(value, str) and is_placeholder(value):
         return ("placeholder", value)
     if field.startswith("compensation.salary"):
         numeric = _coerce_to_float(value)
