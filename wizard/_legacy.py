@@ -462,40 +462,58 @@ _SKILL_BOARD_STYLE = """
     display: flex;
     flex-wrap: wrap;
     gap: 1.25rem;
-    padding: 1.25rem;
-    border-radius: 1.5rem;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(59, 130, 246, 0.12));
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    box-shadow: 0 22px 45px rgba(15, 23, 42, 0.14);
+    padding: 1.35rem;
+    border-radius: 1.75rem;
+    background: radial-gradient(circle at 12% -15%, rgba(63, 180, 202, 0.42), rgba(6, 14, 26, 0.94));
+    border: 1px solid rgba(87, 182, 255, 0.28);
+    box-shadow: 0 42px 86px rgba(2, 8, 20, 0.55);
     overflow: visible;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .sortable-container {
     flex: 1 1 clamp(260px, 48%, 520px);
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: 1.1rem;
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    padding: 1rem 1.15rem;
+    background: linear-gradient(165deg, rgba(7, 20, 36, 0.96), rgba(18, 42, 62, 0.82));
+    color: rgba(243, 249, 255, 0.96);
+    border-radius: 1.35rem;
+    border: 1px solid rgba(87, 182, 255, 0.28);
+    padding: 1rem 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
-    backdrop-filter: blur(6px);
+    box-shadow: 0 34px 64px rgba(2, 10, 24, 0.48);
     position: relative;
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    isolation: isolate;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sortable-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(140deg, rgba(47, 216, 197, 0.18), rgba(137, 170, 255, 0.14));
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+    z-index: -1;
 }
 
 .sortable-container:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
+    transform: translateY(-4px);
+    box-shadow: 0 42px 78px rgba(2, 12, 26, 0.52);
+}
+
+.sortable-container:hover::before {
+    opacity: 1;
 }
 
 .sortable-component > div:nth-child(1) {
     flex: 1 1 100%;
     order: 0;
-    background: linear-gradient(135deg, rgba(14, 116, 144, 0.92), rgba(56, 189, 248, 0.85));
-    color: #f8fafc;
+    background: linear-gradient(150deg, rgba(19, 84, 128, 0.9), rgba(41, 118, 162, 0.78));
+    color: #f5fbff;
 }
 
 .sortable-component > div:nth-child(2),
@@ -505,13 +523,13 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-component > div:nth-child(2) {
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(14, 165, 233, 0.9));
-    color: #f8fafc;
+    background: linear-gradient(150deg, rgba(15, 95, 88, 0.9), rgba(29, 140, 124, 0.78));
+    color: #f3fffb;
 }
 
 .sortable-component > div:nth-child(3) {
-    background: linear-gradient(135deg, rgba(2, 132, 199, 0.92), rgba(6, 182, 212, 0.85));
-    color: #f8fafc;
+    background: linear-gradient(150deg, rgba(21, 82, 134, 0.88), rgba(44, 128, 176, 0.78));
+    color: #f2fbff;
 }
 
 .sortable-component > div:nth-child(4),
@@ -521,13 +539,13 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-component > div:nth-child(4) {
-    background: linear-gradient(135deg, rgba(30, 64, 175, 0.95), rgba(59, 130, 246, 0.9));
-    color: #f8fafc;
+    background: linear-gradient(150deg, rgba(98, 32, 78, 0.92), rgba(162, 58, 112, 0.8));
+    color: #fff6fb;
 }
 
 .sortable-component > div:nth-child(5) {
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(147, 197, 253, 0.85));
-    color: #f8fafc;
+    background: linear-gradient(150deg, rgba(40, 54, 124, 0.9), rgba(33, 104, 148, 0.76));
+    color: #f4fbff;
 }
 
 .sortable-container-header {
@@ -544,15 +562,7 @@ _SKILL_BOARD_STYLE = """
     flex: 1 1 auto;
     height: 1px;
     margin-left: 0.5rem;
-    background: rgba(148, 163, 184, 0.35);
-}
-
-.sortable-component > div:nth-child(1) .sortable-container-header::after,
-.sortable-component > div:nth-child(2) .sortable-container-header::after,
-.sortable-component > div:nth-child(3) .sortable-container-header::after,
-.sortable-component > div:nth-child(4) .sortable-container-header::after,
-.sortable-component > div:nth-child(5) .sortable-container-header::after {
-    background: rgba(241, 245, 249, 0.45);
+    background: rgba(226, 232, 240, 0.4);
 }
 
 .sortable-container-body {
@@ -560,6 +570,14 @@ _SKILL_BOARD_STYLE = """
     flex-wrap: wrap;
     gap: 0.6rem;
     min-height: 3.5rem;
+}
+
+.sortable-component > div:nth-child(1) .sortable-container-header::after,
+.sortable-component > div:nth-child(2) .sortable-container-header::after,
+.sortable-component > div:nth-child(3) .sortable-container-header::after,
+.sortable-component > div:nth-child(4) .sortable-container-header::after,
+.sortable-component > div:nth-child(5) .sortable-container-header::after {
+    background: rgba(243, 247, 255, 0.55);
 }
 
 .sortable-component > div:nth-child(1) .sortable-container-body,
@@ -571,20 +589,20 @@ _SKILL_BOARD_STYLE = """
 }
 
 .sortable-item {
-    background: linear-gradient(135deg, rgba(226, 232, 240, 0.9), rgba(203, 213, 225, 0.6));
-    color: #0f172a;
-    padding: 0.4rem 0.85rem;
+    background: linear-gradient(135deg, rgba(251, 254, 255, 0.9), rgba(223, 244, 249, 0.74));
+    color: #082235;
+    padding: 0.42rem 0.92rem;
     border-radius: 999px;
-    border: 1px solid rgba(100, 116, 139, 0.25);
+    border: 1px solid rgba(87, 182, 255, 0.32);
     font-size: 0.9rem;
     font-weight: 500;
-    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 16px 28px rgba(6, 20, 36, 0.24);
     cursor: grab;
     white-space: nowrap;
     max-width: 20ch;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, max-width 0.18s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, max-width 0.2s ease;
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -608,41 +626,41 @@ _SKILL_BOARD_STYLE = """
     font-weight: 600;
     letter-spacing: 0.06em;
     border-radius: 999px;
-    background: rgba(15, 23, 42, 0.18);
-    color: #0f172a;
+    background: rgba(9, 28, 42, 0.32);
+    color: #031523;
     text-transform: uppercase;
     white-space: nowrap;
 }
 
 .sortable-item[data-source="ai"]::after {
-    background: rgba(59, 130, 246, 0.75);
-    color: #f8fafc;
+    background: rgba(87, 182, 255, 0.78);
+    color: #06233c;
 }
 
 .sortable-item[data-source="esco"]::after {
-    background: rgba(16, 185, 129, 0.75);
-    color: #ecfdf5;
+    background: rgba(245, 178, 107, 0.82);
+    color: #3b220b;
 }
 
 .sortable-component > div:nth-child(1) .sortable-item,
 .sortable-component > div:nth-child(2) .sortable-item,
 .sortable-component > div:nth-child(3) .sortable-item {
-    background: rgba(15, 23, 42, 0.25);
-    color: #f8fafc;
-    border-color: rgba(241, 245, 249, 0.4);
+    background: rgba(255, 255, 255, 0.16);
+    color: #f4fbff;
+    border-color: rgba(244, 251, 255, 0.34);
 }
 
 .sortable-item:hover {
     max-width: min(38ch, 100%);
-    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 22px 40px rgba(4, 14, 30, 0.32);
     transform: translateY(-1px);
     z-index: 3;
 }
 
 .sortable-item.dragging {
-    opacity: 0.75;
+    opacity: 0.82;
     cursor: grabbing;
-    box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 24px 44px rgba(3, 12, 26, 0.34);
 }
 
 @media (max-width: 1180px) {
@@ -654,7 +672,7 @@ _SKILL_BOARD_STYLE = """
 @media (max-width: 820px) {
     .sortable-component {
         gap: 1rem;
-        padding: 1rem;
+        padding: 1.1rem;
     }
 }
 
@@ -6525,14 +6543,14 @@ def _step_requirements():
                 margin-bottom: 1.2rem;
             }
             .requirement-panel--insights {
-                background: var(--surface-accent-soft, rgba(59, 130, 246, 0.08));
+                background: var(--surface-accent-soft, rgba(47, 216, 197, 0.18));
                 border: 1px solid var(
                     --interactive-border-strong,
-                    rgba(59, 130, 246, 0.22)
+                    rgba(87, 182, 255, 0.28)
                 );
                 box-shadow: inset 0 0 0 1px var(
                     --surface-accent-strong,
-                    rgba(37, 99, 235, 0.12)
+                    rgba(47, 149, 241, 0.16)
                 );
             }
             .requirement-panel__header {
@@ -7840,9 +7858,7 @@ def _step_compensation():
 
     show_benefit_section = bool(suggestion_bundle.suggestions)
     if show_benefit_section:
-        st.markdown(
-            f"### {tr('Benefit-Ideen', 'Benefit ideas', lang=lang)}"
-        )
+        st.markdown(f"### {tr('Benefit-Ideen', 'Benefit ideas', lang=lang)}")
         st.caption(
             tr(
                 "Inspiration aus den letzten Vorschlägen.",

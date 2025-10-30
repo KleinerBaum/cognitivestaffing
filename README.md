@@ -15,6 +15,8 @@
 
 - **EN:** CI now enforces a minimum 88% coverage, uploads XML/HTML reports, and keeps `llm`-tagged pytest cases opt-in to guard heuristics without blocking offline contributors.
   **DE:** Die CI erzwingt jetzt mindestens 88 % Testabdeckung, lädt XML-/HTML-Berichte hoch und behandelt `llm`-markierte Pytest-Cases optional, damit Heuristiken geschützt bleiben und Offline-Contributor:innen weiterarbeiten können.
+- **EN:** Introduced the Aurora Fjord palette across both themes and the skill board, combining midnight blues with glacial aqua and ember highlights for calmer hierarchy and reliable contrast.
+  **DE:** Die neue Aurora-Fjord-Palette in Dark- und Light-Theme sowie dem Skill-Board verankert – Mitternachtsblau trifft auf Gletscher-Aqua und Amber-Akzente für ruhigere Hierarchien und verlässlichen Kontrast.
 - **EN:** Hardened optional profile URL sanitisation so canonicalisation and wizard updates trim blanks to `None`, preventing schema resets.
   **DE:** Optionale Profil-URLs weiter gehärtet: Kanonisierung und Wizard-Updates kürzen leere Werte jetzt auf `None`, sodass keine Schema-Resets mehr ausgelöst werden.
 - **EN:** Streamlined dependency management so `requirements.txt` remains the single source of truth and deployment no longer reports multiple requirement files.
