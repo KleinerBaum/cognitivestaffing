@@ -26,14 +26,15 @@ def reset_model_availability() -> None:
 
 
 def test_extraction_uses_cost_optimised_chain() -> None:
-    """Extraction should start on GPT-4.1 nano and cascade through 4o → 4."""
+    """Extraction should start on GPT-4.1 mini and cascade through 4o → 4."""
 
     fallbacks = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
-    assert fallbacks[:4] == [
+    assert fallbacks[:5] == [
+        config.GPT41_MINI,
+        config.GPT41_NANO,
         config.GPT4O_MINI,
         config.GPT4O,
         config.GPT4,
-        "gpt-3.5-turbo",
     ]
 
 
@@ -71,18 +72,18 @@ def test_default_model_prefers_cost_optimised_tier() -> None:
 def test_reasoning_switch() -> None:
     """select_model should flip between nano tiers for reasoning workloads."""
 
-    assert config.select_model("non_reasoning") == config.GPT4O_MINI
-    assert config.select_model("reasoning") == config.GPT5_NANO
-    assert config.select_model(config.ModelTask.EXTRACTION) == config.GPT4O_MINI
+    assert config.select_model("non_reasoning") == config.LIGHTWEIGHT_MODEL
+    assert config.select_model("reasoning") == config.REASONING_MODEL
+    assert config.select_model(config.ModelTask.EXTRACTION) == config.LIGHTWEIGHT_MODEL
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """Environment variables should override the routing configuration."""
 
-    monkeypatch.setenv("MODEL_ROUTING__REASONING", "gpt-5.1-mini")
+    monkeypatch.setenv("MODEL_ROUTING__REASONING", "gpt-4.1-mini-latest")
     try:
         reloaded = importlib.reload(config)
-        assert reloaded.select_model("reasoning") == reloaded.GPT5_MINI
+        assert reloaded.select_model("reasoning") == reloaded.GPT41_MINI
     finally:
         monkeypatch.delenv("MODEL_ROUTING__REASONING", raising=False)
         importlib.reload(config)

@@ -25,8 +25,8 @@
   **DE:** Optionale Profil-URLs weiter gehärtet: Kanonisierung und Wizard-Updates kürzen leere Werte jetzt auf `None`, sodass keine Schema-Resets mehr ausgelöst werden.
 - **EN:** Downgraded rule-matcher logs when phone or country values are absent so optional contact fields no longer emit warning-level noise.
   **DE:** Log-Ausgabe des Regelabgleichs herabgestuft, wenn Telefon- oder Länderdaten fehlen, sodass optionale Kontaktfelder keine Warnungen mehr erzeugen.
-- **EN:** Rerouted lightweight tasks to `gpt-4o-mini` (GPT-4.1-nano) while keeping summarisation/explanation flows on `gpt-5-nano` (`gpt-5.1-nano` endpoint); environment overrides now normalise to these tiers.
-  **DE:** Leichte Aufgaben laufen nun auf `gpt-4o-mini` (GPT-4.1-nano), während Zusammenfassungen und Erklärungen weiterhin `gpt-5-nano` (Endpoint `gpt-5.1-nano`) nutzen; Umgebungs-Overrides werden auf diese Stufen normalisiert.
+- **EN:** Rerouted lightweight tasks to `gpt-4.1-mini` and escalated reasoning-heavy flows to `o4-mini`, cascading through `o3` and `gpt-4o` automatically; environment overrides now normalise to these tiers.
+  **DE:** Leichte Aufgaben laufen nun auf `gpt-4.1-mini`, während Zusammenfassungen und Erklärungen automatisch auf `o4-mini` (mit Fallbacks über `o3` und `gpt-4o`) eskalieren; Umgebungs-Overrides werden auf diese Stufen normalisiert.
 - **EN:** Resolved duplicate Streamlit widget keys for branding uploads by giving the legacy wizard uploader its own identifier and clearing both caches together.
   **DE:** Doppelte Streamlit-Widget-Keys beim Branding-Upload behoben, indem der Legacy-Wizard einen eigenen Schlüssel erhält und beide Caches gemeinsam geleert werden.
 - **EN:** Consolidated dependency management so `requirements.txt` is the deployment source of truth and Streamlit no longer detects competing requirement files.

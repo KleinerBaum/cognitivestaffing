@@ -24,7 +24,17 @@ try:
 except FileNotFoundError:
     APP_LOGO_BYTES = None
 
-from config import WIZARD_ORDER_V2  # noqa: E402
+from openai import OpenAI  # noqa: E402
+
+from config import (  # noqa: E402
+    LLM_ENABLED,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    OPENAI_ORGANIZATION,
+    OPENAI_PROJECT,
+    WIZARD_ORDER_V2,
+)
+from llm.model_router import pick_model  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
@@ -48,6 +58,25 @@ st.set_page_config(
 ROOT = APP_ROOT
 ensure_state()
 st.session_state.setdefault("app_version", APP_VERSION)
+
+MODEL_ID: str | None = None
+if LLM_ENABLED:
+    try:
+        router_client = OpenAI(
+            api_key=OPENAI_API_KEY or None,
+            base_url=OPENAI_BASE_URL or None,
+            organization=OPENAI_ORGANIZATION or None,
+            project=OPENAI_PROJECT or None,
+        )
+        MODEL_ID = pick_model(router_client)
+        print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
+    except Exception as exc:  # pragma: no cover - defensive startup logging
+        print(f"[MODEL_ROUTER_V3] unable to resolve model: {exc}")
+else:
+    print("[MODEL_ROUTER_V3] OpenAI API key not configured; model routing skipped.")
+
+if MODEL_ID:
+    st.session_state.setdefault("router.resolved_model", MODEL_ID)
 
 if WIZARD_ORDER_V2:
     wizard_state = st.session_state.setdefault("wizard", {})

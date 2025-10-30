@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import streamlit as st
 
-from config import GPT4O, GPT4O_MINI, GPT5_MINI, GPT5_NANO, OPENAI_MODEL, normalise_model_override
+from config import (
+    GPT4O,
+    GPT4O_MINI,
+    GPT41_MINI,
+    O3,
+    O4_MINI,
+    OPENAI_MODEL,
+    normalise_model_override,
+)
 from constants.keys import UIKeys
 from utils.i18n import tr
 
@@ -23,15 +31,16 @@ def model_selector(key: str = "model") -> str:
             tr("GPT-4o mini (günstig)", "GPT-4o mini (cost saver)"),
         ),
         (
-            GPT5_MINI,
-            tr("GPT-5 mini (gpt-5.1-mini) erzwingen", "Force GPT-5 mini (gpt-5.1-mini)"),
+            GPT41_MINI,
+            tr("GPT-4.1 mini (aktuelles Mini-Modell)", "GPT-4.1 mini (latest mini tier)"),
         ),
         (
-            GPT5_NANO,
-            tr(
-                "GPT-5 nano (gpt-5-nano / gpt-5.1-nano) erzwingen",
-                "Force GPT-5 nano (gpt-5-nano / gpt-5.1-nano)",
-            ),
+            O4_MINI,
+            tr("o4 mini (Reasoning, Responses API)", "o4 mini (reasoning, Responses API)"),
+        ),
+        (
+            O3,
+            tr("o3 (erweitertes Reasoning)", "o3 (advanced reasoning)"),
         ),
     ]
 
@@ -61,8 +70,8 @@ def model_selector(key: str = "model") -> str:
         resolved = OPENAI_MODEL
         st.caption(
             tr(
-                "Auto-Routing nutzt GPT-5 nano für komplexe Aufgaben und GPT-4o mini für günstige Antworten.",
-                "Auto routing uses GPT-5 nano for complex tasks and GPT-4o mini for cost-efficient replies.",
+                "Auto-Routing nutzt o4 mini für anspruchsvolle Reasoning-Aufgaben und GPT-4.1 mini für kostengünstige Antworten.",
+                "Auto routing uses o4 mini for demanding reasoning tasks and GPT-4.1 mini for cost-efficient replies.",
             )
         )
     else:

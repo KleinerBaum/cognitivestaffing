@@ -59,9 +59,9 @@ def test_stage_specific_model_override() -> None:
     global_run = json.loads(execution.run_stage("stage-global"))
     assert global_run["config"]["model"] == "gpt-4o"
 
-    execution.set_model("stage-global", "gpt-5.1-mini")
+    execution.set_model("stage-global", "o4-mini")
     stage_run = json.loads(execution.run_stage("stage-global"))
-    assert stage_run["config"]["model"] == "gpt-5.1-mini"
+    assert stage_run["config"]["model"] == "o4-mini"
 
     other_run = json.loads(execution.run_stage("other-stage"))
     assert other_run["config"]["model"] == "gpt-4o"

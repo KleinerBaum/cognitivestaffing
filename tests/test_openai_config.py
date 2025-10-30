@@ -105,7 +105,7 @@ def test_ensure_state_salvages_profile_with_extra_fields():
     assert "invalid_field" not in result["company"]
 
 
-@pytest.mark.parametrize("model_alias", ["gpt-5-mini", "GPT-5-MINI"])
+@pytest.mark.parametrize("model_alias", ["o4-mini-latest", "O4-MINI"])
 def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_alias):
     st.session_state.clear()
     monkeypatch.setattr(
@@ -150,7 +150,7 @@ def test_default_model_alias_falls_back_to_reasoning_tier(monkeypatch):
     previous_env = os.environ.get("DEFAULT_MODEL")
 
     try:
-        monkeypatch.setenv("DEFAULT_MODEL", "gpt-5-mini")
+        monkeypatch.setenv("DEFAULT_MODEL", "o4-mini-latest")
         importlib.reload(config)
 
         assert config.DEFAULT_MODEL == config.REASONING_MODEL

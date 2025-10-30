@@ -40,9 +40,9 @@ def test_suggest_skills_for_role_model(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     monkeypatch.setattr(esco_utils, "normalize_skills", lambda skills, **_: skills)
-    result = openai_utils.suggest_skills_for_role("Engineer", model=config.GPT5_MINI)
+    result = openai_utils.suggest_skills_for_role("Engineer", model=config.REASONING_MODEL)
 
-    assert captured["model"] == config.GPT5_MINI
+    assert captured["model"] == config.REASONING_MODEL
     assert result["tools_and_technologies"] == ["Tool A", "Tool B"]
     assert result["hard_skills"] == ["Hard Skill 1"]
     assert result["soft_skills"] == ["Soft Skill 1"]
@@ -61,11 +61,11 @@ def test_suggest_responsibilities_for_role_model(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     result = openai_utils.suggest_responsibilities_for_role(
         "Product Manager",
-        model=config.GPT5_MINI,
+        model=config.REASONING_MODEL,
         company_name="Acme",
     )
 
-    assert captured["model"] == config.GPT5_MINI
+    assert captured["model"] == config.REASONING_MODEL
     assert result == ["Define roadmap"]
 
 
@@ -92,14 +92,14 @@ def test_suggest_benefits_dispatch_default(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.GPT5_NANO
+    assert captured["model"] == config.REASONING_MODEL
     assert out == ["BenefitA", "BenefitB"]
 
 
 def test_manual_override_reroutes_all_tasks(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, str | None] = {}
     st.session_state.clear()
-    st.session_state["model_override"] = config.GPT5_MINI
+    st.session_state["model_override"] = config.REASONING_MODEL
 
     def fake_call_chat_api(messages: Any, model: str | None = None, **kwargs: Any) -> ChatCallResult:
         captured["model"] = model
@@ -107,7 +107,7 @@ def test_manual_override_reroutes_all_tasks(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.GPT5_MINI
+    assert captured["model"] == config.REASONING_MODEL
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -286,9 +286,9 @@ def test_model_selector_updates_override(monkeypatch: pytest.MonkeyPatch) -> Non
     resolved = model_selector_component.model_selector()
 
     assert captured["index"] == 0
-    assert resolved == config.GPT5_NANO
-    assert st.session_state["model_override"] == config.GPT5_NANO
-    assert st.session_state["model"] == config.GPT5_NANO
+    assert resolved == config.REASONING_MODEL
+    assert st.session_state["model_override"] == config.REASONING_MODEL
+    assert st.session_state["model"] == config.REASONING_MODEL
 
 
 def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -296,7 +296,7 @@ def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyP
 
     st.session_state.clear()
     st.session_state["lang"] = "en"
-    st.session_state["model_override"] = "  GPT-5-NANO  "
+    st.session_state["model_override"] = "  gpt-4.1-mini-latest  "
 
     captured: dict[str, object] = {}
 
@@ -312,6 +312,6 @@ def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyP
 
     resolved = model_selector_component.model_selector()
 
-    assert captured["index"] == 4
-    assert resolved == config.GPT5_NANO
-    assert st.session_state["model_override"] == config.GPT5_NANO
+    assert captured["index"] == 3
+    assert resolved == config.GPT41_MINI
+    assert st.session_state["model_override"] == config.GPT41_MINI
