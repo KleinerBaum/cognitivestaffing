@@ -18,6 +18,11 @@
   Bindings und Exporte verwenden dieselben kanonischen Dot-Pfade aus
   `constants/keys.ProfilePaths`, der Rollout-Schalter `SCHEMA_WIZARD_V1` wurde
   abgeschafft.
+- **EN:** Prevent ESCO placeholder URIs from contacting the live API by serving
+  cached essential skills whenever offline fixtures include the identifier.
+  **DE:** Verhindert, dass ESCO-Platzhalter-URIs die Live-API erreichen, indem
+  gespeicherte Kernkompetenzen genutzt werden, sobald Offline-Fixdaten die
+  Kennung enthalten.
 - **EN:** Refreshed README, developer guide, key registry, and JSON pipeline
   docs to describe the unified schema, current field names, and the latest
   wizard flow in English and German.
