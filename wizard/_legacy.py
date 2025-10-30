@@ -8818,109 +8818,6 @@ def _textarea_height(content: str) -> int:
     return min(900, max(240, line_count * 28))
 
 
-def _render_summary_highlights(profile: NeedAnalysisProfile) -> None:
-    """Render a short highlight block with the most relevant profile facts."""
-
-    placeholder = tr("Noch offen", "TBD")
-
-    job_title = (profile.position.job_title or "").strip() or placeholder
-    company_name = (profile.company.name or profile.company.brand_name or "").strip() or placeholder
-
-    location_parts: list[str] = []
-    primary_city = (profile.location.primary_city or "").strip()
-    country = (profile.location.country or "").strip()
-    if primary_city:
-        location_parts.append(primary_city)
-    if country:
-        location_parts.append(country)
-    location_value = ", ".join(location_parts) if location_parts else placeholder
-
-    compensation = profile.compensation
-    salary_values: list[str] = []
-    if compensation.salary_min is not None:
-        salary_values.append(f"{compensation.salary_min:,.0f}")
-    if compensation.salary_max is not None:
-        salary_values.append(f"{compensation.salary_max:,.0f}")
-
-    salary_range = ""
-    if salary_values:
-        if len(salary_values) == 2:
-            salary_range = tr("{min} – {max}", "{min} – {max}").format(min=salary_values[0], max=salary_values[1])
-        else:
-            salary_range = salary_values[0]
-
-    currency = (compensation.currency or "").strip()
-    period = (compensation.period or "").strip()
-
-    if salary_range:
-        if currency:
-            salary_range = f"{currency} {salary_range}"
-        if period:
-            salary_range = tr("{base} pro {period}", "{base} per {period}").format(base=salary_range, period=period)
-    elif compensation.salary_provided:
-        salary_range = tr("Gehalt vorhanden", "Salary provided")
-    else:
-        salary_range = placeholder
-
-    requirements = profile.requirements
-
-    def _first_items(values: Sequence[str]) -> list[str]:
-        return [item.strip() for item in values if item and item.strip()][:5]
-
-    hard_skills = _first_items(requirements.hard_skills_required)
-    if not hard_skills:
-        hard_skills = _first_items(requirements.hard_skills_optional)
-    soft_skills = _first_items(requirements.soft_skills_required)
-    if not soft_skills:
-        soft_skills = _first_items(requirements.soft_skills_optional)
-
-    hard_value = ", ".join(hard_skills) if hard_skills else placeholder
-    soft_value = ", ".join(soft_skills) if soft_skills else placeholder
-
-    benefits_entries: list[str] = []
-    seen_benefits: set[str] = set()
-    for entry in profile.compensation.benefits:
-        normalized = (entry or "").strip()
-        if not normalized:
-            continue
-        lowered = normalized.casefold()
-        if lowered in seen_benefits:
-            continue
-        seen_benefits.add(lowered)
-        benefits_entries.append(normalized)
-    benefits_value = ", ".join(benefits_entries[:5]) if benefits_entries else ""
-
-    highlight_title = tr("Wesentliche Eckdaten", "Key highlights")
-    job_title_label = tr("Jobtitel", "Job title")
-    company_label = tr("Unternehmen", "Company")
-    location_label = tr("Standort", "Location")
-    salary_label = tr("Vergütung", "Compensation")
-    hard_label = tr("Fachliche Skills", "Hard skills")
-    soft_label = tr("Soziale Skills", "Soft skills")
-    benefits_label = tr("Benefits", "Benefits")
-
-    bullets = [
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=job_title_label, value=job_title),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=company_label, value=company_name),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=location_label, value=location_value),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=salary_label, value=salary_range),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=hard_label, value=hard_value),
-        tr("- **{label}:** {value}", "- **{label}:** {value}").format(label=soft_label, value=soft_value),
-    ]
-
-    if benefits_entries:
-        bullets.append(
-            tr("- **{label}:** {value}", "- **{label}:** {value}").format(
-                label=benefits_label,
-                value=benefits_value,
-            )
-        )
-
-    with st.container():
-        st.markdown(f"#### {highlight_title}")
-        st.markdown("\n".join(bullets))
-
-
 def _step_summary(schema: dict, _critical: list[str]):
     """Render the summary step and offer follow-up questions.
 
@@ -8953,22 +8850,9 @@ def _step_summary(schema: dict, _critical: list[str]):
     profile_filename = f"{safe_stem}.{profile_ext}"
 
     title, subtitle, intros = _resolve_step_copy("summary", data)
-    header_cols = st.columns((1, 0.45), gap="small")
-    with header_cols[0]:
-        render_step_heading(title, subtitle)
-        for intro in intros:
-            st.caption(intro)
-    with header_cols[1]:
-        st.download_button(
-            tr("⬇️ JSON-Profil exportieren", "⬇️ Export JSON profile"),
-            profile_bytes,
-            file_name=profile_filename,
-            mime=profile_mime,
-            width="stretch",
-            key="download_profile_json",
-        )
-
-    _render_summary_highlights(profile)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
 
     tab_labels = [
         tr("Unternehmen", "Company"),
@@ -9611,6 +9495,16 @@ def _step_summary(schema: dict, _critical: list[str]):
                             "No changes detected – content remains unchanged.",
                         )
                     )
+
+    st.divider()
+    st.download_button(
+        tr("⬇️ JSON-Profil exportieren", "⬇️ Export JSON profile"),
+        profile_bytes,
+        file_name=profile_filename,
+        mime=profile_mime,
+        use_container_width=True,
+        key="download_profile_json",
+    )
 
 
 # --- Navigation helper ---

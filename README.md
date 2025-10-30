@@ -23,6 +23,8 @@
   **DE:** Abhängigkeitsverwaltung gestrafft, sodass `requirements.txt` die einzige Quelle bleibt und beim Deployment keine Warnung zu mehreren Requirements-Dateien mehr erscheint.
 - **EN:** Relocated the “Benefit ideas” module from the sidebar into the Rewards & Benefits step and surfaced the step summary directly above each header.
   **DE:** Das Modul „Benefit-Ideen“ aus der Sidebar in den Schritt „Leistungen & Benefits“ verschoben und die Schrittübersicht direkt über jeder Überschrift platziert.
+- **EN:** Streamlined the Summary step by removing the Key highlights block and relocating the JSON export button to the bottom so final actions stay aligned with the navigation controls.
+  **DE:** Den Zusammenfassungs-Schritt aufgeräumt: Der Block „Wesentliche Eckdaten“ entfällt und der JSON-Export-Button sitzt jetzt unten, passend zu den Navigations-Controls.
 
 ## Testing / Tests
 
