@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Routed company web enrichment through `_update_profile` so “Get Info from Web” immediately mirrors updates across sidebar and form inputs.
+  **DE:** Unternehmens-Webanreicherungen laufen nun über `_update_profile`, damit „Infos aus dem Web holen“ Änderungen sofort in Sidebar und Formular widerspiegelt.
 - **EN:** Replaced unsupported `format: "uri"` markers in the Need Analysis schema with URL patterns, added a whitelist-based sanitizer before Responses API calls, and kept the persisted schema in lockstep.
   **DE:** Nicht unterstützte `format: "uri"`-Marker im Need-Analysis-Schema durch URL-Pattern ersetzt, einen Whitelist-Sanitizer vor Responses-Aufrufen ergänzt und das persistierte Schema synchronisiert.
 - **EN:** Introduced the Aurora Fjord palette across both themes and the skill board, blending midnight blues with glacial aqua and ember accents to steady hierarchy and boost contrast.
