@@ -8,6 +8,7 @@ from datetime import datetime
 from collections.abc import Sequence
 from functools import partial
 from functools import lru_cache
+from io import BytesIO
 from types import ModuleType
 from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlparse
@@ -15,6 +16,8 @@ from urllib.parse import urlparse
 import streamlit as st
 
 from streamlit.runtime.uploaded_file_manager import UploadedFile
+
+from PIL.Image import Image as PILImage
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
@@ -37,6 +40,9 @@ from .salary import (
     format_salary_range,
     prepare_salary_factor_entries,
 )
+
+
+LogoRenderable = PILImage | BytesIO
 
 
 @lru_cache(maxsize=1)
@@ -314,8 +320,10 @@ def _render_branding_overrides() -> None:
 
 
 def render_sidebar(
-    logo_bytes: bytes | None = None,
+    logo_asset: LogoRenderable | None = None,
     *,
+    logo_bytes: bytes | None = None,
+    logo_data_uri: str | None = None,
     pages: Sequence[st.Page] | None = None,
     plan: SidebarPlan | None = None,
     defer: bool = False,
@@ -324,12 +332,19 @@ def render_sidebar(
 
     _ensure_ui_defaults()
 
+    if logo_asset is None and logo_bytes:
+        buffer = BytesIO(logo_bytes)
+        setattr(buffer, "name", "app_logo.gif")
+        logo_asset = buffer
+        if logo_data_uri is None:
+            logo_data_uri = f"data:image/png;base64,{b64encode(logo_bytes).decode('ascii')}"
+
     if plan is None:
         plan = _prepare_sidebar_plan(pages)
         if defer:
             return plan
 
-    return _render_sidebar_sections(plan, logo_bytes)
+    return _render_sidebar_sections(plan, logo_asset, logo_data_uri)
 
 
 def _prepare_sidebar_plan(
@@ -359,15 +374,16 @@ def _prepare_sidebar_plan(
 
 def _render_sidebar_sections(
     plan: SidebarPlan,
-    logo_bytes: bytes | None,
+    logo_asset: LogoRenderable | None,
+    logo_data_uri: str | None,
 ) -> StreamlitPage | None:
     """Render branding, settings, and contextual sections in the sidebar."""
 
     context = _build_context()
 
     with plan.branding:
-        if logo_bytes:
-            _render_branding(logo_bytes)
+        if logo_asset or logo_data_uri:
+            _render_branding(logo_asset, logo_data_uri)
 
     with plan.settings:
         _render_settings()
@@ -384,17 +400,43 @@ def _render_sidebar_sections(
     return plan.page
 
 
-def _render_branding(logo_bytes: bytes) -> None:
+def _render_branding(
+    logo_asset: LogoRenderable | None,
+    logo_data_uri: str | None,
+) -> None:
     """Display company-specific branding when available, otherwise fallback."""
 
     if not _render_company_branding():
-        _render_app_branding(logo_bytes)
+        _render_app_branding(logo_asset, logo_data_uri)
     else:
         _render_app_version()
 
 
-def _render_app_branding(logo_bytes: bytes) -> None:
-    st.image(logo_bytes, width="stretch")
+def _render_app_branding(
+    logo_asset: LogoRenderable | None,
+    logo_data_uri: str | None,
+) -> None:
+    if logo_asset is not None:
+        st.image(logo_asset, use_column_width=True)
+    elif logo_data_uri:
+        alt_text = html.escape(
+            tr(
+                "Cognitive Needs Logo",
+                "Cognitive Needs logo",
+            )
+        )
+        st.markdown(
+            """
+            <img
+                src="%s"
+                alt="%s"
+                class="sidebar-hero__logo"
+                style="max-width: 100%%; height: auto; display: block;"
+            />
+            """
+            % (html.escape(logo_data_uri), alt_text),
+            unsafe_allow_html=True,
+        )
     st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
     _render_app_version()
 
