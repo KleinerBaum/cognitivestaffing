@@ -10,7 +10,7 @@ from functools import partial
 from functools import lru_cache
 from io import BytesIO
 from types import ModuleType
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Literal, Mapping
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -417,7 +417,7 @@ def _render_app_branding(
     logo_data_uri: str | None,
 ) -> None:
     if logo_asset is not None:
-        st.image(logo_asset, use_container_width=True)
+        st.image(logo_asset, width="stretch")
     elif logo_data_uri:
         alt_text = html.escape(
             tr(
@@ -1107,7 +1107,7 @@ def _render_salary_factor_section(factors: list[SalaryFactorEntry]) -> None:
         return
 
     fig = build_factor_influence_chart(top_factors)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     _render_factor_details(top_factors)
 
 
@@ -1143,7 +1143,7 @@ def _chip_button_with_tooltip(
     *,
     key: str,
     type: str,
-    use_container_width: bool,
+    width: Literal["stretch", "content"],
     help: str | None = None,
 ) -> bool:
     tooltip = help or label
@@ -1151,7 +1151,7 @@ def _chip_button_with_tooltip(
         label,
         key=key,
         type=type,
-        use_container_width=use_container_width,
+        width=width,
         help=tooltip,
     )
 

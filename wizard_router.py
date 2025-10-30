@@ -388,7 +388,7 @@ class WizardRouter:
             if cols[0].button(
                 "◀ " + tr("Zurück", "Back"),
                 key=f"wizard_prev_{page.key}",
-                use_container_width=True,
+                width="stretch",
             ):
                 self.navigate(prev_key)
         else:
@@ -403,7 +403,7 @@ class WizardRouter:
                     key=f"wizard_next_{page.key}",
                     type="primary",
                     disabled=True,
-                    use_container_width=True,
+                    width="stretch",
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
             missing_label = tr("Pflichtfelder fehlen", "Complete required fields first")
@@ -415,7 +415,7 @@ class WizardRouter:
                     tr("Weiter", "Next") + " ▶",
                     key=f"wizard_next_{page.key}",
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     self.navigate(next_key, mark_current_complete=True)
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -427,7 +427,7 @@ class WizardRouter:
                 if st.button(
                     tr("Überspringen", "Skip"),
                     key=f"wizard_skip_{page.key}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     self.navigate(next_key, mark_current_complete=True, skipped=True)
         else:

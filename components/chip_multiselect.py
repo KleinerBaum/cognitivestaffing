@@ -76,7 +76,7 @@ def render_chip_button_grid(
                 display_text,
                 key=f"{key_prefix}.{idx}",
                 type=button_type,
-                use_container_width=True,
+                width="stretch",
                 help=option_text if was_truncated else None,
             )
         if pressed and clicked_index is None:
