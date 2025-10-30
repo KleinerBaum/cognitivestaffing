@@ -21,14 +21,14 @@ def _make_messages(text: str) -> list[dict[str, str]]:
     return [{"role": "user", "content": text}]
 
 
-def test_short_prompt_routes_to_nano() -> None:
+def test_short_prompt_routes_to_lightweight() -> None:
     messages = _make_messages("Summarise the meeting in two sentences.")
-    model, estimate = route_model_for_messages(messages, default_model=config.GPT5_MINI)
-    assert model == config.GPT5_NANO
+    model, estimate = route_model_for_messages(messages, default_model=config.REASONING_MODEL)
+    assert model == config.LIGHTWEIGHT_MODEL
     assert estimate.complexity is PromptComplexity.SIMPLE
 
 
-def test_long_prompt_routes_to_mini() -> None:
+def test_long_prompt_routes_to_reasoning() -> None:
     paragraph = " ".join(
         [
             "Please analyse the following competency matrix and identify",
@@ -39,9 +39,16 @@ def test_long_prompt_routes_to_mini() -> None:
         * 8
     )
     messages = _make_messages(paragraph)
-    model, estimate = route_model_for_messages(messages, default_model=config.GPT5_NANO)
-    assert model == config.GPT5_MINI
+    model, estimate = route_model_for_messages(messages, default_model=config.LIGHTWEIGHT_MODEL)
+    assert model == config.REASONING_MODEL
     assert estimate.complexity is PromptComplexity.COMPLEX
+
+
+def test_short_prompt_can_downgrade_to_nano() -> None:
+    messages = _make_messages("Summarise the meeting in two sentences.")
+    model, estimate = route_model_for_messages(messages, default_model=config.LIGHTWEIGHT_MODEL)
+    assert model in {config.LIGHTWEIGHT_MODEL, config.GPT41_NANO}
+    assert estimate.complexity is PromptComplexity.SIMPLE
 
 
 def test_multilingual_prompt_counts_long_compounds() -> None:

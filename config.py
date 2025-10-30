@@ -1,12 +1,12 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-The application now routes lightweight tasks (extraction, basic Q&A,
-classification) to OpenAI's ``gpt-4.1-nano`` and reserves ``gpt-5.1-nano``
-(aka ``gpt-5-nano``) for reasoning-heavy workflows such as summarisation and
-explanations. Automatic fallbacks remain in place (``gpt-5.1-nano`` → ``gpt-4o``
-→ ``gpt-4`` → ``gpt-3.5-turbo``) when capacity constraints occur, and teams can
-still override the routing to force premium models when required. Structured
-retrieval continues to use ``text-embedding-3-large`` (3,072 dimensions) for
+The application favours the officially supported OpenAI Responses models and
+keeps lightweight tasks on ``gpt-4.1-mini``/``gpt-4.1-nano`` while escalating
+reasoning-heavy workloads to the "o" series (``o4-mini`` or ``o3`` variants).
+Automatic fallbacks continue down the stack (``o4-mini`` → ``o3`` →
+``gpt-4o-mini`` → ``gpt-4o`` → ``gpt-4`` → ``gpt-3.5-turbo``) so the platform
+remains resilient when specific tiers experience downtime. Structured retrieval
+continues to use ``text-embedding-3-large`` (3,072 dimensions) for
 higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
@@ -21,6 +21,8 @@ import warnings
 import streamlit as st
 from enum import StrEnum
 from typing import Dict, Mapping
+
+from llm.model_router import ALIASES as ROUTER_ALIASES
 
 try:
     from dotenv import load_dotenv
@@ -39,29 +41,33 @@ CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
 
-# Canonical GPT-5 model identifiers as exposed by the OpenAI API.
-#
-# OpenAI's public documentation describes the "GPT-5" tiers as "GPT-5", "GPT-5
-# mini" and "GPT-5 nano" (with "GPT-5.1" variants exposed via the API). The
-# ``normalise_model_name`` helper below maps historic aliases to these canonical
-# identifiers so the rest of the application only sees the official names.
-GPT5_FULL = "gpt-5.1"
-GPT5_MINI = "gpt-5.1-mini"
-GPT5_NANO = "gpt-5.1-nano"
+# Canonical model identifiers as exposed by the OpenAI Responses API.
 GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
-GPT4O_MINI = "gpt-4.1-nano"
+GPT4O_MINI = "gpt-4o-mini"
+GPT41_MINI = "gpt-4.1-mini"
+GPT41_NANO = "gpt-4.1-nano"
+O4_MINI = "o4-mini"
+O3 = "o3"
+O3_MINI = "o3-mini"
+GPT35 = "gpt-3.5-turbo"
 
 
 _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
-    ("gpt-5-mini", GPT5_MINI),
-    ("gpt-5-mini-latest", GPT5_MINI),
-    ("gpt-5-nano", GPT5_NANO),
-    ("gpt-5-nano-latest", GPT5_NANO),
-    ("gpt-5", GPT5_FULL),
-    ("gpt-5-latest", GPT5_FULL),
-    ("gpt-4.1-nano", GPT4O_MINI),
-    ("gpt-4.1-nano-latest", GPT4O_MINI),
+    ("gpt-4.1-mini", GPT41_MINI),
+    ("gpt-4.1-mini-latest", GPT41_MINI),
+    ("gpt-4.1-nano", GPT41_NANO),
+    ("gpt-4.1-nano-latest", GPT41_NANO),
+    ("o4-mini", O4_MINI),
+    ("o4-mini-latest", O4_MINI),
+    ("o3-mini", O3_MINI),
+    ("o3-mini-latest", O3_MINI),
+    ("o3", O3),
+    ("o3-latest", O3),
+    ("gpt-4o-mini", GPT4O_MINI),
+    ("gpt-4o-mini-latest", GPT4O_MINI),
+    ("gpt-4o", GPT4O),
+    ("gpt-4o-latest", GPT4O),
 )
 
 _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
@@ -69,7 +75,6 @@ _LEGACY_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-4o-mini-2024-07-18", GPT4O_MINI),
     ("gpt-4o-mini-2024-05-13", GPT4O_MINI),
     ("gpt-4o-mini", GPT4O_MINI),
-    ("gpt-4o-latest", GPT4O),
     ("gpt-4o-2024-08-06", GPT4O),
     ("gpt-4o-2024-05-13", GPT4O),
     ("gpt-4o", GPT4O),
@@ -97,20 +102,21 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         if lowered == legacy or lowered.startswith(f"{legacy}-"):
             return replacement
 
-    if lowered.startswith("gpt-5.1-nano"):
-        return GPT5_NANO
-    if lowered.startswith("gpt-5.1-mini"):
-        return GPT5_MINI
-    if lowered.startswith("gpt-5.1"):
-        return GPT5_FULL
-    if lowered.startswith("gpt-5-nano"):
-        return GPT5_NANO
-    if lowered.startswith("gpt-5-mini"):
-        return GPT5_MINI
-    if lowered.startswith("gpt-5"):
-        return GPT5_FULL
+    for alias, replacement in ROUTER_ALIASES.items():
+        lowered_alias = alias.lower()
+        if lowered == lowered_alias or lowered.startswith(f"{lowered_alias}-"):
+            return replacement
+
+    if lowered.startswith("gpt-4.1-mini"):
+        return GPT41_MINI
     if lowered.startswith("gpt-4.1-nano"):
-        return GPT4O_MINI
+        return GPT41_NANO
+    if lowered.startswith("o4-mini"):
+        return O4_MINI
+    if lowered.startswith("o3-mini"):
+        return O3_MINI
+    if lowered.startswith("o3"):
+        return O3
     if lowered.startswith("gpt-4o-mini"):
         return GPT4O_MINI
     if lowered.startswith("gpt-4o"):
@@ -143,16 +149,20 @@ def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -
 
 REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
-REASONING_MODEL_DEFAULT = GPT5_NANO
+LIGHTWEIGHT_MODEL_DEFAULT = GPT41_MINI
+REASONING_MODEL_DEFAULT = O4_MINI
 
 _SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
     REASONING_MODEL_DEFAULT,
-    GPT5_FULL,
-    GPT5_MINI,
+    GPT41_NANO,
+    GPT41_MINI,
+    O3,
+    O3_MINI,
     GPT4O,
+    GPT4O_MINI,
     GPT4,
+    GPT35,
 }
 
 
@@ -164,10 +174,6 @@ def _resolve_supported_model(value: str | None, fallback: str) -> str:
     candidate = normalise_model_name(value)
     if candidate in _SUPPORTED_MODEL_CHOICES:
         return candidate
-    if candidate in {GPT4O, GPT4}:
-        return fallback or LIGHTWEIGHT_MODEL_DEFAULT
-    if candidate in {GPT5_FULL, GPT5_MINI}:
-        return fallback or REASONING_MODEL_DEFAULT
     if candidate:
         warnings.warn(
             "Unsupported default model '%s'; falling back to '%s'." % (candidate, fallback),
@@ -561,13 +567,62 @@ for key, value in list(MODEL_ROUTING.items()):
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT5_FULL): [GPT5_FULL, GPT5_MINI, GPT5_NANO, GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_MINI): [GPT5_MINI, GPT5_NANO, GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT5_NANO): [GPT5_NANO, GPT5_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT4O): [GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name(GPT4): [GPT4, "gpt-3.5-turbo"],
-    _canonical_model_name("gpt-3.5-turbo"): ["gpt-3.5-turbo"],
+    _canonical_model_name(GPT41_MINI): [
+        GPT41_MINI,
+        GPT41_NANO,
+        GPT4O_MINI,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT41_NANO): [
+        GPT41_NANO,
+        GPT4O_MINI,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(O4_MINI): [
+        O4_MINI,
+        O3_MINI,
+        O3,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(O3_MINI): [
+        O3_MINI,
+        O3,
+        O4_MINI,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(O3): [
+        O3,
+        O4_MINI,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT4O_MINI): [
+        GPT4O_MINI,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT4O): [
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT4): [
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT35): [
+        GPT35,
+    ],
 }
 
 
@@ -579,7 +634,7 @@ def _build_task_fallbacks() -> Dict[str, list[str]]:
         if task == "embedding":
             mapping[task] = [model_name]
             continue
-        preferred = model_name or OPENAI_MODEL or GPT4O
+        preferred = model_name or OPENAI_MODEL or LIGHTWEIGHT_MODEL_DEFAULT
         canonical = _canonical_model_name(preferred)
         fallbacks = MODEL_FALLBACKS.get(canonical, [preferred])
         # Ensure the preferred model is first in the list and remove duplicates while preserving order.

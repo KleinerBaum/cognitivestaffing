@@ -8,7 +8,7 @@ import re
 import unicodedata
 from typing import Iterable, Mapping, Sequence
 
-from config import GPT5_MINI, GPT5_NANO, is_model_available
+from config import GPT41_NANO, LIGHTWEIGHT_MODEL, REASONING_MODEL, is_model_available
 
 _WORD_PATTERN = re.compile(r"[\w\-]+", flags=re.UNICODE)
 
@@ -98,15 +98,24 @@ def route_model_for_messages(
     estimate = estimate_prompt_complexity(messages)
     chosen = default_model
     normalised = (default_model or "").strip().lower()
-    mini = GPT5_MINI.strip().lower()
-    nano = GPT5_NANO.strip().lower()
+    lightweight = LIGHTWEIGHT_MODEL.strip().lower()
+    reasoning = REASONING_MODEL.strip().lower()
+    nano = GPT41_NANO.strip().lower()
 
-    if normalised == mini and estimate.complexity is PromptComplexity.SIMPLE:
-        candidate = GPT5_NANO
+    if normalised == reasoning and estimate.complexity is PromptComplexity.SIMPLE:
+        candidate = LIGHTWEIGHT_MODEL
+        if is_model_available(candidate):
+            chosen = candidate
+    elif normalised == lightweight and estimate.complexity is PromptComplexity.COMPLEX:
+        candidate = REASONING_MODEL
+        if is_model_available(candidate):
+            chosen = candidate
+    elif normalised == lightweight and estimate.total_tokens < 120:
+        candidate = GPT41_NANO
         if is_model_available(candidate):
             chosen = candidate
     elif normalised == nano and estimate.complexity is PromptComplexity.COMPLEX:
-        candidate = GPT5_MINI
+        candidate = REASONING_MODEL
         if is_model_available(candidate):
             chosen = candidate
 

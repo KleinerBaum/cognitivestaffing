@@ -28,7 +28,7 @@ async def respond(req: Request):
             agent,
             input=f"Action {action_id} with payload: {json.dumps(payload)}",
             # You can set model config including reasoning effort here per event:
-            run_config={"model": config.GPT5_MINI, "reasoning": {"effort": "minimal"}},
+            run_config={"model": config.REASONING_MODEL, "reasoning": {"effort": "minimal"}},
         )
         return {"ok": True, "messages": result.messages}
     # Message event
