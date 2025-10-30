@@ -63,6 +63,7 @@ def profile_text_input(
     default: Any | None = None,
     value_formatter: Callable[[Any | None], str] | None = None,
     widget_factory: Callable[..., str] | None = None,
+    allow_callbacks: bool = True,
     **kwargs: Any,
 ) -> str:
     """Render a text input bound to ``path`` within the profile."""
@@ -80,12 +81,13 @@ def profile_text_input(
     call_kwargs = dict(kwargs)
     if placeholder is not None:
         call_kwargs.setdefault("placeholder", placeholder)
+    if allow_callbacks:
+        call_kwargs.setdefault("on_change", _build_on_change(path, widget_key))
 
     return factory(
         label,
         value=display_value,
         key=widget_key,
-        on_change=_build_on_change(path, widget_key),
         **call_kwargs,
     )
 

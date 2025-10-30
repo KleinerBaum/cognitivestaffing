@@ -9446,6 +9446,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                         question_text,
                         key=f"fu_{field_path}",
                         label_visibility="collapsed",
+                        allow_callbacks=False,
                     )
                 submit_label = tr(
                     "Folgeantworten anwenden",

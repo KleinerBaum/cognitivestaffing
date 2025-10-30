@@ -22,6 +22,7 @@ def text_input(
     default: Any | None = None,
     value_formatter: Callable[[Any | None], str] | None = None,
     widget_factory: Callable[..., str] | None = None,
+    allow_callbacks: bool = True,
     **kwargs: Any,
 ) -> str:
     """Render a profile-bound text input using the shared widget factory."""
@@ -34,6 +35,7 @@ def text_input(
         default=default,
         value_formatter=value_formatter,
         widget_factory=widget_factory,
+        allow_callbacks=allow_callbacks,
         **kwargs,
     )
 
