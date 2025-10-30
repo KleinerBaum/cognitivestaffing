@@ -9509,7 +9509,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         profile_bytes,
         file_name=profile_filename,
         mime=profile_mime,
-        use_container_width=True,
+        width="stretch",
         key="download_profile_json",
     )
 
