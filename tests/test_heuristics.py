@@ -1,4 +1,5 @@
 import logging
+from importlib import import_module
 
 import pytest
 import ingest.heuristics as heuristics
@@ -13,6 +14,23 @@ from ingest.heuristics import (
 from openai_utils.extraction import _prepare_job_ad_payload
 from models.need_analysis import NeedAnalysisProfile
 from utils.json_parse import parse_extraction
+
+
+def _has_spacy_pipeline() -> bool:
+    try:
+        module = import_module("spacy")
+    except ModuleNotFoundError:
+        return False
+    try:
+        module.load("de_core_news_sm")
+    except OSError:
+        return False
+    except Exception:
+        return False
+    return True
+
+
+HAS_SPACY_PIPELINE = _has_spacy_pipeline()
 
 
 def test_guess_job_title_retains_gender_suffix() -> None:
@@ -102,6 +120,10 @@ def test_guess_city_from_standort_hint() -> None:
     assert profile.location.primary_city == "Stuttgart"
 
 
+@pytest.mark.skipif(
+    not HAS_SPACY_PIPELINE,
+    reason="spaCy German pipeline not installed (optional dependency)",
+)
 def test_spacy_fallback_city_and_country_lowercase() -> None:
     text = "wir suchen verstärkung in düsseldorf, deutschland mit sofortigem start"
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
@@ -134,6 +156,10 @@ def test_apply_basic_fallbacks_uses_llm_city(monkeypatch: pytest.MonkeyPatch) ->
     assert calls
 
 
+@pytest.mark.skipif(
+    not HAS_SPACY_PIPELINE,
+    reason="spaCy German pipeline not installed (optional dependency)",
+)
 def test_spacy_fallback_uses_english_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -214,6 +240,10 @@ def test_apply_basic_fallbacks_logs_benefits(caplog: pytest.LogCaptureFixture) -
     assert record.heuristic_rule == "benefits_section"
 
 
+@pytest.mark.skipif(
+    not HAS_SPACY_PIPELINE,
+    reason="spaCy German pipeline not installed (optional dependency)",
+)
 def test_spacy_respects_invalid_metadata() -> None:
     text = "arbeitsort düsseldorf mit option in deutschland zu reisen"
     profile = NeedAnalysisProfile()
@@ -223,6 +253,10 @@ def test_spacy_respects_invalid_metadata() -> None:
     assert profile.location.primary_city == "Düsseldorf"
 
 
+@pytest.mark.skipif(
+    not HAS_SPACY_PIPELINE,
+    reason="spaCy German pipeline not installed (optional dependency)",
+)
 def test_spacy_does_not_override_high_confidence() -> None:
     text = "einsatzort düsseldorf"
     profile = NeedAnalysisProfile()

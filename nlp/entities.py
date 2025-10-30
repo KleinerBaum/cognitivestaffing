@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Iterable, List
+from typing import TYPE_CHECKING, Any, Iterable, List
 
-import spacy
-from spacy.language import Language
+try:  # pragma: no cover - optional dependency guard
+    import spacy
+except ImportError:  # pragma: no cover - fallback when dependency missing
+    spacy = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:
+    from spacy.language import Language
+else:  # pragma: no cover - only used when spaCy is missing at runtime
+    Language = Any  # type: ignore[assignment,misc]
 
 try:  # pragma: no cover - optional dependency guard
     import pycountry
 except ImportError:  # pragma: no cover - fallback when dependency missing
     pycountry = None  # type: ignore[assignment]
+
+
+logger = logging.getLogger(__name__)
 
 
 _MODEL_NAME = "de_core_news_sm"
@@ -50,6 +61,11 @@ else:  # pragma: no cover - exercised only when dependency missing
 def _load_de_pipeline() -> Language:
     """Return the German spaCy pipeline or raise if unavailable."""
 
+    if spacy is None:
+        raise RuntimeError(
+            "spaCy is not installed. Install the optional NLP dependencies to "
+            "enable location entity extraction."
+        )
     try:
         return spacy.load(_MODEL_NAME)
     except OSError as exc:  # pragma: no cover - import error surface area
@@ -63,6 +79,8 @@ def _load_de_pipeline() -> Language:
 def _load_optional_pipeline(model_name: str) -> Language | None:
     """Best-effort loader for non-German spaCy pipelines."""
 
+    if spacy is None:
+        return None
     try:
         return spacy.load(model_name)
     except OSError:  # pragma: no cover - optional dependency guard
@@ -98,6 +116,12 @@ def _normalise_lang_key(lang: str | None) -> str:
 
 def get_shared_pipeline(lang: str | None = None) -> Language | None:
     """Load a spaCy pipeline suitable for ``lang``."""
+
+    if spacy is None:
+        logger.debug(
+            "spaCy not installed – location entity extraction disabled.",
+        )
+        return None
 
     lang_key = _normalise_lang_key(lang)
     for model_name in _iter_model_candidates(lang_key):
