@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **EN:** Refined the Summary step with a dedicated "Create a job ad" section featuring a compact field selector, collapsible preferences, and kept manual additions next to the generation controls while relocating the internal-process review to the Process step.
+  **DE:** Den Summary-Schritt überarbeitet: Eigener Bereich „Stellenanzeige erstellen“ mit kompakter Feldauswahl und einklappbaren Präferenzen, manuelle Ergänzungen beim Generator belassen und die Übersicht „Interne Prozesse definieren“ in den Prozess-Schritt verschoben.
+
 - **EN:** Routed company web enrichment through `_update_profile` so “Get Info from Web” immediately mirrors updates across sidebar and form inputs.
   **DE:** Unternehmens-Webanreicherungen laufen nun über `_update_profile`, damit „Infos aus dem Web holen“ Änderungen sofort in Sidebar und Formular widerspiegelt.
 - **EN:** Replaced unsupported `format: "uri"` markers in the Need Analysis schema with URL patterns, added a whitelist-based sanitizer before Responses API calls, and kept the persisted schema in lockstep.
