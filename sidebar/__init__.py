@@ -417,7 +417,7 @@ def _render_app_branding(
     logo_data_uri: str | None,
 ) -> None:
     if logo_asset is not None:
-        st.image(logo_asset, use_column_width=True)
+        st.image(logo_asset, use_container_width=True)
     elif logo_data_uri:
         alt_text = html.escape(
             tr(
