@@ -32,7 +32,7 @@ from config import (  # noqa: E402
     OPENAI_BASE_URL,
     OPENAI_ORGANIZATION,
     OPENAI_PROJECT,
-    WIZARD_ORDER_V2,
+    WIZARD_STEP_ORDER_ENABLED,
 )
 from llm.model_router import pick_model  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
@@ -78,9 +78,9 @@ else:
 if MODEL_ID:
     st.session_state.setdefault("router.resolved_model", MODEL_ID)
 
-if WIZARD_ORDER_V2:
+if WIZARD_STEP_ORDER_ENABLED:
     wizard_state = st.session_state.setdefault("wizard", {})
-    wizard_state.setdefault("feature", "order_v2")
+    wizard_state.setdefault("feature", "step_order")
 
 if st.session_state.get("openai_api_key_missing"):
     st.warning(

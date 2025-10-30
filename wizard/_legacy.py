@@ -60,7 +60,7 @@ from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
-from config import WIZARD_ORDER_V2
+from config import WIZARD_STEP_ORDER_ENABLED
 from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
@@ -9827,7 +9827,7 @@ def run_wizard() -> None:
 
     st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
     schema, critical = _load_wizard_configuration()
-    if WIZARD_ORDER_V2:
+    if WIZARD_STEP_ORDER_ENABLED:
         _run_wizard_v2(schema, critical)
     else:
         _run_wizard_legacy(schema, critical)

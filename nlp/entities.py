@@ -63,8 +63,7 @@ def _load_de_pipeline() -> Language:
 
     if spacy is None:
         raise RuntimeError(
-            "spaCy is not installed. Install the optional NLP dependencies to "
-            "enable location entity extraction."
+            "spaCy is not installed. Install the optional NLP dependencies to enable location entity extraction."
         )
     try:
         return spacy.load(_MODEL_NAME)

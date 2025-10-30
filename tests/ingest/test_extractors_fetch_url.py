@@ -63,7 +63,9 @@ class DummySession:
         return response
 
 
-def _patch_session(monkeypatch: pytest.MonkeyPatch, handler: Callable[["DummySession", str, float, bool], DummyResponse]) -> DummySession:
+def _patch_session(
+    monkeypatch: pytest.MonkeyPatch, handler: Callable[["DummySession", str, float, bool], DummyResponse]
+) -> DummySession:
     created_session = DummySession(handler)
 
     def _factory() -> DummySession:

@@ -13,6 +13,19 @@
 
 ## Unreleased
 
+- **EN:** Simplified wizard step naming to a sequential 01–08 scheme and
+  replaced the legacy `WIZARD_ORDER_V2` flag with `WIZARD_STEP_ORDER_ENABLED`
+  (preferring the `WIZARD_STEP_ORDER` env var while still honouring the old
+  name for compatibility).
+  **DE:** Die Wizard-Schritte konsequent auf die Sequenz 01–08 umgestellt und
+  das veraltete Flag `WIZARD_ORDER_V2` durch `WIZARD_STEP_ORDER_ENABLED`
+  ersetzt (bevorzugt die Umgebungsvariable `WIZARD_STEP_ORDER`, unterstützt
+  aber weiterhin den alten Namen für die Rückwärtskompatibilität).
+- **EN:** Added a bilingual repository structure overview so new contributors
+  can map directories like `pages/`, `wizard/`, and `core/` quickly.
+  **DE:** Eine zweisprachige Übersicht über die Projektstruktur ergänzt, damit
+  neue Contributor:innen Verzeichnisse wie `pages/`, `wizard/` und `core/`
+  schneller zuordnen können.
 - **EN:** CI now enforces a minimum 88% coverage, uploads XML/HTML reports, and keeps `llm`-tagged pytest cases opt-in to guard heuristics without blocking offline contributors.
   **DE:** Die CI erzwingt jetzt mindestens 88 % Testabdeckung, lädt XML-/HTML-Berichte hoch und behandelt `llm`-markierte Pytest-Cases optional, damit Heuristiken geschützt bleiben und Offline-Contributor:innen weiterarbeiten können.
 - **EN:** Introduced the Aurora Fjord palette across both themes and the skill board, combining midnight blues with glacial aqua and ember highlights for calmer hierarchy and reliable contrast.
@@ -168,6 +181,42 @@ streamlit app.py
 
 
 All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `prompt_registry` helper, keeping the Streamlit UI and CLI utilities in sync.
+
+### Repository structure / Projektstruktur
+
+- `pages/`
+  - **EN:** Streamlit wizard step modules named sequentially (`01_…` → `08_…`).
+  - **DE:** Streamlit-Wizard-Schritte mit fortlaufender Nummerierung (`01_…` bis `08_…`).
+- `wizard/`
+  - **EN:** Flow control, widget helpers, and routing glue for the multi-step UI.
+  - **DE:** Ablaufsteuerung, Widget-Helfer und Routing-Logik für den Multi-Step-Wizard.
+- `core/`
+  - **EN:** Schema definitions, canonicalisation utilities, and business rules.
+  - **DE:** Schema-Definitionen, Kanonisierung und Business-Logik.
+- `components/`
+  - **EN:** Reusable Streamlit UI building blocks (cards, tables, forms).
+  - **DE:** Wiederverwendbare Streamlit-Bausteine (Karten, Tabellen, Formulare).
+- `sidebar/`
+  - **EN:** Sidebar orchestration including plan previews and branding settings.
+  - **DE:** Sidebar-Steuerung inklusive Plan-Vorschau und Branding-Einstellungen.
+- `state/`
+  - **EN:** Session-state bootstrapping and migration helpers.
+  - **DE:** Initialisierung und Migration des Streamlit-Session-State.
+- `llm/`
+  - **EN:** OpenAI Responses integration, routing, and tool execution helpers.
+  - **DE:** Anbindung an die OpenAI-Responses-API, Routing und Tool-Ausführung.
+- `ingest/`
+  - **EN:** PDF/HTML loaders, enrichment heuristics, and optional RAG connectors.
+  - **DE:** PDF-/HTML-Loader, Anreicherungsheuristiken und optionale RAG-Anbindung.
+- `exports/`
+  - **EN:** JSON/Markdown transformations plus downstream formatting helpers.
+  - **DE:** JSON-/Markdown-Transformationen und nachgelagerte Formatierung.
+- `docs/`
+  - **EN:** Extended developer and operator documentation beyond the README.
+  - **DE:** Erweiterte Entwickler:innen- und Betriebsdokumentation zusätzlich zum README.
+- `tests/`
+  - **EN:** Pytest suites for UI flows, schema propagation, and integrations.
+  - **DE:** Pytest-Suites für UI-Flüsse, Schema-Propagation und Integrationen.
 
 ## UI Binding Rules / UI-Bindungsregeln
 

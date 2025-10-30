@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **EN:** Renamed the wizard step files to a sequential `01_…` → `08_…` pattern
+  and replaced the `WIZARD_ORDER_V2` flag with `WIZARD_STEP_ORDER_ENABLED`
+  (preferring the `WIZARD_STEP_ORDER` env variable while keeping the legacy
+  name as a fallback).
+  **DE:** Wizard-Schritte auf das fortlaufende Muster `01_…` bis `08_…`
+  umgestellt und das Flag `WIZARD_ORDER_V2` durch `WIZARD_STEP_ORDER_ENABLED`
+  ersetzt (bevorzugt die Umgebungsvariable `WIZARD_STEP_ORDER`, akzeptiert aber
+  weiterhin den alten Namen als Fallback).
+- **EN:** Documented the repository folder structure so maintainers can map
+  modules like `pages/`, `wizard/`, and `core/` at a glance.
+  **DE:** Die Projektordner dokumentiert, damit Maintainer:innen Verzeichnisse
+  wie `pages/`, `wizard/` und `core/` auf einen Blick zuordnen können.
 - **EN:** Refined the Summary step with a dedicated "Create a job ad" section featuring a compact field selector, collapsible preferences, and kept manual additions next to the generation controls while relocating the internal-process review to the Process step.
   **DE:** Den Summary-Schritt überarbeitet: Eigener Bereich „Stellenanzeige erstellen“ mit kompakter Feldauswahl und einklappbaren Präferenzen, manuelle Ergänzungen beim Generator belassen und die Übersicht „Interne Prozesse definieren“ in den Prozess-Schritt verschoben.
 

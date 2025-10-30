@@ -29,10 +29,10 @@ def _load_pages() -> Iterable[WizardPage]:
         "02_company",
         "03_team",
         "04_role_tasks",
-        "04b_skills",
-        "05_benefits",
-        "06_interview",
-        "07_summary",
+        "05_skills",
+        "06_benefits",
+        "07_interview",
+        "08_summary",
     ):
         module = _load_page_module(name)
         page = getattr(module, "PAGE", None)

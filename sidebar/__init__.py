@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from functools import partial
 from functools import lru_cache
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -26,11 +26,6 @@ from streamlit.delta_generator import DeltaGenerator
 from streamlit.navigation.page import StreamlitPage
 
 # Lazy wizard imports keep the module importable without circular references.
-if TYPE_CHECKING:
-    from wizard import logic as _WizardLogicModule
-    from wizard import FIELD_SECTION_MAP as _FieldSectionMap
-    from wizard import get_missing_critical_fields as _GetMissingCriticalFields
-    from wizard import _update_profile as _WizardUpdateProfile
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
@@ -244,7 +239,9 @@ def _sync_brand_claim() -> None:
 
 
 def _sync_logo_url() -> None:
-    _wizard_update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
+    _wizard_update_profile(
+        ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value)
+    )
 
 
 def _render_branding_overrides() -> None:
@@ -1031,7 +1028,6 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
         _render_salary_factor_section(factors)
     else:
         _render_explanation_text(explanation)
-
 
 
 def _render_salary_factor_section(factors: list[SalaryFactorEntry]) -> None:
