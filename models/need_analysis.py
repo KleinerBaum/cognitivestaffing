@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from core.normalization import sanitize_optional_url_value
+from core.validation import is_placeholder
 from utils.normalization import (
     normalize_company_size,
     normalize_phone_number,
@@ -269,7 +270,7 @@ class Compensation(BaseModel):
             return bool(value)
         if isinstance(value, str):
             stripped = value.strip()
-            if not stripped:
+            if is_placeholder(stripped):
                 return False
             lower = stripped.casefold()
             try:
@@ -282,8 +283,6 @@ class Compensation(BaseModel):
             except Exception:
                 # Fallback if json_parse cannot be imported yet (e.g. circular init)
                 pass
-            if lower in {"none", "null", "n/a", "na"}:
-                return False
             return bool(stripped)
         return bool(value)
 

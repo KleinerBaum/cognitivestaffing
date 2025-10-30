@@ -14,6 +14,7 @@ from ingest.types import ContentBlock
 from utils.normalization import country_to_iso2, normalize_country
 
 from core.confidence import RULE_LOCK_TIER
+from core.validation import is_placeholder
 
 LOGGER = logging.getLogger(__name__)
 
@@ -244,9 +245,6 @@ _DISQUALIFIED_CITY_TOKENS = {
     "worldwide",
     "flexibel",
     "flexible",
-    "n/a",
-    "keine",
-    "k.a.",
 }
 
 _TABLE_KEYWORDS = {
@@ -806,7 +804,7 @@ def _is_valid_city_candidate(candidate: str, *, entities: LocationEntities | Non
     if not any(char.isalpha() for char in candidate):
         return False
     lower_candidate = candidate.casefold()
-    if lower_candidate in _DISQUALIFIED_CITY_TOKENS:
+    if lower_candidate in _DISQUALIFIED_CITY_TOKENS or is_placeholder(candidate):
         return False
     if entities is not None:
         city_matches = {city.casefold() for city in entities.cities}
@@ -821,7 +819,7 @@ def _is_valid_city_candidate(candidate: str, *, entities: LocationEntities | Non
     parts = [part for part in re.split(r"[-\s]+", candidate) if part]
     if len(parts) >= 2 and all(part[0].isalpha() and part[0].isupper() for part in parts):
         combined = " ".join(parts).casefold()
-        if combined not in _DISQUALIFIED_CITY_TOKENS:
+        if combined not in _DISQUALIFIED_CITY_TOKENS and not is_placeholder(combined):
             return True
     if entities is None and candidate and candidate[0].isupper() and len(candidate) >= 3:
         return True
