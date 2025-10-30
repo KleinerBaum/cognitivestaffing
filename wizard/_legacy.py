@@ -8069,6 +8069,86 @@ def _step_process():
     _render_stakeholders(data, "ui.process.stakeholders")
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
 
+    st.markdown(tr("### Interne Prozesse definieren", "### Define internal processes"))
+    st.caption(
+        tr(
+            "Ordne Informationsschleifen zu und halte Aufgaben für jede Phase fest.",
+            "Assign information loops and capture tasks for each process phase.",
+        )
+    )
+
+    stakeholders_preview = data.get("stakeholders", []) or []
+    phases_preview = data.get("phases", []) or []
+
+    process_cols = st.columns(2, gap="small")
+    with process_cols[0]:
+        st.markdown(tr("#### Informationsschleifen", "#### Information loops"))
+        phase_labels = _phase_display_labels(phases_preview)
+        phase_indices = list(range(len(phase_labels)))
+        if not stakeholders_preview:
+            st.info(
+                tr(
+                    "Keine Stakeholder hinterlegt – Schritt 'Prozess' ausfüllen, um Personen zu ergänzen.",
+                    "No stakeholders available – populate the Process step to add contacts.",
+                )
+            )
+        else:
+            for idx, person in enumerate(stakeholders_preview):
+                display_name = person.get("name") or tr("Stakeholder {number}", "Stakeholder {number}").format(
+                    number=idx + 1
+                )
+                st.markdown(f"**{display_name}**")
+                existing_selection = _filter_phase_indices(
+                    person.get("information_loop_phases", []), len(phase_indices)
+                )
+                if existing_selection != person.get("information_loop_phases"):
+                    person["information_loop_phases"] = existing_selection
+                if phase_indices:
+                    label_pairs = [(index, _phase_label_formatter(phase_labels)(index)) for index in phase_indices]
+                    selected_phase_strings = [str(index) for index in existing_selection]
+                    chosen_phases = chip_multiselect_mapped(
+                        tr("Phasen", "Phases"),
+                        option_pairs=label_pairs,
+                        values=selected_phase_strings,
+                        dropdown=True,
+                        key_suffix=f"process.information_loops.{idx}",
+                    )
+                    person["information_loop_phases"] = [int(value) for value in chosen_phases if str(value).isdigit()]
+                else:
+                    person["information_loop_phases"] = []
+            if not phase_indices:
+                st.info(
+                    tr(
+                        "Lege Prozessphasen an, um Informationsschleifen zuzuweisen.",
+                        "Create process phases to assign information loops.",
+                    )
+                )
+
+    with process_cols[1]:
+        st.markdown(tr("#### Aufgaben & Übergaben", "#### Tasks & handovers"))
+        if not phases_preview:
+            st.info(
+                tr(
+                    "Noch keine Phasen definiert – Schritt 'Prozess' ergänzt Aufgaben.",
+                    "No phases defined yet – use the Process step to add them.",
+                )
+            )
+        else:
+            for idx, phase in enumerate(phases_preview):
+                phase_name = phase.get("name") or tr("Phase {number}", "Phase {number}").format(number=idx + 1)
+                st.markdown(f"**{phase_name}**")
+                current_tasks = phase.get("task_assignments", "")
+                phase["task_assignments"] = st.text_area(
+                    tr("Aufgabenbeschreibung", "Task notes"),
+                    value=current_tasks,
+                    key=f"process.tasks.{idx}",
+                    label_visibility="collapsed",
+                    placeholder=tr(
+                        "To-dos, Verantwortlichkeiten und Hand-offs …",
+                        "To-dos, responsibilities, and hand-offs …",
+                    ),
+                )
+
     c1, c2 = st.columns(2)
     original_timeline = data.get("recruitment_timeline", "")
     default_start, default_end = _timeline_default_range(original_timeline)
@@ -8958,145 +9038,6 @@ def _step_summary(schema: dict, _critical: list[str]):
 
     target_value = st.session_state.get(StateKeys.JOB_AD_SELECTED_AUDIENCE, "")
 
-    st.markdown(tr("#### Weiterverarbeitung", "#### Next steps"))
-    next_step_cols = st.columns((1.4, 1.1, 1.2), gap="small")
-
-    with next_step_cols[0]:
-        st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
-        st.markdown(f"**{tr('Ausgewählter Stil', 'Selected style')}**: {style_label}")
-        if style_description:
-            st.caption(style_description)
-        if style_example:
-            st.caption(style_example)
-        brand_profile_value = data.get("company", {}).get("brand_keywords")
-        brand_profile_text = brand_profile_value if isinstance(brand_profile_value, str) else ""
-        if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state and brand_profile_text:
-            st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = brand_profile_text
-
-        company_brand_state = st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS)
-        if UIKeys.JOB_AD_BRAND_TONE not in st.session_state:
-            initial_brand = company_brand_state if isinstance(company_brand_state, str) else brand_profile_text
-            st.session_state[UIKeys.JOB_AD_BRAND_TONE] = (initial_brand or "").strip()
-
-        stored_brand = (st.session_state.get(UIKeys.JOB_AD_BRAND_TONE) or "").strip()
-        if UIKeys.JOB_AD_BRAND_TONE_INPUT not in st.session_state:
-            st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = stored_brand
-
-        brand_value_input = st.text_input(
-            tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
-            key=UIKeys.JOB_AD_BRAND_TONE_INPUT,
-        )
-        normalized_brand = brand_value_input.strip() if isinstance(brand_value_input, str) else stored_brand
-        if normalized_brand:
-            st.session_state[UIKeys.JOB_AD_BRAND_TONE] = normalized_brand
-            _update_profile("company.brand_keywords", normalized_brand)
-        else:
-            st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE, None)
-            _update_profile("company.brand_keywords", None)
-
-        profile_brand_comparable = brand_profile_text if isinstance(brand_profile_text, str) else ""
-        if normalized_brand != profile_brand_comparable:
-            st.session_state[UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG] = True
-        else:
-            st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG, None)
-
-        if suggestions:
-            option_map = {s.key: s for s in suggestions}
-            option_keys = list(option_map.keys())
-            if UIKeys.JOB_AD_TARGET_SELECT not in st.session_state or (
-                st.session_state[UIKeys.JOB_AD_TARGET_SELECT] not in option_keys
-            ):
-                st.session_state[UIKeys.JOB_AD_TARGET_SELECT] = option_keys[0]
-            selected_option = st.radio(
-                tr("Empfehlungen", "Recommendations"),
-                option_keys,
-                format_func=lambda k: f"{option_map[k].title} – {option_map[k].description}",
-                key=UIKeys.JOB_AD_TARGET_SELECT,
-            )
-            chosen = option_map.get(selected_option, suggestions[0])
-            target_value = f"{chosen.title} – {chosen.description}"
-
-        custom_target = st.text_input(
-            tr("Eigene Zielgruppe", "Custom target audience"),
-            key=UIKeys.JOB_AD_CUSTOM_TARGET,
-        ).strip()
-        if custom_target:
-            target_value = custom_target
-
-        st.caption(
-            tr(
-                "Alle Inhalte und die gewählte Zielgruppe fließen in die Anzeige ein.",
-                "All available content and the chosen target audience feed into the job ad.",
-            )
-        )
-
-    with next_step_cols[1]:
-        st.markdown(f"##### {tr('Exportoptionen', 'Export options')}")
-        if UIKeys.JOB_AD_FORMAT not in st.session_state:
-            st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
-        format_options = {
-            "docx": "DOCX",
-            "pdf": "PDF",
-            "markdown": "Markdown",
-            "json": "JSON",
-        }
-        format_choice = st.selectbox(
-            tr("Export-Format", "Export format"),
-            options=list(format_options.keys()),
-            format_func=lambda k: format_options[k],
-            key=UIKeys.JOB_AD_FORMAT,
-        )
-
-        font_default = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0])
-        if StateKeys.JOB_AD_FONT_CHOICE not in st.session_state:
-            st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = font_default
-        if UIKeys.JOB_AD_FONT not in st.session_state:
-            st.session_state[UIKeys.JOB_AD_FONT] = font_default
-        font_index = (
-            FONT_CHOICES.index(st.session_state.get(UIKeys.JOB_AD_FONT, font_default))
-            if st.session_state.get(UIKeys.JOB_AD_FONT, font_default) in FONT_CHOICES
-            else 0
-        )
-        st.selectbox(
-            tr("Schriftart für Export", "Export font"),
-            FONT_CHOICES,
-            index=font_index,
-            key=UIKeys.JOB_AD_FONT,
-            on_change=_update_job_ad_font,
-        )
-        st.caption(
-            tr(
-                "Die Auswahl gilt für Stellenanzeige und Interviewleitfaden, sofern unterstützt.",
-                "Selection applies to job ad and interview guide when supported.",
-            )
-        )
-
-    with next_step_cols[2]:
-        st.markdown(f"##### {tr('Branding-Assets', 'Brand assets')}")
-        logo_file = st.file_uploader(
-            tr("Logo hochladen (optional)", "Upload logo (optional)"),
-            type=["png", "jpg", "jpeg", "svg"],
-            key=UIKeys.JOB_AD_LOGO_UPLOAD,
-        )
-        if logo_file is not None:
-            _set_company_logo(logo_file.getvalue())
-        logo_bytes = _get_company_logo_bytes()
-        if logo_bytes:
-            try:
-                st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180)
-            except Exception:
-                st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
-            if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
-                _set_company_logo(None)
-                st.rerun()
-
-    st.divider()
-
-    st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
-
-    filtered_profile = _prepare_job_ad_data(profile_payload)
-    filtered_profile["lang"] = lang
-
     raw_selection = st.session_state.get(StateKeys.JOB_AD_SELECTED_FIELDS)
     widget_state_exists = any(f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}" in st.session_state for group in group_keys)
     if raw_selection is None:
@@ -9111,7 +9052,14 @@ def _step_summary(schema: dict, _critical: list[str]):
     is_de = lang.lower().startswith("de")
     field_labels = {field.key: field.label_de if is_de else field.label_en for field in JOB_AD_FIELDS}
 
-    st.markdown(tr("##### Feldauswahl", "##### Field selection"))
+    st.markdown(tr("### Stellenanzeige erstellen", "### Create a job ad"))
+    st.caption(
+        tr(
+            "Verwalte Inhalte, Tonalität und Optimierungen für deine Anzeige.",
+            "Manage content, tone, and optimisations for your job ad.",
+        )
+    )
+    st.markdown(tr("#### Feldauswahl", "#### Field selection"))
     st.caption(
         tr(
             "Wähle die Inhalte, die in die Stellenanzeige übernommen werden.",
@@ -9119,44 +9067,185 @@ def _step_summary(schema: dict, _critical: list[str]):
         )
     )
 
-    aggregated_selection: set[str] = set()
-    for group in group_keys:
-        group_fields = [field for field in JOB_AD_FIELDS if field.group == group and field.key in available_field_keys]
-        if not group_fields:
-            continue
-
-        group_label_de, group_label_en = JOB_AD_GROUP_LABELS.get(group, (group, group))
-        widget_label = group_label_de if is_de else group_label_en
-        widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}"
-        options = [field.key for field in group_fields]
-        default_values = [key for key in options if key in stored_selection]
-
-        existing_values = st.session_state.get(widget_key)
-        if existing_values is not None:
-            sanitized_values = [value for value in existing_values if value in options]
-            if sanitized_values != existing_values:
-                st.session_state[widget_key] = sanitized_values
-
-        option_pairs = [(key, field_labels.get(key, key)) for key in options]
-        selected_group_values = chip_multiselect_mapped(
-            widget_label,
-            option_pairs=option_pairs,
-            values=default_values,
-            key_suffix=widget_key,
+    grouped_fields = [
+        (
+            group,
+            [field for field in JOB_AD_FIELDS if field.group == group and field.key in available_field_keys],
         )
-        st.session_state[widget_key] = selected_group_values
-        aggregated_selection.update(selected_group_values)
+        for group in group_keys
+    ]
+    grouped_fields = [(group, fields) for group, fields in grouped_fields if fields]
+
+    aggregated_selection: set[str] = set()
+    columns_per_row = 2 if len(grouped_fields) > 1 else 1
+    for start_index in range(0, len(grouped_fields), columns_per_row):
+        row_groups = grouped_fields[start_index : start_index + columns_per_row]
+        field_cols = st.columns(len(row_groups), gap="small")
+        for column, (group, group_fields) in zip(field_cols, row_groups):
+            with column:
+                group_label_de, group_label_en = JOB_AD_GROUP_LABELS.get(group, (group, group))
+                widget_label = group_label_de if is_de else group_label_en
+                widget_key = f"{UIKeys.JOB_AD_FIELD_PREFIX}{group}"
+                options = [field.key for field in group_fields]
+                default_values = [key for key in options if key in stored_selection]
+
+                existing_values = st.session_state.get(widget_key)
+                if existing_values is not None:
+                    sanitized_values = [value for value in existing_values if value in options]
+                    if sanitized_values != existing_values:
+                        st.session_state[widget_key] = sanitized_values
+
+                option_pairs = [(key, field_labels.get(key, key)) for key in options]
+                selected_group_values = chip_multiselect_mapped(
+                    widget_label,
+                    option_pairs=option_pairs,
+                    values=default_values,
+                    key_suffix=widget_key,
+                )
+                st.session_state[widget_key] = selected_group_values
+                aggregated_selection.update(selected_group_values)
 
     selected_fields = resolve_job_ad_field_selection(available_field_keys, aggregated_selection)
     st.session_state[StateKeys.JOB_AD_SELECTED_FIELDS] = set(selected_fields)
 
-    st.markdown(tr("### 1. Stellenanzeige-Generator", "### 1. Job ad generator"))
-    st.caption(
-        tr(
-            "Verwalte Inhalte, Tonalität und Optimierungen für deine Anzeige.",
-            "Manage content, tone, and optimisations for your job ad.",
-        )
-    )
+    with st.expander(tr("Präferenzen", "Preferences")):
+        pref_cols = st.columns((1.4, 1.1, 1.2), gap="small")
+
+        with pref_cols[0]:
+            st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
+            st.markdown(f"**{tr('Ausgewählter Stil', 'Selected style')}**: {style_label}")
+            if style_description:
+                st.caption(style_description)
+            if style_example:
+                st.caption(style_example)
+            brand_profile_value = data.get("company", {}).get("brand_keywords")
+            brand_profile_text = brand_profile_value if isinstance(brand_profile_value, str) else ""
+            if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state and brand_profile_text:
+                st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = brand_profile_text
+
+            company_brand_state = st.session_state.get(UIKeys.COMPANY_BRAND_KEYWORDS)
+            if UIKeys.JOB_AD_BRAND_TONE not in st.session_state:
+                initial_brand = company_brand_state if isinstance(company_brand_state, str) else brand_profile_text
+                st.session_state[UIKeys.JOB_AD_BRAND_TONE] = (initial_brand or "").strip()
+
+            stored_brand = (st.session_state.get(UIKeys.JOB_AD_BRAND_TONE) or "").strip()
+            if UIKeys.JOB_AD_BRAND_TONE_INPUT not in st.session_state:
+                st.session_state[UIKeys.JOB_AD_BRAND_TONE_INPUT] = stored_brand
+
+            brand_value_input = st.text_input(
+                tr("Brand-Ton oder Keywords", "Brand tone or keywords"),
+                key=UIKeys.JOB_AD_BRAND_TONE_INPUT,
+            )
+            normalized_brand = brand_value_input.strip() if isinstance(brand_value_input, str) else stored_brand
+            if normalized_brand:
+                st.session_state[UIKeys.JOB_AD_BRAND_TONE] = normalized_brand
+                _update_profile("company.brand_keywords", normalized_brand)
+            else:
+                st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE, None)
+                _update_profile("company.brand_keywords", None)
+
+            profile_brand_comparable = brand_profile_text if isinstance(brand_profile_text, str) else ""
+            if normalized_brand != profile_brand_comparable:
+                st.session_state[UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG] = True
+            else:
+                st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG, None)
+
+            if suggestions:
+                option_map = {s.key: s for s in suggestions}
+                option_keys = list(option_map.keys())
+                if UIKeys.JOB_AD_TARGET_SELECT not in st.session_state or (
+                    st.session_state[UIKeys.JOB_AD_TARGET_SELECT] not in option_keys
+                ):
+                    st.session_state[UIKeys.JOB_AD_TARGET_SELECT] = option_keys[0]
+                selected_option = st.radio(
+                    tr("Empfehlungen", "Recommendations"),
+                    option_keys,
+                    format_func=lambda k: f"{option_map[k].title} – {option_map[k].description}",
+                    key=UIKeys.JOB_AD_TARGET_SELECT,
+                )
+                chosen = option_map.get(selected_option, suggestions[0])
+                target_value = f"{chosen.title} – {chosen.description}"
+
+            custom_target = st.text_input(
+                tr("Eigene Zielgruppe", "Custom target audience"),
+                key=UIKeys.JOB_AD_CUSTOM_TARGET,
+            ).strip()
+            if custom_target:
+                target_value = custom_target
+
+            st.caption(
+                tr(
+                    "Alle Inhalte und die gewählte Zielgruppe fließen in die Anzeige ein.",
+                    "All available content and the chosen target audience feed into the job ad.",
+                )
+            )
+
+        with pref_cols[1]:
+            st.markdown(f"##### {tr('Exportoptionen', 'Export options')}")
+            if UIKeys.JOB_AD_FORMAT not in st.session_state:
+                st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
+            format_options = {
+                "docx": "DOCX",
+                "pdf": "PDF",
+                "markdown": "Markdown",
+                "json": "JSON",
+            }
+            format_choice = st.selectbox(
+                tr("Export-Format", "Export format"),
+                options=list(format_options.keys()),
+                format_func=lambda k: format_options[k],
+                key=UIKeys.JOB_AD_FORMAT,
+            )
+
+            font_default = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0])
+            if StateKeys.JOB_AD_FONT_CHOICE not in st.session_state:
+                st.session_state[StateKeys.JOB_AD_FONT_CHOICE] = font_default
+            if UIKeys.JOB_AD_FONT not in st.session_state:
+                st.session_state[UIKeys.JOB_AD_FONT] = font_default
+            font_index = (
+                FONT_CHOICES.index(st.session_state.get(UIKeys.JOB_AD_FONT, font_default))
+                if st.session_state.get(UIKeys.JOB_AD_FONT, font_default) in FONT_CHOICES
+                else 0
+            )
+            st.selectbox(
+                tr("Schriftart für Export", "Export font"),
+                FONT_CHOICES,
+                index=font_index,
+                key=UIKeys.JOB_AD_FONT,
+                on_change=_update_job_ad_font,
+            )
+            st.caption(
+                tr(
+                    "Die Auswahl gilt für Stellenanzeige und Interviewleitfaden, sofern unterstützt.",
+                    "Selection applies to job ad and interview guide when supported.",
+                )
+            )
+
+        with pref_cols[2]:
+            st.markdown(f"##### {tr('Branding-Assets', 'Brand assets')}")
+            logo_file = st.file_uploader(
+                tr("Logo hochladen (optional)", "Upload logo (optional)"),
+                type=["png", "jpg", "jpeg", "svg"],
+                key=UIKeys.JOB_AD_LOGO_UPLOAD,
+            )
+            if logo_file is not None:
+                _set_company_logo(logo_file.getvalue())
+            logo_bytes = _get_company_logo_bytes()
+            if logo_bytes:
+                try:
+                    st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=180)
+                except Exception:
+                    st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
+                if st.button(tr("Logo entfernen", "Remove logo"), key="job_ad_logo_remove"):
+                    _set_company_logo(None)
+                    st.rerun()
+
+    st.divider()
+
+    st.session_state[StateKeys.JOB_AD_SELECTED_AUDIENCE] = target_value
+
+    filtered_profile = _prepare_job_ad_data(profile_payload)
+    filtered_profile["lang"] = lang
 
     manual_entries: list[dict[str, str]] = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
     with st.expander(tr("Manuelle Ergänzungen", "Manual additions")):
@@ -9319,7 +9408,7 @@ def _step_summary(schema: dict, _critical: list[str]):
         style_description=style_description,
     )
 
-    st.markdown(tr("### 3. Boolean Searchstring", "### 3. Boolean search string"))
+    st.markdown(tr("### Boolean Searchstring", "### Boolean search string"))
     st.caption(
         tr(
             "Nutze Jobtitel und Skills, um zielgenaue Suchen aufzubauen.",
@@ -9331,89 +9420,6 @@ def _step_summary(schema: dict, _critical: list[str]):
         boolean_skill_terms=boolean_skill_terms,
         boolean_title_synonyms=boolean_title_synonyms,
     )
-
-    st.markdown(tr("### 4. Interne Prozesse definieren", "### 4. Define internal processes"))
-    st.caption(
-        tr(
-            "Ordne Informationsschleifen zu und halte Aufgaben für jede Phase fest.",
-            "Assign information loops and capture tasks for each process phase.",
-        )
-    )
-
-    process_data = data.get("process", {}) or {}
-    stakeholders = process_data.get("stakeholders", []) or []
-    phases = process_data.get("phases", []) or []
-
-    process_cols = st.columns(2, gap="small")
-    with process_cols[0]:
-        st.markdown(tr("#### Informationsschleifen", "#### Information loops"))
-        phase_labels = _phase_display_labels(phases)
-        phase_indices = list(range(len(phase_labels)))
-        if not stakeholders:
-            st.info(
-                tr(
-                    "Keine Stakeholder hinterlegt – Schritt 'Prozess' ausfüllen, um Personen zu ergänzen.",
-                    "No stakeholders available – populate the Process step to add contacts.",
-                )
-            )
-        else:
-            for idx, person in enumerate(stakeholders):
-                display_name = person.get("name") or tr("Stakeholder {number}", "Stakeholder {number}").format(
-                    number=idx + 1
-                )
-                st.markdown(f"**{display_name}**")
-                existing_selection = _filter_phase_indices(
-                    person.get("information_loop_phases", []), len(phase_indices)
-                )
-                if existing_selection != person.get("information_loop_phases"):
-                    person["information_loop_phases"] = existing_selection
-                if phase_indices:
-                    label_pairs = [(index, _phase_label_formatter(phase_labels)(index)) for index in phase_indices]
-                    selected_phase_strings = [str(index) for index in existing_selection]
-                    chosen_summary_phases = chip_multiselect_mapped(
-                        tr("Phasen", "Phases"),
-                        option_pairs=label_pairs,
-                        values=selected_phase_strings,
-                        dropdown=True,
-                        key_suffix=f"summary.information_loops.{idx}",
-                    )
-                    person["information_loop_phases"] = [
-                        int(value) for value in chosen_summary_phases if str(value).isdigit()
-                    ]
-                else:
-                    person["information_loop_phases"] = []
-            if not phase_indices:
-                st.info(
-                    tr(
-                        "Lege Prozessphasen an, um Informationsschleifen zuzuweisen.",
-                        "Create process phases to assign information loops.",
-                    )
-                )
-
-    with process_cols[1]:
-        st.markdown(tr("#### Aufgaben & Übergaben", "#### Tasks & handovers"))
-        if not phases:
-            st.info(
-                tr(
-                    "Noch keine Phasen definiert – Schritt 'Prozess' ergänzt Aufgaben.",
-                    "No phases defined yet – use the Process step to add them.",
-                )
-            )
-        else:
-            for idx, phase in enumerate(phases):
-                phase_name = phase.get("name") or tr("Phase {number}", "Phase {number}").format(number=idx + 1)
-                st.markdown(f"**{phase_name}**")
-                current_tasks = phase.get("task_assignments", "")
-                phase["task_assignments"] = st.text_area(
-                    tr("Aufgabenbeschreibung", "Task notes"),
-                    value=current_tasks,
-                    key=f"summary.process.tasks.{idx}",
-                    label_visibility="collapsed",
-                    placeholder=tr(
-                        "To-dos, Verantwortlichkeiten und Hand-offs …",
-                        "To-dos, responsibilities, and hand-offs …",
-                    ),
-                )
 
     manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
 
