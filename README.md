@@ -13,14 +13,20 @@
 
 ## Unreleased
 
-- **EN:** Simplified wizard step naming to a sequential 01–08 scheme and
-  replaced the legacy `WIZARD_ORDER_V2` flag with `WIZARD_STEP_ORDER_ENABLED`
-  (preferring the `WIZARD_STEP_ORDER` env var while still honouring the old
-  name for compatibility).
-  **DE:** Die Wizard-Schritte konsequent auf die Sequenz 01–08 umgestellt und
-  das veraltete Flag `WIZARD_ORDER_V2` durch `WIZARD_STEP_ORDER_ENABLED`
-  ersetzt (bevorzugt die Umgebungsvariable `WIZARD_STEP_ORDER`, unterstützt
-  aber weiterhin den alten Namen für die Rückwärtskompatibilität).
+- **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
+  the file order `01_jobad.py` → `08_summary.py`, and the deprecated
+  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed.
+  **DE:** Die Wizard-Navigation ist finalisiert: Die acht Streamlit-Seiten
+  folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, und die
+  veralteten Flags `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden
+  entfernt.
+- **EN:** Unified the schema layer: `NeedAnalysisProfile` now drives ingestion,
+  wizard bindings, exports, and tests without the `SCHEMA_WIZARD_V1` rollout
+  toggle; canonical dot-paths live in `constants/keys.py::ProfilePaths`.
+  **DE:** Die Schema-Schicht ist vereinheitlicht: `NeedAnalysisProfile`
+  steuert Ingestion, Wizard-Bindings, Exporte und Tests ohne den Rollout-Schalter
+  `SCHEMA_WIZARD_V1`; die kanonischen Dot-Pfade stehen in
+  `constants/keys.py::ProfilePaths`.
 - **EN:** Added a bilingual repository structure overview so new contributors
   can map directories like `pages/`, `wizard/`, and `core/` quickly.
   **DE:** Eine zweisprachige Übersicht über die Projektstruktur ergänzt, damit
@@ -222,22 +228,22 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 
 **EN:**
 
-- Always get widget default values via `wizard._logic.get_value("<path>")`. The profile stored in `st.session_state[StateKeys.PROFILE]` is the single source of truth and already includes schema defaults.
-- Use schema paths (e.g., `"company.name"`, `"location.primary_city"`) as widget keys. Avoid binding inputs to legacy keys like `ui.*` when reading data.
-- Prefer using the helper functions in `components.widget_factory`—such as `text_input`, `select`, and `multiselect` (re-exported in `wizard.wizard`)—when creating widgets. They automatically hook into `_update_profile` so that the sidebar, summary, and exports stay in sync.
-- Call `state.ensure_state.ensure_state()` early; it now migrates legacy flat keys like `company_name` or `contact_email` into the canonical schema paths (`company.name`, `company.contact_email`) so scraped data prefills the forms.
-- After ingestion (via URL, PDF, or text paste), run `coerce_and_fill()` **and** `normalize_profile()` before rendering the form. This ensures consistent casing, whitespace, and de-duplication of lists. The normalizer returns a validated dictionary and will trigger the JSON “repair” fallback only if the cleaned payload would violate the schema.
+- Always get widget default values via `wizard._logic.get_value(ProfilePaths.<FIELD>)`. The profile stored in `st.session_state[StateKeys.PROFILE]` is the single source of truth and already includes schema defaults.
+- Use canonical schema paths from `constants.keys.ProfilePaths` as widget keys. Avoid inventing ad-hoc session keys so the summary, follow-ups, and exports stay aligned.
+- Prefer the helper functions in `components.widget_factory`—such as `text_input`, `select`, and `multiselect` (re-exported in `wizard.wizard`)—when creating widgets. They automatically hook into `_update_profile` so that the sidebar, summary, and exports stay in sync.
+- Call `state.ensure_state.ensure_state()` early; it normalises ingestion payloads into the `NeedAnalysisProfile`, drops unknown keys, and seeds defaults so scraped data prefills the forms.
+- After ingestion (via URL, PDF, or text paste), run `coerce_and_fill()` **and** `normalize_profile()` before rendering the form. This ensures consistent casing, whitespace, and de-duplication of lists. The normaliser returns a validated dictionary and will trigger the JSON “repair” fallback only if the cleaned payload would violate the schema.
 
 **DE:**
 
-- Widget-Vorgabewerte immer über `wizard._logic.get_value("<Pfad>")` beziehen. Die Daten in `st.session_state[StateKeys.PROFILE]` sind die einzige Wahrheitsquelle und enthalten bereits Schema-Defaults.
-- Verwende Schema-Pfade (z. B. `"company.name"`, `"location.primary_city"`) als Widget-Keys. Binde Eingaben nicht an veraltete `ui.*`-Keys, wenn Daten ausgelesen werden.
+- Widget-Vorgabewerte immer über `wizard._logic.get_value(ProfilePaths.<FELD>)` beziehen. Die Daten in `st.session_state[StateKeys.PROFILE]` sind die einzige Wahrheitsquelle und enthalten bereits Schema-Defaults.
+- Verwende kanonische Schema-Pfade aus `constants.keys.ProfilePaths` als Widget-Keys. Verzichte auf spontane Session-Keys, damit Zusammenfassung, Follow-ups und Exporte synchron bleiben.
 - Nutze zum Rendern die Helfer in `components.widget_factory` (`text_input`, `select`, `multiselect`, auch via `wizard.wizard` verfügbar). Diese binden das Widget automatisch an `_update_profile`, sodass Sidebar, Zusammenfassung und Exporte stets synchron bleiben.
-- Rufe früh `state.ensure_state.ensure_state()` auf; dort werden Legacy-Schlüssel wie `company_name` oder `contact_email` auf die kanonischen Schema-Pfade (`company.name`, `company.contact_email`) migriert, damit Scrapes die Formulare vorbefüllen.
+- Rufe früh `state.ensure_state.ensure_state()` auf; dort werden Ingestion-Payloads in das `NeedAnalysisProfile` überführt, unbekannte Keys entfernt und Defaults gesetzt, damit Scrapes die Formulare vorbefüllen.
 - Führe nach dem Import (URL, PDF oder Texteingabe) immer `coerce_and_fill()` **und** `normalize_profile()` aus, bevor das Formular gerendert wird. So werden Groß-/Kleinschreibung, Leerzeichen und Duplikate in Listen vereinheitlicht. Der Normalisierer liefert ein valides Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Profil sonst gegen das Schema verstoßen würde.
 
-## RecruitingWizard Schema – Single Source of Truth / Master-Schema RecruitingWizard
+## Unified NeedAnalysisProfile Schema – Single Source of Truth / Einheitliches NeedAnalysisProfile-Master-Schema
 
-**EN:** The new RecruitingWizard master schema (see `core/schema.py`) unifies the company, team, role, skills, benefits, interview process, and summary data that power the wizard UI, business logic, and exports. Each field is represented by a typed Pydantic model, and `WIZARD_KEYS_CANONICAL` provides the canonical dot-paths so that other modules (`wizard/`, `question_logic.py`, exports) remain in sync. Source tracking and gap analysis are first-class citizens via `SourceMap` entries (`origin: user|extract|web` with confidence and `source_url`) and `MissingFieldMap` flags that carry field ownership and reminders. Enable this schema by setting `SCHEMA_WIZARD_V1=1` (a feature flag is in place for gradual rollout). When the flag is active, `state.ensure_state.ensure_state()` seeds Streamlit with a `RecruitingWizard` payload, wizard pages surface the new Department/Team sections, and exports rely on `WIZARD_KEYS_CANONICAL`. Legacy payloads are mapped via `WIZARD_ALIASES`, so existing ingestion flows continue to work while the UI migrates to the new structure.
+**EN:** The unified `NeedAnalysisProfile` model (`models/need_analysis.py`) powers ingestion, the wizard, exports, and regression tests. `constants/keys.ProfilePaths` lists the canonical dot-paths that widget bindings, summary cards, follow-up logic, and exporters consume. `core.schema.coerce_and_fill()` normalises incoming payloads, applying the remaining `ALIASES` for backwards compatibility before validating with Pydantic. `state.ensure_state.ensure_state()` stores a JSON dump of the profile in `st.session_state[StateKeys.PROFILE]` on every run so UI panels, metadata, and exports share the same structure. Confidence metadata (such as `field_confidence`, `high_confidence_fields`, `locked_fields`, and `rules`) lives alongside the profile in `StateKeys.PROFILE_METADATA`, allowing the UI to highlight auto-filled fields without polluting the core schema.
 
-**DE:** Das neue Master-Schema der RecruitingWizard-Anwendung (`core/schema.py`) vereint die Daten zu Unternehmen, Team, Rolle, Skills, Benefits, Interview-Prozess und Zusammenfassung als zentrale Wahrheitsquelle für Wizard, Logik und Exporte. Jedes Feld wird durch ein typisiertes Pydantic-Modell repräsentiert, und `WIZARD_KEYS_CANONICAL` liefert die kanonischen Dot-Pfade, damit UI (`wizard/`), Business-Logik und Exporte identisch bleiben. Source-Tracking und Gap-Analyse sind über `SourceMap`-Einträge (Herkunft: user|extract|web mit Confidence und `source_url`) und `MissingFieldMap`-Markierungen mit Verantwortlichen und Hinweisen direkt unterstützt. Aktiviere das Schema mit `SCHEMA_WIZARD_V1=1` (ein Feature-Flag ermöglicht einen gestaffelten Rollout). Ist das Flag aktiv, initialisiert `state.ensure_state.ensure_state()` den Streamlit-State mit einem `RecruitingWizard`-Payload, die Wizard-Seiten zeigen die neuen Department-/Team-Abschnitte und Exporte stützen sich auf `WIZARD_KEYS_CANONICAL`. Bestehende Payloads bleiben dank `WIZARD_ALIASES` kompatibel, sodass bisherige Import-Pfade weiterlaufen, während die UI auf die neue Struktur umstellt.
+**DE:** Das vereinheitlichte Modell `NeedAnalysisProfile` (`models/need_analysis.py`) treibt Ingestion, Wizard, Exporte und Regressionstests an. `constants/keys.ProfilePaths` enthält die kanonischen Dot-Pfade, die von Widgets, Zusammenfassungen, Follow-up-Logik und Exportern genutzt werden. `core.schema.coerce_and_fill()` normalisiert eingehende Payloads, wendet die verbliebenen `ALIASES` zur Rückwärtskompatibilität an und validiert anschließend mit Pydantic. `state.ensure_state.ensure_state()` speichert bei jedem Lauf einen JSON-Dump des Profils in `st.session_state[StateKeys.PROFILE]`, sodass UI-Panels, Metadaten und Exporte dieselbe Struktur teilen. Confidence-Metadaten (z. B. `field_confidence`, `high_confidence_fields`, `locked_fields` und `rules`) liegen begleitend in `StateKeys.PROFILE_METADATA`, wodurch automatisch gefüllte Felder hervorgehoben werden können, ohne das Kernschema zu verändern.

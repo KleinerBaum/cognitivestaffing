@@ -8,13 +8,15 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 
 **EN:**
 
-1. Declare new schema fields in `models/need_analysis.py` (NeedAnalysisProfile)
-   or `core/schema.py` (RecruitingWizard) and regenerate defaults if required.
+1. Declare or adjust schema fields in
+   `models/need_analysis.py::NeedAnalysisProfile` and refresh generated wizard
+   metadata via `python -m scripts.propagate_schema --apply` when field lists
+   change.
 2. Add matching constants to `constants/keys.py::ProfilePaths` so widgets and
    exports share the same dot-path.
-3. Create a step function in `wizard.py` or a helper in `wizard/sections/*.py`.
-   Bind widgets with the helpers exposed from `wizard` (`profile_text_input`,
-   `profile_selectbox`, …) and resolve defaults via
+3. Create a step function in `pages/0X_<name>.py` or a helper in
+   `wizard/sections/*.py`. Bind widgets with the helpers exposed from `wizard`
+   (`profile_text_input`, `profile_selectbox`, …) and resolve defaults via
    `wizard._logic.get_value(ProfilePaths.<FIELD>)`.
 4. Register the step inside the navigation order by updating the sequence in
    `pages/__init__.py` and adjust `wizard_router.py` if the entry appears in
@@ -22,15 +24,16 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 5. Add regression coverage: extend `tests/test_value_binding.py` for bindings and
    place functional tests in `tests/wizard/test_<topic>.py`.
 6. Update docs (`README.md`, `docs/CHANGELOG.md`) to highlight the new step and
-   any gating flags.
+   mention any contributor-facing implications.
 
 **DE:**
 
-1. Neue Schemafelder in `models/need_analysis.py` (NeedAnalysisProfile) oder
-   `core/schema.py` (RecruitingWizard) anlegen und ggf. Defaults neu erzeugen.
+1. Neue Schemafelder in `models/need_analysis.py::NeedAnalysisProfile`
+   ergänzen und bei geänderten Feldlisten `python -m scripts.propagate_schema --apply`
+   ausführen, um die generierten Wizard-Metadaten zu aktualisieren.
 2. Passende Konstanten in `constants/keys.py::ProfilePaths` ergänzen, damit
    Widgets und Exporte denselben Dot-Pfad verwenden.
-3. Schritt-Funktion in `wizard.py` oder einem Helper unter
+3. Schritt-Funktion in `pages/0X_<name>.py` oder einem Helper unter
    `wizard/sections/*.py` anlegen. Widgets mit den in `wizard` reexportierten
    Helfern binden (`profile_text_input`, `profile_selectbox`, …) und
    Vorgabewerte über `wizard._logic.get_value(ProfilePaths.<FELD>)` beziehen.
@@ -40,7 +43,7 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 5. Regressionstests erweitern: Bindings in `tests/test_value_binding.py`
    ergänzen und Funktionstests unter `tests/wizard/test_<thema>.py` ablegen.
 6. Dokumentation (`README.md`, `docs/CHANGELOG.md`) mit dem neuen Schritt und
-   etwaigen Feature-Flags aktualisieren.
+   den Auswirkungen für Contributor:innen aktualisieren.
 
 ## Modifying extraction rules / Extraktionsregeln anpassen
 
