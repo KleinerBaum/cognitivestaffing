@@ -273,11 +273,20 @@ def _render_branding_overrides() -> None:
     )
 
     logic = _wizard_logic()
-    current_logo = logic.get_value(ProfilePaths.COMPANY_LOGO_URL.value) or ""
+    logo_key = ProfilePaths.COMPANY_LOGO_URL.value
+    current_logo_value = logic.get_value(logo_key)
+    current_logo = "" if current_logo_value is None else str(current_logo_value)
+
+    session_logo_value = st.session_state.get(logo_key)
+    if session_logo_value is None:
+        st.session_state[logo_key] = current_logo
+    elif not isinstance(session_logo_value, str):
+        st.session_state[logo_key] = str(session_logo_value)
+
     st.text_input(
         tr("Logo-URL überschreiben", "Override logo URL"),
-        value=str(current_logo),
-        key=ProfilePaths.COMPANY_LOGO_URL.value,
+        value=current_logo,
+        key=logo_key,
         placeholder="https://example.com/logo.svg",
         on_change=_sync_logo_url,
     )
