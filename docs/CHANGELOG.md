@@ -2,14 +2,28 @@
 
 ## Unreleased
 
-- **EN:** Renamed the wizard step files to a sequential `01_…` → `08_…` pattern
-  and replaced the `WIZARD_ORDER_V2` flag with `WIZARD_STEP_ORDER_ENABLED`
-  (preferring the `WIZARD_STEP_ORDER` env variable while keeping the legacy
-  name as a fallback).
-  **DE:** Wizard-Schritte auf das fortlaufende Muster `01_…` bis `08_…`
-  umgestellt und das Flag `WIZARD_ORDER_V2` durch `WIZARD_STEP_ORDER_ENABLED`
-  ersetzt (bevorzugt die Umgebungsvariable `WIZARD_STEP_ORDER`, akzeptiert aber
-  weiterhin den alten Namen als Fallback).
+- **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
+  the file order `01_jobad.py` → `08_summary.py`, the deprecated
+  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
+  navigation relies solely on filename ordering.
+  **DE:** Wizard-Navigation finalisiert: Die acht Streamlit-Seiten folgen der
+  Dateireihenfolge `01_jobad.py` → `08_summary.py`, die veralteten Flags
+  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden entfernt und die
+  Reihenfolge ergibt sich ausschließlich aus den Dateinamen.
+- **EN:** Unified the schema layer around `NeedAnalysisProfile`: wizard bindings
+  and exports now consume the same canonical dot-paths from
+  `constants/keys.ProfilePaths`, and the `SCHEMA_WIZARD_V1` rollout flag has
+  been retired.
+  **DE:** Die Schema-Schicht um `NeedAnalysisProfile` vereinheitlicht: Wizard-
+  Bindings und Exporte verwenden dieselben kanonischen Dot-Pfade aus
+  `constants/keys.ProfilePaths`, der Rollout-Schalter `SCHEMA_WIZARD_V1` wurde
+  abgeschafft.
+- **EN:** Refreshed README, developer guide, key registry, and JSON pipeline
+  docs to describe the unified schema, current field names, and the latest
+  wizard flow in English and German.
+  **DE:** README, Developer-Guide, Key-Registry und JSON-Pipeline-Doku
+  überarbeitet – mit einheitlichem Schema, aktuellen Feldnamen und dem
+  neuesten Wizard-Fluss auf Deutsch und Englisch.
 - **EN:** Documented the repository folder structure so maintainers can map
   modules like `pages/`, `wizard/`, and `core/` at a glance.
   **DE:** Die Projektordner dokumentiert, damit Maintainer:innen Verzeichnisse
@@ -72,8 +86,8 @@
   **DE:** Verbleibende Wizard-Helfer wurden in das modulare Paket verlagert; `_update_profile` und die Autofill-Darstellung stehen nun ohne dynamische Importe für bessere Übersicht zur Verfügung.
 - **EN:** Extended branding integration with sidebar overrides—logo uploads, colour pickers, and claim edits now feed exports, while job ads and fallbacks mention the slogan and brand colour by default.
   **DE:** Branding-Integration ausgebaut: Sidebar-Overrides für Logo, Farbe und Claim fließen in Exporte ein; Stellenanzeigen und Fallbacks referenzieren Claim und Markenfarbe automatisch.
-- **EN:** Enabling `SCHEMA_WIZARD_V1` now boots the UI on the RecruitingWizard schema: session state stores the new Company/Department/Team payload, wizard pages highlight the canonical fields, and exports read `WIZARD_KEYS_CANONICAL` with alias-backed fallbacks.
-  **DE:** Mit aktiviertem `SCHEMA_WIZARD_V1` arbeitet die Oberfläche jetzt vollständig auf dem RecruitingWizard-Schema: Der Session-State speichert die neuen Company-/Department-/Team-Daten, die Wizard-Seiten zeigen die kanonischen Felder und Exporte nutzen `WIZARD_KEYS_CANONICAL` mit Alias-Fallbacks.
+- **EN:** Enabling `SCHEMA_WIZARD_V1` booted the UI on the RecruitingWizard schema: session state stored the new Company/Department/Team payload, wizard pages highlighted the canonical fields, and exports read `WIZARD_KEYS_CANONICAL` with alias-backed fallbacks (flag removed in v1.2.0).
+  **DE:** Mit aktiviertem `SCHEMA_WIZARD_V1` arbeitete die Oberfläche vollständig auf dem RecruitingWizard-Schema: Der Session-State speicherte die neuen Company-/Department-/Team-Daten, die Wizard-Seiten zeigten die kanonischen Felder und Exporte nutzten `WIZARD_KEYS_CANONICAL` mit Alias-Fallbacks (Flag seit v1.2.0 entfernt).
 - **EN:** Enforced full NeedAnalysisProfile ↔ wizard alignment by enumerating every schema path in `ProfilePaths`, surfacing them on wizard pages, and verifying coverage via automated tests.
   **DE:** Vollständige NeedAnalysisProfile↔Wizard-Ausrichtung umgesetzt, indem sämtliche Schema-Pfade in `ProfilePaths` erfasst, in den Wizard-Seiten angezeigt und per automatisierten Tests abgesichert werden.
 - **EN:** Improved the salary expectation sidebar: it now surfaces the last estimate with its fallback/source label, visualises factor impacts with Plotly, and reuses the static benefit shortlist whenever the AI call returns no items.
