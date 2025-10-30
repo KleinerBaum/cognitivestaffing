@@ -30,6 +30,8 @@
   **DE:** Die ungenutzten Abhängigkeiten `configloader` und `tenacity` aus `requirements.txt` entfernt, um Deployments schlanker zu halten.
 - **EN:** Moved the sidebar “Benefit ideas” module into the Rewards & Benefits step and positioned the step summary directly above each wizard header.
   **DE:** Das Sidebar-Modul „Benefit-Ideen“ in den Schritt „Leistungen & Benefits“ verschoben und die Schrittübersicht direkt über jede Wizard-Überschrift gesetzt.
+- **EN:** Simplified the Summary step layout by dropping the Key highlights block and moving the JSON export button to the bottom for clearer final actions.
+  **DE:** Das Layout des Zusammenfassungs-Schritts vereinfacht: Der Block „Wesentliche Eckdaten“ entfällt und der JSON-Export-Button steht jetzt unten für klarere Abschlussaktionen.
 - **EN:** Added regression tests for phone number and website URL normalisation to guard the wizard’s new validation paths.
   **DE:** Regressions-Tests für die Normalisierung von Telefonnummern und Website-URLs ergänzt, um die neuen Validierungspfade des Wizards zu schützen.
 
