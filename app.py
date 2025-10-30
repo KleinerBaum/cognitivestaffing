@@ -3,11 +3,12 @@ from __future__ import annotations
 
 from base64 import b64encode
 from io import BytesIO
+import mimetypes
 from pathlib import Path
 import sys
 from typing import cast
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, UnidentifiedImageError
 import streamlit as st
 from streamlit.navigation.page import StreamlitPage
 
@@ -23,6 +24,26 @@ try:
     APP_LOGO_BYTES: bytes | None = APP_LOGO_PATH.read_bytes()
 except FileNotFoundError:
     APP_LOGO_BYTES = None
+
+APP_LOGO_BUFFER: BytesIO | None = None
+APP_LOGO_IMAGE: Image.Image | None = None
+APP_LOGO_DATA_URI: str | None = None
+
+if APP_LOGO_BYTES:
+    APP_LOGO_BUFFER = BytesIO(APP_LOGO_BYTES)
+    setattr(APP_LOGO_BUFFER, "name", APP_LOGO_PATH.name)
+
+    try:
+        with Image.open(BytesIO(APP_LOGO_BYTES)) as loaded_logo:
+            copied_logo = loaded_logo.copy()
+        copied_logo.load()
+        APP_LOGO_IMAGE = copied_logo
+    except UnidentifiedImageError:
+        APP_LOGO_IMAGE = None
+
+    mime_type, _encoding = mimetypes.guess_type(APP_LOGO_PATH.name)
+    safe_mime = mime_type or "image/png"
+    APP_LOGO_DATA_URI = f"data:{safe_mime};base64,{b64encode(APP_LOGO_BYTES).decode('ascii')}"
 
 from openai import OpenAI  # noqa: E402
 
@@ -49,7 +70,7 @@ setup_tracing()
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
     page_title="Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool",
-    page_icon=APP_LOGO_BYTES or "🧭",
+    page_icon=APP_LOGO_IMAGE or APP_LOGO_BUFFER or "🧭",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -293,7 +314,8 @@ advantages_page = st.Page(
 )
 
 sidebar_plan = render_sidebar(
-    logo_bytes=APP_LOGO_BYTES,
+    logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
+    logo_data_uri=APP_LOGO_DATA_URI,
     pages=[wizard_page, advantages_page],
     defer=True,
 )
@@ -312,6 +334,7 @@ else:
 
 if isinstance(sidebar_plan, SidebarPlan):
     render_sidebar(
-        logo_bytes=APP_LOGO_BYTES,
+        logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
+        logo_data_uri=APP_LOGO_DATA_URI,
         plan=sidebar_plan,
     )
