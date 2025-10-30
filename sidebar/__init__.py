@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from collections.abc import Sequence
 from functools import partial
-from typing import Any, Iterable, Mapping
+from functools import lru_cache
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -23,7 +25,12 @@ from utils.usage import build_usage_markdown, usage_totals
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.navigation.page import StreamlitPage
 
-from wizard import FIELD_SECTION_MAP, _update_profile, get_missing_critical_fields, logic
+# Lazy wizard imports keep the module importable without circular references.
+if TYPE_CHECKING:
+    from wizard import logic as _WizardLogicModule
+    from wizard import FIELD_SECTION_MAP as _FieldSectionMap
+    from wizard import get_missing_critical_fields as _GetMissingCriticalFields
+    from wizard import _update_profile as _WizardUpdateProfile
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
@@ -35,6 +42,33 @@ from .salary import (
     format_salary_range,
     prepare_salary_factor_entries,
 )
+
+
+@lru_cache(maxsize=1)
+def _wizard_exports() -> tuple[Mapping[str, int], Callable[[], Sequence[str]], ModuleType, Callable[[str, Any], None]]:
+    from wizard import FIELD_SECTION_MAP, get_missing_critical_fields, logic, _update_profile
+
+    return FIELD_SECTION_MAP, get_missing_critical_fields, logic, _update_profile
+
+
+def _wizard_field_section_map() -> Mapping[str, int]:
+    field_map, _missing_fn, _logic_module, _update_fn = _wizard_exports()
+    return field_map
+
+
+def _wizard_missing_critical_fields() -> Sequence[str]:
+    field_map, missing_fn, _logic_module, _update_fn = _wizard_exports()
+    return tuple(missing_fn())
+
+
+def _wizard_logic() -> ModuleType:
+    field_map, _missing_fn, logic_module, _update_fn = _wizard_exports()
+    return logic_module
+
+
+def _wizard_update_profile(path: str, value: Any) -> None:
+    field_map, _missing_fn, _logic_module, update_fn = _wizard_exports()
+    update_fn(path, value)
 
 
 STEP_LABELS: list[tuple[str, str]] = [
@@ -200,17 +234,17 @@ def _collect_branding_display() -> _BrandingDisplay | None:
 
 
 def _sync_brand_color() -> None:
-    _update_profile(
+    _wizard_update_profile(
         ProfilePaths.COMPANY_BRAND_COLOR.value, st.session_state.get(ProfilePaths.COMPANY_BRAND_COLOR.value)
     )
 
 
 def _sync_brand_claim() -> None:
-    _update_profile(ProfilePaths.COMPANY_CLAIM.value, st.session_state.get(ProfilePaths.COMPANY_CLAIM.value))
+    _wizard_update_profile(ProfilePaths.COMPANY_CLAIM.value, st.session_state.get(ProfilePaths.COMPANY_CLAIM.value))
 
 
 def _sync_logo_url() -> None:
-    _update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
+    _wizard_update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
 
 
 def _render_branding_overrides() -> None:
@@ -220,6 +254,7 @@ def _render_branding_overrides() -> None:
             "Manually adjust branding colour, claim, or logo.",
         )
     )
+    logic = _wizard_logic()
     stored_color = logic.get_value(ProfilePaths.COMPANY_BRAND_COLOR.value)
     normalized_color = _normalize_brand_color(stored_color if isinstance(stored_color, str) else None)
     color_value = normalized_color or DEFAULT_BRAND_COLOR
@@ -230,6 +265,7 @@ def _render_branding_overrides() -> None:
         on_change=_sync_brand_color,
     )
 
+    logic = _wizard_logic()
     current_claim = logic.get_value(ProfilePaths.COMPANY_CLAIM.value) or ""
     st.text_input(
         tr("Claim/Slogan anpassen", "Adjust claim/tagline"),
@@ -239,6 +275,7 @@ def _render_branding_overrides() -> None:
         on_change=_sync_brand_claim,
     )
 
+    logic = _wizard_logic()
     current_logo = logic.get_value(ProfilePaths.COMPANY_LOGO_URL.value) or ""
     st.text_input(
         tr("Logo-URL überschreiben", "Override logo URL"),
@@ -547,10 +584,10 @@ def _build_context() -> SidebarContext:
     summary: Mapping[str, Any] = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
     skill_buckets: Mapping[str, Iterable[str]] = st.session_state.get(StateKeys.SKILL_BUCKETS, {})
 
-    missing = set(get_missing_critical_fields())
+    missing = set(_wizard_missing_critical_fields())
     missing_by_section: dict[int, list[str]] = {}
     for field in missing:
-        section = FIELD_SECTION_MAP.get(field)
+        section = _wizard_field_section_map().get(field)
         if section is None:
             continue
         missing_by_section.setdefault(section, []).append(field)
