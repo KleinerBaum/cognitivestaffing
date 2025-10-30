@@ -42,6 +42,8 @@
   **DE:** Abhängigkeitsverwaltung gestrafft, sodass `requirements.txt` die einzige Quelle bleibt und beim Deployment keine Warnung zu mehreren Requirements-Dateien mehr erscheint.
 - **EN:** Trimmed the default dependency stack to the core Streamlit app requirements and moved OCR/spaCy tooling into `requirements-optional.txt` for leaner installs.
   **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools für schlankere Installationen nach `requirements-optional.txt` ausgelagert.
+- **EN:** Added `PyMuPDF` to the core requirements so PDF-based interview guide exports work out of the box on clean deployments.
+  **DE:** `PyMuPDF` zu den Kern-Requirements ergänzt, damit PDF-Interview-Guides auf frischen Deployments ohne Zusatzschritte funktionieren.
 - **EN:** Relocated the “Benefit ideas” module from the sidebar into the Rewards & Benefits step and surfaced the step summary directly above each header.
   **DE:** Das Modul „Benefit-Ideen“ aus der Sidebar in den Schritt „Leistungen & Benefits“ verschoben und die Schrittübersicht direkt über jeder Überschrift platziert.
 - **EN:** Refined the Summary step with a dedicated "Create a job ad" section, a compact field selector, and a collapsible preferences block while moving the internal-process review back into the Process step.

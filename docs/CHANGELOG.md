@@ -59,6 +59,8 @@
   **DE:** Abhängigkeitsverwaltung konsolidiert, sodass `requirements.txt` als Deployment-Quelle dient und Streamlit keine konkurrierenden Requirements-Dateien mehr meldet.
 - **EN:** Slimmed the default requirement set to core app dependencies and exposed optional OCR/spaCy extras via `requirements-optional.txt` for contributors who need advanced ingestion features.
   **DE:** Die Standard-Requirements auf zentrale App-Abhängigkeiten verschlankt und optionale OCR-/spaCy-Erweiterungen über `requirements-optional.txt` verfügbar gemacht, damit Contributor:innen bei Bedarf die erweiterten Ingestion-Funktionen aktivieren können.
+- **EN:** Added `PyMuPDF` to the primary dependency list so PDF exports for interview guides run on fresh environments without manual installs.
+  **DE:** `PyMuPDF` zur primären Abhängigkeitsliste hinzugefügt, damit PDF-Exporte der Interview-Guides in neuen Umgebungen ohne manuelle Installation funktionieren.
 - **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.
   **DE:** Die ungenutzten Abhängigkeiten `configloader` und `tenacity` aus `requirements.txt` entfernt, um Deployments schlanker zu halten.
 - **EN:** Moved the sidebar “Benefit ideas” module into the Rewards & Benefits step and positioned the step summary directly above each wizard header.

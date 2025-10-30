@@ -21,6 +21,7 @@ langdetect>=1.0
 lxml>=4.9
 pycountry>=23.12
 pypdf>=4.0
+PyMuPDF>=1.26
 
 # Application utilities
 python-docx>=0.8.11
