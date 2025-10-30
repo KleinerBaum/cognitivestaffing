@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict
 
@@ -105,3 +106,28 @@ def test_get_essential_skills_falls_back_to_cache(monkeypatch):
 
     skills = esco.get_essential_skills(uri, lang="en")
     assert skills == expected
+
+
+def test_get_essential_skills_uses_offline_cache_for_placeholder(monkeypatch, caplog):
+    """Placeholder URIs with cached skills must avoid API calls and warnings."""
+
+    monkeypatch.setattr(esco, "_is_offline", lambda: False)
+
+    calls: list[tuple[str, str]] = []
+
+    def fake_api(uri: str, lang: str) -> list[str]:
+        calls.append((uri, lang))
+        return ["unexpected"]
+
+    monkeypatch.setattr(esco, "_api_essential_skills", fake_api)
+
+    uri = next(iter(esco._SKILLS_BY_URI))
+    expected = esco._offline_essential_skills(uri)
+    assert expected, "fixture must provide cached skills"
+
+    with caplog.at_level(logging.WARNING, logger="cognitive_needs.esco"):
+        skills = esco.get_essential_skills(uri, lang="en")
+
+    assert skills == expected
+    assert calls == []
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]

@@ -415,6 +415,9 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     if not uri:
         return []
 
+    if uri in _SKILLS_BY_URI:
+        return _offline_essential_skills(uri)
+
     if _is_offline() or uri.startswith("offline://"):
         return _offline_essential_skills(uri)
 
