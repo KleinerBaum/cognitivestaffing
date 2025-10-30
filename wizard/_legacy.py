@@ -2444,17 +2444,17 @@ def _enrich_company_profile_from_about(
 
     if isinstance(extracted, dict):
         mapping = {
-            "name": "name",
-            "location": "hq_location",
-            "mission": "mission",
-            "culture": "culture",
+            "name": ("name", ProfilePaths.COMPANY_NAME),
+            "location": ("hq_location", ProfilePaths.COMPANY_HQ_LOCATION),
+            "mission": ("mission", ProfilePaths.COMPANY_MISSION),
+            "culture": ("culture", ProfilePaths.COMPANY_CULTURE),
         }
-        for source, target in mapping.items():
+        for source, (target, path) in mapping.items():
             if target not in company or not str(company.get(target, "")).strip():
                 value = extracted.get(source)
                 if isinstance(value, str) and value.strip():
                     normalized = value.strip()
-                    company[target] = normalized
+                    _update_profile(path, normalized)
                     _record_company_page_source(
                         f"company.{target}",
                         normalized,
@@ -2466,7 +2466,7 @@ def _enrich_company_profile_from_about(
     if "size" not in company or not str(company.get("size", "")).strip():
         size_value = _extract_company_size(text)
         if size_value:
-            company["size"] = size_value
+            _update_profile(ProfilePaths.COMPANY_SIZE, size_value)
             _record_company_page_source(
                 "company.size",
                 size_value,
@@ -2531,13 +2531,13 @@ def _enrich_company_profile_via_web(
     lang = getattr(st.session_state, "lang", None)
     source_label = tr("Websuche", "Web search", lang=lang)
     field_map = {
-        "name": "name",
-        "location": "hq_location",
-        "mission": "mission",
-        "culture": "culture",
-        "size": "size",
+        "name": ("name", ProfilePaths.COMPANY_NAME),
+        "location": ("hq_location", ProfilePaths.COMPANY_HQ_LOCATION),
+        "mission": ("mission", ProfilePaths.COMPANY_MISSION),
+        "culture": ("culture", ProfilePaths.COMPANY_CULTURE),
+        "size": ("size", ProfilePaths.COMPANY_SIZE),
     }
-    for source, attr in field_map.items():
+    for source, (attr, path) in field_map.items():
         if attr not in missing_attrs:
             continue
         raw_value = cached.get(source)
@@ -2547,6 +2547,7 @@ def _enrich_company_profile_via_web(
         if not normalized:
             continue
         setattr(company, attr, normalized)
+        _update_profile(path, normalized)
         _record_company_enrichment_entry(
             metadata,
             field=f"company.{attr}",
