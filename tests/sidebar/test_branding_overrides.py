@@ -10,7 +10,13 @@ import streamlit as st
 from constants.keys import ProfilePaths, StateKeys
 from models.need_analysis import NeedAnalysisProfile
 from pydantic import HttpUrl
-from sidebar import _collect_branding_display, _render_branding_overrides, _store_branding_asset
+from sidebar import (
+    BRANDING_SETTINGS_EXPANDED_KEY,
+    _collect_branding_display,
+    _render_app_branding,
+    _render_branding_overrides,
+    _store_branding_asset,
+)
 
 
 def test_store_branding_asset_updates_state() -> None:
@@ -65,13 +71,23 @@ def test_render_branding_overrides_normalizes_httpurl(monkeypatch: pytest.Monkey
     def fake_caption(*_: object, **__: object) -> None:
         return None
 
+    placeholders: list[str] = []
+
     def fake_color_picker(*_: object, key: object | None = None, value: object | None = None, **__: object) -> str:
         result = "" if value is None else (value if isinstance(value, str) else str(value))
         if isinstance(key, str):
             st.session_state[key] = result
         return result
 
-    def fake_text_input(*_: object, key: object | None = None, value: object | None = None, **__: object) -> str:
+    def fake_text_input(
+        *_,
+        key: object | None = None,
+        value: object | None = None,
+        placeholder: object | None = None,
+        **__: object,
+    ) -> str:
+        if isinstance(placeholder, str):
+            placeholders.append(placeholder)
         if isinstance(key, str) and key in st.session_state:
             assert isinstance(st.session_state[key], str)
         result = "" if value is None else (value if isinstance(value, str) else str(value))
@@ -100,3 +116,38 @@ def test_render_branding_overrides_normalizes_httpurl(monkeypatch: pytest.Monkey
     stored_logo = st.session_state[ProfilePaths.COMPANY_LOGO_URL.value]
     assert isinstance(stored_logo, str)
     assert stored_logo == str(http_logo)
+    assert all("Einfach. Immer. Da." not in item for item in placeholders)
+    assert all("example.com/logo.svg" not in item for item in placeholders)
+
+
+def test_app_branding_cta_sets_expander_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    st.session_state.clear()
+
+    monkeypatch.setattr("sidebar._render_app_version", lambda: None)
+    monkeypatch.setattr(st, "image", lambda *_, **__: None)
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+
+    info_messages: list[str] = []
+
+    def fake_info(message: str, *args: object, **kwargs: object) -> None:
+        info_messages.append(message)
+
+    monkeypatch.setattr(st, "info", fake_info)
+
+    reruns: list[bool] = []
+
+    def fake_button(label: str, *args: object, **kwargs: object) -> bool:
+        assert "Branding" in label
+        return True
+
+    def fake_rerun() -> None:
+        reruns.append(True)
+
+    monkeypatch.setattr(st, "button", fake_button)
+    monkeypatch.setattr(st, "rerun", fake_rerun)
+
+    _render_app_branding(None, None)
+
+    assert st.session_state.get(BRANDING_SETTINGS_EXPANDED_KEY) is True
+    assert reruns == [True]
+    assert any("Branding" in message for message in info_messages)

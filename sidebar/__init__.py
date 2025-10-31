@@ -44,6 +44,8 @@ from .salary import (
 
 LogoRenderable = PILImage | BytesIO
 
+BRANDING_SETTINGS_EXPANDED_KEY = "sidebar.branding.expanded"
+
 
 @lru_cache(maxsize=1)
 def _wizard_exports() -> tuple[Mapping[str, int], Callable[[], Sequence[str]], ModuleType, Callable[[str, Any], None]]:
@@ -274,7 +276,7 @@ def _render_branding_overrides() -> None:
         tr("Claim/Slogan anpassen", "Adjust claim/tagline"),
         value=str(current_claim),
         key=ProfilePaths.COMPANY_CLAIM.value,
-        placeholder=tr("z. B. Einfach. Immer. Da.", "e.g., Simply. Always. There."),
+        placeholder=tr("Claim hinzufügen", "Add claim"),
         on_change=_sync_brand_claim,
     )
 
@@ -293,7 +295,7 @@ def _render_branding_overrides() -> None:
         tr("Logo-URL überschreiben", "Override logo URL"),
         value=current_logo,
         key=logo_key,
-        placeholder="https://example.com/logo.svg",
+        placeholder=tr("Logo-URL hinzufügen", "Add logo URL"),
         on_change=_sync_logo_url,
     )
 
@@ -439,6 +441,15 @@ def _render_app_branding(
         )
     st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
     _render_app_version()
+    st.info(
+        tr(
+            "Hinterlege Claim, Logo und Farbe in den Branding-Einstellungen.",
+            "Add claim, logo, and colour via the branding settings.",
+        )
+    )
+    if st.button(tr("Branding setzen", "Set branding"), key="sidebar.branding.cta"):
+        st.session_state[BRANDING_SETTINGS_EXPANDED_KEY] = True
+        st.rerun()
 
 
 def _render_app_version() -> None:
@@ -710,7 +721,8 @@ def _render_settings() -> None:
     _sync_style_instruction(lang_code)
 
     st.markdown(f"#### 🪪 {tr('Branding', 'Branding')}")
-    with st.expander(tr("Branding-Einstellungen", "Branding settings"), expanded=False):
+    expand_branding = bool(st.session_state.pop(BRANDING_SETTINGS_EXPANDED_KEY, False))
+    with st.expander(tr("Branding-Einstellungen", "Branding settings"), expanded=expand_branding):
         _render_branding_overrides()
 
 

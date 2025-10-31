@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Removed placeholder claim/logo defaults from the sidebar and replaced them with a bilingual "Set branding" call-to-action plus empty defaults in tests.
+  **DE:** Platzhalter für Claim und Logo in der Sidebar entfernt – stattdessen erscheint ein zweisprachiger „Branding setzen“-Hinweis, und Tests erwarten nun leere Defaults.
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
   the file order `01_jobad.py` → `08_summary.py`, the deprecated
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
