@@ -16,6 +16,9 @@ if str(PROJECT_ROOT) not in sys.path:
 import config
 
 
+pytestmark = pytest.mark.integration
+
+
 @pytest.fixture(autouse=True)
 def reset_model_availability() -> None:
     """Ensure each test sees a clean availability cache."""

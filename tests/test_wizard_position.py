@@ -15,6 +15,9 @@ from constants.keys import StateKeys, UIKeys
 from wizard import _apply_esco_selection, _render_esco_occupation_selector
 
 
+pytestmark = pytest.mark.integration
+
+
 class _DummyContainer:
     def __init__(self, multiselect_handler: Callable[..., Any]):
         self._multiselect_handler = multiselect_handler

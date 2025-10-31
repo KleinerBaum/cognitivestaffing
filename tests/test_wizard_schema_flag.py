@@ -6,6 +6,9 @@ import pytest
 
 import streamlit as st
 
+
+pytestmark = pytest.mark.integration
+
 from constants.keys import StateKeys
 
 

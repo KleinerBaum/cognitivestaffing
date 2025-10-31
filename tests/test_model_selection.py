@@ -18,6 +18,9 @@ if str(ROOT_DIR) not in sys.path:
 
 import config
 import core.esco_utils as esco_utils
+
+
+pytestmark = pytest.mark.integration
 import openai_utils
 from openai_utils import ChatCallResult
 from openai import BadRequestError

@@ -19,6 +19,9 @@ from openai_utils import (
     model_supports_reasoning,
     model_supports_temperature,
 )
+
+
+pytestmark = pytest.mark.integration
 from openai import APITimeoutError, AuthenticationError, BadRequestError, RateLimitError
 import streamlit as st
 

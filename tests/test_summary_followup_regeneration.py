@@ -3,6 +3,7 @@
 from pathlib import Path
 import sys
 
+import pytest
 import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +22,9 @@ from wizard import (
     _render_boolean_interactive_section,
     build_boolean_query,
 )
+
+
+pytestmark = pytest.mark.integration
 
 
 def test_followup_updates_trigger_regeneration(monkeypatch) -> None:

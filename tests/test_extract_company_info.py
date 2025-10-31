@@ -2,8 +2,13 @@
 
 import json
 
+import pytest
+
 import openai_utils
 from openai_utils import ChatCallResult
+
+
+pytestmark = pytest.mark.integration
 
 
 def test_extract_company_info_parses_json(monkeypatch):

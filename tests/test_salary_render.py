@@ -5,10 +5,15 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+pytestmark = pytest.mark.integration
 
 
 def test_salary_factor_entries(monkeypatch) -> None:

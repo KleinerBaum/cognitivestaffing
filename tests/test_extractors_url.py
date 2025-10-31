@@ -99,17 +99,22 @@ def test_extract_text_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(
-        _url: str,
-        timeout: float,
-        headers: dict | None = None,
-        **_kwargs: object,
-    ) -> Resp:
-        return Resp()
+    class DummySession:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
+
+        def __enter__(self) -> "DummySession":
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+        def get(self, _url: str, *, timeout: float, allow_redirects: bool) -> Resp:
+            return Resp()
 
     fake_traf = types.SimpleNamespace(extract=lambda *_args, **_kwargs: "Recovered fallback text")
 
-    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+    monkeypatch.setattr("ingest.extractors.requests.Session", lambda: DummySession())
     monkeypatch.setitem(sys.modules, "trafilatura", fake_traf)
 
     doc = extract_text_from_url("http://example.com")
@@ -122,23 +127,28 @@ def test_extract_text_from_url_http_error(monkeypatch: pytest.MonkeyPatch) -> No
     import requests
     from requests import Response
 
-    def fake_get(
-        _url: str,
-        timeout: float,
-        headers: dict | None = None,
-        **_kwargs: object,
-    ) -> Response:  # pragma: no cover - stub
-        resp = Response()
-        resp.status_code = 404
-        resp._content = b""
+    class DummySession:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
 
-        def raise_for_status() -> None:
-            raise requests.HTTPError(response=resp)
+        def __enter__(self) -> "DummySession":
+            return self
 
-        resp.raise_for_status = raise_for_status  # type: ignore[method-assign]
-        return resp
+        def __exit__(self, *_exc: object) -> None:
+            return None
 
-    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+        def get(self, _url: str, *, timeout: float, allow_redirects: bool) -> Response:
+            resp = Response()
+            resp.status_code = 404
+            resp._content = b""
+
+            def raise_for_status() -> None:
+                raise requests.HTTPError(response=resp)
+
+            resp.raise_for_status = raise_for_status  # type: ignore[method-assign]
+            return resp
+
+    monkeypatch.setattr("ingest.extractors.requests.Session", lambda: DummySession())
     monkeypatch.setitem(sys.modules, "trafilatura", None)
 
     with pytest.raises(ValueError) as err:
@@ -156,15 +166,20 @@ def test_stepstone_like_content_extraction(
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(
-        _url: str,
-        timeout: float,
-        headers: dict | None = None,
-        **_kwargs: object,
-    ) -> Resp:
-        return Resp()
+    class DummySession:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
 
-    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+        def __enter__(self) -> "DummySession":
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+        def get(self, _url: str, *, timeout: float, allow_redirects: bool) -> Resp:
+            return Resp()
+
+    monkeypatch.setattr("ingest.extractors.requests.Session", lambda: DummySession())
     monkeypatch.setitem(sys.modules, "trafilatura", None)
 
     doc = extract_text_from_url("https://www.stepstone.de/jobs/awesome-role")
@@ -186,13 +201,18 @@ def test_rheinbahn_boilerplate_triggers_trafilatura_fallback(
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(
-        _url: str,
-        timeout: float,
-        headers: dict | None = None,
-        **_kwargs: object,
-    ) -> Resp:
-        return Resp()
+    class DummySession:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
+
+        def __enter__(self) -> "DummySession":
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+        def get(self, _url: str, *, timeout: float, allow_redirects: bool) -> Resp:
+            return Resp()
 
     recovered = (
         "Produktentwickler Digitalisierung\n\n"
@@ -200,7 +220,7 @@ def test_rheinbahn_boilerplate_triggers_trafilatura_fallback(
         "Du gestaltest die digitale Zukunft im Verkehrsnetz und setzt innovative Services für unsere Fahrgäste um."
     )
 
-    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+    monkeypatch.setattr("ingest.extractors.requests.Session", lambda: DummySession())
     fake_traf = types.SimpleNamespace(
         extract=lambda *_args, **_kwargs: recovered,
     )
@@ -223,15 +243,20 @@ def test_rheinbahn_content_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
         def raise_for_status(self) -> None:  # pragma: no cover - stub
             return None
 
-    def fake_get(
-        _url: str,
-        timeout: float,
-        headers: dict | None = None,
-        **_kwargs: object,
-    ) -> Resp:
-        return Resp()
+    class DummySession:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
 
-    monkeypatch.setattr("ingest.extractors.requests.get", fake_get)
+        def __enter__(self) -> "DummySession":
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+        def get(self, _url: str, *, timeout: float, allow_redirects: bool) -> Resp:
+            return Resp()
+
+    monkeypatch.setattr("ingest.extractors.requests.Session", lambda: DummySession())
     monkeypatch.setitem(sys.modules, "trafilatura", None)
 
     doc = extract_text_from_url("https://karriere.rheinbahn.de/job/duesseldorf-produktentwickler")

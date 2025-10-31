@@ -1,11 +1,15 @@
 """Tests for critical field validation utilities."""
 
+import pytest
 import streamlit as st
 
 from constants.keys import StateKeys
 from ingest.heuristics import apply_basic_fallbacks
 from models.need_analysis import NeedAnalysisProfile
 from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
+
+
+pytestmark = pytest.mark.integration
 
 
 def test_section_filtering() -> None:

@@ -61,6 +61,7 @@ class ProfilePaths(StrEnum):
     COMPANY_BRAND_COLOR = "company.brand_color"
     COMPANY_BRAND_KEYWORDS = "company.brand_keywords"
     COMPANY_BRAND_NAME = "company.brand_name"
+    COMPANY_BENEFITS = "company.benefits"
     COMPANY_CLAIM = "company.claim"
     COMPANY_CONTACT_EMAIL = "company.contact_email"
     COMPANY_CONTACT_NAME = "company.contact_name"
