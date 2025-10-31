@@ -5649,7 +5649,7 @@ def _step_company():
     company["claim"] = brand_cols[0].text_input(
         tr("Claim/Slogan", "Claim/Tagline"),
         value=_string_or_empty(company.get("claim")),
-        placeholder=tr("z. B. Einfach. Immer. Da.", "e.g., Simply. Always. There."),
+        placeholder=tr("Claim hinzufügen", "Add claim"),
     )
     company["brand_color"] = brand_cols[0].text_input(
         tr("Markenfarbe (Hex)", "Brand color (hex)"),
@@ -5661,7 +5661,7 @@ def _step_company():
         company["logo_url"] = st.text_input(
             tr("Logo-URL", "Logo URL"),
             value=_string_or_empty(company.get("logo_url")),
-            placeholder="https://example.com/logo.png",
+            placeholder=tr("Logo-URL hinzufügen", "Add logo URL"),
         )
         st.file_uploader(
             tr("Branding-Assets", "Brand assets"),

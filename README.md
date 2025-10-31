@@ -91,6 +91,9 @@
 >
 > **DE:** Die Branding-Erkennung funktioniert derzeit für öffentliche Websites. Private Portale oder reine PDF-Uploads nutzen weiterhin das Standard-Theme.
 
+**EN:** When no brand assets are available the sidebar now surfaces a prominent "Set branding" call-to-action instead of showing placeholder slogans or demo logos.
+**DE:** Liegen keine Brand-Assets vor, blendet die Sidebar jetzt einen gut sichtbaren „Branding setzen“-Hinweis ein und verzichtet auf Beispiel-Claims oder Demo-Logos.
+
 ## What's new in v1.0.0 / Neu in v1.0.0
 - **Wizard overhaul & schema alignment:**  
   **EN:** Every wizard step now shares a consistent header/subheader/intro layout that maps one-to-one to the `NeedAnalysisProfile` schema, ensuring exports remain perfectly synced.  
