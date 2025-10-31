@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 import streamlit as st
 
-from utils.i18n import tr
+from utils.i18n import UI_MULTISELECT_ADD_MORE_HINT, tr
 from wizard._logic import unique_normalized
 
 __all__ = [
@@ -102,6 +102,7 @@ def chip_multiselect(
     key_suffix: str | None = None,
     help_text: str | None = None,
     dropdown: bool = False,
+    add_more_hint: tuple[str, str] | None = None,
 ) -> list[str]:
     """Render an interactive chip-based multiselect with free-text additions."""
 
@@ -175,10 +176,8 @@ def chip_multiselect(
             if option.casefold() not in {value.casefold() for value in selected_values}
         ]
 
-        input_placeholder = tr(
-            "Weitere Einträge hinzufügen…",
-            "Add more entries…",
-        )
+        hint_de, hint_en = add_more_hint or UI_MULTISELECT_ADD_MORE_HINT
+        input_placeholder = tr(hint_de, hint_en)
         st.text_input(
             input_placeholder,
             key=input_key,
@@ -228,6 +227,7 @@ def chip_multiselect_mapped(
     help_text: str | None = None,
     dropdown: bool = False,
     key_suffix: str | None = None,
+    add_more_hint: tuple[str, str] | None = None,
 ) -> list[str]:
     """Render a chip multiselect while mapping display labels to stored values."""
 
@@ -271,6 +271,7 @@ def chip_multiselect_mapped(
         key_suffix=key_suffix,
         help_text=help_text,
         dropdown=dropdown,
+        add_more_hint=add_more_hint,
     )
 
     result: list[str] = []

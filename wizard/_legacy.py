@@ -26,6 +26,7 @@ from typing import (
     Sequence,
     TypedDict,
     TypeVar,
+    Final,
     cast,
 )
 from urllib.parse import urljoin, urlparse
@@ -94,6 +95,73 @@ from ._logic import (
 
 
 logger = logging.getLogger(__name__)
+
+LocalizedText = tuple[str, str]
+
+ADD_MORE_PHASES_HINT: Final[LocalizedText] = (
+    "Weitere Phasen hinzufügen…",
+    "Add more phases…",
+)
+ADD_MORE_PARTICIPANTS_HINT: Final[LocalizedText] = (
+    "Weitere Beteiligte hinzufügen…",
+    "Add more participants…",
+)
+ADD_MORE_INFO_LOOP_PHASES_HINT: Final[LocalizedText] = (
+    "Weitere Informationsphasen hinzufügen…",
+    "Add more information loop phases…",
+)
+ADD_MORE_ONBOARDING_HINT: Final[LocalizedText] = (
+    "Weitere Onboarding-Schritte hinzufügen…",
+    "Add more onboarding steps…",
+)
+ADD_MORE_SKILL_FOCUS_HINT: Final[LocalizedText] = (
+    "Weitere Fokusbereiche hinzufügen…",
+    "Add more focus areas…",
+)
+ADD_MORE_HARD_SKILLS_REQUIRED_HINT: Final[LocalizedText] = (
+    "Weitere Muss-Hard-Skills hinzufügen…",
+    "Add more must-have hard skills…",
+)
+ADD_MORE_SOFT_SKILLS_REQUIRED_HINT: Final[LocalizedText] = (
+    "Weitere Muss-Soft-Skills hinzufügen…",
+    "Add more must-have soft skills…",
+)
+ADD_MORE_HARD_SKILLS_OPTIONAL_HINT: Final[LocalizedText] = (
+    "Weitere Nice-to-have-Hard-Skills hinzufügen…",
+    "Add more nice-to-have hard skills…",
+)
+ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT: Final[LocalizedText] = (
+    "Weitere Nice-to-have-Soft-Skills hinzufügen…",
+    "Add more nice-to-have soft skills…",
+)
+ADD_MORE_TOOLS_HINT: Final[LocalizedText] = (
+    "Weitere Tools oder Technologien hinzufügen…",
+    "Add more tools or technologies…",
+)
+ADD_MORE_CERTIFICATES_HINT: Final[LocalizedText] = (
+    "Weitere Zertifikate hinzufügen…",
+    "Add more certificates…",
+)
+ADD_MORE_REQUIRED_LANGUAGES_HINT: Final[LocalizedText] = (
+    "Weitere Pflichtsprachen hinzufügen…",
+    "Add more required languages…",
+)
+ADD_MORE_OPTIONAL_LANGUAGES_HINT: Final[LocalizedText] = (
+    "Weitere optionale Sprachen hinzufügen…",
+    "Add more optional languages…",
+)
+ADD_MORE_BENEFITS_HINT: Final[LocalizedText] = (
+    "Weitere Benefits hinzufügen…",
+    "Add more benefits…",
+)
+ADD_MORE_BENEFIT_FOCUS_HINT: Final[LocalizedText] = (
+    "Weitere Benefit-Schwerpunkte hinzufügen…",
+    "Add more benefit focus areas…",
+)
+ADD_MORE_JOB_AD_FIELDS_HINT: Final[LocalizedText] = (
+    "Weitere Inhalte für die Anzeige auswählen…",
+    "Select additional job ad sections…",
+)
 
 _MISSING = object()
 
@@ -5931,6 +5999,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
                     "Select the process phases where this contact stays in the loop.",
                 ),
                 key_suffix=f"{key_prefix}.{idx}.info_loop",
+                add_more_hint=ADD_MORE_INFO_LOOP_PHASES_HINT,
             )
             person["information_loop_phases"] = [int(value) for value in chosen_phase_values if str(value).isdigit()]
         else:
@@ -6044,6 +6113,7 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 option_pairs=participant_pairs,
                 values=phase_participants,
                 key_suffix=f"{key_prefix}.{idx}.participants",
+                add_more_hint=ADD_MORE_PARTICIPANTS_HINT,
             )
             phase["docs_required"] = text_input_with_state(
                 tr("Benötigte Unterlagen/Assignments", "Required docs/assignments"),
@@ -6136,6 +6206,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
             "Wähle die Vorschläge aus, die in den Onboarding-Prozess übernommen werden sollen.",
             "Select the suggestions you want to include in the onboarding process.",
         ),
+        add_more_hint=ADD_MORE_ONBOARDING_HINT,
     )
     if not options:
         st.info(
@@ -6731,6 +6802,7 @@ def _step_requirements():
                 "Provide focus areas so the AI can prioritise matching skills.",
             ),
             dropdown=True,
+            add_more_hint=ADD_MORE_SKILL_FOCUS_HINT,
         )
         disabled_hints: list[str] = []
         if has_missing_key:
@@ -7268,6 +7340,7 @@ def _step_requirements():
                     "Essential technical competencies.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_HARD_SKILLS_REQUIRED_HINT,
             )
             _render_required_caption(
                 "requirements.hard_skills_required" in missing_here
@@ -7296,6 +7369,7 @@ def _step_requirements():
                     "Critical behavioural and team skills.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_SOFT_SKILLS_REQUIRED_HINT,
             )
             _render_required_caption(
                 "requirements.soft_skills_required" in missing_here
@@ -7335,6 +7409,7 @@ def _step_requirements():
                     "Additional technical strengths that add value.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_HARD_SKILLS_OPTIONAL_HINT,
             )
             _render_ai_suggestions(
                 source_key="hard_skills",
@@ -7355,6 +7430,7 @@ def _step_requirements():
                     "Valuable personal attributes.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT,
             )
             _render_ai_suggestions(
                 source_key="soft_skills",
@@ -7390,6 +7466,7 @@ def _step_requirements():
                     "Key systems, platforms, or languages.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_TOOLS_HINT,
             )
             _render_ai_suggestions(
                 source_key="tools_and_technologies",
@@ -7411,6 +7488,7 @@ def _step_requirements():
                     "Required certificates or attestations.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_CERTIFICATES_HINT,
             )
             _set_requirement_certificates(data["requirements"], selected_certificates)
             _render_ai_suggestions(
@@ -7447,6 +7525,7 @@ def _step_requirements():
                     "Languages that are mandatory for the role.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_REQUIRED_LANGUAGES_HINT,
             )
         with lang_cols[1]:
             data["requirements"]["languages_optional"] = chip_multiselect(
@@ -7458,6 +7537,7 @@ def _step_requirements():
                     "Languages that are a plus.",
                 ),
                 dropdown=True,
+                add_more_hint=ADD_MORE_OPTIONAL_LANGUAGES_HINT,
             )
 
         current_language_level = data["requirements"].get("language_level_english") or ""
@@ -7842,6 +7922,7 @@ def _step_compensation():
         tr("Leistungen", "Benefits", lang=lang),
         options=benefit_options,
         values=existing_benefits,
+        add_more_hint=ADD_MORE_BENEFITS_HINT,
     )
     data["compensation"]["benefits"] = unique_normalized(selected_benefits)
 
@@ -7866,6 +7947,7 @@ def _step_compensation():
             lang=lang,
         ),
         dropdown=True,
+        add_more_hint=ADD_MORE_BENEFIT_FOCUS_HINT,
     )
     st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
 
@@ -8124,6 +8206,7 @@ def _step_process():
                         values=selected_phase_strings,
                         dropdown=True,
                         key_suffix=f"process.information_loops.{idx}",
+                        add_more_hint=ADD_MORE_PHASES_HINT,
                     )
                     person["information_loop_phases"] = [int(value) for value in chosen_phases if str(value).isdigit()]
                 else:
@@ -8754,6 +8837,7 @@ def _summary_compensation() -> None:
         tr("Leistungen", "Benefits"),
         options=benefit_options,
         values=existing_benefits,
+        add_more_hint=ADD_MORE_BENEFITS_HINT,
     )
     benefits = unique_normalized(benefits)
 
@@ -9116,6 +9200,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                     option_pairs=option_pairs,
                     values=default_values,
                     key_suffix=widget_key,
+                    add_more_hint=ADD_MORE_JOB_AD_FIELDS_HINT,
                 )
                 st.session_state[widget_key] = selected_group_values
                 aggregated_selection.update(selected_group_values)
