@@ -1465,6 +1465,8 @@ def _render_skill_board(
         # ``<\/`` ensures the JSON payload stays valid inside the ``<script>`` tag
         # and avoids ``SyntaxWarning: invalid escape sequence`` during parsing.
         tooltip_payload = json.dumps(tooltip_map, ensure_ascii=False).replace("</", "<\\/")
+        # ``__TOOLTIP_DATA_PLACEHOLDER__`` is intentionally used as a template marker and
+        # replaced below to inject the escaped JSON payload safely. [PLH_SWEEP_GENERIC]
         st.markdown(
             """
             <script>

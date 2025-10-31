@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Final
 
+# ``PLACEHOLDER`` is part of the identifier on purpose –
+# these sentinel tokens mark user inputs that are clearly
+# placeholders so downstream logic can flag them. [PLH_SWEEP_GENERIC]
 PLACEHOLDER_SENTINELS: Final[set[str]] = {
     "",
     "-",
