@@ -5315,7 +5315,7 @@ def _step_onboarding(schema: dict) -> None:
             tr("Füge eine Stellenanzeigen-URL ein:", "Public job posting URL"),
             key=UIKeys.PROFILE_URL_INPUT,
             on_change=on_url_changed,
-            placeholder="https://example.com/job",
+            placeholder=tr("Bitte URL eingeben", "Enter the job posting URL"),
             help=tr(
                 "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
                 "The URL needs to be accessible without authentication. We will fetch the content automatically.",
@@ -5452,7 +5452,7 @@ def _step_company():
     company["name"] = widget_factory.text_input(
         ProfilePaths.COMPANY_NAME,
         company_lock["label"],
-        placeholder=tr("z. B. ACME GmbH", "e.g., ACME Corp"),
+        placeholder=tr("Bitte Firmenname eingeben", "Enter the company name"),
         value_formatter=_string_or_empty,
         **company_kwargs,
     )
@@ -5469,7 +5469,7 @@ def _step_company():
         ProfilePaths.COMPANY_HQ_LOCATION,
         tr("Hauptsitz", "Headquarters"),
         widget_factory=hq_col.text_input,
-        placeholder=tr("z. B. Berlin, DE", "e.g., Berlin, DE"),
+        placeholder=tr("Stadt und Land eingeben", "Enter city and country"),
         default=hq_initial,
         value_formatter=_string_or_empty,
     )
@@ -5477,14 +5477,14 @@ def _step_company():
         ProfilePaths.COMPANY_SIZE,
         tr("Größe", "Size"),
         widget_factory=size_col.text_input,
-        placeholder=tr("z. B. 50-100", "e.g., 50-100"),
+        placeholder=tr("Unternehmensgröße eintragen", "Enter the company size"),
         value_formatter=_string_or_empty,
     )
     company["industry"] = widget_factory.text_input(
         ProfilePaths.COMPANY_INDUSTRY,
         tr("Branche", "Industry"),
         widget_factory=industry_col.text_input,
-        placeholder=tr("z. B. IT-Services", "e.g., IT services"),
+        placeholder=tr("Branche beschreiben", "Describe the industry"),
         value_formatter=_string_or_empty,
     )
 
@@ -5495,7 +5495,7 @@ def _step_company():
         ProfilePaths.COMPANY_WEBSITE,
         tr("Website", "Website"),
         widget_factory=website_col.text_input,
-        placeholder="https://example.com",
+        placeholder=tr("Unternehmenswebsite eingeben", "Enter the company website"),
         value_formatter=_string_or_empty,
     )
     company["mission"] = widget_factory.text_input(
@@ -5503,8 +5503,8 @@ def _step_company():
         tr("Mission", "Mission"),
         widget_factory=mission_col.text_input,
         placeholder=tr(
-            "z. B. Nachhaltige Mobilität fördern",
-            "e.g., Promote sustainable mobility",
+            "Mission in eigenen Worten beschreiben",
+            "Describe the company mission",
         ),
         value_formatter=_string_or_empty,
     )
@@ -5513,8 +5513,8 @@ def _step_company():
         ProfilePaths.COMPANY_CULTURE,
         tr("Unternehmenskultur", "Company culture"),
         placeholder=tr(
-            "z. B. Teamorientiert, innovationsgetrieben",
-            "e.g., Team-oriented, innovation-driven",
+            "Unternehmenskultur skizzieren",
+            "Summarise the company culture",
         ),
         value_formatter=_string_or_empty,
     )
@@ -5524,14 +5524,17 @@ def _step_company():
         ProfilePaths.COMPANY_CONTACT_NAME,
         tr("Kontaktperson", "Primary contact"),
         widget_factory=contact_cols[0].text_input,
-        placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+        placeholder=tr(
+            "Name der Kontaktperson eingeben",
+            "Enter the contact person's name",
+        ),
         value_formatter=_string_or_empty,
     )
     widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
         tr("Kontakt-E-Mail", "Contact email"),
         widget_factory=contact_cols[1].text_input,
-        placeholder="name@example.com",
+        placeholder=tr("E-Mail-Adresse eintragen", "Enter the email address"),
         value_formatter=_string_or_empty,
     )
     phone_label = tr("Telefon", "Phone")
@@ -5541,7 +5544,7 @@ def _step_company():
         ProfilePaths.COMPANY_CONTACT_PHONE,
         phone_label,
         widget_factory=contact_cols[2].text_input,
-        placeholder=tr("z. B. +49 30 123456", "e.g., +1 555 123 4567"),
+        placeholder=tr("Telefonnummer angeben", "Enter the phone number"),
         value_formatter=_string_or_empty,
     )
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
@@ -5559,7 +5562,7 @@ def _step_company():
         ProfilePaths.LOCATION_PRIMARY_CITY,
         city_lock["label"],
         widget_factory=city_col.text_input,
-        placeholder=tr("z. B. Berlin", "e.g., Berlin"),
+        placeholder=tr("Stadt eintragen", "Enter the city"),
         value_formatter=_string_or_empty,
         **city_kwargs,
     )
@@ -5578,7 +5581,7 @@ def _step_company():
         ProfilePaths.LOCATION_COUNTRY,
         country_lock["label"],
         widget_factory=country_col.text_input,
-        placeholder=tr("z. B. DE", "e.g., DE"),
+        placeholder=tr("Landeskürzel eingeben", "Enter the country code"),
         value_formatter=_string_or_empty,
         **country_kwargs,
     )
@@ -5626,12 +5629,12 @@ def _step_company():
     position["department"] = dept_cols[0].text_input(
         tr("Abteilung", "Department"),
         value=position.get("department", ""),
-        placeholder=tr("z. B. Entwicklung", "e.g., Engineering"),
+        placeholder=tr("Abteilung beschreiben", "Describe the department"),
     )
     position["team_structure"] = dept_cols[1].text_input(
         tr("Teamstruktur", "Team structure"),
         value=position.get("team_structure", ""),
-        placeholder=tr("z. B. 5 Personen, cross-funktional", "e.g., 5 people, cross-functional"),
+        placeholder=tr("Teamstruktur erläutern", "Explain the team structure"),
     )
 
     position["key_projects"] = st.text_area(
@@ -5644,7 +5647,10 @@ def _step_company():
     company["brand_name"] = brand_cols[0].text_input(
         tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
         value=_string_or_empty(company.get("brand_name")),
-        placeholder=tr("z. B. ACME Robotics", "e.g., ACME Robotics"),
+        placeholder=tr(
+            "Marken- oder Tochtername eintragen",
+            "Enter the brand or subsidiary name",
+        ),
     )
     company["claim"] = brand_cols[0].text_input(
         tr("Claim/Slogan", "Claim/Tagline"),
@@ -5654,7 +5660,7 @@ def _step_company():
     company["brand_color"] = brand_cols[0].text_input(
         tr("Markenfarbe (Hex)", "Brand color (hex)"),
         value=_string_or_empty(company.get("brand_color")),
-        placeholder="#0057B8",
+        placeholder=tr("Hex-Farbcode eingeben", "Enter a hex colour code"),
     )
 
     with brand_cols[1]:
@@ -6180,7 +6186,7 @@ def _step_position():
         ProfilePaths.POSITION_JOB_TITLE,
         title_lock["label"],
         widget_factory=role_cols[0].text_input,
-        placeholder=tr("z. B. Data Scientist", "e.g., Data Scientist"),
+        placeholder=tr("Jobtitel eingeben", "Enter the job title"),
         value_formatter=_string_or_empty,
         **job_title_kwargs,
     )
@@ -6194,7 +6200,7 @@ def _step_position():
         ProfilePaths.POSITION_SENIORITY,
         tr("Seniorität", "Seniority"),
         widget_factory=role_cols[1].text_input,
-        placeholder=tr("z. B. Junior", "e.g., Junior"),
+        placeholder=tr("Karrierestufe angeben", "Enter the seniority level"),
         value_formatter=_string_or_empty,
     )
 
@@ -6203,14 +6209,17 @@ def _step_position():
         ProfilePaths.POSITION_REPORTING_LINE,
         tr("Reports an", "Reports to"),
         widget_factory=reporting_cols[0].text_input,
-        placeholder=tr("z. B. CTO", "e.g., CTO"),
+        placeholder=tr("Führungsebene beschreiben", "Describe the reporting line"),
         value_formatter=_string_or_empty,
     )
     position["reporting_manager_name"] = widget_factory.text_input(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
         tr("Vorgesetzte Person", "Reporting manager"),
         widget_factory=reporting_cols[1].text_input,
-        placeholder=tr("z. B. Max Mustermann", "e.g., Jane Doe"),
+        placeholder=tr(
+            "Name der vorgesetzten Person eintragen",
+            "Enter the reporting manager's name",
+        ),
         value_formatter=_string_or_empty,
     )
     summary_label = tr("Rollen-Summary", "Role summary")
@@ -6348,7 +6357,10 @@ def _step_position():
             .text_input(
                 tr("Individuelles Modell", "Custom schedule"),
                 value=custom_schedule_value,
-                placeholder=tr("z. B. Flexible Arbeitszeiten", "e.g., Flexible working hours"),
+                placeholder=tr(
+                    "Arbeitszeitmodell beschreiben",
+                    "Describe the working time model",
+                ),
             )
             .strip()
         )
@@ -8555,7 +8567,10 @@ def _summary_employment() -> None:
         work_schedule = c4.text_input(
             tr("Individuelles Modell", "Custom schedule"),
             value=custom_schedule_value,
-            placeholder=tr("z. B. Flexible Arbeitszeiten", "e.g., Flexible working hours"),
+            placeholder=tr(
+                "Arbeitszeitmodell beschreiben",
+                "Describe the working time model",
+            ),
             key="ui.summary.employment.work_schedule_other",
         ).strip()
     else:

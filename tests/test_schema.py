@@ -186,6 +186,20 @@ def test_schema_roundtrip() -> None:
     assert set(dumped["sources"].keys()) == set(payload.sources.root.keys())
 
 
+def test_default_wizard_marks_required_fields() -> None:
+    payload = default_recruiting_wizard()
+    assert payload.company.name is None
+    assert payload.role.title is None
+    assert payload.summary.headline is None
+
+    required_missing = payload.missing_fields.root
+    assert {"company.name", "role.title", "summary.headline"} <= set(required_missing)
+    for key in ("company.name", "role.title", "summary.headline"):
+        entry = required_missing[key]
+        assert entry.required is True
+        assert entry.reason
+
+
 def test_source_attribution_accepts_blank_urls() -> None:
     attribution = SourceAttribution(source_url="   ")
     assert attribution.source_url is None
