@@ -7,6 +7,11 @@ from typing import Final
 import streamlit as st
 
 
+UI_MULTISELECT_ADD_MORE_HINT: Final[tuple[str, str]] = (
+    "Weitere Einträge hinzufügen…",
+    "Add more entries…",
+)
+
 SKILL_MARKET_SELECT_SKILL_LABEL: Final[tuple[str, str]] = (
     "Skill auswählen",
     "Select skill",

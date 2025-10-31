@@ -20,6 +20,12 @@
   folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, und die
   veralteten Flags `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden
   entfernt.
+- **EN:** Chip-based multiselects now show context-specific bilingual hints
+  (e.g. “Add more benefits…”), allowing each wizard section to guide the
+  entries users add.
+  **DE:** Chip-Multiselects zeigen jetzt kontextspezifische zweisprachige
+  Hinweise (z. B. „Weitere Benefits hinzufügen…“) und führen Nutzer:innen
+  gezielt durch neue Einträge.
 - **EN:** Replaced all ACME/example.com wizard placeholders with bilingual
   guidance and reset the Recruiting Wizard defaults to empty values that flag
   required fields instead of injecting sample companies.

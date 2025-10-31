@@ -12,6 +12,10 @@
   Dateireihenfolge `01_jobad.py` → `08_summary.py`, die veralteten Flags
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden entfernt und die
   Reihenfolge ergibt sich ausschließlich aus den Dateinamen.
+- **EN:** Chip multiselects now expose context-aware bilingual hints, guiding
+  users when adding skills, benefits, languages, or job-ad sections.
+  **DE:** Chip-Multiselects zeigen nun kontextsensible zweisprachige Hinweise
+  und führen beim Hinzufügen von Skills, Benefits, Sprachen oder Anzeigeninhalten.
 - **EN:** Updated the wizard to drop ACME/example.com placeholders, using
   bilingual helper text and empty schema defaults that mark required fields
   instead of demo values.
