@@ -44,6 +44,8 @@
   **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools für schlankere Installationen nach `requirements-optional.txt` ausgelagert.
 - **EN:** Added `PyMuPDF` to the core requirements so PDF-based interview guide exports work out of the box on clean deployments.
   **DE:** `PyMuPDF` zu den Kern-Requirements ergänzt, damit PDF-Interview-Guides auf frischen Deployments ohne Zusatzschritte funktionieren.
+- **EN:** Updated the skill market fallback caption to state that no benchmarks are available and invite users to capture skill data instead of displaying neutral placeholder numbers.
+  **DE:** Die Skill-Markt-Fallback-Beschriftung aktualisiert: Sie weist jetzt auf fehlende Benchmarks hin und bittet um das Erfassen von Skill-Daten, statt neutrale Platzhalterzahlen anzuzeigen.
 - **EN:** Relocated the “Benefit ideas” module from the sidebar into the Rewards & Benefits step and surfaced the step summary directly above each header.
   **DE:** Das Modul „Benefit-Ideen“ aus der Sidebar in den Schritt „Leistungen & Benefits“ verschoben und die Schrittübersicht direkt über jeder Überschrift platziert.
 - **EN:** Refined the Summary step with a dedicated "Create a job ad" section, a compact field selector, and a collapsible preferences block while moving the internal-process review back into the Process step.

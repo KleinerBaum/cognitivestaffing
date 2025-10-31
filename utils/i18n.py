@@ -24,8 +24,8 @@ SKILL_MARKET_METRIC_CAPTION: Final[tuple[str, str]] = (
     "{skill}: Salary impact {salary:+.1f}% · Availability {availability:.0f}/100.",
 )
 SKILL_MARKET_FALLBACK_CAPTION: Final[tuple[str, str]] = (
-    "{skill}: Keine Benchmarks – neutrale Platzhalter (0%, 50/100).",
-    "{skill}: No benchmarks – using neutral placeholders (0%, 50/100).",
+    "{skill}: Keine Auswertung verfügbar – bitte Skills erfassen.",
+    "{skill}: No benchmarks available – please add skill data.",
 )
 
 

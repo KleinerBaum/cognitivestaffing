@@ -68,6 +68,8 @@
   **DE:** `PyMuPDF` zur primären Abhängigkeitsliste hinzugefügt, damit PDF-Exporte der Interview-Guides in neuen Umgebungen ohne manuelle Installation funktionieren.
 - **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.
   **DE:** Die ungenutzten Abhängigkeiten `configloader` und `tenacity` aus `requirements.txt` entfernt, um Deployments schlanker zu halten.
+- **EN:** Updated the skill market fallback caption to explain that benchmarks are missing and encourage capturing skill data instead of showing neutral placeholder numbers.
+  **DE:** Die Skill-Markt-Fallback-Beschriftung angepasst: Sie erklärt nun das Fehlen von Benchmarks und fordert zum Erfassen von Skill-Daten auf, statt neutrale Platzhalterzahlen darzustellen.
 - **EN:** Moved the sidebar “Benefit ideas” module into the Rewards & Benefits step and positioned the step summary directly above each wizard header.
   **DE:** Das Sidebar-Modul „Benefit-Ideen“ in den Schritt „Leistungen & Benefits“ verschoben und die Schrittübersicht direkt über jede Wizard-Überschrift gesetzt.
 - **EN:** Simplified the Summary step layout by dropping the Key highlights block and moving the JSON export button to the bottom for clearer final actions.
