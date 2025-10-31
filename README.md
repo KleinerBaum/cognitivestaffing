@@ -77,6 +77,10 @@
 - **DE:** Führe `ruff format`, `ruff check` und `mypy --config-file pyproject.toml` aus und starte anschließend `coverage run -m pytest -q` (standardmäßig werden `llm`-Tests übersprungen; mit konfiguriertem OpenAI-Key kannst du `-m llm` ergänzen). Halte die Gesamtabdeckung bei ≥88 %, damit die CI grün bleibt und XML-/HTML-Artefakte für das Review bereitstehen.
 - **EN:** Track pre-existing typing gaps and the temporary ignore list in `docs/mypy_typing_status.md` so future branches can retire overrides incrementally.
 - **DE:** Dokumentierte Typing-Lücken sowie die temporären Ignore-Listen findest du in `docs/mypy_typing_status.md`, damit zukünftige Branches die Overrides schrittweise abbauen können.
+- **EN:** Heavy optional dependencies such as `streamlit`, `requests`, and `bs4` are configured with `follow_imports = "skip"` so the type checker can focus on first-party fixes; replace skips with typed facades when the upstream packages ship stubs.
+- **DE:** Schwere optionale Abhängigkeiten wie `streamlit`, `requests` und `bs4` laufen mit `follow_imports = "skip"`, damit sich der Type-Checker auf First-Party-Bereiche konzentrieren kann; ersetze die Skips durch typisierte Fassaden, sobald die Upstream-Pakete Stubs liefern.
+- **EN:** Wizard helper modules (`wizard._agents`, `_logic`, `_openai_bridge`, `interview_step`, `wizard`) now require typed function signatures via `disallow_untyped_defs`; keep annotations complete when editing these files.
+- **DE:** Die Wizard-Hilfsmodule (`wizard._agents`, `_logic`, `_openai_bridge`, `interview_step`, `wizard`) erzwingen `disallow_untyped_defs`; achte bei Änderungen auf vollständige Typannotationen.
 
 ## What's new in v1.1.0 / Neu in v1.1.0
 
