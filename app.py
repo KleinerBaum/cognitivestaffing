@@ -79,24 +79,30 @@ ROOT = APP_ROOT
 ensure_state()
 st.session_state.setdefault("app_version", APP_VERSION)
 
-MODEL_ID: str | None = None
+MODEL_ID = cast(str | None, st.session_state.get("router.resolved_model"))
 if LLM_ENABLED:
-    try:
-        router_client = OpenAI(
-            api_key=OPENAI_API_KEY or None,
-            base_url=OPENAI_BASE_URL or None,
-            organization=OPENAI_ORGANIZATION or None,
-            project=OPENAI_PROJECT or None,
-        )
-        MODEL_ID = pick_model(router_client)
+    if MODEL_ID is None:
+        try:
+            router_client = OpenAI(
+                api_key=OPENAI_API_KEY or None,
+                base_url=OPENAI_BASE_URL or None,
+                organization=OPENAI_ORGANIZATION or None,
+                project=OPENAI_PROJECT or None,
+            )
+            MODEL_ID = pick_model(router_client)
+            st.session_state["router.resolved_model"] = MODEL_ID
+            st.session_state["router.model_logged"] = True
+            print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
+        except Exception as exc:  # pragma: no cover - defensive startup logging
+            print(f"[MODEL_ROUTER_V3] unable to resolve model: {exc}")
+    elif not st.session_state.get("router.model_logged"):
         print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
-    except Exception as exc:  # pragma: no cover - defensive startup logging
-        print(f"[MODEL_ROUTER_V3] unable to resolve model: {exc}")
+        st.session_state["router.model_logged"] = True
 else:
     print("[MODEL_ROUTER_V3] OpenAI API key not configured; model routing skipped.")
 
-if MODEL_ID:
-    st.session_state.setdefault("router.resolved_model", MODEL_ID)
+if MODEL_ID and "router.resolved_model" not in st.session_state:
+    st.session_state["router.resolved_model"] = MODEL_ID
 
 wizard_state = st.session_state.setdefault("wizard", {})
 wizard_state.setdefault("feature", "step_order")
