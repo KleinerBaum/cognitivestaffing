@@ -51,10 +51,10 @@
   **DE:** Die neue Aurora-Fjord-Palette in Dark- und Light-Theme sowie dem Skill-Board verankert – Mitternachtsblau trifft auf Gletscher-Aqua und Amber-Akzente für ruhigere Hierarchien und verlässlichen Kontrast.
 - **EN:** Hardened optional profile URL sanitisation so canonicalisation and wizard updates trim blanks to `None`, preventing schema resets.
   **DE:** Optionale Profil-URLs weiter gehärtet: Kanonisierung und Wizard-Updates kürzen leere Werte jetzt auf `None`, sodass keine Schema-Resets mehr ausgelöst werden.
-- **EN:** Streamlined dependency management so `requirements.txt` remains the single source of truth and deployment no longer reports multiple requirement files.
-  **DE:** Abhängigkeitsverwaltung gestrafft, sodass `requirements.txt` die einzige Quelle bleibt und beim Deployment keine Warnung zu mehreren Requirements-Dateien mehr erscheint.
-- **EN:** Trimmed the default dependency stack to the core Streamlit app requirements and moved OCR/spaCy tooling into `requirements-optional.txt` for leaner installs.
-  **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools für schlankere Installationen nach `requirements-optional.txt` ausgelagert.
+- **EN:** Streamlined dependency management so `pyproject.toml` is the single source of truth and Streamlit deployments stop warning about multiple dependency manifests.
+  **DE:** Abhängigkeitsverwaltung gestrafft, sodass `pyproject.toml` als einzige Quelle dient und Streamlit-Deployments keine Warnung über konkurrierende Abhängigkeitsdateien mehr ausgeben.
+- **EN:** Trimmed the default dependency stack to the core Streamlit app requirements and exposed OCR/spaCy tooling via the `ingest` optional extra (`pip install .[ingest]`) for leaner installs.
+  **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools über das optionale Extra `ingest` (`pip install .[ingest]`) bereitgestellt, um Installationen schlanker zu halten.
 - **EN:** Added `PyMuPDF` to the core requirements so PDF-based interview guide exports work out of the box on clean deployments.
   **DE:** `PyMuPDF` zu den Kern-Requirements ergänzt, damit PDF-Interview-Guides auf frischen Deployments ohne Zusatzschritte funktionieren.
 - **EN:** Updated the skill market fallback caption to state that no benchmarks are available and invite users to capture skill data instead of displaying neutral placeholder numbers.

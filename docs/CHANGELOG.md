@@ -72,10 +72,10 @@
   **DE:** Leichte Aufgaben laufen nun auf `gpt-4.1-mini`, während Zusammenfassungen und Erklärungen automatisch auf `o4-mini` (mit Fallbacks über `o3` und `gpt-4o`) eskalieren; Umgebungs-Overrides werden auf diese Stufen normalisiert.
 - **EN:** Resolved duplicate Streamlit widget keys for branding uploads by giving the legacy wizard uploader its own identifier and clearing both caches together.
   **DE:** Doppelte Streamlit-Widget-Keys beim Branding-Upload behoben, indem der Legacy-Wizard einen eigenen Schlüssel erhält und beide Caches gemeinsam geleert werden.
-- **EN:** Consolidated dependency management so `requirements.txt` is the deployment source of truth and Streamlit no longer detects competing requirement files.
-  **DE:** Abhängigkeitsverwaltung konsolidiert, sodass `requirements.txt` als Deployment-Quelle dient und Streamlit keine konkurrierenden Requirements-Dateien mehr meldet.
-- **EN:** Slimmed the default requirement set to core app dependencies and exposed optional OCR/spaCy extras via `requirements-optional.txt` for contributors who need advanced ingestion features.
-  **DE:** Die Standard-Requirements auf zentrale App-Abhängigkeiten verschlankt und optionale OCR-/spaCy-Erweiterungen über `requirements-optional.txt` verfügbar gemacht, damit Contributor:innen bei Bedarf die erweiterten Ingestion-Funktionen aktivieren können.
+- **EN:** Consolidated dependency management so `pyproject.toml` is the deployment source of truth and Streamlit no longer detects competing dependency manifests.
+  **DE:** Abhängigkeitsverwaltung konsolidiert, sodass `pyproject.toml` als Deployment-Quelle dient und Streamlit keine konkurrierenden Abhängigkeitsdateien mehr meldet.
+- **EN:** Slimmed the default requirement set to core app dependencies and exposed optional OCR/spaCy extras via the `ingest` extra (`pip install .[ingest]`) for contributors who need advanced ingestion features.
+  **DE:** Die Standard-Requirements auf zentrale App-Abhängigkeiten verschlankt und optionale OCR-/spaCy-Erweiterungen über das Extra `ingest` (`pip install .[ingest]`) verfügbar gemacht, damit Contributor:innen bei Bedarf die erweiterten Ingestion-Funktionen aktivieren können.
 - **EN:** Added `PyMuPDF` to the primary dependency list so PDF exports for interview guides run on fresh environments without manual installs.
   **DE:** `PyMuPDF` zur primären Abhängigkeitsliste hinzugefügt, damit PDF-Exporte der Interview-Guides in neuen Umgebungen ohne manuelle Installation funktionieren.
 - **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.
