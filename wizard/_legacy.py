@@ -45,7 +45,7 @@ from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
 from utils.session import bind_textarea
-from state import ensure_state, reset_state
+from state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
 from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
@@ -200,7 +200,6 @@ from utils.normalization import (
     country_to_iso2,
 )
 from utils.export import prepare_clean_json, prepare_download_data
-from utils.usage import build_usage_markdown, usage_totals
 from nlp.bias import scan_bias_language
 from ingest.heuristics import is_soft_skill
 from core.esco_utils import (
@@ -9650,7 +9649,6 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
         except Exception:
             critical = []
     return schema, critical
-
 
 
 def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:

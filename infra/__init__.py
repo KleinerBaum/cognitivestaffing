@@ -55,11 +55,12 @@ def load_deployment_config(path: str | Path | None = None) -> DeploymentConfig:
     if not python_version:
         python_version = _DEFAULT_PYTHON_VERSION
 
-    install_raw = (
-        python_block.get("installCommand")
-        or python_block.get("install_command")
-        or python_block.get("install")
-    )
+    install_raw = None
+    for key in ("installCommand", "install_command", "install"):
+        value = python_block.get(key)
+        if value:
+            install_raw = value
+            break
     install_command = str(install_raw).strip() if isinstance(install_raw, str) else ""
 
     requirements_raw = (
