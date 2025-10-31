@@ -21,6 +21,12 @@
   folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, die
   veralteten Flags `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden
   entfernt und der Step-Order-Router ersetzt den Legacy-Flow vollständig.
+- **EN:** Clarified the supported Python range (`>=3.11,<4.0`) so Streamlit
+  deployments avoid attempting Python 4 previews that break dependencies like
+  `backoff`.
+  **DE:** Unterstützten Python-Bereich (`>=3.11,<4.0`) präzisiert, damit
+  Streamlit-Deployments keine Python-4-Previews wählen, die Abhängigkeiten wie
+  `backoff` beschädigen.
 - **EN:** Chip-based multiselects now show context-specific bilingual hints
   (e.g. “Add more benefits…”), allowing each wizard section to guide the
   entries users add.
