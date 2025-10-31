@@ -77,8 +77,8 @@
   **DE:** Legacy-Session-Keys wie `company_name` und `contact_email` werden nun auf die kanonischen Wizard-Schema-Pfade gemappt, sodass Scrapes die Unternehmens- und Kontakt-Formulare vorbefüllen; die Widget-Factories nutzen dabei standardmäßig das `get_value`/`_update_profile`-Callback-Muster.
 - **EN:** Improved Rheinbahn ingestion heuristics: detect "suchen wir in …" cities, route benefit keywords to `company.benefits`, and parse footer contacts with confidence metadata.
   **DE:** Rheinbahn-Heuristiken verbessert: Städte aus "suchen wir in …" erkennen, Benefit-Schlagworte nach `company.benefits` mappen und Footer-Kontakte inklusive Vertrauensmetadaten parsen.
-- **EN:** Ensured the Poetry dependency set requires `openai>=1.99.3` so the Responses API tooling matches the pip requirements.
-  **DE:** Poetry-Abhängigkeiten verlangen nun `openai>=1.99.3`, damit das Responses-API-Tooling mit den pip-Requirements übereinstimmt.
+- **EN:** Ensured the Poetry dependency set requires `openai>=1.30.0` so the Responses API tooling matches the pip requirements.
+  **DE:** Poetry-Abhängigkeiten verlangen nun `openai>=1.30.0`, damit das Responses-API-Tooling mit den pip-Requirements übereinstimmt.
 - **EN:** Hardened optional profile URL sanitisation so canonicalisation and wizard updates trim blanks to `None`, preventing schema resets.
   **DE:** Optionale Profil-URLs weiter gehärtet: Kanonisierung und Wizard-Updates kürzen leere Werte jetzt auf `None`, sodass keine Schema-Resets mehr ausgelöst werden.
 - **EN:** Downgraded rule-matcher logs when phone or country values are absent so optional contact fields no longer emit warning-level noise.
