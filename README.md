@@ -14,12 +14,13 @@
 ## Unreleased
 
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
-  the file order `01_jobad.py` → `08_summary.py`, and the deprecated
-  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed.
+  the file order `01_jobad.py` → `08_summary.py`, the deprecated
+  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
+  the step-order router runs by default after deleting the legacy runner.
   **DE:** Die Wizard-Navigation ist finalisiert: Die acht Streamlit-Seiten
-  folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, und die
+  folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, die
   veralteten Flags `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden
-  entfernt.
+  entfernt und der Step-Order-Router ersetzt den Legacy-Flow vollständig.
 - **EN:** Chip-based multiselects now show context-specific bilingual hints
   (e.g. “Add more benefits…”), allowing each wizard section to guide the
   entries users add.

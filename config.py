@@ -234,11 +234,6 @@ def _detect_default_model() -> str:
 
 DEFAULT_MODEL = _detect_default_model()
 VERBOSITY_LEVELS = ("low", "medium", "high")
-_wizard_step_order_flag = os.getenv("WIZARD_STEP_ORDER")
-if _wizard_step_order_flag is None:
-    # Backwards compatibility with the former WIZARD_ORDER_V2 toggle.
-    _wizard_step_order_flag = os.getenv("WIZARD_ORDER_V2")
-WIZARD_STEP_ORDER_ENABLED = _is_truthy_flag(_wizard_step_order_flag)
 
 
 def normalise_verbosity(value: object | None, *, default: str = "medium") -> str:
