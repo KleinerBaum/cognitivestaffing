@@ -75,6 +75,8 @@
 
 - **EN:** Run `ruff format`, `ruff check`, and `mypy --config-file pyproject.toml` before executing `coverage run -m pytest -q` (the default marker expression skips `llm` tests; add `-m llm` when an OpenAI key is configured). Keep total coverage ≥88% so CI stays green and XML/HTML artifacts remain available for review.
 - **DE:** Führe `ruff format`, `ruff check` und `mypy --config-file pyproject.toml` aus und starte anschließend `coverage run -m pytest -q` (standardmäßig werden `llm`-Tests übersprungen; mit konfiguriertem OpenAI-Key kannst du `-m llm` ergänzen). Halte die Gesamtabdeckung bei ≥88 %, damit die CI grün bleibt und XML-/HTML-Artefakte für das Review bereitstehen.
+- **EN:** Track pre-existing typing gaps and the temporary ignore list in `docs/mypy_typing_status.md` so future branches can retire overrides incrementally.
+- **DE:** Dokumentierte Typing-Lücken sowie die temporären Ignore-Listen findest du in `docs/mypy_typing_status.md`, damit zukünftige Branches die Overrides schrittweise abbauen können.
 
 ## What's new in v1.1.0 / Neu in v1.1.0
 

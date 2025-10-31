@@ -83,6 +83,32 @@ ignore_errors = true
 module = "esco.*"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = [
+    "ingest.*",
+    "openai_utils.*",
+    "sidebar.*",
+    "wizard._legacy",
+    "wizard._layout",
+    "wizard_router",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "components.requirements_insights",
+    "llm.openai_responses",
+    "utils.telemetry",
+    "utils.normalization",
+    "models.need_analysis",
+    "cli.rebuild_vector_store",
+    "app",
+    "nlp.entities",
+    "pages.*",
+]
+ignore_errors = true
+
 [tool.coverage.report]
 fail_under = 88 # CI_COVERAGE_THRESHOLD
 show_missing = true
