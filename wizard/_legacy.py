@@ -6000,7 +6000,7 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
                     "Wähle die Phasen, in denen dieser Kontakt informiert wird.",
                     "Select the process phases where this contact stays in the loop.",
                 ),
-                key_suffix=f"{key_prefix}.{idx}.info_loop",
+                state_key=f"{key_prefix}.{idx}.info_loop",
                 add_more_hint=ADD_MORE_INFO_LOOP_PHASES_HINT,
             )
             person["information_loop_phases"] = [int(value) for value in chosen_phase_values if str(value).isdigit()]
@@ -6114,7 +6114,7 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 tr("Beteiligte", "Participants"),
                 option_pairs=participant_pairs,
                 values=phase_participants,
-                key_suffix=f"{key_prefix}.{idx}.participants",
+                state_key=f"{key_prefix}.{idx}.participants",
                 add_more_hint=ADD_MORE_PARTICIPANTS_HINT,
             )
             phase["docs_required"] = text_input_with_state(
@@ -6209,6 +6209,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
             "Select the suggestions you want to include in the onboarding process.",
         ),
         add_more_hint=ADD_MORE_ONBOARDING_HINT,
+        state_key=str(ProfilePaths.PROCESS_ONBOARDING_PROCESS),
     )
     if not options:
         st.info(
@@ -6798,13 +6799,13 @@ def _step_requirements():
             tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
             options=focus_options,
             values=stored_focus,
-            key_suffix="requirements.skill_focus",
             help_text=tr(
                 "Gib Themenfelder vor, damit die KI passende Skills priorisiert.",
                 "Provide focus areas so the AI can prioritise matching skills.",
             ),
             dropdown=True,
             add_more_hint=ADD_MORE_SKILL_FOCUS_HINT,
+            state_key=StateKeys.SKILL_SUGGESTION_HINTS,
         )
         disabled_hints: list[str] = []
         if has_missing_key:
@@ -7343,6 +7344,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_HARD_SKILLS_REQUIRED_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
             )
             _render_required_caption(
                 "requirements.hard_skills_required" in missing_here
@@ -7372,6 +7374,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_SOFT_SKILLS_REQUIRED_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
             )
             _render_required_caption(
                 "requirements.soft_skills_required" in missing_here
@@ -7412,6 +7415,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_HARD_SKILLS_OPTIONAL_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
             )
             _render_ai_suggestions(
                 source_key="hard_skills",
@@ -7433,6 +7437,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
             )
             _render_ai_suggestions(
                 source_key="soft_skills",
@@ -7469,6 +7474,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_TOOLS_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
             )
             _render_ai_suggestions(
                 source_key="tools_and_technologies",
@@ -7491,6 +7497,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_CERTIFICATES_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_CERTIFICATES),
             )
             _set_requirement_certificates(data["requirements"], selected_certificates)
             _render_ai_suggestions(
@@ -7528,6 +7535,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_REQUIRED_LANGUAGES_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
             )
         with lang_cols[1]:
             data["requirements"]["languages_optional"] = chip_multiselect(
@@ -7540,6 +7548,7 @@ def _step_requirements():
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_OPTIONAL_LANGUAGES_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_OPTIONAL),
             )
 
         current_language_level = data["requirements"].get("language_level_english") or ""
@@ -7925,6 +7934,7 @@ def _step_compensation():
         options=benefit_options,
         values=existing_benefits,
         add_more_hint=ADD_MORE_BENEFITS_HINT,
+        state_key=str(ProfilePaths.COMPENSATION_BENEFITS),
     )
     data["compensation"]["benefits"] = unique_normalized(selected_benefits)
 
@@ -7950,6 +7960,7 @@ def _step_compensation():
         ),
         dropdown=True,
         add_more_hint=ADD_MORE_BENEFIT_FOCUS_HINT,
+        state_key=StateKeys.BENEFIT_SUGGESTION_HINTS,
     )
     st.session_state[StateKeys.BENEFIT_SUGGESTION_HINTS] = selected_benefit_focus
 
@@ -8207,7 +8218,7 @@ def _step_process():
                         option_pairs=label_pairs,
                         values=selected_phase_strings,
                         dropdown=True,
-                        key_suffix=f"process.information_loops.{idx}",
+                        state_key=f"process.information_loops.{idx}",
                         add_more_hint=ADD_MORE_PHASES_HINT,
                     )
                     person["information_loop_phases"] = [int(value) for value in chosen_phases if str(value).isdigit()]
@@ -8840,6 +8851,7 @@ def _summary_compensation() -> None:
         options=benefit_options,
         values=existing_benefits,
         add_more_hint=ADD_MORE_BENEFITS_HINT,
+        state_key=str(ProfilePaths.COMPENSATION_BENEFITS),
     )
     benefits = unique_normalized(benefits)
 
@@ -9201,7 +9213,7 @@ def _step_summary(schema: dict, _critical: list[str]):
                     widget_label,
                     option_pairs=option_pairs,
                     values=default_values,
-                    key_suffix=widget_key,
+                    state_key=widget_key,
                     add_more_hint=ADD_MORE_JOB_AD_FIELDS_HINT,
                 )
                 st.session_state[widget_key] = selected_group_values
