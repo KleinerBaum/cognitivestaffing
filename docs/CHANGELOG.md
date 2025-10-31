@@ -18,6 +18,8 @@
   **DE:** Platzhalter für Claim und Logo in der Sidebar entfernt – stattdessen erscheint ein zweisprachiger „Branding setzen“-Hinweis, und Tests erwarten nun leere Defaults.
 - **EN:** Clarified the supported Python window (`>=3.11,<4.0`) to stop Streamlit deployments from pinning Python 4 previews that conflict with packages such as `backoff`.
   **DE:** Unterstützten Python-Zeitraum (`>=3.11,<4.0`) präzisiert, damit Streamlit-Deployments keine Python-4-Previews wählen, die mit Paketen wie `backoff` kollidieren.
+- **EN:** Relaxed the OpenAI SDK requirement to permit the 2.x releases, matching the version available in Streamlit's build environment and unblocking deployments.
+  **DE:** Die OpenAI-SDK-Anforderung gelockert, sodass jetzt auch 2.x-Releases erlaubt sind – entspricht der in der Streamlit-Build-Umgebung verfügbaren Version und behebt Deploy-Blocker.
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
   the file order `01_jobad.py` → `08_summary.py`, the deprecated
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and

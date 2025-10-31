@@ -27,6 +27,12 @@
   **DE:** Unterstützten Python-Bereich (`>=3.11,<4.0`) präzisiert, damit
   Streamlit-Deployments keine Python-4-Previews wählen, die Abhängigkeiten wie
   `backoff` beschädigen.
+- **EN:** Relaxed the OpenAI SDK pin to accept the 2.x releases shipped on
+  Streamlit Cloud, removing the deployment blocker caused by the older
+  constraint.
+  **DE:** Die OpenAI-SDK-Version auf die 2.x-Releases erweitert, wie sie auf
+  Streamlit Cloud bereitstehen, und damit den Deploy-Blocker durch die ältere
+  Einschränkung aufgehoben.
 - **EN:** Chip-based multiselects now show context-specific bilingual hints
   (e.g. “Add more benefits…”), allowing each wizard section to guide the
   entries users add.
