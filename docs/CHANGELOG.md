@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Removed the `sidebar.*` mypy ignore, introduced explicit type aliases, and tightened colour helpers so the sidebar module now passes static checks without suppressions.
+  **DE:** Das `sidebar.*`-Mypy-Ignorieren entfernt, explizite Type-Aliases ergänzt und die Farbhelfer präzisiert, sodass das Sidebar-Modul jetzt ohne Unterdrückungen die statischen Prüfungen besteht.
 - **EN:** Documented focused pytest loops in the developer guide, covering scoped
   modules, keyword filters, and marking known failures while expectations catch
   intentional behaviour changes.

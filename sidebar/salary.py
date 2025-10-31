@@ -7,7 +7,8 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence, TypedDict
+from collections.abc import Iterable
+from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 import streamlit as st
 from pydantic import BaseModel, Field
@@ -21,11 +22,18 @@ from prompts import prompt_registry
 from utils.i18n import tr
 from utils.normalization import country_to_iso2, normalize_country
 
+CallChatApi = Callable[..., Any]
+BuildExtractionTool = Callable[..., list[dict[str, Any]]]
+
 try:
-    from openai_utils import call_chat_api, build_extraction_tool
+    from openai_utils import build_extraction_tool as _build_extraction_tool
+    from openai_utils import call_chat_api as _call_chat_api
 except Exception:  # pragma: no cover - during offline tests without OpenAI
-    call_chat_api = None  # type: ignore
-    build_extraction_tool = None  # type: ignore
+    call_chat_api: CallChatApi | None = None
+    build_extraction_tool: BuildExtractionTool | None = None
+else:
+    call_chat_api = cast(CallChatApi, _call_chat_api)
+    build_extraction_tool = cast(BuildExtractionTool, _build_extraction_tool)
 
 
 logger = logging.getLogger(__name__)
@@ -180,9 +188,17 @@ def estimate_salary_expectation() -> None:
     explanation: SalaryExplanation | str | None = None
     source = "model"
 
-    if call_chat_api and build_extraction_tool and not st.session_state.get("openai_api_key_missing"):
+    if (
+        call_chat_api is not None
+        and build_extraction_tool is not None
+        and not st.session_state.get("openai_api_key_missing")
+    ):
         try:
-            result, explanation = _call_salary_model(inputs)
+            result, explanation = _call_salary_model(
+                inputs,
+                call_api=call_chat_api,
+                extraction_tool_factory=build_extraction_tool,
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Salary estimation via model failed, falling back: %s", exc)
     if result is None:
@@ -361,7 +377,7 @@ def _normalize_suggestion_list(raw: object) -> list[str]:
     items: list[str] = []
     seen: set[str] = set()
     if isinstance(raw, Mapping):
-        iterable = raw.values()
+        iterable: Iterable[object] = raw.values()
     elif isinstance(raw, (list, tuple, set)):
         iterable = raw
     else:
@@ -763,7 +779,16 @@ _CITY_TO_COUNTRY: dict[str, str] = {
 }
 
 
-def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, str | None]:
+def _call_salary_model(
+    inputs: _SalaryInputs,
+    *,
+    call_api: CallChatApi | None = None,
+    extraction_tool_factory: BuildExtractionTool | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    api = call_api or call_chat_api
+    tool_factory = extraction_tool_factory or build_extraction_tool
+    if api is None or tool_factory is None:
+        raise RuntimeError("OpenAI client is unavailable")
     payload = {
         "job_title": inputs.job_title,
         "country": inputs.country,
@@ -796,9 +821,9 @@ def _call_salary_model(inputs: _SalaryInputs) -> tuple[dict[str, Any] | None, st
     ]
 
     schema = SalaryExpectationResponse.model_json_schema()
-    tools = build_extraction_tool(FUNCTION_NAME, schema, allow_extra=False)
+    tools = tool_factory(FUNCTION_NAME, schema, allow_extra=False)
     model = get_model_for(ModelTask.SALARY_ESTIMATE)
-    result = call_chat_api(
+    result = api(
         messages,
         temperature=0.2,
         max_tokens=220,

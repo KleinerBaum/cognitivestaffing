@@ -10,7 +10,7 @@ from functools import partial
 from functools import lru_cache
 from io import BytesIO
 from types import ModuleType
-from typing import Any, Callable, Iterable, Literal, Mapping
+from typing import Any, Callable, Iterable, Literal, Mapping, TypeAlias
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -42,7 +42,7 @@ from .salary import (
 )
 
 
-LogoRenderable = PILImage | BytesIO
+LogoRenderable: TypeAlias = PILImage | BytesIO
 
 BRANDING_SETTINGS_EXPANDED_KEY = "sidebar.branding.expanded"
 
@@ -575,7 +575,11 @@ def _hex_to_rgb(value: str) -> tuple[int, int, int] | None:
     if len(stripped) != 6:
         return None
     try:
-        return tuple(int(stripped[i : i + 2], 16) for i in (0, 2, 4))
+        return (
+            int(stripped[0:2], 16),
+            int(stripped[2:4], 16),
+            int(stripped[4:6], 16),
+        )
     except ValueError:
         return None
 
@@ -816,10 +820,11 @@ def _build_initial_extraction_entries(
 
     section_map = _initial_extraction_section_map()
     for section_label, items in context.prefilled_sections:
-        step_key = section_map.get(section_label)
-        if not step_key:
+        mapped_step = section_map.get(section_label)
+        if mapped_step is None:
             continue
-        entries = step_entries.setdefault(step_key, [])
+        assert isinstance(mapped_step, str)
+        entries = step_entries.setdefault(mapped_step, [])
         for path, value in items:
             preview = preview_value_to_text(value)
             if not preview:
