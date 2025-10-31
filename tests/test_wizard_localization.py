@@ -341,10 +341,7 @@ def test_skill_market_summary_fallback_translations(monkeypatch: pytest.MonkeyPa
         location=None,
     )
 
-    assert (
-        captured[0]
-        == "Engineering: Keine Auswertung verfügbar – bitte Skills erfassen."
-    )
+    assert captured[0] == "Engineering: Keine Auswertung verfügbar – bitte Skills erfassen."
 
 
 class _StopAfterMultiselect(Exception):

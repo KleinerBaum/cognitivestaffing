@@ -20,6 +20,13 @@
   folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, und die
   veralteten Flags `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden
   entfernt.
+- **EN:** Replaced all ACME/example.com wizard placeholders with bilingual
+  guidance and reset the Recruiting Wizard defaults to empty values that flag
+  required fields instead of injecting sample companies.
+  **DE:** Sämtliche ACME- bzw. example.com-Platzhalter im Wizard durch
+  zweisprachige Hinweise ersetzt und die Recruiting-Wizard-Defaults auf leere
+  Werte mit Pflichtfeld-Markierungen zurückgesetzt statt Demo-Unternehmen
+  einzutragen.
 - **EN:** Unified the schema layer: `NeedAnalysisProfile` now drives ingestion,
   wizard bindings, exports, and tests without the `SCHEMA_WIZARD_V1` rollout
   toggle; canonical dot-paths live in `constants/keys.py::ProfilePaths`.

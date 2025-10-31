@@ -12,6 +12,12 @@
   Dateireihenfolge `01_jobad.py` → `08_summary.py`, die veralteten Flags
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden entfernt und die
   Reihenfolge ergibt sich ausschließlich aus den Dateinamen.
+- **EN:** Updated the wizard to drop ACME/example.com placeholders, using
+  bilingual helper text and empty schema defaults that mark required fields
+  instead of demo values.
+  **DE:** Den Wizard von ACME-/example.com-Platzhaltern befreit: Jetzt geben
+  zweisprachige Hinweise Orientierung, während leere Schema-Defaults
+  Pflichtfelder kennzeichnen statt Demo-Werte zu befüllen.
 - **EN:** Unified the schema layer around `NeedAnalysisProfile`: wizard bindings
   and exports now consume the same canonical dot-paths from
   `constants/keys.ProfilePaths`, and the `SCHEMA_WIZARD_V1` rollout flag has
