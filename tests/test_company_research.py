@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Sequence, cast
 
 import requests
+import pytest
 
 import streamlit as st
 
@@ -27,6 +28,9 @@ from wizard import (
     _normalise_company_base_url,
     _store_company_page_section,
 )
+
+
+pytestmark = pytest.mark.integration
 from models.need_analysis import NeedAnalysisProfile
 
 

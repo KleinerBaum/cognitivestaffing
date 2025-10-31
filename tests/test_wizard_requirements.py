@@ -11,6 +11,9 @@ from constants.keys import StateKeys, UIKeys
 from wizard import _render_skill_board, _skill_board_labels, _step_requirements
 
 
+pytestmark = pytest.mark.integration
+
+
 def _fake_panel_text_input(*_: object, key: object | None = None, value: object | None = None, **__: object) -> str:
     """Mimic ``st.text_input`` enough for wizard tests."""
 

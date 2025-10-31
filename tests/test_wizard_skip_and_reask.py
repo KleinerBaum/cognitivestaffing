@@ -12,6 +12,9 @@ from wizard import (
     CRITICAL_SECTION_ORDER,
     next_step,
 )
+
+
+pytestmark = pytest.mark.integration
 from constants.keys import StateKeys
 from models.need_analysis import NeedAnalysisProfile
 

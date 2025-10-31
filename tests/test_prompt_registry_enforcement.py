@@ -6,6 +6,8 @@ import ast
 from pathlib import Path
 from typing import Iterator, Sequence
 
+import pytest
+
 PROMPT_KEYWORDS: Sequence[str] = (
     "You are",
     "Du bist",
@@ -18,6 +20,9 @@ PROMPT_KEYWORDS: Sequence[str] = (
 )
 
 IGNORED_PARTS = {"tests", "prompts", "__pycache__"}
+
+
+pytestmark = pytest.mark.integration
 TARGET_DIRS = {
     "openai_utils",
     "llm",

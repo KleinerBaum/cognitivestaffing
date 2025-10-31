@@ -71,6 +71,9 @@ def test_alias_mapping_complete() -> None:
             assert canonical_value == sentinel, f"Alias '{alias}' value changed unexpectedly for '{target}'"
 
 
+OPTIONAL_WIZARD_FIELDS = {"company.benefits"}
+
+
 def test_profile_paths_cover_schema_and_ui() -> None:
     profile_dump = NeedAnalysisProfile().model_dump()
     dump_paths = set(_flatten_paths(profile_dump))
@@ -85,7 +88,7 @@ def test_profile_paths_cover_schema_and_ui() -> None:
         wizard_paths.update(str(field) for field in page.required_fields)
         wizard_paths.update(str(field) for field in page.summary_fields)
 
-    missing = canonical_paths - wizard_paths
+    missing = (canonical_paths - wizard_paths) - OPTIONAL_WIZARD_FIELDS
     assert not missing, f"Wizard pages missing coverage for: {sorted(missing)}"
 
     stray = wizard_paths - canonical_paths

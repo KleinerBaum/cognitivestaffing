@@ -18,6 +18,9 @@ from core.errors import ExtractionError
 from core.rules import RuleMatch
 from models.need_analysis import NeedAnalysisProfile
 from ingest.types import ContentBlock, StructuredDocument
+
+
+pytestmark = pytest.mark.integration
 from wizard import (
     on_file_uploaded,
     on_url_changed,

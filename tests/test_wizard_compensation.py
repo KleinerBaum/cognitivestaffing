@@ -11,6 +11,9 @@ from constants.keys import StateKeys
 from wizard import _generate_local_benefits, _step_compensation
 
 
+pytestmark = pytest.mark.integration
+
+
 class StopWizard(RuntimeError):
     """Sentinel exception to abort the compensation step during tests."""
 

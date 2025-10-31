@@ -18,6 +18,9 @@ import llm.client as llm_client
 import openai_utils
 import question_logic
 from constants.keys import StateKeys, UIKeys
+
+
+pytestmark = pytest.mark.integration
 from models.need_analysis import NeedAnalysisProfile
 from openai_utils.extraction import ExtractionResult
 import wizard
