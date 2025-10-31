@@ -4,6 +4,7 @@
 - **Command:** `poetry run mypy --config-file pyproject.toml .`
 - **Log:** See `docs/mypy_errors_2024-10-08.txt` for the full 342-error report prior to adding targeted ignores.
 - **Goal:** Document modules with pre-existing typing issues and explain the temporary ignores that allow focused checks on modified code.
+- **Import skips:** `streamlit`, `requests`, and `bs4` are covered by `follow_imports = "skip"` so missing upstream stubs do not mask first-party regressions. Drop the skips once official types are shipped or a local facade is introduced.
 
 ## Temporary Mypy Ignores
 The following table summarises the new ignore overrides added in `pyproject.toml`. Error counts originate from `docs/mypy_errors_2024-10-08.txt` and reflect the baseline before suppression.
@@ -26,6 +27,18 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | `app` | 1 | Streamlit entry point backfills telemetry conditionally; convert to helper functions to type-check cleanly. |
 | `nlp.entities` | 1 | Contains a redundant `# type: ignore` guard from earlier rapid prototyping. |
 | `pages.*` | 10 | Wizard pages still import the legacy layout helpers; will be handled after `_legacy` removal. |
+
+## Strict modules
+
+The following wizard modules now run with `disallow_untyped_defs` to keep newly touched helpers fully annotated:
+
+- `wizard._agents`
+- `wizard._logic`
+- `wizard._openai_bridge`
+- `wizard.interview_step`
+- `wizard.wizard`
+
+If a refactor temporarily removes annotations, add them back before committing or extend the override table only for the duration of your branch.
 
 ## Next Steps
 1. Create focused tickets per module group (e.g., `openai_utils.*`, `wizard.*`) to replace legacy patterns with typed helpers.

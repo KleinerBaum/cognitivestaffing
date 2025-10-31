@@ -76,6 +76,17 @@ no_implicit_optional = true
 strict_equality = true
 
 [[tool.mypy.overrides]]
+module = [
+    "requests",
+    "requests.*",
+    "bs4",
+    "bs4.*",
+    "streamlit",
+    "streamlit.*",
+]
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
 module = "core.*"
 ignore_errors = true
 
@@ -108,6 +119,17 @@ module = [
     "pages.*",
 ]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "wizard._agents",
+    "wizard._logic",
+    "wizard._openai_bridge",
+    "wizard.interview_step",
+    "wizard.wizard",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 
 [tool.coverage.report]
 fail_under = 88 # CI_COVERAGE_THRESHOLD
