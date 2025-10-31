@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._legacy import FIELD_SECTION_MAP, get_missing_critical_fields
+
 from . import _agents as agents
 from . import _layout as layout
 from . import _logic as logic
@@ -40,6 +42,8 @@ __all__ = [
     "logic",
     "COMPACT_STEP_STYLE",
     "inject_salary_slider_styles",
+    "FIELD_SECTION_MAP",
+    "get_missing_critical_fields",
     "merge_unique_items",
     "normalize_text_area_list",
     "render_list_text_area",

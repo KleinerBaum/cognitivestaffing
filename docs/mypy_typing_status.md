@@ -13,7 +13,6 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | --- | ---: | --- |
 | `ingest.*` | 3 | Legacy ingestion utilities rely on dynamically typed third-party clients. |
 | `openai_utils.*` | 16 | Response-stream plumbing mixes Responses/Chat abstractions that require a dedicated refactor. |
-| `sidebar.*` | 11 | Sidebar bindings still depend on schema v1 helpers slated for removal. |
 | `wizard._legacy` | 19 | Legacy wizard entry point awaiting migration to the step-order router. |
 | `wizard._layout` | 2 | Shares helpers with `_legacy`; will be retired alongside that module. |
 | `wizard_router` | 5 | Blocked on the same legacy wizard dependencies as above. |
@@ -27,6 +26,10 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | `app` | 1 | Streamlit entry point backfills telemetry conditionally; convert to helper functions to type-check cleanly. |
 | `nlp.entities` | 1 | Contains a redundant `# type: ignore` guard from earlier rapid prototyping. |
 | `pages.*` | 10 | Wizard pages still import the legacy layout helpers; will be handled after `_legacy` removal. |
+
+### Progress Log
+
+- **2025-02-14:** Dropped the `sidebar.*` override after annotating branding helpers and normalising RGB tuples so the module passes strict type checking.
 
 ## Strict modules
 
