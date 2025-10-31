@@ -81,7 +81,17 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 - Run `ruff format && ruff check`, `mypy --config-file pyproject.toml`, and
   `pytest -q -m "not integration"` before pushing. The repository enforces
   Python ≥ 3.11 and type hints.
-- For targeted runs use `pytest -k <keyword>` (example: `pytest -k brand_color`).
+- When iterating on a feature, keep the feedback loop focused to avoid noise
+  from unrelated regressions:
+  - Run scoped modules, e.g. `pytest -q tests/test_wizard_*.py`, instead of the
+    full suite.
+  - Use keyword filtering such as `pytest -q -k "wizard or multiselect"` to hit
+    all relevant cases in one run.
+  - Mark pre-existing out-of-scope failures with
+    `@pytest.mark.xfail(reason="<issue link>")` so they surface as expected
+    failures until the underlying bug is fixed.
+  - Update fixtures or assertions whenever your change intentionally adjusts an
+    output, keeping regression expectations aligned with the new behaviour.
 - Streamlit logs console output while the app runs. Missing OpenAI keys raise a
   banner defined in `openai_utils/api.py`; when debugging configuration issues
   inspect `st.session_state["system.openai.api_key_missing_alert"]`.
@@ -94,8 +104,18 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 - Vor dem Push `ruff format && ruff check`, `mypy --config-file pyproject.toml`
   sowie `pytest -q -m "not integration"` ausführen. Das Repo verlangt Python ≥
   3.11 und Typ-Hints.
-- Für fokussierte Läufe `pytest -k <stichwort>` verwenden (Beispiel:
-  `pytest -k brand_color`).
+- Während der Entwicklung die Feedback-Schleife fokussiert halten, um
+  Fehlermeldungen aus anderen Bereichen zu vermeiden:
+  - Gezielt Module laufen lassen, z. B. `pytest -q tests/test_wizard_*.py`,
+    statt direkt die gesamte Suite auszuführen.
+  - Mit Stichwortfiltern wie `pytest -q -k "wizard or multiselect"` alle
+    relevanten Fälle in einem Lauf abdecken.
+  - Vorhandene, nicht zum aktuellen Task gehörende Fehler mit
+    `@pytest.mark.xfail(reason="<issue link>")` kennzeichnen, damit sie als
+    erwartete Fehlschläge sichtbar bleiben, bis der Ursprung behoben ist.
+  - Fixtures oder Assertions anpassen, sobald sich Ergebnisse durch deine
+    Änderung absichtlich ändern, damit die Regressionserwartungen zur neuen
+    Logik passen.
 - Streamlit protokolliert Konsolenausgaben während der Laufzeit. Fehlende
   OpenAI-Schlüssel lösen das Banner aus `openai_utils/api.py` aus; bei
   Konfigurationsproblemen `st.session_state["system.openai.api_key_missing_alert"]`
