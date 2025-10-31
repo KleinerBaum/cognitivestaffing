@@ -2,7 +2,51 @@
 name = "cognitivestaffing"
 version = "1.1.0"
 requires-python = ">=3.11"
-# Dependencies are managed exclusively via requirements.txt to avoid duplicate sources.
+dependencies = [
+    "backoff>=2.2",
+    "beautifulsoup4>=4.12",
+    "chardet>=5.0",
+    "email-validator>=2.1",
+    "httpx>=0.24",
+    "jsonschema>=4.18",
+    "langdetect>=1.0",
+    "lxml>=4.9",
+    "openai>=1.99.3",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-exporter-otlp==1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+    "plotly>=5.20",
+    "pycountry>=23.12",
+    "pydantic>=2.5,<3.0",
+    "PyMuPDF>=1.26",
+    "pypdf>=4.0",
+    "python-docx>=0.8.11",
+    "python-dotenv>=1.0",
+    "PyYAML>=6.0",
+    "requests>=2.31",
+    "streamlit>=1.33",
+    "streamlit-sortables==0.3.1",
+    "types-PyYAML",
+    "types-requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.10",
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+ingest = [
+    "de-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl",
+    "mammoth>=1.7",
+    "numpy>=1.24,<2.0",
+    "pdf2image>=1.17",
+    "pillow>=10.0",
+    "pytesseract>=0.3",
+    "readability-lxml>=0.8.1",
+    "spacy>=3.7,<4.0",
+    "trafilatura>=1.0",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]

@@ -70,7 +70,7 @@ def _load_de_pipeline() -> Language:
     except OSError as exc:  # pragma: no cover - import error surface area
         raise RuntimeError(
             "spaCy model 'de_core_news_sm' is not installed. "
-            "Install dependencies via requirements.txt to enable location extraction."
+            "Install the optional extras via 'pip install .[ingest]' to enable location extraction."
         ) from exc
 
 

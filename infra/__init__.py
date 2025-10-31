@@ -13,7 +13,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - Python <3.11 fallback
 
 
 _DEFAULT_PYTHON_VERSION = "3.11"
-_DEFAULT_REQUIREMENTS_FILE = "requirements.txt"
+_DEFAULT_INSTALL_COMMAND = "pip install ."
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,7 +21,7 @@ class DeploymentConfig:
     """Static deployment configuration for Streamlit/community hosting."""
 
     python_version: str = _DEFAULT_PYTHON_VERSION
-    requirements_file: str = _DEFAULT_REQUIREMENTS_FILE
+    install_command: str = _DEFAULT_INSTALL_COMMAND
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -55,16 +55,28 @@ def load_deployment_config(path: str | Path | None = None) -> DeploymentConfig:
     if not python_version:
         python_version = _DEFAULT_PYTHON_VERSION
 
+    install_raw = (
+        python_block.get("installCommand")
+        or python_block.get("install_command")
+        or python_block.get("install")
+    )
+    install_command = str(install_raw).strip() if isinstance(install_raw, str) else ""
+
     requirements_raw = (
         python_block.get("requirements")
         or python_block.get("requirements_file")
         or python_block.get("requirementsFile")
     )
-    requirements_file = str(requirements_raw).strip() if isinstance(requirements_raw, str) else None
-    if not requirements_file:
-        requirements_file = _DEFAULT_REQUIREMENTS_FILE
+    requirements_file = str(requirements_raw).strip() if isinstance(requirements_raw, str) else ""
 
-    return DeploymentConfig(python_version=python_version, requirements_file=requirements_file)
+    if install_command:
+        resolved_install = install_command
+    elif requirements_file:
+        resolved_install = f"pip install -r {requirements_file}"
+    else:
+        resolved_install = _DEFAULT_INSTALL_COMMAND
+
+    return DeploymentConfig(python_version=python_version, install_command=resolved_install)
 
 
 DEPLOYMENT_CONFIG = load_deployment_config()
