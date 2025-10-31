@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Documented the baseline Mypy failures, added temporary ignore overrides for legacy modules, and published the checklist in `docs/mypy_typing_status.md` to guide future cleanups.
+  **DE:** Bestehende Mypy-Fehler dokumentiert, temporäre Ignore-Overrides für Legacy-Module ergänzt und die Checkliste in `docs/mypy_typing_status.md` festgehalten, um kommende Aufräumarbeiten zu steuern.
 - **EN:** Removed placeholder claim/logo defaults from the sidebar and replaced them with a bilingual "Set branding" call-to-action plus empty defaults in tests.
   **DE:** Platzhalter für Claim und Logo in der Sidebar entfernt – stattdessen erscheint ein zweisprachiger „Branding setzen“-Hinweis, und Tests erwarten nun leere Defaults.
 - **EN:** Clarified the supported Python window (`>=3.11,<4.0`) to stop Streamlit deployments from pinning Python 4 previews that conflict with packages such as `backoff`.
