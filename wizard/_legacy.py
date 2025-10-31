@@ -61,7 +61,6 @@ from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
-from config import WIZARD_STEP_ORDER_ENABLED
 from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
@@ -9619,126 +9618,6 @@ def _step_summary(schema: dict, _critical: list[str]):
 # --- Navigation helper ---
 
 
-def _render_wizard_navigation(
-    steps: Sequence[tuple[str, Callable[[], None]]],
-    *,
-    completed_sections: Sequence[int],
-) -> None:
-    """Render navigation controls (stepper + buttons) for the wizard."""
-
-    current = st.session_state[StateKeys.STEP]
-
-    def _handle_step_selection(target_index: int) -> None:
-        current_index = st.session_state[StateKeys.STEP]
-        if target_index == current_index:
-            return
-
-        if target_index > current_index:
-            max_section = max(target_index - 1, 0)
-            missing_before_target = get_missing_critical_fields(max_section=max_section)
-            if missing_before_target:
-                next_required_section = min(
-                    (_resolve_section_for_field(field) for field in missing_before_target),
-                    default=None,
-                )
-                if next_required_section is not None and 0 <= next_required_section < len(steps):
-                    blocking_step_label = steps[next_required_section][0]
-                    message = tr(
-                        "Bitte fülle zuerst die Pflichtfelder in „{step}“ aus.",
-                        "Please complete the required fields in “{step}” first.",
-                    ).format(step=blocking_step_label)
-                else:
-                    message = tr(
-                        "Bitte fülle zuerst alle Pflichtfelder in den vorherigen Schritten aus.",
-                        "Please complete all required fields in the previous steps before jumping ahead.",
-                    )
-                st.session_state[StateKeys.STEPPER_WARNING] = message
-                return
-
-        st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
-        st.session_state[StateKeys.STEP] = target_index
-        st.rerun()
-
-    warning_message = st.session_state.pop(StateKeys.STEPPER_WARNING, None)
-    if warning_message:
-        st.warning(warning_message)
-
-    section = current - 1
-    missing = get_missing_critical_fields(max_section=section) if section >= 1 else []
-
-    if current > 0:
-        if current < len(steps) - 1:
-            col_prev, col_next = st.columns([1, 1])
-            with col_prev:
-                if st.button(tr("◀︎ Zurück", "◀︎ Back"), width="stretch"):
-                    prev_step()
-                    st.rerun()
-            with col_next:
-                next_clicked = st.button(
-                    tr("Weiter ▶︎", "Next ▶︎"),
-                    type="primary",
-                    width="stretch",
-                )
-                if missing:
-                    st.info(
-                        tr(
-                            "Hinweis: Es fehlen noch Pflichtfelder. Du kannst später nachtragen.",
-                            "Heads-up: Required fields are still missing. You can fill them later.",
-                        )
-                    )
-                if next_clicked:
-                    next_step()
-                    st.rerun()
-        else:
-            back_col, home_col, donate_col = st.columns([1, 1, 1])
-            with back_col:
-                if st.button(
-                    tr("◀︎ Zurück", "◀︎ Back"),
-                    width="stretch",
-                    key="summary_back",
-                ):
-                    prev_step()
-                    st.rerun()
-            with home_col:
-                if st.button(
-                    tr("🏠 Startseite", "🏠 Home"),
-                    key="summary_home",
-                    width="stretch",
-                ):
-                    _request_scroll_to_top()
-                    reset_state()
-                    st.session_state[StateKeys.STEP] = 0
-                    st.rerun()
-            with donate_col:
-                if st.button(
-                    tr("❤️ Entwickler unterstützen", "❤️ Donate to the developer"),
-                    key="summary_donate",
-                    width="stretch",
-                ):
-                    st.session_state["show_donate"] = True
-
-    if current == len(steps) - 1:
-        if st.session_state.get("show_donate"):
-            st.info(
-                tr(
-                    "Spendenkonto: DE00 1234 5678 9000 0000 00",
-                    "Donation account: DE00 1234 5678 9000 0000 00",
-                )
-            )
-
-        usage = st.session_state.get(StateKeys.USAGE)
-        if usage:
-            in_tok, out_tok, total_tok = usage_totals(usage)
-            label = tr("Verbrauchte Tokens", "Tokens used")
-            summary = f"{label}: {in_tok} + {out_tok} = {total_tok}"
-            table = build_usage_markdown(usage)
-            if table:
-                with st.expander(summary):
-                    st.markdown(table)
-            else:
-                st.caption(summary)
-
-
 # --- Haupt-Wizard-Runner ---
 def _load_wizard_configuration() -> tuple[dict, list[str]]:
     """Return schema and critical field configuration from state or disk."""
@@ -9760,35 +9639,6 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
             critical = []
     return schema, critical
 
-
-def _run_wizard_legacy(schema: Mapping[str, object], critical: Sequence[str]) -> None:
-    steps = [
-        (tr("Onboarding", "Onboarding"), lambda: _step_onboarding(schema)),
-        (tr("Unternehmen", "Company"), _step_company),
-        (tr("Basisdaten", "Basic info"), _step_position),
-        (tr("Anforderungen", "Requirements"), _step_requirements),
-        (tr("Leistungen & Benefits", "Rewards & Benefits"), _step_compensation),
-        (tr("Prozess", "Process"), _step_process),
-        (tr("Summary", "Summary"), lambda: _step_summary(schema, critical)),
-    ]
-
-    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(steps)
-    first_incomplete, _completed_sections = _update_section_progress()
-    if st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False) and (first_incomplete is not None):
-        st.session_state[StateKeys.STEP] = first_incomplete
-    completed_sections = list(st.session_state.get(StateKeys.COMPLETED_SECTIONS, []))
-
-    current = st.session_state[StateKeys.STEP]
-
-    if current == 0:
-        _render_onboarding_hero()
-
-    st.session_state["_wizard_step_summary"] = (current, [label for label, _ in steps])
-
-    _label, renderer = steps[current]
-    renderer()
-    _apply_pending_scroll_reset()
-    _render_wizard_navigation(steps, completed_sections=completed_sections)
 
 
 def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
@@ -9929,7 +9779,4 @@ def run_wizard() -> None:
 
     st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
     schema, critical = _load_wizard_configuration()
-    if WIZARD_STEP_ORDER_ENABLED:
-        _run_wizard_v2(schema, critical)
-    else:
-        _run_wizard_legacy(schema, critical)
+    _run_wizard_v2(schema, critical)

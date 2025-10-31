@@ -7,11 +7,12 @@
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
   the file order `01_jobad.py` → `08_summary.py`, the deprecated
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
-  navigation relies solely on filename ordering.
+  navigation now always uses the step-order router after retiring the legacy
+  runner.
   **DE:** Wizard-Navigation finalisiert: Die acht Streamlit-Seiten folgen der
   Dateireihenfolge `01_jobad.py` → `08_summary.py`, die veralteten Flags
-  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden entfernt und die
-  Reihenfolge ergibt sich ausschließlich aus den Dateinamen.
+  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden entfernt und der
+  Step-Order-Router ersetzt den Legacy-Lauf vollständig.
 - **EN:** Chip multiselects now expose context-aware bilingual hints, guiding
   users when adding skills, benefits, languages, or job-ad sections.
   **DE:** Chip-Multiselects zeigen nun kontextsensible zweisprachige Hinweise
