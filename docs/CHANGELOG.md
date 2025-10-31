@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **EN:** Documented focused pytest loops in the developer guide, covering scoped
+  modules, keyword filters, and marking known failures while expectations catch
+  intentional behaviour changes.
+  **DE:** Fokussierte Pytest-Schleifen im Developer-Guide dokumentiert – mit
+  Hinweisen zu Modul-Läufen, Stichwortfiltern sowie XFAIL-Markierungen und
+  aktualisierten Erwartungen bei absichtlichen Verhaltensänderungen.
 - **EN:** Tuned the Mypy configuration to skip heavy third-party imports (`streamlit`, `requests`, `bs4`) while enforcing `disallow_untyped_defs` on wizard helpers so incremental cleanup can start without regressing strictness on new code.
   **DE:** Die Mypy-Konfiguration angepasst: Umfangreiche Drittanbieter-Imports (`streamlit`, `requests`, `bs4`) werden per `follow_imports = "skip"` ausgelassen, während Wizard-Hilfen `disallow_untyped_defs` erzwingen, damit Aufräumarbeiten schrittweise starten können, ohne neue Lockerungen zu riskieren.
 - **EN:** Documented the baseline Mypy failures, added temporary ignore overrides for legacy modules, and published the checklist in `docs/mypy_typing_status.md` to guide future cleanups.
