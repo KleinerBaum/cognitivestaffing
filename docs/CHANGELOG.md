@@ -40,14 +40,13 @@
 - **EN:** Relaxed the OpenAI SDK requirement to permit the 2.x releases, matching the version available in Streamlit's build environment and unblocking deployments.
   **DE:** Die OpenAI-SDK-Anforderung gelockert, sodass jetzt auch 2.x-Releases erlaubt sind – entspricht der in der Streamlit-Build-Umgebung verfügbaren Version und behebt Deploy-Blocker.
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
-  the file order `01_jobad.py` → `08_summary.py`, the deprecated
-  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
-  navigation now always uses the step-order router after retiring the legacy
-  runner.
+  the file order `01_jobad.py` → `08_summary.py`, all legacy step-order flags
+  have been removed, and navigation now always uses the step-order router after
+  retiring the legacy runner.
   **DE:** Wizard-Navigation finalisiert: Die acht Streamlit-Seiten folgen der
-  Dateireihenfolge `01_jobad.py` → `08_summary.py`, die veralteten Flags
-  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden entfernt und der
-  Step-Order-Router ersetzt den Legacy-Lauf vollständig.
+  Dateireihenfolge `01_jobad.py` → `08_summary.py`, sämtliche veralteten
+  Step-Order-Schalter wurden entfernt und der Step-Order-Router ersetzt den
+  Legacy-Lauf vollständig.
 - **EN:** Chip multiselects now expose context-aware bilingual hints, guiding
   users when adding skills, benefits, languages, or job-ad sections.
   **DE:** Chip-Multiselects zeigen nun kontextsensible zweisprachige Hinweise
