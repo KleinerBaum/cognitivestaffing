@@ -5,7 +5,7 @@ import logging
 import math
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from collections.abc import Iterable
 from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
@@ -165,6 +165,17 @@ class SalaryFactor(TypedDict, total=False):
 SalaryExplanation = list[SalaryFactor | str]
 
 
+@dataclass(slots=True, frozen=True)
+class SalaryRequirementStatus:
+    """Represent the availability of a required input for salary estimation."""
+
+    path: str
+    label: tuple[str, str]
+    value: str | None
+    satisfied: bool
+    group: str | None = None
+
+
 def estimate_salary_expectation() -> None:
     """Calculate and persist the salary expectation for the current profile."""
 
@@ -217,6 +228,61 @@ def estimate_salary_expectation() -> None:
     st.session_state[UIKeys.SALARY_ESTIMATE] = {**result, "source": source}
     st.session_state[UIKeys.SALARY_EXPLANATION] = explanation
     st.session_state[UIKeys.SALARY_REFRESH] = _now_iso()
+
+
+def build_salary_requirements(profile: Mapping[str, Any]) -> tuple[_SalaryInputs, list[SalaryRequirementStatus], bool]:
+    """Return the collected inputs plus requirement status entries."""
+
+    inputs = _collect_inputs(profile)
+
+    job_label = ("Jobtitel", "Job title")
+    job_value = inputs.job_title or None
+    requirement_entries: list[SalaryRequirementStatus] = [
+        SalaryRequirementStatus(
+            path="position.job_title",
+            label=job_label,
+            value=job_value,
+            satisfied=bool(job_value),
+        )
+    ]
+
+    geo_requirements = [
+        SalaryRequirementStatus(
+            path="location.country",
+            label=("Land", "Country"),
+            value=inputs.country or None,
+            satisfied=bool(inputs.country),
+            group="geo",
+        ),
+        SalaryRequirementStatus(
+            path="location.primary_city",
+            label=("Hauptstandort", "Primary city"),
+            value=inputs.primary_city or None,
+            satisfied=bool(inputs.primary_city),
+            group="geo",
+        ),
+        SalaryRequirementStatus(
+            path="company.hq_location",
+            label=("Unternehmenssitz", "Company HQ"),
+            value=inputs.hq_location or None,
+            satisfied=bool(inputs.hq_location),
+            group="geo",
+        ),
+    ]
+
+    requirement_entries.extend(geo_requirements)
+
+    geo_ready = any(entry.satisfied for entry in geo_requirements)
+    ready = bool(job_value) and geo_ready
+
+    return inputs, requirement_entries, ready
+
+
+def salary_input_signature(inputs: _SalaryInputs) -> str:
+    """Generate a deterministic signature for salary inputs to detect changes."""
+
+    payload = asdict(inputs)
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False)
 
 
 def prepare_salary_factor_entries(

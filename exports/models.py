@@ -15,9 +15,7 @@ class RecruitingWizardExport:
     payload: RecruitingWizard
 
     @classmethod
-    def from_payload(
-        cls, payload: Mapping[str, Any] | RecruitingWizard
-    ) -> "RecruitingWizardExport":
+    def from_payload(cls, payload: Mapping[str, Any] | RecruitingWizard) -> "RecruitingWizardExport":
         """Validate ``payload`` against the wizard schema and return an export wrapper."""
 
         if isinstance(payload, RecruitingWizard):

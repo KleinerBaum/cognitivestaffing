@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Streamlined the sidebar by removing page navigation links, stacking the dark-mode and language switches vertically with flag icons, and triggering salary estimates automatically once job title plus a location hint are available; the panel now lists required fields, summarises the top five drivers in one sentence, and exposes the raw calculation data.
+  **DE:** Die Sidebar wurde verschlankt: Seiten-Links entfernt, Dark-Mode- und Sprachumschalter untereinander mit Flaggen-Icons angeordnet und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen; die Ansicht zeigt die benötigten Felder, fasst die fünf wichtigsten Faktoren in einem Satz zusammen und blendet die Berechnungsdaten sichtbar ein.
 - **EN:** Removed the legacy `wizard.layout` widget helpers; the widget factory now wires Streamlit inputs directly to `_update_profile` and exposes the bindings via `wizard.wizard`.
   **DE:** Die veralteten `wizard.layout`-Widget-Helfer entfernt; die Widget-Factory verbindet Streamlit-Inputs jetzt direkt mit `_update_profile` und stellt die Bindings über `wizard.wizard` bereit.
 - **EN:** Switched the `Requirements` certificate synchronisation validator to
