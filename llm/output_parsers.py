@@ -114,4 +114,3 @@ def get_need_analysis_output_parser() -> NeedAnalysisOutputParser:
     """Return the singleton NeedAnalysis output parser."""
 
     return NeedAnalysisOutputParser()
-

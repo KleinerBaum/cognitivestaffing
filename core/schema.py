@@ -36,7 +36,12 @@ from pydantic import AnyUrl
 
 from core.normalization import sanitize_optional_url_fields, sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
-from utils.normalization import normalize_profile
+from utils.normalization import (
+    normalize_company_size,
+    normalize_phone_number,
+    normalize_profile,
+    normalize_website_url,
+)
 
 from .validators import deduplicate_preserve_order, ensure_canonical_keys
 from llm.json_repair import repair_profile_payload
@@ -162,18 +167,28 @@ class Company(BaseModel):
 
     name: str | None = None
     legal_name: str | None = None
+    brand_name: str | None = None
     tagline: str | None = None
+    industry: str | None = None
+    industries: list[str] = Field(default_factory=list)
     mission: str | None = None
     headquarters: str | None = None
-    locations: list[str] = Field(default_factory=list)
-    industries: list[str] = Field(default_factory=list)
+    hq_location: str | None = None
+    size: str | None = None
     website: str | None = None
+    culture: str | None = None
     values: list[str] = Field(default_factory=list)
+    brand_keywords: str | None = None
+    contact_name: str | None = None
+    contact_email: EmailStr | None = None
+    contact_phone: str | None = None
+    locations: list[str] = Field(default_factory=list)
     logo_url: HttpUrl | None = None
     brand_color: str | None = None
     claim: str | None = None
+    benefits: list[str] = Field(default_factory=list)
 
-    @field_validator("locations", "industries", "values", mode="before")
+    @field_validator("locations", "industries", "values", "benefits", mode="before")
     @classmethod
     def _normalise_list(cls, value: object) -> list[str]:
         return deduplicate_preserve_order(value)
@@ -184,6 +199,56 @@ class Company(BaseModel):
         """Convert empty strings to ``None`` for optional logo URLs."""
 
         return sanitize_optional_url_value(value)
+
+    @field_validator("website", mode="before")
+    @classmethod
+    def _normalise_website(cls, value: object) -> str | None:
+        sanitized = sanitize_optional_url_value(value)
+        if sanitized is None:
+            return None
+        return normalize_website_url(sanitized)
+
+    @field_validator("size", mode="before")
+    @classmethod
+    def _normalise_size(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = normalize_company_size(value)
+            if normalized:
+                return normalized
+            cleaned = value.strip()
+            return cleaned or None
+        return str(value)
+
+    @field_validator("contact_phone", mode="before")
+    @classmethod
+    def _normalise_contact_phone(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                return None
+            return normalize_phone_number(cleaned)
+        return normalize_phone_number(str(value))
+
+    @field_validator("contact_email", mode="before")
+    @classmethod
+    def _normalise_contact_email(cls, value: object) -> EmailStr | None:
+        if value is None:
+            return None
+        if isinstance(value, EmailStr):
+            return value
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            try:
+                return EmailStr(candidate)
+            except ValueError:
+                return None
+        return None
 
     @field_validator("brand_color", mode="before")
     @classmethod
@@ -210,12 +275,7 @@ class Department(BaseModel):
     function: str | None = None
     leader_name: str | None = None
     leader_title: str | None = None
-    strategic_goals: list[str] = Field(default_factory=list)
-
-    @field_validator("strategic_goals", mode="before")
-    @classmethod
-    def _normalise_goals(cls, value: object) -> list[str]:
-        return deduplicate_preserve_order(value)
+    strategic_goals: str | None = None
 
 
 class Team(BaseModel):
@@ -228,13 +288,18 @@ class Team(BaseModel):
     reporting_line: str | None = None
     headcount_current: int | None = None
     headcount_target: int | None = None
-    collaboration_tools: list[str] = Field(default_factory=list)
-    locations: list[str] = Field(default_factory=list)
+    collaboration_tools: str | None = None
+    locations: str | None = None
 
-    @field_validator("collaboration_tools", "locations", mode="before")
-    @classmethod
-    def _normalise_lists(cls, value: object) -> list[str]:
-        return deduplicate_preserve_order(value)
+
+class Position(BaseModel):
+    """Role-level metadata that mirrors the profile position schema."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reporting_manager_name: str | None = None
+    customer_contact_required: bool | None = None
+    customer_contact_details: str | None = None
 
 
 class Role(BaseModel):
@@ -354,6 +419,7 @@ class RecruitingWizard(BaseModel):
     company: Company = Field(default_factory=Company)
     department: Department = Field(default_factory=Department)
     team: Team = Field(default_factory=Team)
+    position: Position = Field(default_factory=Position)
     role: Role = Field(default_factory=Role)
     tasks: Tasks = Field(default_factory=Tasks)
     skills: Skills = Field(default_factory=Skills)
@@ -448,7 +514,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "hiring_manager_role": "process.hiring_manager_role",
         "reporting_manager_name": "position.reporting_manager_name",
         "role.title": "position.job_title",
-        "role.department": "position.department",
+        "role.department": "department.name",
         "role.team": "position.team_structure",
         "role.seniority": "position.seniority_level",
         "role.employment_type": "employment.job_type",
@@ -472,16 +538,11 @@ ALIASES: Mapping[str, str] = MappingProxyType(
 
 WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
     {
-        "company.brand_name": "company.legal_name",
-        "company.claim": "company.tagline",
-        "company.hq_location": "company.headquarters",
-        "company.brand_keywords": "company.values",
         "position.job_title": "role.title",
         "position.role_summary": "role.purpose",
         "position.department": "department.name",
         "position.team_structure": "team.name",
         "position.reporting_line": "team.reporting_line",
-        "position.reporting_manager_name": "department.leader_name",
         "position.team_size": "team.headcount_target",
         "position.supervises": "team.headcount_current",
         "position.seniority_level": "role.seniority",

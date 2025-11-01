@@ -146,7 +146,6 @@ class Position(BaseModel):
 
     job_title: Optional[str] = None
     seniority_level: Optional[str] = None
-    department: Optional[str] = None
     team_structure: Optional[str] = None
     reporting_line: Optional[str] = None
     reporting_manager_name: Optional[str] = None
@@ -159,6 +158,34 @@ class Position(BaseModel):
     decision_authority: Optional[str] = None
     key_projects: Optional[str] = None
     team_size: Optional[int] = None
+    customer_contact_required: Optional[bool] = None
+    customer_contact_details: Optional[str] = None
+
+
+class Department(BaseModel):
+    """Department context for the open role."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = None
+    function: Optional[str] = None
+    leader_name: Optional[str] = None
+    leader_title: Optional[str] = None
+    strategic_goals: Optional[str] = None
+
+
+class Team(BaseModel):
+    """Team context information for the role."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = None
+    mission: Optional[str] = None
+    reporting_line: Optional[str] = None
+    headcount_current: Optional[int] = None
+    headcount_target: Optional[int] = None
+    collaboration_tools: Optional[str] = None
+    locations: Optional[str] = None
 
 
 class Location(BaseModel):
@@ -194,6 +221,9 @@ class Requirements(BaseModel):
     certificates: List[str] = Field(default_factory=list)
     certifications: List[str] = Field(default_factory=list)
     language_level_english: Optional[str] = None
+    background_check_required: Optional[bool] = None
+    portfolio_required: Optional[bool] = None
+    reference_check_required: Optional[bool] = None
 
     @model_validator(mode="after")
     def _sync_certificates(self) -> "Requirements":
@@ -372,6 +402,8 @@ class NeedAnalysisProfile(BaseModel):
 
     company: Company = Field(default_factory=Company)
     position: Position = Field(default_factory=Position)
+    department: Department = Field(default_factory=Department)
+    team: Team = Field(default_factory=Team)
     location: Location = Field(default_factory=Location)
     responsibilities: Responsibilities = Field(default_factory=Responsibilities)
     requirements: Requirements = Field(default_factory=Requirements)

@@ -4092,6 +4092,8 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     """Render role and team fields within the extraction review."""
 
     position = profile.setdefault("position", {})
+    department = profile.setdefault("department", {})
+    team = profile.setdefault("team", {})
     meta = profile.setdefault("meta", {})
 
     st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
@@ -4104,24 +4106,54 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         widget_factory=title_cols[0].text_input,
         value_formatter=_string_or_empty,
     )
-    position["department"] = widget_factory.text_input(
-        ProfilePaths.POSITION_DEPARTMENT,
+    department["name"] = widget_factory.text_input(
+        ProfilePaths.DEPARTMENT_NAME,
         tr("Abteilung", "Department"),
         widget_factory=title_cols[1].text_input,
         value_formatter=_string_or_empty,
     )
 
     reporting_cols = st.columns((1.2, 1.2), gap="medium")
-    position["reporting_line"] = widget_factory.text_input(
-        ProfilePaths.POSITION_REPORTING_LINE,
-        tr("Reports an", "Reports to"),
+    team_reporting_value = widget_factory.text_input(
+        ProfilePaths.TEAM_REPORTING_LINE,
+        tr("Berichtslinie", "Reporting line"),
         widget_factory=reporting_cols[0].text_input,
         value_formatter=_string_or_empty,
     )
+    team["reporting_line"] = team_reporting_value
+    position["reporting_line"] = team_reporting_value
     position["reporting_manager_name"] = widget_factory.text_input(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
         tr("Vorgesetzte Person", "Reporting manager"),
         widget_factory=reporting_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    dept_cols = st.columns((1.2, 1.2), gap="medium")
+    department["function"] = widget_factory.text_input(
+        ProfilePaths.DEPARTMENT_FUNCTION,
+        tr("Funktion", "Function"),
+        widget_factory=dept_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    department["leader_name"] = widget_factory.text_input(
+        ProfilePaths.DEPARTMENT_LEADER_NAME,
+        tr("Abteilungsleitung", "Department lead"),
+        widget_factory=dept_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    team_cols = st.columns((1.2, 1.2), gap="medium")
+    team["name"] = widget_factory.text_input(
+        ProfilePaths.TEAM_NAME,
+        tr("Teamname", "Team name"),
+        widget_factory=team_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    team["mission"] = widget_factory.text_input(
+        ProfilePaths.TEAM_MISSION,
+        tr("Teamauftrag", "Team mission"),
+        widget_factory=team_cols[1].text_input,
         value_formatter=_string_or_empty,
     )
 
@@ -6335,6 +6367,8 @@ def _step_company() -> None:
     data = profile
     company = data.setdefault("company", {})
     position = data.setdefault("position", {})
+    department = data.setdefault("department", {})
+    team = data.setdefault("team", {})
     location_data = data.setdefault("location", {})
     combined_certificates = _collect_combined_certificates(data["requirements"])
     _set_requirement_certificates(data["requirements"], combined_certificates)
@@ -6530,14 +6564,111 @@ def _step_company() -> None:
         )
 
     dept_cols = st.columns(2, gap="small")
-    position["department"] = dept_cols[0].text_input(
+    department["name"] = dept_cols[0].text_input(
         tr("Abteilung", "Department"),
-        value=position.get("department", ""),
+        value=department.get("name", ""),
+        key=ProfilePaths.DEPARTMENT_NAME,
         placeholder=tr("Abteilung beschreiben", "Describe the department"),
     )
-    position["team_structure"] = dept_cols[1].text_input(
+    _update_profile(ProfilePaths.DEPARTMENT_NAME, department.get("name", ""))
+    department["function"] = dept_cols[1].text_input(
+        tr("Funktion", "Function"),
+        value=department.get("function", ""),
+        key=ProfilePaths.DEPARTMENT_FUNCTION,
+        placeholder=tr("Aufgabe des Bereichs skizzieren", "Outline the department's function"),
+    )
+    _update_profile(ProfilePaths.DEPARTMENT_FUNCTION, department.get("function", ""))
+
+    leader_cols = st.columns(2, gap="small")
+    department["leader_name"] = leader_cols[0].text_input(
+        tr("Abteilungsleitung", "Department lead"),
+        value=department.get("leader_name", ""),
+        key=ProfilePaths.DEPARTMENT_LEADER_NAME,
+        placeholder=tr("Name der Leitung", "Name of the lead"),
+    )
+    _update_profile(ProfilePaths.DEPARTMENT_LEADER_NAME, department.get("leader_name", ""))
+    department["leader_title"] = leader_cols[1].text_input(
+        tr("Titel der Leitung", "Lead title"),
+        value=department.get("leader_title", ""),
+        key=ProfilePaths.DEPARTMENT_LEADER_TITLE,
+        placeholder=tr("Rollenbezeichnung der Leitung", "Lead's title"),
+    )
+    _update_profile(ProfilePaths.DEPARTMENT_LEADER_TITLE, department.get("leader_title", ""))
+
+    department["strategic_goals"] = st.text_area(
+        tr("Strategische Ziele", "Strategic goals"),
+        value=department.get("strategic_goals", ""),
+        key=ProfilePaths.DEPARTMENT_STRATEGIC_GOALS,
+        height=90,
+    )
+    _update_profile(ProfilePaths.DEPARTMENT_STRATEGIC_GOALS, department.get("strategic_goals", ""))
+
+    team_cols = st.columns((1, 1), gap="small")
+    team["name"] = team_cols[0].text_input(
+        tr("Teamname", "Team name"),
+        value=team.get("name", ""),
+        key=ProfilePaths.TEAM_NAME,
+        placeholder=tr("Team benennen", "Name the team"),
+    )
+    _update_profile(ProfilePaths.TEAM_NAME, team.get("name", ""))
+    team["mission"] = team_cols[1].text_input(
+        tr("Teamauftrag", "Team mission"),
+        value=team.get("mission", ""),
+        key=ProfilePaths.TEAM_MISSION,
+        placeholder=tr("Mission oder Zweck", "Mission or purpose"),
+    )
+    _update_profile(ProfilePaths.TEAM_MISSION, team.get("mission", ""))
+
+    reporting_cols = st.columns((1, 1), gap="small")
+    team_reporting_value = reporting_cols[0].text_input(
+        tr("Berichtslinie", "Reporting line"),
+        value=team.get("reporting_line", position.get("reporting_line", "")),
+        key=ProfilePaths.TEAM_REPORTING_LINE,
+        placeholder=tr("Berichtslinie erläutern", "Describe the reporting line"),
+    )
+    team["reporting_line"] = team_reporting_value
+    _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting_value)
+    position["reporting_line"] = team_reporting_value
+    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting_value)
+
+    team_headcount_cols = st.columns(2, gap="small")
+    team["headcount_current"] = team_headcount_cols[0].number_input(
+        tr("Headcount aktuell", "Current headcount"),
+        min_value=0,
+        step=1,
+        value=int(team.get("headcount_current") or 0),
+        key=ProfilePaths.TEAM_HEADCOUNT_CURRENT,
+    )
+    _update_profile(ProfilePaths.TEAM_HEADCOUNT_CURRENT, team.get("headcount_current"))
+    team["headcount_target"] = team_headcount_cols[1].number_input(
+        tr("Headcount Ziel", "Target headcount"),
+        min_value=0,
+        step=1,
+        value=int(team.get("headcount_target") or 0),
+        key=ProfilePaths.TEAM_HEADCOUNT_TARGET,
+    )
+    _update_profile(ProfilePaths.TEAM_HEADCOUNT_TARGET, team.get("headcount_target"))
+
+    team_details_cols = st.columns(2, gap="small")
+    team["collaboration_tools"] = team_details_cols[0].text_input(
+        tr("Tools", "Collaboration tools"),
+        value=team.get("collaboration_tools", ""),
+        key=ProfilePaths.TEAM_COLLABORATION_TOOLS,
+        placeholder=tr("Genutzte Tools", "Tools in use"),
+    )
+    _update_profile(ProfilePaths.TEAM_COLLABORATION_TOOLS, team.get("collaboration_tools", ""))
+    team["locations"] = team_details_cols[1].text_input(
+        tr("Team-Standorte", "Team locations"),
+        value=team.get("locations", ""),
+        key=ProfilePaths.TEAM_LOCATIONS,
+        placeholder=tr("Verteilte Standorte", "Distributed locations"),
+    )
+    _update_profile(ProfilePaths.TEAM_LOCATIONS, team.get("locations", ""))
+
+    position["team_structure"] = st.text_input(
         tr("Teamstruktur", "Team structure"),
         value=position.get("team_structure", ""),
+        key=ProfilePaths.POSITION_TEAM_STRUCTURE,
         placeholder=tr("Teamstruktur erläutern", "Explain the team structure"),
     )
 
@@ -7112,23 +7243,41 @@ def _step_position() -> None:
         value_formatter=_string_or_empty,
     )
 
-    reporting_cols = st.columns((1, 1))
-    position["reporting_line"] = widget_factory.text_input(
-        ProfilePaths.POSITION_REPORTING_LINE,
-        tr("Reports an", "Reports to"),
-        widget_factory=reporting_cols[0].text_input,
-        placeholder=tr("Führungsebene beschreiben", "Describe the reporting line"),
-        value_formatter=_string_or_empty,
-    )
+    manager_cols = st.columns((1, 1))
     position["reporting_manager_name"] = widget_factory.text_input(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
         tr("Vorgesetzte Person", "Reporting manager"),
-        widget_factory=reporting_cols[1].text_input,
+        widget_factory=manager_cols[0].text_input,
         placeholder=tr(
             "Name der vorgesetzten Person eintragen",
             "Enter the reporting manager's name",
         ),
         value_formatter=_string_or_empty,
+    )
+    _update_profile(
+        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+        position.get("reporting_manager_name", ""),
+    )
+    position["customer_contact_required"] = manager_cols[1].toggle(
+        tr("Kundenkontakt?", "Customer-facing?"),
+        value=bool(position.get("customer_contact_required")),
+    )
+    _update_profile(
+        ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
+        position.get("customer_contact_required"),
+    )
+    if position.get("customer_contact_required"):
+        position["customer_contact_details"] = st.text_area(
+            tr("Kontakt-Details", "Contact details"),
+            value=position.get("customer_contact_details", ""),
+            key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
+            height=80,
+        )
+    else:
+        position.pop("customer_contact_details", None)
+    _update_profile(
+        ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
+        position.get("customer_contact_details"),
     )
     summary_label = tr("Rollen-Summary", "Role summary")
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
@@ -8494,68 +8643,6 @@ def _step_requirements() -> None:
     _render_followups_for_section(("requirements.",), data)
 
 
-_STEP_HANDLED_FIELDS: dict[Callable[[], None], tuple[str, ...]] = {
-    _step_company: (
-        "company.name",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "company.brand_name",
-        "company.industry",
-        "company.hq_location",
-        "company.size",
-        "company.website",
-        "company.mission",
-        "company.culture",
-        "location.primary_city",
-        "location.country",
-        "position.department",
-        "position.team_structure",
-        "position.key_projects",
-    ),
-    _step_position: (
-        "position.job_title",
-        "position.role_summary",
-    ),
-    _step_requirements: (
-        "responsibilities.items",
-        "requirements.hard_skills_required",
-        "requirements.soft_skills_required",
-    ),
-}
-
-
-def _build_field_section_map() -> dict[str, int]:
-    """Derive mapping of schema fields to wizard sections.
-
-    Each step declares the fields it handles via ``_STEP_HANDLED_FIELDS``.
-    This function iterates over the step order and builds a reverse lookup to
-    avoid mismatches between UI steps and critical field checks.
-
-    Returns:
-        Mapping of field paths to section numbers.
-    """
-
-    ordered_steps = [_step_company, _step_position, _step_requirements]
-    mapping: dict[str, int] = {}
-    for idx, step in enumerate(ordered_steps, start=1):
-        for field in _STEP_HANDLED_FIELDS.get(step, ()):  # pragma: no branch - deterministic
-            mapping[field] = idx
-    return mapping
-
-
-FIELD_SECTION_MAP = _build_field_section_map()
-CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
-
-# Fields collected early in the wizard but only blocking later sections when
-# filtering via ``max_section``. The location city is displayed in the company
-# step but shouldn't block the early company/role sections because salary and
-# requirements insights can still run with just the country. Once the full
-# wizard is considered we still treat it as critical.
-_MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
-SECTION_FILTER_OVERRIDES: dict[str, int] = {}
-
-
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     """Return critical fields missing from state or profile data.
 
@@ -9122,6 +9209,130 @@ def _step_process() -> None:
     _render_followups_for_section(("process.",), profile)
 
 
+_STEP_HANDLED_FIELDS: dict[Callable[[], None], tuple[str, ...]] = {
+    _step_company: (
+        "company.name",
+        "company.contact_name",
+        "company.contact_email",
+        "company.contact_phone",
+        "company.brand_name",
+        "company.industry",
+        "company.hq_location",
+        "company.size",
+        "company.website",
+        "company.mission",
+        "company.culture",
+        "company.brand_color",
+        "company.logo_url",
+        "location.primary_city",
+        "location.country",
+        "position.key_projects",
+    ),
+    _step_position: (
+        "position.job_title",
+        "position.role_summary",
+        "position.team_structure",
+        "position.reporting_line",
+        "position.reporting_manager_name",
+        "position.customer_contact_required",
+        "position.customer_contact_details",
+        "department.name",
+        "department.function",
+        "department.leader_name",
+        "department.leader_title",
+        "department.strategic_goals",
+        "team.name",
+        "team.mission",
+        "team.reporting_line",
+        "team.headcount_current",
+        "team.headcount_target",
+        "team.collaboration_tools",
+        "team.locations",
+        "meta.target_start_date",
+        "meta.application_deadline",
+    ),
+    _step_requirements: (
+        "responsibilities.items",
+        "requirements.hard_skills_required",
+        "requirements.soft_skills_required",
+        "requirements.hard_skills_optional",
+        "requirements.soft_skills_optional",
+        "requirements.tools_and_technologies",
+        "requirements.languages_required",
+        "requirements.languages_optional",
+        "requirements.certifications",
+        "requirements.certificates",
+        "requirements.background_check_required",
+        "requirements.portfolio_required",
+        "requirements.reference_check_required",
+    ),
+    _step_compensation: (
+        "employment.job_type",
+        "employment.work_policy",
+        "employment.contract_type",
+        "employment.work_schedule",
+        "employment.remote_percentage",
+        "employment.travel_required",
+        "employment.travel_share",
+        "employment.travel_region_scope",
+        "employment.travel_regions",
+        "employment.travel_continents",
+        "employment.travel_details",
+        "employment.relocation_support",
+        "employment.relocation_details",
+        "employment.visa_sponsorship",
+        "employment.overtime_expected",
+        "employment.security_clearance_required",
+        "employment.shift_work",
+        "employment.contract_end",
+        "compensation.salary_provided",
+        "compensation.salary_min",
+        "compensation.salary_max",
+        "compensation.currency",
+        "compensation.period",
+        "compensation.variable_pay",
+        "compensation.bonus_percentage",
+        "compensation.commission_structure",
+        "compensation.equity_offered",
+        "compensation.benefits",
+    ),
+    _step_process: (
+        "process.interview_stages",
+        "process.stakeholders",
+        "process.phases",
+        "process.recruitment_timeline",
+        "process.process_notes",
+        "process.application_instructions",
+        "process.onboarding_process",
+        "process.hiring_manager_name",
+        "process.hiring_manager_role",
+    ),
+}
+
+
+def _build_field_section_map() -> dict[str, int]:
+    """Derive mapping of schema fields to wizard sections."""
+
+    ordered_steps = [_step_company, _step_position, _step_requirements, _step_compensation, _step_process]
+    mapping: dict[str, int] = {}
+    for idx, step in enumerate(ordered_steps, start=1):
+        for field in _STEP_HANDLED_FIELDS.get(step, ()):  # pragma: no branch - deterministic
+            mapping[field] = idx
+    return mapping
+
+
+FIELD_SECTION_MAP = _build_field_section_map()
+CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
+
+# Fields collected early in the wizard but only blocking later sections when
+# filtering via ``max_section``. The location city is displayed in the company
+# step but shouldn't block the early company/role sections because salary and
+# requirements insights can still run with just the country. Once the full
+# wizard is considered we still treat it as critical.
+_MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
+SECTION_FILTER_OVERRIDES: dict[str, int] = {}
+
+
 def _summary_company() -> None:
     """Editable summary tab for company information."""
 
@@ -9229,6 +9440,7 @@ def _summary_position() -> None:
     """Editable summary tab for position details."""
 
     data = st.session_state[StateKeys.PROFILE]
+    position = data.setdefault("position", {})
     c1, c2 = st.columns(2)
     summary_title_label = tr("Jobtitel", "Job title") + REQUIRED_SUFFIX
     summary_title_lock = _field_lock_config(
@@ -9253,27 +9465,137 @@ def _summary_position() -> None:
         value=data["position"].get("seniority_level", ""),
         key="ui.summary.position.seniority",
     )
-    department = c1.text_input(
-        tr("Abteilung", "Department"),
-        value=data["position"].get("department", ""),
-        key="ui.summary.position.department",
-    )
-    team = c2.text_input(
+    team_structure = c2.text_input(
         tr("Teamstruktur", "Team structure"),
         value=data["position"].get("team_structure", ""),
         key="ui.summary.position.team_structure",
     )
+
+    department_data = data.setdefault("department", {})
+    team_data = data.setdefault("team", {})
+
+    dept_cols = st.columns(2)
+    department_name = dept_cols[0].text_input(
+        tr("Abteilung", "Department"),
+        value=department_data.get("name", ""),
+        key=ProfilePaths.DEPARTMENT_NAME,
+    )
+    department_function = dept_cols[1].text_input(
+        tr("Funktion", "Function"),
+        value=department_data.get("function", ""),
+        key=ProfilePaths.DEPARTMENT_FUNCTION,
+    )
+
+    leader_cols = st.columns(2)
+    department_leader_name = leader_cols[0].text_input(
+        tr("Abteilungsleitung", "Department lead"),
+        value=department_data.get("leader_name", ""),
+        key=ProfilePaths.DEPARTMENT_LEADER_NAME,
+    )
+    department_leader_title = leader_cols[1].text_input(
+        tr("Titel der Leitung", "Lead title"),
+        value=department_data.get("leader_title", ""),
+        key=ProfilePaths.DEPARTMENT_LEADER_TITLE,
+    )
+
+    strategic_goals = st.text_area(
+        tr("Strategische Ziele", "Strategic goals"),
+        value=department_data.get("strategic_goals", ""),
+        key=ProfilePaths.DEPARTMENT_STRATEGIC_GOALS,
+        height=80,
+    )
+
+    team_cols = st.columns(2)
+    team_name = team_cols[0].text_input(
+        tr("Teamname", "Team name"),
+        value=team_data.get("name", ""),
+        key=ProfilePaths.TEAM_NAME,
+    )
+    team_mission = team_cols[1].text_input(
+        tr("Teamauftrag", "Team mission"),
+        value=team_data.get("mission", ""),
+        key=ProfilePaths.TEAM_MISSION,
+    )
+
     reporting_cols = st.columns(2)
-    reporting = reporting_cols[0].text_input(
-        tr("Reports an", "Reports to"),
-        value=data["position"].get("reporting_line", ""),
-        key="ui.summary.position.reporting_line",
+    team_reporting = reporting_cols[0].text_input(
+        tr("Berichtslinie", "Reporting line"),
+        value=team_data.get("reporting_line", data["position"].get("reporting_line", "")),
+        key=ProfilePaths.TEAM_REPORTING_LINE,
     )
     reporting_manager = reporting_cols[1].text_input(
         tr("Vorgesetzte Person", "Reporting manager"),
         value=data["position"].get("reporting_manager_name", ""),
         key="ui.summary.position.reporting_manager_name",
     )
+
+    headcount_cols = st.columns(2)
+    team_headcount_current = headcount_cols[0].number_input(
+        tr("Headcount aktuell", "Current headcount"),
+        min_value=0,
+        step=1,
+        value=int(team_data.get("headcount_current") or 0),
+        key=ProfilePaths.TEAM_HEADCOUNT_CURRENT,
+    )
+    team_headcount_target = headcount_cols[1].number_input(
+        tr("Headcount Ziel", "Target headcount"),
+        min_value=0,
+        step=1,
+        value=int(team_data.get("headcount_target") or 0),
+        key=ProfilePaths.TEAM_HEADCOUNT_TARGET,
+    )
+
+    team_details_cols = st.columns(2)
+    team_tools = team_details_cols[0].text_input(
+        tr("Tools", "Collaboration tools"),
+        value=team_data.get("collaboration_tools", ""),
+        key=ProfilePaths.TEAM_COLLABORATION_TOOLS,
+    )
+    team_locations = team_details_cols[1].text_input(
+        tr("Team-Standorte", "Team locations"),
+        value=team_data.get("locations", ""),
+        key=ProfilePaths.TEAM_LOCATIONS,
+    )
+
+    contact_cols = st.columns(2)
+    reporting_manager = contact_cols[0].text_input(
+        tr("Vorgesetzte Person", "Reporting manager"),
+        value=reporting_manager,
+        key="ui.summary.position.reporting_manager_name",
+    )
+    customer_contact_required = contact_cols[1].toggle(
+        tr("Kundenkontakt?", "Customer-facing?"),
+        value=bool(data["position"].get("customer_contact_required")),
+        key=ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
+    )
+
+    if customer_contact_required:
+        customer_contact_details = st.text_area(
+            tr("Kontakt-Details", "Contact details"),
+            value=data["position"].get("customer_contact_details", ""),
+            key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
+            height=80,
+        )
+    else:
+        customer_contact_details = ""
+
+    department_data["name"] = department_name
+    department_data["function"] = department_function
+    department_data["leader_name"] = department_leader_name
+    department_data["leader_title"] = department_leader_title
+    department_data["strategic_goals"] = strategic_goals
+    team_data["name"] = team_name
+    team_data["mission"] = team_mission
+    team_data["reporting_line"] = team_reporting
+    team_data["headcount_current"] = int(team_headcount_current)
+    team_data["headcount_target"] = int(team_headcount_target)
+    team_data["collaboration_tools"] = team_tools
+    team_data["locations"] = team_locations
+    position["customer_contact_required"] = customer_contact_required
+    if customer_contact_details:
+        position["customer_contact_details"] = customer_contact_details
+    else:
+        position.pop("customer_contact_details", None)
     role_summary = st.text_area(
         tr("Rollen-Summary", "Role summary") + REQUIRED_SUFFIX,
         value=data["position"].get("role_summary", ""),
@@ -9312,10 +9634,23 @@ def _summary_position() -> None:
 
     _update_profile(ProfilePaths.POSITION_JOB_TITLE, job_title)
     _update_profile(ProfilePaths.POSITION_SENIORITY, seniority)
-    _update_profile(ProfilePaths.POSITION_DEPARTMENT, department)
-    _update_profile(ProfilePaths.POSITION_TEAM_STRUCTURE, team)
-    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, reporting)
+    _update_profile(ProfilePaths.POSITION_TEAM_STRUCTURE, team_structure)
+    _update_profile(ProfilePaths.DEPARTMENT_NAME, department_name)
+    _update_profile(ProfilePaths.DEPARTMENT_FUNCTION, department_function)
+    _update_profile(ProfilePaths.DEPARTMENT_LEADER_NAME, department_leader_name)
+    _update_profile(ProfilePaths.DEPARTMENT_LEADER_TITLE, department_leader_title)
+    _update_profile(ProfilePaths.DEPARTMENT_STRATEGIC_GOALS, strategic_goals)
+    _update_profile(ProfilePaths.TEAM_NAME, team_name)
+    _update_profile(ProfilePaths.TEAM_MISSION, team_mission)
+    _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting)
+    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting)
+    _update_profile(ProfilePaths.TEAM_HEADCOUNT_CURRENT, team_headcount_current)
+    _update_profile(ProfilePaths.TEAM_HEADCOUNT_TARGET, team_headcount_target)
+    _update_profile(ProfilePaths.TEAM_COLLABORATION_TOOLS, team_tools)
+    _update_profile(ProfilePaths.TEAM_LOCATIONS, team_locations)
     _update_profile(ProfilePaths.POSITION_REPORTING_MANAGER_NAME, reporting_manager)
+    _update_profile(ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED, customer_contact_required)
+    _update_profile(ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS, customer_contact_details)
     _update_profile(ProfilePaths.POSITION_ROLE_SUMMARY, role_summary)
     _update_profile(ProfilePaths.LOCATION_PRIMARY_CITY, loc_city)
     _update_profile(ProfilePaths.LOCATION_COUNTRY, loc_country)

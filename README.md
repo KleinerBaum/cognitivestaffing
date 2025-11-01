@@ -19,6 +19,19 @@
   **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
   `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
   damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Extended the Need Analysis schema with dedicated `department.*` and
+  `team.*` sections, a customer-facing flag under `position.*`, and new
+  requirement switches for background, reference, and portfolio checks. The
+  Team & Context step, follow-up navigation, and field-to-section mapping now
+  reflect the eight-step wizard, and the schema propagation script updates the
+  generated assets automatically.
+  **DE:** Das Need-Analysis-Schema um eigene `department.*`- und
+  `team.*`-Abschnitte sowie einen Kundenkontakt-Schalter in `position.*` und
+  neue Pflichtfelder für Background-, Referenz- und Portfolio-Prüfungen
+  erweitert. Der Schritt „Team & Kontext“, die Folgefragen-Navigation und die
+  Feld-zu-Sektions-Zuordnung bilden den Acht-Schritte-Wizard jetzt korrekt ab,
+  und das Schema-Propagation-Skript aktualisiert die generierten Artefakte
+  automatisch.
 - **EN:** Reimagined the onboarding entry step with a bilingual five-line
   guidance block that highlights OpenAI/ESCO data capture, centres the URL and
   upload inputs at equal width, removes the manual text field, and replaces the

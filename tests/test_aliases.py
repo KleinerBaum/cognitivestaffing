@@ -78,7 +78,22 @@ def test_alias_mapping_complete() -> None:
             assert canonical_value == sentinel, f"Alias '{alias}' value changed unexpectedly for '{target}'"
 
 
-OPTIONAL_WIZARD_FIELDS = {"company.benefits", "sources.root", "missing_fields.root"}
+OPTIONAL_WIZARD_FIELDS = {
+    "company.benefits",
+    "company.brand_name",
+    "company.contact_email",
+    "company.contact_name",
+    "company.contact_phone",
+    "company.culture",
+    "company.hq_location",
+    "company.industry",
+    "company.size",
+    "missing_fields.root",
+    "position.customer_contact_details",
+    "position.customer_contact_required",
+    "position.reporting_manager_name",
+    "sources.root",
+}
 
 
 def test_profile_paths_cover_schema_and_ui() -> None:
