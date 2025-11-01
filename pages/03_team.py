@@ -1,45 +1,23 @@
 from __future__ import annotations
 
-from constants.keys import ProfilePaths
-from core.schema import is_wizard_schema_enabled
-
 from .base import WizardPage
 
 
-if is_wizard_schema_enabled():
-    _REQUIRED_FIELDS = ("role.title",)
-    _SUMMARY_FIELDS = (
-        "department.name",
-        "department.function",
-        "department.leader_name",
-        "department.leader_title",
-        "department.strategic_goals",
-        "team.name",
-        "team.mission",
-        "team.reporting_line",
-        "team.headcount_current",
-        "team.headcount_target",
-        "team.collaboration_tools",
-        "team.locations",
-    )
-else:
-    _REQUIRED_FIELDS = (ProfilePaths.POSITION_JOB_TITLE.value,)
-    _SUMMARY_FIELDS = tuple(
-        field.value
-        for field in (
-            ProfilePaths.POSITION_JOB_TITLE,
-            ProfilePaths.POSITION_SENIORITY,
-            ProfilePaths.POSITION_DEPARTMENT,
-            ProfilePaths.POSITION_TEAM_STRUCTURE,
-            ProfilePaths.POSITION_TEAM_SIZE,
-            ProfilePaths.POSITION_SUPERVISES,
-            ProfilePaths.POSITION_REPORTING_LINE,
-            ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-            ProfilePaths.POSITION_OCCUPATION_LABEL,
-            ProfilePaths.POSITION_OCCUPATION_URI,
-            ProfilePaths.POSITION_OCCUPATION_GROUP,
-        )
-    )
+_REQUIRED_FIELDS: tuple[str, ...] = ("role.title",)
+_SUMMARY_FIELDS: tuple[str, ...] = (
+    "department.name",
+    "department.function",
+    "department.leader_name",
+    "department.leader_title",
+    "department.strategic_goals",
+    "team.name",
+    "team.mission",
+    "team.reporting_line",
+    "team.headcount_current",
+    "team.headcount_target",
+    "team.collaboration_tools",
+    "team.locations",
+)
 
 
 PAGE = WizardPage(

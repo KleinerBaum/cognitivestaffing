@@ -1,23 +1,9 @@
 from __future__ import annotations
 
-from constants.keys import ProfilePaths
-from core.schema import is_wizard_schema_enabled
-
 from .base import WizardPage
 
 
-_SUMMARY_FIELDS = (
-    ()
-    if is_wizard_schema_enabled()
-    else tuple(
-        field.value
-        for field in (
-            ProfilePaths.META_TARGET_START_DATE,
-            ProfilePaths.META_APPLICATION_DEADLINE,
-            ProfilePaths.META_FOLLOWUPS_ANSWERED,
-        )
-    )
-)
+_SUMMARY_FIELDS: tuple[str, ...] = ()
 
 
 PAGE = WizardPage(

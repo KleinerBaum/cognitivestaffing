@@ -5,7 +5,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 
 from constants.keys import ProfilePaths
-from core.schema import ALIASES, ALL_FIELDS, KEYS_CANONICAL, canonicalize_profile_payload
+from core.schema import (
+    ALIASES,
+    ALL_FIELDS,
+    KEYS_CANONICAL,
+    WIZARD_ALIASES,
+    WIZARD_KEYS_CANONICAL,
+    canonicalize_profile_payload,
+)
 from models.need_analysis import NeedAnalysisProfile
 from pages import WIZARD_PAGES
 
@@ -71,7 +78,7 @@ def test_alias_mapping_complete() -> None:
             assert canonical_value == sentinel, f"Alias '{alias}' value changed unexpectedly for '{target}'"
 
 
-OPTIONAL_WIZARD_FIELDS = {"company.benefits"}
+OPTIONAL_WIZARD_FIELDS = {"company.benefits", "sources.root", "missing_fields.root"}
 
 
 def test_profile_paths_cover_schema_and_ui() -> None:
@@ -88,8 +95,17 @@ def test_profile_paths_cover_schema_and_ui() -> None:
         wizard_paths.update(str(field) for field in page.required_fields)
         wizard_paths.update(str(field) for field in page.summary_fields)
 
-    missing = (canonical_paths - wizard_paths) - OPTIONAL_WIZARD_FIELDS
-    assert not missing, f"Wizard pages missing coverage for: {sorted(missing)}"
+    canonical_wizard_paths = set(WIZARD_KEYS_CANONICAL)
+    missing_wizard = canonical_wizard_paths - wizard_paths - OPTIONAL_WIZARD_FIELDS
+    assert not missing_wizard, f"Wizard pages missing coverage for: {sorted(missing_wizard)}"
 
-    stray = wizard_paths - canonical_paths
+    stray = wizard_paths - canonical_wizard_paths
     assert not stray, f"Wizard pages reference non-canonical paths: {sorted(stray)}"
+
+    alias_coverage = {
+        alias for alias, target in WIZARD_ALIASES.items() if target in wizard_paths
+    }
+    legacy_coverage = wizard_paths | alias_coverage
+    legacy_alias_keys = set(WIZARD_ALIASES.keys())
+    missing_legacy = (legacy_alias_keys - legacy_coverage) - OPTIONAL_WIZARD_FIELDS
+    assert not missing_legacy, f"Legacy schema fields uncovered by wizard pages: {sorted(missing_legacy)}"

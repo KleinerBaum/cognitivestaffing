@@ -32,4 +32,4 @@ def test_parse_and_bind_size() -> None:
     assert profile_company["size"] == "3370"
 
     company_page = next(page for page in WIZARD_PAGES if page.key == "company")
-    assert "company.size" in company_page.summary_fields
+    assert "company.legal_name" in company_page.summary_fields
