@@ -104,7 +104,6 @@ module = [
     "openai_utils.*",
     "wizard._legacy",
     "wizard._layout",
-    "wizard_router",
 ]
 ignore_errors = true
 
