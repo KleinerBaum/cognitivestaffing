@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **EN:** Switched the `Requirements` certificate synchronisation validator to
+  the instance-based Pydantic v2 style, silencing deprecation warnings during
+  tests and preparing the model for Pydantic 3.
+  **DE:** Den Validator zur Synchronisierung der Zertifikatslisten in
+  `Requirements` auf die instanzbasierte Pydantic-v2-Schreibweise umgestellt,
+  sodass die Deprecation-Warnung in den Tests entfällt und wir für Pydantic 3
+  vorbereitet sind.
 - **EN:** Locked all OpenTelemetry packages to version 1.26.0 and updated
   `requirements.txt` with the optional ingestion libraries so deployments use a
   consistent stack.
