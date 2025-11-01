@@ -71,12 +71,14 @@ def build_json_schema_format(
     schema_payload = _prune_unsupported_formats(deepcopy(dict(schema)))
     format_payload: dict[str, Any] = {
         "type": "json_schema",
-        "name": name,
-        "schema": schema_payload,
+        "json_schema": {
+            "name": name,
+            "schema": schema_payload,
+        },
     }
     strict_flag = STRICT_JSON if strict is None else bool(strict)
     if strict_flag:
-        format_payload["strict"] = True
+        format_payload["json_schema"]["strict"] = True
 
     return format_payload
 
@@ -108,11 +110,17 @@ def call_responses(
     if not isinstance(response_format, Mapping):
         raise TypeError("response_format must be a mapping payload.")
 
-    schema_payload = response_format.get("schema") if isinstance(response_format, Mapping) else None
+    json_schema_payload = response_format.get("json_schema")
+    if json_schema_payload is None:
+        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+    if not isinstance(json_schema_payload, Mapping):
+        raise TypeError("response_format['json_schema'] must be a mapping payload.")
+
+    schema_payload = json_schema_payload.get("schema")
     if schema_payload is None:
         raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
     if not isinstance(schema_payload, Mapping):
-        raise TypeError("response_format['schema'] must be a mapping payload.")
+        raise TypeError("response_format['json_schema']['schema'] must be a mapping payload.")
 
     payload: dict[str, Any] = {
         "model": model,
@@ -122,7 +130,10 @@ def call_responses(
 
     text_payload = dict(payload.get("text") or {})
     text_payload.pop("type", None)
-    text_payload["format"] = dict(response_format)
+    text_payload["format"] = {
+        "type": response_format.get("type", "json_schema"),
+        "json_schema": dict(json_schema_payload),
+    }
     payload["text"] = text_payload
 
     if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
