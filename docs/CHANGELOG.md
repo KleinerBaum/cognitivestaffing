@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Removed the legacy `wizard.layout` widget helpers; the widget factory now wires Streamlit inputs directly to `_update_profile` and exposes the bindings via `wizard.wizard`.
+  **DE:** Die veralteten `wizard.layout`-Widget-Helfer entfernt; die Widget-Factory verbindet Streamlit-Inputs jetzt direkt mit `_update_profile` und stellt die Bindings über `wizard.wizard` bereit.
 - **EN:** Switched the `Requirements` certificate synchronisation validator to
   the instance-based Pydantic v2 style, silencing deprecation warnings during
   tests and preparing the model for Pydantic 3.

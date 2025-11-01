@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Sequence, TypeVar
 
-from wizard.layout import (
-    profile_multiselect as _profile_multiselect,
-    profile_selectbox as _profile_selectbox,
-    profile_text_input as _profile_text_input,
-)
+import streamlit as st
+
+from wizard._logic import get_value, resolve_display_value
+from wizard._widget_state import _build_on_change, _ensure_widget_state
 
 T = TypeVar("T")
 
@@ -27,16 +26,31 @@ def text_input(
 ) -> str:
     """Render a profile-bound text input using the shared widget factory."""
 
-    return _profile_text_input(
+    if "on_change" in kwargs:
+        raise ValueError("text_input manages on_change internally")
+    if "value" in kwargs:
+        raise ValueError("text_input derives value from the profile")
+
+    widget_key = key or path
+    display_value = resolve_display_value(
         path,
-        label,
-        placeholder=placeholder,
-        key=key,
         default=default,
-        value_formatter=value_formatter,
-        widget_factory=widget_factory,
-        allow_callbacks=allow_callbacks,
-        **kwargs,
+        formatter=value_formatter,
+    )
+    _ensure_widget_state(widget_key, display_value)
+
+    factory = widget_factory or st.text_input
+    call_kwargs = dict(kwargs)
+    if placeholder is not None:
+        call_kwargs.setdefault("placeholder", placeholder)
+    if allow_callbacks:
+        call_kwargs.setdefault("on_change", _build_on_change(path, widget_key))
+
+    return factory(
+        label,
+        value=display_value,
+        key=widget_key,
+        **call_kwargs,
     )
 
 
@@ -52,13 +66,39 @@ def select(
 ) -> T:
     """Render a profile-bound select widget using the shared factory."""
 
-    return _profile_selectbox(
-        path,
+    if "on_change" in kwargs:
+        raise ValueError("select manages on_change internally")
+
+    widget_key = key or path
+    option_list = list(options)
+    if not option_list:
+        raise ValueError("select requires at least one option")
+
+    requested_index = kwargs.pop("index", None)
+    current = get_value(path)
+    resolved_index: int
+    if current in option_list:
+        resolved_index = option_list.index(current)
+    elif default in option_list:
+        resolved_index = option_list.index(default)
+    elif requested_index is not None:
+        resolved_index = requested_index
+    else:
+        resolved_index = 0
+
+    if not 0 <= resolved_index < len(option_list):
+        raise IndexError("Resolved select index out of range")
+
+    default_value = option_list[resolved_index]
+    _ensure_widget_state(widget_key, default_value)
+
+    factory = widget_factory or st.selectbox
+    return factory(
         label,
-        options,
-        key=key,
-        default=default,
-        widget_factory=widget_factory,
+        option_list,
+        index=resolved_index,
+        key=widget_key,
+        on_change=_build_on_change(path, widget_key),
         **kwargs,
     )
 
@@ -75,17 +115,37 @@ def multiselect(
 ) -> list[T]:
     """Render a profile-bound multiselect widget using the shared factory."""
 
-    return list(
-        _profile_multiselect(
-            path,
-            label,
-            options,
-            key=key,
-            default=default,
-            widget_factory=widget_factory,
-            **kwargs,
-        )
+    if "on_change" in kwargs:
+        raise ValueError("multiselect manages on_change internally")
+
+    widget_key = key or path
+    option_list = list(options)
+    provided_default = kwargs.pop("default", None)
+
+    current = get_value(path)
+    if provided_default is not None:
+        default_selection = list(provided_default)
+    elif default is not None:
+        default_selection = list(default)
+    elif isinstance(current, (list, tuple, set, frozenset)):
+        default_selection = [item for item in current if not option_list or item in option_list]
+    elif current is None:
+        default_selection = []
+    else:
+        default_selection = [current] if not option_list or current in option_list else []
+
+    _ensure_widget_state(widget_key, list(default_selection))
+
+    factory = widget_factory or st.multiselect
+    selection = factory(
+        label,
+        option_list,
+        default=default_selection,
+        key=widget_key,
+        on_change=_build_on_change(path, widget_key),
+        **kwargs,
     )
+    return list(selection)
 
 
 __all__ = ["text_input", "select", "multiselect"]
