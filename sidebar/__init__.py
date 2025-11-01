@@ -26,7 +26,6 @@ from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.usage import build_usage_markdown, usage_totals
 
 from streamlit.delta_generator import DeltaGenerator
-from streamlit.navigation.page import StreamlitPage
 
 # Lazy wizard imports keep the module importable without circular references.
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
@@ -35,10 +34,13 @@ from ingest.branding import DEFAULT_BRAND_COLOR
 
 from .salary import (
     SalaryFactorEntry,
+    SalaryRequirementStatus,
     build_factor_influence_chart,
+    build_salary_requirements,
     estimate_salary_expectation,
     format_salary_range,
     prepare_salary_factor_entries,
+    salary_input_signature,
 )
 
 
@@ -101,10 +103,8 @@ class SidebarContext:
 class SidebarPlan:
     """Keep track of navigation placement for deferred sidebar rendering."""
 
-    page: StreamlitPage | None
     branding: DeltaGenerator
     settings: DeltaGenerator
-    navigation: DeltaGenerator
     body: DeltaGenerator
 
 
@@ -326,10 +326,9 @@ def render_sidebar(
     *,
     logo_bytes: bytes | None = None,
     logo_data_uri: str | None = None,
-    pages: Sequence[st.Page] | None = None,
     plan: SidebarPlan | None = None,
     defer: bool = False,
-) -> SidebarPlan | StreamlitPage | None:
+) -> SidebarPlan:
     """Render the dynamic wizard sidebar with contextual content."""
 
     _ensure_ui_defaults()
@@ -342,34 +341,24 @@ def render_sidebar(
             logo_data_uri = f"data:image/png;base64,{b64encode(logo_bytes).decode('ascii')}"
 
     if plan is None:
-        plan = _prepare_sidebar_plan(pages)
+        plan = _prepare_sidebar_plan()
         if defer:
             return plan
 
     return _render_sidebar_sections(plan, logo_asset, logo_data_uri)
 
 
-def _prepare_sidebar_plan(
-    pages: Sequence[st.Page] | None,
-) -> SidebarPlan:
+def _prepare_sidebar_plan() -> SidebarPlan:
     """Create sidebar containers and navigation without rendering contextual data."""
 
     with st.sidebar:
         branding = st.container()
         settings = st.container()
-        navigation = st.container()
         body = st.container()
 
-    current_page: StreamlitPage | None = None
-    if pages is not None:
-        with navigation:
-            current_page = st.navigation(pages)
-
     return SidebarPlan(
-        page=current_page,
         branding=branding,
         settings=settings,
-        navigation=navigation,
         body=body,
     )
 
@@ -378,7 +367,7 @@ def _render_sidebar_sections(
     plan: SidebarPlan,
     logo_asset: LogoRenderable | None,
     logo_data_uri: str | None,
-) -> StreamlitPage | None:
+) -> SidebarPlan:
     """Render branding, settings, and contextual sections in the sidebar."""
 
     context = _build_context()
@@ -399,7 +388,7 @@ def _render_sidebar_sections(
         st.divider()
         _render_salary_expectation(context.profile)
 
-    return plan.page
+    return plan
 
 
 def _render_branding(
@@ -607,8 +596,6 @@ def _ensure_ui_defaults() -> None:
     if UIKeys.LANG_SELECT not in st.session_state:
         st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
     st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
-    if "ui.lang_toggle" not in st.session_state:
-        st.session_state["ui.lang_toggle"] = st.session_state[UIKeys.LANG_SELECT] == "en"
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
     _ensure_style_defaults()
@@ -673,61 +660,43 @@ def _render_settings() -> None:
     def _on_theme_toggle() -> None:
         st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
-    def _on_lang_toggle() -> None:
-        st.session_state[UIKeys.LANG_SELECT] = "en" if st.session_state["ui.lang_toggle"] else "de"
-        st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
-        _sync_style_instruction(st.session_state["lang"])
-
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
-    dark_col, lang_col = st.columns(2)
-    with dark_col:
-        is_dark = st.session_state.get("ui.dark_mode", True)
-        dark_label = (
-            tr("🌙 Dunkelmodus aktiv", "🌙 Dark mode active")
-            if is_dark
-            else tr("☀️ Hellmodus aktiv", "☀️ Light mode active")
-        )
-        st.toggle(
-            dark_label,
-            key="ui.dark_mode",
-            on_change=_on_theme_toggle,
-        )
-    with lang_col:
-        lang_is_en = st.session_state.get("ui.lang_toggle", False)
-        lang_label = "🇬🇧 English" if lang_is_en else "🇩🇪 Deutsch"
-        st.toggle(
-            lang_label,
-            key="ui.lang_toggle",
-            on_change=_on_lang_toggle,
-        )
-
-    st.markdown(f"#### 🎨 {tr('Stil & Tonalität', 'Style & tone')}")
-    lang_code = st.session_state.get("lang", "de")
-    options = list(STYLE_VARIANT_ORDER)
-
-    def _format_style(option: str) -> str:
-        variant = STYLE_VARIANTS.get(option)
-        if variant is None:
-            return option.replace("_", " ").title()
-        return tr(*variant.label, lang=lang_code)
-
-    selected_style = st.radio(
-        tr("Ton auswählen", "Choose tone"),
-        options,
-        key=UIKeys.TONE_SELECT,
-        format_func=_format_style,
+    is_dark = st.session_state.get("ui.dark_mode", True)
+    st.toggle(
+        tr("🌙 Dunkelmodus", "🌙 Dark mode"),
+        value=is_dark,
+        key="ui.dark_mode",
+        on_change=_on_theme_toggle,
     )
-    variant = STYLE_VARIANTS.get(selected_style)
-    if variant is not None:
-        st.caption(tr(*variant.description, lang=lang_code))
-        st.caption(tr(*variant.example, lang=lang_code))
 
-    _sync_style_instruction(lang_code)
+    lang_code = st.session_state.get(UIKeys.LANG_SELECT, "de")
+    lang_options: tuple[str, ...] = ("de", "en")
+    flag_lookup = {"de": "🇩🇪", "en": "🇬🇧"}
+    try:
+        default_index = lang_options.index(lang_code)
+    except ValueError:
+        default_index = 0
 
-    st.markdown(f"#### 🪪 {tr('Branding', 'Branding')}")
-    expand_branding = bool(st.session_state.pop(BRANDING_SETTINGS_EXPANDED_KEY, False))
-    with st.expander(tr("Branding-Einstellungen", "Branding settings"), expanded=expand_branding):
-        _render_branding_overrides()
+    lang_choice = st.radio(
+        tr("Sprache", "Language"),
+        options=lang_options,
+        index=default_index,
+        key="ui.lang.radio",
+        format_func=lambda code: flag_lookup.get(code, code.upper()),
+    )
+    if lang_choice != lang_code:
+        st.session_state[UIKeys.LANG_SELECT] = lang_choice
+
+    st.session_state["lang"] = st.session_state.get(UIKeys.LANG_SELECT, "de")
+    st.session_state["ui.lang_toggle"] = st.session_state["lang"] == "en"
+    _sync_style_instruction(st.session_state["lang"])
+
+    st.caption(
+        tr(
+            "Flaggen zeigen die verfügbaren Sprachen Deutsch und Englisch.",
+            "Flags indicate the available German and English language options.",
+        )
+    )
 
 
 def _render_hero(context: SidebarContext) -> None:
@@ -1033,13 +1002,20 @@ def _render_missing_hint(context: SidebarContext, *, section: int) -> None:
 def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     st.markdown(f"### 💰 {tr('Gehaltserwartung', 'Salary expectation')}")
     llm_available = is_llm_available()
-    if st.button(
-        tr("Gehaltserwartung aktualisieren", "Update salary expectation"),
-        width="stretch",
-        key="update_salary_expectation",
-        disabled=not llm_available,
-    ):
-        with st.spinner(tr("Berechne neue Gehaltseinschätzung…", "Calculating salary estimate…")):
+
+    inputs, requirements, ready = build_salary_requirements(profile)
+    signature = salary_input_signature(inputs)
+    previous_signature = st.session_state.get(UIKeys.SALARY_INPUT_SIGNATURE)
+    signature_changed = signature != previous_signature
+    st.session_state[UIKeys.SALARY_INPUT_SIGNATURE] = signature
+
+    _render_salary_requirements(requirements)
+
+    if signature_changed:
+        if ready:
+            with st.spinner(tr("Berechne neue Gehaltseinschätzung…", "Calculating salary estimate…")):
+                estimate_salary_expectation()
+        else:
             estimate_salary_expectation()
 
     if not llm_available:
@@ -1056,13 +1032,15 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
         except ValueError:
             pass
 
-    if not estimate:
+    if not ready:
         st.caption(
             tr(
-                "Noch keine Schätzung vorhanden. Ergänze Jobtitel und Standort, um zu starten.",
-                "No estimate yet. Provide job title and location to get started.",
+                "Sobald Jobtitel sowie mindestens ein Standortwert vorliegen, startet die Berechnung automatisch.",
+                "Once the job title and at least one location value are available, the estimate will start automatically.",
             )
         )
+
+    if not estimate:
         _render_explanation_text(explanation)
         return
 
@@ -1087,15 +1065,72 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
     if source_label:
         st.caption(tr("Quelle der Schätzung: {source}", "Estimate source: {source}").format(source=source_label))
 
+    st.markdown(f"#### {tr('Berechnung', 'Calculation')}")
+    st.json(dict(estimate))
+
     factors = prepare_salary_factor_entries(
         explanation,
         benchmark_currency=currency,
         user_currency=user_currency,
     )
     if factors:
+        _render_salary_reason_summary(factors)
         _render_salary_factor_section(factors)
     else:
         _render_explanation_text(explanation)
+
+
+def _render_salary_requirements(requirements: Sequence[SalaryRequirementStatus]) -> None:
+    """Display the required key/value pairs for salary estimation."""
+
+    st.markdown(f"#### {tr('Benötigte Angaben', 'Required inputs')}")
+    primary = [entry for entry in requirements if entry.group is None]
+    geo = [entry for entry in requirements if entry.group == "geo"]
+
+    if primary:
+        lines = [_format_requirement_line(entry) for entry in primary]
+        st.markdown("\n".join(lines))
+
+    if geo:
+        st.caption(
+            tr(
+                "Mindestens eine Standortangabe wird für die Berechnung benötigt:",
+                "At least one location value is required for the calculation:",
+            )
+        )
+        lines = [_format_requirement_line(entry) for entry in geo]
+        st.markdown("\n".join(lines))
+
+
+def _format_requirement_line(entry: SalaryRequirementStatus) -> str:
+    icon = "✅" if entry.satisfied else "⏳"
+    label = tr(*entry.label)
+    value = entry.value or tr("Noch nicht angegeben", "Not provided yet")
+    return f"- {icon} **{label}** (`{entry.path}`): {value}"
+
+
+def _render_salary_reason_summary(factors: Sequence[SalaryFactorEntry]) -> None:
+    """Summarise the top five salary factors in a single sentence."""
+
+    top_five = sorted(factors, key=lambda item: item.magnitude, reverse=True)[:5]
+    if not top_five:
+        return
+
+    reason_parts: list[str] = []
+    for factor in top_five:
+        highlight = factor.impact_summary or factor.value_display
+        if not highlight:
+            highlight = tr("kein zusätzlicher Hinweis", "no additional detail")
+        reason_parts.append(f"{factor.label}: {highlight}")
+
+    combined = "; ".join(reason_parts)
+    sentence = tr(
+        "Top-Gründe für die Schätzung: {details}.",
+        "Top reasons for the estimate: {details}.",
+    ).format(details=combined)
+    if not sentence.endswith("."):
+        sentence = f"{sentence}."
+    st.info(sentence)
 
 
 def _render_salary_factor_section(factors: list[SalaryFactorEntry]) -> None:

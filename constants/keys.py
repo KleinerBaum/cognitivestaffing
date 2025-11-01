@@ -16,6 +16,7 @@ class UIKeys:
     SALARY_ESTIMATE = "ui.salary.estimate"
     SALARY_REFRESH = "ui.salary.refresh"
     SALARY_EXPLANATION = "ui.salary.explanation"
+    SALARY_INPUT_SIGNATURE = "ui.salary.input_signature"
     SALARY_EXPLANATION_BUTTON = "ui.salary.explanation_button"
     TONE_SELECT = "ui.summary.tone"
     NUM_QUESTIONS = "ui.summary.num_questions"

@@ -10,7 +10,6 @@ from typing import cast
 
 from PIL import Image, ImageEnhance, UnidentifiedImageError
 import streamlit as st
-from streamlit.navigation.page import StreamlitPage
 
 APP_ROOT = Path(__file__).resolve().parent
 for candidate in (APP_ROOT, APP_ROOT.parent):
@@ -58,9 +57,8 @@ from llm.model_router import pick_model  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
-from sidebar import SidebarPlan, render_sidebar  # noqa: E402
+from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
-from ui_views import advantages  # noqa: E402
 
 APP_VERSION = "1.0.0"
 
@@ -303,42 +301,16 @@ SIDEBAR_STYLE = """
 
 st.markdown(SIDEBAR_STYLE, unsafe_allow_html=True)
 
-wizard_page = st.Page(
-    run_wizard,
-    title=tr("Assistent", "Wizard"),
-    icon=":material/auto_awesome:",
-    url_path="wizard",
-    default=True,
-)
-advantages_page = st.Page(
-    advantages.run,
-    title=tr("Vorteile", "Advantages"),
-    icon="💡",
-    url_path="advantages",
-)
-
 sidebar_plan = render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
     logo_data_uri=APP_LOGO_DATA_URI,
-    pages=[wizard_page, advantages_page],
     defer=True,
 )
 
-if isinstance(sidebar_plan, SidebarPlan):
-    selected_page: StreamlitPage | None = sidebar_plan.page
-elif hasattr(sidebar_plan, "run"):
-    selected_page = cast(StreamlitPage, sidebar_plan)
-else:
-    selected_page = None
+run_wizard()
 
-if selected_page is not None:
-    selected_page.run()
-else:
-    run_wizard()
-
-if isinstance(sidebar_plan, SidebarPlan):
-    render_sidebar(
-        logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
-        logo_data_uri=APP_LOGO_DATA_URI,
-        plan=sidebar_plan,
-    )
+render_sidebar(
+    logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
+    logo_data_uri=APP_LOGO_DATA_URI,
+    plan=sidebar_plan,
+)

@@ -178,9 +178,7 @@ WIZARD_EXPORT_LIST_FIELDS: Final[tuple[str, ...]] = (
 )
 
 
-def ensure_export_payload(
-    payload: Mapping[str, object] | RecruitingWizard
-) -> dict[str, object]:
+def ensure_export_payload(payload: Mapping[str, object] | RecruitingWizard) -> dict[str, object]:
     """Validate ``payload`` against the RecruitingWizard schema and return a JSON payload."""
 
     export = RecruitingWizardExport.from_payload(payload)
