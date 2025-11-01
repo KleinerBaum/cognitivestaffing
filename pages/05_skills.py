@@ -1,43 +1,16 @@
 from __future__ import annotations
 
-from constants.keys import ProfilePaths
-from core.schema import is_wizard_schema_enabled
-
 from .base import WizardPage
 
 
-if is_wizard_schema_enabled():
-    _REQUIRED_FIELDS = ("skills.must_have",)
-    _SUMMARY_FIELDS = (
-        "skills.must_have",
-        "skills.nice_to_have",
-        "skills.certifications",
-        "skills.tools",
-        "skills.languages",
-    )
-else:
-    _REQUIRED_FIELDS = tuple(
-        field.value
-        for field in (
-            ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
-            ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,
-        )
-    )
-    _SUMMARY_FIELDS = tuple(
-        field.value
-        for field in (
-            ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
-            ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL,
-            ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,
-            ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL,
-            ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES,
-            ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,
-            ProfilePaths.REQUIREMENTS_LANGUAGES_OPTIONAL,
-            ProfilePaths.REQUIREMENTS_LANGUAGE_LEVEL_ENGLISH,
-            ProfilePaths.REQUIREMENTS_CERTIFICATIONS,
-            ProfilePaths.REQUIREMENTS_CERTIFICATES,
-        )
-    )
+_REQUIRED_FIELDS: tuple[str, ...] = ("skills.must_have",)
+_SUMMARY_FIELDS: tuple[str, ...] = (
+    "skills.must_have",
+    "skills.nice_to_have",
+    "skills.certifications",
+    "skills.tools",
+    "skills.languages",
+)
 
 
 PAGE = WizardPage(
