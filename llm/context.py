@@ -10,6 +10,7 @@ from .prompts import (
     SYSTEM_JSON_EXTRACTOR,
     build_user_json_extract_prompt,
 )
+from .output_parsers import get_need_analysis_output_parser
 from nlp.prepare_text import truncate_smart
 
 # Maximum character budget for user supplied text in prompts
@@ -59,9 +60,12 @@ def build_extract_messages(
         locked_fields=locked_fields,
     )
 
-    system_content = SYSTEM_JSON_EXTRACTOR
+    parser = get_need_analysis_output_parser()
+    format_instructions = parser.format_instructions
+
+    system_content = f"{SYSTEM_JSON_EXTRACTOR}\n\n{format_instructions}".strip()
     if locked_fields:
-        system_content = f"{SYSTEM_JSON_EXTRACTOR} {LOCKED_SYSTEM_HINT}"
+        system_content = f"{SYSTEM_JSON_EXTRACTOR} {LOCKED_SYSTEM_HINT}\n\n{format_instructions}".strip()
 
     return [
         {"role": "system", "content": system_content},

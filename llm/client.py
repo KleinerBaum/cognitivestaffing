@@ -20,6 +20,10 @@ from openai_utils import call_chat_api
 from prompts import prompt_registry
 from .context import build_extract_messages
 from .prompts import FIELDS_ORDER
+from .output_parsers import (
+    NeedAnalysisParserError,
+    get_need_analysis_output_parser,
+)
 from core.errors import ExtractionError
 from config import (
     REASONING_EFFORT,
@@ -28,7 +32,6 @@ from config import (
     get_active_verbosity,
     select_model,
 )
-from models.need_analysis import NeedAnalysisProfile
 from .openai_responses import build_json_schema_format, call_responses_safe
 from utils.json_parse import parse_extraction
 
@@ -209,63 +212,45 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                 return None
             return (result.content or "").strip()
 
-        attempts.append(("responses", _call_responses))
+    if content is None:
+        call_result = call_chat_api(
+            payload["messages"],
+            model=payload["model"],
+            temperature=0,
+            reasoning_effort=payload.get("reasoning_effort"),
+            verbosity=payload.get("verbosity"),
+            json_schema={
+                "name": "need_analysis_profile",
+                "schema": NEED_ANALYSIS_SCHEMA,
+            },
+            task=ModelTask.EXTRACTION,
+        )
+        content = (call_result.content or "").strip()
+    if not content:
+        logger.warning("Structured extraction returned empty response for %s", prompt_digest)
+        raise ValueError("LLM returned empty response")
 
-    attempts.append(("chat", _build_chat_call()))
-
-    last_error: Exception | None = None
-
-    for source, handler in attempts:
-        try:
-            content = handler()
-        except Exception as exc:  # pragma: no cover - network/SDK issues
-            logger.warning(
-                "Structured extraction %s call failed for %s: %s",
-                source,
-                prompt_digest,
-                exc,
-            )
-            last_error = exc
-            continue
-
-        if not content:
-            logger.warning(
-                "Structured extraction %s returned empty response for %s",
-                source,
-                prompt_digest,
-            )
-            continue
-
-        try:
-            data = json.loads(content)
-        except json.JSONDecodeError as err:
-            logger.warning(
-                "Structured extraction JSON decode failed via %s for %s.",
-                source,
-                prompt_digest,
-                exc_info=err,
-            )
-            last_error = err
-            continue
-
-        try:
-            profile = NeedAnalysisProfile.model_validate(data)
-        except ValidationError as err:
-            report = _generate_error_report(data)
+    parser = get_need_analysis_output_parser()
+    try:
+        profile, raw_data = parser.parse(content)
+    except NeedAnalysisParserError as err:
+        if err.data:
+            report = _generate_error_report(err.data)
             if report:
                 logger.debug("Schema validation errors:\n%s", report)
-                if hasattr(err, "add_note"):
-                    err.add_note(report)
-            logger.warning(
-                "Structured extraction validation failed via %s for %s (%d error(s)).",
-                source,
-                prompt_digest,
-                len(err.errors()),
-            )
-            last_error = err
-            continue
+                if err.original and hasattr(err.original, "add_note"):
+                    err.original.add_note(report)
+        logger.warning(
+            "Structured extraction parsing failed for %s: %s", prompt_digest, err.message
+        )
+        raise ValueError(err.message) from err.original or err
+    except ValidationError as err:
+        logger.warning(
+            "Structured extraction validation raised unexpected error for %s.",
+            prompt_digest,
+        )
+        raise
 
-        return json.dumps(profile.model_dump(mode="json"), ensure_ascii=False)
 
     if last_error is not None:
         raise ValueError("Structured extraction failed") from last_error
@@ -276,7 +261,9 @@ def _minimal_messages(text: str) -> list[dict[str, str]]:
     """Build a minimal prompt asking for raw JSON output."""
 
     keys = ", ".join(FIELDS_ORDER)
+    parser = get_need_analysis_output_parser()
     system_content = prompt_registry.format("llm.client.minimal_system", keys=keys)
+    system_content = f"{system_content}\n\n{parser.format_instructions}".strip()
     return [
         {"role": "system", "content": system_content},
         {"role": "user", "content": text},
