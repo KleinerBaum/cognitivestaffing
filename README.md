@@ -26,13 +26,13 @@
   snake_case-Helfer und explizite Typannotationen stellen die PEP-8-/Typing-
   Vorgaben im gesamten Repo sicher.
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
-  the file order `01_jobad.py` → `08_summary.py`, the deprecated
-  `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
-  the step-order router runs by default after deleting the legacy runner.
+  the file order `01_jobad.py` → `08_summary.py`, all legacy step-order flags
+  have been removed, and the step-order router runs by default after deleting
+  the legacy runner.
   **DE:** Die Wizard-Navigation ist finalisiert: Die acht Streamlit-Seiten
-  folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, die
-  veralteten Flags `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` wurden
-  entfernt und der Step-Order-Router ersetzt den Legacy-Flow vollständig.
+  folgen der Dateireihenfolge `01_jobad.py` → `08_summary.py`, sämtliche
+  veralteten Step-Order-Schalter wurden entfernt und der Step-Order-Router
+  ersetzt den Legacy-Flow vollständig.
 - **EN:** Clarified the supported Python range (`>=3.11,<4.0`) so Streamlit
   deployments avoid attempting Python 4 previews that break dependencies like
   `backoff`.
