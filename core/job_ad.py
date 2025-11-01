@@ -297,7 +297,7 @@ def suggest_target_audiences(
     lang = (lang or "de").lower()
     is_de = lang.startswith("de")
 
-    job_title = profile.position.job_title or profile.position.department or ""
+    job_title = profile.position.job_title or profile.department.name or ""
     seniority = (profile.position.seniority_level or "").lower()
     work_policy = (profile.employment.work_policy or "").lower()
     remote_percentage = profile.employment.remote_percentage or 0

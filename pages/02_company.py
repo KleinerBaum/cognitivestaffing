@@ -7,16 +7,26 @@ _REQUIRED_FIELDS: tuple[str, ...] = ("company.name",)
 _SUMMARY_FIELDS: tuple[str, ...] = (
     "company.name",
     "company.legal_name",
+    "company.brand_name",
     "company.tagline",
+    "company.industry",
+    "company.industries",
+    "company.size",
+    "company.website",
     "company.mission",
+    "company.hq_location",
     "company.headquarters",
     "company.locations",
-    "company.industries",
-    "company.website",
+    "company.culture",
     "company.values",
+    "company.brand_keywords",
+    "company.contact_name",
+    "company.contact_email",
+    "company.contact_phone",
     "company.logo_url",
     "company.brand_color",
     "company.claim",
+    "company.benefits",
 )
 
 

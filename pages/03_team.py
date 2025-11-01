@@ -3,7 +3,11 @@ from __future__ import annotations
 from .base import WizardPage
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = ("role.title",)
+_REQUIRED_FIELDS: tuple[str, ...] = (
+    "department.name",
+    "team.reporting_line",
+    "position.reporting_manager_name",
+)
 _SUMMARY_FIELDS: tuple[str, ...] = (
     "department.name",
     "department.function",
@@ -17,6 +21,8 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
     "team.headcount_target",
     "team.collaboration_tools",
     "team.locations",
+    "position.customer_contact_required",
+    "position.customer_contact_details",
 )
 
 

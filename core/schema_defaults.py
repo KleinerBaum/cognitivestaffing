@@ -17,6 +17,7 @@ _DEFAULT_WIZARD_DATA: Mapping[str, Any] = {
     "company": {},
     "department": {},
     "team": {},
+    "position": {},
     "role": {},
     "tasks": {},
     "skills": {},

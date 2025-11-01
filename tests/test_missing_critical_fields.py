@@ -53,16 +53,25 @@ def test_section_filtering() -> None:
     st.session_state["location.country"] = "DE"
     assert get_missing_critical_fields(max_section=1) == []
 
-    # Section 2 requires job title and role summary
-    missing = get_missing_critical_fields(max_section=2)
-    assert {"position.job_title", "position.role_summary"} <= set(missing)
+    # Section 2 requires role context data
+    missing = set(get_missing_critical_fields(max_section=2))
+    expected_section_two = {
+        "position.job_title",
+        "position.role_summary",
+        "department.name",
+        "team.reporting_line",
+        "position.reporting_manager_name",
+        "meta.target_start_date",
+    }
+    assert expected_section_two <= missing
 
     st.session_state["position.job_title"] = "Engineer"
-    missing = get_missing_critical_fields(max_section=2)
-    assert "position.role_summary" in missing
-
     st.session_state["position.role_summary"] = "Build models"
-    assert get_missing_critical_fields(max_section=2) == []
+    st.session_state["department.name"] = "Product"
+    st.session_state["team.reporting_line"] = "VP Product"
+    st.session_state["position.reporting_manager_name"] = "Jamie"
+    st.session_state["meta.target_start_date"] = "2024-11-01"
+    assert not get_missing_critical_fields(max_section=2)
 
 
 def test_followup_critical_detection() -> None:

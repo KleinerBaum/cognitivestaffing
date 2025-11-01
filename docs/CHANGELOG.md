@@ -7,6 +7,18 @@
   **DE:** LangChains `StructuredOutputParser` und `PydanticOutputParser` im Extraktions-Stack verankert, sodass Prompts
   automatische Format-Hinweise erhalten und Antworten ohne manuelle JSON-Nachbearbeitung direkt in `NeedAnalysisProfile`
   einfließen.
+- **EN:** Added dedicated `department.*` and `team.*` profile sections, a
+  customer-contact flag for `position.*`, and requirement toggles for
+  background, reference, and portfolio checks. Step 3 (Team & Context) now
+  binds these fields end-to-end, the follow-up logic validates them as critical
+  before advancing, and the schema propagation script refreshes generated
+  components.
+  **DE:** Eigene `department.*`- und `team.*`-Profilebenen ergänzt, einen
+  Kundenkontakt-Schalter für `position.*` eingeführt und Anforderungs-Toggles
+  für Background-, Referenz- und Portfolio-Prüfungen hinzugefügt. Schritt 3
+  („Team & Kontext“) bindet die Felder durchgängig ein, die Folgefragen-Logik
+  behandelt sie vor dem Weiterklicken als kritisch und das Schema-Propagation-
+  Skript aktualisiert die generierten Komponenten.
 - **EN:** Rebuilt the onboarding entry experience with a five-line bilingual
   briefing on OpenAI/ESCO-powered intake, centred URL/upload inputs of equal
   width, retired the manual text area, and swapped the green gradient CTA for a
