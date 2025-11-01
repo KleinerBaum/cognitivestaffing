@@ -123,3 +123,32 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 - Setze `VERBOSITY=high` in der Umgebung oder in den Streamlit-Secrets, um
   ausführlichere OpenAI-Logs zu erhalten – die Prompts enthalten dann zusätzliche
   Reasoning-Hinweise aus `openai_utils.api`.
+
+## LLM feature flags / LLM-Feature-Flags
+
+**EN:**
+
+- `USE_RESPONSES_API` stays enabled by default so structured calls keep using
+  the OpenAI Responses API with strict JSON schemas and streaming support.
+- `USE_CLASSIC_API` can still be forced (set to `1`) for debugging legacy
+  behaviour; the client cascades through Responses → Chat → static fallbacks on
+  failures.
+- `RESPONSES_ALLOW_TOOLS` defaults to `0` because the 2025 Responses rollout
+  blocks tool payloads. Only flip it to `1` when your OpenAI account is
+  allowlisted for tool-capable Responses calls; otherwise the SDK will downshift
+  to the chat backend whenever a prompt requires tools (analysis helpers,
+  function calling, etc.).
+
+**DE:**
+
+- `USE_RESPONSES_API` bleibt standardmäßig aktiviert, damit strukturierte
+  Aufrufe weiterhin die OpenAI-Responses-API mit striktem JSON-Schema und
+  Streaming-Unterstützung nutzen.
+- `USE_CLASSIC_API` lässt sich (Wert `1`) weiterhin erzwingen, um Legacy-
+  Verhalten zu debuggen; der Client fällt bei Fehlern über Responses → Chat →
+  statische Fallbacks zurück.
+- `RESPONSES_ALLOW_TOOLS` steht standardmäßig auf `0`, weil der Responses-
+  Rollout 2025 Tool-Payloads blockiert. Aktiviere den Wert nur, wenn dein
+  OpenAI-Account für toolfähige Responses-Aufrufe freigeschaltet ist; andernfalls
+  wechselt das SDK automatisch auf das Chat-Backend, sobald ein Prompt Tools
+  (Analyse-Helfer, Function Calling usw.) benötigt.

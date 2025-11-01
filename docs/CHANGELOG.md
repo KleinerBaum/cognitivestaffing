@@ -6,6 +6,8 @@
   **DE:** Die Sidebar wurde verschlankt: Seiten-Links entfernt, Dark-Mode- und Sprachumschalter untereinander mit Flaggen-Icons angeordnet und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen; die Ansicht zeigt die benötigten Felder, fasst die fünf wichtigsten Faktoren in einem Satz zusammen und blendet die Berechnungsdaten sichtbar ein.
 - **EN:** Removed the legacy `wizard.layout` widget helpers; the widget factory now wires Streamlit inputs directly to `_update_profile` and exposes the bindings via `wizard.wizard`.
   **DE:** Die veralteten `wizard.layout`-Widget-Helfer entfernt; die Widget-Factory verbindet Streamlit-Inputs jetzt direkt mit `_update_profile` und stellt die Bindings über `wizard.wizard` bereit.
+- **EN:** Introduced the `RESPONSES_ALLOW_TOOLS` feature flag: tool payloads stay disabled on Responses by default for the 2025 rollout, while the client automatically falls back to the chat backend whenever tools are required unless the flag is set to `1`.
+  **DE:** Das Feature-Flag `RESPONSES_ALLOW_TOOLS` ergänzt: Tool-Payloads bleiben für den Responses-Rollout 2025 standardmäßig deaktiviert, und der Client wechselt automatisch auf das Chat-Backend, sobald Tools benötigt werden – außer das Flag steht auf `1`.
 - **EN:** Switched the `Requirements` certificate synchronisation validator to
   the instance-based Pydantic v2 style, silencing deprecation warnings during
   tests and preparing the model for Pydantic 3.
