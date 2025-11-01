@@ -102,8 +102,8 @@ ignore_errors = true
 module = [
     "ingest.*",
     "openai_utils.*",
-    "wizard._legacy",
-    "wizard._layout",
+    "wizard.runner",
+    "wizard.layout",
 ]
 ignore_errors = true
 

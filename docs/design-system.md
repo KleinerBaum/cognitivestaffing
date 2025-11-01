@@ -72,7 +72,7 @@ The palette keeps token names aligned between both modes; only the values differ
 | `--surface-press` | Pressed background | Hintergrund gedrückter Zustand | `var(--surface-press)` |
 
 ## Usage Notes / Nutzungshinweise
-- **EN:** Reference the tokens via `var(--token-name)` in Streamlit CSS snippets (see `COMPACT_STEP_STYLE` in `wizard/_layout.py`). Fallback values are provided for compatibility when the CSS runs outside the themed context.
-- **DE:** Die Tokens werden per `var(--token-name)` in Streamlit-CSS-Snippets genutzt (siehe `COMPACT_STEP_STYLE` in `wizard/_layout.py`). Für die Kompatibilität außerhalb des Themes sind Fallback-Werte hinterlegt.
+- **EN:** Reference the tokens via `var(--token-name)` in Streamlit CSS snippets (see `COMPACT_STEP_STYLE` in `wizard/layout.py`). Fallback values are provided for compatibility when the CSS runs outside the themed context.
+- **DE:** Die Tokens werden per `var(--token-name)` in Streamlit-CSS-Snippets genutzt (siehe `COMPACT_STEP_STYLE` in `wizard/layout.py`). Für die Kompatibilität außerhalb des Themes sind Fallback-Werte hinterlegt.
 - **EN:** Brand colours are only applied to sidebar hero panels when the contrast ratio between background and text reaches WCAG AA (≥ 4.5:1); otherwise the UI falls back to the neutral accent tokens. Mobile adjustments target ≤ 768 px to keep forms usable on tablets.
 - **DE:** Markenfarben werden nur dann im Sidebar-Hero genutzt, wenn der Kontrast zwischen Hintergrund und Text die WCAG-AA-Schwelle (≥ 4,5:1) erfüllt; andernfalls greift der neutrale Akzentton. Mobile Anpassungen zielen auf ≤ 768 px ab, damit Formulare auch auf Tablets nutzbar bleiben.

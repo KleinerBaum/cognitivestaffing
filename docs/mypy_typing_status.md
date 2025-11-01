@@ -13,8 +13,8 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | --- | ---: | --- |
 | `ingest.*` | 3 | Legacy ingestion utilities rely on dynamically typed third-party clients. |
 | `openai_utils.*` | 16 | Response-stream plumbing mixes Responses/Chat abstractions that require a dedicated refactor. |
-| `wizard._legacy` | 19 | Legacy wizard entry point awaiting migration to the step-order router. |
-| `wizard._layout` | 2 | Shares helpers with `_legacy`; will be retired alongside that module. |
+| `wizard.runner` | 19 | Wizard entry point awaiting migration to the step-order router. |
+| `wizard.layout` | 2 | Shared layout helpers that remain to be refactored alongside the runner. |
 | `wizard_router` | 5 | Blocked on the same legacy wizard dependencies as above. |
 | `tests.*` | 255 | Test suite mirrors the legacy wizard APIs and needs wholesale type annotations. |
 | `components.requirements_insights` | 2 | Uses implicit tuple returns from scoring helpers; annotate once helper contracts are final. |
@@ -25,7 +25,7 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | `cli.rebuild_vector_store` | 2 | The CLI path is blocked on the new vector store SDK typings. |
 | `app` | 1 | Streamlit entry point backfills telemetry conditionally; convert to helper functions to type-check cleanly. |
 | `nlp.entities` | 1 | Contains a redundant `# type: ignore` guard from earlier rapid prototyping. |
-| `pages.*` | 10 | Wizard pages still import the legacy layout helpers; will be handled after `_legacy` removal. |
+| `pages.*` | 10 | Wizard pages still import the legacy layout helpers; will be handled after the runner refactor. |
 
 ### Progress Log
 
