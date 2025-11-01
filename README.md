@@ -13,6 +13,12 @@
 
 ## Unreleased
 
+- **EN:** Locked all OpenTelemetry packages to version 1.26.0 and synced
+  `requirements.txt` with the optional ingestion dependencies so deployments
+  stop drifting across manifests.
+  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
+  `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
+  damit Deployments nicht länger auseinanderlaufen.
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
   the file order `01_jobad.py` → `08_summary.py`, the deprecated
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and
