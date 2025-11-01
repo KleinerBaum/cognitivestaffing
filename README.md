@@ -19,6 +19,14 @@
   **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
   `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
   damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Reimagined the onboarding entry step with a bilingual five-line
+  guidance block that highlights OpenAI/ESCO data capture, centres the URL and
+  upload inputs at equal width, removes the manual text field, and replaces the
+  green gradient CTA with a compact continue button.
+  **DE:** Den Onboarding-Einstieg neu gestaltet: Fünf zweisprachige
+  Guidance-Zeilen betonen OpenAI-/ESCO-Datenerfassung, URL- und Upload-Felder
+  stehen mittig in gleicher Breite, das manuelle Textfeld entfällt und der
+  grüne Gradient-CTA weicht einem kompakten Weiter-Button.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.

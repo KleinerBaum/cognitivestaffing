@@ -7,6 +7,14 @@
   **DE:** LangChains `StructuredOutputParser` und `PydanticOutputParser` im Extraktions-Stack verankert, sodass Prompts
   automatische Format-Hinweise erhalten und Antworten ohne manuelle JSON-Nachbearbeitung direkt in `NeedAnalysisProfile`
   einfließen.
+- **EN:** Rebuilt the onboarding entry experience with a five-line bilingual
+  briefing on OpenAI/ESCO-powered intake, centred URL/upload inputs of equal
+  width, retired the manual text area, and swapped the green gradient CTA for a
+  compact continue control.
+  **DE:** Das Onboarding neu inszeniert: Fünf zweisprachige Briefing-Zeilen zu
+  OpenAI-/ESCO-gestützter Intake, mittig ausgerichtete URL-/Upload-Felder in
+  gleicher Breite, das manuelle Textfeld entfernt und den grünen
+  Gradient-CTA durch einen kompakten Weiter-Button ersetzt.
 
 
 - **EN:** Streamlined the sidebar by removing page navigation links, stacking the dark-mode and language switches vertically with flag icons, and triggering salary estimates automatically once job title plus a location hint are available; the panel now lists required fields, summarises the top five drivers in one sentence, and exposes the raw calculation data.

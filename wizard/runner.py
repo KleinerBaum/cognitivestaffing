@@ -45,7 +45,6 @@ from utils.i18n import tr
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
-from utils.session import bind_textarea
 from state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
@@ -97,6 +96,8 @@ from ._logic import (
 logger = logging.getLogger(__name__)
 
 LocalizedText = tuple[str, str]
+
+ONBOARDING_SOURCE_STYLE_KEY: Final[str] = "_onboarding_source_styles_v2"
 
 ADD_MORE_PHASES_HINT: Final[LocalizedText] = (
     "Weitere Phasen hinzufügen…",
@@ -5264,6 +5265,67 @@ def _advance_from_onboarding() -> None:
     st.rerun()
 
 
+def _inject_onboarding_source_styles() -> None:
+    """Inject styling for the onboarding intro and source inputs once per session."""
+
+    if st.session_state.get(ONBOARDING_SOURCE_STYLE_KEY):
+        return
+
+    st.session_state[ONBOARDING_SOURCE_STYLE_KEY] = True
+    st.markdown(
+        """
+        <style>
+            .onboarding-intro {
+                font-size: 1rem;
+                line-height: 1.55;
+                margin: 1rem auto 1.75rem;
+                max-width: 780px;
+                text-align: left;
+            }
+
+            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker) {
+                justify-content: center;
+                gap: clamp(1.25rem, 2vw, 2.5rem);
+            }
+
+            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
+                div[data-testid="column"] {
+                flex: 1 1 0;
+            }
+
+            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
+                div[data-testid="column"]:nth-child(2) {
+                flex: 0 1 520px;
+                display: flex;
+                justify-content: center;
+            }
+
+            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
+                div[data-testid="column"]:nth-child(2) > div {
+                width: 100%;
+            }
+
+            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
+                div[data-testid="column"]:nth-child(2)
+                div[data-testid="stTextInput"] > div > div,
+            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
+                div[data-testid="column"]:nth-child(2)
+                div[data-testid="stFileUploader"] > div {
+                width: 100%;
+            }
+
+            @media (max-width: 960px) {
+                section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
+                    div[data-testid="column"]:nth-child(2) {
+                    flex: 1 1 100%;
+                }
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _step_onboarding(schema: dict) -> None:
     """Render onboarding with language toggle, intro, and ingestion options."""
 
@@ -5277,39 +5339,24 @@ def _step_onboarding(schema: dict) -> None:
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
 
-    intro_text = tr(
-        (
-            "Jede Suche nach einem Mitarbeiter beginnt damit aufzuschreiben welche Aufgaben zu erledigen sind, welche Skills "
-            "gefragt sind, benefits man bietet und wie man sich bewerben soll. Fehlende, ungenaue oder falsche Angaben führen "
-            "zu weniger Bewerbern, Frust, Zeit und Geldverlust."
-        ),
-        (
-            "Every search for a new team member starts with writing down the tasks to be done, the skills you need, the "
-            "benefits you offer, and how candidates should apply. Missing, vague, or incorrect information results in fewer "
-            "applicants, frustration, wasted time, and financial loss."
-        ),
-    )
-
-    st.markdown(
-        f"<div style='margin-top: 1rem; margin-bottom: 1rem;'>{intro_text}</div>",
-        unsafe_allow_html=True,
-    )
-
     onboarding_header = _format_dynamic_message(
-        default=("Anzeige parat?", "Job ad ready?"),
+        default=(
+            "Intelligenzgestützter Recruiting-Kickstart",
+            "Intelligence-powered recruiting kickoff",
+        ),
         context=profile_context,
         variants=[
             (
                 (
-                    "Anzeige für {job_title} bei {company_name} parat?",
-                    "Job ad for {job_title} at {company_name} ready?",
+                    "Intelligenzgestützter Recruiting-Kickstart für {job_title} bei {company_name}",
+                    "Intelligence-powered recruiting kickoff for {job_title} at {company_name}",
                 ),
                 ("job_title", "company_name"),
             ),
             (
                 (
-                    "Anzeige für {job_title} parat?",
-                    "Job ad for {job_title} ready?",
+                    "Intelligenzgestützter Recruiting-Kickstart für {job_title}",
+                    "Intelligence-powered recruiting kickoff for {job_title}",
                 ),
                 ("job_title",),
             ),
@@ -5317,28 +5364,56 @@ def _step_onboarding(schema: dict) -> None:
     )
     onboarding_caption = _format_dynamic_message(
         default=(
-            "Gebe ein paar Informationen zu Deiner Vakanz und starte die dynamisch angepasste Analyse",
-            "Share a few details about your vacancy and start the dynamically tailored analysis",
+            "Teile den Einstieg über URL oder Datei und sichere jede relevante Insight gleich am Anfang.",
+            "Share a URL or file to capture every crucial insight from the very first step.",
         ),
         context=profile_context,
         variants=[
             (
                 (
-                    "Teile kurz die Eckdaten zu {job_title} bei {company_name} und starte die dynamisch angepasste Analyse.",
-                    "Share the key details for {job_title} at {company_name} to kick off the tailored analysis.",
+                    "Übermittle den Startpunkt für {job_title} bei {company_name} über URL oder Datei und sichere jede Insight.",
+                    "Provide the entry point for {job_title} at {company_name} via URL or upload to secure every insight.",
                 ),
                 ("job_title", "company_name"),
             ),
             (
                 (
-                    "Teile kurz die Eckdaten zur Rolle {job_title} und starte die dynamisch angepasste Analyse.",
-                    "Share the key details for the {job_title} role to kick off the tailored analysis.",
+                    "Übermittle den Startpunkt für {job_title} über URL oder Datei und sichere jede Insight.",
+                    "Provide the entry point for the {job_title} role via URL or upload to secure every insight.",
                 ),
                 ("job_title",),
             ),
         ],
     )
     render_step_heading(onboarding_header, onboarding_caption)
+
+    _inject_onboarding_source_styles()
+
+    intro_lines = [
+        tr(
+            "Unstrukturierte Bedarfsklärung verbrennt gleich im ersten Schritt kostbare Recruiting-Insights.",
+            "Unstructured intake burns expensive recruiting intelligence in the very first step.",
+        ),
+        tr(
+            "Unsere OpenAI-API-Agents erfassen jedes Detail und strukturieren Anforderungen in Echtzeit.",
+            "Our OpenAI API agents capture every nuance and structure requirements in real time.",
+        ),
+        tr(
+            "ESCO-Skillgraph und Marktprofile liefern Kontext für Skills, Seniorität und Branchensprache.",
+            "ESCO skill graphs and market profiles add context for skills, seniority, and industry language.",
+        ),
+        tr(
+            "Ein dynamischer Info-Gathering-Prozess baut einen vollständigen Datensatz für diese Vakanz auf.",
+            "A dynamic info gathering process assembles a complete dataset for this specific vacancy.",
+        ),
+        tr(
+            "So entstehen Inputs für interne Kommunikations-Automation & Folgeschritte – Ziel: glückliche Kandidat:innen nachhaltig platzieren.",
+            "These inputs fuel internal communication automation and downstream steps – goal: place happy candidates sustainably.",
+        ),
+    ]
+
+    intro_html = "<br/>".join(intro_lines)
+    st.markdown(f"<div class='onboarding-intro'>{intro_html}</div>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -5358,30 +5433,14 @@ def _step_onboarding(schema: dict) -> None:
         if doc_prefill:
             st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
 
-    def _queue_extraction_if_ready() -> None:
-        raw_text = st.session_state.get(StateKeys.RAW_TEXT, "")
-        if raw_text and raw_text.strip():
-            st.session_state["__run_extraction__"] = True
-
-    content_cols = st.columns((3, 2), gap="large")
-    with content_cols[0]:
-        bind_textarea(
-            tr("Jobtext", "Job text"),
-            UIKeys.PROFILE_TEXT_INPUT,
-            StateKeys.RAW_TEXT,
-            placeholder=tr(
-                "Füge hier den Text deiner Stellenanzeige ein …",
-                "Paste the text of your job posting here …",
-            ),
-            help=tr(
-                "Wir analysieren den Text automatisch und befüllen alle passenden Felder.",
-                "We automatically analyse the text and prefill all relevant fields.",
-            ),
-            on_change=_queue_extraction_if_ready,
+    source_columns = st.columns([1, 2, 1], gap="large")
+    with source_columns[1]:
+        st.markdown(
+            "<div class='onboarding-source-marker' style='display:none'></div>",
+            unsafe_allow_html=True,
         )
-    with content_cols[1]:
         st.text_input(
-            tr("Füge eine Stellenanzeigen-URL ein:", "Public job posting URL"),
+            tr("Stellenanzeigen-URL einfügen", "Provide the job posting URL"),
             key=UIKeys.PROFILE_URL_INPUT,
             on_change=on_url_changed,
             placeholder=tr("Bitte URL eingeben", "Enter the job posting URL"),
@@ -5407,39 +5466,12 @@ def _step_onboarding(schema: dict) -> None:
 
     _render_prefilled_preview(exclude_prefixes=("requirements.",))
 
-    st.markdown(
-        """
-        <style>
-            .onboarding-next-button button {
-                background: linear-gradient(135deg, #FF6B35 0%, #FF922B 100%) !important;
-                color: #FFFFFF !important;
-                border: none !important;
-                box-shadow: 0 6px 16px rgba(255, 107, 53, 0.35);
-            }
-
-            .onboarding-next-button button:hover {
-                background: linear-gradient(135deg, #FF5A24 0%, #FF7F2A 100%) !important;
-            }
-
-            .onboarding-next-button button:focus {
-                outline: 2px solid rgba(255, 107, 53, 0.45) !important;
-                box-shadow: 0 0 0 4px rgba(255, 146, 43, 0.35) !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    with st.container():
-        st.markdown('<div class="onboarding-next-button">', unsafe_allow_html=True)
-        if st.button(
-            tr("Weiter ▶︎", "Next ▶︎"),
-            type="primary",
-            width="stretch",
-            key="onboarding_next",
-        ):
-            _advance_from_onboarding()
-        st.markdown("</div>", unsafe_allow_html=True)
+    if st.button(
+        tr("Weiter zum Setup", "Continue to setup"),
+        type="secondary",
+        key="onboarding_next_compact",
+    ):
+        _advance_from_onboarding()
 
 
 def _step_company() -> None:
