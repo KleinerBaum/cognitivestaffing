@@ -167,8 +167,8 @@ def test_step_compensation_localizes_labels(
         chip_labels.append(label)
         return values
 
-    monkeypatch.setattr("wizard.runner.chip_multiselect", _recording_chip)
     monkeypatch.setattr("wizard.chip_multiselect", _recording_chip)
+    monkeypatch.setattr("components.chip_multiselect.chip_multiselect", _recording_chip)
 
     _step_compensation()
 
@@ -203,8 +203,8 @@ def test_summary_compensation_localizes_labels(
         chip_labels.append(label)
         return values
 
-    monkeypatch.setattr("wizard.runner.chip_multiselect", _recording_chip)
     monkeypatch.setattr("wizard.chip_multiselect", _recording_chip)
+    monkeypatch.setattr("components.chip_multiselect.chip_multiselect", _recording_chip)
     monkeypatch.setattr("wizard._update_profile", lambda *_, **__: None)
 
     _summary_compensation()
