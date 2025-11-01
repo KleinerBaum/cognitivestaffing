@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from core.schema import ALL_FIELDS
@@ -14,6 +15,24 @@ from utils.i18n import tr
 
 # Export schema order for prompt rendering
 FIELDS_ORDER: list[str] = ALL_FIELDS
+
+
+@dataclass(slots=True)
+class PreExtractionInsights:
+    """Hints derived from a preliminary document analysis."""
+
+    summary: str = ""
+    relevant_fields: list[str] | None = None
+    missing_fields: list[str] | None = None
+
+    def has_data(self) -> bool:
+        """Return ``True`` when any hint is populated."""
+
+        return bool(
+            (self.summary and self.summary.strip())
+            or (self.relevant_fields and any(self.relevant_fields))
+            or (self.missing_fields and any(self.missing_fields))
+        )
 
 
 def render_field_bullets() -> str:
@@ -40,6 +59,7 @@ def build_user_json_extract_prompt(
     extras: dict | None = None,
     *,
     locked_fields: Mapping[str, str] | None = None,
+    insights: PreExtractionInsights | None = None,
 ) -> str:
     """Render a user prompt for JSON field extraction.
 
@@ -84,11 +104,30 @@ def build_user_json_extract_prompt(
     else:
         instructions += "\n" + ALL_LOCKED_HINT
 
+    analysis_block = ""
+    if insights and insights.has_data():
+        analysis_lines: list[str] = ["Pre-analysis highlights:"]
+        if insights.summary and insights.summary.strip():
+            analysis_lines.append(insights.summary.strip())
+        if insights.relevant_fields:
+            filtered = [field.strip() for field in insights.relevant_fields if field and field.strip()]
+            if filtered:
+                analysis_lines.append("Likely evidence for these fields:")
+                analysis_lines.extend(f"  - {field}" for field in filtered)
+        if insights.missing_fields:
+            missing_filtered = [field.strip() for field in insights.missing_fields if field and field.strip()]
+            if missing_filtered:
+                analysis_lines.append("Potential gaps or missing details:")
+                analysis_lines.extend(f"  - {field}" for field in missing_filtered)
+        analysis_block = "\n".join(analysis_lines)
+
     blocks: list[str] = []
     if extras_block:
         blocks.append(extras_block)
     if locked_block:
         blocks.append(locked_block)
+    if analysis_block:
+        blocks.append(analysis_block)
     blocks.append(instructions)
     blocks.append(f"Text:\n{job_text}")
     prompt = "\n\n".join(blocks)

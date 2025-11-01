@@ -1,5 +1,9 @@
-from llm.context import build_extract_messages, MAX_CHAR_BUDGET
-from llm.prompts import SYSTEM_JSON_EXTRACTOR
+from llm.context import (
+    build_extract_messages,
+    build_preanalysis_messages,
+    MAX_CHAR_BUDGET,
+)
+from llm.prompts import PreExtractionInsights, SYSTEM_JSON_EXTRACTOR
 from nlp.prepare_text import truncate_smart
 
 
@@ -68,3 +72,31 @@ def test_build_messages_truncates_text():
     msgs = build_extract_messages(text)
     truncated = truncate_smart(text, MAX_CHAR_BUDGET)
     assert truncated in msgs[1]["content"]
+
+
+def test_build_messages_include_insights_block():
+    insights = PreExtractionInsights(
+        summary="Compensation and responsibilities are detailed.",
+        relevant_fields=["compensation.salary_min", "responsibilities.items"],
+        missing_fields=["company.website"],
+    )
+    msgs = build_extract_messages("body", insights=insights)
+    user = msgs[1]["content"]
+    assert "Pre-analysis highlights:" in user
+    assert "Likely evidence for these fields:" in user
+    assert "compensation.salary_min" in user
+    assert "Potential gaps or missing details:" in user
+
+
+def test_build_preanalysis_messages_include_extras():
+    msgs = build_preanalysis_messages(
+        "body",
+        title="Engineer",
+        company="Acme",
+        url="https://example.com",
+    )
+    assert msgs[0]["content"]
+    user = msgs[1]["content"]
+    assert "Title: Engineer" in user
+    assert "Company: Acme" in user
+    assert "Schema reference" in user
