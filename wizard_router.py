@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, Iterable, Mapping, Sequence
-
 import html
+from dataclasses import dataclass
+from typing import Callable, Iterable, Mapping, Sequence, cast
+
 import streamlit as st
 
 from constants.keys import StateKeys
@@ -225,7 +225,7 @@ class WizardRouter:
         st.markdown(_COLLECTED_STYLE + _NAVIGATION_STYLE, unsafe_allow_html=True)
         self._update_section_progress()
         self._ensure_current_is_valid()
-        current_key = self._state["current_step"]
+        current_key = self._get_current_step_key()
         page = self._page_map[current_key]
         renderer = self._renderers.get(page.key)
         if renderer is None:
@@ -251,7 +251,20 @@ class WizardRouter:
     # ------------------------------------------------------------------
     @property
     def _state(self) -> dict[str, object]:
-        return st.session_state.setdefault("wizard", {})  # type: ignore[return-value]
+        raw_state = st.session_state.setdefault("wizard", {})
+        if isinstance(raw_state, dict):
+            return raw_state
+        coerced: dict[str, object] = dict(raw_state)
+        st.session_state["wizard"] = coerced
+        return coerced
+
+    def _get_current_step_key(self) -> str:
+        current = self._state.get("current_step")
+        if isinstance(current, str) and current in self._page_map:
+            return current
+        fallback = self._pages[0].key
+        self._state["current_step"] = fallback
+        return fallback
 
     def _ensure_state_defaults(self) -> None:
         state = self._state
@@ -259,7 +272,7 @@ class WizardRouter:
             state["current_step"] = self._pages[0].key
 
     def _sync_with_query_params(self) -> None:
-        params = st.experimental_get_query_params()
+        params = {key: list(value) for key, value in st.experimental_get_query_params().items()}
         step_param = params.get("step", [None])[0]
         if step_param and step_param in self._page_map:
             desired = step_param
@@ -454,21 +467,34 @@ class WizardRouter:
         )
 
     def _update_section_progress(self) -> tuple[int | None, list[int]]:
-        from wizard import CRITICAL_SECTION_ORDER, FIELD_SECTION_MAP, get_missing_critical_fields
+        import wizard
 
-        missing_fields = list(dict.fromkeys(get_missing_critical_fields()))
+        critical_section_order = cast(
+            tuple[int, ...],
+            getattr(wizard, "CRITICAL_SECTION_ORDER"),
+        )
+        field_section_map = cast(
+            Mapping[str, int],
+            getattr(wizard, "FIELD_SECTION_MAP"),
+        )
+        missing_getter = cast(
+            Callable[[], Sequence[str]],
+            getattr(wizard, "get_missing_critical_fields"),
+        )
+
+        missing_fields = list(dict.fromkeys(missing_getter()))
         sections_with_missing: set[int] = set()
         for field in missing_fields:
-            section = FIELD_SECTION_MAP.get(field)
+            section = field_section_map.get(field)
             if section is None:
-                if CRITICAL_SECTION_ORDER:
-                    section = CRITICAL_SECTION_ORDER[0]
+                if critical_section_order:
+                    section = critical_section_order[0]
                 else:
                     continue
             sections_with_missing.add(section)
 
         first_incomplete: int | None = None
-        for section in CRITICAL_SECTION_ORDER:
+        for section in critical_section_order:
             if section in sections_with_missing:
                 first_incomplete = section
                 break
@@ -477,11 +503,11 @@ class WizardRouter:
             first_incomplete = min(sections_with_missing)
 
         if first_incomplete is None:
-            completed_sections = list(CRITICAL_SECTION_ORDER)
+            completed_sections = list(critical_section_order)
         else:
             completed_sections = [
                 section
-                for section in CRITICAL_SECTION_ORDER
+                for section in critical_section_order
                 if section < first_incomplete and section not in sections_with_missing
             ]
 
