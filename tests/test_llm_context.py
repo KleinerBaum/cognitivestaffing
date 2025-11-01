@@ -10,7 +10,9 @@ def test_build_messages_include_title_company_and_url():
         company="Acme Corp",
         url="http://x",
     )
-    assert msgs[0]["content"] == SYSTEM_JSON_EXTRACTOR
+    system_content = msgs[0]["content"]
+    assert system_content.startswith(SYSTEM_JSON_EXTRACTOR)
+    assert "Use the following structured output format." in system_content
     user = msgs[1]["content"]
     assert "Title: Engineer" in user
     assert "Company: Acme Corp" in user
@@ -27,6 +29,7 @@ def test_build_messages_include_locked_fields():
     )
     system = msgs[0]["content"]
     assert "Keep locked fields unchanged" in system
+    assert "Use the following structured output format." in system
     user = msgs[1]["content"]
     assert "Locked fields (preserve existing values):" in user
     assert "  - position.job_title" in user
