@@ -8,7 +8,7 @@ import re
 import logging
 from pathlib import Path
 from collections.abc import MutableMapping, Sequence
-from typing import Any, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from jsonschema import Draft7Validator
 from opentelemetry import trace
@@ -33,6 +33,7 @@ from config import (
     select_model,
 )
 from .openai_responses import build_json_schema_format, call_responses_safe
+from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
 tracer = trace.get_tracer(__name__)
@@ -166,28 +167,50 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
     if chain is not None:
         return chain.invoke(payload)
 
-    content: str | None = None
+    prompt_digest = _summarise_prompt(payload.get("messages"))
+
+    def _build_chat_call() -> Callable[[], str | None]:
+        def _invoke() -> str | None:
+            call_result = call_chat_api(
+                payload["messages"],
+                model=payload["model"],
+                temperature=0,
+                reasoning_effort=payload.get("reasoning_effort"),
+                verbosity=payload.get("verbosity"),
+                json_schema={
+                    "name": "need_analysis_profile",
+                    "schema": NEED_ANALYSIS_SCHEMA,
+                },
+                task=ModelTask.EXTRACTION,
+            )
+            return (call_result.content or "").strip()
+
+        return _invoke
+
+    attempts: list[tuple[str, Callable[[], str | None]]] = []
+
     if USE_RESPONSES_API:
         response_format = build_json_schema_format(
             name="need_analysis_profile",
             schema=NEED_ANALYSIS_SCHEMA,
         )
-        result = call_responses_safe(
-            payload["messages"],
-            model=payload["model"],
-            response_format=response_format,
-            temperature=0,
-            reasoning_effort=payload.get("reasoning_effort"),
-            max_tokens=payload.get("max_tokens"),
-            retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
-            task=ModelTask.EXTRACTION,
-            logger_instance=logger,
-            context="structured extraction",
-        )
-        if result is not None:
-            content = (result.content or "").strip()
 
-    prompt_digest = _summarise_prompt(payload.get("messages"))
+        def _call_responses() -> str | None:
+            result = call_responses_safe(
+                payload["messages"],
+                model=payload["model"],
+                response_format=response_format,
+                temperature=0,
+                reasoning_effort=payload.get("reasoning_effort"),
+                max_tokens=payload.get("max_tokens"),
+                retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
+                task=ModelTask.EXTRACTION,
+                logger_instance=logger,
+                context="structured extraction",
+            )
+            if result is None:
+                return None
+            return (result.content or "").strip()
 
     if content is None:
         call_result = call_chat_api(
@@ -228,7 +251,10 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         )
         raise
 
-    return json.dumps(profile.model_dump(mode="json"), ensure_ascii=False)
+
+    if last_error is not None:
+        raise ValueError("Structured extraction failed") from last_error
+    raise ValueError("Structured extraction returned empty response")
 
 
 def _minimal_messages(text: str) -> list[dict[str, str]]:
@@ -332,6 +358,12 @@ def extract_json(
             raise ExtractionError("LLM call failed") from exc2
         content = (result.content or "").strip()
         if content:
-            return content
+            try:
+                parsed = parse_extraction(content)
+            except Exception as err3:  # pragma: no cover - defensive
+                span.record_exception(err3)
+                span.set_status(Status(StatusCode.ERROR, "fallback_parse_failed"))
+                raise ExtractionError("LLM returned invalid JSON") from err3
+            return json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False)
         span.set_status(Status(StatusCode.ERROR, "empty_response"))
         raise ExtractionError("LLM returned empty response")

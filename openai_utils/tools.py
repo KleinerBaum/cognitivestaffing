@@ -132,7 +132,6 @@ def build_extraction_tool(
             "name": name,
             "description": description,
             "parameters": params,
-            "strict": not allow_extra,
         }
     ]
 
@@ -148,7 +147,7 @@ def build_function_tools(
         specs: Mapping from tool name to a function specification. Each
             specification should contain the JSON schema under ``parameters``
             and optional metadata accepted by the OpenAI API (for example a
-            ``description`` or ``strict`` flag). The helper copies the
+            ``description`` flag). The helper copies the
             specification to avoid mutating the caller's data.
         callables: Optional mapping with Python callables that implement the
             tool behaviour. When omitted, the helper will fall back to

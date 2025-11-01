@@ -1018,7 +1018,7 @@ def _convert_tools_to_functions(tool_specs: Sequence[Mapping[str, Any]]) -> list
         raw_function = spec.get("function")
         if isinstance(raw_function, Mapping):
             function_payload.update(raw_function)
-        for field in ("description", "parameters", "strict"):
+        for field in ("description", "parameters"):
             if field in spec and field not in function_payload:
                 function_payload[field] = spec[field]
 
@@ -1105,7 +1105,7 @@ def _prepare_payload(
         function_dict = dict(function_payload) if function_payload is not None else {}
         top_level_name = prepared.get("name")
 
-        for field in ("description", "parameters", "strict"):
+        for field in ("description", "parameters"):
             if field in prepared and field not in function_dict:
                 function_dict[field] = prepared[field]
             prepared.pop(field, None)
@@ -1230,18 +1230,17 @@ def _prepare_payload(
                 raise TypeError("json_schema['schema'] must be a mapping")
             format_config = {
                 "type": "json_schema",
-                "schema": _sanitize_json_schema(schema_body),
+                "json_schema": {
+                    "schema": _sanitize_json_schema(schema_body),
+                },
             }
             schema_name = schema_payload.get("name")
             if isinstance(schema_name, str) and schema_name.strip():
-                format_config["name"] = schema_name.strip()
+                format_config["json_schema"]["name"] = schema_name.strip()
             strict_override = schema_payload.get("strict")
-            if STRICT_JSON:
-                format_config["strict"] = True
-            elif isinstance(strict_override, bool):
-                format_config["strict"] = strict_override
-            elif strict_override is not None:
-                format_config["strict"] = bool(strict_override)
+            strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
+            if strict_flag:
+                format_config["json_schema"]["strict"] = True
             payload["response_format"] = format_config
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
@@ -1268,18 +1267,17 @@ def _prepare_payload(
                 raise TypeError("json_schema['schema'] must be a mapping")
             format_config: dict[str, Any] = {
                 "type": "json_schema",
-                "schema": _sanitize_json_schema(schema_body),
+                "json_schema": {
+                    "schema": _sanitize_json_schema(schema_body),
+                },
             }
             schema_name = schema_payload.get("name")
             if isinstance(schema_name, str) and schema_name.strip():
-                format_config["name"] = schema_name.strip()
+                format_config["json_schema"]["name"] = schema_name.strip()
             strict_override = schema_payload.get("strict")
-            if STRICT_JSON:
-                format_config["strict"] = True
-            elif isinstance(strict_override, bool):
-                format_config["strict"] = strict_override
-            elif strict_override is not None:
-                format_config["strict"] = bool(strict_override)
+            strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
+            if strict_flag:
+                format_config["json_schema"]["strict"] = True
             text_config.pop("type", None)
             text_config["format"] = format_config
             payload["text"] = text_config
