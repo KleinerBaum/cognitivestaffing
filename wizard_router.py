@@ -272,16 +272,16 @@ class WizardRouter:
             state["current_step"] = self._pages[0].key
 
     def _sync_with_query_params(self) -> None:
-        params = {key: list(value) for key, value in st.experimental_get_query_params().items()}
-        step_param = params.get("step", [None])[0]
+        query_params = st.query_params
+        step_values = list(query_params.get_all("step"))
+        step_param = step_values[0] if step_values else None
         if step_param and step_param in self._page_map:
             desired = step_param
         else:
             current = self._state.get("current_step")
             desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
         self._state["current_step"] = desired
-        params["step"] = [desired]
-        st.experimental_set_query_params(**params)
+        query_params["step"] = desired
 
     def _ensure_current_is_valid(self) -> None:
         current = self._state.get("current_step")
@@ -537,9 +537,7 @@ class WizardRouter:
 
     def _set_current_step(self, target_key: str) -> None:
         self._state["current_step"] = target_key
-        params = st.experimental_get_query_params()
-        params["step"] = [target_key]
-        st.experimental_set_query_params(**params)
+        st.query_params["step"] = target_key
 
     def _mark_step_completed(self, step_key: str, *, skipped: bool) -> None:
         completed = self._state.get("completed_steps")

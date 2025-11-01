@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from typing import Any, Dict, List, Mapping
 
 import pytest
@@ -60,25 +60,46 @@ def clear_session_state() -> None:
     st.session_state.clear()
 
 
+class _QueryParamStore(MutableMapping[str, List[str]]):
+    """In-memory stand-in for Streamlit's query param proxy."""
+
+    def __init__(self) -> None:
+        self._data: Dict[str, List[str]] = {}
+
+    def __getitem__(self, key: str) -> List[str]:
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: object) -> None:
+        if isinstance(value, str):
+            normalized = [value]
+        elif isinstance(value, Sequence):
+            normalized = [str(item) for item in value]
+        else:
+            normalized = [str(value)]
+        self._data[key] = normalized
+
+    def __delitem__(self, key: str) -> None:
+        del self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def clear(self) -> None:  # pragma: no cover - passthrough to dict.clear
+        self._data.clear()
+
+    def get_all(self, key: str) -> List[str]:
+        return list(self._data.get(key, []))
+
+
 @pytest.fixture()
-def query_params(monkeypatch: pytest.MonkeyPatch) -> Dict[str, List[str]]:
+def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
     """Provide an isolated query-param store for navigation tests."""
 
-    store: Dict[str, List[str]] = {}
-
-    def fake_get_params() -> Dict[str, List[str]]:
-        return {key: list(value) for key, value in store.items()}
-
-    def fake_set_params(**kwargs: Mapping[str, List[str] | str]) -> None:
-        store.clear()
-        for key, value in kwargs.items():
-            if isinstance(value, list):
-                store[key] = list(value)
-            else:
-                store[key] = [str(value)]
-
-    monkeypatch.setattr(st, "experimental_get_query_params", fake_get_params)
-    monkeypatch.setattr(st, "experimental_set_query_params", fake_set_params)
+    store = _QueryParamStore()
+    monkeypatch.setattr(st, "query_params", store, raising=False)
     return store
 
 
