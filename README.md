@@ -19,6 +19,12 @@
   **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
   `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
   damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Removed the final references to the deprecated `wizard._legacy`
+  runner so navigation always goes through `WizardRouter` and the modern
+  Streamlit step callbacks.
+  **DE:** Letzte Verweise auf den veralteten `wizard._legacy`-Runner entfernt –
+  die Navigation läuft nun ausschließlich über den `WizardRouter` und die
+  aktuellen Streamlit-Step-Callbacks.
 - **EN:** Harmonised code style across the LLM prompts and legacy wizard modules:
   snake_case helpers and explicit type hints keep linting consistent with the
   repo-wide PEP 8 and typing policy.
