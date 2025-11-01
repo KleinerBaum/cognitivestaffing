@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 from collections.abc import ItemsView, Mapping
 from copy import deepcopy
@@ -46,21 +45,6 @@ from llm.json_repair import repair_profile_payload
 ALLOWED_STRING_FORMATS: set[str] = {"email", "date-time", "date", "time", "uuid"}
 
 _URL_PATTERN = r"^https?://\S+$"
-
-
-def _is_flag_enabled(value: str | None) -> bool:
-    """Return ``True`` when the given feature flag value should be considered enabled."""
-
-    if value is None:
-        return False
-    candidate = value.strip().lower()
-    if not candidate:
-        return False
-    return candidate not in {"0", "false", "no", "off"}
-
-
-# Feature flag guarding the RecruitingWizard schema rollout.
-SCHEMA_WIZARD_V1 = _is_flag_enabled(os.getenv("SCHEMA_WIZARD_V1"))
 
 
 class EmploymentType(StrEnum):
@@ -385,15 +369,6 @@ class RecruitingWizard(BaseModel):
             ensure_canonical_keys(self.sources.root, WIZARD_KEYS_CANONICAL, context="source map")
             ensure_canonical_keys(self.missing_fields.root, WIZARD_KEYS_CANONICAL, context="missing field map")
         return self
-
-
-def is_wizard_schema_enabled() -> bool:
-    """Return whether the RecruitingWizard schema flag is currently enabled."""
-
-    env_value = os.getenv("SCHEMA_WIZARD_V1")
-    if env_value is None:
-        return SCHEMA_WIZARD_V1
-    return _is_flag_enabled(env_value)
 
 
 def _strip_optional(tp: Any) -> Any:
@@ -1043,9 +1018,9 @@ def process_extracted_profile(raw_profile: Mapping[str, Any] | None) -> NeedAnal
 
 
 def active_canonical_keys() -> tuple[str, ...]:
-    """Return the canonical field paths for the currently active schema."""
+    """Return the canonical field paths for the NeedAnalysis schema."""
 
-    return WIZARD_KEYS_CANONICAL if is_wizard_schema_enabled() else KEYS_CANONICAL
+    return KEYS_CANONICAL
 
 
 # Backwards compatibility aliases

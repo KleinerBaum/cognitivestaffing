@@ -5,11 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from core.schema import RecruitingWizard, WIZARD_KEYS_CANONICAL, is_wizard_schema_enabled
-
-
-class WizardExportError(RuntimeError):
-    """Raised when the RecruitingWizard export cannot be produced."""
+from core.schema import RecruitingWizard, WIZARD_KEYS_CANONICAL
 
 
 @dataclass(slots=True)
@@ -20,12 +16,10 @@ class RecruitingWizardExport:
 
     @classmethod
     def from_payload(
-        cls, payload: Mapping[str, Any] | RecruitingWizard, *, require_flag: bool = True
+        cls, payload: Mapping[str, Any] | RecruitingWizard
     ) -> "RecruitingWizardExport":
         """Validate ``payload`` against the wizard schema and return an export wrapper."""
 
-        if require_flag and not is_wizard_schema_enabled():
-            raise WizardExportError("RecruitingWizard schema is disabled (set SCHEMA_WIZARD_V1=1 to enable exports).")
         if isinstance(payload, RecruitingWizard):
             model = payload
         else:
@@ -43,4 +37,4 @@ class RecruitingWizardExport:
         return WIZARD_KEYS_CANONICAL
 
 
-__all__ = ["RecruitingWizardExport", "WizardExportError"]
+__all__ = ["RecruitingWizardExport"]

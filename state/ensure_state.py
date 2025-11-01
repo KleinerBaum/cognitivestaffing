@@ -25,12 +25,8 @@ from config import (
     normalise_verbosity,
 )
 from core.schema import (
-    RecruitingWizard,
     canonicalize_profile_payload,
-    canonicalize_wizard_payload,
     coerce_and_fill,
-    coerce_and_fill_wizard,
-    is_wizard_schema_enabled,
 )
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import normalize_profile
@@ -199,19 +195,14 @@ def ensure_state() -> None:
     """Initialize ``st.session_state`` with required keys.
 
     Existing keys are preserved to respect user interactions or URL params.
-    When the RecruitingWizard schema flag is active we normalise the profile
-    through :func:`coerce_and_fill_wizard` so all aliases collapse into the
-    unified schema before widgets render.
-    Legacy payloads still pass through the NeedAnalysisProfile branch and are
-    upgraded via
-    :func:`_migrate_legacy_profile_keys`.
+    Profiles are normalised through :func:`coerce_and_fill` so all aliases
+    collapse into the unified NeedAnalysis schema before widgets render. Legacy
+    flat keys are upgraded via :func:`_migrate_legacy_profile_keys`.
     """
 
     _migrate_legacy_profile_keys()
     existing = st.session_state.get(StateKeys.PROFILE)
-    if is_wizard_schema_enabled():
-        _ensure_wizard_profile(existing)
-    elif not isinstance(existing, Mapping):
+    if not isinstance(existing, Mapping):
         st.session_state[StateKeys.PROFILE] = normalize_profile(NeedAnalysisProfile())
     else:
         try:
@@ -291,39 +282,6 @@ def _sanitize_profile(data: Mapping[str, Any]) -> dict[str, Any]:
 
     canonical = canonicalize_profile_payload(data)
     template = NeedAnalysisProfile().model_dump()
-    sanitized = deepcopy(template)
-    _merge_known_fields(sanitized, canonical)
-    return sanitized
-
-
-def _ensure_wizard_profile(existing: Any) -> None:
-    """Ensure the session profile uses the RecruitingWizard schema."""
-
-    if not isinstance(existing, Mapping):
-        st.session_state[StateKeys.PROFILE] = RecruitingWizard().model_dump(mode="json")
-        return
-    try:
-        profile = coerce_and_fill_wizard(existing)
-        st.session_state[StateKeys.PROFILE] = profile.model_dump(mode="json")
-    except ValidationError as error:
-        logger.debug("Validation error when coercing wizard profile: %s", error)
-        sanitized = _sanitize_wizard_profile(existing)
-        try:
-            validated = RecruitingWizard.model_validate(sanitized)
-            st.session_state[StateKeys.PROFILE] = validated.model_dump(mode="json")
-        except ValidationError as sanitized_error:
-            logger.warning(
-                "Failed to sanitize wizard profile; resetting to defaults: %s",
-                sanitized_error,
-            )
-            st.session_state[StateKeys.PROFILE] = RecruitingWizard().model_dump(mode="json")
-
-
-def _sanitize_wizard_profile(data: Mapping[str, Any]) -> dict[str, Any]:
-    """Remove unsupported fields for the RecruitingWizard schema."""
-
-    canonical = canonicalize_wizard_payload(data)
-    template = RecruitingWizard().model_dump(mode="json")
     sanitized = deepcopy(template)
     _merge_known_fields(sanitized, canonical)
     return sanitized

@@ -62,7 +62,7 @@ To get the best results when instructing the Codex coding agent (for example, vi
 - **Split big tasks:** For large implementations, ask the agent to tackle the work in smaller, reviewable chunks or separate PRs. This ensures easier review and testing.
 - **Include logs and errors:** When debugging, paste the full error messages or stack traces. Full logs give the agent more context than summaries.
 - **Ask open-ended questions:** Besides direct fixes, you can ask the agent for refactoring suggestions, help to identify potential bugs, ideas to improve performance, to brainstorm a solution approach, or even to draft documentation. Leverage the agent’s capabilities for these exploratory tasks as well.
-- **Flag selection:** Let the agent know whether `SCHEMA_WIZARD_V1` or the Responses/Chat flags are active so it can follow the correct schema paths and API client.
+- **Flag selection:** The RecruitingWizard schema is always active; when toggling Responses vs. Chat clients, ensure both flags remain in sync.
 
 ## Repo quick map (greppable IDs)
 - `agent_setup.py` (**CS_AGENT_SETUP**): Defines the configured tools and agent initialization for Cognitive Staffing.
