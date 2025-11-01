@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Sequence, TypeVar
 
-from wizard._layout import (
+from wizard.layout import (
     profile_multiselect as _profile_multiselect,
     profile_selectbox as _profile_selectbox,
     profile_text_input as _profile_text_input,

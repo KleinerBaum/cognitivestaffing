@@ -69,7 +69,7 @@ from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
 )
-from ._layout import (
+from .layout import (
     COMPACT_STEP_STYLE,
     inject_salary_slider_styles,
     _render_autofill_suggestion,

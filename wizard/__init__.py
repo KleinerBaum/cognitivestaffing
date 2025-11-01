@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._legacy import FIELD_SECTION_MAP, get_missing_critical_fields
+from .runner import FIELD_SECTION_MAP, get_missing_critical_fields
 
 from . import _agents as agents
-from . import _layout as layout
+from . import layout
 from . import _logic as logic
-from . import _legacy as legacy
+from . import runner
 from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
 )
-from ._layout import (
+from .layout import (
     COMPACT_STEP_STYLE,
     inject_salary_slider_styles,
     _render_autofill_suggestion,
@@ -64,13 +64,13 @@ __all__ = [
 ]
 
 
-LEGACY_EXPORTS: list[str] = []
+RUNNER_EXPORTS: list[str] = []
 
-for _name in sorted(dir(legacy)):
+for _name in sorted(dir(runner)):
     if _name.startswith("__") or _name in __all__:
         continue
-    value: Any = getattr(legacy, _name)
+    value: Any = getattr(runner, _name)
     globals()[_name] = value
-    LEGACY_EXPORTS.append(_name)
+    RUNNER_EXPORTS.append(_name)
 
-__all__.extend(LEGACY_EXPORTS)
+__all__.extend(RUNNER_EXPORTS)
