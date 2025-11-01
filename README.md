@@ -104,6 +104,8 @@
 - **DE:** Schwere optionale Abhängigkeiten wie `streamlit`, `requests` und `bs4` laufen mit `follow_imports = "skip"`, damit sich der Type-Checker auf First-Party-Bereiche konzentrieren kann; ersetze die Skips durch typisierte Fassaden, sobald die Upstream-Pakete Stubs liefern.
 - **EN:** Wizard helper modules (`wizard._agents`, `_logic`, `_openai_bridge`, `interview_step`, `wizard`) now require typed function signatures via `disallow_untyped_defs`; keep annotations complete when editing these files.
 - **DE:** Die Wizard-Hilfsmodule (`wizard._agents`, `_logic`, `_openai_bridge`, `interview_step`, `wizard`) erzwingen `disallow_untyped_defs`; achte bei Änderungen auf vollständige Typannotationen.
+- **EN:** Smoke tests cover every wizard page metadata file plus the `wizard_tools` agent shims. Run `pytest tests/test_wizard_pages_smoke.py tests/test_wizard_tools_*.py` when touching navigation metadata or tool fallbacks.
+- **DE:** Smoke-Tests decken alle Wizard-Seiten-Metadaten sowie die `wizard_tools`-Agenten ab. Führe `pytest tests/test_wizard_pages_smoke.py tests/test_wizard_tools_*.py` aus, sobald Navigation-Metadaten oder Tool-Fallbacks geändert werden.
 
 ## What's new in v1.1.0 / Neu in v1.1.0
 

@@ -17,6 +17,12 @@
   **DE:** Legacy-Helfer auf snake_case umgestellt und fehlende Rückgabe- bzw.
   Argument-Typannotationen in Wizard-Prompts ergänzt, damit die strengen
   PEP-8-/Typing-Vorgaben des Repos konsistent bleiben.
+- **EN:** Expanded smoke and unit tests for the wizard agent tools (graph,
+  knowledge, vacancy, safety) and page metadata to close coverage gaps and guard
+  fallback behaviours.
+  **DE:** Smoke- und Unit-Tests für die Wizard-Agent-Tools (Graph, Knowledge,
+  Vacancy, Safety) sowie die Seiten-Metadaten erweitert, um Abdeckungs­lücken zu
+  schließen und Fallback-Verhalten abzusichern.
 - **EN:** Locked all OpenTelemetry packages to version 1.26.0 and updated
   `requirements.txt` with the optional ingestion libraries so deployments use a
   consistent stack.
