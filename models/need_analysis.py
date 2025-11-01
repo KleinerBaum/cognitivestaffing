@@ -196,13 +196,12 @@ class Requirements(BaseModel):
     language_level_english: Optional[str] = None
 
     @model_validator(mode="after")
-    @classmethod
-    def _sync_certificates(cls, values: "Requirements") -> "Requirements":
+    def _sync_certificates(self) -> "Requirements":
         """Keep ``certificates`` and ``certifications`` aligned."""
 
         combined: list[str] = []
         seen: set[str] = set()
-        for source in (values.certifications, values.certificates):
+        for source in (self.certifications, self.certificates):
             for item in source:
                 cleaned = (item or "").strip()
                 if not cleaned:
@@ -212,9 +211,9 @@ class Requirements(BaseModel):
                     continue
                 seen.add(marker)
                 combined.append(cleaned)
-        values.certificates = combined.copy()
-        values.certifications = combined.copy()
-        return values
+        self.certificates = combined.copy()
+        self.certifications = combined.copy()
+        return self
 
 
 class Employment(BaseModel):
