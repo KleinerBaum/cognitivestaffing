@@ -59,12 +59,11 @@
   Werte mit Pflichtfeld-Markierungen zurückgesetzt statt Demo-Unternehmen
   einzutragen.
 - **EN:** Unified the schema layer: `NeedAnalysisProfile` now drives ingestion,
-  wizard bindings, exports, and tests without the `SCHEMA_WIZARD_V1` rollout
-  toggle; canonical dot-paths live in `constants/keys.py::ProfilePaths`.
-  **DE:** Die Schema-Schicht ist vereinheitlicht: `NeedAnalysisProfile`
-  steuert Ingestion, Wizard-Bindings, Exporte und Tests ohne den Rollout-Schalter
-  `SCHEMA_WIZARD_V1`; die kanonischen Dot-Pfade stehen in
+  wizard bindings, exports, and tests using the canonical dot-paths defined in
   `constants/keys.py::ProfilePaths`.
+  **DE:** Die Schema-Schicht ist vereinheitlicht: `NeedAnalysisProfile`
+  steuert Ingestion, Wizard-Bindings, Exporte und Tests über die kanonischen
+  Dot-Pfade aus `constants/keys.py::ProfilePaths`.
 - **EN:** Added a bilingual repository structure overview so new contributors
   can map directories like `pages/`, `wizard/`, and `core/` quickly.
   **DE:** Eine zweisprachige Übersicht über die Projektstruktur ergänzt, damit

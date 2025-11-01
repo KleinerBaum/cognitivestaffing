@@ -247,11 +247,11 @@ def _render_exports_module(fields: Sequence[FieldDescriptor]) -> str:
     lines.extend(
         [
             "def ensure_export_payload(",
-            "    payload: Mapping[str, object] | RecruitingWizard, *, require_flag: bool = False",
+            "    payload: Mapping[str, object] | RecruitingWizard",
             ") -> dict[str, object]:",
             '    """Validate ``payload`` against the RecruitingWizard schema and return a JSON payload."""',
             "",
-            "    export = RecruitingWizardExport.from_payload(payload, require_flag=require_flag)",
+            "    export = RecruitingWizardExport.from_payload(payload)",
             "    return export.to_dict()",
             "",
             "",

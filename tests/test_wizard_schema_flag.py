@@ -1,48 +1,29 @@
 from __future__ import annotations
 
-import importlib
-
-import pytest
-
 import streamlit as st
 
-
-pytestmark = pytest.mark.integration
-
 from constants.keys import StateKeys
+from core.schema_defaults import default_recruiting_wizard
+from exports.models import RecruitingWizardExport
+from state.ensure_state import ensure_state
 
 
-def test_ensure_state_initialises_wizard_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCHEMA_WIZARD_V1", "1")
+def test_ensure_state_initialises_need_analysis_schema() -> None:
     st.session_state.clear()
-
-    # Reload schema-dependent modules to ensure the flag is honoured for cached globals.
-    schema_module = importlib.import_module("core.schema")
-    importlib.reload(schema_module)
-    ensure_state_module = importlib.import_module("state.ensure_state")
-    importlib.reload(ensure_state_module)
-
-    ensure_state_module.ensure_state()
+    ensure_state()
 
     profile = st.session_state[StateKeys.PROFILE]
     assert isinstance(profile, dict)
-    # The RecruitingWizard schema exposes company/department/team sections.
-    for key in {"company", "department", "team", "role", "tasks", "skills", "benefits", "interview_process", "summary"}:
+    # The canonical NeedAnalysis profile exposes company/position/requirements sections.
+    for key in {"company", "position", "requirements", "meta", "employment", "process", "compensation", "location", "responsibilities"}:
         assert key in profile
         assert isinstance(profile[key], dict) or isinstance(profile[key], list)
 
     st.session_state.clear()
 
 
-def test_recruiting_wizard_export_includes_new_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCHEMA_WIZARD_V1", "1")
-
-    schema_module = importlib.import_module("core.schema")
-    importlib.reload(schema_module)
-
+def test_recruiting_wizard_export_includes_new_fields() -> None:
     from core import schema
-    from core.schema_defaults import default_recruiting_wizard
-    from exports.models import RecruitingWizardExport
 
     payload = default_recruiting_wizard()
     export = RecruitingWizardExport.from_payload(payload)
