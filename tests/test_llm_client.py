@@ -40,13 +40,13 @@ def test_extract_json_smoke(monkeypatch):
     assert isinstance(out, str) and out != ""
 
 
-def test_extract_json_validation_failure_triggers_fallback(monkeypatch):
-    """Invalid structured output should fall back to plain text."""
+def test_extract_json_validation_failure_triggers_structured_retry(monkeypatch):
+    """Invalid Responses output should retry via chat with the schema."""
 
-    calls = {"structured": 0, "fallback": 0}
+    calls = {"responses": 0, "chat": 0}
 
     def _fake_responses(messages, *, response_format=None, **kwargs):
-        calls["structured"] += 1
+        calls["responses"] += 1
         return ResponsesCallResult(
             content=json.dumps({"company": "acme"}),
             usage={},
@@ -55,22 +55,53 @@ def test_extract_json_validation_failure_triggers_fallback(monkeypatch):
         )
 
     def _fake_chat(messages, *, json_schema=None, **kwargs):
-        if json_schema is not None:
-            calls["structured"] += 1
-            return ChatCallResult(
-                content=json.dumps({"company": "acme"}),
-                tool_calls=[],
-                usage={},
-            )
-        calls["fallback"] += 1
-        return ChatCallResult(content=json.dumps({"fallback": True}), tool_calls=[], usage={})
+        assert json_schema is not None
+        calls["chat"] += 1
+        return ChatCallResult(
+            content=NeedAnalysisProfile().model_dump_json(),
+            tool_calls=[],
+            usage={},
+        )
 
     monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     out = client.extract_json("text")
     payload = json.loads(out)
-    assert payload == {"fallback": True}
-    assert calls == {"structured": 1, "fallback": 1}
+    assert payload["company"]["name"] is None
+    assert calls == {"responses": 1, "chat": 1}
+
+
+def test_extract_json_plain_fallback_is_sanitized(monkeypatch):
+    """When structured attempts fail, the plain fallback should be parsed."""
+
+    calls = {"responses": 0, "chat_structured": 0, "chat_plain": 0}
+
+    def _fake_responses(messages, *, response_format=None, **kwargs):
+        calls["responses"] += 1
+        return ResponsesCallResult(
+            content=json.dumps({"company": "acme"}),
+            usage={},
+            response_id="resp_2",
+            raw_response={},
+        )
+
+    def _fake_chat(messages, *, json_schema=None, **kwargs):
+        if json_schema is not None:
+            calls["chat_structured"] += 1
+            raise RuntimeError("structured retry failed")
+        calls["chat_plain"] += 1
+        return ChatCallResult(
+            content=json.dumps({"company": {"name": "Fallback GmbH"}}),
+            tool_calls=[],
+            usage={},
+        )
+
+    monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+    out = client.extract_json("text")
+    payload = json.loads(out)
+    assert payload["company"]["name"] == "Fallback GmbH"
+    assert calls == {"responses": 1, "chat_structured": 1, "chat_plain": 1}
 
 
 def test_extract_json_minimal_prompt(monkeypatch):
@@ -183,7 +214,7 @@ def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
 
     out = client.extract_json("Example text")
-    assert json.loads(out) == fallback_payload
+    assert json.loads(out) == NeedAnalysisProfile().model_dump()
     assert any(
         "structured extraction" in record.getMessage() for record in caplog.records if record.levelname == "WARNING"
     )
