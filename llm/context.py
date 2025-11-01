@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Optional
+from typing import Mapping
 
 from prompts import prompt_registry
 from .prompts import (
     FIELDS_ORDER,
     SYSTEM_JSON_EXTRACTOR,
-    USER_JSON_EXTRACT_TEMPLATE,
+    build_user_json_extract_prompt,
 )
 from nlp.prepare_text import truncate_smart
 
@@ -18,10 +18,10 @@ MAX_CHAR_BUDGET = 12000
 
 def build_extract_messages(
     text: str,
-    title: Optional[str] = None,
-    company: Optional[str] = None,
-    url: Optional[str] = None,
-    locked_fields: Optional[Mapping[str, str]] = None,
+    title: str | None = None,
+    company: str | None = None,
+    url: str | None = None,
+    locked_fields: Mapping[str, str] | None = None,
 ) -> list[dict[str, str]]:
     """Construct messages for field extraction.
 
@@ -52,7 +52,7 @@ def build_extract_messages(
     else:
         filtered_fields = FIELDS_ORDER
 
-    user_prompt = USER_JSON_EXTRACT_TEMPLATE(
+    user_prompt = build_user_json_extract_prompt(
         filtered_fields,
         truncated,
         extras,

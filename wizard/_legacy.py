@@ -19,6 +19,7 @@ from typing import (
     Callable,
     Collection,
     Iterable,
+    Iterator,
     List,
     Literal,
     Mapping,
@@ -3574,7 +3575,7 @@ def _field_label(path: str) -> str:
     return tr(auto.title(), auto.title())
 
 
-def _has_value(value) -> bool:
+def _has_value(value: Any) -> bool:
     """Return ``True`` if a flattened value should be shown in the overview."""
 
     if value is None:
@@ -5441,7 +5442,7 @@ def _step_onboarding(schema: dict) -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def _step_company():
+def _step_company() -> None:
     """Render the company information step.
 
     Returns:
@@ -6221,7 +6222,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
     process["onboarding_process"] = "\n".join(cleaned)
 
 
-def _step_position():
+def _step_position() -> None:
     """Render the position details step.",
 
     Returns:
@@ -6595,7 +6596,7 @@ def _step_position():
     _render_followups_for_section(("position.", "location.", "meta.", "employment."), data)
 
 
-def _step_requirements():
+def _step_requirements() -> None:
     """Render the requirements step for skills and certifications."""
 
     data = _get_profile_state()
@@ -6977,7 +6978,7 @@ def _step_requirements():
         tooltip: str,
         parent: DeltaGenerator | None = None,
         variant: str | None = None,
-    ):
+    ) -> Iterator[None]:
         if parent is not None:
             panel_container = parent.container()
         else:
@@ -7792,7 +7793,7 @@ def _update_section_progress(
     return first_incomplete, completed_sections
 
 
-def _step_compensation():
+def _step_compensation() -> None:
     """Render the compensation and benefits step.
 
     Returns:
@@ -8126,7 +8127,7 @@ def _step_compensation():
     _render_followups_for_section(("compensation.",), data)
 
 
-def _step_process():
+def _step_process() -> None:
     """Render the hiring process step."""
 
     profile = _get_profile_state()
@@ -9009,7 +9010,7 @@ def _textarea_height(content: str) -> int:
     return min(900, max(240, line_count * 28))
 
 
-def _step_summary(schema: dict, _critical: list[str]):
+def _step_summary(schema: dict, _critical: list[str]) -> None:
     """Render the summary step and offer follow-up questions.
 
     Args:
