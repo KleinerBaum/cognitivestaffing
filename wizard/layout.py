@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from base64 import b64encode
-from typing import Any, Callable, Optional, Sequence, TypeVar, cast
+from typing import Callable, Optional, Sequence
 
 import streamlit as st
 
@@ -14,177 +14,12 @@ from components.stepper import render_step_summary
 from ._logic import (
     _record_autofill_rejection,
     _update_profile,
-    get_value,
     normalize_text_area_list,
-    resolve_display_value,
 )
+from ._widget_state import _ensure_widget_state
 
 
 _SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
-
-T = TypeVar("T")
-
-
-def _ensure_widget_state(key: str, value: Any) -> None:
-    """Keep the widget state for ``key`` in sync with ``value``."""
-
-    normalized_value = _normalize_session_value(value)
-    current = _normalize_session_value(st.session_state.get(key, None))
-    if key not in st.session_state or current != normalized_value:
-        st.session_state[key] = normalized_value
-
-
-def _normalize_session_value(value: Any) -> Any:
-    """Convert session state payloads to serialisable structures."""
-
-    if isinstance(value, tuple):
-        return list(value)
-    if isinstance(value, set):
-        return list(value)
-    return value
-
-
-def _build_on_change(path: str, key: str) -> Callable[[], None]:
-    """Return a callback that writes the widget value back to the profile."""
-
-    def _callback() -> None:
-        value = _normalize_session_value(st.session_state.get(key))
-        _update_profile(path, value)
-
-    return _callback
-
-
-def profile_text_input(
-    path: str,
-    label: str,
-    *,
-    placeholder: str | None = None,
-    key: str | None = None,
-    default: Any | None = None,
-    value_formatter: Callable[[Any | None], str] | None = None,
-    widget_factory: Callable[..., str] | None = None,
-    allow_callbacks: bool = True,
-    **kwargs: Any,
-) -> str:
-    """Render a text input bound to ``path`` within the profile."""
-
-    if "on_change" in kwargs:
-        raise ValueError("profile_text_input manages on_change internally")
-    if "value" in kwargs:
-        raise ValueError("profile_text_input derives value from the profile")
-
-    widget_key = key or path
-    display_value = resolve_display_value(path, default=default, formatter=value_formatter)
-    _ensure_widget_state(widget_key, display_value)
-
-    factory = widget_factory or st.text_input
-    call_kwargs = dict(kwargs)
-    if placeholder is not None:
-        call_kwargs.setdefault("placeholder", placeholder)
-    if allow_callbacks:
-        call_kwargs.setdefault("on_change", _build_on_change(path, widget_key))
-
-    return factory(
-        label,
-        value=display_value,
-        key=widget_key,
-        **call_kwargs,
-    )
-
-
-def profile_selectbox(
-    path: str,
-    label: str,
-    options: Sequence[T],
-    *,
-    key: str | None = None,
-    default: T | None = None,
-    widget_factory: Callable[..., T] | None = None,
-    **kwargs: Any,
-) -> T:
-    """Render a selectbox bound to ``path`` within the profile."""
-
-    if "on_change" in kwargs:
-        raise ValueError("profile_selectbox manages on_change internally")
-
-    widget_key = key or path
-    option_list = list(options)
-    if not option_list:
-        raise ValueError("profile_selectbox requires at least one option")
-
-    requested_index = kwargs.pop("index", None)
-    current = get_value(path)
-    resolved_index: int
-    if current in option_list:
-        resolved_index = option_list.index(cast(T, current))
-    elif default in option_list:
-        resolved_index = option_list.index(cast(T, default))
-    elif requested_index is not None:
-        resolved_index = requested_index
-    else:
-        resolved_index = 0
-
-    if not 0 <= resolved_index < len(option_list):
-        raise IndexError("Resolved selectbox index out of range")
-
-    default_value = option_list[resolved_index]
-    _ensure_widget_state(widget_key, default_value)
-
-    factory = widget_factory or st.selectbox
-    return factory(
-        label,
-        option_list,
-        index=resolved_index,
-        key=widget_key,
-        on_change=_build_on_change(path, widget_key),
-        **kwargs,
-    )
-
-
-def profile_multiselect(
-    path: str,
-    label: str,
-    options: Sequence[T],
-    *,
-    key: str | None = None,
-    default: Sequence[T] | None = None,
-    widget_factory: Callable[..., Sequence[T]] | None = None,
-    **kwargs: Any,
-) -> list[T]:
-    """Render a multiselect bound to ``path`` within the profile."""
-
-    if "on_change" in kwargs:
-        raise ValueError("profile_multiselect manages on_change internally")
-
-    widget_key = key or path
-    option_list = list(options)
-    provided_default = kwargs.pop("default", None)
-
-    current = get_value(path)
-    if provided_default is not None:
-        default_selection = list(provided_default)
-    elif default is not None:
-        default_selection = list(default)
-    elif isinstance(current, (list, tuple, set, frozenset)):
-        default_selection = [item for item in current if not option_list or item in option_list]
-    elif current is None:
-        default_selection = []
-    else:
-        default_selection = [current] if not option_list or current in option_list else []
-
-    _ensure_widget_state(widget_key, list(default_selection))
-
-    factory = widget_factory or st.multiselect
-    return list(
-        factory(
-            label,
-            option_list,
-            default=default_selection,
-            key=widget_key,
-            on_change=_build_on_change(path, widget_key),
-            **kwargs,
-        )
-    )
 
 
 def _render_autofill_suggestion(
@@ -615,9 +450,6 @@ def render_list_text_area(
 
 __all__ = [
     "COMPACT_STEP_STYLE",
-    "profile_text_input",
-    "profile_selectbox",
-    "profile_multiselect",
     "render_list_text_area",
     "inject_salary_slider_styles",
     "render_onboarding_hero",

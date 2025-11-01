@@ -287,6 +287,7 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - Always get widget default values via `wizard._logic.get_value(ProfilePaths.<FIELD>)`. The profile stored in `st.session_state[StateKeys.PROFILE]` is the single source of truth and already includes schema defaults.
 - Use canonical schema paths from `constants.keys.ProfilePaths` as widget keys. Avoid inventing ad-hoc session keys so the summary, follow-ups, and exports stay aligned.
 - Prefer the helper functions in `components.widget_factory`—such as `text_input`, `select`, and `multiselect` (re-exported in `wizard.wizard`)—when creating widgets. They automatically hook into `_update_profile` so that the sidebar, summary, and exports stay in sync.
+- Legacy helpers from `wizard.layout` have been removed; import profile widgets from `components.widget_factory` or the `wizard.wizard` re-exports instead.
 - Call `state.ensure_state.ensure_state()` early; it normalises ingestion payloads into the `NeedAnalysisProfile`, drops unknown keys, and seeds defaults so scraped data prefills the forms.
 - After ingestion (via URL, PDF, or text paste), run `coerce_and_fill()` **and** `normalize_profile()` before rendering the form. This ensures consistent casing, whitespace, and de-duplication of lists. The normaliser returns a validated dictionary and will trigger the JSON “repair” fallback only if the cleaned payload would violate the schema.
 
@@ -295,6 +296,7 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - Widget-Vorgabewerte immer über `wizard._logic.get_value(ProfilePaths.<FELD>)` beziehen. Die Daten in `st.session_state[StateKeys.PROFILE]` sind die einzige Wahrheitsquelle und enthalten bereits Schema-Defaults.
 - Verwende kanonische Schema-Pfade aus `constants.keys.ProfilePaths` als Widget-Keys. Verzichte auf spontane Session-Keys, damit Zusammenfassung, Follow-ups und Exporte synchron bleiben.
 - Nutze zum Rendern die Helfer in `components.widget_factory` (`text_input`, `select`, `multiselect`, auch via `wizard.wizard` verfügbar). Diese binden das Widget automatisch an `_update_profile`, sodass Sidebar, Zusammenfassung und Exporte stets synchron bleiben.
+- Die veralteten Helfer aus `wizard.layout` wurden entfernt; nutzt stattdessen `components.widget_factory` bzw. die Re-Exports in `wizard.wizard` für Profil-Widgets.
 - Rufe früh `state.ensure_state.ensure_state()` auf; dort werden Ingestion-Payloads in das `NeedAnalysisProfile` überführt, unbekannte Keys entfernt und Defaults gesetzt, damit Scrapes die Formulare vorbefüllen.
 - Führe nach dem Import (URL, PDF oder Texteingabe) immer `coerce_and_fill()` **und** `normalize_profile()` aus, bevor das Formular gerendert wird. So werden Groß-/Kleinschreibung, Leerzeichen und Duplikate in Listen vereinheitlicht. Der Normalisierer liefert ein valides Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Profil sonst gegen das Schema verstoßen würde.
 
