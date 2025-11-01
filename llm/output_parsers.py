@@ -104,7 +104,7 @@ class NeedAnalysisOutputParser:
         elif isinstance(parsed, dict):  # pragma: no cover - safety net
             model = NeedAnalysisProfile.model_validate(parsed)
         else:  # pragma: no cover - defensive
-            model = NeedAnalysisProfile.model_validate(json.loads(parsed.model_dump_json()))  # type: ignore[attr-defined]
+            model = NeedAnalysisProfile.model_validate(json.loads(parsed.model_dump_json()))
 
         return model, data
 

@@ -381,17 +381,15 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                 logger.debug("Schema validation errors:\n%s", report)
                 if err.original and hasattr(err.original, "add_note"):
                     err.original.add_note(report)
-        logger.warning(
-            "Structured extraction parsing failed for %s: %s", prompt_digest, err.message
-        )
+        logger.warning("Structured extraction parsing failed for %s: %s", prompt_digest, err.message)
         raise ValueError(err.message) from err.original or err
     except ValidationError as err:
         logger.warning(
-            "Structured extraction validation raised unexpected error for %s.",
+            "Structured extraction validation raised unexpected error for %s: %s",
             prompt_digest,
+            err,
         )
         raise
-
 
     if last_error is not None:
         raise ValueError("Structured extraction failed") from last_error

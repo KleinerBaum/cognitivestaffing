@@ -22,14 +22,14 @@ def test_render_followup_updates_state(monkeypatch) -> None:
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
-    def fake_input(label, key=None, **kwargs):
-        st.session_state[key] = "100k"
-        return "100k"
+    def fake_number(label, key=None, value=0, **kwargs):
+        st.session_state[key] = 100000
+        return 100000
 
-    monkeypatch.setattr(st, "text_input", fake_input)
+    monkeypatch.setattr(st, "number_input", fake_number)
     monkeypatch.setattr(st, "button", lambda *a, **k: False)
     _render_followup_question(q, data)
-    assert data["compensation"]["salary_min"] == "100k"
+    assert data["compensation"]["salary_min"] == 100000
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert data["meta"]["followups_answered"] == ["compensation.salary_min"]
     focus_sentinel = "fu_compensation.salary_min_focus_pending"

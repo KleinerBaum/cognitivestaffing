@@ -130,10 +130,14 @@ def call_responses(
 
     text_payload = dict(payload.get("text") or {})
     text_payload.pop("type", None)
-    text_payload["format"] = {
+    format_payload: dict[str, Any] = {
         "type": response_format.get("type", "json_schema"),
-        "json_schema": dict(json_schema_payload),
+        "name": json_schema_payload.get("name"),
+        "schema": deepcopy(dict(schema_payload)),
     }
+    if "strict" in json_schema_payload:
+        format_payload["strict"] = bool(json_schema_payload.get("strict"))
+    text_payload["format"] = format_payload
     payload["text"] = text_payload
 
     if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
