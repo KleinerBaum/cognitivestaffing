@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Updated the OpenAI client to drop the deprecated `strict` function flag and adopt the nested JSON schema payload so structured extraction works with the latest Responses tooling without 400 errors.
+  **DE:** Den OpenAI-Client überarbeitet, das veraltete `strict`-Flag für Funktionsaufrufe entfernt und das verschachtelte JSON-Schema-Format eingeführt, damit strukturierte Extraktionen mit den aktuellen Responses-Tools ohne 400-Fehler funktionieren.
 - **EN:** Streamlined the sidebar by removing page navigation links, stacking the dark-mode and language switches vertically with flag icons, and triggering salary estimates automatically once job title plus a location hint are available; the panel now lists required fields, summarises the top five drivers in one sentence, and exposes the raw calculation data.
   **DE:** Die Sidebar wurde verschlankt: Seiten-Links entfernt, Dark-Mode- und Sprachumschalter untereinander mit Flaggen-Icons angeordnet und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen; die Ansicht zeigt die benötigten Felder, fasst die fünf wichtigsten Faktoren in einem Satz zusammen und blendet die Berechnungsdaten sichtbar ein.
 - **EN:** Removed the legacy `wizard.layout` widget helpers; the widget factory now wires Streamlit inputs directly to `_update_profile` and exposes the bindings via `wizard.wizard`.

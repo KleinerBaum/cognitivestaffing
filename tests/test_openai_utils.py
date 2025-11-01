@@ -858,9 +858,10 @@ def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
     format_block = captured["text"]["format"]
     assert format_block["type"] == "json_schema"
     assert "type" not in captured["text"]
-    assert format_block["name"] == schema["name"]
-    assert format_block["schema"] == schema["schema"]
-    assert format_block["strict"] is True
+    schema_block = format_block["json_schema"]
+    assert schema_block["name"] == schema["name"]
+    assert schema_block["schema"] == schema["schema"]
+    assert schema_block["strict"] is True
 
 
 def test_stream_chat_api_yields_chunks(monkeypatch):
@@ -1134,7 +1135,7 @@ def test_build_extraction_tool_has_name_and_parameters():
     spec = tool[0]
     assert spec["name"] == "NeedAnalysisProfile"
     assert spec["parameters"]["type"] == "object"
-    assert spec["strict"] is True
+    assert spec["parameters"]["additionalProperties"] is False
 
 
 def test_build_extraction_tool_auto_describes_schema_fields() -> None:
@@ -1184,7 +1185,6 @@ def test_build_function_tools_normalises_specs() -> None:
         "describe_skill": {
             "description": "Return a definition for the provided skill.",
             "parameters": parameters,
-            "strict": True,
             "callable": _impl,
         }
     }
@@ -1194,7 +1194,6 @@ def test_build_function_tools_normalises_specs() -> None:
     spec = tools[0]
     assert spec["name"] == "describe_skill"
     assert spec["description"] == specs["describe_skill"]["description"]
-    assert spec["strict"] is True
     assert spec["parameters"] == parameters
     assert spec["parameters"] is not parameters
     assert funcs["describe_skill"] is _impl

@@ -8,9 +8,9 @@ from llm.openai_responses import build_json_schema_format, call_responses
 def test_build_json_schema_format_includes_name_and_schema() -> None:
     fmt = build_json_schema_format(name="JobProfile", schema={"type": "object"})
     assert fmt["type"] == "json_schema"
-    assert fmt["name"] == "JobProfile"
-    assert fmt["schema"] == {"type": "object"}
-    assert fmt["strict"] is True
+    assert fmt["json_schema"]["name"] == "JobProfile"
+    assert fmt["json_schema"]["schema"] == {"type": "object"}
+    assert fmt["json_schema"]["strict"] is True
 
 
 def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
