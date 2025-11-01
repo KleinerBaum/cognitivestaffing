@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **EN:** Locked all OpenTelemetry packages to version 1.26.0 and updated
+  `requirements.txt` with the optional ingestion libraries so deployments use a
+  consistent stack.
+  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
+  `requirements.txt` um die optionalen Ingestion-Bibliotheken ergänzt, damit
+  Deployments auf einem konsistenten Stack laufen.
 - **EN:** Removed the `sidebar.*` mypy ignore, introduced explicit type aliases, and tightened colour helpers so the sidebar module now passes static checks without suppressions.
   **DE:** Das `sidebar.*`-Mypy-Ignorieren entfernt, explizite Type-Aliases ergänzt und die Farbhelfer präzisiert, sodass das Sidebar-Modul jetzt ohne Unterdrückungen die statischen Prüfungen besteht.
 - **EN:** Documented focused pytest loops in the developer guide, covering scoped
