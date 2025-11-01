@@ -18,8 +18,8 @@ import streamlit as st
 
 from openai_utils import call_chat_api
 from prompts import prompt_registry
-from .context import build_extract_messages
-from .prompts import FIELDS_ORDER
+from .context import build_extract_messages, build_preanalysis_messages
+from .prompts import FIELDS_ORDER, PreExtractionInsights
 from .output_parsers import (
     NeedAnalysisParserError,
     get_need_analysis_output_parser,
@@ -41,6 +41,32 @@ tracer = trace.get_tracer(__name__)
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 2
+
+_PRE_ANALYSIS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "relevant_fields": {
+            "type": "array",
+            "description": "Schema field keys that likely have evidence in the text.",
+            "items": {"type": "string"},
+            "minItems": 0,
+            "uniqueItems": True,
+        },
+        "missing_fields": {
+            "type": "array",
+            "description": "Schema fields that appear absent or weak in the text.",
+            "items": {"type": "string"},
+            "minItems": 0,
+            "uniqueItems": True,
+        },
+        "summary": {
+            "type": "string",
+            "description": "Short notes about the available information in the document.",
+        },
+    },
+    "required": ["relevant_fields"],
+    "additionalProperties": False,
+}
 
 
 def _summarise_prompt(messages: Sequence[Mapping[str, Any]] | None) -> str:
@@ -132,6 +158,41 @@ def _assert_closed_schema(schema: dict[str, Any]) -> None:
         raise ValueError("Foreign key references are not allowed in function-calling schema:\n" + report)
 
 
+def _filter_known_fields(fields: Sequence[Any] | None) -> list[str]:
+    """Return unique schema fields from ``fields`` preserving order."""
+
+    if not fields:
+        return []
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in fields:
+        candidate = str(item).strip()
+        if not candidate or candidate not in FIELDS_ORDER:
+            continue
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        ordered.append(candidate)
+    return ordered
+
+
+def _coerce_pre_analysis(payload: Mapping[str, Any]) -> PreExtractionInsights | None:
+    """Convert a model payload into :class:`PreExtractionInsights`."""
+
+    relevant = _filter_known_fields(payload.get("relevant_fields"))
+    missing = _filter_known_fields(payload.get("missing_fields"))
+    summary_raw = payload.get("summary")
+    summary = str(summary_raw).strip() if isinstance(summary_raw, str) else ""
+
+    insights = PreExtractionInsights(
+        summary=summary,
+        relevant_fields=relevant or None,
+        missing_fields=missing or None,
+    )
+    return insights if insights.has_data() else None
+
+
 def _generate_error_report(instance: dict[str, Any]) -> str:
     """Return detailed validation errors for ``instance``.
 
@@ -158,6 +219,65 @@ with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
 NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
+
+
+def _run_pre_extraction_analysis(
+    text: str,
+    *,
+    title: str | None = None,
+    company: str | None = None,
+    url: str | None = None,
+) -> PreExtractionInsights | None:
+    """Call the model to obtain pre-analysis hints for extraction."""
+
+    if not (text or "").strip():
+        return None
+
+    messages = build_preanalysis_messages(
+        text,
+        title=title,
+        company=company,
+        url=url,
+    )
+
+    effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+    model = select_model(ModelTask.EXTRACTION)
+
+    try:
+        result = call_chat_api(
+            messages,
+            model=model,
+            temperature=0,
+            reasoning_effort=effort,
+            verbosity=get_active_verbosity(),
+            json_schema={"name": "pre_extraction_analysis", "schema": _PRE_ANALYSIS_SCHEMA},
+            task=ModelTask.EXTRACTION,
+        )
+    except Exception as exc:  # pragma: no cover - network/SDK issues
+        logger.debug("Pre-analysis call failed; continuing without hints: %s", exc)
+        return None
+
+    content = (result.content or "").strip()
+    if not content:
+        return None
+
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:  # pragma: no cover - defensive guard
+        logger.debug("Pre-analysis returned invalid JSON: %s", content)
+        return None
+
+    if not isinstance(payload, Mapping):
+        return None
+
+    insights = _coerce_pre_analysis(payload)
+    if insights:
+        logger.debug(
+            "Pre-analysis identified %d relevant fields and %d potential gaps.",
+            len(insights.relevant_fields or ()),
+            len(insights.missing_fields or ()),
+        )
+    return insights
 
 
 def _structured_extraction(payload: dict[str, Any]) -> str:
@@ -211,6 +331,27 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             if result is None:
                 return None
             return (result.content or "").strip()
+
+        attempts.append(("responses", _call_responses))
+
+    attempts.append(("chat", _build_chat_call()))
+
+    content: str | None = None
+    last_error: Exception | None = None
+
+    for label, attempt in attempts:
+        try:
+            content = attempt()
+            if content:
+                break
+        except Exception as err:  # pragma: no cover - network/SDK issues
+            last_error = err
+            logger.warning(
+                "Structured extraction %s attempt failed for %s: %s",
+                label,
+                prompt_digest,
+                err,
+            )
 
     if content is None:
         call_result = call_chat_api(
@@ -292,6 +433,20 @@ def extract_json(
     """
 
     with tracer.start_as_current_span("llm.extract_json") as span:
+        insights: PreExtractionInsights | None = None
+        if not minimal:
+            insights = _run_pre_extraction_analysis(
+                text,
+                title=title,
+                company=company,
+                url=url,
+            )
+            span.set_attribute("llm.extract.preanalysis", bool(insights and insights.has_data()))
+            if insights and insights.summary:
+                span.set_attribute(
+                    "llm.extract.preanalysis.summary",
+                    insights.summary[:120],
+                )
         messages = (
             _minimal_messages(text)
             if minimal
@@ -301,6 +456,7 @@ def extract_json(
                 company=company,
                 url=url,
                 locked_fields=locked_fields,
+                insights=insights,
             )
         )
         effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)

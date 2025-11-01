@@ -9,6 +9,8 @@ from .prompts import (
     FIELDS_ORDER,
     SYSTEM_JSON_EXTRACTOR,
     build_user_json_extract_prompt,
+    render_field_bullets,
+    PreExtractionInsights,
 )
 from .output_parsers import get_need_analysis_output_parser
 from nlp.prepare_text import truncate_smart
@@ -23,6 +25,7 @@ def build_extract_messages(
     company: str | None = None,
     url: str | None = None,
     locked_fields: Mapping[str, str] | None = None,
+    insights: PreExtractionInsights | None = None,
 ) -> list[dict[str, str]]:
     """Construct messages for field extraction.
 
@@ -31,6 +34,8 @@ def build_extract_messages(
         title: Optional job title hint.
         company: Optional company name hint.
         url: Optional source URL.
+        locked_fields: Fields with values that must stay untouched.
+        insights: Optional hints from the pre-analysis chain.
 
     Returns:
         A list of messages formatted for the OpenAI Responses API.
@@ -58,6 +63,7 @@ def build_extract_messages(
         truncated,
         extras,
         locked_fields=locked_fields,
+        insights=insights,
     )
 
     parser = get_need_analysis_output_parser()
@@ -74,3 +80,38 @@ def build_extract_messages(
 
 
 LOCKED_SYSTEM_HINT = prompt_registry.get("llm.json_extractor.locked_system_hint")
+PRE_ANALYSIS_SYSTEM = prompt_registry.get("llm.json_extractor.pre_analysis.system")
+PRE_ANALYSIS_USER_TEMPLATE = prompt_registry.get("llm.json_extractor.pre_analysis.user")
+
+
+def build_preanalysis_messages(
+    text: str,
+    *,
+    title: str | None = None,
+    company: str | None = None,
+    url: str | None = None,
+) -> list[dict[str, str]]:
+    """Construct messages for the preliminary extraction analysis."""
+
+    extras: dict[str, str] = {}
+    if title:
+        extras["title"] = title
+    if company:
+        extras["company"] = company
+    if url:
+        extras["url"] = url
+
+    extras_lines = [f"{key.capitalize()}: {value}" for key, value in extras.items() if value]
+    extras_block = "\n".join(extras_lines)
+    truncated = truncate_smart(text or "", MAX_CHAR_BUDGET)
+
+    user_content = PRE_ANALYSIS_USER_TEMPLATE.format(
+        extras_block=f"{extras_block}\n\n" if extras_block else "",
+        field_reference=render_field_bullets(),
+        text=truncated,
+    )
+
+    return [
+        {"role": "system", "content": PRE_ANALYSIS_SYSTEM},
+        {"role": "user", "content": user_content},
+    ]

@@ -8,7 +8,11 @@
       "locked_block_heading": "Locked fields (preserve existing values):",
       "focus_remaining_hint": "Focus on the remaining unlocked fields:\n",
       "focus_fields_hint": "Focus on the following fields:\n",
-      "all_locked_hint": "All schema keys currently have locked entries. Return the JSON object while preserving the schema, and only augment information when new details are available."
+      "all_locked_hint": "All schema keys currently have locked entries. Return the JSON object while preserving the schema, and only augment information when new details are available.",
+      "pre_analysis": {
+        "system": "You are a vacancy intelligence analyst supporting structured extraction. Plan silently how you will inspect the document (do not output the plan), execute the steps one by one, and stop only when the JSON schema is satisfied. Return ONLY JSON describing which schema fields are strongly evidenced and which appear missing.",
+        "user": "Analyse the vacancy text before extraction. Follow these steps strictly: 1) Review any provided context, 2) scan the text for each schema key, 3) list the fields with clear evidence, 4) note fields that seem missing, 5) provide a short summary of the coverage. Respond with JSON using the keys 'relevant_fields', 'missing_fields', and 'summary'. 'relevant_fields' and 'missing_fields' must use the canonical schema names from the reference list. {extras_block}Schema reference (ordered):\n{field_reference}\n\nText:\n{text}"
+      }
     },
     "extraction": {
       "company_info": {

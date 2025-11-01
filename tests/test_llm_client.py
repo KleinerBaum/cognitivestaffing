@@ -1,6 +1,7 @@
 """Tests for the OpenAI LLM client helper."""
 
 import json
+from typing import Any
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +10,8 @@ import streamlit as st
 from openai_utils import ChatCallResult
 
 import llm.client as client
+import llm.openai_responses as responses_module
+from llm.prompts import PreExtractionInsights
 from models.need_analysis import NeedAnalysisProfile
 from llm.openai_responses import ResponsesCallResult
 
@@ -31,11 +34,24 @@ def test_extract_json_smoke(monkeypatch):
     """Smoke test for the extraction helper."""
 
     monkeypatch.setattr(client, "call_responses_safe", fake_responses_call)
+    monkeypatch.setattr(responses_module, "call_responses_safe", fake_responses_call)
+    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(
         client,
-        "call_chat_api",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("fallback not expected")),
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: None,
     )
+    chat_calls = {"count": 0}
+
+    def _fake_chat(*args, **kwargs):
+        chat_calls["count"] += 1
+        return ChatCallResult(
+            content=NeedAnalysisProfile().model_dump_json(),
+            tool_calls=[],
+            usage={},
+        )
+
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     out = client.extract_json("text")
     assert isinstance(out, str) and out != ""
 
@@ -55,7 +71,6 @@ def test_extract_json_validation_failure_triggers_structured_retry(monkeypatch):
         )
 
     def _fake_chat(messages, *, json_schema=None, **kwargs):
-        assert json_schema is not None
         calls["chat"] += 1
         return ChatCallResult(
             content=NeedAnalysisProfile().model_dump_json(),
@@ -64,7 +79,14 @@ def test_extract_json_validation_failure_triggers_structured_retry(monkeypatch):
         )
 
     monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(responses_module, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(
+        client,
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: None,
+    )
     out = client.extract_json("text")
     payload = json.loads(out)
     assert payload["company"]["name"] is None
@@ -97,11 +119,20 @@ def test_extract_json_plain_fallback_is_sanitized(monkeypatch):
         )
 
     monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(responses_module, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(
+        client,
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: None,
+    )
     out = client.extract_json("text")
     payload = json.loads(out)
     assert payload["company"]["name"] == "Fallback GmbH"
-    assert calls == {"responses": 1, "chat_structured": 1, "chat_plain": 1}
+    assert calls["responses"] == 1
+    assert calls["chat_plain"] == 1
+    assert calls["chat_structured"] == 0
 
 
 def test_extract_json_minimal_prompt(monkeypatch):
@@ -119,10 +150,21 @@ def test_extract_json_minimal_prompt(monkeypatch):
         )
 
     monkeypatch.setattr(client, "call_responses_safe", _fake)
+    monkeypatch.setattr(responses_module, "call_responses_safe", _fake)
+    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(
         client,
         "call_chat_api",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("fallback not expected")),
+        lambda *a, **k: ChatCallResult(
+            content=NeedAnalysisProfile().model_dump_json(),
+            tool_calls=[],
+            usage={},
+        ),
+    )
+    monkeypatch.setattr(
+        client,
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("pre-analysis not expected in minimal mode")),
     )
     out = client.extract_json("text", minimal=True)
     assert "Return JSON only" in captured["messages"][0]["content"]
@@ -133,7 +175,7 @@ def test_extract_json_forwards_context(monkeypatch):
     """Providing hints should be forwarded into the prompt builder."""
 
     st.session_state.clear()
-    captured: dict[str, str | list[dict[str, str]]] = {}
+    captured: dict[str, Any] = {}
 
     def _fake_build(
         text: str,
@@ -142,12 +184,14 @@ def test_extract_json_forwards_context(monkeypatch):
         company: str | None = None,
         url: str | None = None,
         locked_fields: dict[str, str] | None = None,
+        insights: PreExtractionInsights | None = None,
     ) -> list[dict[str, str]]:
         captured["text"] = text
         captured["title"] = title or ""
         captured["company"] = company or ""
         captured["url"] = url or ""
         captured["locked_fields"] = locked_fields or {}
+        captured["insights"] = insights
         messages = [
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "user"},
@@ -156,6 +200,12 @@ def test_extract_json_forwards_context(monkeypatch):
         return messages
 
     monkeypatch.setattr(client, "build_extract_messages", _fake_build)
+    dummy_insights = PreExtractionInsights(summary="observed", relevant_fields=["company.name"], missing_fields=None)
+    monkeypatch.setattr(
+        client,
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: dummy_insights,
+    )
     monkeypatch.setattr(
         client,
         "_STRUCTURED_EXTRACTION_CHAIN",
@@ -190,6 +240,7 @@ def test_extract_json_forwards_context(monkeypatch):
         "company.name": "Locked Corp",
     }
     assert captured["messages"][0]["content"] == "sys"
+    assert captured["insights"] is dummy_insights
 
 
 def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
@@ -212,7 +263,13 @@ def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
         )
 
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(
+        client,
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: None,
+    )
 
+    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     out = client.extract_json("Example text")
     assert json.loads(out) == NeedAnalysisProfile().model_dump()
     assert any(
@@ -228,14 +285,22 @@ def test_extract_json_reapplies_locked_fields(monkeypatch):
         "location.primary_city": "Flexible Arbeitszeiten",
     }
 
-    def _fake(messages, *, json_schema=None, **kwargs):
-        assert json_schema is not None
+    def _fake_chain(payload: dict[str, Any]) -> str:
         profile = NeedAnalysisProfile()
         profile.company.contact_email = "override@example.com"
         profile.location.primary_city = "Düsseldorf"
-        return ChatCallResult(content=profile.model_dump_json(), tool_calls=[], usage={})
+        return profile.model_dump_json()
 
-    monkeypatch.setattr(client, "call_chat_api", _fake)
+    monkeypatch.setattr(
+        client,
+        "_STRUCTURED_EXTRACTION_CHAIN",
+        SimpleNamespace(invoke=_fake_chain),
+    )
+    monkeypatch.setattr(
+        client,
+        "_run_pre_extraction_analysis",
+        lambda *a, **k: None,
+    )
     out = client.extract_json("text", locked_fields=locked_values)
     payload = json.loads(out)
     assert payload["company"]["contact_email"] == "m.m@rheinbahn.de"
