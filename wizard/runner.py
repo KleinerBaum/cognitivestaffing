@@ -11,7 +11,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from functools import partial
 from pathlib import Path
 from typing import (
@@ -33,6 +33,8 @@ from typing import (
 from urllib.parse import urljoin, urlparse
 
 import re
+import requests
+import plotly.graph_objects as go
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.runtime.uploaded_file_manager import UploadedFile
@@ -64,6 +66,7 @@ from llm.client import extract_json
 from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
+from core.esco_utils import lookup_esco_skill
 from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
@@ -91,6 +94,7 @@ from ._logic import (
     set_in,
     unique_normalized,
 )
+from sidebar.salary import format_salary_range
 
 
 logger = logging.getLogger(__name__)
@@ -138,6 +142,63 @@ LIST_FOLLOWUP_FIELDS: Final[set[str]] = {
     str(ProfilePaths.REQUIREMENTS_CERTIFICATES),
     str(ProfilePaths.COMPENSATION_BENEFITS),
 }
+
+ESCO_SKILL_ENDPOINT: Final[str] = "https://ec.europa.eu/esco/api/resource/skill"
+
+_SKILL_GROUP_LABELS: Final[dict[str, tuple[str, str]]] = {
+    "hard_skills_required": (
+        "Muss-Hard-Skill",
+        "Must-have hard skill",
+    ),
+    "hard_skills_optional": (
+        "Nice-to-have Hard-Skill",
+        "Nice-to-have hard skill",
+    ),
+    "soft_skills_required": (
+        "Muss-Soft-Skill",
+        "Must-have soft skill",
+    ),
+    "soft_skills_optional": (
+        "Nice-to-have Soft-Skill",
+        "Nice-to-have soft skill",
+    ),
+    "tools_and_technologies": (
+        "Tool & Technologie",
+        "Tool & technology",
+    ),
+    "languages_required": (
+        "Pflichtsprache",
+        "Required language",
+    ),
+    "languages_optional": (
+        "Optionale Sprache",
+        "Optional language",
+    ),
+    "certificates": (
+        "Zertifikat",
+        "Certificate",
+    ),
+}
+
+_SKILL_TYPE_LABELS: Final[dict[str, tuple[str, str]]] = {
+    "skill": ("Kompetenz", "Skill"),
+    "competence": ("Fähigkeit", "Competence"),
+    "knowledge": ("Wissen", "Knowledge"),
+    "attitude": ("Einstellung", "Attitude"),
+    "tool": ("Tool", "Tool"),
+    "language": ("Sprache", "Language"),
+}
+
+
+@dataclass(slots=True)
+class SkillInsightEntry:
+    """Structured representation for selectable skills in the insights tab."""
+
+    label: str
+    source_label: str
+    category_key: str
+    is_missing: bool
+
 
 ADD_MORE_PHASES_HINT: Final[LocalizedText] = (
     "Weitere Phasen hinzufügen…",
@@ -10180,91 +10241,399 @@ def _textarea_height(content: str) -> int:
     return min(900, max(240, line_count * 28))
 
 
-def _step_summary(schema: dict, _critical: list[str]) -> None:
-    """Render the summary step and offer follow-up questions.
+def _normalize_range_bounds(min_value: float | None, max_value: float | None) -> tuple[float, float]:
+    """Return a sorted pair of range bounds even when one side is missing."""
 
-    Args:
-        schema: Schema defining allowed fields.
-        critical: Keys that must be present in ``data``.
+    values = [float(value) for value in (min_value, max_value) if value is not None]
+    if not values:
+        return 0.0, 0.0
+    lower = min(values)
+    upper = max(values)
+    return lower, upper
 
-    Returns:
-        None
-    """
 
-    st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
+def _build_salary_range_chart(
+    *,
+    expected_min: float | None,
+    expected_max: float | None,
+    user_min: float | None,
+    user_max: float | None,
+    currency: str,
+) -> go.Figure | None:
+    """Visualise the captured and benchmark salary ranges."""
 
-    data = st.session_state[StateKeys.PROFILE]
-    lang = st.session_state.get("lang", "de")
+    has_expected = expected_min is not None or expected_max is not None
+    has_user = user_min is not None or user_max is not None
+    if not (has_expected or has_user):
+        return None
+
+    figure = go.Figure()
+
+    if has_expected:
+        start, end = _normalize_range_bounds(expected_min, expected_max)
+        length = max(end - start, 0.0)
+        figure.add_trace(
+            go.Bar(
+                y=[tr("Marktbenchmark", "Market benchmark")],
+                x=[length],
+                base=start,
+                orientation="h",
+                name=tr("Erwartete Spanne", "Expected range"),
+                marker=dict(
+                    color="rgba(47, 216, 197, 0.65)",
+                    line=dict(color="rgba(47, 216, 197, 0.95)", width=1.2),
+                ),
+                customdata=[[start, end]],
+                hovertemplate=(
+                    tr("Erwartete Spanne", "Expected range")
+                    + f": %{{customdata[0]:,.0f}} – %{{customdata[1]:,.0f}} {currency}<extra></extra>"
+                ),
+            )
+        )
+
+    if has_user:
+        start, end = _normalize_range_bounds(user_min, user_max)
+        length = max(end - start, 0.0)
+        figure.add_trace(
+            go.Bar(
+                y=[tr("Profilangabe", "Profile input")],
+                x=[length],
+                base=start,
+                orientation="h",
+                name=tr("Eingegebene Spanne", "Entered range"),
+                marker=dict(
+                    color="rgba(154, 166, 255, 0.6)",
+                    line=dict(color="rgba(154, 166, 255, 0.9)", width=1.2),
+                ),
+                customdata=[[start, end]],
+                hovertemplate=(
+                    tr("Eingegebene Spanne", "Entered range")
+                    + f": %{{customdata[0]:,.0f}} – %{{customdata[1]:,.0f}} {currency}<extra></extra>"
+                ),
+            )
+        )
+
+    axis_label = tr("Jahresgehalt ({currency})", "Annual salary ({currency})").format(currency=currency)
+    figure.update_layout(
+        height=280,
+        margin=dict(l=10, r=10, t=26, b=18),
+        bargap=0.35,
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hoverlabel=dict(bgcolor="rgba(15,23,42,0.85)"),
+    )
+    figure.update_xaxes(
+        title_text=axis_label,
+        zeroline=False,
+        gridcolor="rgba(148, 163, 184, 0.24)",
+    )
+    figure.update_yaxes(showgrid=False)
+    return figure
+
+
+def _first_text_value(value: object, lang_code: str) -> str:
+    """Extract a readable string from nested API payload structures."""
+
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, Mapping):
+        for code in (lang_code, "de", "en"):
+            candidate = value.get(code)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        for item in value:
+            text = _first_text_value(item, lang_code)
+            if text:
+                return text
+    return ""
+
+
+def _extract_skill_description(payload: Mapping[str, Any], lang: str) -> str:
+    """Return a human-friendly description from an ESCO skill payload."""
+
+    lang_code = "de" if str(lang or "").lower().startswith("de") else "en"
+    for key in ("description", "definition", "scopeNote", "conceptDefinition"):
+        text = _first_text_value(payload.get(key), lang_code)
+        if text:
+            return text
+    summary = _first_text_value(payload.get("summary"), lang_code)
+    return summary
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_skill_metadata(skill: str, lang: str) -> dict[str, Any]:
+    """Return cached ESCO metadata for ``skill``."""
 
     try:
-        profile = NeedAnalysisProfile.model_validate(data)
-    except Exception:
-        profile = NeedAnalysisProfile()
+        return lookup_esco_skill(skill, lang=lang)
+    except Exception:  # pragma: no cover - defensive fallback
+        return {}
 
-    profile_payload = profile.model_dump(mode="json")
-    profile_payload["lang"] = lang
 
-    profile_bytes, profile_mime, profile_ext = prepare_clean_json(profile_payload)
-    job_title_value = (profile.position.job_title or "").strip()
-    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", job_title_value).strip("-")
-    if not safe_stem:
-        safe_stem = "need-analysis-profile"
-    profile_filename = f"{safe_stem}.{profile_ext}"
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_skill_description(uri: str, lang: str) -> str:
+    """Fetch and cache ESCO skill details."""
 
-    title, subtitle, intros = _resolve_step_copy("summary", data)
-    render_step_heading(title, subtitle)
-    for intro in intros:
-        st.caption(intro)
-
-    tab_labels = [
-        tr("Unternehmen", "Company"),
-        tr("Basisdaten", "Basic info"),
-        tr("Anforderungen", "Requirements"),
-        tr("Beschäftigung", "Employment"),
-        tr("Leistungen & Benefits", "Rewards & Benefits"),
-        tr("Prozess", "Process"),
-    ]
-    group_keys = [
-        "company",
-        "basic",
-        "requirements",
-        "employment",
-        "compensation",
-        "process",
-    ]
-
-    tab_definitions = list(zip(group_keys, tab_labels))
-    summary_helpers: dict[str, Callable[[], None]] = {
-        "company": _summary_company,
-        "basic": _summary_position,
-        "requirements": _summary_requirements,
-        "employment": _summary_employment,
-        "compensation": _summary_compensation,
-        "process": _summary_process,
+    cleaned_uri = str(uri or "").strip()
+    if not cleaned_uri:
+        return ""
+    params = {
+        "uri": cleaned_uri,
+        "language": "de" if str(lang or "").lower().startswith("de") else "en",
     }
+    try:
+        response = requests.get(ESCO_SKILL_ENDPOINT, params=params, timeout=6)
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError):  # pragma: no cover - network guard
+        return ""
+    if not isinstance(payload, Mapping):
+        return ""
+    return _extract_skill_description(payload, lang)
 
-    edit_title = tr("Angaben bearbeiten", "Edit captured details")
-    st.markdown(f"### {edit_title}")
-    st.caption(
-        tr(
-            "Passe die Inhalte der einzelnen Bereiche direkt in den Tabs an.",
-            "Adjust the contents of each section directly within the tabs.",
+
+def _collect_skill_entries(data: Mapping[str, Any], lang: str) -> list[SkillInsightEntry]:
+    """Collect unique skills from the profile for interactive exploration."""
+
+    requirements = data.get("requirements", {}) if isinstance(data, Mapping) else {}
+    if not isinstance(requirements, Mapping):
+        return []
+    missing_raw = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+    missing = {str(item).strip().casefold() for item in missing_raw if isinstance(item, str) and str(item).strip()}
+    is_de = str(lang or "").lower().startswith("de")
+    entries: list[SkillInsightEntry] = []
+    seen: set[str] = set()
+    for key, labels in _SKILL_GROUP_LABELS.items():
+        values = requirements.get(key, [])
+        if not isinstance(values, Sequence):
+            continue
+        for value in values:
+            label = str(value or "").strip()
+            if not label:
+                continue
+            normalized = label.casefold()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            source_label = labels[0] if is_de else labels[1]
+            entries.append(
+                SkillInsightEntry(
+                    label=label,
+                    source_label=source_label,
+                    category_key=key,
+                    is_missing=normalized in missing,
+                )
+            )
+    return entries
+
+
+def _render_salary_insights(
+    profile: NeedAnalysisProfile,
+    raw_profile: Mapping[str, Any],
+    *,
+    lang: str,
+) -> None:
+    """Render the salary insights card with interactive visualisations."""
+
+    compensation = raw_profile.get("compensation", {}) if isinstance(raw_profile, Mapping) else {}
+    estimate: Mapping[str, Any] | None = st.session_state.get(UIKeys.SALARY_ESTIMATE)
+    explanation = st.session_state.get(UIKeys.SALARY_EXPLANATION)
+    timestamp: str | None = st.session_state.get(UIKeys.SALARY_REFRESH)
+
+    est_min = float(estimate.get("salary_min")) if estimate and estimate.get("salary_min") is not None else None
+    est_max = float(estimate.get("salary_max")) if estimate and estimate.get("salary_max") is not None else None
+    est_currency = str(estimate.get("currency")) if estimate and estimate.get("currency") else None
+
+    user_min = profile.compensation.salary_min
+    user_max = profile.compensation.salary_max
+    user_currency = profile.compensation.currency or compensation.get("currency")
+    currency = est_currency or user_currency or "EUR"
+
+    metrics: list[str] = []
+    if user_min is not None or user_max is not None:
+        metrics.append(
+            tr("Profil: {range}", "Profile: {range}").format(
+                range=format_salary_range(user_min, user_max, currency),
+            )
         )
+    if est_min is not None or est_max is not None:
+        metrics.append(
+            tr("Benchmark: {range}", "Benchmark: {range}").format(
+                range=format_salary_range(est_min, est_max, currency),
+            )
+        )
+
+    figure = _build_salary_range_chart(
+        expected_min=est_min,
+        expected_max=est_max,
+        user_min=float(user_min) if user_min is not None else None,
+        user_max=float(user_max) if user_max is not None else None,
+        currency=currency,
     )
 
-    summary_tabs = st.tabs([label for _, label in tab_definitions])
-    for tab, (group, _label) in zip(summary_tabs, tab_definitions):
-        with tab:
-            helper = summary_helpers.get(group)
-            if helper:
-                helper()
-            else:
-                st.info(
-                    tr(
-                        "Für diesen Bereich ist keine Bearbeitung verfügbar.",
-                        "Editing is not available for this section.",
-                    )
+    with st.container():
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='insight-card__header'><h4 class='insight-card__title'>💰 {tr('Gehalts-Insights', 'Salary insights')}</h4></div>",
+            unsafe_allow_html=True,
+        )
+        if metrics:
+            metric_html = "".join(f"<span>{html.escape(metric)}</span>" for metric in metrics)
+            st.markdown(
+                f"<div class='insight-card__metric'>{metric_html}</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption(
+                tr(
+                    "Noch keine Gehaltsangaben vorhanden – ergänze Werte im Bereich ‘Beschäftigung’.",
+                    "No salary data available yet – fill in the Employment section.",
                 )
+            )
+
+        if figure is not None:
+            st.plotly_chart(figure, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info(
+                tr(
+                    "Sobald eine Spanne vorliegt, visualisieren wir sie hier inklusive Benchmark.",
+                    "Once a range is available, it will appear here alongside the benchmark.",
+                )
+            )
+
+        if timestamp:
+            try:
+                dt = datetime.fromisoformat(timestamp)
+                st.caption(
+                    tr("Zuletzt aktualisiert: {ts}", "Last refreshed: {ts}").format(ts=dt.strftime("%d.%m.%Y %H:%M"))
+                )
+            except ValueError:
+                pass
+
+        if explanation:
+            with st.expander(
+                tr("Datenannahmen anzeigen", "View data assumptions"),
+                expanded=False,
+            ):
+                if isinstance(explanation, str):
+                    st.markdown(explanation)
+                else:
+                    st.json(explanation)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_skill_insights(raw_profile: Mapping[str, Any], *, lang: str) -> None:
+    """Render the interactive skill exploration card."""
+
+    entries = _collect_skill_entries(raw_profile, lang)
+    with st.container():
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='insight-card__header'><h4 class='insight-card__title'>🧠 {tr('Skill-Insights', 'Skill insights')}</h4></div>",
+            unsafe_allow_html=True,
+        )
+
+        if not entries:
+            st.caption(
+                tr(
+                    "Noch keine Skills erfasst – ergänze Anforderungen in den vorherigen Schritten.",
+                    "No skills captured yet – add requirements in the earlier steps.",
+                )
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            return
+
+        highlight = "".join(
+            "<span class='skill-badge{highlight}'>{label}</span>".format(
+                highlight=" skill-badge--highlight" if entry.is_missing else "",
+                label=html.escape(entry.label),
+            )
+            for entry in entries[:8]
+        )
+        st.markdown(
+            f"<div class='skill-badge-list'>{highlight}</div>",
+            unsafe_allow_html=True,
+        )
+
+        selected_entry = st.selectbox(
+            tr("Skill auswählen", "Select skill"),
+            options=entries,
+            index=0,
+            format_func=lambda entry: f"{entry.label} • {entry.source_label}",
+            key="ui.summary.insights.skill_select",
+        )
+
+        metadata = _cached_skill_metadata(selected_entry.label, lang)
+        resolved_label = metadata.get("preferredLabel") or selected_entry.label
+        description = _cached_skill_description(str(metadata.get("uri")), lang) if metadata.get("uri") else ""
+
+        st.markdown(f"**{tr('Bezeichnung', 'Label')}**: {resolved_label}")
+        if description:
+            st.markdown(f"**{tr('Beschreibung', 'Description')}**: {description}")
+        else:
+            st.caption(
+                tr(
+                    "Für diese Quelle liegt keine detaillierte ESCO-Beschreibung vor.",
+                    "No detailed ESCO description is available for this entry.",
+                )
+            )
+
+        skill_type_uri = str(metadata.get("skillType") or "")
+        if skill_type_uri:
+            type_key = skill_type_uri.rsplit("/", 1)[-1].lower()
+            type_labels = _SKILL_TYPE_LABELS.get(type_key, (type_key.title(), type_key.title()))
+            type_label = type_labels[0] if str(lang or "").lower().startswith("de") else type_labels[1]
+            st.caption(tr("ESCO-Kategorie: {label}", "ESCO category: {label}").format(label=type_label))
+
+        if metadata.get("uri"):
+            st.caption(
+                tr("Offizielle ESCO-Referenz: {uri}", "Official ESCO reference: {uri}").format(
+                    uri=str(metadata.get("uri"))
+                )
+            )
+
+        if selected_entry.is_missing:
+            st.info(
+                tr(
+                    "ESCO markiert diesen Skill als noch offen – prüfe, ob er in Muss-Anforderungen gehört.",
+                    "ESCO flagged this skill as outstanding – consider moving it into must-have requirements.",
+                )
+            )
+
+        with st.expander(tr("Wie entstehen diese Empfehlungen?", "How are these insights generated?")):
+            st.markdown(
+                tr(
+                    "Wir gleichen deine Angaben mit ESCO-Berufsprofilen ab und reichern die Listen mit offiziellen Beschreibungen an.",
+                    "Your inputs are matched against ESCO occupation profiles and enriched with official descriptions.",
+                )
+            )
+            st.markdown(
+                tr(
+                    "Fehlende Essentials erscheinen mit Hervorhebung – verschiebe sie in den passenden Abschnitt, um sie abzudecken.",
+                    "Outstanding essentials are highlighted – move them into the appropriate requirement section to cover them.",
+                )
+            )
+            if metadata:
+                st.json(metadata)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_summary_export_section(
+    *,
+    profile: NeedAnalysisProfile,
+    profile_payload: Mapping[str, Any],
+    raw_profile: Mapping[str, Any],
+    lang: str,
+    group_keys: Sequence[str],
+    profile_bytes: bytes,
+    profile_mime: str,
+    profile_filename: str,
+) -> None:
+    """Render export, generation, and automation tools for the summary tab."""
 
     st.caption(
         tr(
@@ -10401,7 +10770,7 @@ def _step_summary(schema: dict, _critical: list[str]) -> None:
                 st.caption(style_description)
             if style_example:
                 st.caption(style_example)
-            brand_profile_value = data.get("company", {}).get("brand_keywords")
+            brand_profile_value = raw_profile.get("company", {}).get("brand_keywords")
             brand_profile_text = brand_profile_value if isinstance(brand_profile_value, str) else ""
             if UIKeys.COMPANY_BRAND_KEYWORDS not in st.session_state and brand_profile_text:
                 st.session_state[UIKeys.COMPANY_BRAND_KEYWORDS] = brand_profile_text
@@ -10434,19 +10803,21 @@ def _step_summary(schema: dict, _critical: list[str]) -> None:
                 st.session_state.pop(UIKeys.JOB_AD_BRAND_TONE_SYNC_FLAG, None)
 
             if suggestions:
-                option_map = {s.key: s for s in suggestions}
+                option_map = {suggestion.key: suggestion for suggestion in suggestions}
                 option_keys = list(option_map.keys())
-                if UIKeys.JOB_AD_TARGET_SELECT not in st.session_state or (
-                    st.session_state[UIKeys.JOB_AD_TARGET_SELECT] not in option_keys
+                if (
+                    UIKeys.JOB_AD_TARGET_SELECT not in st.session_state
+                    or st.session_state[UIKeys.JOB_AD_TARGET_SELECT] not in option_keys
                 ):
                     st.session_state[UIKeys.JOB_AD_TARGET_SELECT] = option_keys[0]
-                selected_option = st.radio(
-                    tr("Empfehlungen", "Recommendations"),
-                    option_keys,
-                    format_func=lambda k: f"{option_map[k].title} – {option_map[k].description}",
+
+                selected_key = st.selectbox(
+                    tr("Zielgruppe auswählen", "Select target audience"),
+                    options=option_keys,
+                    format_func=lambda key: f"{option_map[key].title} – {option_map[key].description}",
                     key=UIKeys.JOB_AD_TARGET_SELECT,
                 )
-                chosen = option_map.get(selected_option, suggestions[0])
+                chosen = option_map.get(selected_key, suggestions[0])
                 target_value = f"{chosen.title} – {chosen.description}"
 
             custom_target = st.text_input(
@@ -10704,11 +11075,12 @@ def _step_summary(schema: dict, _critical: list[str]) -> None:
         boolean_title_synonyms=boolean_title_synonyms,
     )
 
+    st.divider()
+
     manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
 
     followup_items = st.session_state.get(StateKeys.FOLLOWUPS) or []
     if followup_items:
-        st.divider()
         st.markdown(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
 
         entry_specs: list[tuple[str, str]] = []
@@ -10751,7 +11123,7 @@ def _step_summary(schema: dict, _critical: list[str]) -> None:
                 if changed:
                     job_generated, interview_generated = _apply_followup_updates(
                         trimmed_answers,
-                        data=data,
+                        data=raw_profile,
                         filtered_profile=filtered_profile,
                         profile_payload=profile_payload,
                         target_value=target_value,
@@ -10795,6 +11167,122 @@ def _step_summary(schema: dict, _critical: list[str]) -> None:
         width="stretch",
         key="download_profile_json",
     )
+
+
+def _step_summary(_schema: dict, _critical: list[str]) -> None:
+    """Render the summary step and offer follow-up questions.
+
+    Args:
+        schema: Schema defining allowed fields.
+        critical: Keys that must be present in ``data``.
+
+    Returns:
+        None
+    """
+
+    st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
+
+    data = st.session_state[StateKeys.PROFILE]
+    lang = st.session_state.get("lang", "de")
+
+    try:
+        profile = NeedAnalysisProfile.model_validate(data)
+    except Exception:
+        profile = NeedAnalysisProfile()
+
+    profile_payload = profile.model_dump(mode="json")
+    profile_payload["lang"] = lang
+
+    profile_bytes, profile_mime, profile_ext = prepare_clean_json(profile_payload)
+    job_title_value = (profile.position.job_title or "").strip()
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", job_title_value).strip("-")
+    if not safe_stem:
+        safe_stem = "need-analysis-profile"
+    profile_filename = f"{safe_stem}.{profile_ext}"
+
+    title, subtitle, intros = _resolve_step_copy("summary", data)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
+
+    tab_labels = [
+        tr("Unternehmen", "Company"),
+        tr("Basisdaten", "Basic info"),
+        tr("Anforderungen", "Requirements"),
+        tr("Beschäftigung", "Employment"),
+        tr("Leistungen & Benefits", "Rewards & Benefits"),
+        tr("Prozess", "Process"),
+    ]
+    group_keys = [
+        "company",
+        "basic",
+        "requirements",
+        "employment",
+        "compensation",
+        "process",
+    ]
+
+    tab_definitions = list(zip(group_keys, tab_labels))
+    summary_helpers: dict[str, Callable[[], None]] = {
+        "company": _summary_company,
+        "basic": _summary_position,
+        "requirements": _summary_requirements,
+        "employment": _summary_employment,
+        "compensation": _summary_compensation,
+        "process": _summary_process,
+    }
+
+    overview_label = tr("📋 Überblick", "📋 Overview")
+    insights_label = tr("✨ Insights", "✨ Insights")
+    export_label = tr("📤 Export & Aktionen", "📤 Export & actions")
+    overview_tab, insights_tab, export_tab = st.tabs([overview_label, insights_label, export_label])
+
+    with overview_tab:
+        edit_title = tr("Angaben bearbeiten", "Edit captured details")
+        st.markdown(f"### {edit_title}")
+        st.caption(
+            tr(
+                "Passe die Inhalte der einzelnen Bereiche direkt in den Tabs an.",
+                "Adjust the contents of each section directly within the tabs.",
+            )
+        )
+
+        section_tabs = st.tabs([label for _, label in tab_definitions])
+        for tab, (group, _label) in zip(section_tabs, tab_definitions):
+            with tab:
+                helper = summary_helpers.get(group)
+                if helper:
+                    helper()
+                else:
+                    st.info(
+                        tr(
+                            "Für diesen Bereich ist keine Bearbeitung verfügbar.",
+                            "Editing is not available for this section.",
+                        )
+                    )
+
+        st.caption(
+            tr(
+                "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
+                "All available information is automatically included in the final output.",
+            )
+        )
+
+    with insights_tab:
+        _render_salary_insights(profile, profile_payload, lang=lang)
+        _render_skill_insights(profile_payload, lang=lang)
+
+    with export_tab:
+        _render_summary_export_section(
+            profile=profile,
+            profile_payload=profile_payload,
+            raw_profile=data,
+            lang=lang,
+            group_keys=tuple(group_keys),
+            profile_bytes=profile_bytes,
+            profile_mime=profile_mime,
+            profile_filename=profile_filename,
+        )
 
 
 # --- Navigation helper ---

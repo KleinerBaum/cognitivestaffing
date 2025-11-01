@@ -7,6 +7,14 @@
   **DE:** LangChains `StructuredOutputParser` und `PydanticOutputParser` im Extraktions-Stack verankert, sodass Prompts
   automatische Format-Hinweise erhalten und Antworten ohne manuelle JSON-Nachbearbeitung direkt in `NeedAnalysisProfile`
   einfließen.
+- **EN:** Polished the Streamlit experience with a branded hero banner, a
+  three-tab summary layout (Profile overview, Insights, Export), an interactive
+  Plotly salary visualisation, and an ESCO skill explorer that caches
+  descriptions for fast lookups.
+  **DE:** Die Streamlit-Erfahrung mit gebrandetem Hero-Banner, dreigeteilter
+  Zusammenfassung („Profilübersicht“, „Insights“, „Export“), interaktiver
+  Plotly-Gehaltssicht und einem ESCO-Skill-Explorer mit gecachten
+  Beschreibungen verfeinert.
 - **EN:** Added dedicated `department.*` and `team.*` profile sections, a
   customer-contact flag for `position.*`, and requirement toggles for
   background, reference, and portfolio checks. Step 3 (Team & Context) now
