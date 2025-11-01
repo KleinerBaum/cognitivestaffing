@@ -173,6 +173,68 @@ _NAVIGATION_STYLE = """
 """
 
 
+_PROGRESS_STYLE = """
+<style>
+    .wizard-progress-wrapper {
+        margin: 0.75rem 0 1.25rem;
+        display: flex;
+        gap: clamp(0.6rem, 1.25vw, 1rem);
+        align-items: stretch;
+        justify-content: center;
+    }
+
+    .wizard-progress-bubble {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+        text-align: center;
+    }
+
+    .wizard-progress-bubble button {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        color: #0f172a;
+        font-weight: 700;
+        font-size: 1rem;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .wizard-progress-bubble.is-current button {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+        border-color: rgba(37, 99, 235, 0.65);
+    }
+
+    .wizard-progress-caption {
+        font-size: 0.85rem;
+        line-height: 1.25;
+        color: var(--text-soft, rgba(15, 23, 42, 0.72));
+        max-width: 8rem;
+    }
+
+    .wizard-progress-meta {
+        font-size: 0.75rem;
+        color: var(--text-faint, rgba(100, 116, 139, 0.95));
+    }
+
+    @media (max-width: 960px) {
+        .wizard-progress-wrapper {
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .wizard-progress-bubble button {
+            width: 2.75rem;
+            height: 2.75rem;
+        }
+    }
+</style>
+"""
+
+
 class WizardRouter:
     """Synchronise wizard navigation between query params and Streamlit state."""
 
@@ -239,6 +301,7 @@ class WizardRouter:
             st.session_state["_wizard_scroll_to_top"] = True
             self._state["_last_rendered_step"] = current_key
         self._maybe_scroll_to_top()
+        self._render_progress_tracker(current_key)
         self._render_collected_panel(page)
         lang = st.session_state.get("lang", "de")
         summary_labels = [tr(de, en, lang=lang) for de, en in _SUMMARY_LABELS]
@@ -554,3 +617,97 @@ class WizardRouter:
                     skipped_steps.append(step_key)
             else:
                 self._state["skipped_steps"] = [step_key]
+
+    # ------------------------------------------------------------------
+    # Progress tracker helpers
+    # ------------------------------------------------------------------
+    def _render_progress_tracker(self, current_key: str) -> None:
+        import wizard
+
+        if not self._pages:
+            return
+
+        st.markdown(_PROGRESS_STYLE, unsafe_allow_html=True)
+
+        field_section_map = cast(Mapping[str, int], getattr(wizard, "FIELD_SECTION_MAP"))
+        missing_fields = list(st.session_state.get(StateKeys.EXTRACTION_MISSING, []) or [])
+        total_by_section: dict[int, int] = {}
+        for section in field_section_map.values():
+            total_by_section[section] = total_by_section.get(section, 0) + 1
+
+        missing_by_section: dict[int, int] = {}
+        for field in missing_fields:
+            section_index = field_section_map.get(field)
+            if section_index is None:
+                continue
+            missing_by_section[section_index] = missing_by_section.get(section_index, 0) + 1
+
+        lang = st.session_state.get("lang", "de")
+        wrapper = st.container()
+        with wrapper:
+            st.markdown("<div class='wizard-progress-wrapper'>", unsafe_allow_html=True)
+            columns = st.columns(len(self._pages), gap="small")
+            style_chunks: list[str] = []
+            for position, (col, page) in enumerate(zip(columns, self._pages), start=1):
+                renderer = self._renderers.get(page.key)
+                if renderer is None:
+                    continue
+                section_index = renderer.legacy_index
+                total = total_by_section.get(section_index, 0)
+                missing = missing_by_section.get(section_index, 0)
+                completion_ratio = 1.0 if total == 0 else 1.0 - (missing / total)
+                completion_ratio = max(0.0, min(1.0, completion_ratio))
+                bubble_id = f"wizard-progress-{page.key}"
+                color = self._interpolate_color(completion_ratio)
+                style_chunks.append(
+                    (
+                        f"#{bubble_id} button {{\n"
+                        f"    background: {color};\n"
+                        "    color: var(--text-strong, #0f172a);\n"
+                        "}\n"
+                        f"#{bubble_id} button:hover {{\n"
+                        "    filter: brightness(1.05);\n"
+                        "}"
+                    )
+                )
+                label = page.label_for(lang)
+                caption = page.subheader_for(lang)
+                percent_label = f"{int(round(completion_ratio * 100))}%"
+                wrapper_class = "wizard-progress-bubble"
+                if page.key == current_key:
+                    wrapper_class += " is-current"
+                col.markdown(
+                    f"<div class='{wrapper_class}' id='{bubble_id}'>",
+                    unsafe_allow_html=True,
+                )
+                clicked = col.button(
+                    str(position),
+                    key=f"wizard_progress_{page.key}",
+                    help=caption,
+                )
+                col.markdown("</div>", unsafe_allow_html=True)
+                col.markdown(
+                    f"<div class='wizard-progress-meta'>{percent_label}</div>",
+                    unsafe_allow_html=True,
+                )
+                col.markdown(
+                    f"<div class='wizard-progress-caption'>{html.escape(label)}</div>",
+                    unsafe_allow_html=True,
+                )
+                if clicked and page.key != current_key:
+                    self.navigate(page.key)
+            if style_chunks:
+                st.markdown(
+                    "<style>" + "\n\n".join(style_chunks) + "</style>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    @staticmethod
+    def _interpolate_color(ratio: float) -> str:
+        base = (191, 219, 254)  # #bfdbfe
+        peak = (30, 64, 175)  # #1e40af
+        r = int(base[0] + (peak[0] - base[0]) * ratio)
+        g = int(base[1] + (peak[1] - base[1]) * ratio)
+        b = int(base[2] + (peak[2] - base[2]) * ratio)
+        return f"#{r:02x}{g:02x}{b:02x}"

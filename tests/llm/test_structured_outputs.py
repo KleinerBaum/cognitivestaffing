@@ -55,5 +55,9 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload["model"] == "gpt-4o-mini"
     assert payload["temperature"] == pytest.approx(0.1)
     assert payload["max_output_tokens"] == 256
-    assert payload["text"]["format"] == fmt
+    format_payload = payload["text"]["format"]
+    assert format_payload["type"] == "json_schema"
+    assert format_payload["name"] == "Profile"
+    assert format_payload["schema"] == {"type": "object"}
+    assert format_payload.get("strict") is True
     assert payload["input"][0]["role"] == "user"

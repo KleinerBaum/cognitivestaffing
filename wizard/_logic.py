@@ -9,6 +9,7 @@ components and instead focus on data coercion, defaults, and state updates.
 from __future__ import annotations
 
 import re
+import io
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
@@ -388,12 +389,63 @@ def _coerce_logo_bytes(data: Any) -> bytes | None:
     return None
 
 
+def _extract_logo_brand_color(data: bytes | None) -> str | None:
+    """Return a representative hex colour extracted from ``data`` when possible."""
+
+    if not data:
+        return None
+    try:
+        from PIL import Image
+    except Exception:  # pragma: no cover - optional dependency
+        return None
+
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img = img.convert("RGB")
+            pixels = list(img.getdata())
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+    if not pixels:
+        return None
+
+    sample_size = min(len(pixels), 10_000)
+    if sample_size <= 0:
+        return None
+
+    if len(pixels) > sample_size:
+        step = max(len(pixels) // sample_size, 1)
+        sampled = pixels[::step][:sample_size]
+    else:
+        sampled = pixels
+
+    if not sampled:
+        return None
+
+    r_total = sum(pixel[0] for pixel in sampled)
+    g_total = sum(pixel[1] for pixel in sampled)
+    b_total = sum(pixel[2] for pixel in sampled)
+    count = len(sampled)
+    if count == 0:
+        return None
+
+    r_avg = int(r_total / count)
+    g_avg = int(g_total / count)
+    b_avg = int(b_total / count)
+    return f"#{r_avg:02x}{g_avg:02x}{b_avg:02x}"
+
+
 def _set_company_logo(data: bytes | bytearray | None) -> None:
     """Persist logo ``data`` under shared session keys for reuse."""
 
     logo_bytes = _coerce_logo_bytes(data)
     st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_bytes
     st.session_state["company_logo"] = logo_bytes
+
+    brand_color = _extract_logo_brand_color(logo_bytes)
+    if brand_color:
+        st.session_state[ProfilePaths.COMPANY_BRAND_COLOR] = brand_color
+        _update_profile(ProfilePaths.COMPANY_BRAND_COLOR, brand_color)
 
 
 def _get_company_logo_bytes() -> bytes | None:

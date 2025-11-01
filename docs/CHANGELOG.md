@@ -15,6 +15,17 @@
   OpenAI-/ESCO-gestützter Intake, mittig ausgerichtete URL-/Upload-Felder in
   gleicher Breite, das manuelle Textfeld entfernt und den grünen
   Gradient-CTA durch einen kompakten Weiter-Button ersetzt.
+- **EN:** Rolled out a tabbed extraction review in step 1 with editable company,
+  role, logistics, requirements, and process tabs, added an interactive
+  completion tracker across all eight steps, modernised follow-up questions with
+  chip suggestions and field-aware widgets, and derived the brand colour from
+  uploaded logos to auto-fill `company.brand_color`.
+  **DE:** Eine tabbasierte Extraktionsübersicht im ersten Schritt eingeführt,
+  in der Unternehmens-, Rollen-, Logistik-, Anforderungs- und Prozessdaten
+  sofort bearbeitbar sind; ein interaktiver Fortschrittstracker über alle acht
+  Schritte zeigt den Erfüllungsgrad, Anschlussfragen nutzen Chip-Vorschläge und
+  feldspezifische Widgets und hochgeladene Logos liefern automatisch die
+  Markenfarbe für `company.brand_color`.
 
 
 - **EN:** Streamlined the sidebar by removing page navigation links, stacking the dark-mode and language switches vertically with flag icons, and triggering salary estimates automatically once job title plus a location hint are available; the panel now lists required fields, summarises the top five drivers in one sentence, and exposes the raw calculation data.

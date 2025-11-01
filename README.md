@@ -65,6 +65,21 @@
   **DE:** Chip-Multiselects zeigen jetzt kontextspezifische zweisprachige
   Hinweise (z. B. „Weitere Benefits hinzufügen…“) und führen Nutzer:innen
   gezielt durch neue Einträge.
+- **EN:** The wizard’s first step now opens with a tabbed extraction review,
+  letting you edit company, role, logistics, requirements, and process data in
+  place, while an interactive eight-step progress tracker highlights completion
+  per section. Follow-up questions gained chip-styled suggestions, field-aware
+  widgets (checkboxes, number/date inputs, list editors), and the company logo
+  uploader automatically derives the dominant brand colour for
+  `company.brand_color`.
+  **DE:** Der erste Wizard-Schritt startet jetzt mit einer tab-basierten
+  Extraktionsübersicht, in der Unternehmens-, Rollen-, Logistik-,
+  Anforderungs- und Prozessdaten direkt bearbeitet werden können. Ein
+  interaktiver Acht-Schritte-Fortschrittsindikator zeigt den Erfüllungsgrad pro
+  Abschnitt. Anschlussfragen bieten Chip-Vorschläge, feldspezifische Widgets
+  (Checkboxen, Zahlen-/Datumsfelder, Listeneditoren) und der Logo-Upload
+  ermittelt automatisch die dominierende Markenfarbe für
+  `company.brand_color`.
 - **EN:** Replaced all ACME/example.com wizard placeholders with bilingual
   guidance and reset the Recruiting Wizard defaults to empty values that flag
   required fields instead of injecting sample companies.

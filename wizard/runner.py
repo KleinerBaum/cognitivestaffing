@@ -98,6 +98,46 @@ logger = logging.getLogger(__name__)
 LocalizedText = tuple[str, str]
 
 ONBOARDING_SOURCE_STYLE_KEY: Final[str] = "_onboarding_source_styles_v2"
+EXTRACTION_REVIEW_STYLE_KEY: Final[str] = "_extraction_review_styles_v1"
+FOLLOWUP_STYLE_KEY: Final[str] = "_followup_styles_v1"
+
+YES_NO_FOLLOWUP_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED),
+    str(ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT),
+    str(ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP),
+    str(ProfilePaths.EMPLOYMENT_OVERTIME_EXPECTED),
+    str(ProfilePaths.EMPLOYMENT_SHIFT_WORK),
+    str(ProfilePaths.EMPLOYMENT_SECURITY_CLEARANCE_REQUIRED),
+    str(ProfilePaths.COMPENSATION_SALARY_PROVIDED),
+}
+
+DATE_FOLLOWUP_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.META_TARGET_START_DATE),
+    str(ProfilePaths.META_APPLICATION_DEADLINE),
+    str(ProfilePaths.EMPLOYMENT_CONTRACT_END),
+}
+
+NUMBER_FOLLOWUP_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.POSITION_TEAM_SIZE),
+    str(ProfilePaths.POSITION_SUPERVISES),
+    str(ProfilePaths.COMPENSATION_SALARY_MIN),
+    str(ProfilePaths.COMPENSATION_SALARY_MAX),
+    str(ProfilePaths.EMPLOYMENT_TRAVEL_SHARE),
+}
+
+LIST_FOLLOWUP_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.RESPONSIBILITIES_ITEMS),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_LANGUAGES_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
+    str(ProfilePaths.REQUIREMENTS_CERTIFICATIONS),
+    str(ProfilePaths.REQUIREMENTS_CERTIFICATES),
+    str(ProfilePaths.COMPENSATION_BENEFITS),
+}
 
 ADD_MORE_PHASES_HINT: Final[LocalizedText] = (
     "Weitere Phasen hinzufügen…",
@@ -3683,6 +3723,685 @@ def _render_prefilled_preview(
                 st.markdown("<div style='margin-bottom:0.6rem'></div>", unsafe_allow_html=True)
 
 
+def _ensure_extraction_review_styles() -> None:
+    """Inject shared styles for the extraction review cards once per session."""
+
+    if st.session_state.get(EXTRACTION_REVIEW_STYLE_KEY):
+        return
+    st.session_state[EXTRACTION_REVIEW_STYLE_KEY] = True
+    st.markdown(
+        """
+        <style>
+            .extraction-review-card {
+                background: var(--surface-0, rgba(241, 245, 249, 0.65));
+                border-radius: 18px;
+                padding: 1.1rem 1.25rem;
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
+                box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+                margin-bottom: 1.1rem;
+            }
+
+            .extraction-review-card h5 {
+                margin: 0 0 0.75rem 0;
+                font-size: 1.02rem;
+                font-weight: 640;
+            }
+
+            .extraction-review-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: clamp(0.75rem, 2vw, 1.25rem);
+            }
+
+            .wizard-followup-card {
+                background: var(--surface-0, rgba(226, 232, 240, 0.65));
+                border-radius: 20px;
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.4));
+                padding: 1.25rem 1.35rem;
+                margin-top: 1rem;
+                box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
+            }
+
+            .wizard-followup-item {
+                border-radius: 16px;
+                padding: 0.85rem 1rem;
+                background: var(--surface-1, rgba(255, 255, 255, 0.85));
+                margin-bottom: 0.65rem;
+                border: 1px solid transparent;
+            }
+
+            .wizard-followup-item.fu-highlight {
+                border-color: rgba(220, 38, 38, 0.55);
+                box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.35);
+            }
+
+            .wizard-followup-item.fu-highlight-soft {
+                border-color: rgba(59, 130, 246, 0.35);
+                box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.25);
+            }
+
+            .wizard-followup-question {
+                font-weight: 620;
+                margin-bottom: 0.45rem;
+                color: var(--text-strong, #0f172a);
+            }
+
+            .wizard-followup-question.is-critical::before {
+                content: "*";
+                color: #dc2626;
+                margin-right: 0.35rem;
+            }
+
+            .wizard-followup-chip {
+                display: inline-flex;
+                margin-right: 0.45rem;
+            }
+
+            .wizard-followup-chip button {
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: rgba(191, 219, 254, 0.55);
+                padding: 0.2rem 0.85rem;
+                font-size: 0.85rem;
+                color: var(--text-strong, #0f172a);
+            }
+
+            .wizard-followup-chip button:hover {
+                filter: brightness(0.97);
+            }
+
+            .wizard-followup-chip button:focus-visible {
+                outline: 2px solid rgba(37, 99, 235, 0.8);
+                outline-offset: 2px;
+            }
+
+            @media (max-width: 960px) {
+                .extraction-review-card {
+                    padding: 1rem;
+                }
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _ensure_followup_styles() -> None:
+    """Ensure follow-up specific styles are injected once."""
+
+    if st.session_state.get(FOLLOWUP_STYLE_KEY):
+        return
+    st.session_state[FOLLOWUP_STYLE_KEY] = True
+    st.markdown(
+        """
+        <style>
+            .wizard-followup-card > p:first-child {
+                font-size: 0.98rem;
+                font-weight: 560;
+                margin-bottom: 0.6rem;
+            }
+
+            .wizard-followup-meta {
+                font-size: 0.82rem;
+                color: var(--text-faint, rgba(100, 116, 139, 0.95));
+                margin-bottom: 0.65rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _followup_has_response(value: Any) -> bool:
+    """Return ``True`` when ``value`` contains a meaningful answer."""
+
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_followup_has_response(item) for item in value)
+    return value not in ("", {})
+
+
+def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
+    """Persist ``suggestion`` into the widget state for ``field``."""
+
+    normalized = suggestion.strip()
+    if not normalized:
+        return
+    if field in YES_NO_FOLLOWUP_FIELDS:
+        lowered = normalized.casefold()
+        st.session_state[key] = lowered in {"yes", "ja", "true", "wahr", "1", "y"}
+        st.session_state[f"{key}_touched"] = True
+        return
+    if field in DATE_FOLLOWUP_FIELDS:
+        try:
+            parsed = date.fromisoformat(normalized)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            st.session_state[key] = parsed
+        else:
+            st.session_state[key] = normalized
+        return
+    if field in NUMBER_FOLLOWUP_FIELDS:
+        cleaned = normalized.replace(",", ".")
+        try:
+            st.session_state[key] = int(float(cleaned))
+        except ValueError:
+            st.session_state[key] = normalized
+        return
+    if field in LIST_FOLLOWUP_FIELDS:
+        current = str(st.session_state.get(key, "") or "")
+        items = [line.strip() for line in current.splitlines() if line.strip()]
+        if normalized not in items:
+            items.append(normalized)
+        st.session_state[key] = "\n".join(items)
+        return
+    st.session_state[key] = normalized
+
+
+def _coerce_followup_number(value: Any) -> int:
+    """Convert ``value`` into an ``int`` for numeric follow-up widgets."""
+
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return 0
+        try:
+            return int(float(cleaned.replace(",", ".")))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _render_extraction_review() -> None:
+    """Render tabbed overview of extracted profile data."""
+
+    profile = _get_profile_state()
+    flattened = flatten(profile)
+    if not any(_has_value(value) for value in flattened.values()):
+        st.info(
+            tr(
+                "Noch keine strukturierten Daten verfügbar – lade eine Stellenanzeige hoch oder füge Text ein.",
+                "No structured data yet – upload a job ad or paste text to begin.",
+            )
+        )
+        return
+
+    _ensure_extraction_review_styles()
+    st.markdown(tr("#### Extraktion prüfen & anpassen", "#### Review and adjust extracted data"))
+    st.caption(
+        tr(
+            "Alle Felder lassen sich hier schnell überarbeiten, bevor du tiefer in die einzelnen Schritte gehst.",
+            "Fine-tune every extracted field here before diving into the detailed steps.",
+        )
+    )
+
+    tabs = st.tabs(
+        [
+            tr("Unternehmen", "Company"),
+            tr("Rolle & Team", "Role & team"),
+            tr("Standort & Rahmen", "Location & logistics"),
+            tr("Anforderungen", "Requirements"),
+            tr("Prozess", "Process"),
+        ]
+    )
+
+    with tabs[0]:
+        _render_review_company_tab(profile)
+    with tabs[1]:
+        _render_review_role_tab(profile)
+    with tabs[2]:
+        _render_review_logistics_tab(profile)
+    with tabs[3]:
+        _render_review_requirements_tab(profile)
+    with tabs[4]:
+        _render_review_process_tab(profile)
+
+
+def _render_review_company_tab(profile: dict[str, Any]) -> None:
+    """Render company and branding fields within the extraction review."""
+
+    company = profile.setdefault("company", {})
+    location = profile.setdefault("location", {})
+
+    st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
+    st.markdown(f"<h5>{html.escape(tr('Unternehmensprofil', 'Company profile'))}</h5>", unsafe_allow_html=True)
+
+    info_cols = st.columns((1.2, 1.2), gap="medium")
+    company["name"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_NAME,
+        tr("Firmenname", "Company name"),
+        widget_factory=info_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    company["brand_name"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_BRAND_NAME,
+        tr("Marke/Tochter", "Brand/Subsidiary"),
+        widget_factory=info_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    detail_cols = st.columns((1.2, 1.2), gap="medium")
+    company["industry"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_INDUSTRY,
+        tr("Branche", "Industry"),
+        widget_factory=detail_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    company["website"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_WEBSITE,
+        tr("Website", "Website"),
+        widget_factory=detail_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    contact_cols = st.columns(3, gap="small")
+    company["contact_name"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_CONTACT_NAME,
+        tr("Kontaktperson", "Primary contact"),
+        widget_factory=contact_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    company["contact_email"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_CONTACT_EMAIL,
+        tr("Kontakt-E-Mail", "Contact email"),
+        widget_factory=contact_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+    company["contact_phone"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_CONTACT_PHONE,
+        tr("Telefon", "Phone"),
+        widget_factory=contact_cols[2].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    location_cols = st.columns((1.2, 1.2), gap="medium")
+    location["primary_city"] = widget_factory.text_input(
+        ProfilePaths.LOCATION_PRIMARY_CITY,
+        tr("Stadt", "City"),
+        widget_factory=location_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    location["country"] = widget_factory.text_input(
+        ProfilePaths.LOCATION_COUNTRY,
+        tr("Land", "Country"),
+        widget_factory=location_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+    company["hq_location"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_HQ_LOCATION,
+        tr("Hauptsitz", "Headquarters"),
+        value_formatter=_string_or_empty,
+    )
+
+    brand_cols = st.columns((1.2, 1.2), gap="medium")
+    company["claim"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_CLAIM,
+        tr("Claim/Slogan", "Claim/Tagline"),
+        widget_factory=brand_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    company["brand_color"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_BRAND_COLOR,
+        tr("Markenfarbe (Hex)", "Brand colour (hex)"),
+        widget_factory=brand_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    company["brand_keywords"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_BRAND_KEYWORDS,
+        tr("Markenbegriffe", "Brand keywords"),
+        value_formatter=_string_or_empty,
+    )
+
+    company["logo_url"] = widget_factory.text_input(
+        ProfilePaths.COMPANY_LOGO_URL,
+        tr("Logo-URL", "Logo URL"),
+        value_formatter=_string_or_empty,
+    )
+
+    upload_col, preview_col = st.columns((1.4, 1), gap="medium")
+    with upload_col:
+        logo_upload = st.file_uploader(
+            tr("Logo hochladen", "Upload logo"),
+            type=["png", "jpg", "jpeg", "svg"],
+            key=UIKeys.COMPANY_LOGO,
+            help=tr(
+                "Erkannte Farbinformationen füllen automatisch das Markenfarbfeld.",
+                "Detected colours will automatically pre-fill the brand colour field.",
+            ),
+        )
+        if logo_upload is not None:
+            _set_company_logo(logo_upload.getvalue())
+    with preview_col:
+        logo_bytes = _get_company_logo_bytes()
+        if logo_bytes:
+            st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), use_column_width=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_review_role_tab(profile: dict[str, Any]) -> None:
+    """Render role and team fields within the extraction review."""
+
+    position = profile.setdefault("position", {})
+    meta = profile.setdefault("meta", {})
+
+    st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
+    st.markdown(f"<h5>{html.escape(tr('Rollenübersicht', 'Role overview'))}</h5>", unsafe_allow_html=True)
+
+    title_cols = st.columns((1.2, 1.2), gap="medium")
+    position["job_title"] = widget_factory.text_input(
+        ProfilePaths.POSITION_JOB_TITLE,
+        tr("Jobtitel", "Job title"),
+        widget_factory=title_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    position["department"] = widget_factory.text_input(
+        ProfilePaths.POSITION_DEPARTMENT,
+        tr("Abteilung", "Department"),
+        widget_factory=title_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    reporting_cols = st.columns((1.2, 1.2), gap="medium")
+    position["reporting_line"] = widget_factory.text_input(
+        ProfilePaths.POSITION_REPORTING_LINE,
+        tr("Reports an", "Reports to"),
+        widget_factory=reporting_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    position["reporting_manager_name"] = widget_factory.text_input(
+        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+        tr("Vorgesetzte Person", "Reporting manager"),
+        widget_factory=reporting_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    position["role_summary"] = st.text_area(
+        tr("Rollen-Summary", "Role summary"),
+        value=position.get("role_summary", ""),
+        key=ProfilePaths.POSITION_ROLE_SUMMARY,
+        height=130,
+    )
+
+    key_projects = st.text_area(
+        tr("Schlüsselprojekte", "Key projects"),
+        value=position.get("key_projects", ""),
+        key=ProfilePaths.POSITION_KEY_PROJECTS,
+        height=110,
+    )
+    position["key_projects"] = key_projects
+    _update_profile(ProfilePaths.POSITION_KEY_PROJECTS, key_projects)
+
+    metrics_cols = st.columns((1.2, 1.2), gap="medium")
+    team_size_default = _coerce_followup_number(position.get("team_size"))
+    team_size_value = metrics_cols[0].number_input(
+        tr("Teamgröße", "Team size"),
+        min_value=0,
+        value=team_size_default,
+        step=1,
+        key=str(ProfilePaths.POSITION_TEAM_SIZE),
+    )
+    position["team_size"] = int(team_size_value)
+    _update_profile(ProfilePaths.POSITION_TEAM_SIZE, int(team_size_value))
+
+    supervises_default = _coerce_followup_number(position.get("supervises"))
+    supervises_value = metrics_cols[1].number_input(
+        tr("Direkte Reports", "Direct reports"),
+        min_value=0,
+        value=supervises_default,
+        step=1,
+        key=str(ProfilePaths.POSITION_SUPERVISES),
+    )
+    position["supervises"] = int(supervises_value)
+    _update_profile(ProfilePaths.POSITION_SUPERVISES, int(supervises_value))
+
+    schedule_cols = st.columns((1.2, 1.2), gap="medium")
+    target_start = schedule_cols[0].date_input(
+        tr("Gewünschtes Startdatum", "Desired start date"),
+        value=_default_date(meta.get("target_start_date")),
+        format="YYYY-MM-DD",
+        key=str(ProfilePaths.META_TARGET_START_DATE),
+    )
+    meta["target_start_date"] = target_start.isoformat() if isinstance(target_start, date) else ""
+    _update_profile(ProfilePaths.META_TARGET_START_DATE, meta.get("target_start_date"))
+
+    application_deadline = schedule_cols[1].date_input(
+        tr("Bewerbungsschluss", "Application deadline"),
+        value=_default_date(meta.get("application_deadline")),
+        format="YYYY-MM-DD",
+        key=str(ProfilePaths.META_APPLICATION_DEADLINE),
+    )
+    meta["application_deadline"] = application_deadline.isoformat() if isinstance(application_deadline, date) else ""
+    _update_profile(ProfilePaths.META_APPLICATION_DEADLINE, meta.get("application_deadline"))
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_review_logistics_tab(profile: dict[str, Any]) -> None:
+    """Render location and employment logistics for the extraction review."""
+
+    location = profile.setdefault("location", {})
+    employment = profile.setdefault("employment", {})
+
+    st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h5>{html.escape(tr('Standort & Rahmenbedingungen', 'Location & logistics'))}</h5>", unsafe_allow_html=True
+    )
+
+    loc_cols = st.columns((1.2, 1.2), gap="medium")
+    location["onsite_ratio"] = widget_factory.text_input(
+        ProfilePaths.LOCATION_ONSITE_RATIO,
+        tr("Vor-Ort-Anteil", "Onsite ratio"),
+        widget_factory=loc_cols[0].text_input,
+        value_formatter=_string_or_empty,
+    )
+    employment["work_policy"] = widget_factory.text_input(
+        ProfilePaths.EMPLOYMENT_WORK_POLICY,
+        tr("Arbeitsmodell", "Work policy"),
+        widget_factory=loc_cols[1].text_input,
+        value_formatter=_string_or_empty,
+    )
+
+    remote_default = _coerce_followup_number(employment.get("remote_percentage"))
+    remote_value = st.slider(
+        tr("Remote-Anteil", "Remote percentage"),
+        min_value=0,
+        max_value=100,
+        step=5,
+        value=remote_default,
+        key=str(ProfilePaths.EMPLOYMENT_REMOTE_PERCENTAGE),
+    )
+    employment["remote_percentage"] = int(remote_value)
+    _update_profile(ProfilePaths.EMPLOYMENT_REMOTE_PERCENTAGE, int(remote_value))
+
+    toggle_cols = st.columns(3, gap="medium")
+    travel_required = toggle_cols[0].checkbox(
+        tr("Reisetätigkeit?", "Travel required?"),
+        value=bool(employment.get("travel_required")),
+        key=str(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED),
+    )
+    employment["travel_required"] = bool(travel_required)
+    _update_profile(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED, bool(travel_required))
+
+    relocation_support = toggle_cols[1].checkbox(
+        tr("Relocation möglich?", "Relocation support?"),
+        value=bool(employment.get("relocation_support")),
+        key=str(ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT),
+    )
+    employment["relocation_support"] = bool(relocation_support)
+    _update_profile(ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT, bool(relocation_support))
+
+    visa_support = toggle_cols[2].checkbox(
+        tr("Visa-Sponsoring?", "Visa sponsorship?"),
+        value=bool(employment.get("visa_sponsorship")),
+        key=str(ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP),
+    )
+    employment["visa_sponsorship"] = bool(visa_support)
+    _update_profile(ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP, bool(visa_support))
+
+    if travel_required:
+        st.markdown("---")
+        travel_cols = st.columns((1, 1.4, 1.4), gap="medium")
+        travel_share = travel_cols[0].slider(
+            tr("Reiseanteil (%)", "Travel share (%)"),
+            min_value=0,
+            max_value=100,
+            step=5,
+            value=_coerce_followup_number(employment.get("travel_share")),
+            key=str(ProfilePaths.EMPLOYMENT_TRAVEL_SHARE),
+        )
+        employment["travel_share"] = int(travel_share)
+        _update_profile(ProfilePaths.EMPLOYMENT_TRAVEL_SHARE, int(travel_share))
+
+        with travel_cols[1]:
+            travel_regions = render_list_text_area(
+                label=tr("Reisegebiete (eine pro Zeile)", "Travel regions (one per line)"),
+                session_key=f"review.{ProfilePaths.EMPLOYMENT_TRAVEL_REGIONS}",
+                items=_normalize_list(employment.get("travel_regions")),
+                height=110,
+            )
+        employment["travel_regions"] = travel_regions
+        _update_profile(ProfilePaths.EMPLOYMENT_TRAVEL_REGIONS, travel_regions)
+
+        with travel_cols[2]:
+            travel_details = st.text_input(
+                tr("Reise-Details", "Travel details"),
+                value=_string_or_empty(employment.get("travel_details")),
+                key=str(ProfilePaths.EMPLOYMENT_TRAVEL_DETAILS),
+            )
+        employment["travel_details"] = travel_details
+        _update_profile(ProfilePaths.EMPLOYMENT_TRAVEL_DETAILS, travel_details)
+
+    if relocation_support:
+        relocation_details = st.text_input(
+            tr("Relocation-Details", "Relocation details"),
+            value=_string_or_empty(employment.get("relocation_details")),
+            key=str(ProfilePaths.EMPLOYMENT_RELOCATION_DETAILS),
+        )
+        employment["relocation_details"] = relocation_details
+        _update_profile(ProfilePaths.EMPLOYMENT_RELOCATION_DETAILS, relocation_details)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
+    """Render responsibility and requirement fields for review."""
+
+    responsibilities = profile.setdefault("responsibilities", {})
+    requirements = profile.setdefault("requirements", {})
+
+    st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h5>{html.escape(tr('Anforderungen & Aufgaben', 'Requirements & responsibilities'))}</h5>",
+        unsafe_allow_html=True,
+    )
+
+    resp_items = render_list_text_area(
+        label=tr("Aufgaben (eine pro Zeile)", "Responsibilities (one per line)"),
+        session_key=str(ProfilePaths.RESPONSIBILITIES_ITEMS),
+        items=responsibilities.get("items"),
+        height=150,
+    )
+    responsibilities["items"] = resp_items
+    _update_profile(ProfilePaths.RESPONSIBILITIES_ITEMS, resp_items)
+
+    hard_required = render_list_text_area(
+        label=tr("Pflicht-Hard-Skills", "Required hard skills"),
+        session_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+        items=requirements.get("hard_skills_required"),
+        height=120,
+    )
+    requirements["hard_skills_required"] = hard_required
+    _update_profile(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED, hard_required)
+
+    soft_required = render_list_text_area(
+        label=tr("Pflicht-Soft-Skills", "Required soft skills"),
+        session_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+        items=requirements.get("soft_skills_required"),
+        height=120,
+    )
+    requirements["soft_skills_required"] = soft_required
+    _update_profile(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED, soft_required)
+
+    tools = render_list_text_area(
+        label=tr("Tools & Technologien", "Tools & technologies"),
+        session_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
+        items=requirements.get("tools_and_technologies"),
+        height=120,
+    )
+    requirements["tools_and_technologies"] = tools
+    _update_profile(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES, tools)
+
+    languages = render_list_text_area(
+        label=tr("Sprachen", "Languages"),
+        session_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
+        items=requirements.get("languages_required"),
+        height=110,
+    )
+    requirements["languages_required"] = languages
+    _update_profile(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED, languages)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_review_process_tab(profile: dict[str, Any]) -> None:
+    """Render recruiting process details for review."""
+
+    process = profile.setdefault("process", {})
+
+    st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
+    st.markdown(f"<h5>{html.escape(tr('Recruiting-Prozess', 'Recruiting process'))}</h5>", unsafe_allow_html=True)
+
+    process["application_instructions"] = st.text_area(
+        tr("Bewerbungshinweise", "Application instructions"),
+        value=process.get("application_instructions", ""),
+        key=ProfilePaths.PROCESS_APPLICATION_INSTRUCTIONS,
+        height=120,
+    )
+    _update_profile(
+        ProfilePaths.PROCESS_APPLICATION_INSTRUCTIONS,
+        process["application_instructions"],
+    )
+
+    phases = render_list_text_area(
+        label=tr("Prozessphasen", "Process phases"),
+        session_key=str(ProfilePaths.PROCESS_PHASES),
+        items=process.get("phases"),
+        height=120,
+    )
+    process["phases"] = phases
+    _update_profile(ProfilePaths.PROCESS_PHASES, phases)
+
+    interview_stages = render_list_text_area(
+        label=tr("Interviewstufen", "Interview stages"),
+        session_key=str(ProfilePaths.PROCESS_INTERVIEW_STAGES),
+        items=process.get("interview_stages"),
+        height=110,
+    )
+    process["interview_stages"] = interview_stages
+    _update_profile(ProfilePaths.PROCESS_INTERVIEW_STAGES, interview_stages)
+
+    process_notes = st.text_area(
+        tr("Weitere Hinweise", "Additional notes"),
+        value=process.get("process_notes", ""),
+        key=ProfilePaths.PROCESS_PROCESS_NOTES,
+        height=110,
+    )
+    process["process_notes"] = process_notes
+    _update_profile(ProfilePaths.PROCESS_PROCESS_NOTES, process_notes)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def _normalize_alias_key(name: str) -> str:
     """Return a normalized identifier for alias lookups."""
 
@@ -3979,9 +4698,11 @@ def _render_followup_question(q: dict, data: dict) -> None:
     if isinstance(data, dict) and profile_state is not data:
         st.session_state[StateKeys.PROFILE] = data
 
-    field = q.get("field", "")
+    field = str(q.get("field", ""))
+    if not field:
+        return
     prompt = q.get("question", "")
-    suggestions = q.get("suggestions") or []
+    suggestions = [str(option).strip() for option in q.get("suggestions") or [] if str(option).strip()]
     key = f"fu_{field}"
     anchor = f"anchor_{key}"
     focus_sentinel = f"{key}_focus_pending"
@@ -3989,8 +4710,18 @@ def _render_followup_question(q: dict, data: dict) -> None:
     container = st.container()
     with container:
         st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='wizard-followup-item'>", unsafe_allow_html=True)
+    existing_value = get_in(data, field, None)
     if key not in st.session_state:
-        st.session_state[key] = ""
+        if field in LIST_FOLLOWUP_FIELDS:
+            st.session_state[key] = "\n".join(_normalize_list(existing_value))
+        elif field in YES_NO_FOLLOWUP_FIELDS:
+            st.session_state[key] = bool(existing_value)
+        elif field in DATE_FOLLOWUP_FIELDS:
+            default_date = _default_date(existing_value)
+            st.session_state[key] = default_date
+        else:
+            st.session_state[key] = _string_or_empty(existing_value)
     if focus_sentinel not in st.session_state:
         st.session_state[focus_sentinel] = True
     if highlight_sentinel not in st.session_state:
@@ -4001,22 +4732,86 @@ def _render_followup_question(q: dict, data: dict) -> None:
         getattr(container, ui_variant)(description)
     elif description:
         container.caption(description)
-    if q.get("priority") == "critical":
-        with container:
-            st.markdown(f"{REQUIRED_PREFIX}**{prompt}**")
-    else:
-        with container:
-            st.markdown(f"**{prompt}**")
+    priority = q.get("priority")
+    question_text = prompt or tr("Antwort eingeben", "Enter response")
+    with container:
+        if priority == "critical":
+            st.markdown(f"{REQUIRED_PREFIX}**{question_text}**")
+        else:
+            st.markdown(f"**{question_text}**")
     if suggestions:
         cols = container.columns(len(suggestions))
-        for i, (col, sug) in enumerate(zip(cols, suggestions)):
-            if col.button(sug, key=f"{key}_opt_{i}"):
-                st.session_state[key] = sug
-    priority = q.get("priority")
-    label = prompt or tr("Antwort eingeben", "Enter response")
-    should_focus = st.session_state.get(focus_sentinel, False)
+        for index, (col, option) in enumerate(zip(cols, suggestions)):
+            with col:
+                st.markdown("<div class='wizard-followup-chip'>", unsafe_allow_html=True)
+                if st.button(option, key=f"{key}_opt_{index}"):
+                    _apply_followup_suggestion(field, key, option)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    should_focus = bool(st.session_state.get(focus_sentinel, False))
+    label_text = question_text
+    processed_value: Any
+    touched_key: str | None = None
     with container:
-        st.text_input(label, key=key, label_visibility="collapsed")
+        if field in YES_NO_FOLLOWUP_FIELDS:
+            touched_key = f"{key}_touched"
+            if touched_key not in st.session_state:
+                st.session_state[touched_key] = existing_value is not None
+
+            def _mark_followup_touched() -> None:
+                st.session_state[touched_key] = True
+
+            value = st.checkbox(
+                label_text,
+                key=key,
+                label_visibility="collapsed",
+                on_change=_mark_followup_touched,
+            )
+            if st.session_state.get(touched_key):
+                processed_value = bool(value)
+            else:
+                processed_value = None
+        elif field in NUMBER_FOLLOWUP_FIELDS:
+            numeric_default = _coerce_followup_number(existing_value)
+            raw_state_value = st.session_state.get(key, numeric_default)
+            numeric_initial = _coerce_followup_number(raw_state_value)
+            value = st.number_input(
+                label_text,
+                key=key,
+                value=float(numeric_initial),
+                step=1.0,
+                label_visibility="collapsed",
+            )
+            if isinstance(value, float) and value.is_integer():
+                processed_value = int(value)
+            else:
+                processed_value = value
+        elif field in DATE_FOLLOWUP_FIELDS:
+            value = st.date_input(
+                label_text,
+                key=key,
+                format="YYYY-MM-DD",
+                label_visibility="collapsed",
+            )
+            processed_value = value.isoformat() if isinstance(value, date) else ""
+        elif field in LIST_FOLLOWUP_FIELDS:
+            text_value = st.text_area(
+                label_text,
+                key=key,
+                label_visibility="collapsed",
+                placeholder=tr(
+                    "Bitte jede Angabe in einer eigenen Zeile ergänzen.",
+                    "Add each entry on a separate line.",
+                ),
+                height=110,
+            )
+            processed_value = [line.strip() for line in text_value.splitlines() if line.strip()]
+        else:
+            processed_value = st.text_input(
+                label_text,
+                key=key,
+                label_visibility="collapsed",
+            )
         if should_focus:
             st.markdown(
                 f"""
@@ -4030,7 +4825,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     if (!wrapper) {{
         return;
     }}
-    const input = wrapper.querySelector('input');
+    const input = wrapper.querySelector('input, textarea');
     if (input && document.activeElement !== input) {{
         input.focus({{preventScroll: true}});
     }}
@@ -4068,11 +4863,15 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 unsafe_allow_html=True,
             )
             st.session_state[highlight_sentinel] = False
-    ans = st.session_state.get(key, "")
-    if ans:
-        _update_profile(field, ans)
+    _update_profile(field, processed_value)
+    if isinstance(data, dict):
+        set_in(data, field, processed_value)
+    if _followup_has_response(processed_value):
         st.session_state.pop(focus_sentinel, None)
         st.session_state.pop(highlight_sentinel, None)
+        if touched_key is not None:
+            st.session_state.pop(touched_key, None)
+    container.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
@@ -4084,21 +4883,25 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
         if any(q.get("field", "").startswith(p) for p in prefixes)
     ]
     if followups:
-        st.markdown(
-            tr(
-                "Der Assistent hat Anschlussfragen, um fehlende Angaben zu ergänzen:",
-                "The assistant has generated follow-up questions to help fill in missing info:",
-            )
-        )
-        if st.session_state.get(StateKeys.RAG_CONTEXT_SKIPPED):
-            st.caption(
+        _ensure_followup_styles()
+        with st.container():
+            st.markdown("<div class='wizard-followup-card'>", unsafe_allow_html=True)
+            st.markdown(
                 tr(
-                    "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID).",
-                    "Contextual suggestions require a configured vector store (VECTOR_STORE_ID).",
+                    "Der Assistent hat Anschlussfragen, um fehlende Angaben zu ergänzen:",
+                    "The assistant has generated follow-up questions to help fill in missing info:",
                 )
             )
-        for q in list(followups):
-            _render_followup_question(q, data)
+            if st.session_state.get(StateKeys.RAG_CONTEXT_SKIPPED):
+                st.caption(
+                    tr(
+                        "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID).",
+                        "Contextual suggestions require a configured vector store (VECTOR_STORE_ID).",
+                    )
+                )
+            for q in list(followups):
+                _render_followup_question(q, data)
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _lang_index(lang: str | None) -> int:
@@ -5464,7 +6267,7 @@ def _step_onboarding(schema: dict) -> None:
             ),
         )
 
-    _render_prefilled_preview(exclude_prefixes=("requirements.",))
+    _render_extraction_review()
 
     if st.button(
         tr("Weiter zum Setup", "Continue to setup"),
