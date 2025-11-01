@@ -9,6 +9,12 @@
   `Requirements` auf die instanzbasierte Pydantic-v2-Schreibweise umgestellt,
   sodass die Deprecation-Warnung in den Tests entfällt und wir für Pydantic 3
   vorbereitet sind.
+- **EN:** Normalised legacy helpers to snake_case and added missing return/argument
+  type hints across wizard prompts, keeping linting strictness aligned with the
+  repository-wide PEP 8 typing expectations.
+  **DE:** Legacy-Helfer auf snake_case umgestellt und fehlende Rückgabe- bzw.
+  Argument-Typannotationen in Wizard-Prompts ergänzt, damit die strengen
+  PEP-8-/Typing-Vorgaben des Repos konsistent bleiben.
 - **EN:** Locked all OpenTelemetry packages to version 1.26.0 and updated
   `requirements.txt` with the optional ingestion libraries so deployments use a
   consistent stack.

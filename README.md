@@ -19,6 +19,12 @@
   **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
   `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
   damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Harmonised code style across the LLM prompts and legacy wizard modules:
+  snake_case helpers and explicit type hints keep linting consistent with the
+  repo-wide PEP 8 and typing policy.
+  **DE:** Den Code-Style in LLM-Prompts und Legacy-Wizard-Modulen vereinheitlicht:
+  snake_case-Helfer und explizite Typannotationen stellen die PEP-8-/Typing-
+  Vorgaben im gesamten Repo sicher.
 - **EN:** Finalised the wizard navigation: the eight Streamlit pages now follow
   the file order `01_jobad.py` → `08_summary.py`, the deprecated
   `WIZARD_ORDER_V2` / `WIZARD_STEP_ORDER_ENABLED` flags have been removed, and

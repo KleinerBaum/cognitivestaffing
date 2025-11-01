@@ -34,7 +34,7 @@ FOCUS_FIELDS_HINT: str = prompt_registry.get("llm.json_extractor.focus_fields_hi
 ALL_LOCKED_HINT: str = prompt_registry.get("llm.json_extractor.all_locked_hint")
 
 
-def USER_JSON_EXTRACT_TEMPLATE(
+def build_user_json_extract_prompt(
     fields_list: list[str],
     job_text: str,
     extras: dict | None = None,
