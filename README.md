@@ -19,6 +19,14 @@
   **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
   `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
   damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Refined the Streamlit UI with a branded hero banner, reorganised the
+  summary into "Profile overview", "Insights", and "Export" tabs, added an
+  interactive Plotly salary range visual, and introduced an ESCO-backed skill
+  explorer with cached descriptions.
+  **DE:** Die Streamlit-Oberfläche mit einem gebrandeten Hero-Banner,
+  zusammengefassten Tabs („Profilübersicht“, „Insights“, „Export“), einer
+  interaktiven Plotly-Gehaltsspanne und einem ESCO-gestützten
+  Skill-Explorer samt Cache für Beschreibungen modernisiert.
 - **EN:** Extended the Need Analysis schema with dedicated `department.*` and
   `team.*` sections, a customer-facing flag under `position.*`, and new
   requirement switches for background, reference, and portfolio checks. The

@@ -156,6 +156,64 @@ def inject_global_css() -> None:
 
 inject_global_css()
 
+
+def render_app_banner() -> None:
+    """Render the global hero banner with logo and bilingual copy."""
+
+    badge_entries = [
+        tr("🧠 Geführter Wizard", "🧠 Guided wizard"),
+        tr("📊 Markt- & Gehaltsanalysen", "📊 Market & salary insights"),
+        tr("🧩 ESCO-Skill-Mapping", "🧩 ESCO skill mapping"),
+    ]
+    eyebrow = tr("Recruiting Intelligence Studio", "Recruiting intelligence studio")
+    headline = tr(
+        "Cognitive Staffing – präzise Recruiting-Analysen in Minuten",
+        "Cognitive Staffing – actionable hiring intelligence in minutes",
+    )
+    subtitle = tr(
+        (
+            "Geführte Schritte, KI-Validierung und Marktbenchmarks helfen, "
+            "Profile und Ergebnisse fokussiert zu verfeinern."
+        ),
+        (
+            "Guided steps, AI validation, and market benchmarks help you refine "
+            "profiles and deliverables with confidence."
+        ),
+    )
+
+    if APP_LOGO_DATA_URI:
+        logo_html = f"<img src='{APP_LOGO_DATA_URI}' alt='Cognitive Staffing logo' />"
+    elif APP_LOGO_IMAGE:
+        buffer = BytesIO()
+        APP_LOGO_IMAGE.save(buffer, format="PNG")
+        encoded = b64encode(buffer.getvalue()).decode("ascii")
+        logo_html = f"<img src='data:image/png;base64,{encoded}' alt='Cognitive Staffing logo' />"
+    elif APP_LOGO_BUFFER:
+        encoded = b64encode(APP_LOGO_BUFFER.getvalue()).decode("ascii")
+        mime_type, _ = mimetypes.guess_type(getattr(APP_LOGO_BUFFER, "name", "logo.png"))
+        logo_html = f"<img src='data:{mime_type or 'image/png'};base64,{encoded}' alt='Cognitive Staffing logo' />"
+    else:
+        logo_html = "<span class='app-banner__logo-placeholder'>🧭</span>"
+
+    badges_html = "".join(f"<span class='app-banner__meta-badge'>{html_badge}</span>" for html_badge in badge_entries)
+
+    banner_html = f"""
+    <div class="app-banner">
+        <div class="app-banner__logo">{logo_html}</div>
+        <div class="app-banner__copy">
+            <div class="app-banner__eyebrow">{eyebrow}</div>
+            <h1 class="app-banner__headline">{headline}</h1>
+            <p class="app-banner__subtitle">{subtitle}</p>
+            <div class="app-banner__meta">{badges_html}</div>
+        </div>
+    </div>
+    """
+
+    st.markdown(banner_html, unsafe_allow_html=True)
+
+
+render_app_banner()
+
 SIDEBAR_STYLE = """
 <style>
 [data-testid="stSidebar"] .block-container {
