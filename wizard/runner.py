@@ -9584,10 +9584,30 @@ def _summary_position() -> None:
         value=team_data.get("reporting_line", data["position"].get("reporting_line", "")),
         key=ProfilePaths.TEAM_REPORTING_LINE,
     )
+    reporting_manager_summary_key = "ui.summary.position.reporting_manager_name"
+    reporting_manager_contact_key = f"{reporting_manager_summary_key}:contact"
+
+    def _sync_reporting_manager_to_contact() -> None:
+        """Keep the contact widget aligned with the summary value."""
+
+        st.session_state[reporting_manager_contact_key] = st.session_state.get(
+            reporting_manager_summary_key,
+            "",
+        )
+
+    def _sync_reporting_manager_to_summary() -> None:
+        """Mirror the contact widget value back to the summary input."""
+
+        st.session_state[reporting_manager_summary_key] = st.session_state.get(
+            reporting_manager_contact_key,
+            "",
+        )
+
     reporting_manager = reporting_cols[1].text_input(
         tr("Vorgesetzte Person", "Reporting manager"),
         value=data["position"].get("reporting_manager_name", ""),
-        key="ui.summary.position.reporting_manager_name",
+        key=reporting_manager_summary_key,
+        on_change=_sync_reporting_manager_to_contact,
     )
 
     headcount_cols = st.columns(2)
@@ -9622,7 +9642,8 @@ def _summary_position() -> None:
     reporting_manager = contact_cols[0].text_input(
         tr("Vorgesetzte Person", "Reporting manager"),
         value=reporting_manager,
-        key="ui.summary.position.reporting_manager_name",
+        key=reporting_manager_contact_key,
+        on_change=_sync_reporting_manager_to_summary,
     )
     customer_contact_required = contact_cols[1].toggle(
         tr("Kundenkontakt?", "Customer-facing?"),
