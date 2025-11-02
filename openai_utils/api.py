@@ -1368,13 +1368,23 @@ class ChatStream(Iterable[str]):
                             if chunk:
                                 self._buffer.append(chunk)
                                 yield chunk
-                    final_response = stream.get_final_response()
+                    try:
+                        final_response = stream.get_final_response()
+                    except RuntimeError as error:
+                        if "response.completed" in str(error):
+                            logger.error(
+                                "OpenAI stream missing completion event; continuing with partial response.",
+                                exc_info=error,
+                            )
+                        else:
+                            raise
         except (OpenAIError, RuntimeError) as error:
             _handle_streaming_error(error)
         else:
             if final_response is None:
-                raise RuntimeError("Streaming finished without a final response payload")
-            self._finalise(final_response)
+                self._finalise_partial()
+            else:
+                self._finalise(final_response)
 
     def _finalise(self, response: Any) -> None:
         tool_calls = _collect_tool_calls(response)
@@ -1391,6 +1401,20 @@ class ChatStream(Iterable[str]):
             tool_calls,
             usage,
             response_id=response_id,
+        )
+
+    def _finalise_partial(self) -> None:
+        """Persist streaming output when the final event is missing."""
+
+        if not self._buffer:
+            raise RuntimeError("Streaming finished without a final response payload")
+
+        partial_text = self.text
+        self._result = ChatCallResult(
+            partial_text if partial_text else None,
+            [],
+            {},
+            response_id=None,
         )
 
     @property

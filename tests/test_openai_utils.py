@@ -2328,6 +2328,53 @@ def test_chat_stream_uses_configured_timeout(monkeypatch):
     assert captured["timeout"] == 77.0
 
 
+def test_chat_stream_missing_completion_event(monkeypatch, caplog):
+    """Streaming should keep buffered content when the completion event is missing."""
+
+    caplog.set_level("ERROR")
+
+    class _DummyStream:
+        def __init__(self) -> None:
+            self._events = iter(
+                [
+                    {"type": "response.output_text.delta", "delta": "Hello"},
+                ]
+            )
+
+        def __enter__(self):  # noqa: D401
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401,B027
+            return False
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            return next(self._events)
+
+        def get_final_response(self):
+            raise RuntimeError("RuntimeError: Didn't receive a response.completed event.")
+
+    class _DummyResponses:
+        def stream(self, **kwargs: Any):  # noqa: D401
+            return _DummyStream()
+
+    dummy_client = SimpleNamespace(responses=_DummyResponses())
+
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+
+    stream = openai_utils.api.ChatStream({"input": []}, config.REASONING_MODEL, task=None)
+
+    chunks = list(stream)
+    assert chunks == ["Hello"]
+    assert stream.text == "Hello"
+    assert stream.result.content == "Hello"
+    assert stream.result.usage == {}
+
+    assert any("missing completion event" in message for message in caplog.messages)
+
+
 def _dummy_response(status: int) -> httpx.Response:
     """Return a minimal :class:`httpx.Response` for exception tests."""
 
