@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import sys
+from typing import Any
 
 import pytest
 
@@ -77,6 +78,22 @@ def _llm_payload(language: str) -> dict:
     }
 
 
+def _assert_schema_forbids_extras(schema: Any) -> None:
+    """Ensure JSON schema forbids additional properties on all objects."""
+
+    def _check(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "object" or "properties" in node:
+                assert node.get("additionalProperties") is False
+            for value in node.values():
+                _check(value)
+        elif isinstance(node, list):
+            for item in node:
+                _check(item)
+
+    _check(schema)
+
+
 def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
     """The LLM driven path returns structured data validated against the schema."""
 
@@ -122,7 +139,10 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     assert "Interview Guide – Engineer" in markdown
     assert "## Questions" in markdown or "## Questions & evaluation guide" in markdown
     assert "Evaluation notes" in markdown
-    assert captured["json_schema"]
+    schema_cfg = captured["json_schema"]
+    assert schema_cfg
+    assert "schema" in schema_cfg
+    _assert_schema_forbids_extras(schema_cfg["schema"])
     assert captured["tools"] == [
         {
             "type": "file_search",

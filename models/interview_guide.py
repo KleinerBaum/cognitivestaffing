@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class InterviewGuideQuestion(BaseModel):
     """Single question with guidance for the interview panel."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     question: str = Field(default="", description="Question wording for the interviewer to ask.")
     focus: str = Field(default="", description="Key capability or topic the question targets.")
@@ -32,7 +32,7 @@ class InterviewGuideQuestion(BaseModel):
 class InterviewGuideFocusArea(BaseModel):
     """Focus sections to highlight capabilities or themes."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     label: str = Field(default="", description="Heading for the focus area.")
     items: list[str] = Field(default_factory=list, description="Bullet items belonging to the area.")
@@ -52,7 +52,7 @@ class InterviewGuideFocusArea(BaseModel):
 class InterviewGuideMetadata(BaseModel):
     """Context information used to render the guide."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     language: str = Field(default="de", description="Locale code (e.g. 'de' or 'en').")
     heading: str = Field(default="", description="Display heading for the guide document.")
@@ -76,7 +76,7 @@ class InterviewGuideMetadata(BaseModel):
 class InterviewGuide(BaseModel):
     """Structured representation of an interview guide."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     metadata: InterviewGuideMetadata
     questions: list[InterviewGuideQuestion] = Field(default_factory=list)
