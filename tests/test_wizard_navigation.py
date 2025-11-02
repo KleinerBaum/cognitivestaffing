@@ -105,11 +105,13 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
 
 _STEP_DEFINITIONS: tuple[tuple[str, int, bool], ...] = (
     ("intro", 0, False),
-    ("company", 1, False),
-    ("team", 2, False),
-    ("skills", 3, False),
-    ("benefits", 4, True),
-    ("summary", 6, False),
+    ("qna", 1, False),
+    ("company", 2, False),
+    ("team", 3, False),
+    ("skills", 4, False),
+    ("benefits", 5, True),
+    ("interview", 6, False),
+    ("summary", 7, False),
 )
 
 
@@ -279,8 +281,8 @@ def test_skip_marks_step_completed_and_sets_query(
         router.run()
 
     wizard_state = st.session_state["wizard"]
-    assert wizard_state["current_step"] == "summary"
-    assert query_params["step"] == ["summary"]
+    assert wizard_state["current_step"] == "interview"
+    assert query_params["step"] == ["interview"]
     assert "benefits" in wizard_state.get("completed_steps", [])
     assert "benefits" in wizard_state.get("skipped_steps", [])
     assert st.session_state["_wizard_scroll_to_top"] is True

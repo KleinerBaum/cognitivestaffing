@@ -221,9 +221,9 @@
 - **Step intros & captions / Schritt-Intros & Hinweise:**  
   **EN:** Each wizard page opens with a localized introductory caption (in the chosen tone) so teams immediately know which details matter most on that step.  
   **DE:** Jede Wizard-Seite startet mit einer lokalisierten Einleitung im gewählten Tonfall, damit Teams sofort wissen, welche Angaben auf diesem Schritt entscheidend sind.
-- **Guided wizard sections / Geführte Wizard-Abschnitte:**  
-  **EN:** Steps are grouped into Onboarding, Company, Team & Structure, Role & Tasks, Skills & Requirements, Compensation, Hiring Process, and Summary, so recruiters can follow a consistent flow with inline help for each section.  
-  **DE:** Schritte sind in Onboarding, Unternehmen, Team & Struktur, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, damit Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen pro Abschnitt folgen können.
+- **Guided wizard sections / Geführte Wizard-Abschnitte:**
+  **EN:** Steps are grouped into Onboarding, Q&A, Company, Team & Structure, Role & Tasks, Skills & Requirements, Compensation, Hiring Process, and Summary, so recruiters can follow a consistent flow with inline help for each section. The dedicated Q&A step collects generated follow-up questions with interactive inputs right after the extraction overview.
+  **DE:** Schritte sind in Onboarding, Q&A, Unternehmen, Team & Struktur, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, damit Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen pro Abschnitt folgen können. Der neue Q&A-Schritt bündelt die generierten Anschlussfragen direkt nach der Extraktion und stellt interaktive Eingabefelder bereit.
 - **Tone control / Tonalitätssteuerung:**  
   **EN:** Choose between concise, professional, or casual writing styles before generating job ads, interview guides, or follow-up emails.  
   **DE:** Wähle vor der Generierung von Stellenanzeigen, Interview-Guides oder Follow-up-E-Mails zwischen einem prägnanten, professionellen oder lockeren Schreibstil.
