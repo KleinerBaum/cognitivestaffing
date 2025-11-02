@@ -1712,7 +1712,7 @@ class FieldSourceInfo:
 
 
 # Index of the first data entry step ("Unternehmen" / "Company")
-COMPANY_STEP_INDEX = 1
+COMPANY_STEP_INDEX = 2
 
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
@@ -9376,7 +9376,7 @@ def _build_field_section_map() -> dict[str, int]:
 
     ordered_steps = [_step_company, _step_position, _step_requirements, _step_compensation, _step_process]
     mapping: dict[str, int] = {}
-    for idx, step in enumerate(ordered_steps, start=1):
+    for idx, step in enumerate(ordered_steps, start=COMPANY_STEP_INDEX):
         for field in _STEP_HANDLED_FIELDS.get(step, ()):  # pragma: no branch - deterministic
             mapping[field] = idx
     return mapping
@@ -11315,6 +11315,48 @@ def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
     _step_onboarding(schema)
 
 
+def _step_followups() -> None:
+    """Render the dedicated Q&A step for follow-up questions."""
+
+    profile = _get_profile_state()
+    title, subtitle, intros = _resolve_step_copy("followups", profile)
+    render_step_heading(title, subtitle)
+    for intro in intros:
+        st.caption(intro)
+
+    raw_followups = st.session_state.get(StateKeys.FOLLOWUPS) or []
+    followups: list[Mapping[str, object]] = [q for q in raw_followups if isinstance(q, Mapping) and q.get("field")]
+    if not followups:
+        st.success(
+            tr(
+                "Aktuell sind keine Anschlussfragen offen – du kannst zum nächsten Schritt wechseln.",
+                "No follow-up questions are pending – you can continue to the next step.",
+            )
+        )
+        return
+
+    _ensure_followup_styles()
+    with st.container():
+        st.markdown("<div class='wizard-followup-card'>", unsafe_allow_html=True)
+        st.markdown(
+            tr(
+                "<p class='wizard-followup-meta'>Antworten werden automatisch gespeichert und im Profil gespiegelt.</p>",
+                "<p class='wizard-followup-meta'>Answers are saved automatically and synced with the profile.</p>",
+            ),
+            unsafe_allow_html=True,
+        )
+        if st.session_state.get(StateKeys.RAG_CONTEXT_SKIPPED):
+            st.caption(
+                tr(
+                    "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID).",
+                    "Contextual suggestions require a configured vector store (VECTOR_STORE_ID).",
+                )
+            )
+        for followup in list(followups):
+            _render_followup_question(dict(followup), profile)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 def _render_skills_review_step() -> None:
     profile = _get_profile_state()
     lang = st.session_state.get("lang", "de")
@@ -11374,6 +11416,12 @@ def step_jobad(context: WizardContext) -> None:
     _render_jobad_step_v2(context.schema)
 
 
+def step_followups(context: WizardContext) -> None:
+    """Render the follow-up Q&A step."""
+
+    _step_followups()
+
+
 def step_company(context: WizardContext) -> None:
     """Render the company step."""
 
@@ -11418,13 +11466,14 @@ def step_summary(context: WizardContext) -> None:
 
 STEP_RENDERERS: dict[str, StepRenderer] = {
     "jobad": StepRenderer(step_jobad, legacy_index=0),
-    "company": StepRenderer(step_company, legacy_index=1),
-    "team": StepRenderer(step_team, legacy_index=2),
-    "role_tasks": StepRenderer(step_role_tasks, legacy_index=3),
-    "skills": StepRenderer(step_skills, legacy_index=3),
-    "benefits": StepRenderer(step_benefits, legacy_index=4),
-    "interview": StepRenderer(step_interview, legacy_index=5),
-    "summary": StepRenderer(step_summary, legacy_index=6),
+    "followups": StepRenderer(step_followups, legacy_index=1),
+    "company": StepRenderer(step_company, legacy_index=2),
+    "team": StepRenderer(step_team, legacy_index=3),
+    "role_tasks": StepRenderer(step_role_tasks, legacy_index=4),
+    "skills": StepRenderer(step_skills, legacy_index=4),
+    "benefits": StepRenderer(step_benefits, legacy_index=5),
+    "interview": StepRenderer(step_interview, legacy_index=6),
+    "summary": StepRenderer(step_summary, legacy_index=7),
 }
 
 

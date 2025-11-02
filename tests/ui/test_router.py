@@ -7,6 +7,7 @@ def test_step_order() -> None:
     keys = [page.key for page in WIZARD_PAGES]
     assert keys == [
         "jobad",
+        "followups",
         "company",
         "team",
         "role_tasks",

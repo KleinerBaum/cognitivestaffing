@@ -79,6 +79,7 @@ _COLLECTED_STYLE = """
 
 _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Onboarding", "Onboarding"),
+    ("Q&A", "Q&A"),
     ("Unternehmen", "Company"),
     ("Basisdaten", "Basic info"),
     ("Anforderungen", "Requirements"),
