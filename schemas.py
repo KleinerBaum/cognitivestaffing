@@ -331,6 +331,8 @@ INTERVIEW_GUIDE_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "InterviewGuide",
     "type": "object",
+    # The Responses API rejects schemas without explicit top-level
+    # ``additionalProperties: false``.
     "additionalProperties": False,
     "required": ["language", "guide"],
     "properties": {

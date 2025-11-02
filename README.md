@@ -13,6 +13,13 @@
 
 ## Unreleased
 
+- **EN:** Closed the Interview Guide structured output schema by forcing
+  `additionalProperties: false` on every object level and adding a
+  regression test so the OpenAI Responses API accepts the format again.
+  **DE:** Das Interview-Guide-Schema für strukturierte Ausgaben
+  abgedichtet, indem `additionalProperties: false` auf allen
+  Objekt-Ebenen erzwungen und ein Regressionstest ergänzt wurde, damit
+  die OpenAI-Responses-API das Format wieder akzeptiert.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the

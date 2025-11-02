@@ -42,6 +42,35 @@ def _contains_json_ref(value: Any) -> bool:
     return False
 
 
+def _assert_objects_disallow_additional_properties(value: Any, path: str = "$") -> None:
+    if isinstance(value, dict):
+        schema_type = value.get("type")
+        if schema_type == "object":
+            assert (
+                value.get("additionalProperties") is False
+            ), f"Schema object at {path} must set additionalProperties to False"
+            properties = value.get("properties")
+            if isinstance(properties, dict):
+                for key, nested in properties.items():
+                    _assert_objects_disallow_additional_properties(nested, f"{path}.{key}")
+
+        if "items" in value:
+            items = value["items"]
+            if isinstance(items, list):
+                for index, nested in enumerate(items):
+                    _assert_objects_disallow_additional_properties(nested, f"{path}[{index}]")
+            else:
+                _assert_objects_disallow_additional_properties(items, f"{path}[]")
+
+        for key in ("allOf", "anyOf", "oneOf", "if", "then", "else"):
+            if key in value:
+                _assert_objects_disallow_additional_properties(value[key], f"{path}.{key}")
+
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            _assert_objects_disallow_additional_properties(nested, f"{path}[{index}]")
+
+
 @pytest.fixture(autouse=True)
 def _reset_state(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("streamlit.session_state", {}, raising=False)
@@ -172,4 +201,5 @@ def test_interview_guide_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "InterviewGuide"
     assert schema_cfg["schema"] == INTERVIEW_GUIDE_SCHEMA
+    _assert_objects_disallow_additional_properties(INTERVIEW_GUIDE_SCHEMA)
     assert captured["model"] == "model-interview"
