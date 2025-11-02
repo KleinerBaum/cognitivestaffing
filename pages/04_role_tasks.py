@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .base import WizardPage
+from pages.base import WizardPage
 
 
 _REQUIRED_FIELDS: tuple[str, ...] = ("role.purpose", "tasks.core")

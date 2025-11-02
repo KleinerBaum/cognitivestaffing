@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Iterable
 
-from .base import WizardPage
+from pages.base import WizardPage
 
 
 def _load_page_module(filename: str) -> ModuleType:
