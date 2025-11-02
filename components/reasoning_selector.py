@@ -60,6 +60,7 @@ def reasoning_selector(key: str = "reasoning_effort") -> str:
         labels,
         index=selected_index,
         key=UIKeys.REASONING_SELECT,
+        width="stretch",
     )
     effort = label_to_value[selected_label]
     st.session_state[key] = effort

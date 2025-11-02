@@ -39,6 +39,7 @@ def verbosity_selector(key: str = "verbosity") -> str:
         [label for _, label in entries],
         index=default_index,
         key=UIKeys.VERBOSITY_SELECT,
+        width="stretch",
     )
     selected_value = next(value for value, label in entries if label == selection)
     st.session_state[key] = selected_value

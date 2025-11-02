@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **EN:** Replaced every `use_container_width` flag with the new
+  `width` argument across Streamlit widgets to remove the 2025
+  deprecation warning while keeping the stretch layout intact.
+  **DE:** Sämtliche `use_container_width`-Schalter auf das neue
+  `width`-Argument der Streamlit-Widgets umgestellt, damit die
+  angekündigte Deprecation-Warnung für 2025 entfällt und das
+  Stretch-Layout erhalten bleibt.
 - **EN:** Closed the Interview Guide Responses schema by enforcing
   `additionalProperties: false` on every object level and adding a
   regression test so OpenAI no longer rejects the format.

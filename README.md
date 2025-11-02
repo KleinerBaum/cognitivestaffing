@@ -20,6 +20,13 @@
   abgedichtet, indem `additionalProperties: false` auf allen
   Objekt-Ebenen erzwungen und ein Regressionstest ergänzt wurde, damit
   die OpenAI-Responses-API das Format wieder akzeptiert.
+- **EN:** Replaced every `use_container_width` flag with the new
+  `width` argument across Streamlit widgets to silence 2025 deprecation
+  warnings and keep the layout stretching behaviour.
+  **DE:** Sämtliche `use_container_width`-Schalter auf das neue
+  `width`-Argument der Streamlit-Widgets umgestellt, um die
+  angekündigten 2025-Deprecation-Warnungen zu entfernen und das
+  Stretch-Layout beizubehalten.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the

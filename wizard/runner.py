@@ -7133,6 +7133,7 @@ def _render_phases(process: dict, stakeholders: list[dict], key_prefix: str) -> 
                 index=format_index,
                 format_func=dict(format_options).__getitem__,
                 key=f"{key_prefix}.{idx}.format",
+                width="stretch",
             )
             phase_participants = _filter_existing_participants(phase.get("participants", []), stakeholder_names)
             participant_pairs = [(name, name) for name in stakeholder_names if isinstance(name, str) and name]
@@ -10585,6 +10586,7 @@ def _render_skill_insights(raw_profile: Mapping[str, Any], *, lang: str) -> None
             index=0,
             format_func=lambda entry: f"{entry.label} • {entry.source_label}",
             key="ui.summary.insights.skill_select",
+            width="stretch",
         )
 
         metadata = _cached_skill_metadata(selected_entry.label, lang)
@@ -10837,6 +10839,7 @@ def _render_summary_export_section(
                     options=option_keys,
                     format_func=lambda key: f"{option_map[key].title} – {option_map[key].description}",
                     key=UIKeys.JOB_AD_TARGET_SELECT,
+                    width="stretch",
                 )
                 chosen = option_map.get(selected_key, suggestions[0])
                 target_value = f"{chosen.title} – {chosen.description}"
@@ -10870,6 +10873,7 @@ def _render_summary_export_section(
                 options=list(format_options.keys()),
                 format_func=lambda k: format_options[k],
                 key=UIKeys.JOB_AD_FORMAT,
+                width="stretch",
             )
 
             font_default = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE, FONT_CHOICES[0])
@@ -10888,6 +10892,7 @@ def _render_summary_export_section(
                 index=font_index,
                 key=UIKeys.JOB_AD_FONT,
                 on_change=_update_job_ad_font,
+                width="stretch",
             )
             st.caption(
                 tr(

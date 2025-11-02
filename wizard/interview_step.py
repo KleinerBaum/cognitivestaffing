@@ -92,6 +92,7 @@ def render_interview_guide_section(
             "Steuert Fokus und Tonfall des generierten Leitfadens.",
             "Controls the focus and tone of the generated guide.",
         ),
+        width="stretch",
     )
     st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
 

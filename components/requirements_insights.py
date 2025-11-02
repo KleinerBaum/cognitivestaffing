@@ -650,6 +650,7 @@ def render_skill_market_insights(
             "Hide skills to recalculate salary and availability charts without them.",
             lang=lang_code,
         ),
+        width="stretch",
     )
 
     selected_skills = [option_map[label] for label in selected_labels if label in option_map]

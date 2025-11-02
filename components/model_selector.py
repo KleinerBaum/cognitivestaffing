@@ -60,6 +60,7 @@ def model_selector(key: str = "model") -> str:
         labels,
         index=default_index,
         key=UIKeys.MODEL_SELECT,
+        width="stretch",
     )
 
     selected_value = next(value for value, label in option_entries if label == selection)
