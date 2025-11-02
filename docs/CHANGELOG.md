@@ -12,6 +12,8 @@
   Warnungen wegen nicht unterstützter Parameter mehr ausgeben.
 - **EN:** Added a dedicated "Q&A" wizard step that surfaces generated follow-up questions right after extraction, complete with interactive input widgets to capture SME responses inline.
   **DE:** Einen eigenen "Q&A"-Wizard-Schritt ergänzt, der die generierten Anschlussfragen direkt nach der Extraktion bündelt und mit interaktiven Eingabefeldern für unmittelbares Eintragen der SME-Antworten versieht.
+- **EN:** Hardened benefit suggestions by cascading through the legacy Chat backend before falling back to the static shortlist when Responses output is missing or malformed.
+  **DE:** Benefit-Vorschläge robuster gemacht, indem vor der statischen Shortlist zuerst der Legacy-Chat-Backend-Aufruf versucht wird, falls die Responses-Antwort fehlt oder fehlerhaft ist.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the
