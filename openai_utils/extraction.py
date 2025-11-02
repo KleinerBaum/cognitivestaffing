@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import textwrap
-import copy
 import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
@@ -86,6 +86,25 @@ def _llm_is_available() -> bool:
     except Exception:  # pragma: no cover - defensive fallback during tests
         api_key = ""
     return bool(api_key)
+
+
+def _guard_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``schema`` with ``additionalProperties`` disabled for all objects."""
+
+    guarded = copy.deepcopy(dict(schema))
+
+    def _enforce(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "object" or "properties" in node or "patternProperties" in node:
+                node["additionalProperties"] = False
+            for value in node.values():
+                _enforce(value)
+        elif isinstance(node, list):
+            for item in node:
+                _enforce(item)
+
+    _enforce(guarded)
+    return guarded
 
 
 def _log_llm_disabled(operation: str) -> None:
@@ -1686,7 +1705,7 @@ def generate_interview_guide(
 
     try:
         messages = _build_interview_guide_prompt(payload)
-        schema = InterviewGuide.model_json_schema()
+        schema = _guard_json_schema(InterviewGuide.model_json_schema())
         response = api.call_chat_api(
             messages,
             model=model,
