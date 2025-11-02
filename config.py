@@ -676,6 +676,12 @@ def _get_reasoning_mode() -> str:
     return "precise"
 
 
+def get_reasoning_mode() -> str:
+    """Public helper exposing the active reasoning mode."""
+
+    return _get_reasoning_mode()
+
+
 def _prefer_lightweight(task_key: str) -> bool:
     """Return ``True`` when ``task_key`` should favour lightweight models."""
 

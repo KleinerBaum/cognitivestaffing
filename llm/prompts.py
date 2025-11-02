@@ -16,6 +16,53 @@ from utils.i18n import tr
 # Export schema order for prompt rendering
 FIELDS_ORDER: list[str] = ALL_FIELDS
 
+_QUICK_FIELD_NAMES: set[str] = {
+    "company.name",
+    "company.brand_name",
+    "company.industry",
+    "company.size",
+    "company.website",
+    "company.contact_name",
+    "company.contact_email",
+    "company.contact_phone",
+    "location.primary_city",
+    "location.country",
+    "position.job_title",
+    "position.role_summary",
+    "position.seniority_level",
+    "position.reporting_manager_name",
+    "responsibilities.items",
+    "requirements.hard_skills_required",
+    "requirements.hard_skills_optional",
+    "requirements.soft_skills_required",
+    "requirements.soft_skills_optional",
+    "requirements.tools_and_technologies",
+    "requirements.languages_required",
+    "requirements.languages_optional",
+    "requirements.certificates",
+    "requirements.certifications",
+    "employment.job_type",
+    "employment.contract_type",
+    "employment.work_policy",
+    "employment.remote_percentage",
+    "compensation.salary_provided",
+    "compensation.salary_min",
+    "compensation.salary_max",
+    "compensation.currency",
+    "compensation.variable_pay",
+    "compensation.bonus_percentage",
+    "compensation.benefits",
+    "process.hiring_manager_name",
+    "process.hiring_manager_role",
+    "process.process_notes",
+    "meta.target_start_date",
+    "meta.application_deadline",
+}
+
+FIELDS_ORDER_QUICK: list[str] = [field for field in FIELDS_ORDER if field in _QUICK_FIELD_NAMES]
+if not FIELDS_ORDER_QUICK:
+    FIELDS_ORDER_QUICK = FIELDS_ORDER.copy()
+
 
 @dataclass(slots=True)
 class PreExtractionInsights:
@@ -35,9 +82,11 @@ class PreExtractionInsights:
         )
 
 
-def render_field_bullets() -> str:
+def render_field_bullets(fields: Sequence[str] | None = None) -> str:
     """Return fields as a bullet list in schema order."""
-    return "\n".join(f"- {field}" for field in FIELDS_ORDER)
+
+    order = list(fields) if fields is not None else FIELDS_ORDER
+    return "\n".join(f"- {field}" for field in order)
 
 
 # ----------------------------------------------------------------------------

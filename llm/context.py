@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from config import get_reasoning_mode
 from prompts import prompt_registry
 from .prompts import (
     FIELDS_ORDER,
+    FIELDS_ORDER_QUICK,
     SYSTEM_JSON_EXTRACTOR,
     build_user_json_extract_prompt,
     render_field_bullets,
@@ -50,13 +52,15 @@ def build_extract_messages(
         extras["url"] = url
 
     truncated = truncate_smart(text or "", MAX_CHAR_BUDGET)
+    reasoning_mode = get_reasoning_mode()
+    field_order = FIELDS_ORDER_QUICK if reasoning_mode == "quick" else FIELDS_ORDER
     locked_mapping: Mapping[str, str] | None = locked_fields
     if locked_mapping:
-        filtered_fields = [field for field in FIELDS_ORDER if not locked_mapping.get(field)]
+        filtered_fields = [field for field in field_order if not locked_mapping.get(field)]
         if not filtered_fields:
-            filtered_fields = FIELDS_ORDER
+            filtered_fields = field_order
     else:
-        filtered_fields = FIELDS_ORDER
+        filtered_fields = field_order
 
     user_prompt = build_user_json_extract_prompt(
         filtered_fields,
@@ -104,10 +108,11 @@ def build_preanalysis_messages(
     extras_lines = [f"{key.capitalize()}: {value}" for key, value in extras.items() if value]
     extras_block = "\n".join(extras_lines)
     truncated = truncate_smart(text or "", MAX_CHAR_BUDGET)
+    field_order = FIELDS_ORDER_QUICK if get_reasoning_mode() == "quick" else FIELDS_ORDER
 
     user_content = PRE_ANALYSIS_USER_TEMPLATE.format(
         extras_block=f"{extras_block}\n\n" if extras_block else "",
-        field_reference=render_field_bullets(),
+        field_reference=render_field_bullets(field_order),
         text=truncated,
     )
 
