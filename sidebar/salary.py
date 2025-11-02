@@ -87,6 +87,10 @@ class _SalaryInputs:
     languages_required: list[str]
     languages_optional: list[str]
     language_level_english: str | None
+    core_responsibilities: list[str]
+    must_have_requirements: list[str]
+    nice_to_have_requirements: list[str]
+    tools_tech_certificates: list[str]
 
 
 @dataclass(slots=True)
@@ -121,6 +125,12 @@ _FACTOR_LABELS: dict[str, tuple[str, str]] = {
     "salary_max": ("Oberes Benchmark-Ende", "Benchmark upper bound"),
     "summary": ("Zusammenfassung", "Summary"),
     "adjustments": ("Angewandte Anpassungen", "Applied adjustments"),
+    "core_responsibilities": ("Kernaufgaben", "Core responsibilities"),
+    "must_have_requirements": ("Muss-Anforderungen", "Must-have requirements"),
+    "nice_to_have_requirements": ("Nice-to-have-Kriterien", "Nice-to-have requirements"),
+    "tools_tech_certificates": ("Tools, Tech & Zertifikate", "Tools, tech & certificates"),
+    "languages_required": ("Pflichtsprachen", "Required languages"),
+    "languages_optional": ("Zusätzliche Sprachen", "Optional languages"),
 }
 
 
@@ -684,6 +694,7 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
     company = profile.get("company", {}) if isinstance(profile, Mapping) else {}
     compensation = profile.get("compensation", {}) if isinstance(profile, Mapping) else {}
     requirements = profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
+    responsibilities = profile.get("responsibilities", {}) if isinstance(profile, Mapping) else {}
 
     def _as_float(value: Any) -> float | None:
         try:
@@ -705,10 +716,32 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
             return result
         return []
 
+    def _merge_unique(*iterables: Iterable[str]) -> list[str]:
+        merged: list[str] = []
+        seen: set[str] = set()
+        for iterable in iterables:
+            for item in iterable:
+                marker = item.casefold()
+                if marker in seen:
+                    continue
+                seen.add(marker)
+                merged.append(item)
+        return merged
+
     country_raw = str(location.get("country") or "").strip()
     primary_city = str(location.get("primary_city") or "").strip() or None
     hq_location = str(company.get("hq_location") or "").strip() or None
     inferred_country = country_raw or _derive_country_from_locations(primary_city, hq_location) or ""
+
+    required_hard = _as_str_list(requirements.get("hard_skills_required"))
+    required_soft = _as_str_list(requirements.get("soft_skills_required"))
+    optional_hard = _as_str_list(requirements.get("hard_skills_optional"))
+    optional_soft = _as_str_list(requirements.get("soft_skills_optional"))
+    tools = _as_str_list(requirements.get("tools_and_technologies"))
+    certificates = _as_str_list(requirements.get("certificates") or requirements.get("certifications"))
+    languages_required = _as_str_list(requirements.get("languages_required"))
+    languages_optional = _as_str_list(requirements.get("languages_optional"))
+    responsibility_items = _as_str_list(responsibilities.get("items"))
 
     return _SalaryInputs(
         job_title=str(position.get("job_title") or "").strip(),
@@ -723,15 +756,19 @@ def _collect_inputs(profile: Mapping[str, Any]) -> _SalaryInputs:
         current_min=_as_float(compensation.get("salary_min")),
         current_max=_as_float(compensation.get("salary_max")),
         current_currency=str(compensation.get("currency") or "").strip() or None,
-        required_hard_skills=_as_str_list(requirements.get("hard_skills_required")),
-        required_soft_skills=_as_str_list(requirements.get("soft_skills_required")),
-        hard_skills_optional=_as_str_list(requirements.get("hard_skills_optional")),
-        soft_skills_optional=_as_str_list(requirements.get("soft_skills_optional")),
-        tools_and_technologies=_as_str_list(requirements.get("tools_and_technologies")),
-        certificates=_as_str_list(requirements.get("certificates") or requirements.get("certifications")),
-        languages_required=_as_str_list(requirements.get("languages_required")),
-        languages_optional=_as_str_list(requirements.get("languages_optional")),
+        required_hard_skills=required_hard,
+        required_soft_skills=required_soft,
+        hard_skills_optional=optional_hard,
+        soft_skills_optional=optional_soft,
+        tools_and_technologies=tools,
+        certificates=certificates,
+        languages_required=languages_required,
+        languages_optional=languages_optional,
         language_level_english=(str(requirements.get("language_level_english") or "").strip() or None),
+        core_responsibilities=responsibility_items,
+        must_have_requirements=_merge_unique(required_hard, required_soft),
+        nice_to_have_requirements=_merge_unique(optional_hard, optional_soft),
+        tools_tech_certificates=_merge_unique(tools, certificates),
     )
 
 
@@ -857,20 +894,13 @@ def _call_salary_model(
         raise RuntimeError("OpenAI client is unavailable")
     payload = {
         "job_title": inputs.job_title,
-        "country": inputs.country,
-        "primary_city": inputs.primary_city,
-        "seniority": inputs.seniority,
-        "work_policy": inputs.work_policy,
-        "employment_type": inputs.employment_type,
-        "company_size": inputs.company_size,
         "industry": inputs.industry,
-        "current_salary_min": inputs.current_min,
-        "current_salary_max": inputs.current_max,
-        "current_currency": inputs.current_currency,
-        "required_hard_skills": inputs.required_hard_skills,
-        "required_soft_skills": inputs.required_soft_skills,
-        "hard_skills_optional": inputs.hard_skills_optional,
-        "soft_skills_optional": inputs.soft_skills_optional,
+        "country": inputs.country,
+        "city": inputs.primary_city or inputs.hq_location,
+        "core_responsibilities": inputs.core_responsibilities,
+        "must_have_requirements": inputs.must_have_requirements,
+        "nice_to_have_requirements": inputs.nice_to_have_requirements,
+        "tools_tech_certificates": inputs.tools_tech_certificates,
         "tools_and_technologies": inputs.tools_and_technologies,
         "certificates": inputs.certificates,
         "languages_required": inputs.languages_required,
@@ -923,65 +953,45 @@ def _call_salary_model(
 
 
 _FALLBACK_ADJUSTMENT_RULES: dict[str, dict[str, Any]] = {
-    "required_hard_skills": {
-        "attribute": "required_hard_skills",
-        "label_de": "Pflicht-Hard-Skills",
-        "label_en": "Required hard skills",
-        "per_item": 0.02,
-        "max": 0.1,
+    "core_responsibilities": {
+        "attribute": "core_responsibilities",
+        "label_de": "Kernaufgaben",
+        "label_en": "Core responsibilities",
+        "per_item": 0.0075,
+        "max": 0.045,
         "offset": 0,
-        "description_de": "+2 % je Muss-Kriterium (max. +10 %)",
-        "description_en": "+2% per mandatory requirement (max. +10%)",
+        "description_de": "+0,75 % je Kernaufgabe (max. +4,5 %)",
+        "description_en": "+0.75% per core responsibility (max. +4.5%)",
     },
-    "required_soft_skills": {
-        "attribute": "required_soft_skills",
-        "label_de": "Pflicht-Soft-Skills",
-        "label_en": "Required soft skills",
-        "per_item": 0.01,
-        "max": 0.05,
+    "must_have_requirements": {
+        "attribute": "must_have_requirements",
+        "label_de": "Muss-Anforderungen",
+        "label_en": "Must-have requirements",
+        "per_item": 0.015,
+        "max": 0.12,
         "offset": 0,
-        "description_de": "+1 % je Muss-Kriterium (max. +5 %)",
-        "description_en": "+1% per mandatory requirement (max. +5%)",
+        "description_de": "+1,5 % je Muss-Anforderung (max. +12 %)",
+        "description_en": "+1.5% per must-have requirement (max. +12%)",
     },
-    "hard_skills_optional": {
-        "attribute": "hard_skills_optional",
-        "label_de": "Optionale Hard-Skills",
-        "label_en": "Optional hard skills",
+    "nice_to_have_requirements": {
+        "attribute": "nice_to_have_requirements",
+        "label_de": "Nice-to-have-Kriterien",
+        "label_en": "Nice-to-have requirements",
         "per_item": 0.0075,
         "max": 0.03,
         "offset": 0,
         "description_de": "+0,75 % je Nice-to-have (max. +3 %)",
         "description_en": "+0.75% per nice-to-have (max. +3%)",
     },
-    "soft_skills_optional": {
-        "attribute": "soft_skills_optional",
-        "label_de": "Optionale Soft-Skills",
-        "label_en": "Optional soft skills",
-        "per_item": 0.005,
-        "max": 0.02,
-        "offset": 0,
-        "description_de": "+0,5 % je Nice-to-have (max. +2 %)",
-        "description_en": "+0.5% per nice-to-have (max. +2%)",
-    },
-    "tools_and_technologies": {
-        "attribute": "tools_and_technologies",
-        "label_de": "Tools & Technologien",
-        "label_en": "Tools & technologies",
-        "per_item": 0.015,
-        "max": 0.075,
-        "offset": 0,
-        "description_de": "+1,5 % je relevantes Tool (max. +7,5 %)",
-        "description_en": "+1.5% per relevant tool (max. +7.5%)",
-    },
-    "certificates": {
-        "attribute": "certificates",
-        "label_de": "Zertifikate",
-        "label_en": "Certificates",
-        "per_item": 0.03,
+    "tools_tech_certificates": {
+        "attribute": "tools_tech_certificates",
+        "label_de": "Tools, Tech & Zertifikate",
+        "label_en": "Tools, tech & certificates",
+        "per_item": 0.02,
         "max": 0.12,
         "offset": 0,
-        "description_de": "+3 % je Pflichtzertifikat (max. +12 %)",
-        "description_en": "+3% per required certificate (max. +12%)",
+        "description_de": "+2 % je Tool/Zertifikat (max. +12 %)",
+        "description_en": "+2% per tool or certificate (max. +12%)",
     },
     "languages_required": {
         "attribute": "languages_required",
@@ -991,7 +1001,7 @@ _FALLBACK_ADJUSTMENT_RULES: dict[str, dict[str, Any]] = {
         "max": 0.06,
         "offset": 1,
         "description_de": "+1,5 % je weitere Sprache über die erste hinaus (max. +6 %)",
-        "description_en": "+1.5% per additional language beyond the first (max. +6%)",
+        "description_en": "+1.5% per additional required language beyond the first (max. +6%)",
     },
     "languages_optional": {
         "attribute": "languages_optional",

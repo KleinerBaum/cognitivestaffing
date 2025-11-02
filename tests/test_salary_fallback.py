@@ -195,6 +195,10 @@ def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
         languages_required=["English"],
         languages_optional=["German"],
         language_level_english="C1",
+        core_responsibilities=["Own the roadmap"],
+        must_have_requirements=["Roadmapping", "Communication"],
+        nice_to_have_requirements=["SQL", "Coaching"],
+        tools_tech_certificates=["Jira", "PMP"],
     )
 
     result, explanation = salary._call_salary_model(inputs)
@@ -206,13 +210,15 @@ def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
     assert isinstance(messages, list) and len(messages) >= 2
     payload = json.loads(messages[1]["content"])
 
-    assert payload["primary_city"] == "Berlin"
-    assert payload["required_hard_skills"] == ["Roadmapping"]
-    assert payload["required_soft_skills"] == ["Communication"]
-    assert payload["hard_skills_optional"] == ["SQL"]
-    assert payload["soft_skills_optional"] == ["Coaching"]
+    assert payload["country"] == "Germany"
+    assert payload["city"] == "Berlin"
+    assert payload["core_responsibilities"] == ["Own the roadmap"]
+    assert payload["must_have_requirements"] == ["Roadmapping", "Communication"]
+    assert payload["nice_to_have_requirements"] == ["SQL", "Coaching"]
+    assert payload["tools_tech_certificates"] == ["Jira", "PMP"]
     assert payload["tools_and_technologies"] == ["Jira"]
     assert payload["certificates"] == ["PMP"]
     assert payload["languages_required"] == ["English"]
     assert payload["languages_optional"] == ["German"]
     assert payload["language_level_english"] == "C1"
+    assert "company_size" not in payload

@@ -175,6 +175,8 @@
 
 ## What's new in v1.1.0 / Neu in v1.1.0
 
+- **EN:** Salary estimates now key off the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and the provided city hint, and the default Streamlit navigation no longer shows the redundant overview entry.
+  **DE:** Gehaltsschätzungen orientieren sich jetzt an Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikaten, Sprachvorgaben, Branche sowie der angegebenen Stadt; die Standard-Navigation von Streamlit blendet den überflüssigen Überblick-Eintrag aus.
 - **EN:** Streamlined the sidebar: navigation links are gone, language and dark-mode switches sit beneath each other with flag icons, and salary estimates now launch automatically once job title plus a location hint are present, listing required fields, summarising the top five drivers in a single sentence, and surfacing the raw calculation details.
   **DE:** Sidebar verschlankt: Navigations-Links entfernt, Sprach- und Dark-Mode-Umschalter stehen untereinander mit Flaggen-Icons, und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen – inklusive Pflichtfeldliste, Ein-Satz-Zusammenfassung der fünf wichtigsten Faktoren und sichtbarer Berechnungsdetails.
 - **EN:** Normalise wizard widget defaults via `_ensure_widget_state()` so text inputs and list editors seed before rendering, avoiding Streamlit "Cannot set widget" errors on reruns.

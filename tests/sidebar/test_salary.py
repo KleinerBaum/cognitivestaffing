@@ -67,7 +67,15 @@ def test_fallback_salary_applies_adjustments(monkeypatch) -> None:
     result, explanation = salary._fallback_salary(inputs)
 
     assert result is not None
-    assert result["salary_min"] == 47200.0
-    assert result["salary_max"] == 59000.0
-    assert "Zertifikate" in explanation
-    assert "Englischniveau" in explanation
+    assert result["salary_min"] == 47100.0
+    assert result["salary_max"] == 58875.0
+    assert any(
+        "Zertifikat" in str(entry.get("value", ""))
+        for entry in explanation
+        if isinstance(entry, dict)
+    )
+    assert any(
+        "Englischniveau" in str(entry.get("value", ""))
+        for entry in explanation
+        if isinstance(entry, dict)
+    )

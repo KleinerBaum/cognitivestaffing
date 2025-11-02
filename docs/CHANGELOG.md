@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
+  **DE:** Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
 - **EN:** Replaced every `use_container_width` flag with the new
   `width` argument across Streamlit widgets to remove the 2025
   deprecation warning while keeping the stretch layout intact.

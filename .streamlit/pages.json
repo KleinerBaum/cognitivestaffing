@@ -1,0 +1,59 @@
+{
+  "pages": [
+    {
+      "path": "app.py",
+      "name": "Cognitive Staffing",
+      "icon": "🧠"
+    },
+    {
+      "path": "pages/01_jobad.py",
+      "name": "Job ad",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/02_company.py",
+      "name": "Company",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/03_team.py",
+      "name": "Team",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/04_role_tasks.py",
+      "name": "Role tasks",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/05_skills.py",
+      "name": "Skills",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/06_benefits.py",
+      "name": "Benefits",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/07_interview.py",
+      "name": "Interview",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/08_summary.py",
+      "name": "Summary",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/base.py",
+      "name": "Base",
+      "is_hidden": true
+    },
+    {
+      "path": "pages/followups.py",
+      "name": "Follow-ups",
+      "is_hidden": true
+    }
+  ]
+}
