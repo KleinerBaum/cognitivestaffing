@@ -1349,6 +1349,7 @@ class ChatStream(Iterable[str]):
 
     def _consume(self) -> Iterator[str]:
         client = get_client()
+        final_response: Any | None = None
         try:
             if USE_CLASSIC_API:
                 with client.chat.completions.stream(**self._payload) as stream:
@@ -1369,6 +1370,8 @@ class ChatStream(Iterable[str]):
         except (OpenAIError, RuntimeError) as error:
             _handle_streaming_error(error)
         else:
+            if final_response is None:
+                raise RuntimeError("Streaming finished without a final response payload")
             self._finalise(final_response)
 
     def _finalise(self, response: Any) -> None:
