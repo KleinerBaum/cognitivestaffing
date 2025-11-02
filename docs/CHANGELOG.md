@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **EN:** Renamed all OpenAI helper parameters from `max_tokens` to
+  `max_completion_tokens` so every Responses and Chat call uses the
+  official field name and avoids unsupported-parameter warnings on the
+  latest models.
+  **DE:** Sämtliche OpenAI-Helfer von `max_tokens` auf
+  `max_completion_tokens` umgestellt, damit alle Responses- und
+  Chat-Aufrufe den offiziellen Feldnamen nutzen und neue Modelle keine
+  Warnungen wegen nicht unterstützter Parameter mehr ausgeben.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the
