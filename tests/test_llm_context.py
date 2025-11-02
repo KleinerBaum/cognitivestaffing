@@ -3,7 +3,7 @@ from llm.context import (
     build_preanalysis_messages,
     MAX_CHAR_BUDGET,
 )
-from llm.prompts import PreExtractionInsights, SYSTEM_JSON_EXTRACTOR
+from llm.prompts import FIELDS_ORDER_QUICK, PreExtractionInsights, SYSTEM_JSON_EXTRACTOR
 from nlp.prepare_text import truncate_smart
 
 
@@ -100,3 +100,21 @@ def test_build_preanalysis_messages_include_extras():
     assert "Title: Engineer" in user
     assert "Company: Acme" in user
     assert "Schema reference" in user
+
+
+def test_quick_mode_uses_reduced_field_list(monkeypatch):
+    monkeypatch.setattr("llm.context.get_reasoning_mode", lambda: "quick")
+    msgs = build_extract_messages("body")
+    user = msgs[1]["content"]
+    assert "- position.job_title" in user
+    assert "- process.onboarding_process" not in user
+    # ensure we still mention at least one quick field
+    assert any(field in user for field in (f"- {name}" for name in FIELDS_ORDER_QUICK))
+
+
+def test_quick_mode_shortens_preanalysis_reference(monkeypatch):
+    monkeypatch.setattr("llm.context.get_reasoning_mode", lambda: "quick")
+    msgs = build_preanalysis_messages("body")
+    user = msgs[1]["content"]
+    assert "- position.job_title" in user
+    assert "- process.onboarding_process" not in user
