@@ -1062,28 +1062,9 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     return NeedAnalysisProfile.model_validate(normalized_payload)
 
 
-def coerce_and_fill_wizard(data: Mapping[str, Any] | None) -> RecruitingWizard:
-    """Validate ``data`` against the RecruitingWizard schema."""
-
-    payload = canonicalize_wizard_payload(data)
-    return RecruitingWizard.model_validate(payload)
-
-
 def process_extracted_profile(raw_profile: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """Convert a raw extraction payload into a normalised profile."""
 
     return coerce_and_fill(raw_profile)
 
 
-# Backwards compatibility helpers -------------------------------------------------
-
-
-def active_canonical_keys() -> tuple[str, ...]:
-    """Return the canonical field paths for the NeedAnalysis schema."""
-
-    return KEYS_CANONICAL
-
-
-# Backwards compatibility aliases
-CognitiveNeedsProfile = NeedAnalysisProfile
-CognitiveNeedsJD = NeedAnalysisProfile  # pragma: no cover - legacy alias

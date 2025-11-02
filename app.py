@@ -103,7 +103,6 @@ if MODEL_ID and "router.resolved_model" not in st.session_state:
     st.session_state["router.resolved_model"] = MODEL_ID
 
 wizard_state = st.session_state.setdefault("wizard", {})
-wizard_state.setdefault("feature", "step_order")
 
 if st.session_state.get("openai_api_key_missing"):
     st.warning(
