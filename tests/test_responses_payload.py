@@ -93,6 +93,29 @@ def test_schema_guard_triggers_fallback(monkeypatch: pytest.MonkeyPatch, _patch_
     assert dispatched is False
 
 
+def test_schema_guard_requires_name(monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient) -> None:
+    """Schemas must include a non-empty name to pass validation."""
+
+    fmt: Mapping[str, Any] = {"json_schema": {"schema": {"type": "object"}}}
+
+    dispatched = False
+
+    def _fail_create(**_: Any) -> None:  # pragma: no cover - guard ensures no call
+        nonlocal dispatched
+        dispatched = True
+
+    monkeypatch.setattr(_patch_client, "create", _fail_create)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+    )
+
+    assert result is None
+    assert dispatched is False
+
+
 def test_temperature_omitted_when_unsupported(
     monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient
 ) -> None:

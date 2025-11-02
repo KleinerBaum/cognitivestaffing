@@ -122,6 +122,13 @@ def call_responses(
     if not isinstance(schema_payload, Mapping):
         raise TypeError("response_format['json_schema']['schema'] must be a mapping payload.")
 
+    schema_name = json_schema_payload.get("name")
+    if not isinstance(schema_name, str) or not schema_name.strip():
+        raise ResponsesSchemaError(
+            "Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]"
+        )
+    schema_name = schema_name.strip()
+
     payload: dict[str, Any] = {
         "model": model,
         "input": _prepare_messages(messages),
@@ -132,7 +139,7 @@ def call_responses(
     text_payload.pop("type", None)
     format_payload: dict[str, Any] = {
         "type": response_format.get("type", "json_schema"),
-        "name": json_schema_payload.get("name"),
+        "name": schema_name,
         "schema": deepcopy(dict(schema_payload)),
     }
     if "strict" in json_schema_payload:
