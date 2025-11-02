@@ -4302,8 +4302,13 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         format="YYYY-MM-DD",
         key=str(ProfilePaths.META_TARGET_START_DATE),
     )
-    meta["target_start_date"] = target_start.isoformat() if isinstance(target_start, date) else ""
-    _update_profile(ProfilePaths.META_TARGET_START_DATE, meta.get("target_start_date"))
+    target_start_iso = target_start.isoformat() if isinstance(target_start, date) else ""
+    meta["target_start_date"] = target_start_iso
+    _update_profile(
+        ProfilePaths.META_TARGET_START_DATE,
+        target_start_iso,
+        session_value=target_start,
+    )
 
     application_deadline = schedule_cols[1].date_input(
         tr("Bewerbungsschluss", "Application deadline"),
@@ -4311,8 +4316,13 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         format="YYYY-MM-DD",
         key=str(ProfilePaths.META_APPLICATION_DEADLINE),
     )
-    meta["application_deadline"] = application_deadline.isoformat() if isinstance(application_deadline, date) else ""
-    _update_profile(ProfilePaths.META_APPLICATION_DEADLINE, meta.get("application_deadline"))
+    application_deadline_iso = application_deadline.isoformat() if isinstance(application_deadline, date) else ""
+    meta["application_deadline"] = application_deadline_iso
+    _update_profile(
+        ProfilePaths.META_APPLICATION_DEADLINE,
+        application_deadline_iso,
+        session_value=application_deadline,
+    )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
