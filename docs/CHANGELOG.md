@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **EN:** Closed the Interview Guide Responses schema by enforcing
+  `additionalProperties: false` on every object level and adding a
+  regression test so OpenAI no longer rejects the format.
+  **DE:** Das Interview-Guide-Responses-Schema abgedichtet, indem
+  `additionalProperties: false` auf allen Objekt-Ebenen erzwungen und
+  ein Regressionstest ergänzt wurde, sodass OpenAI das Format wieder
+  akzeptiert.
 - **EN:** Renamed all OpenAI helper parameters from `max_tokens` to
   `max_completion_tokens` so every Responses and Chat call uses the
   official field name and avoids unsupported-parameter warnings on the
