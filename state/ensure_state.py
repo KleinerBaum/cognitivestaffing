@@ -254,6 +254,18 @@ def ensure_state() -> None:
     else:
         effort = st.session_state.get("reasoning_effort")
         st.session_state["reasoning_effort"] = effort if isinstance(effort, str) else REASONING_EFFORT
+
+    preferred_mode = "precise" if REASONING_EFFORT not in {"minimal", "low"} else "quick"
+    if StateKeys.REASONING_MODE not in st.session_state:
+        st.session_state[StateKeys.REASONING_MODE] = preferred_mode
+    else:
+        raw_mode = st.session_state.get(StateKeys.REASONING_MODE)
+        if isinstance(raw_mode, str):
+            normalised_mode = raw_mode.strip().lower()
+            if normalised_mode not in {"quick", "precise"}:
+                st.session_state[StateKeys.REASONING_MODE] = preferred_mode
+        else:
+            st.session_state[StateKeys.REASONING_MODE] = preferred_mode
     if "verbosity" not in st.session_state:
         st.session_state["verbosity"] = VERBOSITY
     else:

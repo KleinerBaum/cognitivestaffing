@@ -20,7 +20,7 @@ import warnings
 
 import streamlit as st
 from enum import StrEnum
-from typing import Dict, Mapping
+from typing import Dict, Mapping, Sequence
 
 from llm.model_router import ALIASES as ROUTER_ALIASES
 
@@ -570,6 +570,19 @@ for key, value in list(MODEL_ROUTING.items()):
     MODEL_ROUTING[key] = normalise_model_name(value) or value
 
 
+_PRECISION_TASKS: frozenset[str] = frozenset(
+    {
+        ModelTask.JOB_AD.value,
+        ModelTask.INTERVIEW_GUIDE.value,
+        ModelTask.PROFILE_SUMMARY.value,
+        ModelTask.CANDIDATE_MATCHING.value,
+        ModelTask.DOCUMENT_REFINEMENT.value,
+        ModelTask.RAG_SUGGESTIONS.value,
+        "reasoning",
+    }
+)
+
+
 MODEL_FALLBACKS: Dict[str, list[str]] = {
     _canonical_model_name(GPT41_MINI): [
         GPT41_MINI,
@@ -628,6 +641,48 @@ MODEL_FALLBACKS: Dict[str, list[str]] = {
         GPT35,
     ],
 }
+
+
+def _merge_chains(primary: Sequence[str], secondary: Sequence[str]) -> list[str]:
+    """Return ``primary`` + ``secondary`` with duplicates removed preserving order."""
+
+    merged: list[str] = []
+    for chain in (primary, secondary):
+        for item in chain:
+            if item and item not in merged:
+                merged.append(item)
+    return merged
+
+
+def _get_reasoning_mode() -> str:
+    """Return the active reasoning mode (``quick`` or ``precise``)."""
+
+    try:
+        raw_mode = st.session_state.get("reasoning_mode")
+    except Exception:  # pragma: no cover - Streamlit session not initialised
+        raw_mode = None
+    if isinstance(raw_mode, str):
+        mode_value = raw_mode.strip().lower()
+        if mode_value in {"quick", "fast", "schnell"}:
+            return "quick"
+        if mode_value in {"precise", "precision", "genau", "präzise"}:
+            return "precise"
+    try:
+        effort_value = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+    except Exception:  # pragma: no cover - Streamlit session not initialised
+        effort_value = REASONING_EFFORT
+    if isinstance(effort_value, str) and effort_value.strip().lower() in {"minimal", "low"}:
+        return "quick"
+    return "precise"
+
+
+def _prefer_lightweight(task_key: str) -> bool:
+    """Return ``True`` when ``task_key`` should favour lightweight models."""
+
+    key = task_key.strip().lower()
+    if not key or key in {"embedding", "reasoning"}:
+        return False
+    return key not in _PRECISION_TASKS
 
 
 def _build_task_fallbacks() -> Dict[str, list[str]]:
@@ -760,6 +815,11 @@ def _collect_candidate_models(task: ModelTask | str, override: str | None) -> li
 
     candidates: list[str] = []
 
+    if isinstance(task, ModelTask):
+        task_key = task.value
+    else:
+        task_key = str(task).strip().lower()
+
     def _extend_with_model_chain(model_name: str) -> None:
         canonical = _canonical_model_name(model_name)
         if not canonical:
@@ -782,7 +842,21 @@ def _collect_candidate_models(task: ModelTask | str, override: str | None) -> li
         if override_name and override_name not in candidates:
             candidates.append(override_name)
             _extend_with_model_chain(override_name)
-    for candidate in get_model_fallbacks_for(task):
+    fallback_chain = get_model_fallbacks_for(task)
+    mode = _get_reasoning_mode()
+    if mode == "quick" and _prefer_lightweight(task_key):
+        lightweight_chain = MODEL_FALLBACKS.get(
+            _canonical_model_name(LIGHTWEIGHT_MODEL),
+            [LIGHTWEIGHT_MODEL],
+        )
+        fallback_chain = _merge_chains(lightweight_chain, fallback_chain)
+    elif mode == "precise" and task_key not in {"embedding", "non_reasoning"}:
+        reasoning_chain = MODEL_FALLBACKS.get(
+            _canonical_model_name(REASONING_MODEL),
+            [REASONING_MODEL],
+        )
+        fallback_chain = _merge_chains(reasoning_chain, fallback_chain)
+    for candidate in fallback_chain:
         if candidate and candidate not in candidates:
             candidates.append(candidate)
     return candidates

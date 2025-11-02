@@ -9,6 +9,8 @@
   `width`-Argument der Streamlit-Widgets umgestellt, damit die
   angekündigte Deprecation-Warnung für 2025 entfällt und das
   Stretch-Layout erhalten bleibt.
+- **EN:** Added a Quick vs Precise toggle in the settings sidebar that maps to `gpt-4.1-mini`/minimal reasoning or `o4-mini`/high reasoning, reuses cached structured extractions, and parallelises vector-store lookups for faster responses.
+  **DE:** Einen Schnell-/Präzisionsmodus in der Seitenleiste ergänzt, der zwischen `gpt-4.1-mini` mit minimalem Denkaufwand und `o4-mini` mit hohem Denkaufwand umschaltet, strukturierte Extraktionen cached und Vector-Store-Abfragen parallelisiert.
 - **EN:** Closed the Interview Guide Responses schema by enforcing
   `additionalProperties: false` on every object level and adding a
   regression test so OpenAI no longer rejects the format.
