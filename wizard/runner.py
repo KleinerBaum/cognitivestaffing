@@ -9585,15 +9585,16 @@ def _summary_position() -> None:
         value=team_data.get("reporting_line", data["position"].get("reporting_line", "")),
         key=ProfilePaths.TEAM_REPORTING_LINE,
     )
-    reporting_manager_summary_key = "ui.summary.position.reporting_manager_name"
-    reporting_manager_contact_key = f"{reporting_manager_summary_key}:contact"
+    reporting_manager_summary_key = UIKeys.SUMMARY_POSITION_REPORTING_MANAGER_NAME
+    reporting_manager_contact_key = UIKeys.CONTACT_POSITION_REPORTING_MANAGER_NAME
+    default_reporting_manager: str = data["position"].get("reporting_manager_name", "")
 
     def _sync_reporting_manager_to_contact() -> None:
         """Keep the contact widget aligned with the summary value."""
 
         st.session_state[reporting_manager_contact_key] = st.session_state.get(
             reporting_manager_summary_key,
-            "",
+            default_reporting_manager,
         )
 
     def _sync_reporting_manager_to_summary() -> None:
@@ -9601,12 +9602,12 @@ def _summary_position() -> None:
 
         st.session_state[reporting_manager_summary_key] = st.session_state.get(
             reporting_manager_contact_key,
-            "",
+            default_reporting_manager,
         )
 
     reporting_manager = reporting_cols[1].text_input(
         tr("Vorgesetzte Person", "Reporting manager"),
-        value=data["position"].get("reporting_manager_name", ""),
+        value=default_reporting_manager,
         key=reporting_manager_summary_key,
         on_change=_sync_reporting_manager_to_contact,
     )

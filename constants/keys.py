@@ -54,6 +54,12 @@ class UIKeys:
     JOB_AD_BRAND_TONE = "ui.summary.job_ad.brand_keywords"
     JOB_AD_BRAND_TONE_INPUT = "ui.summary.job_ad.brand_keywords.input"
     JOB_AD_BRAND_TONE_SYNC_FLAG = "ui.summary.job_ad.brand_keywords.sync"
+    SUMMARY_POSITION_REPORTING_MANAGER_NAME = (
+        "ui.summary.position.reporting_manager_name"
+    )
+    CONTACT_POSITION_REPORTING_MANAGER_NAME = (
+        "ui.contact.position.reporting_manager_name"
+    )
 
 
 class ProfilePaths(StrEnum):
