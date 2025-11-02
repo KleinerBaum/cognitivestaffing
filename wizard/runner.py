@@ -10515,7 +10515,7 @@ def _render_salary_insights(
             )
 
         if figure is not None:
-            st.plotly_chart(figure, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(figure, width="stretch", config={"displayModeBar": False})
         else:
             st.info(
                 tr(
