@@ -395,7 +395,7 @@ def test_prepare_payload_classic_mode(monkeypatch):
         [{"role": "user", "content": "hello"}],
         model="gpt-4o-mini",
         temperature=0.4,
-        max_tokens=256,
+        max_completion_tokens=256,
         json_schema={"name": "Test", "schema": {"type": "object"}},
         tools=[{"type": "function", "function": {"name": "do", "parameters": {"type": "object"}}}],
         tool_choice={"type": "function", "function": {"name": "do"}},
@@ -410,7 +410,7 @@ def test_prepare_payload_classic_mode(monkeypatch):
     assert "functions" in payload and payload["functions"][0]["name"] == "do"
     assert payload.get("function_call", {}).get("name") == "do"
     assert "metadata" not in payload
-    assert payload.get("max_tokens") == 256
+    assert payload.get("max_completion_tokens") == 256
     assert "tool_choice" not in payload
     assert tools and tools[0]["function"]["name"] == "do"
     assert "input" not in payload
@@ -768,7 +768,7 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
         *,
         model: str | None = None,
         temperature: float | None = 0.2,
-        max_tokens: int | None = None,
+        max_completion_tokens: int | None = None,
         json_schema: Mapping[str, Any] | None = None,
         tools: Sequence[dict[str, Any]] | None = None,
         tool_choice: Any | None = None,
@@ -786,7 +786,7 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
                 "messages": messages,
                 "model": model,
                 "temperature": temperature,
-                "max_tokens": max_tokens,
+                "max_completion_tokens": max_completion_tokens,
                 "json_schema": json_schema,
                 "tools": tools,
                 "tool_choice": tool_choice,
@@ -1062,7 +1062,7 @@ def test_prepare_payload_includes_analysis_helpers():
         messages=[{"role": "user", "content": "hi"}],
         model=config.REASONING_MODEL,
         temperature=None,
-        max_tokens=None,
+        max_completion_tokens=None,
         json_schema=None,
         tools=[{"type": "function", "function": {"name": "custom", "parameters": {}}}],
         tool_choice=None,
@@ -1100,7 +1100,7 @@ def test_prepare_payload_normalises_legacy_tool_choice():
         messages=[{"role": "user", "content": "hi"}],
         model=config.REASONING_MODEL,
         temperature=None,
-        max_tokens=None,
+        max_completion_tokens=None,
         json_schema=None,
         tools=[{"type": "function", "function": {"name": "fn", "parameters": {}}}],
         tool_choice={

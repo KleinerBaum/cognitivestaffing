@@ -42,7 +42,7 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
         model="gpt-4o-mini",
         response_format=fmt,
         temperature=0.1,
-        max_tokens=256,
+        max_completion_tokens=256,
         task=ModelTask.EXTRACTION,
     )
 

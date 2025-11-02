@@ -93,7 +93,7 @@ def retrieve_from_vector_store(
             model=get_model_for(ModelTask.RAG_SUGGESTIONS),
             tools=[build_file_search_tool(store_id)],
             tool_choice={"type": "file_search"},
-            max_tokens=1,
+            max_completion_tokens=1,
             extra={"metadata": {"task": "gap_analysis"}},
             task=ModelTask.RAG_SUGGESTIONS,
             capture_file_search=True,

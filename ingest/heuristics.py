@@ -1734,7 +1734,7 @@ def _llm_extract_primary_city(text: str) -> str:
             model=get_model_for(ModelTask.EXTRACTION),
             response_format=response_format,
             temperature=0,
-            max_tokens=40,
+            max_completion_tokens=40,
             reasoning_effort="minimal",
             task=ModelTask.EXTRACTION,
         )
