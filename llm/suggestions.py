@@ -401,6 +401,25 @@ def suggest_benefits(
             tone_style=tone_style,
         )
 
+    def _run_fallback_cascade() -> list[str]:
+        legacy = _fallback_benefits_via_legacy(
+            job_title,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            lang=lang,
+            model=model,
+            focus_areas=focus_areas,
+            tone_style=tone_style,
+        )
+        if legacy:
+            return legacy
+        return _fallback_benefits_static(
+            lang=lang,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            focus_areas=focus_areas,
+        )
+
     response = call_responses_safe(
         [{"role": "user", "content": prompt}],
         model=model,
@@ -427,27 +446,19 @@ def suggest_benefits(
         context="benefit suggestion",
     )
     if response is None:
-        logger.warning("Responses API benefit suggestion failed; using static fallback")
-        return _fallback_benefits_static(
-            lang=lang,
-            industry=industry,
-            existing_benefits=existing_benefits,
-            focus_areas=focus_areas,
+        logger.warning(
+            "Responses API benefit suggestion failed; attempting legacy fallback before static shortlist",
         )
+        return _run_fallback_cascade()
 
     try:
         payload = json.loads(response.content or "{}")
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive parsing
         logger.warning(
-            "Responses API benefit suggestion returned invalid JSON; using static fallback.",
+            "Responses API benefit suggestion returned invalid JSON; attempting legacy fallback before static shortlist.",
             exc_info=exc,
         )
-        return _fallback_benefits_static(
-            lang=lang,
-            industry=industry,
-            existing_benefits=existing_benefits,
-            focus_areas=focus_areas,
-        )
+        return _run_fallback_cascade()
 
     def _extract_items(data: Any) -> list[str]:
         if isinstance(data, list):
@@ -477,4 +488,10 @@ def suggest_benefits(
         seen.add(marker)
         filtered.append(benefit.strip())
 
-    return filtered
+    if filtered:
+        return filtered
+
+    logger.warning(
+        "Responses API produced no benefit items after filtering; attempting legacy fallback before static shortlist.",
+    )
+    return _run_fallback_cascade()
