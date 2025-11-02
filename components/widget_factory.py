@@ -12,6 +12,24 @@ from wizard._widget_state import _build_on_change, _ensure_widget_state
 T = TypeVar("T")
 
 
+def _normalize_width_kwarg(kwargs: dict[str, Any]) -> None:
+    """Coerce deprecated ``use_container_width`` into the modern ``width`` API."""
+
+    if "use_container_width" not in kwargs:
+        return
+
+    use_container_width = kwargs.pop("use_container_width")
+    if "width" in kwargs:
+        return
+
+    if isinstance(use_container_width, bool):
+        kwargs["width"] = "stretch" if use_container_width else "content"
+    elif use_container_width:
+        kwargs["width"] = "stretch"
+    else:
+        kwargs["width"] = "content"
+
+
 def text_input(
     path: str,
     label: str,
@@ -41,6 +59,7 @@ def text_input(
 
     factory = widget_factory or st.text_input
     call_kwargs = dict(kwargs)
+    _normalize_width_kwarg(call_kwargs)
     if placeholder is not None:
         call_kwargs.setdefault("placeholder", placeholder)
     if allow_callbacks:
@@ -92,6 +111,9 @@ def select(
     default_value = option_list[resolved_index]
     _ensure_widget_state(widget_key, default_value)
 
+    call_kwargs = dict(kwargs)
+    _normalize_width_kwarg(call_kwargs)
+
     factory = widget_factory or st.selectbox
     return factory(
         label,
@@ -99,7 +121,7 @@ def select(
         index=resolved_index,
         key=widget_key,
         on_change=_build_on_change(path, widget_key),
-        **kwargs,
+        **call_kwargs,
     )
 
 
@@ -136,6 +158,9 @@ def multiselect(
 
     _ensure_widget_state(widget_key, list(default_selection))
 
+    call_kwargs = dict(kwargs)
+    _normalize_width_kwarg(call_kwargs)
+
     factory = widget_factory or st.multiselect
     selection = factory(
         label,
@@ -143,7 +168,7 @@ def multiselect(
         default=default_selection,
         key=widget_key,
         on_change=_build_on_change(path, widget_key),
-        **kwargs,
+        **call_kwargs,
     )
     return list(selection)
 

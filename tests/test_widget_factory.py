@@ -191,3 +191,83 @@ def test_autofill_accept_updates_profile_and_requests_rerun(
     widget_factory.text_input("company.hq_location", "Headquarters")
 
     assert st.session_state["company.hq_location"] == "Berlin, DE"
+
+
+def test_select_converts_use_container_width(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deprecated width flag is translated into the modern ``width`` kwarg."""
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile.setdefault("position", {})["seniority_level"] = "Mid"
+
+    options = ["Junior", "Mid", "Senior"]
+    received_kwargs: dict[str, Any] = {}
+
+    def fake_selectbox(
+        label: str,
+        entries: list[str],
+        *,
+        index: int = 0,
+        key: str | None = None,
+        on_change: Callable[[], None] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        assert label == "Seniority"
+        assert entries == options
+        received_kwargs.update(kwargs)
+        choice = entries[index]
+        if key is not None:
+            st.session_state[key] = choice
+        if on_change is not None:
+            on_change()
+        return choice
+
+    monkeypatch.setattr(st, "selectbox", fake_selectbox)
+
+    widget_factory.select(
+        "position.seniority_level",
+        "Seniority",
+        options,
+        use_container_width=True,
+    )
+
+    assert received_kwargs["width"] == "stretch"
+    assert "use_container_width" not in received_kwargs
+
+
+def test_select_prefers_explicit_width(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit ``width`` values override deprecated hints."""
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile.setdefault("position", {})["seniority_level"] = "Mid"
+
+    options = ["Junior", "Mid", "Senior"]
+    received_kwargs: dict[str, Any] = {}
+
+    def fake_selectbox(
+        label: str,
+        entries: list[str],
+        *,
+        index: int = 0,
+        key: str | None = None,
+        on_change: Callable[[], None] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        received_kwargs.update(kwargs)
+        choice = entries[index]
+        if key is not None:
+            st.session_state[key] = choice
+        if on_change is not None:
+            on_change()
+        return choice
+
+    monkeypatch.setattr(st, "selectbox", fake_selectbox)
+
+    widget_factory.select(
+        "position.seniority_level",
+        "Seniority",
+        options,
+        use_container_width=True,
+        width="content",
+    )
+
+    assert received_kwargs["width"] == "content"
