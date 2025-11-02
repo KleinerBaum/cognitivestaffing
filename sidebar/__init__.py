@@ -49,6 +49,26 @@ LogoRenderable: TypeAlias = PILImage | BytesIO
 BRANDING_SETTINGS_EXPANDED_KEY = "sidebar.branding.expanded"
 
 
+def _apply_reasoning_mode(mode: str) -> None:
+    """Persist the reasoning mode toggle and align session defaults."""
+
+    normalized = "precise"
+    if isinstance(mode, str):
+        candidate = mode.strip().lower()
+        if candidate in {"quick", "schnell", "fast"}:
+            normalized = "quick"
+        elif candidate in {"precise", "präzise", "precision", "genau"}:
+            normalized = "precise"
+    st.session_state[StateKeys.REASONING_MODE] = normalized
+
+    if normalized == "quick":
+        st.session_state["reasoning_effort"] = "minimal"
+        st.session_state["verbosity"] = "low"
+    else:
+        st.session_state["reasoning_effort"] = "high"
+        st.session_state["verbosity"] = "high"
+
+
 @lru_cache(maxsize=1)
 def _wizard_exports() -> tuple[Mapping[str, int], Callable[[], Sequence[str]], ModuleType, Callable[[str, Any], None]]:
     from wizard import FIELD_SECTION_MAP, get_missing_critical_fields, logic, _update_profile
@@ -697,6 +717,39 @@ def _render_settings() -> None:
             "Flags indicate the available German and English language options.",
         )
     )
+
+    mode_options: tuple[str, ...] = ("quick", "precise")
+    current_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
+    try:
+        selected_index = mode_options.index(current_mode if current_mode in mode_options else "precise")
+    except ValueError:
+        selected_index = 1
+    option_labels = {
+        "quick": tr("⚡ Schnellmodus", "⚡ Quick mode"),
+        "precise": tr("🎯 Präzisionsmodus", "🎯 Precise mode"),
+    }
+    selected_mode = st.radio(
+        tr("LLM-Modus", "LLM mode"),
+        options=mode_options,
+        index=selected_index,
+        key=UIKeys.REASONING_MODE,
+        format_func=lambda value: option_labels.get(value, value.title()),
+    )
+    _apply_reasoning_mode(selected_mode)
+    if selected_mode == "quick":
+        st.caption(
+            tr(
+                "Nutze gpt-4.1-mini mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
+                "Leans on gpt-4.1-mini with minimal reasoning for faster, shorter outputs.",
+            )
+        )
+    else:
+        st.caption(
+            tr(
+                "Verwendet o4-mini und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
+                "Uses o4-mini and allows richer reasoning for maximum accuracy.",
+            )
+        )
 
 
 def _render_hero(context: SidebarContext) -> None:

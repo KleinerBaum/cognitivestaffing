@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
@@ -120,6 +122,7 @@ class RAGPipeline:
         self.fallback_chars = max(120, fallback_chars)
         self._fallback_offset = 0
         self._last_response_id: str | None = None
+        self._lock = Lock()
 
     def _build_query(self, spec: FieldSpec) -> str:
         return prompt_registry.format(
@@ -169,15 +172,16 @@ class RAGPipeline:
         length = len(self.base_text)
         if length == 0:
             return None
-        start = self._fallback_offset
-        end = min(length, start + self.fallback_chars)
-        snippet = self.base_text[start:end].strip()
-        if not snippet:
-            if start == 0:
-                return None
-            self._fallback_offset = 0
-            return self._next_fallback()
-        self._fallback_offset = end if end < length else 0
+        with self._lock:
+            start = self._fallback_offset
+            end = min(length, start + self.fallback_chars)
+            snippet = self.base_text[start:end].strip()
+            if not snippet:
+                if start == 0:
+                    return None
+                self._fallback_offset = 0
+                return self._next_fallback()
+            self._fallback_offset = end if end < length else 0
         return RetrievedChunk(
             text=snippet,
             score=0.0,
@@ -190,6 +194,8 @@ class RAGPipeline:
             fallback = self._next_fallback()
             return [fallback] if fallback else []
         query = self._build_query(spec)
+        with self._lock:
+            previous_response_id = self._last_response_id
         try:
             result = call_chat_api(
                 [
@@ -210,7 +216,7 @@ class RAGPipeline:
                 extra={"metadata": {"field": spec.field}},
                 task=ModelTask.EXTRACTION,
                 capture_file_search=True,
-                previous_response_id=self._last_response_id,
+                previous_response_id=previous_response_id,
             )
         except RuntimeError as err:  # pragma: no cover - defensive
             logger.warning("Vector store lookup failed for %s: %s", spec.field, err)
@@ -222,7 +228,8 @@ class RAGPipeline:
             return [fallback] if fallback else []
 
         if result.response_id:
-            self._last_response_id = result.response_id
+            with self._lock:
+                self._last_response_id = result.response_id
 
         chunks = self._collect_results(result.file_search_results)
         if chunks:
@@ -232,13 +239,30 @@ class RAGPipeline:
 
     def run(self, specs: Sequence[FieldSpec]) -> dict[str, FieldExtractionContext]:
         contexts: dict[str, FieldExtractionContext] = {}
-        for spec in specs:
-            chunks = self._retrieve_for(spec)
-            contexts[spec.field] = FieldExtractionContext(
-                field=spec.field,
-                instruction=spec.instruction,
-                chunks=chunks,
-            )
+        if not specs:
+            return contexts
+
+        if not self.vector_store_id or len(specs) == 1:
+            for spec in specs:
+                chunks = self._retrieve_for(spec)
+                contexts[spec.field] = FieldExtractionContext(
+                    field=spec.field,
+                    instruction=spec.instruction,
+                    chunks=chunks,
+                )
+            return contexts
+
+        max_workers = min(4, len(specs))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_spec = {executor.submit(self._retrieve_for, spec): spec for spec in specs}
+            for future in as_completed(future_to_spec):
+                spec = future_to_spec[future]
+                chunks = future.result()
+                contexts[spec.field] = FieldExtractionContext(
+                    field=spec.field,
+                    instruction=spec.instruction,
+                    chunks=chunks,
+                )
         return contexts
 
 

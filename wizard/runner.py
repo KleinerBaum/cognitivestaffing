@@ -55,6 +55,7 @@ from ingest.branding import extract_brand_assets
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import display_error
 from utils.url_utils import is_supported_url
+from config import REASONING_EFFORT
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
@@ -2445,6 +2446,40 @@ def _cached_extract_company_info(sample_hash: str) -> Mapping[str, Any]:
     return extract_company_info(text)
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_extract_profile(
+    text: str,
+    *,
+    title_hint: str | None,
+    company_hint: str | None,
+    url_hint: str | None,
+    locked_items: tuple[tuple[str, str], ...],
+    reasoning_effort: str,
+) -> str:
+    """Return cached structured extraction output for ``text``."""
+
+    locked_fields = {key: value for key, value in locked_items}
+    previous_effort: str | None
+    try:
+        previous_effort = st.session_state.get("reasoning_effort")
+    except Exception:  # pragma: no cover - Streamlit session not initialised
+        previous_effort = None
+
+    try:
+        if reasoning_effort and previous_effort != reasoning_effort:
+            st.session_state["reasoning_effort"] = reasoning_effort
+        return extract_json(
+            text,
+            title=title_hint,
+            company=company_hint,
+            url=url_hint,
+            locked_fields=locked_fields or None,
+        )
+    finally:
+        if reasoning_effort and previous_effort != reasoning_effort:
+            st.session_state["reasoning_effort"] = previous_effort
+
+
 def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[str]:
     """Return a list of candidate URLs for company sub-pages."""
 
@@ -3325,13 +3360,16 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     llm_error: Exception | None = None
     extracted_data: dict[str, Any] = {}
     recovered = False
+    locked_items = tuple(sorted(locked_hints.items()))
+    effort_value = str(st.session_state.get("reasoning_effort", REASONING_EFFORT) or REASONING_EFFORT)
     try:
-        raw_json = extract_json(
+        raw_json = _cached_extract_profile(
             text,
-            title=title_hint,
-            company=company_hint,
-            url=url_hint,
-            locked_fields=locked_hints or None,
+            title_hint=title_hint,
+            company_hint=company_hint,
+            url_hint=url_hint,
+            locked_items=locked_items,
+            reasoning_effort=effort_value,
         )
     except ExtractionError as exc:
         llm_error = exc
