@@ -1235,8 +1235,9 @@ def _prepare_payload(
                 },
             }
             schema_name = schema_payload.get("name")
-            if isinstance(schema_name, str) and schema_name.strip():
-                format_config["json_schema"]["name"] = schema_name.strip()
+            if not isinstance(schema_name, str) or not schema_name.strip():
+                raise ValueError("json_schema payload requires a non-empty 'name'.")
+            format_config["json_schema"]["name"] = schema_name.strip()
             strict_override = schema_payload.get("strict")
             strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
             if strict_flag:
@@ -1272,8 +1273,9 @@ def _prepare_payload(
                 },
             }
             schema_name = schema_payload.get("name")
-            if isinstance(schema_name, str) and schema_name.strip():
-                format_config["json_schema"]["name"] = schema_name.strip()
+            if not isinstance(schema_name, str) or not schema_name.strip():
+                raise ValueError("json_schema payload requires a non-empty 'name'.")
+            format_config["json_schema"]["name"] = schema_name.strip()
             strict_override = schema_payload.get("strict")
             strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
             if strict_flag:
