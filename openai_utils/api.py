@@ -1038,7 +1038,7 @@ def _prepare_payload(
     *,
     model: Optional[str],
     temperature: float | None,
-    max_tokens: int | None,
+    max_completion_tokens: int | None,
     json_schema: Optional[dict],
     tools: Optional[list],
     tool_choice: Optional[Any],
@@ -1221,8 +1221,8 @@ def _prepare_payload(
         payload = {"model": model, "messages": messages_payload}
         if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
             payload["temperature"] = temperature
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
+        if max_completion_tokens is not None:
+            payload["max_completion_tokens"] = max_completion_tokens
         if json_schema is not None:
             schema_payload = dict(json_schema)
             schema_body = schema_payload.get("schema")
@@ -1257,8 +1257,8 @@ def _prepare_payload(
             payload["temperature"] = temperature
         if model_supports_reasoning(model):
             payload["reasoning"] = {"effort": reasoning_effort}
-        if max_tokens is not None:
-            payload["max_output_tokens"] = max_tokens
+        if max_completion_tokens is not None:
+            payload["max_output_tokens"] = max_completion_tokens
         if json_schema is not None:
             text_config: dict[str, Any] = dict(payload.get("text") or {})
             schema_payload = dict(json_schema)
@@ -1613,7 +1613,7 @@ def _call_chat_api_single(
     *,
     model: str | None = None,
     temperature: float | None = 0.2,
-    max_tokens: int | None = None,
+    max_completion_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
     tool_choice: Optional[Any] = None,
@@ -1634,7 +1634,7 @@ def _call_chat_api_single(
         messages_with_hint,
         model=model,
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_completion_tokens=max_completion_tokens,
         json_schema=json_schema,
         tools=tools,
         tool_choice=tool_choice,
@@ -1822,7 +1822,7 @@ def call_chat_api(
     *,
     model: str | None = None,
     temperature: float | None = 0.2,
-    max_tokens: int | None = None,
+    max_completion_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
     tool_choice: Optional[Any] = None,
@@ -1855,7 +1855,7 @@ def call_chat_api(
     single_kwargs: dict[str, Any] = {
         "model": model,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        "max_completion_tokens": max_completion_tokens,
         "json_schema": json_schema,
         "tools": tools,
         "tool_choice": tool_choice,
@@ -1888,7 +1888,7 @@ def call_chat_api(
     allowed_override_keys = {
         "model",
         "temperature",
-        "max_tokens",
+        "max_completion_tokens",
         "json_schema",
         "tools",
         "tool_choice",
@@ -1967,7 +1967,7 @@ def stream_chat_api(
     *,
     model: str | None = None,
     temperature: float | None = 0.2,
-    max_tokens: int | None = None,
+    max_completion_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     reasoning_effort: str | None = None,
     verbosity: str | None = None,
@@ -1991,7 +1991,7 @@ def stream_chat_api(
         messages_with_hint,
         model=model,
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_completion_tokens=max_completion_tokens,
         json_schema=json_schema,
         tools=None,
         tool_choice=None,

@@ -892,7 +892,7 @@ def _call_salary_model(
     result = api(
         messages,
         temperature=0.2,
-        max_tokens=220,
+        max_completion_tokens=220,
         tools=tools,
         tool_choice={
             "type": "function",

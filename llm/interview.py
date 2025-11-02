@@ -410,7 +410,7 @@ def generate_interview_guide(
                 schema=schema,
             ),
             temperature=0.6,
-            max_tokens=900,
+            max_completion_tokens=900,
             reasoning_effort=REASONING_EFFORT,
             task=ModelTask.INTERVIEW_GUIDE,
         )

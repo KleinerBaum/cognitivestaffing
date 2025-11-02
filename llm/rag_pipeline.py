@@ -206,7 +206,7 @@ class RAGPipeline:
                 model=self.model,
                 tools=[build_file_search_tool(self.vector_store_id)],
                 tool_choice={"type": "file_search"},
-                max_tokens=1,
+                max_completion_tokens=1,
                 extra={"metadata": {"field": spec.field}},
                 task=ModelTask.EXTRACTION,
                 capture_file_search=True,

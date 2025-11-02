@@ -100,7 +100,7 @@ def call_responses(
     model: str,
     response_format: Mapping[str, Any],
     temperature: float | None = None,
-    max_tokens: int | None = None,
+    max_completion_tokens: int | None = None,
     reasoning_effort: str | None = None,
     retries: int = 2,
     task: ModelTask | str | None = None,
@@ -143,8 +143,8 @@ def call_responses(
     if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
         payload["temperature"] = float(temperature)
 
-    if max_tokens is not None:
-        payload["max_output_tokens"] = int(max_tokens)
+    if max_completion_tokens is not None:
+        payload["max_output_tokens"] = int(max_completion_tokens)
 
     if reasoning_effort and model_supports_reasoning(model):
         payload["reasoning"] = {"effort": reasoning_effort}

@@ -708,7 +708,7 @@ def ask_followups(
                 },
                 tools=tools or None,
                 tool_choice=tool_choice,
-                max_tokens=800,
+                max_completion_tokens=800,
                 task=ModelTask.FOLLOW_UP_QUESTIONS,
                 previous_response_id=previous_response_id,
                 verbosity=get_active_verbosity(),

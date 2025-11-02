@@ -322,7 +322,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                 response_format=response_format,
                 temperature=0,
                 reasoning_effort=payload.get("reasoning_effort"),
-                max_tokens=payload.get("max_tokens"),
+                max_completion_tokens=payload.get("max_completion_tokens"),
                 retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
                 task=ModelTask.EXTRACTION,
                 logger_instance=logger,

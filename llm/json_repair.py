@@ -94,7 +94,7 @@ def repair_profile_payload(
             model=model,
             response_format=response_format,
             temperature=0.0,
-            max_tokens=1600,
+            max_completion_tokens=1600,
             task=ModelTask.JSON_REPAIR,
         )
     except Exception as exc:  # pragma: no cover - defensive

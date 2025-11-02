@@ -324,7 +324,7 @@ def extract_company_info(
                     messages,
                     model=model,
                     temperature=0.1,
-                    max_tokens=500,
+                    max_completion_tokens=500,
                     json_schema={
                         "name": "company_info",
                         "schema": {
@@ -480,7 +480,7 @@ def _best_effort_json_retry(
     kwargs: dict[str, Any] = {
         "model": model,
         "temperature": 0.0,
-        "max_tokens": 1400,
+        "max_completion_tokens": 1400,
         "json_schema": {"name": FUNCTION_NAME, "schema": schema},
         "task": ModelTask.EXTRACTION,
     }
@@ -620,7 +620,7 @@ def extract_with_function(
             model=model,
             temperature=0.0,
             json_schema={"name": FUNCTION_NAME, "schema": schema},
-            max_tokens=1200,
+            max_completion_tokens=1200,
             task=ModelTask.EXTRACTION,
             previous_response_id=response.response_id,
         )
@@ -838,7 +838,7 @@ def suggest_skills_for_role(
                 "additionalProperties": False,
             },
         },
-        max_tokens=400,
+        max_completion_tokens=400,
         task=ModelTask.SKILL_SUGGESTION,
     )
     raw = _chat_content(res)
@@ -973,7 +973,7 @@ def suggest_responsibilities_for_role(
                 "additionalProperties": False,
             },
         },
-        max_tokens=400,
+        max_completion_tokens=400,
         temperature=0.4,
         task=ModelTask.TASK_SUGGESTION,
     )
@@ -1090,12 +1090,12 @@ def suggest_benefits(
     if tone_hint:
         prompt += f"\n{tone_hint}"
     messages = [{"role": "user", "content": prompt}]
-    max_tokens = 150 if not model or "nano" in model else 200
+    max_completion_tokens = 150 if not model or "nano" in model else 200
     res = api.call_chat_api(
         messages,
         model=model,
         temperature=0.5,
-        max_tokens=max_tokens,
+        max_completion_tokens=max_completion_tokens,
         json_schema={
             "name": "benefit_suggestions",
             "schema": {
@@ -1230,7 +1230,7 @@ def suggest_onboarding_plans(
         messages,
         model=model,
         temperature=0.4,
-        max_tokens=220,
+        max_completion_tokens=220,
         json_schema={
             "name": "onboarding_suggestions",
             "schema": onboarding_schema,
@@ -1691,7 +1691,7 @@ def generate_interview_guide(
             messages,
             model=model,
             temperature=0.6,
-            max_tokens=900,
+            max_completion_tokens=900,
             json_schema={"name": "interviewGuide", "schema": schema},
             task=ModelTask.INTERVIEW_GUIDE,
             tools=tools or None,
@@ -2271,7 +2271,7 @@ def generate_job_ad(
             messages,
             model=model,
             temperature=0.7,
-            max_tokens=900,
+            max_completion_tokens=900,
             task=ModelTask.JOB_AD,
             tools=tools or None,
             tool_choice=tool_choice,
@@ -2325,7 +2325,7 @@ def stream_job_ad(
         messages,
         model=model,
         temperature=0.7,
-        max_tokens=900,
+        max_completion_tokens=900,
         task=ModelTask.JOB_AD,
     )
     return stream, document
@@ -2377,7 +2377,7 @@ def summarize_company_page(
                     messages,
                     model=model,
                     temperature=0.2,
-                    max_tokens=220,
+                    max_completion_tokens=220,
                     task=ModelTask.EXPLANATION,
                 )
             ).strip()
@@ -2423,7 +2423,7 @@ def refine_document(original: str, feedback: str, model: str | None = None) -> s
                     messages,
                     model=model,
                     temperature=0.7,
-                    max_tokens=800,
+                    max_completion_tokens=800,
                     task=ModelTask.DOCUMENT_REFINEMENT,
                 )
             )
@@ -2474,7 +2474,7 @@ def what_happened(
                     messages,
                     model=model,
                     temperature=0.3,
-                    max_tokens=300,
+                    max_completion_tokens=300,
                     task=ModelTask.EXPLANATION,
                 )
             )
