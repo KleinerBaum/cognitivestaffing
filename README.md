@@ -66,6 +66,9 @@ DE: Branding-Overrides in der Sidebar ermöglichen Logo-Uploads, die Auswahl der
 EN: Inline follow-up cards now sit directly beneath the affected section and keep the “Next” button disabled until every critical question has a response, while informational prompts remain optional. This keeps mandatory clarifications in context without forcing a separate page.
 DE: Inline-Follow-up-Karten erscheinen direkt unter dem jeweiligen Abschnitt und sperren „Weiter“, bis alle kritischen Fragen beantwortet sind; optionale Nachfragen bleiben freiwillig. So lassen sich Pflichtangaben im Kontext klären, ohne einen eigenen Q&A-Schritt zu öffnen.
 
+EN: Step 8 (Summary) now evaluates inline follow-up questions even though it has no required fields, so “Next” stays disabled until the remaining critical prompts (for example headline or next steps) are answered before triggering exports.
+DE: Schritt 8 („Summary“) prüft trotz fehlender Pflichtfelder jetzt ebenfalls die inline angezeigten Anschlussfragen, sodass „Weiter“ solange gesperrt bleibt, bis verbleibende kritische Prompts (z. B. Headline oder Next Steps) beantwortet sind und keine Exporte mehr mit offenen Klärungen starten.
+
 EN: Added a bilingual “🔄 Reset wizard” button to the sidebar settings so recruiters can instantly clear the current profile and reload the default wizard state in one click (without changing theme, language, or LLM preferences).
 DE: Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in den Seiteneinstellungen hinzugefügt, mit dem Recruiter:innen das aktuelle Profil mit einem Klick entfernen und den Wizard mit Standardwerten neu laden können (ohne Dark-Mode-, Sprach- oder LLM-Einstellungen zu verändern).
 
