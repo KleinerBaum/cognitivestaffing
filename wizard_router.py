@@ -13,6 +13,7 @@ from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
     FIELD_SECTION_MAP,
     get_missing_critical_fields,
+    resolve_section_for_field,
 )
 
 # ``wizard.metadata`` stays lightweight so this router can depend on shared
@@ -544,13 +545,7 @@ class WizardRouter:
         missing_fields = list(dict.fromkeys(get_missing_critical_fields()))
         sections_with_missing: set[int] = set()
         for field in missing_fields:
-            section = FIELD_SECTION_MAP.get(field)
-            if section is None:
-                if CRITICAL_SECTION_ORDER:
-                    section = CRITICAL_SECTION_ORDER[0]
-                else:
-                    continue
-            sections_with_missing.add(section)
+            sections_with_missing.add(resolve_section_for_field(field))
 
         first_incomplete: int | None = None
         for section in CRITICAL_SECTION_ORDER:
@@ -630,9 +625,7 @@ class WizardRouter:
 
         missing_by_section: dict[int, int] = {}
         for field in missing_fields:
-            section_index = FIELD_SECTION_MAP.get(field)
-            if section_index is None:
-                continue
+            section_index = resolve_section_for_field(field)
             missing_by_section[section_index] = missing_by_section.get(section_index, 0) + 1
 
         lang = st.session_state.get("lang", "de")

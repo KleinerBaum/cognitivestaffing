@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
+  switched `wizard_router` plus its navigation tests to import it directly so the
+  dependency chain stays explicit and type-checkable.
+  **DE:** Die Zuordnung zwischen Wizard-Feldern und Abschnitten in
+  `wizard/metadata.py` verankert und `wizard_router` samt Navigationstests so
+  angepasst, dass diese Metadaten direkt importiert werden – für explizite,
+  typsichere Abhängigkeiten.
 - **EN:** Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
   **DE:** Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
 - **EN:** Replaced every `use_container_width` flag with the new
