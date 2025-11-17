@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Callable, Iterable, Mapping, Sequence, cast
+from typing import Callable, Iterable, Mapping, Sequence
 
 import streamlit as st
 
 from constants.keys import StateKeys
 from pages import WizardPage
 from utils.i18n import tr
+from wizard.metadata import (
+    CRITICAL_SECTION_ORDER,
+    FIELD_SECTION_MAP,
+    get_missing_critical_fields,
+)
+
+# ``wizard.metadata`` stays lightweight so this router can depend on shared
+# progress data without importing the Streamlit-heavy ``wizard.runner`` module.
 
 
 @dataclass(frozen=True)
@@ -531,34 +539,21 @@ class WizardRouter:
         )
 
     def _update_section_progress(self) -> tuple[int | None, list[int]]:
-        import wizard
+        """Refresh progress trackers using shared wizard metadata."""
 
-        critical_section_order = cast(
-            tuple[int, ...],
-            getattr(wizard, "CRITICAL_SECTION_ORDER"),
-        )
-        field_section_map = cast(
-            Mapping[str, int],
-            getattr(wizard, "FIELD_SECTION_MAP"),
-        )
-        missing_getter = cast(
-            Callable[[], Sequence[str]],
-            getattr(wizard, "get_missing_critical_fields"),
-        )
-
-        missing_fields = list(dict.fromkeys(missing_getter()))
+        missing_fields = list(dict.fromkeys(get_missing_critical_fields()))
         sections_with_missing: set[int] = set()
         for field in missing_fields:
-            section = field_section_map.get(field)
+            section = FIELD_SECTION_MAP.get(field)
             if section is None:
-                if critical_section_order:
-                    section = critical_section_order[0]
+                if CRITICAL_SECTION_ORDER:
+                    section = CRITICAL_SECTION_ORDER[0]
                 else:
                     continue
             sections_with_missing.add(section)
 
         first_incomplete: int | None = None
-        for section in critical_section_order:
+        for section in CRITICAL_SECTION_ORDER:
             if section in sections_with_missing:
                 first_incomplete = section
                 break
@@ -567,11 +562,11 @@ class WizardRouter:
             first_incomplete = min(sections_with_missing)
 
         if first_incomplete is None:
-            completed_sections = list(critical_section_order)
+            completed_sections = list(CRITICAL_SECTION_ORDER)
         else:
             completed_sections = [
                 section
-                for section in critical_section_order
+                for section in CRITICAL_SECTION_ORDER
                 if section < first_incomplete and section not in sections_with_missing
             ]
 
@@ -623,22 +618,19 @@ class WizardRouter:
     # Progress tracker helpers
     # ------------------------------------------------------------------
     def _render_progress_tracker(self, current_key: str) -> None:
-        import wizard
-
         if not self._pages:
             return
 
         st.markdown(_PROGRESS_STYLE, unsafe_allow_html=True)
 
-        field_section_map = cast(Mapping[str, int], getattr(wizard, "FIELD_SECTION_MAP"))
         missing_fields = list(st.session_state.get(StateKeys.EXTRACTION_MISSING, []) or [])
         total_by_section: dict[int, int] = {}
-        for section in field_section_map.values():
+        for section in FIELD_SECTION_MAP.values():
             total_by_section[section] = total_by_section.get(section, 0) + 1
 
         missing_by_section: dict[int, int] = {}
         for field in missing_fields:
-            section_index = field_section_map.get(field)
+            section_index = FIELD_SECTION_MAP.get(field)
             if section_index is None:
                 continue
             missing_by_section[section_index] = missing_by_section.get(section_index, 0) + 1

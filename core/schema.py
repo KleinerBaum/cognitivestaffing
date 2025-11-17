@@ -515,7 +515,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "reporting_manager_name": "position.reporting_manager_name",
         "role.title": "position.job_title",
         "role.department": "department.name",
-        "role.team": "position.team_structure",
+        "role.team": "team.name",
         "role.seniority": "position.seniority_level",
         "role.employment_type": "employment.job_type",
         "role.work_policy": "employment.work_policy",
@@ -1071,5 +1071,3 @@ def process_extracted_profile(raw_profile: Mapping[str, Any] | None) -> NeedAnal
     """Convert a raw extraction payload into a normalised profile."""
 
     return coerce_and_fill(raw_profile)
-
-

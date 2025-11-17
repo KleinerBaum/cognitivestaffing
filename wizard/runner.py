@@ -95,6 +95,13 @@ from ._logic import (
     set_in,
     unique_normalized,
 )
+from .metadata import (
+    COMPANY_STEP_INDEX,
+    CRITICAL_SECTION_ORDER,
+    FIELD_SECTION_MAP,
+    get_missing_critical_fields,
+    resolve_section_for_field,
+)
 from sidebar.salary import format_salary_range
 
 
@@ -1712,8 +1719,9 @@ class FieldSourceInfo:
         return " – ".join(part for part in parts if part)
 
 
-# Index of the first data entry step ("Unternehmen" / "Company")
-COMPANY_STEP_INDEX = 2
+# Index of the first data entry step ("Unternehmen" / "Company"). The value
+# now lives in ``wizard.metadata`` so ``wizard_router`` and tests can rely on a
+# single shared definition.
 
 REQUIRED_SUFFIX = " :red[*]"
 REQUIRED_PREFIX = ":red[*] "
@@ -8753,45 +8761,6 @@ def _step_requirements() -> None:
     _render_followups_for_section(("requirements.",), data)
 
 
-def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
-    """Return critical fields missing from state or profile data.
-
-    Args:
-        max_section: Optional highest section number to inspect.
-
-    Returns:
-        List of missing critical field paths.
-    """
-
-    missing: list[str] = []
-    profile_data = st.session_state.get(StateKeys.PROFILE, {})
-    for field in CRITICAL_FIELDS:
-        field_section = SECTION_FILTER_OVERRIDES.get(field, FIELD_SECTION_MAP.get(field, 0))
-        if max_section is not None and field_section > max_section:
-            continue
-        value = st.session_state.get(field)
-        if not value:
-            value = get_in(profile_data, field, None)
-        if not value:
-            missing.append(field)
-
-    for q in st.session_state.get(StateKeys.FOLLOWUPS, []):
-        if q.get("priority") == "critical":
-            missing.append(q.get("field", ""))
-    return missing
-
-
-def _resolve_section_for_field(field: str) -> int:
-    """Return the wizard section index responsible for ``field``."""
-
-    section = FIELD_SECTION_MAP.get(field)
-    if section is not None:
-        return section
-    if CRITICAL_SECTION_ORDER:
-        return CRITICAL_SECTION_ORDER[0]
-    return COMPANY_STEP_INDEX
-
-
 def _update_section_progress(
     missing_fields: Iterable[str] | None = None,
 ) -> tuple[int | None, list[int]]:
@@ -8799,7 +8768,7 @@ def _update_section_progress(
 
     fields = list(missing_fields) if missing_fields is not None else get_missing_critical_fields()
     fields = list(dict.fromkeys(fields))
-    sections_with_missing = {_resolve_section_for_field(field) for field in fields}
+    sections_with_missing = {resolve_section_for_field(field) for field in fields}
 
     first_incomplete: int | None = None
     for section in CRITICAL_SECTION_ORDER:
@@ -8808,7 +8777,7 @@ def _update_section_progress(
             break
 
     if first_incomplete is None and sections_with_missing:
-        first_incomplete = _resolve_section_for_field(next(iter(fields)))
+        first_incomplete = resolve_section_for_field(next(iter(fields)))
 
     if first_incomplete is None:
         completed_sections = list(CRITICAL_SECTION_ORDER)
@@ -9319,128 +9288,7 @@ def _step_process() -> None:
     _render_followups_for_section(("process.",), profile)
 
 
-_STEP_HANDLED_FIELDS: dict[Callable[[], None], tuple[str, ...]] = {
-    _step_company: (
-        "company.name",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "company.brand_name",
-        "company.industry",
-        "company.hq_location",
-        "company.size",
-        "company.website",
-        "company.mission",
-        "company.culture",
-        "company.brand_color",
-        "company.logo_url",
-        "location.primary_city",
-        "location.country",
-        "position.key_projects",
-    ),
-    _step_position: (
-        "position.job_title",
-        "position.role_summary",
-        "position.team_structure",
-        "position.reporting_line",
-        "position.reporting_manager_name",
-        "position.customer_contact_required",
-        "position.customer_contact_details",
-        "department.name",
-        "department.function",
-        "department.leader_name",
-        "department.leader_title",
-        "department.strategic_goals",
-        "team.name",
-        "team.mission",
-        "team.reporting_line",
-        "team.headcount_current",
-        "team.headcount_target",
-        "team.collaboration_tools",
-        "team.locations",
-        "meta.target_start_date",
-        "meta.application_deadline",
-    ),
-    _step_requirements: (
-        "responsibilities.items",
-        "requirements.hard_skills_required",
-        "requirements.soft_skills_required",
-        "requirements.hard_skills_optional",
-        "requirements.soft_skills_optional",
-        "requirements.tools_and_technologies",
-        "requirements.languages_required",
-        "requirements.languages_optional",
-        "requirements.certifications",
-        "requirements.certificates",
-        "requirements.background_check_required",
-        "requirements.portfolio_required",
-        "requirements.reference_check_required",
-    ),
-    _step_compensation: (
-        "employment.job_type",
-        "employment.work_policy",
-        "employment.contract_type",
-        "employment.work_schedule",
-        "employment.remote_percentage",
-        "employment.travel_required",
-        "employment.travel_share",
-        "employment.travel_region_scope",
-        "employment.travel_regions",
-        "employment.travel_continents",
-        "employment.travel_details",
-        "employment.relocation_support",
-        "employment.relocation_details",
-        "employment.visa_sponsorship",
-        "employment.overtime_expected",
-        "employment.security_clearance_required",
-        "employment.shift_work",
-        "employment.contract_end",
-        "compensation.salary_provided",
-        "compensation.salary_min",
-        "compensation.salary_max",
-        "compensation.currency",
-        "compensation.period",
-        "compensation.variable_pay",
-        "compensation.bonus_percentage",
-        "compensation.commission_structure",
-        "compensation.equity_offered",
-        "compensation.benefits",
-    ),
-    _step_process: (
-        "process.interview_stages",
-        "process.stakeholders",
-        "process.phases",
-        "process.recruitment_timeline",
-        "process.process_notes",
-        "process.application_instructions",
-        "process.onboarding_process",
-        "process.hiring_manager_name",
-        "process.hiring_manager_role",
-    ),
-}
-
-
-def _build_field_section_map() -> dict[str, int]:
-    """Derive mapping of schema fields to wizard sections."""
-
-    ordered_steps = [_step_company, _step_position, _step_requirements, _step_compensation, _step_process]
-    mapping: dict[str, int] = {}
-    for idx, step in enumerate(ordered_steps, start=COMPANY_STEP_INDEX):
-        for field in _STEP_HANDLED_FIELDS.get(step, ()):  # pragma: no branch - deterministic
-            mapping[field] = idx
-    return mapping
-
-
-FIELD_SECTION_MAP = _build_field_section_map()
-CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(sorted(set(FIELD_SECTION_MAP.values())) or (COMPANY_STEP_INDEX,))
-
-# Fields collected early in the wizard but only blocking later sections when
-# filtering via ``max_section``. The location city is displayed in the company
-# step but shouldn't block the early company/role sections because salary and
-# requirements insights can still run with just the country. Once the full
-# wizard is considered we still treat it as critical.
 _MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
-SECTION_FILTER_OVERRIDES: dict[str, int] = {}
 
 
 def _summary_company() -> None:
