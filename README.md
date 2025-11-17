@@ -135,6 +135,9 @@ Design system & mobile polish:
 EN: Light/dark themes share one design token set with improved spacing, focus states, and responsive navigation for mobile recruiters.
 DE: Light-/Dark-Themes greifen auf einen gemeinsamen Design-Token-Pool mit optimierten Abständen, Fokuszuständen und responsiver Navigation für mobile Recruiter:innen zurück.
 
+EN: The refreshed palette keeps the navy brand anchors (#0C1F3D in dark mode / #2A4A85 in light mode) and balances them with high-contrast teal (#1FB5C5) and amber (#FFC368/#FFB65C) accents, ensuring ≥ 4.5:1 contrast for hero panels, chips, and alerts in both themes.
+DE: Die aktualisierte Palette kombiniert die Navy-Anker (#0C1F3D im Dark-Mode / #2A4A85 im Light-Mode) mit kontrastreichem Teal (#1FB5C5) sowie Bernstein-Akzenten (#FFC368/#FFB65C), sodass Hero-Panels, Chips und Hinweise in beiden Themes eine Kontrast-Ratio von mindestens 4,5:1 erreichen.
+
 Feature Highlights
 
 Structured extraction: JSON schemas and Pydantic validation keep 20+ vacancy fields aligned with the NeedAnalysisProfile model. LangChain’s StructuredOutputParser and PydanticOutputParser are now used to embed format instructions directly into prompts and to coerce responses back into the model, reducing brittle parsing code. Locked fields such as job_title or company are auto-filled when rule matches fire and remain protected until explicitly unlocked.
