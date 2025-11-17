@@ -148,6 +148,52 @@ section.main div.block-container label {
     color: var(--text-muted);
     transition: color var(--transition-base, 0.18s ease-out);
 }
+section.main div.block-container div[data-testid="stTextInput"] input,
+section.main div.block-container div[data-testid="stTextArea"] textarea,
+section.main div.block-container div[data-testid="stSelectbox"] select,
+section.main div.block-container div[data-testid="stNumberInput"] input,
+section.main div.block-container div[data-testid="stDateInput"] input,
+section.main div.block-container div[data-testid="stMultiSelect"] input,
+section.main div.block-container div[data-testid="stSlider"] input[type="range"] {
+    border-radius: 14px;
+    transition:
+        border-color var(--transition-base, 0.18s ease-out),
+        box-shadow var(--transition-base, 0.18s ease-out),
+        background-color var(--transition-base, 0.18s ease-out);
+    box-shadow: 0 0 0 0 transparent;
+}
+section.main div.block-container div[data-testid="stTextInput"] input:focus-visible,
+section.main div.block-container div[data-testid="stTextArea"] textarea:focus-visible,
+section.main div.block-container div[data-testid="stSelectbox"] select:focus-visible,
+section.main div.block-container div[data-testid="stNumberInput"] input:focus-visible,
+section.main div.block-container div[data-testid="stDateInput"] input:focus-visible,
+section.main div.block-container div[data-testid="stMultiSelect"] input:focus-visible,
+section.main div.block-container div[data-testid="stSlider"] input[type="range"]:focus-visible {
+    border-color: var(--focus-ring-contrast, rgba(15, 23, 42, 0.35));
+    box-shadow: 0 0 0 1px var(--focus-ring-contrast, rgba(15, 23, 42, 0.35)),
+        0 0 0 4px var(--focus-ring, rgba(59, 130, 246, 0.35));
+}
+section.main div.block-container div[data-testid="stButton"] button,
+section.main div.block-container div[data-testid="stDownloadButton"] button,
+section.main div.block-container div[data-testid="stFormSubmitButton"] button {
+    transition:
+        transform var(--transition-base, 0.18s ease-out),
+        box-shadow var(--transition-base, 0.18s ease-out),
+        background-color var(--transition-base, 0.18s ease-out);
+    will-change: transform, box-shadow;
+}
+section.main div.block-container div[data-testid="stButton"] button:hover:not(:disabled),
+section.main div.block-container div[data-testid="stDownloadButton"] button:hover:not(:disabled),
+section.main div.block-container div[data-testid="stFormSubmitButton"] button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 18px rgba(15, 23, 42, 0.16);
+}
+section.main div.block-container div[data-testid="stButton"] button:active:not(:disabled),
+section.main div.block-container div[data-testid="stDownloadButton"] button:active:not(:disabled),
+section.main div.block-container div[data-testid="stFormSubmitButton"] button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 8px 14px rgba(15, 23, 42, 0.14);
+}
 section.main div.block-container div[data-testid="stCaptionContainer"] {
     margin-top: calc(var(--space-2xs, 0.25rem) * -0.5);
 }

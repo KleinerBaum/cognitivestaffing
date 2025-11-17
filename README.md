@@ -97,6 +97,9 @@ DE: Inline-Follow-up-Karten erscheinen direkt unter dem jeweiligen Abschnitt und
 EN: Step 8 (Summary) now evaluates inline follow-up questions even though it has no required fields, so “Next” stays disabled until the remaining critical prompts (for example headline or next steps) are answered before triggering exports.
 DE: Schritt 8 („Summary“) prüft trotz fehlender Pflichtfelder jetzt ebenfalls die inline angezeigten Anschlussfragen, sodass „Weiter“ solange gesperrt bleibt, bis verbleibende kritische Prompts (z. B. Headline oder Next Steps) beantwortet sind und keine Exporte mehr mit offenen Klärungen starten.
 
+EN: Wizard buttons, follow-up cards, and inputs now use the shared transition tokens for hover/focus states, a brief “Next” pulse once all required data is present, and smooth scrolling when navigating so recruiters instantly see what changed.
+DE: Wizard-Buttons, Follow-up-Karten und Eingabefelder nutzen nun die gemeinsamen Transition-Tokens für Hover-/Fokuszustände, einen kurzen „Weiter“-Impuls sobald alle Pflichtangaben vorliegen und ein sanftes Scrollen bei der Navigation, damit Recruiter:innen Änderungen sofort erkennen.
+
 EN: Added a bilingual “🔄 Reset wizard” button to the sidebar settings so recruiters can instantly clear the current profile and reload the default wizard state in one click (without changing theme, language, or LLM preferences).
 DE: Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in den Seiteneinstellungen hinzugefügt, mit dem Recruiter:innen das aktuelle Profil mit einem Klick entfernen und den Wizard mit Standardwerten neu laden können (ohne Dark-Mode-, Sprach- oder LLM-Einstellungen zu verändern).
 
