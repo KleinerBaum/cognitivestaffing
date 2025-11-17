@@ -9,8 +9,8 @@ def test_deployment_config_defaults_to_install_command() -> None:
     assert DEPLOYMENT_CONFIG.install_command == "pip install ."
 
 
-def test_load_deployment_config_supports_custom_file(tmp_path: Path) -> None:
-    """Custom TOML files should override version and derived install commands."""
+def test_load_deployment_config_ignores_requirements_files(tmp_path: Path) -> None:
+    """Requirement entries should no longer drive installs – pyproject is canonical."""
 
     config_path = tmp_path / "deployment.toml"
     config_path.write_text(
@@ -24,7 +24,7 @@ requirementsFile = "alt.txt"
     config = load_deployment_config(config_path)
     assert isinstance(config, DeploymentConfig)
     assert config.python_version == "3.12"
-    assert config.install_command == "pip install -r alt.txt"
+    assert config.install_command == "pip install ."
 
 
 def test_load_deployment_config_prefers_install_command(tmp_path: Path) -> None:
