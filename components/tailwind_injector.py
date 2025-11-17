@@ -7,7 +7,7 @@ runtime theme switching.
 
 from __future__ import annotations
 
-import streamlit.components.v1 as components
+from typing_shims import streamlit_components as components
 
 
 def inject_tailwind(theme: str = "dark") -> None:
