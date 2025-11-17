@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 _PROMPTS_PATH = Path(__file__).resolve().parent / "registry.yaml"
 

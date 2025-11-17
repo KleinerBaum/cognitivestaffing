@@ -34,6 +34,8 @@ Changed / Geändert
   DE: Abhängigkeits-Footprint konsolidiert (requirements.txt entfernt, Default-Extras verschlankt, EU-Endpoint-Doku ergänzt, openai>=1.30.0 erzwungen) und eine 88 %-Coverage-Untergrenze samt Coverage-Artefakten eingeführt.
 - EN: Refined layout pieces – Summary job-ad creator with collapsible preferences, JSON export at the bottom, skill market fallback captions clarifying missing benchmarks, and navigation cleanup removing redundant links.
   DE: Layoutteile verfeinert – Stellenanzeigen-Generator mit einklappbaren Präferenzen, JSON-Export am Ende, erklärende Skill-Market-Fallbacks und bereinigte Navigation ohne redundante Links.
+- EN: Employment panel toggles now display bilingual helper text describing policy expectations and when related follow-up inputs (travel share, relocation terms) will appear.
+  DE: Die Umschalter im Beschäftigungs-Panel zeigen nun zweisprachige Hilfetexte, die Policy-Erwartungen sowie das Einblenden der zugehörigen Folgefelder (Reiseanteil, Relocation-Konditionen) erklären.
 
 Fixed / Behoben
 
@@ -52,6 +54,8 @@ Docs / Doku
   DE: README, Developer-Guide, Key-Registry, Telemetrie- sowie JSON-Pipeline-Doku mit dem aktualisierten Acht-Schritte-Flow, der Projektstruktur und Schema-Hinweisen zweisprachig überarbeitet.
 - EN: Documented OpenAI configuration pathways (env vars, Streamlit secrets, EU base URL, RESPONSES_ALLOW_TOOLS) plus localization and schema propagation guardrails for contributors.
   DE: OpenAI-Konfigurationswege (Env-Vars, Streamlit-Secrets, EU-Endpunkt, RESPONSES_ALLOW_TOOLS) sowie Lokalisierungs- und Schema-Propagation-Vorgaben für Contributor:innen dokumentiert.
+- EN: Documented the employment panel helper text update directly in README without shipping a binary screenshot.
+  DE: Die Aktualisierung der Hilfetexte im Beschäftigungs-Panel direkt in der README dokumentiert, ohne einen binären Screenshot beizulegen.
 
 v1.0.1 – Setup & Branding Refresh / Setup- & Branding-Update (2025-11-05)
 Added / Neu
