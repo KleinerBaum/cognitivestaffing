@@ -376,6 +376,8 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - `sidebar/`
   - **EN:** Sidebar orchestration including plan previews and branding settings.
   - **DE:** Sidebar-Steuerung inklusive Plan-Vorschau und Branding-Einstellungen.
+  - **EN:** `sidebar.__init__` imports `wizard.metadata` and `wizard._logic` during module load so cached wizard helpers stay in sync. Keep those modules free of sidebar imports (the runner still imports `sidebar.salary`) to prevent circular dependencies.
+  - **DE:** `sidebar.__init__` importiert `wizard.metadata` und `wizard._logic` bereits beim Laden des Moduls, damit die Wizard-Helfer ohne Wrapper verfügbar sind. Stelle sicher, dass diese Module keine Sidebar-Imports enthalten (der Runner importiert weiterhin `sidebar.salary`), um Kreisabhängigkeiten zu vermeiden.
 - `state/`
   - **EN:** Session-state bootstrapping and migration helpers.
   - **DE:** Initialisierung und Migration des Streamlit-Session-State.

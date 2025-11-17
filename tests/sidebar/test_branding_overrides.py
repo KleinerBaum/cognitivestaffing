@@ -10,6 +10,7 @@ import streamlit as st
 from constants.keys import ProfilePaths, StateKeys
 from models.need_analysis import NeedAnalysisProfile
 from pydantic import HttpUrl
+import sidebar
 from sidebar import (
     BRANDING_SETTINGS_EXPANDED_KEY,
     _collect_branding_display,
@@ -109,7 +110,7 @@ def test_render_branding_overrides_normalizes_httpurl(monkeypatch: pytest.Monkey
                 return http_logo
             return st.session_state.get(key)
 
-    monkeypatch.setattr("sidebar._wizard_logic", lambda: FakeLogic())
+    monkeypatch.setattr(sidebar, "logic", FakeLogic())
 
     _render_branding_overrides()
 

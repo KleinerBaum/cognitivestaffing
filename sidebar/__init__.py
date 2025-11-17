@@ -7,10 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from collections.abc import Sequence
 from functools import partial
-from functools import lru_cache
 from io import BytesIO
-from types import ModuleType
-from typing import Any, Callable, Iterable, Literal, Mapping, TypeAlias
+from typing import Any, Iterable, Literal, Mapping, TypeAlias
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -27,10 +25,16 @@ from utils.usage import build_usage_markdown, usage_totals
 
 from streamlit.delta_generator import DeltaGenerator
 
-# Lazy wizard imports keep the module importable without circular references.
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
+
+# Import wizard helpers at module load time so sidebar references remain static.
+# ``wizard.runner`` imports ``sidebar.salary`` and therefore touches this module
+# while the package initialises. Keep ``wizard.metadata`` and ``wizard._logic``
+# free of sidebar imports so these dependencies remain safe to import here.
+from wizard import _update_profile, logic
+from wizard.metadata import FIELD_SECTION_MAP, get_missing_critical_fields
 
 from .salary import (
     SalaryFactorEntry,
@@ -67,33 +71,6 @@ def _apply_reasoning_mode(mode: str) -> None:
     else:
         st.session_state["reasoning_effort"] = "high"
         st.session_state["verbosity"] = "high"
-
-
-@lru_cache(maxsize=1)
-def _wizard_exports() -> tuple[Mapping[str, int], Callable[[], Sequence[str]], ModuleType, Callable[[str, Any], None]]:
-    from wizard import FIELD_SECTION_MAP, get_missing_critical_fields, logic, _update_profile
-
-    return FIELD_SECTION_MAP, get_missing_critical_fields, logic, _update_profile
-
-
-def _wizard_field_section_map() -> Mapping[str, int]:
-    field_map, _missing_fn, _logic_module, _update_fn = _wizard_exports()
-    return field_map
-
-
-def _wizard_missing_critical_fields() -> Sequence[str]:
-    field_map, missing_fn, _logic_module, _update_fn = _wizard_exports()
-    return tuple(missing_fn())
-
-
-def _wizard_logic() -> ModuleType:
-    field_map, _missing_fn, logic_module, _update_fn = _wizard_exports()
-    return logic_module
-
-
-def _wizard_update_profile(path: str, value: Any) -> None:
-    field_map, _missing_fn, _logic_module, update_fn = _wizard_exports()
-    update_fn(path, value)
 
 
 STEP_LABELS: list[tuple[str, str]] = [
@@ -257,19 +234,17 @@ def _collect_branding_display() -> _BrandingDisplay | None:
 
 
 def _sync_brand_color() -> None:
-    _wizard_update_profile(
+    _update_profile(
         ProfilePaths.COMPANY_BRAND_COLOR.value, st.session_state.get(ProfilePaths.COMPANY_BRAND_COLOR.value)
     )
 
 
 def _sync_brand_claim() -> None:
-    _wizard_update_profile(ProfilePaths.COMPANY_CLAIM.value, st.session_state.get(ProfilePaths.COMPANY_CLAIM.value))
+    _update_profile(ProfilePaths.COMPANY_CLAIM.value, st.session_state.get(ProfilePaths.COMPANY_CLAIM.value))
 
 
 def _sync_logo_url() -> None:
-    _wizard_update_profile(
-        ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value)
-    )
+    _update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
 
 
 def _render_branding_overrides() -> None:
@@ -279,7 +254,6 @@ def _render_branding_overrides() -> None:
             "Manually adjust branding colour, claim, or logo.",
         )
     )
-    logic = _wizard_logic()
     stored_color = logic.get_value(ProfilePaths.COMPANY_BRAND_COLOR.value)
     normalized_color = _normalize_brand_color(stored_color if isinstance(stored_color, str) else None)
     color_value = normalized_color or DEFAULT_BRAND_COLOR
@@ -290,7 +264,6 @@ def _render_branding_overrides() -> None:
         on_change=_sync_brand_color,
     )
 
-    logic = _wizard_logic()
     current_claim = logic.get_value(ProfilePaths.COMPANY_CLAIM.value) or ""
     st.text_input(
         tr("Claim/Slogan anpassen", "Adjust claim/tagline"),
@@ -300,7 +273,6 @@ def _render_branding_overrides() -> None:
         on_change=_sync_brand_claim,
     )
 
-    logic = _wizard_logic()
     logo_key = ProfilePaths.COMPANY_LOGO_URL.value
     current_logo_value = logic.get_value(logo_key)
     current_logo = "" if current_logo_value is None else str(current_logo_value)
@@ -654,10 +626,10 @@ def _build_context() -> SidebarContext:
     summary: Mapping[str, Any] = st.session_state.get(StateKeys.EXTRACTION_SUMMARY, {})
     skill_buckets: Mapping[str, Iterable[str]] = st.session_state.get(StateKeys.SKILL_BUCKETS, {})
 
-    missing = set(_wizard_missing_critical_fields())
+    missing = set(get_missing_critical_fields())
     missing_by_section: dict[int, list[str]] = {}
     for field in missing:
-        section = _wizard_field_section_map().get(field)
+        section = FIELD_SECTION_MAP.get(field)
         if section is None:
             continue
         missing_by_section.setdefault(section, []).append(field)
