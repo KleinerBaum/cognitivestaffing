@@ -11,6 +11,7 @@ from pages import WizardPage
 from utils.i18n import tr
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
+    PAGE_FOLLOWUP_PREFIXES,
     PAGE_PROGRESS_FIELDS,
     VIRTUAL_PAGE_FIELD_PREFIX,
     get_missing_critical_fields,
@@ -387,34 +388,41 @@ class WizardRouter:
         return self._pages[index - 1].key
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        if page.key == "followups":
-            return self._missing_followup_required_fields()
-        if not page.required_fields:
-            return []
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         missing: list[str] = []
-        for field in page.required_fields:
-            value = st.session_state.get(field)
-            if not self._is_value_present(value):
-                value = self._resolve_value(profile, field, None)
-            if not self._is_value_present(value):
-                missing.append(field)
-        return missing
+        if page.required_fields:
+            for field in page.required_fields:
+                value = st.session_state.get(field)
+                if not self._is_value_present(value):
+                    value = self._resolve_value(profile, field, None)
+                if not self._is_value_present(value):
+                    missing.append(field)
+        missing.extend(self._missing_inline_followups(page, profile))
+        if not missing:
+            return []
+        # Preserve order while removing duplicates
+        return list(dict.fromkeys(missing))
 
-    def _missing_followup_required_fields(self) -> list[str]:
+    def _missing_inline_followups(
+        self,
+        page: WizardPage,
+        profile: Mapping[str, object],
+    ) -> list[str]:
+        prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key, ())
+        if not prefixes:
+            return []
         followups = st.session_state.get(StateKeys.FOLLOWUPS)
         if not isinstance(followups, Sequence):
             return []
-        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         missing: list[str] = []
         for item in followups:
             if not isinstance(item, Mapping):
                 continue
-            priority = str(item.get("priority") or "").casefold()
-            if priority != "critical":
-                continue
             field = str(item.get("field") or "").strip()
-            if not field:
+            if not field or not any(field.startswith(prefix) for prefix in prefixes):
+                continue
+            priority = str(item.get("priority") or "").casefold()
+            if priority and priority != "critical":
                 continue
             value = self._resolve_value(profile, field, None)
             if not followup_has_response(value):

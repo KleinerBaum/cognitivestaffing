@@ -63,8 +63,8 @@ DE: Salary-Sidebar überarbeitet: Die Ansicht zeigt nun die aktuelle Schätzung 
 EN: Sidebar branding overrides let you upload a logo, pick a brand colour, and edit the claim; exports and job ads now embed that metadata by default.
 DE: Branding-Overrides in der Sidebar ermöglichen Logo-Uploads, die Auswahl der Markenfarbe und das Bearbeiten des Claims; Exporte und Stellenanzeigen übernehmen diese Metadaten automatisch.
 
-EN: The Follow-ups Q&A step now keeps the “Next” button disabled until every critical follow-up question has a response, while normal follow-ups remain optional. This ensures mandatory clarifications are captured before advancing to the next step.
-DE: Im Q&A-Schritt bleibt der Button „Weiter“ so lange gesperrt, bis alle kritischen Anschlussfragen beantwortet sind; normale Nachfragen bleiben freiwillig. Dadurch wird sichergestellt, dass alle Pflichtangaben vor dem Fortfahren vollständig vorliegen.
+EN: Follow-up prompts now render inline within their respective wizard sections. The “Next” button stays disabled until every critical inline follow-up has a response, while optional prompts remain skippable, so mandatory clarifications are captured before moving on.
+DE: Anschlussfragen erscheinen jetzt direkt in den jeweiligen Wizard-Abschnitten. Der Button „Weiter“ bleibt so lange deaktiviert, bis alle kritischen Nachfragen beantwortet sind; optionale Fragen bleiben weiterhin freiwillig, damit Pflichtangaben vor dem Fortfahren vollständig vorliegen.
 
 EN: Added a bilingual “🔄 Reset wizard” button to the sidebar settings so recruiters can instantly clear the current profile and reload the default wizard state in one click (without changing theme, language, or LLM preferences).
 DE: Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in den Seiteneinstellungen hinzugefügt, mit dem Recruiter:innen das aktuelle Profil mit einem Klick entfernen und den Wizard mit Standardwerten neu laden können (ohne Dark-Mode-, Sprach- oder LLM-Einstellungen zu verändern).
@@ -119,8 +119,8 @@ EN: Each wizard page opens with a localized introductory caption (in the chosen 
 DE: Jede Wizard-Seite startet mit einer lokalisierten Einleitung im gewählten Tonfall, damit Teams sofort wissen, welche Angaben auf diesem Schritt entscheidend sind.
 
 Guided wizard sections / Geführte Wizard-Abschnitte:
-EN: Steps are grouped into Onboarding, Q&A, Company, Team & Structure, Role & Tasks, Skills & Requirements, Compensation, Hiring Process, and Summary, so recruiters can follow a consistent flow with inline help for each section. The dedicated Q&A step collects generated follow-up questions with interactive inputs right after the extraction overview.
-DE: Schritte sind in Onboarding, Q&A, Unternehmen, Team & Kontext, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, damit Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen pro Abschnitt folgen können. Der neue Q&A-Schritt bündelt die generierten Anschlussfragen direkt nach der Extraktion und stellt interaktive Eingabefelder bereit.
+EN: Steps are grouped into Onboarding, Company, Team & Context, Role & Tasks, Skills & Requirements, Compensation, Process, and Summary, so recruiters can follow a consistent flow with inline help for each section. Generated follow-up questions now surface directly below the relevant inputs inside the matching section, keeping clarifications in context.
+DE: Die Schritte sind in Onboarding, Unternehmen, Team & Kontext, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, sodass Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen pro Abschnitt folgen. Generierte Anschlussfragen erscheinen sofort unter den passenden Eingaben im jeweiligen Abschnitt, wodurch Klarstellungen kontextualisiert bleiben.
 
 Tone control / Tonalitätssteuerung:
 EN: Choose between concise, professional, or casual writing styles before generating job ads, interview guides, or follow-up emails.

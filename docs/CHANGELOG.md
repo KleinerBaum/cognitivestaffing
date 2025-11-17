@@ -6,7 +6,6 @@ DE: Ein neuer Helfer config.set_api_mode() aktualisiert USE_RESPONSES_API und US
 
 EN: Added scripts/check_localization.py plus tests/test_localization_scan.py so UI modules fail CI whenever English strings bypass tr() or i18n.STR, and documented the workflow in README.md.
 DE: scripts/check_localization.py sowie tests/test_localization_scan.py ergänzen jetzt einen CI-Blocker, falls englische Texte ohne tr() oder i18n.STR in die UI gelangen; der Workflow ist zusätzlich in README.md dokumentiert.
-
 EN: Extracted the wizard field/section metadata into wizard/metadata.py and switched wizard_router plus its navigation tests to import it directly so the dependency chain stays explicit and type-checkable.
 DE: Die Zuordnung zwischen Wizard-Feldern und Abschnitten in wizard/metadata.py verankert und wizard_router samt Navigationstests so angepasst, dass diese Metadaten direkt importiert werden – für explizite, typsichere Abhängigkeiten.
 

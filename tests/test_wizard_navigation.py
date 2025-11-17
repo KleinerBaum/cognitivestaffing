@@ -112,14 +112,14 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
 
 
 _STEP_DEFINITIONS: tuple[tuple[str, int, bool], ...] = (
-    ("intro", 0, False),
-    ("followups", 1, False),
-    ("company", 2, False),
-    ("team", 3, False),
-    ("skills", 4, False),
-    ("benefits", 5, True),
-    ("interview", 6, False),
-    ("summary", 7, False),
+    ("jobad", 0, False),
+    ("company", 1, False),
+    ("team", 2, False),
+    ("role_tasks", 3, False),
+    ("skills", 3, False),
+    ("benefits", 4, True),
+    ("interview", 5, False),
+    ("summary", 6, False),
 )
 
 
@@ -263,7 +263,7 @@ def test_navigate_updates_state_and_query(monkeypatch: pytest.MonkeyPatch, query
     assert query_params["step"] == ["company"]
     assert st.session_state["_wizard_scroll_to_top"] is True
     completed = wizard_state.get("completed_steps", [])
-    assert "intro" in completed
+    assert "jobad" in completed
     assert rerun_called["value"]
 
 
@@ -349,20 +349,20 @@ def test_skip_marks_step_completed_and_sets_query(
     assert st.session_state["_wizard_scroll_to_top"] is True
 
 
-def test_followups_step_disables_next_until_critical_answered(
+def test_inline_followup_blocks_next_until_answered(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Critical follow-ups should block the Next button until answered."""
+    """Critical inline follow-ups should keep the Next button disabled."""
 
     st.session_state[StateKeys.PROFILE] = {"company": {}, "meta": {}}
     st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
+        {"field": "company.contact_email", "question": "?", "priority": "critical"}
     ]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
-    router._state["current_step"] = "followups"
-    query_params["step"] = ["followups"]
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
     monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
@@ -382,25 +382,25 @@ def test_followups_step_disables_next_until_critical_answered(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_followups"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
 
-def test_followups_step_enables_next_after_critical_answer(
+def test_inline_followup_unlocks_next_after_answer(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Providing the critical answer should unlock navigation."""
+    """Providing a critical follow-up answer should unlock navigation."""
 
-    st.session_state[StateKeys.PROFILE] = {"company": {"name": "ACME"}, "meta": {}}
+    st.session_state[StateKeys.PROFILE] = {"company": {"contact_email": "hi@example.com"}, "meta": {}}
     st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
+        {"field": "company.contact_email", "question": "?", "priority": "critical"}
     ]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
-    router._state["current_step"] = "followups"
-    query_params["step"] = ["followups"]
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
     monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
@@ -416,19 +416,18 @@ def test_followups_step_enables_next_after_critical_answer(
 
     def fake_button(*args: object, **kwargs: object) -> bool:
         button_calls.append({"args": args, "kwargs": kwargs})
-        if kwargs.get("key") == "wizard_next_followups":
+        if kwargs.get("key") == "wizard_next_company":
             return True
         return False
 
     monkeypatch.setattr(st, "button", fake_button)
-
     monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
 
     with pytest.raises(RerunTriggered):
         router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_followups"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
-    assert wizard_state["current_step"] == "company"
+    assert wizard_state["current_step"] == "team"

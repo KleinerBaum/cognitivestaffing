@@ -18,11 +18,10 @@ from wizard._logic import get_in
 from pages import WIZARD_PAGES
 
 # Index of the first data-entry step ("Unternehmen" / "Company").
-COMPANY_STEP_INDEX: Final[int] = 2
+COMPANY_STEP_INDEX: Final[int] = 1
 
 PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "jobad": 0,
-    "followups": 1,
     "company": COMPANY_STEP_INDEX,
     "team": COMPANY_STEP_INDEX + 1,
     "role_tasks": COMPANY_STEP_INDEX + 2,
@@ -30,6 +29,14 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "benefits": COMPANY_STEP_INDEX + 3,
     "interview": COMPANY_STEP_INDEX + 4,
     "summary": COMPANY_STEP_INDEX + 5,
+}
+
+PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
+    "company": ("company.",),
+    "team": ("position.", "location.", "meta.", "employment."),
+    "role_tasks": ("responsibilities.", "requirements."),
+    "benefits": ("compensation.",),
+    "interview": ("process.",),
 }
 
 VIRTUAL_PAGE_FIELD_PREFIX: Final[str] = "__page__."
@@ -141,6 +148,7 @@ __all__ = [
     "COMPANY_STEP_INDEX",
     "CRITICAL_SECTION_ORDER",
     "FIELD_SECTION_MAP",
+    "PAGE_FOLLOWUP_PREFIXES",
     "PAGE_PROGRESS_FIELDS",
     "PAGE_SECTION_INDEXES",
     "SECTION_FILTER_OVERRIDES",

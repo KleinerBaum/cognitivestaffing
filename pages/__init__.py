@@ -26,7 +26,6 @@ def _load_page_module(filename: str) -> ModuleType:
 def _load_pages() -> Iterable[WizardPage]:
     for name in (
         "01_jobad",
-        "followups",
         "02_company",
         "03_team",
         "04_role_tasks",
