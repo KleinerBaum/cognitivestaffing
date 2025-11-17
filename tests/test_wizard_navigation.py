@@ -428,3 +428,69 @@ def test_company_step_enables_next_after_required_answer(
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
     assert wizard_state["current_step"] == "team"
+
+
+def test_summary_step_waits_for_critical_followups(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Pages without required fields should still block Next for follow-ups."""
+
+    st.session_state[StateKeys.PROFILE] = {"summary": {}, "meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [
+        {"field": "summary.headline", "question": "?", "priority": "critical"}
+    ]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "summary"
+    query_params["step"] = ["summary"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    button_calls: list[dict[str, Any]] = []
+
+    def disabled_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        return False
+
+    monkeypatch.setattr(st, "button", disabled_button)
+    monkeypatch.setattr(
+        st,
+        "rerun",
+        lambda: (_ for _ in ()).throw(AssertionError("rerun not expected")),
+    )
+
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_summary"]
+    assert next_calls, "expected Next button to render"
+    assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state["summary.headline"] = "Ready"
+
+    class RerunTriggered(Exception):
+        pass
+
+    enabled_calls: list[dict[str, Any]] = []
+
+    def enabled_button(*args: object, **kwargs: object) -> bool:
+        enabled_calls.append({"args": args, "kwargs": kwargs})
+        if kwargs.get("key") == "wizard_next_summary":
+            return True
+        return False
+
+    monkeypatch.setattr(st, "button", enabled_button)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    next_calls = [call for call in enabled_calls if call["kwargs"].get("key") == "wizard_next_summary"]
+    assert next_calls, "expected Next button to render"
+    assert next_calls[-1]["kwargs"].get("disabled", False) is False

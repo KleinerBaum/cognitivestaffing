@@ -387,18 +387,19 @@ class WizardRouter:
         return self._pages[index - 1].key
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        if not page.required_fields:
-            return []
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         missing: list[str] = []
-        if page.required_fields:
-            for field in page.required_fields:
+        required_fields = tuple(page.required_fields or ())
+        if required_fields:
+            for field in required_fields:
                 value = st.session_state.get(field)
                 if not self._is_value_present(value):
                     value = self._resolve_value(profile, field, None)
                 if not self._is_value_present(value):
                     missing.append(field)
-        missing.extend(self._missing_inline_followups(page, profile))
+        inline_missing = self._missing_inline_followups(page, profile)
+        if inline_missing:
+            missing.extend(inline_missing)
         if not missing:
             return []
         # Preserve order while removing duplicates
