@@ -2,11 +2,39 @@ Cognitive Staffing
 
 Cognitive Staffing automates the extraction and enrichment of vacancy profiles from PDFs, URLs, or pasted text. It turns unstructured job ads into structured JSON, highlights missing data, and orchestrates multiple AI agents to draft follow-up questions, job ads, interview guides, and Boolean searches. By default, all LLM calls run through the OpenAI Responses API using cost-effective models: lightweight tasks run on gpt-4.1-mini, while reasoning-heavy flows (summaries, explanations, document rewrites) escalate to the Responses reasoning tier o4-mini with automatic fallbacks through o3 and gpt-4o. This setup lets us enforce structured outputs, stream long generations, and fall back gracefully when rate limits occur. If needed, set the USE_CLASSIC_API environment variable to route all calls through the standard Chat Completions API instead.
 
+Key highlights / Wichtigste Funktionen
+
+EN:
+* Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
+* Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
+* The bilingual debug panel lets admins toggle Responses vs. Chat APIs, enable verbose logs, and align USE_RESPONSES_API, USE_CLASSIC_API, and RESPONSES_ALLOW_TOOLS in one place.
+
+DE:
+* Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
+* Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.
+* Das zweisprachige Debug-Panel erlaubt Admins, Responses- vs.-Chat-API umzuschalten, ausführliches Logging zu aktivieren und USE_RESPONSES_API, USE_CLASSIC_API sowie RESPONSES_ALLOW_TOOLS gemeinsam zu steuern.
+
 Version
 
 EN: Current release: v1.1.0 (November 2025) – see below for highlights.
 
 DE: Aktuelle Version: v1.1.0 (November 2025) – Highlights siehe unten.
+
+Release timeline / Release-Verlauf
+
+* v1.1.0 – Wizard hardening & schema alignment: inline follow-ups inside all eight steps, automatic salary estimation refresh, quick/precise routing toggle, debug panel, and Responses ↔ Chat switching helper.
+* v1.0.1 – Setup & branding refresh: company branding enrichment, OpenAI configuration guidance, contributor docs for schema propagation, and extraction hardening.
+* v1.0.0 – Wizard modernisation: unified layout, schema/export propagation, AI helpers for responsibilities/interviews, navigation refresh, and release of the eight-step intake.
+
+* v1.1.0 – Wizard-Härtung & Schemaabgleich: Inline-Follow-ups in allen acht Schritten, automatische Gehaltsupdates, Schnell-/Präzisionsmodus, Debug-Panel und Umschalter zwischen Responses- und Chat-API.
+* v1.0.1 – Setup- & Branding-Update: Branding-Anreicherung fürs Unternehmen, OpenAI-Konfigurationshinweise, Contributor-Doku zur Schema-Propagation und stabilere Extraktion.
+* v1.0.0 – Wizard-Vollmodernisierung: Vereinheitlichtes Layout, Schema-/Export-Sync, KI-Helfer für Verantwortlichkeiten/Interviews, Navigations-Refresh und Veröffentlichung des achtstufigen Intake-Prozesses.
+
+Repository layout / Projektstruktur
+
+EN: The repository keeps wizard-facing code under components/, pages/, wizard/, sidebar/, and ui_views/, while domain logic lives in core/, constants/, and schemas.py. LLM adapters stay inside llm/ and openai_utils/, ingestion/RAG helpers in ingest/ plus pipelines/, and documentation in docs/ with CHANGELOG, developer guides, and telemetry notes.
+
+DE: Wizard-sichtbarer Code liegt in components/, pages/, wizard/, sidebar/ und ui_views/, während die Domänenlogik in core/, constants/ und schemas.py lebt. LLM-Adapter befinden sich in llm/ und openai_utils/, Ingestion-/RAG-Helfer in ingest/ sowie pipelines/, und die Dokumentation mit CHANGELOG, Developer-Guides und Telemetrie-Hinweisen unter docs/.
 
 Testing / Tests
 
