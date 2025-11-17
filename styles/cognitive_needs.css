@@ -254,6 +254,9 @@ section.main > div.block-container {
   z-index: 1;
   flex: 1 1 auto;
   color: var(--text-strong);
+  max-width: var(--hero-copy-max-width, 640px);
+  width: 100%;
+  margin: 0 auto;
 }
 
 .app-banner__eyebrow {
@@ -375,6 +378,13 @@ section.main > div.block-container {
   margin-top: auto;
   font-size: 0.85rem;
   color: var(--text-soft);
+}
+
+@media (max-width: 768px) {
+  .app-banner__copy {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 720px) {
