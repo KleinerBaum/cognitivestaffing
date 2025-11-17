@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **EN:** Fixed the structured Need Analysis extraction pipeline so parser-
+  validated payloads are returned immediately instead of triggering the
+  plain JSON fallback, ensuring every caller receives schema-compliant
+  data without extra prompts.
+  **DE:** Die strukturierte Need-Analysis-Extraktion liefert validierte
+  Parser-Daten jetzt sofort zurück, statt den einfachen JSON-Fallback zu
+  starten, sodass alle Aufrufer ohne zusätzliche Prompts schema-konforme
+  Antworten bekommen.
 - **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
   switched `wizard_router` plus its navigation tests to import it directly so the
   dependency chain stays explicit and type-checkable.

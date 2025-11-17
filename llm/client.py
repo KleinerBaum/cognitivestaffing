@@ -390,6 +390,13 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             err,
         )
         raise
+    else:
+        validated_payload = (
+            json.dumps(raw_data, ensure_ascii=False)
+            if raw_data is not None
+            else profile.model_dump_json()
+        )
+        return validated_payload
 
     if last_error is not None:
         raise ValueError("Structured extraction failed") from last_error
