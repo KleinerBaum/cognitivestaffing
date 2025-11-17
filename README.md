@@ -353,6 +353,12 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - `wizard/`
   - **EN:** Flow control, widget helpers, and routing glue for the multi-step UI.
   - **DE:** Ablaufsteuerung, Widget-Helfer und Routing-Logik für den Multi-Step-Wizard.
+  - **EN:** `wizard/metadata.py` centralises `FIELD_SECTION_MAP`, `CRITICAL_SECTION_ORDER`,
+    and `get_missing_critical_fields` so `wizard.runner` and `wizard_router` share a
+    lightweight, circular-import-free source of truth.
+  - **DE:** `wizard/metadata.py` bündelt `FIELD_SECTION_MAP`, `CRITICAL_SECTION_ORDER`
+    und `get_missing_critical_fields`, damit `wizard.runner` und `wizard_router`
+    eine schlanke, kreisfrei importierbare Wahrheit teilen.
 - `core/`
   - **EN:** Schema definitions, canonicalisation utilities, and business rules.
   - **DE:** Schema-Definitionen, Kanonisierung und Business-Logik.
