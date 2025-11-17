@@ -63,17 +63,8 @@ def load_deployment_config(path: str | Path | None = None) -> DeploymentConfig:
             break
     install_command = str(install_raw).strip() if isinstance(install_raw, str) else ""
 
-    requirements_raw = (
-        python_block.get("requirements")
-        or python_block.get("requirements_file")
-        or python_block.get("requirementsFile")
-    )
-    requirements_file = str(requirements_raw).strip() if isinstance(requirements_raw, str) else ""
-
     if install_command:
         resolved_install = install_command
-    elif requirements_file:
-        resolved_install = f"pip install -r {requirements_file}"
     else:
         resolved_install = _DEFAULT_INSTALL_COMMAND
 
