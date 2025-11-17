@@ -20,6 +20,14 @@
   abgedichtet, indem `additionalProperties: false` auf allen
   Objekt-Ebenen erzwungen und ein Regressionstest ergänzt wurde, damit
   die OpenAI-Responses-API das Format wieder akzeptiert.
+- **EN:** The Follow-ups step now keeps the “Next” button disabled until
+  every critical follow-up has a response, while normal follow-ups stay
+  optional, ensuring mandatory clarifications are captured before
+  advancing.
+  **DE:** Im Q&A-Schritt bleibt der Button „Weiter“ so lange gesperrt,
+  bis alle kritischen Anschlussfragen beantwortet sind; normale
+  Nachfragen bleiben freiwillig, sodass Pflichtangaben vor dem
+  Weiterklicken vollständig vorliegen.
 - **EN:** Replaced every `use_container_width` flag with the new
   `width` argument across Streamlit widgets to silence 2025 deprecation
   warnings and keep the layout stretching behaviour.
