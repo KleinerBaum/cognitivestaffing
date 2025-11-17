@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **EN:** Instrumented the RAG pipeline so every vector-store lookup logs per-field latency, fallback usage, and OpenTelemetry span attributes, giving quantitative evidence of the threaded retriever’s speedups.
+  **DE:** Die RAG-Pipeline instrumentiert, sodass jeder Vector-Store-Lookup Feldlaufzeiten, Fallback-Nutzung und OpenTelemetry-Attribute protokolliert und damit messbare Nachweise für die Beschleunigung durch den parallelisierten Retriever liefert.
 - **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
   switched `wizard_router` plus its navigation tests to import it directly so the
   dependency chain stays explicit and type-checkable.
