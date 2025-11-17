@@ -450,6 +450,10 @@ if USE_RESPONSES_API:
 else:
     USE_CLASSIC_API = True
 
+assert not (
+    USE_RESPONSES_API and USE_CLASSIC_API
+), "USE_RESPONSES_API and USE_CLASSIC_API cannot both be enabled simultaneously"
+
 try:
     REASONING_EFFORT = _normalise_reasoning_effort(
         st.secrets.get("REASONING_EFFORT", REASONING_EFFORT),
