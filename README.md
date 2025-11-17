@@ -14,6 +14,10 @@ EN: Run ruff format, ruff check, and mypy --config-file pyproject.toml before ex
 
 DE: Führe ruff format, ruff check und mypy --config-file pyproject.toml aus und starte anschließend coverage run -m pytest -q (standardmäßig werden llm-Tests übersprungen; mit konfiguriertem OpenAI-Key kannst du -m llm ergänzen). Halte die Gesamtabdeckung bei ≥88 %, damit die CI grün bleibt und XML-/HTML-Artefakte für das Review bereitstehen.
 
+EN: Before opening a PR that touches sidebar/, pages/, components/, wizard/, or ui_views/, run python scripts/check_localization.py to ensure English UI strings stay wrapped in tr() or live inside i18n.STR. pytest tests/test_localization_scan.py enforces the same scan during CI to keep regressions out of dev.
+
+DE: Bevor du einen PR mit Änderungen an sidebar/, pages/, components/, wizard/ oder ui_views/ erstellst, führe python scripts/check_localization.py aus, damit englische UI-Texte weiterhin in tr() gekapselt oder in i18n.STR hinterlegt sind. pytest tests/test_localization_scan.py erzwingt denselben Scan in der CI, damit keine Regressionen den dev-Branch erreichen.
+
 EN: Track pre-existing typing gaps and the temporary ignore list in docs/mypy_typing_status.md so future branches can retire overrides incrementally.
 
 DE: Dokumentierte Typing-Lücken sowie die temporären Ignore-Listen findest du in docs/mypy_typing_status.md, damit zukünftige Branches die Overrides schrittweise abbauen können.
