@@ -17,10 +17,14 @@ how much reasoning the model performs by default.
 import logging
 import os
 import warnings
+from contextlib import contextmanager
+from importlib import import_module
+from threading import RLock
+from types import ModuleType
 
 import streamlit as st
 from enum import StrEnum
-from typing import Dict, Mapping, Sequence
+from typing import Dict, Iterator, Mapping, Sequence
 
 from llm.model_router import ALIASES as ROUTER_ALIASES
 
@@ -41,6 +45,7 @@ CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
 _TRUTHY_ENV_VALUES: tuple[str, ...] = ("1", "true", "yes", "on")
+_API_FLAG_LOCK = RLock()
 
 
 # Canonical model identifiers as exposed by the OpenAI Responses API.

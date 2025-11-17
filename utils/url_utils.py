@@ -8,7 +8,7 @@ import logging
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 _BS4_SPEC = importlib.util.find_spec("bs4")
 BeautifulSoup: Any | None

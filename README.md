@@ -13,6 +13,13 @@
 
 ## Unreleased
 
+- **EN:** Fixed the Need Analysis structured extraction so validated
+  parser payloads are returned immediately instead of falling back to the
+  plain-text repair path, keeping every caller on the schema-compliant
+  JSON output.
+  **DE:** Die Need-Analysis-Extraktion liefert gültige Parser-Daten jetzt
+  direkt zurück, ohne auf den Plain-Text-Reparaturpfad zu wechseln, sodass
+  alle Aufrufer schema-konforme JSON-Antworten erhalten.
 - **EN:** Closed the Interview Guide structured output schema by forcing
   `additionalProperties: false` on every object level and adding a
   regression test so the OpenAI Responses API accepts the format again.
@@ -42,6 +49,14 @@
   gespeichert, sodass die lokalisierte `st.error`-Meldung sichtbar
   bleibt, bis eine neue URL oder ein Upload funktioniert – ohne
   flackernde Hinweise zwischen den Versuchen.
+- **EN:** Added a bilingual “🔄 Reset wizard” button to the sidebar
+  settings so facilitators can wipe the current profile and reload the
+  default wizard state in one click without touching theme, language, or
+  LLM preferences.
+  **DE:** Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in
+  den Seiteneinstellungen ergänzt, der das aktuelle Profil entfernt und
+  den Wizard mit Standardwerten neu lädt, ohne Dark-Mode-, Sprach- oder
+  LLM-Einstellungen zu verändern.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the
@@ -307,6 +322,9 @@
 - **Parallel RAG lookups / Parallele RAG-Abfragen:**
   **EN:** When a vector store is configured the field-specific file_search calls execute concurrently, so chunk retrieval completes faster even for larger schemas.
   **DE:** Ist ein Vector-Store hinterlegt, laufen die feldspezifischen file_search-Aufrufe parallel, wodurch die Snippet-Recherche auch bei umfangreichen Schemata schneller abgeschlossen ist.
+- **RAG telemetry / RAG-Telemetrie:**
+  **EN:** Each vector-store lookup now logs per-field latency plus fallback usage and forwards the metrics to OpenTelemetry spans, giving operators measurable evidence that the threaded retriever accelerates lookups.
+  **DE:** Jeder Vector-Store-Lookup protokolliert nun die Feldlaufzeit und ob ein Fallback greifen musste und schreibt die Messwerte in OpenTelemetry-Spans, damit Betreiber messbar nachvollziehen können, wie stark der parallelisierte Retriever die Suche beschleunigt.
 - **Multi-model routing / Modellrouting:**
   **EN:** The router now prefers `gpt-4.1-mini` for lightweight lookups and automatically escalates summaries, explanations, and planning flows to `o4-mini`, cascading through `o3`, `gpt-4o-mini`, and `gpt-4o` if capacity constraints occur. Administrators can still override the model via configuration (for example by setting `OPENAI_MODEL`), but automated selection is the default.
   **DE:** Der Router nutzt standardmäßig `gpt-4.1-mini` für leichte Abfragen und hebt Zusammenfassungen, Erklärungen und Planungen auf `o4-mini`, inklusive Fallbacks über `o3`, `gpt-4o-mini` und `gpt-4o`, sobald Kapazitätsprobleme auftreten. Administratoren können per Konfiguration (z. B. mit `OPENAI_MODEL`) weiterhin ein bestimmtes Modell fest vorgeben, aber normalerweise erfolgt die Modellauswahl automatisch.

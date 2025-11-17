@@ -324,3 +324,82 @@ def test_generate_error_report_missing_required() -> None:
 
     report = client._generate_error_report({"process": {"stakeholders": [{}]}})
     assert "'role' is a required property" in report
+
+
+def test_structured_extraction_returns_validated_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Structured extractions should return the validated payload immediately."""
+
+    sample_data = NeedAnalysisProfile().model_dump()
+    sample_json = json.dumps(sample_data, ensure_ascii=False)
+
+    monkeypatch.setattr(client, "USE_RESPONSES_API", False)
+    monkeypatch.setattr(
+        client,
+        "call_chat_api",
+        lambda *_args, **_kwargs: ChatCallResult(content=sample_json, tool_calls=[], usage={}),
+    )
+
+    payload = {
+        "messages": [{"role": "user", "content": "Extract"}],
+        "model": "gpt-test",
+        "reasoning_effort": None,
+        "verbosity": None,
+    }
+
+    result = client._structured_extraction(payload)
+
+    assert json.loads(result) == sample_data
+
+
+def test_extract_json_skips_plain_fallback_when_structured_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`extract_json` should not invoke the plain fallback when structure parsing works."""
+
+    st.session_state.clear()
+    sample_profile = NeedAnalysisProfile().model_dump()
+    structured_json = json.dumps(sample_profile, ensure_ascii=False)
+    structured_calls = {"count": 0}
+    fallback_calls = {"count": 0}
+
+    def _fake_structured(payload: dict[str, Any]) -> str:
+        structured_calls["count"] += 1
+        assert payload["messages"] == [{"role": "user", "content": "Job text"}]
+        return structured_json
+
+    def _fail_fallback(*_args: Any, **_kwargs: Any) -> None:
+        fallback_calls["count"] += 1
+        raise AssertionError("Plain fallback should not run when structured output succeeds")
+
+    class _DummySpan:
+        def __enter__(self) -> "_DummySpan":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - interface only
+            return None
+
+        def set_attribute(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        def set_status(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        def add_event(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        def record_exception(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr(client, "_run_pre_extraction_analysis", lambda *a, **k: None)
+    monkeypatch.setattr(client, "build_extract_messages", lambda *a, **k: [{"role": "user", "content": "Job text"}])
+    monkeypatch.setattr(client, "select_model", lambda *_: "gpt-test")
+    monkeypatch.setattr(client, "get_active_verbosity", lambda: None)
+    monkeypatch.setattr(client.tracer, "start_as_current_span", lambda *a, **k: _DummySpan())
+    monkeypatch.setattr(client, "_structured_extraction", _fake_structured)
+    monkeypatch.setattr(client, "call_chat_api", _fail_fallback)
+
+    result = client.extract_json("Job text")
+
+    assert json.loads(result) == sample_profile
+    assert structured_calls == {"count": 1}
+    assert fallback_calls == {"count": 0}

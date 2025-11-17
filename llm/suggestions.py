@@ -274,6 +274,8 @@ def suggest_skills_for_role(
             existing_items=existing_items,
             responsibilities=responsibilities,
         )
+    if response.used_chat_fallback:
+        logger.info("Skill suggestions succeeded via classic chat fallback")
 
     try:
         payload = json.loads(response.content or "{}")
@@ -451,6 +453,8 @@ def suggest_benefits(
             "Responses API benefit suggestion failed; attempting legacy fallback before static shortlist",
         )
         return _run_fallback_cascade()
+    if response.used_chat_fallback:
+        logger.info("Benefit suggestions succeeded via classic chat fallback")
 
     try:
         payload = json.loads(response.content or "{}")

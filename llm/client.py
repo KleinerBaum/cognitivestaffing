@@ -330,6 +330,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             )
             if result is None:
                 return None
+            if result.used_chat_fallback:
+                logger.info(
+                    "Structured extraction fell back to chat completions for %s",
+                    prompt_digest,
+                )
             return (result.content or "").strip()
 
         attempts.append(("responses", _call_responses))
@@ -390,6 +395,13 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             err,
         )
         raise
+    else:
+        validated_payload = (
+            json.dumps(raw_data, ensure_ascii=False)
+            if raw_data is not None
+            else profile.model_dump_json()
+        )
+        return validated_payload
 
     if last_error is not None:
         raise ValueError("Structured extraction failed") from last_error
