@@ -101,6 +101,7 @@ from .metadata import (
     COMPANY_STEP_INDEX,
     CRITICAL_SECTION_ORDER,
     FIELD_SECTION_MAP,
+    PAGE_FOLLOWUP_PREFIXES,
     get_missing_critical_fields,
     resolve_section_for_field,
 )
@@ -3975,6 +3976,7 @@ def _ensure_followup_styles() -> None:
         unsafe_allow_html=True,
     )
 
+
 def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
     """Persist ``suggestion`` into the widget state for ``field``."""
 
@@ -5045,6 +5047,13 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
                     "The assistant has generated follow-up questions to help fill in missing info:",
                 )
             )
+            st.markdown(
+                tr(
+                    "<p class='wizard-followup-meta'>Antworten werden automatisch gespeichert und im Profil gespiegelt.</p>",
+                    "<p class='wizard-followup-meta'>Answers are saved automatically and synced with the profile.</p>",
+                ),
+                unsafe_allow_html=True,
+            )
             if st.session_state.get(StateKeys.RAG_CONTEXT_SKIPPED):
                 st.caption(
                     tr(
@@ -5055,6 +5064,15 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
             for q in list(followups):
                 _render_followup_question(q, data)
             st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_followups_for_step(page_key: str, data: dict) -> None:
+    """Render inline follow-ups configured for ``page_key``."""
+
+    prefixes = PAGE_FOLLOWUP_PREFIXES.get(page_key)
+    if not prefixes:
+        return
+    _render_followups_for_section(prefixes, data)
 
 
 def _lang_index(lang: str | None) -> int:
@@ -6898,7 +6916,7 @@ def _step_company() -> None:
                 st.rerun()
 
     # Inline follow-up questions for Company section
-    _render_followups_for_section(("company.",), data)
+    _render_followups_for_step("company", data)
 
 
 def _phase_display_labels(phases: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -7715,7 +7733,7 @@ def _step_position() -> None:
         employment.pop("relocation_details", None)
 
     # Inline follow-up questions for Position, Location and Employment section
-    _render_followups_for_section(("position.", "location.", "meta.", "employment."), data)
+    _render_followups_for_step("team", data)
 
 
 def _step_requirements() -> None:
@@ -8777,8 +8795,8 @@ def _step_requirements() -> None:
             radius_km=float(radius_value),
         )
 
-    # Inline follow-up questions for Requirements section
-    _render_followups_for_section(("requirements.",), data)
+    # Inline follow-up questions for Requirements & Responsibilities
+    _render_followups_for_step("role_tasks", data)
 
 
 def _update_section_progress(
@@ -9145,7 +9163,7 @@ def _step_compensation() -> None:
             st.markdown(f"- {benefit}")
 
     # Inline follow-up questions for Compensation section
-    _render_followups_for_section(("compensation.",), data)
+    _render_followups_for_step("benefits", data)
 
 
 def _step_process() -> None:
@@ -9305,7 +9323,7 @@ def _step_process() -> None:
         _render_onboarding_section(data, "ui.process.onboarding")
 
     # Inline follow-up questions for Process section
-    _render_followups_for_section(("process.",), profile)
+    _render_followups_for_step("interview", profile)
 
 
 _MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
@@ -11331,48 +11349,6 @@ def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
     _step_onboarding(schema)
 
 
-def _step_followups() -> None:
-    """Render the dedicated Q&A step for follow-up questions."""
-
-    profile = _get_profile_state()
-    title, subtitle, intros = _resolve_step_copy("followups", profile)
-    render_step_heading(title, subtitle)
-    for intro in intros:
-        st.caption(intro)
-
-    raw_followups = st.session_state.get(StateKeys.FOLLOWUPS) or []
-    followups: list[Mapping[str, object]] = [q for q in raw_followups if isinstance(q, Mapping) and q.get("field")]
-    if not followups:
-        st.success(
-            tr(
-                "Aktuell sind keine Anschlussfragen offen – du kannst zum nächsten Schritt wechseln.",
-                "No follow-up questions are pending – you can continue to the next step.",
-            )
-        )
-        return
-
-    _ensure_followup_styles()
-    with st.container():
-        st.markdown("<div class='wizard-followup-card'>", unsafe_allow_html=True)
-        st.markdown(
-            tr(
-                "<p class='wizard-followup-meta'>Antworten werden automatisch gespeichert und im Profil gespiegelt.</p>",
-                "<p class='wizard-followup-meta'>Answers are saved automatically and synced with the profile.</p>",
-            ),
-            unsafe_allow_html=True,
-        )
-        if st.session_state.get(StateKeys.RAG_CONTEXT_SKIPPED):
-            st.caption(
-                tr(
-                    "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID).",
-                    "Contextual suggestions require a configured vector store (VECTOR_STORE_ID).",
-                )
-            )
-        for followup in list(followups):
-            _render_followup_question(dict(followup), profile)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
 def _render_skills_review_step() -> None:
     profile = _get_profile_state()
     lang = st.session_state.get("lang", "de")
@@ -11432,12 +11408,6 @@ def step_jobad(context: WizardContext) -> None:
     _render_jobad_step_v2(context.schema)
 
 
-def step_followups(context: WizardContext) -> None:
-    """Render the follow-up Q&A step."""
-
-    _step_followups()
-
-
 def step_company(context: WizardContext) -> None:
     """Render the company step."""
 
@@ -11482,14 +11452,13 @@ def step_summary(context: WizardContext) -> None:
 
 STEP_RENDERERS: dict[str, StepRenderer] = {
     "jobad": StepRenderer(step_jobad, legacy_index=0),
-    "followups": StepRenderer(step_followups, legacy_index=1),
-    "company": StepRenderer(step_company, legacy_index=2),
-    "team": StepRenderer(step_team, legacy_index=3),
-    "role_tasks": StepRenderer(step_role_tasks, legacy_index=4),
-    "skills": StepRenderer(step_skills, legacy_index=4),
-    "benefits": StepRenderer(step_benefits, legacy_index=5),
-    "interview": StepRenderer(step_interview, legacy_index=6),
-    "summary": StepRenderer(step_summary, legacy_index=7),
+    "company": StepRenderer(step_company, legacy_index=1),
+    "team": StepRenderer(step_team, legacy_index=2),
+    "role_tasks": StepRenderer(step_role_tasks, legacy_index=3),
+    "skills": StepRenderer(step_skills, legacy_index=3),
+    "benefits": StepRenderer(step_benefits, legacy_index=4),
+    "interview": StepRenderer(step_interview, legacy_index=5),
+    "summary": StepRenderer(step_summary, legacy_index=6),
 }
 
 
