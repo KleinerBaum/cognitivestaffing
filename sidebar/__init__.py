@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import inspect
 import re
 from base64 import b64encode
 from dataclasses import dataclass
@@ -28,6 +29,24 @@ from streamlit.delta_generator import DeltaGenerator
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
+
+_BUTTON_SUPPORTS_WIDTH = "width" in inspect.signature(st.button).parameters
+
+
+def _sidebar_button(label: str, *args: Any, width: str | None = None, **kwargs: Any) -> bool:
+    call_kwargs = dict(kwargs)
+    include_width = width is not None and _BUTTON_SUPPORTS_WIDTH
+    if include_width:
+        call_kwargs["width"] = width
+    try:
+        return st.button(label, *args, **call_kwargs)
+    except TypeError:
+        if not include_width:
+            raise
+        call_kwargs.pop("width", None)
+        globals()["_BUTTON_SUPPORTS_WIDTH"] = False
+        return st.button(label, *args, **call_kwargs)
+
 
 # Wizard metadata is intentionally lightweight (no sidebar imports) so we can
 # eagerly import the field map, critical helpers, and logic module without
@@ -244,9 +263,7 @@ def _sync_brand_claim() -> None:
 
 
 def _sync_logo_url() -> None:
-    _update_profile(
-        ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value)
-    )
+    _update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
 
 
 def _render_branding_overrides() -> None:
@@ -1224,13 +1241,7 @@ def _chip_button_with_tooltip(
     help: str | None = None,
 ) -> bool:
     tooltip = help or label
-    return st.button(
-        label,
-        key=key,
-        type=type,
-        width=width,
-        help=tooltip,
-    )
+    return _sidebar_button(label, key=key, type=type, width=width, help=tooltip)
 
 
 def _format_field_name(path: str) -> str:

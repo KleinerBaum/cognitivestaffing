@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Literal
 
+import inspect
 import streamlit as st
 
 from utils.i18n import UI_MULTISELECT_ADD_MORE_HINT, tr
@@ -19,6 +20,23 @@ __all__ = [
 ]
 
 CHIP_INLINE_VALUE_LIMIT = 20
+
+_BUTTON_SUPPORTS_WIDTH = "width" in inspect.signature(st.button).parameters
+
+
+def _chip_button(label: str, *args: Any, width: str | None = None, **kwargs: Any) -> bool:
+    call_kwargs = dict(kwargs)
+    include_width = width is not None and _BUTTON_SUPPORTS_WIDTH
+    if include_width:
+        call_kwargs["width"] = width
+    try:
+        return st.button(label, *args, **call_kwargs)
+    except TypeError:
+        if not include_width:
+            raise
+        call_kwargs.pop("width", None)
+        globals()["_BUTTON_SUPPORTS_WIDTH"] = False
+        return st.button(label, *args, **call_kwargs)
 
 
 def _compact_inline_label(raw: str, *, limit: int = CHIP_INLINE_VALUE_LIMIT) -> tuple[str, bool]:
@@ -61,7 +79,7 @@ def render_chip_button_grid(
     if widget_factory is not None:
         button_renderer = widget_factory
     else:
-        button_renderer = st.button
+        button_renderer = _chip_button
 
     for idx, option in enumerate(options):
         option_text = str(option)

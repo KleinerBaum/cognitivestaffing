@@ -50,8 +50,8 @@ def build_file_search_tool(*args: Any, **kwargs: Any) -> dict[str, Any]:
 # ESCO helpers (core utils + offline-aware wrapper)
 from constants.keys import StateKeys
 from core.esco_utils import (
-    classify_occupation,
-    get_essential_skills,
+    cached_classify_occupation as classify_occupation,
+    cached_get_essential_skills as get_essential_skills,
     get_group_skills,
     normalize_skills,
 )

@@ -355,9 +355,7 @@ def test_followups_step_disables_next_until_critical_answered(
     """Critical follow-ups should block the Next button until answered."""
 
     st.session_state[StateKeys.PROFILE] = {"company": {}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
@@ -393,9 +391,7 @@ def test_followups_step_enables_next_after_critical_answer(
     """Providing the critical answer should unlock navigation."""
 
     st.session_state[StateKeys.PROFILE] = {"company": {"name": "ACME"}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)

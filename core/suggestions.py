@@ -34,8 +34,8 @@ else:
     suggest_benefits = responses_suggest_benefits or legacy_suggest_benefits
 
 from core.esco_utils import (
-    classify_occupation,
-    get_essential_skills,
+    cached_classify_occupation as classify_occupation,
+    cached_get_essential_skills as get_essential_skills,
     lookup_esco_skill,
 )
 

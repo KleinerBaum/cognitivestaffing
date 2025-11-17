@@ -14,9 +14,9 @@ import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
 from core.esco_utils import (
-    classify_occupation,
-    get_essential_skills,
-    search_occupations,
+    cached_classify_occupation as classify_occupation,
+    cached_get_essential_skills as get_essential_skills,
+    cached_search_occupations as search_occupations,
 )
 
 

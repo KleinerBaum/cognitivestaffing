@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **EN:** Added Streamlit-backed caches for ESCO occupation classification,
+  search, and skill lookups, logging hits vs refreshes and reusing responses
+  across the wizard, question logic, and gap analysis flows.
+  **DE:** Streamlit-basierte Caches für ESCO-Berufs- und Skill-Abfragen
+  ergänzt – mit Logging für Cache-Treffer vs. Aktualisierungen und
+  gemeinsamer Nutzung in Wizard, Fragen-Logik und Gap-Analyse.
 - **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
   switched `wizard_router` plus its navigation tests to import it directly so the
   dependency chain stays explicit and type-checkable.

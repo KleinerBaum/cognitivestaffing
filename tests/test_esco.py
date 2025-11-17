@@ -22,10 +22,12 @@ def _load_fixture(name: str) -> Dict[str, Any]:
 def _reset_caches(monkeypatch):
     esco._get_occupation_detail.cache_clear()
     esco._api_lookup_skill.cache_clear()
+    esco.clear_streamlit_esco_cache()
     monkeypatch.delenv("VACAYSER_OFFLINE", raising=False)
     yield
     esco._get_occupation_detail.cache_clear()
     esco._api_lookup_skill.cache_clear()
+    esco.clear_streamlit_esco_cache()
 
 
 def test_classify_occupation_from_fixture(monkeypatch):
@@ -131,3 +133,47 @@ def test_get_essential_skills_uses_offline_cache_for_placeholder(monkeypatch, ca
     assert skills == expected
     assert calls == []
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_cached_classify_reuses_streamlit_cache(monkeypatch, caplog):
+    """The Streamlit cache should prevent duplicate ESCO occupation lookups."""
+
+    pytest.importorskip("streamlit")
+    esco.clear_streamlit_esco_cache()
+    calls: list[str] = []
+
+    def fake_classify(title: str, lang: str = "en") -> Dict[str, str]:
+        calls.append(f"{title}:{lang}")
+        return {"preferredLabel": title, "uri": f"fake://{title}", "group": "grp"}
+
+    monkeypatch.setattr(esco, "classify_occupation", fake_classify)
+
+    with caplog.at_level(logging.INFO, logger="cognitive_needs.esco"):
+        first = esco.cached_classify_occupation("Data Scientist", lang="en")
+        again = esco.cached_classify_occupation("Data Scientist", lang="en")
+
+    assert first == again
+    assert calls == ["Data Scientist:en"]
+    assert any("cache hit" in record.getMessage() for record in caplog.records)
+
+
+def test_cached_skills_reuses_streamlit_cache(monkeypatch, caplog):
+    """The Streamlit cache must reuse essential skill lookups for identical URIs."""
+
+    pytest.importorskip("streamlit")
+    esco.clear_streamlit_esco_cache()
+    calls: list[str] = []
+
+    def fake_skills(uri: str, lang: str = "en") -> list[str]:
+        calls.append(f"{uri}:{lang}")
+        return [f"skill-{lang}"]
+
+    monkeypatch.setattr(esco, "get_essential_skills", fake_skills)
+
+    with caplog.at_level(logging.INFO, logger="cognitive_needs.esco"):
+        first = esco.cached_get_essential_skills("fake://uri", lang="en")
+        again = esco.cached_get_essential_skills("fake://uri", lang="en")
+
+    assert first == again == ["skill-en"]
+    assert calls == ["fake://uri:en"]
+    assert any("cache hit" in record.getMessage() for record in caplog.records)

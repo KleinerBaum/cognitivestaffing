@@ -124,9 +124,7 @@ def call_responses(
 
     schema_name = json_schema_payload.get("name")
     if not isinstance(schema_name, str) or not schema_name.strip():
-        raise ResponsesSchemaError(
-            "Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]"
-        )
+        raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
     schema_name = schema_name.strip()
 
     payload: dict[str, Any] = {

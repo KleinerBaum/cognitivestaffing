@@ -19,7 +19,7 @@ import logging
 import os
 import re
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 import requests
 
@@ -39,6 +39,44 @@ class EscoServiceError(RuntimeError):
 
 _SESSION = requests.Session()
 _SESSION.headers.update({"Accept": "application/json"})
+
+try:  # Optional dependency for Streamlit caching contexts
+    import streamlit as st
+except ImportError:  # pragma: no cover - guarded import
+    st = None
+
+_STREAMLIT_CACHE_TTL = 60 * 60 * 24  # 24h
+_STREAMLIT_AVAILABLE = st is not None
+_st_cached_classify: Optional[Callable[..., Optional[Dict[str, str]]]] = None
+_st_cached_skills: Optional[Callable[..., List[str]]] = None
+_st_cached_search: Optional[Callable[..., List[Dict[str, str]]]] = None
+_classify_cache_keys: set[tuple[str, str]] = set()
+_search_cache_keys: set[tuple[str, str, int]] = set()
+_skill_cache_keys: set[tuple[str, str]] = set()
+
+
+def _log_cache_event(name: str, hit: bool) -> None:
+    if hit:
+        log.info("ESCO %s cache hit", name)
+    else:
+        log.info("ESCO %s cache refreshed", name)
+
+
+def clear_streamlit_esco_cache() -> None:
+    """Helper exposed for tests to clear Streamlit-backed caches."""
+
+    for cache_fn in (_st_cached_classify, _st_cached_skills, _st_cached_search):
+        if cache_fn is None:
+            continue
+        clear = getattr(cache_fn, "clear", None)
+        if callable(clear):
+            try:
+                clear()
+            except Exception:  # pragma: no cover - defensive
+                log.debug("Failed clearing Streamlit cache for %s", cache_fn)
+    _classify_cache_keys.clear()
+    _search_cache_keys.clear()
+    _skill_cache_keys.clear()
 
 
 def _normalize(text: str) -> str:
@@ -532,3 +570,72 @@ def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
         seen.add(key)
         deduped.append(display_label or preferred_label)
     return deduped
+
+
+def cached_classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
+    """Streamlit-aware cached proxy around :func:`classify_occupation`."""
+
+    return classify_occupation(title, lang=lang)
+
+
+def cached_search_occupations(
+    title: str,
+    lang: str = "en",
+    limit: int = 5,
+) -> List[Dict[str, str]]:
+    """Streamlit-aware cached proxy for :func:`search_occupations`."""
+
+    return search_occupations(title, lang=lang, limit=limit)
+
+
+def cached_get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
+    """Streamlit-aware cached proxy for :func:`get_essential_skills`."""
+
+    return get_essential_skills(occupation_uri, lang=lang)
+
+
+if _STREAMLIT_AVAILABLE:
+
+    @st.cache_data(ttl=_STREAMLIT_CACHE_TTL, show_spinner=False)
+    def _cached_classify(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
+        return classify_occupation(title, lang=lang)
+
+    @st.cache_data(ttl=_STREAMLIT_CACHE_TTL, show_spinner=False)
+    def _cached_search(title: str, lang: str = "en", limit: int = 5) -> List[Dict[str, str]]:
+        return search_occupations(title, lang=lang, limit=limit)
+
+    @st.cache_data(ttl=_STREAMLIT_CACHE_TTL, show_spinner=False)
+    def _cached_skills(occupation_uri: str, lang: str = "en") -> List[str]:
+        return get_essential_skills(occupation_uri, lang=lang)
+
+    _st_cached_classify = _cached_classify
+    _st_cached_search = _cached_search
+    _st_cached_skills = _cached_skills
+
+    def cached_classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]]:
+        cache_key = (str(title), str(lang))
+        hit = cache_key in _classify_cache_keys
+        result = _cached_classify(title, lang)
+        _classify_cache_keys.add(cache_key)
+        _log_cache_event("classify_occupation", hit)
+        return result
+
+    def cached_search_occupations(
+        title: str,
+        lang: str = "en",
+        limit: int = 5,
+    ) -> List[Dict[str, str]]:
+        cache_key = (str(title), str(lang), int(limit))
+        hit = cache_key in _search_cache_keys
+        result = _cached_search(title, lang, limit)
+        _search_cache_keys.add(cache_key)
+        _log_cache_event("search_occupations", hit)
+        return result
+
+    def cached_get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
+        cache_key = (str(occupation_uri), str(lang))
+        hit = cache_key in _skill_cache_keys
+        result = _cached_skills(occupation_uri, lang)
+        _skill_cache_keys.add(cache_key)
+        _log_cache_event("get_essential_skills", hit)
+        return result

@@ -46,9 +46,9 @@ def _assert_objects_disallow_additional_properties(value: Any, path: str = "$") 
     if isinstance(value, dict):
         schema_type = value.get("type")
         if schema_type == "object":
-            assert (
-                value.get("additionalProperties") is False
-            ), f"Schema object at {path} must set additionalProperties to False"
+            assert value.get("additionalProperties") is False, (
+                f"Schema object at {path} must set additionalProperties to False"
+            )
             properties = value.get("properties")
             if isinstance(properties, dict):
                 for key, nested in properties.items():

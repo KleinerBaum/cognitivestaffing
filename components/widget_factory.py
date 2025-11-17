@@ -6,6 +6,8 @@ from typing import Any, Callable, Sequence, TypeVar
 
 import streamlit as st
 
+from utils import streamlit_compat  # noqa: F401  # Import for Streamlit width shims
+
 from wizard._logic import get_value, resolve_display_value
 from wizard._widget_state import _build_on_change, _ensure_widget_state
 

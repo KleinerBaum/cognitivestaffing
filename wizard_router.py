@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import inspect
 from dataclasses import dataclass
 from typing import Callable, Collection, Iterable, Mapping, Sequence
 
@@ -11,7 +12,6 @@ from pages import WizardPage
 from utils.i18n import tr
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
-    FIELD_SECTION_MAP,
     PAGE_PROGRESS_FIELDS,
     VIRTUAL_PAGE_FIELD_PREFIX,
     get_missing_critical_fields,
@@ -507,10 +507,11 @@ class WizardRouter:
         st.markdown("<div class='wizard-nav-marker'></div>", unsafe_allow_html=True)
         cols = st.columns((1.1, 1.1, 1), gap="small")
         if prev_key:
-            if cols[0].button(
+            if _button(
                 "◀ " + tr("Zurück", "Back"),
                 key=f"wizard_prev_{page.key}",
                 width="stretch",
+                renderer=cols[0].button,
             ):
                 self.navigate(prev_key)
         else:
@@ -520,7 +521,7 @@ class WizardRouter:
         if next_disabled:
             with cols[1]:
                 st.markdown("<div class='wizard-nav-next'>", unsafe_allow_html=True)
-                st.button(
+                _button(
                     tr("Weiter", "Next") + " ▶",
                     key=f"wizard_next_{page.key}",
                     type="primary",
@@ -533,7 +534,7 @@ class WizardRouter:
         elif next_key:
             with cols[1]:
                 st.markdown("<div class='wizard-nav-next'>", unsafe_allow_html=True)
-                if st.button(
+                if _button(
                     tr("Weiter", "Next") + " ▶",
                     key=f"wizard_next_{page.key}",
                     type="primary",
@@ -546,7 +547,7 @@ class WizardRouter:
 
         if page.allow_skip and next_key:
             with cols[2]:
-                if st.button(
+                if _button(
                     tr("Überspringen", "Skip"),
                     key=f"wizard_skip_{page.key}",
                     width="stretch",
@@ -715,7 +716,11 @@ class WizardRouter:
     def _build_progress_snapshots(self) -> list[_PageProgressSnapshot]:
         """Return per-page completion stats for the progress tracker."""
 
-        completed_steps = set(self._state.get("completed_steps") or [])
+        completed_steps_raw = self._state.get("completed_steps")
+        if isinstance(completed_steps_raw, Iterable):
+            completed_steps = {str(item) for item in completed_steps_raw}
+        else:
+            completed_steps = set()
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         snapshots: list[_PageProgressSnapshot] = []
         for page in self._pages:
@@ -793,3 +798,29 @@ class WizardRouter:
             if not self._is_value_present(value):
                 missing.append(field)
         return missing
+
+
+_BUTTON_SUPPORTS_WIDTH = "width" in inspect.signature(st.button).parameters
+
+
+def _button(
+    label: str,
+    *args,
+    width: str | None = None,
+    renderer: Callable[..., bool] | None = None,
+    **kwargs,
+) -> bool:
+    call_kwargs = dict(kwargs)
+    include_width = width is not None and _BUTTON_SUPPORTS_WIDTH
+    if include_width:
+        call_kwargs["width"] = width
+    target = renderer or st.button
+    try:
+        return target(label, *args, **call_kwargs)
+    except TypeError:
+        if not include_width:
+            raise
+        call_kwargs.pop("width", None)
+        if renderer is None:
+            globals()["_BUTTON_SUPPORTS_WIDTH"] = False
+        return target(label, *args, **call_kwargs)

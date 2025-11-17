@@ -4,6 +4,7 @@ from __future__ import annotations
 import html
 import logging
 import hashlib
+import inspect
 import json
 import textwrap
 from dataclasses import dataclass, asdict
@@ -302,6 +303,27 @@ from components.chip_multiselect import (
 )
 
 render_stepper = _render_stepper
+
+_BUTTON_SUPPORTS_WIDTH = "width" in inspect.signature(st.button).parameters
+
+
+def _button(label: str, *args: Any, width: str | None = None, **kwargs: Any) -> bool:
+    """Call :func:`st.button` while gracefully handling older Streamlit builds."""
+
+    call_kwargs = dict(kwargs)
+    include_width = width is not None and _BUTTON_SUPPORTS_WIDTH
+    if include_width:
+        call_kwargs["width"] = width
+    try:
+        return st.button(label, *args, **call_kwargs)
+    except TypeError:
+        if not include_width:
+            raise
+        call_kwargs.pop("width", None)
+        globals()["_BUTTON_SUPPORTS_WIDTH"] = False
+        return st.button(label, *args, **call_kwargs)
+
+
 from components.form_fields import text_input_with_state
 from components.requirements_insights import render_skill_market_insights
 from utils import build_boolean_query, build_boolean_search, seo_optimize
@@ -315,10 +337,10 @@ from utils.export import prepare_clean_json, prepare_download_data
 from nlp.bias import scan_bias_language
 from ingest.heuristics import is_soft_skill
 from core.esco_utils import (
-    classify_occupation,
-    get_essential_skills,
+    cached_classify_occupation as classify_occupation,
+    cached_get_essential_skills as get_essential_skills,
+    cached_search_occupations as search_occupations,
     normalize_skills,
-    search_occupations,
 )
 from core.job_ad import (
     JOB_AD_FIELDS,
@@ -3974,6 +3996,7 @@ def _ensure_followup_styles() -> None:
         unsafe_allow_html=True,
     )
 
+
 def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
     """Persist ``suggestion`` into the widget state for ``field``."""
 
@@ -5918,7 +5941,7 @@ def _render_esco_occupation_selector(
             )
         if selected_labels:
             with header_cols[1]:
-                if st.button(
+                if _button(
                     "✕",
                     key="esco.occupations.clear",
                     help=tr("Alle entfernen", "Clear all"),
@@ -8262,7 +8285,7 @@ def _step_requirements() -> None:
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
-        if st.button(
+        if _button(
             tr("🔄 Vorschläge aktualisieren", "🔄 Refresh suggestions"),
             key=f"{widget_prefix}.refresh",
             width="stretch",

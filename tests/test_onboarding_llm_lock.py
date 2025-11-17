@@ -8,9 +8,7 @@ import wizard.runner as runner
 
 
 @pytest.mark.parametrize("available", [True, False])
-def test_is_onboarding_locked_tracks_llm_state(
-    monkeypatch: pytest.MonkeyPatch, available: bool
-) -> None:
+def test_is_onboarding_locked_tracks_llm_state(monkeypatch: pytest.MonkeyPatch, available: bool) -> None:
     """Ensure the onboarding lock mirrors the LLM availability flag."""
 
     def _fake_is_llm_available() -> bool:

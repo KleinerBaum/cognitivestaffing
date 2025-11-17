@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
-from core.esco_utils import classify_occupation, get_essential_skills, normalize_skills
+from core.esco_utils import (
+    cached_classify_occupation as classify_occupation,
+    cached_get_essential_skills as get_essential_skills,
+    normalize_skills,
+)
 from openai_utils.api import ChatCallResult, call_chat_api
 from openai_utils.tools import build_file_search_tool
 from prompts import prompt_registry
