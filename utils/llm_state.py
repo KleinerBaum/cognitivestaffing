@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 from types import ModuleType
 
+_streamlit_mod: ModuleType | None
 try:  # pragma: no cover - streamlit is optional during certain tests
-    import streamlit as _streamlit
+    from typing_shims import streamlit as _streamlit_mod
 except Exception:  # pragma: no cover - fallback when Streamlit is unavailable
-    _streamlit = None
+    _streamlit_mod = None
 
-st: ModuleType | None = cast(ModuleType | None, _streamlit)
+st: ModuleType | None = _streamlit_mod
 
 from config import is_llm_enabled
 from utils.i18n import tr

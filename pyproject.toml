@@ -74,7 +74,6 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.11"
-ignore_missing_imports = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
@@ -82,14 +81,30 @@ strict_equality = true
 
 [[tool.mypy.overrides]]
 module = [
-    "requests",
-    "requests.*",
-    "bs4",
-    "bs4.*",
-    "streamlit",
-    "streamlit.*",
+    "agents",
+    "agents.*",
+    "docx",
+    "docx.*",
+    "dotenv",
+    "fitz",
+    "jsonschema",
+    "jsonschema.*",
+    "langchain.output_parsers",
+    "langchain.schema",
+    "openai",
+    "openai.*",
+    "opentelemetry",
+    "opentelemetry.*",
+    "pydantic",
+    "pydantic.*",
+    "plotly",
+    "plotly.*",
+    "PIL",
+    "PIL.*",
+    "streamlit.components",
+    "streamlit.components.*",
 ]
-follow_imports = "skip"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "core.*"
