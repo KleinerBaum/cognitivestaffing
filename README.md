@@ -84,6 +84,12 @@
   **DE:** URL-/Upload-Felder sowie der Weiter-Button im Onboarding bleiben
   (inklusive zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel
   hinterlegt ist, damit keine versehentlichen Uploads ohne KI-Analyse erfolgen.
+- **EN:** The onboarding continue CTA now shows the compact
+  `Weiter ▶ / Next ▶` label with the primary styling from the CTA spec so the
+  entry flow matches the updated design system.
+  **DE:** Der Onboarding-Weiter-CTA nutzt jetzt das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Styling aus dem CTA-Spezifikationsupdate,
+  sodass der Einstiegs-Flow dem Design-System entspricht.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.
@@ -169,6 +175,8 @@
   nutzen jetzt `pip install .` bzw. `pip install .[dev]`.
 - **EN:** Trimmed the default dependency stack to the core Streamlit app requirements and exposed OCR/spaCy tooling via the `ingest` optional extra (`pip install .[ingest]`) for leaner installs.
   **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools über das optionale Extra `ingest` (`pip install .[ingest]`) bereitgestellt, um Installationen schlanker zu halten.
+- **EN:** CI, Dev Containers, and Streamlit Cloud now bootstrap dependencies via `pip install .`/`pip install .[dev]` so `pyproject.toml` remains the single manifest and extras stay installable from the same metadata.
+  **DE:** CI, Dev-Container und Streamlit-Cloud-Deployments installieren Abhängigkeiten jetzt über `pip install .` bzw. `pip install .[dev]`, damit `pyproject.toml` alleinige Quelle bleibt und Extras über dieselben Metadaten verfügbar sind.
 - **EN:** Added `PyMuPDF` to the core requirements so PDF-based interview guide exports work out of the box on clean deployments.
   **DE:** `PyMuPDF` zu den Kern-Requirements ergänzt, damit PDF-Interview-Guides auf frischen Deployments ohne Zusatzschritte funktionieren.
 - **EN:** Updated the skill market fallback caption to state that no benchmarks are available and invite users to capture skill data instead of displaying neutral placeholder numbers.
@@ -368,6 +376,8 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - `sidebar/`
   - **EN:** Sidebar orchestration including plan previews and branding settings.
   - **DE:** Sidebar-Steuerung inklusive Plan-Vorschau und Branding-Einstellungen.
+  - **EN:** `sidebar.__init__` imports `wizard.metadata` and `wizard._logic` during module load so cached wizard helpers stay in sync. Keep those modules free of sidebar imports (the runner still imports `sidebar.salary`) to prevent circular dependencies.
+  - **DE:** `sidebar.__init__` importiert `wizard.metadata` und `wizard._logic` bereits beim Laden des Moduls, damit die Wizard-Helfer ohne Wrapper verfügbar sind. Stelle sicher, dass diese Module keine Sidebar-Imports enthalten (der Runner importiert weiterhin `sidebar.salary`), um Kreisabhängigkeiten zu vermeiden.
 - `state/`
   - **EN:** Session-state bootstrapping and migration helpers.
   - **DE:** Initialisierung und Migration des Streamlit-Session-State.

@@ -2,13 +2,12 @@
 
 ## Unreleased
 
-- **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
-  switched `wizard_router` plus its navigation tests to import it directly so the
-  dependency chain stays explicit and type-checkable.
-  **DE:** Die Zuordnung zwischen Wizard-Feldern und Abschnitten in
-  `wizard/metadata.py` verankert und `wizard_router` samt Navigationstests so
-  angepasst, dass diese Metadaten direkt importiert werden – für explizite,
-  typsichere Abhängigkeiten.
+- **EN:** Sidebar imports the wizard metadata/logic helpers directly at module
+  load, removing the memoized `_wizard_exports()` wrapper and documenting the
+  remaining import-order contract so circular dependencies stay impossible.
+  **DE:** Die Sidebar lädt die Wizard-Metadaten/-Logik jetzt direkt beim Modul-
+  Import, entfernt den `_wizard_exports()`-Cache und dokumentiert die
+  verbleibenden Import-Reihenfolgen, damit keine Kreisabhängigkeiten entstehen.
 - **EN:** Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
   **DE:** Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
 - **EN:** Replaced every `use_container_width` flag with the new
@@ -95,6 +94,12 @@
   zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel die
   LLM-Intake freischaltet – dadurch lassen sich keine Uploads starten, wenn die
   KI-Funktionen offline sind.
+- **EN:** Updated the onboarding continue CTA to display the compact
+  `Weiter ▶ / Next ▶` label using the primary button styling from the compact
+  CTA spec, ensuring the entry step mirrors the refreshed design tokens.
+  **DE:** Der Onboarding-Weiter-CTA zeigt nun das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Button-Styling der kompakten CTA-Spezifikationen,
+  damit der Einstiegs-Schritt die erneuerten Design-Tokens widerspiegelt.
 - **EN:** Rolled out a tabbed extraction review in step 1 with editable company,
   role, logistics, requirements, and process tabs, added an interactive
   completion tracker across all eight steps, modernised follow-up questions with
@@ -238,6 +243,8 @@
   Skripte nutzen jetzt `pip install .` bzw. `pip install .[dev]`.
 - **EN:** Slimmed the default requirement set to core app dependencies and exposed optional OCR/spaCy extras via the `ingest` extra (`pip install .[ingest]`) for contributors who need advanced ingestion features.
   **DE:** Die Standard-Requirements auf zentrale App-Abhängigkeiten verschlankt und optionale OCR-/spaCy-Erweiterungen über das Extra `ingest` (`pip install .[ingest]`) verfügbar gemacht, damit Contributor:innen bei Bedarf die erweiterten Ingestion-Funktionen aktivieren können.
+- **EN:** CI, Dev Containers, and Streamlit Cloud now bootstrap dependencies through `pip install .`/`pip install .[dev]`, keeping `pyproject.toml` as the single manifest and guaranteeing extras stay installable from the same metadata.
+  **DE:** CI, Dev-Container und Streamlit-Cloud-Deployments laden Abhängigkeiten jetzt über `pip install .` bzw. `pip install .[dev]`, sodass `pyproject.toml` alleinige Quelle bleibt und Extras über dieselben Metadaten zuverlässig installierbar sind.
 - **EN:** Added `PyMuPDF` to the primary dependency list so PDF exports for interview guides run on fresh environments without manual installs.
   **DE:** `PyMuPDF` zur primären Abhängigkeitsliste hinzugefügt, damit PDF-Exporte der Interview-Guides in neuen Umgebungen ohne manuelle Installation funktionieren.
 - **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.

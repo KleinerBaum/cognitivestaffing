@@ -6396,8 +6396,8 @@ def _step_onboarding(schema: dict) -> None:
 
     if st.session_state.get("source_error"):
         fallback_message = tr(
-            "Es gab ein Problem beim Import. Du kannst die Angaben auch manuell ergänzen.",
-            "There was an issue while importing the content. You can still fill in the details manually.",
+            "Es gab ein Problem beim Import. Versuche URL oder Upload erneut oder kontaktiere unser Support-Team.",
+            "There was an issue while importing the content. Retry the URL/upload or contact our support team.",
         )
         error_text = st.session_state.get("source_error_message") or fallback_message
         st.error(error_text)
@@ -6447,8 +6447,8 @@ def _step_onboarding(schema: dict) -> None:
     _render_extraction_review()
 
     if st.button(
-        tr("Weiter zum Setup", "Continue to setup"),
-        type="secondary",
+        tr("Weiter ▶", "Next ▶"),
+        type="primary",
         key="onboarding_next_compact",
         disabled=locked,
     ):
