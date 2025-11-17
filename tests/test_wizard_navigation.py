@@ -263,7 +263,7 @@ def test_navigate_updates_state_and_query(monkeypatch: pytest.MonkeyPatch, query
     assert query_params["step"] == ["company"]
     assert st.session_state["_wizard_scroll_to_top"] is True
     completed = wizard_state.get("completed_steps", [])
-    assert "intro" in completed
+    assert "jobad" in completed
     assert rerun_called["value"]
 
 
@@ -418,7 +418,6 @@ def test_company_step_enables_next_after_required_answer(
         return False
 
     monkeypatch.setattr(st, "button", fake_button)
-
     monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
 
     with pytest.raises(RerunTriggered):

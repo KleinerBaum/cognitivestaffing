@@ -31,6 +31,14 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "summary": COMPANY_STEP_INDEX + 5,
 }
 
+PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
+    "company": ("company.",),
+    "team": ("position.", "location.", "meta.", "employment."),
+    "role_tasks": ("responsibilities.", "requirements."),
+    "benefits": ("compensation.",),
+    "interview": ("process.",),
+}
+
 VIRTUAL_PAGE_FIELD_PREFIX: Final[str] = "__page__."
 
 _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
@@ -140,6 +148,7 @@ __all__ = [
     "COMPANY_STEP_INDEX",
     "CRITICAL_SECTION_ORDER",
     "FIELD_SECTION_MAP",
+    "PAGE_FOLLOWUP_PREFIXES",
     "PAGE_PROGRESS_FIELDS",
     "PAGE_SECTION_INDEXES",
     "SECTION_FILTER_OVERRIDES",

@@ -143,6 +143,42 @@ def test_extract_json_plain_fallback_is_sanitized(monkeypatch):
     assert calls["chat_structured"] == 0
 
 
+def test_extract_json_skips_responses_when_api_mode_disabled(monkeypatch) -> None:
+    """Disabling Responses API should force the chat path immediately."""
+
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(False)
+
+    def _boom(*_args: object, **_kwargs: object) -> None:  # pragma: no cover - enforced by the test
+        raise AssertionError("Responses API call should be bypassed when disabled")
+
+    chat_calls = {"count": 0}
+
+    def _fake_chat(messages, *, json_schema=None, **kwargs):
+        chat_calls["count"] += 1
+        assert json_schema is not None
+        return ChatCallResult(
+            content=NeedAnalysisProfile().model_dump_json(),
+            tool_calls=[],
+            usage={},
+        )
+
+    try:
+        monkeypatch.setattr(client, "call_responses_safe", _boom)
+        monkeypatch.setattr(responses_module, "call_responses_safe", _boom)
+        monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+        monkeypatch.setattr(
+            client,
+            "_run_pre_extraction_analysis",
+            lambda *a, **k: None,
+        )
+        out = client.extract_json("text")
+        assert json.loads(out)["company"]
+        assert chat_calls == {"count": 1}
+    finally:
+        config.set_api_mode(previous_mode)
+
+
 def test_extract_json_minimal_prompt(monkeypatch):
     """Minimal mode should use the simplified prompt template."""
 

@@ -101,6 +101,7 @@ from .metadata import (
     COMPANY_STEP_INDEX,
     CRITICAL_SECTION_ORDER,
     FIELD_SECTION_MAP,
+    PAGE_FOLLOWUP_PREFIXES,
     get_missing_critical_fields,
     resolve_section_for_field,
 )
@@ -5065,6 +5066,15 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
             st.markdown("</div>", unsafe_allow_html=True)
 
 
+def _render_followups_for_step(page_key: str, data: dict) -> None:
+    """Render inline follow-ups configured for ``page_key``."""
+
+    prefixes = PAGE_FOLLOWUP_PREFIXES.get(page_key)
+    if not prefixes:
+        return
+    _render_followups_for_section(prefixes, data)
+
+
 def _lang_index(lang: str | None) -> int:
     """Return index for language-dependent tuples (0=de, 1=en)."""
 
@@ -6906,7 +6916,7 @@ def _step_company() -> None:
                 st.rerun()
 
     # Inline follow-up questions for Company section
-    _render_followups_for_section(("company.",), data)
+    _render_followups_for_step("company", data)
 
 
 def _phase_display_labels(phases: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -7723,7 +7733,7 @@ def _step_position() -> None:
         employment.pop("relocation_details", None)
 
     # Inline follow-up questions for Position, Location and Employment section
-    _render_followups_for_section(("position.", "location.", "meta.", "employment."), data)
+    _render_followups_for_step("team", data)
 
 
 def _step_requirements() -> None:
@@ -8785,8 +8795,8 @@ def _step_requirements() -> None:
             radius_km=float(radius_value),
         )
 
-    # Inline follow-up questions for Requirements section
-    _render_followups_for_section(("requirements.",), data)
+    # Inline follow-up questions for Requirements & Responsibilities
+    _render_followups_for_step("role_tasks", data)
 
 
 def _update_section_progress(
@@ -9153,7 +9163,7 @@ def _step_compensation() -> None:
             st.markdown(f"- {benefit}")
 
     # Inline follow-up questions for Compensation section
-    _render_followups_for_section(("compensation.",), data)
+    _render_followups_for_step("benefits", data)
 
 
 def _step_process() -> None:
@@ -9313,7 +9323,7 @@ def _step_process() -> None:
         _render_onboarding_section(data, "ui.process.onboarding")
 
     # Inline follow-up questions for Process section
-    _render_followups_for_section(("process.",), profile)
+    _render_followups_for_step("interview", profile)
 
 
 _MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))

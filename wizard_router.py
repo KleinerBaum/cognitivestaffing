@@ -11,6 +11,7 @@ from pages import WizardPage
 from utils.i18n import tr
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
+    PAGE_FOLLOWUP_PREFIXES,
     PAGE_PROGRESS_FIELDS,
     VIRTUAL_PAGE_FIELD_PREFIX,
     get_missing_critical_fields,
@@ -390,13 +391,18 @@ class WizardRouter:
             return []
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         missing: list[str] = []
-        for field in page.required_fields:
-            value = st.session_state.get(field)
-            if not self._is_value_present(value):
-                value = self._resolve_value(profile, field, None)
-            if not self._is_value_present(value):
-                missing.append(field)
-        return missing
+        if page.required_fields:
+            for field in page.required_fields:
+                value = st.session_state.get(field)
+                if not self._is_value_present(value):
+                    value = self._resolve_value(profile, field, None)
+                if not self._is_value_present(value):
+                    missing.append(field)
+        missing.extend(self._missing_inline_followups(page, profile))
+        if not missing:
+            return []
+        # Preserve order while removing duplicates
+        return list(dict.fromkeys(missing))
 
     @staticmethod
     def _is_value_present(value: object | None) -> bool:
