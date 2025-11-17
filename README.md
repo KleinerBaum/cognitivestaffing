@@ -341,6 +341,9 @@
 - `COGNITIVE_PREFERRED_MODEL` and `COGNITIVE_MODEL_FALLBACKS` let operators influence the router order (preferred model first, followed by comma-separated fallbacks) without code changes; legacy alias values resolve automatically.
 - `OPENAI_BASE_URL` can be set to `https://eu.api.openai.com/v1` (or another allowed endpoint) to keep traffic within the EU region; other OpenAI secrets (`OPENAI_MODEL`, `OPENAI_PROJECT`, `OPENAI_ORGANIZATION`, `OPENAI_REQUEST_TIMEOUT`) are honoured as well.
 - `VECTOR_STORE_ID` activates RAG lookups through OpenAI file search. Without it the assistant skips retrieval but still completes suggestions using Responses or the chat fallback chain.
+- **Debug panel toggle / Debug-Panel-Schalter:**
+  **EN:** Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps `USE_RESPONSES_API` and `USE_CLASSIC_API` in sync so downstream modules read the updated mode immediately.
+  **DE:** Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. klassische Chat-Completions-API zur Laufzeit wechseln; der Helfer hält `USE_RESPONSES_API` und `USE_CLASSIC_API` automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen.
 
 **DE:**
 
@@ -352,6 +355,9 @@
 - `COGNITIVE_PREFERRED_MODEL` und `COGNITIVE_MODEL_FALLBACKS` erlauben es, die Router-Reihenfolge ohne Codeänderung zu beeinflussen (bevorzugtes Modell zuerst, gefolgt von kommaseparierten Fallbacks); historische Aliasse werden automatisch aufgelöst.
 - Mit `OPENAI_BASE_URL` lässt sich beispielsweise `https://eu.api.openai.com/v1` konfigurieren, um Aufrufe innerhalb der EU zu halten; weitere OpenAI-Secrets (`OPENAI_MODEL`, `OPENAI_PROJECT`, `OPENAI_ORGANIZATION`, `OPENAI_REQUEST_TIMEOUT`) werden ebenfalls ausgewertet.
 - `VECTOR_STORE_ID` aktiviert RAG-Abfragen über OpenAI File Search. Ohne gesetzte ID überspringt der Assistent die Recherche, führt Vorschläge aber weiterhin über Responses oder die Chat-Fallback-Kette aus.
+- **Debug-Panel-Schalter / Debug panel toggle:**
+  **DE:** Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. klassische Chat-Completions-API zur Laufzeit wechseln; der Helfer hält `USE_RESPONSES_API` und `USE_CLASSIC_API` automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen.
+  **EN:** Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps `USE_RESPONSES_API` and `USE_CLASSIC_API` aligned so downstream modules consume the updated mode instantly.
 
 ## Architecture at a Glance
 

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import config
 from llm import client
 
 
@@ -29,7 +30,8 @@ def test_structured_extraction_logs_without_pii(monkeypatch: pytest.MonkeyPatch)
 
     fake_logger = FakeLogger()
     monkeypatch.setattr(client, "logger", fake_logger)
-    monkeypatch.setattr(client, "USE_RESPONSES_API", False)
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(False)
     monkeypatch.setattr(
         client,
         "call_chat_api",
@@ -47,8 +49,11 @@ def test_structured_extraction_logs_without_pii(monkeypatch: pytest.MonkeyPatch)
         "model": "gpt-4o-mini",
     }
 
-    with pytest.raises(ValueError, match="valid JSON"):
-        client._structured_extraction(payload)
+    try:
+        with pytest.raises(ValueError, match="valid JSON"):
+            client._structured_extraction(payload)
+    finally:
+        config.set_api_mode(previous_mode)
 
     assert fake_logger.messages, "expected at least one warning to be logged"
     assert any("latest_user_hash=" in msg for msg in fake_logger.messages)

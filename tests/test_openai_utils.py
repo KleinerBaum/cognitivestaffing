@@ -41,11 +41,15 @@ def reset_model_capability_caches(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def reset_classic_flag(monkeypatch):
+def reset_classic_flag():
     """Force Responses API mode unless a test overrides it."""
 
-    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", False, raising=False)
-    yield
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(True)
+    try:
+        yield
+    finally:
+        config.set_api_mode(previous_mode)
 
 
 @pytest.fixture
@@ -389,7 +393,7 @@ def test_collect_tool_calls_handles_tool_response(
 def test_prepare_payload_classic_mode(monkeypatch):
     """Classic ChatCompletions payloads should use messages/functions schema."""
 
-    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", True, raising=False)
+    config.set_api_mode(False)
 
     payload, model, tools, tool_map, _candidate_models = openai_utils.api._prepare_payload(
         [{"role": "user", "content": "hello"}],
@@ -420,7 +424,7 @@ def test_prepare_payload_classic_mode(monkeypatch):
 def test_call_chat_api_classic_mode(monkeypatch):
     """call_chat_api should normalise ChatCompletions responses."""
 
-    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", True, raising=False)
+    config.set_api_mode(False)
 
     captured: list[dict[str, Any]] = []
 
@@ -454,7 +458,7 @@ def test_call_chat_api_classic_mode(monkeypatch):
 def test_stream_chat_api_classic_mode(monkeypatch):
     """Streaming should consume ChatCompletions events."""
 
-    monkeypatch.setattr(openai_utils.api, "USE_CLASSIC_API", True, raising=False)
+    config.set_api_mode(False)
 
     events = [
         {"type": "content.delta", "delta": "Hel"},

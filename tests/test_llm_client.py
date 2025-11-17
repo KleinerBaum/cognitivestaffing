@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 import streamlit as st
 
+import config
 from openai_utils import ChatCallResult
 
 import llm.client as client
@@ -14,6 +15,16 @@ import llm.openai_responses as responses_module
 from llm.prompts import PreExtractionInsights
 from models.need_analysis import NeedAnalysisProfile
 from llm.openai_responses import ResponsesCallResult
+
+
+@pytest.fixture(autouse=True)
+def force_responses_mode():
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(True)
+    try:
+        yield
+    finally:
+        config.set_api_mode(previous_mode)
 
 
 def fake_responses_call(*args, **kwargs):  # noqa: D401
@@ -35,7 +46,6 @@ def test_extract_json_smoke(monkeypatch):
 
     monkeypatch.setattr(client, "call_responses_safe", fake_responses_call)
     monkeypatch.setattr(responses_module, "call_responses_safe", fake_responses_call)
-    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(
         client,
         "_run_pre_extraction_analysis",
@@ -80,7 +90,6 @@ def test_extract_json_validation_failure_triggers_structured_retry(monkeypatch):
 
     monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
     monkeypatch.setattr(responses_module, "call_responses_safe", _fake_responses)
-    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     monkeypatch.setattr(
         client,
@@ -120,7 +129,6 @@ def test_extract_json_plain_fallback_is_sanitized(monkeypatch):
 
     monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
     monkeypatch.setattr(responses_module, "call_responses_safe", _fake_responses)
-    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     monkeypatch.setattr(
         client,
@@ -151,7 +159,6 @@ def test_extract_json_minimal_prompt(monkeypatch):
 
     monkeypatch.setattr(client, "call_responses_safe", _fake)
     monkeypatch.setattr(responses_module, "call_responses_safe", _fake)
-    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     monkeypatch.setattr(
         client,
         "call_chat_api",
@@ -268,8 +275,6 @@ def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
         "_run_pre_extraction_analysis",
         lambda *a, **k: None,
     )
-
-    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
     out = client.extract_json("Example text")
     assert json.loads(out) == NeedAnalysisProfile().model_dump()
     assert any(

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **EN:** Introduced a `config.set_api_mode()` helper that flips both
+  `USE_RESPONSES_API` and `USE_CLASSIC_API` atomically and wired it to a new
+  bilingual debug panel in the wizard UI. Admins can now enable verbose error
+  diagnostics and switch between the Responses and classic Chat APIs at runtime
+  while downstream modules instantly read the updated config flags.
+  **DE:** Ein neuer Helfer `config.set_api_mode()` aktualisiert
+  `USE_RESPONSES_API` und `USE_CLASSIC_API` jetzt atomar und ist mit einem
+  zweisprachigen Debug-Panel im Wizard verknüpft. Admins können so ausführliche
+  Fehlerdiagnosen aktivieren und zur Laufzeit zwischen Responses- und
+  Chat-Completions-API wechseln, wobei nachgelagerte Module die neuen Flags
+  sofort sehen.
+
 - **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
   switched `wizard_router` plus its navigation tests to import it directly so the
   dependency chain stays explicit and type-checkable.

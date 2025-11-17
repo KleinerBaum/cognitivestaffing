@@ -379,6 +379,24 @@ USE_RESPONSES_API = _normalise_bool(
     os.getenv("USE_RESPONSES_API"),
     default=not USE_CLASSIC_API,
 )
+
+
+def set_api_mode(use_responses: bool) -> None:
+    """Synchronise the Responses/Classic API flags.
+
+    Args:
+        use_responses: When ``True`` the OpenAI Responses API becomes the active
+            backend. ``False`` switches the platform to the legacy Chat
+            Completions API.
+    """
+
+    global USE_RESPONSES_API, USE_CLASSIC_API
+
+    USE_RESPONSES_API = bool(use_responses)
+    USE_CLASSIC_API = not USE_RESPONSES_API
+
+
+set_api_mode(USE_RESPONSES_API)
 # NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
 RESPONSES_ALLOW_TOOLS = _normalise_bool(
     os.getenv("RESPONSES_ALLOW_TOOLS"),
@@ -399,11 +417,18 @@ try:
         timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
         OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
         if "USE_CLASSIC_API" in openai_secrets:
-            USE_CLASSIC_API = _normalise_bool(openai_secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+            set_api_mode(
+                not _normalise_bool(
+                    openai_secrets.get("USE_CLASSIC_API"),
+                    default=USE_CLASSIC_API,
+                )
+            )
         if "USE_RESPONSES_API" in openai_secrets:
-            USE_RESPONSES_API = _normalise_bool(
-                openai_secrets.get("USE_RESPONSES_API"),
-                default=USE_RESPONSES_API,
+            set_api_mode(
+                _normalise_bool(
+                    openai_secrets.get("USE_RESPONSES_API"),
+                    default=USE_RESPONSES_API,
+                )
             )
         if "RESPONSES_ALLOW_TOOLS" in openai_secrets:
             RESPONSES_ALLOW_TOOLS = _normalise_bool(
@@ -429,11 +454,18 @@ try:
         default=OPENAI_REQUEST_TIMEOUT,
     )
     if "USE_CLASSIC_API" in st.secrets:
-        USE_CLASSIC_API = _normalise_bool(st.secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+        set_api_mode(
+            not _normalise_bool(
+                st.secrets.get("USE_CLASSIC_API"),
+                default=USE_CLASSIC_API,
+            )
+        )
     if "USE_RESPONSES_API" in st.secrets:
-        USE_RESPONSES_API = _normalise_bool(
-            st.secrets.get("USE_RESPONSES_API"),
-            default=USE_RESPONSES_API,
+        set_api_mode(
+            _normalise_bool(
+                st.secrets.get("USE_RESPONSES_API"),
+                default=USE_RESPONSES_API,
+            )
         )
     if "RESPONSES_ALLOW_TOOLS" in st.secrets:
         RESPONSES_ALLOW_TOOLS = _normalise_bool(
@@ -444,11 +476,6 @@ except Exception:
     pass
 
 LLM_ENABLED = bool(OPENAI_API_KEY)
-
-if USE_RESPONSES_API:
-    USE_CLASSIC_API = False
-else:
-    USE_CLASSIC_API = True
 
 assert not (
     USE_RESPONSES_API and USE_CLASSIC_API

@@ -12,7 +12,8 @@ from urllib.parse import urlparse, urlunparse
 
 from pydantic import ValidationError
 
-from config import ModelTask, USE_RESPONSES_API, get_model_for, is_llm_enabled
+import config as app_config
+from config import ModelTask, get_model_for, is_llm_enabled
 from llm.openai_responses import build_json_schema_format, call_responses
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
@@ -485,7 +486,7 @@ def _normalize_city_with_regex(value: Optional[str]) -> str:
 def _llm_extract_city(value: str) -> str:
     """Return a city extracted from ``value`` using the Responses API fallback."""
 
-    if not USE_RESPONSES_API or not is_llm_enabled():
+    if not app_config.USE_RESPONSES_API or not is_llm_enabled():
         return ""
     cleaned = value.strip()
     if not cleaned:

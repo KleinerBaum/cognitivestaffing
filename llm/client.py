@@ -25,9 +25,9 @@ from .output_parsers import (
     get_need_analysis_output_parser,
 )
 from core.errors import ExtractionError
+import config as app_config
 from config import (
     REASONING_EFFORT,
-    USE_RESPONSES_API,
     ModelTask,
     get_active_verbosity,
     select_model,
@@ -309,7 +309,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
 
     attempts: list[tuple[str, Callable[[], str | None]]] = []
 
-    if USE_RESPONSES_API:
+    if app_config.USE_RESPONSES_API:
         response_format = build_json_schema_format(
             name="need_analysis_profile",
             schema=NEED_ANALYSIS_SCHEMA,
