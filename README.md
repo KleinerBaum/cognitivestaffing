@@ -13,6 +13,13 @@
 
 ## Unreleased
 
+- **EN:** Fixed the Need Analysis structured extraction so validated
+  parser payloads are returned immediately instead of falling back to the
+  plain-text repair path, keeping every caller on the schema-compliant
+  JSON output.
+  **DE:** Die Need-Analysis-Extraktion liefert gültige Parser-Daten jetzt
+  direkt zurück, ohne auf den Plain-Text-Reparaturpfad zu wechseln, sodass
+  alle Aufrufer schema-konforme JSON-Antworten erhalten.
 - **EN:** Closed the Interview Guide structured output schema by forcing
   `additionalProperties: false` on every object level and adding a
   regression test so the OpenAI Responses API accepts the format again.
