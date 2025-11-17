@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence
+
+from opentelemetry import trace
 
 from config import VECTOR_STORE_ID, ModelTask, get_model_for
 
@@ -196,6 +199,7 @@ class RAGPipeline:
         query = self._build_query(spec)
         with self._lock:
             previous_response_id = self._last_response_id
+        start_time = time.perf_counter()
         try:
             result = call_chat_api(
                 [
@@ -220,10 +224,12 @@ class RAGPipeline:
             )
         except RuntimeError as err:  # pragma: no cover - defensive
             logger.warning("Vector store lookup failed for %s: %s", spec.field, err)
+            self._record_retrieval_timing(field=spec.field, start_time=start_time, fallback=True)
             fallback = self._next_fallback()
             return [fallback] if fallback else []
         except Exception as err:  # pragma: no cover - defensive
             logger.warning("Vector store lookup failed for %s: %s", spec.field, err)
+            self._record_retrieval_timing(field=spec.field, start_time=start_time, fallback=True)
             fallback = self._next_fallback()
             return [fallback] if fallback else []
 
@@ -232,10 +238,27 @@ class RAGPipeline:
                 self._last_response_id = result.response_id
 
         chunks = self._collect_results(result.file_search_results)
+        self._record_retrieval_timing(field=spec.field, start_time=start_time, fallback=not bool(chunks))
         if chunks:
             return chunks
         fallback = self._next_fallback()
         return [fallback] if fallback else []
+
+    def _record_retrieval_timing(self, *, field: str, start_time: float | None, fallback: bool) -> None:
+        if start_time is None:
+            return
+        elapsed_ms = max(0.0, (time.perf_counter() - start_time) * 1000)
+        logger.info(
+            "Vector-store retrieval for field '%s' took %.2f ms (fallback=%s)",
+            field,
+            elapsed_ms,
+            fallback,
+        )
+        span = trace.get_current_span()
+        if span and span.is_recording():
+            safe_field = field.replace(" ", "_").replace(".", "_")
+            span.set_attribute(f"rag.retrieve.{safe_field}.ms", elapsed_ms)
+            span.set_attribute(f"rag.retrieve.{safe_field}.fallback", fallback)
 
     def run(self, specs: Sequence[FieldSpec]) -> dict[str, FieldExtractionContext]:
         contexts: dict[str, FieldExtractionContext] = {}

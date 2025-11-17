@@ -314,6 +314,9 @@
 - **Parallel RAG lookups / Parallele RAG-Abfragen:**
   **EN:** When a vector store is configured the field-specific file_search calls execute concurrently, so chunk retrieval completes faster even for larger schemas.
   **DE:** Ist ein Vector-Store hinterlegt, laufen die feldspezifischen file_search-Aufrufe parallel, wodurch die Snippet-Recherche auch bei umfangreichen Schemata schneller abgeschlossen ist.
+- **RAG telemetry / RAG-Telemetrie:**
+  **EN:** Each vector-store lookup now logs per-field latency plus fallback usage and forwards the metrics to OpenTelemetry spans, giving operators measurable evidence that the threaded retriever accelerates lookups.
+  **DE:** Jeder Vector-Store-Lookup protokolliert nun die Feldlaufzeit und ob ein Fallback greifen musste und schreibt die Messwerte in OpenTelemetry-Spans, damit Betreiber messbar nachvollziehen können, wie stark der parallelisierte Retriever die Suche beschleunigt.
 - **Multi-model routing / Modellrouting:**
   **EN:** The router now prefers `gpt-4.1-mini` for lightweight lookups and automatically escalates summaries, explanations, and planning flows to `o4-mini`, cascading through `o3`, `gpt-4o-mini`, and `gpt-4o` if capacity constraints occur. Administrators can still override the model via configuration (for example by setting `OPENAI_MODEL`), but automated selection is the default.
   **DE:** Der Router nutzt standardmäßig `gpt-4.1-mini` für leichte Abfragen und hebt Zusammenfassungen, Erklärungen und Planungen auf `o4-mini`, inklusive Fallbacks über `o3`, `gpt-4o-mini` und `gpt-4o`, sobald Kapazitätsprobleme auftreten. Administratoren können per Konfiguration (z. B. mit `OPENAI_MODEL`) weiterhin ein bestimmtes Modell fest vorgeben, aber normalerweise erfolgt die Modellauswahl automatisch.
