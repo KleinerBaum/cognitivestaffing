@@ -269,11 +269,13 @@ class WizardRouter:
         context: WizardContext,
         value_resolver: Callable[[Mapping[str, object], str, object | None], object | None],
     ) -> None:
-        self._pages = list(pages)
-        self._page_map = {page.key: page for page in pages}
-        self._renderers = dict(renderers)
-        self._context = context
-        self._resolve_value = value_resolver
+        self._pages: list[WizardPage] = list(pages)
+        self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
+        self._renderers: dict[str, StepRenderer] = dict(renderers)
+        self._context: WizardContext = context
+        self._resolve_value: Callable[
+            [Mapping[str, object], str, object | None], object | None
+        ] = value_resolver
         self._ensure_state_defaults()
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
         self._sync_with_query_params()
@@ -403,6 +405,33 @@ class WizardRouter:
             return []
         # Preserve order while removing duplicates
         return list(dict.fromkeys(missing))
+
+    def _missing_inline_followups(
+        self,
+        page: WizardPage,
+        profile: Mapping[str, object],
+    ) -> list[str]:
+        prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key)
+        if not prefixes:
+            return []
+        raw_followups = st.session_state.get(StateKeys.FOLLOWUPS, [])
+        if not isinstance(raw_followups, Collection):
+            return []
+        missing: list[str] = []
+        for question in raw_followups:
+            if not isinstance(question, Mapping):
+                continue
+            field_obj = question.get("field")
+            if not isinstance(field_obj, str):
+                continue
+            if not any(field_obj.startswith(prefix) for prefix in prefixes):
+                continue
+            value = st.session_state.get(field_obj)
+            if not self._is_value_present(value):
+                value = self._resolve_value(profile, field_obj, None)
+            if not self._is_value_present(value):
+                missing.append(field_obj)
+        return missing
 
     @staticmethod
     def _is_value_present(value: object | None) -> bool:
