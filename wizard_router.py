@@ -271,11 +271,13 @@ class WizardRouter:
         context: WizardContext,
         value_resolver: Callable[[Mapping[str, object], str, object | None], object | None],
     ) -> None:
-        self._pages = list(pages)
-        self._page_map = {page.key: page for page in pages}
-        self._renderers = dict(renderers)
-        self._context = context
-        self._resolve_value = value_resolver
+        self._pages: list[WizardPage] = list(pages)
+        self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
+        self._renderers: dict[str, StepRenderer] = dict(renderers)
+        self._context: WizardContext = context
+        self._resolve_value: Callable[
+            [Mapping[str, object], str, object | None], object | None
+        ] = value_resolver
         self._ensure_state_defaults()
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
         self._sync_with_query_params()
@@ -391,14 +393,17 @@ class WizardRouter:
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         missing: list[str] = []
-        if page.required_fields:
-            for field in page.required_fields:
+        required_fields = tuple(page.required_fields or ())
+        if required_fields:
+            for field in required_fields:
                 value = st.session_state.get(field)
                 if not self._is_value_present(value):
                     value = self._resolve_value(profile, field, None)
                 if not self._is_value_present(value):
                     missing.append(field)
-        missing.extend(self._missing_inline_followups(page, profile))
+        inline_missing = self._missing_inline_followups(page, profile)
+        if inline_missing:
+            missing.extend(inline_missing)
         if not missing:
             return []
         # Preserve order while removing duplicates

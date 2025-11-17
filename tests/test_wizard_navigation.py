@@ -514,3 +514,4 @@ def test_critical_followup_blocks_until_answered(
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
     assert wizard_state["current_step"] == "role_tasks"
+

@@ -13,6 +13,9 @@ DE: Die Zuordnung zwischen Wizard-Feldern und Abschnitten in wizard/metadata.py 
 EN: The Follow-ups wizard step now blocks the “Next” button until every critical follow-up is answered, while normal questions remain optional, ensuring navigation only proceeds once mandatory clarifications are captured.
 DE: Der Wizard-Schritt „Q&A“ sperrt den Button „Weiter“ so lange, bis alle kritischen Anschlussfragen beantwortet sind; normale Nachfragen bleiben optional, damit Pflichtangaben vor dem Fortfahren vollständig vorliegen.
 
+EN: Step 8 (Summary) now inspects inline follow-up prompts even though it has no required fields, keeping “Next” disabled until every critical question (for example headline and next-step clarifications) is answered so exports never start with open issues.
+DE: Schritt 8 („Summary“) prüft trotz fehlender Pflichtfelder jetzt ebenfalls die inline angezeigten Anschlussfragen und sperrt „Weiter“, bis alle kritischen Nachfragen (z. B. Headline oder Next Steps) beantwortet sind, sodass Exporte nicht mehr mit offenen Punkten beginnen.
+
 EN: Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
 DE: Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
 
