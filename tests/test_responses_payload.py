@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from contextlib import contextmanager
 from typing import Any, Mapping
 
 import pytest
+from openai import OpenAIError
 
 from llm import openai_responses
 
@@ -114,6 +116,50 @@ def test_schema_guard_requires_name(monkeypatch: pytest.MonkeyPatch, _patch_clie
 
     assert result is None
     assert dispatched is False
+
+
+def test_call_responses_safe_retries_with_chat_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """call_responses_safe should invoke the chat fallback once on Responses errors."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
+    )
+
+    def _raise_error(*_: Any, **__: Any) -> Any:
+        raise OpenAIError("boom")
+
+    fallback_calls = {"count": 0}
+
+    class _FakeChatResult:
+        def __init__(self) -> None:
+            self.content = "fallback"
+            self.usage = {"input_tokens": 1}
+            self.response_id = "chat-123"
+            self.raw_response = {"id": "chat-123"}
+
+    def _fake_chat(*_: Any, **__: Any) -> _FakeChatResult:
+        fallback_calls["count"] += 1
+        return _FakeChatResult()
+
+    @contextmanager
+    def _noop_context() -> Any:
+        yield
+
+    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
+    monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+    )
+
+    assert result is not None
+    assert result.used_chat_fallback is True
+    assert result.content == "fallback"
+    assert fallback_calls["count"] == 1
 
 
 def test_temperature_omitted_when_unsupported(

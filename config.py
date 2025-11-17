@@ -17,10 +17,14 @@ how much reasoning the model performs by default.
 import logging
 import os
 import warnings
+from contextlib import contextmanager
+from importlib import import_module
+from threading import RLock
+from types import ModuleType
 
 import streamlit as st
 from enum import StrEnum
-from typing import Dict, Mapping, Sequence
+from typing import Dict, Iterator, Mapping, Sequence
 
 from llm.model_router import ALIASES as ROUTER_ALIASES
 
@@ -41,6 +45,7 @@ CHUNK_TOKENS = 600
 CHUNK_OVERLAP = 0.1
 
 _TRUTHY_ENV_VALUES: tuple[str, ...] = ("1", "true", "yes", "on")
+_API_FLAG_LOCK = RLock()
 
 
 # Canonical model identifiers as exposed by the OpenAI Responses API.
@@ -449,6 +454,61 @@ if USE_RESPONSES_API:
     USE_CLASSIC_API = False
 else:
     USE_CLASSIC_API = True
+
+
+def _load_openai_api_module() -> ModuleType | None:
+    """Return the ``openai_utils.api`` module when available."""
+
+    try:
+        return import_module("openai_utils.api")
+    except Exception:
+        return None
+
+
+def _apply_api_mode_flags(
+    *,
+    use_responses: bool,
+    use_classic: bool,
+    openai_module: ModuleType | None,
+    openai_override: bool | None = None,
+) -> None:
+    """Synchronise module-level API mode flags."""
+
+    global USE_RESPONSES_API, USE_CLASSIC_API
+
+    USE_RESPONSES_API = use_responses
+    USE_CLASSIC_API = use_classic
+    if openai_module is not None:
+        openai_module.USE_CLASSIC_API = openai_override if openai_override is not None else use_classic
+
+
+@contextmanager
+def temporarily_force_classic_api() -> Iterator[None]:
+    """Temporarily enable ``USE_CLASSIC_API`` for chat fallbacks."""
+
+    openai_module = _load_openai_api_module()
+    with _API_FLAG_LOCK:
+        previous_responses = USE_RESPONSES_API
+        previous_classic = USE_CLASSIC_API
+        previous_openai_classic = (
+            getattr(openai_module, "USE_CLASSIC_API", USE_CLASSIC_API) if openai_module is not None else USE_CLASSIC_API
+        )
+        _apply_api_mode_flags(
+            use_responses=False,
+            use_classic=True,
+            openai_module=openai_module,
+        )
+    try:
+        yield
+    finally:
+        with _API_FLAG_LOCK:
+            _apply_api_mode_flags(
+                use_responses=previous_responses,
+                use_classic=previous_classic,
+                openai_module=openai_module,
+                openai_override=previous_openai_classic,
+            )
+
 
 try:
     REASONING_EFFORT = _normalise_reasoning_effort(
