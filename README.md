@@ -49,6 +49,14 @@
   gespeichert, sodass die lokalisierte `st.error`-Meldung sichtbar
   bleibt, bis eine neue URL oder ein Upload funktioniert – ohne
   flackernde Hinweise zwischen den Versuchen.
+- **EN:** Added a bilingual “🔄 Reset wizard” button to the sidebar
+  settings so facilitators can wipe the current profile and reload the
+  default wizard state in one click without touching theme, language, or
+  LLM preferences.
+  **DE:** Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in
+  den Seiteneinstellungen ergänzt, der das aktuelle Profil entfernt und
+  den Wizard mit Standardwerten neu lädt, ohne Dark-Mode-, Sprach- oder
+  LLM-Einstellungen zu verändern.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the

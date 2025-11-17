@@ -19,6 +19,7 @@ from PIL.Image import Image as PILImage
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
+from state import reset_state
 from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.usage import build_usage_markdown, usage_totals
@@ -722,6 +723,16 @@ def _render_settings() -> None:
                 "Uses o4-mini and allows richer reasoning for maximum accuracy.",
             )
         )
+
+    if st.button(
+        tr("🔄 Zurücksetzen", "🔄 Reset wizard"),
+        help=tr(
+            "Setzt das aktuelle Profil zurück und lädt die Standardwerte neu.",
+            "Clears the current profile and reloads the default values.",
+        ),
+    ):
+        reset_state()
+        st.experimental_rerun()
 
 
 def _render_hero(context: SidebarContext) -> None:

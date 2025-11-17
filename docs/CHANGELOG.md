@@ -28,6 +28,13 @@
   vorliegen.
 - **EN:** Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
   **DE:** Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
+- **EN:** Added a bilingual “🔄 Reset wizard” control to the sidebar
+  settings so talent teams can instantly clear the current profile while
+  keeping their saved theme, language, and LLM-mode preferences intact.
+  **DE:** Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in
+  die Sidebar-Einstellungen aufgenommen, mit dem Talent-Teams das Profil
+  sofort zurücksetzen, während Dark-Mode-, Sprach- und LLM-Modus weiterhin
+  erhalten bleiben.
 - **EN:** Replaced every `use_container_width` flag with the new
   `width` argument across Streamlit widgets to remove the 2025
   deprecation warning while keeping the stretch layout intact.
