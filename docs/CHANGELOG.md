@@ -26,12 +26,13 @@
   `width`-Argument der Streamlit-Widgets umgestellt, damit die
   angekündigte Deprecation-Warnung für 2025 entfällt und das
   Stretch-Layout erhalten bleibt.
-- **EN:** Stored onboarding source errors (flag + localized text) in
-  `st.session_state`, ensuring the exact `st.error` copy persists on the
-  page until a new URL/upload succeeds.
-  **DE:** Onboarding-Importfehler (Flag + lokalisierter Text) werden nun
-  in `st.session_state` gehalten, sodass die genaue `st.error`-Meldung
-  bestehen bleibt, bis eine neue URL/ein Upload erfolgreich ist.
+- **EN:** The wizard progress tracker now counts each page’s required fields
+  plus critical schema paths so Job Ad, Follow-ups, Interview, and Summary stay
+  at 0 % until users complete them and never show 100 % when empty.
+  **DE:** Der Wizard-Fortschritt berücksichtigt jetzt die Pflichtfelder und
+  kritischen Schema-Pfade aller Schritte, sodass Job-Ad, Follow-ups, Interview
+  und Summary bei 0 % bleiben, bis sie abgeschlossen sind, und leer nicht
+  länger 100 % anzeigen.
 - **EN:** Added a Quick vs Precise toggle in the settings sidebar that maps to `gpt-4.1-mini`/minimal reasoning or `o4-mini`/high reasoning, reuses cached structured extractions, and parallelises vector-store lookups for faster responses.
   **DE:** Einen Schnell-/Präzisionsmodus in der Seitenleiste ergänzt, der zwischen `gpt-4.1-mini` mit minimalem Denkaufwand und `o4-mini` mit hohem Denkaufwand umschaltet, strukturierte Extraktionen cached und Vector-Store-Abfragen parallelisiert.
 - **EN:** Closed the Interview Guide Responses schema by enforcing
@@ -103,6 +104,12 @@
   zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel die
   LLM-Intake freischaltet – dadurch lassen sich keine Uploads starten, wenn die
   KI-Funktionen offline sind.
+- **EN:** Updated the onboarding continue CTA to display the compact
+  `Weiter ▶ / Next ▶` label using the primary button styling from the compact
+  CTA spec, ensuring the entry step mirrors the refreshed design tokens.
+  **DE:** Der Onboarding-Weiter-CTA zeigt nun das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Button-Styling der kompakten CTA-Spezifikationen,
+  damit der Einstiegs-Schritt die erneuerten Design-Tokens widerspiegelt.
 - **EN:** Rolled out a tabbed extraction review in step 1 with editable company,
   role, logistics, requirements, and process tabs, added an interactive
   completion tracker across all eight steps, modernised follow-up questions with

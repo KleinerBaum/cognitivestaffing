@@ -92,6 +92,12 @@
   **DE:** URL-/Upload-Felder sowie der Weiter-Button im Onboarding bleiben
   (inklusive zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel
   hinterlegt ist, damit keine versehentlichen Uploads ohne KI-Analyse erfolgen.
+- **EN:** The onboarding continue CTA now shows the compact
+  `Weiter ▶ / Next ▶` label with the primary styling from the CTA spec so the
+  entry flow matches the updated design system.
+  **DE:** Der Onboarding-Weiter-CTA nutzt jetzt das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Styling aus dem CTA-Spezifikationsupdate,
+  sodass der Einstiegs-Flow dem Design-System entspricht.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.
@@ -130,6 +136,14 @@
   **DE:** Chip-Multiselects zeigen jetzt kontextspezifische zweisprachige
   Hinweise (z. B. „Weitere Benefits hinzufügen…“) und führen Nutzer:innen
   gezielt durch neue Einträge.
+- **EN:** The progress tracker now derives totals from every wizard page’s
+  required fields (plus critical schema paths) instead of five hard-coded
+  sections, so Job Ad, Follow-ups, Interview, and Summary start at 0 % until
+  the step is completed and never display 100 % when empty.
+  **DE:** Der Fortschrittsindikator basiert jetzt auf den Pflichtfeldern (und
+  kritischen Schema-Pfaden) aller Wizard-Seiten statt auf fünf fixen Gruppen,
+  wodurch Job-Ad, Follow-ups, Interview und Summary bei 0 % starten und nicht
+  mehr 100 % anzeigen, solange keine Eingaben vorhanden sind.
 - **EN:** The wizard’s first step now opens with a tabbed extraction review,
   letting you edit company, role, logistics, requirements, and process data in
   place, while an interactive eight-step progress tracker highlights completion
@@ -378,6 +392,8 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - `sidebar/`
   - **EN:** Sidebar orchestration including plan previews and branding settings.
   - **DE:** Sidebar-Steuerung inklusive Plan-Vorschau und Branding-Einstellungen.
+  - **EN:** `sidebar.__init__` imports `wizard.metadata` and `wizard._logic` during module load so cached wizard helpers stay in sync. Keep those modules free of sidebar imports (the runner still imports `sidebar.salary`) to prevent circular dependencies.
+  - **DE:** `sidebar.__init__` importiert `wizard.metadata` und `wizard._logic` bereits beim Laden des Moduls, damit die Wizard-Helfer ohne Wrapper verfügbar sind. Stelle sicher, dass diese Module keine Sidebar-Imports enthalten (der Runner importiert weiterhin `sidebar.salary`), um Kreisabhängigkeiten zu vermeiden.
 - `state/`
   - **EN:** Session-state bootstrapping and migration helpers.
   - **DE:** Initialisierung und Migration des Streamlit-Session-State.
