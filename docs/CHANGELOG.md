@@ -132,3 +132,7 @@ Chore: Linting-, mypy-Prüfungen und Deployment-Requirements für den Release-Tr
 docs: update README and changelog, bump version identifiers to 1.0.0, and confirm release readiness
 
 Dokumentation: README und Changelog aktualisiert, Versionsnummern auf 1.0.0 gesetzt und Release-Bereitschaft bestätigt
+
+fix: add bilingual placeholder hints to the job-ad manual additions expander so SMEs see example titles and text guidance
+
+Fix: Zweisprachige Platzhalter-Hinweise für den Bereich „Manuelle Ergänzungen“ hinzugefügt, damit Fachexpert:innen Beispieltitel und Texthinweise sehen

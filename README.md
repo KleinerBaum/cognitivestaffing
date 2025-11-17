@@ -103,6 +103,9 @@ DE: Wizard-Buttons, Follow-up-Karten und Eingabefelder nutzen nun die gemeinsame
 EN: Added a bilingual “🔄 Reset wizard” button to the sidebar settings so recruiters can instantly clear the current profile and reload the default wizard state in one click (without changing theme, language, or LLM preferences).
 DE: Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in den Seiteneinstellungen hinzugefügt, mit dem Recruiter:innen das aktuelle Profil mit einem Klick entfernen und den Wizard mit Standardwerten neu laden können (ohne Dark-Mode-, Sprach- oder LLM-Einstellungen zu verändern).
 
+EN: The Manual additions expander in the job-ad generator now shows bilingual placeholder hints (e.g., “Key achievements / wichtigste Erfolge” and “Upload a PDF or paste highlights”) so subject-matter experts immediately know how to use the optional fields.
+DE: Der Bereich „Manuelle Ergänzungen“ im Stellenanzeigen-Generator enthält nun zweisprachige Platzhalter-Hinweise (z. B. „Key achievements / wichtigste Erfolge“ und „Upload a PDF or paste highlights“), damit Fachexpert:innen sofort erkennen, wie sie die optionalen Felder nutzen können.
+
 Branding Integration / Branding-Integration
 
 EN: The wizard now recognises employer branding assets automatically. When a career page URL is provided, Cognitive Staffing detects the company logo, dominant brand colour, and slogan, then applies them to the sidebar hero, exports, and downstream JSON (company.logo_url, company.brand_color, company.claim). The screenshot below shows an example sidebar that picked up a logo and tone-on-tone accent colour without any manual configuration.
