@@ -60,7 +60,7 @@ from state import ensure_state  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 setup_tracing()
 
