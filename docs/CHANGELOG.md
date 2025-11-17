@@ -218,6 +218,8 @@
   Skripte nutzen jetzt `pip install .` bzw. `pip install .[dev]`.
 - **EN:** Slimmed the default requirement set to core app dependencies and exposed optional OCR/spaCy extras via the `ingest` extra (`pip install .[ingest]`) for contributors who need advanced ingestion features.
   **DE:** Die Standard-Requirements auf zentrale App-Abhängigkeiten verschlankt und optionale OCR-/spaCy-Erweiterungen über das Extra `ingest` (`pip install .[ingest]`) verfügbar gemacht, damit Contributor:innen bei Bedarf die erweiterten Ingestion-Funktionen aktivieren können.
+- **EN:** CI, Dev Containers, and Streamlit Cloud now bootstrap dependencies through `pip install .`/`pip install .[dev]`, keeping `pyproject.toml` as the single manifest and guaranteeing extras stay installable from the same metadata.
+  **DE:** CI, Dev-Container und Streamlit-Cloud-Deployments laden Abhängigkeiten jetzt über `pip install .` bzw. `pip install .[dev]`, sodass `pyproject.toml` alleinige Quelle bleibt und Extras über dieselben Metadaten zuverlässig installierbar sind.
 - **EN:** Added `PyMuPDF` to the primary dependency list so PDF exports for interview guides run on fresh environments without manual installs.
   **DE:** `PyMuPDF` zur primären Abhängigkeitsliste hinzugefügt, damit PDF-Exporte der Interview-Guides in neuen Umgebungen ohne manuelle Installation funktionieren.
 - **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.
