@@ -216,18 +216,18 @@ render_app_banner()
 SIDEBAR_STYLE = """
 <style>
 [data-testid="stSidebar"] .block-container {
-    padding-top: 1.4rem;
+    padding-top: var(--space-lg);
 }
 .sidebar-hero {
     display: flex;
-    gap: 0.9rem;
+    gap: var(--space-md);
     align-items: center;
-    padding: 1.1rem 1.2rem;
-    border-radius: 1.2rem;
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
     background: linear-gradient(135deg, var(--surface-0), var(--surface-accent-secondary));
     border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-medium);
-    margin-bottom: 1.3rem;
+    margin-bottom: var(--space-lg);
     transition: box-shadow var(--transition-base), background var(--transition-base);
 }
 .sidebar-hero__visual {
@@ -235,16 +235,16 @@ SIDEBAR_STYLE = """
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
+    width: calc(var(--space-lg) * 3.5);
+    height: calc(var(--space-lg) * 3.5);
     border-radius: var(--radius-sm);
     background: var(--surface-accent-soft);
     border: 1px solid var(--border-subtle);
     overflow: hidden;
 }
 .sidebar-hero__logo {
-    max-width: 56px;
-    max-height: 56px;
+    max-width: calc(var(--space-lg) * 3.5);
+    max-height: calc(var(--space-lg) * 3.5);
     object-fit: contain;
 }
 .sidebar-hero__avatar {
@@ -252,32 +252,32 @@ SIDEBAR_STYLE = """
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
-    border-radius: var(--radius-sm);
+    width: calc(var(--space-lg) * 3.5);
+    height: calc(var(--space-lg) * 3.5);
+    border-radius: var(--radius-md);
     font-weight: 700;
-    font-size: 1.4rem;
+    font-size: calc(var(--space-lg) * 1.4);
     background: var(--surface-accent-strong);
     color: var(--text-on-accent);
 }
 .sidebar-hero__icon {
-    font-size: 2.4rem;
+    font-size: calc(var(--space-lg) * 2.4);
 }
 .sidebar-hero__eyebrow {
     text-transform: uppercase;
-    font-size: 0.7rem;
+    font-size: calc(var(--space-lg) - var(--space-sm) / 2);
     letter-spacing: 0.22em;
     opacity: 0.8;
-    margin: 0 0 0.2rem 0;
+    margin: 0 0 calc(var(--space-sm) / 2) 0;
 }
 .sidebar-hero__title {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: calc(var(--space-lg) + var(--space-sm) / 2);
     font-weight: 700;
 }
 .sidebar-hero__subtitle {
-    margin: 0.25rem 0 0;
-    font-size: 0.85rem;
+    margin: calc(var(--space-sm) / 2) 0 0;
+    font-size: calc(var(--space-lg) - var(--space-sm) / 4);
     opacity: 0.85;
 }
 .sidebar-hero * {
@@ -299,13 +299,13 @@ SIDEBAR_STYLE = """
 .sidebar-step {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.25rem 0;
-    font-size: 0.9rem;
+    gap: calc(var(--space-sm) * 0.9);
+    padding: calc(var(--space-sm) / 2) 0;
+    font-size: calc(var(--space-lg) - var(--space-sm) / 5);
     transition: color var(--transition-base);
 }
 .sidebar-step__badge {
-    width: 1.6rem;
+    width: calc(var(--space-lg) * 1.6);
     display: inline-flex;
     justify-content: center;
 }
@@ -314,7 +314,7 @@ SIDEBAR_STYLE = """
 }
 .sidebar-step__note {
     margin-left: auto;
-    font-size: 0.75rem;
+    font-size: var(--space-md);
     color: var(--text-soft);
 }
 .sidebar-step--current .sidebar-step__label {
@@ -326,31 +326,31 @@ SIDEBAR_STYLE = """
 }
 [data-testid="stSidebar"] h3,
 [data-testid="stSidebar"] h4 {
-    margin-top: 0.6rem;
-    margin-bottom: 0.4rem;
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-sm);
 }
 [data-testid="stSidebar"] h4 {
-    font-size: 1rem;
+    font-size: var(--space-lg);
 }
 [data-testid="stSidebar"] .stMarkdown ul {
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-sm);
 }
 
 @media (max-width: 768px) {
     [data-testid="stSidebar"] .block-container {
-        padding-top: 1rem;
+        padding-top: var(--space-md);
     }
     .sidebar-hero {
         flex-direction: column;
         align-items: flex-start;
     }
     .sidebar-hero__visual {
-        width: 48px;
-        height: 48px;
+        width: calc(var(--space-lg) * 3);
+        height: calc(var(--space-lg) * 3);
     }
     .sidebar-hero__logo {
-        max-width: 48px;
-        max-height: 48px;
+        max-width: calc(var(--space-lg) * 3);
+        max-height: calc(var(--space-lg) * 3);
     }
 }
 </style>
