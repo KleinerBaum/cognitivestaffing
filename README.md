@@ -63,8 +63,8 @@ DE: Salary-Sidebar überarbeitet: Die Ansicht zeigt nun die aktuelle Schätzung 
 EN: Sidebar branding overrides let you upload a logo, pick a brand colour, and edit the claim; exports and job ads now embed that metadata by default.
 DE: Branding-Overrides in der Sidebar ermöglichen Logo-Uploads, die Auswahl der Markenfarbe und das Bearbeiten des Claims; Exporte und Stellenanzeigen übernehmen diese Metadaten automatisch.
 
-EN: Follow-up prompts now render inline within their respective wizard sections. The “Next” button stays disabled until every critical inline follow-up has a response, while optional prompts remain skippable, so mandatory clarifications are captured before moving on.
-DE: Anschlussfragen erscheinen jetzt direkt in den jeweiligen Wizard-Abschnitten. Der Button „Weiter“ bleibt so lange deaktiviert, bis alle kritischen Nachfragen beantwortet sind; optionale Fragen bleiben weiterhin freiwillig, damit Pflichtangaben vor dem Fortfahren vollständig vorliegen.
+EN: Inline follow-up cards now sit directly beneath the affected section and keep the “Next” button disabled until every critical question has a response, while informational prompts remain optional. This keeps mandatory clarifications in context without forcing a separate page.
+DE: Inline-Follow-up-Karten erscheinen direkt unter dem jeweiligen Abschnitt und sperren „Weiter“, bis alle kritischen Fragen beantwortet sind; optionale Nachfragen bleiben freiwillig. So lassen sich Pflichtangaben im Kontext klären, ohne einen eigenen Q&A-Schritt zu öffnen.
 
 EN: Added a bilingual “🔄 Reset wizard” button to the sidebar settings so recruiters can instantly clear the current profile and reload the default wizard state in one click (without changing theme, language, or LLM preferences).
 DE: Einen zweisprachigen Button „🔄 Zurücksetzen / Reset wizard“ in den Seiteneinstellungen hinzugefügt, mit dem Recruiter:innen das aktuelle Profil mit einem Klick entfernen und den Wizard mit Standardwerten neu laden können (ohne Dark-Mode-, Sprach- oder LLM-Einstellungen zu verändern).
@@ -119,8 +119,8 @@ EN: Each wizard page opens with a localized introductory caption (in the chosen 
 DE: Jede Wizard-Seite startet mit einer lokalisierten Einleitung im gewählten Tonfall, damit Teams sofort wissen, welche Angaben auf diesem Schritt entscheidend sind.
 
 Guided wizard sections / Geführte Wizard-Abschnitte:
-EN: Steps are grouped into Onboarding, Company, Team & Context, Role & Tasks, Skills & Requirements, Compensation, Process, and Summary, so recruiters can follow a consistent flow with inline help for each section. Generated follow-up questions now surface directly below the relevant inputs inside the matching section, keeping clarifications in context.
-DE: Die Schritte sind in Onboarding, Unternehmen, Team & Kontext, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, sodass Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen pro Abschnitt folgen. Generierte Anschlussfragen erscheinen sofort unter den passenden Eingaben im jeweiligen Abschnitt, wodurch Klarstellungen kontextualisiert bleiben.
+EN: Steps are grouped into Onboarding, Company, Team & Structure, Role & Tasks, Skills & Requirements, Compensation, Hiring Process, and Summary, so recruiters can follow a consistent flow with inline help for each section. Generated follow-up questions now appear inside these sections as contextual cards, so SMEs can answer them without leaving the current page.
+DE: Schritte sind in Onboarding, Unternehmen, Team & Kontext, Rolle & Aufgaben, Skills & Anforderungen, Vergütung, Prozess und Zusammenfassung gegliedert, damit Recruiter:innen einem einheitlichen Ablauf mit Inline-Hilfen pro Abschnitt folgen können. Generierte Anschlussfragen erscheinen als kontextuelle Karten direkt in den jeweiligen Abschnitten, sodass Fachexpert:innen sie beantworten können, ohne den aktuellen Schritt zu verlassen.
 
 Tone control / Tonalitätssteuerung:
 EN: Choose between concise, professional, or casual writing styles before generating job ads, interview guides, or follow-up emails.

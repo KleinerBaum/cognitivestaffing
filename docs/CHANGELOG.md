@@ -4,8 +4,9 @@ v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleic
 EN: Introduced a config.set_api_mode() helper that flips both USE_RESPONSES_API and USE_CLASSIC_API atomically and wired it to a new bilingual debug panel in the wizard UI. Admins can now enable verbose error diagnostics and switch between the Responses and classic Chat APIs at runtime while downstream modules instantly read the updated config flags.
 DE: Ein neuer Helfer config.set_api_mode() aktualisiert USE_RESPONSES_API und USE_CLASSIC_API jetzt atomar und ist mit einem zweisprachigen Debug-Panel im Wizard verknüpft. Admins können so ausführliche Fehlerdiagnosen aktivieren und zur Laufzeit zwischen Responses- und Chat-Completions-API wechseln, wobei nachgelagerte Module die neuen Flags sofort sehen.
 
-EN: Added scripts/check_localization.py plus tests/test_localization_scan.py so UI modules fail CI whenever English strings bypass tr() or i18n.STR, and documented the workflow in README.md.
-DE: scripts/check_localization.py sowie tests/test_localization_scan.py ergänzen jetzt einen CI-Blocker, falls englische Texte ohne tr() oder i18n.STR in die UI gelangen; der Workflow ist zusätzlich in README.md dokumentiert.
+EN: Retired the standalone Follow-ups wizard page; generated follow-up questions now render inline within the Company, Team, Requirements, Compensation, and Process sections so SMEs can answer them in context while the “Next” button still waits for critical responses.
+DE: Die separate Q&A-Seite entfällt – generierte Anschlussfragen erscheinen jetzt direkt in den Abschnitten Unternehmen, Team, Anforderungen, Vergütung und Prozess, sodass Fachexpert:innen sie im Kontext beantworten können, während „Weiter“ weiterhin auf kritische Antworten wartet.
+
 EN: Extracted the wizard field/section metadata into wizard/metadata.py and switched wizard_router plus its navigation tests to import it directly so the dependency chain stays explicit and type-checkable.
 DE: Die Zuordnung zwischen Wizard-Feldern und Abschnitten in wizard/metadata.py verankert und wizard_router samt Navigationstests so angepasst, dass diese Metadaten direkt importiert werden – für explizite, typsichere Abhängigkeiten.
 

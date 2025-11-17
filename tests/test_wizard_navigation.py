@@ -111,21 +111,21 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
     return store
 
 
-_STEP_DEFINITIONS: tuple[tuple[str, int, bool], ...] = (
-    ("jobad", 0, False),
-    ("company", 1, False),
-    ("team", 2, False),
-    ("role_tasks", 3, False),
-    ("skills", 3, False),
-    ("benefits", 4, True),
-    ("interview", 5, False),
-    ("summary", 6, False),
+_STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
+    ("intro", 0, False, ()),
+    ("company", 1, False, ("company.name",)),
+    ("team", 2, False, ()),
+    ("role_tasks", 3, False, ()),
+    ("skills", 4, False, ()),
+    ("benefits", 5, True, ()),
+    ("interview", 6, False, ()),
+    ("summary", 7, False, ()),
 )
 
 
 def _build_pages() -> tuple[WizardPage, ...]:
     pages: list[WizardPage] = []
-    for key, _legacy_index, allow_skip in _STEP_DEFINITIONS:
+    for key, _legacy_index, allow_skip, required_fields in _STEP_DEFINITIONS:
         title = key.replace("_", " ").title()
         pages.append(
             WizardPage(
@@ -134,7 +134,7 @@ def _build_pages() -> tuple[WizardPage, ...]:
                 panel_header=(title, title),
                 panel_subheader=(title, title),
                 panel_intro_variants=((f"Intro {title}", f"Intro {title}"),),
-                required_fields=(),
+                required_fields=required_fields,
                 summary_fields=(),
                 allow_skip=allow_skip,
             )
@@ -144,7 +144,7 @@ def _build_pages() -> tuple[WizardPage, ...]:
 
 def _build_renderers(log: List[str]) -> Dict[str, StepRenderer]:
     renderers: Dict[str, StepRenderer] = {}
-    for key, legacy_index, _allow_skip in _STEP_DEFINITIONS:
+    for key, legacy_index, _allow_skip, _required_fields in _STEP_DEFINITIONS:
 
         def _make_callback(step_key: str) -> Callable[[WizardContext], None]:
             def _callback(_context: WizardContext) -> None:
@@ -349,15 +349,13 @@ def test_skip_marks_step_completed_and_sets_query(
     assert st.session_state["_wizard_scroll_to_top"] is True
 
 
-def test_inline_followup_blocks_next_until_answered(
+def test_company_step_disables_next_until_required_answer(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Critical inline follow-ups should keep the Next button disabled."""
+    """Missing required fields (often surfaced via follow-ups) should block Next."""
 
     st.session_state[StateKeys.PROFILE] = {"company": {}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.contact_email", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
@@ -387,15 +385,14 @@ def test_inline_followup_blocks_next_until_answered(
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
 
-def test_inline_followup_unlocks_next_after_answer(
+def test_company_step_enables_next_after_required_answer(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Providing a critical follow-up answer should unlock navigation."""
+    """Providing the missing value should unlock navigation to the next section."""
 
-    st.session_state[StateKeys.PROFILE] = {"company": {"contact_email": "hi@example.com"}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.contact_email", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.PROFILE] = {"company": {"name": "ACME"}, "meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
+    st.session_state["company.name"] = "ACME"
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)

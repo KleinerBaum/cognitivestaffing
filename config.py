@@ -401,12 +401,11 @@ def set_api_mode(use_responses: bool) -> None:
 
 @contextmanager
 def temporarily_force_classic_api() -> Iterator[None]:
-    """Temporarily switch to the classic Chat Completions API."""
+    """Temporarily switch to the classic Chat API inside the managed block."""
 
     previous_mode = USE_RESPONSES_API
     try:
-        if previous_mode:
-            set_api_mode(False)
+        set_api_mode(False)
         yield
     finally:
         set_api_mode(previous_mode)

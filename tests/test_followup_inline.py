@@ -182,3 +182,23 @@ def test_followup_section_shows_rag_hint(monkeypatch, lang: str, expected: str) 
     _render_followups_for_section(("company.",), {})
 
     assert expected in seen
+
+
+def test_followup_section_shows_inline_meta(monkeypatch) -> None:
+    """Inline follow-up cards should include the auto-save caption."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "Name?"}]
+
+    seen_markdown: list[str] = []
+
+    def fake_markdown(text: str, **kwargs: object) -> None:
+        seen_markdown.append(text)
+
+    monkeypatch.setattr(st, "markdown", fake_markdown)
+    monkeypatch.setattr("wizard._render_followup_question", lambda *_a, **_k: None)
+
+    _render_followups_for_section(("company.",), {})
+
+    assert any("wizard-followup-meta" in text for text in seen_markdown)

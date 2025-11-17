@@ -11455,10 +11455,10 @@ STEP_RENDERERS: dict[str, StepRenderer] = {
     "company": StepRenderer(step_company, legacy_index=1),
     "team": StepRenderer(step_team, legacy_index=2),
     "role_tasks": StepRenderer(step_role_tasks, legacy_index=3),
-    "skills": StepRenderer(step_skills, legacy_index=3),
-    "benefits": StepRenderer(step_benefits, legacy_index=4),
-    "interview": StepRenderer(step_interview, legacy_index=5),
-    "summary": StepRenderer(step_summary, legacy_index=6),
+    "skills": StepRenderer(step_skills, legacy_index=4),
+    "benefits": StepRenderer(step_benefits, legacy_index=5),
+    "interview": StepRenderer(step_interview, legacy_index=6),
+    "summary": StepRenderer(step_summary, legacy_index=7),
 }
 
 
