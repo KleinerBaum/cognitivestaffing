@@ -33,13 +33,28 @@
 | Token | Purpose (EN) | Zweck (DE) | Value |
 | --- | --- | --- | --- |
 | `--brand` | Default brand tint | Primärer Markenfarbton | `#0C1F3D` (dark) / `#2A4A85` (light) |
-| `--brand-strong` | Strong brand contrast | Kontrastreiche Markenfarbe | `#071327` (dark) / `#1E335B` (light) |
-| `--brand-soft` | Soft brand backdrop | Sanfter Markenhintergrund | `#173760` (dark) / `#3C5A96` (light) |
-| `--accent` | Primary accent | Primärer Akzent | `#33B6FF` (dark) / `#1E88F7` (light) |
-| `--accent-strong` | Active accent state | Aktiver Akzentzustand | `#33B6FF` (dark) / `#0F6ED6` (light) |
-| `--accent-2` | Secondary accent | Zweiter Akzent | `#F7B955` (dark) / `#FFCE73` (light) |
-| `--focus-ring` | Focus halo colour | Fokus-Markierung | `rgba(94, 207, 254, 0.55)` (dark) / `rgba(30, 136, 247, 0.35)` (light) |
-| `--focus-ring-contrast` | Focus outline base | Fokus-Kontur | `rgba(3, 9, 19, 0.92)` (dark) / `rgba(227, 239, 255, 0.95)` (light) |
+| `--brand-strong` | Strong brand contrast | Kontrastreiche Markenfarbe | `#08142B` (dark) / `#1F3561` (light) |
+| `--brand-soft` | Soft brand backdrop | Sanfter Markenhintergrund | `#16335C` (dark) / `#D8E1F5` (light) |
+| `--accent` | Primary accent | Primärer Akzent | `#1FB5C5` (dark & light) |
+| `--accent-strong` | Active accent state | Aktiver Akzentzustand | `#18C9D4` (dark) / `#18C9D4` (light) |
+| `--accent-2` | Secondary accent | Zweiter Akzent | `#FFC368` (dark) / `#FFB65C` (light) |
+| `--focus-ring` | Focus halo colour | Fokus-Markierung | `rgba(56, 192, 255, 0.5)` (dark) / `rgba(31, 181, 197, 0.32)` (light) |
+| `--focus-ring-contrast` | Focus outline base | Fokus-Kontur | `rgba(2, 9, 20, 0.96)` (dark) / `rgba(236, 245, 255, 0.95)` (light) |
+
+### Palette & Accessibility / Farbpalette & Barrierefreiheit
+- **EN:** The navy (`#0C1F3D` dark / `#2A4A85` light) anchors both themes, while teal (`#1FB5C5`) and amber (`#FFC368`/`#FFB65C`) accents provide hierarchy and state feedback. Each pairing below exceeds WCAG AA (≥ 4.5:1) for body text so headings and controls stay legible on bright monitors.
+- **DE:** Das Navy (`#0C1F3D` im Dark-Mode / `#2A4A85` im Light-Mode) bildet das Fundament beider Themes. Teal (`#1FB5C5`) und Bernstein (`#FFC368`/`#FFB65C`) setzen Hierarchien und Zustände. Alle Kombinationen unten übertreffen WCAG AA (≥ 4,5:1), damit Überschriften und Controls auf hellen Displays klar bleiben.
+
+| Pair / Kombination | Use Case (EN) | Anwendungsfall (DE) | Contrast Ratio |
+| --- | --- | --- | --- |
+| `#0C1F3D` background + `#F4F9FF` text | Dark hero & sidebar panels | Dunkle Hero-/Sidebar-Panels | 15.5 : 1 |
+| `#2A4A85` background + `#F8FBFF` text | Light brand strips, callouts | Helle Markenbänder & Callouts | 8.4 : 1 |
+| `#1FB5C5` accent + `#041120` text | Accent chips & sliders | Akzent-Chips und Regler | 7.7 : 1 |
+| `#FFC368` accent + `#041120` text | Warning/positive pills | Hinweis-/Positive-Pills | 12.0 : 1 |
+
+### Typography Guidance / Typografie-Hinweise
+- **EN:** `Inter` (body) and `Space Grotesk` (headings) remain the canonical stacks. Keep headings at `600` weight for readability, use `400` for paragraph copy, and leave captions at `--font-size-caption` with `--line-height-body` to avoid cramped bilingual helper text.
+- **DE:** `Inter` (Fließtext) und `Space Grotesk` (Überschriften) sind weiterhin die verbindlichen Stacks. Überschriften bitte mit Gewicht `600`, Fließtext mit `400` und Bildunterschriften mit `--font-size-caption` plus `--line-height-body`, damit zweisprachige Hilfetexte nicht gedrängt wirken.
 | `--transition-base` | Default animation timing | Standard-Transition | `0.18s ease-out` |
 
 ## Color Tokens / Farb-Tokens
