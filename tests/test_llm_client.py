@@ -14,6 +14,7 @@ import llm.openai_responses as responses_module
 from llm.prompts import PreExtractionInsights
 from models.need_analysis import NeedAnalysisProfile
 from llm.openai_responses import ResponsesCallResult
+from core.errors import ExtractionUnavailableError
 
 
 def fake_responses_call(*args, **kwargs):  # noqa: D401
@@ -133,6 +134,35 @@ def test_extract_json_plain_fallback_is_sanitized(monkeypatch):
     assert calls["responses"] == 1
     assert calls["chat_plain"] == 1
     assert calls["chat_structured"] == 0
+
+
+def test_extract_json_propagates_unavailable_error(monkeypatch):
+    """Total structured outages should bubble up a sanitized exception."""
+
+    st.session_state.clear()
+    monkeypatch.setattr(client, "USE_RESPONSES_API", True)
+    monkeypatch.setattr(client, "_run_pre_extraction_analysis", lambda *a, **k: None)
+
+    def _failing_responses(*args, **kwargs):
+        raise RuntimeError("responses down")
+
+    call_counts = {"structured": 0, "plain": 0}
+
+    def _failing_chat(messages, *, json_schema=None, **kwargs):
+        if json_schema is None:
+            call_counts["plain"] += 1
+            raise AssertionError("plain fallback should not run")
+        call_counts["structured"] += 1
+        raise RuntimeError("chat down")
+
+    monkeypatch.setattr(client, "call_responses_safe", _failing_responses)
+    monkeypatch.setattr(responses_module, "call_responses_safe", _failing_responses)
+    monkeypatch.setattr(client, "call_chat_api", _failing_chat)
+
+    with pytest.raises(ExtractionUnavailableError):
+        client.extract_json("text")
+
+    assert call_counts == {"structured": 2, "plain": 0}
 
 
 def test_extract_json_minimal_prompt(monkeypatch):

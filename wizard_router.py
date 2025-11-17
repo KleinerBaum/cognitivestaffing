@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Callable, Collection, Iterable, Mapping, Sequence
+from typing import Callable, Collection, Iterable, Mapping, Sequence, cast
 
 import streamlit as st
 
@@ -11,7 +11,6 @@ from pages import WizardPage
 from utils.i18n import tr
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
-    FIELD_SECTION_MAP,
     PAGE_PROGRESS_FIELDS,
     VIRTUAL_PAGE_FIELD_PREFIX,
     get_missing_critical_fields,
@@ -715,7 +714,8 @@ class WizardRouter:
     def _build_progress_snapshots(self) -> list[_PageProgressSnapshot]:
         """Return per-page completion stats for the progress tracker."""
 
-        completed_steps = set(self._state.get("completed_steps") or [])
+        raw_completed_steps = self._state.get("completed_steps") or []
+        completed_steps = set(cast(Iterable[str], raw_completed_steps))
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         snapshots: list[_PageProgressSnapshot] = []
         for page in self._pages:

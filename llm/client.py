@@ -24,7 +24,7 @@ from .output_parsers import (
     NeedAnalysisParserError,
     get_need_analysis_output_parser,
 )
-from core.errors import ExtractionError
+from core.errors import ExtractionError, ExtractionUnavailableError
 from config import (
     REASONING_EFFORT,
     USE_RESPONSES_API,
@@ -359,18 +359,26 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             )
 
     if content is None:
-        call_result = call_chat_api(
-            payload["messages"],
-            model=payload["model"],
-            temperature=0,
-            reasoning_effort=payload.get("reasoning_effort"),
-            verbosity=payload.get("verbosity"),
-            json_schema={
-                "name": "need_analysis_profile",
-                "schema": NEED_ANALYSIS_SCHEMA,
-            },
-            task=ModelTask.EXTRACTION,
-        )
+        try:
+            call_result = call_chat_api(
+                payload["messages"],
+                model=payload["model"],
+                temperature=0,
+                reasoning_effort=payload.get("reasoning_effort"),
+                verbosity=payload.get("verbosity"),
+                json_schema={
+                    "name": "need_analysis_profile",
+                    "schema": NEED_ANALYSIS_SCHEMA,
+                },
+                task=ModelTask.EXTRACTION,
+            )
+        except Exception as err:  # pragma: no cover - network/SDK issues
+            logger.error(
+                "Structured extraction final attempt failed for %s: %s",
+                prompt_digest,
+                err,
+            )
+            raise ExtractionUnavailableError() from err
         content = (call_result.content or "").strip()
     if not content:
         logger.warning("Structured extraction returned empty response for %s", prompt_digest)
@@ -493,6 +501,11 @@ def extract_json(
                 "structured_validation_failed",
                 {"error.detail": detail[:512]},
             )
+        except ExtractionUnavailableError as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "structured_unavailable"))
+            span.add_event("structured_unavailable")
+            raise
         except Exception as exc:  # pragma: no cover - network/SDK issues
             logger.warning("Structured extraction failed, falling back to plain text: %s", exc)
             span.record_exception(exc)

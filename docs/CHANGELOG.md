@@ -4,6 +4,8 @@
 
 - **EN:** Instrumented the RAG pipeline so every vector-store lookup logs per-field latency, fallback usage, and OpenTelemetry span attributes, giving quantitative evidence of the threaded retriever’s speedups.
   **DE:** Die RAG-Pipeline instrumentiert, sodass jeder Vector-Store-Lookup Feldlaufzeiten, Fallback-Nutzung und OpenTelemetry-Attribute protokolliert und damit messbare Nachweise für die Beschleunigung durch den parallelisierten Retriever liefert.
+- **EN:** Hardened the structured extraction cascade: if both the Responses and chat retries fail we raise an `ExtractionUnavailableError`, propagate a bilingual toast (“The AI is currently unavailable, please try again later. / Die KI ist derzeit nicht erreichbar, bitte später erneut versuchen.”), and stop exposing stack traces to end users.
+  **DE:** Die strukturierte Extraktionskette robuster gemacht: Schlagen sowohl Responses- als auch Chat-Retries fehl, wird eine `ExtractionUnavailableError` ausgelöst, ein zweisprachiger Hinweis („The AI is currently unavailable, please try again later. / Die KI ist derzeit nicht erreichbar, bitte später erneut versuchen.“) angezeigt und keine Stacktraces mehr an Nutzer:innen weitergegeben.
 - **EN:** Extracted the wizard field/section metadata into `wizard/metadata.py` and
   switched `wizard_router` plus its navigation tests to import it directly so the
   dependency chain stays explicit and type-checkable.

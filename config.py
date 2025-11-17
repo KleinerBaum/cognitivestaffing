@@ -479,7 +479,11 @@ def _apply_api_mode_flags(
     USE_RESPONSES_API = use_responses
     USE_CLASSIC_API = use_classic
     if openai_module is not None:
-        openai_module.USE_CLASSIC_API = openai_override if openai_override is not None else use_classic
+        setattr(
+            openai_module,
+            "USE_CLASSIC_API",
+            openai_override if openai_override is not None else use_classic,
+        )
 
 
 @contextmanager

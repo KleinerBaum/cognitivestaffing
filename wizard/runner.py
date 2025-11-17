@@ -46,7 +46,7 @@ from opentelemetry.trace import Status, StatusCode
 from utils.i18n import tr
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
-from core.errors import ExtractionError
+from core.errors import AI_UNAVAILABLE_MESSAGE, ExtractionError, ExtractionUnavailableError
 from state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
@@ -3395,6 +3395,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             locked_items=locked_items,
             reasoning_effort=effort_value,
         )
+    except ExtractionUnavailableError as exc:
+        st.toast(AI_UNAVAILABLE_MESSAGE, icon="⚠️")
+        llm_error = exc
     except ExtractionError as exc:
         llm_error = exc
     else:
@@ -3973,6 +3976,7 @@ def _ensure_followup_styles() -> None:
         """,
         unsafe_allow_html=True,
     )
+
 
 def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
     """Persist ``suggestion`` into the widget state for ``field``."""
