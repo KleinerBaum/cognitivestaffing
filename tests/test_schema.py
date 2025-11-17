@@ -46,8 +46,8 @@ def test_coerce_and_fill_basic() -> None:
     assert profile.responsibilities.items == ["Code apps"]
     assert profile.employment.job_type == "full time"
     assert profile.employment.contract_type == "permanent"
-    assert profile.position.supervises == 3
-    assert profile.position.team_size == 10
+    assert profile.team.headcount_current == 3
+    assert profile.team.headcount_target == 10
     assert profile.meta.target_start_date == "2024-01-01"
     assert profile.compensation.benefits == ["Gym"]
     assert profile.compensation.bonus_percentage == 10.0
@@ -95,6 +95,13 @@ def test_coerce_and_fill_alias_mapping() -> None:
             "logo": "https://example.com/logo.svg",
             "tagline": "Einfach. Immer. Da.",
         },
+        "position": {
+            "department": "Technology",
+            "team_structure": "Platform",  # legacy key should feed team.name
+            "reporting_line": "VP Engineering",
+            "team_size": 12,
+            "supervises": 4,
+        },
     }
     profile = coerce_and_fill(data)
     assert profile.requirements.hard_skills_required == ["Python"]
@@ -110,6 +117,11 @@ def test_coerce_and_fill_alias_mapping() -> None:
     assert profile.company.brand_color == "#123ABC"
     assert str(profile.company.logo_url) == "https://example.com/logo.svg"
     assert profile.company.claim == "Einfach. Immer. Da."
+    assert profile.department.name == "Technology"
+    assert profile.team.name == "Platform"
+    assert profile.team.reporting_line == "VP Engineering"
+    assert profile.team.headcount_target == 12
+    assert profile.team.headcount_current == 4
 
 
 def test_coerce_and_fill_alias_mapping_case_insensitive() -> None:
