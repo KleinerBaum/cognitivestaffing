@@ -18,7 +18,7 @@ from openai import (
     RateLimitError,
 )
 
-from config import OPENAI_REQUEST_TIMEOUT, STRICT_JSON, ModelTask
+from config import OPENAI_REQUEST_TIMEOUT, STRICT_JSON, ModelTask, temporarily_force_classic_api
 from openai_utils.api import (
     _coerce_token_count,
     _extract_output_text,
@@ -28,6 +28,7 @@ from openai_utils.api import (
     _mark_model_without_temperature,
     _normalise_usage,
     _update_usage_counters,
+    call_chat_api,
     get_client,
     model_supports_reasoning,
     model_supports_temperature,
@@ -45,6 +46,7 @@ class ResponsesCallResult:
     usage: dict[str, int]
     response_id: str | None
     raw_response: Any
+    used_chat_fallback: bool = False
 
 
 class ResponsesSchemaError(ValueError):
@@ -94,6 +96,106 @@ def _prepare_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, A
     return prepared
 
 
+def _build_chat_json_schema_payload(response_format: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a chat-compatible JSON schema payload."""
+
+    json_schema_payload = response_format.get("json_schema")
+    if not isinstance(json_schema_payload, Mapping):
+        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+
+    schema_payload = json_schema_payload.get("schema")
+    if not isinstance(schema_payload, Mapping):
+        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+
+    schema_name = json_schema_payload.get("name")
+    if not isinstance(schema_name, str) or not schema_name.strip():
+        raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
+
+    chat_schema: dict[str, Any] = {
+        "name": schema_name.strip(),
+        "schema": deepcopy(dict(schema_payload)),
+    }
+    if "strict" in json_schema_payload:
+        chat_schema["strict"] = bool(json_schema_payload.get("strict"))
+    return chat_schema
+
+
+def _run_chat_fallback(
+    messages: Sequence[Mapping[str, Any]],
+    *,
+    model: str,
+    response_format: Mapping[str, Any],
+    logger_instance: logging.Logger,
+    context: str,
+    allow_empty: bool,
+    temperature: float | None,
+    max_completion_tokens: int | None,
+    reasoning_effort: str | None,
+    task: ModelTask | str | None,
+    reason: str,
+    exc: Exception | None,
+) -> ResponsesCallResult | None:
+    """Fallback to the classic chat API and return a :class:`ResponsesCallResult`."""
+
+    try:
+        chat_schema = _build_chat_json_schema_payload(response_format)
+    except ResponsesSchemaError as schema_error:
+        logger_instance.warning(
+            "Unable to run chat fallback for %s due to schema guard: %s",
+            context,
+            schema_error,
+        )
+        return None
+
+    if exc is None:
+        logger_instance.info("Falling back to chat completions for %s (%s)", context, reason)
+    else:
+        logger_instance.info(
+            "Falling back to chat completions for %s (%s): %s",
+            context,
+            reason,
+            exc,
+        )
+
+    prepared_messages = _prepare_messages(messages)
+    try:
+        with temporarily_force_classic_api():
+            chat_result = call_chat_api(
+                prepared_messages,
+                model=model,
+                temperature=temperature,
+                max_completion_tokens=max_completion_tokens,
+                json_schema=chat_schema,
+                reasoning_effort=reasoning_effort,
+                task=task,
+                extra={"_api_mode": "chat"},
+            )
+    except Exception as fallback_error:  # pragma: no cover - network/SDK issues
+        logger_instance.warning(
+            "Classic chat fallback for %s failed: %s",
+            context,
+            fallback_error,
+            exc_info=fallback_error,
+        )
+        return None
+
+    fallback_content = (chat_result.content or "").strip()
+    if not allow_empty and not fallback_content:
+        logger_instance.warning(
+            "Classic chat fallback for %s returned empty content",
+            context,
+        )
+        return None
+
+    return ResponsesCallResult(
+        content=fallback_content,
+        usage=dict(chat_result.usage or {}),
+        response_id=chat_result.response_id,
+        raw_response=chat_result.raw_response,
+        used_chat_fallback=True,
+    )
+
+
 def call_responses(
     messages: Sequence[Mapping[str, Any]],
     *,
@@ -124,9 +226,7 @@ def call_responses(
 
     schema_name = json_schema_payload.get("name")
     if not isinstance(schema_name, str) or not schema_name.strip():
-        raise ResponsesSchemaError(
-            "Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]"
-        )
+        raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
     schema_name = schema_name.strip()
 
     payload: dict[str, Any] = {
@@ -227,6 +327,28 @@ def call_responses_safe(
     """
 
     active_logger = logger_instance or logger
+    fallback_attempted = False
+
+    def _attempt_fallback(reason: str, exc: Exception | None = None) -> ResponsesCallResult | None:
+        nonlocal fallback_attempted
+        if fallback_attempted:
+            return None
+        fallback_attempted = True
+        return _run_chat_fallback(
+            messages,
+            model=model,
+            response_format=response_format,
+            logger_instance=active_logger,
+            context=context,
+            allow_empty=allow_empty,
+            temperature=kwargs.get("temperature"),
+            max_completion_tokens=kwargs.get("max_completion_tokens"),
+            reasoning_effort=kwargs.get("reasoning_effort"),
+            task=kwargs.get("task"),
+            reason=reason,
+            exc=exc,
+        )
+
     try:
         result = call_responses(
             messages,
@@ -236,34 +358,40 @@ def call_responses_safe(
         )
     except ResponsesSchemaError as exc:
         active_logger.warning(
-            "Responses payload guard blocked %s call; falling back: %s",
+            "Responses payload guard blocked %s call; triggering chat fallback: %s",
             context,
             exc,
         )
-        return None
+        return _attempt_fallback("schema_guard", exc)
     except OpenAIError as exc:
         active_logger.warning(
-            "Responses API %s failed; triggering fallback: %s",
+            "Responses API %s failed; triggering chat fallback: %s",
             context,
             exc,
         )
-        return None
+        fallback = _attempt_fallback("api_error", exc)
+        return fallback
     except Exception as exc:  # pragma: no cover - defensive
         active_logger.warning(
-            "Unexpected error during Responses API %s; triggering fallback",
+            "Unexpected error during Responses API %s; triggering chat fallback",
             context,
             exc_info=exc,
         )
-        return None
+        fallback = _attempt_fallback("unexpected_error", exc)
+        return fallback
 
     content = (result.content or "").strip()
     if not allow_empty and not content:
         active_logger.warning(
-            "Responses API %s returned empty content; triggering fallback",
+            "Responses API %s returned empty content; triggering chat fallback",
             context,
         )
+        fallback = _attempt_fallback("empty_response")
+        if fallback is not None:
+            return fallback
         return None
 
+    result.content = content
     return result
 
 

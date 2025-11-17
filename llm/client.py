@@ -330,6 +330,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             )
             if result is None:
                 return None
+            if result.used_chat_fallback:
+                logger.info(
+                    "Structured extraction fell back to chat completions for %s",
+                    prompt_digest,
+                )
             return (result.content or "").strip()
 
         attempts.append(("responses", _call_responses))
