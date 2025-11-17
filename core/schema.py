@@ -533,6 +533,11 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "compensation.max": "compensation.salary_max",
         "compensation.currency_code": "compensation.currency",
         "compensation.periodicity": "compensation.period",
+        "position.department": "department.name",
+        "position.team_structure": "team.name",
+        "position.reporting_line": "team.reporting_line",
+        "position.team_size": "team.headcount_target",
+        "position.supervises": "team.headcount_current",
     }
 )
 
