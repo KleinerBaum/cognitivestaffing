@@ -29,10 +29,10 @@ from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
 
-# Import wizard helpers at module load time so sidebar references remain static.
-# ``wizard.runner`` imports ``sidebar.salary`` and therefore touches this module
-# while the package initialises. Keep ``wizard.metadata`` and ``wizard._logic``
-# free of sidebar imports so these dependencies remain safe to import here.
+# Wizard metadata is intentionally lightweight (no sidebar imports) so we can
+# eagerly import the field map, critical helpers, and logic module without
+# triggering circular imports. Keep this block together to document the import
+# order assumptions for future contributors.
 from wizard import _update_profile, logic
 from wizard.metadata import FIELD_SECTION_MAP, get_missing_critical_fields
 
@@ -244,7 +244,9 @@ def _sync_brand_claim() -> None:
 
 
 def _sync_logo_url() -> None:
-    _update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
+    _update_profile(
+        ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value)
+    )
 
 
 def _render_branding_overrides() -> None:

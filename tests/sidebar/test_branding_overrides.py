@@ -110,7 +110,7 @@ def test_render_branding_overrides_normalizes_httpurl(monkeypatch: pytest.Monkey
                 return http_logo
             return st.session_state.get(key)
 
-    monkeypatch.setattr(sidebar, "logic", FakeLogic())
+    monkeypatch.setattr("sidebar.logic", FakeLogic())
 
     _render_branding_overrides()
 
