@@ -6250,40 +6250,44 @@ def _inject_onboarding_source_styles() -> None:
                 text-align: left;
             }
 
-            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker) {
+            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                + div[data-testid="stHorizontalBlock"] {
                 justify-content: center;
                 gap: clamp(1.25rem, 2vw, 2.5rem);
+                margin: 0 auto;
+                max-width: min(960px, 100%);
             }
 
-            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
-                div[data-testid="column"] {
+            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
                 flex: 1 1 0;
+                min-width: 0;
             }
 
-            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
-                div[data-testid="column"]:nth-child(2) {
-                flex: 0 1 520px;
-                display: flex;
-                justify-content: center;
-            }
-
-            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
-                div[data-testid="column"]:nth-child(2) > div {
+            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                + div[data-testid="stHorizontalBlock"] div[data-testid="column"] > div {
                 width: 100%;
             }
 
-            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
-                div[data-testid="column"]:nth-child(2)
+            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                + div[data-testid="stHorizontalBlock"]
+                div[data-testid="column"]
                 div[data-testid="stTextInput"] > div > div,
-            section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
-                div[data-testid="column"]:nth-child(2)
+            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                + div[data-testid="stHorizontalBlock"]
+                div[data-testid="column"]
                 div[data-testid="stFileUploader"] > div {
                 width: 100%;
             }
 
             @media (max-width: 960px) {
-                section.main div.block-container div[data-testid="stHorizontalBlock"]:has(.onboarding-source-marker)
-                    div[data-testid="column"]:nth-child(2) {
+                section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                    + div[data-testid="stHorizontalBlock"] {
+                    flex-wrap: wrap;
+                }
+
+                section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
+                    + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
                     flex: 1 1 100%;
                 }
             }
@@ -6406,19 +6410,12 @@ def _step_onboarding(schema: dict) -> None:
         if doc_prefill:
             st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
 
-    locked = _is_onboarding_locked()
-    if locked:
-        st.info(
-            f"{llm_disabled_message()} "
-            f"{tr('Uploads und Analysen bleiben deaktiviert, bis ein OpenAI API Key hinterlegt ist.', 'Uploads and analysis remain disabled until an OpenAI API key is configured.')}",
-        )
-
-    source_columns = st.columns([1, 2, 1], gap="large")
-    with source_columns[1]:
-        st.markdown(
-            "<div class='onboarding-source-marker' style='display:none'></div>",
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        "<div class='onboarding-source-marker' style='display:none'></div>",
+        unsafe_allow_html=True,
+    )
+    url_column, upload_column = st.columns(2, gap="large")
+    with url_column:
         st.text_input(
             tr("Stellenanzeigen-URL einfügen", "Provide the job posting URL"),
             key=UIKeys.PROFILE_URL_INPUT,
@@ -6431,6 +6428,7 @@ def _step_onboarding(schema: dict) -> None:
             disabled=locked,
         )
 
+    with upload_column:
         st.file_uploader(
             tr(
                 "Stellenanzeige hochladen (PDF/DOCX/TXT)",
