@@ -7,7 +7,33 @@ in lockstep to keep dependency expectations realistic.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
+from types import ModuleType
 from typing import Any, Dict, List, Mapping
+
+# ``wizard.runner`` imports ``sidebar.salary`` which in turn pulls ``wizard``
+# into the sidebar package, so stub the module hierarchy to avoid circular
+# import churn during router unit tests.
+import sys
+
+if "sidebar" not in sys.modules:
+    sidebar_stub = ModuleType("sidebar")
+    sidebar_stub.__path__ = []  # mark as a package for import machinery
+    sys.modules["sidebar"] = sidebar_stub
+
+salary_stub = ModuleType("sidebar.salary")
+
+
+def _format_salary_range_stub(*_args: object, **_kwargs: object) -> str:
+    return ""
+
+
+def _resolve_sidebar_benefits_stub(*_args: object, **_kwargs: object) -> dict[str, Any]:
+    return {"entries": []}
+
+
+salary_stub.format_salary_range = _format_salary_range_stub
+salary_stub.resolve_sidebar_benefits = _resolve_sidebar_benefits_stub
+sys.modules["sidebar.salary"] = salary_stub
 
 import pytest
 import streamlit as st
@@ -112,7 +138,7 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
 
 
 _STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
-    ("intro", 0, False, ()),
+    ("jobad", 0, False, ()),
     ("company", 1, False, ("company.name",)),
     ("team", 2, False, ()),
     ("role_tasks", 3, False, ()),
@@ -428,3 +454,63 @@ def test_company_step_enables_next_after_required_answer(
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
     assert wizard_state["current_step"] == "team"
+
+
+def test_critical_followup_blocks_until_answered(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Critical follow-ups scoped to the page should gate the Next button."""
+
+    st.session_state[StateKeys.PROFILE] = {"position": {}, "meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [
+        {"field": "position.team_size", "priority": "critical"}
+    ]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "team"
+    query_params["step"] = ["team"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    class RerunTriggered(Exception):
+        pass
+
+    button_calls: list[dict[str, Any]] = []
+    responses = {"wizard_next_team": iter([False, True])}
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        key = kwargs.get("key")
+        sequence = responses.get(key)
+        if sequence is None:
+            return False
+        try:
+            return next(sequence)
+        except StopIteration:
+            return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team"]
+    assert next_calls, "expected Next button to render"
+    assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile.setdefault("position", {})["team_size"] = 5
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team"]
+    assert next_calls[-1]["kwargs"].get("disabled", False) is False
+    wizard_state = st.session_state["wizard"]
+    assert wizard_state["current_step"] == "role_tasks"

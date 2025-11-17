@@ -9,6 +9,8 @@ import streamlit as st
 from constants.keys import StateKeys
 from pages import WizardPage
 from utils.i18n import tr
+from wizard._logic import get_in
+from wizard.followups import followup_has_response
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
     PAGE_FOLLOWUP_PREFIXES,
@@ -387,8 +389,6 @@ class WizardRouter:
         return self._pages[index - 1].key
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        if not page.required_fields:
-            return []
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         missing: list[str] = []
         if page.required_fields:
@@ -403,6 +403,33 @@ class WizardRouter:
             return []
         # Preserve order while removing duplicates
         return list(dict.fromkeys(missing))
+
+    def _missing_inline_followups(
+        self, page: WizardPage, profile: Mapping[str, object]
+    ) -> list[str]:
+        prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key, ())
+        if not prefixes:
+            return []
+        followups = st.session_state.get(StateKeys.FOLLOWUPS)
+        if not isinstance(followups, list):
+            return []
+        missing: list[str] = []
+        for question in followups:
+            if not isinstance(question, Mapping):
+                continue
+            field = question.get("field")
+            if not isinstance(field, str) or not field:
+                continue
+            if not any(field.startswith(prefix) for prefix in prefixes):
+                continue
+            if question.get("priority") != "critical":
+                continue
+            value = st.session_state.get(field)
+            if not followup_has_response(value):
+                value = get_in(profile, field, None)
+            if not followup_has_response(value):
+                missing.append(field)
+        return missing
 
     @staticmethod
     def _is_value_present(value: object | None) -> bool:
