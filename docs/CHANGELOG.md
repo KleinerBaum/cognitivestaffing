@@ -9,6 +9,14 @@
   `wizard/metadata.py` verankert und `wizard_router` samt Navigationstests so
   angepasst, dass diese Metadaten direkt importiert werden – für explizite,
   typsichere Abhängigkeiten.
+- **EN:** The Follow-ups wizard step now blocks the “Next” button until
+  every critical follow-up is answered, while normal questions remain
+  optional, ensuring navigation only proceeds once mandatory clarifications
+  are captured.
+  **DE:** Der Wizard-Schritt „Q&A“ sperrt den Button „Weiter“ so lange,
+  bis alle kritischen Anschlussfragen beantwortet sind; normale Nachfragen
+  bleiben optional, damit Pflichtangaben vor dem Fortfahren vollständig
+  vorliegen.
 - **EN:** Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
   **DE:** Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
 - **EN:** Replaced every `use_container_width` flag with the new

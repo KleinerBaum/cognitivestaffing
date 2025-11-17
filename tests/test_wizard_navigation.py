@@ -113,7 +113,7 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
 
 _STEP_DEFINITIONS: tuple[tuple[str, int, bool], ...] = (
     ("intro", 0, False),
-    ("qna", 1, False),
+    ("followups", 1, False),
     ("company", 2, False),
     ("team", 3, False),
     ("skills", 4, False),
@@ -295,3 +295,88 @@ def test_skip_marks_step_completed_and_sets_query(
     assert "benefits" in wizard_state.get("completed_steps", [])
     assert "benefits" in wizard_state.get("skipped_steps", [])
     assert st.session_state["_wizard_scroll_to_top"] is True
+
+
+def test_followups_step_disables_next_until_critical_answered(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Critical follow-ups should block the Next button until answered."""
+
+    st.session_state[StateKeys.PROFILE] = {"company": {}, "meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [
+        {"field": "company.name", "question": "?", "priority": "critical"}
+    ]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "followups"
+    query_params["step"] = ["followups"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(AssertionError("rerun not expected")))
+
+    button_calls: list[dict[str, Any]] = []
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_followups"]
+    assert next_calls, "expected Next button to render"
+    assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+
+def test_followups_step_enables_next_after_critical_answer(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Providing the critical answer should unlock navigation."""
+
+    st.session_state[StateKeys.PROFILE] = {"company": {"name": "ACME"}, "meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [
+        {"field": "company.name", "question": "?", "priority": "critical"}
+    ]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "followups"
+    query_params["step"] = ["followups"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    class RerunTriggered(Exception):
+        pass
+
+    button_calls: list[dict[str, Any]] = []
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        if kwargs.get("key") == "wizard_next_followups":
+            return True
+        return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_followups"]
+    assert next_calls, "expected Next button to render"
+    assert next_calls[-1]["kwargs"].get("disabled", False) is False
+    wizard_state = st.session_state["wizard"]
+    assert wizard_state["current_step"] == "company"

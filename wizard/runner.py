@@ -66,6 +66,7 @@ from core.preview import build_prefilled_sections
 from llm.client import extract_json
 from pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
+from wizard.followups import followup_has_response
 from wizard.interview_step import render_interview_guide_section
 from core.esco_utils import lookup_esco_skill
 from ._agents import (
@@ -3973,19 +3974,6 @@ def _ensure_followup_styles() -> None:
         unsafe_allow_html=True,
     )
 
-
-def _followup_has_response(value: Any) -> bool:
-    """Return ``True`` when ``value`` contains a meaningful answer."""
-
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip())
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return any(_followup_has_response(item) for item in value)
-    return value not in ("", {})
-
-
 def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
     """Persist ``suggestion`` into the widget state for ``field``."""
 
@@ -5030,7 +5018,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     _update_profile(field, processed_value)
     if isinstance(data, dict):
         set_in(data, field, processed_value)
-    if _followup_has_response(processed_value):
+    if followup_has_response(processed_value):
         st.session_state.pop(focus_sentinel, None)
         st.session_state.pop(highlight_sentinel, None)
         if touched_key is not None:
@@ -6409,6 +6397,8 @@ def _step_onboarding(schema: dict) -> None:
         doc_prefill = st.session_state.get("__prefill_profile_doc__")
         if doc_prefill:
             st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
+
+    locked = _is_onboarding_locked()
 
     st.markdown(
         "<div class='onboarding-source-marker' style='display:none'></div>",
