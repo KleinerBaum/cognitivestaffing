@@ -109,6 +109,22 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
 )
 
 
+_PRESERVED_RESET_KEYS: frozenset[str] = frozenset(
+    {
+        "lang",
+        UIKeys.LANG_SELECT,
+        StateKeys.REASONING_MODE,
+        UIKeys.REASONING_MODE,
+        "dark_mode",
+        "ui.dark_mode",
+        "model",
+        "model_override",
+        "vector_store_id",
+        "auto_reask",
+    }
+)
+
+
 def _is_meaningful(value: Any) -> bool:
     """Return ``True`` when ``value`` should override an existing field."""
 
@@ -318,13 +334,35 @@ def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> No
 def reset_state() -> None:
     """Reset ``st.session_state`` while preserving basic user settings.
 
-    Keeps language, model, vector store ID and auto-reask flag, then
-    reinitializes defaults via :func:`ensure_state`.
+    Preferences for language, reasoning mode, dark mode, and LLM routing are
+    kept so UI controls remain in sync after reinitialization via
+    :func:`ensure_state`.
     """
 
-    preserve = {"lang", "model", "model_override", "vector_store_id", "auto_reask"}
-    for key in list(st.session_state.keys()):
-        if key not in preserve:
-            del st.session_state[key]
+    preserved: dict[str, Any] = {key: st.session_state[key] for key in _PRESERVED_RESET_KEYS if key in st.session_state}
+
+    st.session_state.clear()
+    st.session_state.update(preserved)
+
     st.cache_data.clear()
     ensure_state()
+    _rehydrate_control_preferences()
+
+
+def _rehydrate_control_preferences() -> None:
+    """Mirror preserved base preferences into UI-specific keys."""
+
+    lang = st.session_state.get("lang")
+    if isinstance(lang, str) and lang:
+        st.session_state[UIKeys.LANG_SELECT] = lang
+
+    reasoning_mode = st.session_state.get(StateKeys.REASONING_MODE)
+    if isinstance(reasoning_mode, str) and reasoning_mode:
+        st.session_state[UIKeys.REASONING_MODE] = reasoning_mode
+
+    dark_mode = st.session_state.get("dark_mode")
+    ui_dark_mode = st.session_state.get("ui.dark_mode")
+    if isinstance(dark_mode, bool):
+        st.session_state["ui.dark_mode"] = dark_mode
+    elif isinstance(ui_dark_mode, bool):
+        st.session_state["dark_mode"] = ui_dark_mode
