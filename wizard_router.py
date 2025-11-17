@@ -9,6 +9,8 @@ import streamlit as st
 from constants.keys import StateKeys
 from pages import WizardPage
 from utils.i18n import tr
+from wizard._logic import get_in
+from wizard.followups import followup_has_response
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
     PAGE_FOLLOWUP_PREFIXES,
@@ -408,30 +410,30 @@ class WizardRouter:
         return list(dict.fromkeys(missing))
 
     def _missing_inline_followups(
-        self,
-        page: WizardPage,
-        profile: Mapping[str, object],
+        self, page: WizardPage, profile: Mapping[str, object]
     ) -> list[str]:
-        prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key)
+        prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key, ())
         if not prefixes:
             return []
-        raw_followups = st.session_state.get(StateKeys.FOLLOWUPS, [])
-        if not isinstance(raw_followups, Collection):
+        followups = st.session_state.get(StateKeys.FOLLOWUPS)
+        if not isinstance(followups, list):
             return []
         missing: list[str] = []
-        for question in raw_followups:
+        for question in followups:
             if not isinstance(question, Mapping):
                 continue
-            field_obj = question.get("field")
-            if not isinstance(field_obj, str):
+            field = question.get("field")
+            if not isinstance(field, str) or not field:
                 continue
-            if not any(field_obj.startswith(prefix) for prefix in prefixes):
+            if not any(field.startswith(prefix) for prefix in prefixes):
                 continue
-            value = st.session_state.get(field_obj)
-            if not self._is_value_present(value):
-                value = self._resolve_value(profile, field_obj, None)
-            if not self._is_value_present(value):
-                missing.append(field_obj)
+            if question.get("priority") != "critical":
+                continue
+            value = st.session_state.get(field)
+            if not followup_has_response(value):
+                value = get_in(profile, field, None)
+            if not followup_has_response(value):
+                missing.append(field)
         return missing
 
     @staticmethod
