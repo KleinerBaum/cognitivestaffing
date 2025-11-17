@@ -35,12 +35,13 @@
   `wizard_state['feature']`-Bootstrap sowie die veralteten
   `core.schema`-Aliasse bzw. der `coerce_and_fill_wizard`-Helper sind nach dem
   endgültigen Aus für `SCHEMA_WIZARD_V1` gelöscht.
-- **EN:** Locked all OpenTelemetry packages to version 1.26.0 and synced
-  `requirements.txt` with the optional ingestion dependencies so deployments
-  stop drifting across manifests.
-  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
-  `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
-  damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Locked all OpenTelemetry packages to version 1.26.0, synced
+  `requirements.txt` with the optional ingestion dependencies, and refreshed
+  `artifacts/pip.freeze.txt` so deployments stop drifting across manifests.
+  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert,
+  `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen
+  und `artifacts/pip.freeze.txt` aktualisiert, damit Deployments nicht länger
+  auseinanderlaufen.
 - **EN:** Refined the Streamlit UI with a branded hero banner, reorganised the
   summary into "Profile overview", "Insights", and "Export" tabs, added an
   interactive Plotly salary range visual, and introduced an ESCO-backed skill
