@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from .runner import FIELD_SECTION_MAP, get_missing_critical_fields
+from .metadata import (
+    COMPANY_STEP_INDEX,
+    CRITICAL_SECTION_ORDER,
+    FIELD_SECTION_MAP,
+    SECTION_FILTER_OVERRIDES,
+    get_missing_critical_fields,
+    resolve_section_for_field,
+)
 
 from . import _agents as agents
 from . import layout
@@ -42,6 +49,8 @@ __all__ = [
     "logic",
     "COMPACT_STEP_STYLE",
     "inject_salary_slider_styles",
+    "COMPANY_STEP_INDEX",
+    "CRITICAL_SECTION_ORDER",
     "FIELD_SECTION_MAP",
     "get_missing_critical_fields",
     "merge_unique_items",
@@ -49,10 +58,12 @@ __all__ = [
     "render_list_text_area",
     "render_onboarding_hero",
     "render_step_heading",
+    "SECTION_FILTER_OVERRIDES",
     "_render_autofill_suggestion",
     "SALARY_SLIDER_MAX",
     "SALARY_SLIDER_MIN",
     "SALARY_SLIDER_STEP",
+    "resolve_section_for_field",
     "unique_normalized",
     "_derive_salary_range_defaults",
     "_get_company_logo_bytes",

@@ -8,10 +8,14 @@ from typing import Any, Dict, List, Mapping
 import pytest
 import streamlit as st
 
-import wizard
+import wizard.metadata as wizard_metadata
+import wizard_router as wizard_router_module
 from constants.keys import StateKeys
 from pages.base import WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
+
+# ``WizardRouter`` consults ``wizard.metadata`` directly, so tests patch the
+# shared module rather than importing the heavy ``wizard`` package.
 
 
 class DummyContainer:
@@ -161,7 +165,8 @@ def _make_router(
     def fake_missing() -> List[str]:
         return list(missing_ref["value"])
 
-    monkeypatch.setattr(wizard, "get_missing_critical_fields", fake_missing)
+    monkeypatch.setattr(wizard_metadata, "get_missing_critical_fields", fake_missing)
+    monkeypatch.setattr(wizard_router_module, "get_missing_critical_fields", fake_missing)
 
     def resolver(data: Mapping[str, Any], path: str, default: Any | None) -> Any | None:
         cursor: Any = data
