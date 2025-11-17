@@ -75,6 +75,13 @@
   OpenAI-/ESCO-gestützter Intake, mittig ausgerichtete URL-/Upload-Felder in
   gleicher Breite, das manuelle Textfeld entfernt und den grünen
   Gradient-CTA durch einen kompakten Weiter-Button ersetzt.
+- **EN:** The onboarding URL/upload fields and continue button stay disabled
+  (with a bilingual hint) until an OpenAI API key unlocks LLM ingestion, so
+  users cannot trigger uploads while AI features are offline.
+  **DE:** Onboarding-URL-/Upload-Felder sowie der Weiter-Button bleiben (mit
+  zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel die
+  LLM-Intake freischaltet – dadurch lassen sich keine Uploads starten, wenn die
+  KI-Funktionen offline sind.
 - **EN:** Rolled out a tabbed extraction review in step 1 with editable company,
   role, logistics, requirements, and process tabs, added an interactive
   completion tracker across all eight steps, modernised follow-up questions with

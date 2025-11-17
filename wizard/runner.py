@@ -6278,6 +6278,12 @@ def _inject_onboarding_source_styles() -> None:
     )
 
 
+def _is_onboarding_locked() -> bool:
+    """Return ``True`` when onboarding ingestion must stay locked."""
+
+    return not is_llm_available()
+
+
 def _step_onboarding(schema: dict) -> None:
     """Render onboarding with language toggle, intro, and ingestion options."""
 
@@ -6385,6 +6391,13 @@ def _step_onboarding(schema: dict) -> None:
         if doc_prefill:
             st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
 
+    locked = _is_onboarding_locked()
+    if locked:
+        st.info(
+            f"{llm_disabled_message()} "
+            f"{tr('Uploads und Analysen bleiben deaktiviert, bis ein OpenAI API Key hinterlegt ist.', 'Uploads and analysis remain disabled until an OpenAI API key is configured.')}",
+        )
+
     source_columns = st.columns([1, 2, 1], gap="large")
     with source_columns[1]:
         st.markdown(
@@ -6400,6 +6413,7 @@ def _step_onboarding(schema: dict) -> None:
                 "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
                 "The URL needs to be accessible without authentication. We will fetch the content automatically.",
             ),
+            disabled=locked,
         )
 
         st.file_uploader(
@@ -6414,6 +6428,7 @@ def _step_onboarding(schema: dict) -> None:
                 "Direkt nach dem Upload beginnen wir mit der Analyse.",
                 "We start analysing immediately after the upload finishes.",
             ),
+            disabled=locked,
         )
 
     _render_extraction_review()
@@ -6422,6 +6437,7 @@ def _step_onboarding(schema: dict) -> None:
         tr("Weiter zum Setup", "Continue to setup"),
         type="secondary",
         key="onboarding_next_compact",
+        disabled=locked,
     ):
         _advance_from_onboarding()
 

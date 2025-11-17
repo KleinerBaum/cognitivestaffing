@@ -71,6 +71,12 @@
   Guidance-Zeilen betonen OpenAI-/ESCO-Datenerfassung, URL- und Upload-Felder
   stehen mittig in gleicher Breite, das manuelle Textfeld entfällt und der
   grüne Gradient-CTA weicht einem kompakten Weiter-Button.
+- **EN:** The onboarding URL/upload inputs and continue button now stay
+  disabled (with a bilingual lock hint) until an OpenAI API key is configured,
+  preventing accidental uploads when AI ingestion is offline.
+  **DE:** URL-/Upload-Felder sowie der Weiter-Button im Onboarding bleiben
+  (inklusive zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel
+  hinterlegt ist, damit keine versehentlichen Uploads ohne KI-Analyse erfolgen.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.
