@@ -52,28 +52,35 @@ class _DummySpinner:
         return None
 
 
+def _patch_runner_attr(monkeypatch: pytest.MonkeyPatch, name: str, value: Any) -> None:
+    """Patch both ``wizard`` and ``wizard.runner`` attributes to the same value."""
+
+    monkeypatch.setattr(f"wizard.{name}", value)
+    monkeypatch.setattr(f"wizard.runner.{name}", value)
+
+
 def _prepare_minimal_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub heavy extraction dependencies to exercise auto re-ask flows."""
 
     sample_payload = NeedAnalysisProfile().model_dump()
 
-    monkeypatch.setattr("wizard.apply_rules", lambda *_: {})
-    monkeypatch.setattr("wizard.matches_to_patch", lambda *_: {})
-    monkeypatch.setattr("wizard.build_rule_metadata", lambda *_: {})
-    monkeypatch.setattr("wizard._annotate_rule_metadata", lambda *a, **k: {})
-    monkeypatch.setattr("wizard._ensure_mapping", lambda value: dict(value or {}))
-    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_payload))
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "matches_to_patch", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "build_rule_metadata", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
+    _patch_runner_attr(monkeypatch, "_ensure_mapping", lambda value: dict(value or {}))
+    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_payload))
 
     def _coerce(_: dict) -> NeedAnalysisProfile:
         return NeedAnalysisProfile()
 
-    monkeypatch.setattr("wizard.coerce_and_fill", _coerce)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda profile, _text, **_: profile)
-    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
-    monkeypatch.setattr("wizard._refresh_esco_skills", lambda *a, **k: None)
-    monkeypatch.setattr("wizard._update_section_progress", lambda: (None, []))
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", _coerce)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda profile, _text, **_: profile)
+    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
 
 
 def test_prime_widget_state_from_profile_sets_session() -> None:
@@ -129,6 +136,7 @@ def _patch_onboarding_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "divider", lambda *a, **k: None)
     monkeypatch.setattr(st, "columns", fake_columns)
     monkeypatch.setattr(st, "info", lambda *a, **k: None)
+    monkeypatch.setattr(st, "error", lambda *a, **k: None)
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
     monkeypatch.setattr(st, "caption", lambda *a, **k: None)
     monkeypatch.setattr(st, "tabs", fake_tabs)
@@ -144,13 +152,17 @@ def test_on_file_uploaded_populates_state(monkeypatch: pytest.MonkeyPatch) -> No
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
-    monkeypatch.setattr(
-        "wizard.extract_text_from_file",
+    st.session_state["source_error"] = True
+    st.session_state["source_error_message"] = "Old error"
+    _patch_runner_attr(
+        monkeypatch,
+        "extract_text_from_file",
         lambda _f: StructuredDocument(
             text="file text",
             blocks=[ContentBlock(type="paragraph", text="file text")],
         ),
     )
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
 
     on_file_uploaded()
 
@@ -158,6 +170,8 @@ def test_on_file_uploaded_populates_state(monkeypatch: pytest.MonkeyPatch) -> No
     assert st.session_state["__prefill_profile_doc__"].text == "file text"
     assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "file text"
     assert st.session_state["__run_extraction__"] is True
+    assert st.session_state.get("source_error") in (None, False)
+    assert "source_error_message" not in st.session_state
 
 
 @pytest.mark.parametrize(
@@ -206,14 +220,15 @@ def test_on_file_uploaded_shows_localized_errors(
     def spy_display(message: str, *args: Any) -> None:
         calls.append((message, args))
 
-    monkeypatch.setattr("wizard.extract_text_from_file", raise_value_error)
-    monkeypatch.setattr("wizard.display_error", spy_display)
+    _patch_runner_attr(monkeypatch, "extract_text_from_file", raise_value_error)
+    _patch_runner_attr(monkeypatch, "display_error", spy_display)
 
     on_file_uploaded()
 
     assert calls and calls[0][0] == expected_text
     assert calls[0][1][0] == error_message
     assert st.session_state.get("source_error") is True
+    assert st.session_state.get("source_error_message") == expected_text
     assert st.session_state.get("__prefill_profile_doc__") is None
     assert st.session_state[StateKeys.RAW_BLOCKS] == []
     assert st.session_state.get("__run_extraction__") is not True
@@ -225,13 +240,17 @@ def test_on_url_changed_populates_state(monkeypatch: pytest.MonkeyPatch) -> None
     st.session_state.clear()
     st.session_state.lang = "en"
     st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
-    monkeypatch.setattr(
-        "wizard.extract_text_from_url",
+    st.session_state["source_error"] = True
+    st.session_state["source_error_message"] = "Old error"
+    _patch_runner_attr(
+        monkeypatch,
+        "extract_text_from_url",
         lambda _u: StructuredDocument(
             text="url text",
             blocks=[ContentBlock(type="paragraph", text="url text")],
         ),
     )
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
 
     on_url_changed()
 
@@ -239,6 +258,8 @@ def test_on_url_changed_populates_state(monkeypatch: pytest.MonkeyPatch) -> None
     assert st.session_state["__prefill_profile_doc__"].text == "url text"
     assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "url text"
     assert st.session_state["__run_extraction__"] is True
+    assert st.session_state.get("source_error") in (None, False)
+    assert "source_error_message" not in st.session_state
 
 
 def test_on_url_changed_accepts_query_and_fragment(
@@ -259,12 +280,14 @@ def test_on_url_changed_accepts_query_and_fragment(
             blocks=[ContentBlock(type="paragraph", text="url text")],
         )
 
-    monkeypatch.setattr("wizard.extract_text_from_url", fake_extract)
+    _patch_runner_attr(monkeypatch, "extract_text_from_url", fake_extract)
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
 
     on_url_changed()
 
     assert seen["url"] == url
     assert st.session_state.get("source_error") in (None, False)
+    assert "source_error_message" not in st.session_state
     assert st.session_state["__run_extraction__"] is True
 
 
@@ -281,7 +304,7 @@ def test_on_url_changed_rejects_invalid_schema(
     def fake_error(message, *args, **kwargs):  # pragma: no cover - lambda style
         errors.append(message)
 
-    monkeypatch.setattr("wizard.display_error", fake_error)
+    _patch_runner_attr(monkeypatch, "display_error", fake_error)
     monkeypatch.setattr(
         "wizard.extract_text_from_url",
         lambda _u: (_ for _ in ()).throw(AssertionError("should not fetch")),
@@ -290,6 +313,7 @@ def test_on_url_changed_rejects_invalid_schema(
     on_url_changed()
 
     assert st.session_state.get("source_error") is True
+    assert st.session_state.get("source_error_message") == errors[0]
     assert st.session_state.get("__run_extraction__") is not True
     assert errors
 
@@ -308,11 +332,13 @@ def test_on_url_changed_sets_summary_on_fetch_error(monkeypatch: pytest.MonkeyPa
     def fake_error(message: str, *_args: Any, **_kwargs: Any) -> None:
         errors.append(message)
 
-    monkeypatch.setattr("wizard.display_error", fake_error)
-    monkeypatch.setattr(
-        "wizard.extract_text_from_url",
+    _patch_runner_attr(monkeypatch, "display_error", fake_error)
+    _patch_runner_attr(
+        monkeypatch,
+        "extract_text_from_url",
         lambda _u: (_ for _ in ()).throw(ValueError("failed to fetch URL (status 404)")),
     )
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
 
     on_url_changed()
 
@@ -321,22 +347,26 @@ def test_on_url_changed_sets_summary_on_fetch_error(monkeypatch: pytest.MonkeyPa
     assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == expected_message
     assert st.session_state.get("__run_extraction__") is not True
     assert st.session_state.get("source_error") is True
+    assert st.session_state.get("source_error_message") == expected_message
     assert st.session_state[StateKeys.RAW_BLOCKS] == []
 
     st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://valid.example"
 
-    monkeypatch.setattr(
-        "wizard.extract_text_from_url",
+    _patch_runner_attr(
+        monkeypatch,
+        "extract_text_from_url",
         lambda _u: StructuredDocument(
             text="url text",
             blocks=[ContentBlock(type="paragraph", text="url text")],
         ),
     )
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
 
     on_url_changed()
 
     assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == {}
     assert st.session_state.get("source_error") in (None, False)
+    assert "source_error_message" not in st.session_state
     assert st.session_state["__prefill_profile_doc__"].text == "url text"
     assert st.session_state["__run_extraction__"] is True
 
@@ -357,12 +387,30 @@ def test_onboarding_transfers_prefill_to_raw_text(
         nonlocal called
         called = st.session_state.pop("__run_extraction__", False)
 
-    monkeypatch.setattr("wizard._maybe_run_extraction", fake_maybe_run_extraction)
+    _patch_runner_attr(monkeypatch, "_maybe_run_extraction", fake_maybe_run_extraction)
 
     _step_onboarding({})
 
     assert st.session_state[StateKeys.RAW_TEXT] == "prefilled"
     assert called is False
+
+
+def test_onboarding_shows_persisted_source_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Persisted source errors should be rendered without clearing the message."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state["source_error"] = True
+    st.session_state["source_error_message"] = "Stored error"
+    _patch_onboarding_streamlit(monkeypatch)
+    captured: list[str] = []
+    monkeypatch.setattr(st, "error", lambda message, *a, **k: captured.append(message))
+
+    _step_onboarding({})
+
+    assert captured == ["Stored error"]
+    assert st.session_state.get("source_error") is True
+    assert st.session_state.get("source_error_message") == "Stored error"
 
 
 def test_maybe_run_extraction_uses_prefill_before_raw_text(
@@ -382,8 +430,8 @@ def test_maybe_run_extraction_uses_prefill_before_raw_text(
     def fake_extract(text: str, schema: dict) -> None:
         captured["text"] = text
 
-    monkeypatch.setattr("wizard._extract_and_summarize", fake_extract)
-    monkeypatch.setattr("wizard._autodetect_lang", lambda _t: None)
+    _patch_runner_attr(monkeypatch, "_extract_and_summarize", fake_extract)
+    _patch_runner_attr(monkeypatch, "_autodetect_lang", lambda _t: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
     warnings: list[str] = []
     monkeypatch.setattr(st, "warning", lambda message, *a, **k: warnings.append(message))
@@ -416,8 +464,8 @@ def test_maybe_run_extraction_preserves_summary_and_missing(
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = expected_summary
         st.session_state[StateKeys.EXTRACTION_MISSING] = expected_missing
 
-    monkeypatch.setattr("wizard._extract_and_summarize", fake_extract)
-    monkeypatch.setattr("wizard._autodetect_lang", lambda _text: None)
+    _patch_runner_attr(monkeypatch, "_extract_and_summarize", fake_extract)
+    _patch_runner_attr(monkeypatch, "_autodetect_lang", lambda _text: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
 
     _maybe_run_extraction({})
@@ -440,7 +488,7 @@ def test_onboarding_triggers_extraction(monkeypatch: pytest.MonkeyPatch) -> None
         invoked.append("called")
         st.session_state[StateKeys.PROFILE] = {"position": {"job_title": "Test"}}
 
-    monkeypatch.setattr("wizard._maybe_run_extraction", fake_maybe_run_extraction)
+    _patch_runner_attr(monkeypatch, "_maybe_run_extraction", fake_maybe_run_extraction)
 
     _step_onboarding({})
 
@@ -466,8 +514,8 @@ def test_maybe_run_extraction_handles_errors(monkeypatch: pytest.MonkeyPatch, la
         blocks=[ContentBlock(type="paragraph", text="Detected text")],
     )
 
-    monkeypatch.setattr("wizard.clean_structured_document", lambda doc: doc)
-    monkeypatch.setattr("wizard._autodetect_lang", lambda _text: None)
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
+    _patch_runner_attr(monkeypatch, "_autodetect_lang", lambda _text: None)
     monkeypatch.setattr(st, "rerun", lambda: None)
 
     def fake_extract(text: str, schema: dict) -> None:
@@ -475,8 +523,9 @@ def test_maybe_run_extraction_handles_errors(monkeypatch: pytest.MonkeyPatch, la
 
     calls: list[tuple[str, tuple[Any, ...]]] = []
 
-    monkeypatch.setattr("wizard._extract_and_summarize", fake_extract)
-    monkeypatch.setattr("wizard.display_error", lambda message, *args: calls.append((message, args)))
+    _patch_runner_attr(monkeypatch, "_extract_and_summarize", fake_extract)
+    _patch_runner_attr(monkeypatch, "display_error", lambda message, *args: calls.append((message, args)))
+    _patch_runner_attr(monkeypatch, "runner.display_error", lambda message, *args: calls.append((message, args)))
 
     _maybe_run_extraction({})
 
@@ -487,6 +536,7 @@ def test_maybe_run_extraction_handles_errors(monkeypatch: pytest.MonkeyPatch, la
     assert st.session_state.get("__last_extracted_hash__") is None
     assert st.session_state.get("_analyze_attempted") is True
     assert st.session_state.get("source_error") is not True
+    assert "source_error_message" not in st.session_state
     summary_message = st.session_state[StateKeys.EXTRACTION_SUMMARY]
     assert isinstance(summary_message, str)
     assert "⚠️" in summary_message
@@ -510,12 +560,12 @@ def test_extract_and_summarize_does_not_enrich_skills(
         "requirements": {"hard_skills_required": ["Python"]},
     }
 
-    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
-    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_data))
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
     _extract_and_summarize("Job text", {})
 
     data = st.session_state[StateKeys.PROFILE]
@@ -540,15 +590,15 @@ def test_extract_and_summarize_enriches_esco_metadata(
     }
     skills = ["Programming", "Version control"]
 
-    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
-    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: dict(occupation))
+    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_data))
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: dict(occupation))
     monkeypatch.setattr(
         "wizard.search_occupations",
         lambda *a, **k: [dict(occupation)],
     )
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: list(skills))
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: list(skills))
 
     _extract_and_summarize("Job text", {})
 
@@ -580,10 +630,10 @@ def test_extract_and_summarize_records_rag_metadata(
         "wizard.extract_json",
         lambda *a, **k: json.dumps({"position": {"job_title": "Engineer"}}),
     )
-    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
     _extract_and_summarize("Job text", {})
 
     metadata = st.session_state[StateKeys.PROFILE_METADATA]
@@ -608,12 +658,12 @@ def test_extract_and_summarize_marks_ai_confidence(
         "company": {"name": "ACME"},
     }
 
-    monkeypatch.setattr("wizard.apply_rules", lambda *_: {})
-    monkeypatch.setattr("wizard.extract_json", lambda *a, **k: json.dumps(sample_data))
-    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_data))
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
 
     _extract_and_summarize("Job text", {})
 
@@ -657,7 +707,7 @@ def test_extract_and_summarize_auto_reask_warns_on_followup_error(
         raise RuntimeError("rate limit")
 
     monkeypatch.setattr(question_logic, "ask_followups", failing_followups)
-    monkeypatch.setattr("wizard.ask_followups", failing_followups)
+    _patch_runner_attr(monkeypatch, "ask_followups", failing_followups)
 
     _extract_and_summarize("Job text", {})
 
@@ -665,6 +715,7 @@ def test_extract_and_summarize_auto_reask_warns_on_followup_error(
     assert st.session_state[StateKeys.FOLLOWUPS] == [{"field": "company.name", "question": "?", "priority": "critical"}]
     assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is False
     assert st.session_state.get("source_error") is not True
+    assert "source_error_message" not in st.session_state
 
 
 @pytest.mark.parametrize(
@@ -699,7 +750,7 @@ def test_extract_and_summarize_auto_reask_warns_on_invalid_payload(
         return ["not-a-dict"]
 
     monkeypatch.setattr(question_logic, "ask_followups", malformed_followups)
-    monkeypatch.setattr("wizard.ask_followups", malformed_followups)
+    _patch_runner_attr(monkeypatch, "ask_followups", malformed_followups)
 
     _extract_and_summarize("Job text", {})
 
@@ -709,6 +760,7 @@ def test_extract_and_summarize_auto_reask_warns_on_invalid_payload(
     ]
     assert st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] is initial_flag
     assert st.session_state.get("source_error") is not True
+    assert "source_error_message" not in st.session_state
 
 
 def test_extract_and_summarize_uses_rules_on_llm_failure(
@@ -744,21 +796,21 @@ def test_extract_and_summarize_uses_rules_on_llm_failure(
     def _matches(*_: Any) -> Mapping[str, RuleMatch]:
         return {"company.name": company_match, "position.job_title": title_match}
 
-    monkeypatch.setattr("wizard.apply_rules", _matches)
-    monkeypatch.setattr("wizard._annotate_rule_metadata", lambda *a, **k: {})
-    monkeypatch.setattr("wizard._ensure_mapping", lambda value: dict(value or {}))
+    _patch_runner_attr(monkeypatch, "apply_rules", _matches)
+    _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
+    _patch_runner_attr(monkeypatch, "_ensure_mapping", lambda value: dict(value or {}))
 
     def _raise_extraction(*_: Any, **__: Any) -> str:
         raise ExtractionError("LLM returned empty response")
 
-    monkeypatch.setattr("wizard.extract_json", _raise_extraction)
-    monkeypatch.setattr("wizard.search_occupations", lambda *a, **k: [])
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
-    monkeypatch.setattr("wizard._refresh_esco_skills", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.ask_followups", lambda *a, **k: {"questions": []})
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
-    monkeypatch.setattr("wizard._update_section_progress", lambda: (None, []))
+    _patch_runner_attr(monkeypatch, "extract_json", _raise_extraction)
+    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "ask_followups", lambda *a, **k: {"questions": []})
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
+    _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
 
     _extract_and_summarize("Job text", {})
 
@@ -810,11 +862,11 @@ def test_extract_and_summarize_passes_locked_context(
         captured["locked_fields"] = locked_fields or {}
         return json.dumps({"position": {"job_title": "Engineer"}})
 
-    monkeypatch.setattr("wizard.extract_json", fake_extract_json)
-    monkeypatch.setattr("wizard.coerce_and_fill", NeedAnalysisProfile.model_validate)
-    monkeypatch.setattr("wizard.apply_basic_fallbacks", lambda p, _t, **_: p)
-    monkeypatch.setattr("wizard.classify_occupation", lambda *a, **k: None)
-    monkeypatch.setattr("wizard.get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "extract_json", fake_extract_json)
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
 
     _extract_and_summarize("Job text", {})
 

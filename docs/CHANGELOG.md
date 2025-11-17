@@ -17,6 +17,12 @@
   `width`-Argument der Streamlit-Widgets umgestellt, damit die
   angekündigte Deprecation-Warnung für 2025 entfällt und das
   Stretch-Layout erhalten bleibt.
+- **EN:** Stored onboarding source errors (flag + localized text) in
+  `st.session_state`, ensuring the exact `st.error` copy persists on the
+  page until a new URL/upload succeeds.
+  **DE:** Onboarding-Importfehler (Flag + lokalisierter Text) werden nun
+  in `st.session_state` gehalten, sodass die genaue `st.error`-Meldung
+  bestehen bleibt, bis eine neue URL/ein Upload erfolgreich ist.
 - **EN:** Added a Quick vs Precise toggle in the settings sidebar that maps to `gpt-4.1-mini`/minimal reasoning or `o4-mini`/high reasoning, reuses cached structured extractions, and parallelises vector-store lookups for faster responses.
   **DE:** Einen Schnell-/Präzisionsmodus in der Seitenleiste ergänzt, der zwischen `gpt-4.1-mini` mit minimalem Denkaufwand und `o4-mini` mit hohem Denkaufwand umschaltet, strukturierte Extraktionen cached und Vector-Store-Abfragen parallelisiert.
 - **EN:** Closed the Interview Guide Responses schema by enforcing
@@ -81,6 +87,19 @@
   OpenAI-/ESCO-gestützter Intake, mittig ausgerichtete URL-/Upload-Felder in
   gleicher Breite, das manuelle Textfeld entfernt und den grünen
   Gradient-CTA durch einen kompakten Weiter-Button ersetzt.
+- **EN:** The onboarding URL/upload fields and continue button stay disabled
+  (with a bilingual hint) until an OpenAI API key unlocks LLM ingestion, so
+  users cannot trigger uploads while AI features are offline.
+  **DE:** Onboarding-URL-/Upload-Felder sowie der Weiter-Button bleiben (mit
+  zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel die
+  LLM-Intake freischaltet – dadurch lassen sich keine Uploads starten, wenn die
+  KI-Funktionen offline sind.
+- **EN:** Updated the onboarding continue CTA to display the compact
+  `Weiter ▶ / Next ▶` label using the primary button styling from the compact
+  CTA spec, ensuring the entry step mirrors the refreshed design tokens.
+  **DE:** Der Onboarding-Weiter-CTA zeigt nun das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Button-Styling der kompakten CTA-Spezifikationen,
+  damit der Einstiegs-Schritt die erneuerten Design-Tokens widerspiegelt.
 - **EN:** Rolled out a tabbed extraction review in step 1 with editable company,
   role, logistics, requirements, and process tabs, added an interactive
   completion tracker across all eight steps, modernised follow-up questions with
@@ -119,11 +138,11 @@
   **DE:** Smoke- und Unit-Tests für die Wizard-Agent-Tools (Graph, Knowledge,
   Vacancy, Safety) sowie die Seiten-Metadaten erweitert, um Abdeckungs­lücken zu
   schließen und Fallback-Verhalten abzusichern.
-- **EN:** Locked all OpenTelemetry packages to version 1.26.0, updated
-  `requirements.txt` with the optional ingestion libraries, and refreshed
+- **EN:** Locked all OpenTelemetry packages to version 1.26.0, exposed the
+  optional ingestion libraries via `pyproject.toml`, and refreshed
   `artifacts/pip.freeze.txt` so deployments use a consistent stack.
-  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert,
-  `requirements.txt` um die optionalen Ingestion-Bibliotheken ergänzt und
+  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert, die optionalen
+  Ingestion-Bibliotheken in `pyproject.toml` abgebildet und
   `artifacts/pip.freeze.txt` aktualisiert, damit Deployments auf einem
   konsistenten Stack laufen.
 - **EN:** Excised the deprecated `wizard._legacy` runner and scrubbed remaining
@@ -216,10 +235,16 @@
   **DE:** Leichte Aufgaben laufen nun auf `gpt-4.1-mini`, während Zusammenfassungen und Erklärungen automatisch auf `o4-mini` (mit Fallbacks über `o3` und `gpt-4o`) eskalieren; Umgebungs-Overrides werden auf diese Stufen normalisiert.
 - **EN:** Resolved duplicate Streamlit widget keys for branding uploads by giving the legacy wizard uploader its own identifier and clearing both caches together.
   **DE:** Doppelte Streamlit-Widget-Keys beim Branding-Upload behoben, indem der Legacy-Wizard einen eigenen Schlüssel erhält und beide Caches gemeinsam geleert werden.
-- **EN:** Consolidated dependency management so `pyproject.toml` is the deployment source of truth and Streamlit no longer detects competing dependency manifests.
-  **DE:** Abhängigkeitsverwaltung konsolidiert, sodass `pyproject.toml` als Deployment-Quelle dient und Streamlit keine konkurrierenden Abhängigkeitsdateien mehr meldet.
+- **EN:** Consolidated dependency management so `pyproject.toml` is the deployment
+  source of truth, removed the legacy `requirements.txt`, and updated
+  deployment scripts to run `pip install .`/`pip install .[dev]`.
+  **DE:** Abhängigkeitsverwaltung konsolidiert: `pyproject.toml` dient als
+  Deployment-Quelle, das alte `requirements.txt` wurde entfernt und Deploy-
+  Skripte nutzen jetzt `pip install .` bzw. `pip install .[dev]`.
 - **EN:** Slimmed the default requirement set to core app dependencies and exposed optional OCR/spaCy extras via the `ingest` extra (`pip install .[ingest]`) for contributors who need advanced ingestion features.
   **DE:** Die Standard-Requirements auf zentrale App-Abhängigkeiten verschlankt und optionale OCR-/spaCy-Erweiterungen über das Extra `ingest` (`pip install .[ingest]`) verfügbar gemacht, damit Contributor:innen bei Bedarf die erweiterten Ingestion-Funktionen aktivieren können.
+- **EN:** CI, Dev Containers, and Streamlit Cloud now bootstrap dependencies through `pip install .`/`pip install .[dev]`, keeping `pyproject.toml` as the single manifest and guaranteeing extras stay installable from the same metadata.
+  **DE:** CI, Dev-Container und Streamlit-Cloud-Deployments laden Abhängigkeiten jetzt über `pip install .` bzw. `pip install .[dev]`, sodass `pyproject.toml` alleinige Quelle bleibt und Extras über dieselben Metadaten zuverlässig installierbar sind.
 - **EN:** Added `PyMuPDF` to the primary dependency list so PDF exports for interview guides run on fresh environments without manual installs.
   **DE:** `PyMuPDF` zur primären Abhängigkeitsliste hinzugefügt, damit PDF-Exporte der Interview-Guides in neuen Umgebungen ohne manuelle Installation funktionieren.
 - **EN:** Removed the unused `configloader` and `tenacity` dependencies from `requirements.txt` to keep deployments leaner.
