@@ -10,7 +10,6 @@ import streamlit as st
 from constants.keys import ProfilePaths, StateKeys
 from models.need_analysis import NeedAnalysisProfile
 from pydantic import HttpUrl
-import sidebar
 from sidebar import (
     BRANDING_SETTINGS_EXPANDED_KEY,
     _collect_branding_display,

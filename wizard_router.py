@@ -11,7 +11,6 @@ from pages import WizardPage
 from utils.i18n import tr
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
-    FIELD_SECTION_MAP,
     PAGE_PROGRESS_FIELDS,
     VIRTUAL_PAGE_FIELD_PREFIX,
     get_missing_critical_fields,
@@ -715,7 +714,12 @@ class WizardRouter:
     def _build_progress_snapshots(self) -> list[_PageProgressSnapshot]:
         """Return per-page completion stats for the progress tracker."""
 
-        completed_steps = set(self._state.get("completed_steps") or [])
+        raw_completed = self._state.get("completed_steps")
+        completed_steps: set[str]
+        if isinstance(raw_completed, Collection):
+            completed_steps = {step for step in raw_completed if isinstance(step, str)}
+        else:
+            completed_steps = set()
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         snapshots: list[_PageProgressSnapshot] = []
         for page in self._pages:
