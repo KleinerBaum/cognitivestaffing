@@ -6447,8 +6447,8 @@ def _step_onboarding(schema: dict) -> None:
     _render_extraction_review()
 
     if st.button(
-        tr("Weiter zum Setup", "Continue to setup"),
-        type="secondary",
+        tr("Weiter ▶", "Next ▶"),
+        type="primary",
         key="onboarding_next_compact",
         disabled=locked,
     ):

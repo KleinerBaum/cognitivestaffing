@@ -84,6 +84,12 @@
   **DE:** URL-/Upload-Felder sowie der Weiter-Button im Onboarding bleiben
   (inklusive zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel
   hinterlegt ist, damit keine versehentlichen Uploads ohne KI-Analyse erfolgen.
+- **EN:** The onboarding continue CTA now shows the compact
+  `Weiter ▶ / Next ▶` label with the primary styling from the CTA spec so the
+  entry flow matches the updated design system.
+  **DE:** Der Onboarding-Weiter-CTA nutzt jetzt das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Styling aus dem CTA-Spezifikationsupdate,
+  sodass der Einstiegs-Flow dem Design-System entspricht.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.

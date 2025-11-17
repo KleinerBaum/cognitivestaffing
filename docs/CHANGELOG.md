@@ -95,6 +95,12 @@
   zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel die
   LLM-Intake freischaltet – dadurch lassen sich keine Uploads starten, wenn die
   KI-Funktionen offline sind.
+- **EN:** Updated the onboarding continue CTA to display the compact
+  `Weiter ▶ / Next ▶` label using the primary button styling from the compact
+  CTA spec, ensuring the entry step mirrors the refreshed design tokens.
+  **DE:** Der Onboarding-Weiter-CTA zeigt nun das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Button-Styling der kompakten CTA-Spezifikationen,
+  damit der Einstiegs-Schritt die erneuerten Design-Tokens widerspiegelt.
 - **EN:** Rolled out a tabbed extraction review in step 1 with editable company,
   role, logistics, requirements, and process tabs, added an interactive
   completion tracker across all eight steps, modernised follow-up questions with
