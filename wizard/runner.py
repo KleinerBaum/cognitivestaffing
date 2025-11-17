@@ -10909,10 +10909,15 @@ def _render_summary_export_section(
         manual_title = st.text_input(
             tr("Titel (optional)", "Title (optional)"),
             key=UIKeys.JOB_AD_MANUAL_TITLE,
+            placeholder=tr("z. B. wichtigste Erfolge", "e.g. Key achievements"),
         )
         manual_text = st.text_area(
             tr("Freitext", "Free text"),
             key=UIKeys.JOB_AD_MANUAL_TEXT,
+            placeholder=tr(
+                "Lade ein PDF hoch oder füge hier Highlights, KPIs oder Zusatzinfos ein …",
+                "Upload a PDF or paste highlights, KPIs, or extra context here…",
+            ),
         )
         if st.button(tr("➕ Eintrag hinzufügen", "➕ Add entry")):
             if manual_text.strip():
