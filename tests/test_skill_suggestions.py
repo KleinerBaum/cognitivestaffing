@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+import config
 import openai_utils
 from openai_utils import ChatCallResult, suggest_skills_for_role
 
@@ -140,3 +141,75 @@ def test_benefit_suggestions_log_warning_on_failure(monkeypatch, caplog):
     assert any(
         "benefit suggestion" in record.getMessage() for record in caplog.records if record.levelname == "WARNING"
     )
+
+
+def test_skill_suggestions_use_legacy_when_api_disabled(monkeypatch, caplog) -> None:
+    import llm.suggestions as responses_suggestions
+
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(False)
+    caplog.set_level("INFO", logger="llm.suggestions")
+    caplog.clear()
+
+    legacy_payload = {
+        "tools_and_technologies": ["Legacy Tool"],
+        "hard_skills": ["Legacy Hard"],
+        "soft_skills": ["Legacy Soft"],
+        "certificates": ["Legacy Cert"],
+    }
+
+    def _boom(*_args, **_kwargs):  # pragma: no cover - enforced by the test itself
+        raise AssertionError("Responses API should not be called when USE_CLASSIC_API=1")
+
+    try:
+        monkeypatch.setattr("llm.suggestions.call_responses_safe", _boom)
+        monkeypatch.setattr(
+            "openai_utils.suggest_skills_for_role",
+            lambda *args, **kwargs: legacy_payload,
+        )
+
+        out = responses_suggestions.suggest_skills_for_role("Engineer")
+        assert out == legacy_payload
+        assert any(
+            "legacy chat API for skill suggestions" in record.getMessage()
+            for record in caplog.records
+            if record.levelname == "INFO"
+        )
+    finally:
+        config.set_api_mode(previous_mode)
+
+
+def test_benefit_suggestions_use_legacy_when_api_disabled(monkeypatch, caplog) -> None:
+    import llm.suggestions as responses_suggestions
+
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(False)
+    caplog.set_level("INFO", logger="llm.suggestions")
+    caplog.clear()
+
+    legacy_payload = ["Legacy Benefit"]
+
+    def _boom(*_args, **_kwargs):  # pragma: no cover - enforced by the test itself
+        raise AssertionError("Responses API should not be called when USE_CLASSIC_API=1")
+
+    try:
+        monkeypatch.setattr("llm.suggestions.call_responses_safe", _boom)
+        monkeypatch.setattr(
+            "openai_utils.suggest_benefits",
+            lambda *args, **kwargs: legacy_payload,
+        )
+
+        out = responses_suggestions.suggest_benefits(
+            "Engineer",
+            industry="Tech",
+            existing_benefits="",
+            lang="en",
+        )
+        assert out == legacy_payload
+        assert any(
+            "legacy chat API for benefit suggestions" in record.getMessage()
+            for record in caplog.records
+            if record.levelname == "INFO"
+        )
+    finally:
+        config.set_api_mode(previous_mode)
