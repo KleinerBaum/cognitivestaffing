@@ -15,7 +15,6 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | `openai_utils.*` | 16 | Response-stream plumbing mixes Responses/Chat abstractions that require a dedicated refactor. |
 | `wizard.runner` | 19 | Wizard entry point awaiting migration to the step-order router. |
 | `wizard.layout` | 2 | Shared layout helpers that remain to be refactored alongside the runner. |
-| `wizard_router` | 5 | Blocked on the same legacy wizard dependencies as above. |
 | `tests.*` | 255 | Test suite mirrors the legacy wizard APIs and needs wholesale type annotations. |
 | `components.requirements_insights` | 2 | Uses implicit tuple returns from scoring helpers; annotate once helper contracts are final. |
 | `llm.openai_responses` | 2 | Depends on telemetry span helpers that currently accept `Any`. |
@@ -30,6 +29,7 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 ### Progress Log
 
 - **2025-02-14:** Dropped the `sidebar.*` override after annotating branding helpers and normalising RGB tuples so the module passes strict type checking.
+- **2025-02-15:** `wizard_router` now type-checks without overrides after annotating the navigation helpers and aligning metadata imports.
 
 ## Strict modules
 
