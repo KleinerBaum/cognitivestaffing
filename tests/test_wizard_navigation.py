@@ -1,4 +1,8 @@
-"""Tests for the streamlined wizard navigation router."""
+"""Tests for the streamlined wizard navigation router.
+
+The router binds ``wizard.metadata`` at import time, so both modules are patched
+in lockstep to keep dependency expectations realistic.
+"""
 
 from __future__ import annotations
 
@@ -14,8 +18,8 @@ from constants.keys import StateKeys
 from pages.base import WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 
-# ``WizardRouter`` consults ``wizard.metadata`` directly, so tests patch the
-# shared module rather than importing the heavy ``wizard`` package.
+# ``WizardRouter`` reuses the shared metadata module, so tests patch both
+# namespaces when faking critical-field gaps.
 
 
 class DummyContainer:

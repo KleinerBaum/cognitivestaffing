@@ -27,6 +27,13 @@
   `width`-Argument der Streamlit-Widgets umgestellt, um die
   angekündigten 2025-Deprecation-Warnungen zu entfernen und das
   Stretch-Layout beizubehalten.
+- **EN:** Persisted onboarding source errors in `st.session_state` so the
+  localized Streamlit `st.error` message remains visible until a new URL
+  or upload succeeds, eliminating the blink between attempts.
+  **DE:** Onboarding-Importfehler bleiben jetzt in `st.session_state`
+  gespeichert, sodass die lokalisierte `st.error`-Meldung sichtbar
+  bleibt, bis eine neue URL oder ein Upload funktioniert – ohne
+  flackernde Hinweise zwischen den Versuchen.
 - **EN:** Retired the last Wizard v1 scaffolding – removed the unused
   `wizard_state['feature']` bootstrap and the deprecated
   `core.schema` aliases/`coerce_and_fill_wizard` helper now that the
@@ -71,6 +78,18 @@
   Guidance-Zeilen betonen OpenAI-/ESCO-Datenerfassung, URL- und Upload-Felder
   stehen mittig in gleicher Breite, das manuelle Textfeld entfällt und der
   grüne Gradient-CTA weicht einem kompakten Weiter-Button.
+- **EN:** The onboarding URL/upload inputs and continue button now stay
+  disabled (with a bilingual lock hint) until an OpenAI API key is configured,
+  preventing accidental uploads when AI ingestion is offline.
+  **DE:** URL-/Upload-Felder sowie der Weiter-Button im Onboarding bleiben
+  (inklusive zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel
+  hinterlegt ist, damit keine versehentlichen Uploads ohne KI-Analyse erfolgen.
+- **EN:** The onboarding continue CTA now shows the compact
+  `Weiter ▶ / Next ▶` label with the primary styling from the CTA spec so the
+  entry flow matches the updated design system.
+  **DE:** Der Onboarding-Weiter-CTA nutzt jetzt das kompakte Label
+  `Weiter ▶ / Next ▶` mit dem Primary-Styling aus dem CTA-Spezifikationsupdate,
+  sodass der Einstiegs-Flow dem Design-System entspricht.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.
@@ -164,6 +183,8 @@
   nutzen jetzt `pip install .` bzw. `pip install .[dev]`.
 - **EN:** Trimmed the default dependency stack to the core Streamlit app requirements and exposed OCR/spaCy tooling via the `ingest` optional extra (`pip install .[ingest]`) for leaner installs.
   **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools über das optionale Extra `ingest` (`pip install .[ingest]`) bereitgestellt, um Installationen schlanker zu halten.
+- **EN:** CI, Dev Containers, and Streamlit Cloud now bootstrap dependencies via `pip install .`/`pip install .[dev]` so `pyproject.toml` remains the single manifest and extras stay installable from the same metadata.
+  **DE:** CI, Dev-Container und Streamlit-Cloud-Deployments installieren Abhängigkeiten jetzt über `pip install .` bzw. `pip install .[dev]`, damit `pyproject.toml` alleinige Quelle bleibt und Extras über dieselben Metadaten verfügbar sind.
 - **EN:** Added `PyMuPDF` to the core requirements so PDF-based interview guide exports work out of the box on clean deployments.
   **DE:** `PyMuPDF` zu den Kern-Requirements ergänzt, damit PDF-Interview-Guides auf frischen Deployments ohne Zusatzschritte funktionieren.
 - **EN:** Updated the skill market fallback caption to state that no benchmarks are available and invite users to capture skill data instead of displaying neutral placeholder numbers.
@@ -348,6 +369,12 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - `wizard/`
   - **EN:** Flow control, widget helpers, and routing glue for the multi-step UI.
   - **DE:** Ablaufsteuerung, Widget-Helfer und Routing-Logik für den Multi-Step-Wizard.
+  - **EN:** `wizard/metadata.py` centralises `FIELD_SECTION_MAP`, `CRITICAL_SECTION_ORDER`,
+    and `get_missing_critical_fields` so `wizard.runner` and `wizard_router` share a
+    lightweight, circular-import-free source of truth.
+  - **DE:** `wizard/metadata.py` bündelt `FIELD_SECTION_MAP`, `CRITICAL_SECTION_ORDER`
+    und `get_missing_critical_fields`, damit `wizard.runner` und `wizard_router`
+    eine schlanke, kreisfrei importierbare Wahrheit teilen.
 - `core/`
   - **EN:** Schema definitions, canonicalisation utilities, and business rules.
   - **DE:** Schema-Definitionen, Kanonisierung und Business-Logik.
@@ -357,6 +384,8 @@ All LLM prompts are defined in `prompts/registry.yaml` and loaded via a shared `
 - `sidebar/`
   - **EN:** Sidebar orchestration including plan previews and branding settings.
   - **DE:** Sidebar-Steuerung inklusive Plan-Vorschau und Branding-Einstellungen.
+  - **EN:** `sidebar.__init__` imports `wizard.metadata` and `wizard._logic` during module load so cached wizard helpers stay in sync. Keep those modules free of sidebar imports (the runner still imports `sidebar.salary`) to prevent circular dependencies.
+  - **DE:** `sidebar.__init__` importiert `wizard.metadata` und `wizard._logic` bereits beim Laden des Moduls, damit die Wizard-Helfer ohne Wrapper verfügbar sind. Stelle sicher, dass diese Module keine Sidebar-Imports enthalten (der Runner importiert weiterhin `sidebar.salary`), um Kreisabhängigkeiten zu vermeiden.
 - `state/`
   - **EN:** Session-state bootstrapping and migration helpers.
   - **DE:** Initialisierung und Migration des Streamlit-Session-State.

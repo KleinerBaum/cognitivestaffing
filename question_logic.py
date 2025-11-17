@@ -946,7 +946,7 @@ def generate_followup_questions(
         )
         suggestions = suggestions_map.get(field, [])
         if field in YES_NO_FIELDS:
-            prefill_value = "Nein" if lang == "de" else "No"
+            prefill_value = tr("Nein", "No", lang=lang)
             question = {
                 "field": field,
                 "question": q_text,
