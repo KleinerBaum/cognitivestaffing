@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Callable, Iterable, Mapping, Sequence
+from typing import Callable, Collection, Iterable, Mapping, Sequence
 
 import streamlit as st
 
@@ -12,6 +12,8 @@ from utils.i18n import tr
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
     FIELD_SECTION_MAP,
+    PAGE_PROGRESS_FIELDS,
+    VIRTUAL_PAGE_FIELD_PREFIX,
     get_missing_critical_fields,
 )
 
@@ -33,6 +35,17 @@ class StepRenderer:
 
     callback: Callable[[WizardContext], None]
     legacy_index: int
+
+
+@dataclass(frozen=True)
+class _PageProgressSnapshot:
+    """Represents the completion ratio for a single wizard page."""
+
+    page: WizardPage
+    section_index: int
+    total_fields: int
+    missing_fields: int
+    completion_ratio: float
 
 
 _COLLECTED_STYLE = """
@@ -373,17 +386,7 @@ class WizardRouter:
         return self._pages[index - 1].key
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        if not page.required_fields:
-            return []
-        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        missing: list[str] = []
-        for field in page.required_fields:
-            value = st.session_state.get(field)
-            if not self._is_value_present(value):
-                value = self._resolve_value(profile, field, None)
-            if not self._is_value_present(value):
-                missing.append(field)
-        return missing
+        return self._missing_fields_for_paths(page.required_fields)
 
     @staticmethod
     def _is_value_present(value: object | None) -> bool:
@@ -622,19 +625,8 @@ class WizardRouter:
             return
 
         st.markdown(_PROGRESS_STYLE, unsafe_allow_html=True)
-
-        missing_fields = list(st.session_state.get(StateKeys.EXTRACTION_MISSING, []) or [])
-        total_by_section: dict[int, int] = {}
-        for section in FIELD_SECTION_MAP.values():
-            total_by_section[section] = total_by_section.get(section, 0) + 1
-
-        missing_by_section: dict[int, int] = {}
-        for field in missing_fields:
-            section_index = FIELD_SECTION_MAP.get(field)
-            if section_index is None:
-                continue
-            missing_by_section[section_index] = missing_by_section.get(section_index, 0) + 1
-
+        snapshots = self._build_progress_snapshots()
+        snapshot_lookup = {snapshot.page.key: snapshot for snapshot in snapshots}
         lang = st.session_state.get("lang", "de")
         wrapper = st.container()
         with wrapper:
@@ -642,14 +634,10 @@ class WizardRouter:
             columns = st.columns(len(self._pages), gap="small")
             style_chunks: list[str] = []
             for position, (col, page) in enumerate(zip(columns, self._pages), start=1):
-                renderer = self._renderers.get(page.key)
-                if renderer is None:
+                snapshot = snapshot_lookup.get(page.key)
+                if snapshot is None:
                     continue
-                section_index = renderer.legacy_index
-                total = total_by_section.get(section_index, 0)
-                missing = missing_by_section.get(section_index, 0)
-                completion_ratio = 1.0 if total == 0 else 1.0 - (missing / total)
-                completion_ratio = max(0.0, min(1.0, completion_ratio))
+                completion_ratio = snapshot.completion_ratio
                 bubble_id = f"wizard-progress-{page.key}"
                 color = self._interpolate_color(completion_ratio)
                 style_chunks.append(
@@ -696,6 +684,54 @@ class WizardRouter:
                 )
             st.markdown("</div>", unsafe_allow_html=True)
 
+    def _build_progress_snapshots(self) -> list[_PageProgressSnapshot]:
+        """Return per-page completion stats for the progress tracker."""
+
+        completed_steps = set(self._state.get("completed_steps") or [])
+        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
+        snapshots: list[_PageProgressSnapshot] = []
+        for page in self._pages:
+            renderer = self._renderers.get(page.key)
+            if renderer is None:
+                continue
+            fields = PAGE_PROGRESS_FIELDS.get(page.key, ())
+            missing_fields = self._missing_fields_for_paths(
+                fields,
+                profile=profile,
+                completed_steps=completed_steps,
+            )
+            total = len(fields)
+            missing_count = len(missing_fields)
+            ratio = self._calculate_completion_ratio(
+                total=total,
+                missing=missing_count,
+                page_key=page.key,
+                completed_steps=completed_steps,
+            )
+            snapshots.append(
+                _PageProgressSnapshot(
+                    page=page,
+                    section_index=renderer.legacy_index,
+                    total_fields=total,
+                    missing_fields=missing_count,
+                    completion_ratio=ratio,
+                )
+            )
+        return snapshots
+
+    @staticmethod
+    def _calculate_completion_ratio(
+        *,
+        total: int,
+        missing: int,
+        page_key: str,
+        completed_steps: Collection[str],
+    ) -> float:
+        if total == 0:
+            return 1.0 if page_key in completed_steps else 0.0
+        ratio = 1.0 - (missing / total)
+        return max(0.0, min(1.0, ratio))
+
     @staticmethod
     def _interpolate_color(ratio: float) -> str:
         base = (191, 219, 254)  # #bfdbfe
@@ -704,3 +740,28 @@ class WizardRouter:
         g = int(base[1] + (peak[1] - base[1]) * ratio)
         b = int(base[2] + (peak[2] - base[2]) * ratio)
         return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _missing_fields_for_paths(
+        self,
+        fields: Sequence[str],
+        *,
+        profile: Mapping[str, object] | None = None,
+        completed_steps: Collection[str] | None = None,
+    ) -> list[str]:
+        if not fields:
+            return []
+        context = profile or (st.session_state.get(StateKeys.PROFILE, {}) or {})
+        completed_lookup = set(completed_steps or [])
+        missing: list[str] = []
+        for field in fields:
+            if field.startswith(VIRTUAL_PAGE_FIELD_PREFIX):
+                page_key = field[len(VIRTUAL_PAGE_FIELD_PREFIX) :]
+                if page_key and page_key not in completed_lookup:
+                    missing.append(field)
+                continue
+            value = st.session_state.get(field)
+            if not self._is_value_present(value):
+                value = self._resolve_value(context, field, None)
+            if not self._is_value_present(value):
+                missing.append(field)
+        return missing

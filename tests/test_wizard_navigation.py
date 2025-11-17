@@ -186,6 +186,58 @@ def _make_router(
     return router, render_log
 
 
+def test_progress_zero_required_fields_waits_for_completion(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Pages without required fields should remain at 0% until completed."""
+
+    missing_ref = {"value": []}
+
+    def fake_missing() -> List[str]:
+        return list(missing_ref["value"])
+
+    monkeypatch.setattr(wizard_metadata, "get_missing_critical_fields", fake_missing)
+    monkeypatch.setattr(wizard_router_module, "get_missing_critical_fields", fake_missing)
+
+    jobad_page = WizardPage(
+        key="jobad",
+        label=("Jobad", "Jobad"),
+        panel_header=("Header", "Header"),
+        panel_subheader=("Sub", "Sub"),
+        panel_intro_variants=(("Intro", "Intro"),),
+        required_fields=(),
+        summary_fields=(),
+        allow_skip=False,
+    )
+    pages = (jobad_page,)
+    renderers = {
+        jobad_page.key: StepRenderer(
+            callback=lambda _context: None,
+            legacy_index=0,
+        )
+    }
+    context = WizardContext(schema={}, critical_fields=[])
+
+    def resolver(_data: Mapping[str, Any], _path: str, default: Any | None) -> Any | None:
+        return default
+
+    router = WizardRouter(
+        pages=pages,
+        renderers=renderers,
+        context=context,
+        value_resolver=resolver,
+    )
+
+    snapshots = router._build_progress_snapshots()
+    assert snapshots
+    assert snapshots[0].completion_ratio == 0.0
+
+    router._state["completed_steps"] = [jobad_page.key]
+    snapshots = router._build_progress_snapshots()
+    assert snapshots[0].completion_ratio == 1.0
+
+
 def test_navigate_updates_state_and_query(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
     """Calling ``navigate`` should update state, params, and trigger rerun."""
 

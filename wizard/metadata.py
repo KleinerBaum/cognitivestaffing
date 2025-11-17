@@ -15,120 +15,76 @@ import streamlit as st
 from constants.keys import StateKeys
 from question_logic import CRITICAL_FIELDS
 from wizard._logic import get_in
+from pages import WIZARD_PAGES
 
 # Index of the first data-entry step ("Unternehmen" / "Company").
 COMPANY_STEP_INDEX: Final[int] = 2
 
-# Ordered field groups describing which canonical schema fields are edited in
-# each wizard section. The numeric section index increments from
-# ``COMPANY_STEP_INDEX`` onward so that other modules can reason about progress.
-_SECTION_FIELD_GROUPS: tuple[tuple[str, ...], ...] = (
-    (
-        "company.name",
+PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
+    "jobad": 0,
+    "followups": 1,
+    "company": COMPANY_STEP_INDEX,
+    "team": COMPANY_STEP_INDEX + 1,
+    "role_tasks": COMPANY_STEP_INDEX + 2,
+    "skills": COMPANY_STEP_INDEX + 2,
+    "benefits": COMPANY_STEP_INDEX + 3,
+    "interview": COMPANY_STEP_INDEX + 4,
+    "summary": COMPANY_STEP_INDEX + 5,
+}
+
+VIRTUAL_PAGE_FIELD_PREFIX: Final[str] = "__page__."
+
+_CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
+    "company",
+    "team",
+    "role_tasks",
+    "benefits",
+    "interview",
+)
+
+_PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
+    "company": (
         "company.contact_name",
         "company.contact_email",
         "company.contact_phone",
-        "company.brand_name",
-        "company.industry",
-        "company.hq_location",
-        "company.size",
-        "company.website",
-        "company.mission",
-        "company.culture",
-        "company.brand_color",
-        "company.logo_url",
         "location.primary_city",
         "location.country",
-        "position.key_projects",
     ),
-    (
+    "team": (
         "position.job_title",
         "position.role_summary",
-        "position.team_structure",
-        "position.reporting_line",
-        "position.reporting_manager_name",
-        "position.customer_contact_required",
-        "position.customer_contact_details",
-        "department.name",
-        "department.function",
-        "department.leader_name",
-        "department.leader_title",
-        "department.strategic_goals",
-        "team.name",
-        "team.mission",
-        "team.reporting_line",
-        "team.headcount_current",
-        "team.headcount_target",
-        "team.collaboration_tools",
-        "team.locations",
         "meta.target_start_date",
-        "meta.application_deadline",
     ),
-    (
-        "responsibilities.items",
+    "role_tasks": ("responsibilities.items",),
+    "skills": (
         "requirements.hard_skills_required",
         "requirements.soft_skills_required",
-        "requirements.hard_skills_optional",
-        "requirements.soft_skills_optional",
-        "requirements.tools_and_technologies",
-        "requirements.languages_required",
-        "requirements.languages_optional",
-        "requirements.certifications",
-        "requirements.certificates",
-        "requirements.background_check_required",
-        "requirements.portfolio_required",
-        "requirements.reference_check_required",
     ),
-    (
-        "employment.job_type",
-        "employment.work_policy",
-        "employment.contract_type",
-        "employment.work_schedule",
-        "employment.remote_percentage",
-        "employment.travel_required",
-        "employment.travel_share",
-        "employment.travel_region_scope",
-        "employment.travel_regions",
-        "employment.travel_continents",
-        "employment.travel_details",
-        "employment.relocation_support",
-        "employment.relocation_details",
-        "employment.visa_sponsorship",
-        "employment.overtime_expected",
-        "employment.security_clearance_required",
-        "employment.shift_work",
-        "employment.contract_end",
-        "compensation.salary_provided",
-        "compensation.salary_min",
-        "compensation.salary_max",
-        "compensation.currency",
-        "compensation.period",
-        "compensation.variable_pay",
-        "compensation.bonus_percentage",
-        "compensation.commission_structure",
-        "compensation.equity_offered",
-        "compensation.benefits",
-    ),
-    (
-        "process.interview_stages",
-        "process.stakeholders",
-        "process.phases",
-        "process.recruitment_timeline",
-        "process.process_notes",
-        "process.application_instructions",
-        "process.onboarding_process",
-        "process.hiring_manager_name",
-        "process.hiring_manager_role",
-    ),
-)
+}
+
+
+def _build_page_progress_fields() -> dict[str, tuple[str, ...]]:
+    mapping: dict[str, tuple[str, ...]] = {}
+    for page in WIZARD_PAGES:
+        extras = _PAGE_EXTRA_FIELDS.get(page.key, ())
+        combined = tuple(dict.fromkeys((*page.required_fields, *extras)))
+        if not combined:
+            combined = (f"{VIRTUAL_PAGE_FIELD_PREFIX}{page.key}",)
+        mapping[page.key] = combined
+    return mapping
+
+
+PAGE_PROGRESS_FIELDS: dict[str, tuple[str, ...]] = _build_page_progress_fields()
 
 
 def _build_field_section_map() -> dict[str, int]:
     """Derive mapping of schema fields to wizard section indexes."""
 
     mapping: dict[str, int] = {}
-    for offset, fields in enumerate(_SECTION_FIELD_GROUPS):
-        section_index = COMPANY_STEP_INDEX + offset
+    for key, fields in PAGE_PROGRESS_FIELDS.items():
+        section_index = PAGE_SECTION_INDEXES.get(key)
+        if section_index is None:
+            continue
         for field in fields:
             mapping[field] = section_index
     return mapping
@@ -136,7 +92,7 @@ def _build_field_section_map() -> dict[str, int]:
 
 FIELD_SECTION_MAP: dict[str, int] = _build_field_section_map()
 CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
-    COMPANY_STEP_INDEX + index for index in range(len(_SECTION_FIELD_GROUPS))
+    PAGE_SECTION_INDEXES[key] for key in _CRITICAL_SECTION_KEYS if key in PAGE_SECTION_INDEXES
 )
 
 # Fields collected early in the wizard but only blocking later sections when
@@ -185,7 +141,10 @@ __all__ = [
     "COMPANY_STEP_INDEX",
     "CRITICAL_SECTION_ORDER",
     "FIELD_SECTION_MAP",
+    "PAGE_PROGRESS_FIELDS",
+    "PAGE_SECTION_INDEXES",
     "SECTION_FILTER_OVERRIDES",
+    "VIRTUAL_PAGE_FIELD_PREFIX",
     "get_missing_critical_fields",
     "resolve_section_for_field",
 ]

@@ -109,6 +109,14 @@
   **DE:** Chip-Multiselects zeigen jetzt kontextspezifische zweisprachige
   Hinweise (z. B. „Weitere Benefits hinzufügen…“) und führen Nutzer:innen
   gezielt durch neue Einträge.
+- **EN:** The progress tracker now derives totals from every wizard page’s
+  required fields (plus critical schema paths) instead of five hard-coded
+  sections, so Job Ad, Follow-ups, Interview, and Summary start at 0 % until
+  the step is completed and never display 100 % when empty.
+  **DE:** Der Fortschrittsindikator basiert jetzt auf den Pflichtfeldern (und
+  kritischen Schema-Pfaden) aller Wizard-Seiten statt auf fünf fixen Gruppen,
+  wodurch Job-Ad, Follow-ups, Interview und Summary bei 0 % starten und nicht
+  mehr 100 % anzeigen, solange keine Eingaben vorhanden sind.
 - **EN:** The wizard’s first step now opens with a tabbed extraction review,
   letting you edit company, role, logistics, requirements, and process data in
   place, while an interactive eight-step progress tracker highlights completion
