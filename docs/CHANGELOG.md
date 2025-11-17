@@ -37,6 +37,8 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Preserved the wizard reset preferences so language, reasoning mode, and dark-mode toggles remain on the user’s selections after clearing session data.
+  DE: Wizard-Reset behält nun Sprach-, Reasoning- und Dark-Mode-Schalter bei, sodass die gewählten Optionen nach dem Sitzungs-Reset erhalten bleiben.
 - EN: Closed the Interview Guide Responses schema with additionalProperties: false, hardened benefit suggestions by cascading Responses → Chat → curated copy, and added regression tests for phone/URL normalisation.
   DE: Interview-Guide-Responses-Schema mit additionalProperties: false abgedichtet, Benefit-Vorschläge mit Responses → Chat → kuratierter Kopie robuster gemacht und Regressionstests für Telefon-/URL-Normalisierung ergänzt.
 - EN: Prevented ESCO placeholder URIs and Rheinbahn-specific heuristics from hitting live APIs unnecessarily by serving cached essentials and structured parsing with confidence metadata.
