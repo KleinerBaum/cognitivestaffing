@@ -743,7 +743,7 @@ else:  # pragma: no cover - passthrough re-export
     empty = _streamlit.empty
     error = _streamlit.error
     expander = _streamlit.expander
-    experimental_rerun = _streamlit.experimental_rerun
+    experimental_rerun = getattr(_streamlit, "experimental_rerun", _streamlit.rerun)
     file_uploader = _streamlit.file_uploader
     form = _streamlit.form
     form_submit_button = _streamlit.form_submit_button

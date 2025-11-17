@@ -44,7 +44,15 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 import config as app_config
-from utils.i18n import tr
+from utils.i18n import (
+    tr,
+    EMPLOYMENT_OVERTIME_TOGGLE_HELP,
+    EMPLOYMENT_RELOCATION_TOGGLE_HELP,
+    EMPLOYMENT_SECURITY_TOGGLE_HELP,
+    EMPLOYMENT_SHIFT_TOGGLE_HELP,
+    EMPLOYMENT_TRAVEL_TOGGLE_HELP,
+    EMPLOYMENT_VISA_TOGGLE_HELP,
+)
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
@@ -4425,6 +4433,7 @@ def _render_review_logistics_tab(profile: dict[str, Any]) -> None:
         tr("Reisetätigkeit?", "Travel required?"),
         value=bool(employment.get("travel_required")),
         key=str(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED),
+        help=tr(*EMPLOYMENT_TRAVEL_TOGGLE_HELP),
     )
     employment["travel_required"] = bool(travel_required)
     _update_profile(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED, bool(travel_required))
@@ -4433,6 +4442,7 @@ def _render_review_logistics_tab(profile: dict[str, Any]) -> None:
         tr("Relocation möglich?", "Relocation support?"),
         value=bool(employment.get("relocation_support")),
         key=str(ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT),
+        help=tr(*EMPLOYMENT_RELOCATION_TOGGLE_HELP),
     )
     employment["relocation_support"] = bool(relocation_support)
     _update_profile(ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT, bool(relocation_support))
@@ -4441,6 +4451,7 @@ def _render_review_logistics_tab(profile: dict[str, Any]) -> None:
         tr("Visa-Sponsoring?", "Visa sponsorship?"),
         value=bool(employment.get("visa_sponsorship")),
         key=str(ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP),
+        help=tr(*EMPLOYMENT_VISA_TOGGLE_HELP),
     )
     employment["visa_sponsorship"] = bool(visa_support)
     _update_profile(ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP, bool(visa_support))
@@ -7656,28 +7667,34 @@ def _step_position() -> None:
     employment["travel_required"] = toggle_row_1[0].toggle(
         tr("Reisetätigkeit?", "Travel required?"),
         value=bool(employment.get("travel_required")),
+        help=tr(*EMPLOYMENT_TRAVEL_TOGGLE_HELP),
     )
     employment["relocation_support"] = toggle_row_1[1].toggle(
         tr("Relocation?", "Relocation?"),
         value=bool(employment.get("relocation_support")),
+        help=tr(*EMPLOYMENT_RELOCATION_TOGGLE_HELP),
     )
     employment["visa_sponsorship"] = toggle_row_1[2].toggle(
         tr("Visum-Sponsoring?", "Visa sponsorship?"),
         value=bool(employment.get("visa_sponsorship")),
+        help=tr(*EMPLOYMENT_VISA_TOGGLE_HELP),
     )
 
     toggle_row_2 = st.columns(3)
     employment["overtime_expected"] = toggle_row_2[0].toggle(
         tr("Überstunden?", "Overtime expected?"),
         value=bool(employment.get("overtime_expected")),
+        help=tr(*EMPLOYMENT_OVERTIME_TOGGLE_HELP),
     )
     employment["security_clearance_required"] = toggle_row_2[1].toggle(
         tr("Sicherheitsüberprüfung?", "Security clearance required?"),
         value=bool(employment.get("security_clearance_required")),
+        help=tr(*EMPLOYMENT_SECURITY_TOGGLE_HELP),
     )
     employment["shift_work"] = toggle_row_2[2].toggle(
         tr("Schichtarbeit?", "Shift work?"),
         value=bool(employment.get("shift_work")),
+        help=tr(*EMPLOYMENT_SHIFT_TOGGLE_HELP),
     )
 
     if employment.get("travel_required"):

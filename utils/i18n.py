@@ -33,6 +33,31 @@ SKILL_MARKET_FALLBACK_CAPTION: Final[tuple[str, str]] = (
     "{skill}: No benchmarks available – please add skill data.",
 )
 
+EMPLOYMENT_TRAVEL_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn regelmäßige Dienstreisen dazugehören – danach erscheinen Eingaben für Reiseanteil, Regionen und Details.",
+    "Turn this on when the role expects regular business travel – additional inputs for travel share, regions, and notes will appear.",
+)
+EMPLOYMENT_RELOCATION_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn ihr beim Umzug unterstützt – danach könnt ihr Konditionen im Relocation-Feld erläutern.",
+    "Turn this on when relocation support is available – a follow-up field lets you outline the package terms.",
+)
+EMPLOYMENT_VISA_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn ihr Arbeitsvisa oder Aufenthaltstitel sponsort – beschreibt Einschränkungen bitte in den Notizen.",
+    "Enable this when you sponsor work visas or residency permits – call out any limits in the notes or benefits section.",
+)
+EMPLOYMENT_OVERTIME_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn Überstunden vertraglich erwartet werden – skizziert das Vergütungs- oder Ausgleichsmodell im Prozess-/Vergütungsblock.",
+    "Use this when overtime is contractually expected – describe how it is compensated or offset in the process/compensation notes.",
+)
+EMPLOYMENT_SECURITY_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn eine Sicherheitsüberprüfung Pflicht ist – nennt die benötigte Stufe in den Anforderungen oder Hinweisen.",
+    "Enable this when a security clearance is mandatory – specify the required level in the requirements or additional notes.",
+)
+EMPLOYMENT_SHIFT_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn Schichtdienst oder Rotationen vorgesehen sind – beschreibt den Rhythmus im Arbeitszeittext.",
+    "Turn this on when the role runs on shifts or rotations – outline the cadence in the work schedule details.",
+)
+
 
 def tr(de: str, en: str, lang: str | None = None) -> str:
     """Return the string matching the current language.

@@ -11,9 +11,8 @@ from io import BytesIO
 from typing import Any, Iterable, Literal, Mapping, TypeAlias
 from urllib.parse import urlparse
 
-import streamlit as st
-
-from streamlit.runtime.uploaded_file_manager import UploadedFile
+from typing_shims import streamlit as st
+from typing_shims.streamlit import DeltaGenerator, UploadedFile
 
 from PIL.Image import Image as PILImage
 
@@ -23,8 +22,6 @@ from state import reset_state
 from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.usage import build_usage_markdown, usage_totals
-
-from streamlit.delta_generator import DeltaGenerator
 
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
@@ -245,9 +242,7 @@ def _sync_brand_claim() -> None:
 
 
 def _sync_logo_url() -> None:
-    _update_profile(
-        ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value)
-    )
+    _update_profile(ProfilePaths.COMPANY_LOGO_URL.value, st.session_state.get(ProfilePaths.COMPANY_LOGO_URL.value))
 
 
 def _render_branding_overrides() -> None:
@@ -1230,7 +1225,7 @@ def _chip_button_with_tooltip(
     label: str,
     *,
     key: str,
-    type: str,
+    type: Literal["primary", "secondary", "tertiary"],
     width: Literal["stretch", "content"],
     help: str | None = None,
 ) -> bool:
