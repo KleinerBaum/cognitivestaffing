@@ -3885,6 +3885,7 @@ def _ensure_extraction_review_styles() -> None:
                 padding: 1.25rem 1.35rem;
                 margin-top: 1rem;
                 box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
+                animation: wizardFollowupCardIn 0.4s var(--transition-base, 0.18s ease-out) 1;
             }
 
             .wizard-followup-item {
@@ -3893,6 +3894,20 @@ def _ensure_extraction_review_styles() -> None:
                 background: var(--surface-1, rgba(255, 255, 255, 0.85));
                 margin-bottom: 0.65rem;
                 border: 1px solid transparent;
+                opacity: 0;
+                transform: translateY(6px);
+                animation: wizardFollowupRowIn 0.35s ease-out forwards;
+                transition:
+                    border-color var(--transition-base, 0.18s ease-out),
+                    box-shadow var(--transition-base, 0.18s ease-out),
+                    transform var(--transition-base, 0.18s ease-out);
+                will-change: transform, box-shadow;
+            }
+
+            .wizard-followup-item:focus-within,
+            .wizard-followup-item:hover {
+                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+                transform: translateY(-1px);
             }
 
             .wizard-followup-item.fu-highlight {
@@ -3929,15 +3944,42 @@ def _ensure_extraction_review_styles() -> None:
                 padding: 0.2rem 0.85rem;
                 font-size: 0.85rem;
                 color: var(--text-strong, #0f172a);
+                transition:
+                    transform var(--transition-base, 0.18s ease-out),
+                    box-shadow var(--transition-base, 0.18s ease-out),
+                    background-color var(--transition-base, 0.18s ease-out);
             }
 
             .wizard-followup-chip button:hover {
-                filter: brightness(0.97);
+                transform: translateY(-1px);
+                box-shadow: 0 8px 16px rgba(37, 58, 95, 0.2);
             }
 
             .wizard-followup-chip button:focus-visible {
                 outline: 2px solid rgba(37, 99, 235, 0.8);
                 outline-offset: 2px;
+            }
+
+            @keyframes wizardFollowupCardIn {
+                0% {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                100% {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            @keyframes wizardFollowupRowIn {
+                0% {
+                    opacity: 0;
+                    transform: translateY(12px);
+                }
+                100% {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
             }
 
             @media (max-width: 960px) {

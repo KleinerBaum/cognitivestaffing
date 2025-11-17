@@ -134,6 +134,11 @@ _NAVIGATION_STYLE = """
     min-height: 3rem;
     font-size: 1.02rem;
     font-weight: 650;
+    transition:
+        box-shadow var(--transition-base, 0.18s ease-out),
+        transform var(--transition-base, 0.18s ease-out),
+        background-color var(--transition-base, 0.18s ease-out);
+    will-change: transform, box-shadow;
 }
 
 .wizard-nav-marker
@@ -151,8 +156,15 @@ _NAVIGATION_STYLE = """
 
 .wizard-nav-marker
     + div[data-testid="stHorizontalBlock"]
+    .wizard-nav-next--enabled button[kind="primary"] {
+    animation: wizardNavPulse 1.2s ease-out 1;
+}
+
+.wizard-nav-marker
+    + div[data-testid="stHorizontalBlock"]
     .wizard-nav-next button[kind="primary"]:hover:not(:disabled) {
     box-shadow: 0 20px 40px rgba(37, 58, 95, 0.26);
+    transform: translateY(-1px);
 }
 
 .wizard-nav-marker
@@ -160,6 +172,12 @@ _NAVIGATION_STYLE = """
     .wizard-nav-next button:disabled {
     box-shadow: none;
     opacity: 0.55;
+}
+
+.wizard-nav-marker
+    + div[data-testid="stHorizontalBlock"]
+    .wizard-nav-next--disabled button {
+    transform: none;
 }
 
 .wizard-nav-hint {
@@ -192,6 +210,21 @@ _NAVIGATION_STYLE = """
         + div[data-testid="stHorizontalBlock"]
         button {
         min-height: 3rem;
+    }
+}
+
+@keyframes wizardNavPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+        transform: scale(0.995);
+    }
+    40% {
+        box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.15);
+        transform: scale(1.01);
+    }
+    100% {
+        box-shadow: 0 16px 32px rgba(37, 58, 95, 0.2);
+        transform: scale(1);
     }
 }
 </style>
@@ -533,7 +566,10 @@ class WizardRouter:
         next_disabled = bool(missing)
         if next_disabled:
             with cols[1]:
-                st.markdown("<div class='wizard-nav-next'>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='wizard-nav-next wizard-nav-next--disabled'>",
+                    unsafe_allow_html=True,
+                )
                 st.button(
                     tr("Weiter", "Next") + " ▶",
                     key=f"wizard_next_{page.key}",
@@ -546,7 +582,10 @@ class WizardRouter:
             cols[1].caption(missing_label)
         elif next_key:
             with cols[1]:
-                st.markdown("<div class='wizard-nav-next'>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='wizard-nav-next wizard-nav-next--enabled'>",
+                    unsafe_allow_html=True,
+                )
                 if st.button(
                     tr("Weiter", "Next") + " ▶",
                     key=f"wizard_next_{page.key}",
@@ -578,10 +617,21 @@ class WizardRouter:
             (function() {
                 const root = window;
                 const target = root.document.querySelector('section.main');
-                root.scrollTo({ top: 0, behavior: 'smooth' });
-                if (target) {
-                    target.setAttribute('tabindex', '-1');
-                    target.focus({ preventScroll: true });
+                const scrollToTop = () => {
+                    if (!target) {
+                        root.scrollTo({ top: 0, behavior: 'smooth' });
+                        return;
+                    }
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    setTimeout(() => {
+                        target.setAttribute('tabindex', '-1');
+                        target.focus({ preventScroll: true });
+                    }, 180);
+                };
+                if ('requestAnimationFrame' in root) {
+                    root.requestAnimationFrame(scrollToTop);
+                } else {
+                    scrollToTop();
                 }
             })();
             </script>

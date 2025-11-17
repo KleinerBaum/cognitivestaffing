@@ -18,6 +18,8 @@ Changed / Geändert
 
 - EN: Rebuilt the wizard as an eight-step flow (Onboarding, Company, Team, Role, Skills, Compensation, Process, Summary) with a tabbed extraction review, chip-based follow-ups, and a progress tracker that counts required plus critical schema paths.
   DE: Den Wizard als achtstufigen Ablauf (Onboarding, Unternehmen, Team, Rolle, Skills, Vergütung, Prozess, Summary) neu aufgebaut – inklusive tabbasierter Extraktionskontrolle, Chip-Follow-ups und Fortschrittsanzeige über Pflicht- und kritische Schemafelder.
+- EN: Wizard navigation, follow-up cards, and Streamlit inputs now animate with the shared transition tokens (box-shadow hover states, “Next” pulse, smooth scroll to top) so state changes are obvious without feeling distracting.
+  DE: Wizard-Navigation, Follow-up-Karten und Streamlit-Eingaben animieren nun mit den gemeinsamen Transition-Tokens (Box-Shadow-Hover, „Weiter“-Impuls, weiches Scrollen nach oben), damit Zustandswechsel auffallen ohne zu stören.
 - EN: Salary insights now auto-trigger when job title and location hints exist, highlight required fields, summarise top drivers, plot Plotly charts, and fall back to curated benefit lists if AI output is missing.
   DE: Gehaltseinblicke starten automatisch bei Jobtitel plus Standorthinweis, listen Pflichtfelder, fassen die wichtigsten Treiber zusammen, visualisieren sie mit Plotly und greifen bei fehlenden KI-Antworten auf kuratierte Benefit-Listen zurück.
 - EN: Summary, onboarding, and sidebar layouts gained a branded hero banner, compact CTA, three-tab summary (Profile, Insights, Export), Aurora-Fjord palette, and repositioned benefit modules for clearer navigation.
