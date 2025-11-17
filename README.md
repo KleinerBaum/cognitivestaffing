@@ -36,12 +36,12 @@
   `wizard_state['feature']`-Bootstrap sowie die veralteten
   `core.schema`-Aliasse bzw. der `coerce_and_fill_wizard`-Helper sind nach dem endgültigen Aus für `SCHEMA_WIZARD_V1` gelöscht; zusätzlich prüft ein
   Regressionstest, dass diese Legacy-Strings nicht zurückkehren.
-- **EN:** Locked all OpenTelemetry packages to version 1.26.0 and synced
-  `requirements.txt` with the optional ingestion dependencies so deployments
-  stop drifting across manifests.
-  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
-  `requirements.txt` mit den optionalen Ingestion-Abhängigkeiten abgeglichen,
-  damit Deployments nicht länger auseinanderlaufen.
+- **EN:** Locked all OpenTelemetry packages to version 1.26.0 and routed
+  optional ingestion extras through `pyproject.toml` so deployments stop
+  drifting across manifests.
+  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und die
+  optionalen Ingestion-Abhängigkeiten in `pyproject.toml` verankert, damit
+  Deployments nicht länger auseinanderlaufen.
 - **EN:** Refined the Streamlit UI with a branded hero banner, reorganised the
   summary into "Profile overview", "Insights", and "Export" tabs, added an
   interactive Plotly salary range visual, and introduced an ESCO-backed skill
@@ -71,6 +71,12 @@
   Guidance-Zeilen betonen OpenAI-/ESCO-Datenerfassung, URL- und Upload-Felder
   stehen mittig in gleicher Breite, das manuelle Textfeld entfällt und der
   grüne Gradient-CTA weicht einem kompakten Weiter-Button.
+- **EN:** The onboarding URL/upload inputs and continue button now stay
+  disabled (with a bilingual lock hint) until an OpenAI API key is configured,
+  preventing accidental uploads when AI ingestion is offline.
+  **DE:** URL-/Upload-Felder sowie der Weiter-Button im Onboarding bleiben
+  (inklusive zweisprachigem Hinweis) deaktiviert, bis ein OpenAI-API-Schlüssel
+  hinterlegt ist, damit keine versehentlichen Uploads ohne KI-Analyse erfolgen.
 - **EN:** Removed the final references to the deprecated `wizard._legacy`
   runner so navigation always goes through `WizardRouter` and the modern
   Streamlit step callbacks.
@@ -148,8 +154,12 @@
   **DE:** Die neue Aurora-Fjord-Palette in Dark- und Light-Theme sowie dem Skill-Board verankert – Mitternachtsblau trifft auf Gletscher-Aqua und Amber-Akzente für ruhigere Hierarchien und verlässlichen Kontrast.
 - **EN:** Hardened optional profile URL sanitisation so canonicalisation and wizard updates trim blanks to `None`, preventing schema resets.
   **DE:** Optionale Profil-URLs weiter gehärtet: Kanonisierung und Wizard-Updates kürzen leere Werte jetzt auf `None`, sodass keine Schema-Resets mehr ausgelöst werden.
-- **EN:** Streamlined dependency management so `pyproject.toml` is the single source of truth and Streamlit deployments stop warning about multiple dependency manifests.
-  **DE:** Abhängigkeitsverwaltung gestrafft, sodass `pyproject.toml` als einzige Quelle dient und Streamlit-Deployments keine Warnung über konkurrierende Abhängigkeitsdateien mehr ausgeben.
+- **EN:** Streamlined dependency management so `pyproject.toml` is the single
+  source of truth, deleted the legacy `requirements.txt`, and updated
+  deployment tooling to run `pip install .` or `pip install .[dev]`.
+  **DE:** Die Abhängigkeitsverwaltung gestrafft: `pyproject.toml` ist die
+  einzige Quelle, das alte `requirements.txt` wurde entfernt und Deploy-Tools
+  nutzen jetzt `pip install .` bzw. `pip install .[dev]`.
 - **EN:** Trimmed the default dependency stack to the core Streamlit app requirements and exposed OCR/spaCy tooling via the `ingest` optional extra (`pip install .[ingest]`) for leaner installs.
   **DE:** Die Standard-Abhängigkeiten auf die zentralen Streamlit-Komponenten reduziert und OCR-/spaCy-Tools über das optionale Extra `ingest` (`pip install .[ingest]`) bereitgestellt, um Installationen schlanker zu halten.
 - **EN:** Added `PyMuPDF` to the core requirements so PDF-based interview guide exports work out of the box on clean deployments.

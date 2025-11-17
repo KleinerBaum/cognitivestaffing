@@ -701,13 +701,11 @@ def _render_settings() -> None:
         tr("Sprache", "Language"),
         options=lang_options,
         index=default_index,
-        key="ui.lang.radio",
+        key=UIKeys.LANG_SELECT,
         format_func=lambda code: flag_lookup.get(code, code.upper()),
     )
-    if lang_choice != lang_code:
-        st.session_state[UIKeys.LANG_SELECT] = lang_choice
 
-    st.session_state["lang"] = st.session_state.get(UIKeys.LANG_SELECT, "de")
+    st.session_state["lang"] = lang_choice
     st.session_state["ui.lang_toggle"] = st.session_state["lang"] == "en"
     _sync_style_instruction(st.session_state["lang"])
 
