@@ -53,7 +53,7 @@ from ingest.reader import clean_structured_document
 from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
 from ingest.branding import extract_brand_assets
 from ingest.heuristics import apply_basic_fallbacks
-from utils.errors import display_error
+from utils.errors import LocalizedMessage, display_error, resolve_message
 from utils.url_utils import is_supported_url
 from config import REASONING_EFFORT
 from config_loader import load_json
@@ -3073,12 +3073,32 @@ def prev_step() -> None:
     st.session_state[StateKeys.STEP] = max(0, st.session_state.get(StateKeys.STEP, 0) - 1)
 
 
+def _clear_source_error_state() -> None:
+    """Remove any persisted source error indicators."""
+
+    st.session_state.pop("source_error", None)
+    st.session_state.pop("source_error_message", None)
+
+
+def _record_source_error(message: LocalizedMessage, detail: str | None = None) -> None:
+    """Display and persist the localized onboarding source error."""
+
+    display_error(message, detail)
+    st.session_state["source_error"] = True
+    st.session_state["source_error_message"] = resolve_message(
+        message,
+        lang=st.session_state.get("lang"),
+    )
+
+
 def on_file_uploaded() -> None:
     """Handle file uploads and populate job posting text."""
 
     f = st.session_state.get(UIKeys.PROFILE_FILE_UPLOADER)
     if not f:
         return
+
+    _clear_source_error_state()
     try:
         doc = clean_structured_document(extract_text_from_file(f))
         txt = doc.text
@@ -3087,7 +3107,7 @@ def on_file_uploaded() -> None:
         st.session_state[StateKeys.RAW_BLOCKS] = []
         msg = str(e).lower()
         if "doc conversion" in msg and ".docx" in msg:
-            display_error(
+            _record_source_error(
                 tr(
                     "Word-Dateien im alten .doc-Format müssen vor dem Upload in .docx konvertiert werden.",
                     "Legacy .doc files must be converted to .docx before upload.",
@@ -3095,7 +3115,7 @@ def on_file_uploaded() -> None:
                 str(e),
             )
         elif "unsupported file type" in msg:
-            display_error(
+            _record_source_error(
                 tr(
                     "Dieser Dateityp wird nicht unterstützt. Bitte laden Sie eine PDF-, DOCX- oder Textdatei hoch.",
                     "Unsupported file type. Please upload a PDF, DOCX, or text file.",
@@ -3103,7 +3123,7 @@ def on_file_uploaded() -> None:
                 str(e),
             )
         elif "file too large" in msg:
-            display_error(
+            _record_source_error(
                 tr(
                     "Datei ist zu groß. Maximale Größe: 20 MB.",
                     "File is too large. Maximum size: 20 MB.",
@@ -3111,7 +3131,7 @@ def on_file_uploaded() -> None:
                 str(e),
             )
         elif "invalid pdf" in msg:
-            display_error(
+            _record_source_error(
                 tr(
                     "Ungültige oder beschädigte PDF-Datei.",
                     "Invalid or corrupted PDF file.",
@@ -3119,7 +3139,7 @@ def on_file_uploaded() -> None:
                 str(e),
             )
         elif "requires ocr support" in msg or "possibly scanned pdf" in msg:
-            display_error(
+            _record_source_error(
                 tr(
                     "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
                     "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
@@ -3127,34 +3147,31 @@ def on_file_uploaded() -> None:
                 str(e),
             )
         else:
-            display_error(
+            _record_source_error(
                 tr(
                     "Datei enthält keinen Text – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
                     "File contains no text – you can also enter the information manually in the following steps.",
                 ),
             )
-        st.session_state["source_error"] = True
         return
     except Exception as e:  # pragma: no cover - defensive
         st.session_state.pop("__prefill_profile_doc__", None)
         st.session_state[StateKeys.RAW_BLOCKS] = []
-        display_error(
+        _record_source_error(
             tr(
                 "Datei konnte nicht gelesen werden. Prüfen Sie, ob es sich um ein gescanntes PDF handelt und installieren Sie ggf. OCR-Abhängigkeiten.",
                 "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
             ),
             str(e),
         )
-        st.session_state["source_error"] = True
         return
     if not txt.strip():
-        display_error(
+        _record_source_error(
             tr(
                 "Datei enthält keinen Text – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
                 "File contains no text – you can also enter the information manually in the following steps.",
             ),
         )
-        st.session_state["source_error"] = True
         st.session_state.pop("__prefill_profile_doc__", None)
         st.session_state[StateKeys.RAW_BLOCKS] = []
         return
@@ -3170,16 +3187,16 @@ def on_url_changed() -> None:
     url = st.session_state.get(UIKeys.PROFILE_URL_INPUT, "").strip()
     if not url:
         return
+
+    _clear_source_error_state()
     if not is_supported_url(url):
-        display_error(
+        _record_source_error(
             tr(
                 "Ungültige URL – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
                 "Invalid URL – you can also enter the information manually in the following steps.",
             )
         )
-        st.session_state["source_error"] = True
         return
-    st.session_state.pop("source_error", None)
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     try:
         doc = clean_structured_document(extract_text_from_url(url))
@@ -3192,18 +3209,16 @@ def on_url_changed() -> None:
             "❌ URL konnte nicht geladen werden. Bitte Adresse prüfen.",
             "❌ URL could not be fetched. Please check the address.",
         )
-        display_error(error_message, str(e))
+        _record_source_error(error_message, str(e))
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = error_message
-        st.session_state["source_error"] = True
         return
     if not txt or not txt.strip():
-        display_error(
+        _record_source_error(
             tr(
                 "Keine Textinhalte gefunden – Sie können die Informationen auch manuell in den folgenden Schritten eingeben.",
                 "No text content found – you can also enter the information manually in the following steps.",
             ),
         )
-        st.session_state["source_error"] = True
         st.session_state.pop("__prefill_profile_doc__", None)
         st.session_state[StateKeys.RAW_BLOCKS] = []
         return
@@ -6375,13 +6390,13 @@ def _step_onboarding(schema: dict) -> None:
 
     st.divider()
 
-    if st.session_state.pop("source_error", False):
-        st.info(
-            tr(
-                "Es gab ein Problem beim Import. Du kannst die Angaben auch manuell ergänzen.",
-                "There was an issue while importing the content. You can still fill in the details manually.",
-            )
+    if st.session_state.get("source_error"):
+        fallback_message = tr(
+            "Es gab ein Problem beim Import. Du kannst die Angaben auch manuell ergänzen.",
+            "There was an issue while importing the content. You can still fill in the details manually.",
         )
+        error_text = st.session_state.get("source_error_message") or fallback_message
+        st.error(error_text)
 
     prefill = st.session_state.pop("__prefill_profile_text__", None)
     if prefill is not None:
