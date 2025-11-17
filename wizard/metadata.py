@@ -18,11 +18,10 @@ from wizard._logic import get_in
 from pages import WIZARD_PAGES
 
 # Index of the first data-entry step ("Unternehmen" / "Company").
-COMPANY_STEP_INDEX: Final[int] = 2
+COMPANY_STEP_INDEX: Final[int] = 1
 
 PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "jobad": 0,
-    "followups": 1,
     "company": COMPANY_STEP_INDEX,
     "team": COMPANY_STEP_INDEX + 1,
     "role_tasks": COMPANY_STEP_INDEX + 2,

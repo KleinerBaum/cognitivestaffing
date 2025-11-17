@@ -16,7 +16,6 @@ from wizard.metadata import (
     get_missing_critical_fields,
     resolve_section_for_field,
 )
-from wizard.followups import followup_has_response
 
 # ``wizard.metadata`` stays lightweight so this router can depend on shared
 # progress data without importing the Streamlit-heavy ``wizard.runner`` module.
@@ -101,10 +100,10 @@ _COLLECTED_STYLE = """
 
 _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Onboarding", "Onboarding"),
-    ("Q&A", "Q&A"),
     ("Unternehmen", "Company"),
-    ("Basisdaten", "Basic info"),
-    ("Anforderungen", "Requirements"),
+    ("Team & Kontext", "Team & context"),
+    ("Rolle & Aufgaben", "Role & tasks"),
+    ("Skills & Anforderungen", "Skills & requirements"),
     ("Leistungen & Benefits", "Rewards & Benefits"),
     ("Prozess", "Process"),
     ("Summary", "Summary"),
@@ -387,8 +386,6 @@ class WizardRouter:
         return self._pages[index - 1].key
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        if page.key == "followups":
-            return self._missing_followup_required_fields()
         if not page.required_fields:
             return []
         profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
@@ -398,26 +395,6 @@ class WizardRouter:
             if not self._is_value_present(value):
                 value = self._resolve_value(profile, field, None)
             if not self._is_value_present(value):
-                missing.append(field)
-        return missing
-
-    def _missing_followup_required_fields(self) -> list[str]:
-        followups = st.session_state.get(StateKeys.FOLLOWUPS)
-        if not isinstance(followups, Sequence):
-            return []
-        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        missing: list[str] = []
-        for item in followups:
-            if not isinstance(item, Mapping):
-                continue
-            priority = str(item.get("priority") or "").casefold()
-            if priority != "critical":
-                continue
-            field = str(item.get("field") or "").strip()
-            if not field:
-                continue
-            value = self._resolve_value(profile, field, None)
-            if not followup_has_response(value):
                 missing.append(field)
         return missing
 

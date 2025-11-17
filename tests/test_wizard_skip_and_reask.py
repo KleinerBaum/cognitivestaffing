@@ -157,7 +157,7 @@ def test_next_step_advances_one_section() -> None:
 
     st.session_state.clear()
     st.session_state[StateKeys.STEP] = 1
-    st.session_state[StateKeys.WIZARD_STEP_COUNT] = 9
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = 8
     st.session_state[StateKeys.COMPLETED_SECTIONS] = [1, 2, 3]
     st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
 
@@ -171,7 +171,7 @@ def test_next_step_clears_pending_incomplete_jump_flag() -> None:
 
     st.session_state.clear()
     st.session_state[StateKeys.STEP] = 2
-    st.session_state[StateKeys.WIZARD_STEP_COUNT] = 9
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = 8
     st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = True
     st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
 

@@ -111,21 +111,21 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
     return store
 
 
-_STEP_DEFINITIONS: tuple[tuple[str, int, bool], ...] = (
-    ("intro", 0, False),
-    ("followups", 1, False),
-    ("company", 2, False),
-    ("team", 3, False),
-    ("skills", 4, False),
-    ("benefits", 5, True),
-    ("interview", 6, False),
-    ("summary", 7, False),
+_STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
+    ("intro", 0, False, ()),
+    ("company", 1, False, ("company.name",)),
+    ("team", 2, False, ()),
+    ("role_tasks", 3, False, ()),
+    ("skills", 4, False, ()),
+    ("benefits", 5, True, ()),
+    ("interview", 6, False, ()),
+    ("summary", 7, False, ()),
 )
 
 
 def _build_pages() -> tuple[WizardPage, ...]:
     pages: list[WizardPage] = []
-    for key, _legacy_index, allow_skip in _STEP_DEFINITIONS:
+    for key, _legacy_index, allow_skip, required_fields in _STEP_DEFINITIONS:
         title = key.replace("_", " ").title()
         pages.append(
             WizardPage(
@@ -134,7 +134,7 @@ def _build_pages() -> tuple[WizardPage, ...]:
                 panel_header=(title, title),
                 panel_subheader=(title, title),
                 panel_intro_variants=((f"Intro {title}", f"Intro {title}"),),
-                required_fields=(),
+                required_fields=required_fields,
                 summary_fields=(),
                 allow_skip=allow_skip,
             )
@@ -144,7 +144,7 @@ def _build_pages() -> tuple[WizardPage, ...]:
 
 def _build_renderers(log: List[str]) -> Dict[str, StepRenderer]:
     renderers: Dict[str, StepRenderer] = {}
-    for key, legacy_index, _allow_skip in _STEP_DEFINITIONS:
+    for key, legacy_index, _allow_skip, _required_fields in _STEP_DEFINITIONS:
 
         def _make_callback(step_key: str) -> Callable[[WizardContext], None]:
             def _callback(_context: WizardContext) -> None:
@@ -349,20 +349,18 @@ def test_skip_marks_step_completed_and_sets_query(
     assert st.session_state["_wizard_scroll_to_top"] is True
 
 
-def test_followups_step_disables_next_until_critical_answered(
+def test_company_step_disables_next_until_required_answer(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Critical follow-ups should block the Next button until answered."""
+    """Missing required fields (often surfaced via follow-ups) should block Next."""
 
     st.session_state[StateKeys.PROFILE] = {"company": {}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
-    router._state["current_step"] = "followups"
-    query_params["step"] = ["followups"]
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
     monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
@@ -382,25 +380,24 @@ def test_followups_step_disables_next_until_critical_answered(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_followups"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
 
-def test_followups_step_enables_next_after_critical_answer(
+def test_company_step_enables_next_after_required_answer(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Providing the critical answer should unlock navigation."""
+    """Providing the missing value should unlock navigation to the next section."""
 
     st.session_state[StateKeys.PROFILE] = {"company": {"name": "ACME"}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "company.name", "question": "?", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
+    st.session_state["company.name"] = "ACME"
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
-    router._state["current_step"] = "followups"
-    query_params["step"] = ["followups"]
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
     monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
@@ -416,7 +413,7 @@ def test_followups_step_enables_next_after_critical_answer(
 
     def fake_button(*args: object, **kwargs: object) -> bool:
         button_calls.append({"args": args, "kwargs": kwargs})
-        if kwargs.get("key") == "wizard_next_followups":
+        if kwargs.get("key") == "wizard_next_company":
             return True
         return False
 
@@ -427,8 +424,8 @@ def test_followups_step_enables_next_after_critical_answer(
     with pytest.raises(RerunTriggered):
         router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_followups"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
-    assert wizard_state["current_step"] == "company"
+    assert wizard_state["current_step"] == "team"

@@ -18,9 +18,7 @@ import logging
 import os
 import warnings
 from contextlib import contextmanager
-from importlib import import_module
 from threading import RLock
-from types import ModuleType
 
 import streamlit as st
 from enum import StrEnum
@@ -401,6 +399,18 @@ def set_api_mode(use_responses: bool) -> None:
     USE_CLASSIC_API = not USE_RESPONSES_API
 
 
+@contextmanager
+def temporarily_force_classic_api() -> Iterator[None]:
+    """Temporarily switch to the classic Chat API inside the managed block."""
+
+    previous_mode = USE_RESPONSES_API
+    try:
+        set_api_mode(False)
+        yield
+    finally:
+        set_api_mode(previous_mode)
+
+
 set_api_mode(USE_RESPONSES_API)
 # NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
 RESPONSES_ALLOW_TOOLS = _normalise_bool(
@@ -482,9 +492,9 @@ except Exception:
 
 LLM_ENABLED = bool(OPENAI_API_KEY)
 
-assert not (
-    USE_RESPONSES_API and USE_CLASSIC_API
-), "USE_RESPONSES_API and USE_CLASSIC_API cannot both be enabled simultaneously"
+assert not (USE_RESPONSES_API and USE_CLASSIC_API), (
+    "USE_RESPONSES_API and USE_CLASSIC_API cannot both be enabled simultaneously"
+)
 
 try:
     REASONING_EFFORT = _normalise_reasoning_effort(
