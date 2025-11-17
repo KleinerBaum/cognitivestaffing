@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from types import MappingProxyType
 
-from constants.keys import ProfilePaths, StateKeys
+from constants.keys import ProfilePaths, StateKeys, UIKeys
 from config import (
     GPT4O,
     OPENAI_BASE_URL,
@@ -95,6 +95,9 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.JOB_AD_MD: lambda: "",
         StateKeys.BOOLEAN_STR: lambda: "",
         StateKeys.INTERVIEW_GUIDE_MD: lambda: "",
+        "debug": lambda: False,
+        UIKeys.DEBUG_DETAILS: lambda: False,
+        UIKeys.DEBUG_API_MODE: lambda: "responses",
         "lang": lambda: "en",
         "auto_reask": lambda: True,
         "auto_reask_round": lambda: 0,

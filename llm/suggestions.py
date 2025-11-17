@@ -6,7 +6,8 @@ import json
 import logging
 from typing import Any, Sequence
 
-from config import ModelTask, REASONING_EFFORT, USE_CLASSIC_API, get_model_for
+import config as app_config
+from config import ModelTask, REASONING_EFFORT, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 from openai_utils.extraction import _format_prompt, _style_prompt_hint
 
@@ -222,7 +223,7 @@ def suggest_skills_for_role(
     if tone_hint:
         prompt += f"\n{tone_hint}"
 
-    if USE_CLASSIC_API:
+    if app_config.USE_CLASSIC_API:
         logger.info("Using legacy chat API for skill suggestions due to USE_CLASSIC_API flag")
         return _fallback_skills_via_legacy(
             job_title,
@@ -391,7 +392,7 @@ def suggest_benefits(
     if tone_hint:
         prompt += f"\n{tone_hint}"
 
-    if USE_CLASSIC_API:
+    if app_config.USE_CLASSIC_API:
         logger.info("Using legacy chat API for benefit suggestions due to USE_CLASSIC_API flag")
         return _fallback_benefits_via_legacy(
             job_title,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Sequence, Tuple
 
 from openai_utils import (
     suggest_onboarding_plans,
@@ -21,17 +21,36 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency during tes
     responses_suggest_benefits = None
     responses_suggest_skills = None
 
-from config import USE_CLASSIC_API
+import config as app_config
 from utils.llm_state import is_llm_available
 
-# Public aliases resolve to the active backend so external modules (and tests)
-# can monkeypatch ``suggestions.suggest_*`` regardless of the implementation.
-if USE_CLASSIC_API:
-    suggest_skills_for_role = legacy_suggest_skills
-    suggest_benefits = legacy_suggest_benefits
-else:
-    suggest_skills_for_role = responses_suggest_skills or legacy_suggest_skills
-    suggest_benefits = responses_suggest_benefits or legacy_suggest_benefits
+_SuggestionFn = Callable[..., Any]
+
+
+def _select_skill_backend() -> _SuggestionFn:
+    if app_config.USE_CLASSIC_API or responses_suggest_skills is None:
+        return legacy_suggest_skills
+    return responses_suggest_skills
+
+
+def _select_benefit_backend() -> _SuggestionFn:
+    if app_config.USE_CLASSIC_API or responses_suggest_benefits is None:
+        return legacy_suggest_benefits
+    return responses_suggest_benefits
+
+
+def suggest_skills_for_role(*args: Any, **kwargs: Any):
+    """Proxy skill suggestions to the active backend."""
+
+    backend = _select_skill_backend()
+    return backend(*args, **kwargs)
+
+
+def suggest_benefits(*args: Any, **kwargs: Any):
+    """Proxy benefit suggestions to the active backend."""
+
+    backend = _select_benefit_backend()
+    return backend(*args, **kwargs)
 
 from core.esco_utils import (
     classify_occupation,

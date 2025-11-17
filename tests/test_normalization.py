@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import config
 from core.normalization import normalize_url
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
@@ -44,7 +45,8 @@ def test_normalize_city_name_uses_llm_fallback(monkeypatch: pytest.MonkeyPatch) 
 
     calls: list[list[dict[str, str]]] = []
 
-    monkeypatch.setattr(normalization, "USE_RESPONSES_API", True, raising=False)
+    previous_mode = config.USE_RESPONSES_API
+    config.set_api_mode(True)
     monkeypatch.setattr(normalization, "is_llm_enabled", lambda: True)
     monkeypatch.setattr(normalization, "get_model_for", lambda *_, **__: "gpt-test")
 
@@ -59,10 +61,13 @@ def test_normalize_city_name_uses_llm_fallback(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(normalization, "call_responses", fake_call_responses)
 
-    result = normalization.normalize_city_name(" remote möglich")
+    try:
+        result = normalization.normalize_city_name(" remote möglich")
 
-    assert result == "Hamburg"
-    assert calls and calls[0][0]["role"] == "system"
+        assert result == "Hamburg"
+        assert calls and calls[0][0]["role"] == "system"
+    finally:
+        config.set_api_mode(previous_mode)
 
 
 def test_normalize_company_size_parses_numbers() -> None:

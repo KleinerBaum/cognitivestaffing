@@ -55,6 +55,9 @@ class UIKeys:
     JOB_AD_BRAND_TONE = "ui.summary.job_ad.brand_keywords"
     JOB_AD_BRAND_TONE_INPUT = "ui.summary.job_ad.brand_keywords.input"
     JOB_AD_BRAND_TONE_SYNC_FLAG = "ui.summary.job_ad.brand_keywords.sync"
+    DEBUG_PANEL = "ui.debug.panel"
+    DEBUG_DETAILS = "ui.debug.details"
+    DEBUG_API_MODE = "ui.debug.api_mode"
     SUMMARY_POSITION_REPORTING_MANAGER_NAME = (
         "ui.summary.position.reporting_manager_name"
     )

@@ -36,13 +36,13 @@ from openai import (
 import streamlit as st
 from prompts import prompt_registry
 
+import config as app_config
 from config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     OPENAI_ORGANIZATION,
     OPENAI_PROJECT,
     OPENAI_REQUEST_TIMEOUT,
-    USE_CLASSIC_API,
     REASONING_EFFORT,
     STRICT_JSON,
     VERBOSITY,
@@ -363,7 +363,7 @@ def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: str | No
     request_kwargs = dict(payload)
     api_mode = api_mode or request_kwargs.pop("_api_mode", None)
     timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
-    mode = api_mode or ("chat" if USE_CLASSIC_API else "responses")
+    mode = api_mode or ("chat" if app_config.USE_CLASSIC_API else "responses")
     if mode == "chat":
         return get_client().chat.completions.create(timeout=timeout, **request_kwargs)
     return get_client().responses.create(timeout=timeout, **request_kwargs)
@@ -1165,7 +1165,7 @@ def _prepare_payload(
     raw_tools = [dict(tool) for tool in (tools or [])]
     tool_map = dict(tool_functions or {})
     requested_tools = bool(raw_tools or tool_map)
-    analysis_tools_enabled = include_analysis_tools and (USE_CLASSIC_API or requested_tools or RESPONSES_ALLOW_TOOLS)
+    analysis_tools_enabled = include_analysis_tools and (app_config.USE_CLASSIC_API or requested_tools or RESPONSES_ALLOW_TOOLS)
     if analysis_tools_enabled:
         from core import analysis_tools
 
@@ -1212,10 +1212,10 @@ def _prepare_payload(
     payload: dict[str, Any]
 
     force_classic_for_tools = False
-    if converted_tools and not (USE_CLASSIC_API or RESPONSES_ALLOW_TOOLS):
+    if converted_tools and not (app_config.USE_CLASSIC_API or RESPONSES_ALLOW_TOOLS):
         force_classic_for_tools = True  # NO_TOOLS_IN_RESPONSES
 
-    use_classic_api = USE_CLASSIC_API or force_classic_for_tools
+    use_classic_api = app_config.USE_CLASSIC_API or force_classic_for_tools
 
     if use_classic_api:
         payload = {"model": model, "messages": messages_payload}
@@ -1299,7 +1299,7 @@ def _prepare_payload(
             metadata["router"] = router_info
             payload["metadata"] = metadata
 
-    if force_classic_for_tools and not USE_CLASSIC_API:
+    if force_classic_for_tools and not app_config.USE_CLASSIC_API:
         payload["_api_mode"] = "chat"
 
     return payload, model, combined_tools, tool_map, candidate_models
@@ -1353,7 +1353,7 @@ class ChatStream(Iterable[str]):
         client = get_client()
         final_response: Any | None = None
         try:
-            if USE_CLASSIC_API:
+            if app_config.USE_CLASSIC_API:
                 with client.chat.completions.stream(**self._payload) as stream:
                     for event in stream:
                         for chunk in _stream_event_chunks(event):
@@ -1731,7 +1731,7 @@ def _call_chat_api_single(
             continue
 
         response_id = _extract_response_id(response)
-        if response_id and not USE_CLASSIC_API and api_mode_override != "chat":
+        if response_id and not app_config.USE_CLASSIC_API and api_mode_override != "chat":
             payload["previous_response_id"] = response_id
 
         content = _extract_output_text(response)

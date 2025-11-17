@@ -384,6 +384,24 @@ USE_RESPONSES_API = _normalise_bool(
     os.getenv("USE_RESPONSES_API"),
     default=not USE_CLASSIC_API,
 )
+
+
+def set_api_mode(use_responses: bool) -> None:
+    """Synchronise the Responses/Classic API flags.
+
+    Args:
+        use_responses: When ``True`` the OpenAI Responses API becomes the active
+            backend. ``False`` switches the platform to the legacy Chat
+            Completions API.
+    """
+
+    global USE_RESPONSES_API, USE_CLASSIC_API
+
+    USE_RESPONSES_API = bool(use_responses)
+    USE_CLASSIC_API = not USE_RESPONSES_API
+
+
+set_api_mode(USE_RESPONSES_API)
 # NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
 RESPONSES_ALLOW_TOOLS = _normalise_bool(
     os.getenv("RESPONSES_ALLOW_TOOLS"),
@@ -404,11 +422,18 @@ try:
         timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
         OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
         if "USE_CLASSIC_API" in openai_secrets:
-            USE_CLASSIC_API = _normalise_bool(openai_secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+            set_api_mode(
+                not _normalise_bool(
+                    openai_secrets.get("USE_CLASSIC_API"),
+                    default=USE_CLASSIC_API,
+                )
+            )
         if "USE_RESPONSES_API" in openai_secrets:
-            USE_RESPONSES_API = _normalise_bool(
-                openai_secrets.get("USE_RESPONSES_API"),
-                default=USE_RESPONSES_API,
+            set_api_mode(
+                _normalise_bool(
+                    openai_secrets.get("USE_RESPONSES_API"),
+                    default=USE_RESPONSES_API,
+                )
             )
         if "RESPONSES_ALLOW_TOOLS" in openai_secrets:
             RESPONSES_ALLOW_TOOLS = _normalise_bool(
@@ -434,11 +459,18 @@ try:
         default=OPENAI_REQUEST_TIMEOUT,
     )
     if "USE_CLASSIC_API" in st.secrets:
-        USE_CLASSIC_API = _normalise_bool(st.secrets.get("USE_CLASSIC_API"), default=USE_CLASSIC_API)
+        set_api_mode(
+            not _normalise_bool(
+                st.secrets.get("USE_CLASSIC_API"),
+                default=USE_CLASSIC_API,
+            )
+        )
     if "USE_RESPONSES_API" in st.secrets:
-        USE_RESPONSES_API = _normalise_bool(
-            st.secrets.get("USE_RESPONSES_API"),
-            default=USE_RESPONSES_API,
+        set_api_mode(
+            _normalise_bool(
+                st.secrets.get("USE_RESPONSES_API"),
+                default=USE_RESPONSES_API,
+            )
         )
     if "RESPONSES_ALLOW_TOOLS" in st.secrets:
         RESPONSES_ALLOW_TOOLS = _normalise_bool(
@@ -450,65 +482,9 @@ except Exception:
 
 LLM_ENABLED = bool(OPENAI_API_KEY)
 
-if USE_RESPONSES_API:
-    USE_CLASSIC_API = False
-else:
-    USE_CLASSIC_API = True
-
-
-def _load_openai_api_module() -> ModuleType | None:
-    """Return the ``openai_utils.api`` module when available."""
-
-    try:
-        return import_module("openai_utils.api")
-    except Exception:
-        return None
-
-
-def _apply_api_mode_flags(
-    *,
-    use_responses: bool,
-    use_classic: bool,
-    openai_module: ModuleType | None,
-    openai_override: bool | None = None,
-) -> None:
-    """Synchronise module-level API mode flags."""
-
-    global USE_RESPONSES_API, USE_CLASSIC_API
-
-    USE_RESPONSES_API = use_responses
-    USE_CLASSIC_API = use_classic
-    if openai_module is not None:
-        openai_module.USE_CLASSIC_API = openai_override if openai_override is not None else use_classic
-
-
-@contextmanager
-def temporarily_force_classic_api() -> Iterator[None]:
-    """Temporarily enable ``USE_CLASSIC_API`` for chat fallbacks."""
-
-    openai_module = _load_openai_api_module()
-    with _API_FLAG_LOCK:
-        previous_responses = USE_RESPONSES_API
-        previous_classic = USE_CLASSIC_API
-        previous_openai_classic = (
-            getattr(openai_module, "USE_CLASSIC_API", USE_CLASSIC_API) if openai_module is not None else USE_CLASSIC_API
-        )
-        _apply_api_mode_flags(
-            use_responses=False,
-            use_classic=True,
-            openai_module=openai_module,
-        )
-    try:
-        yield
-    finally:
-        with _API_FLAG_LOCK:
-            _apply_api_mode_flags(
-                use_responses=previous_responses,
-                use_classic=previous_classic,
-                openai_module=openai_module,
-                openai_override=previous_openai_classic,
-            )
-
+assert not (
+    USE_RESPONSES_API and USE_CLASSIC_API
+), "USE_RESPONSES_API and USE_CLASSIC_API cannot both be enabled simultaneously"
 
 try:
     REASONING_EFFORT = _normalise_reasoning_effort(
