@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **EN:** Sidebar imports the wizard metadata/logic helpers directly at module
+  load, removing the memoized `_wizard_exports()` wrapper and documenting the
+  remaining import-order contract so circular dependencies stay impossible.
+  **DE:** Die Sidebar lädt die Wizard-Metadaten/-Logik jetzt direkt beim Modul-
+  Import, entfernt den `_wizard_exports()`-Cache und dokumentiert die
+  verbleibenden Import-Reihenfolgen, damit keine Kreisabhängigkeiten entstehen.
 - **EN:** Refined the salary sidebar so estimates focus on the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and city hints; the Streamlit navigation no longer exposes the redundant overview entry.
   **DE:** Die Gehaltsschätzung nutzt jetzt Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikate, Sprachvorgaben, Branche sowie Stadthinweise als Basis und blendet den überflüssigen Überblick-Link aus der Streamlit-Navigation aus.
 - **EN:** Replaced every `use_container_width` flag with the new
