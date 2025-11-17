@@ -113,12 +113,13 @@
   **DE:** Smoke- und Unit-Tests für die Wizard-Agent-Tools (Graph, Knowledge,
   Vacancy, Safety) sowie die Seiten-Metadaten erweitert, um Abdeckungs­lücken zu
   schließen und Fallback-Verhalten abzusichern.
-- **EN:** Locked all OpenTelemetry packages to version 1.26.0 and updated
-  `requirements.txt` with the optional ingestion libraries so deployments use a
-  consistent stack.
-  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert und
-  `requirements.txt` um die optionalen Ingestion-Bibliotheken ergänzt, damit
-  Deployments auf einem konsistenten Stack laufen.
+- **EN:** Locked all OpenTelemetry packages to version 1.26.0, updated
+  `requirements.txt` with the optional ingestion libraries, and refreshed
+  `artifacts/pip.freeze.txt` so deployments use a consistent stack.
+  **DE:** Alle OpenTelemetry-Pakete auf Version 1.26.0 fixiert,
+  `requirements.txt` um die optionalen Ingestion-Bibliotheken ergänzt und
+  `artifacts/pip.freeze.txt` aktualisiert, damit Deployments auf einem
+  konsistenten Stack laufen.
 - **EN:** Excised the deprecated `wizard._legacy` runner and scrubbed remaining
   references so the Streamlit wizard always boots through `WizardRouter`.
   **DE:** Den veralteten `wizard._legacy`-Runner vollständig entfernt und alle

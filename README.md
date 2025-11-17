@@ -34,8 +34,7 @@
   that fails if those legacy strings reappear in Python sources.
   **DE:** Letzte Wizard-v1-Stützen entfernt – der ungenutzte
   `wizard_state['feature']`-Bootstrap sowie die veralteten
-  `core.schema`-Aliasse bzw. der `coerce_and_fill_wizard`-Helper sind nach dem
-  endgültigen Aus für `SCHEMA_WIZARD_V1` gelöscht; zusätzlich prüft ein
+  `core.schema`-Aliasse bzw. der `coerce_and_fill_wizard`-Helper sind nach dem endgültigen Aus für `SCHEMA_WIZARD_V1` gelöscht; zusätzlich prüft ein
   Regressionstest, dass diese Legacy-Strings nicht zurückkehren.
 - **EN:** Locked all OpenTelemetry packages to version 1.26.0 and synced
   `requirements.txt` with the optional ingestion dependencies so deployments
