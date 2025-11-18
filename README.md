@@ -170,6 +170,9 @@ Compliance screening controls / Compliance-Prüfungen
 EN: A dedicated “Compliance Checks” panel on the Skills & Requirements step lets recruiters mark background checks, reference calls, and portfolio submissions as mandatory with bilingual helper copy explaining what each screening covers.
 DE: Ein eigenes Panel „Compliance Checks“ im Schritt Skills & Requirements erlaubt es Recruiter:innen, Hintergrund-Checks, Referenzabfragen und Portfolio-Einreichungen als verpflichtend zu markieren – inklusive zweisprachiger Hilfetexte, die den Umfang der jeweiligen Prüfung beschreiben.
 
+EN: Those toggles now persist as the canonical schema fields `requirements.background_check_required`, `requirements.reference_check_required`, and `requirements.portfolio_required`, so downstream exports and automations can rely on them without custom mapping.
+DE: Diese Umschalter werden jetzt als kanonische Schemafelder `requirements.background_check_required`, `requirements.reference_check_required` und `requirements.portfolio_required` gespeichert, sodass nachgelagerte Exporte und Automationen ohne Sonder-Mapping darauf zugreifen können.
+
 *EN: Screenshot temporarily removed while the repository avoids binary assets for this panel. DE: Screenshot vorübergehend entfernt, da das Repository für dieses Panel keine Binärdateien führen soll.*
 
 Feature Highlights
