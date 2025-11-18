@@ -148,6 +148,9 @@ DE: Light-/Dark-Themes greifen auf einen gemeinsamen Design-Token-Pool mit optim
 EN: The refreshed palette keeps the navy brand anchors (#0C1F3D in dark mode / #2A4A85 in light mode) and balances them with high-contrast teal (#1FB5C5) and amber (#FFC368/#FFB65C) accents, ensuring ≥ 4.5:1 contrast for hero panels, chips, and alerts in both themes.
 DE: Die aktualisierte Palette kombiniert die Navy-Anker (#0C1F3D im Dark-Mode / #2A4A85 im Light-Mode) mit kontrastreichem Teal (#1FB5C5) sowie Bernstein-Akzenten (#FFC368/#FFB65C), sodass Hero-Panels, Chips und Hinweise in beiden Themes eine Kontrast-Ratio von mindestens 4,5:1 erreichen.
 
+EN: Global styling now loads exclusively through `inject_global_css()` (app.py) and the cognitive_needs.css/light variants, so the legacy Tailwind injector and CDN include have been removed for faster startup and fewer collisions.
+DE: Das globale Styling wird ausschließlich über `inject_global_css()` (app.py) sowie die Dateien cognitive_needs.css/light geladen, sodass der frühere Tailwind-Injektor samt CDN-Einbindung entfällt – Startzeiten verkürzen sich und Stilkonflikte werden vermieden.
+
 Employment logistics guidance / Hinweise zur Beschäftigungslogistik
 
 EN: The employment panel toggles now include bilingual helper text that explains the policy expectation for travel, relocation, visa sponsorship, overtime, security clearance, and shift work, and it calls out when extra inputs (e.g., travel share, relocation package terms) will appear. This keeps SMEs aligned on what to capture before expanding the follow-up fields.
