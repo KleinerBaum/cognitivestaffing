@@ -1,7 +1,16 @@
-import streamlit as st
+from __future__ import annotations
+
 import pytest
+import streamlit as st
 
 from constants.keys import StateKeys
+from tests.utils import (
+    FollowupEntry,
+    ProfileDict,
+    SessionBootstrap,
+    empty_profile,
+    make_followup,
+)
 from wizard import (
     FIELD_SECTION_MAP,
     _get_profile_state,
@@ -12,17 +21,15 @@ from wizard import (
 )
 
 
-def test_render_followup_updates_state(monkeypatch) -> None:
+def test_render_followup_updates_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """Entering a response should update the corresponding field."""
-    st.session_state.clear()
-    st.session_state["lang"] = "en"
-    data: dict = {"meta": {"followups_answered": []}}
-    q = {"field": "compensation.salary_min", "question": "Salary?"}
-    st.session_state[StateKeys.FOLLOWUPS] = [q]
+    SessionBootstrap(followups=[make_followup("compensation.salary_min", "Salary?")]).apply()
+    data: ProfileDict = empty_profile()
+    q: FollowupEntry = make_followup("compensation.salary_min", "Salary?")
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
-    def fake_number(label, key=None, value=0, **kwargs):
+    def fake_number(label: str, key: str | None = None, value: int = 0, **kwargs: object) -> int:
         st.session_state[key] = 100000
         return 100000
 
@@ -36,20 +43,18 @@ def test_render_followup_updates_state(monkeypatch) -> None:
     assert focus_sentinel not in st.session_state
 
 
-def test_render_followups_critical_prefix(monkeypatch) -> None:
+def test_render_followups_critical_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
     """Critical questions should be prefixed with a red asterisk."""
-    st.session_state.clear()
-    st.session_state["lang"] = "en"
-    data: dict = {"meta": {"followups_answered": []}}
-    q = {"field": "salary", "question": "Salary?", "priority": "critical"}
-    st.session_state[StateKeys.FOLLOWUPS] = [q]
+    SessionBootstrap(followups=[make_followup("salary", "Salary?", priority="critical")]).apply()
+    data: ProfileDict = empty_profile()
+    q: FollowupEntry = make_followup("salary", "Salary?", priority="critical")
     seen_markdown: list[str] = []
-    seen = {"label": None}
+    seen: dict[str, str | None] = {"label": None}
 
-    def fake_markdown(text, **_):
+    def fake_markdown(text: str, **_: object) -> None:
         seen_markdown.append(text)
 
-    def fake_input(label, key=None, **kwargs):
+    def fake_input(label: str, key: str | None = None, **kwargs: object) -> str:
         seen["label"] = label
         st.session_state[key] = "100k"
         return "100k"
@@ -65,20 +70,18 @@ def test_render_followups_critical_prefix(monkeypatch) -> None:
     assert data["meta"]["followups_answered"] == ["salary"]
 
 
-def test_followup_requires_answer(monkeypatch) -> None:
+def test_followup_requires_answer(monkeypatch: pytest.MonkeyPatch) -> None:
     """Follow-up questions remain until an explicit answer is provided."""
-    st.session_state.clear()
-    st.session_state["lang"] = "en"
-    data: dict = {"meta": {"followups_answered": []}}
-    q = {"field": "employment.travel_required", "question": "Travel?"}
-    st.session_state[StateKeys.FOLLOWUPS] = [q]
+    SessionBootstrap(followups=[make_followup("employment.travel_required", "Travel?")]).apply()
+    data: ProfileDict = empty_profile()
+    q: FollowupEntry = make_followup("employment.travel_required", "Travel?")
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "text_input", lambda *a, **k: "")
     monkeypatch.setattr(st, "toast", lambda *a, **k: None)
 
     seen_keys: list[str | None] = []
 
-    def fake_button(label, key=None):
+    def fake_button(label: str, key: str | None = None) -> bool:
         seen_keys.append(key)
         return False
 
@@ -89,23 +92,21 @@ def test_followup_requires_answer(monkeypatch) -> None:
     assert data["meta"].get("followups_answered") == []
 
 
-def test_followup_focus_runs_once(monkeypatch) -> None:
+def test_followup_focus_runs_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """New follow-ups should request focus only on their first render."""
 
-    st.session_state.clear()
-    st.session_state["lang"] = "en"
-    data: dict = {"meta": {"followups_answered": []}}
-    q = {"field": "company.name", "question": "Name?"}
-    st.session_state[StateKeys.FOLLOWUPS] = [q]
+    SessionBootstrap(followups=[make_followup("company.name", "Name?")]).apply()
+    data: ProfileDict = empty_profile()
+    q: FollowupEntry = make_followup("company.name", "Name?")
     seen_scripts: list[str] = []
 
-    def fake_markdown(text, **kwargs):
+    def fake_markdown(text: str, **kwargs: object) -> None:
         if "<script>" in text:
             seen_scripts.append(text)
 
     call_count = {"value": 0}
 
-    def fake_input(label, key=None, **kwargs):
+    def fake_input(label: str, key: str | None = None, **kwargs: object) -> str:
         call_count["value"] += 1
         focus_key = f"{key}_focus_pending"
         if call_count["value"] == 1:
@@ -166,13 +167,14 @@ def test_update_profile_syncs_followup_state() -> None:
         ("de", "Kontextvorschläge benötigen eine konfigurierte Vector-DB (VECTOR_STORE_ID)."),
     ),
 )
-def test_followup_section_shows_rag_hint(monkeypatch, lang: str, expected: str) -> None:
+def test_followup_section_shows_rag_hint(monkeypatch: pytest.MonkeyPatch, lang: str, expected: str) -> None:
     """Sections should surface a hint when RAG suggestions were skipped."""
 
-    st.session_state.clear()
-    st.session_state["lang"] = lang
-    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "Name?"}]
-    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = True
+    SessionBootstrap(
+        lang=lang,
+        followups=[make_followup("company.name", "Name?")],
+        rag_context_skipped=True,
+    ).apply()
     seen: list[str] = []
 
     monkeypatch.setattr(st, "markdown", lambda *_a, **_k: None)
@@ -184,12 +186,10 @@ def test_followup_section_shows_rag_hint(monkeypatch, lang: str, expected: str) 
     assert expected in seen
 
 
-def test_followup_section_shows_inline_meta(monkeypatch) -> None:
+def test_followup_section_shows_inline_meta(monkeypatch: pytest.MonkeyPatch) -> None:
     """Inline follow-up cards should include the auto-save caption."""
 
-    st.session_state.clear()
-    st.session_state["lang"] = "en"
-    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "Name?"}]
+    SessionBootstrap(followups=[make_followup("company.name", "Name?")]).apply()
 
     seen_markdown: list[str] = []
 
