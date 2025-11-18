@@ -6,13 +6,21 @@ import json
 from functools import lru_cache
 from typing import Any
 
-from langchain.output_parsers import (
-    PydanticOutputParser,
-    ResponseSchema,
-    StructuredOutputParser,
-)
+try:  # pragma: no cover - dependency differences
+    from langchain.output_parsers import (
+        PydanticOutputParser,
+        ResponseSchema,
+        StructuredOutputParser,
+    )
+except ImportError:  # pragma: no cover - langchain>=1.0 moved these classes
+    from langchain_core.output_parsers import (  # type: ignore[no-redef]
+        PydanticOutputParser,
+        ResponseSchema,
+        StructuredOutputParser,
+    )
 from langchain.schema import OutputParserException
 
+from llm.profile_normalization import normalize_interview_stages_field
 from models.need_analysis import NeedAnalysisProfile
 
 
@@ -88,6 +96,10 @@ class NeedAnalysisOutputParser:
                 data=None,
                 original=err,
             ) from err
+
+        if isinstance(data, dict):
+            normalize_interview_stages_field(data)
+            candidate = json.dumps(data)
 
         try:
             parsed = self._pydantic_parser.parse(candidate)

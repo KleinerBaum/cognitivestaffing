@@ -56,6 +56,12 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Hardened the NeedAnalysis JSON parser and repair helpers so LLMs that emit
+  `process.interview_stages` as `[]` or `[3]` are coerced into `null` or numeric
+  counts, keeping downstream validation green.
+  DE: NeedAnalysis-Parser und -Reparatur erzwingen jetzt `null` bzw. numerische
+  Werte, wenn LLMs `process.interview_stages` als `[]` oder `[3]` liefern, sodass
+  die Validierung stabil bleibt.
 - EN: The Process step now writes `process.interview_stages` as a numeric count via a dedicated number input, preventing Pydantic from receiving list payloads and rejecting parsed profiles.
   DE: Der Prozess-Schritt speichert `process.interview_stages` jetzt als numerischen Zähler über ein eigenes Nummernfeld, sodass Pydantic keine Listen mehr erhält und Profile nicht länger abgelehnt werden.
 - EN: Replaced the OTLP exporter dictionary plumbing with the typed `OtlpConfig` helper so telemetry bootstrap validates endpoints, headers, and timeouts while satisfying mypy without overrides.

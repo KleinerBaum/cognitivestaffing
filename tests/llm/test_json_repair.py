@@ -8,6 +8,7 @@ import pytest
 
 from llm import json_repair
 from llm.json_repair import repair_profile_payload
+from models.need_analysis import NeedAnalysisProfile
 
 
 class DummyResponse:
@@ -52,3 +53,23 @@ def test_repair_profile_payload_invokes_responses(monkeypatch: pytest.MonkeyPatc
     assert result == {"company": {"logo_url": "https://example.com/logo.svg"}}
     assert isinstance(captured["messages"], list)
     assert "company.logo_url" in captured["messages"][1]["content"]
+
+
+def test_repair_profile_payload_normalizes_interview_stages(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(json_repair, "is_llm_enabled", lambda: True)
+    json_repair._load_schema.cache_clear()
+
+    schema = {"type": "object", "properties": {}, "additionalProperties": True}
+    monkeypatch.setattr(json_repair, "_load_schema", lambda: schema)
+
+    payload = NeedAnalysisProfile().model_dump()
+    payload["process"]["interview_stages"] = []
+
+    def fake_call(messages, **kwargs):  # type: ignore[unused-ignore]
+        return DummyResponse(json.dumps(payload))
+
+    monkeypatch.setattr(json_repair, "call_responses", fake_call)
+
+    result = repair_profile_payload({"process": {"interview_stages": []}}, errors=None)
+
+    assert result["process"]["interview_stages"] is None

@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for, is_llm_enabled
 from llm.openai_responses import build_json_schema_format, call_responses
+from llm.profile_normalization import normalize_interview_stages_field
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,9 @@ def repair_profile_payload(
         logger.debug("JSON repair response was not an object: %s", type(repaired))
         return None
 
-    return dict(repaired)
+    result = dict(repaired)
+    normalize_interview_stages_field(result)
+    return result
 
 
 __all__ = ["repair_profile_payload"]
