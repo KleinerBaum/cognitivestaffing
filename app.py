@@ -164,19 +164,19 @@ def render_app_banner() -> None:
         tr("📊 Markt- & Gehaltsanalysen", "📊 Market & salary insights"),
         tr("🧩 ESCO-Skill-Mapping", "🧩 ESCO skill mapping"),
     ]
-    eyebrow = tr("Recruiting Intelligence Studio", "Recruiting intelligence studio")
+    eyebrow = tr("Recruiting-Bedarfsanalyse", "Recruitment Need Analysis")
     headline = tr(
-        "Cognitive Staffing – präzise Recruiting-Analysen in Minuten",
-        "Cognitive Staffing – actionable hiring intelligence in minutes",
+        "Cognitive Staffing – vollständiges Stellenprofil für deinen speziellen Bedarf",
+        "Cognitive Staffing – Complete Jobspec for your special Need",
     )
     subtitle = tr(
         (
-            "Geführte Schritte, KI-Validierung und Marktbenchmarks helfen, "
-            "Profile und Ergebnisse fokussiert zu verfeinern."
+            "Individuelle und dynamische Fragestellungen sowie Marktbenchmarks "
+            "helfen dir, Profile und Ergebnisse mit Sicherheit und Präzision zu verfeinern."
         ),
         (
-            "Guided steps, AI validation, and market benchmarks help you refine "
-            "profiles and deliverables with confidence."
+            "Tailored and dynamic questioning as well as market benchmarks help you "
+            "refine profiles and deliverables with confidence and precision"
         ),
     )
 
