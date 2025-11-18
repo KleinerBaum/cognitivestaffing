@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from copy import deepcopy
 from functools import lru_cache
 from collections.abc import Mapping, MutableMapping, Sequence
 from typing import Any
@@ -136,6 +137,80 @@ class NeedAnalysisOutputParser:
             return not isinstance(process.get("interview_stages"), Sequence)
         return False
 
+    @staticmethod
+    def _format_error_location(location: Sequence[Any]) -> str:
+        """Return dotted label for ``location`` entries."""
+
+        if not location:
+            return ""
+        formatted: list[str] = []
+        for part in location:
+            if isinstance(part, int):
+                if not formatted:
+                    formatted.append(f"[{part}]")
+                else:
+                    formatted[-1] = f"{formatted[-1]}[{part}]"
+                continue
+            formatted.append(str(part))
+        return ".".join(formatted)
+
+    @staticmethod
+    def _remove_location_value(target: Any, location: Sequence[Any]) -> bool:
+        """Drop the value pointed to by ``location`` inside ``target``."""
+
+        cursor: Any = target
+        for index, part in enumerate(location):
+            is_last = index == len(location) - 1
+            if is_last:
+                if isinstance(part, int) and isinstance(cursor, list):
+                    if 0 <= part < len(cursor):
+                        del cursor[part]
+                        return True
+                    return False
+                if isinstance(part, str) and isinstance(cursor, MutableMapping):
+                    if part in cursor:
+                        cursor.pop(part)
+                        return True
+                    return False
+                return False
+            if isinstance(part, int):
+                if isinstance(cursor, list) and 0 <= part < len(cursor):
+                    cursor = cursor[part]
+                else:
+                    return False
+            else:
+                if isinstance(cursor, MutableMapping) and part in cursor:
+                    cursor = cursor[part]
+                else:
+                    return False
+        return False
+
+    @classmethod
+    def _prune_invalid_fields(
+        cls,
+        payload: MutableMapping[str, Any],
+        errors: Sequence[Mapping[str, Any]] | None,
+    ) -> list[str]:
+        """Remove invalid paths referenced in ``errors`` from ``payload``."""
+
+        removed: list[str] = []
+        if not errors:
+            return removed
+        seen: set[str] = set()
+        for entry in errors:
+            loc = entry.get("loc")
+            if not isinstance(loc, (list, tuple)) or not loc:
+                continue
+            label = cls._format_error_location(loc)
+            if not label:
+                label = "<root>"
+            if label in seen:
+                continue
+            if cls._remove_location_value(payload, loc):
+                removed.append(label)
+                seen.add(label)
+        return removed
+
     def parse(self, text: str) -> tuple[NeedAnalysisProfile, dict[str, Any]]:
         """Parse ``text`` and return the Pydantic model along with the raw dict."""
 
@@ -179,6 +254,11 @@ class NeedAnalysisOutputParser:
                         error_details = list(maybe_errors())
                     except Exception:
                         error_details = None
+            if canonical_data is not None and not error_details:
+                try:
+                    NeedAnalysisProfile.model_validate(canonical_data)
+                except ValidationError as canonical_error:
+                    error_details = canonical_error.errors()
             if (
                 canonical_data is not None
                 and self._has_interview_stage_error(validation_error)
@@ -215,6 +295,23 @@ class NeedAnalysisOutputParser:
                     ) from repaired_error
                 logger.info("NeedAnalysis payload repaired after validation failure.")
                 return repaired_model, repaired_data
+            if canonical_data is not None and error_details:
+                trimmed_data = deepcopy(canonical_data)
+                removed_paths = self._prune_invalid_fields(trimmed_data, error_details)
+                if removed_paths:
+                    try:
+                        trimmed_model = NeedAnalysisProfile.model_validate(trimmed_data)
+                    except ValidationError as trimmed_error:
+                        logger.debug(
+                            "Validation failed after removing invalid fields: %s",
+                            trimmed_error,
+                        )
+                    else:
+                        logger.warning(
+                            "NeedAnalysis payload removed invalid fields to preserve data: %s",
+                            ", ".join(removed_paths),
+                        )
+                        return trimmed_model, trimmed_data
             raise NeedAnalysisParserError(
                 "Structured extraction failed Pydantic validation.",
                 raw_text=candidate,

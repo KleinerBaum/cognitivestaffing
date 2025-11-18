@@ -9,6 +9,8 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Structured extraction now prunes invalid fields, repairs stage counts, and surfaces a bilingual warning with error details when JSON parsing fails, so recruiters keep valid data and know which fields to fix instead of silently falling back to empty defaults.
+  DE: Die strukturierte Extraktion entfernt ungültige Felder, korrigiert Stufenangaben und blendet bei JSON-Fehlern eine zweisprachige Warnung mit Fehlerdetails ein, sodass valide Daten erhalten bleiben und Recruiter:innen gezielt nachbessern können, statt unbemerkt auf leere Standardprofile zurückzufallen.
 - EN: Recompute Company-step required fields after inline validators run so clearing the contact email or primary city immediately disables “Next” again and surfaces the bilingual warning before moving on.
   DE: Die Pflichtfeldprüfung im Unternehmensschritt läuft jetzt nach den Inline-Validatoren erneut, sodass das Löschen der Kontakt-E-Mail oder Primärstadt „Weiter“ sofort sperrt und der zweisprachige Hinweis erscheint, bevor es weitergeht.
 - EN: WizardRouter now reruns the contact email and primary city validators using the latest widget state, clears stale profile values, and shows a bilingual warning beside “Next” so recruiters cannot advance while either field is empty.

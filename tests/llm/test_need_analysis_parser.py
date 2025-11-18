@@ -43,9 +43,7 @@ def test_parser_repairs_invalid_payload(monkeypatch) -> None:
 
     repair_called: dict[str, object] = {}
 
-    def _fake_repair_profile_payload(
-        data: dict[str, Any], *, errors: Any = None
-    ) -> dict[str, Any]:
+    def _fake_repair_profile_payload(data: dict[str, Any], *, errors: Any = None) -> dict[str, Any]:
         repair_called["errors"] = errors
         repaired = json.loads(json.dumps(data))
         repaired["position"]["team_size"] = 7
@@ -58,3 +56,16 @@ def test_parser_repairs_invalid_payload(monkeypatch) -> None:
     assert "errors" in repair_called
     assert data["position"]["team_size"] == 7
     assert model.position.team_size == 7
+
+
+def test_parser_drops_invalid_fields_to_salvage_payload() -> None:
+    """Invalid scalar fields should be pruned instead of discarding the profile."""
+
+    parser = NeedAnalysisOutputParser()
+    payload = _base_payload()
+    payload["compensation"]["salary_min"] = "invalid"
+
+    model, data = parser.parse(json.dumps(payload))
+
+    assert data["compensation"].get("salary_min") is None
+    assert model.compensation.salary_min is None
