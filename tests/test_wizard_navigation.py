@@ -65,6 +65,8 @@ class DummyColumn:
         self._response = response
 
     def button(self, *_args: object, **_kwargs: object) -> bool:
+        if hasattr(st, "button"):
+            return st.button(*_args, **_kwargs)
         result = self._response
         self._response = False
         return result
@@ -85,13 +87,21 @@ class DummyColumn:
         return False
 
 
-@pytest.fixture(autouse=True)
-def clear_session_state() -> None:
-    """Ensure a clean ``st.session_state`` before and after every test."""
+class _SessionStateShim(dict):
+    """Lightweight dict-based replacement for ``st.session_state`` during tests."""
 
-    st.session_state.clear()
+    def clear(self) -> None:  # pragma: no cover - uses dict.clear
+        super().clear()
+
+
+@pytest.fixture(autouse=True)
+def session_state_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch ``st.session_state`` with a deterministic in-memory mapping."""
+
+    state = _SessionStateShim()
+    monkeypatch.setattr(st, "session_state", state, raising=False)
     yield
-    st.session_state.clear()
+    state.clear()
 
 
 class _QueryParamStore(MutableMapping[str, List[str]]):
@@ -293,7 +303,7 @@ def test_navigate_updates_state_and_query(monkeypatch: pytest.MonkeyPatch, query
     with pytest.raises(RuntimeError):
         router.navigate("company", mark_current_complete=True)
 
-    wizard_state = st.session_state["wizard"]
+    wizard_state = router._state
     assert wizard_state["current_step"] == "company"
     assert query_params["step"] == ["company"]
     assert st.session_state["_wizard_scroll_to_top"] is True
@@ -311,7 +321,7 @@ def test_pending_incomplete_jump_redirects_to_first_incomplete(
     missing_ref = {"value": ["position.job_title"]}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
 
-    wizard_state = st.session_state["wizard"]
+    wizard_state = router._state
     assert wizard_state["current_step"] == "team"
     assert query_params["step"] == ["team"]
     assert st.session_state["_wizard_scroll_to_top"] is True
@@ -348,13 +358,13 @@ def test_skip_marks_step_completed_and_sets_query(
 ) -> None:
     """Skipping an optional step should mark it as completed and move forward."""
 
-    sequence = iter([False, True])  # Next button -> False, Skip button -> True
-
     def fake_button(*_args: object, **_kwargs: object) -> bool:
-        try:
-            return next(sequence)
-        except StopIteration:
+        key = _kwargs.get("key")
+        if key == "wizard_next_benefits":
             return False
+        if key == "wizard_skip_benefits":
+            return True
+        return False
 
     monkeypatch.setattr(st, "button", fake_button)
     monkeypatch.setattr(st, "columns", lambda *_, **__: [DummyColumn(), DummyColumn(), DummyColumn()])
@@ -376,7 +386,7 @@ def test_skip_marks_step_completed_and_sets_query(
     with pytest.raises(RerunTriggered):
         router.run()
 
-    wizard_state = st.session_state["wizard"]
+    wizard_state = router._state
     assert wizard_state["current_step"] == "interview"
     assert query_params["step"] == ["interview"]
     assert "benefits" in wizard_state.get("completed_steps", [])
@@ -418,6 +428,61 @@ def test_company_step_disables_next_until_required_answer(
     next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+
+def test_run_handles_renderer_exception_gracefully(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Renderer failures should surface inline errors without crashing the app."""
+
+    captured_errors: list[str] = []
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "columns", lambda *_, **__: [DummyColumn(), DummyColumn(), DummyColumn()])
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(AssertionError("rerun not expected")))
+    monkeypatch.setattr(st, "error", lambda message, **__: captured_errors.append(message))
+    monkeypatch.setattr(st, "expander", lambda *_, **__: DummyContainer())
+    monkeypatch.setattr(st, "exception", lambda *_, **__: None)
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    def _failing_callback(_context: WizardContext) -> None:
+        raise ValueError("boom")
+
+    first_key = _STEP_DEFINITIONS[0][0]
+    router._renderers[first_key] = StepRenderer(callback=_failing_callback, legacy_index=0)
+
+    router.run()
+
+    assert captured_errors, "expected error banner to be displayed"
+
+
+def test_router_bootstrap_skips_repeated_query_sync(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Router should only sync query params once per Streamlit session."""
+
+    call_count = {"value": 0}
+    original_sync = WizardRouter._sync_with_query_params
+
+    def _counting_sync(self: WizardRouter) -> None:
+        call_count["value"] += 1
+        original_sync(self)
+
+    monkeypatch.setattr(WizardRouter, "_sync_with_query_params", _counting_sync)
+
+    missing_ref = {"value": []}
+    _make_router(monkeypatch, query_params, missing_ref)
+    assert call_count["value"] == 1
+
+    _make_router(monkeypatch, query_params, missing_ref)
+    assert call_count["value"] == 1, "bootstrap should skip duplicate syncs"
 
 
 def test_company_step_enables_next_after_required_answer(
@@ -467,7 +532,7 @@ def test_company_step_enables_next_after_required_answer(
     next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
-    wizard_state = st.session_state["wizard"]
+    wizard_state = router._state
     assert wizard_state["current_step"] == "team"
 
 
@@ -566,7 +631,7 @@ def test_critical_followup_blocks_until_answered(
 
     next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
-    wizard_state = st.session_state["wizard"]
+    wizard_state = router._state
     assert wizard_state["current_step"] == "role_tasks"
 
 
@@ -625,7 +690,7 @@ def test_requirements_followup_blocks_role_tasks(
 
     next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
-    wizard_state = st.session_state["wizard"]
+    wizard_state = router._state
     assert wizard_state["current_step"] == "skills"
 
 

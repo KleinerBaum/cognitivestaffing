@@ -8,13 +8,17 @@ components and instead focus on data coercion, defaults, and state updates.
 
 from __future__ import annotations
 
-import re
 import io
+import logging
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Mapping
 
+from pydantic import ValidationError
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
+from utils.i18n import tr
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
@@ -31,6 +35,30 @@ from utils.normalization import (
 )
 
 
+if TYPE_CHECKING:  # pragma: no cover - typing-only import path
+    from streamlit.runtime.scriptrunner import (
+        RerunException as StreamlitRerunException,
+        StopException as StreamlitStopException,
+    )
+else:  # pragma: no cover - Streamlit runtime is unavailable during unit tests
+    try:
+        from streamlit.runtime.scriptrunner import (
+            RerunException as StreamlitRerunException,
+            StopException as StreamlitStopException,
+        )
+    except Exception:
+
+        class StreamlitRerunException(RuntimeError):
+            """Fallback rerun exception when Streamlit internals cannot be imported."""
+
+        class StreamlitStopException(RuntimeError):
+            """Fallback stop exception when Streamlit internals cannot be imported."""
+
+
+RerunException = StreamlitRerunException
+StopException = StreamlitStopException
+
+
 SALARY_SLIDER_MIN = 0
 SALARY_SLIDER_MAX = 500_000
 SALARY_SLIDER_STEP = 1_000
@@ -40,6 +68,15 @@ _MISSING = object()
 
 
 _FIELD_LOCK_BASE_KEY = "ui.locked_field_unlock"
+
+
+logger = logging.getLogger(__name__)
+
+_RECOVERABLE_WIZARD_ERRORS: tuple[type[Exception], ...] = (
+    StreamlitAPIException,
+    ValidationError,
+    ValueError,
+)
 
 
 def set_in(data: dict, path: str, value: Any) -> None:
@@ -198,6 +235,46 @@ def _remove_field_lock_metadata(path: str) -> None:
         _clear_field_unlock_state(path)
 
 
+def _render_localized_error(message_de: str, message_en: str, error: Exception | None = None) -> None:
+    """Display a bilingual error banner with optional expandable details."""
+
+    lang = st.session_state.get("lang", "de")
+    st.error(tr(message_de, message_en, lang=lang))
+    if error is None:
+        return
+    label = tr("Fehlerdetails anzeigen", "Show error details", lang=lang)
+    try:
+        expander = st.expander(label)
+    except Exception:  # pragma: no cover - Streamlit shim fallback
+        expander = None
+    if expander is None:
+        if hasattr(st, "write"):
+            st.write(repr(error))
+        return
+    with expander:
+        if hasattr(st, "exception"):
+            st.exception(error)
+        else:  # pragma: no cover - fallback for lightweight Streamlit shims
+            st.write(repr(error))
+
+
+def _handle_profile_update_error(path: str, error: Exception) -> None:
+    """Surface a recoverable error raised while updating ``path``."""
+
+    logger.warning("Failed to update profile path '%s': %s", path, error, exc_info=error)
+    _render_localized_error(
+        (
+            f"Automatische Verarbeitung für das Feld „{path}“ ist fehlgeschlagen. "
+            "Bitte prüfe die Eingabe oder trage sie manuell ein – die Sitzung bleibt aktiv."
+        ),
+        (
+            f"Automatic processing for the field “{path}” failed. "
+            "Please review the value or capture it manually – your session stays active."
+        ),
+        error,
+    )
+
+
 def _ensure_profile_meta(profile: dict[str, Any]) -> dict[str, Any]:
     """Return the ``meta`` dict for ``profile``, creating it when missing."""
 
@@ -302,47 +379,40 @@ def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
 
 
 def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> None:
-    """Update profile data and clear derived outputs if changed.
+    """Update profile data and clear derived outputs if changed."""
 
-    Parameters
-    ----------
-    path:
-        Canonical profile path identifying the field to update.
-    value:
-        Value that should be persisted to the profile after normalisation.
-    session_value:
-        Optional raw value to persist under ``st.session_state[path]``. When
-        provided this is stored instead of the normalised value to keep widget
-        bindings (e.g. ``date`` objects) intact for Streamlit components.
-    """
-
-    data = _get_profile_state()
-    data.setdefault("location", {})
-    normalized_value_for_path = _normalize_value_for_path(path, value)
-    normalized_value = _normalize_semantic_empty(normalized_value_for_path)
-    if normalized_value is None:
-        st.session_state.pop(path, None)
-    else:
-        if session_value is _MISSING:
-            target_session_value = normalized_value_for_path
+    try:
+        data = _get_profile_state()
+        data.setdefault("location", {})
+        normalized_value_for_path = _normalize_value_for_path(path, value)
+        normalized_value = _normalize_semantic_empty(normalized_value_for_path)
+        if normalized_value is None:
+            st.session_state.pop(path, None)
         else:
-            target_session_value = session_value
-        current_session_value = st.session_state.get(path, _MISSING)
-        if current_session_value is _MISSING or current_session_value != target_session_value:
-            st.session_state[path] = target_session_value
-    current = get_in(data, path)
-    if _normalize_semantic_empty(current) != normalized_value:
-        if normalized_value is None and not isinstance(
-            normalized_value_for_path,
-            (list, tuple, set, frozenset, dict),
-        ):
-            stored_value: Any = None
-        else:
-            stored_value = normalized_value_for_path
-        set_in(data, path, stored_value)
-        _clear_generated()
-        _remove_field_lock_metadata(path)
-        _sync_followup_completion(path, normalized_value_for_path, data)
+            if session_value is _MISSING:
+                target_session_value = normalized_value_for_path
+            else:
+                target_session_value = session_value
+            current_session_value = st.session_state.get(path, _MISSING)
+            if current_session_value is _MISSING or current_session_value != target_session_value:
+                st.session_state[path] = target_session_value
+        current = get_in(data, path)
+        if _normalize_semantic_empty(current) != normalized_value:
+            if normalized_value is None and not isinstance(
+                normalized_value_for_path,
+                (list, tuple, set, frozenset, dict),
+            ):
+                stored_value: Any = None
+            else:
+                stored_value = normalized_value_for_path
+            set_in(data, path, stored_value)
+            _clear_generated()
+            _remove_field_lock_metadata(path)
+            _sync_followup_completion(path, normalized_value_for_path, data)
+    except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
+        raise
+    except Exception as error:  # pragma: no cover - defensive guard
+        _handle_profile_update_error(path, error)
 
 
 def _ensure_profile_mapping() -> Mapping[str, Any]:

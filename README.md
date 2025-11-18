@@ -8,11 +8,13 @@ EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
 * The bilingual debug panel lets admins toggle Responses vs. Chat APIs, enable verbose logs, and align USE_RESPONSES_API, USE_CLASSIC_API, and RESPONSES_ALLOW_TOOLS in one place.
+* Inline error boundaries keep the wizard session alive even when parsing or Streamlit widgets fail, surfacing bilingual guidance so SMEs can continue with manual edits instead of losing their progress.
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
 * Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.
 * Das zweisprachige Debug-Panel erlaubt Admins, Responses- vs.-Chat-API umzuschalten, ausführliches Logging zu aktivieren und USE_RESPONSES_API, USE_CLASSIC_API sowie RESPONSES_ALLOW_TOOLS gemeinsam zu steuern.
+* Fehlergrenzen direkt im Wizard sorgen dafür, dass Sitzungen bei Parser- oder Streamlit-Ausnahmen nicht abbrechen, sondern mit zweisprachiger Anleitung zum manuellen Weiterarbeiten geöffnet bleiben.
 
 Version
 

@@ -58,12 +58,8 @@ class UIKeys:
     DEBUG_PANEL = "ui.debug.panel"
     DEBUG_DETAILS = "ui.debug.details"
     DEBUG_API_MODE = "ui.debug.api_mode"
-    SUMMARY_POSITION_REPORTING_MANAGER_NAME = (
-        "ui.summary.position.reporting_manager_name"
-    )
-    CONTACT_POSITION_REPORTING_MANAGER_NAME = (
-        "ui.contact.position.reporting_manager_name"
-    )
+    SUMMARY_POSITION_REPORTING_MANAGER_NAME = "ui.summary.position.reporting_manager_name"
+    CONTACT_POSITION_REPORTING_MANAGER_NAME = "ui.contact.position.reporting_manager_name"
 
 
 class ProfilePaths(StrEnum):
@@ -242,6 +238,7 @@ class StateKeys:
     WIZARD_STEP_COUNT = "wizard.step_count"
     STEPPER_WARNING = "wizard.stepper_warning"
     WIZARD_AUTOFILL_DECISIONS = "wizard.autofill_decisions"
+    WIZARD_SESSION_READY = "wizard.session_ready"
 
 
 def _collect_ui_keys() -> tuple[str, ...]:
