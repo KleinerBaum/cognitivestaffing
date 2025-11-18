@@ -33,6 +33,19 @@ The `tests.*` override was removed on 2025-02-21 so that mypy now reports issues
 - **2025-02-24:** Introduced `utils.telemetry.OtlpConfig`, dropped the module override, and aligned OTLP exporter plumbing with typed parameters so telemetry now participates in the main mypy run.
 - **2025-02-26:** Added typed profile payloads to `utils.normalization`, updated all call sites, and removed the override so the normalisation pipeline now participates in mypy.
 
+### Completed Refactors – Error Counts & Follow-ups
+
+| Module | Baseline errors (2024-10-08) | Current errors | Traceability | Follow-up steps |
+| --- | ---: | ---: | --- | --- |
+| `sidebar.*` | 14【0a28eb†L1-L2】 | 0 | PR #853 (`0b4b4db`) removed the ignore and tightened the salary helpers.【c2cece†L12-L18】 | Monitor the Streamlit API migration so the new typed widgets continue to match upstream stubs once `streamlit` ships official typing information. |
+| `wizard_router` | 5【984e26†L1-L2】 | 0 | PR #938 (`9a2076c`/`4f5e17c`) annotated metadata helpers and enforced type-safe navigation maps.【6576a7†L13-L21】 | Track the upcoming page-layout split so the router enums can adopt `Literal` route IDs shared with `pages.*`. |
+| `openai_utils.*` | 17【12199b†L1-L2】 | 0 | PR #952 (`84155ff`/`629a21a`) refactored the request/response plumbing to use typed helper dataclasses.【52349b†L7-L12】 | Fold the new telemetry span helper typings into `llm/openai_responses.py` once Responses-tooling launches. |
+| `wizard.runner` | — (module added after the 2024-10-08 snapshot, so errors were not recorded) | 0 | PR #953 (`ce12ac4`/`39e2c8e`) aligned the runner state machine with typed enums and helpers.【52349b†L5-L9】 | Once the multi-tenant wizard modes land, extend the runner enums with TypedDict-backed payloads for each variant. |
+| `wizard.layout` | 5 (recorded as `wizard/_layout.py` before the rename)【cfe5cf†L1-L2】 | 0 | PR #953 (`ce12ac4`) extracted typed button renderers and value sync logic.【52349b†L5-L9】 | Audit the new `wizard.layout.render_navigation_controls()` helper whenever additional component states are introduced. |
+| `tests.*` | 354【a5c77a†L1-L2】 | 144 (mypy run from 2025-02-21) | PR #954 (`94d19e2`/`459d881`) typed the fixtures and re-enabled the suite so remaining failures surface in CI.【52349b†L3-L6】 | Split the 144 reported issues into follow-up tickets (focus first on wizard snapshots and OpenAI harness mocks). |
+| `utils.telemetry` | 9【0f448f†L1-L2】 | 0 | PR #955 (`370ff9e`/`c6cfdaa`) introduced the `OtlpConfig` dataclass and removed dynamic attribute lookups.【52349b†L1-L6】 | Add coverage for OTLP exporter fallbacks so new optional fields stay typed. |
+| `utils.normalization` | 4【fa4b9c†L1-L2】 | 0 | PR #956 (`88a8884`/`18bdf75`) added TypedDict payloads for normalization outputs and updated call sites.【52349b†L1-L4】 | Continue migrating downstream consumers (e.g., `wizard._logic`) to the typed payloads to avoid regressions when shapes change. |
+
 ## Strict modules
 
 The following wizard modules now run with `disallow_untyped_defs` to keep newly touched helpers fully annotated:
