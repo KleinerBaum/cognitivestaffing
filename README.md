@@ -42,6 +42,12 @@ EN: Run ruff format, ruff check, and mypy --config-file pyproject.toml before ex
 
 DE: Führe ruff format, ruff check und mypy --config-file pyproject.toml aus und starte anschließend coverage run -m pytest -q (standardmäßig werden llm-Tests übersprungen; mit konfiguriertem OpenAI-Key kannst du -m llm ergänzen). Halte die Gesamtabdeckung bei ≥88 %, damit die CI grün bleibt und XML-/HTML-Artefakte für das Review bereitstehen.
 
+Dependency management / Abhängigkeitsverwaltung
+
+EN: Poetry 1.8+ now manages dependency installs without packaging the repository. Run `poetry install --no-root` (or append `--with ingest` when vectorisation helpers are required) to mirror the Streamlit Cloud deployment, which executes the same command via `infra/deployment.toml`. Because `[tool.poetry]` sets `package-mode = false`, Poetry simply reads `[project]` dependencies and extras – no `src/` layout or package build step is needed for local or cloud setups.
+
+DE: Poetry 1.8+ übernimmt die Abhängigkeitsinstallation, ohne das Repository zu paketieren. Führe `poetry install --no-root` aus (optional mit `--with ingest`, falls die Vectorisierungs-Extras benötigt werden), damit deine lokale Umgebung exakt dem Streamlit-Cloud-Deployment entspricht – dort läuft derselbe Befehl gemäß `infra/deployment.toml`. Durch `package-mode = false` im Abschnitt `[tool.poetry]` nutzt Poetry direkt die Angaben unter `[project]`, sodass weder ein `src/`-Layout noch ein separater Build-Schritt für lokale oder Cloud-Setups erforderlich ist.
+
 EN: Before opening a PR that touches sidebar/, pages/, components/, wizard/, or ui_views/, run python scripts/check_localization.py to ensure English UI strings stay wrapped in tr() or live inside i18n.STR. pytest tests/test_localization_scan.py enforces the same scan during CI to keep regressions out of dev.
 
 DE: Bevor du einen PR mit Änderungen an sidebar/, pages/, components/, wizard/ oder ui_views/ erstellst, führe python scripts/check_localization.py aus, damit englische UI-Texte weiterhin in tr() gekapselt oder in i18n.STR hinterlegt sind. pytest tests/test_localization_scan.py erzwingt denselben Scan in der CI, damit keine Regressionen den dev-Branch erreichen.

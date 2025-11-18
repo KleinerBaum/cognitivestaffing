@@ -3,4 +3,4 @@
 # DE: Fixiert Python-Version und Installationsbefehl, damit Streamlit pyproject.toml verwendet.
 [python]
 version = "3.11"
-installCommand = "pip install ."
+installCommand = "poetry install --no-root"
