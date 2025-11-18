@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Dict, Optional
+from dataclasses import dataclass
+from typing import Dict, Mapping, Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -21,6 +22,18 @@ from opentelemetry.sdk.trace.sampling import (
 LOGGER = logging.getLogger("cognitive_needs.telemetry")
 
 _INITIALISED = False
+
+
+@dataclass(frozen=True)
+class OtlpConfig:
+    """Structured configuration for OTLP exporters."""
+
+    protocol: str
+    endpoint: str
+    headers: Mapping[str, str] | None = None
+    timeout: int | None = None
+    certificate_file: str | None = None
+    insecure: bool | None = None
 
 
 def _parse_headers(raw: str | None) -> Dict[str, str]:
@@ -77,18 +90,17 @@ def _coerce_ratio(raw: str, *, default: float) -> float:
     return max(0.0, min(1.0, value))
 
 
-def _create_otlp_exporter() -> Optional[SpanExporter]:
-    """Instantiate an OTLP span exporter based on environment settings."""
+def _build_otlp_config() -> OtlpConfig | None:
+    """Create an OTLP configuration object from environment variables."""
 
     protocol = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf").strip().lower()
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
     if not endpoint:
         LOGGER.info("OTLP endpoint not configured; telemetry exporter will not be created")
         return None
-    headers = _parse_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS"))
-    timeout_raw = os.getenv("OTEL_EXPORTER_OTLP_TIMEOUT", "").strip()
-    certificate_file = os.getenv("OTEL_EXPORTER_OTLP_CERTIFICATE", "").strip() or None
 
+    headers = _parse_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS")) or None
+    timeout_raw = os.getenv("OTEL_EXPORTER_OTLP_TIMEOUT", "").strip()
     timeout: Optional[int] = None
     if timeout_raw:
         try:
@@ -96,31 +108,53 @@ def _create_otlp_exporter() -> Optional[SpanExporter]:
         except ValueError:
             LOGGER.warning("Invalid OTEL_EXPORTER_OTLP_TIMEOUT '%s'; ignoring", timeout_raw)
 
-    exporter_kwargs: Dict[str, object] = {}
-    exporter_kwargs["endpoint"] = endpoint
-    if headers:
-        exporter_kwargs["headers"] = headers
-    if timeout is not None:
-        exporter_kwargs["timeout"] = timeout
-    if certificate_file:
-        exporter_kwargs["certificate_file"] = certificate_file
+    certificate_file = os.getenv("OTEL_EXPORTER_OTLP_CERTIFICATE", "").strip() or None
+    insecure_flag = os.getenv("OTEL_EXPORTER_OTLP_INSECURE", "").strip().lower()
+    insecure: bool | None = None
+    if insecure_flag in {"1", "true", "yes"}:
+        insecure = True
 
-    if protocol in {"grpc", "grpc/protobuf"}:
+    return OtlpConfig(
+        protocol=protocol,
+        endpoint=endpoint,
+        headers=headers,
+        timeout=timeout,
+        certificate_file=certificate_file,
+        insecure=insecure,
+    )
+
+
+def _create_otlp_exporter() -> Optional[SpanExporter]:
+    """Instantiate an OTLP span exporter based on environment settings."""
+
+    config = _build_otlp_config()
+    if config is None:
+        return None
+
+    if config.protocol in {"grpc", "grpc/protobuf"}:
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GrpcExporter
 
-        insecure = os.getenv("OTEL_EXPORTER_OTLP_INSECURE", "").strip().lower()
-        if insecure in {"1", "true", "yes"}:
-            exporter_kwargs["insecure"] = True
-        return GrpcExporter(**exporter_kwargs)
+        return GrpcExporter(
+            endpoint=config.endpoint,
+            headers=config.headers,
+            timeout=config.timeout,
+            certificate_file=config.certificate_file,
+            insecure=config.insecure or False,
+        )
 
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as HttpExporter
 
-    if protocol not in {"http", "http/protobuf"}:
+    if config.protocol not in {"http", "http/protobuf"}:
         LOGGER.warning(
             "Unsupported OTEL_EXPORTER_OTLP_PROTOCOL '%s'; falling back to http/protobuf",
-            protocol,
+            config.protocol,
         )
-    return HttpExporter(**exporter_kwargs)
+    return HttpExporter(
+        endpoint=config.endpoint,
+        headers=config.headers,
+        timeout=config.timeout,
+        certificate_file=config.certificate_file,
+    )
 
 
 def setup_tracing(*, force: bool = False) -> None:
@@ -159,4 +193,4 @@ def setup_tracing(*, force: bool = False) -> None:
     LOGGER.info("OpenTelemetry tracing initialised for service '%s'", service_name)
 
 
-__all__ = ["setup_tracing"]
+__all__ = ["setup_tracing", "OtlpConfig"]
