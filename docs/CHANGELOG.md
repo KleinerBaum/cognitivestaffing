@@ -7,6 +7,11 @@ Changed / Geändert
 - EN: Hid the built-in Streamlit multi-page navigation links (app, jobad, company, …) so the custom wizard sidebar stays the only visible navigation surface; this prevents duplicate menus on the left edge of the app.
   DE: Die integrierte Streamlit-Multipage-Navigation (app, jobad, company, …) wird jetzt vollständig verborgen, damit ausschließlich die kundenspezifische Wizard-Sidebar als sichtbare Navigation dient und keine doppelten Menüs links erscheinen.
 
+Fixed / Behoben
+
+- EN: Hardened the company contact email validator to use Pydantic's email parsing so invalid addresses surface as inline errors instead of raising a TypeError.
+  DE: Die Validierung der Kontakt-E-Mail nutzt nun den Pydantic-E-Mail-Parser, damit ungültige Adressen als Inline-Fehler erscheinen und kein TypeError mehr ausgelöst wird.
+
 v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
 
 Added / Neu
