@@ -12,7 +12,6 @@ import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.i18n import tr
-from components.stepper import render_step_summary
 
 
 LocalizedText = tuple[str, str]
@@ -527,16 +526,6 @@ def render_onboarding_hero(animation_bytes: bytes | None, *, mime_type: str = "i
 
 def render_step_heading(title: str, subtitle: Optional[str] = None) -> None:
     """Render a consistent heading block for wizard steps."""
-
-    summary_payload = st.session_state.pop("_wizard_step_summary", None)
-    if (
-        isinstance(summary_payload, tuple)
-        and len(summary_payload) == 2
-        and isinstance(summary_payload[0], int)
-        and isinstance(summary_payload[1], Sequence)
-    ):
-        labels = [str(label) for label in summary_payload[1]]
-        render_step_summary(summary_payload[0], labels)
 
     st.header(title)
     if subtitle:
