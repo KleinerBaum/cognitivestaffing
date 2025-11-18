@@ -36,6 +36,7 @@ from pydantic import (
 from pydantic import AnyUrl
 
 from core.normalization import sanitize_optional_url_fields, sanitize_optional_url_value
+from llm.profile_normalization import normalize_interview_stages_field
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
     NormalizedProfilePayload,
@@ -1023,6 +1024,7 @@ def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, An
         float_fields=FLOAT_FIELDS,
     )
     sanitize_optional_url_fields(payload)
+    normalize_interview_stages_field(payload)
     return payload
 
 
