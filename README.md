@@ -26,6 +26,8 @@ Release timeline / Release-Verlauf
 
 * Unreleased – Extraction resilience: structured JSON parsing now repairs interview stage lists, records validation errors, and surfaces bilingual warnings when a profile falls back to defaults so recruiters know which fields to fix.
 * Unveröffentlicht – Extraktionsrobustheit: Der strukturierte JSON-Parser korrigiert jetzt Interview-Phasenlisten, protokolliert Validierungsfehler und blendet zweisprachige Warnungen ein, sobald ein Profil auf Standardwerte zurückgesetzt wird – so wissen Recruiter:innen sofort, welche Felder nachgepflegt werden müssen.
+* EN: The Company step revalidates the contact email and primary city during navigation, showing a bilingual warning under the Next controls and preventing progress until both fields contain real data.
+* DE: Der Unternehmensschritt prüft Kontakt-E-Mail und Primärstadt jetzt zusätzlich bei der Navigation, blendet direkt unter „Weiter“ einen zweisprachigen Hinweis ein und lässt erst weiterklicken, wenn beide Felder echte Werte enthalten.
 * v1.1.0 – Wizard hardening & schema alignment: inline follow-ups inside all eight steps, automatic salary estimation refresh, quick/precise routing toggle, debug panel, and Responses ↔ Chat switching helper.
 * v1.0.1 – Setup & branding refresh: company branding enrichment, OpenAI configuration guidance, contributor docs for schema propagation, and extraction hardening.
 * v1.0.0 – Wizard modernisation: unified layout, schema/export propagation, AI helpers for responsibilities/interviews, navigation refresh, and release of the eight-step intake.
