@@ -1,6 +1,9 @@
 from pathlib import Path
 import sys
 import types
+from dataclasses import dataclass
+
+import streamlit as st
 
 import pytest
 
@@ -39,4 +42,21 @@ def _ensure_test_openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(openai_api, "OPENAI_API_KEY", "test-key", raising=False)
     except Exception:
         pass
+    yield
+
+
+@dataclass
+class _SessionDict(dict[str, object]):
+    """Lightweight replacement for ``st.session_state`` during tests."""
+
+    def clear(self) -> None:  # type: ignore[override]
+        super().clear()
+
+
+@pytest.fixture(autouse=True)
+def _stub_streamlit_session_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace Streamlit's runtime-bound session state with a plain dictionary."""
+
+    session_state = _SessionDict()
+    monkeypatch.setattr(st, "session_state", session_state, raising=False)
     yield

@@ -14,6 +14,7 @@ from tests.utils import (
 from wizard import (
     FIELD_SECTION_MAP,
     _get_profile_state,
+    _missing_fields_for_section,
     _render_followup_question,
     _render_followups_for_section,
     _update_profile,
@@ -202,3 +203,37 @@ def test_followup_section_shows_inline_meta(monkeypatch: pytest.MonkeyPatch) -> 
     _render_followups_for_section(("company.",), {})
 
     assert any("wizard-followup-meta" in text for text in seen_markdown)
+
+
+def test_missing_fields_include_contact_email_when_extraction_list_empty() -> None:
+    """Blank contact emails should trigger critical follow-ups even without extraction gaps."""
+
+    SessionBootstrap().apply()
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"contact_email": ""},
+        "location": {"primary_city": ""},
+    }
+    st.session_state[StateKeys.EXTRACTION_MISSING] = []
+    st.session_state[StateKeys.FOLLOWUPS] = []
+
+    missing = _missing_fields_for_section(FIELD_SECTION_MAP["company.contact_email"])
+
+    assert "company.contact_email" in missing
+    assert any(q.get("field") == "company.contact_email" for q in st.session_state[StateKeys.FOLLOWUPS])
+
+
+def test_missing_fields_merge_extraction_and_profile_gaps() -> None:
+    """Extraction gap tracking should merge with live profile validation."""
+
+    SessionBootstrap().apply()
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"contact_email": ""},
+        "location": {"primary_city": ""},
+    }
+    st.session_state[StateKeys.EXTRACTION_MISSING] = ["company.name"]
+    st.session_state[StateKeys.FOLLOWUPS] = []
+
+    missing = _missing_fields_for_section(FIELD_SECTION_MAP["company.contact_email"])
+
+    assert "company.contact_email" in missing
+    assert "company.name" in missing

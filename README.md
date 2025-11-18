@@ -198,6 +198,8 @@ ESCO integration: When enabled, the ESCO enricher normalizes job titles, propose
 Critical field safeguards / Schutz kritischer Felder:
 EN: Company contact emails and the primary city hint now fall back to blank strings inside the normalized profile whenever neither extraction nor manual input supplies data, so rule checks and exports no longer warn about missing required fields.
 DE: Unternehmens-Kontaktmails sowie der primäre Stadthinweis fallen im normalisierten Profil jetzt auf leere Strings zurück, wenn weder Extraktion noch manuelle Eingabe Werte liefern – dadurch verschwinden Warnungen zu fehlenden Pflichtfeldern in Regeln und Exporten.
+EN: Inline follow-up cards automatically re-ask for `company.contact_email` and `location.primary_city` with bilingual prompts whenever those values remain empty, so the Company and Location steps stay blocked until recruiters provide actionable details.
+DE: Inline-Follow-up-Karten fragen `company.contact_email` und `location.primary_city` jetzt automatisch mit zweisprachigen Prompts nach, sobald diese Felder leer sind – dadurch bleiben Unternehmens- und Standortschritt gesperrt, bis nutzbare Angaben vorliegen.
 
 AI-assisted suggestions: Dedicated helper agents surface responsibilities, skills, benefits, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI remains responsive during longer generations. The requirements, role, and compensation steps now include on-demand “Suggest responsibilities”, “Suggest additional skills”, and “Suggest benefits” actions that take into account existing inputs to avoid duplicates.
 
