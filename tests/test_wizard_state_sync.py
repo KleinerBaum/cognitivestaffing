@@ -72,3 +72,19 @@ def test_update_profile_normalizes_country_in_state() -> None:
 
     assert "location.country" not in st.session_state
     assert profile["location"]["country"] is None
+
+
+def test_update_profile_preserves_widget_value_on_semantic_empty() -> None:
+    """Provided session values must persist even when the stored profile clears."""
+
+    st.session_state.clear()
+    ensure_state()
+
+    typed_value = "invalid@"
+    st.session_state["company.contact_email"] = typed_value
+
+    _update_profile("company.contact_email", None, session_value=typed_value)
+
+    profile = st.session_state[StateKeys.PROFILE]
+    assert st.session_state["company.contact_email"] == typed_value
+    assert profile["company"].get("contact_email") in (None, "")
