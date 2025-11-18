@@ -3,13 +3,16 @@ from __future__ import annotations
 from pages.base import WizardPage
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = ("skills.must_have",)
+_REQUIRED_FIELDS: tuple[str, ...] = ()
 _SUMMARY_FIELDS: tuple[str, ...] = (
-    "skills.must_have",
-    "skills.nice_to_have",
-    "skills.certifications",
-    "skills.tools",
-    "skills.languages",
+    "requirements.hard_skills_required",
+    "requirements.soft_skills_required",
+    "requirements.hard_skills_optional",
+    "requirements.soft_skills_optional",
+    "requirements.tools_and_technologies",
+    "requirements.languages_required",
+    "requirements.languages_optional",
+    "requirements.certifications",
 )
 
 

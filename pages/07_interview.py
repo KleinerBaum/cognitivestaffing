@@ -3,13 +3,14 @@ from __future__ import annotations
 from pages.base import WizardPage
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = ("interview_process.steps",)
+_REQUIRED_FIELDS: tuple[str, ...] = ("process.phases",)
 _SUMMARY_FIELDS: tuple[str, ...] = (
-    "interview_process.steps",
-    "interview_process.interviewers",
-    "interview_process.evaluation_criteria",
-    "interview_process.decision_timeline",
-    "interview_process.notes",
+    "process.phases",
+    "process.stakeholders",
+    "process.recruitment_timeline",
+    "process.process_notes",
+    "process.application_instructions",
+    "process.onboarding_process",
 )
 
 

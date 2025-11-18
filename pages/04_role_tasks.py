@@ -3,20 +3,20 @@ from __future__ import annotations
 from pages.base import WizardPage
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = ("role.purpose", "tasks.core")
+_REQUIRED_FIELDS: tuple[str, ...] = (
+    "responsibilities.items",
+    "requirements.hard_skills_required",
+)
 _SUMMARY_FIELDS: tuple[str, ...] = (
-    "role.title",
-    "role.purpose",
-    "role.outcomes",
-    "role.seniority",
-    "role.employment_type",
-    "role.reports_to",
-    "role.work_location",
-    "role.work_model",
-    "role.on_call",
-    "tasks.core",
-    "tasks.secondary",
-    "tasks.success_metrics",
+    "responsibilities.items",
+    "requirements.hard_skills_required",
+    "requirements.soft_skills_required",
+    "requirements.hard_skills_optional",
+    "requirements.soft_skills_optional",
+    "requirements.tools_and_technologies",
+    "requirements.languages_required",
+    "requirements.languages_optional",
+    "requirements.certifications",
 )
 
 
