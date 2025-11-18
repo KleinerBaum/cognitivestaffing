@@ -93,7 +93,17 @@ OPTIONAL_WIZARD_FIELDS = {
     "position.customer_contact_required",
     "position.reporting_manager_name",
     "sources.root",
+    "requirements.background_check_required",
+    "requirements.reference_check_required",
+    "requirements.portfolio_required",
 }
+
+
+COMPLIANCE_FIELD_PATHS: tuple[str, ...] = (
+    "requirements.background_check_required",
+    "requirements.reference_check_required",
+    "requirements.portfolio_required",
+)
 
 
 def test_profile_paths_cover_schema_and_ui() -> None:
@@ -101,6 +111,16 @@ def test_profile_paths_cover_schema_and_ui() -> None:
     dump_paths = set(_flatten_paths(profile_dump))
     canonical_paths = set(KEYS_CANONICAL)
     assert dump_paths == canonical_paths
+
+    compliance_fields = set(COMPLIANCE_FIELD_PATHS)
+    assert compliance_fields <= canonical_paths
+    assert compliance_fields <= dump_paths
+    alias_targets = {alias for alias, target in ALIASES.items() if target in compliance_fields}
+    assert not alias_targets, f"Compliance fields should be canonical without aliases: {sorted(alias_targets)}"
+    wizard_alias_targets = {alias for alias, target in WIZARD_ALIASES.items() if target in compliance_fields}
+    assert not wizard_alias_targets, (
+        f"Wizard aliases should not cover compliance fields: {sorted(wizard_alias_targets)}"
+    )
 
     enum_paths = {member.value for member in ProfilePaths}
     assert enum_paths == canonical_paths

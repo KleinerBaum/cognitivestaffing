@@ -5,9 +5,17 @@ import streamlit as st
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+from components.wizard_schema_types import WIZARD_FIELDS, WizardFieldInfo
 from constants.keys import StateKeys
 from ingest.types import ContentBlock
 from wizard import _field_lock_config, _summary_source_icon_html
+
+
+COMPLIANCE_FIELD_PATHS: tuple[str, ...] = (
+    "requirements.background_check_required",
+    "requirements.reference_check_required",
+    "requirements.portfolio_required",
+)
 
 
 def setup_function() -> None:
@@ -93,3 +101,14 @@ def test_summary_source_icon_uses_tooltip() -> None:
     assert "ℹ️" in html
     assert "title=" in html
     assert "Job ad paragraph" in html
+
+
+def test_wizard_schema_contains_compliance_fields() -> None:
+    """Compliance toggles must be canonical wizard schema fields."""
+
+    field_map: dict[str, WizardFieldInfo] = {field.path: field for field in WIZARD_FIELDS}
+    for path in COMPLIANCE_FIELD_PATHS:
+        field = field_map.get(path)
+        assert field is not None, f"Missing wizard schema metadata for {path}"
+        assert field.python_type == "bool | None"
+        assert field.is_collection is False
