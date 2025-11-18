@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
 from typing import Any, Callable, Sequence
 from urllib.parse import urlparse
@@ -31,6 +31,7 @@ from core.schema import (
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import NormalizedProfilePayload, normalize_profile
 from llm.json_repair import repair_profile_payload
+from llm.profile_normalization import normalize_interview_stages_field
 
 
 import config as app_config
@@ -250,6 +251,23 @@ def ensure_state() -> None:
                 st.session_state[StateKeys.PROFILE] = ensured_validated
             except ValidationError as sanitized_error:
                 errors = sanitized_error.errors()
+                targeted_profile, patched_paths = _fix_known_profile_fields(sanitized, errors)
+                if patched_paths:
+                    try:
+                        validated = NeedAnalysisProfile.model_validate(targeted_profile)
+                        normalized_validated = normalize_profile(validated)
+                        ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                        st.session_state[StateKeys.PROFILE] = ensured_validated
+                        logger.info(
+                            "Patched invalid profile fields in-place: %s",
+                            ", ".join(patched_paths),
+                        )
+                        return
+                    except ValidationError as targeted_error:
+                        logger.debug(
+                            "Validation failed after targeted repairs: %s",
+                            targeted_error,
+                        )
                 repaired_profile = _attempt_profile_repair(sanitized, errors)
                 if repaired_profile is not None:
                     try:
@@ -426,6 +444,67 @@ def _format_error_location(location: Sequence[Any]) -> str:
             continue
         formatted.append(str(part))
     return ".".join(formatted)
+
+
+def _fix_known_profile_fields(
+    payload: Mapping[str, Any], errors: Sequence[Mapping[str, Any]] | None
+) -> tuple[dict[str, Any], list[str]]:
+    """Return a patched copy of ``payload`` for known validation issues."""
+
+    if isinstance(payload, dict):
+        patched: dict[str, Any] = deepcopy(payload)
+    else:
+        patched = deepcopy(dict(payload))
+    if not errors:
+        return patched, []
+    fixed_paths: list[str] = []
+    seen: set[str] = set()
+    for entry in errors:
+        loc = entry.get("loc")
+        if not isinstance(loc, (list, tuple)) or not loc:
+            continue
+        label = _format_error_location(loc) or "<root>"
+        if label in seen:
+            continue
+        if _apply_known_field_fix(patched, loc):
+            fixed_paths.append(label)
+            seen.add(label)
+    return patched, fixed_paths
+
+
+def _apply_known_field_fix(target: MutableMapping[str, Any], location: Sequence[Any]) -> bool:
+    """Attempt to apply a targeted fix for ``location`` within ``target``."""
+
+    if len(location) >= 2 and tuple(location[:2]) == ("process", "interview_stages"):
+        return _fix_interview_stages_field(target)
+    if len(location) >= 2 and tuple(location[:2]) == ("company", "contact_email"):
+        return _fix_contact_email_field(target)
+    return False
+
+
+def _fix_interview_stages_field(target: MutableMapping[str, Any]) -> bool:
+    """Normalise ``process.interview_stages`` so it is never a list."""
+
+    process = target.get("process")
+    if not isinstance(process, MutableMapping):
+        return False
+    before = process.get("interview_stages")
+    normalize_interview_stages_field(target)
+    after = process.get("interview_stages")
+    return before != after
+
+
+def _fix_contact_email_field(target: MutableMapping[str, Any]) -> bool:
+    """Provide a blank default for invalid ``company.contact_email`` values."""
+
+    company = target.get("company")
+    if not isinstance(company, MutableMapping):
+        return False
+    current = company.get("contact_email")
+    if current == "":
+        return False
+    company["contact_email"] = ""
+    return True
 
 
 def _prune_invalid_profile_fields(

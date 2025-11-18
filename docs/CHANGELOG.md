@@ -58,6 +58,8 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: state.ensure_state() now patches known validation issues (e.g. list-based `process.interview_stages`, malformed `company.contact_email`) in place and only resets the profile when recovery fails completely, preserving recruiter input while still enforcing defaults for critical fields.
+  DE: state.ensure_state() behebt bekannte Validierungsprobleme (z. B. Listenwerte bei `process.interview_stages`, ungültige `company.contact_email`) direkt im Profil und setzt nur noch im Notfall komplett zurück, sodass Recruiter:innen-Eingaben erhalten bleiben und kritische Felder trotzdem Standards erhalten.
 - EN: Removed the duplicate `company.headquarters` schema field, aliased old data to `company.hq_location`, and updated the wizard summary so headquarters is stored and rendered via a single canonical key.
   DE: Das doppelte Schemafeld `company.headquarters` entfernt, Altdaten auf `company.hq_location` gemappt und die Wizard-Zusammenfassung aktualisiert, sodass der Hauptsitz nur noch über einen kanonischen Schlüssel geführt wird.
 - EN: Inline follow-up prompts now automatically request `company.contact_email` and `location.primary_city` whenever those values remain blank, merging extraction-missing metadata with live profile validation so recruiters cannot proceed without actionable contact and city details. Normalization still backfills empty strings for these fields, satisfying downstream schemas without noisy warnings.
