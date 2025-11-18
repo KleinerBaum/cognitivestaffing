@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import config
+import core.schema as schema_module
 
 from constants.keys import StateKeys
 from models.need_analysis import NeedAnalysisProfile
@@ -103,6 +105,55 @@ def test_ensure_state_salvages_profile_with_extra_fields():
     assert result["meta"]["target_start_date"] == "2024-11-01"
     assert "unknown_section" not in result
     assert "invalid_field" not in result["company"]
+
+
+def _build_profile_with_invalid_stage() -> dict[str, object]:
+    profile = NeedAnalysisProfile().model_dump()
+    profile["company"]["name"] = "ACME GmbH"
+    profile["position"]["job_title"] = "Data Scientist"
+    profile["process"]["interview_stages"] = ["Phone screen", "Case Study"]
+    return profile
+
+
+def test_ensure_state_repairs_invalid_profile_fields(monkeypatch):
+    st.session_state.clear()
+    invalid_profile = _build_profile_with_invalid_stage()
+    st.session_state[StateKeys.PROFILE] = deepcopy(invalid_profile)
+
+    monkeypatch.setattr(schema_module, "repair_profile_payload", lambda *_, **__: None)
+
+    repaired_profile = deepcopy(invalid_profile)
+    repaired_profile["process"]["interview_stages"] = 2
+
+    def fake_repair(payload, errors=None):  # type: ignore[unused-ignore]
+        assert payload["process"]["interview_stages"] == ["Phone screen", "Case Study"]
+        assert errors
+        return repaired_profile
+
+    monkeypatch.setattr(es, "repair_profile_payload", fake_repair)
+
+    es.ensure_state()
+
+    result = st.session_state[StateKeys.PROFILE]
+    assert result["company"]["name"] == "ACME GmbH"
+    assert result["position"]["job_title"] == "Data Scientist"
+    assert result["process"]["interview_stages"] == 2
+
+
+def test_ensure_state_drops_invalid_fields_when_repair_unavailable(monkeypatch):
+    st.session_state.clear()
+    invalid_profile = _build_profile_with_invalid_stage()
+    st.session_state[StateKeys.PROFILE] = invalid_profile
+
+    monkeypatch.setattr(schema_module, "repair_profile_payload", lambda *_, **__: None)
+    monkeypatch.setattr(es, "repair_profile_payload", lambda *_, **__: None)
+
+    es.ensure_state()
+
+    result = st.session_state[StateKeys.PROFILE]
+    assert result["company"]["name"] == "ACME GmbH"
+    assert result["position"]["job_title"] == "Data Scientist"
+    assert not result["process"]["interview_stages"]
 
 
 @pytest.mark.parametrize("model_alias", ["o4-mini-latest", "O4-MINI"])
