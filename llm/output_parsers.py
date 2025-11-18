@@ -14,7 +14,7 @@ try:  # pragma: no cover - dependency differences
         StructuredOutputParser,
     )
 except ImportError:  # pragma: no cover - langchain>=1.0 moved these classes
-    from langchain_core.output_parsers import (  # type: ignore[no-redef]
+    from langchain_core.output_parsers import (  # type: ignore[import-not-found]
         PydanticOutputParser,
         ResponseSchema,
         StructuredOutputParser,

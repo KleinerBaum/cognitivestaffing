@@ -434,7 +434,11 @@ def _prune_invalid_profile_fields(
 ) -> tuple[dict[str, Any], list[str]]:
     """Remove invalid paths reported by ``errors`` from ``payload``."""
 
-    mutable = deepcopy(payload)
+    copied = deepcopy(payload)
+    if isinstance(copied, dict):
+        mutable: dict[str, Any] = copied
+    else:
+        mutable = dict(copied)
     removed: list[str] = []
     seen: set[str] = set()
     if not errors:

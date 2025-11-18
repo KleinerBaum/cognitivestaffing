@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import html
+import logging
 from dataclasses import dataclass
-from typing import Callable, Collection, Iterable, Mapping, Sequence, Final
+from typing import TYPE_CHECKING, Callable, Collection, Iterable, Mapping, Sequence, Final
 
+from pydantic import ValidationError
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
 from constants.keys import ProfilePaths, StateKeys
 from pages import WizardPage
 from utils.i18n import tr
-from wizard._logic import get_in
+from wizard._logic import get_in, _render_localized_error
 from wizard.followups import followup_has_response
 from wizard.layout import (
     NavigationButtonState,
@@ -28,6 +31,29 @@ from wizard.metadata import (
 
 # ``wizard.metadata`` stays lightweight so this router can depend on shared
 # progress data without importing the Streamlit-heavy ``wizard.flow`` module.
+
+if TYPE_CHECKING:  # pragma: no cover - typing-only import path
+    from streamlit.runtime.scriptrunner import (
+        RerunException as StreamlitRerunException,
+        StopException as StreamlitStopException,
+    )
+else:  # pragma: no cover - Streamlit runtime internals are unavailable in unit tests
+    try:
+        from streamlit.runtime.scriptrunner import (
+            RerunException as StreamlitRerunException,
+            StopException as StreamlitStopException,
+        )
+    except Exception:
+
+        class StreamlitRerunException(RuntimeError):
+            """Fallback rerun exception when Streamlit internals cannot be imported."""
+
+        class StreamlitStopException(RuntimeError):
+            """Fallback stop exception when Streamlit internals cannot be imported."""
+
+
+RerunException = StreamlitRerunException
+StopException = StreamlitStopException
 
 
 @dataclass(frozen=True)
@@ -107,6 +133,8 @@ _COLLECTED_STYLE = """
 </style>
 """
 
+logger = logging.getLogger(__name__)
+
 _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Onboarding", "Onboarding"),
     ("Unternehmen", "Company"),
@@ -122,6 +150,12 @@ _PROFILE_VALIDATED_FIELDS: Final[set[str]] = {
     str(ProfilePaths.COMPANY_CONTACT_EMAIL),
     str(ProfilePaths.LOCATION_PRIMARY_CITY),
 }
+
+_STEP_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
+    StreamlitAPIException,
+    ValidationError,
+    ValueError,
+)
 
 
 LocalizedText = tuple[str, str]
@@ -323,9 +357,10 @@ class WizardRouter:
         self._renderers: dict[str, StepRenderer] = dict(renderers)
         self._context: WizardContext = context
         self._resolve_value: Callable[[Mapping[str, object], str, object | None], object | None] = value_resolver
+        self._local_state: dict[str, object] | None = None
         self._ensure_state_defaults()
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
-        self._sync_with_query_params()
+        self._bootstrap_session_state()
         self._update_section_progress()
         self._apply_pending_incomplete_jump()
 
@@ -378,7 +413,14 @@ class WizardRouter:
         lang = st.session_state.get("lang", "de")
         summary_labels = [tr(de, en, lang=lang) for de, en in _SUMMARY_LABELS]
         st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
-        renderer.callback(self._context)
+        try:
+            renderer.callback(self._context)
+        except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
+            raise
+        except _STEP_RECOVERABLE_ERRORS as error:
+            self._handle_step_exception(page, error)
+        except Exception as error:  # pragma: no cover - defensive guard
+            self._handle_step_exception(page, error)
         self._render_navigation(page, missing)
 
     # ------------------------------------------------------------------
@@ -386,12 +428,35 @@ class WizardRouter:
     # ------------------------------------------------------------------
     @property
     def _state(self) -> dict[str, object]:
-        raw_state = st.session_state.setdefault("wizard", {})
+        try:
+            raw_state = st.session_state["wizard"]
+        except KeyError:
+            if self._local_state is None:
+                self._local_state = {}
+            return self._local_state
         if isinstance(raw_state, dict):
+            self._local_state = raw_state
             return raw_state
         coerced: dict[str, object] = dict(raw_state)
-        st.session_state["wizard"] = coerced
+        if not self._store_wizard_state(coerced):
+            self._local_state = coerced
+            return coerced
         return coerced
+
+    def _store_wizard_state(self, state: dict[str, object]) -> bool:
+        """Persist ``state`` inside ``st.session_state`` when possible."""
+
+        try:
+            st.session_state["wizard"] = state
+            self._local_state = state
+            return True
+        except Exception:
+            storage = getattr(st.session_state, "_new_session_state", None)
+            if isinstance(storage, dict):
+                storage["wizard"] = state
+                self._local_state = state
+                return True
+        return False
 
     def _get_current_step_key(self) -> str:
         current = self._state.get("current_step")
@@ -405,6 +470,27 @@ class WizardRouter:
         state = self._state
         if "current_step" not in state:
             state["current_step"] = self._pages[0].key
+
+    def _handle_step_exception(self, page: WizardPage, error: Exception) -> None:
+        label_de = page.label_for("de")
+        label_en = page.label_for("en")
+        logger.warning("Failed to render wizard step '%s'", page.key, exc_info=error)
+        _render_localized_error(
+            f"Beim Rendern des Schritts „{label_de}“ ist ein Fehler aufgetreten. "
+            "Bitte bearbeite die Felder manuell oder versuche es erneut.",
+            f"We couldn't render the “{label_en}” step. Please edit the fields manually or try again.",
+            error,
+        )
+
+    def _bootstrap_session_state(self) -> None:
+        state = self._state
+        if "current_step" not in state or not isinstance(state.get("current_step"), str):
+            state["current_step"] = self._pages[0].key
+        already_ready = bool(st.session_state.get(StateKeys.WIZARD_SESSION_READY))
+        if already_ready:
+            return
+        self._sync_with_query_params()
+        st.session_state[StateKeys.WIZARD_SESSION_READY] = True
 
     def _sync_with_query_params(self) -> None:
         query_params = st.query_params

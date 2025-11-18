@@ -58,6 +58,8 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Added bilingual error boundaries around `run_wizard()` and every step renderer so parsing/Streamlit exceptions surface inline without resetting the session, and guarded `WizardRouter` bootstrap logic to stop reconnect spam when a session is already live.
+  DE: Zweisprachige Fehlergrenzen rund um `run_wizard()` und alle Schritt-Renderer eingebaut, damit Parser-/Streamlit-Ausnahmen inline angezeigt werden statt die Sitzung zu beenden, und das `WizardRouter`-Bootstrap abgesichert, sodass bestehende Sitzungen nicht mehr mehrfach verbunden werden.
 - EN: Ensured `company.contact_email` and `location.primary_city` always exist (defaulting to blank strings when unknown) so rule
   checks and export jobs stop emitting “required field not found” warnings.
   DE: `company.contact_email` und `location.primary_city` werden jetzt selbst bei fehlenden Eingaben als leere Strings hinterlegt,

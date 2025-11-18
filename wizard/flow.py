@@ -16,6 +16,7 @@ from functools import partial
 from pathlib import Path
 from enum import StrEnum
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Collection,
@@ -37,10 +38,12 @@ import re
 import requests
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 from streamlit_sortables import sort_items
 
+from pydantic import ValidationError
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
@@ -102,6 +105,7 @@ from ._logic import (
     _set_company_logo,
     _autofill_was_rejected,
     _update_profile,
+    _render_localized_error,
     get_in,
     _normalize_semantic_empty,
     merge_unique_items,
@@ -119,8 +123,37 @@ from .metadata import (
 )
 from sidebar.salary import format_salary_range
 
+if TYPE_CHECKING:  # pragma: no cover - typing-only import path
+    from streamlit.runtime.scriptrunner import (
+        RerunException as StreamlitRerunException,
+        StopException as StreamlitStopException,
+    )
+else:  # pragma: no cover - Streamlit runtime internals are unavailable in tests
+    try:
+        from streamlit.runtime.scriptrunner import (
+            RerunException as StreamlitRerunException,
+            StopException as StreamlitStopException,
+        )
+    except Exception:
+
+        class StreamlitRerunException(RuntimeError):
+            """Fallback rerun exception when Streamlit internals are missing."""
+
+        class StreamlitStopException(RuntimeError):
+            """Fallback stop exception when Streamlit internals are missing."""
+
+
+RerunException = StreamlitRerunException
+StopException = StreamlitStopException
+
 
 logger = logging.getLogger(__name__)
+
+_RECOVERABLE_FLOW_ERRORS: tuple[type[Exception], ...] = (
+    StreamlitAPIException,
+    ValidationError,
+    ValueError,
+)
 
 LocalizedText = tuple[str, str]
 
@@ -11836,4 +11869,21 @@ def run_wizard() -> None:
     st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
     _render_debug_panel()
     schema, critical = _load_wizard_configuration()
-    _run_wizard_v2(schema, critical)
+    try:
+        _run_wizard_v2(schema, critical)
+    except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
+        raise
+    except _RECOVERABLE_FLOW_ERRORS as error:
+        logger.warning("Recoverable wizard error", exc_info=error)
+        _render_localized_error(
+            "Der Wizard konnte nicht vollständig geladen werden. Bitte prüfe deine Eingaben oder ergänze sie manuell – die Sitzung bleibt aktiv.",
+            "The wizard could not finish loading. Please review your answers or keep editing the profile manually – your session stays active.",
+            error,
+        )
+    except Exception as error:  # pragma: no cover - defensive guard
+        logger.exception("Unexpected wizard failure", exc_info=error)
+        _render_localized_error(
+            "Ein unerwarteter Fehler ist aufgetreten. Aktualisiere den Schritt oder fülle die Felder manuell aus.",
+            "An unexpected error occurred. Refresh the step or continue filling the fields manually.",
+            error,
+        )
