@@ -7,13 +7,13 @@ Key highlights / Wichtigste Funktionen
 EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
-* The bilingual debug panel lets admins toggle Responses vs. Chat APIs, enable verbose logs, and align USE_RESPONSES_API, USE_CLASSIC_API, and RESPONSES_ALLOW_TOOLS in one place.
+* Automated API routing enforces the Responses client with fallbacks to Chat Completions via configuration flags, so admins can switch modes without exposing extra UI controls.
 * Inline error boundaries keep the wizard session alive even when parsing or Streamlit widgets fail, surfacing bilingual guidance so SMEs can continue with manual edits instead of losing their progress.
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
 * Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.
-* Das zweisprachige Debug-Panel erlaubt Admins, Responses- vs.-Chat-API umzuschalten, ausführliches Logging zu aktivieren und USE_RESPONSES_API, USE_CLASSIC_API sowie RESPONSES_ALLOW_TOOLS gemeinsam zu steuern.
+* Die API-Routing-Logik läuft vollständig über Konfigurationsflags, erzwingt Responses als Standard und fällt bei Bedarf automatisch auf Chat-Completions zurück – ganz ohne zusätzliche UI-Schalter.
 * Fehlergrenzen direkt im Wizard sorgen dafür, dass Sitzungen bei Parser- oder Streamlit-Ausnahmen nicht abbrechen, sondern mit zweisprachiger Anleitung zum manuellen Weiterarbeiten geöffnet bleiben.
 
 Version
@@ -24,10 +24,12 @@ DE: Aktuelle Version: v1.1.0 (November 2025) – Highlights siehe unten.
 
 Release timeline / Release-Verlauf
 
+* v1.1.1 – Admin cleanup & routing guardrails: removed the in-wizard debug/API controls panel and now rely solely on configuration flags for Responses ↔ Chat switching plus verbose logging.
 * v1.1.0 – Wizard hardening & schema alignment: inline follow-ups inside all eight steps, automatic salary estimation refresh, quick/precise routing toggle, debug panel, and Responses ↔ Chat switching helper.
 * v1.0.1 – Setup & branding refresh: company branding enrichment, OpenAI configuration guidance, contributor docs for schema propagation, and extraction hardening.
 * v1.0.0 – Wizard modernisation: unified layout, schema/export propagation, AI helpers for responsibilities/interviews, navigation refresh, and release of the eight-step intake.
 
+* v1.1.1 – Admin-Aufräumarbeiten & Routing-Schutz: Debug-/API-Steuerpanel im Wizard entfernt; Umschaltung zwischen Responses und Chat sowie Logging laufen ausschließlich über Konfigurationsflags.
 * v1.1.0 – Wizard-Härtung & Schemaabgleich: Inline-Follow-ups in allen acht Schritten, automatische Gehaltsupdates, Schnell-/Präzisionsmodus, Debug-Panel und Umschalter zwischen Responses- und Chat-API.
 * v1.0.1 – Setup- & Branding-Update: Branding-Anreicherung fürs Unternehmen, OpenAI-Konfigurationshinweise, Contributor-Doku zur Schema-Propagation und stabilere Extraktion.
 * v1.0.0 – Wizard-Vollmodernisierung: Vereinheitlichtes Layout, Schema-/Export-Sync, KI-Helfer für Verantwortlichkeiten/Interviews, Navigations-Refresh und Veröffentlichung des achtstufigen Intake-Prozesses.
@@ -299,9 +301,10 @@ OPENAI_BASE_URL can be set to https://eu.api.openai.com/v1 (or another allowed e
 
 VECTOR_STORE_ID activates RAG lookups through OpenAI file search. Without it the assistant skips retrieval but still completes suggestions using Responses or the chat fallback chain.
 
-Debug panel toggle / Debug-Panel-Schalter:
-EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API in sync so downstream modules read the updated mode immediately.
-DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen.
+
+Panel retirement / Panel entfernt:
+EN: The in-wizard Debug & API controls have been retired; switch between the Responses and Chat APIs (plus verbose logging) via environment variables, Streamlit secrets, or helpers such as `app_config.set_api_mode()` instead.
+DE: Das Debug-/API-Steuerpanel im Wizard wurde entfernt; nutze Umgebungsvariablen, Streamlit-Secrets oder Helper wie `app_config.set_api_mode()`, um zwischen Responses- und Chat-API zu wechseln und ausführliches Logging zu aktivieren.
 
 DE:
 
@@ -320,10 +323,6 @@ COGNITIVE_PREFERRED_MODEL und COGNITIVE_MODEL_FALLBACKS erlauben es, die Router-
 Mit OPENAI_BASE_URL lässt sich beispielsweise https://eu.api.openai.com/v1 konfigurieren, um Aufrufe innerhalb der EU zu halten; weitere OpenAI-Secrets (OPENAI_MODEL, OPENAI_PROJECT, OPENAI_ORGANIZATION, OPENAI_REQUEST_TIMEOUT) werden ebenfalls ausgewertet.
 
 VECTOR_STORE_ID aktiviert RAG-Abfragen über OpenAI File Search. Ohne gesetzte ID überspringt der Assistent die Recherche, führt Vorschläge aber weiterhin über Responses oder die Chat-Fallback-Kette aus.
-
-Debug-Panel-Schalter / Debug panel toggle:
-DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. klassische Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen.
-EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API aligned so downstream modules consume the updated mode instantly.
 
 Architecture at a Glance
 

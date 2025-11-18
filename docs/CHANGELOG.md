@@ -1,4 +1,12 @@
 Changelog
+
+Unreleased – Admin Cleanup & Routing Guardrails / Admin-Aufräumarbeiten & Routing-Schutz
+
+Removed / Entfernt
+
+- EN: Retired the bilingual Debug & API controls panel from the wizard so runtime toggles for Responses vs. Chat APIs (and verbose diagnostics) now live exclusively in configuration flags and helpers such as `app_config.set_api_mode()`.
+  DE: Das zweisprachige Debug-/API-Steuerpanel im Wizard wurde entfernt; Umschaltungen zwischen Responses- und Chat-API sowie ausführliches Logging erfolgen ausschließlich über Konfigurationsflags und Helper wie `app_config.set_api_mode()`.
+
 v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
 
 Added / Neu
