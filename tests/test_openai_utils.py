@@ -19,6 +19,7 @@ from openai_utils import (
     model_supports_reasoning,
     model_supports_temperature,
 )
+from openai_utils.client import ResponsesRequest
 
 
 pytestmark = pytest.mark.integration
@@ -395,7 +396,7 @@ def test_prepare_payload_classic_mode(monkeypatch):
 
     config.set_api_mode(False)
 
-    payload, model, tools, tool_map, _candidate_models = openai_utils.api._prepare_payload(
+    request = openai_utils.api._prepare_payload(
         [{"role": "user", "content": "hello"}],
         model="gpt-4o-mini",
         temperature=0.4,
@@ -409,16 +410,17 @@ def test_prepare_payload_classic_mode(monkeypatch):
         include_analysis_tools=False,
     )
 
-    assert model == "gpt-4o-mini"
+    payload = request.payload
+    assert request.model == "gpt-4o-mini"
     assert payload["messages"][0]["content"] == "hello"
     assert "functions" in payload and payload["functions"][0]["name"] == "do"
     assert payload.get("function_call", {}).get("name") == "do"
     assert "metadata" not in payload
     assert payload.get("max_completion_tokens") == 256
     assert "tool_choice" not in payload
-    assert tools and tools[0]["function"]["name"] == "do"
+    assert request.tool_specs and request.tool_specs[0]["function"]["name"] == "do"
     assert "input" not in payload
-    assert tool_map["do"]
+    assert request.tool_functions["do"]
 
 
 def test_call_chat_api_classic_mode(monkeypatch):
@@ -730,8 +732,14 @@ def test_call_chat_api_dual_prompt_returns_comparison(monkeypatch):
         _FakeResponse("Secondary", {"input_tokens": 2, "output_tokens": 3}, "resp-secondary"),
     ]
 
-    def _fake_prepare(messages: Sequence[dict[str, Any]], **_: Any):
-        return ({"model": "test", "input": list(messages)}, "test", [], {}, ["test"])
+    def _fake_prepare(messages: Sequence[dict[str, Any]], **_: Any) -> ResponsesRequest:
+        return ResponsesRequest(
+            payload={"model": "test", "input": list(messages)},
+            model="test",
+            tool_specs=[],
+            tool_functions={},
+            candidate_models=["test"],
+        )
 
     def _fake_execute(_: Mapping[str, Any], __: str | None, *, api_mode: str | None = None):
         return responses.pop(0)
@@ -1062,7 +1070,7 @@ def test_call_chat_api_normalises_tool_schema(monkeypatch):
 def test_prepare_payload_includes_analysis_helpers():
     """Base payload should expose web search and analysis helper tools."""
 
-    payload, _, _, tool_map, _ = openai_utils.api._prepare_payload(
+    request = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
         model=config.REASONING_MODEL,
         temperature=None,
@@ -1076,6 +1084,8 @@ def test_prepare_payload_includes_analysis_helpers():
         include_analysis_tools=True,
     )
 
+    payload = request.payload
+    tool_map = request.tool_functions
     tool_types = {tool.get("type") for tool in payload.get("tools", [])}
     assert "web_search" in tool_types
     assert "web_search_preview" in tool_types
@@ -1100,7 +1110,7 @@ def test_prepare_payload_includes_analysis_helpers():
 def test_prepare_payload_normalises_legacy_tool_choice():
     """Legacy function tool choices should be translated to the nested schema."""
 
-    payload, _, _, _, _ = openai_utils.api._prepare_payload(
+    request = openai_utils.api._prepare_payload(
         messages=[{"role": "user", "content": "hi"}],
         model=config.REASONING_MODEL,
         temperature=None,
@@ -1119,6 +1129,7 @@ def test_prepare_payload_normalises_legacy_tool_choice():
         include_analysis_tools=False,
     )
 
+    payload = request.payload
     tool_choice = payload.get("tool_choice")
     assert isinstance(tool_choice, dict)
     assert tool_choice.get("type") == "function"

@@ -12,7 +12,6 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | Module pattern | Error count | Notes |
 | --- | ---: | --- |
 | `ingest.*` | 3 | Legacy ingestion utilities rely on dynamically typed third-party clients. |
-| `openai_utils.*` | 16 | Response-stream plumbing mixes Responses/Chat abstractions that require a dedicated refactor. |
 | `wizard.runner` | 19 | Wizard entry point awaiting migration to the step-order router. |
 | `wizard.layout` | 2 | Shared layout helpers that remain to be refactored alongside the runner. |
 | `tests.*` | 255 | Test suite mirrors the legacy wizard APIs and needs wholesale type annotations. |
@@ -30,6 +29,7 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 
 - **2025-02-14:** Dropped the `sidebar.*` override after annotating branding helpers and normalising RGB tuples so the module passes strict type checking.
 - **2025-02-15:** `wizard_router` now type-checks without overrides after annotating the navigation helpers and aligning metadata imports.
+- **2025-02-17:** Removed the `openai_utils.*` override after introducing typed request/response helpers and splitting the retry plumbing into reusable dataclasses.
 
 ## Strict modules
 

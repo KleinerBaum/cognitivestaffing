@@ -283,7 +283,7 @@ def _resolve_vector_store_id(candidate: str | None) -> str:
     session_value: str | None = None
     if st is not None:
         try:
-            raw_value = st.session_state.get("vector_store_id")  # type: ignore[attr-defined]
+            raw_value = st.session_state.get("vector_store_id")
         except Exception:  # pragma: no cover - defensive
             raw_value = None
         if raw_value:
@@ -1963,11 +1963,22 @@ def _prepare_job_ad_payload(
         field_def = field_map.get(key)
         if not field_def:
             continue
-        value = _compose_field_value(key)
-        if value in (None, "", []):
+        raw_value = _compose_field_value(key)
+        if raw_value in (None, "", []):
             continue
         label = field_def.label_de if is_de else field_def.label_en
-        entries.append((key, field_def.group, label, value))
+        entry_value: str | list[str]
+        if isinstance(raw_value, list):
+            items = [str(item).strip() for item in raw_value if str(item).strip()]
+            if not items:
+                continue
+            entry_value = items
+        else:
+            text_value = str(raw_value).strip()
+            if not text_value:
+                continue
+            entry_value = text_value
+        entries.append((key, field_def.group, label, entry_value))
 
     manual_sections_payload: list[dict[str, str]] = []
     if manual_sections:
@@ -1981,7 +1992,11 @@ def _prepare_job_ad_payload(
     if not entries and not manual_sections_payload:
         raise ValueError("No usable data available for the job ad.")
 
-    job_title_value = _compose_field_value("position.job_title") or ""
+    job_title_source = _compose_field_value("position.job_title") or ""
+    if isinstance(job_title_source, list):
+        job_title_value = " ".join(str(item).strip() for item in job_title_source if str(item).strip())
+    else:
+        job_title_value = str(job_title_source).strip()
     gender_markers: list[str] = []
 
     if is_de and job_title_value:
@@ -2224,9 +2239,9 @@ def _prepare_job_ad_payload(
     if manual_sections_payload:
         document_lines.append("")
         document_lines.append(f"## {_tr('Zusätzliche Hinweise', 'Additional notes')}")
-        for entry in manual_sections_payload:
-            title = entry.get("title", "")
-            content = entry.get("content", "")
+        for section in manual_sections_payload:
+            title = section.get("title", "")
+            content = section.get("content", "")
             if title:
                 document_lines.append(f"**{title}:**")
                 document_lines.append(content)

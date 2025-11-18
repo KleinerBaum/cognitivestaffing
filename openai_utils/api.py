@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
-from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple, Final
+from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple, Final, cast
 
 import backoff
 from opentelemetry import trace
@@ -60,6 +60,18 @@ from constants.keys import StateKeys
 from llm.cost_router import route_model_for_messages
 from utils.errors import display_error, resolve_message
 from utils.llm_state import llm_disabled_message
+from .client import (
+    ChatFallbackContext,
+    FileSearchKey,
+    FileSearchResult,
+    ResponsesRequest,
+    RetryState,
+    ToolCallPayload,
+    ToolMessagePayload,
+    UsageDict,
+    build_fallback_context,
+    create_retry_state,
+)
 
 logger = logging.getLogger("cognitive_needs.openai")
 tracer = trace.get_tracer(__name__)
@@ -562,13 +574,15 @@ def _extract_output_text(response_obj: Any) -> Optional[str]:
     return text
 
 
-def _normalise_usage(usage_obj: Any) -> dict:
+def _normalise_usage(usage_obj: Any) -> Mapping[str, Any]:
     """Return a plain dictionary describing token usage."""
 
     if usage_obj and not isinstance(usage_obj, dict):
-        usage: dict = getattr(usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {}))()
+        usage: Mapping[str, Any] = getattr(usage_obj, "model_dump", getattr(usage_obj, "dict", lambda: {}))()
+    elif isinstance(usage_obj, Mapping):
+        usage = usage_obj
     else:
-        usage = usage_obj if isinstance(usage_obj, dict) else {}
+        usage = {}
 
     normalised = dict(usage)
     prompt_tokens = normalised.get("prompt_tokens")
@@ -583,6 +597,15 @@ def _normalise_usage(usage_obj: Any) -> dict:
         normalised["total_tokens"] = total_tokens
 
     return normalised
+
+
+def _numeric_usage(usage: Mapping[str, Any]) -> UsageDict:
+    """Return ``usage`` with token counts coerced to integers."""
+
+    numeric: UsageDict = {}
+    for key, value in usage.items():
+        numeric[str(key)] = _coerce_token_count(value)
+    return numeric
 
 
 def _extract_usage_block(response: Any) -> Any:
@@ -647,7 +670,7 @@ def _normalise_task(task: ModelTask | str | None) -> str:
     return ModelTask.DEFAULT.value
 
 
-def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | None) -> None:
+def _update_usage_counters(usage: Mapping[str, Any], *, task: ModelTask | str | None) -> None:
     """Accumulate token usage in the Streamlit session state."""
 
     if StateKeys.USAGE not in st.session_state:
@@ -668,6 +691,21 @@ def _update_usage_counters(usage: Mapping[str, int], *, task: ModelTask | str | 
         task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
 
 
+def _accumulate_usage(state: RetryState, latest: UsageDict) -> None:
+    """Add ``latest`` token counts to ``state``."""
+
+    for key, value in latest.items():
+        state.accumulated_usage[key] = state.accumulated_usage.get(key, 0) + value
+
+
+def _usage_snapshot(state: RetryState, latest: UsageDict) -> UsageDict:
+    """Return the merged usage totals after accounting for retries."""
+
+    if state.accumulated_usage:
+        return dict(state.accumulated_usage)
+    return dict(latest)
+
+
 def _serialise_tool_payload(value: Any) -> str | None:
     """Return ``value`` as a JSON string if possible."""
 
@@ -681,7 +719,7 @@ def _serialise_tool_payload(value: Any) -> str | None:
         return None
 
 
-def _collect_tool_calls_from_chat_completion(response: Any) -> list[dict]:
+def _collect_tool_calls_from_chat_completion(response: Any) -> list[ToolCallPayload]:
     """Extract tool calls from a Chat Completions response."""
 
     choices = getattr(response, "choices", None)
@@ -692,7 +730,7 @@ def _collect_tool_calls_from_chat_completion(response: Any) -> list[dict]:
     if not isinstance(choices, Sequence) or isinstance(choices, (str, bytes)):
         return []
 
-    collected: list[dict] = []
+    collected: list[ToolCallPayload] = []
     seen_ids: set[str] = set()
 
     for choice in choices:
@@ -739,7 +777,7 @@ def _collect_tool_calls_from_chat_completion(response: Any) -> list[dict]:
                     continue
                 seen_ids.add(call_id)
 
-                payload = {
+                payload: ToolCallPayload = {
                     "type": "tool_call",
                     "id": call_id,
                     "call_id": call_id,
@@ -776,13 +814,13 @@ def _collect_tool_calls_from_chat_completion(response: Any) -> list[dict]:
     return collected
 
 
-def _collect_tool_calls(response: Any) -> list[dict]:
+def _collect_tool_calls(response: Any) -> list[ToolCallPayload]:
     """Extract tool call payloads from an OpenAI response object."""
 
     if hasattr(response, "choices") or (isinstance(response, Mapping) and "choices" in response):
         return _collect_tool_calls_from_chat_completion(response)
 
-    tool_calls: list[dict] = []
+    tool_calls: list[ToolCallPayload] = []
     for item in getattr(response, "output", []) or []:
         data = _to_mapping(item)
         if not data:
@@ -791,7 +829,7 @@ def _collect_tool_calls(response: Any) -> list[dict]:
         if not typ or ("tool_call" not in typ and "tool_response" not in typ):
             continue
 
-        call_data = dict(data)
+        call_data: ToolCallPayload = cast(ToolCallPayload, dict(data))
         canonical_id = call_data.get("call_id") or call_data.get("id")
 
         if "tool_response" in typ:
@@ -835,10 +873,74 @@ def _collect_tool_calls(response: Any) -> list[dict]:
 
             call_data["function"] = normalised_function
 
-        if canonical_id:
-            call_data["call_id"] = canonical_id
+        if canonical_id is not None:
+            call_data["call_id"] = str(canonical_id)
         tool_calls.append(call_data)
     return tool_calls
+
+
+def _execute_tool_invocations(
+    tool_calls: Sequence[ToolCallPayload],
+    *,
+    tool_functions: Mapping[str, Callable[..., Any]] | None,
+) -> tuple[list[ToolMessagePayload], bool]:
+    """Return tool response messages emitted after executing ``tool_calls``."""
+
+    executed = False
+    tool_messages: list[ToolMessagePayload] = []
+
+    for call in tool_calls:
+        call_type = str(call.get("type") or "")
+        call_identifier = call.get("call_id") or call.get("id")
+        tool_identifier = str(call_identifier or "tool_call")
+
+        if "tool_response" in call_type:
+            payload_text = call.get("output") or call.get("content")
+            serialised_payload = _serialise_tool_payload(payload_text)
+            if serialised_payload is None:
+                continue
+            tool_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_identifier,
+                    "content": serialised_payload,
+                }
+            )
+            executed = True
+            continue
+
+        func_block = call.get("function")
+        func_info = dict(func_block) if isinstance(func_block, Mapping) else {}
+        name_value = func_info.get("name")
+        if not isinstance(name_value, str) or tool_functions is None or name_value not in tool_functions:
+            continue
+        tool_payload = func_info.get("input")
+        if tool_payload is None:
+            tool_payload = func_info.get("arguments")
+
+        args: dict[str, Any] = {}
+        if isinstance(tool_payload, Mapping):
+            args = dict(tool_payload)
+        elif isinstance(tool_payload, str):
+            raw_text = tool_payload or "{}"
+            try:
+                parsed: Any = json.loads(raw_text)
+                if isinstance(parsed, Mapping):
+                    args = dict(parsed)
+            except Exception:  # pragma: no cover - defensive
+                args = {}
+
+        result = tool_functions[name_value](**args)
+        tool_messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": tool_identifier or name_value,
+                "content": json.dumps(result),
+            }
+        )
+        executed = True
+
+    return tool_messages, executed
 
 
 def _file_search_result_text(result: Mapping[str, Any]) -> str:
@@ -863,7 +965,7 @@ def _file_search_result_text(result: Mapping[str, Any]) -> str:
     return ""
 
 
-def _file_search_result_key(result: Mapping[str, Any]) -> Tuple[str, str, str]:
+def _file_search_result_key(result: Mapping[str, Any]) -> FileSearchKey:
     """Return a deduplication key for a file-search result mapping."""
 
     chunk_id = str(result.get("id") or result.get("chunk_id") or "")
@@ -872,11 +974,11 @@ def _file_search_result_key(result: Mapping[str, Any]) -> Tuple[str, str, str]:
     return chunk_id, file_id, text_value
 
 
-def _collect_file_search_results(response: Any) -> list[dict[str, Any]]:
+def _collect_file_search_results(response: Any) -> list[FileSearchResult]:
     """Extract file-search results from a Responses API object."""
 
-    collected: list[dict[str, Any]] = []
-    seen: set[Tuple[str, str, str]] = set()
+    collected: list[FileSearchResult] = []
+    seen: set[FileSearchKey] = set()
 
     for item in getattr(response, "output", []) or []:
         item_dict = _to_mapping(item)
@@ -899,7 +1001,7 @@ def _collect_file_search_results(response: Any) -> list[dict[str, Any]]:
                 result_map = _to_mapping(raw_result)
                 if not result_map:
                     continue
-                normalised = dict(result_map)
+                normalised = cast(FileSearchResult, dict(result_map))
                 metadata = normalised.get("metadata")
                 if metadata is not None and not isinstance(metadata, Mapping):
                     metadata_map = _to_mapping(metadata)
@@ -916,18 +1018,30 @@ def _collect_file_search_results(response: Any) -> list[dict[str, Any]]:
     return collected
 
 
+def _record_file_search_results(state: RetryState, response: Any) -> None:
+    """Append unique file-search results from ``response`` to ``state``."""
+
+    for entry in _collect_file_search_results(response):
+        key = _file_search_result_key(entry)
+        if key in state.seen_file_search:
+            continue
+        state.seen_file_search.add(key)
+        state.file_search_results.append(entry)
+
+
 def _merge_usage_dicts(
     primary_usage: Mapping[str, Any] | None,
     secondary_usage: Mapping[str, Any] | None,
-) -> dict[str, int]:
+) -> UsageDict:
     """Combine two usage dictionaries by summing numeric values."""
 
-    combined: dict[str, int] = {}
+    combined: UsageDict = {}
     for usage in (primary_usage or {}, secondary_usage or {}):
         if not isinstance(usage, Mapping):
             continue
         for key, value in usage.items():
-            combined[key] = combined.get(key, 0) + _coerce_token_count(value)
+            key_name = str(key)
+            combined[key_name] = combined.get(key_name, 0) + _coerce_token_count(value)
     return combined
 
 
@@ -1048,13 +1162,7 @@ def _prepare_payload(
     include_analysis_tools: bool = True,
     task: ModelTask | str | None = None,
     previous_response_id: str | None = None,
-) -> tuple[
-    Dict[str, Any],
-    str,
-    list,
-    dict[str, Callable[..., Any]],
-    list[str],
-]:
+) -> ResponsesRequest:
     """Assemble the payload for the configured OpenAI API."""
 
     selected_task = task or ModelTask.DEFAULT
@@ -1210,6 +1318,7 @@ def _prepare_payload(
     normalised_tool_choice = _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
 
     payload: dict[str, Any]
+    api_mode_override: str | None = None
 
     force_classic_for_tools = False
     if converted_tools and not (app_config.USE_CLASSIC_API or RESPONSES_ALLOW_TOOLS):
@@ -1228,7 +1337,7 @@ def _prepare_payload(
             schema_body = schema_payload.get("schema")
             if not isinstance(schema_body, Mapping):
                 raise TypeError("json_schema['schema'] must be a mapping")
-            format_config = {
+            response_format_config = {
                 "type": "json_schema",
                 "json_schema": {
                     "schema": _sanitize_json_schema(schema_body),
@@ -1237,12 +1346,13 @@ def _prepare_payload(
             schema_name = schema_payload.get("name")
             if not isinstance(schema_name, str) or not schema_name.strip():
                 raise ValueError("json_schema payload requires a non-empty 'name'.")
-            format_config["json_schema"]["name"] = schema_name.strip()
+            json_schema_config = cast(dict[str, Any], response_format_config["json_schema"])
+            json_schema_config["name"] = schema_name.strip()
             strict_override = schema_payload.get("strict")
             strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
             if strict_flag:
-                format_config["json_schema"]["strict"] = True
-            payload["response_format"] = format_config
+                json_schema_config["strict"] = True
+            payload["response_format"] = response_format_config
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
             if functions:
@@ -1266,7 +1376,7 @@ def _prepare_payload(
             schema_body = schema_payload.get("schema")
             if not isinstance(schema_body, Mapping):
                 raise TypeError("json_schema['schema'] must be a mapping")
-            format_config: dict[str, Any] = {
+            text_format_config: dict[str, Any] = {
                 "type": "json_schema",
                 "json_schema": {
                     "schema": _sanitize_json_schema(schema_body),
@@ -1275,13 +1385,14 @@ def _prepare_payload(
             schema_name = schema_payload.get("name")
             if not isinstance(schema_name, str) or not schema_name.strip():
                 raise ValueError("json_schema payload requires a non-empty 'name'.")
-            format_config["json_schema"]["name"] = schema_name.strip()
+            text_json_schema = cast(dict[str, Any], text_format_config["json_schema"])
+            text_json_schema["name"] = schema_name.strip()
             strict_override = schema_payload.get("strict")
             strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
             if strict_flag:
-                format_config["json_schema"]["strict"] = True
+                text_json_schema["strict"] = True
             text_config.pop("type", None)
-            text_config["format"] = format_config
+            text_config["format"] = text_format_config
             payload["text"] = text_config
         if extra:
             payload.update(extra)
@@ -1300,9 +1411,16 @@ def _prepare_payload(
             payload["metadata"] = metadata
 
     if force_classic_for_tools and not app_config.USE_CLASSIC_API:
-        payload["_api_mode"] = "chat"
+        api_mode_override = "chat"
 
-    return payload, model, combined_tools, tool_map, candidate_models
+    return ResponsesRequest(
+        payload=payload,
+        model=model,
+        tool_specs=combined_tools,
+        tool_functions=tool_map,
+        candidate_models=candidate_models,
+        api_mode_override=api_mode_override,
+    )
 
 
 @dataclass
@@ -1317,17 +1435,17 @@ class ChatCallResult:
     """
 
     content: Optional[str]
-    tool_calls: list[dict]
-    usage: dict
+    tool_calls: list[ToolCallPayload]
+    usage: UsageDict
     response_id: str | None = None
     raw_response: Any | None = None
-    file_search_results: Optional[list[dict[str, Any]]] = None
+    file_search_results: Optional[list[FileSearchResult]] = None
     secondary_content: Optional[str] = None
-    secondary_tool_calls: Optional[list[dict]] = None
-    secondary_usage: Optional[dict] = None
-    comparison: Optional[dict[str, Any]] = None
+    secondary_tool_calls: Optional[list[ToolCallPayload]] = None
+    secondary_usage: Optional[UsageDict] = None
+    comparison: Optional[Mapping[str, Any]] = None
     secondary_raw_response: Any | None = None
-    secondary_file_search_results: Optional[list[dict[str, Any]]] = None
+    secondary_file_search_results: Optional[list[FileSearchResult]] = None
     secondary_response_id: str | None = None
 
 
@@ -1355,16 +1473,16 @@ class ChatStream(Iterable[str]):
         try:
             if app_config.USE_CLASSIC_API:
                 with client.chat.completions.stream(**self._payload) as stream:
-                    for event in stream:
-                        for chunk in _stream_event_chunks(event):
+                    for chat_event in stream:
+                        for chunk in _stream_event_chunks(chat_event):
                             if chunk:
                                 self._buffer.append(chunk)
                                 yield chunk
                     final_response = stream.get_final_completion()
             else:
                 with client.responses.stream(**self._payload) as stream:
-                    for event in stream:
-                        for chunk in _stream_event_chunks(event):
+                    for responses_event in stream:
+                        for chunk in _stream_event_chunks(responses_event):
                             if chunk:
                                 self._buffer.append(chunk)
                                 yield chunk
@@ -1393,7 +1511,8 @@ class ChatStream(Iterable[str]):
                 "Streaming responses requested tool execution. Use call_chat_api for tool-enabled prompts."
             )
         content = _extract_output_text(response)
-        usage = _normalise_usage(_extract_usage_block(response) or {})
+        usage_block = _normalise_usage(_extract_usage_block(response) or {})
+        usage = _numeric_usage(usage_block)
         _update_usage_counters(usage, task=self._task)
         response_id = _extract_response_id(response)
         self._result = ChatCallResult(
@@ -1410,12 +1529,8 @@ class ChatStream(Iterable[str]):
             raise RuntimeError("Streaming finished without a final response payload")
 
         partial_text = self.text
-        self._result = ChatCallResult(
-            partial_text if partial_text else None,
-            [],
-            {},
-            response_id=None,
-        )
+        empty_usage: UsageDict = {}
+        self._result = ChatCallResult(partial_text if partial_text else None, [], empty_usage, response_id=None)
 
     @property
     def result(self) -> ChatCallResult:
@@ -1473,16 +1588,16 @@ def _stream_event_chunks(event: Any) -> Iterable[str]:
         if mapping:
             content = mapping.get("content")
             if isinstance(content, Sequence) and not isinstance(content, (str, bytes)):
-                chunks: list[str] = []
+                added_chunks: list[str] = []
                 for part in content:
                     part_map = _to_mapping(part)
                     if not part_map:
                         continue
                     text_value = part_map.get("text")
                     if isinstance(text_value, str):
-                        chunks.append(text_value)
-                if chunks:
-                    return chunks
+                        added_chunks.append(text_value)
+                if added_chunks:
+                    return added_chunks
 
     return []
 
@@ -1659,7 +1774,7 @@ def _call_chat_api_single(
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
-    payload, model, tools, tool_functions, candidate_models = _prepare_payload(
+    request = _prepare_payload(
         messages_with_hint,
         model=model,
         temperature=temperature,
@@ -1674,7 +1789,8 @@ def _call_chat_api_single(
         previous_response_id=previous_response_id,
     )
 
-    api_mode_override = payload.pop("_api_mode", None)
+    payload = dict(request.payload)
+    api_mode_override = request.api_mode_override
 
     message_key = "messages" if "messages" in payload else "input"
     base_messages = payload.get(message_key)
@@ -1684,38 +1800,20 @@ def _call_chat_api_single(
         messages_list = list(messages_with_hint)
         payload[message_key] = messages_list
 
-    unique_candidates: list[str] = []
-    for candidate in [model, *candidate_models]:
-        if candidate and candidate not in unique_candidates:
-            unique_candidates.append(candidate)
-
-    if not unique_candidates:
-        raise RuntimeError("No model candidates resolved for call_chat_api request")
-
-    attempted: set[str] = set()
-    current_model = unique_candidates[0]
+    context = build_fallback_context(request.model, request.candidate_models)
+    current_model = context.initial_model()
     payload["model"] = current_model
 
-    accumulated_usage: dict[str, int] = {}
-    last_tool_calls: list[dict] = []
-    file_search_results: list[dict[str, Any]] = []
-    seen_file_search: set[Tuple[str, str, str]] = set()
+    retry_state = create_retry_state()
 
     while True:
         try:
             response = _execute_response(payload, current_model, api_mode=api_mode_override)
         except OpenAIError as err:
-            attempted.add(current_model)
             if is_model_available(current_model):
                 raise
 
-            next_model: str | None = None
-            for candidate in unique_candidates:
-                if candidate in attempted:
-                    continue
-                if is_model_available(candidate):
-                    next_model = candidate
-                    break
+            next_model = context.register_failure(current_model)
 
             if next_model is None:
                 raise
@@ -1738,103 +1836,48 @@ def _call_chat_api_single(
 
         tool_calls = _collect_tool_calls(response)
 
-        usage = _normalise_usage(_extract_usage_block(response) or {})
-        numeric_usage = {key: _coerce_token_count(value) for key, value in usage.items()}
-        for key, value in numeric_usage.items():
-            accumulated_usage[key] = accumulated_usage.get(key, 0) + value
+        usage_block = _normalise_usage(_extract_usage_block(response) or {})
+        numeric_usage = _numeric_usage(usage_block)
+        _accumulate_usage(retry_state, numeric_usage)
 
         if capture_file_search:
-            for entry in _collect_file_search_results(response):
-                key = _file_search_result_key(entry)
-                if key in seen_file_search:
-                    continue
-                seen_file_search.add(key)
-                file_search_results.append(entry)
+            _record_file_search_results(retry_state, response)
 
         if tool_calls:
-            last_tool_calls = tool_calls
+            retry_state.last_tool_calls = tool_calls
 
         if not tool_calls:
-            merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
+            merged_usage = _usage_snapshot(retry_state, numeric_usage)
             _update_usage_counters(merged_usage, task=task)
-            result_tool_calls = last_tool_calls
+            result_tool_calls = retry_state.last_tool_calls
             return ChatCallResult(
                 content,
                 result_tool_calls,
                 merged_usage,
                 response_id=response_id,
                 raw_response=response if include_raw_response else None,
-                file_search_results=file_search_results if file_search_results else None,
+                file_search_results=retry_state.file_search_results or None,
             )
 
-        executed = False
-        tool_messages: list[dict[str, Any]] = []
-        for call in tool_calls:
-            call_type = str(call.get("type") or "")
-            if "tool_response" in call_type:
-                payload_text = call.get("output")
-                if payload_text is None:
-                    payload_text = call.get("content")
-                serialised_payload = _serialise_tool_payload(payload_text)
-                if serialised_payload is None:
-                    continue
-                tool_messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.get("call_id") or call.get("id"),
-                        "content": serialised_payload,
-                    }
-                )
-                executed = True
-                continue
-
-            if not tool_functions:
-                continue
-
-            func_block = call.get("function")
-            func_info = dict(func_block) if isinstance(func_block, Mapping) else {}
-            name = func_info.get("name")
-            if not name or name not in tool_functions:
-                continue
-            tool_payload = func_info.get("input")
-            if tool_payload is None:
-                tool_payload = func_info.get("arguments")
-            args: dict[str, Any] = {}
-            if isinstance(tool_payload, Mapping):
-                args = dict(tool_payload)
-            elif isinstance(tool_payload, str):
-                raw_text = tool_payload or "{}"
-                try:
-                    parsed: Any = json.loads(raw_text)
-                    if isinstance(parsed, Mapping):
-                        args = dict(parsed)
-                except Exception:  # pragma: no cover - defensive
-                    args = {}
-            result = tool_functions[name](**args)
-            tool_messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.get("call_id") or call.get("id") or name,
-                    "content": json.dumps(result),
-                }
-            )
-            executed = True
-
+        tool_messages, executed = _execute_tool_invocations(
+            tool_calls,
+            tool_functions=request.tool_functions,
+        )
         if tool_messages:
             messages_list.extend(tool_messages)
             payload[message_key] = messages_list
 
         if not executed:
-            merged_usage = dict(accumulated_usage) if accumulated_usage else numeric_usage
+            merged_usage = _usage_snapshot(retry_state, numeric_usage)
             _update_usage_counters(merged_usage, task=task)
-            result_tool_calls = tool_calls or last_tool_calls
+            result_tool_calls = tool_calls or retry_state.last_tool_calls
             return ChatCallResult(
                 content,
                 result_tool_calls,
                 merged_usage,
                 response_id=response_id,
                 raw_response=response if include_raw_response else None,
-                file_search_results=file_search_results if file_search_results else None,
+                file_search_results=retry_state.file_search_results or None,
             )
 
 
@@ -1981,7 +2024,7 @@ def call_chat_api(
         response_id=primary_result.response_id,
         secondary_content=secondary_result.content,
         secondary_tool_calls=list(secondary_result.tool_calls),
-        secondary_usage=dict(secondary_result.usage or {}),
+        secondary_usage=cast(UsageDict, dict(secondary_result.usage)),
         comparison=comparison,
         raw_response=primary_result.raw_response,
         file_search_results=primary_result.file_search_results,
@@ -2016,7 +2059,7 @@ def stream_chat_api(
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
-    payload, model_name, tools, tool_functions, _candidate_models = _prepare_payload(
+    request = _prepare_payload(
         messages_with_hint,
         model=model,
         temperature=temperature,
@@ -2031,10 +2074,13 @@ def stream_chat_api(
         task=task,
     )
 
-    if tools or tool_functions:
+    if request.tool_specs or request.tool_functions:
         raise ValueError("Streaming responses do not support tool execution.")
 
-    return ChatStream(payload, model_name, task=task)
+    if not request.model:
+        raise RuntimeError("No model resolved for streaming request")
+
+    return ChatStream(request.payload, request.model, task=task)
 
 
 def _chat_content(res: Any) -> str:
