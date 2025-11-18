@@ -103,6 +103,8 @@ DE: Branding-Overrides in der Sidebar ermöglichen Logo-Uploads, die Auswahl der
 
 EN: Inline follow-up cards now sit directly beneath the affected section and keep the “Next” button disabled until every critical question has a response, while informational prompts remain optional. This keeps mandatory clarifications in context without forcing a separate page.
 DE: Inline-Follow-up-Karten erscheinen direkt unter dem jeweiligen Abschnitt und sperren „Weiter“, bis alle kritischen Fragen beantwortet sind; optionale Nachfragen bleiben freiwillig. So lassen sich Pflichtangaben im Kontext klären, ohne einen eigenen Q&A-Schritt zu öffnen.
+EN: Metadata for the Role, Skills, Benefits, and Process steps now references the canonical NeedAnalysisProfile field names, so required-field gating, collected-value chips, and exports stay aligned while inline follow-ups simply prefill the visible widgets instead of racing `_update_profile`.
+DE: Die Metadaten der Schritte Rolle, Skills, Benefits und Prozess greifen jetzt auf die kanonischen NeedAnalysisProfile-Feldnamen zu, sodass Pflichtfeldprüfung, Sammel-Chips und Exporte synchron bleiben und Inline-Follow-ups die sichtbaren Widgets vorbefüllen, statt mit `_update_profile` in Konflikt zu geraten.
 
 EN: The customer-contact toggle in the Role & Team step now shows bilingual guidance describing when to enable it and what to capture in the follow-up details field, which itself surfaces inline hints for channels, cadence, and escalation paths.
 DE: Der Kundenkontakt-Schalter im Schritt „Rolle & Team“ erklärt jetzt zweisprachig, wann er zu aktivieren ist und welche Angaben das Folgefeld benötigt; das Textfeld blendet passende Hinweise zu Kanälen, Frequenz und Eskalationen ein.

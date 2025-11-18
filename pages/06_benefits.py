@@ -5,14 +5,18 @@ from pages.base import WizardPage
 
 _REQUIRED_FIELDS: tuple[str, ...] = ()
 _SUMMARY_FIELDS: tuple[str, ...] = (
-    "benefits.salary_range",
-    "benefits.currency",
-    "benefits.bonus",
-    "benefits.equity",
-    "benefits.perks",
-    "benefits.wellbeing",
-    "benefits.relocation_support",
-    "benefits.on_call",
+    "compensation.salary_min",
+    "compensation.salary_max",
+    "compensation.currency",
+    "compensation.period",
+    "compensation.variable_pay",
+    "compensation.bonus_percentage",
+    "compensation.commission_structure",
+    "compensation.equity_offered",
+    "compensation.benefits",
+    "employment.relocation_support",
+    "employment.travel_required",
+    "employment.visa_sponsorship",
 )
 
 
