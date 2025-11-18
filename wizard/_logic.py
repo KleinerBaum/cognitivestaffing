@@ -378,7 +378,13 @@ def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
     _store_autofill_decisions(decisions)
 
 
-def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> None:
+def _update_profile(
+    path: str,
+    value: Any,
+    *,
+    session_value: Any = _MISSING,
+    allow_session_state_update: bool = True,
+) -> None:
     """Update profile data and clear derived outputs if changed."""
 
     try:
@@ -386,16 +392,23 @@ def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> 
         data.setdefault("location", {})
         normalized_value_for_path = _normalize_value_for_path(path, value)
         normalized_value = _normalize_semantic_empty(normalized_value_for_path)
-        if normalized_value is None:
-            st.session_state.pop(path, None)
-        else:
-            if session_value is _MISSING:
-                target_session_value = normalized_value_for_path
+        if allow_session_state_update:
+            if normalized_value is None:
+                try:
+                    st.session_state.pop(path, None)
+                except StreamlitAPIException:
+                    logger.debug("Skipping removal of widget-bound state for %s", path)
             else:
-                target_session_value = session_value
-            current_session_value = st.session_state.get(path, _MISSING)
-            if current_session_value is _MISSING or current_session_value != target_session_value:
-                st.session_state[path] = target_session_value
+                if session_value is _MISSING:
+                    target_session_value = normalized_value_for_path
+                else:
+                    target_session_value = session_value
+                current_session_value = st.session_state.get(path, _MISSING)
+                if current_session_value is _MISSING or current_session_value != target_session_value:
+                    try:
+                        st.session_state[path] = target_session_value
+                    except StreamlitAPIException:
+                        logger.debug("Skipping update of widget-bound state for %s", path)
         current = get_in(data, path)
         if _normalize_semantic_empty(current) != normalized_value:
             if normalized_value is None and not isinstance(

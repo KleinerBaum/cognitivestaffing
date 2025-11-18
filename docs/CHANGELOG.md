@@ -60,6 +60,8 @@ Fixed / Behoben
 
 - EN: Removed the duplicate `company.headquarters` schema field, aliased old data to `company.hq_location`, and updated the wizard summary so headquarters is stored and rendered via a single canonical key.
   DE: Das doppelte Schemafeld `company.headquarters` entfernt, Altdaten auf `company.hq_location` gemappt und die Wizard-Zusammenfassung aktualisiert, sodass der Hauptsitz nur noch über einen kanonischen Schlüssel geführt wird.
+- EN: Follow-up answers now sync through the dedicated `fu_` state keys and write directly to the profile, preventing StreamlitAPIException crashes when widgets such as Company Name or Role Summary are already mounted.
+  DE: Follow-up-Antworten laufen jetzt ausschließlich über die speziellen `fu_`-State-Keys und schreiben direkt ins Profil, sodass keine StreamlitAPIException mehr auftritt, wenn Widgets wie Firmenname oder Rollenbeschreibung bereits gerendert sind.
 - EN: Ensured schema propagation regenerates the wizard type/exports metadata so downstream exporters and validations stay aligned with the canonical headquarters field.
   DE: Die Schema-Propagation erneuert, damit Wizard-Typinformationen und Exporte wieder mit dem kanonischen Hauptsitzfeld übereinstimmen und nachgelagerte Exporte valide bleiben.
 - EN: Added bilingual error boundaries around `run_wizard()` and every step renderer so parsing/Streamlit exceptions surface inline without resetting the session, and guarded `WizardRouter` bootstrap logic to stop reconnect spam when a session is already live.
