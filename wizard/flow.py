@@ -6634,46 +6634,50 @@ def _step_company() -> None:
         company_lock,
         {"help": tr("Offizieller Firmenname", "Official company name")},
     )
-    company["name"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_NAME,
-        company_lock["label"],
-        placeholder=tr("Bitte Firmenname eingeben", "Enter the company name"),
-        value_formatter=_string_or_empty,
-        **company_kwargs,
-    )
-    if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
-        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    hq_col, size_col, industry_col = st.columns(3, gap="small")
-    hq_initial = _string_or_empty(company.get("hq_location"))
-    if not hq_initial.strip():
-        city_hint = _string_or_empty(location_data.get("primary_city"))
-        if city_hint.strip():
-            hq_initial = city_hint.strip()
-    company["hq_location"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_HQ_LOCATION,
-        tr("Hauptsitz", "Headquarters"),
-        widget_factory=hq_col.text_input,
-        placeholder=tr("Stadt und Land eingeben", "Enter city and country"),
-        default=hq_initial,
-        value_formatter=_string_or_empty,
-    )
-    company["size"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_SIZE,
-        tr("Größe", "Size"),
-        widget_factory=size_col.text_input,
-        placeholder=tr("Unternehmensgröße eintragen", "Enter the company size"),
-        value_formatter=_string_or_empty,
-    )
-    company["industry"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_INDUSTRY,
-        tr("Branche", "Industry"),
-        widget_factory=industry_col.text_input,
-        placeholder=tr("Branche beschreiben", "Describe the industry"),
-        value_formatter=_string_or_empty,
-    )
+    company_identity_container = st.container()
 
     _render_company_research_tools(company.get("website", ""))
+
+    with company_identity_container:
+        company["name"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_NAME,
+            company_lock["label"],
+            placeholder=tr("Bitte Firmenname eingeben", "Enter the company name"),
+            value_formatter=_string_or_empty,
+            **company_kwargs,
+        )
+        if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
+            st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+        hq_col, size_col, industry_col = st.columns(3, gap="small")
+        hq_initial = _string_or_empty(company.get("hq_location"))
+        if not hq_initial.strip():
+            city_hint = _string_or_empty(location_data.get("primary_city"))
+            if city_hint.strip():
+                hq_initial = city_hint.strip()
+        company["hq_location"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_HQ_LOCATION,
+            tr("Hauptsitz", "Headquarters"),
+            widget_factory=hq_col.text_input,
+            placeholder=tr("Stadt und Land eingeben", "Enter city and country"),
+            default=hq_initial,
+            value_formatter=_string_or_empty,
+        )
+        company["size"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_SIZE,
+            tr("Größe", "Size"),
+            widget_factory=size_col.text_input,
+            placeholder=tr("Unternehmensgröße eintragen", "Enter the company size"),
+            value_formatter=_string_or_empty,
+        )
+        company["industry"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_INDUSTRY,
+            tr("Branche", "Industry"),
+            widget_factory=industry_col.text_input,
+            placeholder=tr("Branche beschreiben", "Describe the industry"),
+            value_formatter=_string_or_empty,
+        )
 
     website_col, mission_col = st.columns(2, gap="small")
     company["website"] = widget_factory.text_input(
