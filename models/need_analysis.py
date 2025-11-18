@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import re
 from typing import Any, ClassVar, List, Optional
 
@@ -206,6 +207,9 @@ class Responsibilities(BaseModel):
     items: List[str] = Field(default_factory=list)
 
 
+_MODEL_VALIDATOR_SUPPORTS_SKIP = "skip_on_failure" in inspect.signature(model_validator).parameters
+
+
 class Requirements(BaseModel):
     """Required and optional skills and qualifications."""
 
@@ -225,7 +229,10 @@ class Requirements(BaseModel):
     portfolio_required: Optional[bool] = None
     reference_check_required: Optional[bool] = None
 
-    @model_validator(mode="after", skip_on_failure=True)
+    @model_validator(
+        mode="after",
+        **({"skip_on_failure": True} if _MODEL_VALIDATOR_SUPPORTS_SKIP else {}),
+    )
     def _sync_certificates(self) -> "Requirements":
         """Keep ``certificates`` and ``certifications`` aligned."""
 
