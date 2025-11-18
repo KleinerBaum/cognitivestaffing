@@ -78,7 +78,7 @@ def test_summary_requirements_mirrors_compliance_toggles(monkeypatch: pytest.Mon
     def record_update(path: str, value: Any, **__: Any) -> None:
         update_calls.append((path, value))
 
-    monkeypatch.setattr("wizard._update_profile", record_update)
+    monkeypatch.setattr("wizard.flow._update_profile", record_update)
 
     wizard._summary_requirements()
 
