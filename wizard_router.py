@@ -11,6 +11,12 @@ from pages import WizardPage
 from utils.i18n import tr
 from wizard._logic import get_in
 from wizard.followups import followup_has_response
+from wizard.layout import (
+    NavigationButtonState,
+    NavigationDirection,
+    NavigationState,
+    render_navigation_controls,
+)
 from wizard.metadata import (
     CRITICAL_SECTION_ORDER,
     PAGE_FOLLOWUP_PREFIXES,
@@ -111,6 +117,9 @@ _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Prozess", "Process"),
     ("Summary", "Summary"),
 )
+
+
+LocalizedText = tuple[str, str]
 
 
 _NAVIGATION_STYLE = """
@@ -308,9 +317,7 @@ class WizardRouter:
         self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
         self._renderers: dict[str, StepRenderer] = dict(renderers)
         self._context: WizardContext = context
-        self._resolve_value: Callable[
-            [Mapping[str, object], str, object | None], object | None
-        ] = value_resolver
+        self._resolve_value: Callable[[Mapping[str, object], str, object | None], object | None] = value_resolver
         self._ensure_state_defaults()
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
         self._sync_with_query_params()
@@ -442,9 +449,7 @@ class WizardRouter:
         # Preserve order while removing duplicates
         return list(dict.fromkeys(missing))
 
-    def _missing_inline_followups(
-        self, page: WizardPage, profile: Mapping[str, object]
-    ) -> list[str]:
+    def _missing_inline_followups(self, page: WizardPage, profile: Mapping[str, object]) -> list[str]:
         prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key, ())
         if not prefixes:
             return []
@@ -551,62 +556,67 @@ class WizardRouter:
     def _render_navigation(self, page: WizardPage, missing: Sequence[str]) -> None:
         prev_key = self._prev_key(page)
         next_key = self._next_key(page)
-        st.markdown("<div class='wizard-nav-marker'></div>", unsafe_allow_html=True)
-        cols = st.columns((1.1, 1.1, 1), gap="small")
-        if prev_key:
-            if cols[0].button(
-                "◀ " + tr("Zurück", "Back"),
-                key=f"wizard_prev_{page.key}",
-                width="stretch",
-            ):
-                self.navigate(prev_key)
-        else:
-            cols[0].write("")
+        missing_tuple = tuple(missing)
 
-        next_disabled = bool(missing)
-        if next_disabled:
-            with cols[1]:
-                st.markdown(
-                    "<div class='wizard-nav-next wizard-nav-next--disabled'>",
-                    unsafe_allow_html=True,
-                )
-                st.button(
-                    tr("Weiter", "Next") + " ▶",
-                    key=f"wizard_next_{page.key}",
-                    type="primary",
-                    disabled=True,
-                    width="stretch",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
-            missing_label = tr("Pflichtfelder fehlen", "Complete required fields first")
-            cols[1].caption(missing_label)
-        elif next_key:
-            with cols[1]:
-                st.markdown(
-                    "<div class='wizard-nav-next wizard-nav-next--enabled'>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    tr("Weiter", "Next") + " ▶",
-                    key=f"wizard_next_{page.key}",
-                    type="primary",
-                    width="stretch",
-                ):
-                    self.navigate(next_key, mark_current_complete=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            cols[1].write("")
+        def _nav_callback(
+            target: str,
+            *,
+            mark_complete: bool = False,
+            skipped: bool = False,
+        ) -> Callable[[], None]:
+            def _run() -> None:
+                self.navigate(target, mark_current_complete=mark_complete, skipped=skipped)
 
+            return _run
+
+        previous_button = (
+            NavigationButtonState(
+                direction=NavigationDirection.PREVIOUS,
+                label=("◀ Zurück", "◀ Back"),
+                target_key=prev_key,
+                on_click=_nav_callback(prev_key),
+            )
+            if prev_key
+            else None
+        )
+
+        if next_key:
+            next_hint: LocalizedText | None = None
+            if missing_tuple:
+                next_hint = (
+                    "Pflichtfelder fehlen",
+                    "Complete required fields first",
+                )
+
+            next_button = NavigationButtonState(
+                direction=NavigationDirection.NEXT,
+                label=("Weiter ▶", "Next ▶"),
+                target_key=next_key,
+                enabled=not missing_tuple,
+                primary=True,
+                hint=next_hint,
+                on_click=_nav_callback(next_key, mark_complete=True),
+            )
+        else:
+            next_button = None
+
+        skip_button = None
         if page.allow_skip and next_key:
-            with cols[2]:
-                if st.button(
-                    tr("Überspringen", "Skip"),
-                    key=f"wizard_skip_{page.key}",
-                    width="stretch",
-                ):
-                    self.navigate(next_key, mark_current_complete=True, skipped=True)
-        else:
-            cols[2].write("")
+            skip_button = NavigationButtonState(
+                direction=NavigationDirection.SKIP,
+                label=("Überspringen", "Skip"),
+                target_key=next_key,
+                on_click=_nav_callback(next_key, mark_complete=True, skipped=True),
+            )
+
+        nav_state = NavigationState(
+            current_key=page.key,
+            missing_fields=missing_tuple,
+            previous=previous_button,
+            next=next_button,
+            skip=skip_button,
+        )
+        render_navigation_controls(nav_state)
 
     def _maybe_scroll_to_top(self) -> None:
         if not st.session_state.pop("_wizard_scroll_to_top", False):

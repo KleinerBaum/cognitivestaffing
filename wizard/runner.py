@@ -14,6 +14,7 @@ from copy import deepcopy
 from datetime import date, datetime
 from functools import partial
 from pathlib import Path
+from enum import StrEnum
 from typing import (
     Any,
     Callable,
@@ -121,6 +122,28 @@ from sidebar.salary import format_salary_range
 logger = logging.getLogger(__name__)
 
 LocalizedText = tuple[str, str]
+
+
+class WizardStepKey(StrEnum):
+    """Canonical string keys for the wizard navigation order."""
+
+    JOBAD = "jobad"
+    COMPANY = "company"
+    TEAM = "team"
+    ROLE_TASKS = "role_tasks"
+    SKILLS = "skills"
+    BENEFITS = "benefits"
+    INTERVIEW = "interview"
+    SUMMARY = "summary"
+
+
+@dataclass(frozen=True)
+class WizardStepDescriptor:
+    """Pairs a step key with its renderer."""
+
+    key: WizardStepKey
+    renderer: StepRenderer
+
 
 ONBOARDING_SOURCE_STYLE_KEY: Final[str] = "_onboarding_source_styles_v2"
 EXTRACTION_REVIEW_STYLE_KEY: Final[str] = "_extraction_review_styles_v1"
@@ -1217,15 +1240,15 @@ def _render_skill_board(
         for raw_item in board_state.get(container, []):
             if not isinstance(raw_item, str):
                 continue
-            identifier = _resolve_skill_identifier(
+            resolved_identifier: str | None = _resolve_skill_identifier(
                 raw_item,
                 meta=meta,
                 legacy_map=legacy_identifier_map,
                 container=container,
             )
-            if identifier is None or identifier in normalised_items:
+            if resolved_identifier is None or resolved_identifier in normalised_items:
                 continue
-            normalised_items.append(identifier)
+            normalised_items.append(resolved_identifier)
         board_state[container] = normalised_items
 
     for identifier, info in meta.items():
@@ -1247,11 +1270,11 @@ def _render_skill_board(
         items = list(board_state.get(container, []))
         board_state[container] = []
         for item in items:
-            info = meta.get(item)
-            if not info:
+            item_meta = meta.get(item)
+            if not item_meta:
                 target_bucket = container
             else:
-                target_bucket = source_for_container.get(info["source"], "source_extracted")
+                target_bucket = source_for_container.get(item_meta["source"], "source_extracted")
             if target_bucket not in board_state:
                 board_state[target_bucket] = []
             if item not in board_state[target_bucket]:
@@ -1385,7 +1408,7 @@ def _render_skill_board(
         for bucket_key, grouped_values in llm_suggestions.items():
             if bucket_key not in {"hard_skills", "soft_skills"}:
                 continue
-            category: SkillCategory = "hard" if bucket_key == "hard_skills" else "soft"
+            llm_category: SkillCategory = "hard" if bucket_key == "hard_skills" else "soft"
             for values in grouped_values.values():
                 for raw in values or []:
                     cleaned = str(raw or "").strip()
@@ -1394,27 +1417,27 @@ def _render_skill_board(
                     display = _find_existing_display(
                         meta,
                         label=cleaned,
-                        category=category,
+                        category=llm_category,
                     )
                     if display is None:
                         display = _register_skill_bubble(
                             meta,
                             cleaned,
-                            category=category,
+                            category=llm_category,
                             source="ai",
                         )
                     _add_if_absent(display, "source_ai")
 
     if esco_opted_in:
         for cleaned in esco_candidates:
-            category: SkillCategory = _infer_skill_category(cleaned)
+            esco_category: SkillCategory = _infer_skill_category(cleaned)
             display = _find_existing_display(
                 meta,
                 label=cleaned,
-                category=category,
+                category=esco_category,
             )
             if display is None:
-                alternate: SkillCategory = "soft" if category == "hard" else "hard"
+                alternate: SkillCategory = "soft" if esco_category == "hard" else "hard"
                 alt_display = _find_existing_display(
                     meta,
                     label=cleaned,
@@ -1468,7 +1491,8 @@ def _render_skill_board(
     st.markdown("  \n".join(info_lines))
 
     chip_markup: dict[str, str] = {
-        identifier: _skill_chip_markup(identifier, info, lang=lang_code) for identifier, info in meta.items()
+        identifier: _skill_chip_markup(identifier, bubble_meta, lang=lang_code)
+        for identifier, bubble_meta in meta.items()
     }
 
     board_payload = []
@@ -1477,9 +1501,9 @@ def _render_skill_board(
         for identifier in board_state.get(container, []):
             markup = chip_markup.get(identifier)
             if markup is None:
-                info = meta.get(identifier)
-                if info:
-                    markup = _skill_chip_markup(identifier, info, lang=lang_code)
+                bubble_meta = meta.get(identifier)
+                if bubble_meta:
+                    markup = _skill_chip_markup(identifier, bubble_meta, lang=lang_code)
                     chip_markup[identifier] = markup
                 else:
                     markup = html.escape(identifier)
@@ -1512,15 +1536,15 @@ def _render_skill_board(
         for raw_item in container.get("items", []) or []:
             if not isinstance(raw_item, str):
                 continue
-            identifier = _resolve_skill_identifier(
+            cleaned_identifier: str | None = _resolve_skill_identifier(
                 raw_item,
                 meta=meta,
                 legacy_map=legacy_identifier_map,
                 container=container_type,
             )
-            if identifier is None or identifier in cleaned_items:
+            if cleaned_identifier is None or cleaned_identifier in cleaned_items:
                 continue
-            cleaned_items.append(identifier)
+            cleaned_items.append(cleaned_identifier)
         updated_state[container_type] = cleaned_items
 
     board_state = updated_state
@@ -1647,11 +1671,11 @@ def _render_skill_board(
     final_nice_soft: list[str] = []
 
     for item in board_state["target_must"]:
-        info = meta.get(item)
-        if not info:
+        bubble_meta = meta.get(item)
+        if not bubble_meta:
             continue
-        label = info["label"]
-        if info["category"] == "soft":
+        label = bubble_meta["label"]
+        if bubble_meta["category"] == "soft":
             if label not in final_must_soft:
                 final_must_soft.append(label)
         else:
@@ -1659,11 +1683,11 @@ def _render_skill_board(
                 final_must_hard.append(label)
 
     for item in board_state["target_nice"]:
-        info = meta.get(item)
-        if not info:
+        bubble_meta = meta.get(item)
+        if not bubble_meta:
             continue
-        label = info["label"]
-        if info["category"] == "soft":
+        label = bubble_meta["label"]
+        if bubble_meta["category"] == "soft":
             if label not in final_nice_soft:
                 final_nice_soft.append(label)
         else:
@@ -3489,11 +3513,11 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             if first_uri:
                 selected_ids = [first_uri]
 
-    if occupation_options:
-        st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = occupation_options
-        selected_entries = [
-            dict(entry) for entry in occupation_options if str(entry.get("uri") or "").strip() in set(selected_ids)
-        ]
+        if occupation_options:
+            st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = occupation_options
+            selected_entries = [
+                dict(entry) for entry in occupation_options if str(entry.get("uri") or "").strip() in set(selected_ids)
+            ]
         if not selected_entries and occupation_options:
             selected_entries = [dict(occupation_options[0])]
             selected_ids = [str(occupation_options[0].get("uri") or "").strip()]
@@ -3501,12 +3525,15 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = [sid for sid in selected_ids if sid]
         primary_meta = selected_entries[0] if selected_entries else None
         if primary_meta:
-            label = primary_meta.get("preferredLabel") or None
-            uri = primary_meta.get("uri") or None
-            group = primary_meta.get("group") or None
-            profile.position.occupation_label = label or None
-            profile.position.occupation_uri = uri or None
-            profile.position.occupation_group = group or None
+            label_raw = primary_meta.get("preferredLabel")
+            uri_raw = primary_meta.get("uri")
+            group_raw = primary_meta.get("group")
+            selected_label: str | None = str(label_raw).strip() if label_raw else None
+            selected_uri: str | None = str(uri_raw).strip() if uri_raw else None
+            selected_group: str | None = str(group_raw).strip() if group_raw else None
+            profile.position.occupation_label = selected_label or None
+            profile.position.occupation_uri = selected_uri or None
+            profile.position.occupation_group = selected_group or None
             _refresh_esco_skills(selected_entries, lang=lang)
         else:
             profile.position.occupation_label = None
@@ -5336,11 +5363,13 @@ def _resolve_field_source_info(path: str) -> FieldSourceInfo | None:
     confidence: float | None
     if isinstance(confidence_raw, (int, float)):
         confidence = float(confidence_raw)
-    else:
+    elif isinstance(confidence_raw, str):
         try:
             confidence = float(confidence_raw)
-        except (TypeError, ValueError):  # pragma: no cover - defensive
+        except ValueError:  # pragma: no cover - defensive
             confidence = None
+    else:
+        confidence = None
     is_inferred = bool(entry.get("inferred"))
     context_bits: list[str] = []
     url: str | None = None
@@ -7158,15 +7187,15 @@ def _render_stakeholders(process: dict, key_prefix: str) -> None:
         existing_selection = _filter_phase_indices(person.get("information_loop_phases", []), len(phase_indices))
         if existing_selection != person.get("information_loop_phases"):
             person["information_loop_phases"] = existing_selection
-        if phase_indices:
-            label_pairs = [
-                (
-                    index,
-                    _phase_label_formatter(phase_labels)(index),
-                )
-                for index in phase_indices
-            ]
-            selected_phase_strings = [str(index) for index in existing_selection]
+            if phase_indices:
+                label_pairs = [
+                    (
+                        str(index),
+                        _phase_label_formatter(phase_labels)(index),
+                    )
+                    for index in phase_indices
+                ]
+                selected_phase_strings = [str(index) for index in existing_selection]
             chosen_phase_values = chip_multiselect_mapped(
                 tr("Informationsloop-Phasen", "Information loop phases"),
                 option_pairs=label_pairs,
@@ -8440,7 +8469,7 @@ def _step_requirements() -> None:
             disabled=bool(disabled_reasons),
         ):
             with st.spinner(tr("KI schlägt Aufgaben vor…", "Fetching AI responsibilities…")):
-                suggestions, error = get_responsibility_suggestions(
+                responsibility_suggestions, suggestion_error = get_responsibility_suggestions(
                     job_title,
                     lang=lang_code,
                     tone_style=tone_style,
@@ -8449,25 +8478,25 @@ def _step_requirements() -> None:
                     industry=industry,
                     existing_items=cleaned_responsibilities,
                 )
-            if error:
+            if suggestion_error:
                 st.error(
                     tr(
                         "Aufgaben-Vorschläge fehlgeschlagen: {error}",
                         "Responsibility suggestions failed: {error}",
-                    ).format(error=error)
+                    ).format(error=suggestion_error)
                 )
                 if st.session_state.get("debug"):
-                    st.session_state["responsibility_suggest_error"] = error
+                    st.session_state["responsibility_suggest_error"] = suggestion_error
             else:
-                if suggestions:
-                    merged = merge_unique_items(cleaned_responsibilities, suggestions)
+                if responsibility_suggestions:
+                    merged = merge_unique_items(cleaned_responsibilities, responsibility_suggestions)
                     responsibilities["items"] = merged
                     joined = "\n".join(merged)
                     st.session_state[responsibilities_key] = joined
                     st.session_state[responsibilities_seed_key] = joined
                     st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
                         "_lang": lang_code,
-                        "items": suggestions,
+                        "items": responsibility_suggestions,
                         "status": "applied",
                     }
                 else:
@@ -9312,7 +9341,7 @@ def _step_process() -> None:
                 if existing_selection != person.get("information_loop_phases"):
                     person["information_loop_phases"] = existing_selection
                 if phase_indices:
-                    label_pairs = [(index, _phase_label_formatter(phase_labels)(index)) for index in phase_indices]
+                    label_pairs = [(str(index), _phase_label_formatter(phase_labels)(index)) for index in phase_indices]
                     selected_phase_strings = [str(index) for index in existing_selection]
                     chosen_phases = chip_multiselect_mapped(
                         tr("Phasen", "Phases"),
@@ -9395,7 +9424,7 @@ _MAX_SECTION_INDEX = max(CRITICAL_SECTION_ORDER or (COMPANY_STEP_INDEX,))
 def _summary_company() -> None:
     """Editable summary tab for company information."""
 
-    data = st.session_state[StateKeys.PROFILE]
+    data = _get_profile_state()
     c1, c2 = st.columns(2)
     summary_company_label = tr("Firma", "Company") + REQUIRED_SUFFIX
     summary_company_lock = _field_lock_config(
@@ -9498,7 +9527,18 @@ def _summary_company() -> None:
 def _summary_position() -> None:
     """Editable summary tab for position details."""
 
-    data = st.session_state[StateKeys.PROFILE]
+    profile_state = st.session_state.get(StateKeys.PROFILE)
+    summary_data: dict[str, Any] = {}
+    if isinstance(profile_state, dict):
+        summary_data = profile_state
+    elif isinstance(profile_state, Mapping):
+        summary_data = dict(profile_state)
+        st.session_state[StateKeys.PROFILE] = summary_data
+    else:
+        ensure_state()
+        refreshed = st.session_state.get(StateKeys.PROFILE)
+        summary_data = refreshed if isinstance(refreshed, dict) else {}
+    data = summary_data
     position = data.setdefault("position", {})
     c1, c2 = st.columns(2)
     summary_title_label = tr("Jobtitel", "Job title") + REQUIRED_SUFFIX
@@ -9742,7 +9782,18 @@ def _summary_position() -> None:
 def _summary_requirements() -> None:
     """Editable summary tab for requirements."""
 
-    data = st.session_state[StateKeys.PROFILE]
+    profile_state = st.session_state.get(StateKeys.PROFILE)
+    summary_data: dict[str, Any] = {}
+    if isinstance(profile_state, dict):
+        summary_data = profile_state
+    elif isinstance(profile_state, Mapping):
+        summary_data = dict(profile_state)
+        st.session_state[StateKeys.PROFILE] = summary_data
+    else:
+        ensure_state()
+        refreshed = st.session_state.get(StateKeys.PROFILE)
+        summary_data = refreshed if isinstance(refreshed, dict) else {}
+    data = summary_data
     missing_esco = [
         str(skill).strip()
         for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
@@ -9835,7 +9886,18 @@ def _summary_requirements() -> None:
 def _summary_employment() -> None:
     """Editable summary tab for employment details."""
 
-    data = st.session_state[StateKeys.PROFILE]
+    profile_state = st.session_state.get(StateKeys.PROFILE)
+    summary_data: dict[str, Any] = {}
+    if isinstance(profile_state, dict):
+        summary_data = profile_state
+    elif isinstance(profile_state, Mapping):
+        summary_data = dict(profile_state)
+        st.session_state[StateKeys.PROFILE] = summary_data
+    else:
+        ensure_state()
+        refreshed = st.session_state.get(StateKeys.PROFILE)
+        summary_data = refreshed if isinstance(refreshed, dict) else {}
+    data = summary_data
     c1, c2 = st.columns(2)
     job_options = [
         "full_time",
@@ -10464,9 +10526,12 @@ def _render_salary_insights(
     explanation = st.session_state.get(UIKeys.SALARY_EXPLANATION)
     timestamp: str | None = st.session_state.get(UIKeys.SALARY_REFRESH)
 
-    est_min = float(estimate.get("salary_min")) if estimate and estimate.get("salary_min") is not None else None
-    est_max = float(estimate.get("salary_max")) if estimate and estimate.get("salary_max") is not None else None
-    est_currency = str(estimate.get("currency")) if estimate and estimate.get("currency") else None
+    est_min_raw = estimate.get("salary_min") if estimate else None
+    est_max_raw = estimate.get("salary_max") if estimate else None
+    est_currency_raw = estimate.get("currency") if estimate else None
+    est_min = float(est_min_raw) if isinstance(est_min_raw, (int, float, str)) else None
+    est_max = float(est_max_raw) if isinstance(est_max_raw, (int, float, str)) else None
+    est_currency = str(est_currency_raw) if est_currency_raw else None
 
     user_min = profile.compensation.salary_min
     user_max = profile.compensation.salary_max
@@ -10657,6 +10722,12 @@ def _render_summary_export_section(
     profile_filename: str,
 ) -> None:
     """Render export, generation, and automation tools for the summary tab."""
+
+    summary_data: dict[str, Any]
+    if isinstance(raw_profile, dict):
+        summary_data = raw_profile
+    else:
+        summary_data = dict(raw_profile)
 
     st.caption(
         tr(
@@ -11154,7 +11225,7 @@ def _render_summary_export_section(
                 if changed:
                     job_generated, interview_generated = _apply_followup_updates(
                         trimmed_answers,
-                        data=raw_profile,
+                        data=summary_data,
                         filtered_profile=filtered_profile,
                         profile_payload=profile_payload,
                         target_value=target_value,
@@ -11213,7 +11284,18 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
 
     st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
 
-    data = st.session_state[StateKeys.PROFILE]
+    profile_state = st.session_state.get(StateKeys.PROFILE)
+    summary_data: dict[str, Any] = {}
+    if isinstance(profile_state, dict):
+        summary_data = profile_state
+    elif isinstance(profile_state, Mapping):
+        summary_data = dict(profile_state)
+        st.session_state[StateKeys.PROFILE] = summary_data
+    else:
+        ensure_state()
+        refreshed = st.session_state.get(StateKeys.PROFILE)
+        summary_data = refreshed if isinstance(refreshed, dict) else {}
+    data = summary_data
     lang = st.session_state.get("lang", "de")
 
     try:
@@ -11416,7 +11498,7 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
 
 def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
     _render_onboarding_hero()
-    _step_onboarding(schema)
+    _step_onboarding(dict(schema))
 
 
 def _render_skills_review_step() -> None:
@@ -11517,19 +11599,30 @@ def step_interview(context: WizardContext) -> None:
 def step_summary(context: WizardContext) -> None:
     """Render the summary step using ``context`` for schema and critical fields."""
 
-    _step_summary(context.schema, context.critical_fields)
+    _step_summary(dict(context.schema), list(context.critical_fields))
 
 
-STEP_RENDERERS: dict[str, StepRenderer] = {
-    "jobad": StepRenderer(step_jobad, legacy_index=0),
-    "company": StepRenderer(step_company, legacy_index=1),
-    "team": StepRenderer(step_team, legacy_index=2),
-    "role_tasks": StepRenderer(step_role_tasks, legacy_index=3),
-    "skills": StepRenderer(step_skills, legacy_index=4),
-    "benefits": StepRenderer(step_benefits, legacy_index=5),
-    "interview": StepRenderer(step_interview, legacy_index=6),
-    "summary": StepRenderer(step_summary, legacy_index=7),
-}
+STEP_SEQUENCE: tuple[WizardStepDescriptor, ...] = (
+    WizardStepDescriptor(WizardStepKey.JOBAD, StepRenderer(step_jobad, legacy_index=0)),
+    WizardStepDescriptor(WizardStepKey.COMPANY, StepRenderer(step_company, legacy_index=1)),
+    WizardStepDescriptor(WizardStepKey.TEAM, StepRenderer(step_team, legacy_index=2)),
+    WizardStepDescriptor(
+        WizardStepKey.ROLE_TASKS,
+        StepRenderer(step_role_tasks, legacy_index=3),
+    ),
+    WizardStepDescriptor(WizardStepKey.SKILLS, StepRenderer(step_skills, legacy_index=4)),
+    WizardStepDescriptor(
+        WizardStepKey.BENEFITS,
+        StepRenderer(step_benefits, legacy_index=5),
+    ),
+    WizardStepDescriptor(
+        WizardStepKey.INTERVIEW,
+        StepRenderer(step_interview, legacy_index=6),
+    ),
+    WizardStepDescriptor(WizardStepKey.SUMMARY, StepRenderer(step_summary, legacy_index=7)),
+)
+
+STEP_RENDERERS: dict[str, StepRenderer] = {descriptor.key.value: descriptor.renderer for descriptor in STEP_SEQUENCE}
 
 
 def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
