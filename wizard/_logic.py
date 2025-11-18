@@ -379,7 +379,17 @@ def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
 
 
 def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> None:
-    """Update profile data and clear derived outputs if changed."""
+    """Update profile data and clear derived outputs if changed.
+
+    Streamlit replays widget defaults on the first rerun after widget
+    instantiation, overwriting any widget-bound ``st.session_state`` keys that
+    are written too early. That behavior has previously triggered
+    ``StreamlitAPIException`` errors and caused the wizard to lose follow-up
+    completion state. Callers therefore must not set ``st.session_state``
+    directly during layout; instead they should rely on the widget helper
+    functions (which invoke ``_update_profile`` only after Streamlit stabilizes)
+    so sidebar, summary, and export state stay in sync without regression risk.
+    """
 
     try:
         data = _get_profile_state()
@@ -394,6 +404,9 @@ def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> 
             else:
                 target_session_value = session_value
             current_session_value = st.session_state.get(path, _MISSING)
+            # Never write widget-bound keys before Streamlit completes its first
+            # rerun, because the framework overwrites those assignments and can
+            # raise ``StreamlitAPIException`` while wiping follow-up state.
             if current_session_value is _MISSING or current_session_value != target_session_value:
                 st.session_state[path] = target_session_value
         current = get_in(data, path)
