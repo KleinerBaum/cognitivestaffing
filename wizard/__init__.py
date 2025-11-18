@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from .metadata import (
@@ -16,7 +17,6 @@ from .metadata import (
 from . import _agents as agents
 from . import layout
 from . import _logic as logic
-from . import flow
 from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
@@ -77,11 +77,30 @@ __all__ = [
 
 FLOW_EXPORTS: list[str] = []
 
-for _name in sorted(dir(flow)):
-    if _name.startswith("__") or _name in __all__:
-        continue
-    value: Any = getattr(flow, _name)
-    globals()[_name] = value
-    FLOW_EXPORTS.append(_name)
 
-__all__.extend(FLOW_EXPORTS)
+def _load_flow_attribute(name: str) -> Any:
+    """Lazily import ``wizard.flow`` to avoid circular imports."""
+
+    flow = importlib.import_module(f"{__name__}.flow")
+
+    value: Any = getattr(flow, name)
+    if name not in globals():
+        globals()[name] = value
+    if name not in FLOW_EXPORTS:
+        FLOW_EXPORTS.append(name)
+    if name not in __all__:
+        __all__.append(name)
+    return value
+
+
+def __getattr__(name: str) -> Any:
+    if name.startswith("__"):
+        raise AttributeError(name)
+    try:
+        return _load_flow_attribute(name)
+    except AttributeError as exc:  # pragma: no cover - mirrors module semantics
+        raise AttributeError(f"module {__name__} has no attribute {name}") from exc
+
+
+def __dir__() -> list[str]:  # pragma: no cover - convenience for REPLs
+    return sorted(set(__all__ + FLOW_EXPORTS))
