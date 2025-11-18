@@ -30,6 +30,7 @@ from core.schema import (
 )
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import NormalizedProfilePayload, normalize_profile
+from utils.i18n import tr
 from llm.json_repair import repair_profile_payload
 from llm.profile_normalization import normalize_interview_stages_field
 
@@ -305,6 +306,7 @@ def ensure_state() -> None:
                 logger.warning(
                     "Unable to recover profile data after repair attempts; resetting to defaults.",
                 )
+                _record_profile_reset_warning(errors)
                 fallback_profile: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
                 ensured_fallback = _apply_critical_profile_defaults(fallback_profile)
                 st.session_state[StateKeys.PROFILE] = ensured_fallback
@@ -427,6 +429,25 @@ def _summarize_error_locations(
     if not summary:
         return ("<root>",)
     return tuple(summary)
+
+
+def _record_profile_reset_warning(errors: Sequence[Mapping[str, Any]] | None) -> None:
+    """Persist a bilingual warning whenever the profile falls back to defaults."""
+
+    lang = st.session_state.get("lang")
+    warning_message = tr(
+        "⚠️ Profil konnte nicht validiert werden – bitte Felder manuell prüfen.",
+        "⚠️ Extracted profile could not be validated – please review the fields manually.",
+        lang=lang,
+    )
+    summary: dict[str, str] = {
+        tr("Status", "Status", lang=lang): warning_message,
+    }
+    impacted = [label for label in _summarize_error_locations(errors) if label != "<root>"]
+    if impacted:
+        summary[tr("Betroffene Felder", "Impacted fields", lang=lang)] = ", ".join(impacted)
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
+    st.session_state[StateKeys.STEPPER_WARNING] = warning_message
 
 
 def _format_error_location(location: Sequence[Any]) -> str:

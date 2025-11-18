@@ -13,6 +13,8 @@ Fixed / Behoben
   DE: Die Pflichtfeldprüfung im Unternehmensschritt läuft jetzt nach den Inline-Validatoren erneut, sodass das Löschen der Kontakt-E-Mail oder Primärstadt „Weiter“ sofort sperrt und der zweisprachige Hinweis erscheint, bevor es weitergeht.
 - EN: Hardened the company contact email validator to use Pydantic's email parsing so invalid addresses surface as inline errors instead of raising a TypeError.
   DE: Die Validierung der Kontakt-E-Mail nutzt nun den Pydantic-E-Mail-Parser, damit ungültige Adressen als Inline-Fehler erscheinen und kein TypeError mehr ausgelöst wird.
+- EN: Structured extraction now detects nested `process.interview_stages` validation errors, re-coerces list payloads to counts, and records a bilingual warning plus impacted field list when the profile falls back to defaults, so recruiters know what to fix instead of losing data silently.
+  DE: Die strukturierte Extraktion erkennt verschachtelte Validierungsfehler bei `process.interview_stages`, wandelt Listenwerte wieder in Zähler um und speichert eine zweisprachige Warnung inklusive betroffener Felder, sobald das Profil auf Standardwerte zurückgesetzt werden muss – Recruiter:innen sehen sofort, wo nachgebessert werden muss.
 
 v1.1.0 – Wizard Hardening & Schema Alignment / Wizard-Härtung & Schemaabgleich (2025-11-19)
 

@@ -16,6 +16,7 @@ import core.schema as schema_module
 
 from constants.keys import StateKeys
 from models.need_analysis import NeedAnalysisProfile
+from pydantic import ValidationError
 
 es = importlib.import_module("state.ensure_state")
 
@@ -154,6 +155,44 @@ def test_ensure_state_normalises_interview_stage_list_without_json_repair(monkey
     assert result["company"]["name"] == "ACME GmbH"
     assert result["position"]["job_title"] == "Data Scientist"
     assert result["process"]["interview_stages"] == 2
+
+
+def test_ensure_state_sets_summary_when_profile_reset(monkeypatch):
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
+    st.session_state[StateKeys.PROFILE] = {"company": {"contact_email": {"bad": "value"}}}
+
+    def _make_error() -> ValidationError:
+        return ValidationError.from_exception_data(
+            NeedAnalysisProfile.__name__,
+            [
+                {
+                    "type": "string_type",
+                    "loc": ("company", "contact_email"),
+                    "msg": "value is not a valid string",
+                    "input": {"bad": "value"},
+                }
+            ],
+        )
+
+    def _raise_error(*_args, **_kwargs):
+        raise _make_error()
+
+    def _fail_model_validate(_cls, *_args, **_kwargs):
+        raise _make_error()
+
+    monkeypatch.setattr(schema_module, "coerce_and_fill", _raise_error)
+    monkeypatch.setattr(es.NeedAnalysisProfile, "model_validate", classmethod(_fail_model_validate))
+    monkeypatch.setattr(es, "repair_profile_payload", lambda *_, **__: None)
+
+    es.ensure_state()
+
+    summary = st.session_state[StateKeys.EXTRACTION_SUMMARY]
+    warning = "⚠️ Extracted profile could not be validated – please review the fields manually."
+    assert summary["Status"] == warning
+    assert summary["Impacted fields"] == "company.contact_email"
+    assert st.session_state[StateKeys.STEPPER_WARNING] == warning
 
 
 def test_ensure_state_defaults_contact_email_when_invalid() -> None:
