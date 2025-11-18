@@ -577,6 +577,58 @@ def test_company_step_blocks_when_primary_city_only_in_widget_state(
     assert str(ProfilePaths.LOCATION_PRIMARY_CITY) in missing
 
 
+def test_company_step_relocks_after_contact_fields_cleared(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Navigation should disable itself when validators blank the profile."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
+
+    def _invalidate_contact_fields(_context: WizardContext) -> None:
+        profile = st.session_state[StateKeys.PROFILE]
+        profile["company"]["contact_email"] = ""
+        profile["location"]["primary_city"] = ""
+
+    router._renderers["company"] = StepRenderer(
+        callback=_invalidate_contact_fields,
+        legacy_index=1,
+    )
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(AssertionError("rerun not expected")))
+
+    button_calls: list[dict[str, Any]] = []
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
+    assert next_calls, "expected Next button to render"
+    assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+
 def test_critical_followup_blocks_until_answered(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:

@@ -402,7 +402,6 @@ class WizardRouter:
             return
 
         st.session_state[StateKeys.STEP] = renderer.legacy_index
-        missing = self._missing_required_fields(page)
         last_rendered = self._state.get("_last_rendered_step")
         if last_rendered != current_key:
             st.session_state["_wizard_scroll_to_top"] = True
@@ -421,6 +420,7 @@ class WizardRouter:
             self._handle_step_exception(page, error)
         except Exception as error:  # pragma: no cover - defensive guard
             self._handle_step_exception(page, error)
+        missing = self._missing_required_fields(page)
         self._render_navigation(page, missing)
 
     # ------------------------------------------------------------------
