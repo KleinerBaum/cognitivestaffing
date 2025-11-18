@@ -5143,15 +5143,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 unsafe_allow_html=True,
             )
             st.session_state[highlight_sentinel] = False
-    widget_has_state = field in st.session_state
-    if widget_has_state:
-        if processed_value is None:
-            st.session_state.pop(field, None)
-        else:
-            st.session_state[field] = processed_value
-        _update_profile(field, processed_value, session_value=processed_value)
-    else:
-        _update_profile(field, processed_value)
+    _update_profile(field, processed_value, allow_session_state_update=False)
     if isinstance(data, dict):
         set_in(data, field, processed_value)
     if followup_has_response(processed_value):
