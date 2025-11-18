@@ -320,9 +320,9 @@ EN: Flow control, widget helpers, and routing glue for the multi-step UI.
 
 DE: Ablaufsteuerung, Widget-Helfer und Routing-Logik für den Multi-Step-Wizard.
 
-EN: wizard/metadata.py centralises FIELD_SECTION_MAP, CRITICAL_SECTION_ORDER, and get_missing_critical_fields so wizard.runner and wizard_router share a lightweight, circular-import-free source of truth.
+EN: wizard/metadata.py centralises FIELD_SECTION_MAP, CRITICAL_SECTION_ORDER, and get_missing_critical_fields so wizard.flow and wizard_router share a lightweight, circular-import-free source of truth.
 
-DE: wizard/metadata.py bündelt FIELD_SECTION_MAP, CRITICAL_SECTION_ORDER und get_missing_critical_fields, damit wizard.runner und wizard_router eine schlanke, kreisfrei importierbare Wahrheit teilen.
+DE: wizard/metadata.py bündelt FIELD_SECTION_MAP, CRITICAL_SECTION_ORDER und get_missing_critical_fields, damit wizard.flow und wizard_router eine schlanke, kreisfrei importierbare Wahrheit teilen.
 
 core/
 
@@ -342,9 +342,9 @@ EN: Sidebar orchestration including plan previews and branding settings.
 
 DE: Sidebar-Steuerung inklusive Plan-Vorschau und Branding-Einstellungen.
 
-EN: sidebar.__init__ imports wizard.metadata and wizard._logic during module load so cached wizard helpers stay in sync. Keep those modules free of sidebar imports (the runner still imports sidebar.salary) to prevent circular dependencies.
+EN: sidebar.__init__ imports wizard.metadata and wizard._logic during module load so cached wizard helpers stay in sync. Keep those modules free of sidebar imports (the flow engine still imports sidebar.salary) to prevent circular dependencies.
 
-DE: sidebar.__init__ importiert wizard.metadata und wizard._logic bereits beim Laden des Moduls, damit die Wizard-Helfer ohne Wrapper verfügbar sind. Stelle sicher, dass diese Module keine Sidebar-Imports enthalten (der Runner importiert weiterhin sidebar.salary), um Kreisabhängigkeiten zu vermeiden.
+DE: sidebar.__init__ importiert wizard.metadata und wizard._logic bereits beim Laden des Moduls, damit die Wizard-Helfer ohne Wrapper verfügbar sind. Stelle sicher, dass diese Module keine Sidebar-Imports enthalten (die Flow-Engine importiert weiterhin sidebar.salary), um Kreisabhängigkeiten zu vermeiden.
 
 state/
 

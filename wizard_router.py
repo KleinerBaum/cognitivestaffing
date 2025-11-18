@@ -27,7 +27,7 @@ from wizard.metadata import (
 )
 
 # ``wizard.metadata`` stays lightweight so this router can depend on shared
-# progress data without importing the Streamlit-heavy ``wizard.runner`` module.
+# progress data without importing the Streamlit-heavy ``wizard.flow`` module.
 
 
 @dataclass(frozen=True)

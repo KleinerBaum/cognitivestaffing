@@ -1,7 +1,7 @@
-"""Shared wizard metadata consumed by runner and router.
+"""Shared wizard metadata consumed by the flow engine and router.
 
 This module isolates the lightweight field/section relationships and the
-critical-field helpers so that ``wizard.runner`` and ``wizard_router`` can import
+critical-field helpers so that ``wizard.flow`` and ``wizard_router`` can import
 what they need without triggering circular imports. Keeping the dependency graph
 explicit also makes type-checking and unit tests straightforward.
 """

@@ -18,6 +18,8 @@ Changed / Geändert
 
 - EN: Rebuilt the wizard as an eight-step flow (Onboarding, Company, Team, Role, Skills, Compensation, Process, Summary) with a tabbed extraction review, chip-based follow-ups, and a progress tracker that counts required plus critical schema paths.
   DE: Den Wizard als achtstufigen Ablauf (Onboarding, Unternehmen, Team, Rolle, Skills, Vergütung, Prozess, Summary) neu aufgebaut – inklusive tabbasierter Extraktionskontrolle, Chip-Follow-ups und Fortschrittsanzeige über Pflicht- und kritische Schemafelder.
+- EN: Retired the legacy `wizard.runner` module by renaming it to `wizard.flow` so navigation code clearly routes through `WizardRouter` and downstream imports avoid the circular stubs used in tests.
+  DE: Das frühere Modul `wizard.runner` wurde in `wizard.flow` umbenannt, sodass klar ersichtlich ist, dass die Navigation über `WizardRouter` läuft und nachgelagerte Importe ohne die bisher notwendigen Test-Stubs auskommen.
 - EN: Wizard navigation, follow-up cards, and Streamlit inputs now animate with the shared transition tokens (box-shadow hover states, “Next” pulse, smooth scroll to top) so state changes are obvious without feeling distracting.
   DE: Wizard-Navigation, Follow-up-Karten und Streamlit-Eingaben animieren nun mit den gemeinsamen Transition-Tokens (Box-Shadow-Hover, „Weiter“-Impuls, weiches Scrollen nach oben), damit Zustandswechsel auffallen ohne zu stören.
 - EN: Salary insights now auto-trigger when job title and location hints exist, highlight required fields, summarise top drivers, plot Plotly charts, and fall back to curated benefit lists if AI output is missing.
