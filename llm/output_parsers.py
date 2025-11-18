@@ -40,12 +40,14 @@ class NeedAnalysisParserError(ValueError):
         raw_text: str,
         data: dict[str, Any] | None,
         original: Exception | None = None,
+        errors: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.raw_text = raw_text
         self.data = data
         self.original = original
+        self.errors: Sequence[Mapping[str, Any]] | None = errors
 
 
 class NeedAnalysisOutputParser:
@@ -112,8 +114,11 @@ class NeedAnalysisOutputParser:
             return False
 
         for error in error_iterator:
-            location = tuple(error.get("loc", ()))
-            if location == ("process", "interview_stages"):
+            raw_location = error.get("loc", ())
+            if not isinstance(raw_location, (list, tuple)):
+                continue
+            location = tuple(raw_location)
+            if len(location) >= 2 and tuple(location[:2]) == ("process", "interview_stages"):
                 return True
         return False
 
@@ -171,7 +176,7 @@ class NeedAnalysisOutputParser:
                 maybe_errors = getattr(validation_error, "errors")
                 if callable(maybe_errors):  # pragma: no cover - defensive
                     try:
-                        error_details = list(maybe_errors())  # type: ignore[arg-type]
+                        error_details = list(maybe_errors())
                     except Exception:
                         error_details = None
             if (
@@ -215,6 +220,7 @@ class NeedAnalysisOutputParser:
                 raw_text=candidate,
                 data=canonical_data or (data if isinstance(data, dict) else None),
                 original=validation_error,
+                errors=error_details,
             ) from validation_error
         except Exception as err:  # pragma: no cover - LangChain wraps other exceptions
             raise NeedAnalysisParserError(
