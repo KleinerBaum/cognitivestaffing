@@ -83,6 +83,9 @@ DE: Der Unternehmensschritt lässt die Navigation erst weiterlaufen, wenn `compa
 EN: Streamlined the sidebar: navigation links are gone, language and dark-mode switches sit beneath each other with flag icons, and salary estimates now launch automatically once job title plus a location hint are present, listing required fields, summarising the top five drivers in a single sentence, and surfacing the raw calculation details.
 DE: Sidebar verschlankt: Navigations-Links entfernt, Sprach- und Dark-Mode-Umschalter stehen untereinander mit Flaggen-Icons, und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen – inklusive Pflichtfeldliste, Ein-Satz-Zusammenfassung der fünf wichtigsten Faktoren und sichtbarer Berechnungsdetails.
 
+EN: The eight-step workflow tracker moved into the sidebar between the quick snapshot and step context sections. Each step renders as a compact expander that highlights the current position and lists every schema key that already contains data so recruiters can audit captured inputs without scrolling back to the canvas.
+DE: Der achtstufige Workflow-Tracker sitzt jetzt in der Sidebar zwischen Schnellüberblick und Schritt-Kontext. Jeder Schritt erscheint als kompakter Aufklapper, markiert die aktuelle Position und listet alle bereits befüllten Schemafelder auf, sodass Recruiter:innen die Eingaben prüfen können, ohne zum Hauptbereich zurückzuspringen.
+
 EN: Normalise wizard widget defaults via _ensure_widget_state() so text inputs and list editors seed before rendering, avoiding Streamlit “Cannot set widget” errors on reruns.
 DE: Normalisiert die Widget-Defaults im Wizard über _ensure_widget_state(), damit Textfelder und Listen-Editoren vor dem Rendern initialisiert werden und beim erneuten Ausführen keine “Cannot set widget”-Fehler mehr auftreten.
 

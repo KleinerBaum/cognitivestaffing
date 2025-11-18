@@ -26,6 +26,7 @@ from utils.usage import build_usage_markdown, usage_totals
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
+from components.stepper import render_step_summary
 
 # Wizard metadata is intentionally lightweight (no sidebar imports) so we can
 # eagerly import the field map, critical helpers, and logic module without
@@ -72,14 +73,45 @@ def _apply_reasoning_mode(mode: str) -> None:
 
 
 STEP_LABELS: list[tuple[str, str]] = [
-    ("onboarding", tr("Onboarding", "Onboarding")),
+    ("jobad", tr("Job-Import", "Job ad intake")),
     ("company", tr("Unternehmen", "Company")),
-    ("basic", tr("Basisdaten", "Basic info")),
-    ("requirements", tr("Anforderungen", "Requirements")),
-    ("compensation", tr("Leistungen & Benefits", "Rewards & Benefits")),
-    ("process", tr("Prozess", "Process")),
-    ("summary", tr("Summary", "Summary")),
+    ("team", tr("Team & Kontext", "Team & context")),
+    ("role_tasks", tr("Rolle & Aufgaben", "Role & tasks")),
+    ("skills", tr("Skills & Anforderungen", "Skills & requirements")),
+    ("benefits", tr("Vergütung & Benefits", "Compensation & benefits")),
+    ("interview", tr("Interviewprozess", "Interview process")),
+    ("summary", tr("Zusammenfassung", "Summary")),
 ]
+
+STEP_KEY_ALIASES: dict[str, str] = {
+    "onboarding": "jobad",
+    "jobad": "jobad",
+    "company": "company",
+    "basic": "team",
+    "team": "team",
+    "role_tasks": "role_tasks",
+    "skills": "skills",
+    "requirements": "skills",
+    "compensation": "benefits",
+    "benefits": "benefits",
+    "process": "interview",
+    "interview": "interview",
+    "summary": "summary",
+}
+
+PATH_PREFIX_STEP_MAP: tuple[tuple[str, str], ...] = (
+    ("company.", "company"),
+    ("position.", "team"),
+    ("location.", "team"),
+    ("employment.", "team"),
+    ("responsibilities.", "role_tasks"),
+    ("requirements.", "skills"),
+    ("compensation.", "benefits"),
+    ("process.", "interview"),
+    ("summary.", "summary"),
+)
+
+MAX_STEP_PREVIEW_ITEMS = 5
 
 
 @dataclass(slots=True)
@@ -730,35 +762,89 @@ def _render_settings() -> None:
         st.experimental_rerun()
 
 
+def _get_step_summary_payload() -> tuple[int, list[str]] | None:
+    """Return the current wizard step index and localized labels."""
+
+    payload = st.session_state.get("_wizard_step_summary")
+    if (
+        isinstance(payload, tuple)
+        and len(payload) == 2
+        and isinstance(payload[0], int)
+        and isinstance(payload[1], Sequence)
+    ):
+        labels = [str(label) for label in payload[1]]
+        return payload[0], labels
+    return None
+
+
+def _map_summary_key(raw_key: str | None) -> str | None:
+    if not raw_key:
+        return None
+    normalized = raw_key.strip().lower()
+    return STEP_KEY_ALIASES.get(normalized)
+
+
+def _resolve_step_key_for_path(path: str) -> str | None:
+    for prefix, step_key in PATH_PREFIX_STEP_MAP:
+        if path.startswith(prefix):
+            return step_key
+    return None
+
+
 def _render_hero(context: SidebarContext) -> None:
     """Render extracted data grouped by wizard step."""
 
-    st.markdown(f"### 🗂️ {tr('Schnellüberblick', 'Quick snapshot')}")
+    st.markdown(f"### 🧭 {tr('Schrittübersicht', 'Step overview')}")
+
+    summary_payload = _get_step_summary_payload()
+    summary_labels: list[str]
+    current_index: int
+    if summary_payload:
+        current_index, summary_labels = summary_payload
+        render_step_summary(current_index, summary_labels)
+    else:
+        current_index = 0
+        summary_labels = [label for _, label in STEP_LABELS]
+        if summary_labels:
+            render_step_summary(current_index, summary_labels)
 
     step_order, step_entries = _build_initial_extraction_entries(context)
-    if not any(step_entries.values()):
-        st.caption(
-            tr(
-                "Sobald du Daten importierst, erscheinen hier die wichtigsten Ergebnisse.",
-                "As soon as you import data the top findings will appear here.",
-            )
-        )
-        return
+    label_lookup = {key: label for key, label in STEP_LABELS}
+    if step_order:
+        active_index = min(max(current_index, 0), len(step_order) - 1)
+    else:
+        active_index = -1
 
-    step_labels = {key: label for key, label in STEP_LABELS}
     for idx, step_key in enumerate(step_order):
+        label = label_lookup.get(step_key, step_key.title())
         entries = step_entries.get(step_key, [])
-        if not entries:
-            continue
-        label = step_labels.get(step_key, step_key.title())
-        with st.expander(label, expanded=idx == 0):
-            for field_label, value in entries:
-                safe_label = html.escape(field_label)
-                safe_value = html.escape(value)
-                st.markdown(
-                    f"- **{safe_label}**: {safe_value}",
-                    unsafe_allow_html=True,
-                )
+        hint = (
+            tr("{count} Angaben", "{count} data points").format(count=len(entries))
+            if entries
+            else tr("Noch keine Angaben", "No data yet")
+        )
+        expander_label = f"{idx + 1}. {label} — {hint}"
+        expanded = idx == active_index
+        with st.expander(expander_label, expanded=expanded):
+            if entries:
+                visible_entries = entries[:MAX_STEP_PREVIEW_ITEMS]
+                for field_label, value in visible_entries:
+                    safe_label = html.escape(field_label)
+                    safe_value = html.escape(value)
+                    st.markdown(
+                        f"- **{safe_label}**: {safe_value}",
+                        unsafe_allow_html=True,
+                    )
+                remaining = len(entries) - len(visible_entries)
+                if remaining > 0:
+                    st.caption(
+                        tr(
+                            "Weitere {count} Angaben gespeichert.",
+                            "{count} additional entries captured.",
+                        ).format(count=remaining)
+                    )
+            else:
+                st.caption(tr("Noch keine Felder befüllt.", "No fields captured yet."))
 
 
 def _render_step_context(context: SidebarContext) -> None:
@@ -802,49 +888,38 @@ def _build_initial_extraction_entries(
     known_step_keys = set(step_order)
     if isinstance(summary, Mapping):
         is_step_grouped = summary and all(
-            isinstance(value, Mapping) and key in known_step_keys for key, value in summary.items()
+            isinstance(value, Mapping) and _map_summary_key(str(key)) in known_step_keys
+            for key, value in summary.items()
         )
         if is_step_grouped:
             for step_key, values in summary.items():
-                entries = step_entries.setdefault(step_key, [])
+                mapped_key = _map_summary_key(str(step_key))
+                if mapped_key not in step_entries or not isinstance(values, Mapping):
+                    continue
+                entries = step_entries[mapped_key]
                 for label, value in values.items():
                     preview = preview_value_to_text(value)
                     if preview:
                         entries.append((str(label), preview))
         else:
-            entries = step_entries.setdefault("onboarding", [])
+            entries = step_entries.setdefault("jobad", [])
             for label, value in summary.items():
                 preview = preview_value_to_text(value)
                 if preview:
                     entries.append((str(label), preview))
 
-    section_map = _initial_extraction_section_map()
-    for section_label, items in context.prefilled_sections:
-        mapped_step = section_map.get(section_label)
-        if mapped_step is None:
-            continue
-        assert isinstance(mapped_step, str)
-        entries = step_entries.setdefault(mapped_step, [])
+    for _, items in context.prefilled_sections:
         for path, value in items:
+            resolved_step = _resolve_step_key_for_path(str(path))
+            if resolved_step is None or resolved_step not in step_entries:
+                continue
             preview = preview_value_to_text(value)
             if not preview:
                 continue
+            entries = step_entries[resolved_step]
             entries.append((_format_field_name(path), preview))
 
     return step_order, step_entries
-
-
-def _initial_extraction_section_map() -> dict[str, str]:
-    """Return mapping of section labels to wizard step keys."""
-
-    return {
-        tr("Unternehmen", "Company"): "company",
-        tr("Basisdaten", "Basic info"): "basic",
-        tr("Beschäftigung", "Employment"): "basic",
-        tr("Anforderungen", "Requirements"): "requirements",
-        tr("Leistungen & Benefits", "Rewards & Benefits"): "compensation",
-        tr("Prozess", "Process"): "process",
-    }
 
 
 def _render_onboarding_context(_: SidebarContext) -> None:
