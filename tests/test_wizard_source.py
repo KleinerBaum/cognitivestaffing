@@ -53,10 +53,10 @@ class _DummySpinner:
 
 
 def _patch_runner_attr(monkeypatch: pytest.MonkeyPatch, name: str, value: Any) -> None:
-    """Patch both ``wizard`` and ``wizard.runner`` attributes to the same value."""
+    """Patch both ``wizard`` and ``wizard.flow`` attributes to the same value."""
 
     monkeypatch.setattr(f"wizard.{name}", value)
-    monkeypatch.setattr(f"wizard.runner.{name}", value)
+    monkeypatch.setattr(f"wizard.flow.{name}", value)
 
 
 def _prepare_minimal_extraction(monkeypatch: pytest.MonkeyPatch) -> None:

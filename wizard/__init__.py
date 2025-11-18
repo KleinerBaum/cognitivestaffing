@@ -16,7 +16,7 @@ from .metadata import (
 from . import _agents as agents
 from . import layout
 from . import _logic as logic
-from . import runner
+from . import flow
 from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
@@ -75,13 +75,13 @@ __all__ = [
 ]
 
 
-RUNNER_EXPORTS: list[str] = []
+FLOW_EXPORTS: list[str] = []
 
-for _name in sorted(dir(runner)):
+for _name in sorted(dir(flow)):
     if _name.startswith("__") or _name in __all__:
         continue
-    value: Any = getattr(runner, _name)
+    value: Any = getattr(flow, _name)
     globals()[_name] = value
-    RUNNER_EXPORTS.append(_name)
+    FLOW_EXPORTS.append(_name)
 
-__all__.extend(RUNNER_EXPORTS)
+__all__.extend(FLOW_EXPORTS)

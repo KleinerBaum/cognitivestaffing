@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from types import ModuleType
 from typing import Any, Dict, List, Mapping
 
-# ``wizard.runner`` imports ``sidebar.salary`` which in turn pulls ``wizard``
+# ``wizard.flow`` imports ``sidebar.salary`` which in turn pulls ``wizard``
 # into the sidebar package, so stub the module hierarchy to avoid circular
 # import churn during router unit tests.
 import sys
@@ -462,9 +462,7 @@ def test_critical_followup_blocks_until_answered(
     """Critical follow-ups scoped to the page should gate the Next button."""
 
     st.session_state[StateKeys.PROFILE] = {"position": {}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "position.team_size", "priority": "critical"}
-    ]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "position.team_size", "priority": "critical"}]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
@@ -514,4 +512,3 @@ def test_critical_followup_blocks_until_answered(
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
     assert wizard_state["current_step"] == "role_tasks"
-
