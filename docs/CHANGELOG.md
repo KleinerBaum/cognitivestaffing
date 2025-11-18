@@ -105,6 +105,8 @@ Docs / Doku
   DE: OpenAI-Konfigurationswege (Env-Vars, Streamlit-Secrets, EU-Endpunkt, RESPONSES_ALLOW_TOOLS) sowie Lokalisierungs- und Schema-Propagation-Vorgaben für Contributor:innen dokumentiert.
 - EN: Documented the employment panel helper text update directly in README without shipping a binary screenshot.
   DE: Die Aktualisierung der Hilfetexte im Beschäftigungs-Panel direkt in der README dokumentiert, ohne einen binären Screenshot beizulegen.
+- EN: Added bilingual follow-up widget guidance to `docs/DEV_GUIDE.md`, covering `st.session_state[f"fu_{<schema_path>}"]`, `_sync_followup_completion`, and sidebar clearing expectations.
+  DE: Zweisprachige Follow-up-Widget-Anleitung in `docs/DEV_GUIDE.md` ergänzt – inklusive `st.session_state[f"fu_{<schema_path>}"]`, `_sync_followup_completion` und Vorgaben zum Bereinigen der Sidebar.
   EN: Added a textual customer-contact helper preview under `images/customer_contact_toggle_preview.md` so reviewers can inspect the UI copy without binary artifacts; README references the file explicitly.
   DE: Eine textuelle Kundenkontakt-Vorschau unter `images/customer_contact_toggle_preview.md` ergänzt, damit Reviewer:innen die UI-Texte ohne Binärartefakte prüfen können; README verweist nun explizit darauf.
 
