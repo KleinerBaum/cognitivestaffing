@@ -203,6 +203,8 @@ Preview / Vorschau: `images/summary_compliance_toggles_preview.md` beschreibt di
 Feature Highlights
 
 Structured extraction: JSON schemas and Pydantic validation keep 20+ vacancy fields aligned with the NeedAnalysisProfile model. LangChain’s StructuredOutputParser and PydanticOutputParser are now used to embed format instructions directly into prompts and to coerce responses back into the model, reducing brittle parsing code. Locked fields such as job_title or company are auto-filled when rule matches fire and remain protected until explicitly unlocked.
+EN: When schema validation still flags invalid fields, the parser now prunes those entries and the wizard surfaces a bilingual warning plus error details so recruiters can correct the impacted fields instead of seeing the profile reset to defaults.
+DE: Wenn die Schema-Validierung dennoch ungültige Felder erkennt, entfernt der Parser nur diese Einträge und der Wizard zeigt eine zweisprachige Warnung samt Fehlerdetails an, damit Recruiter:innen die betroffenen Felder gezielt korrigieren können, ohne dass das Profil auf Standardwerte zurückfällt.
 
 Interactive follow-ups: A Follow-up Question Generator agent produces prioritized follow-up questions with suggestion chips. When ESCO metadata is available, the assistant injects normalized essential skills into its prompts, and an auto re-ask loop will keep rerunning critical questions until every must-have field is answered.
 

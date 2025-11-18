@@ -869,6 +869,11 @@ def test_extract_and_summarize_uses_rules_on_llm_failure(
     metadata = st.session_state[StateKeys.PROFILE_METADATA]
     assert metadata["llm_errors"]["extraction"] == "LLM returned empty response"
     assert "position.job_title" not in st.session_state[StateKeys.EXTRACTION_MISSING]
+    warning_summary = st.session_state[StateKeys.EXTRACTION_SUMMARY]
+    assert isinstance(warning_summary, dict)
+    assert warning_summary.get("Status", "").startswith("⚠️")
+    assert "empty response" in warning_summary.get("Error details", "")
+    assert st.session_state[StateKeys.STEPPER_WARNING].startswith("⚠️")
 
 
 def test_extract_and_summarize_passes_locked_context(

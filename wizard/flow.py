@@ -3488,6 +3488,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     company_hint = locked_hints.get("company.name")
 
     llm_error: Exception | None = None
+    extraction_warning: str | None = None
     extracted_data: dict[str, Any] = {}
     recovered = False
     locked_items = tuple(sorted(locked_hints.items()))
@@ -3516,10 +3517,24 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             errors_map = dict(errors_map)
         else:
             errors_map = {}
-        errors_map["extraction"] = str(llm_error)
+        detail_text = str(llm_error).strip()
+        errors_map["extraction"] = detail_text
         metadata["llm_errors"] = errors_map
-    elif not extracted_data:
-        extracted_data = {}
+        extraction_warning = tr(
+            "⚠️ KI-Extraktion konnte nicht abgeschlossen werden – Felder bitte manuell prüfen.",
+            "⚠️ AI extraction could not complete – please review the fields manually.",
+        )
+        warning_summary: dict[str, str] = {
+            tr("Status", "Status"): extraction_warning,
+        }
+        if detail_text:
+            warning_summary[tr("Fehlerdetails", "Error details")] = detail_text
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_summary
+        st.session_state[StateKeys.STEPPER_WARNING] = extraction_warning
+    else:
+        st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+        if not extracted_data:
+            extracted_data = {}
 
     llm_meta = _build_llm_metadata(extracted_data, rule_matches, doc)
     if llm_meta:
@@ -3637,34 +3652,35 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     st.session_state[StateKeys.PROFILE] = data
     _prime_widget_state_from_profile(data)
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data
-    summary: dict[str, str] = {}
-    if profile.position.job_title:
-        summary[tr("Jobtitel", "Job title")] = profile.position.job_title
-    if profile.company.name:
-        summary[tr("Firma", "Company")] = profile.company.name
-    if profile.location.primary_city:
-        summary[tr("Ort", "Location")] = profile.location.primary_city
-    sal_min = profile.compensation.salary_min
-    sal_max = profile.compensation.salary_max
-    if sal_min is not None or sal_max is not None:
-        currency = profile.compensation.currency or ""
-        if sal_min is not None and sal_max is not None:
-            salary_str = f"{int(sal_min)}–{int(sal_max)} {currency}"
-        else:
-            value = sal_min if sal_min is not None else sal_max
-            salary_str = f"{int(value)} {currency}" if value is not None else currency
-        summary[tr("Gehaltsspanne", "Salary range")] = salary_str.strip()
-    hard_total = len(profile.requirements.hard_skills_required) + len(profile.requirements.hard_skills_optional)
-    if hard_total:
-        summary[tr("Hard Skills", "Hard skills")] = str(hard_total)
-    soft_total = len(profile.requirements.soft_skills_required) + len(profile.requirements.soft_skills_optional)
-    if soft_total:
-        summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
+    if extraction_warning is None:
+        summary: dict[str, str] = {}
+        if profile.position.job_title:
+            summary[tr("Jobtitel", "Job title")] = profile.position.job_title
+        if profile.company.name:
+            summary[tr("Firma", "Company")] = profile.company.name
+        if profile.location.primary_city:
+            summary[tr("Ort", "Location")] = profile.location.primary_city
+        sal_min = profile.compensation.salary_min
+        sal_max = profile.compensation.salary_max
+        if sal_min is not None or sal_max is not None:
+            currency = profile.compensation.currency or ""
+            if sal_min is not None and sal_max is not None:
+                salary_str = f"{int(sal_min)}–{int(sal_max)} {currency}"
+            else:
+                value = sal_min if sal_min is not None else sal_max
+                salary_str = f"{int(value)} {currency}" if value is not None else currency
+            summary[tr("Gehaltsspanne", "Salary range")] = salary_str.strip()
+        hard_total = len(profile.requirements.hard_skills_required) + len(profile.requirements.hard_skills_optional)
+        if hard_total:
+            summary[tr("Hard Skills", "Hard skills")] = str(hard_total)
+        soft_total = len(profile.requirements.soft_skills_required) + len(profile.requirements.soft_skills_optional)
+        if soft_total:
+            summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     st.session_state[StateKeys.SKILL_BUCKETS] = {
         "must": unique_normalized(data.get("requirements", {}).get("hard_skills_required", [])),
         "nice": unique_normalized(data.get("requirements", {}).get("hard_skills_optional", [])),
     }
-    st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     missing: list[str] = []
     for field in CRITICAL_FIELDS:
         if not get_in(data, field, None):
