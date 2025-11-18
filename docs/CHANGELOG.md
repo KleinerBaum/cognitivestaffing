@@ -26,6 +26,8 @@ Changed / Geändert
   DE: Summary-, Onboarding- und Sidebar-Layouts erhielten ein gebrandetes Hero-Banner, kompakte CTAs, die dreigeteilte Zusammenfassung („Profil“, „Insights“, „Export“), die Aurora-Fjord-Farbpalette und neu platzierte Benefit-Module für bessere Orientierung.
 - EN: Updated both Streamlit themes with the modern navy/teal/amber palette (#0C1F3D / #2A4A85 brand anchors, #1FB5C5 teal, #FFC368/#FFB65C amber) plus lighter panels so every badge, chip, and CTA meets WCAG AA contrast in dark and light mode.
   DE: Beide Streamlit-Themes erhielten die moderne Navy-/Teal-/Bernstein-Palette (Brand-Anker #0C1F3D / #2A4A85, Teal #1FB5C5, Bernstein #FFC368/#FFB65C) sowie hellere Panels, damit Badges, Chips und CTAs in Dark- wie Light-Mode die WCAG-AA-Kontraste einhalten.
+- EN: Removed the unused Tailwind injector utility and CDN include now that `inject_global_css()` applies the cognitive_needs.css/light design-system styles globally.
+  DE: Den obsoleten Tailwind-Injektor samt CDN-Einbindung entfernt, da `inject_global_css()` die Design-System-Styles cognitive_needs.css/light inzwischen global bereitstellt.
 - EN: Wizard metadata moved to wizard/metadata.py, ProfilePaths became the single key source across wizard/state/exports, and company web enrichment now routes through _update_profile for immediate UI sync.
   DE: Wizard-Metadaten wohnen jetzt in wizard/metadata.py, ProfilePaths fungiert als alleinige Schlüsselquelle für Wizard/State/Exporte und Web-Anreicherungen laufen über _update_profile, damit UI und Sidebar sofort aktualisieren.
 - EN: Renamed every OpenAI helper argument from max_tokens to max_completion_tokens and normalised routing overrides plus dependency manifests (pyproject-only installs, ingest extras, pip install .[dev]).
