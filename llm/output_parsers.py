@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
-from typing import Any
+from typing import Any, Mapping
 
 try:  # pragma: no cover - dependency differences
     from langchain.output_parsers import (
@@ -19,9 +20,13 @@ except ImportError:  # pragma: no cover - langchain>=1.0 moved these classes
         StructuredOutputParser,
     )
 from langchain.schema import OutputParserException
+from pydantic import ValidationError
 
+from llm.json_repair import repair_profile_payload
 from llm.profile_normalization import normalize_interview_stages_field
 from models.need_analysis import NeedAnalysisProfile
+
+logger = logging.getLogger(__name__)
 
 
 class NeedAnalysisParserError(ValueError):
@@ -72,6 +77,19 @@ class NeedAnalysisOutputParser:
             )
         )
 
+    @staticmethod
+    def _canonicalize_payload(payload: Any) -> dict[str, Any] | None:
+        """Return a canonical dict payload when ``payload`` is mapping-like."""
+
+        if isinstance(payload, dict):
+            target: dict[str, Any] = payload
+        elif isinstance(payload, Mapping):
+            target = dict(payload)
+        else:
+            return None
+        normalize_interview_stages_field(target)
+        return target
+
     def parse(self, text: str) -> tuple[NeedAnalysisProfile, dict[str, Any]]:
         """Parse ``text`` and return the Pydantic model along with the raw dict."""
 
@@ -103,11 +121,42 @@ class NeedAnalysisOutputParser:
 
         try:
             parsed = self._pydantic_parser.parse(candidate)
-        except Exception as err:  # pragma: no cover - LangChain wraps ValidationError
+        except ValidationError as validation_error:
+            canonical_data = self._canonicalize_payload(data)
+            repaired_payload: Mapping[str, Any] | None = None
+            if canonical_data is not None:
+                repaired_payload = repair_profile_payload(
+                    canonical_data,
+                    errors=validation_error.errors(),
+                )
+            if repaired_payload:
+                repaired_data = self._canonicalize_payload(dict(repaired_payload))
+                if repaired_data is None:
+                    repaired_data = dict(repaired_payload)
+                    normalize_interview_stages_field(repaired_data)
+                try:
+                    repaired_model = NeedAnalysisProfile.model_validate(repaired_data)
+                except ValidationError as repaired_error:
+                    repaired_raw = json.dumps(repaired_data)
+                    raise NeedAnalysisParserError(
+                        "Repaired NeedAnalysis payload failed validation.",
+                        raw_text=repaired_raw,
+                        data=repaired_data,
+                        original=repaired_error,
+                    ) from repaired_error
+                logger.info("NeedAnalysis payload repaired after validation failure.")
+                return repaired_model, repaired_data
             raise NeedAnalysisParserError(
                 "Structured extraction failed Pydantic validation.",
                 raw_text=candidate,
-                data=data,
+                data=canonical_data or (data if isinstance(data, dict) else None),
+                original=validation_error,
+            ) from validation_error
+        except Exception as err:  # pragma: no cover - LangChain wraps other exceptions
+            raise NeedAnalysisParserError(
+                "Structured extraction failed due to an unexpected error.",
+                raw_text=candidate,
+                data=data if isinstance(data, dict) else None,
                 original=err,
             ) from err
 
