@@ -28,6 +28,7 @@ from wizard.metadata import (
     get_missing_critical_fields,
     resolve_section_for_field,
 )
+from wizard.company_validators import persist_contact_email, persist_primary_city
 
 # ``wizard.metadata`` stays lightweight so this router can depend on shared
 # progress data without importing the Streamlit-heavy ``wizard.flow`` module.
@@ -146,19 +147,20 @@ _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Summary", "Summary"),
 )
 
-_PROFILE_VALIDATED_FIELDS: Final[set[str]] = {
-    str(ProfilePaths.COMPANY_CONTACT_EMAIL),
-    str(ProfilePaths.LOCATION_PRIMARY_CITY),
+LocalizedText = tuple[str, str]
+
+_REQUIRED_FIELD_VALIDATORS: Final[dict[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]]] = {
+    str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
+    str(ProfilePaths.LOCATION_PRIMARY_CITY): persist_primary_city,
 }
+
+_PROFILE_VALIDATED_FIELDS: Final[set[str]] = set(_REQUIRED_FIELD_VALIDATORS)
 
 _STEP_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
     StreamlitAPIException,
     ValidationError,
     ValueError,
 )
-
-
-LocalizedText = tuple[str, str]
 
 
 _NAVIGATION_STYLE = """
@@ -358,6 +360,7 @@ class WizardRouter:
         self._context: WizardContext = context
         self._resolve_value: Callable[[Mapping[str, object], str, object | None], object | None] = value_resolver
         self._local_state: dict[str, object] | None = None
+        self._pending_validation_errors: dict[str, LocalizedText] = {}
         self._ensure_state_defaults()
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
         self._bootstrap_session_state()
@@ -526,6 +529,11 @@ class WizardRouter:
         missing: list[str] = []
         required_fields = tuple(page.required_fields or ())
         if required_fields:
+            validation_errors = self._validate_required_field_inputs(required_fields)
+            if validation_errors:
+                self._pending_validation_errors = validation_errors
+            else:
+                self._pending_validation_errors = {}
             for field in required_fields:
                 if field in _PROFILE_VALIDATED_FIELDS:
                     value = None
@@ -535,6 +543,12 @@ class WizardRouter:
                     value = self._resolve_value(profile, field, None)
                 if not self._is_value_present(value):
                     missing.append(field)
+            if validation_errors:
+                for field in validation_errors:
+                    if field not in missing:
+                        missing.append(field)
+        else:
+            self._pending_validation_errors = {}
         inline_missing = self._missing_inline_followups(page, profile)
         if inline_missing:
             missing.extend(inline_missing)
@@ -711,6 +725,7 @@ class WizardRouter:
             skip=skip_button,
         )
         render_navigation_controls(nav_state)
+        self._render_validation_warnings()
 
     def _maybe_scroll_to_top(self) -> None:
         if not st.session_state.pop("_wizard_scroll_to_top", False):
@@ -773,6 +788,34 @@ class WizardRouter:
         st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = first_incomplete
         st.session_state[StateKeys.COMPLETED_SECTIONS] = completed_sections
         return first_incomplete, completed_sections
+
+    def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
+        """Re-run profile-bound validators for ``fields`` using widget state."""
+
+        errors: dict[str, LocalizedText] = {}
+        for field in fields:
+            validator = _REQUIRED_FIELD_VALIDATORS.get(field)
+            if validator is None:
+                continue
+            raw_value_obj = st.session_state.get(field)
+            raw_value = raw_value_obj if isinstance(raw_value_obj, str) else None
+            _, error = validator(raw_value)
+            if error:
+                errors[field] = error
+        return errors
+
+    def _render_validation_warnings(self) -> None:
+        """Show bilingual warnings for inline validator failures."""
+
+        if not self._pending_validation_errors:
+            return
+        messages = list(dict.fromkeys(self._pending_validation_errors.values()))
+        if not messages:
+            return
+        lang = st.session_state.get("lang", "de")
+        combined = "\n\n".join(tr(de, en, lang=lang) for de, en in messages)
+        if combined.strip():
+            st.warning(combined)
 
     def _apply_pending_incomplete_jump(self) -> None:
         if not st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False):

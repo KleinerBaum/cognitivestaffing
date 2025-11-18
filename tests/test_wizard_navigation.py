@@ -577,6 +577,54 @@ def test_company_step_blocks_when_primary_city_only_in_widget_state(
     assert str(ProfilePaths.LOCATION_PRIMARY_CITY) in missing
 
 
+def test_company_step_revalidates_contact_email_when_widget_cleared(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Clearing the widget should trigger validators even if the profile still has data."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = ""
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    page = router._page_map["company"]
+    missing = router._missing_required_fields(page)
+
+    assert str(ProfilePaths.COMPANY_CONTACT_EMAIL) in missing
+    profile = st.session_state[StateKeys.PROFILE]
+    assert not profile["company"].get("contact_email")
+
+
+def test_company_step_revalidates_primary_city_when_widget_cleared(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Clearing the primary city widget should blank the profile and gate navigation."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = ""
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    page = router._page_map["company"]
+    missing = router._missing_required_fields(page)
+
+    assert str(ProfilePaths.LOCATION_PRIMARY_CITY) in missing
+    profile = st.session_state[StateKeys.PROFILE]
+    assert not profile["location"].get("primary_city")
+
+
 def test_company_step_relocks_after_contact_fields_cleared(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
@@ -627,6 +675,46 @@ def test_company_step_relocks_after_contact_fields_cleared(
     next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+
+def test_company_step_surfaces_warning_when_contact_fields_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Missing contact email or city should render a bilingual warning near navigation."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": ""},
+        "location": {"primary_city": ""},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = ""
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = ""
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+
+    warnings: list[str] = []
+
+    def fake_warning(message: str) -> None:
+        warnings.append(message)
+
+    monkeypatch.setattr(st, "warning", fake_warning)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+    monkeypatch.setattr(st, "rerun", lambda: None)
+
+    router.run()
+
+    assert warnings, "expected a warning banner when contact fields are missing"
+    assert "Kontakt-E-Mail" in warnings[-1]
 
 
 def test_critical_followup_blocks_until_answered(
