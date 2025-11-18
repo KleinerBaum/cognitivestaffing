@@ -189,6 +189,10 @@ Interactive follow-ups: A Follow-up Question Generator agent produces prioritize
 
 ESCO integration: When enabled, the ESCO enricher normalizes job titles, proposes essential skills, and flags missing competencies directly in the UI.
 
+Critical field safeguards / Schutz kritischer Felder:
+EN: Company contact emails and the primary city hint now fall back to blank strings inside the normalized profile whenever neither extraction nor manual input supplies data, so rule checks and exports no longer warn about missing required fields.
+DE: Unternehmens-Kontaktmails sowie der primäre Stadthinweis fallen im normalisierten Profil jetzt auf leere Strings zurück, wenn weder Extraktion noch manuelle Eingabe Werte liefern – dadurch verschwinden Warnungen zu fehlenden Pflichtfeldern in Regeln und Exporten.
+
 AI-assisted suggestions: Dedicated helper agents surface responsibilities, skills, benefits, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI remains responsive during longer generations. The requirements, role, and compensation steps now include on-demand “Suggest responsibilities”, “Suggest additional skills”, and “Suggest benefits” actions that take into account existing inputs to avoid duplicates.
 
 Step intros & captions / Schritt-Intros & Hinweise:

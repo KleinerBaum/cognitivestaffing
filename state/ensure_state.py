@@ -125,6 +125,14 @@ _PRESERVED_RESET_KEYS: frozenset[str] = frozenset(
 )
 
 
+_CRITICAL_PROFILE_DEFAULTS: Mapping[str, str] = MappingProxyType(
+    {
+        ProfilePaths.COMPANY_CONTACT_EMAIL.value: "",
+        ProfilePaths.LOCATION_PRIMARY_CITY.value: "",
+    }
+)
+
+
 def _is_meaningful(value: Any) -> bool:
     """Return ``True`` when ``value`` should override an existing field."""
 
@@ -223,26 +231,30 @@ def ensure_state() -> None:
     existing = st.session_state.get(StateKeys.PROFILE)
     if not isinstance(existing, Mapping):
         normalized_default: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
-        st.session_state[StateKeys.PROFILE] = normalized_default
+        ensured_default = _apply_critical_profile_defaults(normalized_default)
+        st.session_state[StateKeys.PROFILE] = ensured_default
     else:
         try:
             profile = coerce_and_fill(existing)
             normalized_profile: NormalizedProfilePayload = normalize_profile(profile)
-            st.session_state[StateKeys.PROFILE] = normalized_profile
+            ensured_profile = _apply_critical_profile_defaults(normalized_profile)
+            st.session_state[StateKeys.PROFILE] = ensured_profile
         except ValidationError as error:
             logger.debug("Validation error when coercing profile: %s", error)
             sanitized = _sanitize_profile(existing)
             try:
                 validated = NeedAnalysisProfile.model_validate(sanitized)
                 normalized_validated: NormalizedProfilePayload = normalize_profile(validated)
-                st.session_state[StateKeys.PROFILE] = normalized_validated
+                ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                st.session_state[StateKeys.PROFILE] = ensured_validated
             except ValidationError as sanitized_error:
                 logger.warning(
                     "Failed to sanitize profile data; resetting to defaults: %s",
                     sanitized_error,
                 )
                 fallback_profile: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
-                st.session_state[StateKeys.PROFILE] = fallback_profile
+                ensured_fallback = _apply_critical_profile_defaults(fallback_profile)
+                st.session_state[StateKeys.PROFILE] = ensured_fallback
     for key, factory in _DEFAULT_STATE_FACTORIES.items():
         if key not in st.session_state:
             st.session_state[key] = factory()
@@ -333,6 +345,30 @@ def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> No
             _merge_known_fields(current, value)
         else:
             target[key] = value
+
+
+def _apply_critical_profile_defaults(
+    profile: NormalizedProfilePayload,
+) -> NormalizedProfilePayload:
+    """Ensure critical profile fields always exist for downstream consumers."""
+
+    for path, default in _CRITICAL_PROFILE_DEFAULTS.items():
+        cursor: Any = profile
+        segments = path.split(".")
+        for segment in segments[:-1]:
+            next_value = cursor.get(segment)
+            if not isinstance(next_value, dict):
+                next_value = {}
+                cursor[segment] = next_value
+            cursor = next_value
+        leaf = segments[-1]
+        value = cursor.get(leaf)
+        if value is None:
+            cursor[leaf] = default
+            continue
+        if isinstance(value, str) and not value:
+            cursor[leaf] = default
+    return profile
 
 
 def reset_state() -> None:

@@ -13,6 +13,7 @@ from typing import (
     Collection,
     Dict,
     List,
+    Literal,
     Tuple,
     Union,
     get_args,
@@ -181,7 +182,7 @@ class Company(BaseModel):
     values: list[str] = Field(default_factory=list)
     brand_keywords: str | None = None
     contact_name: str | None = None
-    contact_email: EmailStr | None = None
+    contact_email: EmailStr | Literal[""] | None = None
     contact_phone: str | None = None
     locations: list[str] = Field(default_factory=list)
     logo_url: HttpUrl | None = None
@@ -236,7 +237,7 @@ class Company(BaseModel):
 
     @field_validator("contact_email", mode="before")
     @classmethod
-    def _normalise_contact_email(cls, value: object) -> EmailStr | None:
+    def _normalise_contact_email(cls, value: object) -> EmailStr | str | None:
         if value is None:
             return None
         if isinstance(value, EmailStr):
@@ -244,7 +245,7 @@ class Company(BaseModel):
         if isinstance(value, str):
             candidate = value.strip()
             if not candidate:
-                return None
+                return ""
             try:
                 return EmailStr(candidate)
             except ValueError:

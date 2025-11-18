@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import re
-from typing import Any, ClassVar, List, Optional
+from typing import Any, ClassVar, List, Literal, Optional
 
 from email_validator import EmailNotValidError, validate_email
 
@@ -43,7 +43,7 @@ class Company(BaseModel):
     mission: Optional[str] = None
     culture: Optional[str] = None
     contact_name: Optional[str] = None
-    contact_email: EmailStr | None = None
+    contact_email: EmailStr | Literal[""] | None = None
     contact_phone: Optional[str] = None
     brand_keywords: Optional[str] = None
     logo_url: HttpUrl | None = None
@@ -73,7 +73,7 @@ class Company(BaseModel):
 
         candidate_source = value.strip()
         if not candidate_source:
-            return None
+            return ""
 
         match = cls._EMAIL_PATTERN.search(candidate_source)
         if not match:
@@ -197,6 +197,30 @@ class Location(BaseModel):
     primary_city: Optional[str] = None
     country: Optional[str] = None
     onsite_ratio: Optional[str] = None
+
+    @field_validator("primary_city", mode="before")
+    @classmethod
+    def _preserve_placeholder_city(cls, value: object) -> Optional[str]:
+        """Keep blank placeholders for the primary city while trimming whitespace."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned if cleaned else ""
+        return str(value)
+
+    @field_validator("country", "onsite_ratio", mode="before")
+    @classmethod
+    def _normalise_optional_location_fields(cls, value: object) -> Optional[str]:
+        """Convert whitespace-only values on non-critical fields to ``None``."""
+
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return str(value)
 
 
 class Responsibilities(BaseModel):

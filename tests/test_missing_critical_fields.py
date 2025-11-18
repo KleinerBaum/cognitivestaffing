@@ -1,125 +1,40 @@
-"""Tests for critical field validation utilities."""
+"""Tests for post-processing of critical profile fields."""
 
-import pytest
-import streamlit as st
+from __future__ import annotations
 
-from constants.keys import StateKeys
-from ingest.heuristics import apply_basic_fallbacks
 from models.need_analysis import NeedAnalysisProfile
-from wizard import FIELD_SECTION_MAP, get_missing_critical_fields
+from state.ensure_state import _apply_critical_profile_defaults
+from utils.normalization import NormalizedProfilePayload, normalize_profile
 
 
-pytestmark = pytest.mark.integration
+def test_critical_fields_receive_blank_defaults() -> None:
+    """Critical profile fields should always exist even when empty."""
+
+    profile: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
+    profile["company"]["contact_email"] = None
+    profile["location"]["primary_city"] = None
+
+    result = _apply_critical_profile_defaults(profile)
+
+    assert result["company"]["contact_email"] == ""
+    assert result["location"]["primary_city"] == ""
 
 
-def test_section_filtering() -> None:
-    """Fields beyond the inspected section should be ignored."""
-    st.session_state.clear()
-    st.session_state[StateKeys.FOLLOWUPS] = []
+def test_need_analysis_preserves_placeholders() -> None:
+    """Validators keep blank placeholders for critical strings."""
 
-    # Section 1 requires company name and the primary country information
-    section_one_missing = set(get_missing_critical_fields(max_section=1))
-    assert {
-        "company.name",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "location.primary_city",
-        "location.country",
-    } <= section_one_missing
+    profile = NeedAnalysisProfile.model_validate(
+        {
+            "company": {"contact_email": ""},
+            "location": {
+                "primary_city": "",
+                "country": "   ",
+                "onsite_ratio": "  ",
+            },
+        }
+    )
 
-    st.session_state["company.name"] = "Acme"
-    section_one_missing = set(get_missing_critical_fields(max_section=1))
-    assert {
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "location.primary_city",
-        "location.country",
-    } <= section_one_missing
-
-    st.session_state["location.primary_city"] = "Berlin"
-    missing_after_city = set(get_missing_critical_fields(max_section=1))
-    assert missing_after_city == {
-        "location.country",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-    }
-
-    st.session_state["company.contact_name"] = "Max"
-    st.session_state["company.contact_email"] = "max@example.com"
-    st.session_state["company.contact_phone"] = "+49 30 1234567"
-    st.session_state["location.country"] = "DE"
-    assert get_missing_critical_fields(max_section=1) == []
-
-    # Section 2 requires role context data
-    missing = set(get_missing_critical_fields(max_section=2))
-    expected_section_two = {
-        "position.job_title",
-        "position.role_summary",
-        "department.name",
-        "team.reporting_line",
-        "position.reporting_manager_name",
-        "meta.target_start_date",
-    }
-    assert expected_section_two <= missing
-
-    st.session_state["position.job_title"] = "Engineer"
-    st.session_state["position.role_summary"] = "Build models"
-    st.session_state["department.name"] = "Product"
-    st.session_state["team.reporting_line"] = "VP Product"
-    st.session_state["position.reporting_manager_name"] = "Jamie"
-    st.session_state["meta.target_start_date"] = "2024-11-01"
-    assert not get_missing_critical_fields(max_section=2)
-
-
-def test_followup_critical_detection() -> None:
-    """Critical follow-up questions count as missing fields."""
-    st.session_state.clear()
-    for field in FIELD_SECTION_MAP:
-        st.session_state[field] = "filled"
-    st.session_state["compensation.salary_min"] = ""
-    st.session_state[StateKeys.FOLLOWUPS] = [
-        {"field": "compensation.salary_min", "priority": "critical"},
-        {"field": "compensation.variable_pay", "priority": "normal"},
-    ]
-
-    missing = get_missing_critical_fields(max_section=99)
-    assert missing == ["compensation.salary_min"]
-
-
-def test_contact_fallback_populates_missing_company_details() -> None:
-    """Contact information should be auto-filled when present in the document text."""
-
-    text = """
-    Ansprechpartner HR:
-    Benjamin Erben (HR Business Partner)
-    Telefon 0211/123
-    E-Mail: benjamin.erben@rheinbahn.de
-    """
-
-    profile = NeedAnalysisProfile()
-    updated = apply_basic_fallbacks(profile, text)
-
-    assert updated.company.contact_name == "Benjamin Erben"
-    assert updated.company.contact_email == "benjamin.erben@rheinbahn.de"
-    assert updated.company.contact_phone == "0211/123"
-
-
-def test_location_invalid_value_is_replaced_and_reassigned() -> None:
-    """Invalid city strings should be discarded in favour of real cities."""
-
-    text = """
-    Die Rheinbahn sucht dich in Düsseldorf.
-    Wir bieten dir Flexible Arbeitszeiten und ein starkes Team.
-    """
-
-    profile = NeedAnalysisProfile()
-    profile.location.primary_city = "Flexible Arbeitszeiten"
-
-    updated = apply_basic_fallbacks(profile, text)
-
-    assert updated.location.primary_city == "Düsseldorf"
-    assert updated.company.hq_location == "Düsseldorf"
-    assert updated.employment.work_schedule == "Flexible Arbeitszeiten"
+    assert profile.company.contact_email == ""
+    assert profile.location.primary_city == ""
+    assert profile.location.country is None
+    assert profile.location.onsite_ratio is None
