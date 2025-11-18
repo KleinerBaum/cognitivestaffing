@@ -140,7 +140,7 @@ def test_ensure_state_repairs_invalid_profile_fields(monkeypatch):
     assert result["process"]["interview_stages"] == 2
 
 
-def test_ensure_state_drops_invalid_fields_when_repair_unavailable(monkeypatch):
+def test_ensure_state_normalises_interview_stage_list_without_json_repair(monkeypatch):
     st.session_state.clear()
     invalid_profile = _build_profile_with_invalid_stage()
     st.session_state[StateKeys.PROFILE] = invalid_profile
@@ -153,7 +153,41 @@ def test_ensure_state_drops_invalid_fields_when_repair_unavailable(monkeypatch):
     result = st.session_state[StateKeys.PROFILE]
     assert result["company"]["name"] == "ACME GmbH"
     assert result["position"]["job_title"] == "Data Scientist"
-    assert not result["process"]["interview_stages"]
+    assert result["process"]["interview_stages"] == 2
+
+
+def test_ensure_state_defaults_contact_email_when_invalid() -> None:
+    st.session_state.clear()
+    profile = NeedAnalysisProfile().model_dump()
+    profile["company"]["name"] = "ACME GmbH"
+    profile["position"]["job_title"] = "Data Scientist"
+    profile["company"]["contact_email"] = {"email": "n/a"}
+
+    st.session_state[StateKeys.PROFILE] = profile
+
+    es.ensure_state()
+
+    result = st.session_state[StateKeys.PROFILE]
+    assert result["company"]["name"] == "ACME GmbH"
+    assert result["position"]["job_title"] == "Data Scientist"
+    assert result["company"]["contact_email"] == ""
+
+
+def test_ensure_state_applies_contact_email_default_when_missing() -> None:
+    st.session_state.clear()
+    profile = NeedAnalysisProfile().model_dump()
+    profile["company"].pop("contact_email", None)
+    profile["company"]["name"] = "ACME GmbH"
+    profile["position"]["job_title"] = "Data Scientist"
+
+    st.session_state[StateKeys.PROFILE] = profile
+
+    es.ensure_state()
+
+    result = st.session_state[StateKeys.PROFILE]
+    assert result["company"]["contact_email"] == ""
+    assert result["company"]["name"] == "ACME GmbH"
+    assert result["position"]["job_title"] == "Data Scientist"
 
 
 @pytest.mark.parametrize("model_alias", ["o4-mini-latest", "O4-MINI"])

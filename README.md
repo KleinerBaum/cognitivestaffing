@@ -429,7 +429,7 @@ Prefer the helper functions in components.widget_factory—such as text_input, s
 
 Legacy helpers from wizard.layout have been removed; import profile widgets from components.widget_factory or the wizard.wizard re-exports instead.
 
-Call state.ensure_state.ensure_state() early; it normalises ingestion payloads into the NeedAnalysisProfile, drops unknown keys, and seeds defaults so scraped data prefills the forms.
+Call state.ensure_state.ensure_state() early; it normalises ingestion payloads into the NeedAnalysisProfile, drops unknown keys, and seeds defaults so scraped data prefills the forms. The helper also patches known validation issues (for example, list-based interview stage counts or invalid contact emails) before falling back to a destructive reset, so partial recruiter inputs survive repair attempts.
 
 After ingestion (via URL, PDF, or text paste), run coerce_and_fill() and normalize_profile() before rendering the form. This ensures consistent casing, whitespace, and de-duplication of lists. The normaliser returns a validated dictionary and will trigger the JSON “repair” fallback only if the cleaned payload would violate the schema.
 
@@ -443,7 +443,7 @@ Nutze zum Rendern die Helfer in components.widget_factory (text_input, select, m
 
 Die veralteten Helfer aus wizard.layout wurden entfernt; nutzt stattdessen components.widget_factory bzw. die Re-Exports in wizard.wizard für Profil-Widgets.
 
-Rufe früh state.ensure_state.ensure_state() auf; dort werden Ingestion-Payloads in das NeedAnalysisProfile überführt, unbekannte Keys entfernt und Defaults gesetzt, damit Scrapes die Formulare vorbefüllen.
+Rufe früh state.ensure_state.ensure_state() auf; dort werden Ingestion-Payloads in das NeedAnalysisProfile überführt, unbekannte Keys entfernt und Defaults gesetzt, damit Scrapes die Formulare vorbefüllen. Der Helfer behebt zudem bekannte Validierungsprobleme (z. B. Listenwerte bei Interview-Stufen oder ungültige Kontakt-E-Mails), bevor ein destruktiver Reset ausgeführt wird, sodass die bisherigen Eingaben erhalten bleiben.
 
 Führe nach dem Import (URL, PDF oder Texteingabe) immer coerce_and_fill() und normalize_profile() aus, bevor das Formular gerendert wird. So werden Groß-/Kleinschreibung, Leerzeichen und Duplikate in Listen vereinheitlicht. Der Normalisierer liefert ein valides Dictionary und nutzt die JSON-Reparatur nur, falls das bereinigte Profil sonst gegen das Schema verstoßen würde.
 
