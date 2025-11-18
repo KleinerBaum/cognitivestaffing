@@ -173,6 +173,10 @@ DE: Ein eigenes Panel „Compliance Checks“ im Schritt Skills & Requirements e
 EN: Those toggles now persist as the canonical schema fields `requirements.background_check_required`, `requirements.reference_check_required`, and `requirements.portfolio_required`, so downstream exports and automations can rely on them without custom mapping.
 DE: Diese Umschalter werden jetzt als kanonische Schemafelder `requirements.background_check_required`, `requirements.reference_check_required` und `requirements.portfolio_required` gespeichert, sodass nachgelagerte Exporte und Automationen ohne Sonder-Mapping darauf zugreifen können.
 
+EN: The Summary step now mirrors those compliance switches with the same bilingual helper text, so reviewers can finalize background/reference/portfolio decisions without jumping back to Skills & Requirements; any changes stay synced with exports and `ProfilePaths.REQUIREMENTS_*`.
+DE: Der Summary-Schritt zeigt dieselben Compliance-Schalter inklusive zweisprachiger Hinweise, damit Reviewer:innen Hintergrund-, Referenz- und Portfolio-Pflichten direkt beim Abschluss anpassen können – Änderungen bleiben mit Exporten und `ProfilePaths.REQUIREMENTS_*` synchron.
+Preview / Vorschau: `images/summary_compliance_toggles_preview.md` beschreibt die Ansicht textuell, da in diesem Repo keine Binär-Screenshots eingecheckt werden.
+
 *EN: Screenshot temporarily removed while the repository avoids binary assets for this panel. DE: Screenshot vorübergehend entfernt, da das Repository für dieses Panel keine Binärdateien führen soll.*
 
 Feature Highlights
