@@ -43,7 +43,7 @@ from .tools import build_extraction_tool, build_file_search_tool
 try:  # pragma: no cover - Streamlit not required for CLI usage
     import streamlit as st
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    st = None  # type: ignore[assignment]
+    st = None
 
 _GENDER_MARKER_RE = re.compile(
     r"(?:\((?:[mwdgfxnai]\s*/\s*){1,4}[mwdgfxnai]\)"

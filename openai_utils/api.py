@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
-from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple, Final, cast
+from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Final, cast
 
 import backoff
 from opentelemetry import trace
@@ -61,7 +61,6 @@ from llm.cost_router import route_model_for_messages
 from utils.errors import display_error, resolve_message
 from utils.llm_state import llm_disabled_message
 from .client import (
-    ChatFallbackContext,
     FileSearchKey,
     FileSearchResult,
     ResponsesRequest,

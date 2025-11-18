@@ -4,12 +4,55 @@ from __future__ import annotations
 
 import hashlib
 from base64 import b64encode
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Callable, Optional, Sequence
 
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 
 from utils.i18n import tr
 from components.stepper import render_step_summary
+
+
+LocalizedText = tuple[str, str]
+
+
+class NavigationDirection(str, Enum):
+    """Direction metadata for wizard navigation controls."""
+
+    PREVIOUS = "previous"
+    NEXT = "next"
+    SKIP = "skip"
+
+
+@dataclass(frozen=True)
+class NavigationButtonState:
+    """Typed configuration for a single navigation button."""
+
+    direction: NavigationDirection
+    label: LocalizedText
+    target_key: str | None = None
+    enabled: bool = True
+    primary: bool = False
+    hint: LocalizedText | None = None
+    on_click: Callable[[], None] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+
+
+@dataclass(frozen=True)
+class NavigationState:
+    """Aggregated state used to render navigation controls."""
+
+    current_key: str
+    missing_fields: tuple[str, ...] = ()
+    previous: NavigationButtonState | None = None
+    next: NavigationButtonState | None = None
+    skip: NavigationButtonState | None = None
+
 
 from ._logic import (
     _record_autofill_rejection,
@@ -68,6 +111,55 @@ def _render_autofill_suggestion(
             _record_autofill_rejection(field_path, cleaned_suggestion)
             st.toast(rejection_message, icon=rejection_icon)
             st.rerun()
+
+
+def render_navigation_controls(state: NavigationState) -> None:
+    """Render the navigation controls based on ``state``."""
+
+    st.markdown("<div class='wizard-nav-marker'></div>", unsafe_allow_html=True)
+    cols = st.columns((1.1, 1.1, 1), gap="small")
+    _render_navigation_button(cols[0], state.previous, state)
+    _render_navigation_button(cols[1], state.next, state)
+    _render_navigation_button(cols[2], state.skip, state)
+
+
+def _render_navigation_button(
+    column: DeltaGenerator,
+    button: NavigationButtonState | None,
+    state: NavigationState,
+) -> None:
+    if button is None:
+        column.write("")
+        return
+
+    label = tr(*button.label)
+    key = f"wizard_{button.direction.value}_{state.current_key}"
+    button_type = "primary" if button.primary else "secondary"
+    wrapper_open = False
+    if button.direction is NavigationDirection.NEXT:
+        modifier = "enabled" if button.enabled else "disabled"
+        column.markdown(
+            f"<div class='wizard-nav-next wizard-nav-next--{modifier}'>",
+            unsafe_allow_html=True,
+        )
+        wrapper_open = True
+
+    triggered = column.button(
+        label,
+        key=key,
+        type=button_type,
+        disabled=not button.enabled,
+        use_container_width=True,
+    )
+
+    if wrapper_open:
+        column.markdown("</div>", unsafe_allow_html=True)
+
+    if triggered and button.on_click is not None:
+        button.on_click()
+
+    if button.hint:
+        column.caption(tr(*button.hint))
 
 
 COMPACT_STEP_STYLE = """
@@ -496,7 +588,11 @@ def render_list_text_area(
 
 __all__ = [
     "COMPACT_STEP_STYLE",
+    "NavigationButtonState",
+    "NavigationDirection",
+    "NavigationState",
     "render_list_text_area",
+    "render_navigation_controls",
     "inject_salary_slider_styles",
     "render_onboarding_hero",
     "render_step_heading",

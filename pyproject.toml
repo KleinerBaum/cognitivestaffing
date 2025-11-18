@@ -117,10 +117,24 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = [
     "ingest.*",
-    "wizard.runner",
-    "wizard.layout",
 ]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "streamlit", 
+    "streamlit.*", 
+    "streamlit_sortables", 
+    "requests", 
+    "requests.*", 
+    "bs4", 
+    "langdetect", 
+    "yaml", 
+    "backoff", 
+    "fastapi",
+    "fastapi.*",
+] 
+ignore_missing_imports = true 
 
 [[tool.mypy.overrides]]
 module = [
