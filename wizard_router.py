@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Callable, Collection, Iterable, Mapping, Sequence
+from typing import Callable, Collection, Iterable, Mapping, Sequence, Final
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from pages import WizardPage
 from utils.i18n import tr
 from wizard._logic import get_in
@@ -117,6 +117,11 @@ _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Prozess", "Process"),
     ("Summary", "Summary"),
 )
+
+_PROFILE_VALIDATED_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.COMPANY_CONTACT_EMAIL),
+    str(ProfilePaths.LOCATION_PRIMARY_CITY),
+}
 
 
 LocalizedText = tuple[str, str]
@@ -436,7 +441,10 @@ class WizardRouter:
         required_fields = tuple(page.required_fields or ())
         if required_fields:
             for field in required_fields:
-                value = st.session_state.get(field)
+                if field in _PROFILE_VALIDATED_FIELDS:
+                    value = None
+                else:
+                    value = st.session_state.get(field)
                 if not self._is_value_present(value):
                     value = self._resolve_value(profile, field, None)
                 if not self._is_value_present(value):
