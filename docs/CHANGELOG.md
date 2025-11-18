@@ -13,6 +13,8 @@ Added / Neu
   DE: Eigene Abschnitte für department.* und team.*, Schalter für Background-/Referenz-/Portfolio-Prüfungen und einen Kundenkontakt-Flag ergänzt, damit Schritt 3 den gesamten organisatorischen Kontext abbildet.
 - EN: Integrated LangChain StructuredOutputParser + PydanticOutputParser, PyMuPDF for PDF exports, and cache-aware extraction reuse so responses deserialize straight into NeedAnalysisProfile.
   DE: LangChains StructuredOutputParser und PydanticOutputParser sowie PyMuPDF für PDF-Exporte integriert und den Extraktions-Cache erweitert, damit Antworten direkt in NeedAnalysisProfile landen.
+- EN: Added a “Compliance Checks” requirement panel so recruiters can toggle background, reference, and portfolio screenings with bilingual helper copy.
+  DE: Neues Panel „Compliance Checks“ ergänzt, in dem Recruiter:innen Hintergrund-, Referenz- und Portfolio-Prüfungen per zweisprachigen Hilfetexten aktivieren können.
 
 Changed / Geändert
 

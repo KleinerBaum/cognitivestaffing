@@ -165,6 +165,11 @@ Employment logistics guidance / Hinweise zur Beschäftigungslogistik
 EN: The employment panel toggles now include bilingual helper text that explains the policy expectation for travel, relocation, visa sponsorship, overtime, security clearance, and shift work, and it calls out when extra inputs (e.g., travel share, relocation package terms) will appear. This keeps SMEs aligned on what to capture before expanding the follow-up fields.
 DE: Die Umschalter im Beschäftigungs-Panel enthalten nun zweisprachige Hilfetexte, die die Erwartungen zu Reisetätigkeit, Relocation, Visa-Sponsoring, Überstunden, Sicherheitsprüfung und Schichtarbeit erläutern und ankündigen, wann zusätzliche Eingaben (z. B. Reiseanteil oder Relocation-Konditionen) eingeblendet werden. So wissen Fachexpert:innen vorab, welche Angaben beim Öffnen der Folgefelder benötigt werden.
 
+Compliance screening controls / Compliance-Prüfungen
+
+EN: A dedicated “Compliance Checks” panel on the Skills & Requirements step lets recruiters mark background checks, reference calls, and portfolio submissions as mandatory with bilingual helper copy explaining what each screening covers.
+DE: Ein eigenes Panel „Compliance Checks“ im Schritt Skills & Requirements erlaubt es Recruiter:innen, Hintergrund-Checks, Referenzabfragen und Portfolio-Einreichungen als verpflichtend zu markieren – inklusive zweisprachiger Hilfetexte, die den Umfang der jeweiligen Prüfung beschreiben.
+
 *EN: Screenshot temporarily removed while the repository avoids binary assets for this panel. DE: Screenshot vorübergehend entfernt, da das Repository für dieses Panel keine Binärdateien führen soll.*
 
 Feature Highlights
