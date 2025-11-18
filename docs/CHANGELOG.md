@@ -56,6 +56,10 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Ensured `company.contact_email` and `location.primary_city` always exist (defaulting to blank strings when unknown) so rule
+  checks and export jobs stop emitting “required field not found” warnings.
+  DE: `company.contact_email` und `location.primary_city` werden jetzt selbst bei fehlenden Eingaben als leere Strings hinterlegt,
+  sodass Regelprüfungen und Exporte keine Warnung „Required field not found“ mehr anzeigen.
 - EN: Hardened the NeedAnalysis JSON parser and repair helpers so LLMs that emit
   `process.interview_stages` as `[]` or `[3]` are coerced into `null` or numeric
   counts, keeping downstream validation green.
