@@ -41,3 +41,13 @@ def test_prepare_job_ad_data_sanitizes_legacy_keys() -> None:
     assert sanitized["employment"]["work_policy"] == "hybrid"
     assert "work_model" not in sanitized["employment"]
     assert sanitized["compensation"]["benefits"] == ["Gym"]
+
+
+def test_compliance_fields_are_part_of_job_ad_fields() -> None:
+    compliance_keys = {
+        "requirements.background_check_required",
+        "requirements.reference_check_required",
+        "requirements.portfolio_required",
+    }
+
+    assert compliance_keys.issubset({field.key for field in JOB_AD_FIELDS})

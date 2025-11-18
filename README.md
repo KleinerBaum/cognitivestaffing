@@ -175,6 +175,8 @@ DE: Diese Umschalter werden jetzt als kanonische Schemafelder `requirements.back
 
 EN: The Summary step now mirrors those compliance switches with the same bilingual helper text, so reviewers can finalize background/reference/portfolio decisions without jumping back to Skills & Requirements; any changes stay synced with exports and `ProfilePaths.REQUIREMENTS_*`.
 DE: Der Summary-Schritt zeigt dieselben Compliance-Schalter inklusive zweisprachiger Hinweise, damit Reviewer:innen Hintergrund-, Referenz- und Portfolio-Pflichten direkt beim Abschluss anpassen können – Änderungen bleiben mit Exporten und `ProfilePaths.REQUIREMENTS_*` synchron.
+EN: The Job Ad composer and export selector now surface those toggles inside the “Requirements” group, making it obvious in every generated posting whether background checks, reference calls, or portfolios are mandatory.
+DE: Der Stellenanzeigen-Generator sowie die Export-Auswahl führen die drei Schalter jetzt im Abschnitt „Anforderungen“, damit jede veröffentlichte Anzeige klar signalisiert, ob Hintergrundprüfungen, Referenzgespräche oder Portfolios Pflicht sind.
 Preview / Vorschau: `images/summary_compliance_toggles_preview.md` beschreibt die Ansicht textuell, da in diesem Repo keine Binär-Screenshots eingecheckt werden.
 
 *EN: Screenshot temporarily removed while the repository avoids binary assets for this panel. DE: Screenshot vorübergehend entfernt, da das Repository für dieses Panel keine Binärdateien führen soll.*
