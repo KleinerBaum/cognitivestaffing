@@ -53,6 +53,11 @@ ingest = [
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.poetry]
+name = "cognitivestaffing"
+version = "1.1.0"
+package-mode = false
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["*"]

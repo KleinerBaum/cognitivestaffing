@@ -14,10 +14,10 @@ following environment variables are available:
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optional reasoning effort hint (`minimal` … `high`). |
 
-The Streamlit Community Cloud deployment reads `infra/deployment.toml`. Keep the
-`[python]` → `installCommand` entry set to `pip install .` so Streamlit installs
-dependencies from `pyproject.toml` and the platform stops warning about
-competing requirement files.
+The Streamlit Community Cloud deployment reads `infra/deployment.toml`. Set the
+`[python]` → `installCommand` entry to `poetry install --no-root` so Streamlit
+installs dependencies via the Poetry resolver (which now runs in package-less
+mode) and the platform stops warning about competing requirement files.
 
 Deployments without `VECTOR_STORE_ID` will automatically skip Retrieval Augment
 ation and show localized hints in the wizard. All LLM calls now load their
@@ -45,9 +45,10 @@ folgende Umgebungsvariablen relevant:
 | `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`minimal` … `high`). |
 
 Das Deployment auf Streamlit Community Cloud nutzt `infra/deployment.toml`.
-Belasse den Eintrag `[python]` → `installCommand` auf `pip install .`, damit
-Streamlit die Abhängigkeiten aus `pyproject.toml` installiert und keine Warnung
-zu konkurrierenden Requirements-Dateien mehr ausgibt.
+Setze den Eintrag `[python]` → `installCommand` auf `poetry install --no-root`,
+damit Streamlit die Abhängigkeiten über den Poetry-Resolver (jetzt ohne
+Packaging-Schritt) installiert und keine Warnung zu konkurrierenden
+Requirements-Dateien mehr ausgibt.
 
 Ohne `VECTOR_STORE_ID` läuft die App automatisch ohne Retrieval-Pfad und zeigt
 einen lokalisierten Hinweis in der UI. Da alle Prompts nun aus der Registry
