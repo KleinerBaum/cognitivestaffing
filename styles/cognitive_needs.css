@@ -466,6 +466,10 @@ a:focus-visible {
 }
 
 /* Default nav (st.navigation) items */
+[data-testid="stSidebarNav"] {
+  display: none;
+}
+
 [data-testid="stSidebarNavItems"] a {
   border-radius: 10px;
   color: var(--sidebar-text-color);
