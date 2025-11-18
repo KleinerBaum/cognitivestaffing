@@ -15,7 +15,6 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | `ingest.*` | 3 | Legacy ingestion utilities rely on dynamically typed third-party clients. |
 | `components.requirements_insights` | 2 | Uses implicit tuple returns from scoring helpers; annotate once helper contracts are final. |
 | `llm.openai_responses` | 2 | Depends on telemetry span helpers that currently accept `Any`. |
-| `utils.telemetry` | 9 | Requires typed configuration objects for OTLP exporters. |
 | `utils.normalization` | 3 | The schema normalization pipeline still mutates `NeedAnalysisProfile` instances dynamically. |
 | `models.need_analysis` | 1 | Pending cleanup of custom Pydantic validators to align with v2 semantics. |
 | `cli.rebuild_vector_store` | 2 | The CLI path is blocked on the new vector store SDK typings. |
@@ -32,6 +31,7 @@ The `tests.*` override was removed on 2025-02-21 so that mypy now reports issues
 - **2025-02-17:** Removed the `openai_utils.*` override after introducing typed request/response helpers and splitting the retry plumbing into reusable dataclasses.
 - **2025-02-18:** Dropped the `wizard.runner` and `wizard.layout` overrides by introducing typed navigation enums and delegating button rendering to `wizard.layout.render_navigation_controls()`.
 - **2025-02-21:** Removed the `tests.*` override after adding typed session fixtures and helper dataclasses; the suite now surfaces 144 mypy errors that document work remaining across wizard-facing tests. 【2bc049†L1-L93】
+- **2025-02-24:** Introduced `utils.telemetry.OtlpConfig`, dropped the module override, and aligned OTLP exporter plumbing with typed parameters so telemetry now participates in the main mypy run.
 
 ## Strict modules
 
