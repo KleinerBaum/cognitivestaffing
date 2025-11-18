@@ -58,6 +58,15 @@ EMPLOYMENT_SHIFT_TOGGLE_HELP: Final[tuple[str, str]] = (
     "Turn this on when the role runs on shifts or rotations – outline the cadence in the work schedule details.",
 )
 
+POSITION_CUSTOMER_CONTACT_TOGGLE_HELP: Final[tuple[str, str]] = (
+    "Aktivieren, wenn die Rolle aktiv mit Kund:innen kommuniziert – nutzt das Folgefeld für Kanäle, Frequenz und Eskalationspfade.",
+    "Enable this when the role regularly engages with customers – use the follow-up field for channels, cadence, and escalation paths.",
+)
+POSITION_CUSTOMER_CONTACT_DETAILS_HINT: Final[tuple[str, str]] = (
+    "Beschreibt Kanäle, Häufigkeit, Zielgruppen und Übergaben (z. B. 30 % Telefon-Support, QBRs mit Enterprise-Kund:innen).",
+    "Describe channels, cadence, target groups, and hand-offs (e.g., 30% phone support, enterprise QBRs, success-manager escalations).",
+)
+
 
 def tr(de: str, en: str, lang: str | None = None) -> str:
     """Return the string matching the current language.

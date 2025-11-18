@@ -52,6 +52,8 @@ from utils.i18n import (
     EMPLOYMENT_SHIFT_TOGGLE_HELP,
     EMPLOYMENT_TRAVEL_TOGGLE_HELP,
     EMPLOYMENT_VISA_TOGGLE_HELP,
+    POSITION_CUSTOMER_CONTACT_DETAILS_HINT,
+    POSITION_CUSTOMER_CONTACT_TOGGLE_HELP,
 )
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
@@ -7470,6 +7472,7 @@ def _step_position() -> None:
     position["customer_contact_required"] = manager_cols[1].toggle(
         tr("Kundenkontakt?", "Customer-facing?"),
         value=bool(position.get("customer_contact_required")),
+        help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
     )
     _update_profile(
         ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
@@ -7481,6 +7484,7 @@ def _step_position() -> None:
             value=position.get("customer_contact_details", ""),
             key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
             height=80,
+            placeholder=tr(*POSITION_CUSTOMER_CONTACT_DETAILS_HINT),
         )
     else:
         position.pop("customer_contact_details", None)
@@ -9644,6 +9648,7 @@ def _summary_position() -> None:
         tr("Kundenkontakt?", "Customer-facing?"),
         value=bool(data["position"].get("customer_contact_required")),
         key=ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
+        help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
     )
 
     if customer_contact_required:
@@ -9652,6 +9657,7 @@ def _summary_position() -> None:
             value=data["position"].get("customer_contact_details", ""),
             key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
             height=80,
+            placeholder=tr(*POSITION_CUSTOMER_CONTACT_DETAILS_HINT),
         )
     else:
         customer_contact_details = ""

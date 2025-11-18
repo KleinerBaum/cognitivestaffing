@@ -94,6 +94,10 @@ DE: Branding-Overrides in der Sidebar ermöglichen Logo-Uploads, die Auswahl der
 EN: Inline follow-up cards now sit directly beneath the affected section and keep the “Next” button disabled until every critical question has a response, while informational prompts remain optional. This keeps mandatory clarifications in context without forcing a separate page.
 DE: Inline-Follow-up-Karten erscheinen direkt unter dem jeweiligen Abschnitt und sperren „Weiter“, bis alle kritischen Fragen beantwortet sind; optionale Nachfragen bleiben freiwillig. So lassen sich Pflichtangaben im Kontext klären, ohne einen eigenen Q&A-Schritt zu öffnen.
 
+EN: The customer-contact toggle in the Role & Team step now shows bilingual guidance describing when to enable it and what to capture in the follow-up details field, which itself surfaces inline hints for channels, cadence, and escalation paths.
+DE: Der Kundenkontakt-Schalter im Schritt „Rolle & Team“ erklärt jetzt zweisprachig, wann er zu aktivieren ist und welche Angaben das Folgefeld benötigt; das Textfeld blendet passende Hinweise zu Kanälen, Frequenz und Eskalationen ein.
+Preview / Vorschau: `images/customer_contact_toggle_preview.md` enthält eine textbasierte Darstellung des UI-Stands, da binäre Screenshots in dieser Umgebung nicht eingecheckt werden können.
+
 EN: Step 8 (Summary) now evaluates inline follow-up questions even though it has no required fields, so “Next” stays disabled until the remaining critical prompts (for example headline or next steps) are answered before triggering exports.
 DE: Schritt 8 („Summary“) prüft trotz fehlender Pflichtfelder jetzt ebenfalls die inline angezeigten Anschlussfragen, sodass „Weiter“ solange gesperrt bleibt, bis verbleibende kritische Prompts (z. B. Headline oder Next Steps) beantwortet sind und keine Exporte mehr mit offenen Klärungen starten.
 
