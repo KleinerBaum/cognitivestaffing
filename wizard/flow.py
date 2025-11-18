@@ -41,7 +41,20 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.runtime.uploaded_file_manager import UploadedFile
-from streamlit_sortables import sort_items
+
+try:  # pragma: no cover - runtime guard for local/test environments
+    from streamlit_sortables import sort_items as _sort_items
+except Exception:  # pragma: no cover - gracefully degrade when component runtime missing
+
+    def sort_items(items: list[str] | tuple[str, ...] | Sequence[str], **_: object) -> list[str]:
+        """Fallback sorter returning items unchanged when the component is unavailable."""
+
+        if isinstance(items, list):
+            return list(items)
+        return list(items)
+
+else:
+    sort_items = _sort_items
 
 from pydantic import ValidationError
 from opentelemetry import trace
@@ -2000,6 +2013,21 @@ CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
         "suggestions": (
             ["Deutschland", "Österreich", "Schweiz"],
             ["Germany", "Austria", "Switzerland"],
+        ),
+        "style": "warning",
+    },
+    "company.contact_email": {
+        "prompt": (
+            "Welche E-Mail-Adresse sollen Kandidat:innen zur Kontaktaufnahme nutzen?",
+            "Which email address should candidates use to reach you?",
+        ),
+        "description": (
+            "Diese Adresse landet in Exporten und Follow-ups – bitte ein Postfach mit aktivem Monitoring angeben.",
+            "This address is used in exports and follow-ups – please provide a monitored inbox.",
+        ),
+        "suggestions": (
+            ["talent@firma.de", "jobs@unternehmen.com"],
+            ["talent@company.com", "jobs@org.io"],
         ),
         "style": "warning",
     },
@@ -5268,9 +5296,12 @@ def _ensure_targeted_followup(field: str) -> None:
 def _missing_fields_for_section(section_index: int) -> list[str]:
     """Return missing critical fields for a given section and enqueue prompts."""
 
-    missing = st.session_state.get(StateKeys.EXTRACTION_MISSING)
-    if missing is None:
-        missing = get_missing_critical_fields()
+    extraction_missing = st.session_state.get(StateKeys.EXTRACTION_MISSING)
+    computed_missing = get_missing_critical_fields()
+    if extraction_missing:
+        missing = list(dict.fromkeys((*extraction_missing, *computed_missing)))
+    else:
+        missing = computed_missing
     section_missing = [field for field in missing if FIELD_SECTION_MAP.get(field) == section_index]
     for field in section_missing:
         _ensure_targeted_followup(field)
