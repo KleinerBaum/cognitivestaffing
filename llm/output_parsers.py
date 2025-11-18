@@ -95,10 +95,23 @@ class NeedAnalysisOutputParser:
         return target
 
     @staticmethod
-    def _has_interview_stage_error(validation_error: ValidationError) -> bool:
+    def _has_interview_stage_error(validation_error: Exception) -> bool:
         """Return ``True`` when ``process.interview_stages`` caused validation issues."""
 
-        for error in validation_error.errors():
+        error_iterator: Sequence[Mapping[str, Any]] | None = None
+        if isinstance(validation_error, ValidationError):
+            error_iterator = validation_error.errors()
+        elif hasattr(validation_error, "errors"):
+            maybe_errors = getattr(validation_error, "errors")
+            if callable(maybe_errors):  # pragma: no cover - defensive
+                try:
+                    error_iterator = maybe_errors()
+                except Exception:
+                    error_iterator = None
+        if not error_iterator:
+            return False
+
+        for error in error_iterator:
             location = tuple(error.get("loc", ()))
             if location == ("process", "interview_stages"):
                 return True
@@ -149,8 +162,18 @@ class NeedAnalysisOutputParser:
 
         try:
             parsed = self._pydantic_parser.parse(candidate)
-        except ValidationError as validation_error:
+        except (ValidationError, OutputParserException) as validation_error:
             canonical_data = self._canonicalize_payload(data)
+            error_details: list[dict[str, Any]] | None = None
+            if isinstance(validation_error, ValidationError):
+                error_details = validation_error.errors()
+            elif hasattr(validation_error, "errors"):
+                maybe_errors = getattr(validation_error, "errors")
+                if callable(maybe_errors):  # pragma: no cover - defensive
+                    try:
+                        error_details = list(maybe_errors())  # type: ignore[arg-type]
+                    except Exception:
+                        error_details = None
             if (
                 canonical_data is not None
                 and self._has_interview_stage_error(validation_error)
@@ -161,16 +184,14 @@ class NeedAnalysisOutputParser:
                 except ValidationError as fallback_error:
                     validation_error = fallback_error
                 else:
-                    logger.info(
-                        "NeedAnalysis payload normalized after interview_stages list fallback."
-                    )
+                    logger.info("NeedAnalysis payload normalized after interview_stages list fallback.")
                     return fallback_model, canonical_data
                 data = canonical_data
             repaired_payload: Mapping[str, Any] | None = None
             if canonical_data is not None:
                 repaired_payload = repair_profile_payload(
                     canonical_data,
-                    errors=validation_error.errors(),
+                    errors=error_details,
                 )
             if repaired_payload:
                 repaired_data = self._canonicalize_payload(dict(repaired_payload))
