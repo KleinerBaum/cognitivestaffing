@@ -1,15 +1,19 @@
 """Tests for editable summary helpers."""
 
+from __future__ import annotations
+
 import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
+from tests.utils import ProfileDict
 from wizard import _update_profile
 
 
 def test_update_profile_clears_generated() -> None:
     """Updating profile fields clears derived outputs."""
     st.session_state.clear()
-    st.session_state[StateKeys.PROFILE] = {"company": {"name": "Old"}}
+    profile: ProfileDict = {"company": {"name": "Old"}}
+    st.session_state[StateKeys.PROFILE] = profile
     st.session_state[StateKeys.JOB_AD_MD] = "old"
     st.session_state[StateKeys.BOOLEAN_STR] = "old"
     st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = "old"
@@ -32,7 +36,8 @@ def test_update_profile_ignores_semantic_empty() -> None:
     """Setting empty values keeps cached outputs intact."""
 
     st.session_state.clear()
-    st.session_state[StateKeys.PROFILE] = {"company": {"brand_keywords": None}}
+    profile: ProfileDict = {"company": {"brand_keywords": None}}
+    st.session_state[StateKeys.PROFILE] = profile
     st.session_state[StateKeys.JOB_AD_MD] = "cached"
 
     _update_profile("company.brand_keywords", "")
