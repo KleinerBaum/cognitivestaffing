@@ -39,12 +39,11 @@ WIZARD_EXPORT_FIELDS: Final[tuple[WizardExportField, ...]] = (
     WizardExportField(path="company.brand_name", python_type="str | None", is_collection=False),
     WizardExportField(path="company.claim", python_type="str | None", is_collection=False),
     WizardExportField(
-        path="company.contact_email", python_type="pydantic.networks.EmailStr | None", is_collection=False
+        path="company.contact_email", python_type="pydantic.networks.EmailStr | Literal[''] | None", is_collection=False
     ),
     WizardExportField(path="company.contact_name", python_type="str | None", is_collection=False),
     WizardExportField(path="company.contact_phone", python_type="str | None", is_collection=False),
     WizardExportField(path="company.culture", python_type="str | None", is_collection=False),
-    WizardExportField(path="company.headquarters", python_type="str | None", is_collection=False),
     WizardExportField(path="company.hq_location", python_type="str | None", is_collection=False),
     WizardExportField(path="company.industries", python_type="list[str]", is_collection=True),
     WizardExportField(path="company.industry", python_type="str | None", is_collection=False),
@@ -121,11 +120,10 @@ WIZARD_EXPORT_FIELD_TYPES: Final[dict[str, str]] = {
     "company.brand_keywords": "str | None",
     "company.brand_name": "str | None",
     "company.claim": "str | None",
-    "company.contact_email": "pydantic.networks.EmailStr | None",
+    "company.contact_email": "pydantic.networks.EmailStr | Literal[''] | None",
     "company.contact_name": "str | None",
     "company.contact_phone": "str | None",
     "company.culture": "str | None",
-    "company.headquarters": "str | None",
     "company.hq_location": "str | None",
     "company.industries": "list[str]",
     "company.industry": "str | None",
