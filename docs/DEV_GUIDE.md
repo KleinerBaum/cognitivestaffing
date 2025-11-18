@@ -45,6 +45,32 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 6. Dokumentation (`README.md`, `docs/CHANGELOG.md`) mit dem neuen Schritt und
    den Auswirkungen für Contributor:innen aktualisieren.
 
+### Follow-up widgets / Follow-up-Widgets
+
+**EN:** Inline follow-up prompts store both the visible answer and their focus
+state under `st.session_state[f"fu_{<schema_path>}"]`; the widget factory in
+`wizard/flow.py` initialises these keys the moment a question card is rendered
+and keeps any pre-filled profile values in sync with the sidebar list. When a
+value is applied (manual input, suggestion chip, or the summary form) call
+`_sync_followup_completion` so the helper removes the `fu_*` entries, updates
+`StateKeys.FOLLOWUPS`, and mirrors the completion to the sidebar and
+`followups_answered` metadata. Clearing the key is also required whenever a
+follow-up disappears because its schema path was dropped or reset; otherwise the
+sidebar will continue to highlight stale cards. See `tests/test_followup_inline.py`
+for regression coverage.
+
+**DE:** Inline-Follow-ups speichern sowohl den sichtbaren Wert als auch ihren
+Fokusstatus in `st.session_state[f"fu_{<schema_path>}"]`; die Widget-Factory in
+`wizard/flow.py` legt die Keys beim Rendern einer Frage an und hält bereits
+befüllte Profilwerte synchron zur Sidebar-Liste. Sobald eine Antwort übernommen
+wird (manuelle Eingabe, Vorschlags-Chip oder Summary-Formular), `_sync_followup_completion`
+aufrufen: Der Helper entfernt die `fu_*`-Einträge, aktualisiert
+`StateKeys.FOLLOWUPS` und spiegelt die Erledigung an die Sidebar sowie die
+`followups_answered`-Metadaten. Die Keys müssen ebenfalls gelöscht werden, wenn
+ein Follow-up entfällt, weil der Schema-Pfad entfernt oder zurückgesetzt wurde –
+andernfalls hebt die Sidebar weiterhin veraltete Karten hervor. Details deckt
+`tests/test_followup_inline.py` ab.
+
 ## Modifying extraction rules / Extraktionsregeln anpassen
 
 **EN:**
