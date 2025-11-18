@@ -56,6 +56,8 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: The Process step now writes `process.interview_stages` as a numeric count via a dedicated number input, preventing Pydantic from receiving list payloads and rejecting parsed profiles.
+  DE: Der Prozess-Schritt speichert `process.interview_stages` jetzt als numerischen Zähler über ein eigenes Nummernfeld, sodass Pydantic keine Listen mehr erhält und Profile nicht länger abgelehnt werden.
 - EN: Replaced the OTLP exporter dictionary plumbing with the typed `OtlpConfig` helper so telemetry bootstrap validates endpoints, headers, and timeouts while satisfying mypy without overrides.
   DE: Die OTLP-Exporter-Konfiguration nutzt jetzt den typisierten Helper `OtlpConfig`, damit Endpunkte, Header und Timeouts vor dem Bootstrap geprüft werden und mypy ohne Overrides besteht.
 - EN: Hardened inline follow-up enforcement so new critical prompts (summary headline, background-check toggles, etc.) block navigation while optional prompts remain optional, and added regression tests that jump directly to the Summary step.

@@ -4626,14 +4626,15 @@ def _render_review_process_tab(profile: dict[str, Any]) -> None:
     process["phases"] = phases
     _update_profile(ProfilePaths.PROCESS_PHASES, phases)
 
-    interview_stages = render_list_text_area(
-        label=tr("Interviewstufen", "Interview stages"),
-        session_key=str(ProfilePaths.PROCESS_INTERVIEW_STAGES),
-        items=process.get("interview_stages"),
-        height=110,
+    interview_stages = st.number_input(
+        tr("Interviewstufen (Anzahl)", "Interview stages (count)"),
+        value=int(process.get("interview_stages") or 0),
+        key=str(ProfilePaths.PROCESS_INTERVIEW_STAGES),
+        min_value=0,
+        step=1,
     )
-    process["interview_stages"] = interview_stages
-    _update_profile(ProfilePaths.PROCESS_INTERVIEW_STAGES, interview_stages)
+    process["interview_stages"] = int(interview_stages)
+    _update_profile(ProfilePaths.PROCESS_INTERVIEW_STAGES, process["interview_stages"])
 
     process_notes = st.text_area(
         tr("Weitere Hinweise", "Additional notes"),
