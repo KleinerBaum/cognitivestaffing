@@ -15,6 +15,7 @@ from pydantic import ValidationError
 import config as app_config
 from config import ModelTask, get_model_for, is_llm_enabled
 from llm.openai_responses import build_json_schema_format, call_responses
+from llm.profile_normalization import normalize_interview_stages_field
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
@@ -921,8 +922,11 @@ def _validate_profile_payload(
 
     from models.need_analysis import NeedAnalysisProfile as _Profile
 
+    candidate = dict(payload)
+    normalize_interview_stages_field(candidate)
+
     try:
-        model = _Profile.model_validate(payload)
+        model = _Profile.model_validate(candidate)
     except ValidationError as exc:
         return None, exc
     normalized_payload = cast(NormalizedProfilePayload, model.model_dump())
