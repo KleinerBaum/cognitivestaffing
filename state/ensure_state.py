@@ -6,7 +6,7 @@ import logging
 import os
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -30,6 +30,7 @@ from core.schema import (
 )
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import NormalizedProfilePayload, normalize_profile
+from llm.json_repair import repair_profile_payload
 
 
 import config as app_config
@@ -248,9 +249,43 @@ def ensure_state() -> None:
                 ensured_validated = _apply_critical_profile_defaults(normalized_validated)
                 st.session_state[StateKeys.PROFILE] = ensured_validated
             except ValidationError as sanitized_error:
+                errors = sanitized_error.errors()
+                repaired_profile = _attempt_profile_repair(sanitized, errors)
+                if repaired_profile is not None:
+                    try:
+                        validated = NeedAnalysisProfile.model_validate(repaired_profile)
+                        normalized_validated = normalize_profile(validated)
+                        ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                        st.session_state[StateKeys.PROFILE] = ensured_validated
+                        logger.info(
+                            "Repaired invalid profile fields: %s",
+                            ", ".join(_summarize_error_locations(errors)),
+                        )
+                        return
+                    except ValidationError as repair_error:
+                        logger.debug(
+                            "Validation failed after repair attempt: %s",
+                            repair_error,
+                        )
+                trimmed_profile, removed_paths = _prune_invalid_profile_fields(sanitized, errors)
+                if removed_paths:
+                    try:
+                        validated = NeedAnalysisProfile.model_validate(trimmed_profile)
+                        normalized_validated = normalize_profile(validated)
+                        ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                        st.session_state[StateKeys.PROFILE] = ensured_validated
+                        logger.warning(
+                            "Removed invalid profile fields: %s",
+                            ", ".join(removed_paths),
+                        )
+                        return
+                    except ValidationError as trimmed_error:
+                        logger.debug(
+                            "Validation failed after dropping invalid fields: %s",
+                            trimmed_error,
+                        )
                 logger.warning(
-                    "Failed to sanitize profile data; resetting to defaults: %s",
-                    sanitized_error,
+                    "Unable to recover profile data after repair attempts; resetting to defaults.",
                 )
                 fallback_profile: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
                 ensured_fallback = _apply_critical_profile_defaults(fallback_profile)
@@ -332,6 +367,124 @@ def _sanitize_profile(data: Mapping[str, Any]) -> dict[str, Any]:
     sanitized = deepcopy(template)
     _merge_known_fields(sanitized, canonical)
     return sanitized
+
+
+def _attempt_profile_repair(
+    payload: Mapping[str, Any], errors: Sequence[Mapping[str, Any]] | None
+) -> Mapping[str, Any] | None:
+    """Attempt to fix ``payload`` using the JSON repair helper."""
+
+    try:
+        repaired = repair_profile_payload(payload, errors=errors)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.debug("Profile repair helper failed: %s", exc)
+        return None
+    if not repaired:
+        return None
+    if not isinstance(repaired, Mapping):
+        return None
+    return dict(repaired)
+
+
+def _summarize_error_locations(
+    errors: Sequence[Mapping[str, Any]] | None,
+) -> tuple[str, ...]:
+    """Return unique dotted paths describing the provided validation errors."""
+
+    if not errors:
+        return ("<root>",)
+    seen: set[str] = set()
+    summary: list[str] = []
+    for entry in errors:
+        loc = entry.get("loc")
+        if not isinstance(loc, (list, tuple)):
+            continue
+        label = _format_error_location(loc)
+        if not label:
+            label = "<root>"
+        if label in seen:
+            continue
+        seen.add(label)
+        summary.append(label)
+    if not summary:
+        return ("<root>",)
+    return tuple(summary)
+
+
+def _format_error_location(location: Sequence[Any]) -> str:
+    """Return a dotted representation for a validation ``location`` path."""
+
+    if not location:
+        return ""
+    formatted: list[str] = []
+    for part in location:
+        if isinstance(part, int):
+            if not formatted:
+                formatted.append(f"[{part}]")
+            else:
+                formatted[-1] = f"{formatted[-1]}[{part}]"
+            continue
+        formatted.append(str(part))
+    return ".".join(formatted)
+
+
+def _prune_invalid_profile_fields(
+    payload: Mapping[str, Any],
+    errors: Sequence[Mapping[str, Any]] | None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Remove invalid paths reported by ``errors`` from ``payload``."""
+
+    mutable = deepcopy(payload)
+    removed: list[str] = []
+    seen: set[str] = set()
+    if not errors:
+        return mutable, removed
+    for entry in errors:
+        loc = entry.get("loc")
+        if not isinstance(loc, (list, tuple)) or not loc:
+            continue
+        label = _format_error_location(loc)
+        if not label:
+            label = "<root>"
+        if label in seen:
+            continue
+        removed_successfully = _remove_location_value(mutable, loc)
+        if not removed_successfully:
+            continue
+        seen.add(label)
+        removed.append(label)
+    return mutable, removed
+
+
+def _remove_location_value(target: Any, location: Sequence[Any]) -> bool:
+    """Remove the value referenced by ``location`` from ``target`` when possible."""
+
+    cursor: Any = target
+    for index, part in enumerate(location):
+        is_last = index == len(location) - 1
+        if is_last:
+            if isinstance(part, int) and isinstance(cursor, list):
+                if 0 <= part < len(cursor):
+                    del cursor[part]
+                    return True
+                return False
+            if isinstance(part, str) and isinstance(cursor, dict):
+                if part in cursor:
+                    cursor.pop(part)
+                    return True
+                return False
+            return False
+        if isinstance(part, int):
+            if isinstance(cursor, list) and 0 <= part < len(cursor):
+                cursor = cursor[part]
+            else:
+                return False
+        else:
+            if isinstance(cursor, dict) and part in cursor:
+                cursor = cursor[part]
+            else:
+                return False
+    return False
 
 
 def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> None:
