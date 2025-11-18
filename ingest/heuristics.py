@@ -12,6 +12,7 @@ from llm.openai_responses import build_json_schema_format, call_responses
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import (
+    NormalizedProfilePayload,
     extract_company_size,
     normalize_city_name,
     normalize_country,
@@ -1423,7 +1424,7 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     certs = _extract_certifications(text)
     r.certifications = _merge_unique(r.certifications, certs)
     r.certificates = _merge_unique(r.certificates, certs)
-    normalized_payload = normalize_profile(profile)
+    normalized_payload: NormalizedProfilePayload = normalize_profile(profile)
     return NeedAnalysisProfile.model_validate(normalized_payload)
 
 

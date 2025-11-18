@@ -10,6 +10,7 @@ import config
 from core.normalization import normalize_url
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
+    NormalizedProfilePayload,
     normalize_city_name,
     normalize_company_size,
     normalize_country,
@@ -131,7 +132,7 @@ def test_normalize_profile_applies_string_rules() -> None:
         }
     )
 
-    normalized_payload = normalize_profile(profile)
+    normalized_payload: NormalizedProfilePayload = normalize_profile(profile)
     normalized = NeedAnalysisProfile.model_validate(normalized_payload)
 
     assert normalized.position.job_title == "Lead Developer"
@@ -153,7 +154,7 @@ def test_normalize_profile_uses_json_repair_on_failure(monkeypatch: pytest.Monke
 
     invalid_payload = {"company": "Acme"}
 
-    normalized = normalize_profile(invalid_payload)
+    normalized: NormalizedProfilePayload = normalize_profile(invalid_payload)
 
     assert normalized["company"]["name"] == "Acme"
     assert calls, "Expected JSON repair fallback to be invoked"
