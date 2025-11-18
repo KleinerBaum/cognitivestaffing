@@ -92,8 +92,15 @@ _SALARY_RE = re.compile(
 # Location line detector for headings like "Location: Berlin" or "Standort - Hamburg".
 # Accepts punctuation and digits but can over-match long descriptive phrases.
 _LOCATION_LINE_RE = re.compile(
-    r"(?:^|\b)(?P<prefix>location|standort|ort|arbeitsort|einsatzort|based in|land|country|city)"
-    r"[:\-\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./@-]+)",
+    r"(?:^|\b)(?P<prefix>"
+    r"location|standort|hauptstandort|ort|arbeitsort|einsatzort|based in|land|country|city|city/town|office"
+    r")"
+    r"[:\-\u2013\u2014\s]+(?P<value>[A-ZÄÖÜa-zäöüß0-9 ,./@&()•·\-\u2013\u2014]+)",
+    re.IGNORECASE,
+)
+_TRAILING_LOCATION_QUALIFIER_RE = re.compile(
+    r"\s*(?:\((?:[^)]*(?:remote|hybrid|on\s*-?site|offsite|home\s*office|hq|hauptsitz|hauptstandort)[^)]*)\)"
+    r"|\b(?:hq|hauptsitz|hauptstandort)\b)\.?\s*$",
     re.IGNORECASE,
 )
 _INDUSTRY_LINE_RE = re.compile(
@@ -103,7 +110,20 @@ _INDUSTRY_LINE_RE = re.compile(
 # Captures "City, Country" pairs with capitalised words and hyphenated names. Not
 # robust for lowercase city names or multi-comma strings (e.g., "Paris, Île-de-France, FR").
 _CITY_COUNTRY_RE = re.compile(
-    r"\b([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)*)\s*,\s*([A-ZÄÖÜ][\wÄÖÜäöüß'\-]+)\b"
+    r"""
+    \b(
+        [A-ZÄÖÜa-zäöüß][\wÄÖÜäöüß'`´\-]*
+        (?:\s+[A-ZÄÖÜa-zäöüß][\wÄÖÜäöüß'`´\-]*)*
+    )\s*
+    (?:,|•|·|/|\(|-)\s*
+    (
+        [A-ZÄÖÜa-zäöüß][\wÄÖÜäöüß'`´\-]*
+        (?:\s+[A-ZÄÖÜa-zäöüß][\wÄÖÜäöüß'`´\-]*)*
+    )
+    \)?
+    \b
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 COMMON_CITY_NAMES = (
@@ -693,6 +713,7 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
     else:
         pair_match = _CITY_COUNTRY_RE.search(text)
         raw = pair_match.group(0).strip() if pair_match else text
+    raw = _strip_location_qualifiers(raw)
     if not raw:
         return None, None
 
@@ -703,6 +724,16 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
 
     def _finalize(city: str | None, country: str | None) -> tuple[str | None, str | None]:
         return _finalize_location(city, country, entities)
+
+    pair_match = _CITY_COUNTRY_RE.search(raw)
+    if pair_match:
+        city = pair_match.group(1).strip() or None
+        country = pair_match.group(2).strip() or None
+        if city and not _is_valid_city_candidate(city, entities=entities):
+            city = None
+        if country and not _is_valid_country_candidate(country, entities=entities):
+            country = None
+        return _finalize(city, country)
 
     # Prefer comma separated "City, Country" structures.
     if "," in raw:
@@ -721,7 +752,7 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
             if _is_valid_city_candidate(city, entities=entities):
                 return _finalize(city, None)
         return _finalize(city, country)
-    tokens = [token.strip() for token in re.split(r"\s+-\s+|/", raw) if token.strip()]
+    tokens = [token.strip() for token in re.split(r"\s+[-\u2013\u2014]\s+|/|•|·", raw) if token.strip()]
     if len(tokens) >= 2:
         city_token = tokens[0]
         country_token = tokens[-1]
@@ -747,6 +778,20 @@ def _extract_location(text: str, prefix_hint: str | None = None) -> tuple[str | 
     if not _is_valid_city_candidate(cleaned, entities=entities):
         return None, None
     return _finalize(cleaned, None)
+
+
+def _strip_location_qualifiers(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        return cleaned
+    while True:
+        new_value = _TRAILING_LOCATION_QUALIFIER_RE.sub("", cleaned)
+        if new_value == cleaned:
+            break
+        cleaned = new_value.strip()
+        if not cleaned:
+            break
+    return cleaned
 
 
 def _finalize_location(
