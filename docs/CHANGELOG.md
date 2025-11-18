@@ -48,6 +48,10 @@ Fixed / Behoben
 
 - EN: Replaced the OTLP exporter dictionary plumbing with the typed `OtlpConfig` helper so telemetry bootstrap validates endpoints, headers, and timeouts while satisfying mypy without overrides.
   DE: Die OTLP-Exporter-Konfiguration nutzt jetzt den typisierten Helper `OtlpConfig`, damit Endpunkte, Header und Timeouts vor dem Bootstrap geprüft werden und mypy ohne Overrides besteht.
+- EN: Hardened inline follow-up enforcement so new critical prompts (summary headline, background-check toggles, etc.) block navigation while optional prompts remain optional, and added regression tests that jump directly to the Summary step.
+  DE: Die Inline-Follow-ups sperren jetzt auch neue kritische Prompts (Summary-Headline, Background-Check-Schalter usw.) zuverlässig, während optionale Fragen freiwillig bleiben; Regressionstests decken den direkten Sprung zum Summary-Schritt ab.
+- EN: Uploading another PDF/DOCX now clears the previous extraction payload and unreadable files raise a bilingual “Failed to extract data, please check the format” banner instead of crashing mid-onboarding.
+  DE: Beim erneuten Hochladen einer PDF-/DOCX-Datei wird der vorherige Extraktionsstand entfernt und nicht lesbare Dateien lösen einen zweisprachigen Hinweis „Datei konnte nicht verarbeitet werden, bitte Format prüfen“ aus, anstatt den Onboarding-Schritt abzubrechen.
 - EN: Preserved the wizard reset preferences so language, reasoning mode, and dark-mode toggles remain on the user’s selections after clearing session data.
   DE: Wizard-Reset behält nun Sprach-, Reasoning- und Dark-Mode-Schalter bei, sodass die gewählten Optionen nach dem Sitzungs-Reset erhalten bleiben.
 - EN: Closed the Interview Guide Responses schema with additionalProperties: false, hardened benefit suggestions by cascading Responses → Chat → curated copy, and added regression tests for phone/URL normalisation.

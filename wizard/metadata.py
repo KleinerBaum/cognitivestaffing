@@ -37,6 +37,7 @@ PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "role_tasks": ("responsibilities.", "requirements."),
     "benefits": ("compensation.",),
     "interview": ("process.",),
+    "summary": ("summary.",),
 }
 
 VIRTUAL_PAGE_FIELD_PREFIX: Final[str] = "__page__."

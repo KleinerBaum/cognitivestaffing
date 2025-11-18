@@ -3183,6 +3183,14 @@ def on_file_uploaded() -> None:
                 ),
                 str(e),
             )
+        elif "file could not be read" in msg:
+            _record_source_error(
+                tr(
+                    "Datei konnte nicht verarbeitet werden. Bitte Format prüfen oder erneut versuchen.",
+                    "Failed to extract data from the file. Please check the format and try again.",
+                ),
+                str(e),
+            )
         else:
             _record_source_error(
                 tr(
@@ -11317,6 +11325,8 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     render_step_heading(title, subtitle)
     for intro in intros:
         st.caption(intro)
+
+    _render_followups_for_step("summary", data)
 
     tab_labels = [
         tr("Unternehmen", "Company"),

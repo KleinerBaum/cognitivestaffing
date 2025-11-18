@@ -101,6 +101,9 @@ Preview / Vorschau: `images/customer_contact_toggle_preview.md` enthält eine te
 EN: Step 8 (Summary) now evaluates inline follow-up questions even though it has no required fields, so “Next” stays disabled until the remaining critical prompts (for example headline or next steps) are answered before triggering exports.
 DE: Schritt 8 („Summary“) prüft trotz fehlender Pflichtfelder jetzt ebenfalls die inline angezeigten Anschlussfragen, sodass „Weiter“ solange gesperrt bleibt, bis verbleibende kritische Prompts (z. B. Headline oder Next Steps) beantwortet sind und keine Exporte mehr mit offenen Klärungen starten.
 
+EN: Uploading a second PDF or DOCX now replaces the previous extraction payload entirely and unrecoverable parsing errors (e.g., PyMuPDF/pypdf failures) surface a bilingual “Failed to extract data, please check the format” banner instead of crashing; language and dark-mode toggles persist mid-wizard without clearing captured profile data.
+DE: Beim erneuten Hochladen einer PDF- oder DOCX-Datei wird der vorherige Extraktionsstand vollständig überschrieben und nicht lesbare Dateien (z. B. PyMuPDF/pypdf-Fehler) zeigen einen zweisprachigen Hinweis „Datei konnte nicht verarbeitet werden …“ statt eines Absturzes; Sprach- und Dark-Mode-Umschalter behalten mitten im Wizard alle erfassten Profildaten bei.
+
 EN: Wizard buttons, follow-up cards, and inputs now use the shared transition tokens for hover/focus states, a brief “Next” pulse once all required data is present, and smooth scrolling when navigating so recruiters instantly see what changed.
 DE: Wizard-Buttons, Follow-up-Karten und Eingabefelder nutzen nun die gemeinsamen Transition-Tokens für Hover-/Fokuszustände, einen kurzen „Weiter“-Impuls sobald alle Pflichtangaben vorliegen und ein sanftes Scrollen bei der Navigation, damit Recruiter:innen Änderungen sofort erkennen.
 

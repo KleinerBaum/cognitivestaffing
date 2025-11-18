@@ -199,6 +199,16 @@ def test_on_file_uploaded_populates_state(monkeypatch: pytest.MonkeyPatch) -> No
             "File could not be read, possibly scanned PDF",
             "Failed to read file. If this is a scanned PDF, install OCR dependencies or check the file quality.",
         ),
+        (
+            "de",
+            "File could not be read",
+            "Datei konnte nicht verarbeitet werden. Bitte Format prüfen oder erneut versuchen.",
+        ),
+        (
+            "en",
+            "File could not be read",
+            "Failed to extract data from the file. Please check the format and try again.",
+        ),
     ],
 )
 def test_on_file_uploaded_shows_localized_errors(
@@ -369,6 +379,45 @@ def test_on_url_changed_sets_summary_on_fetch_error(monkeypatch: pytest.MonkeyPa
     assert "source_error_message" not in st.session_state
     assert st.session_state["__prefill_profile_doc__"].text == "url text"
     assert st.session_state["__run_extraction__"] is True
+
+
+def test_on_file_uploaded_overwrites_previous_upload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Uploading a second file should replace prefill text and blocks."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+
+    first_doc = StructuredDocument(
+        text="first text",
+        blocks=[ContentBlock(type="paragraph", text="first block")],
+    )
+    second_doc = StructuredDocument(
+        text="second text",
+        blocks=[ContentBlock(type="paragraph", text="second block")],
+    )
+    docs = iter([first_doc, second_doc])
+
+    st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
+
+    def fake_extract(_file: object) -> StructuredDocument:
+        return next(docs)
+
+    _patch_runner_attr(monkeypatch, "extract_text_from_file", fake_extract)
+    _patch_runner_attr(monkeypatch, "clean_structured_document", lambda doc: doc)
+
+    on_file_uploaded()
+
+    assert st.session_state["__prefill_profile_text__"] == "first text"
+    assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "first block"
+
+    st.session_state[UIKeys.PROFILE_FILE_UPLOADER] = object()
+    st.session_state[StateKeys.RAW_BLOCKS] = [ContentBlock(type="paragraph", text="stale")]
+
+    on_file_uploaded()
+
+    assert st.session_state["__prefill_profile_text__"] == "second text"
+    assert st.session_state[StateKeys.RAW_BLOCKS][0].text == "second block"
 
 
 def test_onboarding_transfers_prefill_to_raw_text(
