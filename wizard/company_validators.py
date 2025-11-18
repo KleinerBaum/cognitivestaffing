@@ -4,11 +4,14 @@ from typing import Final, Tuple
 
 import streamlit as st
 from pydantic import EmailStr, ValidationError
+from pydantic.type_adapter import TypeAdapter
 
 from constants.keys import ProfilePaths
 from wizard._logic import _update_profile
 
 LocalizedText = Tuple[str, str]
+
+_EMAIL_ADAPTER: Final[TypeAdapter[EmailStr]] = TypeAdapter(EmailStr)
 
 _CONTACT_EMAIL_REQUIRED_ERROR: Final[LocalizedText] = (
     "Bitte Kontakt-E-Mail eintragen.",
@@ -33,7 +36,7 @@ def persist_contact_email(raw_value: str | None) -> tuple[str | None, LocalizedT
         st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = raw_value or ""
         return None, _CONTACT_EMAIL_REQUIRED_ERROR
     try:
-        normalized = str(EmailStr(candidate))
+        normalized = _EMAIL_ADAPTER.validate_python(candidate)
     except ValidationError:
         _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, None)
         st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = raw_value or ""
