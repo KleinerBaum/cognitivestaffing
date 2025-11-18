@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 from functools import lru_cache
-from typing import Any, Mapping
+from collections.abc import Mapping, MutableMapping, Sequence
+from typing import Any
 
 try:  # pragma: no cover - dependency differences
     from langchain.output_parsers import (
@@ -72,7 +73,10 @@ class NeedAnalysisOutputParser:
             (
                 "Use the following structured output format.",
                 self._structured_parser.get_format_instructions(),
-                "Embed only the NeedAnalysisProfile JSON object without commentary.",
+                (
+                    "Embed only the NeedAnalysisProfile JSON object without commentary. "
+                    "Always express process.interview_stages as an integer (count of stages) or null."
+                ),
                 self._pydantic_parser.get_format_instructions(),
             )
         )
@@ -89,6 +93,30 @@ class NeedAnalysisOutputParser:
             return None
         normalize_interview_stages_field(target)
         return target
+
+    @staticmethod
+    def _has_interview_stage_error(validation_error: ValidationError) -> bool:
+        """Return ``True`` when ``process.interview_stages`` caused validation issues."""
+
+        for error in validation_error.errors():
+            location = tuple(error.get("loc", ()))
+            if location == ("process", "interview_stages"):
+                return True
+        return False
+
+    @staticmethod
+    def _coerce_stage_list(payload: MutableMapping[str, Any]) -> bool:
+        """Convert ``process.interview_stages`` lists to integers when present."""
+
+        process = payload.get("process")
+        if not isinstance(process, MutableMapping):
+            return False
+
+        stages = process.get("interview_stages")
+        if isinstance(stages, Sequence) and not isinstance(stages, (str, bytes, bytearray)):
+            normalize_interview_stages_field(payload)
+            return not isinstance(process.get("interview_stages"), Sequence)
+        return False
 
     def parse(self, text: str) -> tuple[NeedAnalysisProfile, dict[str, Any]]:
         """Parse ``text`` and return the Pydantic model along with the raw dict."""
@@ -123,6 +151,21 @@ class NeedAnalysisOutputParser:
             parsed = self._pydantic_parser.parse(candidate)
         except ValidationError as validation_error:
             canonical_data = self._canonicalize_payload(data)
+            if (
+                canonical_data is not None
+                and self._has_interview_stage_error(validation_error)
+                and self._coerce_stage_list(canonical_data)
+            ):
+                try:
+                    fallback_model = NeedAnalysisProfile.model_validate(canonical_data)
+                except ValidationError as fallback_error:
+                    validation_error = fallback_error
+                else:
+                    logger.info(
+                        "NeedAnalysis payload normalized after interview_stages list fallback."
+                    )
+                    return fallback_model, canonical_data
+                data = canonical_data
             repaired_payload: Mapping[str, Any] | None = None
             if canonical_data is not None:
                 repaired_payload = repair_profile_payload(
