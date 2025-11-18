@@ -225,7 +225,7 @@ class Requirements(BaseModel):
     portfolio_required: Optional[bool] = None
     reference_check_required: Optional[bool] = None
 
-    @model_validator(mode="after")
+    @model_validator(mode="after", skip_on_failure=True)
     def _sync_certificates(self) -> "Requirements":
         """Keep ``certificates`` and ``certifications`` aligned."""
 
