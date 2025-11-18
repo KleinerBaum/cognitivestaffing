@@ -156,6 +156,26 @@ def test_extract_location_ignores_remote_keyword() -> None:
     assert country == "DE"
 
 
+def test_extract_location_supports_parentheses_and_bullets() -> None:
+    """Lowercase and bullet-separated pairs should populate city and country."""
+
+    city, country = _extract_location("location: berlin (germany)")
+    assert city == "berlin"
+    assert country == "DE"
+
+    city, country = _extract_location("Standort: Berlin • Germany")
+    assert city == "Berlin"
+    assert country == "DE"
+
+
+def test_extract_location_handles_dash_separated_values() -> None:
+    """En dash-separated values should populate both fields."""
+
+    city, country = _extract_location("Hauptstandort: Wien – Österreich")
+    assert city == "Wien"
+    assert country == "AT"
+
+
 def test_apply_rules_handles_einsatzort_and_branche_table_keywords() -> None:
     """Einsatzort and Branche table headers should populate city and industry."""
 
@@ -213,3 +233,21 @@ def test_apply_rules_ignores_remote_location_value() -> None:
     assert matches["location.primary_city"].value == "Berlin"
     assert matches["location.primary_city"].rule == "regex.location"
     assert "Standort: Remote" not in matches["location.primary_city"].source_text
+
+
+def test_apply_rules_handles_city_town_prefix_and_trailing_parentheses() -> None:
+    """Lowercase City/Town lines with qualifiers should fill the city field."""
+
+    blocks = [ContentBlock(type="paragraph", text="city/town – berlin (remote)")]
+    matches = apply_rules(blocks)
+    assert matches["location.primary_city"].value == "berlin"
+    assert matches["location.country"].value == "DE"
+
+
+def test_apply_rules_handles_office_prefix_with_hq_suffix() -> None:
+    """Office prefixed lines should ignore HQ qualifiers and capture the city."""
+
+    blocks = [ContentBlock(type="paragraph", text="Office – Zürich HQ")]
+    matches = apply_rules(blocks)
+    assert matches["location.primary_city"].value == "Zürich"
+    assert matches["location.country"].value == "CH"
