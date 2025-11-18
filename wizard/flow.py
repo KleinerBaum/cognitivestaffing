@@ -8820,10 +8820,20 @@ def _step_requirements() -> None:
         ),
         parent=language_col,
     ):
+        background_check_path = ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED
+        background_check_key = str(background_check_path)
+
+        def _sync_background_required() -> None:
+            _update_profile(
+                background_check_path,
+                bool(st.session_state.get(background_check_key)),
+            )
+
         background_required = st.checkbox(
             tr("Hintergrundprüfung verpflichtend", "Background check required"),
             value=bool(requirements.get("background_check_required")),
-            key=str(ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED),
+            key=background_check_key,
+            on_change=_sync_background_required,
             help=tr(
                 "Umfasst Identitäts-, Strafregister- und Beschäftigungshistorie-Prüfungen.",
                 "Covers identity, criminal-record, and employment-history verification.",
@@ -8835,10 +8845,20 @@ def _step_requirements() -> None:
             bool(background_required),
         )
 
+        reference_check_path = ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED
+        reference_check_key = str(reference_check_path)
+
+        def _sync_reference_required() -> None:
+            _update_profile(
+                reference_check_path,
+                bool(st.session_state.get(reference_check_key)),
+            )
+
         reference_required = st.checkbox(
             tr("Referenzprüfung verpflichtend", "Reference check required"),
             value=bool(requirements.get("reference_check_required")),
-            key=str(ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED),
+            key=reference_check_key,
+            on_change=_sync_reference_required,
             help=tr(
                 "Bestätigt frühere Vorgesetzte oder Kolleg:innen und deren Feedback.",
                 "Confirms prior managers or peers and captures their feedback.",
@@ -8850,10 +8870,20 @@ def _step_requirements() -> None:
             bool(reference_required),
         )
 
+        portfolio_required_path = ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED
+        portfolio_required_key = str(portfolio_required_path)
+
+        def _sync_portfolio_required() -> None:
+            _update_profile(
+                portfolio_required_path,
+                bool(st.session_state.get(portfolio_required_key)),
+            )
+
         portfolio_required = st.checkbox(
             tr("Portfolio/Arbeitsproben verpflichtend", "Portfolio / work samples required"),
             value=bool(requirements.get("portfolio_required")),
-            key=str(ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED),
+            key=portfolio_required_key,
+            on_change=_sync_portfolio_required,
             help=tr(
                 "Fordert aktuelle Arbeitsproben oder Case-Studys an.",
                 "Requests up-to-date work samples or case studies.",
