@@ -8807,6 +8807,64 @@ def _step_requirements() -> None:
         )
         data["requirements"]["language_level_english"] = selected_level
 
+    with requirement_panel(
+        icon="🛡️",
+        title=tr("Compliance Checks", "Compliance Checks"),
+        caption=tr(
+            "Steuert, welche Screenings verpflichtend sind.",
+            "Control which screenings are mandatory.",
+        ),
+        tooltip=tr(
+            "Recruiter:innen legen fest, ob Hintergrund-, Referenz- oder Portfolio-Prüfungen nötig sind.",
+            "Recruiters decide whether background, reference, or portfolio checks are required.",
+        ),
+        parent=language_col,
+    ):
+        background_required = st.checkbox(
+            tr("Hintergrundprüfung verpflichtend", "Background check required"),
+            value=bool(requirements.get("background_check_required")),
+            key=str(ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED),
+            help=tr(
+                "Umfasst Identitäts-, Strafregister- und Beschäftigungshistorie-Prüfungen.",
+                "Covers identity, criminal-record, and employment-history verification.",
+            ),
+        )
+        requirements["background_check_required"] = bool(background_required)
+        _update_profile(
+            ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED,
+            bool(background_required),
+        )
+
+        reference_required = st.checkbox(
+            tr("Referenzprüfung verpflichtend", "Reference check required"),
+            value=bool(requirements.get("reference_check_required")),
+            key=str(ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED),
+            help=tr(
+                "Bestätigt frühere Vorgesetzte oder Kolleg:innen und deren Feedback.",
+                "Confirms prior managers or peers and captures their feedback.",
+            ),
+        )
+        requirements["reference_check_required"] = bool(reference_required)
+        _update_profile(
+            ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED,
+            bool(reference_required),
+        )
+
+        portfolio_required = st.checkbox(
+            tr("Portfolio/Arbeitsproben verpflichtend", "Portfolio / work samples required"),
+            value=bool(requirements.get("portfolio_required")),
+            key=str(ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED),
+            help=tr(
+                "Fordert aktuelle Arbeitsproben oder Case-Studys an.",
+                "Requests up-to-date work samples or case studies.",
+            ),
+        )
+        requirements["portfolio_required"] = bool(portfolio_required)
+        _update_profile(
+            ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED,
+            bool(portfolio_required),
+        )
+
     must_insight_skills = (
         list(data["requirements"].get("hard_skills_required", []))
         + list(data["requirements"].get("soft_skills_required", []))
