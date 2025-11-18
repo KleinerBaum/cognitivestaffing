@@ -80,6 +80,9 @@ DE: Gehaltsschätzungen orientieren sich jetzt an Jobtitel, Kernaufgaben, Muss- 
 EN: The Company step now blocks navigation until `company.contact_email` and `location.primary_city` are captured, showing bilingual helper copy and inline validation so exports always include a reachable contact and benchmark-ready location context.
 DE: Der Unternehmensschritt lässt die Navigation erst weiterlaufen, wenn `company.contact_email` und `location.primary_city` ausgefüllt sind – inklusive zweisprachiger Hilfetexte und Inline-Validierung, damit Exporte stets einen erreichbaren Kontakt und den Standortanker für Benchmarks enthalten.
 
+EN: Tightened the Company step gating so clearing `company.contact_email` or `location.primary_city` immediately disables “Next” again, surfacing the inline warning from `persist_contact_email()`/`persist_primary_city()` before recruiters can advance.
+DE: Die Navigation im Unternehmensschritt verriegelt sich nun sofort wieder, sobald `company.contact_email` oder `location.primary_city` geleert werden – die Inline-Warnungen aus `persist_contact_email()` bzw. `persist_primary_city()` erscheinen direkt, bevor Recruiter:innen weiterklicken können.
+
 EN: Streamlined the sidebar: navigation links are gone, language and dark-mode switches sit beneath each other with flag icons, and salary estimates now launch automatically once job title plus a location hint are present, listing required fields, summarising the top five drivers in a single sentence, and surfacing the raw calculation details.
 DE: Sidebar verschlankt: Navigations-Links entfernt, Sprach- und Dark-Mode-Umschalter stehen untereinander mit Flaggen-Icons, und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen – inklusive Pflichtfeldliste, Ein-Satz-Zusammenfassung der fünf wichtigsten Faktoren und sichtbarer Berechnungsdetails.
 

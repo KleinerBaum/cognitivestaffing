@@ -9,6 +9,8 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Recompute Company-step required fields after inline validators run so clearing the contact email or primary city immediately disables “Next” again and surfaces the bilingual warning before moving on.
+  DE: Die Pflichtfeldprüfung im Unternehmensschritt läuft jetzt nach den Inline-Validatoren erneut, sodass das Löschen der Kontakt-E-Mail oder Primärstadt „Weiter“ sofort sperrt und der zweisprachige Hinweis erscheint, bevor es weitergeht.
 - EN: Hardened the company contact email validator to use Pydantic's email parsing so invalid addresses surface as inline errors instead of raising a TypeError.
   DE: Die Validierung der Kontakt-E-Mail nutzt nun den Pydantic-E-Mail-Parser, damit ungültige Adressen als Inline-Fehler erscheinen und kein TypeError mehr ausgelöst wird.
 
