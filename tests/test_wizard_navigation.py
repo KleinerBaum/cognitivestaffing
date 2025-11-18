@@ -512,3 +512,90 @@ def test_critical_followup_blocks_until_answered(
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
     assert wizard_state["current_step"] == "role_tasks"
+
+
+def test_requirements_followup_blocks_role_tasks(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Critical requirements follow-ups should disable Next until answered."""
+
+    st.session_state[StateKeys.PROFILE] = {"requirements": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [
+        {"field": "requirements.background_check_required", "priority": "critical"}
+    ]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "role_tasks"
+    query_params["step"] = ["role_tasks"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    class RerunTriggered(Exception):
+        pass
+
+    button_calls: list[dict[str, Any]] = []
+    responses = {"wizard_next_role_tasks": iter([False, True])}
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        key = kwargs.get("key")
+        sequence = responses.get(key)
+        if sequence is None:
+            return False
+        try:
+            return next(sequence)
+        except StopIteration:
+            return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks"]
+    assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+    requirements = st.session_state[StateKeys.PROFILE].setdefault("requirements", {})
+    requirements["background_check_required"] = True
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks"]
+    assert next_calls[-1]["kwargs"].get("disabled", False) is False
+    wizard_state = st.session_state["wizard"]
+    assert wizard_state["current_step"] == "skills"
+
+
+def test_summary_followup_counts_as_missing(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Summary follow-ups should be treated as required when critical."""
+
+    st.session_state[StateKeys.PROFILE] = {"summary": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "summary.headline", "priority": "critical"}]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    summary_page = next(page for page in router._pages if page.key == "summary")
+    missing = router._missing_required_fields(summary_page)
+    assert missing == ["summary.headline"]
+
+
+def test_optional_followup_does_not_block(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
+    """Non-critical follow-ups should not mark the step as incomplete."""
+
+    st.session_state[StateKeys.PROFILE] = {"summary": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "summary.headline", "priority": "normal"}]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    summary_page = next(page for page in router._pages if page.key == "summary")
+    missing = router._missing_required_fields(summary_page)
+    assert missing == []

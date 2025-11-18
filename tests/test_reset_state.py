@@ -42,3 +42,24 @@ def test_reset_state_rehydrates_lang_select_when_missing() -> None:
 
     assert st.session_state["lang"] == "de"
     assert st.session_state[UIKeys.LANG_SELECT] == "de"
+
+
+def test_ensure_state_preserves_profile_on_preference_toggle() -> None:
+    """Switching language or theme should not reset captured profile data."""
+
+    st.session_state.clear()
+    ensure_state()
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile.setdefault("company", {})["name"] = "ACME"
+    st.session_state["lang"] = "de"
+    st.session_state["ui.dark_mode"] = False
+    st.session_state.pop("dark_mode", None)
+
+    ensure_state()
+
+    rehydrated = st.session_state[StateKeys.PROFILE]
+    assert rehydrated["company"]["name"] == "ACME"
+    assert st.session_state["lang"] == "de"
+    assert st.session_state["dark_mode"] is False
+    assert st.session_state["ui.dark_mode"] is False
