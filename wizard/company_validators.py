@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from typing import Final, Tuple
-
-import streamlit as st
 from pydantic import EmailStr, ValidationError
 from pydantic.type_adapter import TypeAdapter
 
@@ -32,14 +30,20 @@ def persist_contact_email(raw_value: str | None) -> tuple[str | None, LocalizedT
 
     candidate = (raw_value or "").strip()
     if not candidate:
-        _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, None)
-        st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = raw_value or ""
+        _update_profile(
+            ProfilePaths.COMPANY_CONTACT_EMAIL,
+            None,
+            session_value=raw_value or "",
+        )
         return None, _CONTACT_EMAIL_REQUIRED_ERROR
     try:
         normalized = _EMAIL_ADAPTER.validate_python(candidate)
     except ValidationError:
-        _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, None)
-        st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = raw_value or ""
+        _update_profile(
+            ProfilePaths.COMPANY_CONTACT_EMAIL,
+            None,
+            session_value=raw_value or "",
+        )
         return None, _CONTACT_EMAIL_INVALID_ERROR
     _update_profile(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
@@ -54,8 +58,11 @@ def persist_primary_city(raw_value: str | None) -> tuple[str | None, LocalizedTe
 
     candidate = (raw_value or "").strip()
     if not candidate:
-        _update_profile(ProfilePaths.LOCATION_PRIMARY_CITY, None)
-        st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = raw_value or ""
+        _update_profile(
+            ProfilePaths.LOCATION_PRIMARY_CITY,
+            None,
+            session_value=raw_value or "",
+        )
         return None, _PRIMARY_CITY_REQUIRED_ERROR
     _update_profile(
         ProfilePaths.LOCATION_PRIMARY_CITY,

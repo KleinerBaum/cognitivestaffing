@@ -396,19 +396,28 @@ def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> 
         data.setdefault("location", {})
         normalized_value_for_path = _normalize_value_for_path(path, value)
         normalized_value = _normalize_semantic_empty(normalized_value_for_path)
+
+        def _sync_widget_state(new_value: Any) -> None:
+            """Synchronise the widget-bound session value when needed."""
+
+            if new_value is _MISSING:
+                st.session_state.pop(path, None)
+                return
+            current_session_value = st.session_state.get(path, _MISSING)
+            if current_session_value is _MISSING or current_session_value != new_value:
+                st.session_state[path] = new_value
+
         if normalized_value is None:
-            st.session_state.pop(path, None)
+            if session_value is _MISSING:
+                _sync_widget_state(_MISSING)
+            else:
+                _sync_widget_state(session_value)
         else:
             if session_value is _MISSING:
                 target_session_value = normalized_value_for_path
             else:
                 target_session_value = session_value
-            current_session_value = st.session_state.get(path, _MISSING)
-            # Never write widget-bound keys before Streamlit completes its first
-            # rerun, because the framework overwrites those assignments and can
-            # raise ``StreamlitAPIException`` while wiping follow-up state.
-            if current_session_value is _MISSING or current_session_value != target_session_value:
-                st.session_state[path] = target_session_value
+            _sync_widget_state(target_session_value)
         current = get_in(data, path)
         if _normalize_semantic_empty(current) != normalized_value:
             if normalized_value is None and not isinstance(
