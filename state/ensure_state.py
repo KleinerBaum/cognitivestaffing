@@ -29,7 +29,7 @@ from core.schema import (
     coerce_and_fill,
 )
 from models.need_analysis import NeedAnalysisProfile
-from utils.normalization import normalize_profile
+from utils.normalization import NormalizedProfilePayload, normalize_profile
 
 
 import config as app_config
@@ -222,23 +222,27 @@ def ensure_state() -> None:
     _migrate_legacy_profile_keys()
     existing = st.session_state.get(StateKeys.PROFILE)
     if not isinstance(existing, Mapping):
-        st.session_state[StateKeys.PROFILE] = normalize_profile(NeedAnalysisProfile())
+        normalized_default: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
+        st.session_state[StateKeys.PROFILE] = normalized_default
     else:
         try:
             profile = coerce_and_fill(existing)
-            st.session_state[StateKeys.PROFILE] = normalize_profile(profile)
+            normalized_profile: NormalizedProfilePayload = normalize_profile(profile)
+            st.session_state[StateKeys.PROFILE] = normalized_profile
         except ValidationError as error:
             logger.debug("Validation error when coercing profile: %s", error)
             sanitized = _sanitize_profile(existing)
             try:
                 validated = NeedAnalysisProfile.model_validate(sanitized)
-                st.session_state[StateKeys.PROFILE] = normalize_profile(validated)
+                normalized_validated: NormalizedProfilePayload = normalize_profile(validated)
+                st.session_state[StateKeys.PROFILE] = normalized_validated
             except ValidationError as sanitized_error:
                 logger.warning(
                     "Failed to sanitize profile data; resetting to defaults: %s",
                     sanitized_error,
                 )
-                st.session_state[StateKeys.PROFILE] = normalize_profile(NeedAnalysisProfile())
+                fallback_profile: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
+                st.session_state[StateKeys.PROFILE] = fallback_profile
     for key, factory in _DEFAULT_STATE_FACTORIES.items():
         if key not in st.session_state:
             st.session_state[key] = factory()

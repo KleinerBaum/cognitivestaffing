@@ -37,6 +37,7 @@ from pydantic import AnyUrl
 from core.normalization import sanitize_optional_url_fields, sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
+    NormalizedProfilePayload,
     normalize_company_size,
     normalize_phone_number,
     normalize_profile,
@@ -1063,7 +1064,7 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
         logger.info("Repaired NeedAnalysisProfile payload via JSON repair fallback.")
         payload = canonical_repaired
 
-    normalized_payload = normalize_profile(profile)
+    normalized_payload: NormalizedProfilePayload = normalize_profile(profile)
     return NeedAnalysisProfile.model_validate(normalized_payload)
 
 
