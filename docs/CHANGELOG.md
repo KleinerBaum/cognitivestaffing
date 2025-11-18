@@ -17,6 +17,8 @@ Added / Neu
   DE: Neues Panel „Compliance Checks“ ergänzt, in dem Recruiter:innen Hintergrund-, Referenz- und Portfolio-Prüfungen per zweisprachigen Hilfetexten aktivieren können.
 - EN: Promoted `requirements.background_check_required`, `.reference_check_required`, and `.portfolio_required` to first-class RecruitingWizard fields so schema propagation, exports, and downstream automations keep them in sync.
   DE: Die Felder `requirements.background_check_required`, `.reference_check_required` und `.portfolio_required` sind jetzt erstklassige RecruitingWizard-Felder, sodass Schema-Propagation, Exporte und Automationen sie ohne Drift übernehmen.
+- EN: Mirrored the compliance toggles onto the Summary step with bilingual helper text and `_update_profile` wiring so late edits stay synchronized with `ProfilePaths.REQUIREMENTS_*` and downstream exports.
+  DE: Die Compliance-Schalter erscheinen nun auch im Summary-Schritt inklusive zweisprachiger Hinweise und `_update_profile`-Sync, damit späte Anpassungen `ProfilePaths.REQUIREMENTS_*` sowie Exporte automatisch aktualisieren.
 
 Changed / Geändert
 

@@ -9890,6 +9890,7 @@ def _summary_requirements() -> None:
         refreshed = st.session_state.get(StateKeys.PROFILE)
         summary_data = refreshed if isinstance(refreshed, dict) else {}
     data = summary_data
+    requirements: dict[str, Any] = data.setdefault("requirements", {})
     missing_esco = [
         str(skill).strip()
         for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
@@ -9944,6 +9945,61 @@ def _summary_requirements() -> None:
         tr("Zertifikate", "Certificates"),
         value=", ".join(combined_certs),
         key="ui.summary.requirements.certs",
+    )
+
+    background_check_key = str(ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED)
+    background_required = st.checkbox(
+        tr("Hintergrundprüfung verpflichtend", "Background check required"),
+        value=bool(requirements.get("background_check_required")),
+        key=background_check_key,
+        help=tr(
+            "Umfasst Identitäts-, Strafregister- und Beschäftigungshistorie-Prüfungen.",
+            "Covers identity, criminal-record, and employment-history verification.",
+        ),
+    )
+    requirements["background_check_required"] = bool(background_required)
+    _update_profile(
+        ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED,
+        bool(background_required),
+    )
+
+    reference_check_key = str(ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED)
+    reference_required = st.checkbox(
+        tr("Referenzprüfung verpflichtend", "Reference check required"),
+        value=bool(requirements.get("reference_check_required")),
+        key=reference_check_key,
+        help=tr(
+            "Bestätigt frühere Vorgesetzte oder Kolleg:innen und deren Feedback.",
+            "Confirms prior managers or peers and captures their feedback.",
+        ),
+    )
+    requirements["reference_check_required"] = bool(reference_required)
+    _update_profile(
+        ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED,
+        bool(reference_required),
+    )
+
+    portfolio_required_key = str(ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED)
+    portfolio_required = st.checkbox(
+        tr("Portfolio/Arbeitsproben verpflichtend", "Portfolio / work samples required"),
+        value=bool(requirements.get("portfolio_required")),
+        key=portfolio_required_key,
+        help=tr(
+            "Fordert aktuelle Arbeitsproben oder Case-Studys an.",
+            "Requests up-to-date work samples or case studies.",
+        ),
+    )
+    requirements["portfolio_required"] = bool(portfolio_required)
+    _update_profile(
+        ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED,
+        bool(portfolio_required),
+    )
+
+    st.caption(
+        tr(
+            "Diese Compliance-Schalter spiegeln den Schritt „Skills & Requirements“ wider – Änderungen aktualisieren beide Ansichten und alle Exporte.",
+            "These compliance toggles mirror the “Skills & Requirements” step – updates keep both views and all exports aligned.",
+        )
     )
 
     _update_profile(
