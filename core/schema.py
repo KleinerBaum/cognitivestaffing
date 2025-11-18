@@ -174,7 +174,6 @@ class Company(BaseModel):
     industry: str | None = None
     industries: list[str] = Field(default_factory=list)
     mission: str | None = None
-    headquarters: str | None = None
     hq_location: str | None = None
     size: str | None = None
     website: str | None = None
@@ -518,6 +517,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "company.location.country": "location.country",
         "company.location.country_code": "location.country",
         "company.hq": "company.hq_location",
+        "company.headquarters": "company.hq_location",
         "brand name": "company.brand_name",
         "application deadline": "meta.application_deadline",
         "hr_contact_name": "company.contact_name",
@@ -577,6 +577,7 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
         "requirements.languages_optional": "skills.languages",
         "requirements.certifications": "skills.certifications",
         "requirements.certificates": "skills.certifications",
+        "company.headquarters": "company.hq_location",
         "compensation.currency": "benefits.currency",
         "compensation.variable_pay": "benefits.bonus",
         "process.hiring_manager_name": "department.leader_name",

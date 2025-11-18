@@ -19,7 +19,6 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
     "company.website",
     "company.mission",
     "company.hq_location",
-    "company.headquarters",
     "company.locations",
     "company.culture",
     "company.values",

@@ -58,6 +58,10 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Removed the duplicate `company.headquarters` schema field, aliased old data to `company.hq_location`, and updated the wizard summary so headquarters is stored and rendered via a single canonical key.
+  DE: Das doppelte Schemafeld `company.headquarters` entfernt, Altdaten auf `company.hq_location` gemappt und die Wizard-Zusammenfassung aktualisiert, sodass der Hauptsitz nur noch über einen kanonischen Schlüssel geführt wird.
+- EN: Ensured schema propagation regenerates the wizard type/exports metadata so downstream exporters and validations stay aligned with the canonical headquarters field.
+  DE: Die Schema-Propagation erneuert, damit Wizard-Typinformationen und Exporte wieder mit dem kanonischen Hauptsitzfeld übereinstimmen und nachgelagerte Exporte valide bleiben.
 - EN: Added bilingual error boundaries around `run_wizard()` and every step renderer so parsing/Streamlit exceptions surface inline without resetting the session, and guarded `WizardRouter` bootstrap logic to stop reconnect spam when a session is already live.
   DE: Zweisprachige Fehlergrenzen rund um `run_wizard()` und alle Schritt-Renderer eingebaut, damit Parser-/Streamlit-Ausnahmen inline angezeigt werden statt die Sitzung zu beenden, und das `WizardRouter`-Bootstrap abgesichert, sodass bestehende Sitzungen nicht mehr mehrfach verbunden werden.
 - EN: Ensured `company.contact_email` and `location.primary_city` always exist (defaulting to blank strings when unknown) so rule
