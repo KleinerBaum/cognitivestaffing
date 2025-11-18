@@ -72,6 +72,9 @@ DE: Smoke-Tests decken alle Wizard-Seiten-Metadaten sowie die wizard_tools-Agent
 
 What's new in v1.1.0 / Neu in v1.1.0
 
+EN: The built-in Streamlit multi-page navigation (app/jobad/company/…) is now hidden entirely via the global theme, so only the curated wizard sidebar and its contextual helpers remain visible on the left.
+DE: Die integrierte Streamlit-Multipage-Navigation (app/jobad/company/…) ist nun vollständig über das globale Theme ausgeblendet, sodass ausschließlich die kuratierte Wizard-Sidebar mit ihren Kontext-Helfern links sichtbar bleibt.
+
 EN: Salary estimates now key off the job title, core responsibilities, must-have and nice-to-have requirements, tools/tech/certificates, language expectations, industry, and the provided city hint, and the default Streamlit navigation no longer shows the redundant overview entry. The Process step also exposes a numeric “Interview stages (count)” input so structured profiles keep `process.interview_stages` aligned with its integer schema.
 DE: Gehaltsschätzungen orientieren sich jetzt an Jobtitel, Kernaufgaben, Muss- und Nice-to-have-Anforderungen, Tools/Technologien/Zertifikaten, Sprachvorgaben, Branche sowie der angegebenen Stadt; die Standard-Navigation von Streamlit blendet den überflüssigen Überblick-Eintrag aus. Im Prozess-Schritt sorgt ein numerisches Feld „Interviewstufen (Anzahl)“ dafür, dass `process.interview_stages` dem Integer-Schema entspricht.
 EN: The Company step now blocks navigation until `company.contact_email` and `location.primary_city` are captured, showing bilingual helper copy and inline validation so exports always include a reachable contact and benchmark-ready location context.

@@ -456,6 +456,10 @@ a:focus-visible {
   color: inherit;
 }
 
+[data-testid="stSidebarNav"] {
+  display: none;
+}
+
 [data-testid="stSidebarNavItems"] a {
   border-radius: 10px;
   color: var(--sidebar-text-color);
