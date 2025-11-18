@@ -158,3 +158,23 @@ def test_normalize_profile_uses_json_repair_on_failure(monkeypatch: pytest.Monke
 
     assert normalized["company"]["name"] == "Acme"
     assert calls, "Expected JSON repair fallback to be invoked"
+
+
+def test_normalize_profile_converts_interview_stage_lists() -> None:
+    payload = NeedAnalysisProfile().model_dump()
+    payload["process"] = {"interview_stages": ["3", "phone screen"]}
+
+    normalized_payload: NormalizedProfilePayload = normalize_profile(payload)
+    normalized = NeedAnalysisProfile.model_validate(normalized_payload)
+
+    assert normalized.process.interview_stages == 3
+
+
+def test_normalize_profile_handles_empty_interview_stage_list() -> None:
+    payload = NeedAnalysisProfile().model_dump()
+    payload["process"] = {"interview_stages": []}
+
+    normalized_payload: NormalizedProfilePayload = normalize_profile(payload)
+    normalized = NeedAnalysisProfile.model_validate(normalized_payload)
+
+    assert normalized.process.interview_stages is None
