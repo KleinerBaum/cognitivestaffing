@@ -356,6 +356,16 @@ class Skills(BaseModel):
         return deduplicate_preserve_order(value)
 
 
+class ComplianceRequirements(BaseModel):
+    """Administrative screening expectations captured by the wizard."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    background_check_required: bool | None = None
+    reference_check_required: bool | None = None
+    portfolio_required: bool | None = None
+
+
 class Benefits(BaseModel):
     """Compensation, perks, and support programmes."""
 
@@ -424,6 +434,7 @@ class RecruitingWizard(BaseModel):
     role: Role = Field(default_factory=Role)
     tasks: Tasks = Field(default_factory=Tasks)
     skills: Skills = Field(default_factory=Skills)
+    requirements: ComplianceRequirements = Field(default_factory=ComplianceRequirements)
     benefits: Benefits = Field(default_factory=Benefits)
     interview_process: InterviewProcess = Field(default_factory=InterviewProcess)
     summary: Summary = Field(default_factory=Summary)

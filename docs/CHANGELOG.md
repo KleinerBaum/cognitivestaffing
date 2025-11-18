@@ -15,6 +15,8 @@ Added / Neu
   DE: LangChains StructuredOutputParser und PydanticOutputParser sowie PyMuPDF für PDF-Exporte integriert und den Extraktions-Cache erweitert, damit Antworten direkt in NeedAnalysisProfile landen.
 - EN: Added a “Compliance Checks” requirement panel so recruiters can toggle background, reference, and portfolio screenings with bilingual helper copy.
   DE: Neues Panel „Compliance Checks“ ergänzt, in dem Recruiter:innen Hintergrund-, Referenz- und Portfolio-Prüfungen per zweisprachigen Hilfetexten aktivieren können.
+- EN: Promoted `requirements.background_check_required`, `.reference_check_required`, and `.portfolio_required` to first-class RecruitingWizard fields so schema propagation, exports, and downstream automations keep them in sync.
+  DE: Die Felder `requirements.background_check_required`, `.reference_check_required` und `.portfolio_required` sind jetzt erstklassige RecruitingWizard-Felder, sodass Schema-Propagation, Exporte und Automationen sie ohne Drift übernehmen.
 
 Changed / Geändert
 
