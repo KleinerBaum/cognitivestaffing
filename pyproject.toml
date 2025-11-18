@@ -117,7 +117,6 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = [
     "ingest.*",
-    "openai_utils.*",
     "wizard.runner",
     "wizard.layout",
 ]
