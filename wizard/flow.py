@@ -108,6 +108,7 @@ from ._logic import (
     set_in,
     unique_normalized,
 )
+from .company_validators import persist_contact_email, persist_primary_city
 from .metadata import (
     COMPANY_STEP_INDEX,
     CRITICAL_SECTION_ORDER,
@@ -6720,13 +6721,24 @@ def _step_company() -> None:
         ),
         value_formatter=_string_or_empty,
     )
-    widget_factory.text_input(
+    contact_email_value = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
         tr("Kontakt-E-Mail", "Contact email"),
         widget_factory=contact_cols[1].text_input,
         placeholder=tr("E-Mail-Adresse eintragen", "Enter the email address"),
         value_formatter=_string_or_empty,
+        allow_callbacks=False,
+        sync_session_state=False,
     )
+    contact_cols[1].caption(
+        tr(
+            "Wir nutzen diese Adresse für Rückfragen und Exportfreigaben.",
+            "We use this address for follow-ups and export approvals.",
+        )
+    )
+    _, contact_email_error = persist_contact_email(contact_email_value)
+    if contact_email_error:
+        contact_cols[1].error(tr(*contact_email_error))
     phone_label = tr("Telefon", "Phone")
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here:
         phone_label += REQUIRED_SUFFIX
@@ -6748,14 +6760,25 @@ def _step_company() -> None:
         context="step",
     )
     city_kwargs = _apply_field_lock_kwargs(city_lock)
-    location_data["primary_city"] = widget_factory.text_input(
+    city_value_input = widget_factory.text_input(
         ProfilePaths.LOCATION_PRIMARY_CITY,
         city_lock["label"],
         widget_factory=city_col.text_input,
         placeholder=tr("Stadt eintragen", "Enter the city"),
         value_formatter=_string_or_empty,
+        allow_callbacks=False,
+        sync_session_state=False,
         **city_kwargs,
     )
+    city_col.caption(
+        tr(
+            "Der Standort steuert Benchmarks, Pendelhints und Exporte.",
+            "The city drives benchmarks, commute hints, and exports.",
+        )
+    )
+    _, primary_city_error = persist_primary_city(city_value_input)
+    if primary_city_error:
+        city_col.error(tr(*primary_city_error))
 
     country_label = tr("Land", "Country")
     if ProfilePaths.LOCATION_COUNTRY in missing_here:

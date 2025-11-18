@@ -40,7 +40,7 @@ import streamlit as st
 
 import wizard.metadata as wizard_metadata
 import wizard_router as wizard_router_module
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from pages.base import WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 
@@ -139,7 +139,16 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
 
 _STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
     ("jobad", 0, False, ()),
-    ("company", 1, False, ("company.name",)),
+    (
+        "company",
+        1,
+        False,
+        (
+            "company.name",
+            "company.contact_email",
+            "location.primary_city",
+        ),
+    ),
     ("team", 2, False, ()),
     ("role_tasks", 3, False, ()),
     ("skills", 4, False, ()),
@@ -416,9 +425,15 @@ def test_company_step_enables_next_after_required_answer(
 ) -> None:
     """Providing the missing value should unlock navigation to the next section."""
 
-    st.session_state[StateKeys.PROFILE] = {"company": {"name": "ACME"}, "meta": {}}
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
     st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
     st.session_state["company.name"] = "ACME"
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
@@ -454,6 +469,47 @@ def test_company_step_enables_next_after_required_answer(
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = st.session_state["wizard"]
     assert wizard_state["current_step"] == "team"
+
+
+def test_company_step_blocks_when_contact_email_only_in_widget_state(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Contact email must be persisted, not just typed into the widget."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": ""},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "typed@example.com"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    page = router._page_map["company"]
+    missing = router._missing_required_fields(page)
+    assert str(ProfilePaths.COMPANY_CONTACT_EMAIL) in missing
+
+
+def test_company_step_blocks_when_primary_city_only_in_widget_state(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Primary city needs to exist inside the profile before navigation unlocks."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": ""},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    page = router._page_map["company"]
+    missing = router._missing_required_fields(page)
+    assert str(ProfilePaths.LOCATION_PRIMARY_CITY) in missing
 
 
 def test_critical_followup_blocks_until_answered(

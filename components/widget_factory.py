@@ -40,6 +40,7 @@ def text_input(
     value_formatter: Callable[[Any | None], str] | None = None,
     widget_factory: Callable[..., str] | None = None,
     allow_callbacks: bool = True,
+    sync_session_state: bool | None = None,
     **kwargs: Any,
 ) -> str:
     """Render a profile-bound text input using the shared widget factory."""
@@ -55,7 +56,14 @@ def text_input(
         default=default,
         formatter=value_formatter,
     )
-    _ensure_widget_state(widget_key, display_value)
+    if sync_session_state is None:
+        sync_session_state = allow_callbacks
+
+    if sync_session_state:
+        _ensure_widget_state(widget_key, display_value)
+    else:
+        if widget_key not in st.session_state:
+            _ensure_widget_state(widget_key, display_value)
 
     factory = widget_factory or st.text_input
     call_kwargs = dict(kwargs)

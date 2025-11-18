@@ -9,6 +9,8 @@ Added / Neu
   DE: Schnell-/Präzisionsmodus eingeführt, der gpt-4.1-mini mit minimalem Denkaufwand oder o4-mini mit hoher Reasoning-Tiefe ansteuert, strukturierte Extraktionen cached und Vector-Store-Abfragen parallelisiert.
 - EN: Delivered a bilingual "🔄 Reset wizard" control plus inline follow-up cards embedded in every wizard section so SMEs can answer questions directly where data gaps surface.
   DE: Einen zweisprachigen Button „🔄 Wizard zurücksetzen“ sowie Inline-Follow-up-Karten in allen Wizard-Abschnitten ergänzt, damit Fachexpert:innen offene Fragen genau dort beantworten, wo Lücken entstehen.
+- EN: The Company step now enforces `company.contact_email` and `location.primary_city` with bilingual helper text, inline validation, and navigation gating so exports always include a reachable contact and location context.
+  DE: Der Unternehmensschritt verlangt jetzt `company.contact_email` und `location.primary_city` mit zweisprachigen Hilfetexten, Inline-Validierung und blockierter Navigation, damit Exporte stets einen erreichbaren Kontakt sowie Standortkontext enthalten.
 - EN: Added dedicated department.* and team.* sections, requirement toggles for background/reference/portfolio checks, and a customer-contact flag so step 3 covers the full organisational context.
   DE: Eigene Abschnitte für department.* und team.*, Schalter für Background-/Referenz-/Portfolio-Prüfungen und einen Kundenkontakt-Flag ergänzt, damit Schritt 3 den gesamten organisatorischen Kontext abbildet.
 - EN: Integrated LangChain StructuredOutputParser + PydanticOutputParser, PyMuPDF for PDF exports, and cache-aware extraction reuse so responses deserialize straight into NeedAnalysisProfile.

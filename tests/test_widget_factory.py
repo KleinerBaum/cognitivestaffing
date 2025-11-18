@@ -8,7 +8,7 @@ import pytest
 import streamlit as st
 
 from components import widget_factory
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from state import ensure_state
 from wizard._logic import get_value
 
@@ -271,3 +271,34 @@ def test_select_prefers_explicit_width(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert received_kwargs["width"] == "content"
+
+
+def test_text_input_preserves_manual_state_without_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Widgets without callbacks must keep user-provided session state."""
+
+    profile = st.session_state[StateKeys.PROFILE]
+    profile["company"]["name"] = "ACME"
+    st.session_state[ProfilePaths.COMPANY_NAME] = "Typed"
+
+    def fake_text_input(
+        label: str,
+        *,
+        value: str = "",
+        key: str | None = None,
+        **_: object,
+    ) -> str:
+        assert label == "Company"
+        assert value == "ACME"
+        assert key == ProfilePaths.COMPANY_NAME
+        return st.session_state.get(key, value)
+
+    result = widget_factory.text_input(
+        ProfilePaths.COMPANY_NAME,
+        "Company",
+        allow_callbacks=False,
+        sync_session_state=False,
+        widget_factory=fake_text_input,
+    )
+
+    assert result == "Typed"
+    assert st.session_state[ProfilePaths.COMPANY_NAME] == "Typed"
