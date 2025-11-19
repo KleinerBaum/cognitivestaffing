@@ -378,6 +378,8 @@ def ensure_state() -> None:
     else:
         wizard_state.setdefault("current_step", "jobad")
 
+    _rehydrate_control_preferences()
+
 
 def _sanitize_profile(data: Mapping[str, Any]) -> dict[str, Any]:
     """Remove unsupported fields while preserving valid values."""
@@ -629,12 +631,9 @@ def _apply_critical_profile_defaults(
 
 
 def reset_state() -> None:
-    """Reset ``st.session_state`` while preserving basic user settings.
+    """Reset ``st.session_state`` while preserving basic user settings."""
 
-    Preferences for language, reasoning mode, dark mode, and LLM routing are
-    kept so UI controls remain in sync after reinitialization via
-    :func:`ensure_state`.
-    """
+    _clear_followup_session_state()
 
     preserved: dict[str, Any] = {key: st.session_state[key] for key in _PRESERVED_RESET_KEYS if key in st.session_state}
 
@@ -644,6 +643,18 @@ def reset_state() -> None:
     st.cache_data.clear()
     ensure_state()
     _rehydrate_control_preferences()
+
+
+def _clear_followup_session_state() -> None:
+    """Remove inline follow-up state so resets never resurrect stale prompts."""
+
+    st.session_state.pop(StateKeys.FOLLOWUPS, None)
+    st.session_state.pop(StateKeys.FOLLOWUPS_RESPONSE_ID, None)
+    followup_keys = [
+        key for key in st.session_state.keys() if isinstance(key, str) and key.startswith("fu_")
+    ]
+    for key in followup_keys:
+        st.session_state.pop(key, None)
 
 
 def _rehydrate_control_preferences() -> None:
@@ -657,9 +668,9 @@ def _rehydrate_control_preferences() -> None:
     if isinstance(reasoning_mode, str) and reasoning_mode:
         st.session_state[UIKeys.REASONING_MODE] = reasoning_mode
 
-    dark_mode = st.session_state.get("dark_mode")
     ui_dark_mode = st.session_state.get("ui.dark_mode")
-    if isinstance(dark_mode, bool):
-        st.session_state["ui.dark_mode"] = dark_mode
-    elif isinstance(ui_dark_mode, bool):
+    dark_mode = st.session_state.get("dark_mode")
+    if isinstance(ui_dark_mode, bool):
         st.session_state["dark_mode"] = ui_dark_mode
+    elif isinstance(dark_mode, bool):
+        st.session_state["ui.dark_mode"] = dark_mode

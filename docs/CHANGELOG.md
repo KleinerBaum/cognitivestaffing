@@ -35,6 +35,9 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Resetting or restarting the wizard now removes every stored follow-up question plus their `fu_*` focus sentinels so the sidebar and inline cards never resurface stale prompts after a restart.
+  DE: Beim Zurücksetzen oder Neustarten des Wizards werden sämtliche gespeicherten Follow-up-Fragen sowie die zugehörigen `fu_*`-Fokus-Sentinels entfernt, sodass weder Sidebar noch Inline-Karten veraltete Prompts nach einem Neustart erneut anzeigen.
+
 - EN: Follow-up questions now update the NeedAnalysis profile exclusively through the widget return values (or `value=` defaults) instead of mutating canonical `st.session_state["<field>"]` entries after the widgets have mounted, eliminating the recurring StreamlitAPIException about immutable session keys.
   DE: Follow-up-Fragen aktualisieren das NeedAnalysis-Profil jetzt ausschließlich über die Widget-Rückgabewerte bzw. `value=`-Defaults und fassen keine kanonischen `st.session_state["<feld>"]`-Einträge mehr nach dem Rendern an – damit verschwinden die wiederkehrenden StreamlitAPIException-Meldungen zu unveränderlichen Session-Keys.
 
