@@ -6,6 +6,18 @@ from llm.output_parsers import NeedAnalysisOutputParser
 from models.need_analysis import NeedAnalysisProfile
 
 
+def _profile_payload_with_required_sections() -> dict:
+    payload = NeedAnalysisProfile().model_dump()
+    payload.setdefault("responsibilities", {})["items"] = [
+        "Coach the team",
+        "Align stakeholders",
+        "Report on progress",
+    ]
+    payload.setdefault("company", {})["culture"] = "Open and feedback-driven"
+    payload.setdefault("process", {})["recruitment_timeline"] = "3 interviews"
+    return payload
+
+
 def test_stage_error_detection_handles_nested_locations() -> None:
     """Nested validation locations for interview stages should be detected."""
 
@@ -42,7 +54,7 @@ def test_parser_can_normalize_nested_stage_list() -> None:
     """The full parser should normalize interview stage lists inside JSON payloads."""
 
     parser = NeedAnalysisOutputParser()
-    profile_payload = NeedAnalysisProfile().model_dump()
+    profile_payload = _profile_payload_with_required_sections()
     profile_payload["process"]["interview_stages"] = ["Phone", "Onsite"]
     structured = json.dumps({"profile": profile_payload})
 
@@ -56,7 +68,7 @@ def test_parser_preserves_alias_fields_before_pruning() -> None:
     """Alias fields should be canonicalized instead of being dropped."""
 
     parser = NeedAnalysisOutputParser()
-    profile_payload = NeedAnalysisProfile().model_dump()
+    profile_payload = _profile_payload_with_required_sections()
     profile_payload.setdefault("position", {})["department"] = "Corporate Strategy"
     structured = json.dumps({"profile": profile_payload})
 

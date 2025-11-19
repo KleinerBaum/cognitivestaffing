@@ -89,6 +89,32 @@ class NeedAnalysisOutputParser:
         return canonicalize_profile_payload(target)
 
     @staticmethod
+    def _has_text(value: Any) -> bool:
+        return isinstance(value, str) and value.strip() != ""
+
+    @classmethod
+    def _sequence_has_text(cls, value: Any) -> bool:
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return any(cls._has_text(item) for item in value)
+        return False
+
+    @classmethod
+    def _collect_missing_sections(cls, profile: NeedAnalysisProfile) -> list[str]:
+        missing: list[str] = []
+        if not cls._sequence_has_text(profile.responsibilities.items):
+            missing.append("responsibilities.items")
+        if not cls._has_text(profile.company.culture):
+            missing.append("company.culture")
+        process_overview_values = (
+            profile.process.recruitment_timeline,
+            profile.process.process_notes,
+            profile.process.application_instructions,
+        )
+        if not any(cls._has_text(value) for value in process_overview_values):
+            missing.append("process.overview")
+        return missing
+
+    @staticmethod
     def _has_interview_stage_error(validation_error: Exception) -> bool:
         """Return ``True`` when ``process.interview_stages`` caused validation issues."""
 
@@ -333,6 +359,19 @@ class NeedAnalysisOutputParser:
             model = NeedAnalysisProfile.model_validate(parsed)
         else:  # pragma: no cover - defensive
             model = NeedAnalysisProfile.model_validate(json.loads(parsed.model_dump_json()))
+
+        missing_sections = self._collect_missing_sections(model)
+        if missing_sections:
+            error_locations = []
+            for section in missing_sections:
+                loc = tuple(part for part in section.split(".") if part)
+                error_locations.append({"loc": loc or (section,), "msg": "missing"})
+            raise NeedAnalysisParserError(
+                "Structured extraction is missing critical sections.",
+                raw_text=candidate,
+                data=data if isinstance(data, dict) else None,
+                errors=error_locations,
+            )
 
         return model, data
 
