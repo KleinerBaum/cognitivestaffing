@@ -18,7 +18,7 @@ from openai import (
     RateLimitError,
 )
 
-from config import OPENAI_REQUEST_TIMEOUT, STRICT_JSON, ModelTask, temporarily_force_classic_api
+from config import OPENAI_REQUEST_TIMEOUT, ModelTask, temporarily_force_classic_api
 from openai_utils.api import (
     _coerce_token_count,
     _extract_output_text,
@@ -30,6 +30,7 @@ from openai_utils.api import (
     _update_usage_counters,
     call_chat_api,
     get_client,
+    build_schema_format_bundle,
     model_supports_reasoning,
     model_supports_temperature,
 )
@@ -71,24 +72,16 @@ def build_json_schema_format(
     from core.schema import _prune_unsupported_formats
     from core.schema_guard import guard_no_additional_properties
 
-    schema_payload = guard_no_additional_properties(
-        _prune_unsupported_formats(deepcopy(dict(schema)))
-    )
-    format_payload: dict[str, Any] = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": name,
-            "schema": deepcopy(dict(schema_payload)),
-        },
-        "name": name,
+    schema_payload = guard_no_additional_properties(_prune_unsupported_formats(deepcopy(dict(schema))))
+    schema_config: dict[str, Any] = {
+        "name": name.strip(),
         "schema": deepcopy(dict(schema_payload)),
     }
-    strict_flag = STRICT_JSON if strict is None else bool(strict)
-    if strict_flag:
-        format_payload["json_schema"]["strict"] = True
-        format_payload["strict"] = True
+    if strict is not None:
+        schema_config["strict"] = bool(strict)
 
-    return format_payload
+    bundle = build_schema_format_bundle(schema_config)
+    return deepcopy(bundle.responses_format)
 
 
 def _prepare_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -254,6 +247,11 @@ def call_responses(
         raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
     schema_name = schema_name.strip()
 
+    schema_config: dict[str, Any] = {"name": schema_name, "schema": schema_payload}
+    if "strict" in json_schema_payload:
+        schema_config["strict"] = json_schema_payload.get("strict")
+    schema_bundle = build_schema_format_bundle(schema_config)
+
     payload: dict[str, Any] = {
         "model": model,
         "input": _prepare_messages(messages),
@@ -262,24 +260,7 @@ def call_responses(
 
     text_payload = dict(payload.get("text") or {})
     text_payload.pop("type", None)
-    schema_copy = deepcopy(dict(schema_payload))
-    strict_value = bool(json_schema_payload.get("strict")) if "strict" in json_schema_payload else None
-    json_schema_block: dict[str, Any] = {
-        "name": schema_name,
-        "schema": schema_copy,
-    }
-    if strict_value is not None:
-        json_schema_block["strict"] = strict_value
-
-    format_payload: dict[str, Any] = {
-        "type": response_format.get("type", "json_schema"),
-        "name": schema_name,
-        "schema": schema_copy,
-        "json_schema": json_schema_block,
-    }
-    if strict_value is not None:
-        format_payload["strict"] = strict_value
-    text_payload["format"] = format_payload
+    text_payload["format"] = deepcopy(schema_bundle.responses_format)
     payload["text"] = text_payload
 
     if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
@@ -369,6 +350,11 @@ def call_responses_safe(
         if fallback_attempted:
             return None
         fallback_attempted = True
+        active_logger.info(
+            "Responses fallback triggered for %s (reason=%s)",
+            context,
+            reason,
+        )
         return _run_chat_fallback(
             messages,
             model=model,

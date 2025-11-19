@@ -101,6 +101,70 @@ def _sanitize_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     return ensure_responses_json_schema(schema)
 
 
+@dataclass(frozen=True)
+class SchemaFormatBundle:
+    """Container describing schema payloads for both OpenAI APIs."""
+
+    name: str
+    schema: dict[str, Any]
+    strict: bool | None
+    chat_response_format: dict[str, Any]
+    responses_format: dict[str, Any]
+
+
+def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> SchemaFormatBundle:
+    """Return normalised schema payloads for chat and Responses requests."""
+
+    if not isinstance(json_schema_payload, Mapping):
+        raise TypeError("json_schema payload must be a mapping")
+
+    schema_name_candidate = json_schema_payload.get("name")
+    schema_name = str(schema_name_candidate or "").strip()
+    if not schema_name:
+        raise ValueError("json_schema payload requires a non-empty 'name'.")
+
+    schema_body = json_schema_payload.get("schema")
+    if not isinstance(schema_body, Mapping):
+        raise ValueError("json_schema payload requires a mapping 'schema'.")
+
+    strict_override = json_schema_payload.get("strict") if "strict" in json_schema_payload else None
+    strict_value = STRICT_JSON if strict_override is None else bool(strict_override)
+
+    sanitized_schema = deepcopy(_sanitize_json_schema(schema_body))
+
+    chat_format: dict[str, Any] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": schema_name,
+            "schema": deepcopy(sanitized_schema),
+        },
+    }
+
+    responses_format: dict[str, Any] = {
+        "type": "json_schema",
+        "name": schema_name,
+        "schema": deepcopy(sanitized_schema),
+        "json_schema": {
+            "name": schema_name,
+            "schema": deepcopy(sanitized_schema),
+        },
+    }
+
+    if strict_value:
+        chat_format["json_schema"]["strict"] = strict_value
+        chat_format["strict"] = strict_value
+        responses_format["strict"] = strict_value
+        responses_format["json_schema"]["strict"] = strict_value
+
+    return SchemaFormatBundle(
+        name=schema_name,
+        schema=sanitized_schema,
+        strict=strict_value if strict_value else None,
+        chat_response_format=chat_format,
+        responses_format=responses_format,
+    )
+
+
 def build_need_analysis_json_schema_payload() -> dict[str, Any]:
     """Return the JSON schema payload for need analysis responses.
 
@@ -1318,6 +1382,10 @@ def _prepare_payload(
     normalised_tool_choice = _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
 
     payload: dict[str, Any]
+    schema_bundle: SchemaFormatBundle | None = None
+    if json_schema is not None:
+        schema_bundle = build_schema_format_bundle(json_schema)
+
     api_mode_override: str | None = None
 
     force_classic_for_tools = False
@@ -1332,32 +1400,8 @@ def _prepare_payload(
             payload["temperature"] = temperature
         if max_completion_tokens is not None:
             payload["max_completion_tokens"] = max_completion_tokens
-        if json_schema is not None:
-            schema_payload = dict(json_schema)
-            schema_body = schema_payload.get("schema")
-            if not isinstance(schema_body, Mapping):
-                raise TypeError("json_schema['schema'] must be a mapping")
-            sanitized_schema = _sanitize_json_schema(schema_body)
-            response_format_config: dict[str, Any] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "schema": sanitized_schema,
-                },
-                "schema": sanitized_schema,
-            }
-            schema_name = schema_payload.get("name")
-            if not isinstance(schema_name, str) or not schema_name.strip():
-                raise ValueError("json_schema payload requires a non-empty 'name'.")
-            canonical_name = schema_name.strip()
-            response_format_config["name"] = canonical_name
-            json_schema_config = cast(dict[str, Any], response_format_config["json_schema"])
-            json_schema_config["name"] = canonical_name
-            strict_override = schema_payload.get("strict")
-            strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
-            if strict_flag:
-                json_schema_config["strict"] = True
-                response_format_config["strict"] = True
-            payload["response_format"] = response_format_config
+        if schema_bundle is not None:
+            payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
             if functions:
@@ -1375,34 +1419,10 @@ def _prepare_payload(
             payload["reasoning"] = {"effort": reasoning_effort}
         if max_completion_tokens is not None:
             payload["max_output_tokens"] = max_completion_tokens
-        if json_schema is not None:
+        if schema_bundle is not None:
             text_config: dict[str, Any] = dict(payload.get("text") or {})
-            schema_payload = dict(json_schema)
-            schema_body = schema_payload.get("schema")
-            if not isinstance(schema_body, Mapping):
-                raise TypeError("json_schema['schema'] must be a mapping")
-            sanitized_schema = _sanitize_json_schema(schema_body)
-            text_format_config: dict[str, Any] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "schema": sanitized_schema,
-                },
-                "schema": sanitized_schema,
-            }
-            schema_name = schema_payload.get("name")
-            if not isinstance(schema_name, str) or not schema_name.strip():
-                raise ValueError("json_schema payload requires a non-empty 'name'.")
-            canonical_name = schema_name.strip()
-            text_format_config["name"] = canonical_name
-            text_json_schema = cast(dict[str, Any], text_format_config["json_schema"])
-            text_json_schema["name"] = canonical_name
-            strict_override = schema_payload.get("strict")
-            strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
-            if strict_flag:
-                text_json_schema["strict"] = True
-                text_format_config["strict"] = True
             text_config.pop("type", None)
-            text_config["format"] = text_format_config
+            text_config["format"] = deepcopy(schema_bundle.responses_format)
             payload["text"] = text_config
         if extra:
             payload.update(extra)
@@ -2276,4 +2296,6 @@ __all__ = [
     "model_supports_temperature",
     "_chat_content",
     "build_need_analysis_json_schema_payload",
+    "SchemaFormatBundle",
+    "build_schema_format_bundle",
 ]
