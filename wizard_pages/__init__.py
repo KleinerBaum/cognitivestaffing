@@ -7,13 +7,13 @@ from pathlib import Path
 from types import ModuleType
 from typing import Iterable
 
-from pages.base import WizardPage
+from .base import WizardPage
 
 
 def _load_page_module(filename: str) -> ModuleType:
     base_path = Path(__file__).resolve().parent
     spec = util.spec_from_file_location(
-        f"pages._{filename}",
+        f"wizard_pages._{filename}",
         base_path / f"{filename}.py",
     )
     if spec is None or spec.loader is None:

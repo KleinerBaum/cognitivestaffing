@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pages.base import WizardPage
+from .base import WizardPage
 
 
 _REQUIRED_FIELDS: tuple[str, ...] = ()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pages.base import WizardPage
+from .base import WizardPage
 
 
 _SUMMARY_FIELDS: tuple[str, ...] = (
