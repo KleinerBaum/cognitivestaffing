@@ -28,6 +28,7 @@ from .layout import (
     render_list_text_area,
     render_onboarding_hero,
     render_step_heading,
+    render_step_warning_banner,
 )
 from ._logic import (
     SALARY_SLIDER_MAX,
@@ -58,6 +59,7 @@ __all__ = [
     "render_list_text_area",
     "render_onboarding_hero",
     "render_step_heading",
+    "render_step_warning_banner",
     "SECTION_FILTER_OVERRIDES",
     "_render_autofill_suggestion",
     "SALARY_SLIDER_MAX",

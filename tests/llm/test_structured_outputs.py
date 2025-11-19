@@ -3,7 +3,6 @@ import pytest
 from config import ModelTask
 import llm.openai_responses as responses
 from llm.openai_responses import build_json_schema_format, call_responses
-import pytest
 
 
 def test_build_json_schema_format_includes_name_and_schema() -> None:

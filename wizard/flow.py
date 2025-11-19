@@ -110,6 +110,7 @@ from .layout import (
     render_onboarding_hero,
     render_section_heading,
     render_step_heading,
+    render_step_warning_banner,
 )
 from ._logic import (
     SALARY_SLIDER_MAX,
@@ -3632,6 +3633,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
 
     llm_error: Exception | None = None
     extraction_warning: str | None = None
+    extraction_issues: list[str] = []
     extracted_data: dict[str, Any] = {}
     recovered = False
     locked_items = tuple(sorted(locked_hints.items()))
@@ -3649,7 +3651,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         llm_error = exc
     else:
         try:
-            extracted_data, recovered = parse_structured_payload(raw_json)
+            extracted_data, recovered, extraction_issues = parse_structured_payload(raw_json)
         except InvalidExtractionPayload as exc:
             llm_error = exc
 
@@ -3675,9 +3677,25 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_summary
         st.session_state[StateKeys.STEPPER_WARNING] = extraction_warning
     else:
-        st.session_state.pop(StateKeys.STEPPER_WARNING, None)
-        if not extracted_data:
-            extracted_data = {}
+        if recovered or extraction_issues:
+            extraction_warning = tr(
+                "⚠️ KI-Extraktion wurde automatisch repariert – bitte Felder prüfen.",
+                "⚠️ AI extraction was auto-repaired – please double-check the affected fields.",
+            )
+            warning_summary = {tr("Status", "Status"): extraction_warning}
+            details = extraction_issues or [
+                tr(
+                    "Antwort enthielt beschädigtes JSON und wurde automatisch bereinigt.",
+                    "Response contained malformed JSON and was automatically trimmed.",
+                )
+            ]
+            warning_summary[tr("Fehlerdetails", "Error details")] = "\n".join(f"• {entry}" for entry in details)
+            st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_summary
+            st.session_state[StateKeys.STEPPER_WARNING] = extraction_warning
+        else:
+            st.session_state.pop(StateKeys.STEPPER_WARNING, None)
+            if not extracted_data:
+                extracted_data = {}
 
     llm_meta = _build_llm_metadata(extracted_data, rule_matches, doc)
     if llm_meta:
@@ -6697,6 +6715,7 @@ def _step_onboarding(schema: dict) -> None:
         ],
     )
     render_step_heading(onboarding_header, onboarding_caption)
+    render_step_warning_banner()
 
     _inject_onboarding_source_styles()
 
@@ -6848,6 +6867,7 @@ def _step_company() -> None:
         ],
     )
     render_step_heading(company_header, company_caption)
+    render_step_warning_banner()
     data = profile
     company = data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -7712,6 +7732,7 @@ def _step_position() -> None:
     profile = _get_profile_state()
     title, subtitle, intros = _resolve_step_copy("team", profile)
     render_step_heading(title, subtitle)
+    render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
     data = profile
@@ -8111,6 +8132,7 @@ def _step_requirements() -> None:
     data = _get_profile_state()
     title, subtitle, intros = _resolve_step_copy("role_tasks", data)
     render_step_heading(title, subtitle)
+    render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
     location_data = data.setdefault("location", {})
@@ -9226,6 +9248,7 @@ def _step_compensation() -> None:
     profile = _get_profile_state()
     title, subtitle, intros = _resolve_step_copy("benefits", profile)
     render_step_heading(title, subtitle)
+    render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
     lang = st.session_state.get("lang", "de")
@@ -9560,6 +9583,7 @@ def _step_process() -> None:
     profile = _get_profile_state()
     title, subtitle, intros = _resolve_step_copy("interview", profile)
     render_step_heading(title, subtitle)
+    render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
     data = profile["process"]
@@ -11642,6 +11666,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
 
     title, subtitle, intros = _resolve_step_copy("summary", data)
     render_step_heading(title, subtitle)
+    render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
 

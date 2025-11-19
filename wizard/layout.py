@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import html
 from base64 import b64encode
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Literal, Optional, Sequence
@@ -12,6 +13,7 @@ from typing import Any, Callable, Literal, Optional, Sequence
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
+from constants.keys import StateKeys
 from utils.i18n import tr
 
 
@@ -617,6 +619,57 @@ def render_step_heading(title: str, subtitle: Optional[str] = None) -> None:
         st.subheader(subtitle)
 
 
+def _extract_warning_details(summary: Any, warning_text: str, lang: str | None) -> str | None:
+    """Return a detail string for the current warning summary if available."""
+
+    if isinstance(summary, str):
+        candidate = summary.strip()
+        if candidate and candidate != warning_text.strip():
+            return candidate
+        return None
+
+    if not isinstance(summary, Mapping):
+        return None
+
+    localized_keys = [
+        tr("Fehlerdetails", "Error details", lang=lang),
+        tr("Betroffene Felder", "Impacted fields", lang=lang),
+        tr("Details", "Details", lang=lang),
+        "Fehlerdetails",
+        "Error details",
+        "Betroffene Felder",
+        "Impacted fields",
+        "Details",
+    ]
+    for key in localized_keys:
+        if key not in summary:
+            continue
+        value = summary.get(key)
+        if isinstance(value, str):
+            candidate = value.strip()
+            if candidate:
+                return candidate
+    return None
+
+
+def render_step_warning_banner() -> None:
+    """Display a bilingual warning banner when extraction repairs are active."""
+
+    warning_text = st.session_state.get(StateKeys.STEPPER_WARNING)
+    if not isinstance(warning_text, str) or not warning_text.strip():
+        return
+
+    lang = st.session_state.get("lang")
+    summary = st.session_state.get(StateKeys.EXTRACTION_SUMMARY)
+    detail_text = _extract_warning_details(summary, warning_text, lang)
+    if detail_text:
+        detail_label = tr("Details", "Details", lang=lang)
+        message = f"{warning_text}\n\n{detail_label}:\n{detail_text}"
+    else:
+        message = warning_text
+    st.warning(message)
+
+
 def render_list_text_area(
     *,
     label: str,
@@ -671,4 +724,5 @@ __all__ = [
     "render_onboarding_hero",
     "render_section_heading",
     "render_step_heading",
+    "render_step_warning_banner",
 ]

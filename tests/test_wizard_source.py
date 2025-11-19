@@ -876,6 +876,58 @@ def test_extract_and_summarize_uses_rules_on_llm_failure(
     assert st.session_state[StateKeys.STEPPER_WARNING].startswith("⚠️")
 
 
+def test_extract_and_summarize_warns_about_repaired_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = False
+    st.session_state.vector_store_id = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {}
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
+
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "matches_to_patch", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "build_rule_metadata", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
+    _patch_runner_attr(monkeypatch, "_ensure_mapping", lambda value: dict(value or {}))
+    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: "{}")
+
+    def _fake_parse(_: str) -> tuple[dict[str, Any], bool, list[str]]:
+        return (
+            {"company": {"name": "ACME GmbH"}},
+            True,
+            ["company.contact_email: value is not a valid email address"],
+        )
+
+    _patch_runner_attr(monkeypatch, "parse_structured_payload", _fake_parse)
+
+    def _coerce(_: dict) -> NeedAnalysisProfile:
+        profile = NeedAnalysisProfile()
+        profile.company.name = "ACME GmbH"
+        return profile
+
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", _coerce)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
+    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "ask_followups", lambda *a, **k: {"questions": []})
+    _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
+
+    _extract_and_summarize("Job text", {})
+
+    warning_summary = st.session_state[StateKeys.EXTRACTION_SUMMARY]
+    assert isinstance(warning_summary, Mapping)
+    assert warning_summary.get("Status", "").startswith("⚠️")
+    assert "company.contact_email" in warning_summary.get("Error details", "")
+    assert st.session_state[StateKeys.STEPPER_WARNING].startswith("⚠️")
+
+
 def test_extract_and_summarize_passes_locked_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
