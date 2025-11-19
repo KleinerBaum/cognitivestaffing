@@ -11,7 +11,7 @@ from collections.abc import Iterable
 from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 import streamlit as st
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 import plotly.graph_objects as go
 
 from config import ModelTask, get_model_for
@@ -44,6 +44,8 @@ FUNCTION_NAME = "SalaryExpectationResponse"
 
 class SalaryExpectationResponse(BaseModel):
     """Structured response schema for salary expectation estimates."""
+
+    model_config = ConfigDict(extra="forbid")
 
     salary_min: float | None = Field(
         default=None,

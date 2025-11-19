@@ -36,6 +36,7 @@ from utils.i18n import tr
 from utils.normalization import extract_company_size
 from constants.style_variants import STYLE_VARIANTS
 from constants.keys import StateKeys
+from core.schema_guard import guard_no_additional_properties
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool, build_file_search_tool
@@ -86,25 +87,6 @@ def _llm_is_available() -> bool:
     except Exception:  # pragma: no cover - defensive fallback during tests
         api_key = ""
     return bool(api_key)
-
-
-def _guard_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
-    """Return ``schema`` with ``additionalProperties`` disabled for all objects."""
-
-    guarded = copy.deepcopy(dict(schema))
-
-    def _enforce(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("type") == "object" or "properties" in node or "patternProperties" in node:
-                node["additionalProperties"] = False
-            for value in node.values():
-                _enforce(value)
-        elif isinstance(node, list):
-            for item in node:
-                _enforce(item)
-
-    _enforce(guarded)
-    return guarded
 
 
 def _log_llm_disabled(operation: str) -> None:
@@ -1705,7 +1687,7 @@ def generate_interview_guide(
 
     try:
         messages = _build_interview_guide_prompt(payload)
-        schema = _guard_json_schema(InterviewGuide.model_json_schema())
+        schema = guard_no_additional_properties(InterviewGuide.model_json_schema())
         response = api.call_chat_api(
             messages,
             model=model,

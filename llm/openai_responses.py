@@ -69,8 +69,11 @@ def build_json_schema_format(
         raise TypeError("Schema must be a mapping when building response_format.")
 
     from core.schema import _prune_unsupported_formats
+    from core.schema_guard import guard_no_additional_properties
 
-    schema_payload = _prune_unsupported_formats(deepcopy(dict(schema)))
+    schema_payload = guard_no_additional_properties(
+        _prune_unsupported_formats(deepcopy(dict(schema)))
+    )
     format_payload: dict[str, Any] = {
         "type": "json_schema",
         "json_schema": {

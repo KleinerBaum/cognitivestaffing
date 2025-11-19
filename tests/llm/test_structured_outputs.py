@@ -3,13 +3,17 @@ import pytest
 from config import ModelTask
 import llm.openai_responses as responses
 from llm.openai_responses import build_json_schema_format, call_responses
+import pytest
 
 
 def test_build_json_schema_format_includes_name_and_schema() -> None:
     fmt = build_json_schema_format(name="JobProfile", schema={"type": "object"})
     assert fmt["type"] == "json_schema"
     assert fmt["json_schema"]["name"] == "JobProfile"
-    assert fmt["json_schema"]["schema"] == {"type": "object"}
+    assert fmt["json_schema"]["schema"] == {
+        "type": "object",
+        "additionalProperties": False,
+    }
     assert fmt["json_schema"]["strict"] is True
 
 
@@ -58,6 +62,9 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     format_payload = payload["text"]["format"]
     assert format_payload["type"] == "json_schema"
     assert format_payload["name"] == "Profile"
-    assert format_payload["schema"] == {"type": "object"}
+    assert format_payload["schema"] == {
+        "type": "object",
+        "additionalProperties": False,
+    }
     assert format_payload.get("strict") is True
     assert payload["input"][0]["role"] == "user"
