@@ -234,6 +234,8 @@ EN: Inline follow-up cards automatically re-ask for `company.contact_email` and 
 DE: Inline-Follow-up-Karten fragen `company.contact_email` und `location.primary_city` jetzt automatisch mit zweisprachigen Prompts nach, sobald diese Felder leer sind – dadurch bleiben Unternehmens- und Standortschritt gesperrt, bis nutzbare Angaben vorliegen.
 
 AI-assisted suggestions: Dedicated helper agents surface responsibilities, skills, benefits, boolean strings, interview guides, and polished job ads. Responses stream live by default so the UI remains responsive during longer generations. The requirements, role, and compensation steps now include on-demand “Suggest responsibilities”, “Suggest additional skills”, and “Suggest benefits” actions that take into account existing inputs to avoid duplicates.
+EN: The interview guide helper now ties every competency cluster to at least one technical, behavioural, or cultural question and injects two evaluation criteria per question so panels get job-specific scoring rubrics straight from the vacancy profile.
+DE: Der Interview-Guide-Helfer verknüpft jetzt jedes Kompetenz-Cluster mit mindestens einer technischen, verhaltensorientierten oder kulturellen Frage und ergänzt je Frage zwei Bewertungskriterien, sodass Panels direkt aus dem Vakanzprofil eine passgenaue Bewertungslogik erhalten.
 
 Step intros & captions / Schritt-Intros & Hinweise:
 EN: Each wizard page opens with a localized introductory caption (in the chosen tone) so teams immediately know which details matter most on that step.

@@ -15,9 +15,14 @@ __all__ = ["generate_interview_guide"]
 def generate_interview_guide(vacancy_json: dict, lang: str) -> Any:
     """Generate an interview guide JSON payload for a vacancy."""
 
+    locale = str(lang or "de")
     system = {
         "role": "system",
-        "content": prompt_registry.get("generators.interview_guide.system"),
+        "content": prompt_registry.get(
+            "generators.interview_guide.system",
+            locale=locale,
+            default=prompt_registry.get("generators.interview_guide.system", locale="en"),
+        ),
     }
     user = {
         "role": "user",
