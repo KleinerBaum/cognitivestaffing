@@ -8,6 +8,7 @@ import pytest
 
 import config
 from core.normalization import normalize_url
+from core.schema import canonicalize_profile_payload
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
     NormalizedProfilePayload,
@@ -178,3 +179,25 @@ def test_normalize_profile_handles_empty_interview_stage_list() -> None:
     normalized = NeedAnalysisProfile.model_validate(normalized_payload)
 
     assert normalized.process.interview_stages is None
+
+
+def test_normalize_profile_pipeline_applies_aliases() -> None:
+    """Alias keys should survive canonicalisation plus normalization."""
+
+    raw_payload = {
+        "company": {"tagline": "Simplify hiring"},
+        "role": {
+            "department": "Operations",
+            "team_structure": "Core Platform",
+            "reporting_line": "CTO",
+        },
+    }
+
+    canonical = canonicalize_profile_payload(raw_payload)
+    normalized_payload: NormalizedProfilePayload = normalize_profile(canonical)
+    normalized = NeedAnalysisProfile.model_validate(normalized_payload)
+
+    assert normalized.company.claim == "Simplify hiring"
+    assert normalized.department.name == "Operations"
+    assert normalized.team.name == "Core Platform"
+    assert normalized.team.reporting_line == "CTO"

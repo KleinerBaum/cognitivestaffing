@@ -840,6 +840,20 @@ def _schema_from_non_nullable_type(tp: Any) -> dict[str, Any]:
     if origin in _UNION_TYPES:
         return {"anyOf": [_schema_from_type(arg) for arg in get_args(candidate)]}
 
+    if origin is Literal:
+        literal_values = list(get_args(candidate))
+        schema: dict[str, Any] = {"enum": list(literal_values)}
+        sample = next((value for value in literal_values if value is not None), None)
+        if isinstance(sample, bool):
+            schema["type"] = "boolean"
+        elif isinstance(sample, int):
+            schema["type"] = "integer"
+        elif isinstance(sample, float):
+            schema["type"] = "number"
+        elif isinstance(sample, str):
+            schema["type"] = "string"
+        return schema
+
     if origin in {list, List, tuple, Tuple, set, frozenset}:
         args = get_args(candidate)
         item_type = args[0] if args else Any

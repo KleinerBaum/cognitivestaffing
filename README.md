@@ -513,3 +513,7 @@ DE: Das vereinheitlichte Modell NeedAnalysisProfile (models/need_analysis.py) tr
 EN: `schema/need_analysis.schema.json` is generated straight from NeedAnalysisProfile and the vacancy extraction schema reuses the same property definitions, guaranteeing that every field captured during extraction validates cleanly and reaches the UI plus exports without manual drift.
 
 DE: `schema/need_analysis.schema.json` wird direkt aus NeedAnalysisProfile erzeugt und das Vacancy-Extraktionsschema übernimmt dieselben Eigenschaftsdefinitionen, sodass alle Felder aus der Extraktion ohne manuelle Abweichungen die Validierung, die UI und die Exporte erreichen.
+
+EN: Run `pytest tests/test_generate_interview_guide.py::test_interview_guide_model_dump_matches_schema tests/test_normalization.py::test_normalize_profile_pipeline_applies_aliases tests/test_responses_schema.py::test_need_analysis_schema_file_in_sync` after touching the NeedAnalysis model, alias dictionaries, or interview-guide prompts. If the schema file drifts, regenerate it via `python scripts/propagate_schema.py --apply`.
+
+DE: Führe `pytest tests/test_generate_interview_guide.py::test_interview_guide_model_dump_matches_schema tests/test_normalization.py::test_normalize_profile_pipeline_applies_aliases tests/test_responses_schema.py::test_need_analysis_schema_file_in_sync` aus, sobald NeedAnalysis-Modelle, Alias-Tabellen oder Interview-Guide-Prompts geändert werden. Bei Schemaabweichungen `python scripts/propagate_schema.py --apply` starten, um `schema/need_analysis.schema.json` zu aktualisieren.

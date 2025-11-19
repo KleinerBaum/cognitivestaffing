@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from jsonschema import Draft202012Validator
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -11,6 +12,7 @@ from config import ModelTask, get_model_for
 from models import InterviewGuide
 import openai_utils
 from openai_utils import api
+from schemas import INTERVIEW_GUIDE_SCHEMA
 
 
 def _llm_payload(language: str) -> dict:
@@ -23,6 +25,7 @@ def _llm_payload(language: str) -> dict:
                 "audience": "general",
                 "audience_label": "Allgemeines Interviewteam",
                 "tone": "Strukturiert",
+                "tone_label": "Strukturierter Ton",
                 "culture_note": "Transparente Zusammenarbeit",
             },
             "focus_areas": [
@@ -40,7 +43,12 @@ def _llm_payload(language: str) -> dict:
                     "question": "Beschreiben Sie Ihren Ansatz für komplexe Probleme.",
                     "focus": "Problemlösung",
                     "evaluation": "Achten Sie auf Struktur und Impact.",
-                }
+                },
+                {
+                    "question": "Wie gestalten Sie teamübergreifende Zusammenarbeit?",
+                    "focus": "Zusammenarbeit",
+                    "evaluation": "Hören Sie auf klare Kommunikation.",
+                },
             ],
         }
     return {
@@ -51,6 +59,7 @@ def _llm_payload(language: str) -> dict:
             "audience": "general",
             "audience_label": "General interview panel",
             "tone": "Casual",
+            "tone_label": "Casual tone",
             "culture_note": "Collaborative and transparent",
         },
         "focus_areas": [
@@ -73,6 +82,11 @@ def _llm_payload(language: str) -> dict:
                 "question": "How do you collaborate across teams?",
                 "focus": "Collaboration",
                 "evaluation": "Listen for proactive communication.",
+            },
+            {
+                "question": "What energises you outside of work?",
+                "focus": "Motivation",
+                "evaluation": "Ensure examples align with our values.",
             },
         ],
     }
@@ -205,3 +219,28 @@ def test_generate_interview_guide_fallback_on_error(monkeypatch: pytest.MonkeyPa
     assert "Interview Guide" in markdown
     assert "Teamwork" in markdown or "Design systems" in markdown
     assert "Evaluation" in markdown
+
+
+def test_interview_guide_model_dump_matches_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Model dumps must stay in sync with the InterviewGuide JSON schema."""
+
+    validator = Draft202012Validator(INTERVIEW_GUIDE_SCHEMA)
+
+    def fake_call(messages, **kwargs):  # noqa: ANN001
+        payload = _llm_payload("en")
+        return api.ChatCallResult(json.dumps(payload), [], {"input_tokens": 1})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
+
+    guide = openai_utils.generate_interview_guide(
+        "Engineer",
+        responsibilities="Design systems",
+        hard_skills=["Python"],
+        soft_skills=["Teamwork"],
+        num_questions=2,
+        lang="en",
+        company_culture="Transparent",
+    )
+
+    payload = guide.model_dump(mode="json")
+    validator.validate(payload)
