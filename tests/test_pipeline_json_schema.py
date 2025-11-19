@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,13 @@ def _build_interview_guide_payload() -> dict[str, Any]:
 
 
 _INTERVIEW_GUIDE_VALIDATOR = Draft202012Validator(INTERVIEW_GUIDE_SCHEMA)
+
+
+def test_interview_guide_schema_requires_focus_area_label() -> None:
+    payload = deepcopy(_build_interview_guide_payload())
+    payload["focus_areas"][0].pop("label")
+    with pytest.raises(ValidationError):
+        _INTERVIEW_GUIDE_VALIDATOR.validate(payload)
 
 
 class _FakeResult(ChatCallResult):
