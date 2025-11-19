@@ -50,3 +50,17 @@ def test_parser_can_normalize_nested_stage_list() -> None:
 
     assert model.process.interview_stages == 2
     assert data["process"]["interview_stages"] == 2
+
+
+def test_parser_preserves_alias_fields_before_pruning() -> None:
+    """Alias fields should be canonicalized instead of being dropped."""
+
+    parser = NeedAnalysisOutputParser()
+    profile_payload = NeedAnalysisProfile().model_dump()
+    profile_payload.setdefault("position", {})["department"] = "Corporate Strategy"
+    structured = json.dumps({"profile": profile_payload})
+
+    model, data = parser.parse(structured)
+
+    assert model.department.name == "Corporate Strategy"
+    assert data["department"]["name"] == "Corporate Strategy"

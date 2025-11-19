@@ -24,6 +24,7 @@ except ImportError:  # pragma: no cover - langchain>=1.0 moved these classes
 from langchain.schema import OutputParserException
 from pydantic import ValidationError
 
+from core.schema import canonicalize_profile_payload
 from llm.json_repair import repair_profile_payload
 from llm.profile_normalization import normalize_interview_stages_field
 from models.need_analysis import NeedAnalysisProfile
@@ -88,14 +89,11 @@ class NeedAnalysisOutputParser:
     def _canonicalize_payload(payload: Any) -> dict[str, Any] | None:
         """Return a canonical dict payload when ``payload`` is mapping-like."""
 
-        if isinstance(payload, dict):
-            target: dict[str, Any] = payload
-        elif isinstance(payload, Mapping):
+        if isinstance(payload, Mapping):
             target = dict(payload)
         else:
             return None
-        normalize_interview_stages_field(target)
-        return target
+        return canonicalize_profile_payload(target)
 
     @staticmethod
     def _has_interview_stage_error(validation_error: Exception) -> bool:
@@ -254,11 +252,20 @@ class NeedAnalysisOutputParser:
                         error_details = list(maybe_errors())
                     except Exception:
                         error_details = None
-            if canonical_data is not None and not error_details:
+            canonical_validation_error: ValidationError | None = None
+            if canonical_data is not None:
                 try:
-                    NeedAnalysisProfile.model_validate(canonical_data)
+                    fallback_model = NeedAnalysisProfile.model_validate(canonical_data)
                 except ValidationError as canonical_error:
-                    error_details = canonical_error.errors()
+                    canonical_validation_error = canonical_error
+                else:
+                    logger.info(
+                        "NeedAnalysis payload validated after schema canonicalization."
+                    )
+                    return fallback_model, canonical_data
+            if canonical_validation_error is not None:
+                validation_error = canonical_validation_error
+                error_details = canonical_validation_error.errors()
             if (
                 canonical_data is not None
                 and self._has_interview_stage_error(validation_error)
