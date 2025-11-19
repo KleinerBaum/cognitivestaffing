@@ -11626,8 +11626,8 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     lang = st.session_state.get("lang", "de")
 
     try:
-        profile = NeedAnalysisProfile.model_validate(data)
-    except Exception:
+        profile = coerce_and_fill(data)
+    except ValidationError:
         profile = NeedAnalysisProfile()
 
     profile_payload = profile.model_dump(mode="json")

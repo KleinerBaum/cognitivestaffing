@@ -60,10 +60,11 @@ def build_boolean_search(data: Mapping[str, Any] | "NeedAnalysisProfile") -> str
         Boolean search string combining the job title and gathered skills.
     """
 
+    profile: "NeedAnalysisProfile"
     if isinstance(data, Mapping):
-        from models.need_analysis import NeedAnalysisProfile as _NeedAnalysisProfile
+        from core.schema import coerce_and_fill
 
-        profile = _NeedAnalysisProfile(**data)
+        profile = coerce_and_fill(data)
     else:
         profile = data
     job_title = profile.position.job_title or ""
