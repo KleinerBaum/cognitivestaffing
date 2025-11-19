@@ -7,7 +7,7 @@ import streamlit as st
 from constants.keys import StateKeys
 from ingest.heuristics import guess_company_size
 from models.need_analysis import NeedAnalysisProfile
-from pages import WIZARD_PAGES
+from wizard_pages import WIZARD_PAGES
 from utils.normalization import extract_company_size, normalize_company_size
 from wizard import _extract_company_size, _update_profile
 

@@ -9,7 +9,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
 from constants.keys import ProfilePaths, StateKeys
-from pages import WizardPage
+from wizard_pages import WizardPage
 from utils.i18n import tr
 from wizard._logic import get_in, _render_localized_error
 from wizard.followups import followup_has_response

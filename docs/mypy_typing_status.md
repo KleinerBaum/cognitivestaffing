@@ -19,7 +19,7 @@ The following table summarises the new ignore overrides added in `pyproject.toml
 | `cli.rebuild_vector_store` | 2 | The CLI path is blocked on the new vector store SDK typings. |
 | `app` | 1 | Streamlit entry point backfills telemetry conditionally; convert to helper functions to type-check cleanly. |
 | `nlp.entities` | 1 | Contains a redundant `# type: ignore` guard from earlier rapid prototyping. |
-| `pages.*` | 10 | Wizard pages still import the legacy layout helpers; will be handled after the runner refactor. |
+| `wizard_pages.*` | 10 | Wizard pages still import the legacy layout helpers; will be handled after the runner refactor. |
 
 The `tests.*` override was removed on 2025-02-21 so that mypy now reports issues directly inside the suite; the progress log tracks the outstanding work.
 
@@ -38,7 +38,7 @@ The `tests.*` override was removed on 2025-02-21 so that mypy now reports issues
 | Module | Baseline errors (2024-10-08) | Current errors | Traceability | Follow-up steps |
 | --- | ---: | ---: | --- | --- |
 | `sidebar.*` | 14【0a28eb†L1-L2】 | 0 | PR #853 (`0b4b4db`) removed the ignore and tightened the salary helpers.【c2cece†L12-L18】 | Monitor the Streamlit API migration so the new typed widgets continue to match upstream stubs once `streamlit` ships official typing information. |
-| `wizard_router` | 5【984e26†L1-L2】 | 0 | PR #938 (`9a2076c`/`4f5e17c`) annotated metadata helpers and enforced type-safe navigation maps.【6576a7†L13-L21】 | Track the upcoming page-layout split so the router enums can adopt `Literal` route IDs shared with `pages.*`. |
+| `wizard_router` | 5【984e26†L1-L2】 | 0 | PR #938 (`9a2076c`/`4f5e17c`) annotated metadata helpers and enforced type-safe navigation maps.【6576a7†L13-L21】 | Track the upcoming page-layout split so the router enums can adopt `Literal` route IDs shared with `wizard_pages.*`. |
 | `openai_utils.*` | 17【12199b†L1-L2】 | 0 | PR #952 (`84155ff`/`629a21a`) refactored the request/response plumbing to use typed helper dataclasses.【52349b†L7-L12】 | Fold the new telemetry span helper typings into `llm/openai_responses.py` once Responses-tooling launches. |
 | `wizard.flow` (legacy runner) | — (module added after the 2024-10-08 snapshot, so errors were not recorded) | 0 | PR #953 (`ce12ac4`/`39e2c8e`) aligned the flow state machine with typed enums and helpers.【52349b†L5-L9】 | Once the multi-tenant wizard modes land, extend the flow enums with TypedDict-backed payloads for each variant. |
 | `wizard.layout` | 5 (recorded as `wizard/_layout.py` before the rename)【cfe5cf†L1-L2】 | 0 | PR #953 (`ce12ac4`) extracted typed button renderers and value sync logic.【52349b†L5-L9】 | Audit the new `wizard.layout.render_navigation_controls()` helper whenever additional component states are introduced. |

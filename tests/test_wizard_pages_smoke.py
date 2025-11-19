@@ -5,16 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from pages.base import WizardPage
+from wizard_pages.base import WizardPage
 
 
-PAGES_DIR = Path(__file__).resolve().parents[1] / "pages"
+PAGES_DIR = Path(__file__).resolve().parents[1] / "wizard_pages"
 
 
 def _iter_page_modules() -> list[str]:
     modules: list[str] = []
     for path in sorted(PAGES_DIR.glob("[0-9][0-9]_*.py")):
-        modules.append(f"pages.{path.stem}")
+        modules.append(f"wizard_pages.{path.stem}")
     return modules
 
 
