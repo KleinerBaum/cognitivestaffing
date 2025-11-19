@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import html
 from base64 import b64encode
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Literal, Optional, Sequence
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
@@ -133,7 +134,7 @@ def _render_navigation_button(
 
     label = tr(*button.label)
     key = f"wizard_{button.direction.value}_{state.current_key}"
-    button_type = "primary" if button.primary else "secondary"
+    button_type: Literal["primary", "secondary"] = "primary" if button.primary else "secondary"
     wrapper_open = False
     if button.direction is NavigationDirection.NEXT:
         modifier = "enabled" if button.enabled else "disabled"
@@ -357,6 +358,90 @@ section.main div.block-container .stTabs [data-baseweb="tab"] {
 </style>
 """
 
+_SECTION_HEADING_STYLE_KEY = "ui.section_heading_styles_v1"
+
+SECTION_HEADING_STYLE = """
+<style>
+.wizard-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 1.25rem 0 0.65rem;
+    font-size: 1.08rem;
+    font-weight: 660;
+    letter-spacing: -0.01em;
+    color: var(--text-strong, #0f172a);
+}
+.wizard-section-heading:first-child {
+    margin-top: 0.35rem;
+}
+.wizard-section-heading__icon {
+    font-size: 1.05em;
+    line-height: 1;
+}
+.wizard-section-heading__eyebrow {
+    display: inline-flex;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted, #475569);
+}
+.wizard-section-heading--compact {
+    font-size: 0.98rem;
+    font-weight: 640;
+    margin-top: 1rem;
+    margin-bottom: 0.45rem;
+}
+.wizard-section-heading--micro {
+    font-size: 0.9rem;
+    font-weight: 620;
+    margin-top: 0.9rem;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted, #475569);
+}
+</style>
+"""
+
+
+def _ensure_section_heading_styles() -> None:
+    """Inject shared styles for section headings once per session."""
+
+    if st.session_state.get(_SECTION_HEADING_STYLE_KEY):
+        return
+    st.session_state[_SECTION_HEADING_STYLE_KEY] = True
+    st.markdown(SECTION_HEADING_STYLE, unsafe_allow_html=True)
+
+
+def render_section_heading(
+    label: str,
+    *,
+    icon: str | None = None,
+    eyebrow: str | None = None,
+    size: Literal["default", "compact", "micro"] = "default",
+    target: DeltaGenerator | None = None,
+    description: str | None = None,
+) -> None:
+    """Render a consistent heading element for subsections within a step."""
+
+    _ensure_section_heading_styles()
+    normalized_size = size if size in {"default", "compact", "micro"} else "default"
+    classes = ["wizard-section-heading"]
+    if normalized_size != "default":
+        classes.append(f"wizard-section-heading--{normalized_size}")
+
+    icon_html = f"<span class='wizard-section-heading__icon'>{html.escape(icon)}</span>" if icon else ""
+    eyebrow_html = f"<span class='wizard-section-heading__eyebrow'>{html.escape(eyebrow)}</span>" if eyebrow else ""
+    label_html = f"<span>{html.escape(label)}</span>"
+    heading_html = f"<div class='{' '.join(classes)}'>{icon_html}{eyebrow_html}{label_html}</div>"
+    destination = target or st
+    destination.markdown(heading_html, unsafe_allow_html=True)
+    if description:
+        destination.caption(description)
+
+
 ONBOARDING_HERO_STYLE = """
 <style>
 .onboarding-hero {
@@ -555,7 +640,7 @@ def render_list_text_area(
     elif session_key not in st.session_state:
         _ensure_widget_state(session_key, text_value)
 
-    widget_args: dict[str, object] = {
+    widget_args: dict[str, Any] = {
         "label": label,
         "key": session_key,
         "height": height,
@@ -584,5 +669,6 @@ __all__ = [
     "render_navigation_controls",
     "inject_salary_slider_styles",
     "render_onboarding_hero",
+    "render_section_heading",
     "render_step_heading",
 ]

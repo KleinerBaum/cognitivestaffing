@@ -15,6 +15,7 @@ from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
 from wizard._agents import generate_interview_guide_content
 from wizard._logic import _get_company_logo_bytes
+from wizard.layout import render_section_heading
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,10 @@ def render_interview_guide_section(
 ) -> None:
     """Render the interactive panel for generating interview guides."""
 
-    st.markdown(tr("### 2. Interview-Prep-Sheet", "### 2. Interview prep sheet"))
+    render_section_heading(
+        tr("2. Interview-Prep-Sheet", "2. Interview prep sheet"),
+        icon="🗒️",
+    )
     st.caption(
         tr(
             "Erstelle Leitfäden und passe sie an verschiedene Zielgruppen an.",
