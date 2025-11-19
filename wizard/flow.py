@@ -173,6 +173,73 @@ _RECOVERABLE_FLOW_ERRORS: tuple[type[Exception], ...] = (
 LocalizedText = tuple[str, str]
 
 
+COMPANY_NAME_LABEL: Final[LocalizedText] = ("Unternehmen", "Company")
+COMPANY_NAME_PLACEHOLDER: Final[LocalizedText] = (
+    "Offiziellen Unternehmensnamen eingeben",
+    "Enter the official company name",
+)
+COMPANY_NAME_HELP: Final[LocalizedText] = (
+    "Rechtlicher Name laut Impressum oder Handelsregister.",
+    "Legal entity name as listed in the imprint or registry.",
+)
+COMPANY_CONTACT_NAME_LABEL: Final[LocalizedText] = (
+    "HR-Ansprechperson",
+    "HR contact person",
+)
+COMPANY_CONTACT_NAME_PLACEHOLDER: Final[LocalizedText] = (
+    "Name der HR-Ansprechperson eingeben",
+    "Provide the HR contact's name",
+)
+COMPANY_CONTACT_EMAIL_LABEL: Final[LocalizedText] = (
+    "Kontakt-E-Mail (Unternehmen)",
+    "Company contact email",
+)
+COMPANY_CONTACT_EMAIL_PLACEHOLDER: Final[LocalizedText] = (
+    "z. B. talent@unternehmen.de",
+    "e.g. talent@company.com",
+)
+COMPANY_CONTACT_EMAIL_CAPTION: Final[LocalizedText] = (
+    "Diese Inbox nutzen wir für Rückfragen, Freigaben und Exportlinks.",
+    "We use this inbox for follow-ups, approvals, and export links.",
+)
+COMPANY_CONTACT_PHONE_LABEL: Final[LocalizedText] = (
+    "Kontakt-Telefon",
+    "Contact phone",
+)
+COMPANY_CONTACT_PHONE_PLACEHOLDER: Final[LocalizedText] = (
+    "z. B. +49 30 1234567",
+    "e.g. +49 30 1234567",
+)
+PRIMARY_CITY_LABEL: Final[LocalizedText] = (
+    "Primärer Standort (Stadt)",
+    "Primary location (city)",
+)
+PRIMARY_CITY_PLACEHOLDER: Final[LocalizedText] = (
+    "Stadt für diese Rolle eingeben",
+    "Enter the city for this role",
+)
+PRIMARY_CITY_CAPTION: Final[LocalizedText] = (
+    "Steuert Benchmarks, Relocation-Hinweise und Exporttexte.",
+    "Feeds benchmarks, relocation copy, and export text.",
+)
+PRIMARY_COUNTRY_LABEL: Final[LocalizedText] = (
+    "Land (Primärstandort)",
+    "Country (primary location)",
+)
+PRIMARY_COUNTRY_PLACEHOLDER: Final[LocalizedText] = (
+    "ISO-Code oder Landesname eintragen",
+    "Enter the ISO code or country name",
+)
+CUSTOMER_CONTACT_TOGGLE_LABEL: Final[LocalizedText] = (
+    "Regelmäßiger Kundenkontakt?",
+    "Customer-facing responsibilities?",
+)
+ROLE_SUMMARY_LABEL: Final[LocalizedText] = (
+    "Rollenbeschreibung",
+    "Role summary",
+)
+
+
 class WizardStepKey(StrEnum):
     """Canonical string keys for the wizard navigation order."""
 
@@ -3903,15 +3970,16 @@ def _skip_source() -> None:
 
 
 FIELD_LABELS: dict[str, tuple[str, str]] = {
-    "company.name": ("Firmenname", "Company Name"),
-    "company.hq_location": ("Hauptsitz", "Headquarters"),
+    "company.name": ("Unternehmen", "Company"),
+    "company.hq_location": ("Hauptsitz (Stadt, Land)", "Headquarters (city, country)"),
     "company.website": ("Website", "Website"),
-    "company.contact_name": ("Kontaktperson", "Primary Contact"),
-    "company.contact_email": ("Kontakt-E-Mail", "Contact Email"),
-    "company.contact_phone": ("Telefon", "Phone"),
+    "company.contact_name": ("HR-Ansprechperson", "HR contact person"),
+    "company.contact_email": ("Kontakt-E-Mail (Unternehmen)", "Company contact email"),
+    "company.contact_phone": ("Kontakt-Telefon", "Contact phone"),
     "position.job_title": ("Jobtitel", "Job Title"),
     "position.role_summary": ("Rollenbeschreibung", "Role Summary"),
-    "location.country": ("Land", "Country"),
+    "location.primary_city": ("Primärer Standort (Stadt)", "Primary location (city)"),
+    "location.country": ("Land (Primärstandort)", "Country (primary location)"),
     "requirements.hard_skills_required": (
         "Pflicht-Hard-Skills",
         "Required Hard Skills",
@@ -4298,7 +4366,7 @@ def _render_extraction_review() -> None:
     tabs = st.tabs(
         [
             tr("Unternehmen", "Company"),
-            tr("Rolle & Team", "Role & team"),
+            tr("Team & Kontext", "Team & context"),
             tr("Standort & Rahmen", "Location & logistics"),
             tr("Anforderungen", "Requirements"),
             tr("Prozess", "Process"),
@@ -4329,7 +4397,7 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
     info_cols = st.columns((1.2, 1.2), gap="medium")
     company["name"] = widget_factory.text_input(
         ProfilePaths.COMPANY_NAME,
-        tr("Firmenname", "Company name"),
+        tr(*COMPANY_NAME_LABEL),
         widget_factory=info_cols[0].text_input,
         value_formatter=_string_or_empty,
     )
@@ -4357,19 +4425,19 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
     contact_cols = st.columns(3, gap="small")
     company["contact_name"] = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_NAME,
-        tr("Kontaktperson", "Primary contact"),
+        tr(*COMPANY_CONTACT_NAME_LABEL),
         widget_factory=contact_cols[0].text_input,
         value_formatter=_string_or_empty,
     )
     company["contact_email"] = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
-        tr("Kontakt-E-Mail", "Contact email"),
+        tr(*COMPANY_CONTACT_EMAIL_LABEL),
         widget_factory=contact_cols[1].text_input,
         value_formatter=_string_or_empty,
     )
     company["contact_phone"] = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_PHONE,
-        tr("Telefon", "Phone"),
+        tr(*COMPANY_CONTACT_PHONE_LABEL),
         widget_factory=contact_cols[2].text_input,
         value_formatter=_string_or_empty,
     )
@@ -4377,13 +4445,13 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
     location_cols = st.columns((1.2, 1.2), gap="medium")
     location["primary_city"] = widget_factory.text_input(
         ProfilePaths.LOCATION_PRIMARY_CITY,
-        tr("Stadt", "City"),
+        tr(*PRIMARY_CITY_LABEL),
         widget_factory=location_cols[0].text_input,
         value_formatter=_string_or_empty,
     )
     location["country"] = widget_factory.text_input(
         ProfilePaths.LOCATION_COUNTRY,
-        tr("Land", "Country"),
+        tr(*PRIMARY_COUNTRY_LABEL),
         widget_factory=location_cols[1].text_input,
         value_formatter=_string_or_empty,
     )
@@ -4510,7 +4578,7 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     )
 
     position["role_summary"] = st.text_area(
-        tr("Rollen-Summary", "Role summary"),
+        tr(*ROLE_SUMMARY_LABEL),
         value=position.get("role_summary", ""),
         key=ProfilePaths.POSITION_ROLE_SUMMARY,
         height=130,
@@ -6790,7 +6858,7 @@ def _step_company() -> None:
     _set_requirement_certificates(data["requirements"], combined_certificates)
     missing_here = _missing_fields_for_section(1)
 
-    label_company = tr("Firma", "Company")
+    label_company = tr(*COMPANY_NAME_LABEL)
     if "company.name" in missing_here:
         label_company += REQUIRED_SUFFIX
     company_lock = _field_lock_config(
@@ -6801,7 +6869,7 @@ def _step_company() -> None:
     )
     company_kwargs = _apply_field_lock_kwargs(
         company_lock,
-        {"help": tr("Offizieller Firmenname", "Official company name")},
+        {"help": tr(*COMPANY_NAME_HELP)},
     )
 
     company_identity_container = st.container()
@@ -6812,7 +6880,7 @@ def _step_company() -> None:
         company["name"] = widget_factory.text_input(
             ProfilePaths.COMPANY_NAME,
             company_lock["label"],
-            placeholder=tr("Bitte Firmenname eingeben", "Enter the company name"),
+            placeholder=tr(*COMPANY_NAME_PLACEHOLDER),
             value_formatter=_string_or_empty,
             **company_kwargs,
         )
@@ -6880,15 +6948,12 @@ def _step_company() -> None:
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
     widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_NAME,
-        tr("Kontaktperson", "Primary contact"),
+        tr(*COMPANY_CONTACT_NAME_LABEL),
         widget_factory=contact_cols[0].text_input,
-        placeholder=tr(
-            "Name der Kontaktperson eingeben",
-            "Enter the contact person's name",
-        ),
+        placeholder=tr(*COMPANY_CONTACT_NAME_PLACEHOLDER),
         value_formatter=_string_or_empty,
     )
-    contact_email_label = tr("Kontakt-E-Mail", "Contact email")
+    contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL)
     contact_email_key = str(ProfilePaths.COMPANY_CONTACT_EMAIL)
     contact_email_state = st.session_state.get(contact_email_key)
     contact_email_missing = contact_email_key in missing_here or not (
@@ -6900,35 +6965,30 @@ def _step_company() -> None:
         ProfilePaths.COMPANY_CONTACT_EMAIL,
         contact_email_label,
         widget_factory=contact_cols[1].text_input,
-        placeholder=tr("E-Mail-Adresse eintragen", "Enter the email address"),
+        placeholder=tr(*COMPANY_CONTACT_EMAIL_PLACEHOLDER),
         value_formatter=_string_or_empty,
         allow_callbacks=False,
         sync_session_state=False,
     )
-    contact_cols[1].caption(
-        tr(
-            "Wir nutzen diese Adresse für Rückfragen und Exportfreigaben.",
-            "We use this address for follow-ups and export approvals.",
-        )
-    )
+    contact_cols[1].caption(tr(*COMPANY_CONTACT_EMAIL_CAPTION))
     _, contact_email_error = persist_contact_email(contact_email_value)
     if contact_email_error:
         contact_cols[1].error(tr(*contact_email_error))
-    phone_label = tr("Telefon", "Phone")
+    phone_label = tr(*COMPANY_CONTACT_PHONE_LABEL)
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here:
         phone_label += REQUIRED_SUFFIX
     contact_phone = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_PHONE,
         phone_label,
         widget_factory=contact_cols[2].text_input,
-        placeholder=tr("Telefonnummer angeben", "Enter the phone number"),
+        placeholder=tr(*COMPANY_CONTACT_PHONE_PLACEHOLDER),
         value_formatter=_string_or_empty,
     )
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     city_col, country_col = st.columns(2, gap="small")
-    city_label = tr("Stadt", "City")
+    city_label = tr(*PRIMARY_CITY_LABEL)
     primary_city_key = str(ProfilePaths.LOCATION_PRIMARY_CITY)
     primary_city_state = st.session_state.get(primary_city_key)
     city_missing = primary_city_key in missing_here or not (
@@ -6947,23 +7007,18 @@ def _step_company() -> None:
         ProfilePaths.LOCATION_PRIMARY_CITY,
         city_lock["label"],
         widget_factory=city_col.text_input,
-        placeholder=tr("Stadt eintragen", "Enter the city"),
+        placeholder=tr(*PRIMARY_CITY_PLACEHOLDER),
         value_formatter=_string_or_empty,
         allow_callbacks=False,
         sync_session_state=False,
         **city_kwargs,
     )
-    city_col.caption(
-        tr(
-            "Der Standort steuert Benchmarks, Pendelhints und Exporte.",
-            "The city drives benchmarks, commute hints, and exports.",
-        )
-    )
+    city_col.caption(tr(*PRIMARY_CITY_CAPTION))
     _, primary_city_error = persist_primary_city(city_value_input)
     if primary_city_error:
         city_col.error(tr(*primary_city_error))
 
-    country_label = tr("Land", "Country")
+    country_label = tr(*PRIMARY_COUNTRY_LABEL)
     if ProfilePaths.LOCATION_COUNTRY in missing_here:
         country_label += REQUIRED_SUFFIX
     country_lock = _field_lock_config(
@@ -6977,7 +7032,7 @@ def _step_company() -> None:
         ProfilePaths.LOCATION_COUNTRY,
         country_lock["label"],
         widget_factory=country_col.text_input,
-        placeholder=tr("Landeskürzel eingeben", "Enter the country code"),
+        placeholder=tr(*PRIMARY_COUNTRY_PLACEHOLDER),
         value_formatter=_string_or_empty,
         **country_kwargs,
     )
@@ -7668,7 +7723,7 @@ def _step_position() -> None:
 
     missing_here = _missing_fields_for_section(2)
 
-    render_section_heading(tr("Rolle & Team", "Role & team"))
+    render_section_heading(tr("Team & Kontext", "Team & context"))
     role_cols = st.columns((1.3, 1))
     title_label = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:
@@ -7718,7 +7773,7 @@ def _step_position() -> None:
         position.get("reporting_manager_name", ""),
     )
     position["customer_contact_required"] = manager_cols[1].toggle(
-        tr("Kundenkontakt?", "Customer-facing?"),
+        tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
         value=bool(position.get("customer_contact_required")),
         help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
     )
@@ -7740,7 +7795,7 @@ def _step_position() -> None:
         ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
         position.get("customer_contact_details"),
     )
-    summary_label = tr("Rollen-Summary", "Role summary")
+    summary_label = tr(*ROLE_SUMMARY_LABEL)
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
         summary_label += REQUIRED_SUFFIX
     position["role_summary"] = st.text_area(
@@ -8783,7 +8838,7 @@ def _step_requirements() -> None:
         parent=must_col,
     ):
         must_cols = st.columns(2, gap="large")
-        label_hard_req = tr("Hard Skills (Muss)", "Hard Skills (Must-have)")
+        label_hard_req = tr("Hard Skills (Pflicht)", "Hard skills (required)")
         if "requirements.hard_skills_required" in missing_here:
             label_hard_req += REQUIRED_SUFFIX
         with must_cols[0]:
@@ -8813,7 +8868,7 @@ def _step_requirements() -> None:
                 ),
                 show_hint=True,
             )
-        label_soft_req = tr("Soft Skills (Muss)", "Soft Skills (Must-have)")
+        label_soft_req = tr("Soft Skills (Pflicht)", "Soft skills (required)")
         if "requirements.soft_skills_required" in missing_here:
             label_soft_req += REQUIRED_SUFFIX
         with must_cols[1]:
@@ -8859,7 +8914,7 @@ def _step_requirements() -> None:
         nice_cols = st.columns(2, gap="large")
         with nice_cols[0]:
             data["requirements"]["hard_skills_optional"] = chip_multiselect(
-                tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
+                tr("Hard Skills (Optional)", "Hard skills (optional)"),
                 options=data["requirements"].get("hard_skills_optional", []),
                 values=data["requirements"].get("hard_skills_optional", []),
                 help_text=tr(
@@ -8881,7 +8936,7 @@ def _step_requirements() -> None:
             )
         with nice_cols[1]:
             data["requirements"]["soft_skills_optional"] = chip_multiselect(
-                tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
+                tr("Soft Skills (Optional)", "Soft skills (optional)"),
                 options=data["requirements"].get("soft_skills_optional", []),
                 values=data["requirements"].get("soft_skills_optional", []),
                 help_text=tr(
@@ -9190,10 +9245,10 @@ def _step_compensation() -> None:
 
     slider_defaults = _derive_salary_range_defaults(profile)
     inject_salary_slider_styles()
-    slider_label = tr("Gehaltsspanne", "Salary range", lang=lang)
+    slider_label = tr("Gehaltsspanne (Brutto)", "Salary range (gross)", lang=lang)
     slider_help = tr(
-        "Passe die Spanne per Schieberegler an.",
-        "Adjust the range with the slider.",
+        "Bruttojahresband per Schieberegler anpassen.",
+        "Adjust the gross annual range with the slider.",
         lang=lang,
     )
     salary_min, salary_max = st.slider(
@@ -9670,7 +9725,7 @@ def _summary_company() -> None:
 
     data = _get_profile_state()
     c1, c2 = st.columns(2)
-    summary_company_label = tr("Firma", "Company") + REQUIRED_SUFFIX
+    summary_company_label = tr(*COMPANY_NAME_LABEL) + REQUIRED_SUFFIX
     summary_company_lock = _field_lock_config(
         "company.name",
         summary_company_label,
@@ -9694,7 +9749,7 @@ def _summary_company() -> None:
         key="ui.summary.company.industry",
     )
     hq = c1.text_input(
-        tr("Hauptsitz", "Headquarters"),
+        tr("Hauptsitz (Stadt, Land)", "Headquarters (city, country)"),
         value=data["company"].get("hq_location", ""),
         key="ui.summary.company.hq_location",
     )
@@ -9734,17 +9789,17 @@ def _summary_company() -> None:
     )
     contact_cols = st.columns((1.2, 1.2, 1))
     contact_name = contact_cols[0].text_input(
-        tr("HR-Kontakt", "HR contact"),
+        tr(*COMPANY_CONTACT_NAME_LABEL),
         value=data["company"].get("contact_name", ""),
         key="ui.summary.company.contact_name",
     )
     contact_email = contact_cols[1].text_input(
-        tr("HR-E-Mail", "HR email"),
+        tr(*COMPANY_CONTACT_EMAIL_LABEL),
         value=data["company"].get("contact_email", ""),
         key="ui.summary.company.contact_email",
     )
     contact_phone = contact_cols[2].text_input(
-        tr("HR-Telefon", "HR phone"),
+        tr(*COMPANY_CONTACT_PHONE_LABEL),
         value=data["company"].get("contact_phone", ""),
         key="ui.summary.company.contact_phone",
     )
@@ -9929,7 +9984,7 @@ def _summary_position() -> None:
         on_change=_sync_reporting_manager_to_summary,
     )
     customer_contact_required = contact_cols[1].toggle(
-        tr("Kundenkontakt?", "Customer-facing?"),
+        tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
         value=bool(data["position"].get("customer_contact_required")),
         key=ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
         help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
@@ -9964,7 +10019,7 @@ def _summary_position() -> None:
     else:
         position.pop("customer_contact_details", None)
     role_summary = st.text_area(
-        tr("Rollen-Summary", "Role summary") + REQUIRED_SUFFIX,
+        tr(*ROLE_SUMMARY_LABEL) + REQUIRED_SUFFIX,
         value=data["position"].get("role_summary", ""),
         height=120,
         key="ui.summary.position.role_summary",
@@ -9972,7 +10027,7 @@ def _summary_position() -> None:
     )
     summary_city_lock = _field_lock_config(
         ProfilePaths.LOCATION_PRIMARY_CITY,
-        tr("Stadt", "City"),
+        tr(*PRIMARY_CITY_LABEL),
         container=c1,
         context="summary",
     )
@@ -9986,7 +10041,7 @@ def _summary_position() -> None:
     )
     summary_country_lock = _field_lock_config(
         ProfilePaths.LOCATION_COUNTRY,
-        tr("Land", "Country"),
+        tr(*PRIMARY_COUNTRY_LABEL),
         container=c2,
         context="summary",
     )
@@ -10054,22 +10109,22 @@ def _summary_requirements() -> None:
         )
 
     hard_req = st.text_area(
-        tr("Hard Skills (Muss)", "Hard Skills (Must-have)"),
+        tr("Hard Skills (Pflicht)", "Hard skills (required)"),
         value=", ".join(data["requirements"].get("hard_skills_required", [])),
         key="ui.summary.requirements.hard_skills_required",
     )
     hard_opt = st.text_area(
-        tr("Hard Skills (Nice-to-have)", "Hard Skills (Nice-to-have)"),
+        tr("Hard Skills (Optional)", "Hard skills (optional)"),
         value=", ".join(data["requirements"].get("hard_skills_optional", [])),
         key="ui.summary.requirements.hard_skills_optional",
     )
     soft_req = st.text_area(
-        tr("Soft Skills (Muss)", "Soft Skills (Must-have)"),
+        tr("Soft Skills (Pflicht)", "Soft skills (required)"),
         value=", ".join(data["requirements"].get("soft_skills_required", [])),
         key="ui.summary.requirements.soft_skills_required",
     )
     soft_opt = st.text_area(
-        tr("Soft Skills (Nice-to-have)", "Soft Skills (Nice-to-have)"),
+        tr("Soft Skills (Optional)", "Soft skills (optional)"),
         value=", ".join(data["requirements"].get("soft_skills_optional", [])),
         key="ui.summary.requirements.soft_skills_optional",
     )

@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Standardised the bilingual labels and helper copy across all wizard steps – Company contact fields now read “Company contact email/phone”, the Team step is surfaced as “Team & Context”, hard/soft skill sections use Required/Optional wording, and the summary mirrors those terms so HR stakeholders see the same terminology end-to-end.
+  DE: Zweisprachige Labels und Hilfetexte in allen Wizard-Schritten vereinheitlicht – Unternehmensfelder heißen nun „Kontakt-E-Mail (Unternehmen)“ bzw. „Kontakt-Telefon“, der Team-Schritt wird als „Team & Kontext“ angezeigt, die Hard-/Soft-Skill-Blöcke nutzen „Pflicht“ bzw. „Optional“, und die Summary spiegelt diese Begriffe für durchgängige HR-Terminologie.
+
 - EN: Rebuilt the candidate-matching pipeline as a deterministic scorer that slashes points when must-have skills are missing, gently rewards nice-to-have coverage plus experience/location alignment, and fills the `gaps` list with the concrete qualifications a candidate lacks.
   DE: Die Kandidaten-Matching-Pipeline nutzt jetzt ein deterministisches Scoring, das fehlende Must-have-Skills massiv abwertet, Nice-to-have-Abdeckung sowie Erfahrung/Standort nur moderat belohnt und die `gaps`-Liste mit den konkret fehlenden Qualifikationen befüllt.
 - EN: Candidate profile summaries now accept the vacancy requirements as context, emphasise in summary_text how the candidate aligns or diverges, and populate fit_notes with bilingual entries for match percentage, overlapping skills, and missing qualifications.
