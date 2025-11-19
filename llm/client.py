@@ -42,6 +42,16 @@ tracer = trace.get_tracer(__name__)
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 2
+USE_RESPONSES_API: bool | None = None
+
+
+def _responses_api_enabled() -> bool:
+    """Return whether the structured extraction should use the Responses API."""
+
+    if USE_RESPONSES_API is None:
+        return app_config.USE_RESPONSES_API
+    return bool(USE_RESPONSES_API)
+
 
 _PRE_ANALYSIS_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -310,7 +320,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
 
     attempts: list[tuple[str, Callable[[], str | None]]] = []
 
-    if app_config.USE_RESPONSES_API:
+    if _responses_api_enabled():
         response_format = build_json_schema_format(
             name="need_analysis_profile",
             schema=NEED_ANALYSIS_SCHEMA,
@@ -397,6 +407,12 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         )
         raise
     else:
+        if raw_data is not None and not raw_data:
+            logger.warning(
+                "Structured extraction pruned all fields for %s; triggering fallback.",
+                prompt_digest,
+            )
+            raise ValueError("structured_extraction_empty_payload")
         validated_payload = (
             json.dumps(raw_data, ensure_ascii=False) if raw_data is not None else profile.model_dump_json()
         )
