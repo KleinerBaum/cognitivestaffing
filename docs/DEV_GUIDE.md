@@ -49,27 +49,58 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 
 **EN:** Inline follow-up prompts store both the visible answer and their focus
 state under `st.session_state[f"fu_{<schema_path>}"]`; the widget factory in
-`wizard/flow.py` initialises these keys the moment a question card is rendered
-and keeps any pre-filled profile values in sync with the sidebar list. When a
-value is applied (manual input, suggestion chip, or the summary form) call
-`_sync_followup_completion` so the helper removes the `fu_*` entries, updates
-`StateKeys.FOLLOWUPS`, and mirrors the completion to the sidebar and
-`followups_answered` metadata. Clearing the key is also required whenever a
-follow-up disappears because its schema path was dropped or reset; otherwise the
-sidebar will continue to highlight stale cards. See `tests/test_followup_inline.py`
-for regression coverage.
+`wizard/sections/followups.py::_render_followup_question` initialises these keys
+the moment a question card is rendered and keeps any pre-filled profile values
+in sync with the sidebar list. When a value is applied (manual input, suggestion
+chip, or the summary form) call `_sync_followup_completion` so the helper removes
+the `fu_*` entries, updates `StateKeys.FOLLOWUPS`, and mirrors the completion to
+the sidebar and `followups_answered` metadata. Clearing the key is also required
+whenever a follow-up disappears because its schema path was dropped or reset;
+otherwise the sidebar will continue to highlight stale cards. See
+`tests/test_followup_inline.py` for regression coverage.
 
 **DE:** Inline-Follow-ups speichern sowohl den sichtbaren Wert als auch ihren
 Fokusstatus in `st.session_state[f"fu_{<schema_path>}"]`; die Widget-Factory in
-`wizard/flow.py` legt die Keys beim Rendern einer Frage an und hält bereits
-befüllte Profilwerte synchron zur Sidebar-Liste. Sobald eine Antwort übernommen
-wird (manuelle Eingabe, Vorschlags-Chip oder Summary-Formular), `_sync_followup_completion`
-aufrufen: Der Helper entfernt die `fu_*`-Einträge, aktualisiert
-`StateKeys.FOLLOWUPS` und spiegelt die Erledigung an die Sidebar sowie die
-`followups_answered`-Metadaten. Die Keys müssen ebenfalls gelöscht werden, wenn
-ein Follow-up entfällt, weil der Schema-Pfad entfernt oder zurückgesetzt wurde –
-andernfalls hebt die Sidebar weiterhin veraltete Karten hervor. Details deckt
-`tests/test_followup_inline.py` ab.
+`wizard/sections/followups.py::_render_followup_question` legt die Keys beim
+Rendern einer Frage an und hält bereits befüllte Profilwerte synchron zur
+Sidebar-Liste. Sobald eine Antwort übernommen wird (manuelle Eingabe,
+Vorschlags-Chip oder Summary-Formular), `_sync_followup_completion` aufrufen: Der
+Helper entfernt die `fu_*`-Einträge, aktualisiert `StateKeys.FOLLOWUPS` und
+spiegelt die Erledigung an die Sidebar sowie die `followups_answered`-Metadaten.
+Die Keys müssen ebenfalls gelöscht werden, wenn ein Follow-up entfällt, weil der
+Schema-Pfad entfernt oder zurückgesetzt wurde – andernfalls hebt die Sidebar
+weiterhin veraltete Karten hervor. Details deckt `tests/test_followup_inline.py`
+ab.
+
+**EN:** When introducing a new follow-up rule, keep these touch points in sync:
+
+1. Add the schema path to `critical_fields.json` + `question_logic.CRITICAL_FIELDS`
+   so the routing logic knows the field is required.
+2. Register bilingual prompt copy, description, and suggestions in
+   `wizard/sections/followups.py::CRITICAL_FIELD_PROMPTS`. Optional keys such as
+   `priority` or `ui_variant` ("info"/"warning") control styling inside the card.
+3. Map the field to the correct section and page by updating
+   `wizard.metadata.PAGE_FOLLOWUP_PREFIXES` / `FIELD_SECTION_MAP`; this keeps
+   `_render_followups_for_step()` aligned with the sidebar gating plus
+   `get_missing_critical_fields()`.
+4. Extend `tests/test_followup_inline.py` (rendering) and
+   `tests/test_ask_followups.py` (LLM payload shape) whenever you change the
+   follow-up payload.
+
+**DE:** Beim Einführen neuer Follow-up-Regeln gelten folgende Schritte:
+
+1. Schema-Pfad in `critical_fields.json` und `question_logic.CRITICAL_FIELDS`
+   ergänzen, damit die Routing-Logik das Feld als Pflichtfeld behandelt.
+2. Zweisprachige Prompt-Texte, Beschreibung und Vorschläge in
+   `wizard/sections/followups.py::CRITICAL_FIELD_PROMPTS` hinterlegen. Optionale
+   Keys wie `priority` oder `ui_variant` ("info"/"warning") steuern die Darstellung
+   innerhalb der Karte.
+3. Feld der richtigen Sektion bzw. Seite zuordnen, indem
+   `wizard.metadata.PAGE_FOLLOWUP_PREFIXES` / `FIELD_SECTION_MAP` angepasst werden;
+   dadurch bleiben `_render_followups_for_step()` sowie
+   `get_missing_critical_fields()` mit der Sidebar-Sperre synchron.
+4. `tests/test_followup_inline.py` (Rendering) und `tests/test_ask_followups.py`
+   (LLM-Payload) erweitern, sobald sich Follow-up-Payloads ändern.
 
 ## Modifying extraction rules / Extraktionsregeln anpassen
 
