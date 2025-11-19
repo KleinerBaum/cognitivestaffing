@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Refactored the monolithic `wizard/flow.py` into focused helpers (`wizard/sections/followups.py`, `wizard/date_utils.py`, `wizard/state_sync.py`, `wizard/types.py`) so follow-up rendering, date utilities, and widget state syncing are easier to maintain and unit test.
+  DE: Die monolithische `wizard/flow.py` wurde in fokussierte Helfer zerlegt (`wizard/sections/followups.py`, `wizard/date_utils.py`, `wizard/state_sync.py`, `wizard/types.py`), damit Follow-up-Rendering, Datumshelfer und Widget-State-Sync leichter wartbar und testbar sind.
+
 - EN: Tightened the job-ad, interview-guide, and follow-up question prompts so every section explicitly mirrors the structured vacancy data, uses inclusive/bias-free HR language, references the relevant schema fields (job title, seniority, work policy, etc.), and only asks for job-relevant clarifications with realistic answer suggestions.
   DE: Die Prompts für Stellenanzeigen, Interviewleitfäden und Nachfragen wurden geschärft: Alle Abschnitte spiegeln jetzt die strukturierten Vakanzdaten exakt wider, nutzen inklusive HR-Terminologie, verweisen auf die passenden Schemafelder (Jobtitel, Seniorität, Arbeitsmodell etc.) und stellen nur noch jobrelevante, realistische Rückfragen samt Antwortoptionen.
 

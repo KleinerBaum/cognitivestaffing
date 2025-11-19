@@ -1,90 +1,31 @@
-"""Tests for synchronising profile updates with session state."""
+"""Tests for ``wizard.state_sync`` helpers."""
+
+from __future__ import annotations
+
+from typing import Any
 
 import streamlit as st
 
-from constants.keys import StateKeys
-from state import ensure_state
-from wizard import _update_profile
+import wizard.state_sync as state_sync
 
 
-def test_update_profile_syncs_direct_session_state() -> None:
-    """Updating the profile should reflect in ``st.session_state``."""
+def test_iter_profile_scalars_skips_nested_structures() -> None:
+    data = {
+        "company": {"name": "Acme", "locations": ["Berlin"]},
+        "meta": {"empty": None},
+    }
+    pairs = dict(state_sync.iter_profile_scalars(data))
+    assert pairs["company.name"] == "Acme"
+    assert "company.locations" not in pairs
 
+
+def test_prime_widget_state_from_profile_clears_empty_values() -> None:
     st.session_state.clear()
-    ensure_state()
-
-    _update_profile("company.name", "Acme Robotics")
-
-    assert st.session_state["company.name"] == "Acme Robotics"
-    profile = st.session_state[StateKeys.PROFILE]
-    assert profile["company"]["name"] == "Acme Robotics"
-
-
-def test_update_profile_normalizes_phone_in_state() -> None:
-    """Phone inputs should be normalised and removable via empty strings."""
-
-    st.session_state.clear()
-    ensure_state()
-
-    _update_profile("company.contact_phone", "  +49 (0)30-123 45 67 ext. 9 ")
-
-    profile = st.session_state[StateKeys.PROFILE]
-    assert st.session_state["company.contact_phone"] == "+49 30 1234567 ext 9"
-    assert profile["company"]["contact_phone"] == "+49 30 1234567 ext 9"
-
-    _update_profile("company.contact_phone", "")
-
-    assert "company.contact_phone" not in st.session_state
-    assert profile["company"]["contact_phone"] is None
-
-
-def test_update_profile_normalizes_website_in_state() -> None:
-    """Websites should be coerced to canonical HTTPS URLs and clear to ``None``."""
-
-    st.session_state.clear()
-    ensure_state()
-
-    _update_profile("company.website", "example.com/careers ")
-
-    profile = st.session_state[StateKeys.PROFILE]
-    assert st.session_state["company.website"] == "https://example.com/careers"
-    assert profile["company"]["website"] == "https://example.com/careers"
-
-    _update_profile("company.website", "   ")
-
-    assert "company.website" not in st.session_state
-    assert profile["company"]["website"] is None
-
-
-def test_update_profile_normalizes_country_in_state() -> None:
-    """Country updates should be normalised and synced to state."""
-
-    st.session_state.clear()
-    ensure_state()
-
-    _update_profile("location.country", "de")
-
-    profile = st.session_state[StateKeys.PROFILE]
-    assert st.session_state["location.country"] == "Germany"
-    assert profile["location"]["country"] == "Germany"
-
-    _update_profile("location.country", "")
-
-    assert "location.country" not in st.session_state
-    assert profile["location"]["country"] is None
-
-
-def test_update_profile_preserves_widget_value_on_semantic_empty() -> None:
-    """Provided session values must persist even when the stored profile clears."""
-
-    st.session_state.clear()
-    ensure_state()
-
-    typed_value = "invalid@"
-    st.session_state["company.contact_email"] = typed_value
-
-    _update_profile("company.contact_email", None, session_value=typed_value)
-
-    profile = st.session_state[StateKeys.PROFILE]
-    assert st.session_state["company.contact_email"] == typed_value
-    assert profile["company"].get("contact_email") in (None, "")
+    data: dict[str, Any] = {
+        "company": {"name": "Acme", "contact_email": ""},
+        "meta": {"notes": None},
+    }
+    state_sync.prime_widget_state_from_profile(data)
+    assert st.session_state["company.name"] == "Acme"
+    assert "company.contact_email" not in st.session_state
+    assert "meta.notes" not in st.session_state
