@@ -73,6 +73,7 @@ def test_reset_state_clears_profile_and_followups() -> None:
 
     st.session_state[StateKeys.PROFILE].setdefault("company", {})["name"] = "ACME"
     st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "Name?"}]
+    st.session_state[StateKeys.FOLLOWUPS_RESPONSE_ID] = "resp_123"
     st.session_state["fu_company.name"] = "pending"
 
     reset_state()
@@ -80,4 +81,5 @@ def test_reset_state_clears_profile_and_followups() -> None:
     profile = st.session_state[StateKeys.PROFILE]
     assert profile.get("company", {}).get("name") in {"", None}
     assert st.session_state[StateKeys.FOLLOWUPS] == []
+    assert StateKeys.FOLLOWUPS_RESPONSE_ID not in st.session_state
     assert not any(key.startswith("fu_") for key in st.session_state)
