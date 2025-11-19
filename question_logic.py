@@ -378,14 +378,14 @@ def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, 
         )
     elif field.startswith("requirements.hard_skills"):
         base = tr(
-            "Welche Hard Skills oder technischen Kompetenzen werden benötigt?",
-            "What hard skills or technical competencies are required?",
+            "Welche Pflicht-Skills (fachlich) werden benötigt?",
+            "Which required skills (technical) are needed?",
             lang=lang,
         )
     elif field.startswith("requirements.soft_skills"):
         base = tr(
-            "Welche Soft Skills oder zwischenmenschlichen Fähigkeiten sind wichtig?",
-            "What soft skills or interpersonal skills are important?",
+            "Welche Pflicht-Skills (Zusammenarbeit) sind wichtig?",
+            "Which required skills (collaboration) matter most?",
             lang=lang,
         )
     elif field.startswith("requirements.tools_and_technologies"):

@@ -635,28 +635,28 @@
                     "items": {
                         "type": "string"
                     },
-                    "title": "Hard Skills Required",
+                    "title": "Required Skills (Technical)",
                     "type": "array"
                 },
                 "hard_skills_optional": {
                     "items": {
                         "type": "string"
                     },
-                    "title": "Hard Skills Optional",
+                    "title": "Optional Skills (Technical)",
                     "type": "array"
                 },
                 "soft_skills_required": {
                     "items": {
                         "type": "string"
                     },
-                    "title": "Soft Skills Required",
+                    "title": "Required Skills (Collaboration)",
                     "type": "array"
                 },
                 "soft_skills_optional": {
                     "items": {
                         "type": "string"
                     },
-                    "title": "Soft Skills Optional",
+                    "title": "Optional Skills (Collaboration)",
                     "type": "array"
                 },
                 "tools_and_technologies": {

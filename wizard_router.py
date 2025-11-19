@@ -88,7 +88,7 @@ logger = logging.getLogger(__name__)
 _SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
     ("Onboarding", "Onboarding"),
     ("Unternehmen", "Company"),
-    ("Team & Kontext", "Team & context"),
+    ("Team & Kontext", "Team & Context"),
     ("Rolle & Aufgaben", "Role & tasks"),
     ("Skills & Anforderungen", "Skills & requirements"),
     ("Leistungen & Benefits", "Rewards & Benefits"),

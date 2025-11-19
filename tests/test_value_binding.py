@@ -135,7 +135,7 @@ def test_profile_multiselect_binds_and_updates_profile(monkeypatch: pytest.Monke
         on_change: Callable[[], None] | None = None,
         **_: object,
     ) -> list[str]:
-        assert label == "Hard skills"
+        assert label == "Required skills"
         assert entries == options
         assert default == ["Python", "SQL"]
         assert key == ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED
@@ -148,7 +148,7 @@ def test_profile_multiselect_binds_and_updates_profile(monkeypatch: pytest.Monke
 
     selection = profile_multiselect(
         ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
-        "Hard skills",
+        "Required skills",
         options,
     )
     assert selection == ["Python", "SQL"]

@@ -20,7 +20,7 @@ PAGE = WizardPage(
     key="skills",
     label=("Kompetenzen", "Skills"),
     panel_header=("Skill-Portfolio", "Skill portfolio"),
-    panel_subheader=("Muss & Nice-to-have", "Must & nice-to-have"),
+    panel_subheader=("Pflicht & Optional", "Required & optional"),
     panel_intro_variants=(
         (
             "Lege fest, welche Kompetenzen zwingend und welche optional sind.",
@@ -31,8 +31,8 @@ PAGE = WizardPage(
             "Well-structured skill data improves scoring, market benchmarks, and export quality.",
         ),
         (
-            "Markiere locker, was die Person wirklich können muss – den Rest packen wir unter Nice-to-have.",
-            "Flag what this person absolutely needs to know and we’ll park the rest as nice-to-have.",
+            "Markiere locker, was die Person wirklich können muss – den Rest packen wir unter Optional.",
+            "Flag what this person absolutely needs to know and we’ll park the rest as optional.",
         ),
     ),
     required_fields=_REQUIRED_FIELDS,

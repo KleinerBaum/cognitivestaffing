@@ -28,7 +28,7 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
 
 PAGE = WizardPage(
     key="team",
-    label=("Team & Kontext", "Team & context"),
+    label=("Team & Kontext", "Team & Context"),
     panel_header=("Rahmen der Rolle", "Role context"),
     panel_subheader=("Berichtslinien & Timing", "Reporting & timing"),
     panel_intro_variants=(

@@ -204,8 +204,8 @@ COMPANY_CONTACT_EMAIL_CAPTION: Final[LocalizedText] = (
     "We use this inbox for follow-ups, approvals, and export links.",
 )
 COMPANY_CONTACT_PHONE_LABEL: Final[LocalizedText] = (
-    "Kontakt-Telefon",
-    "Contact phone",
+    "Kontakt-Telefon (Unternehmen)",
+    "Company contact phone",
 )
 COMPANY_CONTACT_PHONE_PLACEHOLDER: Final[LocalizedText] = (
     "z. B. +49 30 1234567",
@@ -308,20 +308,20 @@ ESCO_SKILL_ENDPOINT: Final[str] = "https://ec.europa.eu/esco/api/resource/skill"
 
 _SKILL_GROUP_LABELS: Final[dict[str, tuple[str, str]]] = {
     "hard_skills_required": (
-        "Muss-Hard-Skill",
-        "Must-have hard skill",
+        "Pflicht-Skill • Fachlich",
+        "Required skill • Technical",
     ),
     "hard_skills_optional": (
-        "Nice-to-have Hard-Skill",
-        "Nice-to-have hard skill",
+        "Optionaler Skill • Fachlich",
+        "Optional skill • Technical",
     ),
     "soft_skills_required": (
-        "Muss-Soft-Skill",
-        "Must-have soft skill",
+        "Pflicht-Skill • Zusammenarbeit",
+        "Required skill • Collaboration",
     ),
     "soft_skills_optional": (
-        "Nice-to-have Soft-Skill",
-        "Nice-to-have soft skill",
+        "Optionaler Skill • Zusammenarbeit",
+        "Optional skill • Collaboration",
     ),
     "tools_and_technologies": (
         "Tool & Technologie",
@@ -382,20 +382,20 @@ ADD_MORE_SKILL_FOCUS_HINT: Final[LocalizedText] = (
     "Add more focus areas…",
 )
 ADD_MORE_HARD_SKILLS_REQUIRED_HINT: Final[LocalizedText] = (
-    "Weitere Muss-Hard-Skills hinzufügen…",
-    "Add more must-have hard skills…",
+    "Weitere Pflicht-Skills (fachlich) hinzufügen…",
+    "Add more required skills (technical)…",
 )
 ADD_MORE_SOFT_SKILLS_REQUIRED_HINT: Final[LocalizedText] = (
-    "Weitere Muss-Soft-Skills hinzufügen…",
-    "Add more must-have soft skills…",
+    "Weitere Pflicht-Skills (Zusammenarbeit) hinzufügen…",
+    "Add more required skills (collaboration)…",
 )
 ADD_MORE_HARD_SKILLS_OPTIONAL_HINT: Final[LocalizedText] = (
-    "Weitere Nice-to-have-Hard-Skills hinzufügen…",
-    "Add more nice-to-have hard skills…",
+    "Weitere optionale Skills (fachlich) hinzufügen…",
+    "Add more optional skills (technical)…",
 )
 ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT: Final[LocalizedText] = (
-    "Weitere Nice-to-have-Soft-Skills hinzufügen…",
-    "Add more nice-to-have soft skills…",
+    "Weitere optionale Skills (Zusammenarbeit) hinzufügen…",
+    "Add more optional skills (collaboration)…",
 )
 ADD_MORE_TOOLS_HINT: Final[LocalizedText] = (
     "Weitere Tools oder Technologien hinzufügen…",
@@ -1070,7 +1070,7 @@ def _skill_board_labels(lang: str | None = None) -> dict[SkillContainerType, str
             "Must-have requirements",
             lang=lang_code,
         ),
-        "target_nice": tr("Nice-to-have", "Nice-to-have", lang=lang_code),
+        "target_nice": tr("Optional", "Optional", lang=lang_code),
     }
 
 
@@ -1582,8 +1582,8 @@ def _render_skill_board(
     )
     info_lines = [
         tr(
-            "Hier landen alle Pflicht-, Nice-to-have- und vorgeschlagenen Skills.",
-            "All must-have, nice-to-have, and suggested skills gather here.",
+            "Hier landen alle Pflicht-, Optional- und vorgeschlagenen Skills.",
+            "All required, optional, and suggested skills gather here.",
             lang=lang_code,
         ),
         tr(
@@ -1600,8 +1600,8 @@ def _render_skill_board(
     if esco_opted_in:
         info_lines.append(
             tr(
-                "ESCO markiert fehlende Essentials separat – schiebe sie in Muss oder Nice-to-have.",
-                "ESCO highlights missing essentials separately – drag them into Must-have or Nice-to-have.",
+                "ESCO markiert fehlende Essentials separat – schiebe sie in Muss oder Optional.",
+                "ESCO highlights missing essentials separately – drag them into Must-have or Optional.",
                 lang=lang_code,
             )
         )
@@ -1711,8 +1711,8 @@ def _render_skill_board(
 
     st.caption(
         tr(
-            f"Ziehe Skills aus {sources_de} in „Muss-Anforderungen“ oder „Nice-to-have“, um die finale Auswahl festzulegen.",
-            f"Drag skills from {sources_en} into “Must-have requirements” or “Nice-to-have” to finalise your selection.",
+            f"Ziehe Skills aus {sources_de} in „Muss-Anforderungen“ oder „Optional“, um die finale Auswahl festzulegen.",
+            f"Drag skills from {sources_en} into “Must-have requirements” or “Optional” to finalise your selection.",
             lang=lang_code,
         )
     )
@@ -2192,8 +2192,8 @@ CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
     },
     "requirements.hard_skills_required": {
         "prompt": (
-            "Welche Hard Skills sind zwingend?",
-            "Which hard skills are must-haves?",
+            "Welche Pflicht-Skills (fachlich) sind zwingend?",
+            "Which required skills (technical) are must-haves?",
         ),
         "description": (
             "Bitte Kerntechnologien oder Tools nennen – das fokussiert unsere Vorschläge.",
@@ -2207,8 +2207,8 @@ CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
     },
     "requirements.soft_skills_required": {
         "prompt": (
-            "Welche Soft Skills sind unverzichtbar?",
-            "Which soft skills are non-negotiable?",
+            "Welche Pflicht-Skills (Zusammenarbeit) sind unverzichtbar?",
+            "Which required skills (collaboration) are non-negotiable?",
         ),
         "description": (
             "Stichworte reichen – wir übernehmen die Formulierung im Jobprofil.",
@@ -3831,16 +3831,21 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
                 value = sal_min if sal_min is not None else sal_max
                 salary_str = f"{int(value)} {currency}" if value is not None else currency
             summary[tr("Gehaltsspanne", "Salary range")] = salary_str.strip()
-        hard_total = len(profile.requirements.hard_skills_required) + len(profile.requirements.hard_skills_optional)
-        if hard_total:
-            summary[tr("Hard Skills", "Hard skills")] = str(hard_total)
-        soft_total = len(profile.requirements.soft_skills_required) + len(profile.requirements.soft_skills_optional)
-        if soft_total:
-            summary[tr("Soft Skills", "Soft skills")] = str(soft_total)
+        required_total = len(profile.requirements.hard_skills_required) + len(profile.requirements.soft_skills_required)
+        if required_total:
+            summary[tr("Pflicht-Skills", "Required skills")] = str(required_total)
+        optional_total = len(profile.requirements.hard_skills_optional) + len(profile.requirements.soft_skills_optional)
+        if optional_total:
+            summary[tr("Optionale Skills", "Optional skills")] = str(optional_total)
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
+    requirements_data = data.get("requirements", {}) or {}
     st.session_state[StateKeys.SKILL_BUCKETS] = {
-        "must": unique_normalized(data.get("requirements", {}).get("hard_skills_required", [])),
-        "nice": unique_normalized(data.get("requirements", {}).get("hard_skills_optional", [])),
+        "must": unique_normalized(
+            requirements_data.get("hard_skills_required", []) + requirements_data.get("soft_skills_required", [])
+        ),
+        "nice": unique_normalized(
+            requirements_data.get("hard_skills_optional", []) + requirements_data.get("soft_skills_optional", [])
+        ),
     }
     missing: list[str] = []
     for field in CRITICAL_FIELDS:
@@ -3988,23 +3993,23 @@ def _skip_source() -> None:
 
 
 FIELD_LABELS: dict[str, tuple[str, str]] = {
-    "company.name": ("Unternehmen", "Company"),
+    "company.name": ("Unternehmen", "Company Name"),
     "company.hq_location": ("Hauptsitz (Stadt, Land)", "Headquarters (city, country)"),
     "company.website": ("Website", "Website"),
     "company.contact_name": ("HR-Ansprechperson", "HR contact person"),
     "company.contact_email": ("Kontakt-E-Mail (Unternehmen)", "Company contact email"),
-    "company.contact_phone": ("Kontakt-Telefon", "Contact phone"),
+    "company.contact_phone": ("Kontakt-Telefon (Unternehmen)", "Company contact phone"),
     "position.job_title": ("Jobtitel", "Job Title"),
     "position.role_summary": ("Rollenbeschreibung", "Role Summary"),
     "location.primary_city": ("Primärer Standort (Stadt)", "Primary location (city)"),
     "location.country": ("Land (Primärstandort)", "Country (primary location)"),
     "requirements.hard_skills_required": (
-        "Pflicht-Hard-Skills",
-        "Required Hard Skills",
+        "Pflicht-Skills (fachlich)",
+        "Required skills (technical)",
     ),
     "requirements.soft_skills_required": (
-        "Pflicht-Soft-Skills",
-        "Required Soft Skills",
+        "Pflicht-Skills (Zusammenarbeit)",
+        "Required skills (collaboration)",
     ),
 }
 
@@ -4384,7 +4389,7 @@ def _render_extraction_review() -> None:
     tabs = st.tabs(
         [
             tr("Unternehmen", "Company"),
-            tr("Team & Kontext", "Team & context"),
+            tr("Team & Kontext", "Team & Context"),
             tr("Standort & Rahmen", "Location & logistics"),
             tr("Anforderungen", "Requirements"),
             tr("Prozess", "Process"),
@@ -4798,7 +4803,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     _update_profile(ProfilePaths.RESPONSIBILITIES_ITEMS, resp_items)
 
     hard_required = render_list_text_area(
-        label=tr("Pflicht-Hard-Skills", "Required hard skills"),
+        label=tr("Pflicht-Skills (fachlich)", "Required skills (technical)"),
         session_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
         items=requirements.get("hard_skills_required"),
         height=120,
@@ -4807,7 +4812,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     _update_profile(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED, hard_required)
 
     soft_required = render_list_text_area(
-        label=tr("Pflicht-Soft-Skills", "Required soft skills"),
+        label=tr("Pflicht-Skills (Zusammenarbeit)", "Required skills (collaboration)"),
         session_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
         items=requirements.get("soft_skills_required"),
         height=120,
@@ -7740,7 +7745,7 @@ def _step_position() -> None:
 
     missing_here = _missing_fields_for_section(2)
 
-    render_section_heading(tr("Team & Kontext", "Team & context"))
+    render_section_heading(tr("Team & Kontext", "Team & Context"))
     role_cols = st.columns((1.3, 1))
     title_label = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:
@@ -8856,7 +8861,7 @@ def _step_requirements() -> None:
         parent=must_col,
     ):
         must_cols = st.columns(2, gap="large")
-        label_hard_req = tr("Hard Skills (Pflicht)", "Hard skills (required)")
+        label_hard_req = tr("Pflicht-Skills (fachlich)", "Required skills (technical)")
         if "requirements.hard_skills_required" in missing_here:
             label_hard_req += REQUIRED_SUFFIX
         with must_cols[0]:
@@ -8865,8 +8870,8 @@ def _step_requirements() -> None:
                 options=data["requirements"].get("hard_skills_required", []),
                 values=data["requirements"].get("hard_skills_required", []),
                 help_text=tr(
-                    "Zwingend benötigte technische Kompetenzen.",
-                    "Essential technical competencies.",
+                    "Zwingend benötigte fachliche Skills.",
+                    "Required technical skills for the role.",
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_HARD_SKILLS_REQUIRED_HINT,
@@ -8886,7 +8891,7 @@ def _step_requirements() -> None:
                 ),
                 show_hint=True,
             )
-        label_soft_req = tr("Soft Skills (Pflicht)", "Soft skills (required)")
+        label_soft_req = tr("Pflicht-Skills (Zusammenarbeit)", "Required skills (collaboration)")
         if "requirements.soft_skills_required" in missing_here:
             label_soft_req += REQUIRED_SUFFIX
         with must_cols[1]:
@@ -8895,8 +8900,8 @@ def _step_requirements() -> None:
                 options=data["requirements"].get("soft_skills_required", []),
                 values=data["requirements"].get("soft_skills_required", []),
                 help_text=tr(
-                    "Unverzichtbare Verhalten- und Teamkompetenzen.",
-                    "Critical behavioural and team skills.",
+                    "Unverzichtbare Skills für Zusammenarbeit & Kultur.",
+                    "Critical collaboration and culture skills.",
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_SOFT_SKILLS_REQUIRED_HINT,
@@ -8918,7 +8923,7 @@ def _step_requirements() -> None:
 
     with requirement_panel(
         icon="✨",
-        title=tr("Nice-to-have", "Nice-to-have"),
+        title=tr("Optionale Skills", "Optional skills"),
         caption=tr(
             "Optionale Fähigkeiten für ein ideales Kandidatenprofil.",
             "Optional capabilities that enrich the profile.",
@@ -8932,12 +8937,12 @@ def _step_requirements() -> None:
         nice_cols = st.columns(2, gap="large")
         with nice_cols[0]:
             data["requirements"]["hard_skills_optional"] = chip_multiselect(
-                tr("Hard Skills (Optional)", "Hard skills (optional)"),
+                tr("Optionale Skills (fachlich)", "Optional skills (technical)"),
                 options=data["requirements"].get("hard_skills_optional", []),
                 values=data["requirements"].get("hard_skills_optional", []),
                 help_text=tr(
-                    "Zusätzliche technische Stärken, die Mehrwert bieten.",
-                    "Additional technical strengths that add value.",
+                    "Zusätzliche fachliche Skills, die Mehrwert bieten.",
+                    "Additional technical skills that add value.",
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_HARD_SKILLS_OPTIONAL_HINT,
@@ -8954,12 +8959,12 @@ def _step_requirements() -> None:
             )
         with nice_cols[1]:
             data["requirements"]["soft_skills_optional"] = chip_multiselect(
-                tr("Soft Skills (Optional)", "Soft skills (optional)"),
+                tr("Optionale Skills (Zusammenarbeit)", "Optional skills (collaboration)"),
                 options=data["requirements"].get("soft_skills_optional", []),
                 values=data["requirements"].get("soft_skills_optional", []),
                 help_text=tr(
-                    "Wünschenswerte persönliche Eigenschaften.",
-                    "Valuable personal attributes.",
+                    "Wünschenswerte Skills für Kommunikation & Kultur.",
+                    "Valuable collaboration and culture skills.",
                 ),
                 dropdown=True,
                 add_more_hint=ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT,
@@ -8970,8 +8975,8 @@ def _step_requirements() -> None:
                 target_key="soft_skills_optional",
                 widget_suffix="nice_soft",
                 caption=tr(
-                    "Nice-to-have Soft Skills laut KI-Vorschlag.",
-                    "Nice-to-have soft skills suggested by AI.",
+                    "Optionale Zusammenarbeitsskills laut KI-Vorschlag.",
+                    "Optional collaboration skills suggested by AI.",
                 ),
             )
 
@@ -9123,7 +9128,7 @@ def _step_requirements() -> None:
     )
     insight_groups = {
         tr("Muss-Anforderungen", "Must-have requirements"): must_insight_skills,
-        tr("Nice-to-have", "Nice-to-have"): nice_insight_skills,
+        tr("Optionale Skills", "Optional skills"): nice_insight_skills,
         tr("Sprachen", "Languages"): language_insight_skills,
     }
     insight_groups = {
@@ -10129,22 +10134,22 @@ def _summary_requirements() -> None:
         )
 
     hard_req = st.text_area(
-        tr("Hard Skills (Pflicht)", "Hard skills (required)"),
+        tr("Pflicht-Skills (fachlich)", "Required skills (technical)"),
         value=", ".join(data["requirements"].get("hard_skills_required", [])),
         key="ui.summary.requirements.hard_skills_required",
     )
     hard_opt = st.text_area(
-        tr("Hard Skills (Optional)", "Hard skills (optional)"),
+        tr("Optionale Skills (fachlich)", "Optional skills (technical)"),
         value=", ".join(data["requirements"].get("hard_skills_optional", [])),
         key="ui.summary.requirements.hard_skills_optional",
     )
     soft_req = st.text_area(
-        tr("Soft Skills (Pflicht)", "Soft skills (required)"),
+        tr("Pflicht-Skills (Zusammenarbeit)", "Required skills (collaboration)"),
         value=", ".join(data["requirements"].get("soft_skills_required", [])),
         key="ui.summary.requirements.soft_skills_required",
     )
     soft_opt = st.text_area(
-        tr("Soft Skills (Optional)", "Soft skills (optional)"),
+        tr("Optionale Skills (Zusammenarbeit)", "Optional skills (collaboration)"),
         value=", ".join(data["requirements"].get("soft_skills_optional", [])),
         key="ui.summary.requirements.soft_skills_optional",
     )
@@ -11810,13 +11815,13 @@ def _render_skills_review_step() -> None:
 
     if isinstance(requirement_data, Mapping):
         _render_chip_group(
-            "Muss-Hard-Skills",
-            "Must-have hard skills",
+            "Pflicht-Skills (fachlich)",
+            "Required skills (technical)",
             requirement_data.get("hard_skills_required", []),
         )
         _render_chip_group(
-            "Muss-Soft-Skills",
-            "Must-have soft skills",
+            "Pflicht-Skills (Zusammenarbeit)",
+            "Required skills (collaboration)",
             requirement_data.get("soft_skills_required", []),
         )
         _render_chip_group(

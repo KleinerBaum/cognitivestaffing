@@ -240,14 +240,14 @@ def _build_fallback_guide(
     if hard_skills:
         focus_areas.append(
             InterviewGuideFocusArea(
-                label=_tr("Kernkompetenzen", "Core hard skills"),
+                label=_tr("Pflicht-Skills (fachlich)", "Required skills (technical)"),
                 items=hard_skills[:5],
             )
         )
     if soft_skills:
         focus_areas.append(
             InterviewGuideFocusArea(
-                label=_tr("Soft Skills", "Soft skills"),
+                label=_tr("Pflicht-Skills (Zusammenarbeit)", "Required skills (collaboration)"),
                 items=soft_skills[:5],
             )
         )

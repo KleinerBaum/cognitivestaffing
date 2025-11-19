@@ -75,7 +75,7 @@ def _apply_reasoning_mode(mode: str) -> None:
 STEP_LABELS: list[tuple[str, str]] = [
     ("jobad", tr("Job-Import", "Job ad intake")),
     ("company", tr("Unternehmen", "Company")),
-    ("team", tr("Team & Kontext", "Team & context")),
+    ("team", tr("Team & Kontext", "Team & Context")),
     ("role_tasks", tr("Rolle & Aufgaben", "Role & tasks")),
     ("skills", tr("Skills & Anforderungen", "Skills & requirements")),
     ("benefits", tr("Vergütung & Benefits", "Compensation & benefits")),
@@ -946,8 +946,8 @@ def _render_company_context(context: SidebarContext) -> None:
         ("size", tr("Größe", "Size")),
         ("website", tr("Website", "Website")),
         ("contact_name", tr("Kontaktperson", "Primary contact")),
-        ("contact_email", tr("Kontakt-E-Mail", "Contact email")),
-        ("contact_phone", tr("Telefon", "Phone")),
+        ("contact_email", tr("Kontakt-E-Mail (Unternehmen)", "Company contact email")),
+        ("contact_phone", tr("Kontakt-Telefon (Unternehmen)", "Company contact phone")),
         ("mission", tr("Mission", "Mission")),
     ]
 
@@ -1003,14 +1003,14 @@ def _render_requirements_context(context: SidebarContext) -> None:
     if not must and not nice:
         st.caption(
             tr(
-                "Lege Must-have und Nice-to-have Skills fest, um das Profil zu schärfen.",
-                "Add must-have and nice-to-have skills to sharpen the profile.",
+                "Lege Pflicht- und optionale Skills fest, um das Profil zu schärfen.",
+                "Add required and optional skills to sharpen the profile.",
             )
         )
     if must:
-        st.markdown(f"**{tr('Must-haves', 'Must-haves')}**: {', '.join(must[:12])}")
+        st.markdown(f"**{tr('Pflicht-Skills', 'Required skills')}**: {', '.join(must[:12])}")
     if nice:
-        st.markdown(f"**{tr('Nice-to-haves', 'Nice-to-haves')}**: {', '.join(nice[:12])}")
+        st.markdown(f"**{tr('Optionale Skills', 'Optional skills')}**: {', '.join(nice[:12])}")
     missing_esco = [
         str(skill).strip()
         for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
