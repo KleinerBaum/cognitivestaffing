@@ -46,7 +46,6 @@ from config import (
     REASONING_EFFORT,
     STRICT_JSON,
     VERBOSITY,
-    RESPONSES_ALLOW_TOOLS,
     ModelTask,
     get_active_verbosity,
     get_first_available_model,
@@ -1273,7 +1272,7 @@ def _prepare_payload(
     tool_map = dict(tool_functions or {})
     requested_tools = bool(raw_tools or tool_map)
     analysis_tools_enabled = include_analysis_tools and (
-        app_config.USE_CLASSIC_API or requested_tools or RESPONSES_ALLOW_TOOLS
+        app_config.USE_CLASSIC_API or requested_tools or app_config.RESPONSES_ALLOW_TOOLS
     )
     if analysis_tools_enabled:
         from core import analysis_tools
@@ -1322,7 +1321,7 @@ def _prepare_payload(
     api_mode_override: str | None = None
 
     force_classic_for_tools = False
-    if converted_tools and not (app_config.USE_CLASSIC_API or RESPONSES_ALLOW_TOOLS):
+    if converted_tools and not (app_config.USE_CLASSIC_API or app_config.RESPONSES_ALLOW_TOOLS):
         force_classic_for_tools = True  # NO_TOOLS_IN_RESPONSES
 
     use_classic_api = app_config.USE_CLASSIC_API or force_classic_for_tools

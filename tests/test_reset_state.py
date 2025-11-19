@@ -63,3 +63,21 @@ def test_ensure_state_preserves_profile_on_preference_toggle() -> None:
     assert st.session_state["lang"] == "de"
     assert st.session_state["dark_mode"] is False
     assert st.session_state["ui.dark_mode"] is False
+
+
+def test_reset_state_clears_profile_and_followups() -> None:
+    """Resetting the wizard should drop profile overrides and follow-up artifacts."""
+
+    st.session_state.clear()
+    ensure_state()
+
+    st.session_state[StateKeys.PROFILE].setdefault("company", {})["name"] = "ACME"
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "Name?"}]
+    st.session_state["fu_company.name"] = "pending"
+
+    reset_state()
+
+    profile = st.session_state[StateKeys.PROFILE]
+    assert profile.get("company", {}).get("name") in {"", None}
+    assert st.session_state[StateKeys.FOLLOWUPS] == []
+    assert not any(key.startswith("fu_") for key in st.session_state)

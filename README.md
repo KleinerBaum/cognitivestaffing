@@ -8,7 +8,7 @@ EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
 * Section headers, expanders, and inline follow-up cards now share one compact layout across all steps so follow-up prompts sit directly beneath the corresponding inputs, even inside the Onboarding extraction review tabs for meta fields.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
-* The wizard canvas now keeps the header distraction-free – the debug/API controls and per-step progress bubbles stay hidden so each step focuses purely on form inputs and inline follow-ups (API mode changes remain governed by config flags in the background).
+* The wizard canvas now keeps the header distraction-free – the debug/API controls and per-step progress bubbles stay hidden so each step focuses purely on form inputs and inline follow-ups (API mode changes remain governed by config flags in the background). When administrators set `ADMIN_DEBUG_PANEL=1`, those controls appear inside a collapsible expander above the wizard instead of occupying the main canvas.
 * Streamlit's built-in multi-page navigation is now fully hidden, ensuring the custom wizard sidebar (progress tracker plus step list) remains the only navigation surface and preventing legacy menus from reappearing.
 * Inline error boundaries keep the wizard session alive even when parsing or Streamlit widgets fail, surfacing bilingual guidance so SMEs can continue with manual edits instead of losing their progress.
 
@@ -16,7 +16,7 @@ DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
 * Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten nutzen ein gemeinsames Kompakt-Layout über alle Schritte, sodass Anschlussfragen direkt unter den relevanten Eingabefeldern erscheinen – inklusive Meta-Rückfragen innerhalb der Onboarding-Extraktions-Tabs.
 * Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.
-* Der Wizard-Canvas bleibt jetzt komplett aufgeräumt – Debug-/API-Steuerung und Fortschrittsblasen sind ausgeblendet, damit sich jede Stufe ausschließlich auf die Eingabefelder und Inline-Follow-ups konzentriert (API-Modus-Umschaltungen laufen weiterhin über die Konfiguration im Hintergrund).
+* Der Wizard-Canvas bleibt jetzt komplett aufgeräumt – Debug-/API-Steuerung und Fortschrittsblasen sind ausgeblendet, damit sich jede Stufe ausschließlich auf die Eingabefelder und Inline-Follow-ups konzentriert (API-Modus-Umschaltungen laufen weiterhin über die Konfiguration im Hintergrund). Sobald Administrator:innen `ADMIN_DEBUG_PANEL=1` setzen, erscheint das Panel als einklappbarer Bereich oberhalb des Wizards und stört den Canvas nicht.
 * Die integrierte Streamlit-Multipage-Navigation ist vollständig verborgen, sodass ausschließlich die kundenspezifische Wizard-Sidebar (Fortschrittsanzeige plus Schritteliste) sichtbar bleibt und keine Legacy-Menüs mehr auftauchen.
 * Fehlergrenzen direkt im Wizard sorgen dafür, dass Sitzungen bei Parser- oder Streamlit-Ausnahmen nicht abbrechen, sondern mit zweisprachiger Anleitung zum manuellen Weiterarbeiten geöffnet bleiben.
 
@@ -199,8 +199,8 @@ DE: Die Umschalter im Beschäftigungs-Panel enthalten nun zweisprachige Hilfetex
 
 Compliance screening controls / Compliance-Prüfungen
 
-EN: A dedicated “Compliance Checks” panel on the Skills & Requirements step lets recruiters mark background checks, reference calls, and portfolio submissions as mandatory with bilingual helper copy explaining what each screening covers.
-DE: Ein eigenes Panel „Compliance Checks“ im Schritt Skills & Requirements erlaubt es Recruiter:innen, Hintergrund-Checks, Referenzabfragen und Portfolio-Einreichungen als verpflichtend zu markieren – inklusive zweisprachiger Hilfetexte, die den Umfang der jeweiligen Prüfung beschreiben.
+EN: A dedicated “Compliance Checks” panel on the Skills & Requirements step lets recruiters mark background checks, reference calls, and portfolio submissions as mandatory with bilingual helper copy explaining what each screening covers. The Summary requirements tab renders the same toggles so edits stay synchronized and use identical text in both locations.
+DE: Ein eigenes Panel „Compliance Checks“ im Schritt Skills & Requirements erlaubt es Recruiter:innen, Hintergrund-Checks, Referenzabfragen und Portfolio-Einreichungen als verpflichtend zu markieren – inklusive zweisprachiger Hilfetexte, die den Umfang der jeweiligen Prüfung beschreiben. Im Summary-Tab stehen dieselben Umschalter bereit, wodurch Anpassungen überall synchron bleiben und dieselbe Wortwahl nutzen.
 
 EN: Those toggles now persist as the canonical schema fields `requirements.background_check_required`, `requirements.reference_check_required`, and `requirements.portfolio_required`, so downstream exports and automations can rely on them without custom mapping.
 DE: Diese Umschalter werden jetzt als kanonische Schemafelder `requirements.background_check_required`, `requirements.reference_check_required` und `requirements.portfolio_required` gespeichert, sodass nachgelagerte Exporte und Automationen ohne Sonder-Mapping darauf zugreifen können.
@@ -328,8 +328,8 @@ OPENAI_BASE_URL can be set to https://eu.api.openai.com/v1 (or another allowed e
 VECTOR_STORE_ID activates RAG lookups through OpenAI file search. Without it the assistant skips retrieval but still completes suggestions using Responses or the chat fallback chain.
 
 Debug panel toggle / Debug-Panel-Schalter:
-EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API in sync so downstream modules read the updated mode immediately.
-DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen.
+EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API in sync so downstream modules read the updated mode immediately. Set `ADMIN_DEBUG_PANEL=1` (env var or Streamlit secret) to show the expander; otherwise the controls stay hidden for regular users.
+DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen. Mit `ADMIN_DEBUG_PANEL=1` (Umgebung oder Streamlit-Secrets) wird der einklappbare Bereich eingeblendet, andernfalls bleibt er für reguläre Nutzer:innen verborgen.
 
 DE:
 
@@ -350,8 +350,8 @@ Mit OPENAI_BASE_URL lässt sich beispielsweise https://eu.api.openai.com/v1 konf
 VECTOR_STORE_ID aktiviert RAG-Abfragen über OpenAI File Search. Ohne gesetzte ID überspringt der Assistent die Recherche, führt Vorschläge aber weiterhin über Responses oder die Chat-Fallback-Kette aus.
 
 Debug-Panel-Schalter / Debug panel toggle:
-DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. klassische Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen.
-EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API aligned so downstream modules consume the updated mode instantly.
+DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. klassische Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen. Aktiviert wird er ausschließlich via `ADMIN_DEBUG_PANEL=1`, wodurch das Panel als expander angezeigt und ansonsten verborgen wird.
+EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API aligned so downstream modules consume the updated mode instantly. Flip the expander on by setting `ADMIN_DEBUG_PANEL=1`; without it, the canvas stays distraction-free for recruiters.
 
 Architecture at a Glance
 
