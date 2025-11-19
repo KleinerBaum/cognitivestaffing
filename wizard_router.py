@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import html
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Collection, Iterable, Mapping, Sequence, Final
+from typing import TYPE_CHECKING, Callable, Collection, Mapping, Sequence, Final
 
 from pydantic import ValidationError
 import streamlit as st
@@ -83,56 +82,6 @@ class _PageProgressSnapshot:
     missing_fields: int
     completion_ratio: float
 
-
-_COLLECTED_STYLE = """
-<style>
-.wizard-collected-panel {
-    border-radius: 1rem;
-    background: var(--surface-0, rgba(241, 245, 249, 0.65));
-    border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
-    padding: 1rem 1.25rem;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
-    color: var(--text-strong, #0f172a);
-}
-.wizard-collected-panel h4 {
-    margin: 0 0 0.35rem 0;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--text-strong, #0f172a);
-}
-.wizard-collected-panel p {
-    margin: 0 0 0.75rem 0;
-    color: var(--text-soft, rgba(15, 23, 42, 0.7));
-    line-height: 1.55;
-}
-.wizard-chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-}
-.wizard-chip {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    padding: 0.25rem 0.75rem;
-    background: var(--interactive-surface, rgba(59, 130, 246, 0.12));
-    color: var(--text-strong, #0f172a);
-    border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-.wizard-chip.is-empty {
-    background: transparent;
-    border-style: dashed;
-}
-@media (max-width: 640px) {
-    .wizard-collected-panel {
-        padding: 0.85rem 1rem;
-    }
-}
-</style>
-"""
 
 logger = logging.getLogger(__name__)
 
@@ -281,68 +230,6 @@ _NAVIGATION_STYLE = """
 """
 
 
-_PROGRESS_STYLE = """
-<style>
-    .wizard-progress-wrapper {
-        margin: 0.75rem 0 1.25rem;
-        display: flex;
-        gap: clamp(0.6rem, 1.25vw, 1rem);
-        align-items: stretch;
-        justify-content: center;
-    }
-
-    .wizard-progress-bubble {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.35rem;
-        text-align: center;
-    }
-
-    .wizard-progress-bubble button {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 50%;
-        border: 2px solid transparent;
-        color: #0f172a;
-        font-weight: 700;
-        font-size: 1rem;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .wizard-progress-bubble.is-current button {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
-        border-color: rgba(37, 99, 235, 0.65);
-    }
-
-    .wizard-progress-caption {
-        font-size: 0.85rem;
-        line-height: 1.25;
-        color: var(--text-soft, rgba(15, 23, 42, 0.72));
-        max-width: 8rem;
-    }
-
-    .wizard-progress-meta {
-        font-size: 0.75rem;
-        color: var(--text-faint, rgba(100, 116, 139, 0.95));
-    }
-
-    @media (max-width: 960px) {
-        .wizard-progress-wrapper {
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
-
-        .wizard-progress-bubble button {
-            width: 2.75rem;
-            height: 2.75rem;
-        }
-    }
-</style>
-"""
-
-
 class WizardRouter:
     """Synchronise wizard navigation between query params and Streamlit state."""
 
@@ -394,7 +281,7 @@ class WizardRouter:
     def run(self) -> None:
         """Render the current step with harmonised navigation controls."""
 
-        st.markdown(_COLLECTED_STYLE + _NAVIGATION_STYLE, unsafe_allow_html=True)
+        st.markdown(_NAVIGATION_STYLE, unsafe_allow_html=True)
         self._update_section_progress()
         self._ensure_current_is_valid()
         current_key = self._get_current_step_key()
@@ -410,8 +297,6 @@ class WizardRouter:
             st.session_state["_wizard_scroll_to_top"] = True
             self._state["_last_rendered_step"] = current_key
         self._maybe_scroll_to_top()
-        self._render_progress_tracker(current_key)
-        self._render_collected_panel(page)
         lang = st.session_state.get("lang", "de")
         summary_labels = [tr(de, en, lang=lang) for de, en in _SUMMARY_LABELS]
         st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
@@ -597,69 +482,6 @@ class WizardRouter:
         if isinstance(value, (int, float)):
             return bool(value)
         return True
-
-    def _render_collected_panel(self, page: WizardPage) -> None:
-        lang = st.session_state.get("lang", "de")
-        header = page.header_for(lang)
-        subheader = page.subheader_for(lang)
-        context = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        intro = self._resolve_intro(page, lang, context)
-        values = list(self._collect_summary_values(page.summary_fields, context))
-        with st.container():
-            st.markdown("<div class='wizard-collected-panel'>", unsafe_allow_html=True)
-            st.markdown(f"<h4>{html.escape(header)}</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p><em>{html.escape(subheader)}</em></p>", unsafe_allow_html=True)
-            if intro:
-                st.caption(intro)
-            if values:
-                chips = "".join(f"<span class='wizard-chip'>{html.escape(item)}</span>" for item in values)
-                st.markdown(f"<div class='wizard-chip-list'>{chips}</div>", unsafe_allow_html=True)
-            else:
-                st.caption(tr("Noch keine Angaben erfasst.", "No data captured yet."))
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    def _resolve_intro(self, page: WizardPage, lang: str, context: Mapping[str, object]) -> str:
-        for variant in page.intro_variants_for(lang):
-            try:
-                return variant.format(**self._flatten_context(context))
-            except Exception:
-                continue
-        return ""
-
-    def _flatten_context(self, context: Mapping[str, object]) -> Mapping[str, str]:
-        flat: dict[str, str] = {}
-        if not isinstance(context, Mapping):
-            return flat
-        company = context.get("company")
-        if isinstance(company, Mapping):
-            if company.get("name"):
-                flat["company_name"] = str(company.get("name"))
-            if company.get("industry"):
-                flat["company_industry"] = str(company.get("industry"))
-        position = context.get("position")
-        if isinstance(position, Mapping):
-            if position.get("job_title"):
-                flat["job_title"] = str(position.get("job_title"))
-        location = context.get("location")
-        if isinstance(location, Mapping):
-            if location.get("primary_city"):
-                flat["primary_city"] = str(location.get("primary_city"))
-            if location.get("country"):
-                flat["country"] = str(location.get("country"))
-        return flat
-
-    def _collect_summary_values(self, fields: Iterable[str], context: Mapping[str, object]) -> Iterable[str]:
-        for field in fields:
-            value = self._resolve_value(context, field, None)
-            if isinstance(value, str) and value.strip():
-                yield value.strip()
-            elif isinstance(value, (list, tuple, set)):
-                cleaned = [str(item).strip() for item in value if isinstance(item, str) and item.strip()]
-                if cleaned:
-                    for entry in cleaned:
-                        yield entry
-            elif value not in (None, "", []):
-                yield str(value)
 
     def _render_navigation(self, page: WizardPage, missing: Sequence[str]) -> None:
         prev_key = self._prev_key(page)
@@ -856,75 +678,8 @@ class WizardRouter:
             else:
                 self._state["skipped_steps"] = [step_key]
 
-    # ------------------------------------------------------------------
-    # Progress tracker helpers
-    # ------------------------------------------------------------------
-    def _render_progress_tracker(self, current_key: str) -> None:
-        if not self._pages:
-            return
-
-        st.markdown(_PROGRESS_STYLE, unsafe_allow_html=True)
-        snapshots = self._build_progress_snapshots()
-        snapshot_lookup = {snapshot.page.key: snapshot for snapshot in snapshots}
-        lang = st.session_state.get("lang", "de")
-        wrapper = st.container()
-        with wrapper:
-            st.markdown("<div class='wizard-progress-wrapper'>", unsafe_allow_html=True)
-            columns = st.columns(len(self._pages), gap="small")
-            style_chunks: list[str] = []
-            for position, (col, page) in enumerate(zip(columns, self._pages), start=1):
-                snapshot = snapshot_lookup.get(page.key)
-                if snapshot is None:
-                    continue
-                completion_ratio = snapshot.completion_ratio
-                bubble_id = f"wizard-progress-{page.key}"
-                color = self._interpolate_color(completion_ratio)
-                style_chunks.append(
-                    (
-                        f"#{bubble_id} button {{\n"
-                        f"    background: {color};\n"
-                        "    color: var(--text-strong, #0f172a);\n"
-                        "}\n"
-                        f"#{bubble_id} button:hover {{\n"
-                        "    filter: brightness(1.05);\n"
-                        "}"
-                    )
-                )
-                label = page.label_for(lang)
-                caption = page.subheader_for(lang)
-                percent_label = f"{int(round(completion_ratio * 100))}%"
-                wrapper_class = "wizard-progress-bubble"
-                if page.key == current_key:
-                    wrapper_class += " is-current"
-                col.markdown(
-                    f"<div class='{wrapper_class}' id='{bubble_id}'>",
-                    unsafe_allow_html=True,
-                )
-                clicked = col.button(
-                    str(position),
-                    key=f"wizard_progress_{page.key}",
-                    help=caption,
-                )
-                col.markdown("</div>", unsafe_allow_html=True)
-                col.markdown(
-                    f"<div class='wizard-progress-meta'>{percent_label}</div>",
-                    unsafe_allow_html=True,
-                )
-                col.markdown(
-                    f"<div class='wizard-progress-caption'>{html.escape(label)}</div>",
-                    unsafe_allow_html=True,
-                )
-                if clicked and page.key != current_key:
-                    self.navigate(page.key)
-            if style_chunks:
-                st.markdown(
-                    "<style>" + "\n\n".join(style_chunks) + "</style>",
-                    unsafe_allow_html=True,
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-
     def _build_progress_snapshots(self) -> list[_PageProgressSnapshot]:
-        """Return per-page completion stats for the progress tracker."""
+        """Return per-page completion stats for diagnostics and tests."""
 
         raw_completed = self._state.get("completed_steps")
         completed_steps: set[str]
@@ -975,15 +730,6 @@ class WizardRouter:
             return 1.0 if page_key in completed_steps else 0.0
         ratio = 1.0 - (missing / total)
         return max(0.0, min(1.0, ratio))
-
-    @staticmethod
-    def _interpolate_color(ratio: float) -> str:
-        base = (191, 219, 254)  # #bfdbfe
-        peak = (30, 64, 175)  # #1e40af
-        r = int(base[0] + (peak[0] - base[0]) * ratio)
-        g = int(base[1] + (peak[1] - base[1]) * ratio)
-        b = int(base[2] + (peak[2] - base[2]) * ratio)
-        return f"#{r:02x}{g:02x}{b:02x}"
 
     def _missing_fields_for_paths(
         self,

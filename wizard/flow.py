@@ -60,7 +60,6 @@ from pydantic import ValidationError
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-import config as app_config
 from utils.i18n import (
     tr,
     EMPLOYMENT_OVERTIME_TOGGLE_HELP,
@@ -11676,79 +11675,6 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
         )
 
 
-# --- Debug & admin controls ---
-
-
-def _render_debug_panel() -> None:
-    """Render toggles for diagnostics and API mode selection."""
-
-    lang = st.session_state.get("lang", "de") or "de"
-    st.session_state.setdefault("debug", False)
-    current_mode = "responses" if app_config.USE_RESPONSES_API else "classic"
-    if UIKeys.DEBUG_API_MODE not in st.session_state:
-        st.session_state[UIKeys.DEBUG_API_MODE] = current_mode
-
-    panel_title = tr("🧪 Debug & API-Modus", "🧪 Debug & API controls", lang=lang)
-    with st.expander(panel_title, expanded=bool(st.session_state.get("debug"))):
-        debug_label = tr(
-            "Technische Fehlermeldungen anzeigen",
-            "Show technical error details",
-            lang=lang,
-        )
-        debug_help = tr(
-            "Blendet zusätzliche Logs und Hinweise zur Diagnose ein.",
-            "Surfaces additional logs and hints to simplify diagnostics.",
-            lang=lang,
-        )
-        debug_enabled = st.checkbox(
-            debug_label,
-            key=UIKeys.DEBUG_DETAILS,
-            value=bool(st.session_state.get("debug")),
-            help=debug_help,
-        )
-        st.session_state["debug"] = debug_enabled
-
-        option_labels = {
-            "responses": tr(
-                "Responses API (empfohlen)",
-                "Responses API (recommended)",
-                lang=lang,
-            ),
-            "classic": tr(
-                "Classic Chat API (Fallback)",
-                "Classic Chat API (fallback)",
-                lang=lang,
-            ),
-        }
-        api_label = tr("LLM-API auswählen", "Choose LLM API", lang=lang)
-        selected_mode = st.radio(
-            api_label,
-            options=("responses", "classic"),
-            key=UIKeys.DEBUG_API_MODE,
-            format_func=lambda value: option_labels.get(value, value.title()),
-        )
-
-        if selected_mode == "responses" and not app_config.USE_RESPONSES_API:
-            app_config.set_api_mode(True)
-        elif selected_mode == "classic" and app_config.USE_RESPONSES_API:
-            app_config.set_api_mode(False)
-
-        status_caption = (
-            tr(
-                "Responses API aktiv – strukturierte Ausgaben und Streaming.",
-                "Responses API active – structured outputs and streaming.",
-                lang=lang,
-            )
-            if selected_mode == "responses"
-            else tr(
-                "Chat-Completions aktiv – nützlich für Debugging und Fallbacks.",
-                "Chat Completions active – useful for debugging and fallbacks.",
-                lang=lang,
-            )
-        )
-        st.caption(status_caption)
-
-
 # --- Navigation helper ---
 
 
@@ -11922,7 +11848,6 @@ def run_wizard() -> None:
     """Run the multi-step profile creation wizard."""
 
     st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
-    _render_debug_panel()
     schema, critical = _load_wizard_configuration()
     try:
         _run_wizard_v2(schema, critical)
