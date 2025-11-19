@@ -100,3 +100,83 @@ def test_summary_requirements_mirrors_compliance_toggles(monkeypatch: pytest.Mon
     assert requirements["background_check_required"] is True
     assert requirements["reference_check_required"] is False
     assert requirements["portfolio_required"] is True
+
+
+def test_compliance_toggles_share_single_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    profile = _base_requirements_profile()
+    st.session_state[StateKeys.PROFILE] = profile
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state["lang"] = "en"
+
+    profile_requirements = st.session_state[StateKeys.PROFILE]["requirements"]
+    assert profile_requirements is profile["requirements"]
+
+    background_key = str(ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED)
+    reference_key = str(ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED)
+    portfolio_key = str(ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED)
+
+    scripted_values = {
+        background_key: [True, None],
+        reference_key: [False, None],
+        portfolio_key: [True, None],
+    }
+    expected_state = {key: values[0] for key, values in scripted_values.items()}
+    call_counts: dict[str, int] = {key: 0 for key in scripted_values}
+
+    def fake_checkbox(
+        label: str,
+        *,
+        value: bool,
+        key: str | None,
+        help: str | None,
+        on_change: Any | None = None,
+        **_: Any,
+    ) -> bool:
+        assert key is not None
+        assert key in scripted_values, f"Unexpected checkbox key {key} ({label})"
+        index = call_counts[key]
+        call_counts[key] += 1
+        scripted = scripted_values[key][index]
+        if scripted is None:
+            # Second render should reuse the canonical state without diverging labels.
+            assert value is expected_state[key]
+            st.session_state[key] = value
+            return value
+        st.session_state[key] = scripted
+        if on_change is not None:
+            on_change()
+        return scripted
+
+    def fake_text_area(_label: str, *, value: str, **__: Any) -> str:
+        return value
+
+    monkeypatch.setattr(st, "checkbox", fake_checkbox)
+    monkeypatch.setattr(st, "text_area", fake_text_area)
+    monkeypatch.setattr(st, "info", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+
+    update_calls: list[tuple[str, Any]] = []
+
+    def record_update(path: str, value: Any, **__: Any) -> None:
+        update_calls.append((path, value))
+
+    monkeypatch.setattr("wizard.flow._update_profile", record_update)
+
+    wizard._summary_requirements()
+
+    for key, expected in expected_state.items():
+        requirement_key = key.split(".")[-1]
+        assert profile_requirements[requirement_key] is expected
+
+    wizard._render_compliance_toggle_group(profile_requirements)
+
+    for key, count in call_counts.items():
+        assert count == 2, f"Checkbox {key} should render twice (summary + requirements)."
+
+    recorded_updates = {path: value for path, value in update_calls}
+    for path in (
+        ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED,
+        ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED,
+        ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED,
+    ):
+        assert recorded_updates.get(path) is expected_state[str(path)]
