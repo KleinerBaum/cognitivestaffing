@@ -35,6 +35,9 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Follow-up questions now update the NeedAnalysis profile exclusively through the widget return values (or `value=` defaults) instead of mutating canonical `st.session_state["<field>"]` entries after the widgets have mounted, eliminating the recurring StreamlitAPIException about immutable session keys.
+  DE: Follow-up-Fragen aktualisieren das NeedAnalysis-Profil jetzt ausschließlich über die Widget-Rückgabewerte bzw. `value=`-Defaults und fassen keine kanonischen `st.session_state["<feld>"]`-Einträge mehr nach dem Rendern an – damit verschwinden die wiederkehrenden StreamlitAPIException-Meldungen zu unveränderlichen Session-Keys.
+
 - EN: Marked `company.name` as required in the NeedAnalysis JSON schema so the OpenAI Responses API no longer rejects the profile schema with “Missing 'name'” errors and extraction outputs stay aligned with downstream validators.
   DE: `company.name` im NeedAnalysis-JSON-Schema als Pflichtfeld markiert, damit die OpenAI-Responses-API das Profil nicht mehr mit „Missing 'name'“-Fehlern ablehnt und Extraktionsergebnisse mit den nachgelagerten Validatoren synchron bleiben.
 
