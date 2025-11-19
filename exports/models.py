@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from core.schema import RecruitingWizard, WIZARD_KEYS_CANONICAL
+from core.schema import (
+    RecruitingWizard,
+    WIZARD_KEYS_CANONICAL,
+    canonicalize_wizard_payload,
+)
 
 
 @dataclass(slots=True)
@@ -21,7 +25,8 @@ class RecruitingWizardExport:
         if isinstance(payload, RecruitingWizard):
             model = payload
         else:
-            model = RecruitingWizard.model_validate(payload)
+            canonical = canonicalize_wizard_payload(payload)
+            model = RecruitingWizard.model_validate(canonical)
         return cls(payload=model)
 
     def to_dict(self) -> dict[str, Any]:

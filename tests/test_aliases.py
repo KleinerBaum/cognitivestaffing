@@ -12,9 +12,11 @@ from core.schema import (
     WIZARD_ALIASES,
     WIZARD_KEYS_CANONICAL,
     canonicalize_profile_payload,
+    canonicalize_wizard_payload,
 )
 from models.need_analysis import NeedAnalysisProfile
 from pages import WIZARD_PAGES
+from exports.models import RecruitingWizardExport
 
 
 def _set_path(payload: dict[str, object], path: str, value: object) -> None:
@@ -78,6 +80,47 @@ def test_alias_mapping_complete() -> None:
             assert canonical_value == sentinel, f"Alias '{alias}' value changed unexpectedly for '{target}'"
 
 
+def test_wizard_alias_mapping_complete() -> None:
+    """Ensure wizard aliases map into canonical RecruitingWizard fields."""
+
+    canonical_paths = set(WIZARD_KEYS_CANONICAL)
+    for alias, target in WIZARD_ALIASES.items():
+        assert target in canonical_paths, f"Wizard alias target '{target}' must be canonical"
+
+        sentinel = f"wizard-alias:{alias}"
+        payload: dict[str, object] = {}
+        _set_path(payload, alias, sentinel)
+        canonical = canonicalize_wizard_payload(payload)
+
+        if target.startswith(f"{alias}."):
+            alias_container = _get_path(canonical, alias)
+            assert isinstance(
+                alias_container, Mapping
+            ), f"Wizard alias '{alias}' should keep nested mapping for '{target}'"
+        else:
+            assert (
+                _get_path(canonical, alias) is None
+            ), f"Wizard alias '{alias}' leaked into canonical payload"
+
+        canonical_value = _get_path(canonical, target)
+        assert canonical_value not in (None, {}), f"Wizard alias '{alias}' missing target '{target}'"
+        if isinstance(canonical_value, list):
+            assert canonical_value, f"Wizard alias '{alias}' produced empty list for '{target}'"
+        else:
+            assert canonical_value == sentinel, f"Wizard alias '{alias}' changed value unexpectedly"
+
+
+def test_recruiting_wizard_export_handles_legacy_aliases() -> None:
+    """Export helper should accept legacy wizard fields via alias mapping."""
+
+    payload = {"position": {"department": "Business Operations"}}
+    export = RecruitingWizardExport.from_payload(payload)
+
+    assert (
+        export.payload.department.name == "Business Operations"
+    ), "Alias values must populate the canonical department.name"
+
+
 OPTIONAL_WIZARD_FIELDS = {
     "company.benefits",
     "company.brand_name",
@@ -92,10 +135,63 @@ OPTIONAL_WIZARD_FIELDS = {
     "position.customer_contact_details",
     "position.customer_contact_required",
     "position.reporting_manager_name",
+    "position.job_title",
+    "position.role_summary",
+    "position.seniority_level",
     "sources.root",
     "requirements.background_check_required",
+    "requirements.certificates",
     "requirements.reference_check_required",
     "requirements.portfolio_required",
+    "employment.job_type",
+    "employment.work_policy",
+    "process.interview_stages",
+    "role.title",
+    "role.purpose",
+    "role.outcomes",
+    "role.employment_type",
+    "role.work_model",
+    "role.work_location",
+    "role.seniority",
+    "role.reports_to",
+    "role.on_call",
+    "tasks.core",
+    "tasks.secondary",
+    "tasks.success_metrics",
+    "skills.must_have",
+    "skills.nice_to_have",
+    "skills.tools",
+    "skills.languages",
+    "skills.certifications",
+    "benefits.salary_range",
+    "benefits.currency",
+    "benefits.bonus",
+    "benefits.equity",
+    "benefits.perks",
+    "benefits.wellbeing",
+    "benefits.relocation_support",
+    "benefits.on_call",
+    "interview_process.steps",
+    "interview_process.interviewers",
+    "interview_process.evaluation_criteria",
+    "interview_process.decision_timeline",
+    "interview_process.notes",
+}
+
+
+LEGACY_WIZARD_FIELDS = {
+    "compensation.benefits",
+    "compensation.bonus_percentage",
+    "compensation.commission_structure",
+    "compensation.equity_offered",
+    "compensation.period",
+    "compensation.salary_max",
+    "compensation.salary_min",
+    "employment.travel_required",
+    "employment.visa_sponsorship",
+    "process.application_instructions",
+    "process.onboarding_process",
+    "process.phases",
 }
 
 
@@ -135,7 +231,9 @@ def test_profile_paths_cover_schema_and_ui() -> None:
     assert not missing_wizard, f"Wizard pages missing coverage for: {sorted(missing_wizard)}"
 
     stray = wizard_paths - canonical_wizard_paths
-    assert not stray, f"Wizard pages reference non-canonical paths: {sorted(stray)}"
+    allowed_alias = {path for path in stray if path in WIZARD_ALIASES or path in LEGACY_WIZARD_FIELDS}
+    unexpected_stray = stray - allowed_alias
+    assert not unexpected_stray, f"Wizard pages reference unknown paths: {sorted(unexpected_stray)}"
 
     alias_coverage = {alias for alias, target in WIZARD_ALIASES.items() if target in wizard_paths}
     legacy_coverage = wizard_paths | alias_coverage
