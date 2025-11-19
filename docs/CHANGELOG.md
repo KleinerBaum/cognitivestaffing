@@ -224,3 +224,7 @@ Dokumentation: README und Changelog aktualisiert, Versionsnummern auf 1.0.0 gese
 fix: add bilingual placeholder hints to the job-ad manual additions expander so SMEs see example titles and text guidance
 
 Fix: Zweisprachige Platzhalter-Hinweise für den Bereich „Manuelle Ergänzungen“ hinzugefügt, damit Fachexpert:innen Beispieltitel und Texthinweise sehen
+
+fix: preserve NeedAnalysis alias fields (department/team) prior to validation so HR data is not pruned
+
+Fix: NeedAnalysis-Aliasfelder (Department/Team) vor der Validierung bewahren, damit HR-Daten nicht entfernt werden
