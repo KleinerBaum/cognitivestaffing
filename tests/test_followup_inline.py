@@ -16,6 +16,7 @@ from wizard import (
     _get_profile_state,
     _missing_fields_for_section,
     _render_followup_question,
+    _render_followups_for_fields,
     _render_followups_for_section,
     _update_profile,
     get_missing_critical_fields,
@@ -173,7 +174,7 @@ def test_followup_section_shows_rag_hint(monkeypatch: pytest.MonkeyPatch, lang: 
 
     SessionBootstrap(
         lang=lang,
-        followups=[make_followup("company.name", "Name?")],
+        followups=[make_followup("company.brand_name", "Name?")],
         rag_context_skipped=True,
     ).apply()
     seen: list[str] = []
@@ -190,7 +191,7 @@ def test_followup_section_shows_rag_hint(monkeypatch: pytest.MonkeyPatch, lang: 
 def test_followup_section_shows_inline_meta(monkeypatch: pytest.MonkeyPatch) -> None:
     """Inline follow-up cards should include the auto-save caption."""
 
-    SessionBootstrap(followups=[make_followup("company.name", "Name?")]).apply()
+    SessionBootstrap(followups=[make_followup("company.brand_name", "Name?")]).apply()
 
     seen_markdown: list[str] = []
 
@@ -203,6 +204,39 @@ def test_followup_section_shows_inline_meta(monkeypatch: pytest.MonkeyPatch) -> 
     _render_followups_for_section(("company.",), {})
 
     assert any("wizard-followup-meta" in text for text in seen_markdown)
+
+
+def test_section_skips_inline_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """General sections should not re-render inline follow-ups."""
+
+    question = make_followup("company.name", "Name?")
+    SessionBootstrap(followups=[question]).apply()
+
+    rendered: list[dict] = []
+
+    class _Container:
+        def __enter__(self) -> "_Container":  # noqa: D401 - simple stub
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def markdown(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        def caption(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+    monkeypatch.setattr(st, "container", lambda: _Container())
+    monkeypatch.setattr(st, "markdown", lambda *_a, **_k: None)
+    monkeypatch.setattr(st, "caption", lambda *_a, **_k: None)
+    monkeypatch.setattr("wizard.flow._render_followup_question", lambda q, *_a, **_k: rendered.append(q))
+
+    _render_followups_for_section(("company.",), {})
+    assert rendered == []
+
+    _render_followups_for_fields(("company.name",), {})
+    assert rendered == [question]
 
 
 def test_missing_fields_include_contact_email_when_extraction_list_empty() -> None:
