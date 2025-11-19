@@ -10,6 +10,8 @@ Changed / Geändert
   DE: Das Debug-/API-Panel, die Eingabe-Chips sowie die Fortschrittsblasen wurden in allen Wizard-Schritten entfernt, damit die Oberfläche aufgeräumt bleibt – API-Umschaltungen laufen weiterhin zentral über die Konfiguration.
 - EN: Generated the NeedAnalysis JSON schema from the Pydantic model and embedded it into the vacancy extraction schema so every position/department/team field remains available throughout extraction, validation, and exports without manual drift.
   DE: Das NeedAnalysis-JSON-Schema wird jetzt direkt aus dem Pydantic-Modell erzeugt und im Vacancy-Extraktionsschema wiederverwendet, damit alle Positions-/Abteilungs-/Team-Felder von der Extraktion über die Validierung bis zu den Exporten ohne manuelle Abweichungen bestehen bleiben.
+- EN: Locked down every Responses JSON schema: the pipeline tests now assert `additionalProperties: false` across all nested objects and the structured Job Ad schema requires the metadata block (tone plus target audience), preventing stray keys and missing context in model outputs.
+  DE: Sämtliche Responses-JSON-Schemas wurden verschärft – die Pipeline-Tests prüfen nun `additionalProperties: false` in allen verschachtelten Objekten und das strukturierte Job-Ad-Schema verlangt den Metadatenblock (Ton und Zielgruppe), sodass keine unerwarteten Felder mehr auftauchen und keine Pflichtkontexte fehlen.
 
 Fixed / Behoben
 

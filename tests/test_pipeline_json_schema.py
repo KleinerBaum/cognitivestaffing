@@ -91,6 +91,7 @@ def test_extract_vacancy_passes_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     assert schema_cfg["name"] == "VacancyExtraction"
     assert schema_cfg["schema"] == VACANCY_EXTRACTION_SCHEMA
     assert not _contains_json_ref(schema_cfg["schema"])
+    _assert_objects_disallow_additional_properties(VACANCY_EXTRACTION_SCHEMA)
     assert captured["model"] == "model-extraction"
 
 
@@ -108,6 +109,7 @@ def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> Non
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "FollowUpQuestions"
     assert schema_cfg["schema"] == FOLLOW_UPS_SCHEMA
+    _assert_objects_disallow_additional_properties(FOLLOW_UPS_SCHEMA)
     assert captured["tools"] == [
         {
             "type": "file_search",
@@ -150,6 +152,7 @@ def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "CandidateProfileSummary"
     assert schema_cfg["schema"] == PROFILE_SUMMARY_SCHEMA
+    _assert_objects_disallow_additional_properties(PROFILE_SUMMARY_SCHEMA)
     assert captured["model"] == "model-profile"
 
 
@@ -167,6 +170,7 @@ def test_candidate_matching_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "CandidateMatches"
     assert schema_cfg["schema"] == CANDIDATE_MATCHES_SCHEMA
+    _assert_objects_disallow_additional_properties(CANDIDATE_MATCHES_SCHEMA)
     assert captured["model"] == "model-matching"
 
 
@@ -184,6 +188,7 @@ def test_job_ad_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "JobAd"
     assert schema_cfg["schema"] == JOB_AD_SCHEMA
+    _assert_objects_disallow_additional_properties(JOB_AD_SCHEMA)
     assert captured["model"] == "model-job-ad"
 
 
