@@ -2397,6 +2397,54 @@ def test_chat_stream_missing_completion_event(monkeypatch, caplog):
     assert any("missing completion event" in message for message in caplog.messages)
 
 
+def test_chat_stream_missing_final_payload_triggers_retry(monkeypatch):
+    """Streaming should retry when no final payload is returned."""
+
+    class _DummyStream:
+        def __init__(self) -> None:
+            self._events = iter(
+                [
+                    {"type": "response.output_text.delta", "delta": "Hallo"},
+                ]
+            )
+
+        def __enter__(self):  # noqa: D401
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401,B027
+            return False
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            return next(self._events)
+
+        def get_final_response(self):
+            return None
+
+    responses_calls = {"create": 0}
+
+    class _DummyResponses:
+        def stream(self, **kwargs: Any):  # noqa: D401
+            return _DummyStream()
+
+        def create(self, **kwargs: Any):  # noqa: D401
+            responses_calls["create"] += 1
+            return SimpleNamespace(output_text="Recovered", usage={"input_tokens": 1}, id="resp-1")
+
+    dummy_client = SimpleNamespace(responses=_DummyResponses())
+
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+
+    stream = openai_utils.api.ChatStream({"input": []}, config.REASONING_MODEL, task=None)
+
+    chunks = list(stream)
+    assert chunks == ["Hallo"]
+    assert stream.result.content == "Recovered"
+    assert responses_calls["create"] == 1
+
+
 def test_chat_stream_missing_completion_event_chat_fallback(monkeypatch):
     """Streaming should fall back to the Chat Completions API when Responses retry fails."""
 

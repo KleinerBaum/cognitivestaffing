@@ -1489,6 +1489,11 @@ class ChatStream(Iterable[str]):
                                 yield chunk
                     try:
                         final_response = stream.get_final_response()
+                        if final_response is None:
+                            missing_completion_event = True
+                            logger.warning(
+                                "Responses stream returned no final payload; retrying without streaming.",
+                            )
                     except RuntimeError as error:
                         if _is_missing_completion_event_error(error):
                             missing_completion_event = True
@@ -1496,7 +1501,6 @@ class ChatStream(Iterable[str]):
                                 "Responses stream missing completion event; retrying without streaming.",
                                 exc_info=error,
                             )
-                            final_response = self._recover_stream_response(client)
                         else:
                             raise
         except (OpenAIError, RuntimeError) as error:
