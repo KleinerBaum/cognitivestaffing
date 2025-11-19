@@ -35,6 +35,9 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Marked `company.name` as required in the NeedAnalysis JSON schema so the OpenAI Responses API no longer rejects the profile schema with “Missing 'name'” errors and extraction outputs stay aligned with downstream validators.
+  DE: `company.name` im NeedAnalysis-JSON-Schema als Pflichtfeld markiert, damit die OpenAI-Responses-API das Profil nicht mehr mit „Missing 'name'“-Fehlern ablehnt und Extraktionsergebnisse mit den nachgelagerten Validatoren synchron bleiben.
+
 - EN: Corrected the Interview Guide JSON schema so the Responses API sees every top-level property (including the required `label` field) and stops returning “Missing 'label'” errors, ensuring the wizard keeps the AI-generated guide instead of falling back to the deterministic template.
   DE: Das JSON-Schema für den Interviewleitfaden wurde korrigiert, sodass die Responses-API nun alle obersten Eigenschaften (einschließlich des Pflichtfelds `label`) erkennt, keine „Missing 'label'“-Fehler mehr ausgibt und der Wizard den KI-Guide nicht länger durch die deterministische Vorlage ersetzt.
 - EN: Applied the NeedAnalysis and RecruitingWizard alias dictionaries whenever payloads flow from extraction, wizard forms, or exports into the canonical models, so legacy keys like `role.department` or `company.headquarters` no longer trigger validation errors.
