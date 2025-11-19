@@ -819,3 +819,9 @@ footer, #MainMenu {
     background: var(--surface-accent-soft);
   }
 }
+
+/* Hide the built-in Streamlit multipage navigation so only the custom wizard sidebar is visible */
+nav[data-testid="stSidebarNav"],
+[data-testid="stSidebarNav"] {
+  display: none !important;
+}
