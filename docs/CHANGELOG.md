@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Tightened the job-ad, interview-guide, and follow-up question prompts so every section explicitly mirrors the structured vacancy data, uses inclusive/bias-free HR language, references the relevant schema fields (job title, seniority, work policy, etc.), and only asks for job-relevant clarifications with realistic answer suggestions.
+  DE: Die Prompts für Stellenanzeigen, Interviewleitfäden und Nachfragen wurden geschärft: Alle Abschnitte spiegeln jetzt die strukturierten Vakanzdaten exakt wider, nutzen inklusive HR-Terminologie, verweisen auf die passenden Schemafelder (Jobtitel, Seniorität, Arbeitsmodell etc.) und stellen nur noch jobrelevante, realistische Rückfragen samt Antwortoptionen.
+
 - EN: Strengthened the interview guide generator prompt so competency clusters stem from the vacancy profile, each competency powers at least one question, and the question list always mixes technical, behavioural, and cultural angles with two scoring criteria per entry.
   DE: Den Interview-Guide-Prompt erweitert, damit die Kompetenzcluster aus dem Vakanzprofil abgeleitet werden, jede Kompetenz mindestens eine Frage erhält und die Fragenliste stets technische, verhaltensorientierte und kulturelle Aspekte inklusive zweier Bewertungskriterien je Eintrag abdeckt.
 
