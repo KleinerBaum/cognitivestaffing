@@ -717,6 +717,29 @@ def test_company_step_surfaces_warning_when_contact_fields_missing(
     assert "Kontakt-E-Mail" in warnings[-1]
 
 
+def test_company_required_validators_use_profile_when_widget_state_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Validators should reuse profile data when widget state is unavailable."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state.pop(ProfilePaths.COMPANY_CONTACT_EMAIL, None)
+    st.session_state.pop(ProfilePaths.LOCATION_PRIMARY_CITY, None)
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    page = router._page_map["company"]
+    missing = router._missing_required_fields(page)
+
+    assert str(ProfilePaths.COMPANY_CONTACT_EMAIL) not in missing
+    assert str(ProfilePaths.LOCATION_PRIMARY_CITY) not in missing
+
+
 def test_critical_followup_blocks_until_answered(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:

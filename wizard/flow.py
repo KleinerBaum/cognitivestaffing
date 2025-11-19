@@ -6808,9 +6808,17 @@ def _step_company() -> None:
         ),
         value_formatter=_string_or_empty,
     )
+    contact_email_label = tr("Kontakt-E-Mail", "Contact email")
+    contact_email_key = str(ProfilePaths.COMPANY_CONTACT_EMAIL)
+    contact_email_state = st.session_state.get(contact_email_key)
+    contact_email_missing = contact_email_key in missing_here or not (
+        isinstance(contact_email_state, str) and contact_email_state.strip()
+    )
+    if contact_email_missing:
+        contact_email_label += REQUIRED_SUFFIX
     contact_email_value = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
-        tr("Kontakt-E-Mail", "Contact email"),
+        contact_email_label,
         widget_factory=contact_cols[1].text_input,
         placeholder=tr("E-Mail-Adresse eintragen", "Enter the email address"),
         value_formatter=_string_or_empty,
@@ -6840,9 +6848,17 @@ def _step_company() -> None:
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
     city_col, country_col = st.columns(2, gap="small")
+    city_label = tr("Stadt", "City")
+    primary_city_key = str(ProfilePaths.LOCATION_PRIMARY_CITY)
+    primary_city_state = st.session_state.get(primary_city_key)
+    city_missing = primary_city_key in missing_here or not (
+        isinstance(primary_city_state, str) and primary_city_state.strip()
+    )
+    if city_missing:
+        city_label += REQUIRED_SUFFIX
     city_lock = _field_lock_config(
         ProfilePaths.LOCATION_PRIMARY_CITY,
-        tr("Stadt", "City"),
+        city_label,
         container=city_col,
         context="step",
     )

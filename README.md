@@ -93,6 +93,9 @@ DE: Der Unternehmensschritt lässt die Navigation erst weiterlaufen, wenn `compa
 EN: Tightened the Company step gating so clearing `company.contact_email` or `location.primary_city` immediately disables “Next” again, surfacing the inline warning from `persist_contact_email()`/`persist_primary_city()` before recruiters can advance.
 DE: Die Navigation im Unternehmensschritt verriegelt sich nun sofort wieder, sobald `company.contact_email` oder `location.primary_city` geleert werden – die Inline-Warnungen aus `persist_contact_email()` bzw. `persist_primary_city()` erscheinen direkt, bevor Recruiter:innen weiterklicken können.
 
+EN: Required badges on the Company-step contact email and city inputs now track the live widget state, and WizardRouter falls back to stored profile data whenever a rerun drops widget values, so clearing either field instantly re-locks “Next” and shows the bilingual warning banner again.
+DE: Die Pflicht-Badges für Kontakt-E-Mail und Stadt im Unternehmensschritt orientieren sich jetzt am aktuellen Widget-Status, und der WizardRouter greift auf die Profilwerte zurück, sobald ein Rerun Widget-Daten verliert – dadurch sperrt „Weiter“ sofort erneut und der zweisprachige Warnhinweis erscheint wieder, sobald eines der Felder geleert wird.
+
 EN: Streamlined the sidebar: navigation links are gone, language and dark-mode switches sit beneath each other with flag icons, and salary estimates now launch automatically once job title plus a location hint are present, listing required fields, summarising the top five drivers in a single sentence, and surfacing the raw calculation details.
 DE: Sidebar verschlankt: Navigations-Links entfernt, Sprach- und Dark-Mode-Umschalter stehen untereinander mit Flaggen-Icons, und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen – inklusive Pflichtfeldliste, Ein-Satz-Zusammenfassung der fünf wichtigsten Faktoren und sichtbarer Berechnungsdetails.
 
