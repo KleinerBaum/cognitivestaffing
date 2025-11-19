@@ -1,3 +1,21 @@
+from __future__ import annotations
+
+import json
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+
+def _load_json_schema(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as schema_file:
+        return json.load(schema_file)
+
+
+_NEED_ANALYSIS_SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "need_analysis.schema.json"
+NEED_ANALYSIS_SCHEMA: dict[str, Any] = _load_json_schema(_NEED_ANALYSIS_SCHEMA_PATH)
+_NEED_ANALYSIS_PROPERTIES: dict[str, Any] = deepcopy(NEED_ANALYSIS_SCHEMA.get("properties", {}))
+
+
 SKILL_ENTRY_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -15,40 +33,22 @@ SKILL_ARRAY_SCHEMA = {
     "items": SKILL_ENTRY_SCHEMA,
 }
 
-VACANCY_EXTRACTION_SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "VacancyExtraction",
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["language", "role", "company", "skills", "responsibilities"],
-    "properties": {
-        "language": {"type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$"},
-        "source": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "type": {"type": "string", "enum": ["url", "pdf", "text", "manual"]},
-                "url": {"type": "string", "format": "uri"},
-                "collected_at": {"type": "string", "format": "date-time"},
-            },
+_VACANCY_PROPERTIES: dict[str, Any] = {
+    "language": {"type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$"},
+    "source": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "type": {"type": "string", "enum": ["url", "pdf", "text", "manual"]},
+            "url": {"type": "string", "format": "uri"},
+            "collected_at": {"type": "string", "format": "date-time"},
         },
-        "company": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["name"],
-            "properties": {
-                "name": {"type": "string", "minLength": 1},
-                "website": {"type": "string", "format": "uri"},
-                "location": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "city": {"type": "string"},
-                        "country_code": {"type": "string", "pattern": "^[A-Z]{2}$"},
-                    },
-                },
-            },
-        },
+    },
+}
+_VACANCY_PROPERTIES.update(deepcopy(_NEED_ANALYSIS_PROPERTIES))
+
+_VACANCY_PROPERTIES.update(
+    {
         "role": {
             "type": "object",
             "additionalProperties": False,
@@ -69,6 +69,20 @@ VACANCY_EXTRACTION_SCHEMA = {
                 "travel_required_percent": {"type": "number", "minimum": 0, "maximum": 100},
                 "relocation": {"type": "boolean"},
                 "remote_timezone": {"type": "string"},
+                "team_structure": {"type": "string"},
+                "reporting_line": {"type": "string"},
+                "reporting_manager_name": {"type": "string"},
+                "role_summary": {"type": "string"},
+                "occupation_label": {"type": "string"},
+                "occupation_uri": {"type": "string"},
+                "occupation_group": {"type": "string"},
+                "supervises": {"type": "integer"},
+                "performance_indicators": {"type": "string"},
+                "decision_authority": {"type": "string"},
+                "key_projects": {"type": "string"},
+                "team_size": {"type": "integer"},
+                "customer_contact_required": {"type": "boolean"},
+                "customer_contact_details": {"type": "string"},
             },
         },
         "experience": {
@@ -85,6 +99,14 @@ VACANCY_EXTRACTION_SCHEMA = {
             "properties": {
                 "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
                 "period": {"type": "string", "enum": ["year", "month", "hour"]},
+                "salary_provided": {"type": "boolean"},
+                "salary_min": {"type": "number", "minimum": 0},
+                "salary_max": {"type": "number", "minimum": 0},
+                "variable_pay": {"type": "boolean"},
+                "bonus_percentage": {"type": "number"},
+                "commission_structure": {"type": "string"},
+                "equity_offered": {"type": "boolean"},
+                "benefits": {"type": "array", "items": {"type": "string"}},
                 "min": {"type": "number", "minimum": 0},
                 "max": {"type": "number", "minimum": 0},
                 "bonus": {"type": "string"},
@@ -116,7 +138,6 @@ VACANCY_EXTRACTION_SCHEMA = {
             },
         },
         "technologies": SKILL_ARRAY_SCHEMA,
-        "responsibilities": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "benefits": {"type": "array", "items": {"type": "string"}},
         "education": {
             "type": "object",
@@ -150,7 +171,28 @@ VACANCY_EXTRACTION_SCHEMA = {
             "properties": {"visa_sponsorship": {"type": "boolean"}, "sensitive_data": {"type": "boolean"}},
         },
         "notes": {"type": "array", "items": {"type": "string"}},
-    },
+    }
+)
+
+_company_schema = _VACANCY_PROPERTIES.get("company")
+if isinstance(_company_schema, dict):
+    _company_props = _company_schema.setdefault("properties", {})
+    _company_props["location"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "city": {"type": "string"},
+            "country_code": {"type": "string", "pattern": "^[A-Z]{2}$"},
+        },
+    }
+
+VACANCY_EXTRACTION_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "VacancyExtraction",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["language", "role", "company", "skills", "responsibilities"],
+    "properties": _VACANCY_PROPERTIES,
 }
 
 FOLLOW_UPS_SCHEMA = {
