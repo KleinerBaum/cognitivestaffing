@@ -309,6 +309,24 @@ LIST_FOLLOWUP_FIELDS: Final[set[str]] = {
     str(ProfilePaths.COMPENSATION_BENEFITS),
 }
 
+INLINE_FOLLOWUP_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.COMPANY_NAME),
+    str(ProfilePaths.COMPANY_CONTACT_NAME),
+    str(ProfilePaths.COMPANY_CONTACT_EMAIL),
+    str(ProfilePaths.COMPANY_CONTACT_PHONE),
+    str(ProfilePaths.DEPARTMENT_NAME),
+    str(ProfilePaths.LOCATION_PRIMARY_CITY),
+    str(ProfilePaths.LOCATION_COUNTRY),
+    str(ProfilePaths.META_TARGET_START_DATE),
+    str(ProfilePaths.POSITION_JOB_TITLE),
+    str(ProfilePaths.POSITION_REPORTING_MANAGER_NAME),
+    str(ProfilePaths.POSITION_ROLE_SUMMARY),
+    "responsibilities.items",
+    "requirements.hard_skills_required",
+    "requirements.soft_skills_required",
+    str(ProfilePaths.TEAM_REPORTING_LINE),
+}
+
 ESCO_SKILL_ENDPOINT: Final[str] = "https://ec.europa.eu/esco/api/resource/skill"
 
 _SKILL_GROUP_LABELS: Final[dict[str, tuple[str, str]]] = {
@@ -5367,17 +5385,41 @@ def _render_followup_question(q: dict, data: dict) -> None:
     container.markdown("</div>", unsafe_allow_html=True)
 
 
-def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
+def _render_followups_for_section(
+    prefixes: Iterable[str],
+    data: dict,
+    *,
+    exact: bool = False,
+    container: DeltaGenerator | None = None,
+    container_factory: Callable[[], DeltaGenerator] | None = None,
+) -> None:
     """Render heading and follow-up questions matching ``prefixes``."""
 
-    followups = [
-        q
-        for q in st.session_state.get(StateKeys.FOLLOWUPS, [])
-        if any(q.get("field", "").startswith(p) for p in prefixes)
-    ]
-    if followups:
+    normalized_prefixes = tuple(str(prefix) for prefix in prefixes if prefix)
+    if not normalized_prefixes:
+        return
+
+    followup_items: list[dict] = []
+    pending = st.session_state.get(StateKeys.FOLLOWUPS, []) or []
+    for question in pending:
+        field = str(question.get("field", ""))
+        if not field:
+            continue
+        if not any((field == prefix) if exact else field.startswith(prefix) for prefix in normalized_prefixes):
+            continue
+        if not exact and field in INLINE_FOLLOWUP_FIELDS:
+            continue
+        followup_items.append(question)
+
+    if followup_items:
         _ensure_followup_styles()
-        with st.container():
+        target_container = container
+        if target_container is None:
+            if container_factory is not None:
+                target_container = container_factory()
+            else:
+                target_container = st.container()
+        with target_container:
             st.markdown("<div class='wizard-followup-card'>", unsafe_allow_html=True)
             st.markdown(
                 tr(
@@ -5399,9 +5441,30 @@ def _render_followups_for_section(prefixes: Iterable[str], data: dict) -> None:
                         "Contextual suggestions require a configured vector store (VECTOR_STORE_ID).",
                     )
                 )
-            for q in list(followups):
+            for q in list(followup_items):
                 _render_followup_question(q, data)
             st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_followups_for_fields(
+    fields: Iterable[str],
+    data: dict,
+    *,
+    container: DeltaGenerator | None = None,
+    container_factory: Callable[[], DeltaGenerator] | None = None,
+) -> None:
+    """Render follow-up cards for explicit ``fields`` directly inline."""
+
+    normalized_fields = tuple(str(field) for field in fields if field)
+    if not normalized_fields:
+        return
+    _render_followups_for_section(
+        normalized_fields,
+        data,
+        exact=True,
+        container=container,
+        container_factory=container_factory,
+    )
 
 
 def _render_followups_for_step(page_key: str, data: dict) -> None:
@@ -6907,6 +6970,11 @@ def _step_company() -> None:
         )
         if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
             st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+        _render_followups_for_fields(
+            (ProfilePaths.COMPANY_NAME,),
+            data,
+            container_factory=st.container,
+        )
 
         hq_col, size_col, industry_col = st.columns(3, gap="small")
         hq_initial = _string_or_empty(company.get("hq_location"))
@@ -6974,6 +7042,11 @@ def _step_company() -> None:
         placeholder=tr(*COMPANY_CONTACT_NAME_PLACEHOLDER),
         value_formatter=_string_or_empty,
     )
+    _render_followups_for_fields(
+        (ProfilePaths.COMPANY_CONTACT_NAME,),
+        data,
+        container_factory=contact_cols[0].container,
+    )
     contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL)
     contact_email_key = str(ProfilePaths.COMPANY_CONTACT_EMAIL)
     contact_email_state = st.session_state.get(contact_email_key)
@@ -6995,6 +7068,11 @@ def _step_company() -> None:
     _, contact_email_error = persist_contact_email(contact_email_value)
     if contact_email_error:
         contact_cols[1].error(tr(*contact_email_error))
+    _render_followups_for_fields(
+        (ProfilePaths.COMPANY_CONTACT_EMAIL,),
+        data,
+        container_factory=contact_cols[1].container,
+    )
     phone_label = tr(*COMPANY_CONTACT_PHONE_LABEL)
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here:
         phone_label += REQUIRED_SUFFIX
@@ -7007,6 +7085,11 @@ def _step_company() -> None:
     )
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    _render_followups_for_fields(
+        (ProfilePaths.COMPANY_CONTACT_PHONE,),
+        data,
+        container_factory=contact_cols[2].container,
+    )
 
     city_col, country_col = st.columns(2, gap="small")
     city_label = tr(*PRIMARY_CITY_LABEL)
@@ -7038,6 +7121,11 @@ def _step_company() -> None:
     _, primary_city_error = persist_primary_city(city_value_input)
     if primary_city_error:
         city_col.error(tr(*primary_city_error))
+    _render_followups_for_fields(
+        (ProfilePaths.LOCATION_PRIMARY_CITY,),
+        data,
+        container_factory=city_col.container,
+    )
 
     country_label = tr(*PRIMARY_COUNTRY_LABEL)
     if ProfilePaths.LOCATION_COUNTRY in missing_here:
@@ -7059,6 +7147,11 @@ def _step_company() -> None:
     )
     if ProfilePaths.LOCATION_COUNTRY in missing_here and not location_data.get("country"):
         country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    _render_followups_for_fields(
+        (ProfilePaths.LOCATION_COUNTRY,),
+        data,
+        container_factory=country_col.container,
+    )
 
     city_value = (location_data.get("primary_city") or "").strip()
     country_value = (location_data.get("country") or "").strip()
@@ -7105,6 +7198,11 @@ def _step_company() -> None:
         placeholder=tr("Abteilung beschreiben", "Describe the department"),
     )
     _update_profile(ProfilePaths.DEPARTMENT_NAME, department.get("name", ""))
+    _render_followups_for_fields(
+        (ProfilePaths.DEPARTMENT_NAME,),
+        data,
+        container_factory=dept_cols[0].container,
+    )
     department["function"] = dept_cols[1].text_input(
         tr("Funktion", "Function"),
         value=department.get("function", ""),
@@ -7164,6 +7262,11 @@ def _step_company() -> None:
     _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting_value)
     position["reporting_line"] = team_reporting_value
     _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting_value)
+    _render_followups_for_fields(
+        (ProfilePaths.TEAM_REPORTING_LINE,),
+        data,
+        container_factory=reporting_cols[0].container,
+    )
 
     team_headcount_cols = st.columns(2, gap="small")
     team["headcount_current"] = team_headcount_cols[0].number_input(
@@ -7768,6 +7871,11 @@ def _step_position() -> None:
     _update_profile(ProfilePaths.POSITION_JOB_TITLE, position["job_title"])
     if ProfilePaths.POSITION_JOB_TITLE in missing_here and not position.get("job_title"):
         role_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    _render_followups_for_fields(
+        (ProfilePaths.POSITION_JOB_TITLE,),
+        data,
+        container_factory=role_cols[0].container,
+    )
 
     _render_esco_occupation_selector(position)
 
@@ -7793,6 +7901,11 @@ def _step_position() -> None:
     _update_profile(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
         position.get("reporting_manager_name", ""),
+    )
+    _render_followups_for_fields(
+        (ProfilePaths.POSITION_REPORTING_MANAGER_NAME,),
+        data,
+        container_factory=manager_cols[0].container,
     )
     position["customer_contact_required"] = manager_cols[1].toggle(
         tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
@@ -7828,6 +7941,11 @@ def _step_position() -> None:
     )
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    _render_followups_for_fields(
+        (ProfilePaths.POSITION_ROLE_SUMMARY,),
+        data,
+        container_factory=st.container,
+    )
 
     render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
 
@@ -7839,6 +7957,11 @@ def _step_position() -> None:
         format="YYYY-MM-DD",
     )
     meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
+    _render_followups_for_fields(
+        (ProfilePaths.META_TARGET_START_DATE,),
+        data,
+        container_factory=timing_cols[0].container,
+    )
 
     application_deadline_default = _default_date(meta_data.get("application_deadline"))
     deadline_selection = timing_cols[1].date_input(
@@ -8717,6 +8840,11 @@ def _step_requirements() -> None:
             on_required=_render_required_caption,
         )
         responsibilities["items"] = cleaned_responsibilities
+        _render_followups_for_fields(
+            ("responsibilities.items",),
+            data,
+            container_factory=st.container,
+        )
 
         lang_code = st.session_state.get("lang", "de")
         last_ai_state = st.session_state.get(StateKeys.RESPONSIBILITY_SUGGESTIONS)
@@ -8891,6 +9019,11 @@ def _step_requirements() -> None:
                 ),
                 show_hint=True,
             )
+            _render_followups_for_fields(
+                ("requirements.hard_skills_required",),
+                data,
+                container_factory=must_cols[0].container,
+            )
         label_soft_req = tr("Soft Skills (Pflicht)", "Soft skills (required)")
         if "requirements.soft_skills_required" in missing_here:
             label_soft_req += REQUIRED_SUFFIX
@@ -8919,6 +9052,11 @@ def _step_requirements() -> None:
                     "KI-Vorschläge für soziale und methodische Kompetenzen.",
                     "AI picks for behavioural and interpersonal strengths.",
                 ),
+            )
+            _render_followups_for_fields(
+                ("requirements.soft_skills_required",),
+                data,
+                container_factory=must_cols[1].container,
             )
 
     with requirement_panel(
