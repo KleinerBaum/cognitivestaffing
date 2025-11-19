@@ -32,8 +32,9 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
 }
 
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
+    "jobad": ("meta.",),
     "company": ("company.",),
-    "team": ("position.", "location.", "meta.", "employment."),
+    "team": ("position.", "location.", "employment."),
     "role_tasks": ("responsibilities.", "requirements."),
     "benefits": ("compensation.",),
     "interview": ("process.",),

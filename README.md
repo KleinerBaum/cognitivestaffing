@@ -6,12 +6,14 @@ Key highlights / Wichtigste Funktionen
 
 EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
+* Section headers, expanders, and inline follow-up cards now share one compact layout across all steps so follow-up prompts sit directly beneath the corresponding inputs, even inside the Onboarding extraction review tabs for meta fields.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
 * The wizard canvas now keeps the header distraction-free – the debug/API controls and per-step progress bubbles stay hidden so each step focuses purely on form inputs and inline follow-ups (API mode changes remain governed by config flags in the background).
 * Inline error boundaries keep the wizard session alive even when parsing or Streamlit widgets fail, surfacing bilingual guidance so SMEs can continue with manual edits instead of losing their progress.
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
+* Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten nutzen ein gemeinsames Kompakt-Layout über alle Schritte, sodass Anschlussfragen direkt unter den relevanten Eingabefeldern erscheinen – inklusive Meta-Rückfragen innerhalb der Onboarding-Extraktions-Tabs.
 * Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.
 * Der Wizard-Canvas bleibt jetzt komplett aufgeräumt – Debug-/API-Steuerung und Fortschrittsblasen sind ausgeblendet, damit sich jede Stufe ausschließlich auf die Eingabefelder und Inline-Follow-ups konzentriert (API-Modus-Umschaltungen laufen weiterhin über die Konfiguration im Hintergrund).
 * Fehlergrenzen direkt im Wizard sorgen dafür, dass Sitzungen bei Parser- oder Streamlit-Ausnahmen nicht abbrechen, sondern mit zweisprachiger Anleitung zum manuellen Weiterarbeiten geöffnet bleiben.

@@ -106,6 +106,7 @@ from .layout import (
     _render_autofill_suggestion,
     render_list_text_area,
     render_onboarding_hero,
+    render_section_heading,
     render_step_heading,
 )
 from ._logic import (
@@ -2972,12 +2973,12 @@ def _load_company_page_section(
 def _render_company_research_tools(base_url: str) -> None:
     """Render buttons to analyse additional company web pages."""
 
-    st.markdown(tr("#### 🔍 Automatische Recherche", "#### 🔍 Automatic research"))
-    st.caption(
-        tr(
+    render_section_heading(
+        tr("🔍 Automatische Recherche", "🔍 Automatic research"),
+        description=tr(
             "Nutze den Button, um wichtige Unterseiten zu analysieren und kompakte Zusammenfassungen zu erhalten.",
             "Use the button to analyse key subpages and receive concise summaries.",
-        )
+        ),
     )
     normalised = _normalise_company_base_url(base_url)
     _sync_company_page_base(normalised)
@@ -3934,17 +3935,15 @@ def _render_prefilled_preview(
     if not section_entries:
         return
 
-    st.markdown(
+    render_section_heading(
         tr(
-            "#### Automatisch erkannte Informationen",
-            "#### Automatically detected information",
-        )
-    )
-    st.caption(
-        tr(
+            "Automatisch erkannte Informationen",
+            "Automatically detected information",
+        ),
+        description=tr(
             "Alle Felder lassen sich später weiterhin bearbeiten.",
             "You can still adjust every field later on.",
-        )
+        ),
     )
 
     if layout == "grid":
@@ -4212,12 +4211,12 @@ def _render_extraction_review() -> None:
         return
 
     _ensure_extraction_review_styles()
-    st.markdown(tr("#### Extraktion prüfen & anpassen", "#### Review and adjust extracted data"))
-    st.caption(
-        tr(
+    render_section_heading(
+        tr("Extraktion prüfen & anpassen", "Review and adjust extracted data"),
+        description=tr(
             "Alle Felder lassen sich hier schnell überarbeiten, bevor du tiefer in die einzelnen Schritte gehst.",
             "Fine-tune every extracted field here before diving into the detailed steps.",
-        )
+        ),
     )
 
     tabs = st.tabs(
@@ -6070,13 +6069,15 @@ def _render_esco_occupation_selector(
         container.markdown("<div class='esco-compact'>", unsafe_allow_html=True)
         render_target = container.container()
 
-    header_level = "######" if compact else "#####"
-    render_target.markdown(f"{header_level} " + tr("ESCO-Berufe auswählen", "Select ESCO occupations"))
-    render_target.caption(
-        tr(
+    heading_size = "micro" if compact else "compact"
+    render_section_heading(
+        tr("ESCO-Berufe auswählen", "Select ESCO occupations"),
+        size=heading_size,
+        target=render_target,
+        description=tr(
             "Wähle alle passenden ESCO-Profile, um Skills und Synonyme vorzubereiten.",
             "Select all relevant ESCO profiles to prepare skills and synonyms.",
-        )
+        ),
     )
 
     def _on_change() -> None:
@@ -6253,12 +6254,13 @@ def _render_boolean_interactive_section(
 ) -> None:
     """Render the interactive Boolean UI shared across views."""
 
-    st.markdown(tr("#### Boolean-Suche", "#### Boolean search"))
-    st.caption(
-        tr(
+    render_section_heading(
+        tr("Boolean-Suche", "Boolean search"),
+        size="compact",
+        description=tr(
             "Stellen Sie den Suchstring aus Jobtitel, Synonymen und Skills zusammen.",
             "Assemble the search string from the job title, synonyms, and skills.",
-        )
+        ),
     )
 
     registry_keys: list[str] = []
@@ -6635,6 +6637,8 @@ def _step_onboarding(schema: dict) -> None:
         )
 
     _render_extraction_review()
+
+    _render_followups_for_step("jobad", profile)
 
     if st.button(
         tr("Weiter ▶", "Next ▶"),
@@ -7572,7 +7576,7 @@ def _step_position() -> None:
 
     missing_here = _missing_fields_for_section(2)
 
-    st.markdown("#### " + tr("Rolle & Team", "Role & team"))
+    render_section_heading(tr("Rolle & Team", "Role & team"))
     role_cols = st.columns((1.3, 1))
     title_label = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:
@@ -7656,7 +7660,7 @@ def _step_position() -> None:
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    st.markdown("#### " + tr("Zeitplan", "Timing"))
+    render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
 
     timing_cols = st.columns(3)
     target_start_default = _default_date(meta_data.get("target_start_date"))
@@ -7694,7 +7698,10 @@ def _step_position() -> None:
             height=80,
         )
 
-    st.markdown("#### " + tr("Beschäftigung & Arbeitsmodell", "Employment & working model"))
+    render_section_heading(
+        tr("Beschäftigung & Arbeitsmodell", "Employment & working model"),
+        icon="🧭",
+    )
 
     job_type_options = {
         "full_time": tr("Vollzeit", "Full-time"),
@@ -9311,7 +9318,11 @@ def _step_compensation() -> None:
 
     show_benefit_section = bool(suggestion_bundle.suggestions)
     if show_benefit_section:
-        st.markdown(f"### {tr('Benefit-Ideen', 'Benefit ideas', lang=lang)}")
+        render_section_heading(
+            tr("Benefit-Ideen", "Benefit ideas", lang=lang),
+            icon="🎁",
+            size="compact",
+        )
         st.caption(
             tr(
                 "Inspiration aus den letzten Vorschlägen.",
@@ -9521,7 +9532,10 @@ def _step_process() -> None:
     _render_stakeholders(data, "ui.process.stakeholders")
     _render_phases(data, data.get("stakeholders", []), "ui.process.phases")
 
-    st.markdown(tr("### Interne Prozesse definieren", "### Define internal processes"))
+    render_section_heading(
+        tr("Interne Prozesse definieren", "Define internal processes"),
+        icon="🧭",
+    )
     st.caption(
         tr(
             "Ordne Informationsschleifen zu und halte Aufgaben für jede Phase fest.",
@@ -9534,7 +9548,7 @@ def _step_process() -> None:
 
     process_cols = st.columns(2, gap="small")
     with process_cols[0]:
-        st.markdown(tr("#### Informationsschleifen", "#### Information loops"))
+        render_section_heading(tr("Informationsschleifen", "Information loops"), size="compact")
         phase_labels = _phase_display_labels(phases_preview)
         phase_indices = list(range(len(phase_labels)))
         if not stakeholders_preview:
@@ -9578,7 +9592,7 @@ def _step_process() -> None:
                 )
 
     with process_cols[1]:
-        st.markdown(tr("#### Aufgaben & Übergaben", "#### Tasks & handovers"))
+        render_section_heading(tr("Aufgaben & Übergaben", "Tasks & handovers"), size="compact")
         if not phases_preview:
             st.info(
                 tr(
@@ -11072,19 +11086,21 @@ def _render_summary_export_section(
     is_de = lang.lower().startswith("de")
     field_labels = {field.key: field.label_de if is_de else field.label_en for field in JOB_AD_FIELDS}
 
-    st.markdown(tr("### Stellenanzeige erstellen", "### Create a job ad"))
-    st.caption(
-        tr(
+    render_section_heading(
+        tr("Stellenanzeige erstellen", "Create a job ad"),
+        icon="📝",
+        description=tr(
             "Verwalte Inhalte, Tonalität und Optimierungen für deine Anzeige.",
             "Manage content, tone, and optimisations for your job ad.",
-        )
+        ),
     )
-    st.markdown(tr("#### Feldauswahl", "#### Field selection"))
-    st.caption(
-        tr(
+    render_section_heading(
+        tr("Feldauswahl", "Field selection"),
+        size="compact",
+        description=tr(
             "Wähle die Inhalte, die in die Stellenanzeige übernommen werden.",
             "Choose which sections should be included in the job ad.",
-        )
+        ),
     )
 
     grouped_fields = [
@@ -11131,9 +11147,14 @@ def _render_summary_export_section(
 
     with st.expander(tr("Präferenzen", "Preferences")):
         pref_cols = st.columns((1.4, 1.1, 1.2), gap="small")
+        tone_col, export_col, branding_col = pref_cols
 
-        with pref_cols[0]:
-            st.markdown(f"##### {tr('Zielgruppe & Ton', 'Audience & tone')}")
+        with tone_col:
+            render_section_heading(
+                tr("Zielgruppe & Ton", "Audience & tone"),
+                target=tone_col,
+                size="micro",
+            )
             st.markdown(f"**{tr('Ausgewählter Stil', 'Selected style')}**: {style_label}")
             if style_description:
                 st.caption(style_description)
@@ -11204,8 +11225,12 @@ def _render_summary_export_section(
                 )
             )
 
-        with pref_cols[1]:
-            st.markdown(f"##### {tr('Exportoptionen', 'Export options')}")
+        with export_col:
+            render_section_heading(
+                tr("Exportoptionen", "Export options"),
+                target=export_col,
+                size="micro",
+            )
             if UIKeys.JOB_AD_FORMAT not in st.session_state:
                 st.session_state[UIKeys.JOB_AD_FORMAT] = "docx"
             format_options = {
@@ -11247,8 +11272,12 @@ def _render_summary_export_section(
                 )
             )
 
-        with pref_cols[2]:
-            st.markdown(f"##### {tr('Branding-Assets', 'Brand assets')}")
+        with branding_col:
+            render_section_heading(
+                tr("Branding-Assets", "Brand assets"),
+                target=branding_col,
+                size="micro",
+            )
             logo_file = st.file_uploader(
                 tr("Logo hochladen (optional)", "Upload logo (optional)"),
                 type=["png", "jpg", "jpeg", "svg"],
@@ -11409,7 +11438,10 @@ def _render_summary_export_section(
             key="download_job_ad",
         )
 
-        st.markdown(tr("##### Anpassungswünsche", "##### Refinement requests"))
+        render_section_heading(
+            tr("Anpassungswünsche", "Refinement requests"),
+            size="micro",
+        )
         feedback = st.text_area(
             tr("Was soll angepasst werden?", "What should be adjusted?"),
             key=UIKeys.JOB_AD_FEEDBACK,
@@ -11439,7 +11471,7 @@ def _render_summary_export_section(
         style_description=style_description,
     )
 
-    st.markdown(tr("### Boolean Searchstring", "### Boolean search string"))
+    render_section_heading(tr("Boolean Searchstring", "Boolean search string"), icon="🔎")
     st.caption(
         tr(
             "Nutze Jobtitel und Skills, um zielgenaue Suchen aufzubauen.",
@@ -11629,7 +11661,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
 
     with overview_tab:
         edit_title = tr("Angaben bearbeiten", "Edit captured details")
-        st.markdown(f"### {edit_title}")
+        render_section_heading(edit_title, icon="🛠️")
         st.caption(
             tr(
                 "Passe die Inhalte der einzelnen Bereiche direkt in den Tabs an.",

@@ -6,6 +6,8 @@ Changed / Geändert
 
 - EN: Hid the built-in Streamlit multi-page navigation links (app, jobad, company, …) so the custom wizard sidebar stays the only visible navigation surface; this prevents duplicate menus on the left edge of the app.
   DE: Die integrierte Streamlit-Multipage-Navigation (app, jobad, company, …) wird jetzt vollständig verborgen, damit ausschließlich die kundenspezifische Wizard-Sidebar als sichtbare Navigation dient und keine doppelten Menüs links erscheinen.
+- EN: Normalised section headers, expanders, and inline follow-up cards across Onboarding → Summary; meta follow-ups now surface inside the Onboarding extraction review tabs so the cards always appear directly beneath the fields they unblock.
+  DE: Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten wurden über alle Schritte hinweg vereinheitlicht; Meta-Follow-ups tauchen nun in den Onboarding-Extraktions-Tabs auf, sodass die Karten immer unmittelbar unter den zugehörigen Feldern angezeigt werden.
 - EN: Removed the debug/API expander, captured-input chips, and the per-step progress bubbles from every wizard step so the canvas stays distraction-free while API mode switches continue to rely on the central configuration.
   DE: Das Debug-/API-Panel, die Eingabe-Chips sowie die Fortschrittsblasen wurden in allen Wizard-Schritten entfernt, damit die Oberfläche aufgeräumt bleibt – API-Umschaltungen laufen weiterhin zentral über die Konfiguration.
 - EN: Generated the NeedAnalysis JSON schema from the Pydantic model and embedded it into the vacancy extraction schema so every position/department/team field remains available throughout extraction, validation, and exports without manual drift.
