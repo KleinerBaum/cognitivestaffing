@@ -1175,7 +1175,7 @@ def _prepare_payload(
         else:
             model = base_model
     if reasoning_effort is None:
-        reasoning_effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+        reasoning_effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
 
     candidate_models = get_model_candidates(selected_task, override=candidate_override)
     if model and model not in candidate_models:

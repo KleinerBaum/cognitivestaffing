@@ -160,6 +160,7 @@ def _followup_interview_generator(
         show_error=show_feedback,
     )
 
+
 # Backwards-compatible alias for external imports/tests.
 _prime_widget_state_from_profile = prime_widget_state_from_profile
 from core.esco_utils import lookup_esco_skill
@@ -2127,10 +2128,10 @@ def _build_profile_context(profile: Mapping[str, Any]) -> dict[str, str]:
             return _sanitize_template_value(value)
         return ""
 
-    job_title = _get("position.job_title")
-    company_name = _get("company.name")
-    primary_city = _get("location.primary_city")
-    country = _get("location.country")
+    job_title = _get(str(ProfilePaths.POSITION_JOB_TITLE))
+    company_name = _get(str(ProfilePaths.COMPANY_NAME))
+    primary_city = _get(str(ProfilePaths.LOCATION_PRIMARY_CITY))
+    country = _get(str(ProfilePaths.LOCATION_COUNTRY))
 
     location_combined = ", ".join(part for part in (primary_city, country) if part)
 
@@ -2590,13 +2591,13 @@ def _cached_extract_profile(
     locked_fields = {key: value for key, value in locked_items}
     previous_effort: str | None
     try:
-        previous_effort = st.session_state.get("reasoning_effort")
+        previous_effort = st.session_state.get(StateKeys.REASONING_EFFORT)
     except Exception:  # pragma: no cover - Streamlit session not initialised
         previous_effort = None
 
     try:
         if reasoning_effort and previous_effort != reasoning_effort:
-            st.session_state["reasoning_effort"] = reasoning_effort
+            st.session_state[StateKeys.REASONING_EFFORT] = reasoning_effort
         return extract_json(
             text,
             title=title_hint,
@@ -2606,7 +2607,7 @@ def _cached_extract_profile(
         )
     finally:
         if reasoning_effort and previous_effort != reasoning_effort:
-            st.session_state["reasoning_effort"] = previous_effort
+            st.session_state[StateKeys.REASONING_EFFORT] = previous_effort
 
 
 def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[str]:
@@ -3506,8 +3507,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         if hint_value is not None:
             locked_hints[field] = hint_value
 
-    title_hint = locked_hints.get("position.job_title")
-    company_hint = locked_hints.get("company.name")
+    title_hint = locked_hints.get(str(ProfilePaths.POSITION_JOB_TITLE))
+    company_hint = locked_hints.get(str(ProfilePaths.COMPANY_NAME))
 
     llm_error: Exception | None = None
     extraction_warning: str | None = None
@@ -3515,7 +3516,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     extracted_data: dict[str, Any] = {}
     recovered = False
     locked_items = tuple(sorted(locked_hints.items()))
-    effort_value = str(st.session_state.get("reasoning_effort", REASONING_EFFORT) or REASONING_EFFORT)
+    effort_value = str(st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT) or REASONING_EFFORT)
     try:
         raw_json = _cached_extract_profile(
             text,
@@ -3866,21 +3867,21 @@ def _skip_source() -> None:
 
 
 FIELD_LABELS: dict[str, tuple[str, str]] = {
-    "company.name": ("Unternehmen", "Company"),
-    "company.hq_location": ("Hauptsitz (Stadt, Land)", "Headquarters (city, country)"),
-    "company.website": ("Website", "Website"),
-    "company.contact_name": ("HR-Ansprechperson", "HR contact person"),
-    "company.contact_email": ("Kontakt-E-Mail (Unternehmen)", "Company contact email"),
-    "company.contact_phone": ("Kontakt-Telefon", "Contact phone"),
-    "position.job_title": ("Jobtitel", "Job Title"),
-    "position.role_summary": ("Rollenbeschreibung", "Role Summary"),
-    "location.primary_city": ("Primärer Standort (Stadt)", "Primary location (city)"),
-    "location.country": ("Land (Primärstandort)", "Country (primary location)"),
-    "requirements.hard_skills_required": (
+    str(ProfilePaths.COMPANY_NAME): ("Unternehmen", "Company"),
+    str(ProfilePaths.COMPANY_HQ_LOCATION): ("Hauptsitz (Stadt, Land)", "Headquarters (city, country)"),
+    str(ProfilePaths.COMPANY_WEBSITE): ("Website", "Website"),
+    str(ProfilePaths.COMPANY_CONTACT_NAME): ("HR-Ansprechperson", "HR contact person"),
+    str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt-E-Mail (Unternehmen)", "Company contact email"),
+    str(ProfilePaths.COMPANY_CONTACT_PHONE): ("Kontakt-Telefon", "Contact phone"),
+    str(ProfilePaths.POSITION_JOB_TITLE): ("Jobtitel", "Job Title"),
+    str(ProfilePaths.POSITION_ROLE_SUMMARY): ("Rollenbeschreibung", "Role Summary"),
+    str(ProfilePaths.LOCATION_PRIMARY_CITY): ("Primärer Standort (Stadt)", "Primary location (city)"),
+    str(ProfilePaths.LOCATION_COUNTRY): ("Land (Primärstandort)", "Country (primary location)"),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED): (
         "Pflicht-Hard-Skills",
         "Required Hard Skills",
     ),
-    "requirements.soft_skills_required": (
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED): (
         "Pflicht-Soft-Skills",
         "Required Soft Skills",
     ),

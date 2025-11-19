@@ -98,6 +98,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.JOB_AD_MD: lambda: "",
         StateKeys.BOOLEAN_STR: lambda: "",
         StateKeys.INTERVIEW_GUIDE_MD: lambda: "",
+        StateKeys.REASONING_EFFORT: lambda: REASONING_EFFORT,
         "debug": lambda: False,
         UIKeys.DEBUG_DETAILS: lambda: False,
         UIKeys.DEBUG_API_MODE: lambda: "responses",
@@ -339,11 +340,11 @@ def ensure_state() -> None:
             st.session_state["openai_base_url_invalid"] = not (parsed.scheme and parsed.netloc)
         else:
             st.session_state["openai_base_url_invalid"] = False
-    if "reasoning_effort" not in st.session_state:
-        st.session_state["reasoning_effort"] = REASONING_EFFORT
+    if StateKeys.REASONING_EFFORT not in st.session_state:
+        st.session_state[StateKeys.REASONING_EFFORT] = REASONING_EFFORT
     else:
-        effort = st.session_state.get("reasoning_effort")
-        st.session_state["reasoning_effort"] = effort if isinstance(effort, str) else REASONING_EFFORT
+        effort = st.session_state.get(StateKeys.REASONING_EFFORT)
+        st.session_state[StateKeys.REASONING_EFFORT] = effort if isinstance(effort, str) else REASONING_EFFORT
 
     preferred_mode = "precise" if REASONING_EFFORT not in {"minimal", "low"} else "quick"
     if StateKeys.REASONING_MODE not in st.session_state:
@@ -650,9 +651,7 @@ def _clear_followup_session_state() -> None:
 
     st.session_state.pop(StateKeys.FOLLOWUPS, None)
     st.session_state.pop(StateKeys.FOLLOWUPS_RESPONSE_ID, None)
-    followup_keys = [
-        key for key in st.session_state.keys() if isinstance(key, str) and key.startswith("fu_")
-    ]
+    followup_keys = [key for key in st.session_state.keys() if isinstance(key, str) and key.startswith("fu_")]
     for key in followup_keys:
         st.session_state.pop(key, None)
 

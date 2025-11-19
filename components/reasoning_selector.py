@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from config import REASONING_EFFORT, REASONING_LEVELS
-from constants.keys import UIKeys
+from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 
 LEVEL_LABELS: dict[str, tuple[str, str]] = {
@@ -16,7 +16,7 @@ LEVEL_LABELS: dict[str, tuple[str, str]] = {
 }
 
 
-def reasoning_selector(key: str = "reasoning_effort") -> str:
+def reasoning_selector(key: str = StateKeys.REASONING_EFFORT) -> str:
     """Render a selectbox to choose model reasoning effort.
 
     Args:

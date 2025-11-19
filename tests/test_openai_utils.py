@@ -1304,7 +1304,7 @@ def test_call_chat_api_uses_session_reasoning_default(monkeypatch):
         responses = _FakeResponses()
 
     st.session_state.clear()
-    st.session_state["reasoning_effort"] = "minimal"
+    st.session_state[StateKeys.REASONING_EFFORT] = "minimal"
 
     monkeypatch.setattr("openai_utils.api.client", _FakeClient(), raising=False)
     call_chat_api(
