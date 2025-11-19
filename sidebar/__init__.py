@@ -27,7 +27,6 @@ from utils.usage import build_usage_markdown, usage_totals
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
 from ingest.branding import DEFAULT_BRAND_COLOR
-from components.stepper import render_step_summary
 
 # Wizard metadata is intentionally lightweight (no sidebar imports) so we can
 # eagerly import the field map, critical helpers, and logic module without
@@ -798,16 +797,7 @@ def _render_hero(context: SidebarContext) -> None:
     st.markdown(f"### 🧭 {tr('Schrittübersicht', 'Step overview')}")
 
     summary_payload = _get_step_summary_payload()
-    summary_labels: list[str]
-    current_index: int
-    if summary_payload:
-        current_index, summary_labels = summary_payload
-        render_step_summary(current_index, summary_labels)
-    else:
-        current_index = 0
-        summary_labels = [label for _, label in STEP_LABELS]
-        if summary_labels:
-            render_step_summary(current_index, summary_labels)
+    current_index = summary_payload[0] if summary_payload else 0
 
     step_order, step_entries = _build_initial_extraction_entries(context)
     label_lookup = {key: label for key, label in STEP_LABELS}

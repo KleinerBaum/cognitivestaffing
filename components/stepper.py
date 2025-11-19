@@ -11,10 +11,10 @@ import streamlit as st
 _STYLE_STATE_KEY = "_workflow_stepper_styles_v1"
 
 
-# The wizard stepper is currently disabled to streamline the flow between steps.
+# The wizard stepper is intentionally disabled to keep the wizard canvas clean.
 # Keeping the rendering function as a no-op maintains backward compatibility for
 # callers that still import it (e.g., tests that monkeypatch the helper).
-STEP_NAVIGATION_ENABLED = True
+STEP_NAVIGATION_ENABLED = False
 
 
 def _inject_workflow_styles() -> None:
@@ -193,7 +193,7 @@ def _build_summary_segments(current: int, labels: Sequence[str]) -> list[str]:
 def render_step_summary(current: int, labels: Sequence[str]) -> None:
     """Render the condensed wizard step summary above the step heading."""
 
-    if not labels:
+    if not STEP_NAVIGATION_ENABLED or not labels:
         return
 
     _inject_workflow_styles()

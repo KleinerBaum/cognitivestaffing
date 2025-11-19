@@ -1635,6 +1635,35 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
     instruction_templates = prompt_registry.get("llm.interview_guide.instructions", locale=lang)
     instruction_lines = [str(template) for template in instruction_templates]
 
+    tone_value = str(payload.get("tone") or "").strip()
+    audience_value = str(
+        payload.get("audience_display") or payload.get("audience") or ""
+    ).strip()
+
+    style_directive = ""
+    if tone_value and audience_value:
+        style_directive = tr(
+            f"Halte den Leitfaden in einem {tone_value}-Ton für die Zielgruppe {audience_value}.",
+            f"Keep the guide in a {tone_value} tone for the {audience_value} audience.",
+            lang=lang,
+        )
+    elif tone_value:
+        style_directive = tr(
+            f"Halte den Leitfaden konsequent in diesem Ton: {tone_value}.",
+            f"Keep the guide consistently in this tone: {tone_value}.",
+            lang=lang,
+        )
+    elif audience_value:
+        style_directive = tr(
+            f"Richte den Leitfaden auf diese Zielgruppe aus: {audience_value}.",
+            f"Tailor the guide to this audience: {audience_value}.",
+            lang=lang,
+        )
+
+    if style_directive:
+        insert_at = 1 if len(instruction_lines) > 1 else 0
+        instruction_lines.insert(insert_at, style_directive)
+
     context_json = json.dumps(payload, ensure_ascii=False, indent=2)
     user_message = "\n".join(instruction_lines) + "\n\nContext:\n```json\n" + context_json + "\n```"
 

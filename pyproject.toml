@@ -152,7 +152,7 @@ module = [
     "cli.rebuild_vector_store",
     "app",
     "nlp.entities",
-    "pages.*",
+    "wizard_pages.*",
 ]
 ignore_errors = true
 

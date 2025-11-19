@@ -7,8 +7,8 @@ Changed / Geändert
 - EN: Tightened the job-ad, interview-guide, and follow-up question prompts so every section explicitly mirrors the structured vacancy data, uses inclusive/bias-free HR language, references the relevant schema fields (job title, seniority, work policy, etc.), and only asks for job-relevant clarifications with realistic answer suggestions.
   DE: Die Prompts für Stellenanzeigen, Interviewleitfäden und Nachfragen wurden geschärft: Alle Abschnitte spiegeln jetzt die strukturierten Vakanzdaten exakt wider, nutzen inklusive HR-Terminologie, verweisen auf die passenden Schemafelder (Jobtitel, Seniorität, Arbeitsmodell etc.) und stellen nur noch jobrelevante, realistische Rückfragen samt Antwortoptionen.
 
-- EN: Strengthened the interview guide generator prompt so competency clusters stem from the vacancy profile, each competency powers at least one question, and the question list always mixes technical, behavioural, and cultural angles with two scoring criteria per entry.
-  DE: Den Interview-Guide-Prompt erweitert, damit die Kompetenzcluster aus dem Vakanzprofil abgeleitet werden, jede Kompetenz mindestens eine Frage erhält und die Fragenliste stets technische, verhaltensorientierte und kulturelle Aspekte inklusive zweier Bewertungskriterien je Eintrag abdeckt.
+- EN: Strengthened the interview guide generator prompt so competency clusters stem from the vacancy profile, each competency powers at least one question, every list explicitly mixes technical/behavioural/cultural prompts (flagged via questions[].type), and each entry includes two evaluation criteria for consistent scoring.
+  DE: Den Interview-Guide-Prompt erweitert, damit die Kompetenzcluster aus dem Vakanzprofil abgeleitet werden, jede Kompetenz mindestens eine Frage erhält, jede Liste explizit technische, verhaltensorientierte und kulturelle Fragen (gekennzeichnet über questions[].type) enthält und pro Frage zwei Bewertungskriterien für eine konsistente Beurteilung aufgeführt sind.
 
 - EN: Moved every debug/API toggle plus the salary/ESCO JSON diagnostics into the admin-only expander; recruiters never see these controls or raw payloads unless `ADMIN_DEBUG_PANEL=1` and the debug mode is enabled inside that panel.
   DE: Alle Debug-/API-Schalter sowie die Gehalts- bzw. ESCO-Rohdaten wurden in den Admin-Expander verschoben – Recruiter:innen sehen sie nur, wenn `ADMIN_DEBUG_PANEL=1` gesetzt ist und der Debugmodus innerhalb dieses Panels aktiviert wurde.
@@ -22,6 +22,8 @@ Changed / Geändert
   DE: Kandidatenzusammenfassungen erhalten jetzt die Vakanzanforderungen als Kontext, beschreiben in summary_text den Fit bzw. die Abweichungen und füllen fit_notes mit zweisprachigen Einträgen zu Match-Prozent, überlappenden Skills sowie fehlenden Qualifikationen.
 - EN: Hid the built-in Streamlit multi-page navigation links (app, jobad, company, …) so the custom wizard sidebar stays the only visible navigation surface; this prevents duplicate menus on the left edge of the app.
   DE: Die integrierte Streamlit-Multipage-Navigation (app, jobad, company, …) wird jetzt vollständig verborgen, damit ausschließlich die kundenspezifische Wizard-Sidebar als sichtbare Navigation dient und keine doppelten Menüs links erscheinen.
+- EN: Relocated the metadata-only wizard step modules into `wizard_pages/` to disable Streamlit's default header entirely and swapped the Summary-step “captured input” chips for lightweight bullet lists so progress cues live solely in the sidebar.
+  DE: Die reinen Metadaten-Schritte wurden nach `wizard_pages/` verschoben, wodurch die Streamlit-Standardleiste dauerhaft verschwindet; außerdem zeigt der Summary-Schritt erfasste Angaben nun als schlanke Aufzählung statt Chip-Reihen, sodass Fortschrittsinformationen ausschließlich in der Sidebar erscheinen.
 - EN: Normalised section headers, expanders, and inline follow-up cards across Onboarding → Summary; meta follow-ups now surface inside the Onboarding extraction review tabs so the cards always appear directly beneath the fields they unblock.
   DE: Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten wurden über alle Schritte hinweg vereinheitlicht; Meta-Follow-ups tauchen nun in den Onboarding-Extraktions-Tabs auf, sodass die Karten immer unmittelbar unter den zugehörigen Feldern angezeigt werden.
 
@@ -37,6 +39,9 @@ Changed / Geändert
   DE: Regressionstests ergänzt, die InterviewGuide-JSON-Antworten gegen das Schema prüfen und sicherstellen, dass NeedAnalysis-Aliasfelder für Abteilung/Team die Kanonisierung überstehen, damit künftige Schema-Propagationsregressionen ausbleiben.
 
 Fixed / Behoben
+
+- EN: Company contact emails entered via the wizard are now validated with the same Pydantic `EmailStr` parser as the schema, so malformed addresses raise the bilingual inline error message instead of throwing a Python `TypeError` and interrupting the form.
+  DE: Im Wizard eingegebene Kontakt-E-Mails werden jetzt über den gleichen Pydantic-`EmailStr`-Parser geprüft wie im Schema, sodass fehlerhafte Adressen den zweisprachigen Inline-Hinweis anzeigen, anstatt einen Python-`TypeError` zu verursachen und das Formular zu unterbrechen.
 
 - EN: Resetting or restarting the wizard now removes every stored follow-up question plus their `fu_*` focus sentinels so the sidebar and inline cards never resurface stale prompts after a restart.
   DE: Beim Zurücksetzen oder Neustarten des Wizards werden sämtliche gespeicherten Follow-up-Fragen sowie die zugehörigen `fu_*`-Fokus-Sentinels entfernt, sodass weder Sidebar noch Inline-Karten veraltete Prompts nach einem Neustart erneut anzeigen.

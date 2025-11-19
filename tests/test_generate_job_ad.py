@@ -82,6 +82,7 @@ def test_generate_job_ad_llm_prompt_carries_tone_and_brand(monkeypatch):
     assert "innovative spirit" in prompt_text.lower()
     assert "Culture: We celebrate learning." in prompt_text
     assert "Experienced engineers" in prompt_text
+    assert "Write in a creative tone for the Experienced engineers audience." in prompt_text
     assert "Engineering for good" in prompt_text
     assert "#12AB34" in prompt_text
     assert "Logo source: https://example.com/logo.svg" in prompt_text

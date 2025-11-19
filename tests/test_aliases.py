@@ -16,7 +16,7 @@ from core.schema import (
     coerce_and_fill,
 )
 from models.need_analysis import NeedAnalysisProfile
-from pages import WIZARD_PAGES
+from wizard_pages import WIZARD_PAGES
 from exports.models import RecruitingWizardExport
 
 

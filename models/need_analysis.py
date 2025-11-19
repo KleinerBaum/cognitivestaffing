@@ -6,17 +6,17 @@ import inspect
 import re
 from typing import Any, ClassVar, List, Literal, Optional
 
-from email_validator import EmailNotValidError, validate_email
-
 from pydantic import (
     BaseModel,
     ConfigDict,
     EmailStr,
     Field,
     HttpUrl,
+    ValidationError,
     field_validator,
     model_validator,
 )
+from pydantic.type_adapter import TypeAdapter
 
 from core.normalization import sanitize_optional_url_value
 from core.validation import is_placeholder
@@ -25,6 +25,9 @@ from utils.normalization import (
     normalize_phone_number,
     normalize_website_url,
 )
+
+
+_EMAIL_ADAPTER: TypeAdapter[EmailStr] = TypeAdapter(EmailStr)
 
 
 class Company(BaseModel):
@@ -81,10 +84,10 @@ class Company(BaseModel):
 
         candidate = match.group(0)
         try:
-            validated = validate_email(candidate, check_deliverability=False)
-        except EmailNotValidError:
+            validated = _EMAIL_ADAPTER.validate_python(candidate)
+        except (ValidationError, TypeError):
             return None
-        return validated.normalized.casefold()
+        return str(validated).casefold()
 
     @field_validator("size", mode="before")
     @classmethod
@@ -375,10 +378,10 @@ class Stakeholder(BaseModel):
             return None
 
         try:
-            validated = validate_email(candidate, check_deliverability=False)
-        except EmailNotValidError:
+            validated = _EMAIL_ADAPTER.validate_python(candidate)
+        except (ValidationError, TypeError):
             return None
-        return validated.normalized.casefold()
+        return str(validated).casefold()
 
 
 class Phase(BaseModel):

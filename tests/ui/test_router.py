@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pages import WIZARD_PAGES
+from wizard_pages import WIZARD_PAGES
 
 
 def test_step_order() -> None:

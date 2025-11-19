@@ -26,7 +26,7 @@ from components.requirements_insights import (
 
 pytestmark = pytest.mark.integration
 from constants.keys import StateKeys
-from pages import WIZARD_PAGES
+from wizard_pages import WIZARD_PAGES
 from wizard import STEP_RENDERERS, _step_compensation, _summary_compensation, run_wizard
 from utils import i18n
 

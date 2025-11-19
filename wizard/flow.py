@@ -98,7 +98,7 @@ from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from llm.client import extract_json
-from pages import WIZARD_PAGES, WizardPage
+from wizard_pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.followups import followup_has_response
 from wizard.interview_step import render_interview_guide_section
@@ -11815,8 +11815,8 @@ def _render_skills_review_step() -> None:
         if not cleaned:
             st.caption(tr("Keine Einträge", "No entries"))
             return
-        chips = "".join(f"<span class='wizard-chip'>{html.escape(value)}</span>" for value in cleaned)
-        st.markdown(f"<div class='wizard-chip-list'>{chips}</div>", unsafe_allow_html=True)
+        entries = "\n".join(f"- {html.escape(value)}" for value in cleaned)
+        st.markdown(entries, unsafe_allow_html=True)
 
     if isinstance(requirement_data, Mapping):
         _render_chip_group(

@@ -11,6 +11,7 @@ EN:
 * The wizard canvas now keeps the header distraction-free – the debug/API controls and per-step progress bubbles stay hidden so each step focuses purely on form inputs and inline follow-ups (API mode changes remain governed by config flags in the background). When administrators set `ADMIN_DEBUG_PANEL=1`, those controls appear inside a collapsible expander above the wizard instead of occupying the main canvas, and only that expander exposes the raw JSON diagnostics/API switches when debug mode is toggled on.
 * Streamlit's built-in multi-page navigation is now fully hidden, ensuring the custom wizard sidebar (progress tracker plus step list) remains the only navigation surface and preventing legacy menus from reappearing.
 * Inline error boundaries keep the wizard session alive even when parsing or Streamlit widgets fail, surfacing bilingual guidance so SMEs can continue with manual edits instead of losing their progress.
+* The interview-guide generator prompt now derives every competency focus area directly from the vacancy profile, enforces that each competency gets at least one question across a balanced technical/behavioural/cultural mix, and attaches two scoring criteria to every prompt for consistent evaluations.
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
@@ -19,6 +20,7 @@ DE:
 * Der Wizard-Canvas bleibt jetzt komplett aufgeräumt – Debug-/API-Steuerung und Fortschrittsblasen sind ausgeblendet, damit sich jede Stufe ausschließlich auf die Eingabefelder und Inline-Follow-ups konzentriert (API-Modus-Umschaltungen laufen weiterhin über die Konfiguration im Hintergrund). Sobald Administrator:innen `ADMIN_DEBUG_PANEL=1` setzen, erscheint das Panel als einklappbarer Bereich oberhalb des Wizards, und nur dort stehen bei aktiviertem Debugmodus die Roh-JSON-Diagnosen sowie API-Schalter zur Verfügung.
 * Die integrierte Streamlit-Multipage-Navigation ist vollständig verborgen, sodass ausschließlich die kundenspezifische Wizard-Sidebar (Fortschrittsanzeige plus Schritteliste) sichtbar bleibt und keine Legacy-Menüs mehr auftauchen.
 * Fehlergrenzen direkt im Wizard sorgen dafür, dass Sitzungen bei Parser- oder Streamlit-Ausnahmen nicht abbrechen, sondern mit zweisprachiger Anleitung zum manuellen Weiterarbeiten geöffnet bleiben.
+* Der Interviewleitfaden-Prompt leitet sämtliche Kompetenz-Schwerpunkte direkt aus dem Vakanzprofil ab, stellt sicher, dass jede Kompetenz mindestens eine Frage innerhalb eines ausgewogenen Mix aus technischen, verhaltensorientierten und kulturellen Fragen erhält, und versieht jede Frage mit zwei Bewertungskriterien für konsistente Beurteilungen.
 
 Version
 
@@ -48,6 +50,8 @@ Release timeline / Release-Verlauf
 * DE: Streaming-Antworten erkennen fehlende `response.completed`-Events, wiederholen die Anfrage automatisch und greifen bei Bedarf auf die Chat-Completions-API zurück, sodass der Wizard keine Teilantworten oder lauten Tracebacks mehr anzeigt, wenn der Responses-Stream unerwartet endet.
 * EN: The Company step revalidates the contact email and primary city during navigation, showing a bilingual warning under the Next controls and preventing progress until both fields contain real data.
 * DE: Der Unternehmensschritt prüft Kontakt-E-Mail und Primärstadt jetzt zusätzlich bei der Navigation, blendet direkt unter „Weiter“ einen zweisprachigen Hinweis ein und lässt erst weiterklicken, wenn beide Felder echte Werte enthalten.
+* EN: Invalid company contact emails now run through the same Pydantic `EmailStr` parsing used by the schema, so malformed addresses surface the bilingual inline error instead of triggering a Python `TypeError` in the form.
+* DE: Ungültige Kontakt-E-Mails des Unternehmens werden jetzt ebenfalls durch die Pydantic-`EmailStr`-Prüfung geleitet, sodass fehlerhafte Adressen den zweisprachigen Inline-Hinweis anzeigen, anstatt im Formular einen Python-`TypeError` auszulösen.
 * EN: Clicking “Next” on the Company step now re-runs those validators against the live session state, clears any stale profile entries, and keeps the page in place while surfacing the bilingual warning beside the button.
 * DE: Beim Klick auf „Weiter“ im Unternehmensschritt laufen die Validatoren erneut über den aktuellen Session-State, veraltete Profilwerte werden geleert und der Schritt bleibt gesperrt, während der zweisprachige Hinweis direkt neben dem Button erscheint.
 * EN: Structured Responses pipelines now enforce `additionalProperties: false` across every JSON schema and require the Job Ad metadata block (tone plus target audience), stopping stray keys or missing context before the wizard consumes the payload.

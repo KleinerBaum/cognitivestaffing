@@ -15,7 +15,7 @@ import streamlit as st
 from constants.keys import ProfilePaths, StateKeys
 from question_logic import CRITICAL_FIELDS
 from wizard._logic import get_in
-from pages import WIZARD_PAGES
+from wizard_pages import WIZARD_PAGES
 from wizard.company_validators import persist_contact_email, persist_primary_city
 
 # Index of the first data-entry step ("Unternehmen" / "Company").

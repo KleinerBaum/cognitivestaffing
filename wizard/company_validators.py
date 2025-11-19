@@ -38,7 +38,7 @@ def persist_contact_email(raw_value: str | None) -> tuple[str | None, LocalizedT
         return None, _CONTACT_EMAIL_REQUIRED_ERROR
     try:
         normalized = _EMAIL_ADAPTER.validate_python(candidate)
-    except ValidationError:
+    except (ValidationError, TypeError):
         _update_profile(
             ProfilePaths.COMPANY_CONTACT_EMAIL,
             None,

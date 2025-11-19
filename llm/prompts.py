@@ -248,6 +248,32 @@ def build_job_ad_prompt(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     instruction_templates = prompt_registry.get("generators.job_ad.instructions", locale=lang)
     instruction_lines = [str(template).format(sections_label=sections_label) for template in instruction_templates]
 
+    def _style_directive_text() -> str:
+        if tone and audience:
+            return tr(
+                f"Schreibe in einem {tone}-Ton für die Zielgruppe {audience}.",
+                f"Write in a {tone} tone for the {audience} audience.",
+                lang,
+            )
+        if tone:
+            return tr(
+                f"Schreibe konsequent in diesem Ton: {tone}.",
+                f"Write consistently in this tone: {tone}.",
+                lang,
+            )
+        if audience:
+            return tr(
+                f"Richte den Text an folgende Zielgruppe: {audience}.",
+                f"Target the copy to this audience: {audience}.",
+                lang,
+            )
+        return ""
+
+    style_directive = _style_directive_text()
+    if style_directive:
+        insert_at = 1 if len(instruction_lines) > 1 else 0
+        instruction_lines.insert(insert_at, style_directive)
+
     meta_lines: list[str] = []
     if heading:
         meta_lines.append(f"{tr('Überschrift', 'Heading', lang)}: {heading}")
