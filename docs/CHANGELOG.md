@@ -4,6 +4,8 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Rebuilt the candidate-matching pipeline as a deterministic scorer that slashes points when must-have skills are missing, gently rewards nice-to-have coverage plus experience/location alignment, and fills the `gaps` list with the concrete qualifications a candidate lacks.
+  DE: Die Kandidaten-Matching-Pipeline nutzt jetzt ein deterministisches Scoring, das fehlende Must-have-Skills massiv abwertet, Nice-to-have-Abdeckung sowie Erfahrung/Standort nur moderat belohnt und die `gaps`-Liste mit den konkret fehlenden Qualifikationen befüllt.
 - EN: Hid the built-in Streamlit multi-page navigation links (app, jobad, company, …) so the custom wizard sidebar stays the only visible navigation surface; this prevents duplicate menus on the left edge of the app.
   DE: Die integrierte Streamlit-Multipage-Navigation (app, jobad, company, …) wird jetzt vollständig verborgen, damit ausschließlich die kundenspezifische Wizard-Sidebar als sichtbare Navigation dient und keine doppelten Menüs links erscheinen.
 - EN: Normalised section headers, expanders, and inline follow-up cards across Onboarding → Summary; meta follow-ups now surface inside the Onboarding extraction review tabs so the cards always appear directly beneath the fields they unblock.

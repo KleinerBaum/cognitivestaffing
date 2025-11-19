@@ -206,22 +206,29 @@ def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["model"] == "model-profile"
 
 
-def test_candidate_matching_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, Any] = {}
+def test_candidate_matching_schema() -> None:
+    vacancy = {
+        "vacancy_id": "vac-42",
+        "requirements": {"hard_skills_required": ["Python"]},
+        "position": {"seniority_level": "Senior"},
+    }
+    candidates = [
+        {
+            "candidate": {
+                "id": "cand-1",
+                "name": "A Candidate",
+                "location": "Berlin",
+                "total_years_experience": 7,
+            },
+            "skills": [{"name": "Python"}],
+            "languages": [{"code": "en"}],
+        }
+    ]
 
-    def fake_call(messages: list[dict[str, Any]], **kwargs: Any) -> _FakeResult:
-        captured.update(kwargs)
-        return _FakeResult()
-
-    monkeypatch.setattr(matching_mod, "call_chat_api", fake_call)
-    monkeypatch.setattr(matching_mod, "get_model_for", lambda *_, **__: "model-matching")
-    matching_mod.match_candidates({}, [])
-
-    schema_cfg = captured.get("json_schema")
-    assert schema_cfg["name"] == "CandidateMatches"
-    assert schema_cfg["schema"] == CANDIDATE_MATCHES_SCHEMA
+    payload = matching_mod.match_candidates(vacancy, candidates)
+    Draft202012Validator(CANDIDATE_MATCHES_SCHEMA).validate(payload)
+    assert payload["candidates"][0]["score"] <= 100
     _assert_objects_disallow_additional_properties(CANDIDATE_MATCHES_SCHEMA)
-    assert captured["model"] == "model-matching"
 
 
 def test_job_ad_schema(monkeypatch: pytest.MonkeyPatch) -> None:
