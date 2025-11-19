@@ -8,6 +8,8 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
 from typing import Any, Callable, List, Optional, TYPE_CHECKING, TypedDict, cast
+from types import ModuleType
+from importlib import import_module
 from urllib.parse import urlparse, urlunparse
 
 from pydantic import ValidationError
@@ -21,8 +23,9 @@ from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from models.need_analysis import NeedAnalysisProfile
 
+pycountry: ModuleType | None
 try:  # pragma: no cover - optional dependency guard
-    import pycountry
+    pycountry = import_module("pycountry")
 except ImportError:  # pragma: no cover - fallback when dependency missing
     pycountry = None
 

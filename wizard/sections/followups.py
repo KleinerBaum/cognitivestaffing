@@ -494,33 +494,37 @@ def _render_followup_question(q: dict, data: dict) -> None:
             def _mark_followup_touched() -> None:
                 st.session_state[touched_key] = True
 
-            value = st.checkbox(
+            checkbox_value = st.checkbox(
                 label_text,
                 key=key,
                 label_visibility="collapsed",
                 on_change=_mark_followup_touched,
             )
-            processed_value = bool(value) if st.session_state.get(touched_key) else None
+            processed_value = bool(checkbox_value) if st.session_state.get(touched_key) else None
         elif field in NUMBER_FOLLOWUP_FIELDS:
             numeric_default = _coerce_followup_number(existing_value)
             raw_state_value = st.session_state.get(key, numeric_default)
             numeric_initial = _coerce_followup_number(raw_state_value)
-            value = st.number_input(
+            numeric_value = st.number_input(
                 label_text,
                 key=key,
                 value=float(numeric_initial),
                 step=1.0,
                 label_visibility="collapsed",
             )
-            processed_value = int(value) if isinstance(value, float) and value.is_integer() else value
+            processed_value = (
+                int(numeric_value)
+                if isinstance(numeric_value, float) and numeric_value.is_integer()
+                else numeric_value
+            )
         elif field in DATE_FOLLOWUP_FIELDS:
-            value = st.date_input(
+            date_value = st.date_input(
                 label_text,
                 key=key,
                 format="YYYY-MM-DD",
                 label_visibility="collapsed",
             )
-            processed_value = value.isoformat() if isinstance(value, date) else ""
+            processed_value = date_value.isoformat() if isinstance(date_value, date) else ""
         elif field in LIST_FOLLOWUP_FIELDS:
             text_value = st.text_area(
                 label_text,

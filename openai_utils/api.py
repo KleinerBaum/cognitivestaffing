@@ -1338,7 +1338,7 @@ def _prepare_payload(
             if not isinstance(schema_body, Mapping):
                 raise TypeError("json_schema['schema'] must be a mapping")
             sanitized_schema = _sanitize_json_schema(schema_body)
-            response_format_config = {
+            response_format_config: dict[str, Any] = {
                 "type": "json_schema",
                 "json_schema": {
                     "schema": sanitized_schema,

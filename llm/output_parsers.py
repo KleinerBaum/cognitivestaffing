@@ -9,18 +9,11 @@ from functools import lru_cache
 from collections.abc import Mapping, MutableMapping, Sequence
 from typing import Any
 
-try:  # pragma: no cover - dependency differences
-    from langchain.output_parsers import (
-        PydanticOutputParser,
-        ResponseSchema,
-        StructuredOutputParser,
-    )
-except ImportError:  # pragma: no cover - langchain>=1.0 moved these classes
-    from langchain_core.output_parsers import (  # type: ignore[import-not-found]
-        PydanticOutputParser,
-        ResponseSchema,
-        StructuredOutputParser,
-    )
+from langchain.output_parsers import (
+    PydanticOutputParser,
+    ResponseSchema,
+    StructuredOutputParser,
+)
 from langchain.schema import OutputParserException
 from pydantic import ValidationError
 
@@ -242,7 +235,7 @@ class NeedAnalysisOutputParser:
             parsed = self._pydantic_parser.parse(candidate)
         except (ValidationError, OutputParserException) as validation_error:
             canonical_data = self._canonicalize_payload(data)
-            error_details: list[dict[str, Any]] | None = None
+            error_details: Sequence[Mapping[str, Any]] | None = None
             if isinstance(validation_error, ValidationError):
                 error_details = validation_error.errors()
             elif hasattr(validation_error, "errors"):
