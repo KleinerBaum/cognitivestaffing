@@ -197,7 +197,12 @@ def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(profile_summary_mod, "call_chat_api", fake_call)
     monkeypatch.setattr(profile_summary_mod, "get_model_for", lambda *_, **__: "model-profile")
-    profile_summary_mod.summarize_candidate("CV", "en", "cand-1")
+    profile_summary_mod.summarize_candidate(
+        "CV",
+        "en",
+        "cand-1",
+        job_requirements="Looking for a data engineer with Python, ETL, and stakeholder alignment skills.",
+    )
 
     schema_cfg = captured.get("json_schema")
     assert schema_cfg["name"] == "CandidateProfileSummary"

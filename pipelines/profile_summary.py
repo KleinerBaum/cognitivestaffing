@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+import json
+from typing import Any, Mapping
 
 from config import ModelTask, get_active_verbosity, get_model_for
 from openai_utils import call_chat_api
@@ -12,8 +13,13 @@ from schemas import PROFILE_SUMMARY_SCHEMA
 __all__ = ["summarize_candidate"]
 
 
-def summarize_candidate(cv_text: str, lang: str, candidate_id: str) -> Any:
-    """Create a structured profile summary for a candidate CV."""
+def summarize_candidate(
+    cv_text: str,
+    lang: str,
+    candidate_id: str,
+    job_requirements: str | Mapping[str, Any] | None = None,
+) -> Any:
+    """Create a structured profile summary for a candidate CV and vacancy fit."""
 
     system = {
         "role": "system",
@@ -21,7 +27,14 @@ def summarize_candidate(cv_text: str, lang: str, candidate_id: str) -> Any:
     }
     user = {
         "role": "user",
-        "content": (f"Sprache: {lang}\nCandidateID: {candidate_id}\nCV:\n{cv_text}"),
+        "content": (
+            "Sprache: {lang}\n".format(lang=lang)
+            + f"CandidateID: {candidate_id}\n"
+            + "Zielrolle / Target role requirements:\n"
+            + _serialize_job_requirements(job_requirements)
+            + "\n\nCV:\n"
+            + cv_text
+        ),
     }
     return call_chat_api(
         messages=[system, user],
@@ -34,3 +47,17 @@ def summarize_candidate(cv_text: str, lang: str, candidate_id: str) -> Any:
         task=ModelTask.PROFILE_SUMMARY,
         verbosity=get_active_verbosity(),
     )
+
+
+def _serialize_job_requirements(job_requirements: str | Mapping[str, Any] | None) -> str:
+    if job_requirements is None:
+        return "Keine Angaben / No requirements provided."
+
+    if isinstance(job_requirements, str):
+        cleaned = job_requirements.strip()
+        return cleaned or "Keine Angaben / No requirements provided."
+
+    try:
+        return json.dumps(job_requirements, ensure_ascii=False, indent=2)
+    except TypeError:
+        return str(job_requirements)
