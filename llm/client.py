@@ -17,6 +17,7 @@ from pydantic import ValidationError
 import streamlit as st
 
 from openai_utils import call_chat_api
+from constants.keys import StateKeys
 from prompts import prompt_registry
 from .context import build_extract_messages, build_preanalysis_messages
 from .prompts import FIELDS_ORDER, PreExtractionInsights
@@ -240,7 +241,7 @@ def _run_pre_extraction_analysis(
         url=url,
     )
 
-    effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+    effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
     model = select_model(ModelTask.EXTRACTION)
 
     try:
@@ -397,9 +398,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         raise
     else:
         validated_payload = (
-            json.dumps(raw_data, ensure_ascii=False)
-            if raw_data is not None
-            else profile.model_dump_json()
+            json.dumps(raw_data, ensure_ascii=False) if raw_data is not None else profile.model_dump_json()
         )
         return validated_payload
 
@@ -469,7 +468,7 @@ def extract_json(
                 insights=insights,
             )
         )
-        effort = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+        effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
         model = select_model(ModelTask.EXTRACTION)
         span.set_attribute("llm.model", model)
         span.set_attribute("llm.extract.minimal", minimal)

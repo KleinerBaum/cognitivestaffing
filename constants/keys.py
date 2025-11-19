@@ -185,6 +185,7 @@ class StateKeys:
     BOOLEAN_STR = "data.boolean_str"
     INTERVIEW_GUIDE_MD = "data.interview_md"
     INTERVIEW_GUIDE_DATA = "data.interview_guide"
+    REASONING_EFFORT = "reasoning_effort"
     REASONING_MODE = "reasoning_mode"
     SKILL_SUGGESTIONS = "skill_suggestions"
     SKILL_SUGGESTION_HINTS = "skill_suggestion_hints"

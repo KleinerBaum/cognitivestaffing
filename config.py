@@ -24,6 +24,8 @@ import streamlit as st
 from enum import StrEnum
 from typing import Dict, Iterator, Mapping, Sequence
 
+from constants.keys import StateKeys
+
 from llm.model_router import ALIASES as ROUTER_ALIASES
 
 try:
@@ -731,7 +733,7 @@ def _get_reasoning_mode() -> str:
     """Return the active reasoning mode (``quick`` or ``precise``)."""
 
     try:
-        raw_mode = st.session_state.get("reasoning_mode")
+        raw_mode = st.session_state.get(StateKeys.REASONING_MODE)
     except Exception:  # pragma: no cover - Streamlit session not initialised
         raw_mode = None
     if isinstance(raw_mode, str):
@@ -741,7 +743,7 @@ def _get_reasoning_mode() -> str:
         if mode_value in {"precise", "precision", "genau", "präzise"}:
             return "precise"
     try:
-        effort_value = st.session_state.get("reasoning_effort", REASONING_EFFORT)
+        effort_value = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
     except Exception:  # pragma: no cover - Streamlit session not initialised
         effort_value = REASONING_EFFORT
     if isinstance(effort_value, str) and effort_value.strip().lower() in {"minimal", "low"}:

@@ -78,11 +78,11 @@ def test_ensure_state_normalises_legacy_models():
 
 def test_ensure_state_preserves_minimal_reasoning_level():
     st.session_state.clear()
-    st.session_state["reasoning_effort"] = "minimal"
+    st.session_state[StateKeys.REASONING_EFFORT] = "minimal"
 
     es.ensure_state()
 
-    assert st.session_state["reasoning_effort"] == "minimal"
+    assert st.session_state[StateKeys.REASONING_EFFORT] == "minimal"
 
 
 def test_ensure_state_salvages_profile_with_extra_fields():
