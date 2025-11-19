@@ -410,6 +410,10 @@ EN: wizard/metadata.py centralises FIELD_SECTION_MAP, CRITICAL_SECTION_ORDER, an
 
 DE: wizard/metadata.py bündelt FIELD_SECTION_MAP, CRITICAL_SECTION_ORDER und get_missing_critical_fields, damit wizard.flow und wizard_router eine schlanke, kreisfrei importierbare Wahrheit teilen.
 
+EN: The previously monolithic wizard/flow.py file has been split into focused helpers: wizard/sections/followups.py renders every follow-up card, wizard/date_utils.py contains timeline/date parsing, and wizard/state_sync.py primes widget state so contributors can locate logic without scrolling through thousands of lines.
+
+DE: Die vormals monolithische wizard/flow.py-Datei wurde in fokussierte Helfer zerlegt: wizard/sections/followups.py rendert sämtliche Follow-up-Karten, wizard/date_utils.py bündelt Timeline-/Datumshelfer und wizard/state_sync.py synchronisiert Widget-States – so finden Contributor:innen die jeweilige Logik ohne tausende Codezeilen durchscrollen zu müssen.
+
 core/
 
 EN: Schema definitions, canonicalisation utilities, and business rules.
