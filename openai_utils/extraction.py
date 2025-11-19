@@ -9,6 +9,8 @@ import textwrap
 import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
+from types import ModuleType
+from importlib import import_module
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -41,10 +43,13 @@ from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool, build_file_search_tool
 
+_streamlit: ModuleType | None
 try:  # pragma: no cover - Streamlit not required for CLI usage
-    import streamlit as st
+    _streamlit = import_module("streamlit")
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    st = None
+    _streamlit = None
+
+st: Any = _streamlit
 
 _GENDER_MARKER_RE = re.compile(
     r"(?:\((?:[mwdgfxnai]\s*/\s*){1,4}[mwdgfxnai]\)"

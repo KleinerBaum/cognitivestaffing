@@ -42,11 +42,13 @@ from streamlit.errors import StreamlitAPIException
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+_SortableItem = TypeVar("_SortableItem")
+
 try:  # pragma: no cover - runtime guard for local/test environments
     from streamlit_sortables import sort_items as _sort_items
 except Exception:  # pragma: no cover - gracefully degrade when component runtime missing
 
-    def sort_items(items: list[str] | tuple[str, ...] | Sequence[str], **_: object) -> list[str]:
+    def sort_items(items: Sequence[_SortableItem], **_: object) -> list[_SortableItem]:
         """Fallback sorter returning items unchanged when the component is unavailable."""
 
         if isinstance(items, list):
@@ -56,7 +58,7 @@ except Exception:  # pragma: no cover - gracefully degrade when component runtim
 else:
     sort_items = _sort_items
 
-from pydantic import ValidationError
+from pydantic import HttpUrl, TypeAdapter, ValidationError
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
@@ -120,6 +122,44 @@ _coerce_followup_number = followup_sections._coerce_followup_number
 _apply_followup_updates = followup_sections._apply_followup_updates
 _missing_fields_for_section = followup_sections._missing_fields_for_section
 
+
+def _followup_job_ad_generator(
+    filtered_profile: Mapping[str, Any],
+    selected_fields: Collection[str],
+    target_value: str | None,
+    manual_entries: Sequence[dict[str, str]],
+    style_reference: str | None,
+    lang: str,
+    show_feedback: bool,
+) -> bool:
+    return _generate_job_ad_content(
+        filtered_profile,
+        selected_fields,
+        target_value,
+        manual_entries,
+        style_reference,
+        lang,
+        show_error=show_feedback,
+    )
+
+
+def _followup_interview_generator(
+    profile_payload: Mapping[str, Any],
+    lang: str,
+    num_questions: int,
+    audience: str,
+    warn_on_length: bool,
+    show_feedback: bool,
+) -> bool:
+    return generate_interview_guide_content(
+        profile_payload,
+        lang,
+        num_questions,
+        audience=audience,
+        warn_on_length=warn_on_length,
+        show_error=show_feedback,
+    )
+
 # Backwards-compatible alias for external imports/tests.
 _prime_widget_state_from_profile = prime_widget_state_from_profile
 from core.esco_utils import lookup_esco_skill
@@ -182,6 +222,7 @@ StopException = StreamlitStopException
 
 
 logger = logging.getLogger(__name__)
+_BRAND_URL_VALIDATOR = TypeAdapter(HttpUrl)
 
 _RECOVERABLE_FLOW_ERRORS: tuple[type[Exception], ...] = (
     StreamlitAPIException,
@@ -1622,13 +1663,13 @@ def _render_skill_board(
     header_to_type = {labels[container]: container for container in _SKILL_CONTAINER_ORDER}
     updated_state: dict[SkillContainerType, list[str]] = {container: [] for container in _SKILL_CONTAINER_ORDER}
 
-    for container in sorted_items:
-        header = container.get("header")
+    for bucket in sorted_items:
+        header = bucket.get("header")
         container_type = header_to_type.get(str(header))
         if container_type is None:
             continue
         cleaned_items: list[str] = []
-        for raw_item in container.get("items", []) or []:
+        for raw_item in bucket.get("items", []) or []:
             if not isinstance(raw_item, str):
                 continue
             cleaned_identifier: str | None = _resolve_skill_identifier(
@@ -2445,6 +2486,16 @@ def _coerce_brand_string(value: Any) -> str | None:
     return None
 
 
+def _coerce_brand_url(value: Any) -> HttpUrl | None:
+    candidate = _coerce_brand_string(value)
+    if not candidate:
+        return None
+    try:
+        return _BRAND_URL_VALIDATOR.validate_python(candidate)
+    except ValidationError:
+        return None
+
+
 def _coerce_brand_color(value: Any) -> str | None:
     candidate = _coerce_brand_string(value)
     if not candidate:
@@ -2460,7 +2511,7 @@ def _apply_branding_to_profile(profile: NeedAnalysisProfile) -> None:
     if not branding:
         return
 
-    logo_url = _coerce_brand_string(branding.get("logo_url"))
+    logo_url = _coerce_brand_url(branding.get("logo_url"))
     if logo_url and not profile.company.logo_url:
         profile.company.logo_url = logo_url
 
@@ -5134,10 +5185,15 @@ def _render_confidence_legend(
     if not entries:
         return
 
-    container = container or st
+    caption_target: Callable[[str], Any]
+    if container is None:
+        caption_target = st.caption
+    else:
+        caption_target = container.caption
+
     intro = tr("Legende:", "Legend:")
     legend_body = " • ".join(f"{icon} {message}" for icon, message in entries)
-    container.caption(f"{intro} {legend_body}")
+    caption_target(f"{intro} {legend_body}")
 
 
 def _ensure_mapping(value: Any) -> dict[str, Any]:
@@ -5166,7 +5222,7 @@ def _field_lock_config(
     path: str,
     label: str,
     *,
-    container: DeltaGenerator | None = None,
+    container: object | None = None,
     context: str = "main",
 ) -> FieldLockConfig:
     """Return widget metadata for ``path`` considering lock/high-confidence state."""
@@ -5598,7 +5654,7 @@ def _render_esco_occupation_selector(
         container.markdown("<div class='esco-compact'>", unsafe_allow_html=True)
         render_target = container.container()
 
-    heading_size = "micro" if compact else "compact"
+    heading_size: Literal["micro", "compact"] = "micro" if compact else "compact"
     render_section_heading(
         tr("ESCO-Berufe auswählen", "Select ESCO occupations"),
         size=heading_size,
@@ -10970,6 +11026,8 @@ def _render_summary_export_section(
                         num_questions=st.session_state.get(UIKeys.NUM_QUESTIONS, 5),
                         warn_on_length=False,
                         show_feedback=True,
+                        job_ad_generator=_followup_job_ad_generator,
+                        interview_generator=_followup_interview_generator,
                     )
                     if job_generated or interview_generated:
                         st.toast(

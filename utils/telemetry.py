@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, Mapping, Optional
+from importlib import import_module
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -124,6 +125,49 @@ def _build_otlp_config() -> OtlpConfig | None:
     )
 
 
+def _format_grpc_headers(headers: Mapping[str, str] | None) -> Sequence[tuple[str, str]] | None:
+    """Coerce header mappings to the tuple sequence expected by the gRPC exporter."""
+
+    if not headers:
+        return None
+    return tuple((key, value) for key, value in headers.items())
+
+
+def _format_http_headers(headers: Mapping[str, str] | None) -> Dict[str, str] | None:
+    """Coerce header mappings to the dictionary format expected by the HTTP exporter."""
+
+    if not headers:
+        return None
+    return dict(headers)
+
+
+def _build_grpc_credentials(cert_path: str | None) -> Any | None:
+    """Load channel credentials for gRPC exporters when a certificate is configured."""
+
+    if not cert_path:
+        return None
+
+    try:
+        grpc = import_module("grpc")
+    except ImportError:  # pragma: no cover - optional dependency in CI
+        LOGGER.warning("gRPC exporter requested custom certificate but grpcio is not installed.")
+        return None
+
+    try:
+        with open(cert_path, "rb") as cert_file:
+            certificate = cert_file.read()
+    except OSError as exc:  # pragma: no cover - filesystem edge cases
+        LOGGER.warning("Unable to read OTLP certificate '%s': %s", cert_path, exc)
+        return None
+
+    ssl_credentials = getattr(grpc, "ssl_channel_credentials", None)
+    if ssl_credentials is None:
+        LOGGER.warning("grpc.ssl_channel_credentials missing; cannot apply custom certificate.")
+        return None
+
+    return ssl_credentials(root_certificates=certificate)
+
+
 def _create_otlp_exporter() -> Optional[SpanExporter]:
     """Instantiate an OTLP span exporter based on environment settings."""
 
@@ -134,12 +178,14 @@ def _create_otlp_exporter() -> Optional[SpanExporter]:
     if config.protocol in {"grpc", "grpc/protobuf"}:
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GrpcExporter
 
+        grpc_headers = _format_grpc_headers(config.headers)
+        credentials = _build_grpc_credentials(config.certificate_file)
         return GrpcExporter(
             endpoint=config.endpoint,
-            headers=config.headers,
+            headers=grpc_headers,
             timeout=config.timeout,
-            certificate_file=config.certificate_file,
-            insecure=config.insecure or False,
+            insecure=config.insecure,
+            credentials=credentials,
         )
 
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as HttpExporter
@@ -149,9 +195,10 @@ def _create_otlp_exporter() -> Optional[SpanExporter]:
             "Unsupported OTEL_EXPORTER_OTLP_PROTOCOL '%s'; falling back to http/protobuf",
             config.protocol,
         )
+    http_headers = _format_http_headers(config.headers)
     return HttpExporter(
         endpoint=config.endpoint,
-        headers=config.headers,
+        headers=http_headers,
         timeout=config.timeout,
         certificate_file=config.certificate_file,
     )
