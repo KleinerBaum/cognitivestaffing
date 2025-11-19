@@ -105,6 +105,11 @@ _REQUIRED_FIELD_VALIDATORS: Final[dict[str, Callable[[str | None], tuple[str | N
 
 _PROFILE_VALIDATED_FIELDS: Final[set[str]] = set(_REQUIRED_FIELD_VALIDATORS)
 
+_NAVIGATION_CONTACT_WARNING: Final[LocalizedText] = (
+    "Bitte Kontakt-E-Mail und primäre Stadt ergänzen, bevor du weitergehst.",
+    "Please add the contact email and primary city before continuing.",
+)
+
 _STEP_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
     StreamlitAPIException,
     ValidationError,
@@ -419,6 +424,7 @@ class WizardRouter:
                 self._pending_validation_errors = validation_errors
             else:
                 self._pending_validation_errors = {}
+                self._set_navigation_warning(None)
             for field in required_fields:
                 if field in _PROFILE_VALIDATED_FIELDS:
                     value = None
@@ -434,6 +440,7 @@ class WizardRouter:
                         missing.append(field)
         else:
             self._pending_validation_errors = {}
+            self._set_navigation_warning(None)
         inline_missing = self._missing_inline_followups(page, profile)
         if inline_missing:
             missing.extend(inline_missing)
@@ -493,8 +500,14 @@ class WizardRouter:
             *,
             mark_complete: bool = False,
             skipped: bool = False,
+            require_fields: Sequence[str] | None = None,
         ) -> Callable[[], None]:
             def _run() -> None:
+                if require_fields:
+                    blocked = self._enforce_required_navigation_fields(require_fields)
+                    if blocked:
+                        st.rerun()
+                        return
                 self.navigate(target, mark_current_complete=mark_complete, skipped=skipped)
 
             return _run
@@ -512,12 +525,18 @@ class WizardRouter:
 
         if next_key:
             next_hint: LocalizedText | None = None
-            if missing_tuple:
+            nav_warning = self._get_navigation_warning()
+            if nav_warning:
+                next_hint = nav_warning
+            elif missing_tuple:
                 next_hint = (
                     "Pflichtfelder fehlen",
                     "Complete required fields first",
                 )
 
+            required_validators = tuple(
+                field for field in tuple(page.required_fields or ()) if field in _PROFILE_VALIDATED_FIELDS
+            )
             next_button = NavigationButtonState(
                 direction=NavigationDirection.NEXT,
                 label=("Weiter ▶", "Next ▶"),
@@ -525,7 +544,11 @@ class WizardRouter:
                 enabled=not missing_tuple,
                 primary=True,
                 hint=next_hint,
-                on_click=_nav_callback(next_key, mark_complete=True),
+                on_click=_nav_callback(
+                    next_key,
+                    mark_complete=True,
+                    require_fields=required_validators,
+                ),
             )
         else:
             next_button = None
@@ -548,6 +571,18 @@ class WizardRouter:
         )
         render_navigation_controls(nav_state)
         self._render_validation_warnings()
+
+    def _get_navigation_warning(self) -> LocalizedText | None:
+        warning = st.session_state.get(StateKeys.WIZARD_NAVIGATION_WARNING)
+        if isinstance(warning, Sequence) and len(warning) == 2 and all(isinstance(entry, str) for entry in warning):
+            return warning[0], warning[1]
+        return None
+
+    def _set_navigation_warning(self, message: LocalizedText | None) -> None:
+        if message is None:
+            st.session_state.pop(StateKeys.WIZARD_NAVIGATION_WARNING, None)
+            return
+        st.session_state[StateKeys.WIZARD_NAVIGATION_WARNING] = message
 
     def _maybe_scroll_to_top(self) -> None:
         if not st.session_state.pop("_wizard_scroll_to_top", False):
@@ -645,6 +680,21 @@ class WizardRouter:
         combined = "\n\n".join(tr(de, en, lang=lang) for de, en in messages)
         if combined.strip():
             st.warning(combined)
+
+    def _enforce_required_navigation_fields(self, fields: Sequence[str]) -> bool:
+        """Re-run critical validators when attempting to advance."""
+
+        relevant_fields = tuple(field for field in fields if field in _PROFILE_VALIDATED_FIELDS)
+        if not relevant_fields:
+            self._set_navigation_warning(None)
+            return False
+        errors = self._validate_required_field_inputs(relevant_fields)
+        if errors:
+            self._pending_validation_errors = errors
+            self._set_navigation_warning(_NAVIGATION_CONTACT_WARNING)
+            return True
+        self._set_navigation_warning(None)
+        return False
 
     def _apply_pending_incomplete_jump(self) -> None:
         if not st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False):

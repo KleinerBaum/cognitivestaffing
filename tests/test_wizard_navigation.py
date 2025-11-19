@@ -717,6 +717,142 @@ def test_company_step_surfaces_warning_when_contact_fields_missing(
     assert "Kontakt-E-Mail" in warnings[-1]
 
 
+def test_company_next_click_blocks_when_contact_fields_went_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Re-run contact validators when Next is clicked to prevent stale navigation."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
+
+    call_counter = {"value": 0}
+
+    def _validate_stub(self: WizardRouter, fields: Sequence[str]) -> dict[str, tuple[str, str]]:
+        call_counter["value"] += 1
+        if call_counter["value"] == 1:
+            return {}
+        return {str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt fehlt", "Contact missing")}
+
+    monkeypatch.setattr(WizardRouter, "_validate_required_field_inputs", _validate_stub)
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+    captions: list[str] = []
+    monkeypatch.setattr(st, "caption", lambda message, **__: captions.append(message))
+
+    class RerunTriggered(Exception):
+        pass
+
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+
+    responses = {"wizard_next_company": iter([True])}
+
+    def fake_button(*_args: object, **kwargs: object) -> bool:
+        key = kwargs.get("key")
+        sequence = responses.get(key)
+        if sequence is None:
+            return False
+        try:
+            return next(sequence)
+        except StopIteration:
+            return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    assert call_counter["value"] >= 2, "validators should re-run during navigation"
+    assert router._state["current_step"] == "company"
+    assert query_params["step"] == ["company"]
+    assert st.session_state.get(StateKeys.WIZARD_NAVIGATION_WARNING) == wizard_router_module._NAVIGATION_CONTACT_WARNING
+
+
+def test_navigation_warning_hint_renders_under_next_button(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Stored navigation warnings should surface as bilingual hints beside Next."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state["lang"] = "de"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
+
+    def _erroring_validator(self: WizardRouter, fields: Sequence[str]) -> dict[str, tuple[str, str]]:
+        return {str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt fehlt", "Contact missing")}
+
+    monkeypatch.setattr(WizardRouter, "_validate_required_field_inputs", _erroring_validator)
+    router._enforce_required_navigation_fields((str(ProfilePaths.COMPANY_CONTACT_EMAIL),))
+
+    captions: list[str] = []
+
+    class _CapturingColumn(DummyColumn):
+        def caption(self, message: str, **_: object) -> None:  # type: ignore[override]
+            captions.append(message)
+
+    columns = [_CapturingColumn(), _CapturingColumn(), _CapturingColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    router.run()
+
+    assert any("Kontakt" in entry for entry in captions), "expected bilingual hint near Next"
+
+
+def test_navigation_warning_clears_after_validators_pass(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Successful validator runs should remove any lingering navigation hints."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
+    st.session_state[StateKeys.WIZARD_NAVIGATION_WARNING] = wizard_router_module._NAVIGATION_CONTACT_WARNING
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    blocked = router._enforce_required_navigation_fields(
+        (
+            str(ProfilePaths.COMPANY_CONTACT_EMAIL),
+            str(ProfilePaths.LOCATION_PRIMARY_CITY),
+        )
+    )
+
+    assert blocked is False
+    assert StateKeys.WIZARD_NAVIGATION_WARNING not in st.session_state
+
+
 def test_company_required_validators_use_profile_when_widget_state_missing(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
