@@ -7,6 +7,7 @@ from typing import Final
 import streamlit as st
 
 from utils.i18n import tr
+from utils.admin_debug import is_admin_debug_session_active
 
 LocalizedMessage = str | tuple[str, str]
 _DETAILS_LABEL: Final[tuple[str, str]] = (
@@ -45,6 +46,6 @@ def display_error(
 
     text = resolve_message(msg, lang=lang)
     st.error(text)
-    if detail and st.session_state.get("debug"):
+    if detail and is_admin_debug_session_active():
         with st.expander(resolve_message(_DETAILS_LABEL, lang=lang)):
             st.code(detail)

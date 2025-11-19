@@ -20,6 +20,7 @@ from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
 from state import reset_state
 from utils.i18n import tr
+from utils.admin_debug import ADMIN_DEBUG_DETAILS_HINT, is_admin_debug_session_active
 from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.usage import build_usage_markdown, usage_totals
 
@@ -1162,7 +1163,10 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
         st.caption(tr("Quelle der Schätzung: {source}", "Estimate source: {source}").format(source=source_label))
 
     st.markdown(f"#### {tr('Berechnung', 'Calculation')}")
-    st.json(dict(estimate))
+    if is_admin_debug_session_active():
+        st.json(dict(estimate))
+    else:
+        st.caption(tr(*ADMIN_DEBUG_DETAILS_HINT))
 
     factors = prepare_salary_factor_entries(
         explanation,
