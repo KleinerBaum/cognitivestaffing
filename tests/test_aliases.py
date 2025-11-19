@@ -13,6 +13,7 @@ from core.schema import (
     WIZARD_KEYS_CANONICAL,
     canonicalize_profile_payload,
     canonicalize_wizard_payload,
+    coerce_and_fill,
 )
 from models.need_analysis import NeedAnalysisProfile
 from pages import WIZARD_PAGES
@@ -94,13 +95,11 @@ def test_wizard_alias_mapping_complete() -> None:
 
         if target.startswith(f"{alias}."):
             alias_container = _get_path(canonical, alias)
-            assert isinstance(
-                alias_container, Mapping
-            ), f"Wizard alias '{alias}' should keep nested mapping for '{target}'"
+            assert isinstance(alias_container, Mapping), (
+                f"Wizard alias '{alias}' should keep nested mapping for '{target}'"
+            )
         else:
-            assert (
-                _get_path(canonical, alias) is None
-            ), f"Wizard alias '{alias}' leaked into canonical payload"
+            assert _get_path(canonical, alias) is None, f"Wizard alias '{alias}' leaked into canonical payload"
 
         canonical_value = _get_path(canonical, target)
         assert canonical_value not in (None, {}), f"Wizard alias '{alias}' missing target '{target}'"
@@ -116,9 +115,19 @@ def test_recruiting_wizard_export_handles_legacy_aliases() -> None:
     payload = {"position": {"department": "Business Operations"}}
     export = RecruitingWizardExport.from_payload(payload)
 
-    assert (
-        export.payload.department.name == "Business Operations"
-    ), "Alias values must populate the canonical department.name"
+    assert export.payload.department.name == "Business Operations", (
+        "Alias values must populate the canonical department.name"
+    )
+
+
+def test_need_analysis_alias_preserves_department_and_team() -> None:
+    """NeedAnalysis alias keys must populate canonical department and team data."""
+
+    payload = {"role": {"department": "Customer Success", "team": "Enablement"}}
+    profile = coerce_and_fill(payload)
+
+    assert profile.department.name == "Customer Success"
+    assert profile.team.name == "Enablement"
 
 
 OPTIONAL_WIZARD_FIELDS = {
