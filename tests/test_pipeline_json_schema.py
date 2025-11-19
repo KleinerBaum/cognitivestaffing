@@ -9,6 +9,7 @@ from typing import Any
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import pytest
+from jsonschema import Draft202012Validator, ValidationError
 
 from generators import interview_guide as interview_mod
 from generators import job_ad as job_ad_mod
@@ -25,6 +26,55 @@ from schemas import (
     PROFILE_SUMMARY_SCHEMA,
     VACANCY_EXTRACTION_SCHEMA,
 )
+
+
+def _build_interview_guide_payload() -> dict[str, Any]:
+    return {
+        "metadata": {
+            "language": "en",
+            "heading": "Interview guide",
+            "job_title": "Customer Success Manager",
+            "audience": "Hiring Panel",
+            "audience_label": "Panel",
+            "tone": "Professional",
+            "tone_label": "Professional",
+            "culture_note": "Highlight collaboration.",
+        },
+        "questions": [
+            {
+                "question": "Tell me about a time you improved a client workflow.",
+                "focus": "Process improvement",
+                "evaluation": "Look for structured approach and ROI.",
+            },
+            {
+                "question": "Describe how you manage conflicting priorities.",
+                "focus": "Prioritization",
+                "evaluation": "Seek proactive communication cues.",
+            },
+            {
+                "question": "How do you mentor new team members?",
+                "focus": "Coaching",
+                "evaluation": "Expect concrete onboarding tactics.",
+            },
+        ],
+        "focus_areas": [
+            {
+                "label": "Customer Impact",
+                "items": [
+                    "Understands churn risks",
+                    "Shares win stories",
+                ],
+            }
+        ],
+        "evaluation_notes": [
+            "Add observations about stakeholder alignment.",
+            "Capture specific onboarding contributions.",
+        ],
+        "markdown": "## Interview Guide\n- Question list\n- Focus areas",
+    }
+
+
+_INTERVIEW_GUIDE_VALIDATOR = Draft202012Validator(INTERVIEW_GUIDE_SCHEMA)
 
 
 class _FakeResult(ChatCallResult):
@@ -46,9 +96,9 @@ def _assert_objects_disallow_additional_properties(value: Any, path: str = "$") 
     if isinstance(value, dict):
         schema_type = value.get("type")
         if schema_type == "object":
-            assert (
-                value.get("additionalProperties") is False
-            ), f"Schema object at {path} must set additionalProperties to False"
+            assert value.get("additionalProperties") is False, (
+                f"Schema object at {path} must set additionalProperties to False"
+            )
             properties = value.get("properties")
             if isinstance(properties, dict):
                 for key, nested in properties.items():
@@ -208,3 +258,20 @@ def test_interview_guide_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     assert schema_cfg["schema"] == INTERVIEW_GUIDE_SCHEMA
     _assert_objects_disallow_additional_properties(INTERVIEW_GUIDE_SCHEMA)
     assert captured["model"] == "model-interview"
+
+
+def test_interview_guide_sample_payload_validates() -> None:
+    """Ensure a representative guide payload passes the JSON schema."""
+
+    payload = _build_interview_guide_payload()
+    _INTERVIEW_GUIDE_VALIDATOR.validate(payload)
+
+
+def test_interview_guide_schema_requires_heading() -> None:
+    """Dropping a required metadata field should fail validation."""
+
+    payload = _build_interview_guide_payload()
+    payload["metadata"].pop("heading")
+
+    with pytest.raises(ValidationError):
+        _INTERVIEW_GUIDE_VALIDATOR.validate(payload)

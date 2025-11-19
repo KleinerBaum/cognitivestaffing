@@ -12,6 +12,8 @@ Changed / Geändert
   DE: Das NeedAnalysis-JSON-Schema wird jetzt direkt aus dem Pydantic-Modell erzeugt und im Vacancy-Extraktionsschema wiederverwendet, damit alle Positions-/Abteilungs-/Team-Felder von der Extraktion über die Validierung bis zu den Exporten ohne manuelle Abweichungen bestehen bleiben.
 - EN: Locked down every Responses JSON schema: the pipeline tests now assert `additionalProperties: false` across all nested objects and the structured Job Ad schema requires the metadata block (tone plus target audience), preventing stray keys and missing context in model outputs.
   DE: Sämtliche Responses-JSON-Schemas wurden verschärft – die Pipeline-Tests prüfen nun `additionalProperties: false` in allen verschachtelten Objekten und das strukturierte Job-Ad-Schema verlangt den Metadatenblock (Ton und Zielgruppe), sodass keine unerwarteten Felder mehr auftauchen und keine Pflichtkontexte fehlen.
+- EN: Added regression tests that validate InterviewGuide JSON responses against the schema and ensure NeedAnalysis department/team aliases survive canonicalization, preventing future schema propagation regressions.
+  DE: Regressionstests ergänzt, die InterviewGuide-JSON-Antworten gegen das Schema prüfen und sicherstellen, dass NeedAnalysis-Aliasfelder für Abteilung/Team die Kanonisierung überstehen, damit künftige Schema-Propagationsregressionen ausbleiben.
 
 Fixed / Behoben
 
