@@ -10,6 +10,9 @@ Changed / Geändert
 - EN: Strengthened the interview guide generator prompt so competency clusters stem from the vacancy profile, each competency powers at least one question, and the question list always mixes technical, behavioural, and cultural angles with two scoring criteria per entry.
   DE: Den Interview-Guide-Prompt erweitert, damit die Kompetenzcluster aus dem Vakanzprofil abgeleitet werden, jede Kompetenz mindestens eine Frage erhält und die Fragenliste stets technische, verhaltensorientierte und kulturelle Aspekte inklusive zweier Bewertungskriterien je Eintrag abdeckt.
 
+- EN: Moved every debug/API toggle plus the salary/ESCO JSON diagnostics into the admin-only expander; recruiters never see these controls or raw payloads unless `ADMIN_DEBUG_PANEL=1` and the debug mode is enabled inside that panel.
+  DE: Alle Debug-/API-Schalter sowie die Gehalts- bzw. ESCO-Rohdaten wurden in den Admin-Expander verschoben – Recruiter:innen sehen sie nur, wenn `ADMIN_DEBUG_PANEL=1` gesetzt ist und der Debugmodus innerhalb dieses Panels aktiviert wurde.
+
 - EN: Standardised the bilingual labels and helper copy across all wizard steps – Company contact fields now read “Company contact email/phone”, the Team step is surfaced as “Team & Context”, hard/soft skill sections use Required/Optional wording, and the summary mirrors those terms so HR stakeholders see the same terminology end-to-end.
   DE: Zweisprachige Labels und Hilfetexte in allen Wizard-Schritten vereinheitlicht – Unternehmensfelder heißen nun „Kontakt-E-Mail (Unternehmen)“ bzw. „Kontakt-Telefon“, der Team-Schritt wird als „Team & Kontext“ angezeigt, die Hard-/Soft-Skill-Blöcke nutzen „Pflicht“ bzw. „Optional“, und die Summary spiegelt diese Begriffe für durchgängige HR-Terminologie.
 

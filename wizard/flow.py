@@ -83,6 +83,11 @@ from ingest.types import ContentBlock, StructuredDocument, build_plain_text_docu
 from ingest.branding import extract_brand_assets
 from ingest.heuristics import apply_basic_fallbacks
 from utils.errors import LocalizedMessage, display_error, resolve_message
+from utils.admin_debug import (
+    ADMIN_DEBUG_DETAILS_HINT,
+    is_admin_debug_panel_enabled,
+    is_admin_debug_session_active,
+)
 from utils.url_utils import is_supported_url
 from config import REASONING_EFFORT
 from config_loader import load_json
@@ -6086,7 +6091,7 @@ def _render_requirements_esco_search(
             with container.spinner(tr("Lade ESCO-Berufe…", "Loading ESCO occupations…", lang=lang)):
                 options = _cached_esco_search(query, lang=lang, limit=8)
         except Exception as exc:  # pragma: no cover - defensive fallback
-            if st.session_state.get("debug"):
+            if is_admin_debug_session_active():
                 st.session_state["esco_search_error"] = str(exc)
             container.warning(
                 tr(
@@ -7683,7 +7688,7 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
                         "Onboarding suggestions not available (API error)",
                     )
                 )
-                if err and st.session_state.get("debug"):
+                if err and is_admin_debug_session_active():
                     st.session_state["onboarding_suggestions_error"] = err
             else:
                 selection_key = f"{key_prefix}.selection"
@@ -8288,7 +8293,7 @@ def _step_requirements() -> None:
     def _show_suggestion_warning(error: str | None) -> None:
         if not error:
             return
-        if st.session_state.get("debug"):
+        if is_admin_debug_session_active():
             st.session_state["skill_suggest_error"] = error
         st.warning(
             tr(
@@ -8401,7 +8406,7 @@ def _step_requirements() -> None:
                     **normalized_payload,
                 }
                 if error:
-                    if st.session_state.get("debug"):
+                    if is_admin_debug_session_active():
                         st.session_state["skill_suggest_error"] = error
                 else:
                     st.session_state.pop("skill_suggest_error", None)
@@ -8780,7 +8785,7 @@ def _step_requirements() -> None:
                         "Responsibility suggestions failed: {error}",
                     ).format(error=suggestion_error)
                 )
-                if st.session_state.get("debug"):
+                if is_admin_debug_session_active():
                     st.session_state["responsibility_suggest_error"] = suggestion_error
             else:
                 if responsibility_suggestions:
@@ -9539,7 +9544,7 @@ def _step_compensation() -> None:
                     lang=lang,
                 )
             )
-        if err and st.session_state.get("debug"):
+        if err and is_admin_debug_session_active():
             st.session_state["benefit_suggest_error"] = err
         if new_sugg:
             benefit_state = st.session_state.get(
@@ -10935,8 +10940,10 @@ def _render_salary_insights(
             ):
                 if isinstance(explanation, str):
                     st.markdown(explanation)
-                else:
+                elif is_admin_debug_session_active():
                     st.json(explanation)
+                else:
+                    st.caption(tr(*ADMIN_DEBUG_DETAILS_HINT))
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -11034,7 +11041,10 @@ def _render_skill_insights(raw_profile: Mapping[str, Any], *, lang: str) -> None
                 )
             )
             if metadata:
-                st.json(metadata)
+                if is_admin_debug_session_active():
+                    st.json(metadata)
+                else:
+                    st.caption(tr(*ADMIN_DEBUG_DETAILS_HINT))
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -12011,7 +12021,8 @@ def run_wizard() -> None:
 
     st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
     schema, critical = _load_wizard_configuration()
-    _render_admin_debug_panel()
+    if is_admin_debug_panel_enabled():
+        _render_admin_debug_panel()
     try:
         _run_wizard_v2(schema, critical)
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
