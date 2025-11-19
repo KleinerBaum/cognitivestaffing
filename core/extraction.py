@@ -226,6 +226,11 @@ def parse_structured_payload(raw: str) -> tuple[dict[str, Any], bool, list[str]]
             canonical_payload = canonicalize_profile_payload(repaired)
         else:
             removed_paths = _prune_error_paths(canonical_payload, errors)
+            if removed_paths:
+                logger.warning(
+                    "Structured extraction pruned invalid fields: %s",
+                    ", ".join(removed_paths),
+                )
             for path in removed_paths:
                 issues.append(f"{path}: removed invalid value")
         try:
