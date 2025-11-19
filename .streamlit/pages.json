@@ -11,11 +11,6 @@
       "is_hidden": true
     },
     {
-      "path": "pages/followups.py",
-      "name": "Follow-ups",
-      "is_hidden": false
-    },
-    {
       "path": "pages/02_company.py",
       "name": "Company",
       "is_hidden": true
