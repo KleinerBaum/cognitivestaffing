@@ -23,7 +23,7 @@ from openai_utils.client import ResponsesRequest
 
 
 pytestmark = pytest.mark.integration
-from openai import APITimeoutError, AuthenticationError, BadRequestError, RateLimitError
+from openai import APIError, APITimeoutError, AuthenticationError, BadRequestError, RateLimitError
 import streamlit as st
 
 from constants.keys import StateKeys
@@ -2344,9 +2344,9 @@ def test_chat_stream_uses_configured_timeout(monkeypatch):
 
 
 def test_chat_stream_missing_completion_event(monkeypatch, caplog):
-    """Streaming should keep buffered content when the completion event is missing."""
+    """Streaming should recover the final response when completion events are missing."""
 
-    caplog.set_level("ERROR")
+    caplog.set_level("WARNING")
 
     class _DummyStream:
         def __init__(self) -> None:
@@ -2371,9 +2371,15 @@ def test_chat_stream_missing_completion_event(monkeypatch, caplog):
         def get_final_response(self):
             raise RuntimeError("RuntimeError: Didn't receive a response.completed event.")
 
+    responses_calls = {"create": 0}
+
     class _DummyResponses:
         def stream(self, **kwargs: Any):  # noqa: D401
             return _DummyStream()
+
+        def create(self, **kwargs: Any):  # noqa: D401
+            responses_calls["create"] += 1
+            return SimpleNamespace(output_text="Recovered", usage={"input_tokens": 1}, id="resp-1")
 
     dummy_client = SimpleNamespace(responses=_DummyResponses())
 
@@ -2384,10 +2390,73 @@ def test_chat_stream_missing_completion_event(monkeypatch, caplog):
     chunks = list(stream)
     assert chunks == ["Hello"]
     assert stream.text == "Hello"
-    assert stream.result.content == "Hello"
-    assert stream.result.usage == {}
+    assert stream.result.content == "Recovered"
+    assert stream.result.usage == {"input_tokens": 1}
+    assert responses_calls["create"] == 1
 
     assert any("missing completion event" in message for message in caplog.messages)
+
+
+def test_chat_stream_missing_completion_event_chat_fallback(monkeypatch):
+    """Streaming should fall back to the Chat Completions API when Responses retry fails."""
+
+    class _DummyStream:
+        def __init__(self) -> None:
+            self._events = iter(
+                [
+                    {"type": "response.output_text.delta", "delta": "Hi"},
+                ]
+            )
+
+        def __enter__(self):  # noqa: D401
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401,B027
+            return False
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            return next(self._events)
+
+        def get_final_response(self):
+            raise RuntimeError("RuntimeError: Didn't receive a response.completed event.")
+
+    class _DummyResponses:
+        def stream(self, **kwargs: Any):  # noqa: D401
+            return _DummyStream()
+
+        def create(self, **kwargs: Any):  # noqa: D401
+            raise APIError("boom", response=_dummy_response(500), body="")
+
+    class _DummyChatCompletions:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def create(self, **kwargs: Any):
+            self.calls += 1
+            return SimpleNamespace(
+                choices=[{"message": {"content": "Chat recovered"}}],
+                usage={"prompt_tokens": 1, "completion_tokens": 2},
+                id="chat-1",
+            )
+
+    chat_completions = _DummyChatCompletions()
+    dummy_client = SimpleNamespace(
+        responses=_DummyResponses(),
+        chat=SimpleNamespace(completions=chat_completions),
+    )
+
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+
+    stream = openai_utils.api.ChatStream({"input": []}, config.REASONING_MODEL, task=None)
+
+    chunks = list(stream)
+    assert chunks == ["Hi"]
+    assert chat_completions.calls == 1
+    assert stream.result.content == "Chat recovered"
+    assert stream.result.usage == {"input_tokens": 1, "output_tokens": 2}
 
 
 def _dummy_response(status: int) -> httpx.Response:

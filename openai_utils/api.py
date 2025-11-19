@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
-from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Final, cast
+from typing import Any, Callable, Dict, Final, Iterable, Iterator, Mapping, Optional, Sequence, cast
 
 import backoff
 from opentelemetry import trace
@@ -1272,7 +1272,9 @@ def _prepare_payload(
     raw_tools = [dict(tool) for tool in (tools or [])]
     tool_map = dict(tool_functions or {})
     requested_tools = bool(raw_tools or tool_map)
-    analysis_tools_enabled = include_analysis_tools and (app_config.USE_CLASSIC_API or requested_tools or RESPONSES_ALLOW_TOOLS)
+    analysis_tools_enabled = include_analysis_tools and (
+        app_config.USE_CLASSIC_API or requested_tools or RESPONSES_ALLOW_TOOLS
+    )
     if analysis_tools_enabled:
         from core import analysis_tools
 
@@ -1469,6 +1471,7 @@ class ChatStream(Iterable[str]):
     def _consume(self) -> Iterator[str]:
         client = get_client()
         final_response: Any | None = None
+        missing_completion_event = False
         try:
             if app_config.USE_CLASSIC_API:
                 with client.chat.completions.stream(**self._payload) as stream:
@@ -1488,20 +1491,82 @@ class ChatStream(Iterable[str]):
                     try:
                         final_response = stream.get_final_response()
                     except RuntimeError as error:
-                        if "response.completed" in str(error):
-                            logger.error(
-                                "OpenAI stream missing completion event; continuing with partial response.",
+                        if _is_missing_completion_event_error(error):
+                            missing_completion_event = True
+                            logger.warning(
+                                "Responses stream missing completion event; retrying without streaming.",
                                 exc_info=error,
                             )
+                            final_response = self._recover_stream_response(client)
                         else:
                             raise
         except (OpenAIError, RuntimeError) as error:
-            _handle_streaming_error(error)
-        else:
-            if final_response is None:
-                self._finalise_partial()
+            if _is_missing_completion_event_error(error) or missing_completion_event:
+                logger.warning("Streaming failure detected; attempting fallback via API retries.", exc_info=error)
+                recovered = self._recover_stream_response(client)
+                if recovered is not None:
+                    final_response = recovered
+                else:
+                    _handle_streaming_error(error)
+                    return
             else:
-                self._finalise(final_response)
+                _handle_streaming_error(error)
+                return
+        else:
+            if final_response is None and missing_completion_event:
+                final_response = self._recover_stream_response(client)
+
+        if final_response is None:
+            self._finalise_partial()
+        else:
+            self._finalise(final_response)
+
+    def _recover_stream_response(self, client: OpenAI) -> Any | None:
+        """Return a non-streamed payload to finalise the request if possible."""
+
+        if app_config.USE_CLASSIC_API:
+            return None
+
+        response = self._retry_responses_without_stream(client)
+        if response is not None:
+            return response
+
+        return self._retry_chat_completion(client)
+
+    def _retry_responses_without_stream(self, client: OpenAI) -> Any | None:
+        """Retry the original Responses payload without streaming."""
+
+        payload = dict(self._payload)
+        payload.pop("stream", None)
+        try:
+            logger.info("Retrying Responses request without streaming after missing completion event.")
+            return client.responses.create(**payload)
+        except OpenAIError as error:
+            logger.warning("Responses retry failed; will attempt Chat Completions fallback.", exc_info=error)
+        except Exception as error:  # pragma: no cover - defensive
+            logger.error("Unexpected error during Responses retry.", exc_info=error)
+        return None
+
+    def _retry_chat_completion(self, client: OpenAI) -> Any | None:
+        """Fallback to the Chat Completions API when Responses streaming fails."""
+
+        chat_client = getattr(client, "chat", None)
+        completions = getattr(chat_client, "completions", None)
+        if completions is None:
+            return None
+
+        fallback_payload = _convert_responses_payload_to_chat(self._payload)
+        if fallback_payload is None:
+            return None
+
+        try:
+            logger.info("Falling back to Chat Completions request after Responses streaming failure.")
+            return completions.create(**fallback_payload)
+        except OpenAIError as error:
+            logger.error("Chat Completions fallback failed.", exc_info=error)
+        except Exception as error:  # pragma: no cover - defensive
+            logger.error("Unexpected Chat fallback failure.", exc_info=error)
+        return None
 
     def _finalise(self, response: Any) -> None:
         tool_calls = _collect_tool_calls(response)
@@ -1599,6 +1664,60 @@ def _stream_event_chunks(event: Any) -> Iterable[str]:
                     return added_chunks
 
     return []
+
+
+def _is_missing_completion_event_error(error: BaseException | None) -> bool:
+    """Return ``True`` when ``error`` indicates a missing completion event."""
+
+    if not error:
+        return False
+    message = str(error)
+    if not message:
+        return False
+    lowered = message.lower()
+    return "response.completed" in lowered or "completion event" in lowered
+
+
+def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Translate a Responses payload to a Chat Completions payload when possible."""
+
+    raw_messages = payload.get("input")
+    if not isinstance(raw_messages, Sequence):
+        return None
+
+    messages: list[dict[str, Any]] = []
+    for message in raw_messages:
+        if isinstance(message, Mapping):
+            messages.append(dict(message))
+        else:
+            messages.append({})
+
+    chat_payload: dict[str, Any] = {
+        "model": payload.get("model"),
+        "messages": messages,
+        "timeout": payload.get("timeout", OPENAI_REQUEST_TIMEOUT),
+    }
+
+    temperature = payload.get("temperature")
+    if temperature is not None and model_supports_temperature(payload.get("model")):
+        chat_payload["temperature"] = temperature
+
+    max_tokens = payload.get("max_output_tokens")
+    if max_tokens is not None:
+        chat_payload["max_completion_tokens"] = max_tokens
+
+    text_block = payload.get("text")
+    if isinstance(text_block, Mapping):
+        format_block = text_block.get("format")
+        if isinstance(format_block, Mapping) and format_block.get("type") == "json_schema":
+            json_schema_block = format_block.get("json_schema")
+            if isinstance(json_schema_block, Mapping):
+                chat_payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": dict(json_schema_block),
+                }
+
+    return chat_payload
 
 
 def get_client() -> OpenAI:
