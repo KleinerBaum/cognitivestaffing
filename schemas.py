@@ -33,6 +33,16 @@ SKILL_ARRAY_SCHEMA = {
     "items": SKILL_ENTRY_SCHEMA,
 }
 
+INTERVIEW_GUIDE_FOCUS_AREA_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["label", "items"],
+    "properties": {
+        "label": {"type": "string"},
+        "items": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
 _VACANCY_PROPERTIES: dict[str, Any] = {
     "language": {"type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$"},
     "source": {
@@ -408,15 +418,7 @@ INTERVIEW_GUIDE_SCHEMA = {
         },
         "focus_areas": {
             "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["label", "items"],
-                "properties": {
-                    "label": {"type": "string"},
-                    "items": {"type": "array", "items": {"type": "string"}},
-                },
-            },
+            "items": INTERVIEW_GUIDE_FOCUS_AREA_SCHEMA,
         },
         "evaluation_notes": {"type": "array", "items": {"type": "string"}},
         "markdown": {"type": "string"},
