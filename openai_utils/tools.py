@@ -14,6 +14,7 @@ from copy import deepcopy
 from typing import Any, cast
 
 from prompts import prompt_registry
+from core.schema_guard import guard_no_additional_properties
 
 
 def _prepare_schema(obj: dict[str, Any], *, require_all: bool) -> dict[str, Any]:
@@ -112,7 +113,7 @@ def build_extraction_tool(
         A list containing a single tool specification dictionary.
     """
 
-    params = deepcopy(schema)
+    params = guard_no_additional_properties(schema)
     _prepare_schema(params, require_all=require_all_fields)
     params["additionalProperties"] = bool(allow_extra)
 

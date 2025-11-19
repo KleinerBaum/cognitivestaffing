@@ -69,7 +69,10 @@ def test_v2025_minimal_payload(_patch_client: _FakeResponsesClient) -> None:
     format_payload = text_section["format"]
     assert format_payload["type"] == "json_schema"
     assert format_payload["name"] == "need_analysis_profile"
-    assert format_payload["schema"] == {"type": "object"}
+    assert format_payload["schema"] == {
+        "type": "object",
+        "additionalProperties": False,
+    }
 
 
 def test_schema_guard_triggers_fallback(monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient) -> None:
