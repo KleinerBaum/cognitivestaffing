@@ -8,14 +8,15 @@ explicit also makes type-checking and unit tests straightforward.
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Callable, Final, Mapping
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from question_logic import CRITICAL_FIELDS
 from wizard._logic import get_in
 from pages import WIZARD_PAGES
+from wizard.company_validators import persist_contact_email, persist_primary_city
 
 # Index of the first data-entry step ("Unternehmen" / "Company").
 COMPANY_STEP_INDEX: Final[int] = 1
@@ -111,6 +112,11 @@ CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
 # wizard is considered we still treat it as critical.
 SECTION_FILTER_OVERRIDES: dict[str, int] = {}
 
+_VALIDATED_CRITICAL_FIELDS: Final[dict[str, Callable[[str | None], tuple[str | None, tuple[str, str] | None]]]] = {
+    str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
+    str(ProfilePaths.LOCATION_PRIMARY_CITY): persist_primary_city,
+}
+
 
 def resolve_section_for_field(field: str) -> int:
     """Return the wizard section index responsible for ``field``."""
@@ -125,18 +131,39 @@ def resolve_section_for_field(field: str) -> int:
     return COMPANY_STEP_INDEX
 
 
+def _lookup_string_value(field: str, profile_data: Mapping[str, object]) -> str | None:
+    """Return the current string stored for ``field`` from widgets or profile."""
+
+    raw_value = st.session_state.get(field)
+    if isinstance(raw_value, str):
+        return raw_value
+    profile_value = get_in(profile_data, field, None)
+    if isinstance(profile_value, str):
+        return profile_value
+    return None
+
+
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     """Return critical fields missing from state or profile data."""
 
     missing: list[str] = []
-    profile_data = st.session_state.get(StateKeys.PROFILE, {})
+    profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
     for field in CRITICAL_FIELDS:
         field_section = resolve_section_for_field(field)
         if max_section is not None and field_section > max_section:
             continue
-        value = st.session_state.get(field)
-        if not value:
+        validator = _VALIDATED_CRITICAL_FIELDS.get(field)
+        if validator is not None:
+            raw_value = _lookup_string_value(field, profile_data)
+            validator(raw_value)
+            profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
             value = get_in(profile_data, field, None)
+        else:
+            value = st.session_state.get(field)
+            if not value:
+                value = get_in(profile_data, field, None)
+        if isinstance(value, str):
+            value = value.strip()
         if not value:
             missing.append(field)
 
