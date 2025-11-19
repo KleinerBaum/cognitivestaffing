@@ -323,12 +323,13 @@ JOB_AD_SCHEMA = {
     "title": "JobAd",
     "type": "object",
     "additionalProperties": False,
-    "required": ["language", "ad"],
+    "required": ["language", "metadata", "ad"],
     "properties": {
         "language": {"type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$"},
         "metadata": {
             "type": "object",
             "additionalProperties": False,
+            "required": ["tone", "target_audience"],
             "properties": {
                 "tone": {"type": "string", "enum": ["professional", "friendly", "enthusiastic", "formal", "inclusive"]},
                 "target_audience": {"type": "string"},
