@@ -9,6 +9,7 @@ EN:
 * Section headers, expanders, and inline follow-up cards now share one compact layout across all steps so follow-up prompts sit directly beneath the corresponding inputs, even inside the Onboarding extraction review tabs for meta fields.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
 * The wizard canvas now keeps the header distraction-free – the debug/API controls and per-step progress bubbles stay hidden so each step focuses purely on form inputs and inline follow-ups (API mode changes remain governed by config flags in the background).
+* Streamlit's built-in multi-page navigation is now fully hidden, ensuring the custom wizard sidebar (progress tracker plus step list) remains the only navigation surface and preventing legacy menus from reappearing.
 * Inline error boundaries keep the wizard session alive even when parsing or Streamlit widgets fail, surfacing bilingual guidance so SMEs can continue with manual edits instead of losing their progress.
 
 DE:
@@ -16,6 +17,7 @@ DE:
 * Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten nutzen ein gemeinsames Kompakt-Layout über alle Schritte, sodass Anschlussfragen direkt unter den relevanten Eingabefeldern erscheinen – inklusive Meta-Rückfragen innerhalb der Onboarding-Extraktions-Tabs.
 * Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.
 * Der Wizard-Canvas bleibt jetzt komplett aufgeräumt – Debug-/API-Steuerung und Fortschrittsblasen sind ausgeblendet, damit sich jede Stufe ausschließlich auf die Eingabefelder und Inline-Follow-ups konzentriert (API-Modus-Umschaltungen laufen weiterhin über die Konfiguration im Hintergrund).
+* Die integrierte Streamlit-Multipage-Navigation ist vollständig verborgen, sodass ausschließlich die kundenspezifische Wizard-Sidebar (Fortschrittsanzeige plus Schritteliste) sichtbar bleibt und keine Legacy-Menüs mehr auftauchen.
 * Fehlergrenzen direkt im Wizard sorgen dafür, dass Sitzungen bei Parser- oder Streamlit-Ausnahmen nicht abbrechen, sondern mit zweisprachiger Anleitung zum manuellen Weiterarbeiten geöffnet bleiben.
 
 Version
@@ -94,6 +96,9 @@ DE: Der Unternehmensschritt lässt die Navigation erst weiterlaufen, wenn `compa
 
 EN: Tightened the Company step gating so clearing `company.contact_email` or `location.primary_city` immediately disables “Next” again, surfacing the inline warning from `persist_contact_email()`/`persist_primary_city()` before recruiters can advance.
 DE: Die Navigation im Unternehmensschritt verriegelt sich nun sofort wieder, sobald `company.contact_email` oder `location.primary_city` geleert werden – die Inline-Warnungen aus `persist_contact_email()` bzw. `persist_primary_city()` erscheinen direkt, bevor Recruiter:innen weiterklicken können.
+
+EN: Required badges on the Company-step contact email and city inputs now track the live widget state, and WizardRouter falls back to stored profile data whenever a rerun drops widget values, so clearing either field instantly re-locks “Next” and shows the bilingual warning banner again.
+DE: Die Pflicht-Badges für Kontakt-E-Mail und Stadt im Unternehmensschritt orientieren sich jetzt am aktuellen Widget-Status, und der WizardRouter greift auf die Profilwerte zurück, sobald ein Rerun Widget-Daten verliert – dadurch sperrt „Weiter“ sofort erneut und der zweisprachige Warnhinweis erscheint wieder, sobald eines der Felder geleert wird.
 
 EN: Streamlined the sidebar: navigation links are gone, language and dark-mode switches sit beneath each other with flag icons, and salary estimates now launch automatically once job title plus a location hint are present, listing required fields, summarising the top five drivers in a single sentence, and surfacing the raw calculation details.
 DE: Sidebar verschlankt: Navigations-Links entfernt, Sprach- und Dark-Mode-Umschalter stehen untereinander mit Flaggen-Icons, und Gehaltsschätzungen starten automatisch, sobald Jobtitel und ein Standorthinweis vorliegen – inklusive Pflichtfeldliste, Ein-Satz-Zusammenfassung der fünf wichtigsten Faktoren und sichtbarer Berechnungsdetails.

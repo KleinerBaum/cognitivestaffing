@@ -8,12 +8,15 @@ Changed / Geändert
   DE: Die integrierte Streamlit-Multipage-Navigation (app, jobad, company, …) wird jetzt vollständig verborgen, damit ausschließlich die kundenspezifische Wizard-Sidebar als sichtbare Navigation dient und keine doppelten Menüs links erscheinen.
 - EN: Normalised section headers, expanders, and inline follow-up cards across Onboarding → Summary; meta follow-ups now surface inside the Onboarding extraction review tabs so the cards always appear directly beneath the fields they unblock.
   DE: Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten wurden über alle Schritte hinweg vereinheitlicht; Meta-Follow-ups tauchen nun in den Onboarding-Extraktions-Tabs auf, sodass die Karten immer unmittelbar unter den zugehörigen Feldern angezeigt werden.
+
 - EN: Removed the debug/API expander, captured-input chips, and the per-step progress bubbles from every wizard step so the canvas stays distraction-free while API mode switches continue to rely on the central configuration.
   DE: Das Debug-/API-Panel, die Eingabe-Chips sowie die Fortschrittsblasen wurden in allen Wizard-Schritten entfernt, damit die Oberfläche aufgeräumt bleibt – API-Umschaltungen laufen weiterhin zentral über die Konfiguration.
 - EN: Generated the NeedAnalysis JSON schema from the Pydantic model and embedded it into the vacancy extraction schema so every position/department/team field remains available throughout extraction, validation, and exports without manual drift.
   DE: Das NeedAnalysis-JSON-Schema wird jetzt direkt aus dem Pydantic-Modell erzeugt und im Vacancy-Extraktionsschema wiederverwendet, damit alle Positions-/Abteilungs-/Team-Felder von der Extraktion über die Validierung bis zu den Exporten ohne manuelle Abweichungen bestehen bleiben.
 - EN: Locked down every Responses JSON schema: the pipeline tests now assert `additionalProperties: false` across all nested objects and the structured Job Ad schema requires the metadata block (tone plus target audience), preventing stray keys and missing context in model outputs.
   DE: Sämtliche Responses-JSON-Schemas wurden verschärft – die Pipeline-Tests prüfen nun `additionalProperties: false` in allen verschachtelten Objekten und das strukturierte Job-Ad-Schema verlangt den Metadatenblock (Ton und Zielgruppe), sodass keine unerwarteten Felder mehr auftauchen und keine Pflichtkontexte fehlen.
+- EN: Added regression tests that validate InterviewGuide JSON responses against the schema and ensure NeedAnalysis department/team aliases survive canonicalization, preventing future schema propagation regressions.
+  DE: Regressionstests ergänzt, die InterviewGuide-JSON-Antworten gegen das Schema prüfen und sicherstellen, dass NeedAnalysis-Aliasfelder für Abteilung/Team die Kanonisierung überstehen, damit künftige Schema-Propagationsregressionen ausbleiben.
 
 Fixed / Behoben
 
@@ -29,6 +32,8 @@ Fixed / Behoben
   DE: Die Pflichtfeldprüfung im Unternehmensschritt läuft jetzt nach den Inline-Validatoren erneut, sodass das Löschen der Kontakt-E-Mail oder Primärstadt „Weiter“ sofort sperrt und der zweisprachige Hinweis erscheint, bevor es weitergeht.
 - EN: WizardRouter now reruns the contact email and primary city validators using the latest widget state, clears stale profile values, and shows a bilingual warning beside “Next” so recruiters cannot advance while either field is empty.
   DE: WizardRouter führt die Validatoren für Kontakt-E-Mail und Primärstadt nun mit den aktuellen Widget-Werten erneut aus, leert veraltete Profilangaben und blendet neben „Weiter“ einen zweisprachigen Hinweis ein, damit keine Navigation mit leeren Feldern möglich ist.
+- EN: Restored the required badges and widget-state fallbacks for the Company-step contact email and primary city inputs so reruns without widget data still keep valid values, the inline bilingual warnings stay visible, and “Next” never unlocks until both fields are filled.
+  DE: Pflicht-Badges und Widget-State-Fallbacks für Kontakt-E-Mail und Primärstadt im Unternehmensschritt wurden wiederhergestellt, damit Reruns ohne Widget-Daten dennoch gültige Werte behalten, die zweisprachigen Hinweise sichtbar bleiben und „Weiter“ erst freigeschaltet wird, wenn beide Felder befüllt sind.
 - EN: Hardened the company contact email validator to use Pydantic's email parsing so invalid addresses surface as inline errors instead of raising a TypeError.
   DE: Die Validierung der Kontakt-E-Mail nutzt nun den Pydantic-E-Mail-Parser, damit ungültige Adressen als Inline-Fehler erscheinen und kein TypeError mehr ausgelöst wird.
 - EN: Structured extraction now detects nested `process.interview_stages` validation errors, re-coerces list payloads to counts, and records a bilingual warning plus impacted field list when the profile falls back to defaults, so recruiters know what to fix instead of losing data silently.
