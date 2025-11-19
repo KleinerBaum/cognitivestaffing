@@ -239,6 +239,7 @@ class StateKeys:
     STEPPER_WARNING = "wizard.stepper_warning"
     WIZARD_AUTOFILL_DECISIONS = "wizard.autofill_decisions"
     WIZARD_SESSION_READY = "wizard.session_ready"
+    WIZARD_NAVIGATION_WARNING = "wizard.navigation_warning"
 
 
 def _collect_ui_keys() -> tuple[str, ...]:
