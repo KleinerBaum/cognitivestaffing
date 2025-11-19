@@ -331,69 +331,51 @@ INTERVIEW_GUIDE_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "InterviewGuide",
     "type": "object",
-    # The Responses API rejects schemas without explicit top-level
-    # ``additionalProperties: false``.
     "additionalProperties": False,
-    "required": ["language", "guide"],
+    "required": ["metadata", "questions", "focus_areas", "evaluation_notes"],
     "properties": {
-        "language": {"type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$"},
-        "guide": {
+        "metadata": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["intro", "competencies", "questions", "scoring"],
+            "required": ["language", "heading", "job_title", "audience", "tone"],
             "properties": {
-                "intro": {"type": "string"},
-                "competencies": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["name", "weight"],
-                        "properties": {
-                            "name": {"type": "string"},
-                            "weight": {"type": "number", "minimum": 0, "maximum": 1},
-                        },
-                    },
-                },
-                "questions": {
-                    "type": "array",
-                    "minItems": 6,
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["id", "text", "type", "competency", "score_max", "evaluation_criteria"],
-                        "properties": {
-                            "id": {"type": "string"},
-                            "text": {"type": "string"},
-                            "type": {"type": "string", "enum": ["general", "technical", "behavioral", "cultural"]},
-                            "competency": {"type": "string"},
-                            "probing": {"type": "array", "items": {"type": "string"}},
-                            "evaluation_criteria": {"type": "array", "items": {"type": "string"}, "minItems": 2},
-                            "score_max": {"type": "integer", "minimum": 1, "maximum": 10},
-                            "red_flags": {"type": "array", "items": {"type": "string"}},
-                        },
-                    },
-                },
-                "scoring": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["overall_scale", "rubric_levels"],
-                    "properties": {
-                        "overall_scale": {"type": "string"},
-                        "rubric_levels": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["poor", "average", "good", "excellent"],
-                            "properties": {
-                                "poor": {"type": "string"},
-                                "average": {"type": "string"},
-                                "good": {"type": "string"},
-                                "excellent": {"type": "string"},
-                            },
-                        },
-                    },
+                "language": {"type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$"},
+                "heading": {"type": "string"},
+                "job_title": {"type": "string"},
+                "audience": {"type": "string"},
+                "audience_label": {"type": "string"},
+                "tone": {"type": "string"},
+                "tone_label": {"type": "string"},
+                "culture_note": {"type": "string"},
+            },
+        },
+        "questions": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["question", "focus", "evaluation"],
+                "properties": {
+                    "question": {"type": "string", "minLength": 1},
+                    "focus": {"type": "string"},
+                    "evaluation": {"type": "string"},
                 },
             },
         },
+        "focus_areas": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["label", "items"],
+                "properties": {
+                    "label": {"type": "string"},
+                    "items": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+        "evaluation_notes": {"type": "array", "items": {"type": "string"}},
+        "markdown": {"type": "string"},
     },
 }
