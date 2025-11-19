@@ -78,12 +78,15 @@ def build_json_schema_format(
         "type": "json_schema",
         "json_schema": {
             "name": name,
-            "schema": schema_payload,
+            "schema": deepcopy(dict(schema_payload)),
         },
+        "name": name,
+        "schema": deepcopy(dict(schema_payload)),
     }
     strict_flag = STRICT_JSON if strict is None else bool(strict)
     if strict_flag:
         format_payload["json_schema"]["strict"] = True
+        format_payload["strict"] = True
 
     return format_payload
 
@@ -103,23 +106,42 @@ def _build_chat_json_schema_payload(response_format: Mapping[str, Any]) -> dict[
     """Return a chat-compatible JSON schema payload."""
 
     json_schema_payload = response_format.get("json_schema")
-    if not isinstance(json_schema_payload, Mapping):
-        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+    schema_payload: Mapping[str, Any] | None = None
+    schema_name: str | None = None
+    strict_value: bool | None = None
 
-    schema_payload = json_schema_payload.get("schema")
-    if not isinstance(schema_payload, Mapping):
-        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+    if isinstance(json_schema_payload, Mapping):
+        schema_candidate = json_schema_payload.get("schema")
+        if isinstance(schema_candidate, Mapping):
+            schema_payload = schema_candidate
+        name_candidate = json_schema_payload.get("name")
+        if isinstance(name_candidate, str) and name_candidate.strip():
+            schema_name = name_candidate.strip()
+        if "strict" in json_schema_payload:
+            strict_value = bool(json_schema_payload.get("strict"))
 
-    schema_name = json_schema_payload.get("name")
-    if not isinstance(schema_name, str) or not schema_name.strip():
+    if schema_payload is None:
+        schema_candidate = response_format.get("schema")
+        if isinstance(schema_candidate, Mapping):
+            schema_payload = schema_candidate
+    if schema_name is None:
+        name_candidate = response_format.get("name")
+        if isinstance(name_candidate, str) and name_candidate.strip():
+            schema_name = name_candidate.strip()
+    if strict_value is None and "strict" in response_format:
+        strict_value = bool(response_format.get("strict"))
+
+    if schema_payload is None:
+        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+    if not schema_name:
         raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
 
     chat_schema: dict[str, Any] = {
-        "name": schema_name.strip(),
+        "name": schema_name,
         "schema": deepcopy(dict(schema_payload)),
     }
-    if "strict" in json_schema_payload:
-        chat_schema["strict"] = bool(json_schema_payload.get("strict"))
+    if strict_value is not None:
+        chat_schema["strict"] = strict_value
     return chat_schema
 
 
@@ -240,13 +262,23 @@ def call_responses(
 
     text_payload = dict(payload.get("text") or {})
     text_payload.pop("type", None)
+    schema_copy = deepcopy(dict(schema_payload))
+    strict_value = bool(json_schema_payload.get("strict")) if "strict" in json_schema_payload else None
+    json_schema_block: dict[str, Any] = {
+        "name": schema_name,
+        "schema": schema_copy,
+    }
+    if strict_value is not None:
+        json_schema_block["strict"] = strict_value
+
     format_payload: dict[str, Any] = {
         "type": response_format.get("type", "json_schema"),
         "name": schema_name,
-        "schema": deepcopy(dict(schema_payload)),
+        "schema": schema_copy,
+        "json_schema": json_schema_block,
     }
-    if "strict" in json_schema_payload:
-        format_payload["strict"] = bool(json_schema_payload.get("strict"))
+    if strict_value is not None:
+        format_payload["strict"] = strict_value
     text_payload["format"] = format_payload
     payload["text"] = text_payload
 

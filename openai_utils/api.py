@@ -1337,21 +1337,26 @@ def _prepare_payload(
             schema_body = schema_payload.get("schema")
             if not isinstance(schema_body, Mapping):
                 raise TypeError("json_schema['schema'] must be a mapping")
+            sanitized_schema = _sanitize_json_schema(schema_body)
             response_format_config = {
                 "type": "json_schema",
                 "json_schema": {
-                    "schema": _sanitize_json_schema(schema_body),
+                    "schema": sanitized_schema,
                 },
+                "schema": sanitized_schema,
             }
             schema_name = schema_payload.get("name")
             if not isinstance(schema_name, str) or not schema_name.strip():
                 raise ValueError("json_schema payload requires a non-empty 'name'.")
+            canonical_name = schema_name.strip()
+            response_format_config["name"] = canonical_name
             json_schema_config = cast(dict[str, Any], response_format_config["json_schema"])
-            json_schema_config["name"] = schema_name.strip()
+            json_schema_config["name"] = canonical_name
             strict_override = schema_payload.get("strict")
             strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
             if strict_flag:
                 json_schema_config["strict"] = True
+                response_format_config["strict"] = True
             payload["response_format"] = response_format_config
         if combined_tools:
             functions = _convert_tools_to_functions(combined_tools)
@@ -1376,21 +1381,26 @@ def _prepare_payload(
             schema_body = schema_payload.get("schema")
             if not isinstance(schema_body, Mapping):
                 raise TypeError("json_schema['schema'] must be a mapping")
+            sanitized_schema = _sanitize_json_schema(schema_body)
             text_format_config: dict[str, Any] = {
                 "type": "json_schema",
                 "json_schema": {
-                    "schema": _sanitize_json_schema(schema_body),
+                    "schema": sanitized_schema,
                 },
+                "schema": sanitized_schema,
             }
             schema_name = schema_payload.get("name")
             if not isinstance(schema_name, str) or not schema_name.strip():
                 raise ValueError("json_schema payload requires a non-empty 'name'.")
+            canonical_name = schema_name.strip()
+            text_format_config["name"] = canonical_name
             text_json_schema = cast(dict[str, Any], text_format_config["json_schema"])
-            text_json_schema["name"] = schema_name.strip()
+            text_json_schema["name"] = canonical_name
             strict_override = schema_payload.get("strict")
             strict_flag = STRICT_JSON if strict_override is None else bool(strict_override)
             if strict_flag:
                 text_json_schema["strict"] = True
+                text_format_config["strict"] = True
             text_config.pop("type", None)
             text_config["format"] = text_format_config
             payload["text"] = text_config
@@ -1713,11 +1723,41 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
     if isinstance(text_block, Mapping):
         format_block = text_block.get("format")
         if isinstance(format_block, Mapping) and format_block.get("type") == "json_schema":
+            schema_name: str | None = None
+            schema_body: Mapping[str, Any] | None = None
+            strict_value: bool | None = None
+
             json_schema_block = format_block.get("json_schema")
             if isinstance(json_schema_block, Mapping):
+                if isinstance(json_schema_block.get("name"), str) and json_schema_block["name"].strip():
+                    schema_name = json_schema_block["name"].strip()
+                schema_candidate = json_schema_block.get("schema")
+                if isinstance(schema_candidate, Mapping):
+                    schema_body = schema_candidate
+                if "strict" in json_schema_block:
+                    strict_value = bool(json_schema_block.get("strict"))
+
+            if (not schema_name or not schema_body) and isinstance(format_block.get("name"), str):
+                name_candidate = format_block["name"].strip()
+                if name_candidate:
+                    schema_name = schema_name or name_candidate
+            if schema_body is None:
+                schema_candidate = format_block.get("schema")
+                if isinstance(schema_candidate, Mapping):
+                    schema_body = schema_candidate
+            if strict_value is None and "strict" in format_block:
+                strict_value = bool(format_block.get("strict"))
+
+            if schema_name and schema_body:
+                json_schema_payload: dict[str, Any] = {
+                    "name": schema_name,
+                    "schema": dict(schema_body),
+                }
+                if strict_value is not None:
+                    json_schema_payload["strict"] = strict_value
                 chat_payload["response_format"] = {
                     "type": "json_schema",
-                    "json_schema": dict(json_schema_block),
+                    "json_schema": json_schema_payload,
                 }
 
     return chat_payload
