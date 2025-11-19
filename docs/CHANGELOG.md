@@ -35,6 +35,9 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: Added regression coverage for the compliance toggles so the Skills & Requirements and Summary steps always reuse the same helper/state, guaranteeing that switching a checkbox in one view instantly mirrors the other and downstream exports.
+  DE: Regressionstests für die Compliance-Schalter ergänzt, damit Skills & Requirements und Summary stets denselben Helfer/State nutzen und jede Umschaltung sofort in beiden Ansichten sowie den Exporten ankommt.
+
 - EN: Follow-up questions now update the NeedAnalysis profile exclusively through the widget return values (or `value=` defaults) instead of mutating canonical `st.session_state["<field>"]` entries after the widgets have mounted, eliminating the recurring StreamlitAPIException about immutable session keys.
   DE: Follow-up-Fragen aktualisieren das NeedAnalysis-Profil jetzt ausschließlich über die Widget-Rückgabewerte bzw. `value=`-Defaults und fassen keine kanonischen `st.session_state["<feld>"]`-Einträge mehr nach dem Rendern an – damit verschwinden die wiederkehrenden StreamlitAPIException-Meldungen zu unveränderlichen Session-Keys.
 
