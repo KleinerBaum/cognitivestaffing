@@ -29,6 +29,7 @@ class InterviewGuideResult:
 
     guide: InterviewGuide
     used_fallback: bool
+    error_detail: str | None = None
 
 
 def _resolve_language(lang: str | None) -> str:
@@ -418,6 +419,11 @@ def generate_interview_guide(
         guide = InterviewGuide.model_validate(data).ensure_markdown()
         return InterviewGuideResult(guide=guide, used_fallback=False)
     except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.warning("Falling back to deterministic interview guide: %s", exc)
+        error_detail = f"{type(exc).__name__}: {exc}".strip()
+        logger.exception("Interview guide generation failed; using deterministic fallback.")
         fallback_with_markdown = fallback.ensure_markdown()
-        return InterviewGuideResult(guide=fallback_with_markdown, used_fallback=True)
+        return InterviewGuideResult(
+            guide=fallback_with_markdown,
+            used_fallback=True,
+            error_detail=error_detail,
+        )

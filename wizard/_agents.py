@@ -211,12 +211,21 @@ def generate_interview_guide_content(
     st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide.final_markdown()
 
     if result.used_fallback and show_error:
-        st.info(
-            tr(
-                "Interviewleitfaden aus Vorlage, da die KI nicht erreichbar war.",
-                "Showing fallback interview guide because the AI service was unavailable.",
+        detail = (result.error_detail or "").strip()
+        if detail:
+            st.warning(
+                tr(
+                    "Die KI-Antwort konnte nicht verarbeitet werden. Wir zeigen vorübergehend den Standardleitfaden. (Details: {details})",
+                    "The AI response could not be processed. Showing the standard guide for now. (Details: {details})",
+                ).format(details=detail)
             )
-        )
+        else:
+            st.info(
+                tr(
+                    "Interviewleitfaden aus Vorlage, da die KI nicht erreichbar war.",
+                    "Showing fallback interview guide because the AI service was unavailable.",
+                )
+            )
 
     return True
 
