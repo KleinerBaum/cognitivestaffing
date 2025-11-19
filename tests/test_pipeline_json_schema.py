@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import json
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -86,8 +87,8 @@ def test_interview_guide_schema_requires_focus_area_label() -> None:
 
 
 class _FakeResult(ChatCallResult):
-    def __init__(self) -> None:
-        super().__init__(content="{}", tool_calls=[], usage={})
+    def __init__(self, content: str = "{}") -> None:
+        super().__init__(content=content, tool_calls=[], usage={})
 
 
 def _contains_json_ref(value: Any) -> bool:
@@ -249,7 +250,7 @@ def test_job_ad_schema(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def fake_call(messages: list[dict[str, Any]], **kwargs: Any) -> _FakeResult:
         captured.update(kwargs)
-        return _FakeResult()
+        return _FakeResult(content=json.dumps(_build_job_ad_payload()))
 
     monkeypatch.setattr(job_ad_mod, "call_chat_api", fake_call)
     monkeypatch.setattr(job_ad_mod, "get_model_for", lambda *_, **__: "model-job-ad")
@@ -260,6 +261,48 @@ def test_job_ad_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     assert schema_cfg["schema"] == JOB_AD_SCHEMA
     _assert_objects_disallow_additional_properties(JOB_AD_SCHEMA)
     assert captured["model"] == "model-job-ad"
+
+
+def _build_job_ad_payload() -> dict[str, Any]:
+    return {
+        "language": "de",
+        "metadata": {"tone": "professional", "target_audience": "Ingenieur:innen"},
+        "ad": {
+            "title": "Software Engineer (m/w/d)",
+            "sections": {
+                "overview": "Führe Releases eigenverantwortlich durch und begleite neue Features von der Idee bis zum Launch.",
+                "responsibilities": [
+                    "Own sprint deliverables",
+                    "Collaborate with product",
+                    "Coach junior engineers",
+                ],
+                "requirements": [
+                    "5+ years experience",
+                    "Deep Python knowledge",
+                    "Experience with CI/CD",
+                ],
+                "benefits": ["Hybrid remote"],
+                "compensation_note": "Fair salary band disclosed in offer stage.",
+                "how_to_apply": "Apply via our portal with your CV.",
+                "equal_opportunity_statement": "We hire without regard to background.",
+            },
+            "tags": [],
+        },
+    }
+
+
+def test_job_ad_generation_rejects_missing_sections(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call(*_args: Any, **_kwargs: Any) -> _FakeResult:
+        payload = _build_job_ad_payload()
+        payload["metadata"]["target_audience"] = "  "
+        payload["ad"]["sections"]["responsibilities"] = ["", " ", " "]
+        return _FakeResult(content=json.dumps(payload))
+
+    monkeypatch.setattr(job_ad_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(job_ad_mod, "get_model_for", lambda *_, **__: "model-job-ad")
+
+    with pytest.raises(ValueError):
+        job_ad_mod.generate_job_ad({}, "de", tone="casual")
 
 
 def test_interview_guide_schema(monkeypatch: pytest.MonkeyPatch) -> None:
