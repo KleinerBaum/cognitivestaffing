@@ -25,21 +25,19 @@
  # CS_SCHEMA_PROPAGATE | PIPE_PROP
  from __future__ import annotations
  
-@@ -34,11 +33,10 @@
+@@ -34,9 +33,7 @@
 
      WizardFieldInfo(path="company.brand_keywords", python_type="str | None", is_collection=False),
      WizardFieldInfo(path="company.brand_name", python_type="str | None", is_collection=False),
      WizardFieldInfo(path="company.claim", python_type="str | None", is_collection=False),
--    WizardFieldInfo(path="company.contact_email", python_type="pydantic.networks.EmailStr | None", is_collection=False),
+-    WizardFieldInfo(
+-        path="company.contact_email", python_type="pydantic.networks.EmailStr | Literal[''] | None", is_collection=False
+-    ),
 +    WizardFieldInfo(path="company.contact_email", python_type="pydantic.networks.EmailStr | Literal[''] | None", is_collection=False),
      WizardFieldInfo(path="company.contact_name", python_type="str | None", is_collection=False),
      WizardFieldInfo(path="company.contact_phone", python_type="str | None", is_collection=False),
      WizardFieldInfo(path="company.culture", python_type="str | None", is_collection=False),
--    WizardFieldInfo(path="company.headquarters", python_type="str | None", is_collection=False),
-     WizardFieldInfo(path="company.hq_location", python_type="str | None", is_collection=False),
-     WizardFieldInfo(path="company.industries", python_type="list[str]", is_collection=True),
-     WizardFieldInfo(path="company.industry", python_type="str | None", is_collection=False),
-@@ -61,9 +59,7 @@
+@@ -62,9 +59,7 @@
 
      WizardFieldInfo(path="interview_process.interviewers", python_type="list[str]", is_collection=True),
      WizardFieldInfo(path="interview_process.notes", python_type="str | None", is_collection=False),
@@ -51,39 +49,7 @@
      WizardFieldInfo(path="position.customer_contact_details", python_type="str | None", is_collection=False),
      WizardFieldInfo(path="position.customer_contact_required", python_type="bool | None", is_collection=False),
      WizardFieldInfo(path="position.reporting_manager_name", python_type="str | None", is_collection=False),
-@@ -119,7 +115,6 @@
-
-     "company.contact_name",
-     "company.contact_phone",
-     "company.culture",
--    "company.headquarters",
-     "company.hq_location",
-     "company.industries",
-     "company.industry",
-@@ -198,7 +193,6 @@
-
-     "company.contact_name",
-     "company.contact_phone",
-     "company.culture",
--    "company.headquarters",
-     "company.hq_location",
-     "company.industries",
-     "company.industry",
-@@ -296,11 +290,10 @@
-
-     "company.brand_keywords": "str | None",
-     "company.brand_name": "str | None",
-     "company.claim": "str | None",
--    "company.contact_email": "pydantic.networks.EmailStr | None",
-+    "company.contact_email": "pydantic.networks.EmailStr | Literal[''] | None",
-     "company.contact_name": "str | None",
-     "company.contact_phone": "str | None",
-     "company.culture": "str | None",
--    "company.headquarters": "str | None",
-     "company.hq_location": "str | None",
-     "company.industries": "list[str]",
-     "company.industry": "str | None",
-@@ -361,11 +354,5 @@
+@@ -359,11 +354,5 @@
 
      "team.reporting_line": "str | None",
  }
@@ -116,23 +82,19 @@
  # CS_SCHEMA_PROPAGATE | PIPE_PROP
  from __future__ import annotations
  
-@@ -38,13 +37,10 @@
+@@ -38,9 +37,7 @@
 
      WizardExportField(path="company.brand_keywords", python_type="str | None", is_collection=False),
      WizardExportField(path="company.brand_name", python_type="str | None", is_collection=False),
      WizardExportField(path="company.claim", python_type="str | None", is_collection=False),
 -    WizardExportField(
--        path="company.contact_email", python_type="pydantic.networks.EmailStr | None", is_collection=False
+-        path="company.contact_email", python_type="pydantic.networks.EmailStr | Literal[''] | None", is_collection=False
 -    ),
 +    WizardExportField(path="company.contact_email", python_type="pydantic.networks.EmailStr | Literal[''] | None", is_collection=False),
      WizardExportField(path="company.contact_name", python_type="str | None", is_collection=False),
      WizardExportField(path="company.contact_phone", python_type="str | None", is_collection=False),
      WizardExportField(path="company.culture", python_type="str | None", is_collection=False),
--    WizardExportField(path="company.headquarters", python_type="str | None", is_collection=False),
-     WizardExportField(path="company.hq_location", python_type="str | None", is_collection=False),
-     WizardExportField(path="company.industries", python_type="list[str]", is_collection=True),
-     WizardExportField(path="company.industry", python_type="str | None", is_collection=False),
-@@ -67,9 +63,7 @@
+@@ -66,9 +63,7 @@
 
      WizardExportField(path="interview_process.interviewers", python_type="list[str]", is_collection=True),
      WizardExportField(path="interview_process.notes", python_type="str | None", is_collection=False),
@@ -144,21 +106,7 @@
      WizardExportField(path="position.customer_contact_details", python_type="str | None", is_collection=False),
      WizardExportField(path="position.customer_contact_required", python_type="bool | None", is_collection=False),
      WizardExportField(path="position.reporting_manager_name", python_type="str | None", is_collection=False),
-@@ -121,11 +115,10 @@
-
-     "company.brand_keywords": "str | None",
-     "company.brand_name": "str | None",
-     "company.claim": "str | None",
--    "company.contact_email": "pydantic.networks.EmailStr | None",
-+    "company.contact_email": "pydantic.networks.EmailStr | Literal[''] | None",
-     "company.contact_name": "str | None",
-     "company.contact_phone": "str | None",
-     "company.culture": "str | None",
--    "company.headquarters": "str | None",
-     "company.hq_location": "str | None",
-     "company.industries": "list[str]",
-     "company.industry": "str | None",
-@@ -209,8 +202,9 @@
+@@ -207,8 +202,9 @@
 
      "tasks.success_metrics",
  )
@@ -171,7 +119,7 @@
      """Validate ``payload`` against the RecruitingWizard schema and return a JSON payload."""
  
      export = RecruitingWizardExport.from_payload(payload)
-@@ -231,3 +225,4 @@
+@@ -229,3 +225,4 @@
 
      "ensure_export_payload",
      "iter_export_fields",

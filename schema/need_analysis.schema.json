@@ -1,1349 +1,908 @@
 {
+    "type": "object",
     "additionalProperties": false,
-    "description": "Aggregate need analysis profile model with normalised sub-sections.\n\nInstances are produced via `core.schema.coerce_and_fill`, which applies\nschema aliases, triggers OpenAI-backed JSON repair, and calls\n`normalize_profile` so every consumer receives harmonised location data,\ndeduplicated skill lists, and optional branding fields.",
     "properties": {
         "company": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Details about the hiring company and its branding metadata.",
             "properties": {
                 "name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "brand_name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Brand Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "industry": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Industry"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "hq_location": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Hq Location"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "size": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Size"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "website": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Website"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "mission": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Mission"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "culture": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Culture"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "contact_name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Contact Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "contact_email": {
                     "anyOf": [
                         {
-                            "format": "email",
-                            "type": "string"
+                            "type": "string",
+                            "format": "email"
                         },
                         {
-                            "const": "",
+                            "enum": [
+                                ""
+                            ],
                             "type": "string"
                         },
                         {
                             "type": "null"
                         }
-                    ],
-                    "default": null,
-                    "title": "Contact Email"
+                    ]
                 },
                 "contact_phone": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Contact Phone"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "brand_keywords": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Brand Keywords"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "logo_url": {
-                    "anyOf": [
-                        {
-                            "format": "uri",
-                            "maxLength": 2083,
-                            "minLength": 1,
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
+                    "type": [
+                        "string",
+                        "null"
                     ],
-                    "default": null,
-                    "title": "Logo Url"
+                    "pattern": "^https?://\\S+$"
                 },
                 "brand_color": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Brand Color"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "claim": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Claim"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "benefits": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Benefits",
-                    "type": "array"
+                    }
                 }
             },
             "required": [
-                "name"
-            ],
-            "title": "Company",
-            "type": "object"
+                "name",
+                "brand_name",
+                "industry",
+                "hq_location",
+                "size",
+                "website",
+                "mission",
+                "culture",
+                "contact_name",
+                "contact_email",
+                "contact_phone",
+                "brand_keywords",
+                "logo_url",
+                "brand_color",
+                "claim",
+                "benefits"
+            ]
         },
         "position": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Information describing the open position.",
             "properties": {
                 "job_title": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Job Title"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "seniority_level": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Seniority Level"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "team_structure": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Team Structure"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "reporting_line": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Reporting Line"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "reporting_manager_name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Reporting Manager Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "role_summary": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Role Summary"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "occupation_label": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Occupation Label"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "occupation_uri": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Occupation Uri"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "occupation_group": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Occupation Group"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "supervises": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Supervises"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "performance_indicators": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Performance Indicators"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "decision_authority": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Decision Authority"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "key_projects": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Key Projects"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "team_size": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Team Size"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "customer_contact_required": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Customer Contact Required"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "customer_contact_details": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Customer Contact Details"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
-            "title": "Position",
-            "type": "object"
+            "required": [
+                "job_title",
+                "seniority_level",
+                "team_structure",
+                "reporting_line",
+                "reporting_manager_name",
+                "role_summary",
+                "occupation_label",
+                "occupation_uri",
+                "occupation_group",
+                "supervises",
+                "performance_indicators",
+                "decision_authority",
+                "key_projects",
+                "team_size",
+                "customer_contact_required",
+                "customer_contact_details"
+            ]
         },
         "department": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Department context for the open role.",
             "properties": {
                 "name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "function": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Function"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "leader_name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Leader Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "leader_title": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Leader Title"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "strategic_goals": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Strategic Goals"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
-            "title": "Department",
-            "type": "object"
+            "required": [
+                "name",
+                "function",
+                "leader_name",
+                "leader_title",
+                "strategic_goals"
+            ]
         },
         "team": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Team context information for the role.",
             "properties": {
                 "name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "mission": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Mission"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "reporting_line": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Reporting Line"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "headcount_current": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Headcount Current"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "headcount_target": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Headcount Target"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "collaboration_tools": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Collaboration Tools"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "locations": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Locations"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
-            "title": "Team",
-            "type": "object"
+            "required": [
+                "name",
+                "mission",
+                "reporting_line",
+                "headcount_current",
+                "headcount_target",
+                "collaboration_tools",
+                "locations"
+            ]
         },
         "location": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Primary location information for the role.",
             "properties": {
                 "primary_city": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Primary City"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "country": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Country"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "onsite_ratio": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Onsite Ratio"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
-            "title": "Location",
-            "type": "object"
+            "required": [
+                "primary_city",
+                "country",
+                "onsite_ratio"
+            ]
         },
         "responsibilities": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Key responsibilities for the role.",
             "properties": {
                 "items": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Items",
-                    "type": "array"
+                    }
                 }
             },
-            "title": "Responsibilities",
-            "type": "object"
+            "required": [
+                "items"
+            ]
         },
         "requirements": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Required and optional skills and qualifications.",
             "properties": {
                 "hard_skills_required": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Hard Skills Required",
-                    "type": "array"
+                    }
                 },
                 "hard_skills_optional": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Hard Skills Optional",
-                    "type": "array"
+                    }
                 },
                 "soft_skills_required": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Soft Skills Required",
-                    "type": "array"
+                    }
                 },
                 "soft_skills_optional": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Soft Skills Optional",
-                    "type": "array"
+                    }
                 },
                 "tools_and_technologies": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Tools And Technologies",
-                    "type": "array"
+                    }
                 },
                 "languages_required": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Languages Required",
-                    "type": "array"
+                    }
                 },
                 "languages_optional": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Languages Optional",
-                    "type": "array"
+                    }
                 },
                 "certificates": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Certificates",
-                    "type": "array"
+                    }
                 },
                 "certifications": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Certifications",
-                    "type": "array"
+                    }
                 },
                 "language_level_english": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Language Level English"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "background_check_required": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Background Check Required"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "portfolio_required": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Portfolio Required"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "reference_check_required": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Reference Check Required"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 }
             },
-            "title": "Requirements",
-            "type": "object"
+            "required": [
+                "hard_skills_required",
+                "hard_skills_optional",
+                "soft_skills_required",
+                "soft_skills_optional",
+                "tools_and_technologies",
+                "languages_required",
+                "languages_optional",
+                "certificates",
+                "certifications",
+                "language_level_english",
+                "background_check_required",
+                "portfolio_required",
+                "reference_check_required"
+            ]
         },
         "employment": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Employment contract details.",
             "properties": {
                 "job_type": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Job Type"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "work_policy": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Work Policy"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "contract_type": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Contract Type"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "work_schedule": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Work Schedule"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "remote_percentage": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Remote Percentage"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "contract_end": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Contract End"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "travel_required": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Travel Required"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "travel_share": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Travel Share"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "travel_region_scope": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Travel Region Scope"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "travel_regions": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Travel Regions",
-                    "type": "array"
+                    }
                 },
                 "travel_continents": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Travel Continents",
-                    "type": "array"
+                    }
                 },
                 "travel_details": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Travel Details"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "overtime_expected": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Overtime Expected"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "relocation_support": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Relocation Support"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "relocation_details": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Relocation Details"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "visa_sponsorship": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Visa Sponsorship"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "security_clearance_required": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Security Clearance Required"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "shift_work": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Shift Work"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 }
             },
-            "title": "Employment",
-            "type": "object"
+            "required": [
+                "job_type",
+                "work_policy",
+                "contract_type",
+                "work_schedule",
+                "remote_percentage",
+                "contract_end",
+                "travel_required",
+                "travel_share",
+                "travel_region_scope",
+                "travel_regions",
+                "travel_continents",
+                "travel_details",
+                "overtime_expected",
+                "relocation_support",
+                "relocation_details",
+                "visa_sponsorship",
+                "security_clearance_required",
+                "shift_work"
+            ]
         },
         "compensation": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Salary and compensation information.",
             "properties": {
                 "salary_provided": {
-                    "default": false,
-                    "title": "Salary Provided",
                     "type": "boolean"
                 },
                 "salary_min": {
-                    "anyOf": [
-                        {
-                            "type": "number"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Salary Min"
+                    "type": [
+                        "number",
+                        "null"
+                    ]
                 },
                 "salary_max": {
-                    "anyOf": [
-                        {
-                            "type": "number"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Salary Max"
+                    "type": [
+                        "number",
+                        "null"
+                    ]
                 },
                 "currency": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Currency"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "period": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Period"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "variable_pay": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Variable Pay"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "bonus_percentage": {
-                    "anyOf": [
-                        {
-                            "type": "number"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Bonus Percentage"
+                    "type": [
+                        "number",
+                        "null"
+                    ]
                 },
                 "commission_structure": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Commission Structure"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "equity_offered": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Equity Offered"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "benefits": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Benefits",
-                    "type": "array"
+                    }
                 }
             },
-            "title": "Compensation",
-            "type": "object"
+            "required": [
+                "salary_provided",
+                "salary_min",
+                "salary_max",
+                "currency",
+                "period",
+                "variable_pay",
+                "bonus_percentage",
+                "commission_structure",
+                "equity_offered",
+                "benefits"
+            ]
         },
         "process": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Information about the hiring process.",
             "properties": {
                 "interview_stages": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Interview Stages"
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
                 },
                 "stakeholders": {
+                    "type": "array",
                     "items": {
+                        "type": "object",
                         "additionalProperties": false,
-                        "description": "Person involved in the hiring process.",
                         "properties": {
                             "name": {
-                                "title": "Name",
                                 "type": "string"
                             },
                             "role": {
-                                "title": "Role",
                                 "type": "string"
                             },
                             "email": {
-                                "anyOf": [
-                                    {
-                                        "format": "email",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "type": "null"
-                                    }
+                                "type": [
+                                    "string",
+                                    "null"
                                 ],
-                                "default": null,
-                                "title": "Email"
+                                "format": "email"
                             },
                             "primary": {
-                                "default": false,
-                                "title": "Primary",
                                 "type": "boolean"
                             },
                             "information_loop_phases": {
+                                "type": "array",
                                 "items": {
                                     "type": "integer"
-                                },
-                                "title": "Information Loop Phases",
-                                "type": "array"
+                                }
                             }
                         },
                         "required": [
                             "name",
-                            "role"
-                        ],
-                        "title": "Stakeholder",
-                        "type": "object"
-                    },
-                    "title": "Stakeholders",
-                    "type": "array"
+                            "role",
+                            "email",
+                            "primary",
+                            "information_loop_phases"
+                        ]
+                    }
                 },
                 "phases": {
+                    "type": "array",
                     "items": {
+                        "type": "object",
                         "additionalProperties": false,
-                        "description": "Single phase of the hiring process.",
                         "properties": {
                             "name": {
-                                "title": "Name",
                                 "type": "string"
                             },
                             "interview_format": {
-                                "anyOf": [
-                                    {
-                                        "type": "string"
-                                    },
-                                    {
-                                        "type": "null"
-                                    }
-                                ],
-                                "default": null,
-                                "title": "Interview Format"
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "participants": {
+                                "type": "array",
                                 "items": {
                                     "type": "string"
-                                },
-                                "title": "Participants",
-                                "type": "array"
+                                }
                             },
                             "docs_required": {
-                                "anyOf": [
-                                    {
-                                        "type": "string"
-                                    },
-                                    {
-                                        "type": "null"
-                                    }
-                                ],
-                                "default": null,
-                                "title": "Docs Required"
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "assessment_tests": {
-                                "anyOf": [
-                                    {
-                                        "type": "boolean"
-                                    },
-                                    {
-                                        "type": "null"
-                                    }
-                                ],
-                                "default": null,
-                                "title": "Assessment Tests"
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
                             },
                             "timeframe": {
-                                "anyOf": [
-                                    {
-                                        "type": "string"
-                                    },
-                                    {
-                                        "type": "null"
-                                    }
-                                ],
-                                "default": null,
-                                "title": "Timeframe"
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "task_assignments": {
-                                "anyOf": [
-                                    {
-                                        "type": "string"
-                                    },
-                                    {
-                                        "type": "null"
-                                    }
-                                ],
-                                "default": null,
-                                "title": "Task Assignments"
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             }
                         },
                         "required": [
-                            "name"
-                        ],
-                        "title": "Phase",
-                        "type": "object"
-                    },
-                    "title": "Phases",
-                    "type": "array"
+                            "name",
+                            "interview_format",
+                            "participants",
+                            "docs_required",
+                            "assessment_tests",
+                            "timeframe",
+                            "task_assignments"
+                        ]
+                    }
                 },
                 "recruitment_timeline": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Recruitment Timeline"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "process_notes": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Process Notes"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "application_instructions": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Application Instructions"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "onboarding_process": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Onboarding Process"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "hiring_manager_name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Hiring Manager Name"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "hiring_manager_role": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Hiring Manager Role"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
-            "title": "Process",
-            "type": "object"
+            "required": [
+                "interview_stages",
+                "stakeholders",
+                "phases",
+                "recruitment_timeline",
+                "process_notes",
+                "application_instructions",
+                "onboarding_process",
+                "hiring_manager_name",
+                "hiring_manager_role"
+            ]
         },
         "meta": {
+            "type": "object",
             "additionalProperties": false,
-            "description": "Miscellaneous metadata about the profile.",
             "properties": {
                 "target_start_date": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Target Start Date"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "application_deadline": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "title": "Application Deadline"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "followups_answered": {
+                    "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "title": "Followups Answered",
-                    "type": "array"
+                    }
                 }
             },
-            "title": "Meta",
-            "type": "object"
+            "required": [
+                "target_start_date",
+                "application_deadline",
+                "followups_answered"
+            ]
         }
     },
-    "title": "NeedAnalysisProfile",
-    "type": "object",
-    "$schema": "http://json-schema.org/draft-07/schema#"
+    "required": [
+        "company",
+        "position",
+        "department",
+        "team",
+        "location",
+        "responsibilities",
+        "requirements",
+        "employment",
+        "compensation",
+        "process",
+        "meta"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "NeedAnalysisProfile"
 }

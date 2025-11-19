@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from collections.abc import Mapping
 from typing import Any
 
@@ -110,3 +111,14 @@ def test_responses_schema_marks_required_and_allows_null_for_optional_fields() -
 
     stakeholder_email = schema["properties"]["process"]["properties"]["stakeholders"]["items"]["properties"]["email"]
     assert _allows_null(stakeholder_email)
+
+
+def test_need_analysis_schema_file_in_sync() -> None:
+    """The checked-in NeedAnalysis schema must match the generated version."""
+
+    repo_schema = json.loads(Path("schema/need_analysis.schema.json").read_text())
+    generated = build_need_analysis_responses_schema()
+
+    assert repo_schema == generated, (
+        "NeedAnalysis schema drift detected. Run `python scripts/propagate_schema.py --apply`."
+    )
