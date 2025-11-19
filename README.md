@@ -136,8 +136,8 @@ DE: Inline-Follow-up-Karten erscheinen direkt unter dem jeweiligen Abschnitt und
 EN: Metadata for the Role, Skills, Benefits, and Process steps now references the canonical NeedAnalysisProfile field names, so required-field gating, collected-value chips, and exports stay aligned while inline follow-ups simply prefill the visible widgets instead of racing `_update_profile`.
 DE: Die Metadaten der Schritte Rolle, Skills, Benefits und Prozess greifen jetzt auf die kanonischen NeedAnalysisProfile-Feldnamen zu, sodass Pflichtfeldprüfung, Sammel-Chips und Exporte synchron bleiben und Inline-Follow-ups die sichtbaren Widgets vorbefüllen, statt mit `_update_profile` in Konflikt zu geraten.
 
-EN: The customer-contact toggle in the Role & Team step now shows bilingual guidance describing when to enable it and what to capture in the follow-up details field, which itself surfaces inline hints for channels, cadence, and escalation paths.
-DE: Der Kundenkontakt-Schalter im Schritt „Rolle & Team“ erklärt jetzt zweisprachig, wann er zu aktivieren ist und welche Angaben das Folgefeld benötigt; das Textfeld blendet passende Hinweise zu Kanälen, Frequenz und Eskalationen ein.
+EN: The customer-contact toggle in the Team & Context step now shows bilingual guidance describing when to enable it and what to capture in the follow-up details field, which itself surfaces inline hints for channels, cadence, and escalation paths.
+DE: Der Kundenkontakt-Schalter im Schritt „Team & Kontext“ erklärt jetzt zweisprachig, wann er zu aktivieren ist und welche Angaben das Folgefeld benötigt; das Textfeld blendet passende Hinweise zu Kanälen, Frequenz und Eskalationen ein.
 Preview / Vorschau: `images/customer_contact_toggle_preview.md` enthält eine textbasierte Darstellung des UI-Stands, da binäre Screenshots in dieser Umgebung nicht eingecheckt werden können.
 
 EN: Step 8 (Summary) now evaluates inline follow-up questions even though it has no required fields, so “Next” stays disabled until the remaining critical prompts (for example headline or next steps) are answered before triggering exports.

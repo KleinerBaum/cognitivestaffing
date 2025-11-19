@@ -3,7 +3,7 @@
 Binary screenshots are unavailable in this environment, so the bilingual helper copy for the Role & Team step is documented as text. The layout below mirrors the wizard card.
 
 ```
-┌───────────────────────────── Rolle & Team ─────────────────────────────┐
+┌──────────────────────────── Team & Kontext ────────────────────────────┐
 │ Kundenkontakt? / Customer-facing?  [Toggle ON]                         │
 │  ℹ Aktivieren, wenn die Rolle aktiv mit Kund:innen kommuniziert – nutzt│
 │    das Folgefeld für Kanäle, Frequenz und Eskalationspfade.            │
