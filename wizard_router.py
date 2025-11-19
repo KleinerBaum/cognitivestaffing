@@ -612,15 +612,22 @@ class WizardRouter:
         return first_incomplete, completed_sections
 
     def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
-        """Re-run profile-bound validators for ``fields`` using widget state."""
+        """Re-run profile-bound validators for ``fields`` using widget/profile state."""
 
+        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
         errors: dict[str, LocalizedText] = {}
         for field in fields:
             validator = _REQUIRED_FIELD_VALIDATORS.get(field)
             if validator is None:
                 continue
             raw_value_obj = st.session_state.get(field)
-            raw_value = raw_value_obj if isinstance(raw_value_obj, str) else None
+            if isinstance(raw_value_obj, str):
+                raw_value: str | None = raw_value_obj
+            elif raw_value_obj is None:
+                raw_value = None
+            else:
+                profile_value = self._resolve_value(profile, field, None)
+                raw_value = profile_value if isinstance(profile_value, str) else None
             _, error = validator(raw_value)
             if error:
                 errors[field] = error
