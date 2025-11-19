@@ -383,6 +383,11 @@ USE_RESPONSES_API = _normalise_bool(
     default=not USE_CLASSIC_API,
 )
 
+ADMIN_DEBUG_PANEL = _normalise_bool(
+    os.getenv("ADMIN_DEBUG_PANEL"),
+    default=False,
+)
+
 
 def set_api_mode(use_responses: bool) -> None:
     """Synchronise the Responses/Classic API flags.
@@ -397,6 +402,14 @@ def set_api_mode(use_responses: bool) -> None:
 
     USE_RESPONSES_API = bool(use_responses)
     USE_CLASSIC_API = not USE_RESPONSES_API
+
+
+def set_responses_allow_tools(allow_tools: bool) -> None:
+    """Synchronise the ``RESPONSES_ALLOW_TOOLS`` flag at runtime."""
+
+    global RESPONSES_ALLOW_TOOLS
+
+    RESPONSES_ALLOW_TOOLS = bool(allow_tools)
 
 
 @contextmanager
@@ -446,9 +459,16 @@ try:
                 )
             )
         if "RESPONSES_ALLOW_TOOLS" in openai_secrets:
-            RESPONSES_ALLOW_TOOLS = _normalise_bool(
-                openai_secrets.get("RESPONSES_ALLOW_TOOLS"),
-                default=RESPONSES_ALLOW_TOOLS,
+            set_responses_allow_tools(
+                _normalise_bool(
+                    openai_secrets.get("RESPONSES_ALLOW_TOOLS"),
+                    default=RESPONSES_ALLOW_TOOLS,
+                )
+            )
+        if "ADMIN_DEBUG_PANEL" in openai_secrets:
+            ADMIN_DEBUG_PANEL = _normalise_bool(
+                openai_secrets.get("ADMIN_DEBUG_PANEL"),
+                default=ADMIN_DEBUG_PANEL,
             )
         VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
         VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
@@ -483,9 +503,16 @@ try:
             )
         )
     if "RESPONSES_ALLOW_TOOLS" in st.secrets:
-        RESPONSES_ALLOW_TOOLS = _normalise_bool(
-            st.secrets.get("RESPONSES_ALLOW_TOOLS"),
-            default=RESPONSES_ALLOW_TOOLS,
+        set_responses_allow_tools(
+            _normalise_bool(
+                st.secrets.get("RESPONSES_ALLOW_TOOLS"),
+                default=RESPONSES_ALLOW_TOOLS,
+            )
+        )
+    if "ADMIN_DEBUG_PANEL" in st.secrets:
+        ADMIN_DEBUG_PANEL = _normalise_bool(
+            st.secrets.get("ADMIN_DEBUG_PANEL"),
+            default=ADMIN_DEBUG_PANEL,
         )
 except Exception:
     pass

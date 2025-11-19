@@ -37,7 +37,7 @@ def configure_responses_flags(monkeypatch: pytest.MonkeyPatch) -> Callable[[bool
         monkeypatch.setattr(openai_api.app_config, "USE_CLASSIC_API", False, raising=False)
         monkeypatch.setattr(openai_api.app_config, "USE_RESPONSES_API", True, raising=False)
         monkeypatch.setattr(config, "RESPONSES_ALLOW_TOOLS", allow_tools, raising=False)
-        monkeypatch.setattr(openai_api, "RESPONSES_ALLOW_TOOLS", allow_tools, raising=False)
+        monkeypatch.setattr(openai_api.app_config, "RESPONSES_ALLOW_TOOLS", allow_tools, raising=False)
 
     return _configure
 

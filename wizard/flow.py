@@ -71,6 +71,8 @@ from utils.i18n import (
     POSITION_CUSTOMER_CONTACT_DETAILS_HINT,
     POSITION_CUSTOMER_CONTACT_TOGGLE_HELP,
 )
+import config as app_config
+from config import set_api_mode, set_responses_allow_tools
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
@@ -1937,6 +1939,80 @@ class _SafeFormatDict(dict[str, str]):
 
 LangPair = tuple[str, str]
 LangSuggestionPair = tuple[Sequence[str], Sequence[str]]
+
+
+@dataclass(frozen=True)
+class ComplianceToggleConfig:
+    """Configuration describing a single compliance checkbox."""
+
+    path: ProfilePaths
+    label: LangPair
+    help_text: LangPair
+
+
+COMPLIANCE_TOGGLE_CONFIGS: Final[tuple[ComplianceToggleConfig, ...]] = (
+    ComplianceToggleConfig(
+        path=ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED,
+        label=("Hintergrundprüfung verpflichtend", "Background check required"),
+        help_text=(
+            "Umfasst Identitäts-, Strafregister- und Beschäftigungshistorie-Prüfungen.",
+            "Covers identity, criminal-record, and employment-history verification.",
+        ),
+    ),
+    ComplianceToggleConfig(
+        path=ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED,
+        label=("Referenzprüfung verpflichtend", "Reference check required"),
+        help_text=(
+            "Bestätigt frühere Vorgesetzte oder Kolleg:innen und deren Feedback.",
+            "Confirms prior managers or peers and captures their feedback.",
+        ),
+    ),
+    ComplianceToggleConfig(
+        path=ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED,
+        label=("Portfolio/Arbeitsproben verpflichtend", "Portfolio / work samples required"),
+        help_text=(
+            "Fordert aktuelle Arbeitsproben oder Case-Studys an.",
+            "Requests up-to-date work samples or case studies.",
+        ),
+    ),
+)
+
+
+def _render_compliance_toggle_group(requirements: dict[str, Any]) -> None:
+    """Render the compliance toggle set inside the active container."""
+
+    if not isinstance(requirements, dict):
+        return
+    for config in COMPLIANCE_TOGGLE_CONFIGS:
+        _render_compliance_toggle(requirements, config)
+
+
+def _render_compliance_toggle(
+    requirements: dict[str, Any],
+    config: ComplianceToggleConfig,
+) -> None:
+    """Render a single checkbox and persist the linked profile state."""
+
+    requirement_key = config.path.value.split(".")[-1]
+    session_key = str(config.path)
+    current_value = bool(requirements.get(requirement_key))
+
+    def _sync_toggle() -> None:
+        _update_profile(
+            config.path,
+            bool(st.session_state.get(session_key)),
+        )
+
+    checked = st.checkbox(
+        tr(*config.label),
+        value=current_value,
+        key=session_key,
+        on_change=_sync_toggle,
+        help=tr(*config.help_text),
+    )
+    normalized = bool(checked)
+    requirements[requirement_key] = normalized
+    _update_profile(config.path, normalized)
 
 
 class TargetedPromptConfig(TypedDict, total=False):
@@ -8958,84 +9034,7 @@ def _step_requirements() -> None:
         ),
         parent=language_col,
     ):
-        compliance_cols = st.columns(2, gap="large")
-
-        with compliance_cols[0]:
-            background_check_path = ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED
-            background_check_key = str(background_check_path)
-
-            def _sync_background_required() -> None:
-                _update_profile(
-                    background_check_path,
-                    bool(st.session_state.get(background_check_key)),
-                )
-
-            background_required = st.checkbox(
-                tr("Hintergrundprüfung verpflichtend", "Background check required"),
-                value=bool(requirements.get("background_check_required")),
-                key=background_check_key,
-                on_change=_sync_background_required,
-                help=tr(
-                    "Umfasst Identitäts-, Strafregister- und Beschäftigungshistorie-Prüfungen.",
-                    "Covers identity, criminal-record, and employment-history verification.",
-                ),
-            )
-            requirements["background_check_required"] = bool(background_required)
-            _update_profile(
-                ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED,
-                bool(background_required),
-            )
-
-            reference_check_path = ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED
-            reference_check_key = str(reference_check_path)
-
-            def _sync_reference_required() -> None:
-                _update_profile(
-                    reference_check_path,
-                    bool(st.session_state.get(reference_check_key)),
-                )
-
-            reference_required = st.checkbox(
-                tr("Referenzprüfung verpflichtend", "Reference check required"),
-                value=bool(requirements.get("reference_check_required")),
-                key=reference_check_key,
-                on_change=_sync_reference_required,
-                help=tr(
-                    "Bestätigt frühere Vorgesetzte oder Kolleg:innen und deren Feedback.",
-                    "Confirms prior managers or peers and captures their feedback.",
-                ),
-            )
-            requirements["reference_check_required"] = bool(reference_required)
-            _update_profile(
-                ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED,
-                bool(reference_required),
-            )
-
-        with compliance_cols[1]:
-            portfolio_required_path = ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED
-            portfolio_required_key = str(portfolio_required_path)
-
-            def _sync_portfolio_required() -> None:
-                _update_profile(
-                    portfolio_required_path,
-                    bool(st.session_state.get(portfolio_required_key)),
-                )
-
-            portfolio_required = st.checkbox(
-                tr("Portfolio/Arbeitsproben verpflichtend", "Portfolio / work samples required"),
-                value=bool(requirements.get("portfolio_required")),
-                key=portfolio_required_key,
-                on_change=_sync_portfolio_required,
-                help=tr(
-                    "Fordert aktuelle Arbeitsproben oder Case-Studys an.",
-                    "Requests up-to-date work samples or case studies.",
-                ),
-            )
-            requirements["portfolio_required"] = bool(portfolio_required)
-            _update_profile(
-                ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED,
-                bool(portfolio_required),
-            )
+        _render_compliance_toggle_group(requirements)
 
     must_insight_skills = (
         list(data["requirements"].get("hard_skills_required", []))
@@ -10096,57 +10095,7 @@ def _summary_requirements() -> None:
         key="ui.summary.requirements.certs",
     )
 
-    compliance_summary_cols = st.columns(2, gap="large")
-
-    with compliance_summary_cols[0]:
-        background_check_key = str(ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED)
-        background_required = st.checkbox(
-            tr("Hintergrundprüfung verpflichtend", "Background check required"),
-            value=bool(requirements.get("background_check_required")),
-            key=background_check_key,
-            help=tr(
-                "Umfasst Identitäts-, Strafregister- und Beschäftigungshistorie-Prüfungen.",
-                "Covers identity, criminal-record, and employment-history verification.",
-            ),
-        )
-        requirements["background_check_required"] = bool(background_required)
-        _update_profile(
-            ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED,
-            bool(background_required),
-        )
-
-        reference_check_key = str(ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED)
-        reference_required = st.checkbox(
-            tr("Referenzprüfung verpflichtend", "Reference check required"),
-            value=bool(requirements.get("reference_check_required")),
-            key=reference_check_key,
-            help=tr(
-                "Bestätigt frühere Vorgesetzte oder Kolleg:innen und deren Feedback.",
-                "Confirms prior managers or peers and captures their feedback.",
-            ),
-        )
-        requirements["reference_check_required"] = bool(reference_required)
-        _update_profile(
-            ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED,
-            bool(reference_required),
-        )
-
-    with compliance_summary_cols[1]:
-        portfolio_required_key = str(ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED)
-        portfolio_required = st.checkbox(
-            tr("Portfolio/Arbeitsproben verpflichtend", "Portfolio / work samples required"),
-            value=bool(requirements.get("portfolio_required")),
-            key=portfolio_required_key,
-            help=tr(
-                "Fordert aktuelle Arbeitsproben oder Case-Studys an.",
-                "Requests up-to-date work samples or case studies.",
-            ),
-        )
-        requirements["portfolio_required"] = bool(portfolio_required)
-        _update_profile(
-            ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED,
-            bool(portfolio_required),
-        )
+    _render_compliance_toggle_group(requirements)
 
     st.caption(
         tr(
@@ -11892,11 +11841,101 @@ def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> Non
     _apply_pending_scroll_reset()
 
 
+def _render_admin_debug_panel() -> None:
+    """Render the admin debug controls when enabled via configuration."""
+
+    if not app_config.ADMIN_DEBUG_PANEL:
+        return
+
+    expanded = bool(st.session_state.get(UIKeys.DEBUG_DETAILS))
+    with st.expander(
+        tr("🛠️ Admin-Debug-Panel", "🛠️ Admin debug panel"),
+        expanded=expanded,
+    ):
+        st.caption(
+            tr(
+                "Nur für Administrator:innen sichtbar – beeinflusst LLM-Routing und Debug-Ausgaben.",
+                "Visible to administrators only – adjusts LLM routing and debug output.",
+            )
+        )
+        debug_col, api_col, tools_col = st.columns((1, 1.2, 1))
+        debug_enabled = debug_col.checkbox(
+            tr("Debugmodus aktivieren", "Enable debug mode"),
+            value=bool(st.session_state.get("debug")),
+            key=UIKeys.DEBUG_PANEL,
+            help=tr(
+                "Zeigt detaillierte Fehlermeldungen und Stacktraces direkt im Wizard an.",
+                "Surfaces detailed error messages and stack traces directly inside the wizard.",
+            ),
+        )
+        st.session_state["debug"] = bool(debug_enabled)
+        st.session_state[UIKeys.DEBUG_DETAILS] = bool(debug_enabled)
+        if debug_enabled:
+            debug_col.caption(
+                tr(
+                    "Aktiviert ausführliche Logs für API-Aufrufe, Extraktion und Follow-ups.",
+                    "Enables verbose logs for API calls, extraction, and follow-ups.",
+                )
+            )
+
+        mode_options: tuple[str, ...] = ("responses", "chat")
+        mode_labels = {
+            "responses": tr("Responses-API", "Responses API"),
+            "chat": tr("Chat-Completions-API", "Chat Completions API"),
+        }
+        current_mode = "chat" if app_config.USE_CLASSIC_API else "responses"
+        stored_mode = str(st.session_state.get(UIKeys.DEBUG_API_MODE) or current_mode)
+        if stored_mode not in mode_labels:
+            stored_mode = current_mode
+        selected_mode = api_col.radio(
+            tr("API-Modus", "API mode"),
+            options=mode_options,
+            index=mode_options.index(stored_mode),
+            key=UIKeys.DEBUG_API_MODE,
+            format_func=lambda value: mode_labels.get(value, value.title()),
+            horizontal=True,
+        )
+        if selected_mode != current_mode:
+            set_api_mode(selected_mode == "responses")
+            st.toast(
+                tr("Responses-API aktiv.", "Responses API active.")
+                if selected_mode == "responses"
+                else tr("Chat-Completions-API aktiv.", "Chat Completions API active."),
+                icon="🔁",
+            )
+
+        allow_tools = bool(app_config.RESPONSES_ALLOW_TOOLS)
+        requested_allow = tools_col.checkbox(
+            tr("Responses-Tools erlauben", "Allow Responses tools"),
+            value=allow_tools,
+            key="ui.debug.allow_tools",
+            help=tr(
+                "Schaltet Funktions- und Toolaufrufe für Responses frei (nur wenn vom Account unterstützt).",
+                "Enables function/tool payloads for Responses (only if your account is allow-listed).",
+            ),
+        )
+        if bool(requested_allow) != allow_tools:
+            set_responses_allow_tools(bool(requested_allow))
+            st.toast(
+                tr("Responses-Tools aktiviert.", "Responses tools enabled.")
+                if requested_allow
+                else tr("Responses-Tools deaktiviert.", "Responses tools disabled."),
+                icon="🧩",
+            )
+        tools_col.caption(
+            tr(
+                "Erfordert eine freigeschaltete Responses-Instanz – andernfalls fällt der Client automatisch auf Chat zurück.",
+                "Requires an allow-listed Responses tenant – otherwise the client falls back to Chat automatically.",
+            )
+        )
+
+
 def run_wizard() -> None:
     """Run the multi-step profile creation wizard."""
 
     st.markdown(WIZARD_LAYOUT_STYLE, unsafe_allow_html=True)
     schema, critical = _load_wizard_configuration()
+    _render_admin_debug_panel()
     try:
         _run_wizard_v2(schema, critical)
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
