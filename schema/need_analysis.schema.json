@@ -456,6 +456,78 @@
                         "type": "string"
                     }
                 },
+                "skill_mappings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "hard_skills_required": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    }
+                                }
+                            }
+                        },
+                        "hard_skills_optional": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                            }
+                        },
+                        "soft_skills_required": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                            }
+                        },
+                        "soft_skills_optional": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                            }
+                        },
+                        "tools_and_technologies": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                            }
+                        }
+                    },
+                    "required": [
+                        "hard_skills_required",
+                        "hard_skills_optional",
+                        "soft_skills_required",
+                        "soft_skills_optional",
+                        "tools_and_technologies"
+                    ]
+                },
                 "language_level_english": {
                     "type": [
                         "string",
@@ -491,6 +563,7 @@
                 "languages_optional",
                 "certificates",
                 "certifications",
+                "skill_mappings",
                 "language_level_english",
                 "background_check_required",
                 "portfolio_required",
