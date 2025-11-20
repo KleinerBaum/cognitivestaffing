@@ -578,10 +578,20 @@ def _render_followup_question(q: dict, data: dict) -> None:
             )
             st.session_state[highlight_sentinel] = False
     widget_has_state = field in st.session_state
+    should_sync_widget_state = field not in INLINE_FOLLOWUP_FIELDS
     if widget_has_state:
-        _update_profile(field, processed_value, session_value=processed_value)
+        _update_profile(
+            field,
+            processed_value,
+            session_value=processed_value,
+            sync_widget_state=should_sync_widget_state,
+        )
     else:
-        _update_profile(field, processed_value)
+        _update_profile(
+            field,
+            processed_value,
+            sync_widget_state=should_sync_widget_state,
+        )
     if isinstance(data, dict):
         set_in(data, field, processed_value)
     if followup_has_response(processed_value):
