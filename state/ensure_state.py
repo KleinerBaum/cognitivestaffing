@@ -233,37 +233,44 @@ def ensure_state() -> None:
 
     _migrate_legacy_profile_keys()
     existing = st.session_state.get(StateKeys.PROFILE)
+    auto_populated_paths: list[str] = []
+    removed_paths: list[str] = []
     if not isinstance(existing, Mapping):
         normalized_default: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
         ensured_default = _apply_critical_profile_defaults(normalized_default)
         st.session_state[StateKeys.PROFILE] = ensured_default
+        _record_profile_repair_notice([], [])
     else:
         try:
             profile = coerce_and_fill(existing)
             normalized_profile: NormalizedProfilePayload = normalize_profile(profile)
-            ensured_profile = _apply_critical_profile_defaults(normalized_profile)
+            ensured_profile = _apply_critical_profile_defaults(normalized_profile, auto_populated_paths)
             st.session_state[StateKeys.PROFILE] = ensured_profile
+            _record_profile_repair_notice(auto_populated_paths, removed_paths)
         except ValidationError as error:
             logger.debug("Validation error when coercing profile: %s", error)
             sanitized = _sanitize_profile(existing)
             try:
                 validated = NeedAnalysisProfile.model_validate(sanitized)
                 normalized_validated: NormalizedProfilePayload = normalize_profile(validated)
-                ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                ensured_validated = _apply_critical_profile_defaults(normalized_validated, auto_populated_paths)
                 st.session_state[StateKeys.PROFILE] = ensured_validated
+                _record_profile_repair_notice(auto_populated_paths, removed_paths)
             except ValidationError as sanitized_error:
                 errors = sanitized_error.errors()
                 targeted_profile, patched_paths = _fix_known_profile_fields(sanitized, errors)
+                auto_populated_paths.extend(patched_paths)
                 if patched_paths:
                     try:
                         validated = NeedAnalysisProfile.model_validate(targeted_profile)
                         normalized_validated = normalize_profile(validated)
-                        ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                        ensured_validated = _apply_critical_profile_defaults(normalized_validated, auto_populated_paths)
                         st.session_state[StateKeys.PROFILE] = ensured_validated
                         logger.info(
                             "Patched invalid profile fields in-place: %s",
                             ", ".join(patched_paths),
                         )
+                        _record_profile_repair_notice(auto_populated_paths, removed_paths)
                         return
                     except ValidationError as targeted_error:
                         logger.debug(
@@ -272,15 +279,17 @@ def ensure_state() -> None:
                         )
                 repaired_profile = _attempt_profile_repair(sanitized, errors)
                 if repaired_profile is not None:
+                    auto_populated_paths.extend(_summarize_error_locations(errors))
                     try:
                         validated = NeedAnalysisProfile.model_validate(repaired_profile)
                         normalized_validated = normalize_profile(validated)
-                        ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                        ensured_validated = _apply_critical_profile_defaults(normalized_validated, auto_populated_paths)
                         st.session_state[StateKeys.PROFILE] = ensured_validated
                         logger.info(
                             "Repaired invalid profile fields: %s",
                             ", ".join(_summarize_error_locations(errors)),
                         )
+                        _record_profile_repair_notice(auto_populated_paths, removed_paths)
                         return
                     except ValidationError as repair_error:
                         logger.debug(
@@ -292,12 +301,13 @@ def ensure_state() -> None:
                     try:
                         validated = NeedAnalysisProfile.model_validate(trimmed_profile)
                         normalized_validated = normalize_profile(validated)
-                        ensured_validated = _apply_critical_profile_defaults(normalized_validated)
+                        ensured_validated = _apply_critical_profile_defaults(normalized_validated, auto_populated_paths)
                         st.session_state[StateKeys.PROFILE] = ensured_validated
                         logger.warning(
                             "Removed invalid profile fields: %s",
                             ", ".join(removed_paths),
                         )
+                        _record_profile_repair_notice(auto_populated_paths, removed_paths)
                         return
                     except ValidationError as trimmed_error:
                         logger.debug(
@@ -309,8 +319,10 @@ def ensure_state() -> None:
                 )
                 _record_profile_reset_warning(errors)
                 fallback_profile: NormalizedProfilePayload = normalize_profile(NeedAnalysisProfile())
-                ensured_fallback = _apply_critical_profile_defaults(fallback_profile)
+                auto_populated_paths.extend(_summarize_error_locations(errors))
+                ensured_fallback = _apply_critical_profile_defaults(fallback_profile, auto_populated_paths)
                 st.session_state[StateKeys.PROFILE] = ensured_fallback
+                _record_profile_repair_notice(auto_populated_paths, removed_paths)
     for key, factory in _DEFAULT_STATE_FACTORIES.items():
         if key not in st.session_state:
             st.session_state[key] = factory()
@@ -451,6 +463,20 @@ def _record_profile_reset_warning(errors: Sequence[Mapping[str, Any]] | None) ->
         summary[tr("Betroffene Felder", "Impacted fields", lang=lang)] = ", ".join(impacted)
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = summary
     st.session_state[StateKeys.STEPPER_WARNING] = warning_message
+
+
+def _record_profile_repair_notice(auto_populated_paths: Sequence[str], removed_paths: Sequence[str]) -> None:
+    """Store schema paths that were auto-filled or removed during repair."""
+
+    unique_auto = tuple(dict.fromkeys(path for path in auto_populated_paths if path))
+    unique_removed = tuple(dict.fromkeys(path for path in removed_paths if path))
+    if not unique_auto and not unique_removed:
+        st.session_state.pop(StateKeys.PROFILE_REPAIR_FIELDS, None)
+        return
+    st.session_state[StateKeys.PROFILE_REPAIR_FIELDS] = {
+        "auto_populated": list(unique_auto),
+        "removed": list(unique_removed),
+    }
 
 
 def _format_error_location(location: Sequence[Any]) -> str:
@@ -608,7 +634,7 @@ def _merge_known_fields(target: dict[str, Any], source: Mapping[str, Any]) -> No
 
 
 def _apply_critical_profile_defaults(
-    profile: NormalizedProfilePayload,
+    profile: NormalizedProfilePayload, inserted_paths: list[str] | None = None
 ) -> NormalizedProfilePayload:
     """Ensure critical profile fields always exist for downstream consumers."""
 
@@ -625,9 +651,13 @@ def _apply_critical_profile_defaults(
         value = cursor.get(leaf)
         if value is None:
             cursor[leaf] = default
+            if inserted_paths is not None:
+                inserted_paths.append(path)
             continue
         if isinstance(value, str) and not value:
             cursor[leaf] = default
+            if inserted_paths is not None:
+                inserted_paths.append(path)
     return profile
 
 

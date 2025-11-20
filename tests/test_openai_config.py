@@ -229,6 +229,23 @@ def test_ensure_state_applies_contact_email_default_when_missing() -> None:
     assert result["position"]["job_title"] == "Data Scientist"
 
 
+def test_ensure_state_records_profile_repairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auto-fixed fields should be captured for UI warnings."""
+
+    st.session_state.clear()
+    profile = NeedAnalysisProfile().model_dump()
+    profile["company"]["contact_email"] = {"bad": "value"}
+    st.session_state[StateKeys.PROFILE] = profile
+
+    monkeypatch.setattr(schema_module, "repair_profile_payload", lambda *_, **__: None)
+
+    es.ensure_state()
+
+    repairs = st.session_state.get(StateKeys.PROFILE_REPAIR_FIELDS)
+    assert repairs
+    assert "company.contact_email" in repairs["auto_populated"]
+
+
 @pytest.mark.parametrize("model_alias", ["o4-mini-latest", "O4-MINI"])
 def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_alias):
     st.session_state.clear()

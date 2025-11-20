@@ -652,22 +652,80 @@ def _extract_warning_details(summary: Any, warning_text: str, lang: str | None) 
     return None
 
 
+def _coerce_path_list(candidate: Any) -> list[str]:
+    """Return a list of strings from ``candidate`` when feasible."""
+
+    if isinstance(candidate, str):
+        return [candidate]
+    if isinstance(candidate, (list, tuple, set, frozenset)):
+        return [str(item) for item in candidate if isinstance(item, str) and item]
+    return []
+
+
+def _humanize_schema_path(path: str, lang: str | None) -> str:
+    """Return a localized, human-readable version of ``path``."""
+
+    cleaned = path.replace(".", " ").replace("_", " ").strip()
+    label = " ".join(part.capitalize() for part in cleaned.split()) or path
+    return tr(label, label, lang=lang)
+
+
+def _format_profile_repair_warning(summary: Any, lang: str | None) -> str | None:
+    """Build a bilingual warning message for auto-populated/removed fields."""
+
+    if not isinstance(summary, Mapping):
+        return None
+    auto_fields = _coerce_path_list(summary.get("auto_populated"))
+    removed_fields = _coerce_path_list(summary.get("removed"))
+    if not auto_fields and not removed_fields:
+        return None
+
+    base = tr(
+        "Einige Felder wurden aufgrund von Validierungsfehlern automatisch befüllt oder zurückgesetzt.",
+        "Some fields were automatically populated or reset due to validation errors.",
+        lang=lang,
+    )
+    field_segments: list[str] = []
+    if auto_fields:
+        auto_label = tr("Automatisch befüllt", "Auto-filled", lang=lang)
+        readable = ", ".join(_humanize_schema_path(path, lang) for path in auto_fields)
+        field_segments.append(f"{auto_label}: {readable}")
+    if removed_fields:
+        removed_label = tr("Entfernt", "Removed", lang=lang)
+        readable = ", ".join(_humanize_schema_path(path, lang) for path in removed_fields)
+        field_segments.append(f"{removed_label}: {readable}")
+    detail_text = " – ".join(field_segments)
+    review_prompt = tr(
+        "Bitte überprüfen Sie diese Felder.",
+        "Please double-check these fields.",
+        lang=lang,
+    )
+    return " ".join(part for part in (base, detail_text, review_prompt) if part)
+
+
 def render_step_warning_banner() -> None:
     """Display a bilingual warning banner when extraction repairs are active."""
 
+    lang = st.session_state.get("lang")
     warning_text = st.session_state.get(StateKeys.STEPPER_WARNING)
-    if not isinstance(warning_text, str) or not warning_text.strip():
+    extraction_summary = st.session_state.get(StateKeys.EXTRACTION_SUMMARY)
+    detail_text = _extract_warning_details(extraction_summary, warning_text or "", lang)
+    repair_summary = st.session_state.get(StateKeys.PROFILE_REPAIR_FIELDS)
+    repair_message = _format_profile_repair_warning(repair_summary, lang)
+
+    messages: list[str] = []
+    if isinstance(warning_text, str) and warning_text.strip():
+        if detail_text:
+            detail_label = tr("Details", "Details", lang=lang)
+            messages.append(f"{warning_text}\n\n{detail_label}:\n{detail_text}")
+        else:
+            messages.append(warning_text)
+    if repair_message:
+        messages.append(repair_message)
+    if not messages:
         return
 
-    lang = st.session_state.get("lang")
-    summary = st.session_state.get(StateKeys.EXTRACTION_SUMMARY)
-    detail_text = _extract_warning_details(summary, warning_text, lang)
-    if detail_text:
-        detail_label = tr("Details", "Details", lang=lang)
-        message = f"{warning_text}\n\n{detail_label}:\n{detail_text}"
-    else:
-        message = warning_text
-    st.warning(message)
+    st.warning("\n\n".join(messages))
 
 
 def render_list_text_area(

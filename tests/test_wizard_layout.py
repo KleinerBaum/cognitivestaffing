@@ -46,3 +46,27 @@ def test_render_step_warning_banner_avoids_duplicate_summary(monkeypatch):
     render_step_warning_banner()
 
     assert captured["message"] == warning_text
+
+
+def test_render_step_warning_banner_surfaces_repair_fields(monkeypatch):
+    """Profile repair metadata should render a bilingual warning banner."""
+
+    st.session_state.clear()
+    st.session_state.lang = "de"
+    st.session_state[StateKeys.PROFILE_REPAIR_FIELDS] = {
+        "auto_populated": ["company.name"],
+        "removed": ["position.job_title"],
+    }
+
+    captured: dict[str, str] = {}
+
+    def _fake_warning(message: str) -> None:
+        captured["message"] = message
+
+    monkeypatch.setattr("wizard.layout.st.warning", _fake_warning)
+
+    render_step_warning_banner()
+
+    assert "automatisch" in captured["message"]
+    assert "Company Name" in captured["message"]
+    assert "Position Job Title" in captured["message"]
