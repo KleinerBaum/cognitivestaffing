@@ -9322,6 +9322,7 @@ def _summary_company() -> None:
     """Editable summary tab for company information."""
 
     data = _get_profile_state()
+    _prime_widget_state_from_profile(data)
     c1, c2 = st.columns(2)
     summary_company_label = tr(*COMPANY_NAME_LABEL) + REQUIRED_SUFFIX
     summary_company_lock = _field_lock_config(
@@ -9435,6 +9436,7 @@ def _summary_position() -> None:
         ensure_state()
         refreshed = st.session_state.get(StateKeys.PROFILE)
         summary_data = refreshed if isinstance(refreshed, dict) else {}
+    _prime_widget_state_from_profile(summary_data)
     data = summary_data
     position = data.setdefault("position", {})
     c1, c2 = st.columns(2)
