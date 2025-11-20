@@ -519,6 +519,65 @@ def _flag_partial_extraction(
         logger.debug("Unable to flag partial extraction in session state", exc_info=True)
 
 
+def _merge_with_profile_defaults(raw: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Overlay ``raw`` data onto a default NeedAnalysisProfile dump."""
+
+    from models.need_analysis import NeedAnalysisProfile
+
+    merged: dict[str, Any] = copy.deepcopy(NeedAnalysisProfile().model_dump())
+
+    def _merge(target: dict[str, Any], source: Mapping[str, Any]) -> None:
+        for key, value in source.items():
+            if isinstance(value, Mapping) and isinstance(target.get(key), dict):
+                _merge(target[key], value)
+            else:
+                target[key] = value
+
+    if isinstance(raw, Mapping):
+        _merge(merged, raw)
+    return merged
+
+
+def _prune_invalid_paths(payload: Mapping[str, Any], errors: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Return ``payload`` with fields linked to validation errors removed."""
+
+    cleaned = copy.deepcopy(payload)
+
+    for error in errors:
+        location = list(error.get("loc") or [])
+        if not location:
+            continue
+        target: Any = cleaned
+        parents: list[tuple[Any, Any]] = []
+        for part in location[:-1]:
+            parents.append((target, part))
+            if isinstance(target, Mapping):
+                target = target.get(part)
+            elif isinstance(target, list) and isinstance(part, int) and 0 <= part < len(target):
+                target = target[part]
+            else:
+                target = None
+                break
+        if target is None:
+            continue
+        last = location[-1]
+        if isinstance(target, Mapping):
+            target.pop(last, None)
+        elif isinstance(target, list) and isinstance(last, int) and 0 <= last < len(target):
+            target.pop(last)
+        else:
+            # Attempt to prune higher-level container when direct removal fails
+            while parents:
+                parent, key = parents.pop()
+                if isinstance(parent, Mapping):
+                    parent.pop(key, None)
+                    break
+                if isinstance(parent, list) and isinstance(key, int) and 0 <= key < len(parent):
+                    parent.pop(key)
+                    break
+    return cleaned
+
+
 def extract_with_function(
     job_text: str,
     schema: dict,
@@ -690,16 +749,20 @@ def extract_with_function(
         if len(errors) > 5:
             detail = f"{detail} (+{len(errors) - 5} more)"
         logger.debug("NeedAnalysisProfile validation failed: %s", detail, exc_info=exc)
-        if st is None:
-            raise ValueError(f"Model returned JSON that does not fit NeedAnalysisProfile: {detail}") from exc
         _flag_partial_extraction(field_contexts)
-        logger.warning("Validation failed for structured payload; using empty profile")
-        empty_profile = NeedAnalysisProfile()
-        return ExtractionResult(
-            data=empty_profile.model_dump(),
-            field_contexts=field_contexts or {},
-            global_context=global_context or [],
-        )
+        merged_payload = _merge_with_profile_defaults(raw)
+        try:
+            profile = process_extracted_profile(merged_payload)
+        except ValidationError as merged_exc:  # pragma: no cover - defensive logging
+            pruned_payload = _prune_invalid_paths(merged_payload, merged_exc.errors())
+            try:
+                profile = process_extracted_profile(pruned_payload)
+            except ValidationError:
+                logger.warning(
+                    "Validation failed for structured payload; using defaults",
+                    exc_info=merged_exc,
+                )
+                profile = NeedAnalysisProfile()
 
     profile_dump = profile.model_dump()
     if isinstance(profile, NeedAnalysisProfile):
@@ -1641,9 +1704,7 @@ def _build_interview_guide_prompt(payload: Mapping[str, Any]) -> list[dict[str, 
     instruction_lines = [str(template) for template in instruction_templates]
 
     tone_value = str(payload.get("tone") or "").strip()
-    audience_value = str(
-        payload.get("audience_display") or payload.get("audience") or ""
-    ).strip()
+    audience_value = str(payload.get("audience_display") or payload.get("audience") or "").strip()
 
     style_directive = ""
     if tone_value and audience_value:
