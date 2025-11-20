@@ -394,7 +394,7 @@ JOB_AD_SCHEMA = {
     },
 }
 
-INTERVIEW_GUIDE_SCHEMA = {
+INTERVIEW_GUIDE_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "InterviewGuide",
     "type": "object",

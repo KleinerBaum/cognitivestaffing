@@ -199,7 +199,13 @@ from ._logic import (
     unique_normalized,
 )
 from .company_validators import persist_contact_email, persist_primary_city
-from .metadata import COMPANY_STEP_INDEX, CRITICAL_SECTION_ORDER, get_missing_critical_fields, resolve_section_for_field
+from .metadata import (
+    COMPANY_STEP_INDEX,
+    CRITICAL_SECTION_ORDER,
+    filter_followups_by_context,
+    get_missing_critical_fields,
+    resolve_section_for_field,
+)
 from sidebar.salary import format_salary_range
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only import path
@@ -466,6 +472,7 @@ from core.suggestions import (
     get_static_benefit_shortlist,
 )
 from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
+from pipelines.followups import generate_followups
 from components import widget_factory
 from components.stepper import render_stepper as _render_stepper
 from wizard.wizard import profile_text_input
@@ -3757,6 +3764,27 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     for field in CRITICAL_FIELDS:
         if not get_in(data, field, None):
             missing.append(field)
+
+    followup_candidates: list[Mapping[str, object]] = []
+    if is_llm_available():
+        try:
+            followup_response = generate_followups(
+                vacancy_json=profile.model_dump(),
+                lang=str(lang),
+                vector_store_id=vector_store_id or None,
+            )
+            if isinstance(followup_response, Mapping):
+                raw_questions = followup_response.get("questions", [])
+                if isinstance(raw_questions, list):
+                    followup_candidates = [q for q in raw_questions if isinstance(q, Mapping)]
+        except Exception:
+            logger.exception("Automatic follow-up generation failed; continuing without new questions.")
+
+    filtered_followups = filter_followups_by_context(followup_candidates, data)
+    if filtered_followups:
+        st.session_state[StateKeys.FOLLOWUPS] = filtered_followups
+    else:
+        st.session_state.pop(StateKeys.FOLLOWUPS, None)
     metadata["rag"] = {
         "vector_store_id": vector_store_id or "",
         "fields": {},
@@ -3765,6 +3793,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     }
     st.session_state[StateKeys.EXTRACTION_MISSING] = missing
     st.session_state[StateKeys.PROFILE_METADATA] = metadata
+    existing_followups = st.session_state.get(StateKeys.FOLLOWUPS) or []
     if st.session_state.get("auto_reask"):
         if not missing:
             st.session_state["auto_reask_round"] = 0
@@ -3774,26 +3803,27 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             try:
                 round_num = st.session_state.get("auto_reask_round", 0) + 1
                 st.session_state["auto_reask_round"] = round_num
-                total_rounds = st.session_state.get("auto_reask_total", len(missing))
+                total_default = len(existing_followups) or len(missing)
+                total_rounds = st.session_state.get("auto_reask_total", total_default)
                 st.session_state["auto_reask_total"] = total_rounds
-                msg = tr(
-                    f"Generiere automatisch Anschlussfrage {round_num} von {total_rounds}...",
-                    f"Automatically generating follow-up {round_num} of {total_rounds}...",
-                )
-                with st.spinner(msg):
-                    payload = {
-                        "data": profile.model_dump(),
-                        "lang": st.session_state.lang,
-                    }
-                    followup_res = ask_followups(
-                        payload,
-                        model=st.session_state.model,
-                        vector_store_id=st.session_state.vector_store_id or None,
+                if not existing_followups:
+                    msg = tr(
+                        f"Generiere automatisch Anschlussfrage {round_num} von {total_rounds}...",
+                        f"Automatically generating follow-up {round_num} of {total_rounds}...",
                     )
-                done = set(st.session_state[StateKeys.PROFILE].get("meta", {}).get("followups_answered", []))
-                st.session_state[StateKeys.FOLLOWUPS] = [
-                    q for q in followup_res.get("questions", []) if q.get("field") not in done
-                ]
+                    with st.spinner(msg):
+                        payload = {
+                            "data": profile.model_dump(),
+                            "lang": st.session_state.lang,
+                        }
+                        followup_res = ask_followups(
+                            payload,
+                            model=st.session_state.model,
+                            vector_store_id=st.session_state.vector_store_id or None,
+                        )
+                    done = set(st.session_state[StateKeys.PROFILE].get("meta", {}).get("followups_answered", []))
+                    filtered_responses = [q for q in followup_res.get("questions", []) if q.get("field") not in done]
+                    st.session_state[StateKeys.FOLLOWUPS] = filter_followups_by_context(filtered_responses, data)
             except Exception:
                 st.warning(
                     tr(

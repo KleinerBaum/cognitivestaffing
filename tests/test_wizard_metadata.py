@@ -5,7 +5,7 @@ from typing import Any
 import streamlit as st
 
 from constants.keys import ProfilePaths, StateKeys
-from wizard.metadata import get_missing_critical_fields
+from wizard.metadata import filter_followups_by_context, get_missing_critical_fields
 
 
 def _base_profile() -> dict[str, Any]:
@@ -46,3 +46,62 @@ def test_get_missing_critical_fields_revalidates_primary_city_widget_state() -> 
     assert str(ProfilePaths.LOCATION_PRIMARY_CITY) in missing
     stored_city = st.session_state[StateKeys.PROFILE]["location"].get("primary_city")
     assert stored_city in (None, "")
+
+
+def test_get_missing_critical_fields_remote_city_not_critical() -> None:
+    """Remote roles should not block on missing primary city."""
+
+    st.session_state.clear()
+    profile = _base_profile()
+    profile["employment"] = {"work_policy": "remote"}
+    st.session_state[StateKeys.PROFILE] = profile
+
+    missing = get_missing_critical_fields()
+
+    assert str(ProfilePaths.LOCATION_PRIMARY_CITY) not in missing
+
+
+def test_filter_followups_by_context_skips_irrelevant_questions() -> None:
+    """Context rules should drop travel and management follow-ups when not needed."""
+
+    st.session_state.clear()
+    profile: dict[str, Any] = {
+        "employment": {"work_policy": "remote", "travel_required": False},
+        "position": {"seniority_level": "junior"},
+        "location": {"primary_city": ""},
+        "meta": {},
+    }
+    followups = [
+        {"field": "location.primary_city", "priority": "critical", "question": "City?"},
+        {"field": "employment.travel_share", "priority": "critical", "question": "Travel?"},
+        {"field": "position.team_size", "priority": "normal", "question": "Team size?"},
+        {"field": "company.name", "priority": "critical", "question": "Company?"},
+    ]
+
+    filtered = filter_followups_by_context(followups, profile)
+    fields = {entry["field"] for entry in filtered}
+
+    assert "company.name" in fields
+    assert "location.primary_city" in fields
+    assert "employment.travel_share" not in fields
+    assert "position.team_size" not in fields
+    for entry in filtered:
+        if entry["field"] == "location.primary_city":
+            assert entry["priority"] == "optional"
+
+
+def test_filter_followups_by_context_prioritizes_management_for_senior() -> None:
+    """Leadership roles should emphasise reporting line details."""
+
+    st.session_state.clear()
+    profile: dict[str, Any] = {
+        "employment": {"work_policy": "onsite"},
+        "position": {"seniority_level": "Director"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    followups = [{"field": "position.supervises", "priority": "normal", "question": "How many reports?"}]
+
+    filtered = filter_followups_by_context(followups, profile)
+
+    assert filtered and filtered[0]["priority"] == "critical"
