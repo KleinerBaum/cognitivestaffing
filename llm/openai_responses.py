@@ -31,6 +31,7 @@ from openai_utils.api import (
     call_chat_api,
     get_client,
     build_schema_format_bundle,
+    is_unrecoverable_schema_error,
     model_supports_reasoning,
     model_supports_temperature,
 )
@@ -280,6 +281,7 @@ def call_responses(
         max_tries=max_tries,
         jitter=backoff.full_jitter,
         logger=logger,
+        giveup=is_unrecoverable_schema_error,
     )
     def _dispatch() -> Any:
         with tracer.start_as_current_span("openai.responses_call") as span:

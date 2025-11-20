@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Hardened OpenAI retry/fallbacks: invalid JSON schema errors now short-circuit retries, and Responses → Chat fallbacks reuse the same schema-format builder so both APIs receive the `name` + `schema` pair consistently.
+  DE: OpenAI-Retries/-Fallbacks robuster gemacht: Ungültige JSON-Schema-Fehler brechen Wiederholungen sofort ab, und Responses-→-Chat-Fallbacks nutzen denselben Schema-Builder, damit beide APIs immer das Paar aus `name` und `schema` erhalten.
+
 - EN: Refactored the monolithic `wizard/flow.py` into focused helpers (`wizard/sections/followups.py`, `wizard/date_utils.py`, `wizard/state_sync.py`, `wizard/types.py`) so follow-up rendering, date utilities, and widget state syncing are easier to maintain and unit test.
   DE: Die monolithische `wizard/flow.py` wurde in fokussierte Helfer zerlegt (`wizard/sections/followups.py`, `wizard/date_utils.py`, `wizard/state_sync.py`, `wizard/types.py`), damit Follow-up-Rendering, Datumshelfer und Widget-State-Sync leichter wartbar und testbar sind.
 

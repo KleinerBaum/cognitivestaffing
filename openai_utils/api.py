@@ -431,6 +431,38 @@ def _is_reasoning_unsupported_error(error: OpenAIError) -> bool:
     return _is_parameter_unsupported_error(error, "reasoning")
 
 
+def _message_indicates_unrecoverable_schema(message: str) -> bool:
+    """Return ``True`` if ``message`` signals an unrecoverable schema issue."""
+
+    lowered = message.lower()
+    if "invalid_json_schema" in lowered or "invalid json schema" in lowered:
+        return True
+    if "missing required" in lowered and "schema" in lowered:
+        return True
+    return False
+
+
+def is_unrecoverable_schema_error(error: Exception) -> bool:
+    """Return ``True`` when ``error`` should stop retries due to schema issues."""
+
+    if not isinstance(error, APIError):
+        return False
+
+    message = getattr(error, "message", str(error))
+    if isinstance(message, str) and _message_indicates_unrecoverable_schema(message):
+        return True
+
+    for payload in _iter_error_payloads(error):
+        code = payload.get("code")
+        if isinstance(code, str) and code.lower() == "invalid_json_schema":
+            return True
+        payload_message = payload.get("message")
+        if isinstance(payload_message, str) and _message_indicates_unrecoverable_schema(payload_message):
+            return True
+
+    return False
+
+
 def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: str | None = None) -> Any:
     """Execute a Responses create call with configured timeout handling."""
 
@@ -1775,10 +1807,8 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
                 }
                 if strict_value is not None:
                     json_schema_payload["strict"] = strict_value
-                chat_payload["response_format"] = {
-                    "type": "json_schema",
-                    "json_schema": json_schema_payload,
-                }
+                schema_bundle = build_schema_format_bundle(json_schema_payload)
+                chat_payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
 
     return chat_payload
 
@@ -2067,7 +2097,7 @@ def _call_chat_api_single(
     (APITimeoutError, APIConnectionError, RateLimitError, APIError),
     max_tries=3,
     jitter=backoff.full_jitter,
-    giveup=lambda exc: isinstance(exc, BadRequestError),
+    giveup=lambda exc: isinstance(exc, BadRequestError) or is_unrecoverable_schema_error(exc),
     on_giveup=_on_api_giveup,
 )
 def call_chat_api(
@@ -2298,4 +2328,5 @@ __all__ = [
     "build_need_analysis_json_schema_payload",
     "SchemaFormatBundle",
     "build_schema_format_bundle",
+    "is_unrecoverable_schema_error",
 ]

@@ -647,6 +647,32 @@ def test_call_chat_api_propagates_bad_request_without_retry(monkeypatch):
     assert len(calls) == 1
 
 
+def test_call_chat_api_gives_up_on_invalid_schema(monkeypatch):
+    """Schema validation errors should abort retries to avoid API spam."""
+
+    attempts = 0
+
+    def _raise_schema_error(payload: Mapping[str, Any], *, api_mode: str | None = None) -> None:
+        nonlocal attempts
+        attempts += 1
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        response = httpx.Response(
+            status_code=400,
+            request=request,
+            json={"error": {"message": "invalid_json_schema", "code": "invalid_json_schema"}},
+        )
+        raise APIError("invalid_json_schema", response=response, body=response.json())
+
+    monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _raise_schema_error)
+
+    with pytest.raises(APIError):
+        call_chat_api([
+            {"role": "user", "content": "hi"},
+        ], json_schema={"name": "Profile", "schema": {"type": "object"}})
+
+    assert attempts == 1
+
+
 def test_call_chat_api_retries_transient_timeout(monkeypatch):
     """Transient timeout errors should trigger a retry before succeeding."""
 
@@ -874,6 +900,29 @@ def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
     assert schema_block["name"] == schema["name"]
     assert schema_block["schema"] == schema["schema"]
     assert schema_block["strict"] is True
+
+
+def test_convert_responses_payload_to_chat_keeps_schema_name() -> None:
+    """Fallback conversion should preserve the JSON schema bundle."""
+
+    schema_bundle = openai_utils.api.build_schema_format_bundle({
+        "name": "fallback_schema",
+        "schema": {"type": "object"},
+    })
+
+    payload = {
+        "model": "gpt-4o-mini",
+        "input": [{"role": "user", "content": "hi"}],
+        "text": {"format": deepcopy(schema_bundle.responses_format)},
+    }
+
+    chat_payload = openai_utils.api._convert_responses_payload_to_chat(payload)
+
+    response_format = chat_payload.get("response_format", {})
+    assert response_format.get("type") == "json_schema"
+    json_schema_block = response_format.get("json_schema", {})
+    assert json_schema_block["name"] == "fallback_schema"
+    assert json_schema_block["schema"] == {"type": "object"}
 
 
 def test_stream_chat_api_yields_chunks(monkeypatch):
