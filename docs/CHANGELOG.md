@@ -7,6 +7,9 @@ Changed / Geändert
 - EN: Wizard steps now surface contextual intros, highlight AI-prefilled inputs with 🛈 badges, and warn on the Summary step when critical fields are still missing so exports stay complete.
   DE: Wizard-Schritte zeigen kontextuelle Intros, markieren KI-vorbefüllte Felder mit 🛈-Badges und warnen in der Summary vor fehlenden Pflichtfeldern, damit Exporte vollständig bleiben.
 
+- EN: Rule-based ingest now backfills generic emails/phones, location lines, and travel or team-size clues before invoking the LLM so contact, city, and workload fields rarely stay blank.
+  DE: Die regelbasierte Ingestion ergänzt nun allgemeine E-Mail-/Telefonangaben, Standortzeilen sowie Reise- oder Teamgrößenhinweise vor dem LLM-Aufruf, damit Kontakt-, Stadt- und Arbeitslastfelder selten leer bleiben.
+
 - EN: Structured extraction now separates hard skills, soft skills, languages, certifications, and tools into the NeedAnalysis requirements fields with a fallback classifier that splits combined skill lists automatically.
   DE: Die strukturierte Extraktion trennt jetzt Hard Skills, Soft Skills, Sprachen, Zertifizierungen und Tools in die NeedAnalysis-Anforderungsfelder und nutzt einen Fallback-Klassifizierer, der zusammengefasste Skill-Listen automatisch aufteilt.
 

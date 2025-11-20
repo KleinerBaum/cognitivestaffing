@@ -479,3 +479,33 @@ def test_company_website_extraction() -> None:
     updated = apply_basic_fallbacks(profile, text)
 
     assert updated.company.website == "https://www.rheinbahn.de/"
+
+
+def test_generic_contact_fallback() -> None:
+    text = "Kontakt: careers@example.com oder telefonisch unter +49 123 456789."
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.company.contact_email == "careers@example.com"
+    assert updated.company.contact_phone == "+49 123 456789"
+
+
+def test_city_extraction_from_address_line() -> None:
+    text = "Headquarters: Hauptstrasse 12, 10115 Berlin"
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.location.primary_city == "Berlin"
+
+
+def test_numeric_context_extraction() -> None:
+    text = "You will lead a team of 5 with 3 direct reports and up to 30% travel."
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.position.team_size == 5
+    assert updated.position.supervises == 3
+    assert updated.employment.travel_share == 30
