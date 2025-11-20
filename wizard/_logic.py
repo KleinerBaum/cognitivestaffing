@@ -378,7 +378,13 @@ def _record_autofill_rejection(field_path: str, suggestion: str) -> None:
     _store_autofill_decisions(decisions)
 
 
-def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> None:
+def _update_profile(
+    path: str,
+    value: Any,
+    *,
+    session_value: Any = _MISSING,
+    sync_widget_state: bool = True,
+) -> None:
     """Update profile data and clear derived outputs if changed.
 
     Streamlit replays widget defaults on the first rerun after widget
@@ -389,6 +395,9 @@ def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> 
     directly during layout; instead they should rely on the widget helper
     functions (which invoke ``_update_profile`` only after Streamlit stabilizes)
     so sidebar, summary, and export state stay in sync without regression risk.
+    When ``sync_widget_state`` is ``False`` the session state mutation is
+    skipped, which is useful for inline follow-up widgets that share keys with
+    existing inputs.
     """
 
     try:
@@ -400,6 +409,8 @@ def _update_profile(path: str, value: Any, *, session_value: Any = _MISSING) -> 
         def _sync_widget_state(new_value: Any) -> None:
             """Synchronise the widget-bound session value when needed."""
 
+            if not sync_widget_state:
+                return
             if new_value is _MISSING:
                 st.session_state.pop(path, None)
                 return
