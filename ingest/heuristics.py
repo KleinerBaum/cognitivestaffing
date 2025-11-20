@@ -64,6 +64,14 @@ _CITY_IN_RE = re.compile(
     r"([A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+){0,2})",
     re.IGNORECASE,
 )
+_CITY_LINE_RE = re.compile(
+    r"(?im)^(?:location|standort|arbeitsort|office|büro|buero)\s*[:\-–]\s+"
+    r"(?P<city>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+){0,2})",
+)
+_CITY_ADDRESS_RE = re.compile(
+    r"\b(?:[A-ZÄÖÜ][\wÄÖÜäöüß'`.-]+\s+\d+[a-zA-Z]?[,]?\s*)?"
+    r"(?P<postal>\d{4,5})\s+(?P<city>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`.-]+){0,2})",
+)
 _COMMON_CITIES: Tuple[str, ...] = COMMON_CITY_NAMES
 _COMMON_CITY_KEYS: set[str] = {city.casefold() for city in _COMMON_CITIES}
 
@@ -149,6 +157,18 @@ _LEADERSHIP_KEYWORDS = (
 )
 _LEADERSHIP_ACRONYM_RE = re.compile(
     r"^(?:c[aitmsodpfr]{1,2}o|ceo|cto|cfo|cio|cco|cmo|cpo|cso|cro|cdo|ciso|cio|coo|cgo|cxo|vp|svp|evp|md|gm)\b",
+    re.IGNORECASE,
+)
+_TRAVEL_SHARE_RE = re.compile(
+    r"\b(?:up to|bis zu|ca\.?|around)?\s*(?P<percent>\d{1,3})\s*%\s*(?:reise(n)?|travel|reisetaetigkeit|reiseanteil)\b",
+    re.IGNORECASE,
+)
+_TEAM_SIZE_RE = re.compile(
+    r"\b(?:team\s+(?:of|von)|teamgröße\s*(?:von)?|führt?\s+ein(?:e)?\s+team\s+von)\s+(?P<count>\d{1,3})\b",
+    re.IGNORECASE,
+)
+_DIRECT_REPORTS_RE = re.compile(
+    r"\b(?P<count>\d{1,3})\+?\s*(?:direct\s+reports?|reports?|mitarbeiter(?:innen)?|people)\b",
     re.IGNORECASE,
 )
 
@@ -342,6 +362,50 @@ def _find_best_phone(
             best_score = score
             best_phone = phone
     return best_phone, best_score
+
+
+def _extract_generic_contact_details(text: str) -> tuple[str | None, str | None]:
+    """Return the first email and phone number found in ``text``."""
+
+    email_match = _EMAIL_RE.search(text)
+    phone_match = _PHONE_RE.search(text)
+    email = email_match.group(0).lower() if email_match else None
+    phone = _normalize_phone(phone_match.group(0)) if phone_match else None
+    if phone:
+        digits = re.sub(r"\D", "", phone)
+        if len(digits) < 6:
+            phone = None
+    return email, phone
+
+
+def _extract_travel_share(text: str) -> int | None:
+    """Return an integer travel percentage if present in ``text``."""
+
+    for match in _TRAVEL_SHARE_RE.finditer(text):
+        value = int(match.group("percent"))
+        if 0 < value <= 100:
+            return value
+    return None
+
+
+def _extract_team_size(text: str) -> int | None:
+    """Return a detected team size from ``text``."""
+
+    for match in _TEAM_SIZE_RE.finditer(text):
+        value = int(match.group("count"))
+        if value > 0:
+            return value
+    return None
+
+
+def _extract_direct_reports(text: str) -> int | None:
+    """Return the number of direct reports mentioned in ``text``."""
+
+    for match in _DIRECT_REPORTS_RE.finditer(text):
+        value = int(match.group("count"))
+        if value > 0:
+            return value
+    return None
 
 
 def _paragraphs_with_indices(lines: Sequence[str]) -> list[list[tuple[int, str]]]:
@@ -1677,6 +1741,18 @@ def guess_city(text: str) -> str:
     """Guess primary city from ``text``."""
     if not text:
         return ""
+    line_match = _CITY_LINE_RE.search(text)
+    if line_match:
+        candidate = _clean_city_candidate(line_match.group("city"))
+        candidate = normalize_city_name(_trim_city_stopwords(candidate))
+        if _city_candidate_is_plausible(candidate):
+            return _canonicalize_city_name(candidate)
+    address_match = _CITY_ADDRESS_RE.search(text)
+    if address_match:
+        candidate = _clean_city_candidate(address_match.group("city"))
+        candidate = normalize_city_name(_trim_city_stopwords(candidate))
+        if _city_candidate_is_plausible(candidate):
+            return _canonicalize_city_name(candidate)
     inline_match = CITY_REGEX_IN_PATTERN.search(text)
     if inline_match:
         candidate = _clean_city_candidate(inline_match.group("city"))
@@ -1851,6 +1927,9 @@ def apply_basic_fallbacks(
     city_field = "location.primary_city"
     country_field = "location.country"
     size_field = "company.size"
+    travel_field = "employment.travel_share"
+    team_size_field = "position.team_size"
+    supervises_field = "position.supervises"
     city_invalid = city_field in invalid_fields
     country_invalid = country_field in invalid_fields
 
@@ -2083,6 +2162,16 @@ def apply_basic_fallbacks(
             "employment_details",
             detail=f"with value {remote_pct!r}",
         )
+    if profile.employment.travel_share is None and not _is_locked(travel_field):
+        travel_share = _extract_travel_share(text)
+        if travel_share is not None:
+            profile.employment.travel_share = travel_share
+            _mark_field_confidence(travel_field, "travel_share_regex", confidence=0.75)
+            _log_heuristic_fill(
+                travel_field,
+                "travel_share_regex",
+                detail=f"with value {travel_share!r}",
+            )
     if not profile.meta.target_start_date:
         start = guess_start_date(text)
         if start:
@@ -2108,6 +2197,26 @@ def apply_basic_fallbacks(
             "responsibilities_first_item",
             detail="with first responsibility",
         )
+    if profile.position.team_size is None and not _is_locked(team_size_field):
+        team_size = _extract_team_size(text)
+        if team_size is not None:
+            profile.position.team_size = team_size
+            _mark_field_confidence(team_size_field, "team_size_regex", confidence=0.7)
+            _log_heuristic_fill(
+                team_size_field,
+                "team_size_regex",
+                detail=f"with value {team_size!r}",
+            )
+    if profile.position.supervises is None and not _is_locked(supervises_field):
+        direct_reports = _extract_direct_reports(text)
+        if direct_reports is not None:
+            profile.position.supervises = direct_reports
+            _mark_field_confidence(supervises_field, "direct_reports_regex", confidence=0.7)
+            _log_heuristic_fill(
+                supervises_field,
+                "direct_reports_regex",
+                detail=f"with value {direct_reports!r}",
+            )
     team_field = "position.team_structure"
     if not _is_locked(team_field) and _needs_value(profile.position.team_structure, team_field):
         team_structure = _extract_team_structure(text)
@@ -2283,6 +2392,30 @@ def apply_basic_fallbacks(
                         "contact_section",
                         detail=f"with value {contact_candidate.phone!r}",
                     )
+    contact_email_needed = not _is_locked(contact_email_field) and _needs_value(
+        profile.company.contact_email, contact_email_field
+    )
+    contact_phone_needed = not _is_locked(contact_phone_field) and _needs_value(
+        profile.company.contact_phone, contact_phone_field
+    )
+    if contact_email_needed or contact_phone_needed:
+        generic_email, generic_phone = _extract_generic_contact_details(text)
+        if contact_email_needed and generic_email:
+            profile.company.contact_email = generic_email
+            _mark_field_confidence(contact_email_field, "generic_contact", confidence=0.6)
+            _log_heuristic_fill(
+                contact_email_field,
+                "generic_contact",
+                detail=f"with value {generic_email!r}",
+            )
+        if contact_phone_needed and generic_phone:
+            profile.company.contact_phone = generic_phone
+            _mark_field_confidence(contact_phone_field, "generic_contact", confidence=0.6)
+            _log_heuristic_fill(
+                contact_phone_field,
+                "generic_contact",
+                detail=f"with value {generic_phone!r}",
+            )
     if not _is_locked(website_field) and _needs_value(profile.company.website, website_field):
         website = _extract_company_website(text)
         if website:
