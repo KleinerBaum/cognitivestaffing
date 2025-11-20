@@ -64,6 +64,8 @@ Fixed / Behoben
   DE: Im Wizard eingegebene Kontakt-E-Mails werden jetzt über den gleichen Pydantic-`EmailStr`-Parser geprüft wie im Schema, sodass fehlerhafte Adressen den zweisprachigen Inline-Hinweis anzeigen, anstatt einen Python-`TypeError` zu verursachen und das Formular zu unterbrechen.
 - EN: Resetting or restarting the wizard now removes every stored follow-up question plus their `fu_*` focus sentinels so the sidebar and inline cards never resurface stale prompts after a restart.
   DE: Beim Zurücksetzen oder Neustarten des Wizards werden sämtliche gespeicherten Follow-up-Fragen sowie die zugehörigen `fu_*`-Fokus-Sentinels entfernt, sodass weder Sidebar noch Inline-Karten veraltete Prompts nach einem Neustart erneut anzeigen.
+- EN: Follow-up cards in the Onboarding extraction review now render directly beneath their fields (company/contact, reporting line, responsibilities, timing) via the shared `wizard-followup-item` layout, keep the red required prefix in all locales, and emit the critical-warning toast only once per question.
+  DE: Die Follow-up-Karten der Onboarding-Extraktionsübersicht erscheinen jetzt unmittelbar unter ihren Feldern (Unternehmen/Kontakt, Berichtslinie, Aufgaben, Timing) über das gemeinsame `wizard-followup-item`-Layout, behalten in allen Sprachen den roten Pflicht-Prefix und zeigen die Warn-Toast je kritischer Frage nur ein einziges Mal.
 
 
 - EN: Follow-up questions now update the NeedAnalysis profile exclusively through the widget return values (or `value=` defaults) instead of mutating canonical `st.session_state["<field>"]` entries after the widgets have mounted, eliminating the recurring StreamlitAPIException about immutable session keys.
