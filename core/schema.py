@@ -551,6 +551,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "role.team_size": "team.headcount_target",
         "role.customer_contact_required": "position.customer_contact_required",
         "role.customer_contact_details": "position.customer_contact_details",
+        "position.title": "position.job_title",
         "work_model": "employment.work_policy",
         "employment.work_model": "employment.work_policy",
         "company.tagline": "company.claim",
@@ -574,6 +575,8 @@ ALIASES: Mapping[str, str] = MappingProxyType(
 WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
     {
         "position.job_title": "role.title",
+        "position.title": "role.title",
+        "role.job_title": "role.title",
         "position.role_summary": "role.purpose",
         "position.department": "department.name",
         "position.team_structure": "team.name",

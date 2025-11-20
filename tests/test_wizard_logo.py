@@ -7,18 +7,18 @@ from constants.keys import StateKeys
 from wizard import _get_company_logo_bytes, _set_company_logo, _summary_company
 
 
-def test_set_company_logo_syncs_keys() -> None:
+def test_set_company_logo_updates_single_key() -> None:
     st.session_state.clear()
 
     _set_company_logo(b"logo-bytes")
 
     assert st.session_state[StateKeys.JOB_AD_LOGO_DATA] == b"logo-bytes"
-    assert st.session_state["company_logo"] == b"logo-bytes"
+    assert "company_logo" not in st.session_state
 
     _set_company_logo(None)
 
     assert st.session_state[StateKeys.JOB_AD_LOGO_DATA] is None
-    assert st.session_state["company_logo"] is None
+    assert "company_logo" not in st.session_state
 
 
 def test_get_company_logo_bytes_backfills_legacy_key() -> None:
@@ -29,6 +29,7 @@ def test_get_company_logo_bytes_backfills_legacy_key() -> None:
 
     assert logo == b"legacy"
     assert st.session_state[StateKeys.JOB_AD_LOGO_DATA] == b"legacy"
+    assert "company_logo" not in st.session_state
 
 
 def test_summary_company_uses_shared_logo(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -87,4 +88,4 @@ def test_summary_company_uses_shared_logo(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert captured["image"] == b"preview"
     assert st.session_state[StateKeys.JOB_AD_LOGO_DATA] == b"preview"
-    assert st.session_state["company_logo"] == b"preview"
+    assert "company_logo" not in st.session_state

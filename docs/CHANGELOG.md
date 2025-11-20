@@ -308,3 +308,7 @@ Fix: Zweisprachige Platzhalter-Hinweise für den Bereich „Manuelle Ergänzunge
 fix: preserve NeedAnalysis alias fields (department/team) prior to validation so HR data is not pruned
 
 Fix: NeedAnalysis-Aliasfelder (Department/Team) vor der Validierung bewahren, damit HR-Daten nicht entfernt werden
+
+chore: consolidate company logo session key and expand title aliases for schema payloads
+
+Wartung: Sitzungsschlüssel für Firmenlogos vereinheitlicht und Titel-Aliasse im Schema erweitert
