@@ -4,6 +4,8 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Added early schema repair after extraction so missing critical sections (e.g., `company.name`) are default-filled and reported to the wizard banner before any UI renders, avoiding downstream crashes from absent keys.
+  DE: Frühzeitige Schema-Reparatur nach der Extraktion hinzugefügt, damit fehlende kritische Abschnitte (z. B. `company.name`) mit Standardwerten ergänzt und vor dem Rendern des UIs in der Wizard-Warnleiste gemeldet werden – so lassen sich Abstürze durch fehlende Schlüssel vermeiden.
 - EN: Hardened OpenAI retry/fallbacks: invalid JSON schema errors now short-circuit retries, and Responses → Chat fallbacks reuse the same schema-format builder so both APIs receive the `name` + `schema` pair consistently.
   DE: OpenAI-Retries/-Fallbacks robuster gemacht: Ungültige JSON-Schema-Fehler brechen Wiederholungen sofort ab, und Responses-→-Chat-Fallbacks nutzen denselben Schema-Builder, damit beide APIs immer das Paar aus `name` und `schema` erhalten.
 

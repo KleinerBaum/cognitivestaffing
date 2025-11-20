@@ -7,16 +7,37 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
 from core.confidence import DEFAULT_AI_TIER
-from core.schema import canonicalize_profile_payload
+from core.schema import canonicalize_profile_payload, coerce_and_fill
 from llm.json_repair import repair_profile_payload
 from models.need_analysis import NeedAnalysisProfile
 
 logger = logging.getLogger("cognitive_needs.core.extraction")
+
+
+def _load_required_paths() -> set[str]:
+    """Return critical schema paths that must exist after validation."""
+
+    required: set[str] = set(NeedAnalysisProfile.model_fields)
+    critical_file = Path(__file__).resolve().parent.parent / "critical_fields.json"
+    try:
+        with critical_file.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except Exception:  # pragma: no cover - defensive fallback
+        return required
+
+    critical = payload.get("critical")
+    if isinstance(critical, list):
+        required.update({str(entry).strip() for entry in critical if str(entry).strip()})
+    return required
+
+
+_REQUIRED_PATHS: set[str] = _load_required_paths()
 
 
 class InvalidExtractionPayload(ValueError):
@@ -112,6 +133,20 @@ def _deduplicate_issues(issues: Iterable[str]) -> list[str]:
         seen.add(candidate)
         ordered.append(candidate)
     return ordered
+
+
+def _collect_present_paths(data: Mapping[str, Any], prefix: str = "") -> set[str]:
+    """Return dotted paths for mapping keys present in ``data``."""
+
+    paths: set[str] = set()
+    for key, value in data.items():
+        if not isinstance(key, str):
+            continue
+        path = f"{prefix}.{key}" if prefix else key
+        paths.add(path)
+        if isinstance(value, Mapping):
+            paths.update(_collect_present_paths(value, path))
+    return paths
 
 
 def _iter_paths(data: Mapping[str, Any], prefix: str = "") -> Iterable[str]:
@@ -248,7 +283,18 @@ def parse_structured_payload(raw: str) -> tuple[dict[str, Any], bool, list[str]]
         issues=issues,
     )
 
-    return canonical_payload, recovered, _deduplicate_issues(issues)
+    try:
+        filled_profile = coerce_and_fill(canonical_payload)
+    except ValidationError as exc:  # pragma: no cover - defensive
+        raise InvalidExtractionPayload("Model returned JSON that could not be normalised.") from exc
+
+    filled_payload = filled_profile.model_dump(mode="python")
+    added_paths = _collect_present_paths(filled_payload) - _collect_present_paths(canonical_payload)
+    for path in sorted(added_paths):
+        if path in _REQUIRED_PATHS:
+            issues.append(f"{path}: added missing default")
+
+    return filled_payload, recovered, _deduplicate_issues(issues)
 
 
 def mark_low_confidence(
