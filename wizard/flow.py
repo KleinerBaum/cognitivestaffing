@@ -8734,20 +8734,29 @@ def _step_compensation() -> None:
     )
     with st.expander(details_label, expanded=False):
         c1, c2 = st.columns(2)
-        currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
+        other_currency_value = "Other"
+        currency_options: tuple[str, ...] = ("EUR", "USD", "CHF", "GBP", other_currency_value)
+        currency_labels = {
+            "EUR": "EUR",
+            "USD": "USD",
+            "CHF": "CHF",
+            "GBP": "GBP",
+            other_currency_value: tr("Andere", "Other", lang=lang),
+        }
         current_currency = data["compensation"].get("currency") or "EUR"
         currency_index = (
             currency_options.index(current_currency)
             if current_currency in currency_options
-            else currency_options.index("Other")
+            else currency_options.index(other_currency_value)
         )
         currency_label = tr("Währung", "Currency", lang=lang)
         selected_currency = c1.selectbox(
             currency_label,
             options=currency_options,
             index=currency_index,
+            format_func=lambda value: currency_labels.get(value, value),
         )
-        if selected_currency == "Other":
+        if selected_currency == other_currency_value:
             other_currency = c1.text_input(
                 tr("Andere Währung", "Other currency", lang=lang),
                 value=("" if current_currency in currency_options else str(current_currency)),
@@ -8756,13 +8765,20 @@ def _step_compensation() -> None:
         else:
             data["compensation"]["currency"] = selected_currency
 
-        period_options = ["year", "month", "day", "hour"]
+        period_options: tuple[str, ...] = ("year", "month", "day", "hour")
+        period_labels = {
+            "year": tr("Jahr", "Year", lang=lang),
+            "month": tr("Monat", "Month", lang=lang),
+            "day": tr("Tag", "Day", lang=lang),
+            "hour": tr("Stunde", "Hour", lang=lang),
+        }
         current_period = data["compensation"].get("period")
         period_index = period_options.index(current_period) if current_period in period_options else 0
         data["compensation"]["period"] = c2.selectbox(
             tr("Periode", "Period", lang=lang),
             options=period_options,
             index=period_index,
+            format_func=lambda value: period_labels.get(value, value),
         )
 
     toggle_variable, toggle_equity = st.columns(2)
@@ -9833,6 +9849,7 @@ def _summary_compensation() -> None:
     """Editable summary tab for compensation details."""
 
     data = st.session_state[StateKeys.PROFILE]
+    lang = st.session_state.get("lang", "de")
     salary_min = float(data["compensation"].get("salary_min") or 0.0)
     salary_max = float(data["compensation"].get("salary_max") or 0.0)
     salary_min, salary_max = st.slider(
@@ -9844,20 +9861,29 @@ def _summary_compensation() -> None:
         key="ui.summary.compensation.salary_range",
     )
     c1, c2, c3 = st.columns(3)
-    currency_options = ["EUR", "USD", "CHF", "GBP", "Other"]
+    other_currency_value = "Other"
+    currency_options: tuple[str, ...] = ("EUR", "USD", "CHF", "GBP", other_currency_value)
+    currency_labels = {
+        "EUR": "EUR",
+        "USD": "USD",
+        "CHF": "CHF",
+        "GBP": "GBP",
+        other_currency_value: tr("Andere", "Other", lang=lang),
+    }
     current_currency = data["compensation"].get("currency", "EUR")
     idx = (
         currency_options.index(current_currency)
         if current_currency in currency_options
-        else currency_options.index("Other")
+        else currency_options.index(other_currency_value)
     )
     choice = c1.selectbox(
         tr("Währung", "Currency"),
         options=currency_options,
         index=idx,
+        format_func=lambda value: currency_labels.get(value, value),
         key="ui.summary.compensation.currency_select",
     )
-    if choice == "Other":
+    if choice == other_currency_value:
         currency = c1.text_input(
             tr("Andere Währung", "Other currency"),
             value=("" if current_currency in currency_options else current_currency),
@@ -9865,7 +9891,13 @@ def _summary_compensation() -> None:
         )
     else:
         currency = choice
-    period_options = ["year", "month", "day", "hour"]
+    period_options: tuple[str, ...] = ("year", "month", "day", "hour")
+    period_labels = {
+        "year": tr("Jahr", "Year", lang=lang),
+        "month": tr("Monat", "Month", lang=lang),
+        "day": tr("Tag", "Day", lang=lang),
+        "hour": tr("Stunde", "Hour", lang=lang),
+    }
     period = c2.selectbox(
         tr("Periode", "Period"),
         options=period_options,
@@ -9874,6 +9906,7 @@ def _summary_compensation() -> None:
             if data["compensation"].get("period") in period_options
             else 0
         ),
+        format_func=lambda value: period_labels.get(value, value),
         key="ui.summary.compensation.period",
     )
     variable = c3.toggle(
