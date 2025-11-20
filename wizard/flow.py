@@ -557,6 +557,7 @@ ensure_state()
 WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
 
 PAGE_LOOKUP: dict[str, WizardPage] = {page.key: page for page in WIZARD_PAGES}
+PREFILL_STYLE_KEY = "_ai_prefill_styles_v1"
 
 MAX_INLINE_VALUE_CHARS = CHIP_INLINE_VALUE_LIMIT
 
@@ -1873,6 +1874,7 @@ class FieldLockConfig(TypedDict, total=False):
     confidence_icon: str
     confidence_message: str
     confidence_source: str
+    prefilled_hint: str
 
 
 @dataclass
@@ -2229,6 +2231,8 @@ def _resolve_step_copy(
         if cleaned:
             intros.append(cleaned)
 
+    intros.extend(_dynamic_step_hints(page_key, profile or {}, intro_context))
+
     return title, subtitle, intros
 
 
@@ -2253,6 +2257,75 @@ def _format_dynamic_message(
             except Exception:  # pragma: no cover - robust fallback
                 continue
     return default_text
+
+
+def _humanize_path(path: str, lang: str) -> str:
+    """Return a localized label for a dot-path, used in warnings."""
+
+    cleaned = path.replace("_", " ").replace(".", " ").strip()
+    readable = " ".join(part.capitalize() for part in cleaned.split()) or path
+    return tr(readable, readable, lang=lang)
+
+
+def _field_has_prefill(path: str) -> bool:
+    """Return ``True`` when the field has extraction/source metadata."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    confidence_map = raw_metadata.get("field_confidence") or {}
+    rules_meta = raw_metadata.get("rules") or {}
+    if isinstance(confidence_map, Mapping) and path in confidence_map:
+        return True
+    return isinstance(rules_meta, Mapping) and path in rules_meta
+
+
+def _dynamic_step_hints(page_key: str, profile: Mapping[str, Any], intro_context: Mapping[str, str]) -> list[str]:
+    """Return contextual intro hints per step based on extraction results."""
+
+    lang = st.session_state.get("lang", "de")
+    hints: list[str] = []
+    _ = profile
+    missing_extracted = set(st.session_state.get(StateKeys.EXTRACTION_MISSING) or [])
+
+    if page_key == "company":
+        company_name = intro_context.get("company_name") or ""
+        company_missing = str(ProfilePaths.COMPANY_NAME) in missing_extracted
+        if not company_name.strip():
+            prompt = tr(
+                "Kein Firmenname erkannt – bitte ergänzen, damit wir Branding und Kontaktpunkte richtig setzen.",
+                "We could not detect a company name – please add it so branding and contacts stay accurate.",
+                lang=lang,
+            )
+            hints.append(prompt)
+        elif _field_has_prefill(str(ProfilePaths.COMPANY_NAME)):
+            note = tr(
+                "Wir haben Angaben aus der Anzeige vorbefüllt. Bitte gegenprüfen und bei Bedarf anpassen.",
+                "We've pre-filled company details from the job ad. Please review and adjust as needed.",
+                lang=lang,
+            )
+            hints.append(note)
+
+        if company_missing and not company_name.strip():
+            hints.append(
+                tr(
+                    "Falls der Firmenname vertraulich ist, kannst du einen Platzhalter verwenden.",
+                    "If the company name is confidential, feel free to use a placeholder.",
+                    lang=lang,
+                )
+            )
+
+    if page_key == "summary":
+        missing_fields = get_missing_critical_fields()
+        if missing_fields:
+            readable = ", ".join(_humanize_path(field, lang) for field in missing_fields)
+            hints.append(
+                tr(
+                    "Offene Pflichtfelder: {fields}",
+                    "Open critical fields: {fields}",
+                    lang=lang,
+                ).format(fields=readable)
+            )
+
+    return hints
 
 
 def _get_profile_state() -> dict[str, Any]:
@@ -5331,6 +5404,34 @@ def _render_confidence_legend(
     caption_target(f"{intro} {legend_body}")
 
 
+def _ensure_prefill_styles() -> None:
+    """Inject styles for AI prefill badges once per session."""
+
+    if st.session_state.get(PREFILL_STYLE_KEY):
+        return
+
+    st.session_state[PREFILL_STYLE_KEY] = True
+    st.markdown(
+        """
+        <style>
+            .ai-prefill-badge {
+                background: var(--surface-accent-soft, rgba(31, 181, 197, 0.15));
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.45));
+                color: var(--text-soft, rgba(15, 23, 42, 0.72));
+                padding: 0.35rem 0.6rem;
+                border-radius: 12px;
+                font-size: 0.92rem;
+                display: inline-flex;
+                gap: 0.4rem;
+                align-items: center;
+                margin-top: 0.25rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _ensure_mapping(value: Any) -> dict[str, Any]:
     """Return ``value`` as a shallow ``dict`` when it is mapping-like."""
 
@@ -5393,11 +5494,28 @@ def _field_lock_config(
 
     source_info = _resolve_field_source_info(path)
 
+    prefill_hint: str | None = None
+    if _field_has_prefill(path):
+        descriptor = (
+            source_info.descriptor_with_context()
+            if source_info
+            else tr(
+                "Stellenanzeige",
+                "Job ad snippet",
+            )
+        )
+        prefill_hint = tr(
+            "Automatisch vorbefüllt aus {source}. Bitte kurz prüfen.",
+            "Auto-filled from {source}. Please double-check.",
+        ).format(source=descriptor)
+
     icons: list[str] = []
     if confidence_icon:
         icons.append(confidence_icon)
     if source_info:
         icons.append("ℹ️")
+    if prefill_hint:
+        icons.append("🛈")
     icon_prefix = " ".join(filter(None, icons))
     label_with_icon = f"{icon_prefix} {label}".strip() if icon_prefix else label
 
@@ -5441,9 +5559,26 @@ def _field_lock_config(
         config["confidence_source"] = confidence_source
     if help_text:
         config["help_text"] = help_text
+    if prefill_hint:
+        config["prefilled_hint"] = prefill_hint
 
     config["unlocked"] = True
     return config
+
+
+def _render_prefill_badge(config: FieldLockConfig, container: DeltaGenerator | None = None) -> None:
+    """Render a tinted badge indicating that a field was auto-filled."""
+
+    hint = config.get("prefilled_hint")
+    if not hint:
+        return
+
+    _ensure_prefill_styles()
+    target = container if container is not None else st
+    target.markdown(
+        f"<div class='ai-prefill-badge'>🛈 {html.escape(str(hint))}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _collect_combined_certificates(requirements: Mapping[str, Any]) -> list[str]:
@@ -6467,6 +6602,7 @@ def _step_company() -> None:
             value_formatter=_string_or_empty,
             **company_kwargs,
         )
+        _render_prefill_badge(company_lock, container=company_identity_container)
         if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
             st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
         _render_followups_for_fields(
@@ -6616,6 +6752,7 @@ def _step_company() -> None:
         sync_session_state=False,
         **city_kwargs,
     )
+    _render_prefill_badge(city_lock, container=city_col)
     city_col.caption(tr(*PRIMARY_CITY_CAPTION))
     _, primary_city_error = persist_primary_city(city_value_input)
     if primary_city_error:
@@ -6644,6 +6781,7 @@ def _step_company() -> None:
         value_formatter=_string_or_empty,
         **country_kwargs,
     )
+    _render_prefill_badge(country_lock, container=country_col)
     if ProfilePaths.LOCATION_COUNTRY in missing_here and not location_data.get("country"):
         country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
     _render_followups_for_fields(
@@ -9372,6 +9510,7 @@ def _summary_company() -> None:
             },
         ),
     )
+    _render_prefill_badge(summary_company_lock, container=c1)
     industry = c2.text_input(
         tr("Branche", "Industry"),
         value=data["company"].get("industry", ""),
@@ -9488,6 +9627,7 @@ def _summary_position() -> None:
             },
         ),
     )
+    _render_prefill_badge(summary_title_lock, container=c1)
     seniority = c2.text_input(
         tr("Seniorität", "Seniority"),
         value=data["position"].get("seniority_level", ""),
@@ -9669,6 +9809,7 @@ def _summary_position() -> None:
             {"key": "ui.summary.location.primary_city"},
         ),
     )
+    _render_prefill_badge(summary_city_lock, container=c1)
     summary_country_lock = _field_lock_config(
         ProfilePaths.LOCATION_COUNTRY,
         tr(*PRIMARY_COUNTRY_LABEL),
@@ -9683,6 +9824,7 @@ def _summary_position() -> None:
             {"key": "ui.summary.location.country"},
         ),
     )
+    _render_prefill_badge(summary_country_lock, container=c2)
 
     _update_profile(ProfilePaths.POSITION_JOB_TITLE, job_title)
     _update_profile(ProfilePaths.POSITION_SENIORITY, seniority)
@@ -11299,6 +11441,17 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
+
+    missing_critical = get_missing_critical_fields()
+    if missing_critical:
+        readable_fields = ", ".join(_humanize_path(field, lang) for field in missing_critical)
+        st.warning(
+            tr(
+                "Bitte fülle alle Pflichtfelder aus, bevor du exportierst: {fields}",
+                "Please complete all critical fields before exporting: {fields}",
+                lang=lang,
+            ).format(fields=readable_fields)
+        )
 
     _render_followups_for_step("summary", data)
 

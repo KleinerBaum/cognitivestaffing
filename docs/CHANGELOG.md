@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Wizard steps now surface contextual intros, highlight AI-prefilled inputs with 🛈 badges, and warn on the Summary step when critical fields are still missing so exports stay complete.
+  DE: Wizard-Schritte zeigen kontextuelle Intros, markieren KI-vorbefüllte Felder mit 🛈-Badges und warnen in der Summary vor fehlenden Pflichtfeldern, damit Exporte vollständig bleiben.
+
 - EN: Structured extraction now separates hard skills, soft skills, languages, certifications, and tools into the NeedAnalysis requirements fields with a fallback classifier that splits combined skill lists automatically.
   DE: Die strukturierte Extraktion trennt jetzt Hard Skills, Soft Skills, Sprachen, Zertifizierungen und Tools in die NeedAnalysis-Anforderungsfelder und nutzt einen Fallback-Klassifizierer, der zusammengefasste Skill-Listen automatisch aufteilt.
 

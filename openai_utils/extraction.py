@@ -8,7 +8,7 @@ import re
 import textwrap
 import logging
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, MutableMapping, Sequence
 from types import ModuleType
 from importlib import import_module
 
@@ -541,7 +541,11 @@ def _merge_with_profile_defaults(raw: Mapping[str, Any] | None) -> dict[str, Any
 def _prune_invalid_paths(payload: Mapping[str, Any], errors: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Return ``payload`` with fields linked to validation errors removed."""
 
-    cleaned = copy.deepcopy(payload)
+    raw_copy = copy.deepcopy(payload)
+    if isinstance(raw_copy, dict):
+        cleaned: dict[str, Any] = raw_copy
+    else:
+        cleaned = dict(raw_copy)
 
     for error in errors:
         location = list(error.get("loc") or [])
@@ -561,7 +565,7 @@ def _prune_invalid_paths(payload: Mapping[str, Any], errors: Sequence[Mapping[st
         if target is None:
             continue
         last = location[-1]
-        if isinstance(target, Mapping):
+        if isinstance(target, MutableMapping):
             target.pop(last, None)
         elif isinstance(target, list) and isinstance(last, int) and 0 <= last < len(target):
             target.pop(last)
@@ -569,7 +573,7 @@ def _prune_invalid_paths(payload: Mapping[str, Any], errors: Sequence[Mapping[st
             # Attempt to prune higher-level container when direct removal fails
             while parents:
                 parent, key = parents.pop()
-                if isinstance(parent, Mapping):
+                if isinstance(parent, MutableMapping):
                     parent.pop(key, None)
                     break
                 if isinstance(parent, list) and isinstance(key, int) and 0 <= key < len(parent):
