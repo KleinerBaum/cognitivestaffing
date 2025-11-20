@@ -25,7 +25,7 @@ from utils.i18n import tr
 from wizard.followups import followup_has_response
 from wizard.metadata import FIELD_SECTION_MAP, PAGE_FOLLOWUP_PREFIXES, get_missing_critical_fields
 from wizard.types import LangPair, LangSuggestionPair
-from wizard._logic import _get_profile_state, get_in, set_in, _update_profile
+from wizard._logic import _get_profile_state, _sync_followup_completion, get_in, set_in, _update_profile
 from wizard.date_utils import default_date
 
 JobAdGenerator = Callable[
@@ -44,6 +44,7 @@ InterviewGenerator = Callable[[Mapping[str, Any], str, int, str, bool, bool], bo
 
 REQUIRED_PREFIX: Final[str] = ":red[*] "
 FOLLOWUP_STYLE_KEY: Final[str] = "_followup_styles_v1"
+FOLLOWUP_FOCUS_BUDGET_KEY: Final[str] = "_followup_focus_consumed"
 logger = logging.getLogger(__name__)
 
 YES_NO_FOLLOWUP_FIELDS: Final[set[str]] = {
@@ -328,33 +329,36 @@ def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
     normalized = suggestion.strip()
     if not normalized:
         return
+    processed_value: Any = normalized
     if field in YES_NO_FOLLOWUP_FIELDS:
         lowered = normalized.casefold()
         st.session_state[key] = lowered in {"yes", "ja", "true", "wahr", "1", "y"}
         st.session_state[f"{key}_touched"] = True
-        return
-    if field in DATE_FOLLOWUP_FIELDS:
+        processed_value = bool(st.session_state[key])
+    elif field in DATE_FOLLOWUP_FIELDS:
         try:
             parsed = date.fromisoformat(normalized)
         except ValueError:
             parsed = None
         st.session_state[key] = parsed if parsed is not None else normalized
-        return
-    if field in NUMBER_FOLLOWUP_FIELDS:
+        processed_value = parsed.isoformat() if isinstance(parsed, date) else normalized
+    elif field in NUMBER_FOLLOWUP_FIELDS:
         cleaned = normalized.replace(",", ".")
         try:
             st.session_state[key] = int(float(cleaned))
         except ValueError:
             st.session_state[key] = normalized
-        return
-    if field in LIST_FOLLOWUP_FIELDS:
+        processed_value = st.session_state[key]
+    elif field in LIST_FOLLOWUP_FIELDS:
         current = str(st.session_state.get(key, "") or "")
         items = [line.strip() for line in current.splitlines() if line.strip()]
         if normalized not in items:
             items.append(normalized)
         st.session_state[key] = "\n".join(items)
-        return
-    st.session_state[key] = normalized
+        processed_value = [line for line in items if line]
+    st.session_state[key] = st.session_state.get(key, normalized) or normalized
+    should_sync_widget_state = field not in INLINE_FOLLOWUP_FIELDS
+    _update_profile(field, processed_value, session_value=processed_value, sync_widget_state=should_sync_widget_state)
 
 
 def _coerce_followup_number(value: Any) -> int:
@@ -520,7 +524,10 @@ def _render_followup_question(q: dict, data: dict) -> None:
         else:
             st.session_state[key] = str(existing_value or "")
     if focus_sentinel not in st.session_state:
-        st.session_state[focus_sentinel] = True
+        focus_available = not st.session_state.get(FOLLOWUP_FOCUS_BUDGET_KEY, False)
+        st.session_state[focus_sentinel] = focus_available
+        if focus_available:
+            st.session_state[FOLLOWUP_FOCUS_BUDGET_KEY] = True
     if highlight_sentinel not in st.session_state:
         st.session_state[highlight_sentinel] = True
     if toast_sentinel not in st.session_state:
@@ -704,6 +711,8 @@ def _render_followups_for_section(
     if not normalized_prefixes:
         return
 
+    profile_data = _get_profile_state()
+    st.session_state[FOLLOWUP_FOCUS_BUDGET_KEY] = False
     followup_items: list[dict] = []
     pending = st.session_state.get(StateKeys.FOLLOWUPS, []) or []
     for question in pending:
@@ -713,6 +722,10 @@ def _render_followups_for_section(
         if not _should_render_for_field(field, normalized_prefixes, exact):
             continue
         if not exact and field in INLINE_FOLLOWUP_FIELDS:
+            continue
+        profile_value = get_in(profile_data, field, None)
+        if followup_has_response(profile_value):
+            _sync_followup_completion(field, profile_value, profile_data)
             continue
         followup_items.append(question)
 
