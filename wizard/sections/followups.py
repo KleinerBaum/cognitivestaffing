@@ -248,6 +248,8 @@ CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
 
 
 def _normalize_followup_list(value: Any) -> list[str]:
+    """Normalize follow-up inputs into a trimmed list of strings."""
+
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
     if isinstance(value, str):
@@ -256,6 +258,8 @@ def _normalize_followup_list(value: Any) -> list[str]:
 
 
 def _ensure_followup_styles() -> None:
+    """Inject CSS for follow-up cards once per session."""
+
     if st.session_state.get(FOLLOWUP_STYLE_KEY):
         return
     st.session_state[FOLLOWUP_STYLE_KEY] = True
@@ -307,6 +311,8 @@ def _ensure_followup_styles() -> None:
 
 
 def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
+    """Apply a suggested answer with type-aware coercion for the target field."""
+
     normalized = suggestion.strip()
     if not normalized:
         return
@@ -340,6 +346,8 @@ def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
 
 
 def _coerce_followup_number(value: Any) -> int:
+    """Convert incoming number-like follow-up values to integers."""
+
     if isinstance(value, bool):
         return int(value)
     if isinstance(value, (int, float)):
@@ -354,12 +362,16 @@ def _coerce_followup_number(value: Any) -> int:
 
 
 def _lang_index(lang: str | None) -> int:
+    """Return the language tuple index for German/English pairs."""
+
     if not lang:
         return 0
     return 0 if lang.lower().startswith("de") else 1
 
 
 def _select_lang_text(pair: LangPair | None, lang: str | None) -> str:
+    """Pick the localized text for the active language."""
+
     if not pair:
         return ""
     idx = _lang_index(lang)
@@ -367,6 +379,8 @@ def _select_lang_text(pair: LangPair | None, lang: str | None) -> str:
 
 
 def _select_lang_suggestions(pair: LangSuggestionPair | None, lang: str | None) -> list[str]:
+    """Pick the localized suggestions list for the active language."""
+
     if not pair:
         return []
     idx = _lang_index(lang)
@@ -376,6 +390,8 @@ def _select_lang_suggestions(pair: LangSuggestionPair | None, lang: str | None) 
 
 
 def _ensure_targeted_followup(field: str) -> None:
+    """Create a targeted follow-up question for a missing critical field."""
+
     config = CRITICAL_FIELD_PROMPTS.get(field)
     if not config:
         return
@@ -400,6 +416,8 @@ def _ensure_targeted_followup(field: str) -> None:
 
 
 def _missing_fields_for_section(section_index: int) -> list[str]:
+    """Return missing fields for the section and enqueue targeted follow-ups."""
+
     extraction_missing = st.session_state.get(StateKeys.EXTRACTION_MISSING)
     computed_missing = get_missing_critical_fields()
     if extraction_missing:
@@ -413,14 +431,20 @@ def _missing_fields_for_section(section_index: int) -> list[str]:
 
 
 def _normalize_list_value(existing_value: Any) -> str:
+    """Flatten stored list data into the textarea-friendly format."""
+
     return "\n".join(_normalize_followup_list(existing_value))
 
 
 def _default_date(existing_value: Any) -> date:
+    """Return a safe default date for follow-up date inputs."""
+
     return default_date(existing_value)
 
 
 def _should_render_for_field(field: str, prefixes: Sequence[str], exact: bool) -> bool:
+    """Check whether a follow-up question should display for the given prefixes."""
+
     if exact:
         return any(field == prefix for prefix in prefixes)
     return any(field.startswith(prefix) for prefix in prefixes)
@@ -437,6 +461,8 @@ def _resolve_followup_renderer() -> Callable[[dict, dict], None]:
 
 
 def _render_followup_question(q: dict, data: dict) -> None:
+    """Render a single follow-up question and sync its answer to the profile."""
+
     profile_data = _get_profile_state()
     field = str(q.get("field", ""))
     if not field:
@@ -504,6 +530,8 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 st.session_state[touched_key] = existing_value is not None
 
             def _mark_followup_touched() -> None:
+                """Mark checkbox-driven follow-ups as interacted with."""
+
                 st.session_state[touched_key] = True
 
             checkbox_value = st.checkbox(
@@ -626,6 +654,8 @@ def _render_followups_for_section(
     container: DeltaGenerator | None = None,
     container_factory: Callable[[], DeltaGenerator] | None = None,
 ) -> None:
+    """Render follow-ups for fields matching the provided prefixes."""
+
     normalized_prefixes = tuple(str(prefix) for prefix in prefixes if prefix)
     if not normalized_prefixes:
         return
@@ -682,6 +712,8 @@ def _render_followups_for_fields(
     container: DeltaGenerator | None = None,
     container_factory: Callable[[], DeltaGenerator] | None = None,
 ) -> None:
+    """Render follow-ups for an explicit list of fields."""
+
     normalized_fields = tuple(str(field) for field in fields if field)
     if not normalized_fields:
         return
@@ -695,6 +727,8 @@ def _render_followups_for_fields(
 
 
 def _render_followups_for_step(page_key: str, data: dict) -> None:
+    """Render follow-ups for the given wizard page key."""
+
     prefixes = PAGE_FOLLOWUP_PREFIXES.get(page_key)
     if not prefixes:
         return
@@ -718,6 +752,8 @@ def _apply_followup_updates(
     job_ad_generator: JobAdGenerator,
     interview_generator: InterviewGenerator,
 ) -> tuple[bool, bool]:
+    """Persist follow-up answers and trigger downstream generation calls."""
+
     for field_path, answer in answers.items():
         stripped = answer.strip()
         if stripped:

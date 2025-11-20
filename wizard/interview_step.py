@@ -23,6 +23,8 @@ __all__ = ["render_interview_guide_section"]
 
 
 def _textarea_height(content: str) -> int:
+    """Return a reasonable text area height based on the line count."""
+
     if not content:
         return 240
     line_count = content.count("\n") + 1

@@ -130,6 +130,8 @@ def _render_navigation_button(
     button: NavigationButtonState | None,
     state: NavigationState,
 ) -> None:
+    """Render a single navigation button if configured."""
+
     if button is None:
         column.write("")
         return

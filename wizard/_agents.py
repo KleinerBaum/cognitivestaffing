@@ -39,6 +39,8 @@ def generate_job_ad_content(
     vector_store_id = str(raw_vector_store).strip() if raw_vector_store else ""
 
     def _generate_sync() -> str:
+        """Fallback synchronous job ad generation when streaming is unavailable."""
+
         return generate_job_ad(
             filtered_profile,
             list(selected_fields),

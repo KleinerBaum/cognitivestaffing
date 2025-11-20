@@ -132,6 +132,8 @@ def _followup_job_ad_generator(
     lang: str,
     show_feedback: bool,
 ) -> bool:
+    """Generate a job ad during follow-up handling with optional feedback."""
+
     return _generate_job_ad_content(
         filtered_profile,
         selected_fields,
@@ -151,6 +153,8 @@ def _followup_interview_generator(
     warn_on_length: bool,
     show_feedback: bool,
 ) -> bool:
+    """Generate an interview guide during follow-up handling with feedback."""
+
     return generate_interview_guide_content(
         profile_payload,
         lang,
@@ -1418,15 +1422,21 @@ def _render_skill_board(
                 board_state[target_bucket].append(item)
 
     def _is_present(item: str) -> bool:
+        """Return whether ``item`` is already tracked in any skill bucket."""
+
         return any(item in bucket for bucket in board_state.values())
 
     def _move_to_container(item: str, container: SkillContainerType) -> None:
+        """Move ``item`` to the target container, removing prior placements."""
+
         for bucket in board_state.values():
             if item in bucket:
                 bucket.remove(item)
         board_state[container].append(item)
 
     def _add_if_absent(item: str, container: SkillContainerType) -> None:
+        """Add ``item`` to ``container`` when it is not already present."""
+
         if _is_present(item):
             return
         board_state[container].append(item)
@@ -1709,6 +1719,8 @@ def _render_skill_board(
         )
 
     def _join_sources(parts: Sequence[str], conjunction: str) -> str:
+        """Join source labels using the correct localized conjunction."""
+
         if not parts:
             return ""
         if len(parts) == 1:
@@ -2021,6 +2033,8 @@ class _SafeFormatDict(dict[str, str]):
     """Mapping that never raises ``KeyError`` during ``str.format_map`` calls."""
 
     def __missing__(self, key: str) -> str:  # pragma: no cover - defensive fallback
+        """Return an empty placeholder for missing format keys."""
+
         return ""
 
 
@@ -2081,6 +2095,8 @@ def _render_compliance_toggle(
     current_value = bool(requirements.get(requirement_key))
 
     def _sync_toggle() -> None:
+        """Persist checkbox changes to the backing profile field."""
+
         _update_profile(
             config.path,
             bool(st.session_state.get(session_key)),
@@ -2114,6 +2130,8 @@ def _build_profile_context(profile: Mapping[str, Any]) -> dict[str, str]:
     """Collect frequently reused profile fields for dynamic UI messaging."""
 
     def _get(path: str) -> str:
+        """Retrieve and sanitize a nested profile value for templating."""
+
         value: Any = profile
         for part in path.split("."):
             if isinstance(value, Mapping):
@@ -2473,6 +2491,8 @@ def _cache_brand_assets_from_html(url: str, raw_html: str | None) -> None:
 
 
 def _get_cached_brand_assets() -> Mapping[str, Any]:
+    """Return any brand asset metadata stored in the session cache."""
+
     cache = _get_company_info_cache()
     branding = cache.get("branding")
     if isinstance(branding, Mapping):
@@ -2481,6 +2501,8 @@ def _get_cached_brand_assets() -> Mapping[str, Any]:
 
 
 def _coerce_brand_string(value: Any) -> str | None:
+    """Normalize brand strings, returning ``None`` when empty."""
+
     if isinstance(value, str):
         candidate = value.strip()
         return candidate or None
@@ -2488,6 +2510,8 @@ def _coerce_brand_string(value: Any) -> str | None:
 
 
 def _coerce_brand_url(value: Any) -> HttpUrl | None:
+    """Validate and normalise a candidate brand URL."""
+
     candidate = _coerce_brand_string(value)
     if not candidate:
         return None
@@ -2498,6 +2522,8 @@ def _coerce_brand_url(value: Any) -> HttpUrl | None:
 
 
 def _coerce_brand_color(value: Any) -> str | None:
+    """Normalize hex-like color strings while preserving non-hex inputs."""
+
     candidate = _coerce_brand_string(value)
     if not candidate:
         return None
@@ -2508,6 +2534,8 @@ def _coerce_brand_color(value: Any) -> str | None:
 
 
 def _apply_branding_to_profile(profile: NeedAnalysisProfile) -> None:
+    """Fill missing company branding fields from cached enrichment data."""
+
     branding = _get_cached_brand_assets()
     if not branding:
         return
@@ -3478,6 +3506,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             url_hint = doc.source
 
     def _normalize_hint(value: Any) -> str | None:
+        """Coerce hint-like values into trimmed strings."""
+
         if value is None:
             return None
         if isinstance(value, str):
@@ -3489,6 +3519,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     existing_profile = st.session_state.get(StateKeys.PROFILE, {})
 
     def _locked_hint(field: str) -> str | None:
+        """Return a hint for fields locked by rules or enriched metadata."""
+
         locked_fields = set(metadata.get("locked_fields") or [])
         if field not in locked_fields:
             return None
@@ -5684,6 +5716,8 @@ def _render_esco_occupation_selector(
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
 
     def _current_selection() -> list[str]:
+        """Return the ESCO occupation URIs currently selected in the widget."""
+
         if StateKeys.UI_ESCO_OCCUPATION_OVERRIDE in st.session_state:
             return [
                 sid
@@ -5739,6 +5773,8 @@ def _render_esco_occupation_selector(
     )
 
     def _on_change() -> None:
+        """Persist ESCO occupation selections and sync dependent state."""
+
         current_ids = _current_selection()
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
@@ -6852,6 +6888,8 @@ def _phase_label_formatter(labels: Sequence[str]) -> Callable[[int], str]:
     """Return a formatter for phase indices used in multi-select widgets."""
 
     def _format(index: int) -> str:
+        """Return the display label for the given phase index."""
+
         if 0 <= index < len(labels):
             return labels[index]
         return f"{tr('Phase', 'Phase')} {index + 1}"
@@ -7737,6 +7775,8 @@ def _step_requirements() -> None:
     def _load_skill_suggestions(
         focus_terms: Sequence[str],
     ) -> tuple[dict[str, dict[str, list[str]]], str | None, str | None]:
+        """Load or fetch skill suggestions based on focus terms and job title."""
+
         local_store = st.session_state.get(StateKeys.SKILL_SUGGESTIONS, {}) or {}
         focus_signature_local = tuple(sorted(focus_terms, key=str.casefold))
         if job_title and not has_missing_key:
@@ -7783,6 +7823,8 @@ def _step_requirements() -> None:
         return {}, None, "fetch_required"
 
     def _show_suggestion_warning(error: str | None) -> None:
+        """Display a user-friendly warning when suggestions fail to load."""
+
         if not error:
             return
         if is_admin_debug_session_active():
@@ -7798,6 +7840,8 @@ def _step_requirements() -> None:
     position_mapping: Mapping[str, Any] | None = raw_position if isinstance(raw_position, Mapping) else None
 
     def _collect_existing_requirement_terms() -> list[str]:
+        """Collect existing requirement terms for de-duplication of suggestions."""
+
         collected: list[str] = []
         source_keys = (
             "hard_skills_required",
@@ -7990,6 +8034,8 @@ def _step_requirements() -> None:
     missing_here = _missing_fields_for_section(3)
 
     def _render_required_caption(condition: bool) -> None:
+        """Render a small caption when a requirement field is mandatory."""
+
         if condition:
             st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
@@ -8003,6 +8049,8 @@ def _step_requirements() -> None:
         parent: DeltaGenerator | None = None,
         variant: str | None = None,
     ) -> Iterator[None]:
+        """Render a stylised panel for requirement inputs."""
+
         if parent is not None:
             panel_container = parent.container()
         else:
@@ -8040,6 +8088,8 @@ def _step_requirements() -> None:
         caption: str,
         show_hint: bool = False,
     ) -> None:
+        """Render buttons that surface AI-generated skill suggestions."""
+
         if suggestion_hint == "missing_key":
             if show_hint:
                 st.info(
@@ -11326,11 +11376,15 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
 
 
 def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
+    """Render the onboarding and metadata step for the Job Ad flow."""
+
     _render_onboarding_hero()
     _step_onboarding(dict(schema))
 
 
 def _render_skills_review_step() -> None:
+    """Render a read-only overview of captured skills and responsibilities."""
+
     profile = _get_profile_state()
     lang = st.session_state.get("lang", "de")
     title, subtitle, intros = _resolve_step_copy("skills", profile)
@@ -11351,6 +11405,8 @@ def _render_skills_review_step() -> None:
         st.info(tr("Noch keine Aufgaben hinterlegt.", "No responsibilities captured yet."))
 
     def _render_chip_group(title_de: str, title_en: str, values: Iterable[str]) -> None:
+        """Render a bullet list of captured values with a localized heading."""
+
         cleaned = [value.strip() for value in values if isinstance(value, str) and value.strip()]
         title = title_de if lang.lower().startswith("de") else title_en
         st.markdown(f"**{title}**")
@@ -11455,6 +11511,8 @@ STEP_RENDERERS: dict[str, StepRenderer] = {descriptor.key.value: descriptor.rend
 
 
 def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
+    """Initialize and execute the primary wizard flow."""
+
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(WIZARD_PAGES)
     _update_section_progress()
 

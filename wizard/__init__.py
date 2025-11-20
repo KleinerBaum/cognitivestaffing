@@ -96,6 +96,8 @@ def _load_flow_attribute(name: str) -> Any:
 
 
 def __getattr__(name: str) -> Any:
+    """Load attributes from ``wizard.flow`` lazily while mirroring module semantics."""
+
     if name.startswith("__"):
         raise AttributeError(name)
     try:
@@ -105,4 +107,6 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:  # pragma: no cover - convenience for REPLs
+    """Expose dynamically populated exports for interactive environments."""
+
     return sorted(set(__all__ + FLOW_EXPORTS))

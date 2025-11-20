@@ -32,6 +32,8 @@ def _build_on_change(path: str, key: str) -> Callable[[], None]:
     """Return a callback that persists widget updates to the profile."""
 
     def _callback() -> None:
+        """Persist the current widget value into the profile mapping."""
+
         value = _normalize_session_value(st.session_state.get(key))
         _update_profile(path, value)
 
