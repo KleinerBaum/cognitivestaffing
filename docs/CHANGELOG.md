@@ -6,6 +6,8 @@ Changed / Geändert
 
 - EN: Added early schema repair after extraction so missing critical sections (e.g., `company.name`) are default-filled and reported to the wizard banner before any UI renders, avoiding downstream crashes from absent keys.
   DE: Frühzeitige Schema-Reparatur nach der Extraktion hinzugefügt, damit fehlende kritische Abschnitte (z. B. `company.name`) mit Standardwerten ergänzt und vor dem Rendern des UIs in der Wizard-Warnleiste gemeldet werden – so lassen sich Abstürze durch fehlende Schlüssel vermeiden.
+- EN: Localized compensation selectors now display currency and pay-period choices in the active language while keeping canonical values, and the free-text currency path uses bilingual copy so the "Other" branch stays consistent across DE/EN.
+  DE: Die Vergütungsfelder zeigen Währungs- und Periodenauswahl jetzt in der aktiven Sprache bei unveränderten Kanonwerten an; der Freitextpfad für "Andere" nutzt zweisprachige Hinweise, sodass der Zweig in DE/EN konsistent bleibt.
 - EN: When validation inserts placeholder defaults or drops invalid fields, the wizard now surfaces a bilingual banner (EN/DE) in every step after loading the profile, listing the impacted schema paths recruiters should revisit.
   DE: Sobald die Validierung Platzhalter ergänzt oder ungültige Felder entfernt, blendet der Wizard nach dem Laden des Profils in allen Schritten ein zweisprachiges Banner ein und listet die betroffenen Schema-Pfade auf, die Recruiter:innen prüfen sollten.
 - EN: Hardened OpenAI retry/fallbacks: invalid JSON schema errors now short-circuit retries, and Responses → Chat fallbacks reuse the same schema-format builder so both APIs receive the `name` + `schema` pair consistently.
