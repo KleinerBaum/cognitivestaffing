@@ -559,7 +559,7 @@ def _set_company_logo(data: bytes | bytearray | None) -> None:
 
     logo_bytes = _coerce_logo_bytes(data)
     st.session_state[StateKeys.JOB_AD_LOGO_DATA] = logo_bytes
-    st.session_state["company_logo"] = logo_bytes
+    st.session_state.pop("company_logo", None)
 
     brand_color = _extract_logo_brand_color(logo_bytes)
     if brand_color:
@@ -572,11 +572,11 @@ def _get_company_logo_bytes() -> bytes | None:
 
     shared_logo = _coerce_logo_bytes(st.session_state.get(StateKeys.JOB_AD_LOGO_DATA))
     if shared_logo is not None:
-        st.session_state["company_logo"] = shared_logo
+        st.session_state.pop("company_logo", None)
         return shared_logo
 
     legacy_logo = _coerce_logo_bytes(st.session_state.get("company_logo"))
-    st.session_state["company_logo"] = legacy_logo
+    st.session_state.pop("company_logo", None)
     st.session_state[StateKeys.JOB_AD_LOGO_DATA] = legacy_logo
     return legacy_logo
 
