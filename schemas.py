@@ -22,9 +22,6 @@ def _ensure_required_fields(schema: dict[str, Any], fields: list[str]) -> None:
 
 _NEED_ANALYSIS_SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "need_analysis.schema.json"
 NEED_ANALYSIS_SCHEMA: dict[str, Any] = _load_json_schema(_NEED_ANALYSIS_SCHEMA_PATH)
-_company_schema = NEED_ANALYSIS_SCHEMA.get("properties", {}).get("company")
-if isinstance(_company_schema, dict):
-    _ensure_required_fields(_company_schema, ["name"])
 _NEED_ANALYSIS_PROPERTIES: dict[str, Any] = deepcopy(NEED_ANALYSIS_SCHEMA.get("properties", {}))
 
 
@@ -74,7 +71,6 @@ _VACANCY_PROPERTIES.update(
         "role": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["title"],
             "properties": {
                 "title": {"type": "string", "minLength": 2},
                 "department": {"type": "string"},
@@ -150,7 +146,6 @@ _VACANCY_PROPERTIES.update(
         "skills": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["must_have", "nice_to_have"],
             "properties": {
                 "must_have": {
                     "minItems": 0,
@@ -213,7 +208,7 @@ VACANCY_EXTRACTION_SCHEMA = {
     "title": "VacancyExtraction",
     "type": "object",
     "additionalProperties": False,
-    "required": ["language", "role", "company", "skills", "responsibilities"],
+    "required": ["language"],
     "properties": _VACANCY_PROPERTIES,
 }
 
