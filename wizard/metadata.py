@@ -8,7 +8,7 @@ explicit also makes type-checking and unit tests straightforward.
 
 from __future__ import annotations
 
-from typing import Callable, Final, Mapping
+from typing import Callable, Final, Mapping, Sequence
 
 import streamlit as st
 
@@ -133,6 +133,113 @@ def resolve_section_for_field(field: str) -> int:
     return COMPANY_STEP_INDEX
 
 
+def _field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
+    """Return ``True`` when a field can be skipped given the current context."""
+
+    work_policy = str(get_in(profile_data, "employment.work_policy", "") or "").strip().lower()
+    travel_required = get_in(profile_data, "employment.travel_required", None)
+
+    if field == str(ProfilePaths.LOCATION_PRIMARY_CITY) and work_policy == "remote":
+        return True
+
+    if field.startswith("employment.travel_") and travel_required is not True:
+        return True
+
+    return False
+
+
+def _normalize_followup_priority(priority: str | None) -> str:
+    """Normalize follow-up priority values to supported labels."""
+
+    normalized = str(priority or "normal").strip().lower()
+    if normalized not in {"critical", "normal", "optional"}:
+        return "normal"
+    return normalized
+
+
+def _is_empty_value(value: object) -> bool:
+    """Determine whether a profile value should be treated as missing."""
+
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, Mapping):
+        return not any(value.values())
+    if isinstance(value, (list, tuple, set)):
+        return len(value) == 0
+    return False
+
+
+def _adjust_priority_for_context(
+    field: str,
+    priority: str,
+    profile_data: Mapping[str, object],
+) -> str | None:
+    """Contextual priority adjustment for automatically generated follow-ups."""
+
+    if _field_is_contextually_optional(field, profile_data):
+        return None if field.startswith("employment.travel_") else "optional"
+
+    seniority_raw = str(get_in(profile_data, "position.seniority_level", "") or "").strip().lower()
+    is_junior = seniority_raw.startswith("junior") or "entry" in seniority_raw
+    senior_lead_terms = {"lead", "manager", "head", "director", "vp", "chief", "principal"}
+    is_senior_manager = any(term in seniority_raw for term in senior_lead_terms)
+
+    if field in {"position.team_size", "position.supervises"}:
+        if is_junior:
+            return None
+        if is_senior_manager:
+            return "critical"
+
+    return priority
+
+
+def filter_followups_by_context(
+    followups: Sequence[Mapping[str, object]],
+    profile_data: Mapping[str, object],
+) -> list[dict[str, object]]:
+    """Filter and reprioritize follow-ups based on available context."""
+
+    answered_fields = {
+        str(item) for item in get_in(profile_data, "meta.followups_answered", []) if isinstance(item, str)
+    }
+
+    filtered: list[dict[str, object]] = []
+    for item in followups:
+        if not isinstance(item, Mapping):
+            continue
+
+        field = str(item.get("field", "") or "").strip()
+        if not field or field in answered_fields:
+            continue
+
+        value = get_in(profile_data, field, None)
+        if not _is_empty_value(value):
+            continue
+
+        base_priority = _normalize_followup_priority(str(item.get("priority", "")))
+        adjusted_priority = _adjust_priority_for_context(field, base_priority, profile_data)
+        if adjusted_priority is None:
+            continue
+
+        normalized: dict[str, object] = {
+            "field": field,
+            "question": item.get("question", ""),
+            "priority": adjusted_priority,
+        }
+
+        for key in ("suggestions", "rationale", "depends_on", "prefill", "description", "ui_variant"):
+            if key in item:
+                normalized[key] = item[key]
+
+        filtered.append(normalized)
+
+    return filtered
+
+
 def _lookup_string_value(field: str, profile_data: Mapping[str, object]) -> str | None:
     """Return the current string stored for ``field`` from widgets or profile."""
 
@@ -151,6 +258,8 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     missing: list[str] = []
     profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
     for field in CRITICAL_FIELDS:
+        if _field_is_contextually_optional(field, profile_data):
+            continue
         field_section = resolve_section_for_field(field)
         if max_section is not None and field_section > max_section:
             continue
@@ -178,6 +287,7 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
 __all__ = [
     "COMPANY_STEP_INDEX",
     "CRITICAL_SECTION_ORDER",
+    "filter_followups_by_context",
     "FIELD_SECTION_MAP",
     "PAGE_FOLLOWUP_PREFIXES",
     "PAGE_PROGRESS_FIELDS",
