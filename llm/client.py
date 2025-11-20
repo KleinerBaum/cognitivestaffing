@@ -107,6 +107,15 @@ def _summarise_prompt(messages: Sequence[Mapping[str, Any]] | None) -> str:
     return f"messages={total}, latest_user_chars={length}, latest_user_hash={digest}"
 
 
+def _summarise_missing_sections(fields: Sequence[str] | None) -> str:
+    """Return a concise summary of missing schema sections for logging."""
+
+    if not fields:
+        return "none reported"
+    sections = sorted({field.split(".")[0] for field in fields if isinstance(field, str) and field})
+    return ", ".join(sections) if sections else "none reported"
+
+
 def _set_nested_value(target: MutableMapping[str, Any], path: str, value: Any) -> None:
     """Assign ``value`` to ``path`` within ``target`` using dot-notation."""
 
@@ -484,6 +493,8 @@ def extract_json(
                 insights=insights,
             )
         )
+        prompt_digest = _summarise_prompt(messages)
+        missing_sections = _summarise_missing_sections(getattr(insights, "missing_fields", None))
         effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
         model = select_model(ModelTask.EXTRACTION)
         span.set_attribute("llm.model", model)
@@ -506,7 +517,12 @@ def extract_json(
             notes = "\n".join(getattr(err, "__notes__", ()))
             detail = notes or str(err)
             logger.warning(
-                "Structured extraction output failed validation; falling back to plain text.\n%s",
+                (
+                    "Structured extraction output failed validation for %s (missing sections: %s); "
+                    "falling back to plain text.\n%s"
+                ),
+                prompt_digest,
+                missing_sections,
                 detail,
             )
             span.record_exception(err)
@@ -516,7 +532,12 @@ def extract_json(
                 {"error.detail": detail[:512]},
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
-            logger.warning("Structured extraction failed, falling back to plain text: %s", exc)
+            logger.warning(
+                "Structured extraction failed for %s (missing sections: %s); falling back to plain text: %s",
+                prompt_digest,
+                missing_sections,
+                exc,
+            )
             span.record_exception(exc)
             span.add_event("structured_call_failed")
         else:

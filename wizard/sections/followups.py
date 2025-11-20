@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from datetime import date
 from typing import (
@@ -43,6 +44,7 @@ InterviewGenerator = Callable[[Mapping[str, Any], str, int, str, bool, bool], bo
 
 REQUIRED_PREFIX: Final[str] = ":red[*] "
 FOLLOWUP_STYLE_KEY: Final[str] = "_followup_styles_v1"
+logger = logging.getLogger(__name__)
 
 YES_NO_FOLLOWUP_FIELDS: Final[set[str]] = {
     str(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED),
@@ -436,6 +438,24 @@ def _resolve_followup_renderer() -> Callable[[dict, dict], None]:
     return _render_followup_question
 
 
+def _resolve_step_label(page_key: str) -> str:
+    """Return an English label for the current step for logging purposes."""
+
+    flow_module = sys.modules.get("wizard.flow")
+    page_lookup = getattr(flow_module, "PAGE_LOOKUP", {}) if flow_module else {}
+    label = page_key
+    if isinstance(page_lookup, Mapping):
+        page = page_lookup.get(page_key)
+        if page is not None:
+            try:
+                header_en = page.header_for("en")
+            except Exception:  # pragma: no cover - defensive guard
+                header_en = ""
+            if isinstance(header_en, str) and header_en.strip():
+                label = header_en.strip()
+    return label
+
+
 def _render_followup_question(q: dict, data: dict) -> None:
     profile_data = _get_profile_state()
     field = str(q.get("field", ""))
@@ -625,6 +645,7 @@ def _render_followups_for_section(
     exact: bool = False,
     container: DeltaGenerator | None = None,
     container_factory: Callable[[], DeltaGenerator] | None = None,
+    step_label: str | None = None,
 ) -> None:
     normalized_prefixes = tuple(str(prefix) for prefix in prefixes if prefix)
     if not normalized_prefixes:
@@ -671,7 +692,17 @@ def _render_followups_for_section(
                     )
                 )
             for q in list(followup_items):
-                renderer(q, data)
+                try:
+                    renderer(q, data)
+                except Exception:  # pragma: no cover - defensive guard
+                    step_name = step_label or "follow-up section"
+                    field = str(q.get("field", "")).strip() or "unknown field"
+                    logger.exception(
+                        "⚠️ Error rendering follow-ups for step '%s' (field '%s'); skipping remaining follow-up questions.",
+                        step_name,
+                        field,
+                    )
+                    break
             st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -698,7 +729,7 @@ def _render_followups_for_step(page_key: str, data: dict) -> None:
     prefixes = PAGE_FOLLOWUP_PREFIXES.get(page_key)
     if not prefixes:
         return
-    _render_followups_for_section(prefixes, data)
+    _render_followups_for_section(prefixes, data, step_label=_resolve_step_label(page_key))
 
 
 def _apply_followup_updates(
