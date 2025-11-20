@@ -583,6 +583,7 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
         "position.seniority_level": "role.seniority",
         "employment.job_type": "role.employment_type",
         "employment.work_policy": "role.work_model",
+        "employment.work_model": "role.work_model",
         "employment.relocation_support": "benefits.relocation_support",
         "responsibilities.items": "tasks.core",
         "requirements.hard_skills_required": "skills.must_have",
@@ -594,7 +595,15 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
         "requirements.languages_optional": "skills.languages",
         "requirements.certifications": "skills.certifications",
         "requirements.certificates": "skills.certifications",
+        "role.department": "department.name",
+        "role.team": "team.name",
+        "role.work_policy": "role.work_model",
         "company.headquarters": "company.hq_location",
+        "company.hq": "company.hq_location",
+        "company.logo": "company.logo_url",
+        "company.logoUrl": "company.logo_url",
+        "company.brand_colour": "company.brand_color",
+        "company.brand_color_hex": "company.brand_color",
         "compensation.currency": "benefits.currency",
         "compensation.variable_pay": "benefits.bonus",
         "process.hiring_manager_name": "department.leader_name",
@@ -604,6 +613,9 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
         "process.recruitment_timeline": "interview_process.decision_timeline",
         "process.process_notes": "interview_process.notes",
         "location.primary_city": "role.work_location",
+        "location.city": "role.work_location",
+        "city": "role.work_location",
+        "company.location.city": "role.work_location",
     }
 )
 
@@ -1061,7 +1073,7 @@ def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, An
     if not isinstance(mutable, dict):
         return {}
     payload = _apply_aliases(mutable, ALIASES)
-    _filter_unknown_fields(payload, canonical_fields=ALL_FIELDS)
+    _filter_unknown_fields(payload, canonical_fields=KEYS_CANONICAL)
     _coerce_scalar_types(
         payload,
         list_fields=LIST_FIELDS,
@@ -1090,7 +1102,7 @@ def canonicalize_wizard_payload(data: Mapping[str, Any] | None) -> dict[str, Any
     if not isinstance(mutable, dict):
         return {}
     payload = _apply_aliases(mutable, WIZARD_ALIASES)
-    _filter_unknown_fields(payload, canonical_fields=RECRUITING_WIZARD_FIELDS)
+    _filter_unknown_fields(payload, canonical_fields=WIZARD_KEYS_CANONICAL)
     _coerce_scalar_types(
         payload,
         list_fields=RECRUITING_WIZARD_LIST_FIELDS,
