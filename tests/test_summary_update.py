@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
@@ -44,3 +45,28 @@ def test_update_profile_ignores_semantic_empty() -> None:
 
     assert st.session_state[StateKeys.PROFILE]["company"]["brand_keywords"] is None
     assert st.session_state[StateKeys.JOB_AD_MD] == "cached"
+
+
+def test_update_profile_allows_overwrite_without_streamlit_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Overwriting an existing company name should not raise Streamlit errors."""
+
+    st.session_state.clear()
+    profile: ProfileDict = {"company": {"name": "Existing"}}
+    st.session_state[StateKeys.PROFILE] = profile
+    st.session_state["company.name"] = "Existing"
+
+    errors: list[BaseException] = []
+
+    def record_error(path: str, error: Exception) -> None:
+        errors.append(error)
+        raise error
+
+    monkeypatch.setattr("wizard._logic._handle_profile_update_error", record_error)
+
+    _update_profile("company.name", "ABC Corp")
+
+    assert not errors
+    assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "ABC Corp"
+    assert st.session_state["company.name"] == "ABC Corp"

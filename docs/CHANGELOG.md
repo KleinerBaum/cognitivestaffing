@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Added regression tests for extraction repairs without `company.name`, schema-backed interview guide calls, and Streamlit session updates to prevent related crashes from resurfacing.
+  DE: Regressionstests ergänzt, die Extraktionsreparaturen ohne `company.name`, schema-gestützte Interview-Guide-Aufrufe und Streamlit-Session-Updates abdecken, damit die behobenen Abstürze nicht zurückkehren.
+
 - EN: The wizard no longer blocks the Next button when required fields are empty; a bilingual hint now appears instead so recruiters can continue and fill gaps later.
   DE: Der Wizard blockiert den „Weiter“-Button bei fehlenden Pflichtfeldern nicht mehr; stattdessen erscheint ein zweisprachiger Hinweis, damit Recruiter:innen weitergehen und Lücken später schließen können.
 
