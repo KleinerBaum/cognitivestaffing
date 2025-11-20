@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 import streamlit as st
 
 from constants.keys import StateKeys
+from core.extraction import parse_structured_payload
 from tests.utils import (
     FollowupEntry,
     ProfileDict,
@@ -21,6 +24,7 @@ from wizard import (
     _update_profile,
     get_missing_critical_fields,
 )
+from wizard.sections.followups import REQUIRED_PREFIX, _apply_followup_updates
 
 
 def test_render_followup_updates_state(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -66,8 +70,10 @@ def test_render_followups_critical_prefix(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(st, "text_input", fake_input)
     monkeypatch.setattr(st, "button", lambda *a, **k: False)
     _render_followup_question(q, data)
-    assert any(m.lstrip().startswith(":red[*]") for m in seen_markdown)
-    assert seen["label"] == "Salary?"
+    assert any(REQUIRED_PREFIX in m for m in seen_markdown)
+    assert isinstance(seen["label"], str)
+    assert seen["label"].startswith(REQUIRED_PREFIX)
+    assert seen["label"].endswith("Salary?")
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert data["meta"]["followups_answered"] == ["salary"]
 
@@ -271,3 +277,51 @@ def test_missing_fields_merge_extraction_and_profile_gaps() -> None:
 
     assert "company.contact_email" in missing
     assert "company.name" in missing
+
+
+def test_followup_captures_missing_company_name_and_updates_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing company names should queue a follow-up and accept later answers."""
+
+    SessionBootstrap().apply()
+    raw = json.dumps({"position": {"job_title": "Backend Engineer"}})
+    profile, recovered, issues = parse_structured_payload(raw)
+
+    assert recovered is False
+    assert "company" in profile
+    assert profile["company"].get("name") is None
+    assert issues
+
+    st.session_state[StateKeys.PROFILE] = profile
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state[StateKeys.EXTRACTION_MISSING] = []
+
+    section_index = FIELD_SECTION_MAP["company.name"]
+    missing = _missing_fields_for_section(section_index)
+
+    assert "company.name" in missing
+    assert any(q.get("field") == "company.name" for q in st.session_state[StateKeys.FOLLOWUPS])
+
+    def fake_job_ad_generator(*_: object, **__: object) -> bool:
+        return False
+
+    def fake_interview_generator(*_: object, **__: object) -> bool:
+        return False
+
+    _apply_followup_updates(
+        {"company.name": "Fictional Labs"},
+        data=st.session_state[StateKeys.PROFILE],
+        filtered_profile=st.session_state[StateKeys.PROFILE],
+        profile_payload=st.session_state[StateKeys.PROFILE],
+        target_value=None,
+        manual_entries=[],
+        style_reference=None,
+        lang="en",
+        selected_fields=[],
+        num_questions=0,
+        warn_on_length=False,
+        show_feedback=False,
+        job_ad_generator=fake_job_ad_generator,
+        interview_generator=fake_interview_generator,
+    )
+
+    assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "Fictional Labs"

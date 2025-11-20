@@ -6,6 +6,7 @@ Key highlights / Wichtigste Funktionen
 
 EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
+* Structured extraction now tolerates partial job ads: missing values (for example company name or brand signals) are queued as bilingual follow-up questions instead of blocking validation, and the schema accepts empty company slots while the wizard records which prompts still need answers.
 * Dynamic step headers and subheaders now call out whether fields were auto-filled or still missing, and AI-suggested inputs carry a subtle 🛈 badge so recruiters know what to double-check.
 * Section headers, expanders, and inline follow-up cards now share one compact layout across all steps so follow-up prompts sit directly beneath the corresponding inputs, even inside the Onboarding extraction review tabs for meta fields.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.
@@ -17,6 +18,7 @@ EN:
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
+* Die strukturierte Extraktion toleriert jetzt unvollständige Anzeigen: Fehlende Werte (z. B. Firmenname oder Branding-Hinweise) landen als zweisprachige Follow-up-Fragen statt die Validierung zu blockieren, und das Schema akzeptiert leere Unternehmensangaben, während der Wizard notiert, welche Nachfragen noch offen sind.
 * Dynamische Schrittüberschriften und Unterzeilen zeigen an, ob Felder vorbefüllt oder noch offen sind, und KI-Vorschläge erhalten ein dezentes 🛈-Badge, damit Recruiter:innen gezielt gegenprüfen können.
 * Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten nutzen ein gemeinsames Kompakt-Layout über alle Schritte, sodass Anschlussfragen direkt unter den relevanten Eingabefeldern erscheinen – inklusive Meta-Rückfragen innerhalb der Onboarding-Extraktions-Tabs.
 * Automatische Gehaltsschätzungen starten, sobald Jobtitel und Standort-Hinweis vorhanden sind, und zeigen Pflichtfelder, Einflussfaktoren sowie die Rohberechnung in der Seitenleiste an.

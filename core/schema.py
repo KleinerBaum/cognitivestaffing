@@ -1231,7 +1231,11 @@ def build_need_analysis_responses_schema() -> dict[str, Any]:
     schema = _build_model_schema(NeedAnalysisProfile)
     company_schema = schema.get("properties", {}).get("company")
     if isinstance(company_schema, dict):
-        _ensure_required_fields(company_schema, ["name"])
+        required_fields = company_schema.get("required")
+        if isinstance(required_fields, list):
+            company_schema["required"] = [field for field in required_fields if field != "name"]
+            if not company_schema["required"]:
+                company_schema.pop("required")
     schema.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     schema.setdefault("title", NeedAnalysisProfile.__name__)
     return ensure_responses_json_schema(schema)
