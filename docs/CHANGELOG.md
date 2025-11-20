@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: The wizard no longer blocks the Next button when required fields are empty; a bilingual hint now appears instead so recruiters can continue and fill gaps later.
+  DE: Der Wizard blockiert den „Weiter“-Button bei fehlenden Pflichtfeldern nicht mehr; stattdessen erscheint ein zweisprachiger Hinweis, damit Recruiter:innen weitergehen und Lücken später schließen können.
+
 - EN: Added early schema repair after extraction so missing critical sections (e.g., `company.name`) are default-filled and reported to the wizard banner before any UI renders, avoiding downstream crashes from absent keys.
   DE: Frühzeitige Schema-Reparatur nach der Extraktion hinzugefügt, damit fehlende kritische Abschnitte (z. B. `company.name`) mit Standardwerten ergänzt und vor dem Rendern des UIs in der Wizard-Warnleiste gemeldet werden – so lassen sich Abstürze durch fehlende Schlüssel vermeiden.
 - EN: Expanded the RecruitingWizard alias coverage (department/team fallbacks, HQ and branding keys, city fallbacks) and pruned unknown fields before validation so legacy JSON from earlier releases keeps validating without extra manual cleanup.
