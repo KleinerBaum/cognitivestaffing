@@ -28,12 +28,13 @@ from openai_utils.api import (
     _mark_model_without_temperature,
     _normalise_usage,
     _update_usage_counters,
+    build_schema_format_bundle,
     call_chat_api,
     get_client,
-    build_schema_format_bundle,
     is_unrecoverable_schema_error,
     model_supports_reasoning,
     model_supports_temperature,
+    SchemaFormatBundle,
 )
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
@@ -96,47 +97,34 @@ def _prepare_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, A
     return prepared
 
 
-def _build_chat_json_schema_payload(response_format: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a chat-compatible JSON schema payload."""
+def _build_schema_bundle_from_format(response_format: Mapping[str, Any]) -> SchemaFormatBundle:
+    """Normalise a ``response_format`` payload for chat and Responses calls."""
+
+    if not isinstance(response_format, Mapping):
+        raise TypeError("response_format must be a mapping payload.")
 
     json_schema_payload = response_format.get("json_schema")
-    schema_payload: Mapping[str, Any] | None = None
-    schema_name: str | None = None
-    strict_value: bool | None = None
+    if json_schema_payload is None:
+        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
+    if not isinstance(json_schema_payload, Mapping):
+        raise TypeError("response_format['json_schema'] must be a mapping payload.")
 
-    if isinstance(json_schema_payload, Mapping):
-        schema_candidate = json_schema_payload.get("schema")
-        if isinstance(schema_candidate, Mapping):
-            schema_payload = schema_candidate
-        name_candidate = json_schema_payload.get("name")
-        if isinstance(name_candidate, str) and name_candidate.strip():
-            schema_name = name_candidate.strip()
-        if "strict" in json_schema_payload:
-            strict_value = bool(json_schema_payload.get("strict"))
-
-    if schema_payload is None:
-        schema_candidate = response_format.get("schema")
-        if isinstance(schema_candidate, Mapping):
-            schema_payload = schema_candidate
-    if schema_name is None:
-        name_candidate = response_format.get("name")
-        if isinstance(name_candidate, str) and name_candidate.strip():
-            schema_name = name_candidate.strip()
-    if strict_value is None and "strict" in response_format:
-        strict_value = bool(response_format.get("strict"))
-
+    schema_payload = json_schema_payload.get("schema")
     if schema_payload is None:
         raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
-    if not schema_name:
-        raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
+    if not isinstance(schema_payload, Mapping):
+        raise TypeError("response_format['json_schema']['schema'] must be a mapping payload.")
 
-    chat_schema: dict[str, Any] = {
-        "name": schema_name,
-        "schema": deepcopy(dict(schema_payload)),
-    }
-    if strict_value is not None:
-        chat_schema["strict"] = strict_value
-    return chat_schema
+    schema_name = json_schema_payload.get("name")
+    if not isinstance(schema_name, str) or not schema_name.strip():
+        raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
+    schema_name = schema_name.strip()
+
+    schema_config: dict[str, Any] = {"name": schema_name, "schema": schema_payload}
+    if "strict" in json_schema_payload:
+        schema_config["strict"] = json_schema_payload.get("strict")
+
+    return build_schema_format_bundle(schema_config)
 
 
 def _run_chat_fallback(
@@ -157,8 +145,9 @@ def _run_chat_fallback(
     """Fallback to the classic chat API and return a :class:`ResponsesCallResult`."""
 
     try:
-        chat_schema = _build_chat_json_schema_payload(response_format)
-    except ResponsesSchemaError as schema_error:
+        schema_bundle = _build_schema_bundle_from_format(response_format)
+        chat_schema = deepcopy(schema_bundle.chat_response_format["json_schema"])
+    except (ResponsesSchemaError, TypeError) as schema_error:
         logger_instance.warning(
             "Unable to run chat fallback for %s due to schema guard: %s",
             context,
@@ -228,30 +217,7 @@ def call_responses(
 ) -> ResponsesCallResult:
     """Execute a Responses API call with retries and return the parsed result."""
 
-    if not isinstance(response_format, Mapping):
-        raise TypeError("response_format must be a mapping payload.")
-
-    json_schema_payload = response_format.get("json_schema")
-    if json_schema_payload is None:
-        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
-    if not isinstance(json_schema_payload, Mapping):
-        raise TypeError("response_format['json_schema'] must be a mapping payload.")
-
-    schema_payload = json_schema_payload.get("schema")
-    if schema_payload is None:
-        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
-    if not isinstance(schema_payload, Mapping):
-        raise TypeError("response_format['json_schema']['schema'] must be a mapping payload.")
-
-    schema_name = json_schema_payload.get("name")
-    if not isinstance(schema_name, str) or not schema_name.strip():
-        raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
-    schema_name = schema_name.strip()
-
-    schema_config: dict[str, Any] = {"name": schema_name, "schema": schema_payload}
-    if "strict" in json_schema_payload:
-        schema_config["strict"] = json_schema_payload.get("strict")
-    schema_bundle = build_schema_format_bundle(schema_config)
+    schema_bundle = _build_schema_bundle_from_format(response_format)
 
     payload: dict[str, Any] = {
         "model": model,
