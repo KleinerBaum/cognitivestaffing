@@ -639,6 +639,9 @@ def _render_followup_question(q: dict, data: dict) -> None:
             st.session_state[highlight_sentinel] = False
     widget_has_state = field in st.session_state
     should_sync_widget_state = field not in INLINE_FOLLOWUP_FIELDS
+    # Keep follow-up values flowing through widget return values; mutating
+    # canonical session_state keys after mount triggers Streamlit immutable-key
+    # errors and desynchronises sidebar badges.
     if widget_has_state:
         _update_profile(
             field,

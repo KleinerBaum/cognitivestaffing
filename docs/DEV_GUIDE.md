@@ -59,6 +59,13 @@ whenever a follow-up disappears because its schema path was dropped or reset;
 otherwise the sidebar will continue to highlight stale cards. See
 `tests/test_followup_inline.py` for regression coverage.
 
+**EN:** Treat widget return values (or explicit `value=` defaults) as the only
+source of truth for follow-up answers. Wire new cards through
+`_update_profile(..., session_value=<widget_value>, sync_widget_state=...)` and
+avoid mutating canonical `st.session_state["<field>"]` entries after widgets
+have mounted – direct session-state edits trigger Streamlit's immutable-key
+errors and desynchronise the sidebar/summary badges.
+
 **DE:** Inline-Follow-ups speichern sowohl den sichtbaren Wert als auch ihren
 Fokusstatus in `st.session_state[f"fu_{<schema_path>}"]`; die Widget-Factory in
 `wizard/sections/followups.py::_render_followup_question` legt die Keys beim
@@ -71,6 +78,13 @@ Die Keys müssen ebenfalls gelöscht werden, wenn ein Follow-up entfällt, weil 
 Schema-Pfad entfernt oder zurückgesetzt wurde – andernfalls hebt die Sidebar
 weiterhin veraltete Karten hervor. Details deckt `tests/test_followup_inline.py`
 ab.
+
+**DE:** Behandle Widget-Rückgabewerte (oder explizite `value=`-Defaults) als
+einzige Quelle der Wahrheit für Follow-up-Antworten. Neue Karten immer über
+`_update_profile(..., session_value=<widget_value>, sync_widget_state=...)`
+verdrahten und keine kanonischen `st.session_state["<feld>"]`-Einträge nach dem
+Widget-Mount verändern – direkte Session-Edits erzeugen Streamlit-Fehler zu
+unveränderlichen Keys und bringen Sidebar- bzw. Summary-Badges aus dem Takt.
 
 **EN:** When introducing a new follow-up rule, keep these touch points in sync:
 

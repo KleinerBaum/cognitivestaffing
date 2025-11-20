@@ -7,6 +7,9 @@ Changed / Geändert
 - EN: Added regression tests for extraction repairs without `company.name`, schema-backed interview guide calls, and Streamlit session updates to prevent related crashes from resurfacing.
   DE: Regressionstests ergänzt, die Extraktionsreparaturen ohne `company.name`, schema-gestützte Interview-Guide-Aufrufe und Streamlit-Session-Updates abdecken, damit die behobenen Abstürze nicht zurückkehren.
 
+- EN: Documented that follow-up cards must keep using widget return values and `_update_profile(..., session_value=...)` instead of mutating canonical `st.session_state` keys after mount, so contributors avoid reintroducing immutable-session errors.
+  DE: Dokumentiert, dass Follow-up-Karten weiterhin über Widget-Rückgabewerte und `_update_profile(..., session_value=...)` syncen müssen, statt kanonische `st.session_state`-Keys nach dem Mount zu verändern, damit keine Fehler zu unveränderlichen Sessions zurückkehren.
+
 - EN: The wizard no longer blocks the Next button when required fields are empty; a bilingual hint now appears instead so recruiters can continue and fill gaps later.
   DE: Der Wizard blockiert den „Weiter“-Button bei fehlenden Pflichtfeldern nicht mehr; stattdessen erscheint ein zweisprachiger Hinweis, damit Recruiter:innen weitergehen und Lücken später schließen können.
 
