@@ -11,8 +11,20 @@ def _load_json_schema(path: Path) -> dict[str, Any]:
         return json.load(schema_file)
 
 
+def _ensure_required_fields(schema: dict[str, Any], fields: list[str]) -> None:
+    """Ensure ``schema`` lists ``fields`` as required properties."""
+
+    required = schema.setdefault("required", [])
+    for field in fields:
+        if field not in required:
+            required.append(field)
+
+
 _NEED_ANALYSIS_SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "need_analysis.schema.json"
 NEED_ANALYSIS_SCHEMA: dict[str, Any] = _load_json_schema(_NEED_ANALYSIS_SCHEMA_PATH)
+_company_schema = NEED_ANALYSIS_SCHEMA.get("properties", {}).get("company")
+if isinstance(_company_schema, dict):
+    _ensure_required_fields(_company_schema, ["name"])
 _NEED_ANALYSIS_PROPERTIES: dict[str, Any] = deepcopy(NEED_ANALYSIS_SCHEMA.get("properties", {}))
 
 
@@ -424,3 +436,20 @@ INTERVIEW_GUIDE_SCHEMA = {
         "markdown": {"type": "string"},
     },
 }
+
+_INTERVIEW_METADATA_SCHEMA = INTERVIEW_GUIDE_SCHEMA["properties"]["metadata"]
+_ensure_required_fields(_INTERVIEW_METADATA_SCHEMA, list(_INTERVIEW_METADATA_SCHEMA["properties"].keys()))
+
+_INTERVIEW_FOCUS_AREA_SCHEMA = INTERVIEW_GUIDE_SCHEMA["properties"]["focus_areas"].get("items")
+if isinstance(_INTERVIEW_FOCUS_AREA_SCHEMA, dict):
+    _ensure_required_fields(
+        _INTERVIEW_FOCUS_AREA_SCHEMA,
+        list(_INTERVIEW_FOCUS_AREA_SCHEMA.get("properties", {}).keys()),
+    )
+
+_INTERVIEW_QUESTION_SCHEMA = INTERVIEW_GUIDE_SCHEMA["properties"]["questions"].get("items")
+if isinstance(_INTERVIEW_QUESTION_SCHEMA, dict):
+    _ensure_required_fields(
+        _INTERVIEW_QUESTION_SCHEMA,
+        list(_INTERVIEW_QUESTION_SCHEMA.get("properties", {}).keys()),
+    )
