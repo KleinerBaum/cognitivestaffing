@@ -12,6 +12,7 @@ from typing import (
     Any,
     Collection,
     Dict,
+    Iterable,
     List,
     Literal,
     Tuple,
@@ -901,6 +902,15 @@ def _schema_from_type(tp: Any) -> dict[str, Any]:
     return schema
 
 
+def _ensure_required_fields(schema: dict[str, Any], fields: Iterable[str]) -> None:
+    """Ensure ``schema`` lists ``fields`` in its ``required`` array."""
+
+    required = schema.setdefault("required", [])
+    for field in fields:
+        if field not in required:
+            required.append(field)
+
+
 def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
     """Return JSON schema for ``model`` suitable for the Responses API."""
 
@@ -912,6 +922,10 @@ def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
     for name, field in model.model_fields.items():
         annotation = field.annotation or Any
         properties[name] = _schema_from_type(annotation)
+        if isinstance(properties[name], dict) and properties[name].get("type") == "object":
+            nested_properties = properties[name].get("properties")
+            if isinstance(nested_properties, dict) and nested_properties:
+                _ensure_required_fields(properties[name], list(nested_properties))
 
     schema: dict[str, Any] = {
         "type": "object",
@@ -1030,6 +1044,9 @@ def build_need_analysis_responses_schema() -> dict[str, Any]:
     """
 
     schema = _build_model_schema(NeedAnalysisProfile)
+    company_schema = schema.get("properties", {}).get("company")
+    if isinstance(company_schema, dict):
+        _ensure_required_fields(company_schema, ["name"])
     schema.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     schema.setdefault("title", NeedAnalysisProfile.__name__)
     return ensure_responses_json_schema(schema)
