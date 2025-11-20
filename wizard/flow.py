@@ -4155,8 +4155,22 @@ def _ensure_extraction_review_styles() -> None:
     )
 
 
-def _render_extraction_review() -> None:
-    """Render tabbed overview of extracted profile data."""
+def _render_inline_followups(
+    fields: Sequence[str],
+    profile: dict[str, Any],
+    *,
+    container: DeltaGenerator,
+) -> None:
+    """Render inline follow-up cards anchored to ``container`` for ``fields``."""
+
+    _render_followups_for_fields(fields, profile, container=container)
+
+
+def _render_extraction_review() -> bool:
+    """Render tabbed overview of extracted profile data.
+
+    Returns ``True`` when tabs are displayed, ``False`` if no data was available.
+    """
 
     profile = _get_profile_state()
     flattened = flatten(profile)
@@ -4167,7 +4181,7 @@ def _render_extraction_review() -> None:
                 "No structured data yet – upload a job ad or paste text to begin.",
             )
         )
-        return
+        return False
 
     _ensure_extraction_review_styles()
     render_section_heading(
@@ -4199,6 +4213,8 @@ def _render_extraction_review() -> None:
     with tabs[4]:
         _render_review_process_tab(profile)
 
+    return True
+
 
 def _render_review_company_tab(profile: dict[str, Any]) -> None:
     """Render company and branding fields within the extraction review."""
@@ -4210,12 +4226,16 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
     st.markdown(f"<h5>{html.escape(tr('Unternehmensprofil', 'Company profile'))}</h5>", unsafe_allow_html=True)
 
     info_cols = st.columns((1.2, 1.2), gap="medium")
-    company["name"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_NAME,
-        tr(*COMPANY_NAME_LABEL),
-        widget_factory=info_cols[0].text_input,
-        value_formatter=_string_or_empty,
-    )
+    company_name_container = info_cols[0].container()
+    with company_name_container:
+        company["name"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_NAME,
+            tr(*COMPANY_NAME_LABEL),
+            widget_factory=info_cols[0].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.COMPANY_NAME,), profile, container=company_name_container)
+
     company["brand_name"] = widget_factory.text_input(
         ProfilePaths.COMPANY_BRAND_NAME,
         tr("Marke/Tochter", "Brand/Subsidiary"),
@@ -4238,38 +4258,56 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
     )
 
     contact_cols = st.columns(3, gap="small")
-    company["contact_name"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_CONTACT_NAME,
-        tr(*COMPANY_CONTACT_NAME_LABEL),
-        widget_factory=contact_cols[0].text_input,
-        value_formatter=_string_or_empty,
-    )
-    company["contact_email"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_CONTACT_EMAIL,
-        tr(*COMPANY_CONTACT_EMAIL_LABEL),
-        widget_factory=contact_cols[1].text_input,
-        value_formatter=_string_or_empty,
-    )
-    company["contact_phone"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_CONTACT_PHONE,
-        tr(*COMPANY_CONTACT_PHONE_LABEL),
-        widget_factory=contact_cols[2].text_input,
-        value_formatter=_string_or_empty,
-    )
+    contact_name_container = contact_cols[0].container()
+    with contact_name_container:
+        company["contact_name"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_CONTACT_NAME,
+            tr(*COMPANY_CONTACT_NAME_LABEL),
+            widget_factory=contact_cols[0].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.COMPANY_CONTACT_NAME,), profile, container=contact_name_container)
+
+    contact_email_container = contact_cols[1].container()
+    with contact_email_container:
+        company["contact_email"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_CONTACT_EMAIL,
+            tr(*COMPANY_CONTACT_EMAIL_LABEL),
+            widget_factory=contact_cols[1].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.COMPANY_CONTACT_EMAIL,), profile, container=contact_email_container)
+
+    contact_phone_container = contact_cols[2].container()
+    with contact_phone_container:
+        company["contact_phone"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_CONTACT_PHONE,
+            tr(*COMPANY_CONTACT_PHONE_LABEL),
+            widget_factory=contact_cols[2].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.COMPANY_CONTACT_PHONE,), profile, container=contact_phone_container)
 
     location_cols = st.columns((1.2, 1.2), gap="medium")
-    location["primary_city"] = widget_factory.text_input(
-        ProfilePaths.LOCATION_PRIMARY_CITY,
-        tr(*PRIMARY_CITY_LABEL),
-        widget_factory=location_cols[0].text_input,
-        value_formatter=_string_or_empty,
-    )
-    location["country"] = widget_factory.text_input(
-        ProfilePaths.LOCATION_COUNTRY,
-        tr(*PRIMARY_COUNTRY_LABEL),
-        widget_factory=location_cols[1].text_input,
-        value_formatter=_string_or_empty,
-    )
+    primary_city_container = location_cols[0].container()
+    with primary_city_container:
+        location["primary_city"] = widget_factory.text_input(
+            ProfilePaths.LOCATION_PRIMARY_CITY,
+            tr(*PRIMARY_CITY_LABEL),
+            widget_factory=location_cols[0].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.LOCATION_PRIMARY_CITY,), profile, container=primary_city_container)
+
+    primary_country_container = location_cols[1].container()
+    with primary_country_container:
+        location["country"] = widget_factory.text_input(
+            ProfilePaths.LOCATION_COUNTRY,
+            tr(*PRIMARY_COUNTRY_LABEL),
+            widget_factory=location_cols[1].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.LOCATION_COUNTRY,), profile, container=primary_country_container)
     company["hq_location"] = widget_factory.text_input(
         ProfilePaths.COMPANY_HQ_LOCATION,
         tr("Hauptsitz", "Headquarters"),
@@ -4335,12 +4373,16 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     st.markdown(f"<h5>{html.escape(tr('Rollenübersicht', 'Role overview'))}</h5>", unsafe_allow_html=True)
 
     title_cols = st.columns((1.2, 1.2), gap="medium")
-    position["job_title"] = widget_factory.text_input(
-        ProfilePaths.POSITION_JOB_TITLE,
-        tr("Jobtitel", "Job title"),
-        widget_factory=title_cols[0].text_input,
-        value_formatter=_string_or_empty,
-    )
+    job_title_container = title_cols[0].container()
+    with job_title_container:
+        position["job_title"] = widget_factory.text_input(
+            ProfilePaths.POSITION_JOB_TITLE,
+            tr("Jobtitel", "Job title"),
+            widget_factory=title_cols[0].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.POSITION_JOB_TITLE,), profile, container=job_title_container)
+
     department["name"] = widget_factory.text_input(
         ProfilePaths.DEPARTMENT_NAME,
         tr("Abteilung", "Department"),
@@ -4349,19 +4391,28 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     )
 
     reporting_cols = st.columns((1.2, 1.2), gap="medium")
-    team_reporting_value = widget_factory.text_input(
-        ProfilePaths.TEAM_REPORTING_LINE,
-        tr("Berichtslinie", "Reporting line"),
-        widget_factory=reporting_cols[0].text_input,
-        value_formatter=_string_or_empty,
-    )
+    team_reporting_container = reporting_cols[0].container()
+    with team_reporting_container:
+        team_reporting_value = widget_factory.text_input(
+            ProfilePaths.TEAM_REPORTING_LINE,
+            tr("Berichtslinie", "Reporting line"),
+            widget_factory=reporting_cols[0].text_input,
+            value_formatter=_string_or_empty,
+        )
     team["reporting_line"] = team_reporting_value
     position["reporting_line"] = team_reporting_value
-    position["reporting_manager_name"] = widget_factory.text_input(
-        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-        tr("Vorgesetzte Person", "Reporting manager"),
-        widget_factory=reporting_cols[1].text_input,
-        value_formatter=_string_or_empty,
+    _render_inline_followups((ProfilePaths.TEAM_REPORTING_LINE,), profile, container=team_reporting_container)
+
+    reporting_manager_container = reporting_cols[1].container()
+    with reporting_manager_container:
+        position["reporting_manager_name"] = widget_factory.text_input(
+            ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+            tr("Vorgesetzte Person", "Reporting manager"),
+            widget_factory=reporting_cols[1].text_input,
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups(
+        (ProfilePaths.POSITION_REPORTING_MANAGER_NAME,), profile, container=reporting_manager_container
     )
 
     dept_cols = st.columns((1.2, 1.2), gap="medium")
@@ -4392,12 +4443,15 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         value_formatter=_string_or_empty,
     )
 
-    position["role_summary"] = st.text_area(
-        tr(*ROLE_SUMMARY_LABEL),
-        value=position.get("role_summary", ""),
-        key=ProfilePaths.POSITION_ROLE_SUMMARY,
-        height=130,
-    )
+    role_summary_container = st.container()
+    with role_summary_container:
+        position["role_summary"] = st.text_area(
+            tr(*ROLE_SUMMARY_LABEL),
+            value=position.get("role_summary", ""),
+            key=ProfilePaths.POSITION_ROLE_SUMMARY,
+            height=130,
+        )
+    _render_inline_followups((ProfilePaths.POSITION_ROLE_SUMMARY,), profile, container=role_summary_container)
 
     key_projects = st.text_area(
         tr("Schlüsselprojekte", "Key projects"),
@@ -4432,12 +4486,14 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     _update_profile(ProfilePaths.POSITION_SUPERVISES, int(supervises_value))
 
     schedule_cols = st.columns((1.2, 1.2), gap="medium")
-    target_start = schedule_cols[0].date_input(
-        tr("Gewünschtes Startdatum", "Desired start date"),
-        value=_default_date(meta.get("target_start_date")),
-        format="YYYY-MM-DD",
-        key=str(ProfilePaths.META_TARGET_START_DATE),
-    )
+    target_start_container = schedule_cols[0].container()
+    with target_start_container:
+        target_start = schedule_cols[0].date_input(
+            tr("Gewünschtes Startdatum", "Desired start date"),
+            value=_default_date(meta.get("target_start_date")),
+            format="YYYY-MM-DD",
+            key=str(ProfilePaths.META_TARGET_START_DATE),
+        )
     target_start_iso = target_start.isoformat() if isinstance(target_start, date) else ""
     meta["target_start_date"] = target_start_iso
     _update_profile(
@@ -4445,6 +4501,7 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         target_start_iso,
         session_value=target_start,
     )
+    _render_inline_followups((ProfilePaths.META_TARGET_START_DATE,), profile, container=target_start_container)
 
     application_deadline = schedule_cols[1].date_input(
         tr("Bewerbungsschluss", "Application deadline"),
@@ -4585,50 +4642,65 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
         unsafe_allow_html=True,
     )
 
-    resp_items = render_list_text_area(
-        label=tr("Aufgaben (eine pro Zeile)", "Responsibilities (one per line)"),
-        session_key=str(ProfilePaths.RESPONSIBILITIES_ITEMS),
-        items=responsibilities.get("items"),
-        height=150,
-    )
+    resp_container = st.container()
+    with resp_container:
+        resp_items = render_list_text_area(
+            label=tr("Aufgaben (eine pro Zeile)", "Responsibilities (one per line)"),
+            session_key=str(ProfilePaths.RESPONSIBILITIES_ITEMS),
+            items=responsibilities.get("items"),
+            height=150,
+        )
     responsibilities["items"] = resp_items
     _update_profile(ProfilePaths.RESPONSIBILITIES_ITEMS, resp_items)
+    _render_inline_followups((ProfilePaths.RESPONSIBILITIES_ITEMS,), profile, container=resp_container)
 
-    hard_required = render_list_text_area(
-        label=tr("Pflicht-Hard-Skills", "Required hard skills"),
-        session_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
-        items=requirements.get("hard_skills_required"),
-        height=120,
-    )
+    hard_container = st.container()
+    with hard_container:
+        hard_required = render_list_text_area(
+            label=tr("Pflicht-Hard-Skills", "Required hard skills"),
+            session_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+            items=requirements.get("hard_skills_required"),
+            height=120,
+        )
     requirements["hard_skills_required"] = hard_required
     _update_profile(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED, hard_required)
+    _render_inline_followups((ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,), profile, container=hard_container)
 
-    soft_required = render_list_text_area(
-        label=tr("Pflicht-Soft-Skills", "Required soft skills"),
-        session_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
-        items=requirements.get("soft_skills_required"),
-        height=120,
-    )
+    soft_container = st.container()
+    with soft_container:
+        soft_required = render_list_text_area(
+            label=tr("Pflicht-Soft-Skills", "Required soft skills"),
+            session_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+            items=requirements.get("soft_skills_required"),
+            height=120,
+        )
     requirements["soft_skills_required"] = soft_required
     _update_profile(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED, soft_required)
+    _render_inline_followups((ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,), profile, container=soft_container)
 
-    tools = render_list_text_area(
-        label=tr("Tools & Technologien", "Tools & technologies"),
-        session_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
-        items=requirements.get("tools_and_technologies"),
-        height=120,
-    )
+    tools_container = st.container()
+    with tools_container:
+        tools = render_list_text_area(
+            label=tr("Tools & Technologien", "Tools & technologies"),
+            session_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
+            items=requirements.get("tools_and_technologies"),
+            height=120,
+        )
     requirements["tools_and_technologies"] = tools
     _update_profile(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES, tools)
+    _render_inline_followups((ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES,), profile, container=tools_container)
 
-    languages = render_list_text_area(
-        label=tr("Sprachen", "Languages"),
-        session_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
-        items=requirements.get("languages_required"),
-        height=110,
-    )
+    languages_container = st.container()
+    with languages_container:
+        languages = render_list_text_area(
+            label=tr("Sprachen", "Languages"),
+            session_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
+            items=requirements.get("languages_required"),
+            height=110,
+        )
     requirements["languages_required"] = languages
     _update_profile(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED, languages)
+    _render_inline_followups((ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,), profile, container=languages_container)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -6223,9 +6295,10 @@ def _step_onboarding(schema: dict) -> None:
             disabled=locked,
         )
 
-    _render_extraction_review()
+    review_rendered = _render_extraction_review()
 
-    _render_followups_for_step("jobad", profile)
+    if not review_rendered:
+        _render_followups_for_step("jobad", profile)
 
     if st.button(
         tr("Weiter ▶", "Next ▶"),

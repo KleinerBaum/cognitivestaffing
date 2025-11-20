@@ -4,7 +4,17 @@ from __future__ import annotations
 
 import sys
 from datetime import date
-from typing import Any, Callable, Collection, Final, Iterable, Literal, Mapping, Sequence, TypedDict
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Final,
+    Iterable,
+    Literal,
+    Mapping,
+    Sequence,
+    TypedDict,
+)
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
@@ -437,6 +447,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     anchor = f"anchor_{key}"
     focus_sentinel = f"{key}_focus_pending"
     highlight_sentinel = f"{key}_highlight_pending"
+    toast_sentinel = f"{key}_toast_shown"
     container = st.container()
     with container:
         st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
@@ -456,6 +467,8 @@ def _render_followup_question(q: dict, data: dict) -> None:
         st.session_state[focus_sentinel] = True
     if highlight_sentinel not in st.session_state:
         st.session_state[highlight_sentinel] = True
+    if toast_sentinel not in st.session_state:
+        st.session_state[toast_sentinel] = False
     ui_variant = q.get("ui_variant")
     description = q.get("description")
     if ui_variant in ("info", "warning") and description:
@@ -464,11 +477,9 @@ def _render_followup_question(q: dict, data: dict) -> None:
         container.caption(description)
     priority = q.get("priority")
     question_text = prompt or tr("Antwort eingeben", "Enter response")
+    display_question = f"{REQUIRED_PREFIX}{question_text}" if priority == "critical" else question_text
     with container:
-        if priority == "critical":
-            st.markdown(f"{REQUIRED_PREFIX}**{question_text}**")
-        else:
-            st.markdown(f"**{question_text}**")
+        st.markdown(f"**{display_question}**")
     if suggestions:
         cols = container.columns(len(suggestions))
         for index, (col, option) in enumerate(zip(cols, suggestions)):
@@ -483,7 +494,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 st.markdown("</div>", unsafe_allow_html=True)
 
     should_focus = bool(st.session_state.get(focus_sentinel, False))
-    label_text = question_text
+    label_text = display_question
     processed_value: Any
     touched_key: str | None = None
     with container:
@@ -547,11 +558,13 @@ def _render_followup_question(q: dict, data: dict) -> None:
         highlight_pending = st.session_state.get(highlight_sentinel, False)
         if highlight_pending:
             highlight_class = "fu-highlight" if priority == "critical" else "fu-highlight-soft"
-            if priority == "critical":
+            should_toast = priority == "critical" and not st.session_state.get(toast_sentinel, False)
+            if should_toast:
                 st.toast(
                     tr("Neue kritische Anschlussfrage", "New critical follow-up"),
                     icon="⚠️",
                 )
+                st.session_state[toast_sentinel] = True
             st.markdown(
                 f"""
 <script>
@@ -599,6 +612,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     if followup_has_response(processed_value):
         st.session_state.pop(focus_sentinel, None)
         st.session_state.pop(highlight_sentinel, None)
+        st.session_state.pop(toast_sentinel, None)
         if touched_key is not None:
             st.session_state.pop(touched_key, None)
     container.markdown("</div>", unsafe_allow_html=True)
