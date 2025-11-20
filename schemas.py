@@ -42,6 +42,19 @@ SKILL_ARRAY_SCHEMA = {
     "items": SKILL_ENTRY_SCHEMA,
 }
 
+_SKILL_CATEGORY_PROPERTIES = {
+    "hard_skills_required": SKILL_ARRAY_SCHEMA,
+    "hard_skills_optional": SKILL_ARRAY_SCHEMA,
+    "soft_skills_required": SKILL_ARRAY_SCHEMA,
+    "soft_skills_optional": SKILL_ARRAY_SCHEMA,
+    "languages_required": SKILL_ARRAY_SCHEMA,
+    "languages_optional": SKILL_ARRAY_SCHEMA,
+    "tools_and_technologies": SKILL_ARRAY_SCHEMA,
+    "certifications": SKILL_ARRAY_SCHEMA,
+    "must_have": SKILL_ARRAY_SCHEMA,
+    "nice_to_have": SKILL_ARRAY_SCHEMA,
+}
+
 INTERVIEW_GUIDE_FOCUS_AREA_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -146,13 +159,7 @@ _VACANCY_PROPERTIES.update(
         "skills": {
             "type": "object",
             "additionalProperties": False,
-            "properties": {
-                "must_have": {
-                    "minItems": 0,
-                    **SKILL_ARRAY_SCHEMA,
-                },
-                "nice_to_have": SKILL_ARRAY_SCHEMA,
-            },
+            "properties": _SKILL_CATEGORY_PROPERTIES,
         },
         "technologies": SKILL_ARRAY_SCHEMA,
         "benefits": {"type": "array", "items": {"type": "string"}},

@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Structured extraction now separates hard skills, soft skills, languages, certifications, and tools into the NeedAnalysis requirements fields with a fallback classifier that splits combined skill lists automatically.
+  DE: Die strukturierte Extraktion trennt jetzt Hard Skills, Soft Skills, Sprachen, Zertifizierungen und Tools in die NeedAnalysis-Anforderungsfelder und nutzt einen Fallback-Klassifizierer, der zusammengefasste Skill-Listen automatisch aufteilt.
+
 - EN: Added regression tests for extraction repairs without `company.name`, schema-backed interview guide calls, and Streamlit session updates to prevent related crashes from resurfacing.
   DE: Regressionstests ergänzt, die Extraktionsreparaturen ohne `company.name`, schema-gestützte Interview-Guide-Aufrufe und Streamlit-Session-Updates abdecken, damit die behobenen Abstürze nicht zurückkehren.
 

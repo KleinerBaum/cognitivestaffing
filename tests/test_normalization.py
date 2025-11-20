@@ -119,6 +119,31 @@ def test_normalize_url_pattern_guard(value: str | None, expected: str | None) ->
     assert normalize_url(value) == expected
 
 
+def test_canonicalize_profile_payload_classifies_mixed_skills() -> None:
+    payload = canonicalize_profile_payload(
+        {
+            "skills": {
+                "must_have": [
+                    "Python",
+                    "Clear communication",
+                    "German B2",
+                ],
+                "nice_to_have": [
+                    "AWS Certified Solutions Architect",
+                    "Tableau",
+                ],
+            }
+        }
+    )
+
+    requirements = payload.get("requirements", {})
+    assert requirements["hard_skills_required"] == ["Python"]
+    assert requirements["soft_skills_required"] == ["Clear communication"]
+    assert requirements["languages_required"] == ["German B2"]
+    assert requirements["tools_and_technologies"] == ["Tableau"]
+    assert requirements["certifications"] == ["AWS Certified Solutions Architect"]
+
+
 def test_normalize_profile_applies_string_rules() -> None:
     profile = NeedAnalysisProfile.model_validate(
         {

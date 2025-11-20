@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Sequence,
     Tuple,
     Union,
     get_args,
@@ -625,6 +626,76 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
 _LIST_SPLIT_RE = re.compile(r"[,\n;•]+")
 _TRUE_VALUES = {"true", "yes", "1", "ja"}
 _FALSE_VALUES = {"false", "no", "0", "nein"}
+_SOFT_SKILL_MARKERS: tuple[str, ...] = (
+    "communication",
+    "teamwork",
+    "leadership",
+    "collaboration",
+    "stakeholder",
+    "problem solving",
+    "analytical",
+    "attention to detail",
+    "presentation",
+    "mentoring",
+    "coaching",
+    "adaptability",
+    "organisation",
+    "organization",
+    "self-starter",
+    "ownership",
+)
+_LANGUAGE_MARKERS: tuple[str, ...] = (
+    "english",
+    "german",
+    "deutsch",
+    "spanish",
+    "español",
+    "french",
+    "français",
+    "italian",
+    "italiano",
+    "dutch",
+    "nederlands",
+    "portuguese",
+    "polish",
+    "russian",
+    "chinese",
+    "mandarin",
+    "cantonese",
+    "japanese",
+    "korean",
+    "arabic",
+    "turkish",
+    "swedish",
+    "norwegian",
+    "danish",
+    "finnish",
+)
+_CERTIFICATION_MARKERS: tuple[str, ...] = (
+    "certificate",
+    "certification",
+    "certified",
+    "pmp",
+    "prince2",
+    "csm",
+    "scrum",
+    "cissp",
+    "cism",
+    "cfa",
+    "cpa",
+    "itil",
+)
+_TOOL_MARKERS: tuple[str, ...] = (
+    "aws",
+    "azure",
+    "gcp",
+    "salesforce",
+    "sap",
+    "excel",
+    "tableau",
+    "power bi",
+    "sql",
+)
 
 
 def _to_mutable(data: Any) -> Any:
@@ -693,6 +764,105 @@ def _set_path(obj: dict[str, Any], path: str, value: Any, *, overwrite: bool = T
         cursor = next_value
     if overwrite or not _path_has_meaningful_value(obj, path):
         cursor[parts[-1]] = value
+
+
+def _stringify_skill_entries(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return [cleaned] if cleaned else []
+    if isinstance(value, Mapping):
+        name = value.get("name")
+        if isinstance(name, str):
+            return _stringify_skill_entries(name)
+        return []
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        collected: list[str] = []
+        for item in value:
+            collected.extend(_stringify_skill_entries(item))
+        return collected
+    return []
+
+
+def _append_unique(target: list[str], item: str) -> None:
+    if not item:
+        return
+    if item not in target:
+        target.append(item)
+
+
+def _classify_skill_term(term: str) -> Literal["language", "certification", "soft", "tool", "hard"]:
+    lower = term.casefold()
+    if any(marker in lower for marker in _LANGUAGE_MARKERS):
+        return "language"
+    if any(marker in lower for marker in _CERTIFICATION_MARKERS):
+        return "certification"
+    if any(marker in lower for marker in _SOFT_SKILL_MARKERS):
+        return "soft"
+    if any(marker in lower for marker in _TOOL_MARKERS):
+        return "tool"
+    return "hard"
+
+
+def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
+    requirements = payload.get("requirements")
+    if not isinstance(requirements, dict):
+        requirements = {}
+        payload["requirements"] = requirements
+
+    normalized: dict[str, list[str]] = {}
+    for key in (
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+        "tools_and_technologies",
+        "languages_required",
+        "languages_optional",
+        "certifications",
+    ):
+        normalized[key] = []
+        for entry in _stringify_skill_entries(requirements.get(key, [])):
+            _append_unique(normalized[key], entry)
+
+    skills_section = payload.get("skills") if isinstance(payload.get("skills"), Mapping) else {}
+    if isinstance(skills_section, Mapping):
+        for key in normalized:
+            if key in skills_section:
+                for entry in _stringify_skill_entries(skills_section.get(key)):
+                    _append_unique(normalized[key], entry)
+
+    required_pool = _stringify_skill_entries(skills_section.get("must_have"))
+    optional_pool = _stringify_skill_entries(skills_section.get("nice_to_have"))
+
+    def _assign(entries: list[str], *, required: bool) -> None:
+        for entry in entries:
+            category = _classify_skill_term(entry)
+            if category == "language":
+                _append_unique(
+                    normalized["languages_required" if required else "languages_optional"],
+                    entry,
+                )
+            elif category == "certification":
+                _append_unique(normalized["certifications"], entry)
+            elif category == "soft":
+                _append_unique(
+                    normalized["soft_skills_required" if required else "soft_skills_optional"],
+                    entry,
+                )
+            elif category == "tool":
+                _append_unique(normalized["tools_and_technologies"], entry)
+            else:
+                _append_unique(
+                    normalized["hard_skills_required" if required else "hard_skills_optional"],
+                    entry,
+                )
+
+    _assign(required_pool, required=True)
+    _assign(optional_pool, required=False)
+
+    requirements.update(normalized)
 
 
 def _apply_aliases(payload: dict[str, Any], aliases: Mapping[str, str]) -> dict[str, Any]:
@@ -1076,6 +1246,7 @@ def canonicalize_profile_payload(data: Mapping[str, Any] | None) -> dict[str, An
     if not isinstance(mutable, dict):
         return {}
     payload = _apply_aliases(mutable, ALIASES)
+    _normalise_skill_requirements(payload)
     _filter_unknown_fields(payload, canonical_fields=KEYS_CANONICAL)
     _coerce_scalar_types(
         payload,
