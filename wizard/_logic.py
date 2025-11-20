@@ -427,6 +427,10 @@ def _update_profile(
             if session_value is _MISSING:
                 target_session_value = normalized_value_for_path
             else:
+                # ``session_value`` preserves the widget's original payload when
+                # Streamlit replays the script on rerun, preventing defaults from
+                # overwriting user edits while the underlying profile uses the
+                # normalized ``value`` for storage and export.
                 target_session_value = session_value
             _sync_widget_state(target_session_value)
         current = get_in(data, path)

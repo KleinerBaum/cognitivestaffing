@@ -74,6 +74,8 @@ _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
 
 
 def _build_page_progress_fields() -> dict[str, tuple[str, ...]]:
+    """Assemble required/extra field mappings used to track page completion."""
+
     mapping: dict[str, tuple[str, ...]] = {}
     for page in WIZARD_PAGES:
         extras = _PAGE_EXTRA_FIELDS.get(page.key, ())
