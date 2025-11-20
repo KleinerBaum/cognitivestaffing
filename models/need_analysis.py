@@ -234,6 +234,29 @@ class Responsibilities(BaseModel):
     items: List[str] = Field(default_factory=list)
 
 
+class SkillEntry(BaseModel):
+    """Represents a single skill with optional taxonomy metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    normalized_name: Optional[str] = None
+    esco_uri: Optional[str] = None
+    weight: Optional[float] = Field(default=None, ge=0, le=1)
+
+
+class SkillMappings(BaseModel):
+    """ESCO-aligned skills grouped by requirement bucket."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hard_skills_required: List[SkillEntry] = Field(default_factory=list)
+    hard_skills_optional: List[SkillEntry] = Field(default_factory=list)
+    soft_skills_required: List[SkillEntry] = Field(default_factory=list)
+    soft_skills_optional: List[SkillEntry] = Field(default_factory=list)
+    tools_and_technologies: List[SkillEntry] = Field(default_factory=list)
+
+
 _MODEL_VALIDATOR_SUPPORTS_SKIP = "skip_on_failure" in inspect.signature(model_validator).parameters
 
 
@@ -255,6 +278,7 @@ class Requirements(BaseModel):
     background_check_required: Optional[bool] = None
     portfolio_required: Optional[bool] = None
     reference_check_required: Optional[bool] = None
+    skill_mappings: SkillMappings = Field(default_factory=SkillMappings)
 
     @model_validator(
         mode="after",

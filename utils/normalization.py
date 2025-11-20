@@ -19,6 +19,7 @@ from config import ModelTask, get_model_for, is_llm_enabled
 from llm.openai_responses import build_json_schema_format, call_responses
 from llm.profile_normalization import normalize_interview_stages_field
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
+from utils.skill_taxonomy import build_skill_mappings
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from models.need_analysis import NeedAnalysisProfile
@@ -100,6 +101,21 @@ class ResponsibilitiesPayload(TypedDict, total=False):
     items: list[str]
 
 
+class SkillEntryPayload(TypedDict, total=False):
+    name: str
+    normalized_name: str | None
+    esco_uri: str | None
+    weight: float | None
+
+
+class SkillMappingsPayload(TypedDict, total=False):
+    hard_skills_required: list[SkillEntryPayload]
+    hard_skills_optional: list[SkillEntryPayload]
+    soft_skills_required: list[SkillEntryPayload]
+    soft_skills_optional: list[SkillEntryPayload]
+    tools_and_technologies: list[SkillEntryPayload]
+
+
 class RequirementsPayload(TypedDict, total=False):
     hard_skills_required: list[str]
     hard_skills_optional: list[str]
@@ -114,6 +130,7 @@ class RequirementsPayload(TypedDict, total=False):
     background_check_required: bool | None
     portfolio_required: bool | None
     reference_check_required: bool | None
+    skill_mappings: SkillMappingsPayload
 
 
 class EmploymentPayload(TypedDict, total=False):
@@ -915,6 +932,9 @@ def _normalize_list(values: Sequence[Any], path: str) -> list[Any]:
 
 def _normalize_profile_mapping(data: Mapping[str, Any]) -> dict[str, Any]:
     normalized = {key: _normalize_value(value, key) for key, value in data.items()}
+    requirements = normalized.get("requirements")
+    if isinstance(requirements, Mapping):
+        requirements["skill_mappings"] = build_skill_mappings(requirements)
     return normalized
 
 

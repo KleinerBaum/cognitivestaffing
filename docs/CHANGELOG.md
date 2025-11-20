@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Requirements now include ESCO-aligned `skill_mappings` that normalize skill labels and attach URIs after extraction, so downstream matching can rely on standard taxonomy identifiers.
+  DE: Die Requirements enthalten jetzt ESCO-ausgerichtete `skill_mappings`, die Skill-Bezeichnungen normalisieren und nach der Extraktion URIs hinzufügen, damit nachgelagerte Matching-Logik auf Standard-Taxonomie-IDs zugreifen kann.
+
 - EN: Wizard steps now surface contextual intros, highlight AI-prefilled inputs with 🛈 badges, and warn on the Summary step when critical fields are still missing so exports stay complete.
   DE: Wizard-Schritte zeigen kontextuelle Intros, markieren KI-vorbefüllte Felder mit 🛈-Badges und warnen in der Summary vor fehlenden Pflichtfeldern, damit Exporte vollständig bleiben.
 

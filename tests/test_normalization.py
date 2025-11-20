@@ -226,3 +226,22 @@ def test_normalize_profile_pipeline_applies_aliases() -> None:
     assert normalized.department.name == "Operations"
     assert normalized.team.name == "Core Platform"
     assert normalized.team.reporting_line == "CTO"
+
+
+def test_normalize_profile_enriches_skill_mappings() -> None:
+    payload = {
+        "requirements": {
+            "hard_skills_required": ["Excel"],
+            "soft_skills_optional": ["teamwork"],
+        }
+    }
+
+    normalized = normalize_profile(payload)
+
+    skill_mappings = normalized["requirements"]["skill_mappings"]
+    hard_skill = skill_mappings["hard_skills_required"][0]
+    assert hard_skill["normalized_name"] == "Microsoft Excel"
+    assert hard_skill["esco_uri"]
+
+    soft_skill = skill_mappings["soft_skills_optional"][0]
+    assert soft_skill["normalized_name"] == "Teamwork"
