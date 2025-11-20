@@ -717,11 +717,11 @@ def test_company_step_surfaces_warning_when_contact_fields_missing(
     assert "Kontakt-E-Mail" in warnings[-1]
 
 
-def test_company_next_click_blocks_when_contact_fields_went_missing(
+def test_company_next_click_allows_navigation_when_contact_fields_missing(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
 ) -> None:
-    """Re-run contact validators when Next is clicked to prevent stale navigation."""
+    """Navigation should continue even when required validators report errors."""
 
     st.session_state[StateKeys.PROFILE] = {
         "company": {"name": "ACME", "contact_email": "contact@example.com"},
@@ -740,8 +740,6 @@ def test_company_next_click_blocks_when_contact_fields_went_missing(
 
     def _validate_stub(self: WizardRouter, fields: Sequence[str]) -> dict[str, tuple[str, str]]:
         call_counter["value"] += 1
-        if call_counter["value"] == 1:
-            return {}
         return {str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt fehlt", "Contact missing")}
 
     monkeypatch.setattr(WizardRouter, "_validate_required_field_inputs", _validate_stub)
@@ -776,17 +774,17 @@ def test_company_next_click_blocks_when_contact_fields_went_missing(
     with pytest.raises(RerunTriggered):
         router.run()
 
-    assert call_counter["value"] >= 2, "validators should re-run during navigation"
-    assert router._state["current_step"] == "company"
-    assert query_params["step"] == ["company"]
-    assert st.session_state.get(StateKeys.WIZARD_NAVIGATION_WARNING) == wizard_router_module._NAVIGATION_CONTACT_WARNING
+    assert call_counter["value"] >= 1, "validators should still execute"
+    assert router._state["current_step"] == "team"
+    assert query_params["step"] == ["team"]
+    assert StateKeys.WIZARD_NAVIGATION_WARNING not in st.session_state
 
 
-def test_navigation_warning_hint_renders_under_next_button(
+def test_missing_required_fields_hint_renders_under_next_button(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
 ) -> None:
-    """Stored navigation warnings should surface as bilingual hints beside Next."""
+    """Missing required data should surface as a hint beside the Next button."""
 
     st.session_state[StateKeys.PROFILE] = {
         "company": {"name": "ACME", "contact_email": "contact@example.com"},
@@ -800,11 +798,7 @@ def test_navigation_warning_hint_renders_under_next_button(
     router._state["current_step"] = "company"
     query_params["step"] = ["company"]
 
-    def _erroring_validator(self: WizardRouter, fields: Sequence[str]) -> dict[str, tuple[str, str]]:
-        return {str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt fehlt", "Contact missing")}
-
-    monkeypatch.setattr(WizardRouter, "_validate_required_field_inputs", _erroring_validator)
-    router._enforce_required_navigation_fields((str(ProfilePaths.COMPANY_CONTACT_EMAIL),))
+    st.session_state[str(ProfilePaths.COMPANY_CONTACT_EMAIL)] = ""
 
     captions: list[str] = []
 
@@ -821,36 +815,7 @@ def test_navigation_warning_hint_renders_under_next_button(
 
     router.run()
 
-    assert any("Kontakt" in entry for entry in captions), "expected bilingual hint near Next"
-
-
-def test_navigation_warning_clears_after_validators_pass(
-    monkeypatch: pytest.MonkeyPatch,
-    query_params: Dict[str, List[str]],
-) -> None:
-    """Successful validator runs should remove any lingering navigation hints."""
-
-    st.session_state[StateKeys.PROFILE] = {
-        "company": {"name": "ACME", "contact_email": "contact@example.com"},
-        "location": {"primary_city": "Berlin"},
-        "meta": {},
-    }
-    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
-    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
-    st.session_state[StateKeys.WIZARD_NAVIGATION_WARNING] = wizard_router_module._NAVIGATION_CONTACT_WARNING
-
-    missing_ref = {"value": []}
-    router, _ = _make_router(monkeypatch, query_params, missing_ref)
-
-    blocked = router._enforce_required_navigation_fields(
-        (
-            str(ProfilePaths.COMPANY_CONTACT_EMAIL),
-            str(ProfilePaths.LOCATION_PRIMARY_CITY),
-        )
-    )
-
-    assert blocked is False
-    assert StateKeys.WIZARD_NAVIGATION_WARNING not in st.session_state
+    assert any("Pflicht" in entry or "required" in entry.lower() for entry in captions)
 
 
 def test_company_required_validators_use_profile_when_widget_state_missing(
