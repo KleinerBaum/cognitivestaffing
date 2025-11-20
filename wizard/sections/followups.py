@@ -293,6 +293,16 @@ def _ensure_followup_styles() -> None:
                 font-size: 0.85rem;
             }
 
+            .wizard-followup-description {
+                color: var(--text-soft, rgba(15, 23, 42, 0.62));
+                font-size: 0.92rem;
+                font-style: italic;
+                margin-bottom: 0.25rem;
+                display: inline-flex;
+                gap: 0.35rem;
+                align-items: center;
+            }
+
             .fu-highlight {
                 border-color: rgba(255, 0, 0, 0.25);
                 box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3);
@@ -517,10 +527,20 @@ def _render_followup_question(q: dict, data: dict) -> None:
         st.session_state[toast_sentinel] = False
     ui_variant = q.get("ui_variant")
     description = q.get("description")
+    if not description:
+        missing_fields = st.session_state.get(StateKeys.EXTRACTION_MISSING) or []
+        if field in missing_fields:
+            description = tr(
+                "Diese Angabe fehlte in der Stellenanzeige.",
+                "This detail was not found in the job ad.",
+            )
     if ui_variant in ("info", "warning") and description:
         getattr(container, ui_variant)(description)
     elif description:
-        container.caption(description)
+        container.markdown(
+            f"<div class='wizard-followup-description'>🛈 {description}</div>",
+            unsafe_allow_html=True,
+        )
     priority = q.get("priority")
     question_text = prompt or tr("Antwort eingeben", "Enter response")
     display_question = f"{REQUIRED_PREFIX}{question_text}" if priority == "critical" else question_text

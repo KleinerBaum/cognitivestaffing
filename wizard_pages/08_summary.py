@@ -14,20 +14,20 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
 PAGE = WizardPage(
     key="summary",
     label=("Zusammenfassung", "Summary"),
-    panel_header=("Bereit zum Export", "Ready to export"),
-    panel_subheader=("Prüfe Ergebnisse", "Review the results"),
+    panel_header=("Letzter Check & Export", "Final check & export"),
+    panel_subheader=("Fehlende Pflichtfelder erkennen und schließen", "Spot and close any missing critical fields"),
     panel_intro_variants=(
         (
-            "Prüfe die wichtigsten Angaben und starte anschließend Export oder KI-Outputs.",
-            "Double-check the key inputs before triggering exports or AI outputs.",
+            "Prüfe die wichtigsten Angaben, wir zeigen offene Pflichtfelder direkt an.",
+            "Review the key inputs; we highlight any remaining critical fields for you.",
         ),
         (
-            "Saubere Validierung hier stellt konsistente Daten für Anzeigen, Reports und Integrationen sicher.",
-            "Thorough validation here ensures consistent data for ads, reports, and integrations.",
+            "Eine letzte Validierung stellt konsistente Daten für Anzeigen, Reports und Integrationen sicher.",
+            "A final validation keeps ads, reports, and integrations consistent.",
         ),
         (
-            "Gönn dir einen letzten Blick, dann kannst du mit einem Klick exportieren oder teilen.",
-            "Take one last look and then share or export everything with a single click.",
+            "Letzter Blick und offene Antworten schließen – danach kannst du exportieren oder teilen.",
+            "Take a last look, close any gaps, and then export or share.",
         ),
     ),
     required_fields=(),
