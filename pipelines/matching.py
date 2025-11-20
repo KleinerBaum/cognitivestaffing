@@ -49,10 +49,10 @@ def match_candidates(
     """Return structured match scores for candidates against a vacancy."""
 
     requirements = vacancy_json.get("requirements") or {}
-    must_have = _normalise_terms(
+    must_have, must_have_lookup = _normalise_requirement_terms(
         requirements.get("hard_skills_required", []) + requirements.get("soft_skills_required", [])
     )
-    nice_to_have = _normalise_terms(
+    nice_to_have, nice_to_have_lookup = _normalise_requirement_terms(
         requirements.get("hard_skills_optional", [])
         + requirements.get("soft_skills_optional", [])
         + requirements.get("tools_and_technologies", [])
@@ -79,7 +79,9 @@ def match_candidates(
             _score_candidate(
                 candidate,
                 must_have=must_have,
+                must_have_lookup=must_have_lookup,
                 nice_to_have=nice_to_have,
+                nice_to_have_lookup=nice_to_have_lookup,
                 required_languages=required_languages,
                 optional_languages=optional_languages,
                 required_years=required_years,
@@ -101,7 +103,9 @@ def _score_candidate(
     summary: Mapping[str, Any],
     *,
     must_have: list[str],
+    must_have_lookup: Mapping[str, str],
     nice_to_have: list[str],
+    nice_to_have_lookup: Mapping[str, str],
     required_languages: list[str],
     optional_languages: list[str],
     required_years: float | None,
@@ -124,6 +128,7 @@ def _score_candidate(
 
     score += _score_must_have(
         must_have,
+        must_have_lookup,
         skill_set,
         skill_lookup,
         highlighted,
@@ -132,6 +137,7 @@ def _score_candidate(
     )
     score += _score_nice_to_have(
         nice_to_have,
+        nice_to_have_lookup,
         skill_set,
         skill_lookup,
         highlighted,
@@ -177,6 +183,19 @@ def _normalise_terms(values: Iterable[Any]) -> list[str]:
         if token:
             cleaned.append(token)
     return cleaned
+
+
+def _normalise_requirement_terms(values: Iterable[Any]) -> tuple[list[str], dict[str, str]]:
+    normalised: list[str] = []
+    display_lookup: dict[str, str] = {}
+    for value in values or []:
+        token = _normalise_token(value)
+        if not token:
+            continue
+        norm = token.casefold()
+        normalised.append(norm)
+        display_lookup.setdefault(norm, token)
+    return normalised, display_lookup
 
 
 def _normalise_token(value: Any) -> str | None:
@@ -227,6 +246,7 @@ def _extract_languages(languages: Any) -> set[str]:
 
 def _score_must_have(
     must_have: list[str],
+    display_lookup: Mapping[str, str],
     skill_set: set[str],
     skill_lookup: Mapping[str, str],
     highlighted: list[str],
@@ -237,12 +257,11 @@ def _score_must_have(
         reasons.append("No must-have skills specified for this role.")
         return MUST_HAVE_WEIGHT
 
-    normalized = [skill.casefold() for skill in must_have]
-    matched = [skill for skill in normalized if skill in skill_set]
-    missing = [must_have[idx] for idx, skill in enumerate(normalized) if skill not in skill_set]
+    matched = [skill for skill in must_have if skill in skill_set]
+    missing = [display_lookup.get(skill, skill) for skill in must_have if skill not in skill_set]
 
     highlighted.extend(
-        skill_lookup.get(skill, must_have[idx]) for idx, skill in enumerate(normalized) if skill in skill_set
+        skill_lookup.get(skill, display_lookup.get(skill, skill)) for skill in must_have if skill in skill_set
     )
 
     if missing:
@@ -262,6 +281,7 @@ def _score_must_have(
 
 def _score_nice_to_have(
     nice_to_have: list[str],
+    display_lookup: Mapping[str, str],
     skill_set: set[str],
     skill_lookup: Mapping[str, str],
     highlighted: list[str],
@@ -269,10 +289,9 @@ def _score_nice_to_have(
 ) -> float:
     if not nice_to_have:
         return 0.0
-    normalized = [skill.casefold() for skill in nice_to_have]
-    matched = [skill for skill in normalized if skill in skill_set]
+    matched = [skill for skill in nice_to_have if skill in skill_set]
     highlighted.extend(
-        skill_lookup.get(skill, nice_to_have[idx]) for idx, skill in enumerate(normalized) if skill in skill_set
+        skill_lookup.get(skill, display_lookup.get(skill, skill)) for skill in nice_to_have if skill in skill_set
     )
     coverage = len(matched) / len(nice_to_have)
     reasons.append(f"Matched {len(matched)}/{len(nice_to_have)} nice-to-have skills.")
@@ -369,6 +388,11 @@ def _penalise_language_gaps(
 
 
 def _infer_required_years(vacancy_json: Mapping[str, Any]) -> float | None:
+    experience = vacancy_json.get("experience") or {}
+    experience_years = _coerce_float(experience.get("years_min") or experience.get("years_max"))
+    if experience_years is not None:
+        return experience_years
+
     requirements = vacancy_json.get("requirements") or {}
     explicit = requirements.get("years_experience") or requirements.get("min_years_experience")
     candidate = _coerce_float(explicit)
@@ -376,7 +400,7 @@ def _infer_required_years(vacancy_json: Mapping[str, Any]) -> float | None:
         return candidate
 
     position = vacancy_json.get("position") or {}
-    seniority = _normalise_token(position.get("seniority_level") or position.get("seniority"))
+    seniority = _normalise_token(position.get("seniority") or position.get("seniority_level"))
     if not seniority:
         return None
     return _SENIORITY_TO_YEARS.get(seniority.casefold())

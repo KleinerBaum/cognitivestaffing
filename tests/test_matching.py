@@ -12,7 +12,8 @@ def _vacancy_payload() -> dict:
             "soft_skills_required": ["Collaboration"],
             "languages_required": ["English"],
         },
-        "position": {"seniority_level": "Senior"},
+        "position": {"seniority": "Senior"},
+        "experience": {"years_min": 5},
         "location": {"primary_city": "Berlin", "country": "Germany"},
         "employment": {"work_policy": "hybrid"},
     }
@@ -49,7 +50,7 @@ def test_match_candidates_penalises_missing_must_have_and_populates_gaps() -> No
     )
     weak = _candidate(
         "cand-weak",
-        ["Python"],
+        ["python"],
         years=8,
         location="Berlin, Germany",
         languages=["en"],
@@ -60,13 +61,15 @@ def test_match_candidates_penalises_missing_must_have_and_populates_gaps() -> No
 
     weak_entry = next(entry for entry in result["candidates"] if entry["candidate_id"] == "cand-weak")
     assert any("Missing must-have skill" in gap for gap in weak_entry["gaps"])
+    assert any("must-have" in reason for reason in weak_entry["reasons"])
+    assert weak_entry["score"] < 60
     assert weak_entry["score"] < result["candidates"][0]["score"]
 
 
 def test_match_candidates_flags_language_and_experience_gaps() -> None:
     vacancy = _vacancy_payload()
     vacancy["requirements"]["languages_required"] = ["English", "German"]
-    vacancy["position"]["seniority_level"] = "Lead"
+    vacancy["experience"] = {"years_min": 7}
 
     candidate = _candidate(
         "cand-gap",
@@ -80,4 +83,24 @@ def test_match_candidates_flags_language_and_experience_gaps() -> None:
     entry = result["candidates"][0]
     assert any("Missing required language" in gap for gap in entry["gaps"])
     assert any("Requires" in gap and "years" in gap for gap in entry["gaps"])
+    assert entry["score"] < 80
+
+
+def test_experience_inferred_from_experience_section() -> None:
+    vacancy = _vacancy_payload()
+    vacancy["experience"] = {"years_min": 4}
+    vacancy["position"] = {}
+
+    candidate = _candidate(
+        "cand-exp",
+        ["Python", "Kubernetes", "Collaboration"],
+        years=3,
+        location="Hamburg, Germany",
+        languages=["en"],
+    )
+
+    result = match_candidates(vacancy, [candidate])
+    entry = result["candidates"][0]
+    assert any("Requires 4.0+ years" in gap for gap in entry["gaps"])
+    assert any("Experience alignment" in reason for reason in entry["reasons"])
     assert entry["score"] < 80
