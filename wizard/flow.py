@@ -7122,8 +7122,8 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
     process["onboarding_process"] = "\n".join(cleaned)
 
 
-def _step_position() -> None:
-    """Render the position details step.",
+def _step_team() -> None:
+    """Render the team and position context step.
 
     Returns:
         None
@@ -11290,9 +11290,9 @@ def step_company(context: WizardContext) -> None:
 
 
 def step_team(context: WizardContext) -> None:
-    """Render the team/position step."""
+    """Render the team/context step."""
 
-    _step_position()
+    _step_team()
 
 
 def step_role_tasks(context: WizardContext) -> None:
