@@ -116,7 +116,6 @@
                 }
             },
             "required": [
-                "name",
                 "brand_name",
                 "industry",
                 "hq_location",
@@ -498,25 +497,141 @@
                         "hard_skills_optional": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    }
+                                }
                             }
                         },
                         "soft_skills_required": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    }
+                                }
                             }
                         },
                         "soft_skills_optional": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    }
+                                }
                             }
                         },
                         "tools_and_technologies": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/properties/requirements/properties/skill_mappings/properties/hard_skills_required/items"
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    }
+                                }
                             }
                         }
                     },

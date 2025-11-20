@@ -58,12 +58,22 @@ Die Feldnamen unten verwenden die Dot-Pfade aus `constants/keys.ProfilePaths`.
   `onboarding_process`, `hiring_manager_name`, `hiring_manager_role`.
 - **meta:** `target_start_date`, `application_deadline`, `followups_answered`.
 
+**EN:** `company.name` is optional in the structured output schema. When the extractor
+cannot infer it from the job ad, the wizard inserts a bilingual follow-up question
+instead of rejecting the payload, and the field can be filled later without
+breaking validation.
+
+**DE:** `company.name` ist im strukturierten Schema optional. Falls der Extractor den
+Namen nicht aus der Anzeige ableiten kann, erstellt der Wizard eine zweisprachige
+Follow-up-Frage, statt das Payload abzulehnen; das Feld lässt sich später
+ausfüllen, ohne die Validierung zu verletzen.
+
 ### Example output / Beispielausgabe
 
 ```json
 {
   "company": {
-    "name": "TechCorp GmbH",
+    "name": null,
     "brand_name": "TechCorp",
     "hq_location": "Berlin",
     "size": "201-500",
