@@ -169,6 +169,36 @@ def test_generate_interview_guide_returns_llm_result(monkeypatch: pytest.MonkeyP
     assert captured["tool_choice"] == "auto"
 
 
+def test_generate_interview_guide_openai_schema_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure the OpenAI call receives the schema payload without errors."""
+
+    captured: dict[str, Any] = {}
+
+    def fake_call(messages: list[dict[str, Any]], **kwargs: Any) -> api.ChatCallResult:
+        captured["json_schema"] = kwargs.get("json_schema")
+        return api.ChatCallResult(json.dumps(_llm_payload("en")), [], {"input_tokens": 1})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
+
+    guide = openai_utils.generate_interview_guide(
+        "Engineer",
+        responsibilities="Design systems",
+        hard_skills=["Python"],
+        soft_skills=["Teamwork"],
+        num_questions=3,
+        lang="en",
+        company_culture="Collaborative",
+        tone="Structured",
+    )
+
+    schema_cfg = captured["json_schema"]
+    assert schema_cfg
+    assert schema_cfg.get("name") == "interviewGuide"
+    assert schema_cfg.get("schema", {}).get("type") == "object"
+    assert schema_cfg.get("schema", {}).get("additionalProperties") is False
+    assert isinstance(guide, InterviewGuide)
+
+
 def test_generate_interview_guide_handles_german_locale(monkeypatch: pytest.MonkeyPatch) -> None:
     """German prompts return localised metadata and Markdown."""
 

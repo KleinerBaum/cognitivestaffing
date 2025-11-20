@@ -1,7 +1,13 @@
 import pytest
 
 from models.need_analysis import NeedAnalysisProfile
-from core.schema import LIST_FIELDS, RecruitingWizard, SourceAttribution, coerce_and_fill
+from core.schema import (
+    LIST_FIELDS,
+    RecruitingWizard,
+    SourceAttribution,
+    coerce_and_fill,
+    process_extracted_profile,
+)
 from core.schema_defaults import default_recruiting_wizard
 
 
@@ -170,6 +176,22 @@ def test_default_insertion() -> None:
     assert profile.position.job_title is None
     assert profile.company.name is None
     assert profile.requirements.hard_skills_required == []
+
+
+def test_process_extracted_profile_handles_missing_company_name() -> None:
+    """Profiles without a company name should be normalized safely."""
+
+    raw_profile = {
+        "company": {},
+        "position": {"job_title": "Engineer"},
+        "requirements": {"hard_skills_required": ["Python"]},
+    }
+
+    profile = process_extracted_profile(raw_profile)
+
+    dumped = profile.model_dump()
+    assert dumped["company"]["name"] in (None, "")
+    assert dumped["position"]["job_title"] == "Engineer"
 
 
 def test_job_type_invalid() -> None:
