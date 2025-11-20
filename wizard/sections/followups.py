@@ -14,7 +14,7 @@ from utils.i18n import tr
 from wizard.followups import followup_has_response
 from wizard.metadata import FIELD_SECTION_MAP, PAGE_FOLLOWUP_PREFIXES, get_missing_critical_fields
 from wizard.types import LangPair, LangSuggestionPair
-from wizard._logic import get_in, set_in, _update_profile
+from wizard._logic import _get_profile_state, get_in, set_in, _update_profile
 from wizard.date_utils import default_date
 
 JobAdGenerator = Callable[
@@ -427,10 +427,7 @@ def _resolve_followup_renderer() -> Callable[[dict, dict], None]:
 
 
 def _render_followup_question(q: dict, data: dict) -> None:
-    profile_state = st.session_state.get(StateKeys.PROFILE)
-    if isinstance(data, dict) and profile_state is not data:
-        st.session_state[StateKeys.PROFILE] = data
-
+    profile_data = _get_profile_state()
     field = str(q.get("field", ""))
     if not field:
         return
@@ -444,7 +441,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     with container:
         st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
         st.markdown("<div class='wizard-followup-item'>", unsafe_allow_html=True)
-    existing_value = get_in(data, field, None)
+    existing_value = get_in(profile_data, field, None)
     if key not in st.session_state:
         if field in LIST_FOLLOWUP_FIELDS:
             st.session_state[key] = _normalize_list_value(existing_value)
@@ -477,8 +474,12 @@ def _render_followup_question(q: dict, data: dict) -> None:
         for index, (col, option) in enumerate(zip(cols, suggestions)):
             with col:
                 st.markdown("<div class='wizard-followup-chip'>", unsafe_allow_html=True)
-                if st.button(option, key=f"{key}_opt_{index}"):
-                    _apply_followup_suggestion(field, key, option)
+                st.button(
+                    option,
+                    key=f"{key}_opt_{index}",
+                    on_click=_apply_followup_suggestion,
+                    args=(field, key, option),
+                )
                 st.markdown("</div>", unsafe_allow_html=True)
 
     should_focus = bool(st.session_state.get(focus_sentinel, False))
@@ -513,9 +514,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 label_visibility="collapsed",
             )
             processed_value = (
-                int(numeric_value)
-                if isinstance(numeric_value, float) and numeric_value.is_integer()
-                else numeric_value
+                int(numeric_value) if isinstance(numeric_value, float) and numeric_value.is_integer() else numeric_value
             )
         elif field in DATE_FOLLOWUP_FIELDS:
             date_value = st.date_input(
@@ -594,6 +593,9 @@ def _render_followup_question(q: dict, data: dict) -> None:
         )
     if isinstance(data, dict):
         set_in(data, field, processed_value)
+        followups_answered = get_in(profile_data, "meta.followups_answered")
+        if followups_answered is not None:
+            set_in(data, "meta.followups_answered", followups_answered)
     if followup_has_response(processed_value):
         st.session_state.pop(focus_sentinel, None)
         st.session_state.pop(highlight_sentinel, None)
