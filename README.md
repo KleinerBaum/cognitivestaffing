@@ -92,6 +92,10 @@ EN: The repository keeps wizard-facing code under components/, pages/, wizard/, 
 
 DE: Wizard-sichtbarer Code liegt in components/, pages/, wizard/, sidebar/ und ui_views/, während die Domänenlogik in core/, constants/ und schemas.py lebt. LLM-Adapter befinden sich in llm/ und openai_utils/, Ingestion-/RAG-Helfer in ingest/ sowie pipelines/, und die Dokumentation mit CHANGELOG, Developer-Guides und Telemetrie-Hinweisen unter docs/.
 
+EN: Active refactor targets for the OpenAI client and ingestion heuristics are tracked in docs/refactor_targets.md so contributors can follow the planned module splits before touching the monoliths.
+
+DE: Aktive Refactoring-Ziele für den OpenAI-Client und die Ingestion-Heuristiken sind in docs/refactor_targets.md dokumentiert, damit Contributor:innen die geplanten Modulaufteilungen kennen, bevor sie die Monolithen anfassen.
+
 Testing / Tests
 
 EN: Run ruff format, ruff check, and mypy --config-file pyproject.toml before executing coverage run -m pytest -q (the default marker expression skips llm tests; add -m llm when an OpenAI key is configured). Keep total coverage ≥88% so CI stays green and XML/HTML artifacts remain available for review.

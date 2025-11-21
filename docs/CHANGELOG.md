@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Documented refactor targets for the OpenAI client and ingestion heuristics so contributors can follow the planned splits before editing the large modules.
+  DE: Refactoring-Ziele für den OpenAI-Client und die Ingestion-Heuristiken dokumentiert, damit Contributor:innen die geplanten Aufteilungen kennen, bevor sie die großen Module anpassen.
+
 - EN: Precise extraction now forces a high-effort model tier and injects rule-based section cues (e.g., Aufgaben/Anforderungen) into the prompt so responsibilities and requirements are captured more reliably.
   DE: Die präzise Extraktion nutzt jetzt ein Modell mit hoher Reasoning-Stufe und fügt regelbasierte Abschnittshinweise (z. B. Aufgaben/Anforderungen) in den Prompt ein, damit Aufgaben- und Anforderungsblöcke zuverlässiger erkannt werden.
 
