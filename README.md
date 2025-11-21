@@ -370,6 +370,8 @@ USE_RESPONSES_API (default 1) routes all structured calls through the OpenAI Res
 
 USE_CLASSIC_API=1 forces the legacy chat backend even when Responses would normally be selected. Both suggestion and extraction pipelines retry on Responses errors first, then cascade to chat, and finally fall back to curated static copy (for example, benefit shortlists) if the API keeps failing.
 
+Developers can also pass `api_mode=config.APIMode.RESPONSES` or `api_mode=config.APIMode.CLASSIC` directly to `call_chat_api` and `stream_chat_api` to scope the backend choice to a single invocation without mutating global flags or environment variables.
+
 Structured extraction now retries Responses up to three times before cascading to chat; when the plain-text fallback cannot be parsed as JSON, the wizard defaults to an empty NeedAnalysisProfile so heuristics and follow-up questions can still run. /
 Die strukturierte Extraktion versucht Responses jetzt bis zu drei Mal, bevor sie auf Chat wechselt; wenn die Fallback-Antwort kein JSON liefert, fällt der Wizard auf ein leeres NeedAnalysisProfile zurück, damit Heuristiken und Anschlussfragen weiterlaufen.
 
@@ -394,6 +396,8 @@ DE:
 USE_RESPONSES_API (Standard 1) leitet strukturierte Aufrufe über die OpenAI-Responses-API mit JSON-Schema-Prüfung und Tool-Support. Wird das Flag auf 0 (oder False) gesetzt, schaltet sich automatisch USE_CLASSIC_API=1 ein und sämtliche Requests laufen über die Chat-Completions-Schnittstelle.
 
 USE_CLASSIC_API=1 erzwingt den Legacy-Chat-Client, auch wenn Responses normalerweise gewählt würde. Vorschlags- und Extraktionspipelines versuchen zunächst Responses, wechseln danach auf Chat und greifen zuletzt auf kuratierte statische Inhalte (z. B. Benefit-Shortlists) zurück, wenn die API dauerhaft fehlschlägt.
+
+Entwickler:innen können `api_mode=config.APIMode.RESPONSES` oder `api_mode=config.APIMode.CLASSIC` direkt an `call_chat_api` und `stream_chat_api` übergeben, um die Backend-Wahl auf einen einzelnen Aufruf zu begrenzen, ohne globale Flags oder Umgebungsvariablen umzuschalten.
 
 RESPONSES_ALLOW_TOOLS (Standard 0) schaltet Funktions-/Tool-Payloads für die Responses-API wieder frei. Belasse den Standardwert für den Responses-Rollout 2025, bei dem Tools blockiert sind; setze das Flag nur auf 1, wenn dein Account für toolfähige Responses freigeschaltet wurde. Andernfalls wechselt der Client automatisch auf den klassischen Chat-Backend, sobald Tools erforderlich sind.
 

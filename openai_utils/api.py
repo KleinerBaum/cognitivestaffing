@@ -46,12 +46,14 @@ from config import (
     STRICT_JSON,
     VERBOSITY,
     ModelTask,
+    APIMode,
     get_active_verbosity,
     get_first_available_model,
     get_model_candidates,
     is_model_available,
     mark_model_unavailable,
     normalise_verbosity,
+    resolve_api_mode,
     select_model,
 )
 from constants.keys import StateKeys
@@ -521,24 +523,32 @@ def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
         )
 
 
-def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: str | None = None) -> Any:
+def _create_response_with_timeout(
+    payload: Dict[str, Any], *, api_mode: APIMode | str | bool | None = None
+) -> Any:
     """Execute a Responses create call with configured timeout handling."""
 
     request_kwargs = dict(payload)
-    api_mode = api_mode or request_kwargs.pop("_api_mode", None)
+    mode_override = api_mode or request_kwargs.pop("_api_mode", None)
     timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
-    mode = api_mode or ("chat" if app_config.USE_CLASSIC_API else "responses")
+    mode = resolve_api_mode(mode_override).value
     cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
     if mode == "chat":
         return get_client().chat.completions.create(timeout=timeout, **cleaned_payload)
     return get_client().responses.create(timeout=timeout, **cleaned_payload)
 
 
-def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode: str | None = None) -> Any:
+def _execute_response(
+    payload: Dict[str, Any],
+    model: Optional[str],
+    *,
+    api_mode: APIMode | str | bool | None = None,
+) -> Any:
     """Send ``payload`` to the configured OpenAI API with retry handling."""
 
     with tracer.start_as_current_span("openai.execute_response") as span:
-        mode = api_mode or ("chat" if app_config.USE_CLASSIC_API else "responses")
+        mode_enum = resolve_api_mode(api_mode)
+        mode = mode_enum.value
         if model:
             span.set_attribute("llm.model", model)
         span.set_attribute("llm.has_tools", "functions" in payload or "tools" in payload)
@@ -549,7 +559,7 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode
             elif temperature_value is not None:
                 span.set_attribute("llm.temperature", str(temperature_value))
         try:
-            return _create_response_with_timeout(payload, api_mode=api_mode)
+            return _create_response_with_timeout(payload, api_mode=mode_enum)
         except BadRequestError as err:
             span.record_exception(err)
             _log_known_openai_error(err, api_mode=mode)
@@ -557,12 +567,12 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode
                 span.add_event("retry_without_temperature")
                 _mark_model_without_temperature(model)
                 payload.pop("temperature", None)
-                return _create_response_with_timeout(payload, api_mode=api_mode)
+                return _create_response_with_timeout(payload, api_mode=mode_enum)
             if "reasoning" in payload and _is_reasoning_unsupported_error(err):
                 span.add_event("retry_without_reasoning")
                 _mark_model_without_reasoning(model)
                 payload.pop("reasoning", None)
-                return _create_response_with_timeout(payload, api_mode=api_mode)
+                return _create_response_with_timeout(payload, api_mode=mode_enum)
             if model and _should_mark_model_unavailable(err):
                 mark_model_unavailable(model)
             span.set_status(Status(StatusCode.ERROR, str(err)))
@@ -1321,11 +1331,12 @@ class PayloadContext:
     router_estimate: PromptCostEstimate | None
     previous_response_id: str | None
     force_classic_for_tools: bool
+    api_mode: APIMode
     api_mode_override: str | None = None
 
     @property
     def use_classic_api(self) -> bool:
-        return app_config.USE_CLASSIC_API or self.force_classic_for_tools
+        return self.api_mode.is_classic or self.force_classic_for_tools
 
 
 @dataclass
@@ -1419,8 +1430,12 @@ def _prepare_payload(
     include_analysis_tools: bool = True,
     task: ModelTask | str | None = None,
     previous_response_id: str | None = None,
+    api_mode: APIMode | str | bool | None = None,
 ) -> ResponsesRequest:
     """Assemble the payload for the configured OpenAI API."""
+
+    active_mode = resolve_api_mode(api_mode)
+    use_classic_api = active_mode.is_classic
 
     selected_task = task or ModelTask.DEFAULT
     router_estimate: PromptCostEstimate | None = None
@@ -1531,7 +1546,7 @@ def _prepare_payload(
     tool_map = dict(tool_functions or {})
     requested_tools = bool(raw_tools or tool_map)
     analysis_tools_enabled = include_analysis_tools and (
-        app_config.USE_CLASSIC_API or requested_tools or app_config.RESPONSES_ALLOW_TOOLS
+        use_classic_api or requested_tools or app_config.RESPONSES_ALLOW_TOOLS
     )
     if analysis_tools_enabled:
         from core import analysis_tools
@@ -1581,9 +1596,9 @@ def _prepare_payload(
         schema_bundle = build_schema_format_bundle(json_schema)
 
     force_classic_for_tools = bool(
-        combined_tools and not (app_config.USE_CLASSIC_API or app_config.RESPONSES_ALLOW_TOOLS)
+        combined_tools and not (use_classic_api or app_config.RESPONSES_ALLOW_TOOLS)
     )
-    api_mode_override: str | None = "chat" if force_classic_for_tools and not app_config.USE_CLASSIC_API else None
+    api_mode_override: str | None = "chat" if force_classic_for_tools else active_mode.value
 
     context = PayloadContext(
         messages=messages_payload,
@@ -1600,6 +1615,7 @@ def _prepare_payload(
         router_estimate=router_estimate,
         previous_response_id=previous_response_id,
         force_classic_for_tools=force_classic_for_tools,
+        api_mode=active_mode,
         api_mode_override=api_mode_override,
     )
 
@@ -1644,12 +1660,20 @@ ComparisonBuilder = Callable[["ChatCallResult", "ChatCallResult"], Mapping[str, 
 class ChatStream(Iterable[str]):
     """Iterator over streaming chat responses."""
 
-    def __init__(self, payload: Dict[str, Any], model: str, *, task: ModelTask | str | None):
+    def __init__(
+        self,
+        payload: Dict[str, Any],
+        model: str,
+        *,
+        task: ModelTask | str | None,
+        api_mode: APIMode | str | bool | None = None,
+    ):
         prepared_payload = dict(payload)
         prepared_payload.setdefault("timeout", OPENAI_REQUEST_TIMEOUT)
         self._payload = prepared_payload
         self._model = model
         self._task = task
+        self._api_mode = resolve_api_mode(api_mode)
         self._result: ChatCallResult | None = None
         self._buffer: list[str] = []
 
@@ -1661,7 +1685,7 @@ class ChatStream(Iterable[str]):
         final_response: Any | None = None
         missing_completion_event = False
         try:
-            if app_config.USE_CLASSIC_API:
+            if self._api_mode.is_classic:
                 with client.chat.completions.stream(**self._payload) as stream:
                     for chat_event in stream:
                         for chunk in _stream_event_chunks(chat_event):
@@ -1729,7 +1753,7 @@ class ChatStream(Iterable[str]):
     def _recover_stream_response(self, client: OpenAI) -> Any | None:
         """Return a non-streamed payload to finalise the request if possible."""
 
-        if app_config.USE_CLASSIC_API:
+        if self._api_mode.is_classic:
             return None
 
         response = self._retry_responses_without_stream(client)
@@ -2117,9 +2141,11 @@ def _call_chat_api_single(
     include_raw_response: bool = False,
     capture_file_search: bool = False,
     previous_response_id: str | None = None,
+    api_mode: APIMode | str | bool | None = None,
 ) -> ChatCallResult:
     """Execute a single chat completion call with optional tool handling."""
 
+    active_mode = resolve_api_mode(api_mode)
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
     request = _prepare_payload(
@@ -2135,6 +2161,7 @@ def _call_chat_api_single(
         extra=extra,
         task=task,
         previous_response_id=previous_response_id,
+        api_mode=active_mode,
     )
 
     payload = dict(request.payload)
@@ -2177,7 +2204,7 @@ def _call_chat_api_single(
             continue
 
         response_id = _extract_response_id(response)
-        if response_id and not app_config.USE_CLASSIC_API and api_mode_override != "chat":
+        if response_id and not active_mode.is_classic and api_mode_override != "chat":
             payload["previous_response_id"] = response_id
 
         content = _extract_output_text(response)
@@ -2250,6 +2277,7 @@ def call_chat_api(
     include_raw_response: bool = False,
     capture_file_search: bool = False,
     previous_response_id: str | None = None,
+    api_mode: APIMode | str | bool | None = None,
     comparison_messages: Sequence[dict] | None = None,
     comparison_options: Optional[Mapping[str, Any]] = None,
     comparison_label: str | None = None,
@@ -2258,6 +2286,8 @@ def call_chat_api(
 
     The function automatically targets either the Responses API or the classic
     Chat Completions API depending on configuration. When
+    ``api_mode`` is provided, the override is honoured for both the primary and
+    comparison calls without mutating global configuration. When
     ``comparison_messages`` are supplied a second request is dispatched in
     parallel (unless ``comparison_options['dispatch']`` is set to
     ``"sequential"``). Both responses are returned along with basic similarity
@@ -2268,6 +2298,7 @@ def call_chat_api(
         _show_missing_api_key_alert()
         raise RuntimeError(llm_disabled_message())
 
+    active_mode = resolve_api_mode(api_mode)
     single_kwargs: dict[str, Any] = {
         "model": model,
         "temperature": temperature,
@@ -2283,6 +2314,7 @@ def call_chat_api(
         "include_raw_response": include_raw_response,
         "capture_file_search": capture_file_search,
         "previous_response_id": previous_response_id,
+        "api_mode": active_mode,
     }
 
     if comparison_messages is None:
@@ -2389,6 +2421,7 @@ def stream_chat_api(
     verbosity: str | None = None,
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
+    api_mode: APIMode | str | bool | None = None,
 ) -> ChatStream:
     """Return a :class:`ChatStream` yielding incremental text deltas.
 
@@ -2403,6 +2436,8 @@ def stream_chat_api(
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
+    active_mode = resolve_api_mode(api_mode)
+
     request = _prepare_payload(
         messages_with_hint,
         model=model,
@@ -2416,6 +2451,7 @@ def stream_chat_api(
         extra=extra,
         include_analysis_tools=False,
         task=task,
+        api_mode=active_mode,
     )
 
     if request.tool_specs or request.tool_functions:
@@ -2424,7 +2460,7 @@ def stream_chat_api(
     if not request.model:
         raise RuntimeError("No model resolved for streaming request")
 
-    return ChatStream(request.payload, request.model, task=task)
+    return ChatStream(request.payload, request.model, task=task, api_mode=request.api_mode_override or active_mode)
 
 
 def _chat_content(res: Any) -> str:
