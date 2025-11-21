@@ -2754,6 +2754,13 @@ def _apply_parsing_mode(mode: str) -> str:
     return normalized
 
 
+def _queue_extraction_rerun() -> None:
+    """Force the onboarding extraction to re-run with current settings."""
+
+    st.session_state.pop("__last_extracted_hash__", None)
+    st.session_state["__run_extraction__"] = True
+
+
 def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[str]:
     """Return a list of candidate URLs for company sub-pages."""
 
@@ -6514,13 +6521,13 @@ def _render_extraction_settings_panel() -> None:
     with st.expander(tr("Extraktionseinstellungen", "Extraction settings"), expanded=False, icon="🛠️"):
         st.caption(
             tr(
-                "Steuere, wie das Parsing arbeitet – Geschwindigkeit vs. Genauigkeit und ob das strikte JSON-Schema erzwungen wird.",
-                "Control how parsing behaves – speed vs. accuracy and whether to enforce the strict JSON schema.",
+                "Passe das Parsing live an – wähle zwischen Schnell vs. Gründlich, setze ein Modell-Override und steuere das strikte JSON-Schema.",
+                "Adjust parsing on the fly – choose Fast vs. Thorough, set a model override, and decide whether to enforce the strict JSON schema.",
             )
         )
 
         selected_mode = st.radio(
-            tr("Parsing-Modus", "Parsing mode"),
+            tr("Parsing-Modus: ⚡ Schnell vs. 🎯 Gründlich", "Parsing mode: ⚡ Fast vs. 🎯 Thorough"),
             options=mode_options,
             index=mode_index,
             key=UIKeys.EXTRACTION_REASONING_MODE,
@@ -6530,8 +6537,8 @@ def _render_extraction_settings_panel() -> None:
         normalized_mode = _apply_parsing_mode(selected_mode)
         st.caption(
             tr(
-                "Schnell nutzt gpt-4.1 mini mit minimalem Denkaufwand; Gründlich schaltet auf das präzisere Reasoning-Modell um.",
-                "Fast leans on gpt-4.1 mini with minimal reasoning; Thorough switches to the more precise reasoning model.",
+                "Schnell nutzt gpt-4.1 mini mit minimalem Denkaufwand; Gründlich erhöht den REASONING_EFFORT und wählt ein präziseres Modell.",
+                "Fast leans on gpt-4.1 mini with minimal reasoning; Thorough raises the REASONING_EFFORT and opts for a more precise model.",
             )
         )
 
@@ -6557,6 +6564,26 @@ def _render_extraction_settings_panel() -> None:
             )
 
         st.session_state[UIKeys.EXTRACTION_REASONING_MODE] = normalized_mode
+
+        st.divider()
+        rerun_help = tr(
+            "Starte die Extraktion mit den aktuellen Einstellungen neu – praktisch nach einem Modellwechsel, Sprach-Switch oder wenn der Strict-Schalter angepasst wurde.",
+            "Re-run extraction with the current settings – useful after switching model, language, or the strict toggle.",
+        )
+        if st.button(
+            tr("Extraktion jetzt erneut ausführen", "Re-run extraction now"),
+            key=UIKeys.EXTRACTION_RERUN,
+            type="secondary",
+            help=rerun_help,
+            use_container_width=True,
+        ):
+            _queue_extraction_rerun()
+            st.info(
+                tr(
+                    "Extraktion wird mit den neuen Einstellungen neu gestartet.",
+                    "Extraction will restart using the updated settings.",
+                )
+            )
 
 
 def _step_onboarding(schema: dict) -> None:

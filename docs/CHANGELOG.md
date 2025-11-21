@@ -10,6 +10,9 @@ Changed / Geändert
 - EN: Introduced an “Extraction settings” expander on onboarding so recruiters can switch parsing mode (Fast vs. Thorough), choose the base model, and disable strict JSON schemas when ads fail validation.
   DE: Neuer Aufklapper „Extraktionseinstellungen“ im Onboarding, in dem Recruiter:innen den Parsing-Modus (Schnell vs. Gründlich) wählen, das Basismodell festlegen und bei Validierungsproblemen die strikten JSON-Schemas deaktivieren können.
 
+- EN: Added a bilingual "Re-run extraction" control that clears the cached digest and triggers parsing again after users tweak parsing mode, model overrides, language, or strict formatting.
+  DE: Neuer zweisprachiger Schalter „Extraktion erneut ausführen“, der den gecachten Digest leert und das Parsing erneut startet, sobald Nutzer:innen Parsing-Modus, Modell-Override, Sprache oder den Strict-Schalter anpassen.
+
 - EN: Role & Tasks step now separates responsibilities (left column) from requirements and skills (right column) and adds short per-column descriptions so recruiters can verify both lists at a glance.
   DE: Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten jetzt links und die Anforderungen/Skills rechts in getrennten Spalten – inklusive kurzer Erläuterung pro Spalte, damit Recruiter:innen beide Listen auf einen Blick prüfen können.
 

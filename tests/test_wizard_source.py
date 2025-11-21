@@ -26,6 +26,7 @@ from wizard import (
     on_url_changed,
     _field_lock_config,
     _maybe_run_extraction,
+    _queue_extraction_rerun,
     _step_onboarding,
     _extract_and_summarize,
     _prime_widget_state_from_profile,
@@ -1034,3 +1035,16 @@ def test_field_lock_config_shows_ai_indicator() -> None:
     assert "Inferred by AI" in config["confidence_message"]
     assert config["confidence_source"] == "llm"
     assert config.get("unlocked") is True
+
+
+def test_queue_extraction_rerun_sets_flag_and_clears_hash() -> None:
+    """Manual reruns should drop the cached hash and queue another extraction."""
+
+    st.session_state.clear()
+    st.session_state["__last_extracted_hash__"] = "abc123"
+    st.session_state["__run_extraction__"] = False
+
+    _queue_extraction_rerun()
+
+    assert "__last_extracted_hash__" not in st.session_state
+    assert st.session_state["__run_extraction__"] is True
