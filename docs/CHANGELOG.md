@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Added a reporting-line heuristic that captures "reports to …" phrases alongside explicit team-size and direct-report hints so team context fields prefill reliably.
+  DE: Neue Heuristik fängt „reports to …“-Formulierungen sowie explizite Angaben zu Teamgröße und Direct Reports ab, damit die Teamkontextfelder zuverlässig vorbefüllt werden.
+
 - EN: Improved recruiter contact extraction by recognising labelled HR lines (e.g., "Your contact" or "Ansprechpartner: Name") and pairing nearby emails/phones using tighter proximity checks.
   DE: Verbesserte Recruiter-Kontakt-Extraktion durch die Erkennung markierter HR-Zeilen (z. B. „Your contact“ oder „Ansprechpartner: Name“) und eine engere Zuordnung nahegelegener E-Mails/Telefonnummern.
 

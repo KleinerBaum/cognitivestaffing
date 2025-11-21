@@ -137,6 +137,7 @@ _TEAM_STRUCTURE_CONNECTOR_RE = re.compile(r"^(?:mit|with|in)\s+", re.IGNORECASE)
 _ROLE_CONTACT_RE = re.compile(
     r"(?P<title>[A-ZÄÖÜ][^:\n]{0,80}?)\s*:\s*(?P<name>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){0,3})(?=[\s,;|).]|$)",
 )
+_REPORTS_TO_RE = re.compile(r"\breport(?:s|ing)?\s+to\s+(?P<target>[^.\n]+)", re.IGNORECASE)
 _REPORTING_EXCLUDE_KEYWORDS = tuple(
     {
         *(_CONTACT_KEYWORDS),
@@ -742,6 +743,27 @@ def _extract_reporting_line(text: str) -> tuple[str, str]:
 
     if not text:
         return "", ""
+
+    reports_match = _REPORTS_TO_RE.search(text)
+    if reports_match:
+        target = reports_match.group("target").strip()
+        if target:
+            reporting_line = re.sub(r"\s+", " ", target).strip(" .;:,")
+            manager_name = ""
+            name_match = _NAME_RE.search(reporting_line)
+            if name_match:
+                manager_name = name_match.group(1).strip()
+                title_candidate = re.sub(
+                    r"\(\s*" + re.escape(manager_name) + r"\s*\)",
+                    "",
+                    reporting_line,
+                )
+                if title_candidate == reporting_line:
+                    title_candidate = reporting_line.replace(manager_name, "")
+                title_candidate = re.sub(r"\s{2,}", " ", title_candidate).strip(" ,;-()")
+                if title_candidate:
+                    reporting_line = title_candidate
+            return reporting_line, manager_name
 
     candidates: list[tuple[int, str, str]] = []
     fallback: list[tuple[int, str, str]] = []

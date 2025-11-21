@@ -26,3 +26,15 @@ def test_reporting_line_skips_hr_contact() -> None:
     assert profile.position.team_structure is None
     assert profile.position.reporting_line is None
     assert profile.position.reporting_manager_name is None
+
+
+def test_reporting_line_reports_to_phrase() -> None:
+    text = (
+        "You will report to the Head of Engineering (Jane Doe).\n"
+        "You will lead a team of five engineers."
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert profile.position.reporting_line == "the Head of Engineering"
+    assert profile.position.reporting_manager_name == "Jane Doe"
