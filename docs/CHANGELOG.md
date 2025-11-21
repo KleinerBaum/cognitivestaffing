@@ -21,6 +21,9 @@ Changed / Geändert
 - EN: Added a schema alignment guard that compares the NeedAnalysis model, the checked-in JSON schema, and the prompt field list while auto-injecting the canonical schema fields into the extractor prompt to prevent drift.
   DE: Neuer Schema-Abgleich testet NeedAnalysis-Modell, eingechecktes JSON-Schema und Prompt-Feldliste und injiziert die kanonischen Schema-Felder automatisch in den Extraktions-Prompt, um Abweichungen zu verhindern.
 
+- EN: Structured extraction now issues a targeted retry when entire critical sections are missing (responsibilities, culture notes, or process overview), asking the AI for just those fields before defaulting to the empty profile.
+  DE: Fehlen komplette Schlüsselsektionen (Aufgaben, Kulturhinweise oder Prozess-Overview), startet die Extraktion automatisch einen fokussierten Zweitversuch, der nur diese Felder nachfordert, bevor auf das leere Profil zurückgefallen wird.
+
 - EN: Precise extraction now forces a high-effort model tier and injects rule-based section cues (e.g., Aufgaben/Anforderungen) into the prompt so responsibilities and requirements are captured more reliably.
   DE: Die präzise Extraktion nutzt jetzt ein Modell mit hoher Reasoning-Stufe und fügt regelbasierte Abschnittshinweise (z. B. Aufgaben/Anforderungen) in den Prompt ein, damit Aufgaben- und Anforderungsblöcke zuverlässiger erkannt werden.
 

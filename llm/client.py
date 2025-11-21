@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import re
+from copy import deepcopy
 from pathlib import Path
 from collections.abc import MutableMapping, Sequence
 from typing import Any, Callable, Mapping, Optional
@@ -34,7 +35,7 @@ from .output_parsers import (
 )
 from .prompts import FIELDS_ORDER, PreExtractionInsights
 from core.errors import ExtractionError
-from core.schema import NeedAnalysisProfile
+from core.schema import NeedAnalysisProfile, canonicalize_profile_payload
 from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -44,6 +45,153 @@ tracer = trace.get_tracer(__name__)
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 3
 USE_RESPONSES_API: bool | None = None
+
+
+def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[str, Any]:
+    """Return a JSON schema covering the missing ``missing_sections`` only."""
+
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    if "responsibilities.items" in missing_sections:
+        properties["responsibilities"] = {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                }
+            },
+        }
+        required.append("responsibilities")
+
+    if "company.culture" in missing_sections:
+        properties["company"] = {
+            "type": "object",
+            "properties": {
+                "culture": {
+                    "type": ["string", "null"],
+                }
+            },
+        }
+        required.append("company")
+
+    if "process.overview" in missing_sections:
+        properties["process"] = {
+            "type": "object",
+            "properties": {
+                "recruitment_timeline": {"type": ["string", "null"]},
+                "process_notes": {"type": ["string", "null"]},
+                "application_instructions": {"type": ["string", "null"]},
+            },
+        }
+        required.append("process")
+
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": properties,
+        "required": required,
+    }
+
+
+def _collect_missing_paths(errors: Sequence[Mapping[str, Any]] | None) -> list[str]:
+    """Return dot-paths for missing sections collected from ``errors``."""
+
+    if not errors:
+        return []
+    paths: list[str] = []
+    for entry in errors:
+        if entry.get("msg") != "missing":
+            continue
+        location = entry.get("loc")
+        if not isinstance(location, (list, tuple)):
+            continue
+        label = ".".join(str(part) for part in location if str(part))
+        if label:
+            paths.append(label)
+    return paths
+
+
+def _merge_missing_section_payload(
+    base: Mapping[str, Any] | None, patch: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Return a deep merge of ``base`` with ``patch`` limited to missing sections."""
+
+    merged: dict[str, Any] = deepcopy(base) if isinstance(base, Mapping) else {}
+
+    for key, value in patch.items():
+        if isinstance(value, Mapping):
+            existing = merged.get(key)
+            if isinstance(existing, Mapping):
+                merged[key] = _merge_missing_section_payload(existing, value)
+            else:
+                merged[key] = deepcopy(value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _retry_missing_sections(
+    text: str,
+    missing_sections: Sequence[str],
+    *,
+    model: str,
+    retries: int,
+) -> Mapping[str, Any] | None:
+    """Request a focused retry for ``missing_sections`` from ``text``."""
+
+    if not missing_sections or not text.strip():
+        return None
+
+    section_list = ", ".join(missing_sections)
+    messages = [
+        {
+            "role": "system",
+            "content": prompt_registry.get("llm.extraction.missing_sections.system"),
+        },
+        {
+            "role": "user",
+            "content": prompt_registry.format(
+                "llm.extraction.missing_sections.user",
+                sections=section_list,
+                text=text,
+            ),
+        },
+    ]
+
+    response_format = build_json_schema_format(
+        name="need_analysis_missing_sections",
+        schema=_build_missing_section_schema(missing_sections),
+    )
+
+    result = call_responses_safe(
+        messages,
+        model=model,
+        response_format=response_format,
+        temperature=0,
+        max_completion_tokens=800,
+        retries=retries,
+        task=ModelTask.EXTRACTION,
+        logger_instance=logger,
+        context="missing_section_retry",
+    )
+    if result is None:
+        return None
+
+    payload = (result.content or "").strip()
+    if not payload:
+        return None
+
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(parsed, Mapping):
+        return None
+
+    return canonicalize_profile_payload(parsed)
 
 
 def _responses_api_enabled() -> bool:
@@ -425,6 +573,30 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
     try:
         profile, raw_data = parser.parse(content)
     except NeedAnalysisParserError as err:
+        missing_sections = _collect_missing_paths(err.errors)
+        if missing_sections and isinstance(payload.get("source_text"), str):
+            retry_payload = _retry_missing_sections(
+                payload["source_text"],
+                missing_sections,
+                model=payload["model"],
+                retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
+            )
+            if retry_payload:
+                merged_payload = _merge_missing_section_payload(err.data, retry_payload)
+                canonical_payload = canonicalize_profile_payload(merged_payload)
+                try:
+                    validated = NeedAnalysisProfile.model_validate(canonical_payload)
+                except ValidationError as merge_error:
+                    logger.debug(
+                        "Validation failed after missing-section retry: %s",
+                        merge_error,
+                    )
+                else:
+                    logger.info(
+                        "Structured extraction recovered missing sections: %s",
+                        ", ".join(missing_sections),
+                    )
+                    return validated.model_dump_json()
         if err.data:
             report = _generate_error_report(err.data)
             if report:
@@ -537,6 +709,7 @@ def extract_json(
                     "reasoning_effort": effort,
                     "verbosity": get_active_verbosity(),
                     "retries": _STRUCTURED_RESPONSE_RETRIES,
+                    "source_text": text,
                 }
             )
             if locked_fields:
