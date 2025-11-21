@@ -1419,6 +1419,16 @@ class ResponsesPayloadBuilder(_BasePayloadBuilder):
         return self._wrap(payload)
 
 
+def _inject_json_hint(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Prepend a system hint asking the model to respond with JSON."""
+
+    hint = {
+        "role": "system",
+        "content": "Respond with a JSON object following the requested structure.",
+    }
+    return [hint, *[dict(message) for message in messages]]
+
+
 def _prepare_payload(
     messages: Sequence[dict],
     *,
@@ -1435,6 +1445,7 @@ def _prepare_payload(
     task: ModelTask | str | None = None,
     previous_response_id: str | None = None,
     api_mode: APIMode | str | bool | None = None,
+    use_response_format: bool = True,
 ) -> ResponsesRequest:
     """Assemble the payload for the configured OpenAI API."""
 
@@ -1593,10 +1604,12 @@ def _prepare_payload(
     combined_tools = converted_tools
 
     messages_payload = [dict(message) for message in messages]
+    if json_schema is not None and not use_response_format:
+        messages_payload = _inject_json_hint(messages_payload)
     normalised_tool_choice = _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
 
     schema_bundle: SchemaFormatBundle | None = None
-    if json_schema is not None:
+    if json_schema is not None and use_response_format:
         schema_bundle = build_schema_format_bundle(json_schema)
 
     force_classic_for_tools = bool(combined_tools and not (use_classic_api or app_config.RESPONSES_ALLOW_TOOLS))
@@ -2144,6 +2157,7 @@ def _call_chat_api_single(
     capture_file_search: bool = False,
     previous_response_id: str | None = None,
     api_mode: APIMode | str | bool | None = None,
+    use_response_format: bool = True,
 ) -> ChatCallResult:
     """Execute a single chat completion call with optional tool handling."""
 
@@ -2164,6 +2178,7 @@ def _call_chat_api_single(
         task=task,
         previous_response_id=previous_response_id,
         api_mode=active_mode,
+        use_response_format=use_response_format,
     )
 
     payload = dict(request.payload)
@@ -2283,6 +2298,7 @@ def call_chat_api(
     comparison_messages: Sequence[dict] | None = None,
     comparison_options: Optional[Mapping[str, Any]] = None,
     comparison_label: str | None = None,
+    use_response_format: bool = True,
 ) -> ChatCallResult:
     """Call the OpenAI chat endpoint and return a :class:`ChatCallResult`.
 
@@ -2317,6 +2333,7 @@ def call_chat_api(
         "capture_file_search": capture_file_search,
         "previous_response_id": previous_response_id,
         "api_mode": active_mode,
+        "use_response_format": use_response_format,
     }
 
     if comparison_messages is None:
@@ -2348,6 +2365,7 @@ def call_chat_api(
         "extra",
         "task",
         "previous_response_id",
+        "use_response_format",
     }
 
     secondary_kwargs = dict(single_kwargs)
