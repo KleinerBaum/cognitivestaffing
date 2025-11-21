@@ -2,6 +2,76 @@ Cognitive Staffing
 
 Cognitive Staffing automates the extraction and enrichment of vacancy profiles from PDFs, URLs, or pasted text. It turns unstructured job ads into structured JSON, highlights missing data, and orchestrates multiple AI agents to draft follow-up questions, job ads, interview guides, and Boolean searches. By default, all LLM calls run through the OpenAI Responses API using cost-effective models: lightweight tasks run on gpt-4.1-mini, while reasoning-heavy flows (summaries, explanations, document rewrites) escalate to the Responses reasoning tier o4-mini with automatic fallbacks through o3 and gpt-4o. This setup lets us enforce structured outputs, stream long generations, and fall back gracefully when rate limits occur. If needed, set the USE_CLASSIC_API environment variable to route all calls through the standard Chat Completions API instead.
 
+Getting started
+---------------
+
+1) Installation
+   * Clone the repository and install Poetry (>= 1.6).
+   * Install dependencies, including ingest extras: `poetry install --no-root --with ingest`.
+   * Optionally create a virtual environment first (`python -m venv .venv && source .venv/bin/activate`) if Poetry is not configured to manage environments automatically.
+
+2) Configuration
+   * Set an OpenAI API key before launching the app; AI-triggering controls remain disabled without it.
+   * Core environment variables:
+
+| Name | Required? | Purpose |
+| --- | --- | --- |
+| OPENAI_API_KEY | Yes | Authenticates all OpenAI calls (Responses by default; classic Chat if forced). |
+| OPENAI_BASE_URL | No | Override the endpoint (e.g., `https://eu.api.openai.com/v1` for EU routing). |
+| OPENAI_ORGANIZATION / OPENAI_PROJECT | No | Attach organization or project scopes where applicable. |
+| OPENAI_MODEL | No | Default model override; fast flows still prefer gpt-4.1-mini, precise/"genau" flows escalate to higher reasoning tiers. |
+| USE_RESPONSES_API | No (default 1) | Keep structured calls on the Responses API. Setting to 0 forces USE_CLASSIC_API=1. |
+| USE_CLASSIC_API | No | Force the legacy Chat Completions backend; use this if Responses is unavailable. |
+| ADMIN_DEBUG_PANEL | No | Show the admin/debug expander with API mode toggles and diagnostics. |
+| OPENAI_REQUEST_TIMEOUT | No | Custom timeout in seconds for OpenAI requests. |
+
+3) Run the app
+   * Start Streamlit: `poetry run streamlit run app.py`.
+   * The wizard opens in the browser; keep the terminal running to preserve the session state.
+
+4) Basic usage
+   * On the first page, upload a PDF/job ad or paste plain text; the wizard runs heuristics plus the extractor to prefill fields.
+   * Walk through the eight steps (Onboarding → Summary). You can download structured JSON on the Summary step or continue to exports (job ads, interview guides, Boolean strings).
+   * Switch between quick and precise modes via the in-app toggle; quick requests use gpt-4.1-mini, while precise/"genau" routes use the higher reasoning tier configured via REASONING_EFFORT. If the Responses API struggles, set `USE_CLASSIC_API=1` to fall back to Chat Completions.
+
+Architecture at a glance
+------------------------
+
+* UI: A multi-step Streamlit wizard (Onboarding → Summary) keeps the NeedAnalysisProfile in `st.session_state`, updating it through `wizard._logic` helpers and the canonical `ProfilePaths` keys.
+* Extraction pipeline: The ingest heuristics (`ingest/heuristics.py`) prefill obvious values (emails, phones, cities, team size) before the OpenAI extractor runs via `openai_utils/api.py`.
+* Validation and normalization: Structured payloads map into `core/schema.py` and are cleaned via `utils/normalization.py`, ensuring the Pydantic NeedAnalysisProfile stays aligned with the JSON schema in `schema/need_analysis.schema.json`.
+* Outputs: The wizard reuses the stored profile to generate exports (job ads, interview guides, Boolean strings) and to populate the Summary step for download or further edits.
+* Developers: See `docs/DEV_GUIDE.md` for extending steps, adding fields, and keeping schema/UI/export sync.
+
+Model routing & modes
+---------------------
+
+* Default routing: Quick flows use `gpt-4.1-mini` for speed, while precise/"genau" flows escalate to the configured reasoning tier (e.g., `o4-mini`/`o3`) based on `REASONING_EFFORT`.
+* Responses vs. Chat: `USE_RESPONSES_API` (default) keeps structured calls on the Responses API; set `USE_CLASSIC_API=1` when Responses is unavailable or when debugging the legacy Chat Completions path.
+* Tooling: When Responses tools are disabled, the pipeline falls back automatically to Chat completions and, if necessary, to curated static suggestions so the UI never blocks.
+
+Developer setup & tests
+-----------------------
+
+* Format and lint: `poetry run ruff format && poetry run ruff check`.
+* Type-check: `poetry run mypy --config-file pyproject.toml`.
+* Tests: `poetry run pytest -q` (or `-m "not integration"` when offline).
+* Schema sync: Run `python scripts/propagate_schema.py --apply` whenever schema fields change to keep `schema/need_analysis.schema.json` in sync.
+* Localization: Run `python scripts/check_localization.py` after adjusting UI copy to ensure bilingual coverage.
+* Contributing: The Dev Guide (`docs/DEV_GUIDE.md`) explains how to add steps or fields while keeping translations, schema, and exports aligned.
+
+Example output
+--------------
+
+See `docs/EXAMPLE.md` for a sample job-ad snippet alongside the resulting structured NeedAnalysisProfile JSON (downloadable from the Summary step).
+
+Known limitations
+-----------------
+
+* AI extraction may blend closely related skills (e.g., soft vs. hard skills); inline follow-up prompts and 🛈 badges flag these for review.
+* Large PDFs (10+ pages) can hit token or timeout limits. Consider uploading concise snippets or summaries first.
+* Company culture and nuanced process notes may still need manual edits; the Summary step and follow-up prompts help capture the missing details before exporting.
+
 Key highlights / Wichtigste Funktionen
 
 EN:

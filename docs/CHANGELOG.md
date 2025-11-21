@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Refreshed the README with a top-level "Getting started" guide (install/run steps, env var table), architecture and model-routing overview, and a link to a new example input/output file so newcomers can launch the wizard quickly.
+  DE: README mit einem prominenten „Getting started“-Abschnitt (Installations-/Startanleitung, Umgebungsvariablen-Tabelle), Architektur- und Modell-Routing-Überblick sowie Verweis auf eine neue Beispiel-Ein-/Ausgabe ergänzt, damit Neueinsteiger:innen den Wizard schneller nutzen können.
+
 - EN: Added a bilingual "Hide intro"/"Intro ausblenden" toggle to the hero banner that remembers the session choice so users can reclaim form space after onboarding.
   DE: Zweisprachiger Schalter „Intro ausblenden“/"Hide intro" im Hero-Banner, der die Session-Auswahl speichert, damit Nutzer:innen nach dem Onboarding mehr Platz fürs Formular haben.
 
