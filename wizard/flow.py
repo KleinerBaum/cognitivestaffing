@@ -4190,7 +4190,8 @@ def _ensure_extraction_review_styles() -> None:
                 padding: 0.85rem 1rem;
                 background: var(--surface-1, rgba(255, 255, 255, 0.85));
                 margin-bottom: 0.65rem;
-                border: 1px solid transparent;
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.3));
+                border-left: 5px solid var(--border-subtle, rgba(59, 130, 246, 0.45));
                 opacity: 0;
                 transform: translateY(6px);
                 animation: wizardFollowupRowIn 0.35s ease-out forwards;
@@ -4207,6 +4208,16 @@ def _ensure_extraction_review_styles() -> None:
                 transform: translateY(-1px);
             }
 
+            .wizard-followup-item.is-critical {
+                background: linear-gradient(
+                    135deg,
+                    rgba(254, 242, 242, 0.88) 0%,
+                    rgba(255, 255, 255, 0.96) 80%
+                );
+                border-left-color: rgba(220, 38, 38, 0.65);
+                border-color: rgba(248, 113, 113, 0.4);
+            }
+
             .wizard-followup-item.fu-highlight {
                 border-color: rgba(220, 38, 38, 0.55);
                 box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.35);
@@ -4218,15 +4229,40 @@ def _ensure_extraction_review_styles() -> None:
             }
 
             .wizard-followup-question {
-                font-weight: 620;
+                font-weight: 640;
                 margin-bottom: 0.45rem;
                 color: var(--text-strong, #0f172a);
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
             }
 
-            .wizard-followup-question.is-critical::before {
-                content: "*";
-                color: #dc2626;
-                margin-right: 0.35rem;
+            .wizard-followup-question .wizard-followup-icon {
+                width: 1.35rem;
+                height: 1.35rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                font-size: 0.88rem;
+                background: rgba(59, 130, 246, 0.12);
+                color: rgba(30, 64, 175, 0.92);
+                border: 1px solid rgba(59, 130, 246, 0.35);
+            }
+
+            .wizard-followup-question.is-critical .wizard-followup-icon {
+                background: rgba(248, 113, 113, 0.14);
+                color: rgba(185, 28, 28, 0.96);
+                border-color: rgba(248, 113, 113, 0.55);
+            }
+
+            .wizard-followup-question.is-critical {
+                color: rgba(153, 27, 27, 0.98);
+            }
+
+            .wizard-followup-required {
+                color: rgba(220, 38, 38, 0.95);
+                font-weight: 700;
             }
 
             .wizard-followup-chip {
@@ -5425,6 +5461,31 @@ def _ensure_prefill_styles() -> None:
                 gap: 0.4rem;
                 align-items: center;
                 margin-top: 0.25rem;
+                position: relative;
+                transition: border-color var(--transition-base, 0.18s ease-out),
+                    box-shadow var(--transition-base, 0.18s ease-out);
+            }
+
+            .ai-prefill-badge:hover,
+            .ai-prefill-badge:focus-within {
+                border-color: rgba(59, 130, 246, 0.65);
+                box-shadow: 0 10px 24px rgba(59, 130, 246, 0.18);
+            }
+
+            .ai-prefill-label {
+                display: none;
+                padding: 0.1rem 0.4rem;
+                border-radius: 10px;
+                background: rgba(59, 130, 246, 0.12);
+                color: rgba(30, 64, 175, 0.92);
+                font-weight: 620;
+                border: 1px solid rgba(59, 130, 246, 0.35);
+                white-space: nowrap;
+            }
+
+            .ai-prefill-badge:hover .ai-prefill-label,
+            .ai-prefill-badge:focus-within .ai-prefill-label {
+                display: inline-flex;
             }
         </style>
         """,
@@ -5574,9 +5635,20 @@ def _render_prefill_badge(config: FieldLockConfig, container: DeltaGenerator | N
         return
 
     _ensure_prefill_styles()
+    label_text = tr("KI-Vorschlag", "AI suggestion")
+    badge_label = tr("KI-Vorschlag · AI suggestion", "AI suggestion · KI-Vorschlag")
     target = container if container is not None else st
     target.markdown(
-        f"<div class='ai-prefill-badge'>🛈 {html.escape(str(hint))}</div>",
+        (
+            "<div class='ai-prefill-badge' title='{tooltip}'>"
+            "🛈 {hint}"
+            "<span class='ai-prefill-label'>{label}</span>"
+            "</div>"
+        ).format(
+            hint=html.escape(str(hint)),
+            label=html.escape(label_text),
+            tooltip=html.escape(badge_label),
+        ),
         unsafe_allow_html=True,
     )
 

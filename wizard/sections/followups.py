@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 import sys
 from datetime import date
@@ -284,9 +285,66 @@ def _ensure_followup_styles() -> None:
                 padding: 0.85rem 1rem;
                 background: var(--surface-1, rgba(255, 255, 255, 0.85));
                 margin-bottom: 0.65rem;
-                border: 1px solid transparent;
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.3));
+                border-left: 5px solid var(--border-subtle, rgba(59, 130, 246, 0.45));
                 opacity: 0;
+                transition: border-color var(--transition-base, 0.18s ease-out),
+                    box-shadow var(--transition-base, 0.18s ease-out),
+                    transform var(--transition-base, 0.18s ease-out);
                 animation: wizardFollowupIn 0.5s ease forwards;
+            }
+
+            .wizard-followup-item.is-critical {
+                background: linear-gradient(
+                    135deg,
+                    rgba(254, 242, 242, 0.85) 0%,
+                    rgba(255, 255, 255, 0.95) 80%
+                );
+                border-left-color: rgba(220, 38, 38, 0.65);
+                border-color: rgba(248, 113, 113, 0.4);
+            }
+
+            .wizard-followup-item:hover,
+            .wizard-followup-item:focus-within {
+                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+                transform: translateY(-1px);
+            }
+
+            .wizard-followup-question {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                font-weight: 640;
+                color: var(--text-strong, #0f172a);
+                margin-bottom: 0.25rem;
+            }
+
+            .wizard-followup-question .wizard-followup-icon {
+                width: 1.35rem;
+                height: 1.35rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                font-size: 0.88rem;
+                background: rgba(59, 130, 246, 0.12);
+                color: rgba(30, 64, 175, 0.92);
+                border: 1px solid rgba(59, 130, 246, 0.35);
+            }
+
+            .wizard-followup-question.is-critical .wizard-followup-icon {
+                background: rgba(248, 113, 113, 0.14);
+                color: rgba(185, 28, 28, 0.96);
+                border-color: rgba(248, 113, 113, 0.55);
+            }
+
+            .wizard-followup-question.is-critical {
+                color: rgba(153, 27, 27, 0.98);
+            }
+
+            .wizard-followup-required {
+                color: rgba(220, 38, 38, 0.95);
+                font-weight: 700;
             }
 
             .wizard-followup-meta {
@@ -509,9 +567,14 @@ def _render_followup_question(q: dict, data: dict) -> None:
     highlight_sentinel = f"{key}_highlight_pending"
     toast_sentinel = f"{key}_toast_shown"
     container = st.container()
+    priority = q.get("priority")
+    priority_class = "is-critical" if priority == "critical" else "is-standard"
     with container:
         st.markdown(f"<div id='{anchor}'></div>", unsafe_allow_html=True)
-        st.markdown("<div class='wizard-followup-item'>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='wizard-followup-item {priority_class}'>",
+            unsafe_allow_html=True,
+        )
     existing_value = get_in(profile_data, field, None)
     if key not in st.session_state:
         if field in LIST_FOLLOWUP_FIELDS:
@@ -548,11 +611,18 @@ def _render_followup_question(q: dict, data: dict) -> None:
             f"<div class='wizard-followup-description'>🛈 {description}</div>",
             unsafe_allow_html=True,
         )
-    priority = q.get("priority")
     question_text = prompt or tr("Antwort eingeben", "Enter response")
-    display_question = f"{REQUIRED_PREFIX}{question_text}" if priority == "critical" else question_text
+    required_badge = "<span class='wizard-followup-required'>*</span>" if priority == "critical" else ""
+    display_question = html.escape(question_text)
+    icon = "⚠️" if priority == "critical" else "🛈"
+    question_markup = (
+        "<div class='wizard-followup-question {cls}'>"
+        "<span class='wizard-followup-icon'>{icon}</span>"
+        "{required}{text}"
+        "</div>"
+    ).format(cls=priority_class, icon=icon, required=required_badge, text=display_question)
     with container:
-        st.markdown(f"**{display_question}**")
+        st.markdown(question_markup, unsafe_allow_html=True)
     if suggestions:
         cols = container.columns(len(suggestions))
         for index, (col, option) in enumerate(zip(cols, suggestions)):
@@ -567,7 +637,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 st.markdown("</div>", unsafe_allow_html=True)
 
     should_focus = bool(st.session_state.get(focus_sentinel, False))
-    label_text = display_question
+    label_text = f"* {question_text}" if priority == "critical" else question_text
     processed_value: Any
     touched_key: str | None = None
     with container:
