@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Role & Tasks step now separates responsibilities (left column) from requirements and skills (right column) so recruiters can verify both lists at a glance.
+  DE: Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten jetzt links und die Anforderungen/Skills rechts in getrennten Spalten, sodass Recruiter:innen beide Listen auf einen Blick prüfen können.
+
 - EN: Strengthened the extraction prompt with a codex-style JSON schema example and explicit German section cues (Anforderungen vs. Aufgaben) so skills map reliably into the requirements fields.
   DE: Extraktions-Prompt um ein Codex-Style-JSON-Beispiel und klare deutsche Abschnitts-Hinweise (Anforderungen vs. Aufgaben) ergänzt, damit Skills zuverlässig in die Requirements-Felder einsortiert werden.
 
