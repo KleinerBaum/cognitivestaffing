@@ -1571,6 +1571,13 @@ class ChatStream(Iterable[str]):
                 recovered = self._recover_stream_response(client)
                 if recovered is not None:
                     final_response = recovered
+                elif self._buffer:
+                    logger.warning(
+                        "Streaming finished without completion event; finalising buffered text.",
+                        exc_info=error,
+                    )
+                    self._finalise_partial()
+                    return
                 else:
                     _handle_streaming_error(error)
                     return
@@ -1580,6 +1587,12 @@ class ChatStream(Iterable[str]):
         else:
             if final_response is None and missing_completion_event:
                 final_response = self._recover_stream_response(client)
+                if final_response is None and self._buffer:
+                    logger.warning(
+                        "Streaming ended without completion event; using buffered text as final output.",
+                    )
+                    self._finalise_partial()
+                    return
 
         if final_response is None:
             self._finalise_partial()
@@ -1653,9 +1666,6 @@ class ChatStream(Iterable[str]):
 
     def _finalise_partial(self) -> None:
         """Persist streaming output when the final event is missing."""
-
-        if not self._buffer:
-            raise RuntimeError("Streaming finished without a final response payload")
 
         partial_text = self.text
         empty_usage: UsageDict = {}
