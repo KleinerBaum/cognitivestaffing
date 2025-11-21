@@ -80,16 +80,19 @@ _PHONE_RE = re.compile(r"\+?\d[\d\s()\/.-]{5,}\d")
 _URL_RE = re.compile(r"(?:(?:https?://|www\.)[^\s<>()]+)", re.IGNORECASE)
 _NAME_RE = re.compile(r"([A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){1,3})")
 _CONTACT_KEYWORDS = (
+    "your contact",
     "ansprechpartner",
     "ansprechperson",
     "kontakt",
     "kontaktperson",
     "contact",
+    "hiring manager",
     "human resources",
     "hr",
     "people & culture",
     "talent acquisition",
     "recruiting",
+    "recruiter",
     "personalabteilung",
     "bewerbung",
 )
@@ -120,6 +123,14 @@ _CONTACT_NAME_STOPWORDS = {
     "deine",
     "liebe",
     "bewerbung",
+    "acquisition",
+    "culture",
+    "hiring",
+    "manager",
+    "people",
+    "recruiter",
+    "recruiting",
+    "talent",
 }
 _TEAM_STRUCTURE_PAREN_RE = re.compile(r"\(([^)]*team[^)]*)\)", re.IGNORECASE)
 _TEAM_STRUCTURE_CONNECTOR_RE = re.compile(r"^(?:mit|with|in)\s+", re.IGNORECASE)
@@ -314,7 +325,7 @@ def _find_best_email(
     line_index: int,
     emails: Sequence[tuple[str, int]],
     *,
-    max_distance: int = 8,
+    max_distance: int = 6,
 ) -> tuple[str | None, int]:
     """Return the most plausible email for a contact name."""
 
@@ -346,7 +357,7 @@ def _find_best_phone(
     line_index: int,
     phones: Sequence[tuple[str, int]],
     *,
-    max_distance: int = 8,
+    max_distance: int = 6,
 ) -> tuple[str | None, int]:
     """Return the most relevant phone number near ``line_index``."""
 
@@ -505,9 +516,13 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
     paragraphs = _paragraphs_with_indices(lines)
     candidates: dict[str, _ContactCandidate] = {}
 
+    paragraph_line_lengths: dict[int, int] = {}
     for paragraph in paragraphs:
         paragraph_text = "\n".join(line for _, line in paragraph)
         paragraph_lower = paragraph_text.casefold()
+        distance_limit = max(3, min(6, len(paragraph)))
+        for line_index, _ in paragraph:
+            paragraph_line_lengths[line_index] = distance_limit
         if not any(keyword in paragraph_lower for keyword in _CONTACT_KEYWORDS):
             continue
         for line_index, line in paragraph:
@@ -525,8 +540,12 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
                     label_score += 2
                 if "kontakt" in context_lower or "contact" in context_lower:
                     label_score += 1
-                email, email_score = _find_best_email(tokens, line_index, emails)
-                phone, phone_score = _find_best_phone(line_index, phones)
+                email, email_score = _find_best_email(
+                    tokens, line_index, emails, max_distance=distance_limit
+                )
+                phone, phone_score = _find_best_phone(
+                    line_index, phones, max_distance=distance_limit
+                )
                 if hr_score == 0 and label_score == 0 and email_score == 0 and phone_score == 0:
                     continue
                 candidate = _ContactCandidate(
@@ -543,6 +562,58 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
                 previous = candidates.get(key)
                 if previous is None or _contact_rank(candidate) < _contact_rank(previous):
                     candidates[key] = candidate
+
+    for line_index, line in enumerate(lines):
+        for match in _ROLE_CONTACT_RE.finditer(line):
+            title = _normalize_role_title(match.group("title"))
+            name = match.group("name").strip()
+            if not title or not name:
+                continue
+            if not _NAME_RE.fullmatch(name):
+                continue
+            lowered_title = title.casefold()
+            if not any(keyword in lowered_title for keyword in _REPORTING_EXCLUDE_KEYWORDS):
+                continue
+            if not _is_viable_contact_name(name):
+                continue
+            tokens = _tokenize_name(name)
+            if not tokens:
+                continue
+            paragraph_window = paragraph_line_lengths.get(line_index, 6)
+            context_lower = line.casefold()
+            hr_score = max(
+                1,
+                sum(
+                    1
+                    for hint in _HR_HINTS
+                    if hint in lowered_title or hint in context_lower
+                ),
+            )
+            label_score = (
+                1 if any(keyword in lowered_title for keyword in _CONTACT_KEYWORDS) else 0
+            )
+            email, email_score = _find_best_email(
+                tokens, line_index, emails, max_distance=paragraph_window
+            )
+            phone, phone_score = _find_best_phone(
+                line_index, phones, max_distance=paragraph_window
+            )
+            if hr_score == 0 and label_score == 0 and email_score == 0 and phone_score == 0:
+                continue
+            candidate = _ContactCandidate(
+                name=name,
+                email=email,
+                phone=phone,
+                line_index=line_index,
+                hr_score=hr_score,
+                label_score=label_score,
+                email_score=email_score,
+                phone_score=phone_score,
+            )
+            key = name.casefold()
+            previous = candidates.get(key)
+            if previous is None or _contact_rank(candidate) < _contact_rank(previous):
+                candidates[key] = candidate
 
     ordered = sorted(candidates.values(), key=_contact_rank)
     if ordered:
