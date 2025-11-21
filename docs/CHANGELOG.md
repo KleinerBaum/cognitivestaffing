@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Clarified the extraction prompt to force duties vs. qualification bullets into the correct buckets so mixed lists no longer merge responsibilities with skills or languages.
+  DE: Extraktions-Prompt präzisiert, damit gemischte Bullet-Listen zuverlässig in Aufgaben bzw. Anforderungen (Skills/Sprachen) aufgeteilt werden und nicht mehr zusammenfallen.
+
 - EN: Added a reporting-line heuristic that captures "reports to …" phrases alongside explicit team-size and direct-report hints so team context fields prefill reliably.
   DE: Neue Heuristik fängt „reports to …“-Formulierungen sowie explizite Angaben zu Teamgröße und Direct Reports ab, damit die Teamkontextfelder zuverlässig vorbefüllt werden.
 
