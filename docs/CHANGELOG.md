@@ -7,6 +7,9 @@ Changed / Geändert
 - EN: Removed unsupported `uniqueItems` flags from the pre-extraction analysis JSON schema (and all Responses schemas) so OpenAI accepts the payloads without schema errors.
   DE: Nicht unterstützte `uniqueItems`-Marker aus dem Pre-Extraction-Analyse-JSON-Schema (und allen Responses-Schemas) entfernt, damit OpenAI die Payloads ohne Schemafehler akzeptiert.
 
+- EN: Expanded German-aware skill classification so soft skills (Teamfähigkeit/Kundenorientierung), languages (Englisch/Deutsch with levels), and programming languages or tools (Python, Jira, Excel) land in the correct requirements buckets instead of being lumped into hard skills.
+  DE: Die deutsche Skill-Klassifizierung wurde erweitert, sodass Soft Skills (Teamfähigkeit/Kundenorientierung), Sprachen (Englisch/Deutsch mit Level) sowie Programmiersprachen oder Tools (Python, Jira, Excel) in den passenden Requirements-Buckets landen und nicht mehr bei den Hard Skills zusammenfallen.
+
 - EN: Refreshed the README with a top-level "Getting started" guide (install/run steps, env var table), architecture and model-routing overview, and a link to a new example input/output file so newcomers can launch the wizard quickly.
   DE: README mit einem prominenten „Getting started“-Abschnitt (Installations-/Startanleitung, Umgebungsvariablen-Tabelle), Architektur- und Modell-Routing-Überblick sowie Verweis auf eine neue Beispiel-Ein-/Ausgabe ergänzt, damit Neueinsteiger:innen den Wizard schneller nutzen können.
 
