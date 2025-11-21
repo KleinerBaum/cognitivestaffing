@@ -1109,16 +1109,12 @@ def _ensure_required_for_nested_objects(node: MutableMapping[str, Any]) -> None:
     if node.get("type") == "object":
         properties = node.get("properties")
         if isinstance(properties, MutableMapping):
-            node_required = node.setdefault("required", [])
-            if not isinstance(node_required, list):
-                node_required = []
-                node["required"] = node_required
+            required = node.setdefault("required", [])
+            if not isinstance(required, list):
+                required = [entry for entry in required] if isinstance(required, Iterable) else []
+                node["required"] = required
 
-            seen: set[str] = {entry for entry in node_required if isinstance(entry, str)}
-            for key in properties.keys():
-                if key not in seen:
-                    node_required.append(key)
-                    seen.add(key)
+            _ensure_required_fields(node, list(properties))
 
             for child in properties.values():
                 if isinstance(child, MutableMapping):
