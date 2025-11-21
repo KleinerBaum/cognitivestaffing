@@ -86,13 +86,13 @@ _MODELS_WITHOUT_REASONING: set[str] = set()
 _USAGE_LOCK = Lock()
 
 
-@lru_cache(maxsize=1)
-def _need_analysis_schema() -> dict[str, Any]:
+@lru_cache(maxsize=None)
+def _need_analysis_schema(sections: tuple[str, ...] | None = None) -> dict[str, Any]:
     """Return cached NeedAnalysis schema for Responses structured output."""
 
     from core.schema import build_need_analysis_responses_schema
 
-    return build_need_analysis_responses_schema()
+    return build_need_analysis_responses_schema(sections=sections)
 
 
 def _sanitize_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
@@ -167,16 +167,22 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
     )
 
 
-def build_need_analysis_json_schema_payload() -> dict[str, Any]:
+def build_need_analysis_json_schema_payload(
+    *,
+    sections: Sequence[str] | None = None,
+) -> dict[str, Any]:
     """Return the JSON schema payload for need analysis responses.
 
     The payload is used for both Chat Completions and Responses requests and
-    always includes the canonical schema name.  # RESPONSES_V2025_SCHEMA_FIX
+    always includes the canonical schema name. ``sections`` can limit the
+    schema to a subset of the NeedAnalysisProfile when running staged
+    extraction passes.  # RESPONSES_V2025_SCHEMA_FIX
     """
 
+    section_tuple = tuple(sections) if sections else None
     return {
         "name": "need_analysis_profile",
-        "schema": deepcopy(_need_analysis_schema()),
+        "schema": deepcopy(_need_analysis_schema(section_tuple)),
     }
 
 
@@ -523,9 +529,7 @@ def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
         )
 
 
-def _create_response_with_timeout(
-    payload: Dict[str, Any], *, api_mode: APIMode | str | bool | None = None
-) -> Any:
+def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: APIMode | str | bool | None = None) -> Any:
     """Execute a Responses create call with configured timeout handling."""
 
     request_kwargs = dict(payload)
@@ -1595,9 +1599,7 @@ def _prepare_payload(
     if json_schema is not None:
         schema_bundle = build_schema_format_bundle(json_schema)
 
-    force_classic_for_tools = bool(
-        combined_tools and not (use_classic_api or app_config.RESPONSES_ALLOW_TOOLS)
-    )
+    force_classic_for_tools = bool(combined_tools and not (use_classic_api or app_config.RESPONSES_ALLOW_TOOLS))
     api_mode_override: str | None = "chat" if force_classic_for_tools else active_mode.value
 
     context = PayloadContext(

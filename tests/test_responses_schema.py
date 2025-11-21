@@ -60,6 +60,15 @@ def test_invalid_type_marker_rejected() -> None:
         ensure_responses_json_schema({"type": ["string", "uri"]})
 
 
+def test_ensure_responses_schema_sets_draft_and_required_keys() -> None:
+    """Responses schema helper enforces Draft-07 and required arrays."""
+
+    sanitized = ensure_responses_json_schema({"type": "object", "properties": {"foo": {"type": "string"}}})
+
+    assert sanitized["$schema"] == "http://json-schema.org/draft-07/schema#"
+    assert sanitized["required"] == ["foo"]
+
+
 def _assert_all_properties_required(node: Mapping[str, Any]) -> None:
     if not isinstance(node, Mapping):
         return
@@ -122,3 +131,13 @@ def test_need_analysis_schema_file_in_sync() -> None:
     assert repo_schema == generated, (
         "NeedAnalysis schema drift detected. Run `python scripts/propagate_schema.py --apply`."
     )
+
+
+def test_need_analysis_schema_can_be_limited_to_sections() -> None:
+    """Schema builder can return a trimmed set of NeedAnalysis sections."""
+
+    trimmed = build_need_analysis_responses_schema(sections=["company", "position"])
+
+    assert set(trimmed["properties"]) == {"company", "position"}
+    assert set(trimmed["required"]) == {"company", "position"}
+    assert "location" not in trimmed["properties"]
