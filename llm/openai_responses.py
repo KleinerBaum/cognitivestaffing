@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import json
+import re
 from dataclasses import dataclass
 from copy import deepcopy
 from typing import Any, Mapping, Sequence
@@ -10,6 +12,7 @@ from typing import Any, Mapping, Sequence
 from opentelemetry import trace
 from openai import BadRequestError, OpenAIError
 
+import config as app_config
 from config import OPENAI_REQUEST_TIMEOUT, ModelTask, temporarily_force_classic_api
 from openai_utils.api import (
     _coerce_token_count,
@@ -19,6 +22,7 @@ from openai_utils.api import (
     _is_temperature_unsupported_error,
     _mark_model_without_temperature,
     _normalise_usage,
+    _to_mapping,
     _update_usage_counters,
     build_schema_format_bundle,
     call_chat_api,
@@ -120,6 +124,25 @@ def _build_schema_bundle_from_format(response_format: Mapping[str, Any]) -> Sche
     return build_schema_format_bundle(schema_config)
 
 
+def _build_function_tool_from_schema(schema_bundle: SchemaFormatBundle) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return a chat ``function`` payload mirroring the JSON schema."""
+
+    configured_name = (app_config.SCHEMA_FUNCTION_NAME or "").strip()
+    base_name = configured_name or f"extract_{schema_bundle.name}"
+    safe_name = re.sub(r"[^\w.-]", "_", base_name) or f"extract_{schema_bundle.name}"
+    description = (app_config.SCHEMA_FUNCTION_DESCRIPTION or "").strip()
+
+    return (
+        {
+            "name": safe_name,
+            "description": description
+            or "Extract the structured profile payload / Extrahiere die strukturierte Profilantwort.",
+            "parameters": deepcopy(schema_bundle.schema),
+        },
+        {"name": safe_name},
+    )
+
+
 def _run_chat_fallback(
     messages: Sequence[Mapping[str, Any]],
     *,
@@ -136,6 +159,84 @@ def _run_chat_fallback(
     exc: Exception | None,
 ) -> ResponsesCallResult | None:
     """Fallback to the classic chat API and return a :class:`ResponsesCallResult`."""
+
+    def _call_function_schema_fallback(schema_bundle: SchemaFormatBundle) -> ResponsesCallResult | None:
+        def _extract_function_payload(response: Any) -> str | None:
+            for choice in getattr(response, "choices", []) or []:
+                choice_map = _to_mapping(choice) or {}
+                message = choice_map.get("message")
+                message_map = _to_mapping(message) or {}
+                tool_calls = message_map.get("tool_calls")
+                if isinstance(tool_calls, Sequence) and not isinstance(tool_calls, (str, bytes)):
+                    for tool_call in tool_calls:
+                        tool_map = _to_mapping(tool_call) or {}
+                        function_block = _to_mapping(tool_map.get("function")) or {}
+                        arguments = function_block.get("arguments") or function_block.get("input")
+                        if isinstance(arguments, str) and arguments.strip():
+                            return arguments.strip()
+                        if isinstance(arguments, Mapping):
+                            return json.dumps(arguments)
+                content_value = message_map.get("content")
+                if isinstance(content_value, str) and content_value.strip():
+                    return content_value.strip()
+            return None
+
+        if not app_config.SCHEMA_FUNCTION_FALLBACK:
+            return None
+
+        try:
+            client = get_client()
+            chat_client = getattr(client, "chat", None)
+            completions_client = getattr(chat_client, "completions", None)
+            create_completion = getattr(completions_client, "create", None)
+        except Exception:
+            return None
+
+        if create_completion is None:
+            return None
+
+        function_payload, function_call = _build_function_tool_from_schema(schema_bundle)
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": _prepare_messages(messages),
+            "functions": [function_payload],
+            "function_call": function_call,
+            "timeout": OPENAI_REQUEST_TIMEOUT,
+        }
+
+        if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
+            payload["temperature"] = float(temperature)
+        if max_completion_tokens is not None:
+            payload["max_completion_tokens"] = int(max_completion_tokens)
+
+        try:
+            response = create_completion(**payload)
+        except OpenAIError as error:
+            logger_instance.warning(
+                "Function-call fallback for %s failed via chat completions: %s",
+                context,
+                error,
+                exc_info=error,
+            )
+            return None
+
+        content = (_extract_function_payload(response) or _extract_output_text(response) or "").strip()
+        if not allow_empty and not content:
+            return None
+
+        response_id = _extract_response_id(response)
+        usage_block = _extract_usage_block(response) or {}
+        usage = {key: _coerce_token_count(value) for key, value in _normalise_usage(usage_block).items()}
+        if usage:
+            _update_usage_counters(usage, task=task)
+
+        return ResponsesCallResult(
+            content=content,
+            usage=usage,
+            response_id=response_id,
+            raw_response=response,
+            used_chat_fallback=True,
+        )
 
     try:
         schema_bundle = _build_schema_bundle_from_format(response_format)
@@ -158,6 +259,10 @@ def _run_chat_fallback(
             reason,
             exc,
         )
+
+    function_result = _call_function_schema_fallback(schema_bundle)
+    if function_result is not None:
+        return function_result
 
     prepared_messages = _prepare_messages(messages)
     try:

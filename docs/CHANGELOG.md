@@ -7,6 +7,9 @@ Changed / Geändert
 - EN: Introduced an explicit `APIMode` enum and per-call `api_mode` overrides for `call_chat_api` and `stream_chat_api` so OpenAI backend selection no longer depends on temporary global flags.
   DE: Neues `APIMode`-Enum und pro-Aufruf-Overrides über `api_mode` für `call_chat_api` und `stream_chat_api`, damit die Wahl zwischen Responses- und Chat-Backend nicht mehr von temporären globalen Flags abhängt.
 
+- EN: Added an optional schema-function fallback that routes rejected Responses payloads through chat-completions function calling, keeping structured outputs aligned when strict schemas prove brittle.
+  DE: Optionaler Schema-Fallback leitet abgewiesene Responses-Payloads über Function Calling der Chat-Completions-API, damit strukturierte Ergebnisse auch bei strengen Schemas stabil bleiben.
+
 - EN: Documented refactor targets for the OpenAI client and ingestion heuristics so contributors can follow the planned splits before editing the large modules.
   DE: Refactoring-Ziele für den OpenAI-Client und die Ingestion-Heuristiken dokumentiert, damit Contributor:innen die geplanten Aufteilungen kennen, bevor sie die großen Module anpassen.
 - EN: Centralised OpenAI retry/backoff handling in a shared decorator and split chat vs. Responses payload builders into dedicated classes for reuse and focused testing.
