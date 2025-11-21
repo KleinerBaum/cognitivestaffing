@@ -994,7 +994,9 @@ def _normalize_profile_mapping(data: Mapping[str, Any]) -> dict[str, Any]:
     normalized = {key: _normalize_value(value, key) for key, value in data.items()}
     requirements = normalized.get("requirements")
     if isinstance(requirements, Mapping):
-        requirements["skill_mappings"] = build_skill_mappings(requirements)
+        requirements_dict = dict(requirements)
+        requirements_dict["skill_mappings"] = build_skill_mappings(requirements_dict)
+        normalized["requirements"] = requirements_dict
     return normalized
 
 
