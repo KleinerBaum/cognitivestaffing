@@ -7,6 +7,9 @@ Changed / Geändert
 - EN: Documented refactor targets for the OpenAI client and ingestion heuristics so contributors can follow the planned splits before editing the large modules.
   DE: Refactoring-Ziele für den OpenAI-Client und die Ingestion-Heuristiken dokumentiert, damit Contributor:innen die geplanten Aufteilungen kennen, bevor sie die großen Module anpassen.
 
+- EN: Added a schema alignment guard that compares the NeedAnalysis model, the checked-in JSON schema, and the prompt field list while auto-injecting the canonical schema fields into the extractor prompt to prevent drift.
+  DE: Neuer Schema-Abgleich testet NeedAnalysis-Modell, eingechecktes JSON-Schema und Prompt-Feldliste und injiziert die kanonischen Schema-Felder automatisch in den Extraktions-Prompt, um Abweichungen zu verhindern.
+
 - EN: Precise extraction now forces a high-effort model tier and injects rule-based section cues (e.g., Aufgaben/Anforderungen) into the prompt so responsibilities and requirements are captured more reliably.
   DE: Die präzise Extraktion nutzt jetzt ein Modell mit hoher Reasoning-Stufe und fügt regelbasierte Abschnittshinweise (z. B. Aufgaben/Anforderungen) in den Prompt ein, damit Aufgaben- und Anforderungsblöcke zuverlässiger erkannt werden.
 
