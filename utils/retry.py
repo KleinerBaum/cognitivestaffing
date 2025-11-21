@@ -67,9 +67,12 @@ def retry_with_backoff(
     exception_tuple: tuple[type[Exception], ...] = tuple(exceptions)
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        def default_giveup(_: Exception) -> bool:
+            return False
+
         resolved_giveup: Callable[[Exception], bool]
         if giveup is None:
-            resolved_giveup = lambda _: False
+            resolved_giveup = default_giveup
         else:
             resolved_giveup = giveup
 
