@@ -3,7 +3,12 @@ from llm.context import (
     build_preanalysis_messages,
     MAX_CHAR_BUDGET,
 )
-from llm.prompts import FIELDS_ORDER_QUICK, PreExtractionInsights, SYSTEM_JSON_EXTRACTOR
+from llm.prompts import (
+    FIELDS_ORDER_QUICK,
+    PreExtractionInsights,
+    SECTION_PRIMER,
+    SYSTEM_JSON_EXTRACTOR,
+)
 from nlp.prepare_text import truncate_smart
 
 
@@ -118,3 +123,20 @@ def test_quick_mode_shortens_preanalysis_reference(monkeypatch):
     user = msgs[1]["content"]
     assert "- position.job_title" in user
     assert "- process.onboarding_process" not in user
+
+
+def test_section_hints_are_injected_when_headings_exist():
+    text = """Aufgaben:
+    - Team führen
+    - Backlog priorisieren
+
+    Anforderungen:
+    - Python
+    - Erfahrung mit APIs
+    """
+    msgs = build_extract_messages(text)
+    user = msgs[1]["content"]
+    assert "Section cues detected via rule-based scan" in user
+    assert "Team führen" in user
+    assert "Erfahrung mit APIs" in user
+    assert SECTION_PRIMER in user

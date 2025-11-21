@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Mapping, Sequence
 
 from core.schema import ALL_FIELDS
@@ -100,6 +101,121 @@ LOCKED_BLOCK_HEADING: str = prompt_registry.get("llm.json_extractor.locked_block
 FOCUS_REMAINING_HINT: str = prompt_registry.get("llm.json_extractor.focus_remaining_hint")
 FOCUS_FIELDS_HINT: str = prompt_registry.get("llm.json_extractor.focus_fields_hint")
 ALL_LOCKED_HINT: str = prompt_registry.get("llm.json_extractor.all_locked_hint")
+SECTION_PRIMER: str = (
+    "The following text describes the role's responsibilities, the required skills, and the hiring details. "
+    "Use any headings (e.g., Aufgaben, Anforderungen) to align evidence to the matching schema fields."
+)
+
+_SECTION_LABELS: dict[str, str] = {
+    "responsibilities": "Responsibilities / Aufgaben",
+    "requirements": "Requirements / Anforderungen",
+}
+
+_SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
+    "responsibilities": (
+        r"\bresponsibilit",
+        r"\baufgaben\b",
+        r"\btätigkeiten\b",
+        r"\bverantwortlichkeiten\b",
+        r"\bzuständigkeiten\b",
+    ),
+    "requirements": (
+        r"\brequirement",
+        r"\banforderungen\b",
+        r"\bqualifikation",
+        r"\bprofil\b",
+        r"\bwir erwarten\b",
+    ),
+}
+
+
+def _normalise_hint_line(line: str) -> str:
+    """Return ``line`` stripped of bullet prefixes and excess whitespace."""
+
+    cleaned = line.strip().lstrip("-•*–: ").strip()
+    return re.sub(r"\s+", " ", cleaned)
+
+
+def _match_section_heading(line: str) -> str | None:
+    """Return a section key when ``line`` matches a known heading."""
+
+    if not line:
+        return None
+    lowered = line.strip().lower()
+    for key, patterns in _SECTION_PATTERNS.items():
+        for pattern in patterns:
+            if re.search(pattern, lowered):
+                return key
+    return None
+
+
+def _extract_section_hints(job_text: str, max_lines: int = 8) -> dict[str, list[str]]:
+    """Return detected section snippets (responsibilities/requirements) from ``job_text``."""
+
+    sections: dict[str, list[str]] = {}
+    if not job_text.strip():
+        return sections
+
+    current: str | None = None
+    buffer: list[str] = []
+    line_budget = 0
+
+    def _flush() -> None:
+        nonlocal buffer, current
+        if current and buffer:
+            snippet = "\n".join(buffer).strip()
+            if snippet:
+                sections.setdefault(current, []).append(snippet)
+        buffer = []
+
+    for raw_line in job_text.splitlines():
+        line = raw_line.strip()
+        heading = _match_section_heading(line)
+        if heading:
+            _flush()
+            current = heading
+            line_budget = 0
+            continue
+        if current:
+            if not line:
+                _flush()
+                current = None
+                continue
+            if line.startswith(("-", "*", "•", "–")) or line_budget < max_lines:
+                cleaned = _normalise_hint_line(line)
+                if cleaned:
+                    buffer.append(cleaned)
+                    line_budget += 1
+                    if line_budget >= max_lines:
+                        _flush()
+                        current = None
+    _flush()
+    return sections
+
+
+def _render_section_hints(job_text: str) -> str:
+    """Return a readable block with section cues to guide the extractor."""
+
+    sections = _extract_section_hints(job_text)
+    if not sections:
+        return ""
+
+    lines: list[str] = [
+        "Section cues detected via rule-based scan (use for orientation, not as ground truth):"
+    ]
+    for key in ("responsibilities", "requirements"):
+        snippets = sections.get(key)
+        if not snippets:
+            continue
+        label = _SECTION_LABELS.get(key, key.title())
+        lines.append(f"- {label}:")
+        for snippet in snippets[:2]:
+            cleaned = _normalise_hint_line(snippet)
+            if len(cleaned) > 220:
+                cleaned = f"{cleaned[:217]}..."
+            if cleaned:
+                lines.append(f"  • {cleaned}")
+    return "\n".join(lines)
 
 
 def build_user_json_extract_prompt(
@@ -170,6 +286,8 @@ def build_user_json_extract_prompt(
                 analysis_lines.extend(f"  - {field}" for field in missing_filtered)
         analysis_block = "\n".join(analysis_lines)
 
+    section_hints = _render_section_hints(job_text)
+
     blocks: list[str] = []
     if extras_block:
         blocks.append(extras_block)
@@ -177,6 +295,9 @@ def build_user_json_extract_prompt(
         blocks.append(locked_block)
     if analysis_block:
         blocks.append(analysis_block)
+    if section_hints:
+        blocks.append(section_hints)
+    blocks.append(SECTION_PRIMER)
     blocks.append(instructions)
     blocks.append(f"Text:\n{job_text}")
     prompt = "\n\n".join(blocks)

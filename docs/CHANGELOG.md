@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Precise extraction now forces a high-effort model tier and injects rule-based section cues (e.g., Aufgaben/Anforderungen) into the prompt so responsibilities and requirements are captured more reliably.
+  DE: Die präzise Extraktion nutzt jetzt ein Modell mit hoher Reasoning-Stufe und fügt regelbasierte Abschnittshinweise (z. B. Aufgaben/Anforderungen) in den Prompt ein, damit Aufgaben- und Anforderungsblöcke zuverlässiger erkannt werden.
+
 - EN: Clarified the extraction prompt to force duties vs. qualification bullets into the correct buckets so mixed lists no longer merge responsibilities with skills or languages.
   DE: Extraktions-Prompt präzisiert, damit gemischte Bullet-Listen zuverlässig in Aufgaben bzw. Anforderungen (Skills/Sprachen) aufgeteilt werden und nicht mehr zusammenfallen.
 
