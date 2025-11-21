@@ -28,6 +28,9 @@ Changed / Geändert
 - EN: Strengthened the extraction prompt with a codex-style JSON schema example and explicit German section cues (Anforderungen vs. Aufgaben) so skills map reliably into the requirements fields.
   DE: Extraktions-Prompt um ein Codex-Style-JSON-Beispiel und klare deutsche Abschnitts-Hinweise (Anforderungen vs. Aufgaben) ergänzt, damit Skills zuverlässig in die Requirements-Felder einsortiert werden.
 
+- EN: German heading detection now treats "Jobbeschreibung" and "Tätigkeitsbeschreibung" as responsibility cues and stops requirements capture when encountering benefits headers like "Wir bieten" or "Das bieten wir", preventing tasks and skills from merging.
+  DE: Die Überschriften-Erkennung stuft „Jobbeschreibung“ und „Tätigkeitsbeschreibung“ jetzt als Aufgaben-Hinweise ein und beendet die Anforderungs-Erfassung bei Benefit-Headern wie „Wir bieten“ oder „Das bieten wir“, damit Aufgaben- und Skill-Listen getrennt bleiben.
+
 - EN: Introduced an explicit `APIMode` enum and per-call `api_mode` overrides for `call_chat_api` and `stream_chat_api` so OpenAI backend selection no longer depends on temporary global flags.
   DE: Neues `APIMode`-Enum und pro-Aufruf-Overrides über `api_mode` für `call_chat_api` und `stream_chat_api`, damit die Wahl zwischen Responses- und Chat-Backend nicht mehr von temporären globalen Flags abhängt.
 

@@ -8,6 +8,7 @@ from llm.prompts import (
     PreExtractionInsights,
     SECTION_PRIMER,
     SYSTEM_JSON_EXTRACTOR,
+    _extract_section_hints,
 )
 from nlp.prepare_text import truncate_smart
 
@@ -140,3 +141,21 @@ def test_section_hints_are_injected_when_headings_exist():
     assert "Team führen" in user
     assert "Erfahrung mit APIs" in user
     assert SECTION_PRIMER in user
+
+
+def test_german_jobbeschreibung_and_benefits_are_split_correctly():
+    text = """Jobbeschreibung:
+    - Leiten von Projekten
+    - Koordination von Teams
+
+    Wir bieten:
+    - 30 Tage Urlaub
+    - Flexible Arbeitszeiten
+    """
+
+    sections = _extract_section_hints(text)
+
+    assert sections.get("requirements") is None
+    assert sections.get("responsibilities") == [
+        "Leiten von Projekten\nKoordination von Teams",
+    ]
