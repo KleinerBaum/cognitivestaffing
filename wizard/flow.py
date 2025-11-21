@@ -26,6 +26,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Pattern,
     Sequence,
     TypedDict,
     TypeVar,
@@ -273,6 +274,11 @@ COMPANY_CONTACT_EMAIL_CAPTION: Final[LocalizedText] = (
     "Diese Inbox nutzen wir für Rückfragen, Freigaben und Exportlinks.",
     "We use this inbox for follow-ups, approvals, and export links.",
 )
+CONTACT_EMAIL_INLINE_PATTERN: Final[Pattern[str]] = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+CONTACT_EMAIL_PATTERN_WARNING: Final[LocalizedText] = (
+    "Sieht nicht nach einer E-Mail-Adresse aus – bitte Format prüfen.",
+    "Doesn't look like an email address – please double-check the format.",
+)
 COMPANY_CONTACT_PHONE_LABEL: Final[LocalizedText] = (
     "Kontakt-Telefon",
     "Contact phone",
@@ -309,6 +315,13 @@ ROLE_SUMMARY_LABEL: Final[LocalizedText] = (
     "Rollenbeschreibung",
     "Role summary",
 )
+
+
+def _email_format_invalid(candidate: str | None) -> bool:
+    """Return ``True`` when the value looks unlike a basic email address."""
+
+    value = (candidate or "").strip()
+    return bool(value) and CONTACT_EMAIL_INLINE_PATTERN.match(value) is None
 
 
 class WizardStepKey(StrEnum):
@@ -4473,12 +4486,15 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
 
     contact_email_container = contact_cols[1].container()
     with contact_email_container:
+        contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX
         company["contact_email"] = widget_factory.text_input(
             ProfilePaths.COMPANY_CONTACT_EMAIL,
-            tr(*COMPANY_CONTACT_EMAIL_LABEL),
+            contact_email_label,
             widget_factory=contact_cols[1].text_input,
             value_formatter=_string_or_empty,
         )
+        if _email_format_invalid(company.get("contact_email")):
+            contact_email_container.warning(tr(*CONTACT_EMAIL_PATTERN_WARNING))
     _render_inline_followups((ProfilePaths.COMPANY_CONTACT_EMAIL,), profile, container=contact_email_container)
 
     contact_phone_container = contact_cols[2].container()
@@ -4496,7 +4512,7 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
     with primary_city_container:
         location["primary_city"] = widget_factory.text_input(
             ProfilePaths.LOCATION_PRIMARY_CITY,
-            tr(*PRIMARY_CITY_LABEL),
+            tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX,
             widget_factory=location_cols[0].text_input,
             value_formatter=_string_or_empty,
         )
@@ -6786,14 +6802,7 @@ def _step_company() -> None:
         data,
         container_factory=contact_cols[0].container,
     )
-    contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL)
-    contact_email_key = str(ProfilePaths.COMPANY_CONTACT_EMAIL)
-    contact_email_state = st.session_state.get(contact_email_key)
-    contact_email_missing = contact_email_key in missing_here or not (
-        isinstance(contact_email_state, str) and contact_email_state.strip()
-    )
-    if contact_email_missing:
-        contact_email_label += REQUIRED_SUFFIX
+    contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX
     contact_email_value = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
         contact_email_label,
@@ -6804,6 +6813,8 @@ def _step_company() -> None:
         sync_session_state=False,
     )
     contact_cols[1].caption(tr(*COMPANY_CONTACT_EMAIL_CAPTION))
+    if _email_format_invalid(contact_email_value):
+        contact_cols[1].warning(tr(*CONTACT_EMAIL_PATTERN_WARNING))
     _, contact_email_error = persist_contact_email(contact_email_value)
     if contact_email_error:
         contact_cols[1].error(tr(*contact_email_error))
@@ -6831,14 +6842,7 @@ def _step_company() -> None:
     )
 
     city_col, country_col = st.columns(2, gap="small")
-    city_label = tr(*PRIMARY_CITY_LABEL)
-    primary_city_key = str(ProfilePaths.LOCATION_PRIMARY_CITY)
-    primary_city_state = st.session_state.get(primary_city_key)
-    city_missing = primary_city_key in missing_here or not (
-        isinstance(primary_city_state, str) and primary_city_state.strip()
-    )
-    if city_missing:
-        city_label += REQUIRED_SUFFIX
+    city_label = tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX
     city_lock = _field_lock_config(
         ProfilePaths.LOCATION_PRIMARY_CITY,
         city_label,
@@ -9721,11 +9725,14 @@ def _summary_company() -> None:
         value=data["company"].get("contact_name", ""),
         key="ui.summary.company.contact_name",
     )
+    contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX
     contact_email = contact_cols[1].text_input(
-        tr(*COMPANY_CONTACT_EMAIL_LABEL),
+        contact_email_label,
         value=data["company"].get("contact_email", ""),
         key="ui.summary.company.contact_email",
     )
+    if _email_format_invalid(contact_email):
+        contact_cols[1].warning(tr(*CONTACT_EMAIL_PATTERN_WARNING))
     contact_phone = contact_cols[2].text_input(
         tr(*COMPANY_CONTACT_PHONE_LABEL),
         value=data["company"].get("contact_phone", ""),
@@ -9955,9 +9962,10 @@ def _summary_position() -> None:
         key="ui.summary.position.role_summary",
         help=tr("Dieses Feld ist erforderlich", "This field is required"),
     )
+    summary_city_label = tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX
     summary_city_lock = _field_lock_config(
         ProfilePaths.LOCATION_PRIMARY_CITY,
-        tr(*PRIMARY_CITY_LABEL),
+        summary_city_label,
         container=c1,
         context="summary",
     )
