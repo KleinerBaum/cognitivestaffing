@@ -7921,6 +7921,23 @@ def _step_requirements() -> None:
             .skill-suggestion-table [data-baseweb="checkbox"] {
                 transform: scale(0.92);
             }
+            .role-task-section {
+                border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.35));
+                border-radius: 0.85rem;
+                padding: 0.9rem 1rem;
+                background: var(--surface-0, #f8fafc);
+                margin-bottom: 0.95rem;
+            }
+            .role-task-section__title {
+                font-weight: 700;
+                font-size: 1.02rem;
+                margin-bottom: 0.1rem;
+            }
+            .role-task-section__caption {
+                color: var(--tone-200, #d4d4d8);
+                font-size: 0.92rem;
+                margin: 0;
+            }
             </style>
             """,
             unsafe_allow_html=True,
@@ -8394,11 +8411,20 @@ def _step_requirements() -> None:
     responsibilities_col, requirements_col = st.columns(2, gap="large")
 
     with responsibilities_col:
-        st.subheader(
-            tr(
-                "Verantwortlichkeiten der Rolle",
-                "Responsibilities of the role",
-            )
+        st.markdown(
+            """
+            <div class="role-task-section">
+                <div class="role-task-section__title">{title}</div>
+                <p class="role-task-section__caption">{caption}</p>
+            </div>
+            """.format(
+                title=tr("Verantwortlichkeiten der Rolle", "Responsibilities of the role"),
+                caption=tr(
+                    "Liste, was die Rolle liefert und verantwortet – diese Punkte füllen Anzeigen, Scorecards und Onboarding.",
+                    "List what the role delivers and owns; these bullets power job ads, scorecards, and onboarding.",
+                ),
+            ),
+            unsafe_allow_html=True,
         )
         responsibilities = data.setdefault("responsibilities", {})
         responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
@@ -8532,11 +8558,23 @@ def _step_requirements() -> None:
                     st.rerun()
 
     with requirements_col:
-        st.subheader(
-            tr(
-                "Anforderungen (Skills & Qualifikationen)",
-                "Requirements (skills & qualifications)",
-            )
+        st.markdown(
+            """
+            <div class="role-task-section">
+                <div class="role-task-section__title">{title}</div>
+                <p class="role-task-section__caption">{caption}</p>
+            </div>
+            """.format(
+                title=tr(
+                    "Anforderungen (Skills & Qualifikationen)",
+                    "Requirements (skills & qualifications)",
+                ),
+                caption=tr(
+                    "Prüfe hier alle Muss- und Kann-Kriterien: Hard/Soft Skills, Sprachen, Tools und Zertifikate.",
+                    "Capture every must-have and nice-to-have: hard/soft skills, languages, tools, and certificates.",
+                ),
+            ),
+            unsafe_allow_html=True,
         )
         llm_skill_sources: dict[str, dict[str, list[str]]] = {}
         for pool_key in ("hard_skills", "soft_skills"):
