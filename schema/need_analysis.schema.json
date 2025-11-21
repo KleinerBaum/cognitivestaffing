@@ -75,7 +75,12 @@
                         {
                             "type": "null"
                         }
-                    ]
+                    ],
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "format": "email"
                 },
                 "contact_phone": {
                     "type": [
@@ -116,6 +121,7 @@
                 }
             },
             "required": [
+                "name",
                 "brand_name",
                 "industry",
                 "hq_location",
@@ -455,194 +461,6 @@
                         "type": "string"
                     }
                 },
-                "skill_mappings": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "hard_skills_required": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "name"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "normalized_name": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "esco_uri": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "weight": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0,
-                                        "maximum": 1
-                                    }
-                                }
-                            }
-                        },
-                        "hard_skills_optional": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "name"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "normalized_name": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "esco_uri": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "weight": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0,
-                                        "maximum": 1
-                                    }
-                                }
-                            }
-                        },
-                        "soft_skills_required": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "name"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "normalized_name": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "esco_uri": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "weight": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0,
-                                        "maximum": 1
-                                    }
-                                }
-                            }
-                        },
-                        "soft_skills_optional": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "name"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "normalized_name": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "esco_uri": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "weight": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0,
-                                        "maximum": 1
-                                    }
-                                }
-                            }
-                        },
-                        "tools_and_technologies": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "name"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "normalized_name": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "esco_uri": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "weight": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0,
-                                        "maximum": 1
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "required": [
-                        "hard_skills_required",
-                        "hard_skills_optional",
-                        "soft_skills_required",
-                        "soft_skills_optional",
-                        "tools_and_technologies"
-                    ]
-                },
                 "language_level_english": {
                     "type": [
                         "string",
@@ -666,6 +484,199 @@
                         "boolean",
                         "null"
                     ]
+                },
+                "skill_mappings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "hard_skills_required": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
+                                ]
+                            }
+                        },
+                        "hard_skills_optional": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
+                                ]
+                            }
+                        },
+                        "soft_skills_required": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
+                                ]
+                            }
+                        },
+                        "soft_skills_optional": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
+                                ]
+                            }
+                        },
+                        "tools_and_technologies": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "normalized_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "esco_uri": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "weight": {
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
+                                ]
+                            }
+                        }
+                    },
+                    "required": [
+                        "hard_skills_required",
+                        "hard_skills_optional",
+                        "soft_skills_required",
+                        "soft_skills_optional",
+                        "tools_and_technologies"
+                    ]
                 }
             },
             "required": [
@@ -678,11 +689,11 @@
                 "languages_optional",
                 "certificates",
                 "certifications",
-                "skill_mappings",
                 "language_level_english",
                 "background_check_required",
                 "portfolio_required",
-                "reference_check_required"
+                "reference_check_required",
+                "skill_mappings"
             ]
         },
         "employment": {
