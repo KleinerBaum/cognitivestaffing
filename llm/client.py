@@ -54,6 +54,19 @@ def _responses_api_enabled() -> bool:
     return bool(USE_RESPONSES_API)
 
 
+def _resolve_extraction_effort() -> str:
+    """Return the reasoning effort for extraction honoring precise mode."""
+
+    try:
+        effort_raw = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
+    except Exception:
+        effort_raw = REASONING_EFFORT
+    effort_value = str(effort_raw or "").strip().lower() or REASONING_EFFORT
+    if app_config.get_reasoning_mode() == "precise" and effort_value in {"minimal", "low", "medium"}:
+        return "high"
+    return effort_value
+
+
 _PRE_ANALYSIS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -272,7 +285,7 @@ def _run_pre_extraction_analysis(
         url=url,
     )
 
-    effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
+    effort = _resolve_extraction_effort()
     model = select_model(ModelTask.EXTRACTION)
 
     try:
@@ -512,7 +525,7 @@ def extract_json(
         )
         prompt_digest = _summarise_prompt(messages)
         missing_sections = _summarise_missing_sections(getattr(insights, "missing_fields", None))
-        effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
+        effort = _resolve_extraction_effort()
         model = select_model(ModelTask.EXTRACTION)
         span.set_attribute("llm.model", model)
         span.set_attribute("llm.extract.minimal", minimal)
