@@ -20,7 +20,6 @@ from difflib import SequenceMatcher
 from threading import Lock
 from typing import Any, Callable, Dict, Final, Iterable, Iterator, Mapping, Optional, Sequence, cast
 
-import backoff
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from openai import (
@@ -56,9 +55,10 @@ from config import (
     select_model,
 )
 from constants.keys import StateKeys
-from llm.cost_router import route_model_for_messages
+from llm.cost_router import PromptCostEstimate, route_model_for_messages
 from utils.errors import display_error, resolve_message
 from utils.llm_state import llm_disabled_message
+from utils.retry import retry_with_backoff
 from .client import (
     FileSearchKey,
     FileSearchResult,
@@ -1303,6 +1303,107 @@ def _convert_tools_to_functions(tool_specs: Sequence[Mapping[str, Any]]) -> list
     return functions
 
 
+@dataclass(frozen=True)
+class PayloadContext:
+    """Normalized inputs for building chat or Responses payloads."""
+
+    messages: list[dict[str, Any]]
+    model: str | None
+    temperature: float | None
+    max_completion_tokens: int | None
+    candidate_models: list[str]
+    tool_specs: list[dict[str, Any]]
+    tool_functions: Mapping[str, Callable[..., Any]]
+    tool_choice: Any | None
+    schema_bundle: SchemaFormatBundle | None
+    reasoning_effort: str | None
+    extra: dict[str, Any] | None
+    router_estimate: PromptCostEstimate | None
+    previous_response_id: str | None
+    force_classic_for_tools: bool
+    api_mode_override: str | None = None
+
+    @property
+    def use_classic_api(self) -> bool:
+        return app_config.USE_CLASSIC_API or self.force_classic_for_tools
+
+
+@dataclass
+class _BasePayloadBuilder:
+    context: PayloadContext
+
+    def _wrap(self, payload: dict[str, Any]) -> ResponsesRequest:
+        return ResponsesRequest(
+            payload=payload,
+            model=self.context.model,
+            tool_specs=self.context.tool_specs,
+            tool_functions=self.context.tool_functions,
+            candidate_models=self.context.candidate_models,
+            api_mode_override=self.context.api_mode_override,
+        )
+
+
+class ChatPayloadBuilder(_BasePayloadBuilder):
+    """Build Chat Completions payloads from a :class:`PayloadContext`."""
+
+    def build(self) -> ResponsesRequest:
+        payload: dict[str, Any] = {"model": self.context.model, "messages": self.context.messages}
+        if self.context.temperature is not None and model_supports_temperature(self.context.model):  # TEMP_SUPPORTED
+            payload["temperature"] = self.context.temperature
+        if self.context.max_completion_tokens is not None:
+            payload["max_completion_tokens"] = self.context.max_completion_tokens
+        if self.context.schema_bundle is not None:
+            payload["response_format"] = deepcopy(self.context.schema_bundle.chat_response_format)
+        if self.context.tool_specs:
+            functions = _convert_tools_to_functions(self.context.tool_specs)
+            if functions:
+                payload["functions"] = functions
+                function_call = _convert_tool_choice_to_function_call(self.context.tool_choice)
+                if function_call is not None:
+                    payload["function_call"] = function_call
+
+        return self._wrap(payload)
+
+
+class ResponsesPayloadBuilder(_BasePayloadBuilder):
+    """Build Responses API payloads from a :class:`PayloadContext`."""
+
+    def build(self) -> ResponsesRequest:
+        payload: dict[str, Any] = {
+            "model": self.context.model,
+            "input": self.context.messages,
+        }
+        if self.context.previous_response_id:
+            payload["previous_response_id"] = self.context.previous_response_id
+        if self.context.temperature is not None and model_supports_temperature(self.context.model):  # TEMP_SUPPORTED
+            payload["temperature"] = self.context.temperature
+        if model_supports_reasoning(self.context.model):
+            payload["reasoning"] = {"effort": self.context.reasoning_effort}
+        if self.context.max_completion_tokens is not None:
+            payload["max_output_tokens"] = self.context.max_completion_tokens
+        if self.context.schema_bundle is not None:
+            text_config: dict[str, Any] = dict(payload.get("text") or {})
+            text_config.pop("type", None)
+            text_config["format"] = deepcopy(self.context.schema_bundle.responses_format)
+            payload["text"] = text_config
+        if self.context.extra:
+            payload.update(self.context.extra)
+        if self.context.router_estimate is not None:
+            metadata: dict[str, Any] = dict(payload.get("metadata") or {})
+            router_info: dict[str, Any] = dict(metadata.get("router") or {})
+            router_info.update(
+                {
+                    "complexity": self.context.router_estimate.complexity.value,
+                    "tokens": self.context.router_estimate.total_tokens,
+                    "hard_words": self.context.router_estimate.hard_word_count,
+                }
+            )
+            metadata["router"] = router_info
+            payload["metadata"] = metadata
+
+        return self._wrap(payload)
+
+
 def _prepare_payload(
     messages: Sequence[dict],
     *,
@@ -1322,7 +1423,7 @@ def _prepare_payload(
     """Assemble the payload for the configured OpenAI API."""
 
     selected_task = task or ModelTask.DEFAULT
-    router_estimate = None
+    router_estimate: PromptCostEstimate | None = None
     candidate_override = model
     if model is None:
         base_model = select_model(selected_task)
@@ -1475,76 +1576,40 @@ def _prepare_payload(
     messages_payload = [dict(message) for message in messages]
     normalised_tool_choice = _normalise_tool_choice_spec(tool_choice) if tool_choice is not None else None
 
-    payload: dict[str, Any]
     schema_bundle: SchemaFormatBundle | None = None
     if json_schema is not None:
         schema_bundle = build_schema_format_bundle(json_schema)
 
-    api_mode_override: str | None = None
+    force_classic_for_tools = bool(
+        combined_tools and not (app_config.USE_CLASSIC_API or app_config.RESPONSES_ALLOW_TOOLS)
+    )
+    api_mode_override: str | None = "chat" if force_classic_for_tools and not app_config.USE_CLASSIC_API else None
 
-    force_classic_for_tools = False
-    if converted_tools and not (app_config.USE_CLASSIC_API or app_config.RESPONSES_ALLOW_TOOLS):
-        force_classic_for_tools = True  # NO_TOOLS_IN_RESPONSES
-
-    use_classic_api = app_config.USE_CLASSIC_API or force_classic_for_tools
-
-    if use_classic_api:
-        payload = {"model": model, "messages": messages_payload}
-        if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
-            payload["temperature"] = temperature
-        if max_completion_tokens is not None:
-            payload["max_completion_tokens"] = max_completion_tokens
-        if schema_bundle is not None:
-            payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
-        if combined_tools:
-            functions = _convert_tools_to_functions(combined_tools)
-            if functions:
-                payload["functions"] = functions
-                function_call = _convert_tool_choice_to_function_call(normalised_tool_choice)
-                if function_call is not None:
-                    payload["function_call"] = function_call
-    else:
-        payload = {"model": model, "input": messages_payload}
-        if previous_response_id:
-            payload["previous_response_id"] = previous_response_id
-        if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
-            payload["temperature"] = temperature
-        if model_supports_reasoning(model):
-            payload["reasoning"] = {"effort": reasoning_effort}
-        if max_completion_tokens is not None:
-            payload["max_output_tokens"] = max_completion_tokens
-        if schema_bundle is not None:
-            text_config: dict[str, Any] = dict(payload.get("text") or {})
-            text_config.pop("type", None)
-            text_config["format"] = deepcopy(schema_bundle.responses_format)
-            payload["text"] = text_config
-        if extra:
-            payload.update(extra)
-
-        if router_estimate is not None:
-            metadata: dict[str, Any] = dict(payload.get("metadata") or {})
-            router_info: dict[str, Any] = dict(metadata.get("router") or {})
-            router_info.update(
-                {
-                    "complexity": router_estimate.complexity.value,
-                    "tokens": router_estimate.total_tokens,
-                    "hard_words": router_estimate.hard_word_count,
-                }
-            )
-            metadata["router"] = router_info
-            payload["metadata"] = metadata
-
-    if force_classic_for_tools and not app_config.USE_CLASSIC_API:
-        api_mode_override = "chat"
-
-    return ResponsesRequest(
-        payload=payload,
+    context = PayloadContext(
+        messages=messages_payload,
         model=model,
+        temperature=temperature,
+        max_completion_tokens=max_completion_tokens,
+        candidate_models=candidate_models,
         tool_specs=combined_tools,
         tool_functions=tool_map,
-        candidate_models=candidate_models,
+        tool_choice=normalised_tool_choice,
+        schema_bundle=schema_bundle,
+        reasoning_effort=reasoning_effort,
+        extra=extra,
+        router_estimate=router_estimate,
+        previous_response_id=previous_response_id,
+        force_classic_for_tools=force_classic_for_tools,
         api_mode_override=api_mode_override,
     )
+
+    builder: _BasePayloadBuilder
+    if context.use_classic_api:
+        builder = ChatPayloadBuilder(context)
+    else:
+        builder = ResponsesPayloadBuilder(context)
+
+    return builder.build()
 
 
 @dataclass
@@ -2164,11 +2229,7 @@ def _call_chat_api_single(
             )
 
 
-@backoff.on_exception(
-    backoff.expo,
-    (APITimeoutError, APIConnectionError, RateLimitError, APIError),
-    max_tries=3,
-    jitter=backoff.full_jitter,
+@retry_with_backoff(
     giveup=lambda exc: isinstance(exc, BadRequestError) or is_unrecoverable_schema_error(exc),
     on_giveup=_on_api_giveup,
 )
