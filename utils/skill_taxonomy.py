@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Mapping
 
 # Common synonyms and aliases mapped to their canonical skill labels.
 _SKILL_SYNONYMS: dict[str, str] = {
@@ -97,7 +97,7 @@ def map_skill(name: str) -> dict[str, str | None] | None:
     }
 
 
-def _as_skill_entries(values: Sequence[str] | None) -> list[dict[str, str | None]]:
+def _as_skill_entries(values: Iterable[str] | None) -> list[dict[str, str | None]]:
     mapped: list[dict[str, str | None]] = []
     if not values:
         return mapped

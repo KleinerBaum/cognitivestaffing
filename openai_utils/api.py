@@ -463,6 +463,64 @@ def is_unrecoverable_schema_error(error: Exception) -> bool:
     return False
 
 
+def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> dict[str, Any]:
+    """Return ``payload`` without fields unsupported by ``api_mode``.
+
+    The helper normalises message keys and strips obviously invalid fields so we
+    avoid OpenAI ``invalid_request_error`` or ``invalid_json_schema`` responses
+    before the request leaves the application. This keeps retries from
+    repeatedly submitting malformed payloads.
+    """
+
+    cleaned = dict(payload)
+    removed: list[str] = []
+
+    for key in list(cleaned):
+        if key.startswith("_"):
+            removed.append(key)
+            cleaned.pop(key, None)
+
+    mode = api_mode if api_mode in {"chat", "responses"} else "responses"
+
+    if mode == "chat":
+        if "input" in cleaned and "messages" not in cleaned and isinstance(cleaned["input"], Sequence):
+            cleaned["messages"] = cleaned["input"]
+        for invalid_field in ("input", "text", "previous_response_id", "max_output_tokens"):
+            if invalid_field in cleaned:
+                removed.append(invalid_field)
+                cleaned.pop(invalid_field, None)
+    else:
+        if "messages" in cleaned and "input" not in cleaned:
+            cleaned["input"] = cleaned.pop("messages")
+        for invalid_field in ("functions", "function_call", "max_completion_tokens"):
+            if invalid_field in cleaned:
+                removed.append(invalid_field)
+                cleaned.pop(invalid_field, None)
+        if "response_format" in cleaned:
+            cleaned.pop("response_format")
+            removed.append("response_format")
+
+    if removed:
+        logger.debug(
+            "Pruned unsupported fields for %s API payload: %s",
+            mode,
+            ", ".join(sorted(set(removed))),
+        )
+
+    return cleaned
+
+
+def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
+    """Record additional context for known, non-retriable OpenAI failures."""
+
+    if is_unrecoverable_schema_error(error):
+        logger.error(
+            "OpenAI rejected JSON schema for %s request; skipping retries: %s",
+            api_mode,
+            getattr(error, "message", str(error)),
+        )
+
+
 def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: str | None = None) -> Any:
     """Execute a Responses create call with configured timeout handling."""
 
@@ -470,15 +528,17 @@ def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: str | No
     api_mode = api_mode or request_kwargs.pop("_api_mode", None)
     timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
     mode = api_mode or ("chat" if app_config.USE_CLASSIC_API else "responses")
+    cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
     if mode == "chat":
-        return get_client().chat.completions.create(timeout=timeout, **request_kwargs)
-    return get_client().responses.create(timeout=timeout, **request_kwargs)
+        return get_client().chat.completions.create(timeout=timeout, **cleaned_payload)
+    return get_client().responses.create(timeout=timeout, **cleaned_payload)
 
 
 def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode: str | None = None) -> Any:
     """Send ``payload`` to the configured OpenAI API with retry handling."""
 
     with tracer.start_as_current_span("openai.execute_response") as span:
+        mode = api_mode or ("chat" if app_config.USE_CLASSIC_API else "responses")
         if model:
             span.set_attribute("llm.model", model)
         span.set_attribute("llm.has_tools", "functions" in payload or "tools" in payload)
@@ -492,6 +552,7 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode
             return _create_response_with_timeout(payload, api_mode=api_mode)
         except BadRequestError as err:
             span.record_exception(err)
+            _log_known_openai_error(err, api_mode=mode)
             if "temperature" in payload and _is_temperature_unsupported_error(err):
                 span.add_event("retry_without_temperature")
                 _mark_model_without_temperature(model)
@@ -508,6 +569,7 @@ def _execute_response(payload: Dict[str, Any], model: Optional[str], *, api_mode
             raise
         except OpenAIError as err:
             span.record_exception(err)
+            _log_known_openai_error(err, api_mode=mode)
             if model and _should_mark_model_unavailable(err):
                 mark_model_unavailable(model)
             span.set_status(Status(StatusCode.ERROR, str(err)))

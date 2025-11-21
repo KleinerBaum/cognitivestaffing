@@ -13,6 +13,9 @@ Changed / Geändert
 - EN: Responses schema now marks `company.name` as required (empty or `null` values remain allowed) so OpenAI's strict schema validation no longer flags missing keys.
   DE: Das Responses-Schema kennzeichnet `company.name` jetzt als Pflichtfeld (leere oder `null`-Werte bleiben zulässig), sodass die strikte OpenAI-Schema-Validierung keine fehlenden Schlüssel mehr meldet.
 
+- EN: Added an OpenAI request adapter that prunes unsupported fields, normalises Responses-to-chat fallbacks, and treats `invalid_json_schema` errors as non-retriable to avoid replaying malformed payloads.
+  DE: Neuer OpenAI-Request-Adapter entfernt nicht unterstützte Felder, normalisiert Responses-zu-Chat-Fallbacks und behandelt `invalid_json_schema`-Fehler als nicht wiederholbar, damit fehlerhafte Payloads nicht erneut gesendet werden.
+
 - EN: Requirements now include ESCO-aligned `skill_mappings` that normalize skill labels and attach URIs after extraction, so downstream matching can rely on standard taxonomy identifiers.
   DE: Die Requirements enthalten jetzt ESCO-ausgerichtete `skill_mappings`, die Skill-Bezeichnungen normalisieren und nach der Extraktion URIs hinzufügen, damit nachgelagerte Matching-Logik auf Standard-Taxonomie-IDs zugreifen kann.
 
