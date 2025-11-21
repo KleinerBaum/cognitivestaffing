@@ -6554,7 +6554,6 @@ def _render_extraction_settings_panel() -> None:
             ),
         )
         st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
-        st.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
         if not strict_enabled:
             st.info(
                 tr(
