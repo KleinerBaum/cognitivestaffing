@@ -48,6 +48,17 @@ _TRUTHY_ENV_VALUES: tuple[str, ...] = ("1", "true", "yes", "on")
 _API_FLAG_LOCK = RLock()
 
 
+class APIMode(StrEnum):
+    """Enumerate the supported OpenAI API backends."""
+
+    RESPONSES = "responses"
+    CLASSIC = "chat"
+
+    @property
+    def is_classic(self) -> bool:
+        return self is APIMode.CLASSIC
+
+
 # Canonical model identifiers as exposed by the OpenAI Responses API.
 GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
@@ -94,6 +105,22 @@ def _is_truthy_flag(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in _TRUTHY_ENV_VALUES
+
+
+def _coerce_api_mode_value(value: APIMode | str | bool | None, *, fallback: APIMode) -> APIMode:
+    """Convert ``value`` into an :class:`APIMode` with a sensible default."""
+
+    if isinstance(value, APIMode):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {APIMode.RESPONSES.value, "response", "responses"}:
+            return APIMode.RESPONSES
+        if lowered in {APIMode.CLASSIC.value, "classic", "legacy", "chat"}:
+            return APIMode.CLASSIC
+    if isinstance(value, bool):
+        return APIMode.RESPONSES if value else APIMode.CLASSIC
+    return fallback
 
 
 def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> str:
@@ -391,19 +418,27 @@ ADMIN_DEBUG_PANEL = _normalise_bool(
 )
 
 
-def set_api_mode(use_responses: bool) -> None:
+def resolve_api_mode(preferred: APIMode | str | bool | None = None) -> APIMode:
+    """Return the active API mode, optionally honouring an override."""
+
+    fallback = APIMode.CLASSIC if USE_CLASSIC_API else APIMode.RESPONSES
+    return _coerce_api_mode_value(preferred, fallback=fallback)
+
+
+def set_api_mode(mode: APIMode | str | bool) -> None:
     """Synchronise the Responses/Classic API flags.
 
     Args:
-        use_responses: When ``True`` the OpenAI Responses API becomes the active
-            backend. ``False`` switches the platform to the legacy Chat
-            Completions API.
+        mode: When truthy/``APIMode.RESPONSES`` the Responses API becomes the
+            active backend. ``False`` or ``APIMode.CLASSIC`` switches the
+            platform to the legacy Chat Completions API.
     """
 
     global USE_RESPONSES_API, USE_CLASSIC_API
 
-    USE_RESPONSES_API = bool(use_responses)
-    USE_CLASSIC_API = not USE_RESPONSES_API
+    target_mode = _coerce_api_mode_value(mode, fallback=resolve_api_mode())
+    USE_RESPONSES_API = target_mode is APIMode.RESPONSES
+    USE_CLASSIC_API = target_mode is APIMode.CLASSIC
 
 
 def set_responses_allow_tools(allow_tools: bool) -> None:
@@ -418,9 +453,9 @@ def set_responses_allow_tools(allow_tools: bool) -> None:
 def temporarily_force_classic_api() -> Iterator[None]:
     """Temporarily switch to the classic Chat API inside the managed block."""
 
-    previous_mode = USE_RESPONSES_API
+    previous_mode = resolve_api_mode()
     try:
-        set_api_mode(False)
+        set_api_mode(APIMode.CLASSIC)
         yield
     finally:
         set_api_mode(previous_mode)
