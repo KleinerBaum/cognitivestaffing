@@ -276,6 +276,7 @@ def _run_chat_fallback(
                 reasoning_effort=reasoning_effort,
                 task=task,
                 extra={"_api_mode": "chat"},
+                use_response_format=False,
             )
     except Exception as fallback_error:  # pragma: no cover - network/SDK issues
         logger_instance.warning(
