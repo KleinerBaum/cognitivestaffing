@@ -241,6 +241,17 @@ NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
+_required_company_fields = (
+    NEED_ANALYSIS_SCHEMA.get("properties", {})
+    .get("company", {})
+    .get("required", [])
+)
+logger.debug(
+    "Using schema (strict=%s) with required fields: %s",
+    app_config.STRICT_JSON,
+    _required_company_fields,
+)
+
 
 def _run_pre_extraction_analysis(
     text: str,
@@ -405,6 +416,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             report = _generate_error_report(err.data)
             if report:
                 logger.debug("Schema validation errors:\n%s", report)
+                logger.warning(
+                    "Schema validation error encountered (Schema fix needed) for %s: %s",
+                    prompt_digest,
+                    report,
+                )
                 if err.original and hasattr(err.original, "add_note"):
                     err.original.add_note(report)
         logger.warning("Structured extraction parsing failed for %s: %s", prompt_digest, err.message)
