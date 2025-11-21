@@ -7,6 +7,7 @@ Key highlights / Wichtigste Funktionen
 EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
 * Structured extraction now tolerates partial job ads: missing values (for example company name or brand signals) are queued as bilingual follow-up questions instead of blocking validation, and the schema accepts empty company slots while the wizard records which prompts still need answers.
+* Missing critical sections trigger a targeted AI retry that asks for only the absent fields before falling back to defaults, improving recovery of responsibilities, culture signals, and process timelines.
 * Dynamic step headers and subheaders now call out whether fields were auto-filled or still missing, and AI-suggested inputs carry a subtle 🛈 badge so recruiters know what to double-check.
 * Section headers, expanders, and inline follow-up cards now share one compact layout across all steps so follow-up prompts sit directly beneath the corresponding inputs, even inside the Onboarding extraction review tabs for meta fields.
 * Automatic salary estimation launches as soon as job title and location hints exist, displaying required fields, drivers, and raw benchmark calculations in the sidebar.

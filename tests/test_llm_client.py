@@ -12,6 +12,7 @@ from openai_utils import ChatCallResult
 
 import llm.client as client
 import llm.openai_responses as responses_module
+from llm.output_parsers import NeedAnalysisParserError
 from llm.prompts import PreExtractionInsights
 from models.need_analysis import NeedAnalysisProfile
 from llm.openai_responses import ResponsesCallResult
@@ -141,6 +142,50 @@ def test_extract_json_plain_fallback_is_sanitized(monkeypatch):
     assert calls["responses"] == 1
     assert calls["chat_plain"] == 1
     assert calls["chat_structured"] == 0
+
+
+def test_structured_extraction_recovers_missing_sections(monkeypatch):
+    """Missing sections should trigger a targeted retry before fallback."""
+
+    missing_errors = [{"loc": ("responsibilities", "items"), "msg": "missing"}]
+
+    class _FakeParser:
+        def parse(self, content: str):  # noqa: D401
+            raise NeedAnalysisParserError(
+                "missing responsibilities",
+                raw_text=content,
+                data=NeedAnalysisProfile().model_dump(mode="python"),
+                original=None,
+                errors=missing_errors,
+            )
+
+    def _fake_responses(messages, *, response_format=None, **kwargs):
+        return ResponsesCallResult(
+            content=json.dumps({"responsibilities": {"items": ["Design APIs"]}}),
+            usage={},
+            response_id="resp_missing",
+            raw_response={},
+            used_chat_fallback=False,
+        )
+
+    monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(responses_module, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(client, "get_need_analysis_output_parser", lambda: _FakeParser())
+    monkeypatch.setattr(client, "_summarise_prompt", lambda *_: "digest")
+
+    payload = {
+        "messages": [{"role": "user", "content": "text"}],
+        "model": "gpt-4o-mini",
+        "reasoning_effort": "low",
+        "verbosity": None,
+        "retries": 1,
+        "source_text": "We need an engineer to design APIs.",
+    }
+
+    output = client._structured_extraction(payload)
+    parsed = json.loads(output)
+
+    assert parsed["responsibilities"]["items"] == ["Design APIs"]
 
 
 def test_extract_json_skips_responses_when_api_mode_disabled(monkeypatch) -> None:
