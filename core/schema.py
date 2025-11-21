@@ -1347,24 +1347,65 @@ def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
             _ensure_valid_json_schema(item, path=f"{path}[{index}]")
 
 
+def _ensure_required_recursive(schema: MutableMapping[str, Any]) -> None:
+    """Ensure every object schema lists all declared properties as required."""
+
+    if schema.get("type") == "object" and "properties" in schema:
+        properties = schema.get("properties")
+        if isinstance(properties, MutableMapping):
+            _ensure_required_fields(schema, list(properties))
+            for child in properties.values():
+                if isinstance(child, MutableMapping):
+                    _ensure_required_recursive(child)
+
+    if schema.get("type") == "array":
+        items = schema.get("items")
+        if isinstance(items, MutableMapping):
+            _ensure_required_recursive(items)
+
+    for composite_key in ("anyOf", "oneOf", "allOf"):
+        options = schema.get(composite_key)
+        if isinstance(options, list):
+            for option in options:
+                if isinstance(option, MutableMapping):
+                    _ensure_required_recursive(option)
+
+
 def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     """Return a validated copy of ``schema`` for Responses output."""
 
     sanitized = _prune_unsupported_formats(deepcopy(schema))
+    sanitized.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
+    if isinstance(sanitized, MutableMapping):
+        _ensure_required_recursive(sanitized)
     _ensure_valid_json_schema(sanitized)
     return sanitized
 
 
-def build_need_analysis_responses_schema() -> dict[str, Any]:
+def build_need_analysis_responses_schema(*, sections: Collection[str] | None = None) -> dict[str, Any]:
     """Return the structured output schema for ``NeedAnalysisProfile``.
 
     This builder keeps Responses output expectations in sync with the
     Pydantic model and guards against invalid schema ``type``/``format``
     markers. URL fields rely on patterns to stay compatible with the
     Responses JSON schema whitelist.  # CS_SCHEMA_PROPAGATE
+    The ``sections`` parameter can be used to limit the schema to a subset
+    of top-level NeedAnalysis sections for multi-phase extraction when the
+    full schema proves too heavy for a single call.
     """
 
     schema = _build_model_schema(NeedAnalysisProfile)
+    if sections:
+        canonical_sections = set(schema.get("properties", {}).keys())
+        unknown_sections = set(sections) - canonical_sections
+        if unknown_sections:
+            missing = ", ".join(sorted(unknown_sections))
+            raise ValueError(f"Unknown NeedAnalysis sections requested: {missing}")
+
+        selected = {name: schema["properties"][name] for name in sections if name in canonical_sections}
+        schema["properties"] = selected
+        schema["required"] = [name for name in schema.get("required", []) if name in selected]
+
     company_schema = schema.get("properties", {}).get("company")
     if isinstance(company_schema, dict):
         company_properties = company_schema.get("properties")
