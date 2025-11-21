@@ -2472,7 +2472,7 @@ def apply_basic_fallbacks(
         team_size = _extract_team_size(text)
         if team_size is not None:
             profile.position.team_size = team_size
-            _mark_field_confidence(team_size_field, "team_size_regex", confidence=0.7)
+            _mark_field_confidence(team_size_field, "team_size_regex", confidence=0.95)
             _log_heuristic_fill(
                 team_size_field,
                 "team_size_regex",
@@ -2482,7 +2482,7 @@ def apply_basic_fallbacks(
         direct_reports = _extract_direct_reports(text)
         if direct_reports is not None:
             profile.position.supervises = direct_reports
-            _mark_field_confidence(supervises_field, "direct_reports_regex", confidence=0.7)
+            _mark_field_confidence(supervises_field, "direct_reports_regex", confidence=0.95)
             _log_heuristic_fill(
                 supervises_field,
                 "direct_reports_regex",
