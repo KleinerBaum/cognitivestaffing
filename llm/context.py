@@ -73,9 +73,20 @@ def build_extract_messages(
     parser = get_need_analysis_output_parser()
     format_instructions = parser.format_instructions
 
-    system_content = f"{SYSTEM_JSON_EXTRACTOR}\n\n{format_instructions}".strip()
+    field_reference_block = f"Canonical schema fields (ordered):\n{render_field_bullets(field_order)}"
+    system_intro = SYSTEM_JSON_EXTRACTOR
     if locked_fields:
-        system_content = f"{SYSTEM_JSON_EXTRACTOR} {LOCKED_SYSTEM_HINT}\n\n{format_instructions}".strip()
+        system_intro = f"{SYSTEM_JSON_EXTRACTOR} {LOCKED_SYSTEM_HINT}".strip()
+
+    system_content = "\n\n".join(
+        block
+        for block in (
+            system_intro.strip(),
+            field_reference_block,
+            format_instructions.strip(),
+        )
+        if block
+    )
 
     return [
         {"role": "system", "content": system_content},
