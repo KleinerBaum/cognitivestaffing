@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Improved recruiter contact extraction by recognising labelled HR lines (e.g., "Your contact" or "Ansprechpartner: Name") and pairing nearby emails/phones using tighter proximity checks.
+  DE: Verbesserte Recruiter-Kontakt-Extraktion durch die Erkennung markierter HR-Zeilen (z. B. „Your contact“ oder „Ansprechpartner: Name“) und eine engere Zuordnung nahegelegener E-Mails/Telefonnummern.
+
 - EN: Responses schema now marks `company.name` as required (empty or `null` values remain allowed) so OpenAI's strict schema validation no longer flags missing keys.
   DE: Das Responses-Schema kennzeichnet `company.name` jetzt als Pflichtfeld (leere oder `null`-Werte bleiben zulässig), sodass die strikte OpenAI-Schema-Validierung keine fehlenden Schlüssel mehr meldet.
 
