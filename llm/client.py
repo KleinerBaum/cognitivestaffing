@@ -113,9 +113,7 @@ def _collect_missing_paths(errors: Sequence[Mapping[str, Any]] | None) -> list[s
     return paths
 
 
-def _merge_missing_section_payload(
-    base: Mapping[str, Any] | None, patch: Mapping[str, Any]
-) -> dict[str, Any]:
+def _merge_missing_section_payload(base: Mapping[str, Any] | None, patch: Mapping[str, Any]) -> dict[str, Any]:
     """Return a deep merge of ``base`` with ``patch`` limited to missing sections."""
 
     merged: dict[str, Any] = deepcopy(base) if isinstance(base, Mapping) else {}
@@ -197,9 +195,22 @@ def _retry_missing_sections(
 def _responses_api_enabled() -> bool:
     """Return whether the structured extraction should use the Responses API."""
 
+    if not _strict_extraction_enabled():
+        return False
+
     if USE_RESPONSES_API is None:
         return app_config.USE_RESPONSES_API
     return bool(USE_RESPONSES_API)
+
+
+def _strict_extraction_enabled() -> bool:
+    """Return whether structured parsing should enforce strict JSON mode."""
+
+    try:
+        state_value = st.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True)
+    except Exception:
+        return True
+    return bool(state_value) if state_value is not None else True
 
 
 def _resolve_extraction_effort() -> str:
@@ -402,11 +413,7 @@ NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)
 
-_required_company_fields = (
-    NEED_ANALYSIS_SCHEMA.get("properties", {})
-    .get("company", {})
-    .get("required", [])
-)
+_required_company_fields = NEED_ANALYSIS_SCHEMA.get("properties", {}).get("company", {}).get("required", [])
 logger.debug(
     "Using schema (strict=%s) with required fields: %s",
     app_config.STRICT_JSON,
@@ -481,28 +488,31 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         return chain.invoke(payload)
 
     prompt_digest = _summarise_prompt(payload.get("messages"))
+    strict_format = _strict_extraction_enabled()
 
     def _build_chat_call() -> Callable[[], str | None]:
         def _invoke() -> str | None:
-            call_result = call_chat_api(
-                payload["messages"],
-                model=payload["model"],
-                temperature=0,
-                reasoning_effort=payload.get("reasoning_effort"),
-                verbosity=payload.get("verbosity"),
-                json_schema={
+            chat_kwargs: dict[str, Any] = {
+                "messages": payload["messages"],
+                "model": payload["model"],
+                "temperature": 0,
+                "reasoning_effort": payload.get("reasoning_effort"),
+                "verbosity": payload.get("verbosity"),
+                "task": ModelTask.EXTRACTION,
+            }
+            if strict_format:
+                chat_kwargs["json_schema"] = {
                     "name": "need_analysis_profile",
                     "schema": NEED_ANALYSIS_SCHEMA,
-                },
-                task=ModelTask.EXTRACTION,
-            )
+                }
+            call_result = call_chat_api(**chat_kwargs)
             return (call_result.content or "").strip()
 
         return _invoke
 
     attempts: list[tuple[str, Callable[[], str | None]]] = []
 
-    if _responses_api_enabled():
+    if strict_format and _responses_api_enabled():
         response_format = build_json_schema_format(
             name="need_analysis_profile",
             schema=NEED_ANALYSIS_SCHEMA,

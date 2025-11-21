@@ -74,6 +74,7 @@ from utils.i18n import (
     POSITION_CUSTOMER_CONTACT_DETAILS_HINT,
     POSITION_CUSTOMER_CONTACT_TOGGLE_HELP,
 )
+from components import model_selector as model_selector_component
 import config as app_config
 from config import set_api_mode, set_responses_allow_tools
 from i18n import t as translate_key
@@ -2729,6 +2730,28 @@ def _cached_extract_profile(
     finally:
         if reasoning_effort and previous_effort != reasoning_effort:
             st.session_state[StateKeys.REASONING_EFFORT] = previous_effort
+
+
+def _apply_parsing_mode(mode: str) -> str:
+    """Persist parsing mode preferences for extraction.
+
+    The helper mirrors the sidebar toggle so quick vs. precise stays in sync
+    across the wizard and extraction pipeline.
+    """
+
+    normalized = "precise"
+    if isinstance(mode, str):
+        candidate = mode.strip().lower()
+        if candidate in {"quick", "fast", "schnell"}:
+            normalized = "quick"
+        elif candidate in {"precise", "präzise", "precision", "genau"}:
+            normalized = "precise"
+
+    st.session_state[StateKeys.REASONING_MODE] = normalized
+    st.session_state[StateKeys.REASONING_EFFORT] = "minimal" if normalized == "quick" else "high"
+    st.session_state["verbosity"] = "low" if normalized == "quick" else "high"
+    st.session_state[UIKeys.REASONING_MODE] = normalized
+    return normalized
 
 
 def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[str]:
@@ -6472,6 +6495,70 @@ def _is_onboarding_locked() -> bool:
     return not is_llm_available()
 
 
+def _render_extraction_settings_panel() -> None:
+    """Render parsing controls for structured extraction."""
+
+    mode_options: tuple[str, ...] = ("quick", "precise")
+    current_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
+    try:
+        mode_index = mode_options.index(current_mode if current_mode in mode_options else "precise")
+    except ValueError:
+        mode_index = 1
+    mode_labels = {
+        "quick": tr("⚡ Schnell (Parsing)", "⚡ Fast (parsing)"),
+        "precise": tr("🎯 Gründlich (Parsing)", "🎯 Thorough (parsing)"),
+    }
+
+    strict_default = bool(st.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True))
+
+    with st.expander(tr("Extraktionseinstellungen", "Extraction settings"), expanded=False, icon="🛠️"):
+        st.caption(
+            tr(
+                "Steuere, wie das Parsing arbeitet – Geschwindigkeit vs. Genauigkeit und ob das strikte JSON-Schema erzwungen wird.",
+                "Control how parsing behaves – speed vs. accuracy and whether to enforce the strict JSON schema.",
+            )
+        )
+
+        selected_mode = st.radio(
+            tr("Parsing-Modus", "Parsing mode"),
+            options=mode_options,
+            index=mode_index,
+            key=UIKeys.EXTRACTION_REASONING_MODE,
+            format_func=lambda value: mode_labels.get(value, value.title()),
+            horizontal=True,
+        )
+        normalized_mode = _apply_parsing_mode(selected_mode)
+        st.caption(
+            tr(
+                "Schnell nutzt gpt-4.1 mini mit minimalem Denkaufwand; Gründlich schaltet auf das präzisere Reasoning-Modell um.",
+                "Fast leans on gpt-4.1 mini with minimal reasoning; Thorough switches to the more precise reasoning model.",
+            )
+        )
+
+        model_selector_component.model_selector()
+
+        strict_enabled = st.checkbox(
+            tr("Strenges Format aktivieren (experimentell)", "Enable strict format (experimental)"),
+            value=strict_default,
+            key=UIKeys.EXTRACTION_STRICT_FORMAT,
+            help=tr(
+                "Deaktivieren, wenn Antworten häufig an der Schema-Validierung scheitern – Ausgabe kann dann weniger strukturiert sein.",
+                "Disable this if responses frequently fail schema validation – outputs may become less structured.",
+            ),
+        )
+        st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
+        st.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
+        if not strict_enabled:
+            st.info(
+                tr(
+                    "Das Parsing fällt auf die nicht-strikte Chat-Kompletion zurück; bitte Ergebnisse manuell prüfen.",
+                    "Parsing will fall back to non-strict chat completions; please review the results manually.",
+                )
+            )
+
+        st.session_state[UIKeys.EXTRACTION_REASONING_MODE] = normalized_mode
+
+
 def _step_onboarding(schema: dict) -> None:
     """Render onboarding with language toggle, intro, and ingestion options."""
 
@@ -6615,6 +6702,8 @@ def _step_onboarding(schema: dict) -> None:
             ),
             disabled=locked,
         )
+
+    _render_extraction_settings_panel()
 
     review_rendered = _render_extraction_review()
 
