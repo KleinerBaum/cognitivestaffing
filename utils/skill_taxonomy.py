@@ -42,6 +42,7 @@ _PROGRAMMING_LANGUAGES: set[str] = {
     "java",
     "javascript",
     "typescript",
+    "sql",
     "c++",
     "c#",
     "golang",
