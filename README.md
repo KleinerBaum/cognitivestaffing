@@ -398,6 +398,8 @@ VECTOR_STORE_ID activates RAG lookups through OpenAI file search. Without it the
 Debug panel toggle / Debug-Panel-Schalter:
 EN: Administrators can use the new debug panel at the top of the wizard to enable verbose diagnostics and switch between the Responses API and the legacy Chat Completions backend at runtime; the helper keeps USE_RESPONSES_API and USE_CLASSIC_API in sync so downstream modules read the updated mode immediately. Set `ADMIN_DEBUG_PANEL=1` (env var or Streamlit secret) to show the expander; otherwise the controls stay hidden for regular users.
 DE: Über das neue Debug-Panel am Anfang des Wizards lassen sich ausführliche Fehlermeldungen aktivieren und die Responses- bzw. Chat-Completions-API zur Laufzeit wechseln; der Helfer hält USE_RESPONSES_API und USE_CLASSIC_API automatisch synchron, damit nachgelagerte Module den aktuellen Modus sofort übernehmen. Mit `ADMIN_DEBUG_PANEL=1` (Umgebung oder Streamlit-Secrets) wird der einklappbare Bereich eingeblendet, andernfalls bleibt er für reguläre Nutzer:innen verborgen.
+EN: Recruiters can open the user-facing "Show parsing details" expander in the onboarding extraction review to inspect the raw NeedAnalysisProfile JSON (before any manual edits), including null or empty lists, without using the admin debug panel.
+DE: Recruiter:innen können im Onboarding-Review den sichtbaren Expander „Parsing-Details anzeigen“ nutzen, um das unveränderte NeedAnalysisProfile-JSON inklusive leerer bzw. null Felder einzusehen – ganz ohne Admin-Debug-Panel.
 
 DE:
 
