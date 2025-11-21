@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Removed unsupported `uniqueItems` flags from the pre-extraction analysis JSON schema (and all Responses schemas) so OpenAI accepts the payloads without schema errors.
+  DE: Nicht unterstützte `uniqueItems`-Marker aus dem Pre-Extraction-Analyse-JSON-Schema (und allen Responses-Schemas) entfernt, damit OpenAI die Payloads ohne Schemafehler akzeptiert.
+
 - EN: Refreshed the README with a top-level "Getting started" guide (install/run steps, env var table), architecture and model-routing overview, and a link to a new example input/output file so newcomers can launch the wizard quickly.
   DE: README mit einem prominenten „Getting started“-Abschnitt (Installations-/Startanleitung, Umgebungsvariablen-Tabelle), Architektur- und Modell-Routing-Überblick sowie Verweis auf eine neue Beispiel-Ein-/Ausgabe ergänzt, damit Neueinsteiger:innen den Wizard schneller nutzen können.
 

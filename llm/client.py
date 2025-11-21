@@ -234,14 +234,12 @@ _PRE_ANALYSIS_SCHEMA: dict[str, Any] = {
             "description": "Schema field keys that likely have evidence in the text.",
             "items": {"type": "string"},
             "minItems": 0,
-            "uniqueItems": True,
         },
         "missing_fields": {
             "type": "array",
             "description": "Schema fields that appear absent or weak in the text.",
             "items": {"type": "string"},
             "minItems": 0,
-            "uniqueItems": True,
         },
         "summary": {
             "type": "string",

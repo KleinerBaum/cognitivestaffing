@@ -1303,6 +1303,26 @@ def _prune_unsupported_formats(schema: Mapping[str, Any]) -> dict[str, Any]:
     return _walk(dict(schema))
 
 
+def _strip_disallowed_keywords(schema: Mapping[str, Any], *, disallowed_keys: Collection[str]) -> dict[str, Any]:
+    """Return ``schema`` without keys that the Responses API rejects."""
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            updated: dict[str, Any] = {}
+            for key, value in node.items():
+                if key in disallowed_keys:
+                    continue
+                updated[key] = _walk(value)
+            return updated
+
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+
+        return node
+
+    return _walk(dict(schema))
+
+
 def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
     """Raise ``ValueError`` when ``node`` uses unsupported ``type``/``format`` markers."""
 
@@ -1375,6 +1395,7 @@ def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     """Return a validated copy of ``schema`` for Responses output."""
 
     sanitized = _prune_unsupported_formats(deepcopy(schema))
+    sanitized = _strip_disallowed_keywords(sanitized, disallowed_keys={"uniqueItems"})
     sanitized.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     if isinstance(sanitized, MutableMapping):
         _ensure_required_recursive(sanitized)
