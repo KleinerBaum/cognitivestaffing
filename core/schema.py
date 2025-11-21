@@ -1231,11 +1231,27 @@ def build_need_analysis_responses_schema() -> dict[str, Any]:
     schema = _build_model_schema(NeedAnalysisProfile)
     company_schema = schema.get("properties", {}).get("company")
     if isinstance(company_schema, dict):
-        required_fields = company_schema.get("required")
-        if isinstance(required_fields, list):
-            company_schema["required"] = [field for field in required_fields if field != "name"]
-            if not company_schema["required"]:
-                company_schema.pop("required")
+        company_properties = company_schema.get("properties")
+        if isinstance(company_properties, dict):
+            _ensure_required_fields(company_schema, list(company_properties))
+            contact_email_schema = company_properties.get("contact_email")
+            if isinstance(contact_email_schema, dict):
+                email_type = contact_email_schema.get("type")
+                normalized_type: list[str] = []
+                if isinstance(email_type, list):
+                    normalized_type = [entry for entry in email_type if isinstance(entry, str)]
+                elif isinstance(email_type, str):
+                    normalized_type = [email_type]
+
+                if "string" not in normalized_type:
+                    normalized_type.append("string")
+                if "null" not in normalized_type:
+                    normalized_type.append("null")
+
+                contact_email_schema["type"] = (
+                    normalized_type if len(normalized_type) > 1 else normalized_type[0]
+                )
+                contact_email_schema.setdefault("format", "email")
     schema.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     schema.setdefault("title", NeedAnalysisProfile.__name__)
     return ensure_responses_json_schema(schema)
