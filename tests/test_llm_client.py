@@ -318,6 +318,35 @@ def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
     )
 
 
+def test_plain_text_fallback_recovers_with_defaults(monkeypatch, caplog):
+    """Plain-text fallbacks should still return a usable, default profile payload."""
+
+    caplog.set_level("WARNING")
+    st.session_state.clear()
+
+    def _fail_structured(*_args: Any, **_kwargs: Any) -> str:
+        raise ValueError("structured path failed")
+
+    def _fake_chat(*_args: Any, **_kwargs: Any) -> ChatCallResult:
+        return ChatCallResult(content="nonsense", tool_calls=[], usage={})
+
+    def _parse_error(*_args: Any, **_kwargs: Any) -> NeedAnalysisProfile:
+        raise ValueError("invalid json")
+
+    monkeypatch.setattr(client, "_run_pre_extraction_analysis", lambda *a, **k: None)
+    monkeypatch.setattr(client, "build_extract_messages", lambda *a, **k: [{"role": "user", "content": "Job text"}])
+    monkeypatch.setattr(client, "_structured_extraction", _fail_structured)
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(client, "parse_extraction", _parse_error)
+    monkeypatch.setattr(client, "select_model", lambda *_: "gpt-test")
+    monkeypatch.setattr(client, "get_active_verbosity", lambda: None)
+
+    result = client.extract_json("Job text")
+
+    assert json.loads(result) == NeedAnalysisProfile().model_dump()
+    assert any("Plain-text fallback" in record.getMessage() for record in caplog.records)
+
+
 def test_extract_json_reapplies_locked_fields(monkeypatch):
     """Locked field hints should be merged back into the final payload."""
 

@@ -362,6 +362,9 @@ USE_RESPONSES_API (default 1) routes all structured calls through the OpenAI Res
 
 USE_CLASSIC_API=1 forces the legacy chat backend even when Responses would normally be selected. Both suggestion and extraction pipelines retry on Responses errors first, then cascade to chat, and finally fall back to curated static copy (for example, benefit shortlists) if the API keeps failing.
 
+Structured extraction now retries Responses up to three times before cascading to chat; when the plain-text fallback cannot be parsed as JSON, the wizard defaults to an empty NeedAnalysisProfile so heuristics and follow-up questions can still run. /
+Die strukturierte Extraktion versucht Responses jetzt bis zu drei Mal, bevor sie auf Chat wechselt; wenn die Fallback-Antwort kein JSON liefert, fällt der Wizard auf ein leeres NeedAnalysisProfile zurück, damit Heuristiken und Anschlussfragen weiterlaufen.
+
 RESPONSES_ALLOW_TOOLS (default 0) re-enables function/tool payloads on the Responses API. Keep the default for the 2025 Responses rollout where tool calls are blocked; set the flag to 1 only if your account is allowlisted for tool-enabled Responses. Otherwise the client automatically drops to the classic chat backend whenever tools are required.
 
 When no OPENAI_API_KEY is configured the UI disables all AI buttons and shows a bilingual lock banner. Providing the key via environment variables or Streamlit secrets re-enables the features immediately.

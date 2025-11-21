@@ -16,6 +16,9 @@ Changed / Geändert
 - EN: Wizard steps now surface contextual intros, highlight AI-prefilled inputs with 🛈 badges, and warn on the Summary step when critical fields are still missing so exports stay complete.
   DE: Wizard-Schritte zeigen kontextuelle Intros, markieren KI-vorbefüllte Felder mit 🛈-Badges und warnen in der Summary vor fehlenden Pflichtfeldern, damit Exporte vollständig bleiben.
 
+- EN: Structured extraction now retries Responses up to three times and, when plain-text fallbacks are unparsable, continues with an empty NeedAnalysisProfile so heuristics and follow-up generation stay available.
+  DE: Die strukturierte Extraktion versucht Responses nun bis zu drei Mal und nutzt bei nicht parsebaren Plain-Text-Fallbacks ein leeres NeedAnalysisProfile, damit Heuristiken und Anschlussfragen weiter funktionieren.
+
 - EN: Rule-based ingest now backfills generic emails/phones, location lines, and travel or team-size clues before invoking the LLM so contact, city, and workload fields rarely stay blank.
   DE: Die regelbasierte Ingestion ergänzt nun allgemeine E-Mail-/Telefonangaben, Standortzeilen sowie Reise- oder Teamgrößenhinweise vor dem LLM-Aufruf, damit Kontakt-, Stadt- und Arbeitslastfelder selten leer bleiben.
 
