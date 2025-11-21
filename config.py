@@ -107,6 +107,14 @@ def _is_truthy_flag(value: str | None) -> bool:
     return value.strip().lower() in _TRUTHY_ENV_VALUES
 
 
+SCHEMA_FUNCTION_FALLBACK = _is_truthy_flag(os.getenv("SCHEMA_FUNCTION_FALLBACK"))
+SCHEMA_FUNCTION_NAME = os.getenv("SCHEMA_FUNCTION_NAME", "extract_profile")
+SCHEMA_FUNCTION_DESCRIPTION = os.getenv(
+    "SCHEMA_FUNCTION_DESCRIPTION",
+    "Extract the structured profile payload / Extrahiere die strukturierte Profilantwort.",
+)
+
+
 def _coerce_api_mode_value(value: APIMode | str | bool | None, *, fallback: APIMode) -> APIMode:
     """Convert ``value`` into an :class:`APIMode` with a sensible default."""
 

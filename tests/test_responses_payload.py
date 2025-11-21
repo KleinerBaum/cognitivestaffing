@@ -212,6 +212,84 @@ def test_chat_fallback_strips_strict_flag(monkeypatch: pytest.MonkeyPatch) -> No
     assert "strict" not in captured["json_schema"]
 
 
+def test_function_call_chat_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Function-call fallback should mirror the schema via chat completions."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object", "properties": {"company": {"type": "string"}}, "required": ["company"]},
+    )
+
+    def _raise_error(*_: Any, **__: Any) -> Any:
+        raise OpenAIError("boom")
+
+    @contextmanager
+    def _noop_context() -> Any:
+        yield
+
+    class _FakeCompletions:
+        def __init__(self) -> None:
+            self.captured: dict[str, Any] | None = None
+
+        def create(self, **kwargs: Any) -> Any:
+            self.captured = dict(kwargs)
+            return SimpleNamespace(
+                id="chat-func",
+                choices=[
+                    {
+                        "message": {
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "extract_profile",
+                                        "arguments": '{"company": "ACME"}',
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                usage={"prompt_tokens": 10, "completion_tokens": 5},
+            )
+
+    class _FakeChat:
+        def __init__(self) -> None:
+            self.completions = _FakeCompletions()
+
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.chat = _FakeChat()
+
+    fake_client = _FakeClient()
+
+    def _fail_chat(*_: Any, **__: Any) -> None:
+        raise AssertionError("chat fallback not expected")
+
+    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
+    monkeypatch.setattr(openai_responses, "call_chat_api", _fail_chat)
+    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
+    monkeypatch.setattr(openai_responses, "get_client", lambda: fake_client)
+    monkeypatch.setattr(openai_responses.app_config, "SCHEMA_FUNCTION_FALLBACK", True)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+        allow_empty=False,
+    )
+
+    assert result is not None
+    assert result.used_chat_fallback is True
+    assert result.content == '{"company": "ACME"}'
+    assert result.usage.get("prompt_tokens") == 10
+    assert result.usage.get("completion_tokens") == 5
+
+    captured = fake_client.chat.completions.captured
+    assert captured is not None
+    assert captured["function_call"] == {"name": "extract_profile"}
+    assert captured["functions"][0]["parameters"]["properties"] == {"company": {"type": "string"}}
+
+
 def test_temperature_omitted_when_unsupported(
     monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient
 ) -> None:

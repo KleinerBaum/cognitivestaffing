@@ -375,6 +375,9 @@ Developers can also pass `api_mode=config.APIMode.RESPONSES` or `api_mode=config
 Structured extraction now retries Responses up to three times before cascading to chat; when the plain-text fallback cannot be parsed as JSON, the wizard defaults to an empty NeedAnalysisProfile so heuristics and follow-up questions can still run. /
 Die strukturierte Extraktion versucht Responses jetzt bis zu drei Mal, bevor sie auf Chat wechselt; wenn die Fallback-Antwort kein JSON liefert, fällt der Wizard auf ein leeres NeedAnalysisProfile zurück, damit Heuristiken und Anschlussfragen weiterlaufen.
 
+SCHEMA_FUNCTION_FALLBACK (default 0) enables a chat-completions function-call fallback that mirrors the JSON schema when Responses rejects a payload, reducing reliance on strict response_format handling for edge-case fields.
+SCHEMA_FUNCTION_FALLBACK (Standard 0) aktiviert einen Function-Calling-Fallback über die Chat-Completions-API, der das JSON-Schema spiegelt, sobald Responses eine Payload ablehnt – so sinkt die Abhängigkeit von strikten response_format-Regeln bei Sonderfällen.
+
 RESPONSES_ALLOW_TOOLS (default 0) re-enables function/tool payloads on the Responses API. Keep the default for the 2025 Responses rollout where tool calls are blocked; set the flag to 1 only if your account is allowlisted for tool-enabled Responses. Otherwise the client automatically drops to the classic chat backend whenever tools are required.
 
 When no OPENAI_API_KEY is configured the UI disables all AI buttons and shows a bilingual lock banner. Providing the key via environment variables or Streamlit secrets re-enables the features immediately.
