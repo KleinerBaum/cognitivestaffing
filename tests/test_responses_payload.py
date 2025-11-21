@@ -165,6 +165,53 @@ def test_call_responses_safe_retries_with_chat_fallback(monkeypatch: pytest.Monk
     assert fallback_calls["count"] == 1
 
 
+def test_chat_fallback_strips_strict_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Chat fallback must remove the strict flag before hitting the Chat API."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
+        strict=True,
+    )
+
+    captured: dict[str, Any] = {}
+
+    def _raise_error(*_: Any, **__: Any) -> Any:
+        raise OpenAIError("boom")
+
+    class _FakeChatResult:
+        def __init__(self) -> None:
+            self.content = "fallback"
+            self.usage = {"input_tokens": 1}
+            self.response_id = "chat-456"
+            self.raw_response = {"id": "chat-456"}
+
+    def _fake_chat(*_: Any, **kwargs: Any) -> _FakeChatResult:
+        captured.update(kwargs)
+        return _FakeChatResult()
+
+    @contextmanager
+    def _noop_context() -> Any:
+        yield
+
+    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
+    monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+    )
+
+    assert result is not None
+    assert captured["json_schema"] == {
+        "name": "need_analysis_profile",
+        "schema": {"type": "object", "additionalProperties": False},
+    }
+    assert "strict" not in captured["json_schema"]
+
+
 def test_temperature_omitted_when_unsupported(
     monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient
 ) -> None:

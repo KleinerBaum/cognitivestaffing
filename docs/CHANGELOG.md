@@ -100,6 +100,9 @@ Fixed / Behoben
 - EN: Applied `_ensure_required_fields` recursively in the NeedAnalysis schema builder so every nested object (including `company.name`) appears in `required` arrays and Responses no longer rejects missing keys.
   DE: `_ensure_required_fields` im NeedAnalysis-Schema-Builder jetzt rekursiv angewendet, sodass jedes verschachtelte Objekt (inkl. `company.name`) in den `required`-Listen steht und Responses keine Missing-Key-Fehler mehr meldet.
 
+- EN: Chat fallbacks now drop the `strict` flag from JSON schemas before hitting the classic Chat Completions API, preventing "Unknown parameter: 'response_format.strict'" errors when Responses falls back.
+  DE: Chat-Fallbacks entfernen das `strict`-Flag nun aus JSON-Schemas, bevor die klassische Chat-Completions-API aufgerufen wird, sodass keine Fehler „Unknown parameter: 'response_format.strict'“ mehr auftreten, wenn Responses zurückfällt.
+
 - EN: Company contact emails entered via the wizard are now validated with the same Pydantic `EmailStr` parser as the schema, so malformed addresses raise the bilingual inline error message instead of throwing a Python `TypeError` and interrupting the form.
   DE: Im Wizard eingegebene Kontakt-E-Mails werden jetzt über den gleichen Pydantic-`EmailStr`-Parser geprüft wie im Schema, sodass fehlerhafte Adressen den zweisprachigen Inline-Hinweis anzeigen, anstatt einen Python-`TypeError` zu verursachen und das Formular zu unterbrechen.
 - EN: Resetting or restarting the wizard now removes every stored follow-up question plus their `fu_*` focus sentinels so the sidebar and inline cards never resurface stale prompts after a restart.
