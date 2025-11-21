@@ -60,6 +60,25 @@ def test_invalid_type_marker_rejected() -> None:
         ensure_responses_json_schema({"type": ["string", "uri"]})
 
 
+def test_unique_items_pruned_from_responses_schema() -> None:
+    """Responses schemas drop unsupported ``uniqueItems`` markers."""
+
+    sanitized = ensure_responses_json_schema(
+        {
+            "type": "object",
+            "properties": {
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "uniqueItems": True,
+                }
+            },
+        }
+    )
+
+    assert "uniqueItems" not in sanitized["properties"]["tags"]
+
+
 def test_ensure_responses_schema_sets_draft_and_required_keys() -> None:
     """Responses schema helper enforces Draft-07 and required arrays."""
 
