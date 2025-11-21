@@ -212,6 +212,15 @@ def test_language_normalization_for_german_text() -> None:
     assert set(profile.requirements.languages_required) == {"German", "English"}
 
 
+def test_language_extraction_handles_mandarin_optional() -> None:
+    text = "Pflicht: Deutsch. Mandarin Chinese (wünschenswert)."
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert "German" in profile.requirements.languages_required
+    assert "Chinese" in profile.requirements.languages_optional
+
+
 def test_apply_basic_fallbacks_logs_city(caplog: pytest.LogCaptureFixture) -> None:
     text = "Standort: Stuttgart"
     with caplog.at_level(logging.INFO, logger="cognitive_needs.heuristics"):

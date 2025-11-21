@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import ItemsView, Mapping
+from collections.abc import ItemsView, Mapping, MutableMapping
 from copy import deepcopy
 import types
 from enum import StrEnum
@@ -20,6 +20,7 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    cast,
 )
 
 from types import MappingProxyType
@@ -1308,6 +1309,33 @@ def canonicalize_wizard_payload(data: Mapping[str, Any] | None) -> dict[str, Any
     return payload
 
 
+def _ensure_placeholder_strings(payload: NormalizedProfilePayload) -> NormalizedProfilePayload:
+    """Ensure placeholder strings for critical user-followup fields."""
+
+    normalized = deepcopy(payload)
+
+    company = normalized.get("company")
+    if not isinstance(company, MutableMapping):
+        company = {}
+    name_value = company.get("name")
+    if name_value is None or (isinstance(name_value, str) and not name_value.strip()):
+        company["name"] = ""
+    contact_email_value = company.get("contact_email")
+    if contact_email_value is None or (isinstance(contact_email_value, str) and not contact_email_value.strip()):
+        company["contact_email"] = ""
+    normalized["company"] = company
+
+    location = normalized.get("location")
+    if not isinstance(location, MutableMapping):
+        location = {}
+    city_value = location.get("primary_city")
+    if city_value is None or (isinstance(city_value, str) and not city_value.strip()):
+        location["primary_city"] = ""
+    normalized["location"] = location
+
+    return cast(NormalizedProfilePayload, normalized)
+
+
 def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """Validate ``data`` and ensure required fields are present.
 
@@ -1332,6 +1360,7 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
         payload = canonical_repaired
 
     normalized_payload: NormalizedProfilePayload = normalize_profile(profile)
+    normalized_payload = _ensure_placeholder_strings(normalized_payload)
     return NeedAnalysisProfile.model_validate(normalized_payload)
 
 
