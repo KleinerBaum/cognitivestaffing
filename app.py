@@ -6,7 +6,7 @@ from io import BytesIO
 import mimetypes
 from pathlib import Path
 import sys
-from typing import cast
+from typing import Final, cast
 
 from PIL import Image, ImageEnhance, UnidentifiedImageError
 import streamlit as st
@@ -61,6 +61,7 @@ from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.1.0"
+INTRO_BANNER_STATE_KEY: Final[str] = "ui.show_intro_banner"
 
 setup_tracing()
 
@@ -156,6 +157,12 @@ def inject_global_css() -> None:
 inject_global_css()
 
 
+def _set_intro_banner_visibility(visible: bool) -> None:
+    """Persist whether the intro banner should be shown on reruns."""
+
+    st.session_state[INTRO_BANNER_STATE_KEY] = visible
+
+
 def render_app_banner() -> None:
     """Render the global hero banner with logo and bilingual copy."""
 
@@ -211,7 +218,41 @@ def render_app_banner() -> None:
     st.markdown(banner_html, unsafe_allow_html=True)
 
 
-render_app_banner()
+def render_intro_banner_controls(showing: bool) -> None:
+    """Render a toggle to hide or show the intro banner."""
+
+    if showing:
+        hide_label = tr("Intro ausblenden", "Hide intro")
+        hide_help = tr(
+            "Blendet das Intro aus, damit mehr Platz für das Formular bleibt.",
+            "Hide the intro to focus on the form.",
+        )
+        st.button(
+            hide_label,
+            key="hide_intro_banner",
+            help=hide_help,
+            on_click=lambda: _set_intro_banner_visibility(False),
+        )
+    else:
+        show_label = tr("Intro einblenden", "Show intro")
+        show_help = tr(
+            "Zeigt das Intro wieder an, falls es ausgeblendet wurde.",
+            "Show the intro banner again if it was hidden.",
+        )
+        st.button(
+            show_label,
+            key="show_intro_banner",
+            help=show_help,
+            on_click=lambda: _set_intro_banner_visibility(True),
+        )
+
+
+intro_banner_visible = st.session_state.setdefault(INTRO_BANNER_STATE_KEY, True)
+
+if intro_banner_visible:
+    render_app_banner()
+
+render_intro_banner_controls(intro_banner_visible)
 
 SIDEBAR_STYLE = """
 <style>
