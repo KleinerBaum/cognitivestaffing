@@ -116,7 +116,7 @@ def _collect_missing_paths(errors: Sequence[Mapping[str, Any]] | None) -> list[s
 def _merge_missing_section_payload(base: Mapping[str, Any] | None, patch: Mapping[str, Any]) -> dict[str, Any]:
     """Return a deep merge of ``base`` with ``patch`` limited to missing sections."""
 
-    merged: dict[str, Any] = deepcopy(base) if isinstance(base, Mapping) else {}
+    merged: dict[str, Any] = deepcopy(dict(base)) if isinstance(base, Mapping) else {}
 
     for key, value in patch.items():
         if isinstance(value, Mapping):
