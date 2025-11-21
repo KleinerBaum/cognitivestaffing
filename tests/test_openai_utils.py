@@ -19,7 +19,14 @@ from openai_utils import (
     model_supports_reasoning,
     model_supports_temperature,
 )
+from openai_utils.api import (
+    ChatPayloadBuilder,
+    PayloadContext,
+    ResponsesPayloadBuilder,
+    build_schema_format_bundle,
+)
 from openai_utils.client import ResponsesRequest
+from llm.cost_router import PromptComplexity, PromptCostEstimate
 
 
 pytestmark = pytest.mark.integration
@@ -423,6 +430,75 @@ def test_prepare_payload_classic_mode(monkeypatch):
     assert request.tool_functions["do"]
 
 
+def test_chat_payload_builder_handles_tools_and_schema():
+    """Chat payload builder should normalise tools and carry schema hints."""
+
+    schema_bundle = build_schema_format_bundle({"name": "TestPayload", "schema": {"type": "object"}})
+    context = PayloadContext(
+        messages=[{"role": "user", "content": "hello"}],
+        model="gpt-4o-mini",
+        temperature=0.3,
+        max_completion_tokens=64,
+        candidate_models=["gpt-4o-mini"],
+        tool_specs=[{"type": "function", "function": {"name": "do", "parameters": {"type": "object"}}}],
+        tool_functions={},
+        tool_choice={"type": "function", "function": {"name": "do"}},
+        schema_bundle=schema_bundle,
+        reasoning_effort=None,
+        extra=None,
+        router_estimate=None,
+        previous_response_id=None,
+        force_classic_for_tools=True,
+        api_mode_override="chat",
+    )
+
+    request = ChatPayloadBuilder(context).build()
+    payload = request.payload
+
+    assert payload["messages"][0]["content"] == "hello"
+    assert payload["functions"][0]["name"] == "do"
+    assert payload.get("function_call", {}).get("name") == "do"
+    assert payload["max_completion_tokens"] == 64
+    assert payload["response_format"]["json_schema"]["name"] == "TestPayload"
+    assert request.api_mode_override == "chat"
+
+
+def test_responses_payload_builder_attaches_router_metadata():
+    """Responses payload builder should merge router metadata and extras."""
+
+    schema_bundle = build_schema_format_bundle({"name": "Router", "schema": {"type": "object"}})
+    estimate = PromptCostEstimate(total_tokens=10, hard_word_count=2, complexity=PromptComplexity.COMPLEX)
+    context = PayloadContext(
+        messages=[{"role": "user", "content": "hi"}],
+        model="o3-mini",
+        temperature=0.5,
+        max_completion_tokens=99,
+        candidate_models=["o3-mini"],
+        tool_specs=[],
+        tool_functions={},
+        tool_choice=None,
+        schema_bundle=schema_bundle,
+        reasoning_effort="medium",
+        extra={"metadata": {"source": "test-case"}},
+        router_estimate=estimate,
+        previous_response_id="resp-1",
+        force_classic_for_tools=False,
+        api_mode_override=None,
+    )
+
+    request = ResponsesPayloadBuilder(context).build()
+    payload = request.payload
+
+    assert payload["input"][0]["content"] == "hi"
+    assert payload["previous_response_id"] == "resp-1"
+    assert payload["max_output_tokens"] == 99
+    assert payload["reasoning"]["effort"] == "medium"
+    assert payload["text"]["format"]["json_schema"]["name"] == "Router"
+    assert payload["metadata"]["router"]["tokens"] == 10
+    assert payload["metadata"]["router"]["hard_words"] == 2
+    assert payload["metadata"]["source"] == "test-case"
+
+
 def test_call_chat_api_classic_mode(monkeypatch):
     """call_chat_api should normalise ChatCompletions responses."""
 
@@ -666,9 +742,12 @@ def test_call_chat_api_gives_up_on_invalid_schema(monkeypatch):
     monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _raise_schema_error)
 
     with pytest.raises(APIError):
-        call_chat_api([
-            {"role": "user", "content": "hi"},
-        ], json_schema={"name": "Profile", "schema": {"type": "object"}})
+        call_chat_api(
+            [
+                {"role": "user", "content": "hi"},
+            ],
+            json_schema={"name": "Profile", "schema": {"type": "object"}},
+        )
 
     assert attempts == 1
 
@@ -905,10 +984,12 @@ def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
 def test_convert_responses_payload_to_chat_keeps_schema_name() -> None:
     """Fallback conversion should preserve the JSON schema bundle."""
 
-    schema_bundle = openai_utils.api.build_schema_format_bundle({
-        "name": "fallback_schema",
-        "schema": {"type": "object"},
-    })
+    schema_bundle = openai_utils.api.build_schema_format_bundle(
+        {
+            "name": "fallback_schema",
+            "schema": {"type": "object"},
+        }
+    )
 
     payload = {
         "model": "gpt-4o-mini",

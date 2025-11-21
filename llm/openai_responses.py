@@ -7,16 +7,8 @@ from dataclasses import dataclass
 from copy import deepcopy
 from typing import Any, Mapping, Sequence
 
-import backoff
 from opentelemetry import trace
-from openai import (
-    APIConnectionError,
-    APIError,
-    APITimeoutError,
-    BadRequestError,
-    OpenAIError,
-    RateLimitError,
-)
+from openai import BadRequestError, OpenAIError
 
 from config import OPENAI_REQUEST_TIMEOUT, ModelTask, temporarily_force_classic_api
 from openai_utils.api import (
@@ -36,6 +28,7 @@ from openai_utils.api import (
     model_supports_temperature,
     SchemaFormatBundle,
 )
+from utils.retry import retry_with_backoff
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
 tracer = trace.get_tracer(__name__)
@@ -242,11 +235,8 @@ def call_responses(
 
     max_tries = max(1, int(retries) + 1)
 
-    @backoff.on_exception(  # type: ignore[misc]
-        backoff.expo,
-        (APITimeoutError, APIConnectionError, RateLimitError, APIError),
+    @retry_with_backoff(
         max_tries=max_tries,
-        jitter=backoff.full_jitter,
         logger=logger,
         giveup=is_unrecoverable_schema_error,
     )
