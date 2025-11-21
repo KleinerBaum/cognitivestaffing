@@ -6,7 +6,7 @@ Key highlights / Wichtigste Funktionen
 
 EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
-* The Role & Tasks step now surfaces responsibilities on the left and requirements/skills on the right, giving recruiters a side-by-side check that both lists are captured before moving on.
+* The Role & Tasks step now shows a dedicated responsibilities column on the left and a requirements/skills column on the right, each with a short description so recruiters verify both lists before moving on.
 * Structured extraction now tolerates partial job ads: missing values (for example company name or brand signals) are queued as bilingual follow-up questions instead of blocking validation, and the schema accepts empty company slots while the wizard records which prompts still need answers.
 * Missing critical sections trigger a targeted AI retry that asks for only the absent fields before falling back to defaults, improving recovery of responsibilities, culture signals, and process timelines.
 * Dynamic step headers and subheaders now call out whether fields were auto-filled or still missing, and AI-suggested inputs carry a subtle 🛈 badge so recruiters know what to double-check.
@@ -20,7 +20,7 @@ EN:
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
-* Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten links und Anforderungen/Skills rechts nebeneinander, sodass Recruiter:innen auf einen Blick prüfen können, ob beide Listen befüllt sind, bevor es weitergeht.
+* Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten links und Anforderungen/Skills rechts nebeneinander – jeweils mit kurzer Erläuterung, damit Recruiter:innen beide Listen prüfen können, bevor es weitergeht.
 * Die strukturierte Extraktion toleriert jetzt unvollständige Anzeigen: Fehlende Werte (z. B. Firmenname oder Branding-Hinweise) landen als zweisprachige Follow-up-Fragen statt die Validierung zu blockieren, und das Schema akzeptiert leere Unternehmensangaben, während der Wizard notiert, welche Nachfragen noch offen sind.
 * Dynamische Schrittüberschriften und Unterzeilen zeigen an, ob Felder vorbefüllt oder noch offen sind, und KI-Vorschläge erhalten ein dezentes 🛈-Badge, damit Recruiter:innen gezielt gegenprüfen können.
 * Abschnittsüberschriften, Aufklapper und Inline-Follow-up-Karten nutzen ein gemeinsames Kompakt-Layout über alle Schritte, sodass Anschlussfragen direkt unter den relevanten Eingabefeldern erscheinen – inklusive Meta-Rückfragen innerhalb der Onboarding-Extraktions-Tabs.
