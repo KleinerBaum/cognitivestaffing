@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    NamedTuple,
     Sequence,
     Tuple,
     Union,
@@ -695,7 +696,6 @@ _TOOL_MARKERS: tuple[str, ...] = (
     "excel",
     "tableau",
     "power bi",
-    "sql",
 )
 
 
@@ -772,7 +772,11 @@ def _stringify_skill_entries(value: object) -> list[str]:
         return []
     if isinstance(value, str):
         cleaned = value.strip()
-        return [cleaned] if cleaned else []
+        if not cleaned:
+            return []
+        if _LIST_SPLIT_RE.search(cleaned):
+            return [part.strip() for part in _LIST_SPLIT_RE.split(cleaned) if part.strip()]
+        return [cleaned]
     if isinstance(value, Mapping):
         name = value.get("name")
         if isinstance(name, str):
@@ -808,9 +812,15 @@ def _classify_skill_term(term: str) -> Literal["language", "certification", "sof
 
 def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
     requirements = payload.get("requirements")
+    skills_section = payload.get("skills") if isinstance(payload.get("skills"), Mapping) else None
     if not isinstance(requirements, dict):
+        if not isinstance(skills_section, Mapping):
+            return
         requirements = {}
         payload["requirements"] = requirements
+
+    if not isinstance(skills_section, Mapping):
+        skills_section = {}
 
     normalized: dict[str, list[str]] = {}
     for key in (
@@ -827,7 +837,6 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
         for entry in _stringify_skill_entries(requirements.get(key, [])):
             _append_unique(normalized[key], entry)
 
-    skills_section = payload.get("skills") if isinstance(payload.get("skills"), Mapping) else {}
     if isinstance(skills_section, Mapping):
         for key in normalized:
             if key in skills_section:
@@ -836,6 +845,22 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
 
     required_pool = _stringify_skill_entries(skills_section.get("must_have"))
     optional_pool = _stringify_skill_entries(skills_section.get("nice_to_have"))
+
+    class _RequirementEntry(NamedTuple):
+        value: str
+        source_category: Literal["language", "certification", "soft", "tool", "hard"]
+        required: bool
+
+    key_category_map: dict[str, Literal["language", "certification", "soft", "tool", "hard"]] = {
+        "hard_skills_required": "hard",
+        "hard_skills_optional": "hard",
+        "soft_skills_required": "soft",
+        "soft_skills_optional": "soft",
+        "tools_and_technologies": "tool",
+        "languages_required": "language",
+        "languages_optional": "language",
+        "certifications": "certification",
+    }
 
     def _assign(entries: list[str], *, required: bool) -> None:
         for entry in entries:
@@ -862,6 +887,80 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
 
     _assign(required_pool, required=True)
     _assign(optional_pool, required=False)
+
+    def _collect_entries() -> list[_RequirementEntry]:
+        collected: list[_RequirementEntry] = []
+        for key, values in normalized.items():
+            category = key_category_map.get(key, "hard")
+            required = "required" in key
+            for value in values:
+                collected.append(_RequirementEntry(value=value, source_category=category, required=required))
+        return collected
+
+    entries = _collect_entries()
+
+    def _should_rebalance(pool: Sequence[_RequirementEntry]) -> bool:
+        if not pool:
+            return False
+
+        category_counts: dict[str, int] = {label: 0 for label in key_category_map.values()}
+        predicted_counts: dict[str, int] = {label: 0 for label in key_category_map.values()}
+        mismatches = 0
+        for entry in pool:
+            category_counts[entry.source_category] += 1
+            predicted = _classify_skill_term(entry.value)
+            predicted_counts[predicted] = predicted_counts.get(predicted, 0) + 1
+            if predicted != entry.source_category:
+                mismatches += 1
+
+        non_empty_categories = sum(1 for count in category_counts.values() if count)
+        dominant_len = max(category_counts.values() or [0])
+        total = sum(category_counts.values())
+        collapsed = non_empty_categories <= 2 or (total >= 5 and dominant_len >= int(total * 0.7))
+        missing_target = (
+            (
+                predicted_counts.get("language", 0)
+                and not (normalized["languages_required"] or normalized["languages_optional"])
+            )
+            or (predicted_counts.get("certification", 0) and not normalized["certifications"])
+            or (predicted_counts.get("tool", 0) and not normalized["tools_and_technologies"])
+            or (
+                predicted_counts.get("soft", 0)
+                and not (normalized["soft_skills_required"] or normalized["soft_skills_optional"])
+            )
+        )
+
+        mismatch_ratio = mismatches / total if total else 0.0
+        return bool(mismatches) and (collapsed or missing_target or mismatch_ratio >= 0.4)
+
+    def _rebalance(pool: Sequence[_RequirementEntry]) -> None:
+        new_buckets: dict[str, list[str]] = {key: [] for key in normalized}
+
+        def _append(target_key: str, value: str) -> None:
+            bucket = new_buckets[target_key]
+            _append_unique(bucket, value)
+
+        for entry in pool:
+            target = _classify_skill_term(entry.value)
+            if target == "language":
+                destination = "languages_required" if entry.required else "languages_optional"
+                _append(destination, entry.value)
+            elif target == "certification":
+                _append("certifications", entry.value)
+            elif target == "soft":
+                destination = "soft_skills_required" if entry.required else "soft_skills_optional"
+                _append(destination, entry.value)
+            elif target == "tool":
+                _append("tools_and_technologies", entry.value)
+            else:
+                destination = "hard_skills_required" if entry.required else "hard_skills_optional"
+                _append(destination, entry.value)
+
+        for key, values in new_buckets.items():
+            normalized[key] = values
+
+    if _should_rebalance(entries):
+        _rebalance(entries)
 
     requirements.update(normalized)
 
@@ -1285,9 +1384,7 @@ def build_need_analysis_responses_schema() -> dict[str, Any]:
                 if "null" not in normalized_type:
                     normalized_type.append("null")
 
-                contact_email_schema["type"] = (
-                    normalized_type if len(normalized_type) > 1 else normalized_type[0]
-                )
+                contact_email_schema["type"] = normalized_type if len(normalized_type) > 1 else normalized_type[0]
                 contact_email_schema.setdefault("format", "email")
 
     _ensure_required_for_nested_objects(schema)
@@ -1357,7 +1454,7 @@ def _ensure_placeholder_strings(payload: NormalizedProfilePayload) -> Normalized
         company = {}
     name_value = company.get("name")
     if name_value is None or (isinstance(name_value, str) and not name_value.strip()):
-        company["name"] = ""
+        company["name"] = None
     contact_email_value = company.get("contact_email")
     if contact_email_value is None or (isinstance(contact_email_value, str) and not contact_email_value.strip()):
         company["contact_email"] = ""

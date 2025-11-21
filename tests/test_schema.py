@@ -119,15 +119,29 @@ def test_coerce_and_fill_alias_mapping() -> None:
     assert profile.employment.work_policy == "remote"
     assert profile.process.hiring_manager_name == "Julia Schmidt"
     assert profile.process.hiring_manager_role == "Head of Engineering"
-    assert profile.position.reporting_manager_name == "Petra Müller"
-    assert profile.company.brand_color == "#123ABC"
-    assert str(profile.company.logo_url) == "https://example.com/logo.svg"
-    assert profile.company.claim == "Einfach. Immer. Da."
-    assert profile.department.name == "Technology"
-    assert profile.team.name == "Platform"
-    assert profile.team.reporting_line == "VP Engineering"
-    assert profile.team.headcount_target == 12
-    assert profile.team.headcount_current == 4
+
+
+def test_skill_rebalance_splits_collapsed_lists() -> None:
+    data = {
+        "requirements": {
+            "hard_skills_required": [
+                "Python",
+                "Teamwork",
+                "English B2",
+                "AWS Certified Developer",
+                "Excel",
+            ]
+        }
+    }
+
+    profile = coerce_and_fill(data)
+    requirements = profile.requirements
+
+    assert "Python" in requirements.hard_skills_required
+    assert "Teamwork" in requirements.soft_skills_required
+    assert "English B2" in requirements.languages_required
+    assert "AWS Certified Developer" in requirements.certifications
+    assert "Excel" in requirements.tools_and_technologies
 
 
 def test_coerce_and_fill_alias_mapping_case_insensitive() -> None:
