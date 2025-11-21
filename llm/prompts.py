@@ -118,6 +118,8 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
         r"\btätigkeiten\b",
         r"\bverantwortlichkeiten\b",
         r"\bzuständigkeiten\b",
+        r"\bjobbeschreibung\b",
+        r"\btätigkeitsbeschreibung\b",
     ),
     "requirements": (
         r"\brequirement",
@@ -125,8 +127,16 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
         r"\bqualifikation",
         r"\bprofil\b",
         r"\bwir erwarten\b",
+        r"\bqualifikationen\b",
     ),
 }
+
+_BENEFITS_BREAK_PATTERNS: tuple[str, ...] = (
+    r"\bwir bieten\b",
+    r"\bdas bieten wir\b",
+    r"\bwe offer\b",
+    r"\bbenefits?\b",
+)
 
 
 def _normalise_hint_line(line: str) -> str:
@@ -147,6 +157,13 @@ def _match_section_heading(line: str) -> str | None:
             if re.search(pattern, lowered):
                 return key
     return None
+
+
+def _matches_benefits_heading(line: str) -> bool:
+    """Return ``True`` when ``line`` indicates the start of a benefits block."""
+
+    lowered = line.strip().lower()
+    return any(re.search(pattern, lowered) for pattern in _BENEFITS_BREAK_PATTERNS)
 
 
 def _extract_section_hints(job_text: str, max_lines: int = 8) -> dict[str, list[str]]:
@@ -176,6 +193,10 @@ def _extract_section_hints(job_text: str, max_lines: int = 8) -> dict[str, list[
             current = heading
             line_budget = 0
             continue
+        if current and _matches_benefits_heading(line):
+            _flush()
+            current = None
+            continue
         if current:
             if not line:
                 _flush()
@@ -200,9 +221,7 @@ def _render_section_hints(job_text: str) -> str:
     if not sections:
         return ""
 
-    lines: list[str] = [
-        "Section cues detected via rule-based scan (use for orientation, not as ground truth):"
-    ]
+    lines: list[str] = ["Section cues detected via rule-based scan (use for orientation, not as ground truth):"]
     for key in ("responsibilities", "requirements"):
         snippets = sections.get(key)
         if not snippets:
