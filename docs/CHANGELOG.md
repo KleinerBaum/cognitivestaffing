@@ -7,6 +7,9 @@ Changed / Geändert
 - EN: Role & Tasks step now separates responsibilities (left column) from requirements and skills (right column) and adds short per-column descriptions so recruiters can verify both lists at a glance.
   DE: Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten jetzt links und die Anforderungen/Skills rechts in getrennten Spalten – inklusive kurzer Erläuterung pro Spalte, damit Recruiter:innen beide Listen auf einen Blick prüfen können.
 
+- EN: Added a user-facing "Show parsing details" expander in the onboarding extraction review that reveals the raw NeedAnalysisProfile JSON so recruiters can inspect empty/null fields without needing the admin debug panel.
+  DE: Im Onboarding-Review gibt es jetzt einen sichtbaren „Parsing-Details“-Expander, der das unveränderte NeedAnalysisProfile-JSON der KI zeigt, damit Recruiter:innen leere/null Felder prüfen können – ganz ohne Admin-Debug-Panel.
+
 - EN: Strengthened the extraction prompt with a codex-style JSON schema example and explicit German section cues (Anforderungen vs. Aufgaben) so skills map reliably into the requirements fields.
   DE: Extraktions-Prompt um ein Codex-Style-JSON-Beispiel und klare deutsche Abschnitts-Hinweise (Anforderungen vs. Aufgaben) ergänzt, damit Skills zuverlässig in die Requirements-Felder einsortiert werden.
 

@@ -4337,6 +4337,35 @@ def _render_inline_followups(
     _render_followups_for_fields(fields, profile, container=container)
 
 
+def _render_extraction_details_preview(raw_profile: Mapping[str, Any] | None) -> None:
+    """Display the raw AI extraction for recruiters in a read-only expander."""
+
+    if not isinstance(raw_profile, Mapping):
+        return
+
+    raw_profile_dict = dict(raw_profile)
+    if not raw_profile_dict:
+        return
+
+    with st.expander(
+        tr("Parsing-Details anzeigen", "Show parsing details"),
+        icon="🧾",
+    ):
+        st.caption(
+            tr(
+                (
+                    "Zeigt den unveränderten NeedAnalysisProfile-Output der KI an – hilfreich, um Null-Werte oder leere Listen "
+                    "mit der Stellenanzeige abzugleichen."
+                ),
+                (
+                    "Displays the untouched NeedAnalysisProfile output from the AI so you can compare nulls or empty lists with "
+                    "the original job ad."
+                ),
+            )
+        )
+        st.json(raw_profile_dict)
+
+
 def _render_extraction_review() -> bool:
     """Render tabbed overview of extracted profile data.
 
@@ -4362,6 +4391,9 @@ def _render_extraction_review() -> bool:
             "Fine-tune every extracted field here before diving into the detailed steps.",
         ),
     )
+
+    raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
+    _render_extraction_details_preview(raw_profile)
 
     tabs = st.tabs(
         [
