@@ -4,6 +4,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Added a bilingual "Hide intro"/"Intro ausblenden" toggle to the hero banner that remembers the session choice so users can reclaim form space after onboarding.
+  DE: Zweisprachiger Schalter „Intro ausblenden“/"Hide intro" im Hero-Banner, der die Session-Auswahl speichert, damit Nutzer:innen nach dem Onboarding mehr Platz fürs Formular haben.
+
 - EN: Role & Tasks step now separates responsibilities (left column) from requirements and skills (right column) and adds short per-column descriptions so recruiters can verify both lists at a glance.
   DE: Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten jetzt links und die Anforderungen/Skills rechts in getrennten Spalten – inklusive kurzer Erläuterung pro Spalte, damit Recruiter:innen beide Listen auf einen Blick prüfen können.
 
