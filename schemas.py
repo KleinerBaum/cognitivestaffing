@@ -232,7 +232,7 @@ FOLLOW_UPS_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["field", "question", "priority"],
+                "required": ["field", "question", "priority", "suggestions"],
                 "properties": {
                     "field": {"type": "string", "minLength": 1},
                     "question": {"type": "string", "minLength": 5},
