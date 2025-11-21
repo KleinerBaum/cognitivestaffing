@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import logging
+import re
 from pathlib import Path
 from collections.abc import MutableMapping, Sequence
 from typing import Any, Callable, Mapping, Optional
@@ -20,12 +20,6 @@ from openai_utils import call_chat_api
 from constants.keys import StateKeys
 from prompts import prompt_registry
 from .context import build_extract_messages, build_preanalysis_messages
-from .prompts import FIELDS_ORDER, PreExtractionInsights
-from .output_parsers import (
-    NeedAnalysisParserError,
-    get_need_analysis_output_parser,
-)
-from core.errors import ExtractionError
 import config as app_config
 from config import (
     REASONING_EFFORT,
@@ -34,6 +28,13 @@ from config import (
     select_model,
 )
 from .openai_responses import build_json_schema_format, call_responses_safe
+from .output_parsers import (
+    NeedAnalysisParserError,
+    get_need_analysis_output_parser,
+)
+from .prompts import FIELDS_ORDER, PreExtractionInsights
+from core.errors import ExtractionError
+from core.schema import NeedAnalysisProfile
 from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -41,7 +42,7 @@ tracer = trace.get_tracer(__name__)
 
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
-_STRUCTURED_RESPONSE_RETRIES = 2
+_STRUCTURED_RESPONSE_RETRIES = 3
 USE_RESPONSES_API: bool | None = None
 
 
@@ -564,8 +565,16 @@ def extract_json(
                 parsed = parse_extraction(content)
             except Exception as err3:  # pragma: no cover - defensive
                 span.record_exception(err3)
-                span.set_status(Status(StatusCode.ERROR, "fallback_parse_failed"))
-                raise ExtractionError("LLM returned invalid JSON") from err3
+                span.add_event(
+                    "fallback_parse_failed",
+                    {"error.type": err3.__class__.__name__},
+                )
+                logger.warning(
+                    "Plain-text fallback returned unparseable content; defaulting to an empty profile.",
+                    exc_info=err3,
+                )
+                empty_profile = NeedAnalysisProfile()
+                return empty_profile.model_dump_json()
             return json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False)
         span.set_status(Status(StatusCode.ERROR, "empty_response"))
         raise ExtractionError("LLM returned empty response")
