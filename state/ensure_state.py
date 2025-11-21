@@ -358,6 +358,12 @@ def ensure_state() -> None:
         effort = st.session_state.get(StateKeys.REASONING_EFFORT)
         st.session_state[StateKeys.REASONING_EFFORT] = effort if isinstance(effort, str) else REASONING_EFFORT
 
+    if StateKeys.EXTRACTION_STRICT_FORMAT not in st.session_state:
+        st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = True
+    else:
+        strict_value = st.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT)
+        st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = bool(strict_value) if strict_value is not None else True
+
     preferred_mode = "precise" if REASONING_EFFORT not in {"minimal", "low"} else "quick"
     if StateKeys.REASONING_MODE not in st.session_state:
         st.session_state[StateKeys.REASONING_MODE] = preferred_mode
