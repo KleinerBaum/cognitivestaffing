@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Mapping, MutableMapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
 
 from config import ModelTask, get_model_for
 from core.rules import COMMON_CITY_NAMES
@@ -1134,13 +1134,133 @@ _LANGUAGE_MAP = {
     "French": ["french", "französisch"],
     "Spanish": ["spanish", "spanisch"],
 }
-_TECH_KEYWORDS = {
-    "python",
-    "docker",
-    "aws",
-    "faiss",
-    "sql",
+_TECH_KEYWORD_CATEGORIES: Dict[str, str] = {
+    ".net": "framework",
+    "airflow": "tool",
+    "angular": "framework",
+    "ansible": "tool",
+    "asp.net": "framework",
+    "aws": "cloud",
+    "azure": "cloud",
+    "c#": "language",
+    "c++": "language",
+    "confluence": "tool",
+    "cpp": "language",
+    "css": "language",
+    "django": "framework",
+    "docker": "tool",
+    "dotnet": "framework",
+    "faiss": "tool",
+    "flask": "framework",
+    "gcp": "cloud",
+    "git": "tool",
+    "gitlab": "tool",
+    "go": "language",
+    "golang": "language",
+    "graphql": "language",
+    "hadoop": "tool",
+    "html": "language",
+    "java": "language",
+    "javascript": "language",
+    "jenkins": "tool",
+    "jira": "tool",
+    "js": "language",
+    "kotlin": "language",
+    "kubernetes": "tool",
+    "mysql": "tool",
+    "next.js": "framework",
+    "node": "framework",
+    "node.js": "framework",
+    "numpy": "tool",
+    "php": "language",
+    "postgres": "tool",
+    "postgresql": "tool",
+    "power bi": "tool",
+    "python": "language",
+    "pytorch": "tool",
+    "r": "language",
+    "react": "framework",
+    "react.js": "framework",
+    "redis": "tool",
+    "rust": "language",
+    "salesforce": "tool",
+    "scala": "language",
+    "scikit-learn": "tool",
+    "sklearn": "tool",
+    "snowflake": "tool",
+    "spark": "tool",
+    "spring": "framework",
+    "sql": "language",
+    "swift": "language",
+    "tableau": "tool",
+    "terraform": "tool",
+    "typescript": "language",
+    "vue": "framework",
 }
+_TECH_KEYWORD_VARIANTS: Dict[str, Set[str]] = {
+    ".net": {".net", "asp.net", "asp net"},
+    "airflow": {"airflow"},
+    "angular": {"angular"},
+    "ansible": {"ansible"},
+    "asp.net": {"asp.net", "asp net"},
+    "aws": {"aws", "amazon web services"},
+    "azure": {"azure"},
+    "c#": {"c#", "c sharp", "c-sharp"},
+    "c++": {"c++", "cplusplus"},
+    "confluence": {"confluence"},
+    "cpp": {"cpp"},
+    "css": {"css"},
+    "django": {"django"},
+    "docker": {"docker"},
+    "dotnet": {"dotnet", "net core", "netcore"},
+    "faiss": {"faiss"},
+    "flask": {"flask"},
+    "gcp": {"gcp", "google cloud", "google cloud platform"},
+    "git": {"git"},
+    "gitlab": {"gitlab"},
+    "go": {"go"},
+    "golang": {"golang"},
+    "graphql": {"graphql"},
+    "hadoop": {"hadoop"},
+    "html": {"html"},
+    "java": {"java"},
+    "javascript": {"javascript"},
+    "jenkins": {"jenkins"},
+    "jira": {"jira"},
+    "js": {"js"},
+    "kotlin": {"kotlin"},
+    "kubernetes": {"kubernetes", "k8s"},
+    "mysql": {"mysql"},
+    "next.js": {"next.js", "nextjs"},
+    "node": {"node"},
+    "node.js": {"node.js", "nodejs"},
+    "numpy": {"numpy"},
+    "php": {"php"},
+    "postgres": {"postgres"},
+    "postgresql": {"postgresql"},
+    "power bi": {"power bi"},
+    "python": {"python"},
+    "pytorch": {"pytorch"},
+    "r": {"r"},
+    "react": {"react"},
+    "react.js": {"react.js", "reactjs"},
+    "redis": {"redis"},
+    "rust": {"rust"},
+    "salesforce": {"salesforce"},
+    "scala": {"scala"},
+    "scikit-learn": {"scikit-learn"},
+    "sklearn": {"sklearn"},
+    "snowflake": {"snowflake"},
+    "spark": {"spark", "pyspark"},
+    "spring": {"spring", "spring boot", "springboot"},
+    "sql": {"sql"},
+    "swift": {"swift"},
+    "tableau": {"tableau"},
+    "terraform": {"terraform"},
+    "typescript": {"typescript"},
+    "vue": {"vue", "vue.js", "vuejs"},
+}
+_TECH_KEYWORDS = {tech for tech, category in _TECH_KEYWORD_CATEGORIES.items() if category == "tool"}
 _CERT_RE = re.compile(
     r"\b([A-Za-z0-9 .()+/\-]*?(?:certification|certificate|Zertifikat|Zertifizierung)[^\n,;]*)",
     re.IGNORECASE,
@@ -1523,7 +1643,11 @@ def _extract_tools_from_lists(req: NeedAnalysisProfile) -> None:
         for item in getattr(req.requirements, field):
             lower = item.lower()
             for tech in _TECH_KEYWORDS:
-                if re.search(rf"\b{re.escape(tech)}\b", lower):
+                variants = _TECH_KEYWORD_VARIANTS.get(tech, {tech})
+                if any(
+                    re.search(rf"\b{re.escape(variant)}\b", lower)
+                    for variant in variants
+                ):
                     techs.add(tech)
     req.requirements.tools_and_technologies = list(techs)
 
@@ -1553,6 +1677,33 @@ def _extract_certifications(text: str) -> List[str]:
     return [m.group(0).strip() for m in _CERT_RE.finditer(text)]
 
 
+def _find_tech_keywords(text: str) -> Set[str]:
+    """Return tech keywords mentioned in ``text`` using known variants."""
+
+    matches: Set[str] = set()
+    lower = text.casefold()
+    for canonical, variants in _TECH_KEYWORD_VARIANTS.items():
+        for variant in variants:
+            if re.search(rf"\b{re.escape(variant)}\b", lower):
+                matches.add(canonical)
+                break
+    return matches
+
+
+def _extract_tech_keywords_from_entries(entries: Sequence[str]) -> Tuple[Set[str], Set[str]]:
+    """Return language/framework skills and tools found in ``entries``."""
+
+    skill_hits: Set[str] = set()
+    tool_hits: Set[str] = set()
+    for entry in entries:
+        for match in _find_tech_keywords(entry):
+            if match in _TECH_KEYWORDS:
+                tool_hits.add(match)
+            else:
+                skill_hits.add(match)
+    return skill_hits, tool_hits
+
+
 def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysisProfile:
     """Enrich ``profile.requirements`` using heuristics from ``text``."""
 
@@ -1564,16 +1715,23 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     soft_req: List[str] = []
     hard_opt: List[str] = []
     soft_opt: List[str] = []
+    tech_tools: Set[str] = set()
     for item in req_bullets:
         if _is_soft_skill(item):
             soft_req.append(item)
         else:
             hard_req.append(item)
+        skills, tools = _extract_tech_keywords_from_entries([item])
+        hard_req = _merge_unique(hard_req, sorted(skills))
+        tech_tools.update(tools)
     for item in opt_bullets:
         if _is_soft_skill(item):
             soft_opt.append(item)
         else:
             hard_opt.append(item)
+        skills, tools = _extract_tech_keywords_from_entries([item])
+        hard_opt = _merge_unique(hard_opt, sorted(skills))
+        tech_tools.update(tools)
 
     r = profile.requirements
     r.languages_required = normalize_language_list(r.languages_required)
@@ -1582,6 +1740,9 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     r.hard_skills_optional = _merge_unique(r.hard_skills_optional, hard_opt)
     r.soft_skills_required = _merge_unique(r.soft_skills_required, soft_req)
     r.soft_skills_optional = _merge_unique(r.soft_skills_optional, soft_opt)
+    r.tools_and_technologies = _merge_unique(
+        r.tools_and_technologies, sorted(tech_tools)
+    )
 
     _dedupe_skill_tiers(r)
 
