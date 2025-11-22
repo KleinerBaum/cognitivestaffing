@@ -18,9 +18,7 @@ def render_extraction_settings_panel(
     """Render parsing controls for structured extraction."""
 
     mode_options: tuple[str, ...] = ("quick", "precise")
-    current_mode = str(
-        st_module.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise"
-    ).lower()
+    current_mode = str(st_module.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
     try:
         mode_index = mode_options.index(current_mode if current_mode in mode_options else "precise")
     except ValueError:
@@ -48,7 +46,7 @@ def render_extraction_settings_panel(
             format_func=lambda value: mode_labels.get(value, value.title()),
             horizontal=True,
         )
-        normalized_mode = apply_parsing_mode(selected_mode)
+        apply_parsing_mode(selected_mode)
         st_module.caption(
             tr(
                 "Schnell nutzt gpt-4.1 mini mit minimalem Denkaufwand; Gründlich erhöht den REASONING_EFFORT und wählt ein präziseres Modell.",

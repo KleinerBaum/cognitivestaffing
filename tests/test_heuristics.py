@@ -450,6 +450,58 @@ def test_responsibility_heading_variants() -> None:
     ]
 
 
+def test_responsibilities_extracted_from_jobbeschreibung_section() -> None:
+    text = (
+        "Jobbeschreibung\n"
+        "- In dieser Rolle berätst du unsere Kunden zu Organisationsdesign und Transformationen\n"
+        "- Du leitest Workshops mit Führungsteams\n\n"
+        "Dein Profil:\n"
+        "- Mehrjährige Erfahrung in Organisationsentwicklung\n"
+        "- Kommunikationsstärke\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert len(profile.responsibilities.items) == 2
+    assert "berätst du unsere kunden" in profile.responsibilities.items[0].lower()
+    assert "leitest workshops" in profile.responsibilities.items[1].lower()
+
+    all_requirements = sum(
+        [
+            profile.requirements.hard_skills_required,
+            profile.requirements.soft_skills_required,
+            profile.requirements.tools_and_technologies,
+        ],
+        [],
+    )
+    assert not any("berätst" in req.lower() for req in all_requirements)
+
+
+def test_responsibility_and_skill_split_mixed_entries() -> None:
+    text = (
+        "Responsibilities:\n"
+        "- You will lead a global team of analysts\n"
+        "- Drive automation with Python expertise\n"
+        "Qualifications:\n"
+        "- 5+ years in analytics\n"
+        "- Advanced SQL\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert len(profile.responsibilities.items) == 2
+    assert any("lead a global team" in duty.lower() for duty in profile.responsibilities.items)
+    assert any("drive automation" in duty.lower() for duty in profile.responsibilities.items)
+
+    requirement_entries = [
+        *profile.requirements.hard_skills_required,
+        *profile.requirements.soft_skills_required,
+        *profile.requirements.tools_and_technologies,
+    ]
+    assert any(req.lower() == "python" for req in requirement_entries)
+    assert not any("lead a global team" in req.lower() for req in requirement_entries)
+
+
 def test_salary_single_value_detection() -> None:
     text = "Gehalt ab 75.000 € brutto"
     profile = NeedAnalysisProfile()

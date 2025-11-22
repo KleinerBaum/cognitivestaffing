@@ -57,6 +57,9 @@ Changed / Geändert
 - EN: German heading detection now treats "Jobbeschreibung" and "Tätigkeitsbeschreibung" as responsibility cues and stops requirements capture when encountering benefits headers like "Wir bieten" or "Das bieten wir", preventing tasks and skills from merging.
   DE: Die Überschriften-Erkennung stuft „Jobbeschreibung“ und „Tätigkeitsbeschreibung“ jetzt als Aufgaben-Hinweise ein und beendet die Anforderungs-Erfassung bei Benefit-Headern wie „Wir bieten“ oder „Das bieten wir“, damit Aufgaben- und Skill-Listen getrennt bleiben.
 
+- EN: Strengthened responsibility parsing so action-led bullets stay under `responsibilities.items` and their embedded skill/tool cues are split into the corresponding `requirements.*` lists, ensuring duties never leak into qualifications.
+  DE: Die Aufgaben-Logik wurde geschärft: Aktionsbasierte Bullets bleiben in `responsibilities.items`, während eingebettete Skill-/Tool-Hinweise automatisch den passenden `requirements.*`-Listen zugeordnet werden – so wandern Aufgaben nicht mehr in die Anforderungen.
+
 - EN: Introduced an explicit `APIMode` enum and per-call `api_mode` overrides for `call_chat_api` and `stream_chat_api` so OpenAI backend selection no longer depends on temporary global flags.
   DE: Neues `APIMode`-Enum und pro-Aufruf-Overrides über `api_mode` für `call_chat_api` und `stream_chat_api`, damit die Wahl zwischen Responses- und Chat-Backend nicht mehr von temporären globalen Flags abhängt.
 

@@ -114,6 +114,10 @@ _SECTION_LABELS: dict[str, str] = {
 _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
     "responsibilities": (
         r"\bresponsibilit",
+        r"\byour tasks\b",
+        r"\bwhat you'?ll do\b",
+        r"\bwhat you will do\b",
+        r"\bduties\b",
         r"\baufgaben\b",
         r"\btätigkeiten\b",
         r"\bverantwortlichkeiten\b",
