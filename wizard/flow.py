@@ -10879,47 +10879,93 @@ def _render_skill_insights(raw_profile: Mapping[str, Any], *, lang: str) -> None
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def _render_summary_export_section(
+@dataclass(frozen=True)
+class JobAdContext:
+    """Shared context for job ad generation and downstream follow-ups."""
+
+    filtered_profile: Mapping[str, Any]
+    selected_fields: Sequence[str]
+    target_value: str
+    manual_entries: list[dict[str, str]]
+    style_reference: str
+    style_label: str
+    style_description: str
+
+
+def _render_role_tasks_tab(
+    profile: NeedAnalysisProfile,
+    boolean_skill_terms: Sequence[str],
+    boolean_title_synonyms: Sequence[str],
+    *,
+    lang: str,
+) -> None:
+    """Render the responsibilities recap and search builder in a dedicated tab."""
+
+    render_section_heading(tr("Aufgaben & Anforderungen", "Role tasks & requirements"), icon="🧭")
+    st.caption(
+        tr(
+            "Kurzer Überblick über Kernaufgaben und Skills – ideal für Reviews und Searches.",
+            "Quick overview of core responsibilities and skills – ideal for reviews and searches.",
+        )
+    )
+
+    responsibilities = [
+        item.strip()
+        for item in profile.responsibilities.items
+        if isinstance(item, str) and item.strip()
+    ]
+    if responsibilities:
+        st.markdown("\n".join(f"- {entry}" for entry in responsibilities))
+    else:
+        st.info(tr("Noch keine Aufgaben erfasst.", "No responsibilities captured yet."))
+
+    def _render_requirement_group(label_de: str, label_en: str, values: Sequence[str]) -> None:
+        normalized = [value.strip() for value in values if isinstance(value, str) and value.strip()]
+        st.markdown(f"**{tr(label_de, label_en, lang=lang)}**")
+        if not normalized:
+            st.caption(tr("Keine Einträge", "No entries", lang=lang))
+            return
+        st.markdown("\n".join(f"- {html.escape(entry)}" for entry in normalized), unsafe_allow_html=True)
+
+    _render_requirement_group(
+        "Muss-Hard-Skills",
+        "Must-have hard skills",
+        profile.requirements.hard_skills_required,
+    )
+    _render_requirement_group(
+        "Muss-Soft-Skills",
+        "Must-have soft skills",
+        profile.requirements.soft_skills_required,
+    )
+    _render_requirement_group(
+        "Sprachen",
+        "Languages",
+        profile.requirements.languages_required,
+    )
+
+    render_section_heading(tr("Boolean Searchstring", "Boolean search string"), icon="🔎")
+    st.caption(
+        tr(
+            "Nutze Jobtitel und Skills, um zielgenaue Suchen aufzubauen.",
+            "Use job titles and skills to craft precise search strings.",
+        )
+    )
+    _render_boolean_interactive_section(
+        profile,
+        boolean_skill_terms=boolean_skill_terms,
+        boolean_title_synonyms=boolean_title_synonyms,
+    )
+
+
+def _render_job_ad_tab(
     *,
     profile: NeedAnalysisProfile,
     profile_payload: Mapping[str, Any],
     raw_profile: Mapping[str, Any],
     lang: str,
     group_keys: Sequence[str],
-    profile_bytes: bytes,
-    profile_mime: str,
-    profile_filename: str,
-) -> None:
-    """Render export, generation, and automation tools for the summary tab."""
-
-    summary_data: dict[str, Any]
-    if isinstance(raw_profile, dict):
-        summary_data = raw_profile
-    else:
-        summary_data = dict(raw_profile)
-
-    st.caption(
-        tr(
-            "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
-            "All available information is automatically included in the final output.",
-        )
-    )
-    st.divider()
-
-    default_boolean_query = build_boolean_search(profile)
-    profile_signature = _boolean_profile_signature(profile)
-    stored_signature = st.session_state.get(BOOLEAN_PROFILE_SIGNATURE)
-    if stored_signature != profile_signature:
-        for widget_key in list(st.session_state.get(BOOLEAN_WIDGET_KEYS, [])):
-            st.session_state.pop(widget_key, None)
-        st.session_state[BOOLEAN_WIDGET_KEYS] = []
-        st.session_state[BOOLEAN_PROFILE_SIGNATURE] = profile_signature
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
-    elif StateKeys.BOOLEAN_STR not in st.session_state:
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
-
-    boolean_skill_terms = _boolean_skill_terms(profile)
-    boolean_title_synonyms = _boolean_title_synonyms(profile)
+) -> JobAdContext:
+    """Render the job ad builder and return context for downstream steps."""
 
     tone_presets = load_json("tone_presets.json", {}) or {}
     lang_code = st.session_state.get("lang", "de")
@@ -11340,114 +11386,208 @@ def _render_summary_export_section(
                 findings = scan_bias_language(refined, st.session_state.lang)
                 st.session_state[StateKeys.BIAS_FINDINGS] = findings
                 st.rerun()
-            except Exception as e:
-                st.error(tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {e}")
+            except Exception as exc:
+                st.error(tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {exc}")
+
+    return JobAdContext(
+        filtered_profile=filtered_profile,
+        selected_fields=selected_fields,
+        target_value=target_value,
+        manual_entries=list(manual_entries),
+        style_reference=style_reference,
+        style_label=style_label,
+        style_description=style_description,
+    )
+
+
+def _render_interview_tab(
+    *,
+    profile: NeedAnalysisProfile,
+    profile_payload: Mapping[str, Any],
+    job_context: JobAdContext,
+    lang: str,
+) -> None:
+    """Render the interview guide generator in its own tab."""
 
     render_interview_guide_section(
         profile,
         profile_payload,
         lang=lang,
-        style_label=style_label,
-        style_description=style_description,
+        style_label=job_context.style_label,
+        style_description=job_context.style_description,
     )
 
-    render_section_heading(tr("Boolean Searchstring", "Boolean search string"), icon="🔎")
+
+def _render_followup_section(
+    *,
+    summary_data: Mapping[str, Any],
+    profile_payload: Mapping[str, Any],
+    job_context: JobAdContext,
+    lang: str,
+) -> None:
+    """Render follow-up question handling below the tabbed export tools."""
+
+    manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, job_context.manual_entries))
+    followup_items = st.session_state.get(StateKeys.FOLLOWUPS) or []
+    if not followup_items:
+        return
+
+    st.markdown(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
+
+    entry_specs: list[tuple[str, str]] = []
+    for item in followup_items:
+        field_path = item.get("field") or item.get("key") or ""
+        question_text = item.get("question") or ""
+        if not field_path or not question_text:
+            continue
+        entry_specs.append((field_path, question_text))
+
+    if not entry_specs:
+        return
+
+    stored_snapshot = dict(st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {}))
+    with st.form("summary_followups_form"):
+        for field_path, question_text in entry_specs:
+            st.markdown(f"**{question_text}**")
+            profile_text_input(
+                field_path,
+                question_text,
+                key=f"fu_{field_path}",
+                label_visibility="collapsed",
+                allow_callbacks=False,
+            )
+        submit_label = tr(
+            "Folgeantworten anwenden",
+            "Apply follow-up answers",
+        )
+        submitted = st.form_submit_button(submit_label, type="primary")
+
+    if not submitted:
+        return
+
+    answers = {field_path: st.session_state.get(f"fu_{field_path}", "") for field_path, _question in entry_specs}
+    trimmed_answers = {field: value.strip() for field, value in answers.items()}
+    for field_path, value in trimmed_answers.items():
+        if value:
+            _update_profile(field_path, value)
+    changed = trimmed_answers != stored_snapshot
+    st.session_state[StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT] = trimmed_answers
+
+    if not changed:
+        st.info(
+            tr(
+                "Keine Änderungen erkannt – Inhalte bleiben unverändert.",
+                "No changes detected – content remains unchanged.",
+            )
+        )
+        return
+
+    job_generated, interview_generated = _apply_followup_updates(
+        trimmed_answers,
+        data=summary_data,
+        filtered_profile=job_context.filtered_profile,
+        profile_payload=profile_payload,
+        target_value=job_context.target_value,
+        manual_entries=manual_entries,
+        style_reference=job_context.style_reference,
+        lang=lang,
+        selected_fields=job_context.selected_fields,
+        num_questions=st.session_state.get(UIKeys.NUM_QUESTIONS, 5),
+        warn_on_length=False,
+        show_feedback=True,
+        job_ad_generator=_followup_job_ad_generator,
+        interview_generator=_followup_interview_generator,
+    )
+    if job_generated or interview_generated:
+        st.toast(
+            tr(
+                "Folgeantworten übernommen – Inhalte aktualisiert.",
+                "Follow-up answers applied – content refreshed.",
+            ),
+            icon="✅",
+        )
+    else:
+        st.info(
+            tr(
+                "Antworten gespeichert – bitte Feldauswahl oder Interview-Einstellungen prüfen.",
+                "Answers saved – please review field selection or interview settings.",
+            )
+        )
+
+
+def _render_summary_export_section(
+    *,
+    profile: NeedAnalysisProfile,
+    profile_payload: Mapping[str, Any],
+    raw_profile: Mapping[str, Any],
+    lang: str,
+    group_keys: Sequence[str],
+    profile_bytes: bytes,
+    profile_mime: str,
+    profile_filename: str,
+) -> None:
+    """Render export, generation, and automation tools for the summary tab."""
+
+    summary_data: dict[str, Any]
+    if isinstance(raw_profile, dict):
+        summary_data = raw_profile
+    else:
+        summary_data = dict(raw_profile)
+
     st.caption(
         tr(
-            "Nutze Jobtitel und Skills, um zielgenaue Suchen aufzubauen.",
-            "Use job titles and skills to craft precise search strings.",
+            "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
+            "All available information is automatically included in the final output.",
         )
     )
-    _render_boolean_interactive_section(
-        profile,
-        boolean_skill_terms=boolean_skill_terms,
-        boolean_title_synonyms=boolean_title_synonyms,
-    )
-
     st.divider()
 
-    manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, []))
+    default_boolean_query = build_boolean_search(profile)
+    profile_signature = _boolean_profile_signature(profile)
+    stored_signature = st.session_state.get(BOOLEAN_PROFILE_SIGNATURE)
+    if stored_signature != profile_signature:
+        for widget_key in list(st.session_state.get(BOOLEAN_WIDGET_KEYS, [])):
+            st.session_state.pop(widget_key, None)
+        st.session_state[BOOLEAN_WIDGET_KEYS] = []
+        st.session_state[BOOLEAN_PROFILE_SIGNATURE] = profile_signature
+        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
+    elif StateKeys.BOOLEAN_STR not in st.session_state:
+        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
 
-    followup_items = st.session_state.get(StateKeys.FOLLOWUPS) or []
-    if followup_items:
-        st.markdown(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
+    boolean_skill_terms = _boolean_skill_terms(profile)
+    boolean_title_synonyms = _boolean_title_synonyms(profile)
 
-        entry_specs: list[tuple[str, str]] = []
-        for item in followup_items:
-            field_path = item.get("field") or item.get("key") or ""
-            question_text = item.get("question") or ""
-            if not field_path or not question_text:
-                continue
-            entry_specs.append((field_path, question_text))
+    role_label = tr("🧠 Aufgaben & Suche", "🧠 Role tasks & search")
+    job_label = tr("📝 Stellenanzeige", "📝 Job ad")
+    interview_label = tr("🗒️ Interviewleitfaden", "🗒️ Interview guide")
+    role_tab, job_tab, interview_tab = st.tabs([role_label, job_label, interview_label])
 
-        if entry_specs:
-            stored_snapshot = dict(st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {}))
-            with st.form("summary_followups_form"):
-                for field_path, question_text in entry_specs:
-                    st.markdown(f"**{question_text}**")
-                    profile_text_input(
-                        field_path,
-                        question_text,
-                        key=f"fu_{field_path}",
-                        label_visibility="collapsed",
-                        allow_callbacks=False,
-                    )
-                submit_label = tr(
-                    "Folgeantworten anwenden",
-                    "Apply follow-up answers",
-                )
-                submitted = st.form_submit_button(submit_label, type="primary")
+    with role_tab:
+        _render_role_tasks_tab(profile, boolean_skill_terms, boolean_title_synonyms, lang=lang)
 
-            if submitted:
-                answers = {
-                    field_path: st.session_state.get(f"fu_{field_path}", "") for field_path, _question in entry_specs
-                }
-                trimmed_answers = {field: value.strip() for field, value in answers.items()}
-                for field_path, value in trimmed_answers.items():
-                    if value:
-                        _update_profile(field_path, value)
-                changed = trimmed_answers != stored_snapshot
-                st.session_state[StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT] = trimmed_answers
+    with job_tab:
+        job_context = _render_job_ad_tab(
+            profile=profile,
+            profile_payload=profile_payload,
+            raw_profile=summary_data,
+            lang=lang,
+            group_keys=group_keys,
+        )
 
-                if changed:
-                    job_generated, interview_generated = _apply_followup_updates(
-                        trimmed_answers,
-                        data=summary_data,
-                        filtered_profile=filtered_profile,
-                        profile_payload=profile_payload,
-                        target_value=target_value,
-                        manual_entries=manual_entries,
-                        style_reference=style_reference,
-                        lang=lang,
-                        selected_fields=selected_fields,
-                        num_questions=st.session_state.get(UIKeys.NUM_QUESTIONS, 5),
-                        warn_on_length=False,
-                        show_feedback=True,
-                        job_ad_generator=_followup_job_ad_generator,
-                        interview_generator=_followup_interview_generator,
-                    )
-                    if job_generated or interview_generated:
-                        st.toast(
-                            tr(
-                                "Folgeantworten übernommen – Inhalte aktualisiert.",
-                                "Follow-up answers applied – content refreshed.",
-                            ),
-                            icon="✅",
-                        )
-                    else:
-                        st.info(
-                            tr(
-                                "Antworten gespeichert – bitte Feldauswahl oder Interview-Einstellungen prüfen.",
-                                "Answers saved – please review field selection or interview settings.",
-                            )
-                        )
-                else:
-                    st.info(
-                        tr(
-                            "Keine Änderungen erkannt – Inhalte bleiben unverändert.",
-                            "No changes detected – content remains unchanged.",
-                        )
-                    )
+    with interview_tab:
+        _render_interview_tab(
+            profile=profile,
+            profile_payload=profile_payload,
+            job_context=job_context,
+            lang=lang,
+        )
+
+    _render_followup_section(
+        summary_data=summary_data,
+        profile_payload=profile_payload,
+        job_context=job_context,
+        lang=lang,
+    )
 
     st.divider()
     st.download_button(
