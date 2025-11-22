@@ -574,8 +574,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         )
         content = (call_result.content or "").strip()
     if not content:
-        logger.warning("Structured extraction returned empty response for %s", prompt_digest)
-        raise ValueError("LLM returned empty response")
+        logger.warning(
+            "Structured extraction returned empty response for %s; defaulting to an empty profile.",
+            prompt_digest,
+        )
+        return NeedAnalysisProfile().model_dump_json()
 
     parser = get_need_analysis_output_parser()
     try:
@@ -787,4 +790,8 @@ def extract_json(
                 return empty_profile.model_dump_json()
             return json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False)
         span.set_status(Status(StatusCode.ERROR, "empty_response"))
-        raise ExtractionError("LLM returned empty response")
+        logger.info(
+            "Plain-text fallback returned no content; defaulting to an empty profile.",
+        )
+        empty_profile = NeedAnalysisProfile()
+        return empty_profile.model_dump_json()
