@@ -3999,10 +3999,45 @@ def _maybe_run_extraction(schema: dict) -> None:
         with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
             try:
                 _extract_and_summarize(raw_clean, schema)
+            except ExtractionError as span_exc:
+                span.record_exception(span_exc)
+                span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
+                raise
             except Exception as span_exc:
                 span.record_exception(span_exc)
                 span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
                 raise
+    except ExtractionError as exc:
+        st.session_state.pop("__last_extracted_hash__", None)
+        metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+        metadata = dict(metadata) if isinstance(metadata, Mapping) else {}
+        fallback_profile = apply_basic_fallbacks(
+            NeedAnalysisProfile(),
+            raw_clean,
+            metadata=metadata,
+        )
+        warning_message = tr(
+            "⚠️ Extraktion fehlgeschlagen – heuristische Felder verwendet.",
+            "⚠️ Extraction failed – populated basic fields heuristically.",
+        )
+        profile_data = fallback_profile.model_dump()
+        st.session_state[StateKeys.PROFILE] = profile_data
+        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = profile_data
+        st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_message
+        st.session_state[StateKeys.STEPPER_WARNING] = warning_message
+        st.session_state[StateKeys.SKILL_BUCKETS] = {
+            "must": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_required", [])),
+            "nice": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_optional", [])),
+        }
+        missing_fields = [
+            field for field in CRITICAL_FIELDS if not get_in(profile_data, field, None)
+        ]
+        st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
+        st.session_state[StateKeys.PROFILE_METADATA] = metadata
+        logger.info(
+            "Plain-text heuristic recovery used after extraction failure: %s",
+            exc,
+        )
     except Exception as exc:
         st.session_state.pop("__last_extracted_hash__", None)
         warning_message = tr(
