@@ -574,12 +574,8 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
                     label_score += 2
                 if "kontakt" in context_lower or "contact" in context_lower:
                     label_score += 1
-                email, email_score = _find_best_email(
-                    tokens, line_index, emails, max_distance=distance_limit
-                )
-                phone, phone_score = _find_best_phone(
-                    line_index, phones, max_distance=distance_limit
-                )
+                email, email_score = _find_best_email(tokens, line_index, emails, max_distance=distance_limit)
+                phone, phone_score = _find_best_phone(line_index, phones, max_distance=distance_limit)
                 if hr_score == 0 and label_score == 0 and email_score == 0 and phone_score == 0:
                     continue
                 candidate = _ContactCandidate(
@@ -617,21 +613,11 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
             context_lower = line.casefold()
             hr_score = max(
                 1,
-                sum(
-                    1
-                    for hint in _HR_HINTS
-                    if hint in lowered_title or hint in context_lower
-                ),
+                sum(1 for hint in _HR_HINTS if hint in lowered_title or hint in context_lower),
             )
-            label_score = (
-                1 if any(keyword in lowered_title for keyword in _CONTACT_KEYWORDS) else 0
-            )
-            email, email_score = _find_best_email(
-                tokens, line_index, emails, max_distance=paragraph_window
-            )
-            phone, phone_score = _find_best_phone(
-                line_index, phones, max_distance=paragraph_window
-            )
+            label_score = 1 if any(keyword in lowered_title for keyword in _CONTACT_KEYWORDS) else 0
+            email, email_score = _find_best_email(tokens, line_index, emails, max_distance=paragraph_window)
+            phone, phone_score = _find_best_phone(line_index, phones, max_distance=paragraph_window)
             if hr_score == 0 and label_score == 0 and email_score == 0 and phone_score == 0:
                 continue
             candidate = _ContactCandidate(
@@ -1149,6 +1135,9 @@ _SOFT_SKILL_KEYWORDS = {
     "organized",
     "struktur",
     "problem",
+    "begeister",
+    "enthusias",
+    "leidenschaft",
 }
 _LANGUAGE_MAP = {
     "English": ["english", "englisch"],
@@ -1603,6 +1592,75 @@ def is_soft_skill(text: str) -> bool:
     return _is_soft_skill(text)
 
 
+def _contains_optional_hint(text: str) -> bool:
+    """Return True if ``text`` includes an optionality marker."""
+
+    lower = text.casefold()
+    return any(hint in lower for hint in _OPTIONAL_HINTS)
+
+
+def _rebalance_optional_skills(requirements: Requirements) -> None:
+    """Move skills with optional markers into the *_optional buckets."""
+
+    def _move_optional(source_name: str, target_name: str) -> None:
+        source = getattr(requirements, source_name)
+        keep: List[str] = []
+        for item in source:
+            if _contains_optional_hint(item):
+                target = getattr(requirements, target_name)
+                if item not in target:
+                    target.append(item)
+            else:
+                keep.append(item)
+        setattr(requirements, source_name, keep)
+
+    _move_optional("hard_skills_required", "hard_skills_optional")
+    _move_optional("soft_skills_required", "soft_skills_optional")
+
+
+def _language_hits(text: str) -> Set[str]:
+    """Return canonical language names referenced in ``text``."""
+
+    lower = text.casefold()
+    hits: Set[str] = set()
+    for canonical, variants in _LANGUAGE_MAP.items():
+        for variant in variants:
+            if re.search(rf"\b{re.escape(variant)}\b", lower):
+                hits.add(canonical)
+                break
+    return hits
+
+
+def _harvest_languages_from_skill_lists(requirements: Requirements) -> None:
+    """Move language mentions out of skill lists into language fields."""
+
+    languages_required = normalize_language_list(requirements.languages_required)
+    languages_optional = normalize_language_list(requirements.languages_optional)
+
+    def _process(field: str, fallback_optional: bool) -> None:
+        source = getattr(requirements, field)
+        keep: List[str] = []
+        for item in source:
+            hits = _language_hits(item)
+            if not hits:
+                keep.append(item)
+                continue
+            is_optional = fallback_optional or _contains_optional_hint(item)
+            target = languages_optional if is_optional else languages_required
+            for language in hits:
+                if language not in target:
+                    target.append(language)
+        setattr(requirements, field, keep)
+
+    _process("hard_skills_required", False)
+    _process("soft_skills_required", False)
+    _process("hard_skills_optional", True)
+    _process("soft_skills_optional", True)
+
+    requirements.languages_required = normalize_language_list(languages_required)
+    requirements.languages_optional = normalize_language_list(languages_optional)
+
+
 def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
     """Extract required and optional requirement bullet points from ``text``."""
 
@@ -1677,14 +1735,7 @@ def _extract_tools_from_lists(req: NeedAnalysisProfile) -> None:
         "soft_skills_optional",
     ]:
         for item in getattr(req.requirements, field):
-            lower = item.lower()
-            for tech in _TECH_KEYWORDS:
-                variants = _TECH_KEYWORD_VARIANTS.get(tech, {tech})
-                if any(
-                    re.search(rf"\b{re.escape(variant)}\b", lower)
-                    for variant in variants
-                ):
-                    techs.add(tech)
+            techs.update(_find_tech_keywords(item))
     req.requirements.tools_and_technologies = list(techs)
 
 
@@ -1776,10 +1827,10 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     r.hard_skills_optional = _merge_unique(r.hard_skills_optional, hard_opt)
     r.soft_skills_required = _merge_unique(r.soft_skills_required, soft_req)
     r.soft_skills_optional = _merge_unique(r.soft_skills_optional, soft_opt)
-    r.tools_and_technologies = _merge_unique(
-        r.tools_and_technologies, sorted(tech_tools)
-    )
+    r.tools_and_technologies = _merge_unique(r.tools_and_technologies, sorted(tech_tools))
 
+    _rebalance_optional_skills(r)
+    _harvest_languages_from_skill_lists(r)
     _dedupe_skill_tiers(r)
 
     _extract_tools_from_lists(profile)
