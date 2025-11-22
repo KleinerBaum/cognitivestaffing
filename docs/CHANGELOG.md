@@ -188,6 +188,9 @@ Changed / Geändert
 
 Fixed / Behoben
 
+- EN: The Interview Guide schema now forces `focus_areas.label` into the `required` list inside `$defs`, preventing the Responses API from rejecting the JSON schema with a "Missing 'label'" error and keeping AI-generated guides available in the wizard.
+  DE: Das Interviewleitfaden-Schema zwingt `focus_areas.label` jetzt in die `required`-Liste innerhalb von `$defs`, sodass die Responses-API das JSON-Schema nicht mehr mit einem „Missing 'label'“-Fehler ablehnt und KI-Generierungen im Wizard erhalten bleiben.
+
 - EN: Applied `_ensure_required_fields` recursively in the NeedAnalysis schema builder so every nested object (including `company.name`) appears in `required` arrays and Responses no longer rejects missing keys.
   DE: `_ensure_required_fields` im NeedAnalysis-Schema-Builder jetzt rekursiv angewendet, sodass jedes verschachtelte Objekt (inkl. `company.name`) in den `required`-Listen steht und Responses keine Missing-Key-Fehler mehr meldet.
 
