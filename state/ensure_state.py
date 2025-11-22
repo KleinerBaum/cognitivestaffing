@@ -358,9 +358,14 @@ def ensure_state() -> None:
         effort = st.session_state.get(StateKeys.REASONING_EFFORT)
         st.session_state[StateKeys.REASONING_EFFORT] = effort if isinstance(effort, str) else REASONING_EFFORT
 
-    strict_value = st.session_state.setdefault(StateKeys.EXTRACTION_STRICT_FORMAT, True)
-    if not isinstance(strict_value, bool):
-        st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = bool(strict_value)
+    strict_value = st.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True)
+    strict_enabled = bool(strict_value) if strict_value is not None else True
+    st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
+    ui_strict_value = st.session_state.get(UIKeys.EXTRACTION_STRICT_FORMAT)
+    if ui_strict_value is None:
+        st.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
+    else:
+        st.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = bool(ui_strict_value)
 
     preferred_mode = "precise" if REASONING_EFFORT not in {"minimal", "low"} else "quick"
     if StateKeys.REASONING_MODE not in st.session_state:

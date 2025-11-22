@@ -143,3 +143,4 @@ def test_jobad_step_populates_session_state(stubbed_streamlit: DummyStreamlit) -
     assert StateKeys.PROFILE in stubbed_streamlit.session_state
     assert UIKeys.EXTRACTION_REASONING_MODE in stubbed_streamlit.session_state
     assert StateKeys.EXTRACTION_STRICT_FORMAT in stubbed_streamlit.session_state
+    assert UIKeys.EXTRACTION_STRICT_FORMAT in stubbed_streamlit.session_state

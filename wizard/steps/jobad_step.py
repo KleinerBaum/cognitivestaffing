@@ -28,6 +28,22 @@ def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
     _step_onboarding(dict(schema))
 
 
+def _prime_extraction_settings_state() -> None:
+    """Ensure extraction-related session keys exist before rendering widgets."""
+
+    strict_value = st.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True)
+    strict_enabled = bool(strict_value) if strict_value is not None else True
+    st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
+    st.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = bool(
+        st.session_state.get(UIKeys.EXTRACTION_STRICT_FORMAT, strict_enabled)
+    )
+
+    reasoning_mode = str(
+        st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise"
+    ).strip().lower()
+    st.session_state[UIKeys.EXTRACTION_REASONING_MODE] = reasoning_mode
+
+
 def _step_onboarding(schema: dict) -> None:
     """Render onboarding with language toggle, intro, and ingestion options."""
 
@@ -173,6 +189,7 @@ def _step_onboarding(schema: dict) -> None:
             disabled=locked,
         )
 
+    _prime_extraction_settings_state()
     render_extraction_settings_panel(
         apply_parsing_mode=flow._apply_parsing_mode,
         queue_extraction_rerun=flow._queue_extraction_rerun,
