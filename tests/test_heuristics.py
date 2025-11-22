@@ -429,6 +429,24 @@ def test_benefit_section_handles_our_offer_heading() -> None:
     ]
 
 
+def test_benefit_section_handles_wir_bieten_heading() -> None:
+    text = "Wir bieten:\n- Betriebliche Altersvorsorge\n- flexible Arbeitsmodelle"
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert profile.compensation.benefits == [
+        "Betriebliche Altersvorsorge",
+        "flexible Arbeitsmodelle",
+    ]
+
+
+def test_benefit_section_extracts_inline_comma_list() -> None:
+    text = "Benefits, flexible Arbeitsmodelle und ein Umfeld, in dem Vielfalt gefördert wird."
+    profile = NeedAnalysisProfile()
+    profile = apply_basic_fallbacks(profile, text)
+    assert "flexible Arbeitsmodelle und ein Umfeld" in profile.compensation.benefits
+    assert any("Vielfalt" in entry for entry in profile.compensation.benefits)
+
+
 def test_responsibility_fallbacks() -> None:
     text = "Dein Spielfeld:\n- Features entwickeln\n- Team unterstützen\n\nWas du mitbringst:\n- Python Erfahrung\n"
     profile = NeedAnalysisProfile()

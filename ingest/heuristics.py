@@ -1371,6 +1371,7 @@ _BENEFIT_HEADINGS = {
     "benefit",
     "unsere benefits",
     "deine benefits",
+    "wir bieten",
     "our benefits",
     "our benefits and perks",
     "our offer",
@@ -1460,11 +1461,28 @@ def _match_benefit_heading(line: str) -> Tuple[bool, str]:
     stripped = line.strip()
     if not stripped:
         return False, ""
-    parts = re.split(r"[:：]", stripped, maxsplit=1)
+
+    cleaned = _clean_bullet(stripped)
+    normalized = re.sub(r"\s+", " ", cleaned).strip(" -–—•\t")
+    if not normalized:
+        return False, ""
+
+    parts = re.split(r"[:：]", normalized, maxsplit=1)
     heading_norm = re.sub(r"\s+", " ", parts[0]).strip(" -–—•\t").lower()
     if heading_norm in _BENEFIT_HEADINGS:
         trailing = parts[1].strip() if len(parts) > 1 else ""
         return True, trailing
+
+    lowered = normalized.lower()
+    for heading in _BENEFIT_HEADINGS:
+        if not lowered.startswith(heading):
+            continue
+        remainder = lowered[len(heading) :]
+        if remainder and not re.match(r"^[\s,;–—-]", remainder):
+            continue
+        trailing = normalized[len(heading) :].lstrip(" :：,;–—-•·\t")
+        return True, trailing
+
     return False, ""
 
 

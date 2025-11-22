@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Mapped benefit/perk sections such as "Wir bieten" or inline "Benefits, …" lists into compensation.benefits so perks from job ads are no longer dropped during extraction.
+  DE: Benefit-/Perk-Abschnitte wie „Wir bieten“ oder Inline-Listen mit „Benefits, …“ werden nun in compensation.benefits übernommen, damit Vorteile aus Stellenanzeigen nicht mehr verloren gehen.
+
 - EN: Removed unsupported `uniqueItems` flags from the pre-extraction analysis JSON schema (and all Responses schemas) so OpenAI accepts the payloads without schema errors.
   DE: Nicht unterstützte `uniqueItems`-Marker aus dem Pre-Extraction-Analyse-JSON-Schema (und allen Responses-Schemas) entfernt, damit OpenAI die Payloads ohne Schemafehler akzeptiert.
 
