@@ -1299,19 +1299,71 @@ _RESP_HEADINGS = {
     "dein spielfeld",
     "deine aufgaben",
     "deine mission",
+    "jobbeschreibung",
     "hauptaufgaben",
     "ihre aufgaben",
     "ihre verantwortlichkeiten",
     "key responsibilities",
     "main tasks",
     "responsibilities",
+    "tätigkeitsbeschreibung",
     "was dich bei uns erwartet",
     "was dich erwartet",
     "your responsibilities",
     "your tasks",
+    "what you will do",
     "what you'll do",
     "duties",
 }
+
+_RESPONSIBILITY_STARTERS: tuple[str, ...] = (
+    "you will",
+    "you'll",
+    "you are responsible",
+    "in this role",
+    "lead",
+    "manage",
+    "drive",
+    "own",
+    "oversee",
+    "coordinate",
+    "build",
+    "develop",
+    "design",
+    "implement",
+    "deliver",
+    "execute",
+    "ensure",
+    "advise",
+    "consult",
+    "partner",
+    "coach",
+    "mentor",
+    "analyze",
+    "analyse",
+    "berätst",
+    "leitest",
+    "entwickelst",
+    "steuerst",
+    "konzipierst",
+    "gestaltest",
+    "übernimmst",
+    "analysierst",
+    "planst",
+    "führst",
+    "betreust",
+    "koordinierst",
+    "unterstützt",
+    "du ",
+    "sie ",
+    "wir ",
+)
+
+_SKILL_TAIL_RE = re.compile(
+    r"(?:with|using|leveraging|including|incl\.?|mit|unter (?:einsatz|nutzung) von|"
+    r"erfahrung mit|erfahrung in|kenntnisse in|knowledge of|expertise in)\s+([^.;\n]+)",
+    re.IGNORECASE,
+)
 
 
 _BENEFIT_HEADINGS = {
@@ -1791,6 +1843,24 @@ def _extract_tech_keywords_from_entries(entries: Sequence[str]) -> Tuple[Set[str
     return skill_hits, tool_hits
 
 
+def _harvest_skills_from_responsibilities(
+    responsibilities: Sequence[str],
+    hard_sink: List[str],
+    soft_sink: List[str],
+    tool_sink: Set[str],
+) -> None:
+    """Harvest skill signals embedded inside responsibility sentences."""
+
+    for responsibility in responsibilities:
+        skills, tools = _extract_tech_keywords_from_entries([responsibility])
+        _merge_unique(hard_sink, sorted(skills))
+        tool_sink.update(tools)
+        for phrase in _extract_skill_phrases_from_bullet(responsibility):
+            _merge_unique(hard_sink, [phrase])
+            if _is_soft_skill(phrase):
+                _merge_unique(soft_sink, [phrase])
+
+
 def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysisProfile:
     """Enrich ``profile.requirements`` using heuristics from ``text``."""
 
@@ -1803,6 +1873,34 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     hard_opt: List[str] = []
     soft_opt: List[str] = []
     tech_tools: Set[str] = set()
+
+    profile.responsibilities.items = list(profile.responsibilities.items or [])
+
+    def _siphon_responsibility_bullets(bullets: List[str], *, optional: bool) -> List[str]:
+        cleaned: List[str] = []
+        for bullet in bullets:
+            responsibility = _clean_bullet(bullet)
+            if _looks_like_responsibility_line(responsibility):
+                if responsibility:
+                    profile.responsibilities.items = _merge_unique(
+                        list(profile.responsibilities.items or []), [responsibility]
+                    )
+                skill_phrases = _extract_skill_phrases_from_bullet(responsibility)
+                target_hard = hard_opt if optional else hard_req
+                _merge_unique(target_hard, skill_phrases)
+                soft_target = soft_opt if optional else soft_req
+                _merge_unique(soft_target, [phrase for phrase in skill_phrases if _is_soft_skill(phrase)])
+                skills, tools = _extract_tech_keywords_from_entries([responsibility])
+                _merge_unique(target_hard, sorted(skills))
+                tech_tools.update(tools)
+                continue
+            cleaned.append(bullet)
+        return cleaned
+
+    req_bullets = _siphon_responsibility_bullets(list(req_bullets), optional=False)
+    opt_bullets = _siphon_responsibility_bullets(list(opt_bullets), optional=True)
+
+    _harvest_skills_from_responsibilities(profile.responsibilities.items, hard_req, soft_req, tech_tools)
     for item in req_bullets:
         if _is_soft_skill(item):
             soft_req.append(item)
@@ -1877,6 +1975,28 @@ def extract_responsibilities(text: str) -> List[str]:
         elif lower in _RESP_HEADINGS:
             in_section = True
     return [i for i in items if i]
+
+
+def _looks_like_responsibility_line(line: str) -> bool:
+    """Return ``True`` when ``line`` is action-oriented (duty statement)."""
+
+    cleaned = _clean_bullet(line).strip().lower()
+    if not cleaned:
+        return False
+    if " you will " in cleaned:
+        return True
+    return any(cleaned.startswith(prefix) for prefix in _RESPONSIBILITY_STARTERS)
+
+
+def _extract_skill_phrases_from_bullet(entry: str) -> List[str]:
+    """Return skill/experience phrases that trail action statements."""
+
+    phrases: List[str] = []
+    for match in _SKILL_TAIL_RE.finditer(entry):
+        phrase = match.group(1).strip(" -:\t")
+        if phrase:
+            phrases.append(phrase)
+    return phrases
 
 
 def _line_ends_with_gender_marker(line: str) -> bool:

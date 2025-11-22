@@ -39,6 +39,7 @@ Architecture at a glance
 
 * UI: A multi-step Streamlit wizard (Onboarding → Summary) keeps the NeedAnalysisProfile in `st.session_state`, updating it through `wizard._logic` helpers and the canonical `ProfilePaths` keys.
 * Extraction pipeline: The ingest heuristics (`ingest/heuristics.py`) prefill obvious values (emails, phones, cities, team size) before the OpenAI extractor runs via `openai_utils/api.py`.
+* Responsibility parsing: Responsibilities are captured separately from qualifications. Action-led bullets (e.g., "Berätst du unsere Kunden…" or "You will lead…") remain under `responsibilities.items`, while skills, tools, and experience markers flow into the `requirements.*` buckets even when they appear in mixed bullets.
 * Validation and normalization: Structured payloads map into `core/schema.py` and are cleaned via `utils/normalization.py`, ensuring the Pydantic NeedAnalysisProfile stays aligned with the JSON schema in `schema/need_analysis.schema.json`.
 * Outputs: The wizard reuses the stored profile to generate exports (job ads, interview guides, Boolean strings) and to populate the Summary step for download or further edits.
 * Developers: See `docs/DEV_GUIDE.md` for extending steps, adding fields, and keeping schema/UI/export sync.
