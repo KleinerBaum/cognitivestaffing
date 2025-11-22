@@ -1178,22 +1178,13 @@ def _skill_chip_markup(
     *,
     lang: str,
 ) -> str:
-    """Return HTML markup used to render a draggable skill chip."""
+    """Return a plain-text chip label with a compact source badge."""
 
-    label = html.escape(info["label"])
+    label = _strip_legacy_skill_label(info["label"])
     source = info["source"]
-    source_label = html.escape(_skill_source_label(source, lang=lang))
-    source_short = html.escape(_skill_source_badge(source, lang=lang))
-    return (
-        "<span class='skill-chip'"
-        f" data-skill-id='{identifier}'"
-        f" data-source='{source}'"
-        f" data-source-label='{source_label}'"
-        f" data-source-short='{source_short}'"
-        f" title='{source_label}'>"
-        f"{label}"  # Label remains clean; badge is injected via CSS.
-        "</span>"
-    )
+    source_short = _skill_source_badge(source, lang=lang)
+    badge = f" ⟮{source_short}⟯" if source_short else ""
+    return f"{label}{badge}" if label else badge
 
 
 _CONTAINER_SOURCE_DEFAULT: dict[SkillContainerType, SkillSource] = {
