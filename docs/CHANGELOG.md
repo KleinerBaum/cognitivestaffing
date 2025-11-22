@@ -2,8 +2,8 @@ Changelog
 
 ## [1.1.1] - 2025-11-22
 
-- EN: Fixed a session-state bug that threw errors when toggling strict JSON mode by aligning the UI checkbox with a single backed session key.
-  DE: Sitzungszustandsfehler behoben, der beim Umschalten des Strict-JSON-Modus zu Fehlern führte, indem Checkbox und Backend auf einen einzigen Session-Key ausgerichtet wurden.
+- EN: Initialised the strict-format extraction session keys (UI + backend) up front to stop Streamlit errors when toggling the checkbox in the onboarding settings.
+  DE: Strict-Format-Sitzungsschlüssel (UI + Backend) vorab initialisiert, damit beim Umschalten der Checkbox in den Onboarding-Einstellungen keine Streamlit-Fehler mehr auftreten.
 
 - EN: Removed unsupported JSON-schema keywords from OpenAI payloads so schema validation no longer rejects the extractor responses.
   DE: Nicht unterstützte JSON-Schema-Schlüssel aus OpenAI-Payloads entfernt, damit die Schema-Validierung Extraktor-Antworten nicht mehr ablehnt.

@@ -28,7 +28,12 @@ def render_extraction_settings_panel(
         "precise": tr("🎯 Gründlich (Parsing)", "🎯 Thorough (parsing)"),
     }
 
-    strict_default = bool(st_module.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True))
+    strict_default = bool(
+        st_module.session_state.get(
+            UIKeys.EXTRACTION_STRICT_FORMAT,
+            st_module.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True),
+        )
+    )
 
     with st_module.expander(tr("Extraktionseinstellungen", "Extraction settings"), expanded=False, icon="🛠️"):
         st_module.caption(
@@ -62,12 +67,13 @@ def render_extraction_settings_panel(
                 "Enforce strict JSON format (disable if extraction fails)",
             ),
             value=strict_default,
-            key=StateKeys.EXTRACTION_STRICT_FORMAT,
+            key=UIKeys.EXTRACTION_STRICT_FORMAT,
             help=tr(
                 "Wenn aktiviert, hält sich die KI strikt an das Schema. Falls Felder fehlen oder die Extraktion scheitert, deaktiviere es für eine flexiblere Ausgabe.",
                 "When enabled, the AI strictly follows the schema. If fields go missing or extraction fails, turn this off for a more flexible output.",
             ),
         )
+        st_module.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = bool(strict_enabled)
         if not strict_enabled:
             st_module.info(
                 tr(

@@ -15,6 +15,7 @@ class UIKeys:
     REASONING_SELECT = "ui.reasoning_select"
     REASONING_MODE = "ui.reasoning.mode"
     EXTRACTION_REASONING_MODE = "ui.reasoning.mode.extraction"
+    EXTRACTION_STRICT_FORMAT = "ui.extraction.strict_format"
     EXTRACTION_RERUN = "ui.extraction.rerun"
     SALARY_ESTIMATE = "ui.salary.estimate"
     SALARY_REFRESH = "ui.salary.refresh"
