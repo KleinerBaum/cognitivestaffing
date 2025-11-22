@@ -83,3 +83,31 @@ def test_duplicate_skills_favor_required_lists() -> None:
 
     tools = {tool.lower() for tool in r.tools_and_technologies}
     assert "python" in tools
+
+
+def test_optional_markers_and_language_rebalancing() -> None:
+    text = (
+        "Dein Profil:\n"
+        "- Erfahrung mit Mobilitätsprodukten\n"
+        "- Begeisterung für kundenorientierte Lösungen\n"
+        "- Kenntnisse im ÖPNV von Vorteil\n"
+        "- Englisch B2\n"
+        "- Kommunikationsstärke\n"
+        "\n"
+        "Nice-to-haves:\n"
+        "- Jira Erfahrung\n"
+        "- Teamplayer\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+    r = profile.requirements
+
+    assert "Erfahrung mit Mobilitätsprodukten" in r.hard_skills_required
+    assert "Kenntnisse im ÖPNV von Vorteil" in r.hard_skills_optional
+    assert all("kenntnisse im öpnv von vorteil" != skill.lower() for skill in r.hard_skills_required)
+    assert "Begeisterung für kundenorientierte Lösungen" in r.soft_skills_required
+    assert "Kommunikationsstärke" in r.soft_skills_required
+    assert "Teamplayer" in r.soft_skills_optional
+    assert "Jira Erfahrung" in r.hard_skills_optional
+    assert "English" in r.languages_required
+    assert all("engl" not in skill.lower() for skill in r.hard_skills_required)
