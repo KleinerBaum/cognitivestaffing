@@ -8,7 +8,7 @@ from typing import Any, Callable, Sequence
 import pytest
 
 from constants.keys import StateKeys, UIKeys
-from wizard import flow
+from wizard.steps import jobad_step
 from wizard_router import WizardContext
 
 
@@ -105,7 +105,7 @@ def stubbed_streamlit(monkeypatch: pytest.MonkeyPatch) -> DummyStreamlit:
     """Provide a stubbed Streamlit module patched into the wizard flow."""
 
     dummy_st = DummyStreamlit()
-    monkeypatch.setattr(flow, "st", dummy_st)
+    monkeypatch.setattr(jobad_step, "st", dummy_st)
     return dummy_st
 
 
@@ -113,15 +113,23 @@ def stubbed_streamlit(monkeypatch: pytest.MonkeyPatch) -> DummyStreamlit:
 def stub_onboarding_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     """Neutralise expensive onboarding dependencies for fast tests."""
 
-    monkeypatch.setattr(flow, "_render_onboarding_hero", lambda: None)
-    monkeypatch.setattr(flow, "_maybe_run_extraction", lambda schema: None)
-    monkeypatch.setattr(flow, "_render_extraction_review", lambda: False)
-    monkeypatch.setattr(flow, "_render_followups_for_step", lambda *args, **kwargs: None)
-    monkeypatch.setattr(flow, "_advance_from_onboarding", lambda: None)
-    monkeypatch.setattr(flow, "_apply_parsing_mode", lambda mode: mode)
-    monkeypatch.setattr(flow, "_queue_extraction_rerun", lambda: None)
-    monkeypatch.setattr(flow, "_is_onboarding_locked", lambda: False)
-    monkeypatch.setattr(flow, "model_selector_component", SimpleNamespace(model_selector=lambda: None))
+    stub_flow = SimpleNamespace(
+        _render_onboarding_hero=lambda: None,
+        _maybe_run_extraction=lambda schema: None,
+        _render_extraction_review=lambda: False,
+        _render_followups_for_step=lambda *args, **kwargs: None,
+        _advance_from_onboarding=lambda: None,
+        _apply_parsing_mode=lambda mode: mode,
+        _queue_extraction_rerun=lambda: None,
+        _is_onboarding_locked=lambda: False,
+        on_url_changed=lambda: None,
+        on_file_uploaded=lambda: None,
+        _build_profile_context=lambda profile: {},
+        _format_dynamic_message=lambda default, context, variants: default[0],
+        _inject_onboarding_source_styles=lambda: None,
+        _get_profile_state=lambda: {},
+    )
+    monkeypatch.setattr(jobad_step, "_get_flow_module", lambda: stub_flow)
 
 
 def test_jobad_step_populates_session_state(stubbed_streamlit: DummyStreamlit) -> None:
@@ -130,7 +138,7 @@ def test_jobad_step_populates_session_state(stubbed_streamlit: DummyStreamlit) -
     stubbed_streamlit.session_state[StateKeys.PROFILE] = {}
     context = WizardContext(schema={}, critical_fields=())
 
-    flow.step_jobad(context)
+    jobad_step.step_jobad(context)
 
     assert StateKeys.PROFILE in stubbed_streamlit.session_state
     assert UIKeys.EXTRACTION_REASONING_MODE in stubbed_streamlit.session_state

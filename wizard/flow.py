@@ -113,8 +113,7 @@ from wizard.date_utils import (
     timeline_default_range as _timeline_default_range,
 )
 from wizard.sections import followups as followup_sections
-from wizard.components.extraction_settings_panel import render_extraction_settings_panel
-from components import model_selector as model_selector_component
+from wizard.steps import jobad_step
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
@@ -6503,176 +6502,6 @@ def _is_onboarding_locked() -> bool:
     return not is_llm_available()
 
 
-def _render_extraction_settings_panel() -> None:
-    """Render parsing controls for structured extraction."""
-
-    render_extraction_settings_panel(
-        apply_parsing_mode=_apply_parsing_mode,
-        queue_extraction_rerun=_queue_extraction_rerun,
-        st_module=st,
-    )
-
-
-def _step_onboarding(schema: dict) -> None:
-    """Render onboarding with language toggle, intro, and ingestion options."""
-
-    _maybe_run_extraction(schema)
-
-    if UIKeys.LANG_SELECT not in st.session_state:
-        st.session_state[UIKeys.LANG_SELECT] = st.session_state.get("lang", "de")
-
-    st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
-
-    profile = _get_profile_state()
-    profile_context = _build_profile_context(profile)
-
-    onboarding_header = _format_dynamic_message(
-        default=(
-            "Intelligenzgestützter Recruiting-Kickstart",
-            "Intelligence-powered recruiting kickoff",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Intelligenzgestützter Recruiting-Kickstart für {job_title} bei {company_name}",
-                    "Intelligence-powered recruiting kickoff for {job_title} at {company_name}",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Intelligenzgestützter Recruiting-Kickstart für {job_title}",
-                    "Intelligence-powered recruiting kickoff for {job_title}",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    onboarding_caption = _format_dynamic_message(
-        default=(
-            "Teile den Einstieg über URL oder Datei und sichere jede relevante Insight gleich am Anfang.",
-            "Share a URL or file to capture every crucial insight from the very first step.",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Übermittle den Startpunkt für {job_title} bei {company_name} über URL oder Datei und sichere jede Insight.",
-                    "Provide the entry point for {job_title} at {company_name} via URL or upload to secure every insight.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Übermittle den Startpunkt für {job_title} über URL oder Datei und sichere jede Insight.",
-                    "Provide the entry point for the {job_title} role via URL or upload to secure every insight.",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    render_step_heading(onboarding_header, onboarding_caption)
-    render_step_warning_banner()
-
-    _inject_onboarding_source_styles()
-
-    intro_lines = [
-        tr(
-            "Unstrukturierte Bedarfsklärung verbrennt gleich im ersten Schritt kostbare Recruiting-Insights.",
-            "Unstructured intake burns expensive recruiting intelligence in the very first step.",
-        ),
-        tr(
-            "Unsere OpenAI-API-Agents erfassen jedes Detail und strukturieren Anforderungen in Echtzeit.",
-            "Our OpenAI API agents capture every nuance and structure requirements in real time.",
-        ),
-        tr(
-            "ESCO-Skillgraph und Marktprofile liefern Kontext für Skills, Seniorität und Branchensprache.",
-            "ESCO skill graphs and market profiles add context for skills, seniority, and industry language.",
-        ),
-        tr(
-            "Ein dynamischer Info-Gathering-Prozess baut einen vollständigen Datensatz für diese Vakanz auf.",
-            "A dynamic info gathering process assembles a complete dataset for this specific vacancy.",
-        ),
-        tr(
-            "So entstehen Inputs für interne Kommunikations-Automation & Folgeschritte – Ziel: glückliche Kandidat:innen nachhaltig platzieren.",
-            "These inputs fuel internal communication automation and downstream steps – goal: place happy candidates sustainably.",
-        ),
-    ]
-
-    intro_html = "<br/>".join(intro_lines)
-    st.markdown(f"<div class='onboarding-intro'>{intro_html}</div>", unsafe_allow_html=True)
-
-    st.divider()
-
-    if st.session_state.get("source_error"):
-        fallback_message = tr(
-            "Es gab ein Problem beim Import. Versuche URL oder Upload erneut oder kontaktiere unser Support-Team.",
-            "There was an issue while importing the content. Retry the URL/upload or contact our support team.",
-        )
-        error_text = st.session_state.get("source_error_message") or fallback_message
-        st.error(error_text)
-
-    prefill = st.session_state.pop("__prefill_profile_text__", None)
-    if prefill is not None:
-        st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
-        st.session_state[StateKeys.RAW_TEXT] = prefill
-        doc_prefill = st.session_state.get("__prefill_profile_doc__")
-        if doc_prefill:
-            st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
-
-    locked = _is_onboarding_locked()
-
-    st.markdown(
-        "<div class='onboarding-source-marker' style='display:none'></div>",
-        unsafe_allow_html=True,
-    )
-    url_column, upload_column = st.columns(2, gap="large")
-    with url_column:
-        st.text_input(
-            tr("Stellenanzeigen-URL einfügen", "Provide the job posting URL"),
-            key=UIKeys.PROFILE_URL_INPUT,
-            on_change=on_url_changed,
-            placeholder=tr("Bitte URL eingeben", "Enter the job posting URL"),
-            help=tr(
-                "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
-                "The URL needs to be accessible without authentication. We will fetch the content automatically.",
-            ),
-            disabled=locked,
-        )
-
-    with upload_column:
-        st.file_uploader(
-            tr(
-                "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-                "Upload job posting (PDF/DOCX/TXT)",
-            ),
-            type=["pdf", "docx", "txt"],
-            key=UIKeys.PROFILE_FILE_UPLOADER,
-            on_change=on_file_uploaded,
-            help=tr(
-                "Direkt nach dem Upload beginnen wir mit der Analyse.",
-                "We start analysing immediately after the upload finishes.",
-            ),
-            disabled=locked,
-        )
-
-    _render_extraction_settings_panel()
-
-    review_rendered = _render_extraction_review()
-
-    if not review_rendered:
-        _render_followups_for_step("jobad", profile)
-
-    if st.button(
-        tr("Weiter ▶", "Next ▶"),
-        type="primary",
-        key="onboarding_next_compact",
-        disabled=locked,
-    ):
-        _advance_from_onboarding()
-
-
 def _step_company() -> None:
     """Render the company information step.
 
@@ -11771,13 +11600,6 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
     return schema, critical
 
 
-def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
-    """Render the onboarding and metadata step for the Job Ad flow."""
-
-    _render_onboarding_hero()
-    _step_onboarding(dict(schema))
-
-
 def _render_skills_review_step() -> None:
     """Render a read-only overview of captured skills and responsibilities."""
 
@@ -11835,12 +11657,6 @@ def _render_skills_review_step() -> None:
         )
 
 
-def step_jobad(context: WizardContext) -> None:
-    """Render the job ad intake step using ``context``."""
-
-    _render_jobad_step_v2(context.schema)
-
-
 def step_company(context: WizardContext) -> None:
     """Render the company step."""
 
@@ -11884,7 +11700,7 @@ def step_summary(context: WizardContext) -> None:
 
 
 STEP_SEQUENCE: tuple[WizardStepDescriptor, ...] = (
-    WizardStepDescriptor(WizardStepKey.JOBAD, StepRenderer(step_jobad, legacy_index=0)),
+    WizardStepDescriptor(WizardStepKey.JOBAD, StepRenderer(jobad_step.step_jobad, legacy_index=0)),
     WizardStepDescriptor(WizardStepKey.COMPANY, StepRenderer(step_company, legacy_index=1)),
     WizardStepDescriptor(WizardStepKey.TEAM, StepRenderer(step_team, legacy_index=2)),
     WizardStepDescriptor(
