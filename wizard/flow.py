@@ -6545,12 +6545,15 @@ def _render_extraction_settings_panel() -> None:
         model_selector_component.model_selector()
 
         strict_enabled = st.checkbox(
-            tr("Strenges Format aktivieren (experimentell)", "Enable strict format (experimental)"),
+            tr(
+                "Striktes JSON-Format erzwingen (bei Problemen deaktivieren)",
+                "Enforce strict JSON format (disable if extraction fails)",
+            ),
             value=strict_default,
             key=StateKeys.EXTRACTION_STRICT_FORMAT,
             help=tr(
-                "Deaktivieren, wenn Antworten häufig an der Schema-Validierung scheitern – Ausgabe kann dann weniger strukturiert sein.",
-                "Disable this if responses frequently fail schema validation – outputs may become less structured.",
+                "Wenn aktiviert, hält sich die KI strikt an das Schema. Falls Felder fehlen oder die Extraktion scheitert, deaktiviere es für eine flexiblere Ausgabe.",
+                "When enabled, the AI strictly follows the schema. If fields go missing or extraction fails, turn this off for a more flexible output.",
             ),
         )
         if not strict_enabled:
