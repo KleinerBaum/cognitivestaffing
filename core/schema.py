@@ -1433,6 +1433,11 @@ def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     sanitized.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     if isinstance(sanitized, MutableMapping):
         _ensure_required_recursive(sanitized)
+        defs = sanitized.get("$defs")
+        if isinstance(defs, MutableMapping):
+            for definition in defs.values():
+                if isinstance(definition, MutableMapping):
+                    _ensure_required_recursive(definition)
     _ensure_valid_json_schema(sanitized)
     return sanitized
 

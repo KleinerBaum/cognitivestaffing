@@ -2,6 +2,7 @@ import pytest
 
 from config import ModelTask
 import llm.openai_responses as responses
+from models.interview_guide import InterviewGuide
 from llm.openai_responses import build_json_schema_format, call_responses
 
 
@@ -12,8 +13,19 @@ def test_build_json_schema_format_includes_name_and_schema() -> None:
     assert fmt["json_schema"]["schema"] == {
         "type": "object",
         "additionalProperties": False,
+        "$schema": "http://json-schema.org/draft-07/schema#",
     }
     assert fmt["json_schema"]["strict"] is True
+
+
+def test_interview_guide_schema_marks_focus_area_label_required() -> None:
+    fmt = build_json_schema_format(
+        name="interviewGuide", schema=InterviewGuide.model_json_schema()
+    )
+
+    focus_schema = fmt["schema"]["$defs"]["InterviewGuideFocusArea"]
+
+    assert focus_schema["required"] == ["label", "items"]
 
 
 def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,6 +76,7 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     assert format_payload["schema"] == {
         "type": "object",
         "additionalProperties": False,
+        "$schema": "http://json-schema.org/draft-07/schema#",
     }
     assert format_payload.get("strict") is True
     assert payload["input"][0]["role"] == "user"
