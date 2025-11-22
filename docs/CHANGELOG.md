@@ -39,6 +39,9 @@ Changed / Geändert
 - EN: Added a bilingual "Hide intro"/"Intro ausblenden" toggle to the hero banner that remembers the session choice so users can reclaim form space after onboarding.
   DE: Zweisprachiger Schalter „Intro ausblenden“/"Hide intro" im Hero-Banner, der die Session-Auswahl speichert, damit Nutzer:innen nach dem Onboarding mehr Platz fürs Formular haben.
 
+- EN: Improved task extraction reliability by recognising "Task List"/"Key Responsibilities" headings and instructing the extractor to keep every duty as its own bullet without merging.
+  DE: Zuverlässigere Aufgabenerkennung durch Erkennen von Überschriften wie „Task List“/„Key Responsibilities“ und klare Vorgaben, jede Aufgabe als eigenen Stichpunkt unverändert zu übernehmen.
+
 - EN: Introduced an “Extraction settings” expander on onboarding so recruiters can switch parsing mode (Fast vs. Thorough), choose the base model, and disable strict JSON schemas when ads fail validation.
   DE: Neuer Aufklapper „Extraktionseinstellungen“ im Onboarding, in dem Recruiter:innen den Parsing-Modus (Schnell vs. Gründlich) wählen, das Basismodell festlegen und bei Validierungsproblemen die strikten JSON-Schemas deaktivieren können.
 

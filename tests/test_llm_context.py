@@ -159,3 +159,26 @@ def test_german_jobbeschreibung_and_benefits_are_split_correctly():
     assert sections.get("responsibilities") == [
         "Leiten von Projekten\nKoordination von Teams",
     ]
+
+
+def test_task_list_and_key_responsibilities_headings_detected():
+    text = """Task List:
+    - Develop dashboards
+    - Maintain ETL pipelines
+
+    Key Responsibilities
+    1. Partner with stakeholders
+    2. Translate business needs into data models
+
+    Requirements:
+    - SQL
+    - Python
+    """
+
+    sections = _extract_section_hints(text)
+
+    assert sections.get("requirements") == ["SQL\nPython"]
+    assert sections.get("responsibilities") == [
+        "Develop dashboards\nMaintain ETL pipelines",
+        "1. Partner with stakeholders\n2. Translate business needs into data models",
+    ]
