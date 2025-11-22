@@ -68,7 +68,7 @@ See `docs/EXAMPLE.md` for a sample job-ad snippet alongside the resulting struct
 Known limitations
 -----------------
 
-* AI extraction may blend closely related skills (e.g., soft vs. hard skills); inline follow-up prompts and 🛈 badges flag these for review.
+* AI extraction now separates hard skills, soft skills, tools, and languages more reliably, but mixed job ads can still produce slight overlaps; inline follow-up prompts and 🛈 badges flag anything that needs review.
 * Large PDFs (10+ pages) can hit token or timeout limits. Consider uploading concise snippets or summaries first.
 * Company culture and nuanced process notes may still need manual edits; the Summary step and follow-up prompts help capture the missing details before exporting.
 
@@ -76,6 +76,8 @@ Key highlights / Wichtigste Funktionen
 
 EN:
 * Eight-step wizard flow (Onboarding → Summary) with inline follow-up cards keeps SMEs inside a single context, combines extraction review plus guided data entry, and wires every field back to NeedAnalysisProfile.
+* German-language ads now respect cues like Jobbeschreibung/Tätigkeitsbeschreibung for responsibilities and halt requirements capture at benefits headers (e.g., Wir bieten/Das bieten wir) so tasks, perks, and skills stay separated.
+* Skill extraction now keeps hard vs. soft skills, tools/technologies, and language requirements vs. optional languages in distinct buckets for downstream matching and exports.
 * The Role & Tasks step now shows a dedicated responsibilities column on the left and a requirements/skills column on the right, each with a short description so recruiters verify both lists before moving on.
 * Structured extraction now tolerates partial job ads: missing values (for example company name or brand signals) are queued as bilingual follow-up questions instead of blocking validation, and the schema accepts empty company slots while the wizard records which prompts still need answers.
 * After uploading a job ad, an “Extraction settings” expander lets recruiters switch parsing mode (Fast vs. Thorough), pick the base model, toggle strict JSON enforcement (disable it if extraction fails) to recover ads that struggle with schema validation, and trigger a re-run with the updated settings.
@@ -93,6 +95,8 @@ EN:
 
 DE:
 * Achtstufiger Wizard (Onboarding → Summary) mit Inline-Follow-up-Karten hält Fachexpert:innen im Kontext, kombiniert Extraktionsreview und geführte Eingabe und schreibt jede Angabe ins NeedAnalysisProfile zurück.
+* Deutsche Anzeigen berücksichtigen jetzt Hinweise wie Jobbeschreibung/Tätigkeitsbeschreibung für Verantwortlichkeiten und stoppen die Anforderungserfassung bei Benefit-Überschriften (z. B. Wir bieten/Das bieten wir), sodass Aufgaben, Benefits und Skills getrennt bleiben.
+* Die Skill-Extraktion trennt Hard-/Soft Skills, Tools/Technologien sowie Sprach-Pflichtangaben vs. optionale Sprachen in eigene Buckets für Matching und Exporte.
 * Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten links und Anforderungen/Skills rechts nebeneinander – jeweils mit kurzer Erläuterung, damit Recruiter:innen beide Listen prüfen können, bevor es weitergeht.
 * Die strukturierte Extraktion toleriert jetzt unvollständige Anzeigen: Fehlende Werte (z. B. Firmenname oder Branding-Hinweise) landen als zweisprachige Follow-up-Fragen statt die Validierung zu blockieren, und das Schema akzeptiert leere Unternehmensangaben, während der Wizard notiert, welche Nachfragen noch offen sind.
 * Nach dem Hochladen einer Anzeige ermöglicht ein Aufklapper „Extraktionseinstellungen“, den Parsing-Modus (Schnell vs. Gründlich) zu wählen, das Basismodell festzulegen, die strikte JSON-Erzwingung bei Extraktionsfehlern zu deaktivieren und mit den neuen Einstellungen erneut zu starten.

@@ -25,10 +25,10 @@ Nice-to-have
 
 ```json
 {
-  "role": {
-    "title": "Data Analyst",
-    "seniority": "mid",
-    "department": "Product Analytics"
+  "position": {
+    "job_title": "Data Analyst",
+    "seniority_level": "mid",
+    "team_structure": "Product Analytics"
   },
   "company": {
     "name": "Example GmbH",
@@ -36,29 +36,40 @@ Nice-to-have
   },
   "location": {
     "primary_city": "Berlin",
-    "work_model": "hybrid",
-    "onsite_requirements": "2 days on-site per week"
+    "country": "Germany",
+    "onsite_ratio": "Hybrid (2 days on-site per week)"
+  },
+  "responsibilities": {
+    "items": [
+      "Build dashboards for product and marketing",
+      "Maintain Snowflake models and A/B test pipelines",
+      "Partner with stakeholders on experiment design"
+    ]
   },
   "requirements": {
-    "hard_skills": [
-      "SQL",
-      "Python",
-      "dbt",
-      "Tableau",
-      "A/B testing"
-    ],
-    "soft_skills": ["Stakeholder management"],
-    "languages": ["German (B1)"]
+    "hard_skills_required": ["SQL", "Python", "dbt"],
+    "hard_skills_optional": ["Tableau", "Looker"],
+    "soft_skills_required": ["Stakeholder management"],
+    "tools_and_technologies": ["Snowflake"],
+    "languages_required": ["German (B1+)"]
+  },
+  "compensation": {
+    "salary_provided": true,
+    "salary_min": 65000,
+    "salary_max": 80000,
+    "currency": "EUR",
+    "period": "year",
+    "variable_pay": false,
+    "bonus_percentage": null,
+    "commission_structure": null,
+    "equity_offered": false,
+    "benefits": ["Learning budget", "Flexible hours"]
   },
   "process": {
     "interview_stages": 3,
     "notes": "Partner interviews plus product case study"
-  },
-  "benefits": {
-    "perks": ["Learning budget", "Flexible hours"],
-    "work_life_balance": ["Hybrid"]
   }
 }
 ```
 
-Use this as a reference for how responsibilities, requirements, and benefits are structured. You can download the full JSON from the Summary step or feed it into exports (job ad, interview guide, Boolean search).
+Use this as a reference for how responsibilities, required/optional skills, languages, and compensation fields are structured. You can download the full JSON from the Summary step or feed it into exports (job ad, interview guide, Boolean search).

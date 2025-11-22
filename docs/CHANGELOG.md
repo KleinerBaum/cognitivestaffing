@@ -1,5 +1,19 @@
 Changelog
 
+## [1.1.1] - 2025-11-22
+
+- EN: Fixed a session-state bug that threw errors when toggling strict JSON mode by aligning the UI checkbox with a single backed session key.
+  DE: Sitzungszustandsfehler behoben, der beim Umschalten des Strict-JSON-Modus zu Fehlern führte, indem Checkbox und Backend auf einen einzigen Session-Key ausgerichtet wurden.
+
+- EN: Removed unsupported JSON-schema keywords from OpenAI payloads so schema validation no longer rejects the extractor responses.
+  DE: Nicht unterstützte JSON-Schema-Schlüssel aus OpenAI-Payloads entfernt, damit die Schema-Validierung Extraktor-Antworten nicht mehr ablehnt.
+
+- EN: Improved German job-ad parsing by recognising headings such as "Jobbeschreibung"/"Tätigkeitsbeschreibung" and stopping requirements capture when benefits headers like "Wir bieten" appear.
+  DE: Parsing deutscher Stellenanzeigen verbessert, indem Überschriften wie „Jobbeschreibung“/„Tätigkeitsbeschreibung“ erkannt und die Anforderungen gestoppt werden, sobald Benefit-Header wie „Wir bieten“ auftauchen.
+
+- EN: Enhanced skill extraction to keep hard skills, soft skills, tools, and languages in their respective required/optional buckets for clearer downstream mapping.
+  DE: Skill-Extraktion verbessert, damit Hard Skills, Soft Skills, Tools und Sprachen sauber in den jeweiligen Pflicht-/Optional-Buckets landen und nachgelagerte Mappings eindeutiger bleiben.
+
 Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert

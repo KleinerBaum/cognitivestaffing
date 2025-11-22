@@ -26,6 +26,16 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 6. Update docs (`README.md`, `docs/CHANGELOG.md`) to highlight the new step and
    mention any contributor-facing implications.
 
+**EN:** When wiring UI toggles that mirror session-state flags (for example the
+strict JSON checkbox), reuse the canonical state key as the widget key so
+Streamlit reruns do not create duplicate entries that trigger immutable-key
+errors.
+
+**DE:** Bei UI-Schaltern, die Session-Flags spiegeln (z. B. Strict-JSON-Checkbox),
+immer den kanonischen Session-Key als Widget-Key verwenden, damit Streamlit bei
+Reruns keine doppelten Einträge erzeugt und Fehler zu unveränderlichen Keys
+vermeidet.
+
 **DE:**
 
 1. Neue Schemafelder in `models/need_analysis.py::NeedAnalysisProfile`
@@ -123,6 +133,10 @@ unveränderlichen Keys und bringen Sidebar- bzw. Summary-Badges aus dem Takt.
 - Regex and keyword heuristics live in `core/rules.py` with helper utilities in
   `ingest/heuristics.py`. Add or adjust patterns there and include descriptive
   identifiers so telemetry can highlight which rule fired.
+- Section cues for responsibilities/requirements/benefits live in
+  `llm/prompts.py::_SECTION_PATTERNS`; extend those tuples when adding new
+  headings or languages so the extractor stops at benefit blocks (e.g., "Wir
+  bieten") and keeps tasks separate from requirements.
 - When rules feed brand metadata, prefer the dedicated helpers in
   `ingest/branding.py` (`fetch_branding_assets` returns logo URL, claim, brand
   colour and accent palette).
@@ -136,6 +150,10 @@ unveränderlichen Keys und bringen Sidebar- bzw. Summary-Badges aus dem Takt.
 - Regex- und Keyword-Heuristiken liegen in `core/rules.py`, unterstützende
   Helfer in `ingest/heuristics.py`. Muster dort hinzufügen/anpassen und eine
   sprechende ID vergeben, damit Telemetrie erkennt, welche Regel ausgelöst hat.
+- Abschnitts-Hinweise für Verantwortlichkeiten/Anforderungen/Benefits stehen in
+  `llm/prompts.py::_SECTION_PATTERNS`; erweitere diese Tupel bei neuen
+  Überschriften oder Sprachen, damit der Extraktor an Benefit-Blöcken (z. B.
+  „Wir bieten“) stoppt und Aufgaben von Anforderungen getrennt bleiben.
 - Branding-Metadaten besser über die dedizierten Helfer in
   `ingest/branding.py` einbinden (`fetch_branding_assets` liefert Logo-URL,
   Claim, Markenfarbe und Akzentpalette).
