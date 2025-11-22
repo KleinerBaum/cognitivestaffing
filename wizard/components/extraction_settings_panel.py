@@ -78,8 +78,6 @@ def render_extraction_settings_panel(
                 )
             )
 
-        st_module.session_state[UIKeys.EXTRACTION_REASONING_MODE] = normalized_mode
-
         st_module.divider()
         rerun_help = tr(
             "Starte die Extraktion mit den aktuellen Einstellungen neu – praktisch nach einem Modellwechsel, Sprach-Switch oder wenn der Strict-Schalter angepasst wurde.",
