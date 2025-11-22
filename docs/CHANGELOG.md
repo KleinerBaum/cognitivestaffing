@@ -19,6 +19,9 @@ Changed / Geändert
 - EN: Introduced an “Extraction settings” expander on onboarding so recruiters can switch parsing mode (Fast vs. Thorough), choose the base model, and disable strict JSON schemas when ads fail validation.
   DE: Neuer Aufklapper „Extraktionseinstellungen“ im Onboarding, in dem Recruiter:innen den Parsing-Modus (Schnell vs. Gründlich) wählen, das Basismodell festlegen und bei Validierungsproblemen die strikten JSON-Schemas deaktivieren können.
 
+- EN: Consolidated the strict-format extraction toggle to a single session key so the UI checkbox and backend parsing stay in sync across reruns.
+  DE: Den Strict-Format-Schalter auf einen einzigen Sitzungsschlüssel vereinheitlicht, damit Checkbox und Backend-Parsen über Wiederholungen hinweg synchron bleiben.
+
 - EN: Added a bilingual "Re-run extraction" control that clears the cached digest and triggers parsing again after users tweak parsing mode, model overrides, language, or strict formatting.
   DE: Neuer zweisprachiger Schalter „Extraktion erneut ausführen“, der den gecachten Digest leert und das Parsing erneut startet, sobald Nutzer:innen Parsing-Modus, Modell-Override, Sprache oder den Strict-Schalter anpassen.
 
