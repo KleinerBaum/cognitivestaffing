@@ -6547,13 +6547,12 @@ def _render_extraction_settings_panel() -> None:
         strict_enabled = st.checkbox(
             tr("Strenges Format aktivieren (experimentell)", "Enable strict format (experimental)"),
             value=strict_default,
-            key=UIKeys.EXTRACTION_STRICT_FORMAT,
+            key=StateKeys.EXTRACTION_STRICT_FORMAT,
             help=tr(
                 "Deaktivieren, wenn Antworten häufig an der Schema-Validierung scheitern – Ausgabe kann dann weniger strukturiert sein.",
                 "Disable this if responses frequently fail schema validation – outputs may become less structured.",
             ),
         )
-        st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = strict_enabled
         if not strict_enabled:
             st.info(
                 tr(
