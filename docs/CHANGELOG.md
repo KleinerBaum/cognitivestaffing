@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Fixed the Role & Tasks skill board so skill chips render as styled badges instead of raw HTML strings.
+  DE: Skill-Chips im Schritt „Aufgaben" werden wieder als gestaltete Badges statt als roher HTML-Text angezeigt.
+
 - EN: Mapped benefit/perk sections such as "Wir bieten" or inline "Benefits, …" lists into compensation.benefits so perks from job ads are no longer dropped during extraction.
   DE: Benefit-/Perk-Abschnitte wie „Wir bieten“ oder Inline-Listen mit „Benefits, …“ werden nun in compensation.benefits übernommen, damit Vorteile aus Stellenanzeigen nicht mehr verloren gehen.
 
