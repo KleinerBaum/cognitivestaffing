@@ -25,6 +25,9 @@ Changed / Geändert
 - EN: Added a bilingual "Re-run extraction" control that clears the cached digest and triggers parsing again after users tweak parsing mode, model overrides, language, or strict formatting.
   DE: Neuer zweisprachiger Schalter „Extraktion erneut ausführen“, der den gecachten Digest leert und das Parsing erneut startet, sobald Nutzer:innen Parsing-Modus, Modell-Override, Sprache oder den Strict-Schalter anpassen.
 
+- EN: Clarified the strict JSON toggle label and added a bilingual help tooltip so non-technical users know to disable strict formatting when extraction fails.
+  DE: Beschriftung des Strict-JSON-Schalters präzisiert und einen zweisprachigen Hilfetext ergänzt, damit auch Nicht-Tech-Nutzer:innen wissen, dass sie die strikte Formatierung bei Extraktionsproblemen deaktivieren können.
+
 - EN: Role & Tasks step now separates responsibilities (left column) from requirements and skills (right column) and adds short per-column descriptions so recruiters can verify both lists at a glance.
   DE: Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten jetzt links und die Anforderungen/Skills rechts in getrennten Spalten – inklusive kurzer Erläuterung pro Spalte, damit Recruiter:innen beide Listen auf einen Blick prüfen können.
 
