@@ -1697,6 +1697,23 @@ class ChatStream(Iterable[str]):
 
     def _consume(self) -> Iterator[str]:
         client = get_client()
+        if not self._api_mode.is_classic and _has_strict_json_schema_format(self._payload):
+            logger.info(
+                "Strict JSON schema detected for streaming request; retrying without streaming.",
+            )
+            recovered_response = self._retry_responses_without_stream(client)
+            if recovered_response is None:
+                recovered_response = self._retry_chat_completion(client)
+
+            if recovered_response is None:
+                _handle_streaming_error(
+                    RuntimeError("Streaming is unavailable for strict JSON schema payloads."),
+                )
+                return
+
+            self._finalise(recovered_response)
+            return
+
         final_response: Any | None = None
         missing_completion_event = False
         try:
@@ -1905,6 +1922,30 @@ def _stream_event_chunks(event: Any) -> Iterable[str]:
                     return added_chunks
 
     return []
+
+
+def _has_strict_json_schema_format(payload: Mapping[str, Any]) -> bool:
+    """Return ``True`` when ``payload`` enforces strict JSON schema output."""
+
+    def _is_strict_json(candidate: Mapping[str, Any] | None) -> bool:
+        mapping = _to_mapping(candidate)
+        if not mapping:
+            return False
+        if str(mapping.get("type") or "").lower() != "json_schema":
+            return False
+        json_schema = mapping.get("json_schema") if isinstance(mapping, Mapping) else None
+        strict_flag: Any | None = None
+        if isinstance(json_schema, Mapping):
+            strict_flag = json_schema.get("strict")
+        if strict_flag is None:
+            strict_flag = mapping.get("strict")
+        return bool(strict_flag)
+
+    text_block = payload.get("text")
+    if isinstance(text_block, Mapping) and _is_strict_json(text_block.get("format")):
+        return True
+
+    return _is_strict_json(payload.get("response_format"))
 
 
 def _is_missing_completion_event_error(error: BaseException | None) -> bool:

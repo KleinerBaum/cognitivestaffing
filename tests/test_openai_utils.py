@@ -2527,6 +2527,49 @@ def test_chat_stream_missing_completion_event(monkeypatch, caplog):
     assert any("missing completion event" in message for message in caplog.messages)
 
 
+def test_chat_stream_strict_json_schema_disables_stream(monkeypatch):
+    """Strict JSON schema payloads should bypass streaming to avoid completion failures."""
+
+    calls = {"stream": 0, "create": 0}
+
+    class _DummyStream:
+        def __iter__(self):  # pragma: no cover - should not be called
+            calls["stream"] += 1
+            yield "should-not-stream"
+
+    class _DummyResponses:
+        def stream(self, **kwargs: Any):  # pragma: no cover - should not be used
+            calls["stream"] += 1
+            return _DummyStream()
+
+        def create(self, **kwargs: Any):
+            calls["create"] += 1
+            return SimpleNamespace(output_text="Recovered", usage={"input_tokens": 1}, id="resp-1")
+
+    dummy_client = SimpleNamespace(responses=_DummyResponses())
+
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+
+    strict_payload = {
+        "input": [],
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "json_schema": {"name": "foo", "schema": {}, "strict": True},
+                "strict": True,
+            }
+        },
+    }
+
+    stream = openai_utils.api.ChatStream(strict_payload, config.REASONING_MODEL, task=None)
+
+    assert list(stream) == []
+    assert stream.text == ""
+    assert stream.result.content == "Recovered"
+    assert stream.result.usage == {"input_tokens": 1}
+    assert calls == {"stream": 0, "create": 1}
+
+
 def test_chat_stream_missing_final_payload_triggers_retry(monkeypatch):
     """Streaming should retry when no final payload is returned."""
 
