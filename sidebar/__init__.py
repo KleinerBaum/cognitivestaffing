@@ -753,6 +753,8 @@ def _render_settings() -> None:
             )
         )
 
+    st.divider()
+
     if st.button(
         tr("🔄 Zurücksetzen", "🔄 Reset wizard"),
         help=tr(
