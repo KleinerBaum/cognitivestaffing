@@ -474,6 +474,23 @@ def call_responses_safe(
         return fallback
 
     content = (result.content or "").strip()
+    expects_json = False
+    if isinstance(response_format, Mapping):
+        format_type = str(response_format.get("type") or "").lower()
+        expects_json = format_type == "json_schema" or bool(response_format.get("json_schema"))
+    if expects_json and content:
+        try:
+            json.loads(content)
+        except json.JSONDecodeError as exc:
+            active_logger.warning(
+                "Responses API %s returned invalid JSON; triggering chat fallback.",
+                context,
+                exc_info=exc,
+            )
+            fallback = _attempt_fallback("invalid_json", exc)
+            if fallback is not None:
+                return fallback
+            return None
     if not allow_empty and not content:
         active_logger.warning(
             "Responses API %s returned empty content; triggering chat fallback",

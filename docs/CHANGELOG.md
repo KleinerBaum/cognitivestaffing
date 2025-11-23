@@ -67,6 +67,9 @@ Changed / Geändert
 - EN: Hardened Responses-to-Chat fallbacks so timeouts or API errors are caught, logged, and retried via classic chat completions without crashing the UI.
   DE: Responses-zu-Chat-Fallbacks robuster gemacht, damit Timeouts oder API-Fehler abgefangen, protokolliert und über klassische Chat-Completions erneut versucht werden, ohne dass die UI abstürzt.
 
+- EN: Added graceful handling for OpenAI API and JSON parsing errors so Responses calls fall back to Chat completions with a logged warning instead of breaking the wizard flow.
+  DE: Sanftes Fehlerhandling für OpenAI-API- und JSON-Parsing-Fehler ergänzt, sodass Responses-Aufrufe mit Warnlog auf Chat-Completions zurückfallen, ohne den Wizard-Fluss zu unterbrechen.
+
 - EN: Captured schema-validation gaps (for example missing `company.name`) during extraction so the wizard keeps running, logs the warning, and highlights the critical fields recruiters need to fill manually.
   DE: Schema-Validierungslücken (z. B. fehlendes `company.name`) während der Extraktion abgefangen, sodass der Wizard weiterläuft, die Warnung protokolliert und die kritischen Felder für die manuelle Nachpflege hervorhebt.
 
