@@ -4,8 +4,9 @@ import json
 
 import pytest
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from core.extraction import parse_structured_payload
 from tests.utils import (
     FollowupEntry,
@@ -24,6 +25,7 @@ from wizard import (
     _update_profile,
     get_missing_critical_fields,
 )
+from wizard.flow import _render_review_requirements_tab
 from wizard.sections.followups import REQUIRED_PREFIX, _apply_followup_updates
 
 
@@ -325,3 +327,38 @@ def test_followup_captures_missing_company_name_and_updates_profile(monkeypatch:
     )
 
     assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "Fictional Labs"
+
+
+def test_extraction_review_skips_widget_bound_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Extraction auto-fill should not attempt to sync widget-managed session keys."""
+
+    st.session_state.clear()
+    profile: ProfileDict = {
+        "responsibilities": {},
+        "requirements": {},
+    }
+    inline_paths = {
+        str(ProfilePaths.RESPONSIBILITIES_ITEMS),
+        str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+        str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+    }
+    for path in inline_paths:
+        st.session_state[path] = ["existing"]
+
+    monkeypatch.setattr("wizard.flow.render_list_text_area", lambda **_: ["autofilled"])
+
+    calls: list[tuple[str, bool]] = []
+
+    def guarded_update(path: str, value: object, **kwargs: object) -> None:
+        sync_widget_state = bool(kwargs.get("sync_widget_state", True))
+        calls.append((str(path), sync_widget_state))
+        if str(path) in inline_paths and sync_widget_state:
+            raise StreamlitAPIException("widget sync not allowed for inline fields")
+
+    monkeypatch.setattr("wizard.flow._update_profile", guarded_update)
+
+    _render_review_requirements_tab(profile)
+
+    for path, sync_widget_state in calls:
+        if path in inline_paths:
+            assert sync_widget_state is False
