@@ -1,109 +1,23 @@
-"""Tests for the normalisation utilities."""
+"""Tests for profile normalization helpers."""
 
-import json
 from typing import Mapping
-from types import SimpleNamespace
 
 import pytest
 
-import config
 from core.normalization import normalize_url
 from core.schema import canonicalize_profile_payload
 from models.need_analysis import NeedAnalysisProfile
-from utils.normalization import (
-    NormalizedProfilePayload,
-    normalize_city_name,
+from utils.normalization import NormalizedProfilePayload
+from utils.normalization.profile_normalization import (
     normalize_company_size,
-    normalize_country,
-    normalize_language,
-    normalize_language_list,
-    normalize_phone_number,
     normalize_profile,
-    normalize_website_url,
 )
-
-
-def test_normalize_country_handles_german_inputs() -> None:
-    assert normalize_country("Deutschland") == "Germany"
-    assert normalize_country("DE") == "Germany"
-
-
-def test_normalize_language_handles_german_variants() -> None:
-    assert normalize_language("Deutsch") == "German"
-    assert normalize_language("de") == "German"
-    assert normalize_language_list(["Deutsch", "english", "GERMAN"]) == [
-        "German",
-        "English",
-    ]
-
-
-def test_normalize_city_name_strips_prefix_and_suffix() -> None:
-    assert normalize_city_name("in Düsseldorf eine") == "Düsseldorf"
-    assert normalize_city_name("bei Berlin, remote möglich") == "Berlin"
-
-
-def test_normalize_city_name_uses_llm_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    from utils import normalization
-
-    calls: list[list[dict[str, str]]] = []
-
-    previous_mode = config.USE_RESPONSES_API
-    config.set_api_mode(True)
-    monkeypatch.setattr(normalization, "is_llm_enabled", lambda: True)
-    monkeypatch.setattr(normalization, "get_model_for", lambda *_, **__: "gpt-test")
-
-    def fake_call_responses(messages, **kwargs):
-        calls.append(messages)
-        return SimpleNamespace(
-            content=json.dumps({"city": "Hamburg"}),
-            usage={},
-            response_id=None,
-            raw_response={},
-            used_chat_fallback=False,
-        )
-
-    monkeypatch.setattr(normalization, "call_responses_safe", fake_call_responses)
-
-    try:
-        result = normalization.normalize_city_name(" remote möglich")
-
-        assert result == "Hamburg"
-        assert calls and calls[0][0]["role"] == "system"
-    finally:
-        config.set_api_mode(previous_mode)
 
 
 def test_normalize_company_size_parses_numbers() -> None:
     assert normalize_company_size("rund 3.370 Menschen") == "3370"
     assert normalize_company_size("mehr als 500 Mitarbeiter") == "500+"
     assert normalize_company_size("501 – 1000 Mitarbeitende") == "501-1000"
-
-
-@pytest.mark.parametrize(
-    "raw,expected",
-    [
-        (" +49 (0)30-123 4567 ext. 89 ", "+49 30 1234567 ext 89"),
-        ("030/1234567", "030 1234567"),
-        ("tel.: 123", "123"),
-        ("call me maybe", None),
-        (None, None),
-    ],
-)
-def test_normalize_phone_number_variants(raw: str | None, expected: str | None) -> None:
-    assert normalize_phone_number(raw) == expected
-
-
-@pytest.mark.parametrize(
-    "raw,expected",
-    [
-        (" example.com/jobs ", "https://example.com/jobs"),
-        ("HTTP://Sub.Example.com/jobs/", "http://sub.example.com/jobs"),
-        ("", None),
-        (None, None),
-    ],
-)
-def test_normalize_website_url_variants(raw: str | None, expected: str | None) -> None:
-    assert normalize_website_url(raw) == expected
 
 
 @pytest.mark.parametrize(
@@ -197,12 +111,11 @@ def test_normalize_profile_returns_model_dump_on_failed_normalization(
         return {"company": "Acme"}
 
     monkeypatch.setattr(
-        "utils.normalization._normalize_profile_mapping",
+        "utils.normalization.profile_normalization._normalize_profile_mapping",
         broken_normalizer,
-        raising=False,
     )
     monkeypatch.setattr(
-        "utils.normalization._attempt_llm_repair",
+        "utils.normalization.profile_normalization._attempt_llm_repair",
         lambda *_args, **_kwargs: None,
         raising=False,
     )
@@ -290,3 +203,5 @@ def test_normalize_profile_enriches_skill_mappings() -> None:
 
     soft_skill = skill_mappings["soft_skills_optional"][0]
     assert soft_skill["normalized_name"] == "Teamwork"
+
+
