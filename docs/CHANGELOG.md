@@ -21,6 +21,12 @@ Changed / Geändert
 - EN: Introduced consistent section headings, dividers, and expanders across the wizard (role tasks vs. skills, job-ad source excerpts) so every step is clearly separated and easier to scan.
   DE: Einheitliche Abschnittsüberschriften, Trenner und Aufklapper im Wizard ergänzt (Aufgaben vs. Skills, Stellenanzeigen-Auszüge), damit jede Stufe klar abgegrenzt und leichter erfassbar ist.
 
+- EN: Updated the README with `.env` setup, Streamlit launch steps, and a walkthrough of the multi-step interface (Role Tasks, Summary tabs, Interview guide navigation).
+  DE: README mit `.env`-Setup, Streamlit-Startschritten und einer Beschreibung des Multi-Step-Interfaces (Aufgaben, Summary-Tabs, Interviewleitfaden-Navigation) ergänzt.
+
+- EN: Highlighted the strengthened skill-extraction pipeline in the README so job ads with mixed bullets still yield clean hard/soft/tool/language splits.
+  DE: Die verstärkte Skill-Extraktion im README hervorgehoben, damit Stellenanzeigen mit gemischten Stichpunkten weiterhin saubere Hard-/Soft-/Tool-/Sprachaufteilungen liefern.
+
 - EN: Added a bilingual "Help & guidance" sidebar expander that explains the Role Tasks analysis, Summary exports, and AI-powered interview guide requirements (internet/API key, fixed schema) so first-time users know what to expect.
   DE: Einen zweisprachigen Sidebar-Aufklapper „Hilfe & Hinweise“ ergänzt, der Aufgabenanalyse, Summary-Exporte und die KI-basierte Interviewleitfaden-Generierung (Internet/API-Key, behobenes Schema) erklärt, damit Erstnutzer:innen wissen, was sie erwartet.
 
