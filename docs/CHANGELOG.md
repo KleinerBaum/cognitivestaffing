@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Relaxed the need-analysis JSON schema so optional sections (department/team, process details, salary breakdowns) no longer fail validation when absent; only core fields like company name and job title stay required.
+  DE: Need-Analysis-JSON-Schema gelockert, damit optionale Abschnitte (Abteilung/Team, Prozessdetails, Gehaltsangaben) ohne Werte die Validierung nicht mehr blockieren; nur Kernfelder wie Firmenname und Jobtitel bleiben verpflichtend.
+
 - EN: Prevented strict JSON-schema streaming requests from failing when the Responses API omits the final `response.completed` event by automatically retrying the call without streaming.
   DE: Verhindert, dass strikte JSON-Schema-Streams fehlschlagen, wenn das Responses-API das abschließende `response.completed`-Event auslässt, indem der Aufruf automatisch ohne Streaming wiederholt wird.
 
