@@ -124,6 +124,8 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
         r"^key tasks\b",
         r"\bduties\b",
         r"\baufgaben\b",
+        r"\brolle\s*[&+]\s*aufgaben\b",
+        r"\brolle\s+und\s+aufgaben\b",
         r"\btätigkeiten\b",
         r"\bverantwortlichkeiten\b",
         r"\bzuständigkeiten\b",
@@ -133,6 +135,9 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
     "requirements": (
         r"\brequirement",
         r"\banforderungen\b",
+        r"\bskills?\b",
+        r"\bskills\s*[&+]\s*anforderungen\b",
+        r"\bskills\s+und\s+anforderungen\b",
         r"\bqualifikation",
         r"\bprofil\b",
         r"\bwir erwarten\b",
