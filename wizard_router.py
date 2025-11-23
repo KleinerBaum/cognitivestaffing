@@ -1,36 +1,26 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Collection, Mapping, Sequence, Final
+from typing import TYPE_CHECKING, Callable, Mapping, Sequence, Final
 
 from pydantic import ValidationError
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
 from constants.keys import ProfilePaths, StateKeys
-from wizard_pages import WizardPage
 from utils.i18n import tr
-from wizard._logic import get_in, _render_localized_error
-from wizard.followups import followup_has_response
-from wizard.layout import (
-    NavigationButtonState,
-    NavigationDirection,
-    NavigationState,
-    render_navigation_controls,
-)
-from wizard.metadata import (
-    CRITICAL_SECTION_ORDER,
-    PAGE_FOLLOWUP_PREFIXES,
-    PAGE_PROGRESS_FIELDS,
-    VIRTUAL_PAGE_FIELD_PREFIX,
-    get_missing_critical_fields,
-    resolve_section_for_field,
-)
 from wizard.company_validators import persist_contact_email, persist_primary_city
-
-# ``wizard.metadata`` stays lightweight so this router can depend on shared
-# progress data without importing the Streamlit-heavy ``wizard.flow`` module.
+from wizard.metadata import get_missing_critical_fields
+from wizard.navigation_controller import NavigationController, PageProgressSnapshot
+from wizard.navigation_types import StepRenderer, WizardContext
+from wizard.navigation_ui import (
+    build_navigation_state,
+    inject_navigation_style,
+    maybe_scroll_to_top,
+    render_navigation,
+    render_validation_warnings,
+)
+from wizard_pages import WizardPage
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only import path
     from streamlit.runtime.scriptrunner import (
@@ -55,37 +45,9 @@ else:  # pragma: no cover - Streamlit runtime internals are unavailable in unit 
 RerunException = StreamlitRerunException
 StopException = StreamlitStopException
 
-
-@dataclass(frozen=True)
-class WizardContext:
-    """Context passed to step renderer callables."""
-
-    schema: Mapping[str, object]
-    critical_fields: Sequence[str]
-
-
-@dataclass(frozen=True)
-class StepRenderer:
-    """Callable wrapper with legacy index mapping for Streamlit state sync."""
-
-    callback: Callable[[WizardContext], None]
-    legacy_index: int
-
-
-@dataclass(frozen=True)
-class _PageProgressSnapshot:
-    """Represents the completion ratio for a single wizard page."""
-
-    page: WizardPage
-    section_index: int
-    total_fields: int
-    missing_fields: int
-    completion_ratio: float
-
+logger = logging.getLogger(__name__)
 
 LocalizedText = tuple[str, str]
-
-logger = logging.getLogger(__name__)
 
 _REQUIRED_FIELD_VALIDATORS: Final[dict[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]]] = {
     str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
@@ -99,124 +61,6 @@ _STEP_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
     ValidationError,
     ValueError,
 )
-
-
-_NAVIGATION_STYLE = """
-<style>
-.wizard-nav-marker + div[data-testid="stHorizontalBlock"] {
-    display: flex;
-    gap: var(--space-sm, 0.6rem);
-    align-items: stretch;
-    margin: 1.2rem 0 0.65rem;
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    > div[data-testid="column"] {
-    flex: 1 1 0;
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    .wizard-nav-next button {
-    min-height: 3rem;
-    font-size: 1.02rem;
-    font-weight: 650;
-    transition:
-        box-shadow var(--transition-base, 0.18s ease-out),
-        transform var(--transition-base, 0.18s ease-out),
-        background-color var(--transition-base, 0.18s ease-out);
-    will-change: transform, box-shadow;
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    button {
-    width: 100%;
-    border-radius: 14px;
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    .wizard-nav-next button[kind="primary"] {
-    box-shadow: 0 16px 32px rgba(37, 58, 95, 0.2);
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    .wizard-nav-next--enabled button[kind="primary"] {
-    animation: wizardNavPulse 1.2s ease-out 1;
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    .wizard-nav-next button[kind="primary"]:hover:not(:disabled) {
-    box-shadow: 0 20px 40px rgba(37, 58, 95, 0.26);
-    transform: translateY(-1px);
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    .wizard-nav-next button:disabled {
-    box-shadow: none;
-    opacity: 0.55;
-}
-
-.wizard-nav-marker
-    + div[data-testid="stHorizontalBlock"]
-    .wizard-nav-next--disabled button {
-    transform: none;
-}
-
-.wizard-nav-hint {
-    margin-top: 0.35rem;
-    color: var(--text-soft, rgba(15, 23, 42, 0.7));
-    font-size: 0.9rem;
-}
-
-@media (max-width: 768px) {
-    .wizard-nav-marker + div[data-testid="stHorizontalBlock"] {
-        flex-direction: column;
-    }
-
-    .wizard-nav-marker
-        + div[data-testid="stHorizontalBlock"]
-        > div[data-testid="column"] {
-        width: 100%;
-    }
-
-    .wizard-nav-marker
-        + div[data-testid="stHorizontalBlock"]
-        .wizard-nav-next button {
-        position: sticky;
-        bottom: 1rem;
-        z-index: 10;
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.22);
-    }
-
-    .wizard-nav-marker
-        + div[data-testid="stHorizontalBlock"]
-        button {
-        min-height: 3rem;
-    }
-}
-
-@keyframes wizardNavPulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
-        transform: scale(0.995);
-    }
-    40% {
-        box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.15);
-        transform: scale(1.01);
-    }
-    100% {
-        box-shadow: 0 16px 32px rgba(37, 58, 95, 0.2);
-        transform: scale(1);
-    }
-}
-</style>
-"""
 
 
 class WizardRouter:
@@ -234,15 +78,22 @@ class WizardRouter:
         self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
         self._renderers: dict[str, StepRenderer] = dict(renderers)
         self._context: WizardContext = context
-        self._resolve_value: Callable[[Mapping[str, object], str, object | None], object | None] = value_resolver
+        self._controller = NavigationController(
+            pages=pages,
+            renderers=renderers,
+            context=context,
+            value_resolver=value_resolver,
+            required_field_validators=_REQUIRED_FIELD_VALIDATORS,
+            validated_fields=_PROFILE_VALIDATED_FIELDS,
+        )
         self._summary_labels: tuple[LocalizedText, ...] = tuple(page.label for page in self._pages)
-        self._local_state: dict[str, object] | None = None
-        self._pending_validation_errors: dict[str, LocalizedText] = {}
-        self._ensure_state_defaults()
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
-        self._bootstrap_session_state()
-        self._update_section_progress()
-        self._apply_pending_incomplete_jump()
+        already_ready = bool(st.session_state.get(StateKeys.WIZARD_SESSION_READY))
+        if not already_ready:
+            self._sync_with_query_params()
+            st.session_state[StateKeys.WIZARD_SESSION_READY] = True
+        self._controller.update_section_progress()
+        self._controller.apply_pending_incomplete_jump()
 
     # ------------------------------------------------------------------
     # Public API
@@ -254,27 +105,15 @@ class WizardRouter:
         mark_current_complete: bool = False,
         skipped: bool = False,
     ) -> None:
-        """Navigate to ``target_key`` and trigger a rerun."""
-
-        if target_key not in self._page_map:
-            return
-
-        current_key = self._state.get("current_step")
-        if mark_current_complete and isinstance(current_key, str):
-            self._mark_step_completed(current_key, skipped=skipped)
-
-        st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
-        self._set_current_step(target_key)
-        st.session_state["_wizard_scroll_to_top"] = True
-        st.rerun()
+        self._controller.navigate(target_key, mark_current_complete=mark_current_complete, skipped=skipped)
 
     def run(self) -> None:
         """Render the current step with harmonised navigation controls."""
 
-        st.markdown(_NAVIGATION_STYLE, unsafe_allow_html=True)
-        self._update_section_progress()
-        self._ensure_current_is_valid()
-        current_key = self._get_current_step_key()
+        inject_navigation_style()
+        self._controller.update_section_progress()
+        self._controller.ensure_current_is_valid()
+        current_key = self._controller.get_current_step_key()
         page = self._page_map[current_key]
         renderer = self._renderers.get(page.key)
         if renderer is None:
@@ -286,7 +125,7 @@ class WizardRouter:
         if last_rendered != current_key:
             st.session_state["_wizard_scroll_to_top"] = True
             self._state["_last_rendered_step"] = current_key
-        self._maybe_scroll_to_top()
+        maybe_scroll_to_top()
         lang = st.session_state.get("lang", "de")
         summary_labels = [tr(de, en, lang=lang) for de, en in self._summary_labels]
         st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
@@ -295,459 +134,49 @@ class WizardRouter:
         except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
             raise
         except _STEP_RECOVERABLE_ERRORS as error:
-            self._handle_step_exception(page, error)
+            self._controller.handle_step_exception(page, error)
         except Exception as error:  # pragma: no cover - defensive guard
-            self._handle_step_exception(page, error)
+            self._controller.handle_step_exception(page, error)
         missing = self._missing_required_fields(page)
-        self._render_navigation(page, missing)
+        nav_state = build_navigation_state(
+            page=page,
+            missing=missing,
+            previous_key=self._controller.previous_key(page),
+            next_key=self._controller.next_key(page),
+            allow_skip=page.allow_skip,
+            navigate_factory=self._build_nav_callback,
+        )
+        render_navigation(nav_state)
+        render_validation_warnings(self._controller.pending_validation_errors)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
     @property
     def _state(self) -> dict[str, object]:
-        try:
-            raw_state = st.session_state["wizard"]
-        except KeyError:
-            if self._local_state is None:
-                self._local_state = {}
-            return self._local_state
-        if isinstance(raw_state, dict):
-            self._local_state = raw_state
-            return raw_state
-        coerced: dict[str, object] = dict(raw_state)
-        if not self._store_wizard_state(coerced):
-            self._local_state = coerced
-            return coerced
-        return coerced
+        return self._controller.state
 
-    def _store_wizard_state(self, state: dict[str, object]) -> bool:
-        """Persist ``state`` inside ``st.session_state`` when possible."""
+    def _build_nav_callback(
+        self,
+        target: str,
+        mark_complete: bool,
+        skipped: bool,
+    ) -> Callable[[], None]:
+        def _run() -> None:
+            self.navigate(target, mark_current_complete=mark_complete, skipped=skipped)
 
-        try:
-            st.session_state["wizard"] = state
-            self._local_state = state
-            return True
-        except Exception:
-            storage = getattr(st.session_state, "_new_session_state", None)
-            if isinstance(storage, dict):
-                storage["wizard"] = state
-                self._local_state = state
-                return True
-        return False
+        return _run
 
-    def _get_current_step_key(self) -> str:
-        current = self._state.get("current_step")
-        if isinstance(current, str) and current in self._page_map:
-            return current
-        fallback = self._pages[0].key
-        self._state["current_step"] = fallback
-        return fallback
-
-    def _ensure_state_defaults(self) -> None:
-        state = self._state
-        if "current_step" not in state:
-            state["current_step"] = self._pages[0].key
-
-    def _handle_step_exception(self, page: WizardPage, error: Exception) -> None:
-        label_de = page.label_for("de")
-        label_en = page.label_for("en")
-        logger.warning("Failed to render wizard step '%s'", page.key, exc_info=error)
-        _render_localized_error(
-            f"Beim Rendern des Schritts „{label_de}“ ist ein Fehler aufgetreten. "
-            "Bitte bearbeite die Felder manuell oder versuche es erneut.",
-            f"We couldn't render the “{label_en}” step. Please edit the fields manually or try again.",
-            error,
-        )
-
-    def _bootstrap_session_state(self) -> None:
-        state = self._state
-        if "current_step" not in state or not isinstance(state.get("current_step"), str):
-            state["current_step"] = self._pages[0].key
-        already_ready = bool(st.session_state.get(StateKeys.WIZARD_SESSION_READY))
-        if already_ready:
-            return
-        self._sync_with_query_params()
-        st.session_state[StateKeys.WIZARD_SESSION_READY] = True
-
-    def _sync_with_query_params(self) -> None:
-        query_params = st.query_params
-        step_values = list(query_params.get_all("step"))
-        step_param = step_values[0] if step_values else None
-        if step_param and step_param in self._page_map:
-            desired = step_param
-        else:
-            current = self._state.get("current_step")
-            desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
-        self._state["current_step"] = desired
-        query_params["step"] = desired
-
-    def _ensure_current_is_valid(self) -> None:
-        current = self._state.get("current_step")
-        if not isinstance(current, str) or current not in self._page_map:
-            self._state["current_step"] = self._pages[0].key
-
-    def _next_key(self, page: WizardPage) -> str | None:
-        index = self._pages.index(page)
-        for candidate in self._pages[index + 1 :]:
-            return candidate.key
-        return None
-
-    def _prev_key(self, page: WizardPage) -> str | None:
-        index = self._pages.index(page)
-        if index == 0:
-            return None
-        return self._pages[index - 1].key
+    def _build_progress_snapshots(self) -> list[PageProgressSnapshot]:
+        return self._controller.build_progress_snapshots()
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        missing: list[str] = []
-        required_fields = tuple(page.required_fields or ())
-        if required_fields:
-            validation_errors = self._validate_required_field_inputs(required_fields)
-            if validation_errors:
-                self._pending_validation_errors = validation_errors
-            else:
-                self._pending_validation_errors = {}
-            for field in required_fields:
-                if field in _PROFILE_VALIDATED_FIELDS:
-                    value = None
-                else:
-                    value = st.session_state.get(field)
-                if not self._is_value_present(value):
-                    value = self._resolve_value(profile, field, None)
-                if not self._is_value_present(value):
-                    missing.append(field)
-            if validation_errors:
-                for field in validation_errors:
-                    if field not in missing:
-                        missing.append(field)
-        else:
-            self._pending_validation_errors = {}
-        inline_missing = self._missing_inline_followups(page, profile)
-        if inline_missing:
-            missing.extend(inline_missing)
-        if not missing:
-            return []
-        # Preserve order while removing duplicates
-        return list(dict.fromkeys(missing))
-
-    def _missing_inline_followups(self, page: WizardPage, profile: Mapping[str, object]) -> list[str]:
-        prefixes = PAGE_FOLLOWUP_PREFIXES.get(page.key, ())
-        if not prefixes:
-            return []
-        followups = st.session_state.get(StateKeys.FOLLOWUPS)
-        if not isinstance(followups, list):
-            return []
-        missing: list[str] = []
-        for question in followups:
-            if not isinstance(question, Mapping):
-                continue
-            field = question.get("field")
-            if not isinstance(field, str) or not field:
-                continue
-            if not any(field.startswith(prefix) for prefix in prefixes):
-                continue
-            if question.get("priority") != "critical":
-                continue
-            value = st.session_state.get(field)
-            if not followup_has_response(value):
-                value = get_in(profile, field, None)
-            if not followup_has_response(value):
-                missing.append(field)
-        return missing
-
-    @staticmethod
-    def _is_value_present(value: object | None) -> bool:
-        if value is None:
-            return False
-        if isinstance(value, str):
-            return bool(value.strip())
-        if isinstance(value, (list, tuple, set)):
-            return any(WizardRouter._is_value_present(item) for item in value)
-        if isinstance(value, Mapping):
-            return any(WizardRouter._is_value_present(item) for item in value.values())
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return bool(value)
-        return True
-
-    def _render_navigation(self, page: WizardPage, missing: Sequence[str]) -> None:
-        prev_key = self._prev_key(page)
-        next_key = self._next_key(page)
-        missing_tuple = tuple(missing)
-
-        def _nav_callback(
-            target: str,
-            *,
-            mark_complete: bool = False,
-            skipped: bool = False,
-        ) -> Callable[[], None]:
-            def _run() -> None:
-                self.navigate(target, mark_current_complete=mark_complete, skipped=skipped)
-
-            return _run
-
-        previous_button = (
-            NavigationButtonState(
-                direction=NavigationDirection.PREVIOUS,
-                label=("◀ Zurück", "◀ Back"),
-                target_key=prev_key,
-                on_click=_nav_callback(prev_key),
-            )
-            if prev_key
-            else None
+        return self._controller.resolve_missing_required_fields(
+            page, validator=self._validate_required_field_inputs
         )
-
-        if next_key:
-            next_hint: LocalizedText | None = None
-            if missing_tuple:
-                next_hint = (
-                    "Pflichtfelder fehlen – du kannst trotzdem weitergehen und später ergänzen.",
-                    "Required fields are missing — you can continue and fill them later.",
-                )
-            next_button = NavigationButtonState(
-                direction=NavigationDirection.NEXT,
-                label=("Weiter ▶", "Next ▶"),
-                target_key=next_key,
-                enabled=True,
-                primary=True,
-                hint=next_hint,
-                on_click=_nav_callback(next_key, mark_complete=True),
-            )
-        else:
-            next_button = None
-
-        skip_button = None
-        if page.allow_skip and next_key:
-            skip_button = NavigationButtonState(
-                direction=NavigationDirection.SKIP,
-                label=("Überspringen", "Skip"),
-                target_key=next_key,
-                on_click=_nav_callback(next_key, mark_complete=True, skipped=True),
-            )
-
-        nav_state = NavigationState(
-            current_key=page.key,
-            missing_fields=missing_tuple,
-            previous=previous_button,
-            next=next_button,
-            skip=skip_button,
-        )
-        render_navigation_controls(nav_state)
-        self._render_validation_warnings()
-
-    def _maybe_scroll_to_top(self) -> None:
-        if not st.session_state.pop("_wizard_scroll_to_top", False):
-            return
-        st.markdown(
-            """
-            <script>
-            (function() {
-                const root = window;
-                const target = root.document.querySelector('section.main');
-                const scrollToTop = () => {
-                    if (!target) {
-                        root.scrollTo({ top: 0, behavior: 'smooth' });
-                        return;
-                    }
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    setTimeout(() => {
-                        target.setAttribute('tabindex', '-1');
-                        target.focus({ preventScroll: true });
-                    }, 180);
-                };
-                if ('requestAnimationFrame' in root) {
-                    root.requestAnimationFrame(scrollToTop);
-                } else {
-                    scrollToTop();
-                }
-            })();
-            </script>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    def _update_section_progress(self) -> tuple[int | None, list[int]]:
-        """Refresh progress trackers using shared wizard metadata."""
-
-        missing_fields = list(dict.fromkeys(get_missing_critical_fields()))
-        sections_with_missing: set[int] = set()
-        for field in missing_fields:
-            sections_with_missing.add(resolve_section_for_field(field))
-
-        first_incomplete: int | None = None
-        for section in CRITICAL_SECTION_ORDER:
-            if section in sections_with_missing:
-                first_incomplete = section
-                break
-
-        if first_incomplete is None and sections_with_missing:
-            first_incomplete = min(sections_with_missing)
-
-        if first_incomplete is None:
-            completed_sections = list(CRITICAL_SECTION_ORDER)
-        else:
-            completed_sections = [
-                section
-                for section in CRITICAL_SECTION_ORDER
-                if section < first_incomplete and section not in sections_with_missing
-            ]
-
-        st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
-        st.session_state[StateKeys.FIRST_INCOMPLETE_SECTION] = first_incomplete
-        st.session_state[StateKeys.COMPLETED_SECTIONS] = completed_sections
-        return first_incomplete, completed_sections
 
     def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
-        """Re-run profile-bound validators for ``fields`` using widget/profile state."""
+        return self._controller.validate_required_field_inputs(fields)
 
-        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        errors: dict[str, LocalizedText] = {}
-        for field in fields:
-            validator = _REQUIRED_FIELD_VALIDATORS.get(field)
-            if validator is None:
-                continue
-            raw_value_obj = st.session_state.get(field)
-            if isinstance(raw_value_obj, str):
-                raw_value: str | None = raw_value_obj
-            elif raw_value_obj is None:
-                raw_value = None
-            else:
-                profile_value = self._resolve_value(profile, field, None)
-                raw_value = profile_value if isinstance(profile_value, str) else None
-            _, error = validator(raw_value)
-            if error:
-                errors[field] = error
-        return errors
-
-    def _render_validation_warnings(self) -> None:
-        """Show bilingual warnings for inline validator failures."""
-
-        if not self._pending_validation_errors:
-            return
-        messages = list(dict.fromkeys(self._pending_validation_errors.values()))
-        if not messages:
-            return
-        lang = st.session_state.get("lang", "de")
-        combined = "\n\n".join(tr(de, en, lang=lang) for de, en in messages)
-        if combined.strip():
-            st.warning(combined)
-
-    def _apply_pending_incomplete_jump(self) -> None:
-        if not st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False):
-            return
-        first_incomplete = st.session_state.get(StateKeys.FIRST_INCOMPLETE_SECTION)
-        if not isinstance(first_incomplete, int):
-            return
-        target_key = self._resolve_step_key_for_legacy_index(first_incomplete)
-        if target_key is None:
-            return
-        self._set_current_step(target_key)
-        st.session_state["_wizard_scroll_to_top"] = True
-
-    def _resolve_step_key_for_legacy_index(self, index: int) -> str | None:
-        for page in self._pages:
-            renderer = self._renderers.get(page.key)
-            if renderer is not None and renderer.legacy_index == index:
-                return page.key
-        return None
-
-    def _set_current_step(self, target_key: str) -> None:
-        self._state["current_step"] = target_key
-        st.query_params["step"] = target_key
-
-    def _mark_step_completed(self, step_key: str, *, skipped: bool) -> None:
-        completed = self._state.get("completed_steps")
-        if isinstance(completed, list):
-            if step_key not in completed:
-                completed.append(step_key)
-        else:
-            self._state["completed_steps"] = [step_key]
-
-        if skipped:
-            skipped_steps = self._state.get("skipped_steps")
-            if isinstance(skipped_steps, list):
-                if step_key not in skipped_steps:
-                    skipped_steps.append(step_key)
-            else:
-                self._state["skipped_steps"] = [step_key]
-
-    def _build_progress_snapshots(self) -> list[_PageProgressSnapshot]:
-        """Return per-page completion stats for diagnostics and tests."""
-
-        raw_completed = self._state.get("completed_steps")
-        completed_steps: set[str]
-        if isinstance(raw_completed, Collection):
-            completed_steps = {step for step in raw_completed if isinstance(step, str)}
-        else:
-            completed_steps = set()
-        profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
-        snapshots: list[_PageProgressSnapshot] = []
-        for page in self._pages:
-            renderer = self._renderers.get(page.key)
-            if renderer is None:
-                continue
-            fields = PAGE_PROGRESS_FIELDS.get(page.key, ())
-            missing_fields = self._missing_fields_for_paths(
-                fields,
-                profile=profile,
-                completed_steps=completed_steps,
-            )
-            total = len(fields)
-            missing_count = len(missing_fields)
-            ratio = self._calculate_completion_ratio(
-                total=total,
-                missing=missing_count,
-                page_key=page.key,
-                completed_steps=completed_steps,
-            )
-            snapshots.append(
-                _PageProgressSnapshot(
-                    page=page,
-                    section_index=renderer.legacy_index,
-                    total_fields=total,
-                    missing_fields=missing_count,
-                    completion_ratio=ratio,
-                )
-            )
-        return snapshots
-
-    @staticmethod
-    def _calculate_completion_ratio(
-        *,
-        total: int,
-        missing: int,
-        page_key: str,
-        completed_steps: Collection[str],
-    ) -> float:
-        if total == 0:
-            return 1.0 if page_key in completed_steps else 0.0
-        ratio = 1.0 - (missing / total)
-        return max(0.0, min(1.0, ratio))
-
-    def _missing_fields_for_paths(
-        self,
-        fields: Sequence[str],
-        *,
-        profile: Mapping[str, object] | None = None,
-        completed_steps: Collection[str] | None = None,
-    ) -> list[str]:
-        if not fields:
-            return []
-        context = profile or (st.session_state.get(StateKeys.PROFILE, {}) or {})
-        completed_lookup = set(completed_steps or [])
-        missing: list[str] = []
-        for field in fields:
-            if field.startswith(VIRTUAL_PAGE_FIELD_PREFIX):
-                page_key = field[len(VIRTUAL_PAGE_FIELD_PREFIX) :]
-                if page_key and page_key not in completed_lookup:
-                    missing.append(field)
-                continue
-            value = st.session_state.get(field)
-            if not self._is_value_present(value):
-                value = self._resolve_value(context, field, None)
-            if not self._is_value_present(value):
-                missing.append(field)
-        return missing
+    def _sync_with_query_params(self) -> None:
+        self._controller.sync_with_query_params()

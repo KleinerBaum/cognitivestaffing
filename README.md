@@ -560,6 +560,10 @@ EN: Navigation order is sourced from `wizard_pages/__init__.py` (`WIZARD_PAGES`)
 
 DE: Die Navigationsreihenfolge kommt aus `wizard_pages/__init__.py` (`WIZARD_PAGES`); `WizardRouter` leitet Zurück/Weiter-Links und Summary-Beschriftungen aus dieser Liste ab, damit neue oder umsortierte Schritte automatisch überall übereinstimmen.
 
+EN: Navigation state and progress live in `wizard/navigation_controller.py`, while `wizard/navigation_ui.py` renders the bilingual controls and scroll helpers. Validation helpers moved to `wizard/validation.py` so routing and rendering stay decoupled.
+
+DE: Die Navigations- und Fortschrittslogik steckt in `wizard/navigation_controller.py`, das Rendern der zweisprachigen Controls und Scroll-Helfer in `wizard/navigation_ui.py`. Validierungshelfer liegen nun in `wizard/validation.py`, damit Routing und UI getrennt bleiben.
+
 wizard/
 
 EN: Flow control, widget helpers, and routing glue for the multi-step UI.

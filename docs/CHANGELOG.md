@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Split wizard navigation into dedicated controller (`wizard/navigation_controller.py`), UI helpers (`wizard/navigation_ui.py`), and routing-free validation utilities (`wizard/validation.py`) so session/query sync, rendering, and checks stay decoupled. Updated navigation tests to target the new seams.
+  DE: Die Wizard-Navigation wurde aufgeteilt: Controller (`wizard/navigation_controller.py`) für Status/Query-Sync, UI-Helfer (`wizard/navigation_ui.py`) für das Rendering und Validierungshelfer (`wizard/validation.py`) ohne Routing-Abhängigkeit. Die Navigationstests wurden auf die neuen Schnittstellen angepasst.
+
 - EN: Documented the wizard navigation flow and bound `WizardRouter` summary labels to the `WIZARD_PAGES` order so reordering steps updates navigation automatically.
   DE: Die Wizard-Navigation dokumentiert und die `WizardRouter`-Summary-Beschriftungen an die `WIZARD_PAGES`-Reihenfolge gekoppelt, damit Umreihungen die Navigation automatisch mitziehen.
 

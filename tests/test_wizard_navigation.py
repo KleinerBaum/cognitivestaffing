@@ -41,8 +41,9 @@ import streamlit as st
 import wizard.metadata as wizard_metadata
 import wizard_router as wizard_router_module
 from constants.keys import ProfilePaths, StateKeys
+from wizard.navigation_types import StepRenderer, WizardContext
 from wizard_pages.base import WizardPage
-from wizard_router import StepRenderer, WizardContext, WizardRouter
+from wizard_router import WizardRouter
 
 # ``WizardRouter`` reuses the shared metadata module, so tests patch both
 # namespaces when faking critical-field gaps.
