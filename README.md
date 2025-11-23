@@ -138,6 +138,8 @@ Release timeline / Release-Verlauf
 
 * Unreleased – Extraction resilience: structured JSON parsing now repairs interview stage lists, trims invalid fields from partial JSON fragments, records validation errors with field-level details, and surfaces bilingual warnings when a profile falls back to defaults so recruiters know which inputs to fix.
 * Unveröffentlicht – Extraktionsrobustheit: Der strukturierte JSON-Parser korrigiert jetzt Interview-Phasenlisten, entfernt ungültige Felder aus unvollständigen JSON-Antworten, protokolliert Validierungsfehler samt Feldreferenzen und blendet zweisprachige Warnungen ein, sobald ein Profil auf Standardwerte zurückgesetzt werden musste – so wissen Recruiter:innen sofort, welche Angaben nachgepflegt werden müssen.
+* EN: Schema-validation failures (for example missing `company.name`) no longer break the session: the extractor preserves the original payload, flags the critical gaps for the wizard, and keeps the UI hints visible so recruiters can fill them manually.
+* DE: Schema-Validierungsfehler (z. B. fehlendes `company.name`) unterbrechen die Sitzung nicht mehr: Der Extraktor behält die ursprüngliche Antwort, markiert die kritischen Lücken für den Wizard und lässt die UI-Hinweise sichtbar, damit Recruiter:innen sie manuell ergänzen können.
 * EN: Role & Tasks skill chips now render as styled badges again instead of showing raw `<span …>` markup.
 * DE: Skill-Chips im Aufgaben-Schritt erscheinen wieder als gestaltete Badges und nicht mehr als roher `<span …>`-Text.
 * EN: The hero banner now includes a bilingual "Hide intro"/"Intro ausblenden" toggle that remembers the choice per session so frequent users can reclaim space once they start filling the wizard.

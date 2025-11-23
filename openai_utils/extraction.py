@@ -8,7 +8,7 @@ import re
 import textwrap
 import logging
 from dataclasses import dataclass
-from typing import Any, Mapping, MutableMapping, Sequence
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 from types import ModuleType
 from importlib import import_module
 
@@ -517,9 +517,43 @@ def _flag_partial_extraction(
         missing = []
         if field_contexts:
             missing = [ctx.field for ctx in field_contexts.values() if getattr(ctx, "field", None)]
-        st.session_state[StateKeys.EXTRACTION_MISSING] = list(dict.fromkeys(missing))
+        _set_missing_fields(missing)
     except Exception:  # pragma: no cover - defensive guard when session missing
         logger.debug("Unable to flag partial extraction in session state", exc_info=True)
+
+
+def _set_missing_fields(fields: Iterable[str], *, append: bool = False) -> None:
+    """Store missing critical fields in session state for UI hints."""
+
+    if st is None:  # pragma: no cover - Streamlit not required for CLI usage
+        return
+
+    try:
+        from question_logic import CRITICAL_FIELDS
+
+        normalized = [field for field in fields if isinstance(field, str) and field in CRITICAL_FIELDS]
+        if append:
+            existing = st.session_state.get(StateKeys.EXTRACTION_MISSING) or []
+            merged = list(dict.fromkeys([*existing, *normalized]))
+        else:
+            merged = list(dict.fromkeys(normalized))
+        st.session_state[StateKeys.EXTRACTION_MISSING] = merged
+    except Exception:  # pragma: no cover - defensive guard when session missing
+        logger.debug("Unable to record missing fields in session state", exc_info=True)
+
+
+def _error_paths(errors: Sequence[Mapping[str, object]]) -> list[str]:
+    """Convert validation error ``loc`` entries to dotted paths."""
+
+    paths: list[str] = []
+    for entry in errors:
+        loc = entry.get("loc")
+        if not isinstance(loc, Sequence):
+            continue
+        parts = [str(part) for part in loc if part not in (None, "")]
+        if parts:
+            paths.append(".".join(parts))
+    return paths
 
 
 def _merge_with_profile_defaults(raw: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -757,10 +791,12 @@ def extract_with_function(
             detail = f"{detail} (+{len(errors) - 5} more)"
         logger.debug("NeedAnalysisProfile validation failed: %s", detail, exc_info=exc)
         _flag_partial_extraction(field_contexts)
+        _set_missing_fields(_error_paths(errors), append=True)
         merged_payload = _merge_with_profile_defaults(raw)
         try:
             profile = process_extracted_profile(merged_payload)
         except ValidationError as merged_exc:  # pragma: no cover - defensive logging
+            _set_missing_fields(_error_paths(merged_exc.errors()), append=True)
             pruned_payload = _prune_invalid_paths(merged_payload, merged_exc.errors())
             try:
                 profile = process_extracted_profile(pruned_payload)
@@ -775,6 +811,7 @@ def extract_with_function(
     if isinstance(profile, NeedAnalysisProfile):
         before_dump = copy.deepcopy(profile_dump)
         invalid_fields = _collect_invalid_fields(raw or {}, profile_dump)
+        _set_missing_fields(invalid_fields, append=True)
         metadata: dict[str, Any] = {"invalid_fields": sorted(invalid_fields)}
         # Heuristics post-processing fills missing company contact details and other
         # structured fields that the LLM might have skipped.
