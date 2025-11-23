@@ -121,22 +121,7 @@
                 }
             },
             "required": [
-                "name",
-                "brand_name",
-                "industry",
-                "hq_location",
-                "size",
-                "website",
-                "mission",
-                "culture",
-                "contact_name",
-                "contact_email",
-                "contact_phone",
-                "brand_keywords",
-                "logo_url",
-                "brand_color",
-                "claim",
-                "benefits"
+                "name"
             ]
         },
         "position": {
@@ -241,22 +226,7 @@
                 }
             },
             "required": [
-                "job_title",
-                "seniority_level",
-                "team_structure",
-                "reporting_line",
-                "reporting_manager_name",
-                "role_summary",
-                "occupation_label",
-                "occupation_uri",
-                "occupation_group",
-                "supervises",
-                "performance_indicators",
-                "decision_authority",
-                "key_projects",
-                "team_size",
-                "customer_contact_required",
-                "customer_contact_details"
+                "job_title"
             ]
         },
         "department": {
@@ -293,14 +263,7 @@
                         "null"
                     ]
                 }
-            },
-            "required": [
-                "name",
-                "function",
-                "leader_name",
-                "leader_title",
-                "strategic_goals"
-            ]
+            }
         },
         "team": {
             "type": "object",
@@ -348,16 +311,7 @@
                         "null"
                     ]
                 }
-            },
-            "required": [
-                "name",
-                "mission",
-                "reporting_line",
-                "headcount_current",
-                "headcount_target",
-                "collaboration_tools",
-                "locations"
-            ]
+            }
         },
         "location": {
             "type": "object",
@@ -381,12 +335,7 @@
                         "null"
                     ]
                 }
-            },
-            "required": [
-                "primary_city",
-                "country",
-                "onsite_ratio"
-            ]
+            }
         },
         "responsibilities": {
             "type": "object",
@@ -398,10 +347,7 @@
                         "type": "string"
                     }
                 }
-            },
-            "required": [
-                "items"
-            ]
+            }
         },
         "requirements": {
             "type": "object",
@@ -679,22 +625,7 @@
                     ]
                 }
             },
-            "required": [
-                "hard_skills_required",
-                "hard_skills_optional",
-                "soft_skills_required",
-                "soft_skills_optional",
-                "tools_and_technologies",
-                "languages_required",
-                "languages_optional",
-                "certificates",
-                "certifications",
-                "language_level_english",
-                "background_check_required",
-                "portfolio_required",
-                "reference_check_required",
-                "skill_mappings"
-            ]
+            "required": []
         },
         "employment": {
             "type": "object",
@@ -808,34 +739,17 @@
                         "null"
                     ]
                 }
-            },
-            "required": [
-                "job_type",
-                "work_policy",
-                "contract_type",
-                "work_schedule",
-                "remote_percentage",
-                "contract_end",
-                "travel_required",
-                "travel_share",
-                "travel_region_scope",
-                "travel_regions",
-                "travel_continents",
-                "travel_details",
-                "overtime_expected",
-                "relocation_support",
-                "relocation_details",
-                "visa_sponsorship",
-                "security_clearance_required",
-                "shift_work"
-            ]
+            }
         },
         "compensation": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
                 "salary_provided": {
-                    "type": "boolean"
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "salary_min": {
                     "type": [
@@ -891,19 +805,7 @@
                         "type": "string"
                     }
                 }
-            },
-            "required": [
-                "salary_provided",
-                "salary_min",
-                "salary_max",
-                "currency",
-                "period",
-                "variable_pay",
-                "bonus_percentage",
-                "commission_structure",
-                "equity_offered",
-                "benefits"
-            ]
+            }
         },
         "process": {
             "type": "object",
@@ -1046,18 +948,7 @@
                         "null"
                     ]
                 }
-            },
-            "required": [
-                "interview_stages",
-                "stakeholders",
-                "phases",
-                "recruitment_timeline",
-                "process_notes",
-                "application_instructions",
-                "onboarding_process",
-                "hiring_manager_name",
-                "hiring_manager_role"
-            ]
+            }
         },
         "meta": {
             "type": "object",
@@ -1081,19 +972,12 @@
                         "type": "string"
                     }
                 }
-            },
-            "required": [
-                "target_start_date",
-                "application_deadline",
-                "followups_answered"
-            ]
+            }
         }
     },
     "required": [
         "company",
         "position",
-        "department",
-        "team",
         "location",
         "responsibilities",
         "requirements",
