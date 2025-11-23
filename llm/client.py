@@ -508,6 +508,10 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
 
         return _invoke
 
+    # Keep attempts ordered to preserve the retry cascade:
+    # 1) Responses with strict JSON schema (preferred when enabled)
+    # 2) Chat JSON mode
+    # A final non-streaming Chat call below guards against empty streams.
     attempts: list[tuple[str, Callable[[], str | None]]] = []
 
     if strict_format and _responses_api_enabled():
