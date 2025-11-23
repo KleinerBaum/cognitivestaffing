@@ -134,10 +134,18 @@ def _coerce_date_widget_value(widget_key: str, raw_value: Any) -> date:
     ``strftime`` type errors.
     """
 
-    coerced_default = _default_date(raw_value)
+    def _normalize(value: Any, *, fallback: date | None = None) -> date:
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value).date()
+            except ValueError:
+                pass
+        return _default_date(value, fallback=fallback)
+
+    coerced_default = _normalize(raw_value)
     existing_state = st.session_state.get(widget_key)
     if existing_state is not None:
-        coerced_default = _default_date(existing_state, fallback=coerced_default)
+        coerced_default = _normalize(existing_state, fallback=coerced_default)
     st.session_state[widget_key] = coerced_default
     return coerced_default
 
