@@ -33,6 +33,7 @@ Getting started
    * On the first page, upload a PDF/job ad or paste plain text; the wizard runs heuristics plus the extractor to prefill fields.
    * Walk through the eight steps (Onboarding → Summary). You can download structured JSON on the Summary step or continue to exports (job ads, interview guides, Boolean strings).
    * Switch between quick and precise modes via the in-app toggle; quick requests use gpt-4.1-mini, while precise/"genau" routes use the higher reasoning tier configured via REASONING_EFFORT. If the Responses API struggles, set `USE_CLASSIC_API=1` to fall back to Chat Completions.
+   * Open the sidebar **Help & guidance / Hilfe & Hinweise** expander for a quick recap of the Role Tasks analysis, Summary exports, and the AI-powered interview guide requirements (internet/API key, updated schema). / Nutze den Sidebar-Aufklapper **Hilfe & Hinweise / Help & guidance** für eine kurze Erklärung der Aufgabenanalyse, der Summary-Exporte sowie der KI-gestützten Interviewleitfaden-Generierung (Internet/API-Key, behobenes Schema).
 
 Architecture at a glance
 ------------------------

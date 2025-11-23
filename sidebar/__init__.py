@@ -409,6 +409,8 @@ def _render_sidebar_sections(
             _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
+        st.divider()
+        _render_help_section()
 
     return plan
 
@@ -1178,6 +1180,55 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
         _render_salary_factor_section(factors)
     else:
         _render_explanation_text(explanation)
+
+
+def _render_help_section() -> None:
+    """Provide in-app guidance on the wizard steps and AI requirements."""
+
+    st.markdown(f"### ❓ {tr('Hilfe & Hinweise', 'Help & guidance')}")
+
+    st.caption(
+        tr(
+            "Kurzer Überblick über Zweck und Ablauf des Wizards.",
+            "Quick overview of the wizard’s purpose and flow.",
+        )
+    )
+
+    help_entries = (
+        tr(
+            "**Aufgabenanalyse (Rolle & Aufgaben)** – Erfasst Verantwortlichkeiten sowie Pflicht-/optionale Skills und nutzt sie"
+            " für die Zusammenfassung, Exporte und Folgefragen.",
+            "**Role tasks analysis** – Captures responsibilities plus required/optional skills and reuses them for the summary,"
+            " exports, and follow-up prompts.",
+        ),
+        tr(
+            "**Zusammenfassung** – Zeigt fehlende Pflichtfelder, fasst alle Schritte zusammen und bietet JSON- oder Markdown-Exp"
+            "ort sowie die getrennten Tabs für Aufgaben/Suche, Stellenanzeige und Interviewleitfaden.",
+            "**Summary** – Highlights missing mandatory fields, rolls up every step, and offers JSON/Markdown export plus the sep"
+            "arate tabs for role tasks & search, job ad, and interview guide.",
+        ),
+        tr(
+            "**Interviewleitfaden** – Baut einen kompetenzbasierten Leitfaden aus deinem Profil. Die Generierung nutzt eine KI, b"
+            "raucht ggf. Internetverbindung/OpenAI-API-Key und setzt die behobene Schema-Validierung (fehlendes `label`-Feld) vora"
+            "us.",
+            "**Interview guide** – Builds a competency-led guide from your profile. Generation uses an AI, may require internet ac"
+            "cess and a valid OpenAI API key, and expects the fixed schema validation (previous missing `label` field) to be present"
+            ".",
+        ),
+    )
+
+    with st.expander(tr("Wie funktioniert die App?", "How does the app work?"), expanded=False):
+        for entry in help_entries:
+            st.markdown(entry)
+
+    st.info(
+        tr(
+            "Stelle sicher, dass dein Deployment die behobenen Schema-Änderungen enthält und dass bei aktivierten KI-Funktionen e"
+            "ine Internetverbindung sowie API-Schlüssel verfügbar sind.",
+            "Ensure your deployment includes the fixed schemas and that AI features have internet access plus an API key when enabl"
+            "ed.",
+        )
+    )
 
 
 def _render_salary_requirements(requirements: Sequence[SalaryRequirementStatus]) -> None:
