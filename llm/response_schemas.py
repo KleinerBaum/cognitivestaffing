@@ -45,6 +45,11 @@ def _validate_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
 def _interview_guide_schema() -> Mapping[str, Any]:
     from models.interview_guide import InterviewGuide
 
+    # The InterviewGuide schema is a list of question blocks that each include the
+    # original question, the generated answer, a human-readable label, and
+    # optional metadata (e.g., notes). Keeping ``label`` required documents the
+    # earlier fix where missing labels caused Responses payload validation to
+    # fail.
     return guard_no_additional_properties(InterviewGuide.model_json_schema())
 
 

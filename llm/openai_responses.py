@@ -72,6 +72,11 @@ def build_json_schema_format(
     from core.schema import _prune_unsupported_formats
     from core.schema_guard import guard_no_additional_properties
 
+    # Interview guide responses expect a list of entries with ``question``,
+    # ``answer``, and ``label`` keys (plus optional notes). Keeping that shape
+    # documented here helps avoid regressions like the past missing-``label``
+    # error and keeps the schema requirements visible where the Responses
+    # payload is assembled.
     schema_payload = guard_no_additional_properties(
         _prune_unsupported_formats(deepcopy(dict(schema)))
     )

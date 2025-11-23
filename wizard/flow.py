@@ -11596,6 +11596,8 @@ def _render_summary_export_section(
     interview_label = tr("🗒️ Interviewleitfaden", "🗒️ Interview guide")
     role_tab, job_tab, interview_tab = st.tabs([role_label, job_label, interview_label])
 
+    # Summary step – action tabs that let users compare/edit role tasks, job ads,
+    # and the interview guide before exporting the final profile.
     with role_tab:
         _render_role_tasks_tab(profile, boolean_skill_terms, boolean_title_synonyms, lang=lang)
 
@@ -11722,6 +11724,9 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
         "process": _summary_process,
     }
 
+    # Summary step – outer tabs split the review into captured content, insights
+    # (benchmarks/skills), and exports/download actions so the layout matches the
+    # wizard narrative of "review ➜ learn ➜ share".
     overview_label = tr("📋 Überblick", "📋 Overview")
     insights_label = tr("✨ Insights", "✨ Insights")
     export_label = tr("📤 Export & Aktionen", "📤 Export & actions")
