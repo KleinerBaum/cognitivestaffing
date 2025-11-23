@@ -414,11 +414,9 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
 OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
 OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
-USE_CLASSIC_API = _normalise_bool(os.getenv("USE_CLASSIC_API"), default=False)
-USE_RESPONSES_API = _normalise_bool(
-    os.getenv("USE_RESPONSES_API"),
-    default=not USE_CLASSIC_API,
-)
+# API mode flags are initialised via ``set_api_mode`` to guarantee synchronisation.
+USE_CLASSIC_API = False
+USE_RESPONSES_API = True
 
 ADMIN_DEBUG_PANEL = _normalise_bool(
     os.getenv("ADMIN_DEBUG_PANEL"),
@@ -449,6 +447,28 @@ def set_api_mode(mode: APIMode | str | bool) -> None:
     USE_CLASSIC_API = target_mode is APIMode.CLASSIC
 
 
+def _resolve_env_api_mode() -> APIMode:
+    """Return the initial API mode derived from environment toggles.
+
+    ``USE_RESPONSES_API`` takes precedence when both flags are provided to avoid
+    accidental divergence. When neither variable is set, the Responses API is
+    the default.
+    """
+
+    responses_raw = os.getenv("USE_RESPONSES_API")
+    classic_raw = os.getenv("USE_CLASSIC_API")
+
+    if responses_raw is not None:
+        responses_enabled = _normalise_bool(responses_raw, default=True)
+        return APIMode.RESPONSES if responses_enabled else APIMode.CLASSIC
+
+    if classic_raw is not None:
+        classic_enabled = _normalise_bool(classic_raw, default=False)
+        return APIMode.CLASSIC if classic_enabled else APIMode.RESPONSES
+
+    return APIMode.RESPONSES
+
+
 def set_responses_allow_tools(allow_tools: bool) -> None:
     """Synchronise the ``RESPONSES_ALLOW_TOOLS`` flag at runtime."""
 
@@ -469,7 +489,7 @@ def temporarily_force_classic_api() -> Iterator[None]:
         set_api_mode(previous_mode)
 
 
-set_api_mode(USE_RESPONSES_API)
+set_api_mode(_resolve_env_api_mode())
 # NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
 RESPONSES_ALLOW_TOOLS = _normalise_bool(
     os.getenv("RESPONSES_ALLOW_TOOLS"),

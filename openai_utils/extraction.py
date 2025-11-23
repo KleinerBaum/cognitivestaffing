@@ -18,7 +18,7 @@ from opentelemetry.trace import Status, StatusCode
 import config as app_config
 from config import ModelTask, VECTOR_STORE_ID, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
-from llm.prompts import build_job_ad_prompt
+from llm.prompts import build_job_ad_prompt, SYSTEM_JSON_EXTRACTOR
 from llm.response_schemas import (
     INTERVIEW_GUIDE_SCHEMA_NAME,
     get_response_schema,
@@ -471,7 +471,7 @@ def _best_effort_json_retry(
 
     logger.warning("Extraction fallback triggered: %s", reason)
 
-    system_prompt = prompt_registry.format("llm.json_extractor.system")
+    system_prompt = SYSTEM_JSON_EXTRACTOR
     guidance = prompt_registry.get("llm.extraction.best_effort_guidance")
 
     messages: list[dict[str, str]] = [
