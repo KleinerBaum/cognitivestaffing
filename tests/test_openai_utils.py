@@ -2527,6 +2527,53 @@ def test_chat_stream_missing_completion_event(monkeypatch, caplog):
     assert any("missing completion event" in message for message in caplog.messages)
 
 
+def test_chat_stream_empty_response_falls_back_to_chat(monkeypatch, caplog):
+    """An empty Responses stream should retry via Chat Completions."""
+
+    caplog.set_level("WARNING")
+
+    class _DummyStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401,B027
+            return False
+
+        def __iter__(self):  # noqa: D401
+            return iter(())
+
+        def get_final_response(self):  # noqa: D401
+            return SimpleNamespace(output_text="", usage={}, id="resp-empty")
+
+    class _DummyResponses:
+        def stream(self, **kwargs: Any):  # noqa: D401
+            return _DummyStream()
+
+    class _DummyCompletions:
+        @staticmethod
+        def create(**kwargs: Any):  # noqa: D401
+            return {
+                "choices": [{"message": {"content": "Recovered via chat"}}],
+                "usage": {"prompt_tokens": 2, "completion_tokens": 3},
+                "id": "chat-fallback",
+            }
+
+    class _DummyChat:
+        completions = _DummyCompletions()
+
+    dummy_client = SimpleNamespace(responses=_DummyResponses(), chat=_DummyChat())
+
+    monkeypatch.setattr(openai_utils.api, "client", dummy_client, raising=False)
+
+    stream = openai_utils.api.ChatStream({"input": []}, config.REASONING_MODEL, task=None)
+
+    chunks = list(stream)
+    assert chunks == []
+    assert stream.result.content == "Recovered via chat"
+    assert stream.result.usage == {"input_tokens": 2, "output_tokens": 3}
+    assert any("empty content" in message for message in caplog.messages)
+
+
 def test_chat_stream_strict_json_schema_disables_stream(monkeypatch):
     """Strict JSON schema payloads should bypass streaming to avoid completion failures."""
 

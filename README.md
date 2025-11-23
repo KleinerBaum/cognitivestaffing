@@ -37,7 +37,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 ## Troubleshooting & FAQ
 - **AI output is invalid JSON**: Retries and schema repairs run automatically. If the UI still shows empty sections, switch to **Precise/Genau** mode or toggle `USE_CLASSIC_API=1` to route through Chat completions.
 - **OpenAI errors or rate limits**: Requests back off with exponential retries. If errors persist, lower traffic, try Quick mode, or pause before re-running the step. The debug panel shows which backend is active.
-- **Responses stream returned nothing**: The client replays the request without streaming and then falls back to Chat; you can manually force Chat via `USE_CLASSIC_API` for the current session.
+- **Responses stream returned nothing**: The client replays the request without streaming and then falls back to Chat; if the final `response.completed` event never arrives, a warning is logged and the prompt is retried via Chat completions. You can manually force Chat via `USE_CLASSIC_API` for the current session.
 - **Use the EU endpoint**: Set `OPENAI_API_BASE_URL=https://eu.api.openai.com/v1` in your environment or Streamlit secrets.
 - **Language support**: Extraction is optimised for full job descriptions in German or English; other languages may yield incomplete fields.
 

@@ -563,7 +563,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                 err,
             )
 
-    if content is None:
+    if content is None or not content.strip():
+        logger.warning(
+            "Structured extraction streaming returned empty content; retrying via chat completions for %s.",
+            prompt_digest,
+        )
         call_result = call_chat_api(
             payload["messages"],
             model=payload["model"],
@@ -575,6 +579,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                 "schema": NEED_ANALYSIS_SCHEMA,
             },
             task=ModelTask.EXTRACTION,
+            api_mode="chat",
         )
         content = (call_result.content or "").strip()
     if not content:

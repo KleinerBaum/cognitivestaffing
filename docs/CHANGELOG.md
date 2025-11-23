@@ -41,6 +41,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Added a safety net when Responses streaming ends without a `response.completed` event or empty content, logging the issue and retrying via Chat completions so extraction results still populate.
+  DE: Sicherheitsnetz ergänzt: Wenn Responses-Streaming ohne `response.completed`-Event oder mit leerem Inhalt endet, wird ein Hinweis geloggt und die Anfrage per Chat-Completions erneut gestellt, damit Extraktionsergebnisse weiterhin erscheinen.
+
 - EN: Documented schema gaps from sample job ads (benefits capture, role summaries, hiring contacts) in `docs/schema_gap_analysis.md` and outlined next steps.
   DE: Schema-Lücken aus Beispiel-Stellenanzeigen (Benefits, Rollenübersicht, Kontaktzuordnung) in `docs/schema_gap_analysis.md` dokumentiert und nächste Schritte skizziert.
 
