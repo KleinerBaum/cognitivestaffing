@@ -125,6 +125,36 @@ _apply_followup_updates = followup_sections._apply_followup_updates
 _missing_fields_for_section = followup_sections._missing_fields_for_section
 
 
+def _coerce_date_widget_value(widget_key: str, raw_value: Any) -> date:
+    """Ensure date widgets always receive a ``date`` instance.
+
+    Streamlit keeps widget state in ``st.session_state``. If an upstream profile
+    stores an ISO string (e.g. from extraction), this helper normalizes it to a
+    ``datetime.date`` before the widget reads the value, preventing
+    ``strftime`` type errors.
+    """
+
+    coerced_default = _default_date(raw_value)
+    existing_state = st.session_state.get(widget_key)
+    if existing_state is not None:
+        coerced_default = _default_date(existing_state, fallback=coerced_default)
+    st.session_state[widget_key] = coerced_default
+    return coerced_default
+
+
+def _render_target_start_date_input(column: Any, meta: Mapping[str, Any]) -> date:
+    """Render the target start date widget with resilient defaults."""
+
+    widget_key = str(ProfilePaths.META_TARGET_START_DATE)
+    target_start_value = _coerce_date_widget_value(widget_key, meta.get("target_start_date"))
+    return column.date_input(
+        tr("Gewünschtes Startdatum", "Desired start date"),
+        value=target_start_value,
+        format="YYYY-MM-DD",
+        key=widget_key,
+    )
+
+
 def _followup_job_ad_generator(
     filtered_profile: Mapping[str, Any],
     selected_fields: Collection[str],
@@ -4404,9 +4434,7 @@ def _render_inline_followups(
     _render_followups_for_fields(fields, profile, container=container)
 
 
-def _apply_extraction_profile_update(
-    path: str, value: Any, *, sync_widget_state: bool = True
-) -> None:
+def _apply_extraction_profile_update(path: str, value: Any, *, sync_widget_state: bool = True) -> None:
     """Update the profile during extraction review without breaking widget state."""
 
     try:
@@ -4774,12 +4802,7 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     schedule_cols = st.columns((1.2, 1.2), gap="medium")
     target_start_container = schedule_cols[0].container()
     with target_start_container:
-        target_start = schedule_cols[0].date_input(
-            tr("Gewünschtes Startdatum", "Desired start date"),
-            value=_default_date(meta.get("target_start_date")),
-            format="YYYY-MM-DD",
-            key=str(ProfilePaths.META_TARGET_START_DATE),
-        )
+        target_start = _render_target_start_date_input(schedule_cols[0], meta)
     target_start_iso = target_start.isoformat() if isinstance(target_start, date) else ""
     meta["target_start_date"] = target_start_iso
     _update_profile(
@@ -7554,12 +7577,7 @@ def _step_team() -> None:
     render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
 
     timing_cols = st.columns(3)
-    target_start_default = _default_date(meta_data.get("target_start_date"))
-    start_selection = timing_cols[0].date_input(
-        tr("Gewünschtes Startdatum", "Desired start date"),
-        value=target_start_default,
-        format="YYYY-MM-DD",
-    )
+    start_selection = _render_target_start_date_input(timing_cols[0], meta_data)
     meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
     _render_followups_for_fields(
         (ProfilePaths.META_TARGET_START_DATE,),
