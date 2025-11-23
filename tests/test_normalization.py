@@ -187,6 +187,50 @@ def test_normalize_profile_uses_json_repair_on_failure(monkeypatch: pytest.Monke
     assert calls, "Expected JSON repair fallback to be invoked"
 
 
+def test_normalize_profile_returns_model_dump_on_failed_normalization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    profile = NeedAnalysisProfile()
+    original_dump: NormalizedProfilePayload = profile.model_dump()
+
+    def broken_normalizer(_: Mapping[str, object]) -> Mapping[str, object]:
+        return {"company": "Acme"}
+
+    monkeypatch.setattr(
+        "utils.normalization._normalize_profile_mapping",
+        broken_normalizer,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "utils.normalization._attempt_llm_repair",
+        lambda *_args, **_kwargs: None,
+        raising=False,
+    )
+
+    normalized: NormalizedProfilePayload = normalize_profile(profile)
+
+    assert normalized == original_dump
+
+
+def test_normalize_profile_handles_repair_exceptions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raising_repair(payload: Mapping[str, object], *, errors: object | None = None) -> Mapping[str, object]:
+        raise ValueError("invalid json")
+
+    monkeypatch.setattr(
+        "llm.json_repair.repair_profile_payload",
+        raising_repair,
+        raising=False,
+    )
+
+    invalid_payload = {"company": "Acme"}
+
+    normalized: NormalizedProfilePayload = normalize_profile(invalid_payload)
+
+    assert normalized == NeedAnalysisProfile().model_dump()
+
+
 def test_normalize_profile_converts_interview_stage_lists() -> None:
     payload = NeedAnalysisProfile().model_dump()
     payload["process"] = {"interview_stages": ["3", "phone screen"]}

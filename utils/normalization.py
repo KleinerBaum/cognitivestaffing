@@ -1040,7 +1040,12 @@ def _attempt_llm_repair(
         logger.exception("Unable to import JSON repair helper")
         return None
 
-    repaired = repair_profile_payload(payload, errors=errors)
+    try:
+        repaired = repair_profile_payload(payload, errors=errors)
+    except Exception:
+        logger.exception("JSON repair helper raised unexpectedly during normalization")
+        return None
+
     if not repaired:
         return None
     if not isinstance(repaired, Mapping):
