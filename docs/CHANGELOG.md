@@ -41,6 +41,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Fixed the onboarding job-ad step so ISO start dates from extracted profiles are parsed into dates before rendering the picker, preventing Streamlit crashes.
+  DE: Onboarding-Jobad-Schritt korrigiert: ISO-Startdaten aus extrahierten Profilen werden vor dem Rendering geparst, sodass der Date-Picker nicht mehr abstürzt.
+
 - EN: Added a safety net when Responses streaming ends without a `response.completed` event or empty content, logging the issue and retrying via Chat completions so extraction results still populate.
   DE: Sicherheitsnetz ergänzt: Wenn Responses-Streaming ohne `response.completed`-Event oder mit leerem Inhalt endet, wird ein Hinweis geloggt und die Anfrage per Chat-Completions erneut gestellt, damit Extraktionsergebnisse weiterhin erscheinen.
 
