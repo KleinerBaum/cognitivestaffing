@@ -21,6 +21,9 @@ Changed / Geändert
 - EN: Split the Summary export tools into dedicated tabs (Role tasks & search, Job ad, Interview guide) so recruiters navigate outputs without scrolling a single long page.
   DE: Export-Werkzeuge der Summary in eigene Tabs (Aufgaben & Suche, Stellenanzeige, Interviewleitfaden) aufgeteilt, damit Recruiter:innen die Ergebnisse ohne endloses Scrollen durchgehen können.
 
+- EN: Added clear subheaders on the Summary step to separate the original job-ad excerpt from AI-generated suggestions so reviewers can scan sources versus model output at a glance.
+  DE: Deutliche Zwischenüberschriften im Summary-Schritt ergänzt, um den Originalauszug der Stellenanzeige klar von den KI-Vorschlägen zu trennen und Quellen versus Modelloutput auf einen Blick erkennbar zu machen.
+
 - EN: Centralised OpenAI response schemas in `llm/response_schemas.py`, validated them before dispatch, and added concise logging plus deterministic fallbacks when schemas are invalid or responses come back empty.
   DE: OpenAI-Response-Schemas in `llm/response_schemas.py` gebündelt, vor dem Versand validiert und bei ungültigen Schemas oder leeren Antworten klare Logs sowie einen deterministischen Fallback hinterlegt.
 
