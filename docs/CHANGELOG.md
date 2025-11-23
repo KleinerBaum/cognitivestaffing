@@ -70,6 +70,9 @@ Changed / Geändert
 - EN: Hardened Responses-to-Chat fallbacks so timeouts or API errors are caught, logged, and retried via classic chat completions without crashing the UI.
   DE: Responses-zu-Chat-Fallbacks robuster gemacht, damit Timeouts oder API-Fehler abgefangen, protokolliert und über klassische Chat-Completions erneut versucht werden, ohne dass die UI abstürzt.
 
+- EN: Gave the "Direct reports" input in the Team step its own labeled row to avoid cramped layout and keep the value easy to read and edit.
+  DE: Dem Feld „Direkte Reports“ im Team-Schritt eine eigene beschriftete Zeile gegeben, damit das Layout luftiger ist und der Wert gut lesbar bleibt.
+
 - EN: Added graceful handling for OpenAI API and JSON parsing errors so Responses calls fall back to Chat completions with a logged warning instead of breaking the wizard flow.
   DE: Sanftes Fehlerhandling für OpenAI-API- und JSON-Parsing-Fehler ergänzt, sodass Responses-Aufrufe mit Warnlog auf Chat-Completions zurückfallen, ohne den Wizard-Fluss zu unterbrechen.
 
