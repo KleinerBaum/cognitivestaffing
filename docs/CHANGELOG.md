@@ -1,5 +1,28 @@
 Changelog
 
+## [1.1.2] - 2025-12-01
+
+- EN: Added clearer README guidance on setup, Quick vs. Precise routing, and Responses vs. Chat API toggles so users can start the Streamlit wizard with the right model settings.
+  DE: README um klarere Hinweise zu Setup, Schnell-/Präzisionsmodus und Responses- vs. Chat-API-Schaltern ergänzt, damit Nutzer:innen den Streamlit-Wizard mit den richtigen Modelleinstellungen starten.
+
+- EN: Introduced a CONTRIBUTING guide that summarizes coding standards (PEP 8, typing), required checks (ruff, mypy, pytest), and the feature-branch workflow toward `dev`.
+  DE: CONTRIBUTING-Guide ergänzt mit Coding-Standards (PEP 8, Typing), Pflicht-Checks (ruff, mypy, pytest) und Feature-Branch-Workflow Richtung `dev`.
+
+- EN: Documented troubleshooting for invalid JSON, OpenAI errors/rate limits, EU endpoint routing, and language limitations; clarified that extraction works best on German/English job ads.
+  DE: Troubleshooting zu ungültigem JSON, OpenAI-Fehlern/Rate-Limits, EU-Endpunkt und Sprachgrenzen dokumentiert; klargestellt, dass die Extraktion auf deutschen/englischen Anzeigen am besten funktioniert.
+
+- EN: Added inline comments in `llm/client.py` to describe the Responses → Chat retry cascade that protects streaming fallbacks.
+  DE: Inline-Kommentare in `llm/client.py` ergänzt, die die Responses-→-Chat-Retry-Kaskade für Streaming-Fallbacks erläutern.
+
+- EN: Bug fix – ensured the fallback to Chat completions runs when Responses streaming returns empty content, keeping extraction results available.
+  DE: Bugfix – Fallback zu Chat-Completions aktiv, wenn Responses-Streaming leere Inhalte liefert, damit Extraktionsergebnisse verfügbar bleiben.
+
+- EN: Improvement – documented that German sections like "Rolle & Aufgaben" are parsed more reliably during extraction.
+  DE: Verbesserung – festgehalten, dass deutsche Abschnitte wie „Rolle & Aufgaben“ verlässlicher extrahiert werden.
+
+- EN: Refactor – clarified wizard navigation concepts in documentation (no functional change) while keeping the existing navigation controller layout intact.
+  DE: Refactor – Wizard-Navigation in der Dokumentation präzisiert (keine Funktionsänderung), bestehender Navigationsaufbau bleibt erhalten.
+
 ## [1.1.1] - 2025-11-22
 
 - EN: Initialised the strict-format extraction session keys (UI + backend) up front to stop Streamlit errors when toggling the checkbox in the onboarding settings.
