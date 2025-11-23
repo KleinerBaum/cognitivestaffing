@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["render_interview_guide_section"]
 
+_GENERATION_REQUEST_KEY = "interview_generation_request"
+_GENERATION_STATUS_KEY = "interview_generation_status"
+
 
 def _textarea_height(content: str) -> int:
     """Return a reasonable text area height based on the line count."""
@@ -29,6 +32,44 @@ def _textarea_height(content: str) -> int:
         return 240
     line_count = content.count("\n") + 1
     return min(900, max(240, line_count * 28))
+
+
+def _queue_interview_generation(audience: str, num_questions: int) -> None:
+    """Flag an interview guide generation request with the chosen settings."""
+
+    st.session_state[_GENERATION_REQUEST_KEY] = {
+        "audience": audience,
+        "num_questions": num_questions,
+    }
+    st.session_state[_GENERATION_STATUS_KEY] = "pending"
+    st.session_state["interview_guide_warning"] = None
+    st.session_state["interview_guide_error"] = None
+    st.session_state["interview_guide_fallback_detail"] = None
+
+
+def _run_pending_interview_generation(
+    profile_payload: Mapping[str, object],
+    lang: str,
+) -> None:
+    """Execute a queued interview guide generation request exactly once."""
+
+    request = st.session_state.pop(_GENERATION_REQUEST_KEY, None)
+    if not request:
+        return
+
+    num_questions = int(request.get("num_questions", 5))
+    audience = str(request.get("audience") or "general")
+    st.session_state[_GENERATION_STATUS_KEY] = "running"
+    success = generate_interview_guide_content(
+        profile_payload,
+        lang,
+        num_questions,
+        audience=audience,
+        warn_on_length=True,
+        show_error=False,
+    )
+    status = st.session_state.get("interview_guide_status")
+    st.session_state[_GENERATION_STATUS_KEY] = status or ("success" if success else "error")
 
 
 def render_interview_guide_section(
@@ -51,6 +92,8 @@ def render_interview_guide_section(
             "Generate guides and tailor them for different audiences.",
         )
     )
+
+    _run_pending_interview_generation(profile_payload, lang)
 
     tone_col, question_col = st.columns((1, 1), gap="small")
     style_label_text = (style_label or "").strip()
@@ -109,32 +152,34 @@ def render_interview_guide_section(
     if not llm_available:
         st.caption(llm_disabled_message())
     if st.button(generate_label, type="primary", disabled=not llm_available):
-        if not llm_available:
-            return
-        with st.spinner(tr("Leitfaden wird generiert…", "Generating interview guide…")):
-            try:
-                success = generate_interview_guide_content(
-                    profile_payload,
-                    lang,
-                    selected_num,
-                    audience=audience,
-                )
-            except Exception as exc:  # pragma: no cover - defensive UI guard
-                logger.exception("Interview guide generation failed")
-                st.error(
-                    tr(
-                        "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
-                        "Interview guide generation failed: {error}. Please try again.",
-                    ).format(error=exc)
-                )
-            else:
-                if not success:
-                    st.warning(
-                        tr(
-                            "Konnte keinen Interviewleitfaden erzeugen. Bitte erneut versuchen.",
-                            "Unable to generate an interview guide. Please try again.",
-                        )
-                    )
+        _queue_interview_generation(audience, selected_num)
+        st.rerun()
+
+    status = st.session_state.get(_GENERATION_STATUS_KEY)
+    if status == "running":
+        st.info(tr("Leitfaden wird generiert…", "Generating interview guide…"))
+
+    warning_message = st.session_state.get("interview_guide_warning")
+    if warning_message:
+        st.warning(warning_message)
+
+    error_message = st.session_state.get("interview_guide_error")
+    if status == "error" and error_message:
+        st.error(
+            tr(
+                "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
+                "Interview guide generation failed: {error}. Please try again.",
+            ).format(error=error_message)
+        )
+
+    fallback_detail = st.session_state.get("interview_guide_fallback_detail")
+    if status == "success" and fallback_detail:
+        st.info(
+            tr(
+                "Interviewleitfaden aus Vorlage, da die KI nicht erreichbar war. (Details: {details})",
+                "Showing fallback interview guide because the AI service was unavailable. (Details: {details})",
+            ).format(details=fallback_detail)
+        )
 
     guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
     if guide_text:

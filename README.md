@@ -42,6 +42,7 @@ Architecture at a glance
 * Responsibility parsing: Responsibilities are captured separately from qualifications. Action-led bullets (e.g., "Berätst du unsere Kunden…" or "You will lead…") remain under `responsibilities.items`, while skills, tools, and experience markers flow into the `requirements.*` buckets even when they appear in mixed bullets.
 * Validation and normalization: Structured payloads map into `core/schema.py` and are cleaned via `utils/normalization.py`, ensuring the Pydantic NeedAnalysisProfile stays aligned with the JSON schema in `schema/need_analysis.schema.json`.
 * Outputs: The wizard reuses the stored profile to generate exports (job ads, interview guides, Boolean strings) and to populate the Summary step for download or further edits.
+* Cached generations: Expensive parsing and guide-generation calls run once per input and write their results into `st.session_state`, so UI rerenders simply display cached data without re-triggering LLM work.
 * Summary exports now open in focused tabs (Role tasks & search, Job ad, Interview guide) so recruiters can move through each output without scrolling a single long panel.
 * Developers: See `docs/DEV_GUIDE.md` for extending steps, adding fields, and keeping schema/UI/export sync.
 

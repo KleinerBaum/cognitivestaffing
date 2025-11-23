@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Collection, Mapping, Sequence
 
 import streamlit as st
@@ -13,6 +14,19 @@ from utils.llm_state import is_llm_available, llm_disabled_message
 from nlp.bias import scan_bias_language
 from llm.interview import generate_interview_guide
 from wizard._openai_bridge import generate_job_ad, stream_job_ad
+
+
+@dataclass
+class InterviewGuideGenerationResult:
+    """Structured response for interview guide generation."""
+
+    success: bool
+    guide_md: str = ""
+    guide_data: Mapping[str, Any] | None = None
+    warning: str | None = None
+    error: str | None = None
+    fallback_detail: str | None = None
+    fallback_used: bool = False
 
 
 def generate_job_ad_content(
@@ -144,24 +158,18 @@ def generate_job_ad_content(
     return True
 
 
-def generate_interview_guide_content(
+def prepare_interview_guide_generation(
     profile_payload: Mapping[str, Any],
     lang: str,
     selected_num: int,
     *,
     audience: str = "general",
     warn_on_length: bool = True,
-    show_error: bool = True,
-) -> bool:
-    """Generate the interview guide and update session state."""
+) -> InterviewGuideGenerationResult:
+    """Build an interview guide without rendering UI components."""
 
     if not is_llm_available():
-        if show_error:
-            st.info(llm_disabled_message())
-        return False
-
-    st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
-    st.session_state.setdefault(UIKeys.AUDIENCE_SELECT, audience)
+        return InterviewGuideGenerationResult(success=False, error=llm_disabled_message())
 
     requirements_data = dict(profile_payload.get("requirements", {}) or {})
     extras = (
@@ -172,12 +180,11 @@ def generate_interview_guide_content(
         + (1 if (profile_payload.get("company", {}) or {}).get("culture") else 0)
     )
 
+    length_warning: str | None = None
     if warn_on_length and selected_num + extras > 15:
-        st.warning(
-            tr(
-                "Viele Fragen erzeugen einen sehr umfangreichen Leitfaden.",
-                "A high question count creates a very long guide.",
-            )
+        length_warning = tr(
+            "Viele Fragen erzeugen einen sehr umfangreichen Leitfaden.",
+            "A high question count creates a very long guide.",
         )
 
     responsibilities_text = "\n".join(profile_payload.get("responsibilities", {}).get("items", []))
@@ -199,40 +206,64 @@ def generate_interview_guide_content(
             num_questions=selected_num,
         )
     except Exception as exc:  # pragma: no cover - error path
-        if show_error:
-            st.error(
-                tr(
-                    "Interviewleitfaden-Generierung fehlgeschlagen: {error}. Bitte erneut versuchen.",
-                    "Interview guide generation failed: {error}. Please try again.",
-                ).format(error=exc)
-            )
-        return False
+        return InterviewGuideGenerationResult(success=False, error=str(exc))
 
     guide = result.guide
-    st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = guide.model_dump()
-    st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = guide.final_markdown()
+    guide_md = guide.final_markdown()
+    return InterviewGuideGenerationResult(
+        success=True,
+        guide_md=guide_md,
+        guide_data=guide.model_dump(),
+        warning=length_warning,
+        error=None,
+        fallback_used=result.used_fallback,
+        fallback_detail=(result.error_detail or "").strip() or None,
+    )
 
-    if result.used_fallback and show_error:
-        detail = (result.error_detail or "").strip()
-        if detail:
-            st.warning(
-                tr(
-                    "Die KI-Antwort konnte nicht verarbeitet werden. Wir zeigen vorübergehend den Standardleitfaden. (Details: {details})",
-                    "The AI response could not be processed. Showing the standard guide for now. (Details: {details})",
-                ).format(details=detail)
-            )
-        else:
-            st.info(
-                tr(
-                    "Interviewleitfaden aus Vorlage, da die KI nicht erreichbar war.",
-                    "Showing fallback interview guide because the AI service was unavailable.",
-                )
-            )
 
-    return True
+def _store_interview_result(result: InterviewGuideGenerationResult, audience: str) -> None:
+    """Persist interview guide results and any warnings/errors into session state."""
+
+    st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
+    st.session_state.setdefault(UIKeys.AUDIENCE_SELECT, audience)
+    if result.success:
+        st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = result.guide_md
+        st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = result.guide_data or {}
+    else:
+        st.session_state.pop(StateKeys.INTERVIEW_GUIDE_MD, None)
+        st.session_state.pop(StateKeys.INTERVIEW_GUIDE_DATA, None)
+    st.session_state["interview_guide_warning"] = result.warning
+    st.session_state["interview_guide_error"] = result.error
+    st.session_state["interview_guide_fallback_detail"] = result.fallback_detail if result.fallback_used else None
+    st.session_state["interview_guide_status"] = "success" if result.success else "error" if result.error else "empty"
+
+
+def generate_interview_guide_content(
+    profile_payload: Mapping[str, Any],
+    lang: str,
+    selected_num: int,
+    *,
+    audience: str = "general",
+    warn_on_length: bool = True,
+    show_error: bool = True,
+) -> bool:
+    """Generate the interview guide and update session state without inline UI rendering."""
+
+    st.session_state["interview_guide_show_feedback"] = bool(show_error)
+    result = prepare_interview_guide_generation(
+        profile_payload,
+        lang,
+        selected_num,
+        audience=audience,
+        warn_on_length=warn_on_length,
+    )
+    _store_interview_result(result, audience)
+    return result.success
 
 
 __all__ = [
+    "InterviewGuideGenerationResult",
+    "prepare_interview_guide_generation",
     "generate_interview_guide_content",
     "generate_job_ad_content",
 ]

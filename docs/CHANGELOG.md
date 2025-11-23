@@ -21,6 +21,9 @@ Changed / Geändert
 - EN: Split the Summary export tools into dedicated tabs (Role tasks & search, Job ad, Interview guide) so recruiters navigate outputs without scrolling a single long page.
   DE: Export-Werkzeuge der Summary in eigene Tabs (Aufgaben & Suche, Stellenanzeige, Interviewleitfaden) aufgeteilt, damit Recruiter:innen die Ergebnisse ohne endloses Scrollen durchgehen können.
 
+- EN: Queued interview-guide generation outside the UI layer and cached the results in `st.session_state`, so rerenders read existing data instead of repeating LLM calls.
+  DE: Die Interviewleitfaden-Generierung aus der UI-Schicht ausgelagert und in `st.session_state` zwischengespeichert, damit Neu-Renderings auf vorhandene Daten zugreifen und keine LLM-Aufrufe doppelt ausführen.
+
 - EN: Fixed the Role & Tasks skill board so skill chips render as styled badges instead of raw HTML strings.
   DE: Skill-Chips im Schritt „Aufgaben" werden wieder als gestaltete Badges statt als roher HTML-Text angezeigt.
 
