@@ -10,6 +10,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 - **Boolean search & exports**: Build Boolean strings, job ads, and interview guides directly from the stored profile. Summary tabs separate **Role tasks & search**, **Job ad**, and **Interview guide** for easy review.
 - **ESCO integration**: Optional ESCO skill lookups (read-only GET) enrich extracted skills with cached taxonomy mappings.
 - **Retried, structured outputs**: Strict JSON-schema validation, retries with exponential backoff, and automatic fallbacks prevent broken payloads from reaching the UI.
+- **UI polish**: The Employment step spaces the Work schedule dropdown on its own row so it stays visually separate from nearby toggles/fields (DE: Das Arbeitszeitmodell-Dropdown im Beschäftigungs-Schritt hat nun eine eigene, luftige Zeile und kollidiert nicht mehr mit benachbarten Eingaben).
 
 ## Setup
 1. **Clone & Python**: Use Python ≥ 3.11. Create a virtualenv if desired (`python -m venv .venv && source .venv/bin/activate`).

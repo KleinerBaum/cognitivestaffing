@@ -7699,7 +7699,10 @@ def _step_team() -> None:
     else:
         schedule_default = stored_schedule or schedule_keys[0]
     schedule_index = schedule_keys.index(schedule_default) if schedule_default in schedule_keys else 0
-    schedule_cols = st.columns(3)
+
+    st.divider()
+    schedule_container = st.container()
+    schedule_cols = schedule_container.columns((2, 1, 1))
     schedule_selection = schedule_cols[0].selectbox(
         tr("Arbeitszeitmodell", "Work schedule"),
         options=schedule_keys,
