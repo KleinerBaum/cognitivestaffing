@@ -17,6 +17,7 @@ from .metadata import (
 from . import _agents as agents
 from . import layout
 from . import _logic as logic
+from .steps.jobad_step import _step_onboarding
 from ._agents import (
     generate_interview_guide_content,
     generate_job_ad_content,
@@ -72,6 +73,7 @@ __all__ = [
     "_set_company_logo",
     "_autofill_was_rejected",
     "_update_profile",
+    "_step_onboarding",
     "generate_interview_guide_content",
     "generate_job_ad_content",
 ]
