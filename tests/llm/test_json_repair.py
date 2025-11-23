@@ -19,6 +19,7 @@ class DummyResponse:
         self.usage: dict[str, int] = {}
         self.response_id = "resp"
         self.raw_response: dict[str, str] = {}
+        self.used_chat_fallback = False
 
 
 def test_repair_profile_payload_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,7 +46,7 @@ def test_repair_profile_payload_invokes_responses(monkeypatch: pytest.MonkeyPatc
         payload = {"company": {"logo_url": "https://example.com/logo.svg"}}
         return DummyResponse(json.dumps(payload))
 
-    monkeypatch.setattr(json_repair, "call_responses", fake_call)
+    monkeypatch.setattr(json_repair, "call_responses_safe", fake_call)
 
     errors = [{"loc": ("company", "logo_url"), "msg": "invalid url"}]
     result = repair_profile_payload({"company": {"logo_url": "invalid"}}, errors=errors)
@@ -68,7 +69,7 @@ def test_repair_profile_payload_normalizes_interview_stages(monkeypatch: pytest.
     def fake_call(messages, **kwargs):  # type: ignore[unused-ignore]
         return DummyResponse(json.dumps(payload))
 
-    monkeypatch.setattr(json_repair, "call_responses", fake_call)
+    monkeypatch.setattr(json_repair, "call_responses_safe", fake_call)
 
     result = repair_profile_payload({"process": {"interview_stages": []}}, errors=None)
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for, is_llm_enabled
-from llm.openai_responses import build_json_schema_format, call_responses
+from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.profile_normalization import normalize_interview_stages_field
 
 logger = logging.getLogger(__name__)
@@ -90,17 +90,26 @@ def repair_profile_payload(
     ]
 
     try:
-        response = call_responses(
+        response = call_responses_safe(
             messages,
             model=model,
             response_format=response_format,
             temperature=0.0,
             max_completion_tokens=1600,
             task=ModelTask.JSON_REPAIR,
+            logger_instance=logger,
+            context="json repair",
         )
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("JSON repair call failed: %s", exc)
         return None
+
+    if response is None:
+        logger.warning("JSON repair call returned no content after fallback attempts")
+        return None
+
+    if response.used_chat_fallback:
+        logger.info("JSON repair succeeded via classic chat fallback")
 
     if not response.content:
         logger.debug("JSON repair returned empty content.")

@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 import config as app_config
 from config import ModelTask, get_model_for, is_llm_enabled
-from llm.openai_responses import build_json_schema_format, call_responses
+from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.profile_normalization import normalize_interview_stages_field
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 from utils.skill_taxonomy import build_skill_mappings
@@ -749,7 +749,7 @@ def _llm_extract_city(value: str) -> str:
         {"role": "user", "content": cleaned},
     ]
     try:
-        result = call_responses(
+        result = call_responses_safe(
             messages,
             model=get_model_for(ModelTask.EXTRACTION),
             response_format=response_format,
@@ -757,10 +757,19 @@ def _llm_extract_city(value: str) -> str:
             max_completion_tokens=40,
             reasoning_effort="minimal",
             task=ModelTask.EXTRACTION,
+            logger_instance=logger,
+            context="city extraction",
         )
     except Exception:
         logger.debug("City extraction fallback failed", exc_info=True)
         return ""
+
+    if result is None:
+        logger.info("City extraction fell back to heuristics after Responses/Chat failure")
+        return ""
+
+    if result.used_chat_fallback:
+        logger.info("City extraction used classic chat fallback")
     content = (result.content or "").strip()
     if not content:
         return ""

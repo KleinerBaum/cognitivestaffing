@@ -27,6 +27,7 @@ class InterviewGuideGenerationResult:
     error: str | None = None
     fallback_detail: str | None = None
     fallback_used: bool = False
+    chat_fallback_used: bool = False
 
 
 def generate_job_ad_content(
@@ -217,6 +218,7 @@ def prepare_interview_guide_generation(
         warning=length_warning,
         error=None,
         fallback_used=result.used_fallback,
+        chat_fallback_used=result.used_chat_fallback,
         fallback_detail=(result.error_detail or "").strip() or None,
     )
 
@@ -235,6 +237,7 @@ def _store_interview_result(result: InterviewGuideGenerationResult, audience: st
     st.session_state["interview_guide_warning"] = result.warning
     st.session_state["interview_guide_error"] = result.error
     st.session_state["interview_guide_fallback_detail"] = result.fallback_detail if result.fallback_used else None
+    st.session_state["interview_guide_used_chat_fallback"] = bool(result.chat_fallback_used)
     st.session_state["interview_guide_status"] = "success" if result.success else "error" if result.error else "empty"
 
 

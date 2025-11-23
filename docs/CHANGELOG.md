@@ -21,6 +21,9 @@ Changed / Geändert
 - EN: Prevented strict JSON-schema streaming requests from failing when the Responses API omits the final `response.completed` event by automatically retrying the call without streaming.
   DE: Verhindert, dass strikte JSON-Schema-Streams fehlschlagen, wenn das Responses-API das abschließende `response.completed`-Event auslässt, indem der Aufruf automatisch ohne Streaming wiederholt wird.
 
+- EN: Hardened Responses-to-Chat fallbacks so timeouts or API errors are caught, logged, and retried via classic chat completions without crashing the UI.
+  DE: Responses-zu-Chat-Fallbacks robuster gemacht, damit Timeouts oder API-Fehler abgefangen, protokolliert und über klassische Chat-Completions erneut versucht werden, ohne dass die UI abstürzt.
+
 - EN: Introduced consistent section headings, dividers, and expanders across the wizard (role tasks vs. skills, job-ad source excerpts) so every step is clearly separated and easier to scan.
   DE: Einheitliche Abschnittsüberschriften, Trenner und Aufklapper im Wizard ergänzt (Aufgaben vs. Skills, Stellenanzeigen-Auszüge), damit jede Stufe klar abgegrenzt und leichter erfassbar ist.
 
