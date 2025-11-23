@@ -415,7 +415,8 @@ def _apply_followup_suggestion(field: str, key: str, suggestion: str) -> None:
         st.session_state[key] = "\n".join(items)
         processed_value = [line for line in items if line]
     st.session_state[key] = st.session_state.get(key, normalized) or normalized
-    should_sync_widget_state = field not in INLINE_FOLLOWUP_FIELDS
+    inline_field = field in INLINE_FOLLOWUP_FIELDS
+    should_sync_widget_state = not inline_field
     _update_profile(field, processed_value, session_value=processed_value, sync_widget_state=should_sync_widget_state)
 
 
@@ -735,7 +736,8 @@ def _render_followup_question(q: dict, data: dict) -> None:
             )
             st.session_state[highlight_sentinel] = False
     widget_has_state = field in st.session_state
-    should_sync_widget_state = field not in INLINE_FOLLOWUP_FIELDS
+    inline_field = field in INLINE_FOLLOWUP_FIELDS
+    should_sync_widget_state = not inline_field
     # Keep follow-up values flowing through widget return values; mutating
     # canonical session_state keys after mount triggers Streamlit immutable-key
     # errors and desynchronises sidebar badges.

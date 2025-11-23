@@ -4404,6 +4404,17 @@ def _render_inline_followups(
     _render_followups_for_fields(fields, profile, container=container)
 
 
+def _apply_extraction_profile_update(
+    path: str, value: Any, *, sync_widget_state: bool = True
+) -> None:
+    """Update the profile during extraction review without breaking widget state."""
+
+    try:
+        _update_profile(path, value, sync_widget_state=sync_widget_state)
+    except StreamlitAPIException as error:  # pragma: no cover - Streamlit guardrail
+        logger.warning("Extraction sync skipped for %s: %s", path, error)
+
+
 def _render_extraction_details_preview(raw_profile: Mapping[str, Any] | None) -> None:
     """Display the raw AI extraction for recruiters in a read-only expander."""
 
@@ -4926,7 +4937,11 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
             height=150,
         )
     responsibilities["items"] = resp_items
-    _update_profile(ProfilePaths.RESPONSIBILITIES_ITEMS, resp_items)
+    _apply_extraction_profile_update(
+        ProfilePaths.RESPONSIBILITIES_ITEMS,
+        resp_items,
+        sync_widget_state=False,
+    )
     _render_inline_followups((ProfilePaths.RESPONSIBILITIES_ITEMS,), profile, container=resp_container)
 
     hard_container = st.container()
@@ -4938,7 +4953,11 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
             height=120,
         )
     requirements["hard_skills_required"] = hard_required
-    _update_profile(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED, hard_required)
+    _apply_extraction_profile_update(
+        ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
+        hard_required,
+        sync_widget_state=False,
+    )
     _render_inline_followups((ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,), profile, container=hard_container)
 
     soft_container = st.container()
@@ -4950,7 +4969,11 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
             height=120,
         )
     requirements["soft_skills_required"] = soft_required
-    _update_profile(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED, soft_required)
+    _apply_extraction_profile_update(
+        ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,
+        soft_required,
+        sync_widget_state=False,
+    )
     _render_inline_followups((ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,), profile, container=soft_container)
 
     tools_container = st.container()
