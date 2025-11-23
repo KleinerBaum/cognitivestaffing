@@ -4458,9 +4458,11 @@ def _render_extraction_review() -> bool:
             "Fine-tune every extracted field here before diving into the detailed steps.",
         ),
     )
+    st.markdown("___")
 
     raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
     _render_extraction_details_preview(raw_profile)
+    st.markdown("___")
 
     tabs = st.tabs(
         [
@@ -8416,6 +8418,14 @@ def _step_requirements() -> None:
     requirements_container = st.container()
 
     with responsibilities_container:
+        st.subheader(tr("Extrahierte Rollenaufgaben", "Extracted role tasks"))
+        st.caption(
+            tr(
+                "Übernimm oder ergänze die erkannten Aufgaben; jede Zeile bleibt ein eigener Stichpunkt.",
+                "Review and refine the captured tasks; each line stays its own bullet point.",
+            )
+        )
+        st.markdown("___")
         st.markdown(
             """
             <div class="role-task-section">
@@ -8561,7 +8571,17 @@ def _step_requirements() -> None:
                         }
                     st.rerun()
 
+    st.markdown("___")
+
     with requirements_container:
+        st.subheader(tr("Identifizierte Schlüssel-Skills", "Identified key skills"))
+        st.caption(
+            tr(
+                "Gebündelte Skills aus Extraktion, KI-Vorschlägen und ESCO-Hinweisen für eine klare Übersicht.",
+                "Combined skills from extraction, AI suggestions, and ESCO insights for a clear overview.",
+            )
+        )
+        st.markdown("___")
         st.markdown(
             """
             <div class="role-task-section">
@@ -11000,15 +11020,23 @@ def _render_job_ad_tab(
 
     if raw_source_excerpt:
         st.subheader(tr("Originale Stellenanzeige (Auszug)", "Original job description excerpt"))
-        with st.container(border=True):
+        st.caption(
+            tr(
+                "Kurzüberblick über die Quelle – den vollständigen Text kannst du bei Bedarf einblenden.",
+                "Quick glance at the source – expand for the full text when needed.",
+            )
+        )
+        excerpt_preview = textwrap.shorten(raw_source_excerpt, width=220, placeholder="…")
+        st.caption(excerpt_preview)
+        with st.expander(tr("Originaltext anzeigen", "Show full source"), expanded=False):
+            st.markdown(raw_source_excerpt)
             st.caption(
                 tr(
-                    "Direkter Auszug aus der importierten Anzeige als Vergleichsbasis für die KI-Vorschläge.",
-                    "Direct excerpt from the imported posting to compare against the AI suggestions.",
+                    "Alle generierten Empfehlungen und Textbausteine sind unten klar vom Original getrennt.",
+                    "All generated recommendations and text blocks sit below, clearly separated from the source.",
                 )
             )
-            st.write(raw_source_excerpt)
-        st.divider()
+        st.markdown("___")
 
     st.subheader(tr("KI-Vorschläge & Zusammenfassung", "AI suggestions & summary"))
     st.caption(
