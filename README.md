@@ -556,6 +556,10 @@ EN: Streamlit wizard step modules named sequentially (01_… → 08_…).
 
 DE: Streamlit-Wizard-Schritte mit fortlaufender Nummerierung (01_… bis 08_…).
 
+EN: Navigation order is sourced from `wizard_pages/__init__.py` (`WIZARD_PAGES`); `WizardRouter` derives previous/next links and summary labels from that list so adding or reordering steps stays consistent across the UI.
+
+DE: Die Navigationsreihenfolge kommt aus `wizard_pages/__init__.py` (`WIZARD_PAGES`); `WizardRouter` leitet Zurück/Weiter-Links und Summary-Beschriftungen aus dieser Liste ab, damit neue oder umsortierte Schritte automatisch überall übereinstimmen.
+
 wizard/
 
 EN: Flow control, widget helpers, and routing glue for the multi-step UI.
