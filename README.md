@@ -46,6 +46,7 @@ Architecture at a glance
 * Response schemas: Structured OpenAI responses share validated JSON schemas stored in `llm/response_schemas.py`, which are checked before dispatch so missing required fields trigger logged fallbacks instead of runtime errors.
 * Summary exports now open in focused tabs (Role tasks & search, Job ad, Interview guide) so recruiters can move through each output without scrolling a single long panel.
 * The Summary step highlights the original job-ad excerpt separately from AI-generated suggestions, making it clear which text comes from the source and which comes from the model.
+* Consistent headings, dividers, and expanders keep each wizard step tidy (role tasks vs. skills, job-ad source excerpt). / Einheitliche Überschriften, Trenner und Aufklapper halten jede Wizard-Stufe übersichtlich (Aufgaben vs. Skills, Stellenanzeigen-Auszug).
 * Developers: See `docs/DEV_GUIDE.md` for extending steps, adding fields, and keeping schema/UI/export sync.
 
 Model routing & modes

@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Introduced consistent section headings, dividers, and expanders across the wizard (role tasks vs. skills, job-ad source excerpts) so every step is clearly separated and easier to scan.
+  DE: Einheitliche Abschnittsüberschriften, Trenner und Aufklapper im Wizard ergänzt (Aufgaben vs. Skills, Stellenanzeigen-Auszüge), damit jede Stufe klar abgegrenzt und leichter erfassbar ist.
+
 - EN: Split the Summary export tools into dedicated tabs (Role tasks & search, Job ad, Interview guide) so recruiters navigate outputs without scrolling a single long page.
   DE: Export-Werkzeuge der Summary in eigene Tabs (Aufgaben & Suche, Stellenanzeige, Interviewleitfaden) aufgeteilt, damit Recruiter:innen die Ergebnisse ohne endloses Scrollen durchgehen können.
 
