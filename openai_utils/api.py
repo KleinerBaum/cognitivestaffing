@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from copy import deepcopy
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
@@ -2246,28 +2247,71 @@ def _call_chat_api_single(
     payload["model"] = current_model
 
     retry_state = create_retry_state()
+    fallback_to_chat_attempted = False
+    chat_retry_attempts = 0
+    max_chat_retries = 2
 
     while True:
         try:
             response = _execute_response(payload, current_model, api_mode=api_mode_override)
         except OpenAIError as err:
-            if is_model_available(current_model):
-                raise
-
-            next_model = context.register_failure(current_model)
-
-            if next_model is None:
-                raise
-
             logger.warning(
-                "Model '%s' unavailable (%s); retrying with fallback '%s'.",
+                "OpenAI %s call failed for model %s: %s",
+                active_mode.value,
                 current_model,
                 getattr(err, "message", str(err)),
-                next_model,
+                exc_info=err,
             )
-            payload["model"] = next_model
-            current_model = next_model
-            continue
+
+            if not active_mode.is_classic and not fallback_to_chat_attempted:
+                fallback_to_chat_attempted = True
+                fallback_payload = _convert_responses_payload_to_chat(payload)
+                if fallback_payload:
+                    logger.info(
+                        "Attempting Chat Completions fallback after Responses error for model %s.",
+                        current_model,
+                    )
+                    try:
+                        response = get_client().chat.completions.create(**fallback_payload)
+                    except OpenAIError as chat_error:
+                        logger.error(
+                            "Chat Completions fallback failed: %s",
+                            getattr(chat_error, "message", str(chat_error)),
+                            exc_info=chat_error,
+                        )
+                        response = None
+                else:
+                    response = None
+                if response is None:
+                    raise
+            elif active_mode.is_classic and chat_retry_attempts < max_chat_retries:
+                delay = 0.5 * (2**chat_retry_attempts)
+                chat_retry_attempts += 1
+                logger.info(
+                    "Retrying Chat Completions after error (attempt %d/%d) in %.1fs.",
+                    chat_retry_attempts,
+                    max_chat_retries,
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+            elif is_model_available(current_model):
+                raise
+            else:
+                next_model = context.register_failure(current_model)
+
+                if next_model is None:
+                    raise
+
+                logger.warning(
+                    "Model '%s' unavailable (%s); retrying with fallback '%s'.",
+                    current_model,
+                    getattr(err, "message", str(err)),
+                    next_model,
+                )
+                payload["model"] = next_model
+                current_model = next_model
+                continue
 
         response_id = _extract_response_id(response)
         if response_id and not active_mode.is_classic and api_mode_override != "chat":
