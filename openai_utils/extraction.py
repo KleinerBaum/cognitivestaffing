@@ -42,7 +42,6 @@ from utils.i18n import tr
 from utils.normalization import extract_company_size
 from constants.style_variants import STYLE_VARIANTS
 from constants.keys import StateKeys
-from core.schema_guard import guard_no_additional_properties
 from . import api
 from .api import _chat_content
 from .tools import build_extraction_tool, build_file_search_tool

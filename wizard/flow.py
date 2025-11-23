@@ -4020,9 +4020,7 @@ def _maybe_run_extraction(schema: dict) -> None:
             "must": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_required", [])),
             "nice": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_optional", [])),
         }
-        missing_fields = [
-            field for field in CRITICAL_FIELDS if not get_in(profile_data, field, None)
-        ]
+        missing_fields = [field for field in CRITICAL_FIELDS if not get_in(profile_data, field, None)]
         st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
         st.session_state[StateKeys.PROFILE_METADATA] = metadata
         logger.info(
@@ -8414,9 +8412,10 @@ def _step_requirements() -> None:
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
-    responsibilities_col, requirements_col = st.columns(2, gap="large")
+    responsibilities_container = st.container()
+    requirements_container = st.container()
 
-    with responsibilities_col:
+    with responsibilities_container:
         st.markdown(
             """
             <div class="role-task-section">
@@ -8463,7 +8462,6 @@ def _step_requirements() -> None:
                     "z. B. Produkt-Roadmap planen\nStakeholder-Workshops moderieren",
                     "e.g., Plan the product roadmap\nFacilitate stakeholder workshops",
                 ),
-                height=200,
                 required=responsibilities_required,
                 on_required=_render_required_caption,
             )
@@ -8563,7 +8561,7 @@ def _step_requirements() -> None:
                         }
                     st.rerun()
 
-    with requirements_col:
+    with requirements_container:
         st.markdown(
             """
             <div class="role-task-section">
@@ -8621,9 +8619,6 @@ def _step_requirements() -> None:
             missing_esco_skills=missing_esco_skills,
         )
 
-        must_col, nice_col = st.columns(2, gap="large")
-        tools_col, language_col = st.columns(2, gap="large")
-
         with requirement_panel(
             icon="🔒",
             title=tr("Muss-Anforderungen", "Must-have requirements"),
@@ -8635,78 +8630,74 @@ def _step_requirements() -> None:
                 "Alle Angaben in diesem Block sind zwingend für das Matching.",
                 "Everything in this block is required for candidate matching.",
             ),
-            parent=must_col,
         ):
-            must_cols = st.columns(2, gap="large")
             label_hard_req = tr("Hard Skills (Pflicht)", "Hard skills (required)")
             if "requirements.hard_skills_required" in missing_here:
                 label_hard_req += REQUIRED_SUFFIX
-            with must_cols[0]:
-                data["requirements"]["hard_skills_required"] = chip_multiselect(
-                    label_hard_req,
-                    options=data["requirements"].get("hard_skills_required", []),
-                    values=data["requirements"].get("hard_skills_required", []),
-                    help_text=tr(
-                        "Zwingend benötigte technische Kompetenzen.",
-                        "Essential technical competencies.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_HARD_SKILLS_REQUIRED_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
-                )
-                _render_required_caption(
-                    "requirements.hard_skills_required" in missing_here
-                    and not data["requirements"].get("hard_skills_required")
-                )
-                _render_ai_suggestions(
-                    source_key="hard_skills",
-                    target_key="hard_skills_required",
-                    widget_suffix="must",
-                    caption=tr(
-                        "Empfohlene Skills auf Basis des Jobtitels.",
-                        "Recommended skills based on the job title.",
-                    ),
-                    show_hint=True,
-                )
-                _render_followups_for_fields(
-                    ("requirements.hard_skills_required",),
-                    data,
-                    container_factory=must_cols[0].container,
-                )
+            data["requirements"]["hard_skills_required"] = chip_multiselect(
+                label_hard_req,
+                options=data["requirements"].get("hard_skills_required", []),
+                values=data["requirements"].get("hard_skills_required", []),
+                help_text=tr(
+                    "Zwingend benötigte technische Kompetenzen.",
+                    "Essential technical competencies.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_HARD_SKILLS_REQUIRED_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+            )
+            _render_required_caption(
+                "requirements.hard_skills_required" in missing_here
+                and not data["requirements"].get("hard_skills_required")
+            )
+            _render_ai_suggestions(
+                source_key="hard_skills",
+                target_key="hard_skills_required",
+                widget_suffix="must",
+                caption=tr(
+                    "Empfohlene Skills auf Basis des Jobtitels.",
+                    "Recommended skills based on the job title.",
+                ),
+                show_hint=True,
+            )
+            _render_followups_for_fields(
+                ("requirements.hard_skills_required",),
+                data,
+                container_factory=st.container,
+            )
             label_soft_req = tr("Soft Skills (Pflicht)", "Soft skills (required)")
             if "requirements.soft_skills_required" in missing_here:
                 label_soft_req += REQUIRED_SUFFIX
-            with must_cols[1]:
-                data["requirements"]["soft_skills_required"] = chip_multiselect(
-                    label_soft_req,
-                    options=data["requirements"].get("soft_skills_required", []),
-                    values=data["requirements"].get("soft_skills_required", []),
-                    help_text=tr(
-                        "Unverzichtbare Verhalten- und Teamkompetenzen.",
-                        "Critical behavioural and team skills.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_SOFT_SKILLS_REQUIRED_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
-                )
-                _render_required_caption(
-                    "requirements.soft_skills_required" in missing_here
-                    and not data["requirements"].get("soft_skills_required")
-                )
-                _render_ai_suggestions(
-                    source_key="soft_skills",
-                    target_key="soft_skills_required",
-                    widget_suffix="must_soft",
-                    caption=tr(
-                        "KI-Vorschläge für soziale und methodische Kompetenzen.",
-                        "AI picks for behavioural and interpersonal strengths.",
-                    ),
-                )
-                _render_followups_for_fields(
-                    ("requirements.soft_skills_required",),
-                    data,
-                    container_factory=must_cols[1].container,
-                )
+            data["requirements"]["soft_skills_required"] = chip_multiselect(
+                label_soft_req,
+                options=data["requirements"].get("soft_skills_required", []),
+                values=data["requirements"].get("soft_skills_required", []),
+                help_text=tr(
+                    "Unverzichtbare Verhalten- und Teamkompetenzen.",
+                    "Critical behavioural and team skills.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_SOFT_SKILLS_REQUIRED_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+            )
+            _render_required_caption(
+                "requirements.soft_skills_required" in missing_here
+                and not data["requirements"].get("soft_skills_required")
+            )
+            _render_ai_suggestions(
+                source_key="soft_skills",
+                target_key="soft_skills_required",
+                widget_suffix="must_soft",
+                caption=tr(
+                    "KI-Vorschläge für soziale und methodische Kompetenzen.",
+                    "AI picks for behavioural and interpersonal strengths.",
+                ),
+            )
+            _render_followups_for_fields(
+                ("requirements.soft_skills_required",),
+                data,
+                container_factory=st.container,
+            )
 
         with requirement_panel(
             icon="✨",
@@ -8719,53 +8710,50 @@ def _step_requirements() -> None:
                 "Diese Angaben sind nicht zwingend, helfen aber bei der Priorisierung.",
                 "Not mandatory, but helpful for prioritisation.",
             ),
-            parent=nice_col,
         ):
-            nice_cols = st.columns(2, gap="large")
-            with nice_cols[0]:
-                data["requirements"]["hard_skills_optional"] = chip_multiselect(
-                    tr("Hard Skills (Optional)", "Hard skills (optional)"),
-                    options=data["requirements"].get("hard_skills_optional", []),
-                    values=data["requirements"].get("hard_skills_optional", []),
-                    help_text=tr(
-                        "Zusätzliche technische Stärken, die Mehrwert bieten.",
-                        "Additional technical strengths that add value.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_HARD_SKILLS_OPTIONAL_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
-                )
-                _render_ai_suggestions(
-                    source_key="hard_skills",
-                    target_key="hard_skills_optional",
-                    widget_suffix="nice",
-                    caption=tr(
-                        "Optionale technische Skills, die die KI empfiehlt.",
-                        "Optional technical skills recommended by AI.",
-                    ),
-                )
-            with nice_cols[1]:
-                data["requirements"]["soft_skills_optional"] = chip_multiselect(
-                    tr("Soft Skills (Optional)", "Soft skills (optional)"),
-                    options=data["requirements"].get("soft_skills_optional", []),
-                    values=data["requirements"].get("soft_skills_optional", []),
-                    help_text=tr(
-                        "Wünschenswerte persönliche Eigenschaften.",
-                        "Valuable personal attributes.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
-                )
-                _render_ai_suggestions(
-                    source_key="soft_skills",
-                    target_key="soft_skills_optional",
-                    widget_suffix="nice_soft",
-                    caption=tr(
-                        "Nice-to-have Soft Skills laut KI-Vorschlag.",
-                        "Nice-to-have soft skills suggested by AI.",
-                    ),
-                )
+            data["requirements"]["hard_skills_optional"] = chip_multiselect(
+                tr("Hard Skills (Optional)", "Hard skills (optional)"),
+                options=data["requirements"].get("hard_skills_optional", []),
+                values=data["requirements"].get("hard_skills_optional", []),
+                help_text=tr(
+                    "Zusätzliche technische Stärken, die Mehrwert bieten.",
+                    "Additional technical strengths that add value.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_HARD_SKILLS_OPTIONAL_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
+            )
+            _render_ai_suggestions(
+                source_key="hard_skills",
+                target_key="hard_skills_optional",
+                widget_suffix="nice",
+                caption=tr(
+                    "Optionale technische Skills, die die KI empfiehlt.",
+                    "Optional technical skills recommended by AI.",
+                ),
+            )
+
+            data["requirements"]["soft_skills_optional"] = chip_multiselect(
+                tr("Soft Skills (Optional)", "Soft skills (optional)"),
+                options=data["requirements"].get("soft_skills_optional", []),
+                values=data["requirements"].get("soft_skills_optional", []),
+                help_text=tr(
+                    "Wünschenswerte persönliche Eigenschaften.",
+                    "Valuable personal attributes.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_SOFT_SKILLS_OPTIONAL_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
+            )
+            _render_ai_suggestions(
+                source_key="soft_skills",
+                target_key="soft_skills_optional",
+                widget_suffix="nice_soft",
+                caption=tr(
+                    "Nice-to-have Soft Skills laut KI-Vorschlag.",
+                    "Nice-to-have soft skills suggested by AI.",
+                ),
+            )
 
         with requirement_panel(
             icon="🛠️",
@@ -8778,55 +8766,52 @@ def _step_requirements() -> None:
                 "Liste die wichtigsten Werkzeuge sowie verbindliche Zertifikate auf.",
                 "List the essential tools together with required certificates.",
             ),
-            parent=tools_col,
         ):
-            tech_cert_cols = st.columns(2, gap="large")
-            with tech_cert_cols[0]:
-                data["requirements"]["tools_and_technologies"] = chip_multiselect(
-                    tr("Tools & Tech", "Tools & Tech"),
-                    options=data["requirements"].get("tools_and_technologies", []),
-                    values=data["requirements"].get("tools_and_technologies", []),
-                    help_text=tr(
-                        "Wichtige Systeme, Plattformen oder Sprachen.",
-                        "Key systems, platforms, or languages.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_TOOLS_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
-                )
-                _render_ai_suggestions(
-                    source_key="tools_and_technologies",
-                    target_key="tools_and_technologies",
-                    widget_suffix="tools",
-                    caption=tr(
-                        "Ergänzende Tools & Technologien aus der KI-Analyse.",
-                        "Complementary tools & technologies suggested by AI.",
-                    ),
-                )
-            with tech_cert_cols[1]:
-                certificate_options = _collect_combined_certificates(data["requirements"])
-                selected_certificates = chip_multiselect(
-                    tr("Zertifikate", "Certificates"),
-                    options=certificate_options,
-                    values=certificate_options,
-                    help_text=tr(
-                        "Benötigte Zertifikate oder Nachweise.",
-                        "Required certificates or attestations.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_CERTIFICATES_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_CERTIFICATES),
-                )
-                _set_requirement_certificates(data["requirements"], selected_certificates)
-                _render_ai_suggestions(
-                    source_key="certificates",
-                    target_key="certificates",
-                    widget_suffix="certs",
-                    caption=tr(
-                        "Von der KI empfohlene Zertifikate passend zum Jobtitel.",
-                        "AI-recommended certificates that match the job title.",
-                    ),
-                )
+            data["requirements"]["tools_and_technologies"] = chip_multiselect(
+                tr("Tools & Tech", "Tools & Tech"),
+                options=data["requirements"].get("tools_and_technologies", []),
+                values=data["requirements"].get("tools_and_technologies", []),
+                help_text=tr(
+                    "Wichtige Systeme, Plattformen oder Sprachen.",
+                    "Key systems, platforms, or languages.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_TOOLS_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
+            )
+            _render_ai_suggestions(
+                source_key="tools_and_technologies",
+                target_key="tools_and_technologies",
+                widget_suffix="tools",
+                caption=tr(
+                    "Ergänzende Tools & Technologien aus der KI-Analyse.",
+                    "Complementary tools & technologies suggested by AI.",
+                ),
+            )
+
+            certificate_options = _collect_combined_certificates(data["requirements"])
+            selected_certificates = chip_multiselect(
+                tr("Zertifikate", "Certificates"),
+                options=certificate_options,
+                values=certificate_options,
+                help_text=tr(
+                    "Benötigte Zertifikate oder Nachweise.",
+                    "Required certificates or attestations.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_CERTIFICATES_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_CERTIFICATES),
+            )
+            _set_requirement_certificates(data["requirements"], selected_certificates)
+            _render_ai_suggestions(
+                source_key="certificates",
+                target_key="certificates",
+                widget_suffix="certs",
+                caption=tr(
+                    "Von der KI empfohlene Zertifikate passend zum Jobtitel.",
+                    "AI-recommended certificates that match the job title.",
+                ),
+            )
 
         with requirement_panel(
             icon="🌐",
@@ -8839,35 +8824,32 @@ def _step_requirements() -> None:
                 "Definiere, welche Sprachen verbindlich oder optional sind.",
                 "Define which languages are mandatory or optional.",
             ),
-            parent=language_col,
         ):
-            lang_cols = st.columns(2, gap="large")
-            with lang_cols[0]:
-                data["requirements"]["languages_required"] = chip_multiselect(
-                    tr("Sprachen", "Languages"),
-                    options=data["requirements"].get("languages_required", []),
-                    values=data["requirements"].get("languages_required", []),
-                    help_text=tr(
-                        "Sprachen, die zwingend erforderlich sind.",
-                        "Languages that are mandatory for the role.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_REQUIRED_LANGUAGES_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
-                )
-            with lang_cols[1]:
-                data["requirements"]["languages_optional"] = chip_multiselect(
-                    tr("Optionale Sprachen", "Optional languages"),
-                    options=data["requirements"].get("languages_optional", []),
-                    values=data["requirements"].get("languages_optional", []),
-                    help_text=tr(
-                        "Sprachen, die ein Plus darstellen.",
-                        "Languages that are a plus.",
-                    ),
-                    dropdown=True,
-                    add_more_hint=ADD_MORE_OPTIONAL_LANGUAGES_HINT,
-                    state_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_OPTIONAL),
-                )
+            data["requirements"]["languages_required"] = chip_multiselect(
+                tr("Sprachen", "Languages"),
+                options=data["requirements"].get("languages_required", []),
+                values=data["requirements"].get("languages_required", []),
+                help_text=tr(
+                    "Sprachen, die zwingend erforderlich sind.",
+                    "Languages that are mandatory for the role.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_REQUIRED_LANGUAGES_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
+            )
+
+            data["requirements"]["languages_optional"] = chip_multiselect(
+                tr("Optionale Sprachen", "Optional languages"),
+                options=data["requirements"].get("languages_optional", []),
+                values=data["requirements"].get("languages_optional", []),
+                help_text=tr(
+                    "Sprachen, die ein Plus darstellen.",
+                    "Languages that are a plus.",
+                ),
+                dropdown=True,
+                add_more_hint=ADD_MORE_OPTIONAL_LANGUAGES_HINT,
+                state_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_OPTIONAL),
+            )
 
             current_language_level = data["requirements"].get("language_level_english") or ""
             language_level_options = list(CEFR_LANGUAGE_LEVELS)
@@ -8897,7 +8879,6 @@ def _step_requirements() -> None:
                 "Recruiter:innen legen fest, ob Hintergrund-, Referenz- oder Portfolio-Prüfungen nötig sind.",
                 "Recruiters decide whether background, reference, or portfolio checks are required.",
             ),
-            parent=language_col,
         ):
             _render_compliance_toggle_group(requirements)
 
@@ -10910,9 +10891,7 @@ def _render_role_tasks_tab(
     )
 
     responsibilities = [
-        item.strip()
-        for item in profile.responsibilities.items
-        if isinstance(item, str) and item.strip()
+        item.strip() for item in profile.responsibilities.items if isinstance(item, str) and item.strip()
     ]
     if responsibilities:
         st.markdown("\n".join(f"- {entry}" for entry in responsibilities))
@@ -11511,7 +11490,7 @@ def _render_followup_section(
 
     job_generated, interview_generated = _apply_followup_updates(
         trimmed_answers,
-        data=summary_data,
+        data=dict(summary_data),
         filtered_profile=job_context.filtered_profile,
         profile_payload=profile_payload,
         target_value=job_context.target_value,
