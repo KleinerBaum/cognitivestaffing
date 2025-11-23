@@ -182,3 +182,23 @@ def test_task_list_and_key_responsibilities_headings_detected():
         "Develop dashboards\nMaintain ETL pipelines",
         "1. Partner with stakeholders\n2. Translate business needs into data models",
     ]
+
+
+def test_german_role_and_skills_headings_detected() -> None:
+    text = """Rolle & Aufgaben:
+    - Produktstrategie entwickeln
+    - Stakeholder abstimmen
+
+    Skills & Anforderungen
+    - Erfahrung mit Mobilitätskonzepten
+    - Kommunikationsstärke
+    """
+
+    sections = _extract_section_hints(text)
+
+    assert sections.get("responsibilities") == [
+        "Produktstrategie entwickeln\nStakeholder abstimmen",
+    ]
+    assert sections.get("requirements") == [
+        "Erfahrung mit Mobilitätskonzepten\nKommunikationsstärke",
+    ]
