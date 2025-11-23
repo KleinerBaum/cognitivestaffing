@@ -59,9 +59,10 @@ def test_normalize_city_name_uses_llm_fallback(monkeypatch: pytest.MonkeyPatch) 
             usage={},
             response_id=None,
             raw_response={},
+            used_chat_fallback=False,
         )
 
-    monkeypatch.setattr(normalization, "call_responses", fake_call_responses)
+    monkeypatch.setattr(normalization, "call_responses_safe", fake_call_responses)
 
     try:
         result = normalization.normalize_city_name(" remote möglich")

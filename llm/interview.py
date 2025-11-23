@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, REASONING_EFFORT, get_model_for
-from llm.openai_responses import build_json_schema_format, call_responses
+from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.response_schemas import (
     INTERVIEW_GUIDE_SCHEMA_NAME,
     get_response_schema,
@@ -33,6 +33,7 @@ class InterviewGuideResult:
 
     guide: InterviewGuide
     used_fallback: bool
+    used_chat_fallback: bool = False
     error_detail: str | None = None
 
 
@@ -367,9 +368,7 @@ def _build_messages(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     instruction_lines = [str(template) for template in instruction_templates]
 
     tone_value = str(payload.get("tone") or "").strip()
-    audience_value = str(
-        payload.get("audience_display") or payload.get("audience") or ""
-    ).strip()
+    audience_value = str(payload.get("audience_display") or payload.get("audience") or "").strip()
 
     style_directive = ""
     if tone_value and audience_value:
@@ -436,7 +435,7 @@ def generate_interview_guide(
     schema = get_response_schema(INTERVIEW_GUIDE_SCHEMA_NAME)
 
     try:
-        response = call_responses(
+        response = call_responses_safe(
             messages,
             model=model,
             response_format=build_json_schema_format(
@@ -447,12 +446,22 @@ def generate_interview_guide(
             max_completion_tokens=900,
             reasoning_effort=REASONING_EFFORT,
             task=ModelTask.INTERVIEW_GUIDE,
+            logger_instance=logger,
+            context="interview guide",
         )
+        if response is None:
+            raise RuntimeError("Responses API failed to generate interview guide")
+        if response.used_chat_fallback:
+            logger.info("Interview guide generation used classic chat fallback")
         if not (response.content or "").strip():
             raise ValueError("Responses API returned empty interview guide content")
         data = json.loads(response.content or "{}")
         guide = InterviewGuide.model_validate(data).ensure_markdown()
-        return InterviewGuideResult(guide=guide, used_fallback=False)
+        return InterviewGuideResult(
+            guide=guide,
+            used_fallback=False,
+            used_chat_fallback=response.used_chat_fallback,
+        )
     except Exception as exc:  # pragma: no cover - defensive fallback
         error_detail = f"{type(exc).__name__}: {exc}".strip()
         logger.error(
@@ -460,9 +469,7 @@ def generate_interview_guide(
             error_detail,
             exc_info=exc,
         )
-        user_fallback_detail = (
-            "Fallback interview guide shown because the AI response was unavailable or invalid."
-        )
+        user_fallback_detail = "Fallback interview guide shown because the AI response was unavailable or invalid."
         fallback_with_markdown = fallback.ensure_markdown()
         return InterviewGuideResult(
             guide=fallback_with_markdown,

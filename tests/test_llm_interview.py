@@ -13,6 +13,7 @@ from llm import interview
 class _FakeResponse:
     def __init__(self, content: str):
         self.content = content
+        self.used_chat_fallback = False
 
 
 @pytest.fixture()
@@ -50,7 +51,7 @@ def test_generate_interview_guide_returns_error_detail_on_failure(monkeypatch: p
     def _raise_error(*_args: Any, **_kwargs: Any) -> Any:  # noqa: ANN401
         raise RuntimeError("schema mismatch")
 
-    monkeypatch.setattr(interview, "call_responses", _raise_error)
+    monkeypatch.setattr(interview, "call_responses_safe", _raise_error)
 
     result = interview.generate_interview_guide(job_title="Engineer")
 
@@ -67,7 +68,7 @@ def test_generate_interview_guide_success_has_no_error_detail(
     def _return_valid(*_args: Any, **_kwargs: Any) -> Any:  # noqa: ANN401
         return _FakeResponse(json.dumps(_valid_payload))
 
-    monkeypatch.setattr(interview, "call_responses", _return_valid)
+    monkeypatch.setattr(interview, "call_responses_safe", _return_valid)
 
     result = interview.generate_interview_guide(job_title="Engineer", lang="en")
 

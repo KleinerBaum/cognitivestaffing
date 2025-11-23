@@ -8,7 +8,7 @@ from typing import Dict, List, Mapping, MutableMapping, Optional, Sequence, Set,
 from config import ModelTask, get_model_for
 from core.rules import COMMON_CITY_NAMES
 from core.regexes import CITY_REGEX_IN_PATTERN, FOOTER_CONTACT_PARSE
-from llm.openai_responses import build_json_schema_format, call_responses
+from llm.openai_responses import build_json_schema_format, call_responses_safe
 from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import (
@@ -2302,7 +2302,7 @@ def _llm_extract_primary_city(text: str) -> str:
         strict=True,
     )
     try:
-        result = call_responses(
+        result = call_responses_safe(
             messages,
             model=get_model_for(ModelTask.EXTRACTION),
             response_format=response_format,
@@ -2310,9 +2310,18 @@ def _llm_extract_primary_city(text: str) -> str:
             max_completion_tokens=40,
             reasoning_effort="minimal",
             task=ModelTask.EXTRACTION,
+            logger_instance=HEURISTICS_LOGGER,
+            context="primary city extraction",
         )
     except Exception:
         return ""
+
+    if result is None:
+        HEURISTICS_LOGGER.info("Primary city extraction fell back to heuristics after API failure")
+        return ""
+
+    if result.used_chat_fallback:
+        HEURISTICS_LOGGER.info("Primary city extraction used classic chat fallback")
     content = (result.content or "").strip()
     if not content:
         return ""
