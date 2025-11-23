@@ -4796,14 +4796,18 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
     position["team_size"] = int(team_size_value)
     _update_profile(ProfilePaths.POSITION_TEAM_SIZE, int(team_size_value))
 
-    supervises_default = _coerce_followup_number(position.get("supervises"))
-    supervises_value = metrics_cols[1].number_input(
-        tr("Direkte Reports", "Direct reports"),
-        min_value=0,
-        value=supervises_default,
-        step=1,
-        key=str(ProfilePaths.POSITION_SUPERVISES),
-    )
+    direct_reports_container = st.container()
+    with direct_reports_container:
+        st.markdown(f"**{tr('Direkte Reports', 'Direct reports')}**")
+        supervises_default = _coerce_followup_number(position.get("supervises"))
+        supervises_value = st.number_input(
+            "",
+            min_value=0,
+            value=supervises_default,
+            step=1,
+            key=str(ProfilePaths.POSITION_SUPERVISES),
+            label_visibility="collapsed",
+        )
     position["supervises"] = int(supervises_value)
     _update_profile(ProfilePaths.POSITION_SUPERVISES, int(supervises_value))
 
