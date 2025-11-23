@@ -171,9 +171,7 @@ class WizardRouter:
         return self._controller.build_progress_snapshots()
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        return self._controller.resolve_missing_required_fields(
-            page, validator=self._validate_required_field_inputs
-        )
+        return self._controller.resolve_missing_required_fields(page, validator=self._validate_required_field_inputs)
 
     def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
         return self._controller.validate_required_field_inputs(fields)

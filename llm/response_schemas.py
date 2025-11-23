@@ -32,10 +32,7 @@ def _validate_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
     properties = schema_copy.get("properties") or {}
     missing = [field for field in required_fields if field not in properties]
     if missing:
-        message = (
-            "Schema '%s' is missing required property definitions: %s"
-            % (name, ", ".join(sorted(missing)))
-        )
+        message = "Schema '%s' is missing required property definitions: %s" % (name, ", ".join(sorted(missing)))
         logger.error(message)
         raise ValueError(message)
 

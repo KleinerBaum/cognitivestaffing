@@ -28,7 +28,4 @@ def test_no_legacy_wizard_v1_strings() -> None:
                 relative_path = py_file.relative_to(repo_root)
                 offenders.append(f"{relative_path}:{pattern}")
 
-    assert not offenders, (
-        "Deprecated Wizard v1 references linger in the codebase: "
-        + ", ".join(offenders)
-    )
+    assert not offenders, "Deprecated Wizard v1 references linger in the codebase: " + ", ".join(offenders)

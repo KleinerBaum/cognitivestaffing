@@ -14,7 +14,9 @@ def test_parse_structured_payload_adds_missing_sections_and_defaults() -> None:
     assert payload["position"]["job_title"] == "Developer"
     assert "company" in payload
     assert payload["company"]["name"] == ""
-    assert any(entry.startswith("company:") or entry.startswith("company ") or entry.startswith("company.") for entry in issues)
+    assert any(
+        entry.startswith("company:") or entry.startswith("company ") or entry.startswith("company.") for entry in issues
+    )
     assert any("company.name" in entry for entry in issues)
 
 

@@ -77,9 +77,7 @@ def build_json_schema_format(
     # documented here helps avoid regressions like the past missing-``label``
     # error and keeps the schema requirements visible where the Responses
     # payload is assembled.
-    schema_payload = guard_no_additional_properties(
-        _prune_unsupported_formats(deepcopy(dict(schema)))
-    )
+    schema_payload = guard_no_additional_properties(_prune_unsupported_formats(deepcopy(dict(schema))))
     schema_payload = validate_response_schema(name.strip(), schema_payload)
     schema_config: dict[str, Any] = {
         "name": name.strip(),

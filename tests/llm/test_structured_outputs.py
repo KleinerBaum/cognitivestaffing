@@ -19,9 +19,7 @@ def test_build_json_schema_format_includes_name_and_schema() -> None:
 
 
 def test_interview_guide_schema_marks_focus_area_label_required() -> None:
-    fmt = build_json_schema_format(
-        name="interviewGuide", schema=InterviewGuide.model_json_schema()
-    )
+    fmt = build_json_schema_format(name="interviewGuide", schema=InterviewGuide.model_json_schema())
 
     focus_schema = fmt["schema"]["$defs"]["InterviewGuideFocusArea"]
 

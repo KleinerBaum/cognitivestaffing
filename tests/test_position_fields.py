@@ -29,10 +29,7 @@ def test_reporting_line_skips_hr_contact() -> None:
 
 
 def test_reporting_line_reports_to_phrase() -> None:
-    text = (
-        "You will report to the Head of Engineering (Jane Doe).\n"
-        "You will lead a team of five engineers."
-    )
+    text = "You will report to the Head of Engineering (Jane Doe).\nYou will lead a team of five engineers."
 
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
 

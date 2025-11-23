@@ -90,9 +90,7 @@ def repair_profile_payload(
     except TypeError:
         fallback_payload = _coerce_json_serializable(dict(payload))
         try:
-            payload_text = json.dumps(
-                fallback_payload, ensure_ascii=False, indent=2, sort_keys=True
-            )
+            payload_text = json.dumps(fallback_payload, ensure_ascii=False, indent=2, sort_keys=True)
         except TypeError:
             payload_text = json.dumps(
                 fallback_payload,

@@ -52,6 +52,7 @@ def suggest_benefits(*args: Any, **kwargs: Any):
     backend = _select_benefit_backend()
     return backend(*args, **kwargs)
 
+
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,

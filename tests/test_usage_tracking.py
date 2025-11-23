@@ -19,6 +19,7 @@ import streamlit as st
 import config
 
 if not hasattr(config, "temporarily_force_classic_api"):
+
     @contextmanager
     def _noop_force_classic_api():  # pragma: no cover - import shim
         yield
@@ -95,7 +96,7 @@ def test_usage_counters_accumulate_across_helpers(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(responses_module, "call_responses", _fake_responses_call)
 
     st.session_state[StateKeys.REASONING_MODE] = "quick"
-    openai_api.call_chat_api([{ "role": "user", "content": "hi" }], task=ModelTask.EXTRACTION)
+    openai_api.call_chat_api([{"role": "user", "content": "hi"}], task=ModelTask.EXTRACTION)
 
     usage_state = st.session_state[StateKeys.USAGE]
     assert usage_state["input_tokens"] == 42
@@ -103,7 +104,7 @@ def test_usage_counters_accumulate_across_helpers(monkeypatch: pytest.MonkeyPatc
     assert usage_state["by_task"][ModelTask.EXTRACTION.value] == {"input": 42, "output": 8}
 
     st.session_state[StateKeys.REASONING_MODE] = "precise"
-    openai_api.call_chat_api([{ "role": "user", "content": "hi again" }], task=ModelTask.JOB_AD)
+    openai_api.call_chat_api([{"role": "user", "content": "hi again"}], task=ModelTask.JOB_AD)
 
     usage_state = st.session_state[StateKeys.USAGE]
     assert usage_state["input_tokens"] == 60
@@ -137,7 +138,7 @@ def test_missing_api_key_blocks_usage_updates(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(st, "error", recorded_errors.append)
 
     with pytest.raises(RuntimeError):
-        openai_api.call_chat_api([{ "role": "user", "content": "block chat" }])
+        openai_api.call_chat_api([{"role": "user", "content": "block chat"}])
 
     response_format = {"type": "json_schema", "json_schema": {"name": "stub", "schema": {}}}
     with pytest.raises(RuntimeError):

@@ -13,11 +13,7 @@ def guard_no_additional_properties(schema: Mapping[str, Any]) -> dict[str, Any]:
 
     def _walk(node: Any) -> None:
         if isinstance(node, dict):
-            if (
-                node.get("type") == "object"
-                or "properties" in node
-                or "patternProperties" in node
-            ):
+            if node.get("type") == "object" or "properties" in node or "patternProperties" in node:
                 node["additionalProperties"] = False
             for value in node.values():
                 _walk(value)

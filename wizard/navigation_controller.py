@@ -42,9 +42,7 @@ class NavigationController:
         renderers: Mapping[str, StepRenderer],
         context: WizardContext,
         value_resolver: Callable[[Mapping[str, object], str, object | None], object | None],
-        required_field_validators: Mapping[
-            str, Callable[[str | None], tuple[str | None, LocalizedText | None]]
-        ],
+        required_field_validators: Mapping[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]],
         validated_fields: Collection[str],
         query_params: MutableMapping[str, object] | None = None,
         session_state: MutableMapping[str, object] | None = None,
