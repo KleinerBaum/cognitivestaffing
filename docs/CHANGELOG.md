@@ -21,6 +21,9 @@ Changed / Geändert
 - EN: Introduced consistent section headings, dividers, and expanders across the wizard (role tasks vs. skills, job-ad source excerpts) so every step is clearly separated and easier to scan.
   DE: Einheitliche Abschnittsüberschriften, Trenner und Aufklapper im Wizard ergänzt (Aufgaben vs. Skills, Stellenanzeigen-Auszüge), damit jede Stufe klar abgegrenzt und leichter erfassbar ist.
 
+- EN: Added a bilingual "Help & guidance" sidebar expander that explains the Role Tasks analysis, Summary exports, and AI-powered interview guide requirements (internet/API key, fixed schema) so first-time users know what to expect.
+  DE: Einen zweisprachigen Sidebar-Aufklapper „Hilfe & Hinweise“ ergänzt, der Aufgabenanalyse, Summary-Exporte und die KI-basierte Interviewleitfaden-Generierung (Internet/API-Key, behobenes Schema) erklärt, damit Erstnutzer:innen wissen, was sie erwartet.
+
 - EN: Split the Summary export tools into dedicated tabs (Role tasks & search, Job ad, Interview guide) so recruiters navigate outputs without scrolling a single long page.
   DE: Export-Werkzeuge der Summary in eigene Tabs (Aufgaben & Suche, Stellenanzeige, Interviewleitfaden) aufgeteilt, damit Recruiter:innen die Ergebnisse ohne endloses Scrollen durchgehen können.
 
