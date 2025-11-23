@@ -182,3 +182,19 @@ def test_task_list_and_key_responsibilities_headings_detected():
         "Develop dashboards\nMaintain ETL pipelines",
         "1. Partner with stakeholders\n2. Translate business needs into data models",
     ]
+
+
+def test_your_mission_and_ihr_profil_headings_detected():
+    text = """Your Mission
+    - Build integrations
+    - Ship features
+
+    Ihr Profil
+    - Erfahrung mit Python
+    - Freude an Zusammenarbeit
+    """
+
+    sections = _extract_section_hints(text)
+
+    assert sections.get("responsibilities") == ["Build integrations\nShip features"]
+    assert sections.get("requirements") == ["Erfahrung mit Python\nFreude an Zusammenarbeit"]
