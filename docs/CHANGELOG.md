@@ -79,6 +79,9 @@ Changed / Geändert
 - EN: Captured schema-validation gaps (for example missing `company.name`) during extraction so the wizard keeps running, logs the warning, and highlights the critical fields recruiters need to fill manually.
   DE: Schema-Validierungslücken (z. B. fehlendes `company.name`) während der Extraktion abgefangen, sodass der Wizard weiterläuft, die Warnung protokolliert und die kritischen Felder für die manuelle Nachpflege hervorhebt.
 
+- EN: Gave the Work schedule dropdown its own spaced row in the Employment step so it no longer crowds neighbouring controls in light or dark mode.
+  DE: Dem Dropdown für das Arbeitszeitmodell im Beschäftigungs-Schritt eine abgesetzte, luftige Zeile gegeben, damit es in hellem wie dunklem Modus nicht mehr mit anderen Feldern kollidiert.
+
 - EN: Introduced consistent section headings, dividers, and expanders across the wizard (role tasks vs. skills, job-ad source excerpts) so every step is clearly separated and easier to scan.
   DE: Einheitliche Abschnittsüberschriften, Trenner und Aufklapper im Wizard ergänzt (Aufgaben vs. Skills, Stellenanzeigen-Auszüge), damit jede Stufe klar abgegrenzt und leichter erfassbar ist.
 
