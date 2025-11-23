@@ -66,8 +66,8 @@ Changed / Geändert
 - EN: Clarified the strict JSON toggle label and added a bilingual help tooltip so non-technical users know to disable strict formatting when extraction fails.
   DE: Beschriftung des Strict-JSON-Schalters präzisiert und einen zweisprachigen Hilfetext ergänzt, damit auch Nicht-Tech-Nutzer:innen wissen, dass sie die strikte Formatierung bei Extraktionsproblemen deaktivieren können.
 
-- EN: Role & Tasks step now separates responsibilities (left column) from requirements and skills (right column) and adds short per-column descriptions so recruiters can verify both lists at a glance.
-  DE: Im Schritt „Aufgaben“ stehen die Verantwortlichkeiten jetzt links und die Anforderungen/Skills rechts in getrennten Spalten – inklusive kurzer Erläuterung pro Spalte, damit Recruiter:innen beide Listen auf einen Blick prüfen können.
+- EN: Role & Tasks step now stacks responsibilities and requirements into full-width panels with taller text areas so long bullet lists stay readable on narrow screens without nested scrollbars.
+  DE: Im Schritt „Aufgaben“ sind Verantwortlichkeiten und Anforderungen als untereinander liegende, breitflächige Panels mit höherer Texteingabe umgesetzt, damit lange Stichpunktlisten auf schmalen Ansichten ohne verschachtelte Scrollleisten lesbar bleiben.
 
 - EN: Added a user-facing "Show parsing details" expander in the onboarding extraction review that reveals the raw NeedAnalysisProfile JSON so recruiters can inspect empty/null fields without needing the admin debug panel.
   DE: Im Onboarding-Review gibt es jetzt einen sichtbaren „Parsing-Details“-Expander, der das unveränderte NeedAnalysisProfile-JSON der KI zeigt, damit Recruiter:innen leere/null Felder prüfen können – ganz ohne Admin-Debug-Panel.

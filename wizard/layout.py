@@ -730,13 +730,22 @@ def render_step_warning_banner() -> None:
     st.warning("\n\n".join(messages))
 
 
+def _default_list_text_area_height(items: Sequence[str] | None) -> int:
+    """Return a height that grows with the existing list size."""
+
+    item_count = len([item for item in (items or []) if isinstance(item, str) and item.strip()])
+    if item_count <= 2:
+        return 220
+    return min(720, 28 * (item_count + 1))
+
+
 def render_list_text_area(
     *,
     label: str,
     session_key: str,
     items: Sequence[str] | None = None,
     placeholder: str | None = None,
-    height: int = 200,
+    height: int | None = None,
     required: bool = False,
     on_required: Callable[[bool], None] | None = None,
     strip_bullets: bool = True,
@@ -756,7 +765,7 @@ def render_list_text_area(
     widget_args: dict[str, Any] = {
         "label": label,
         "key": session_key,
-        "height": height,
+        "height": height if height is not None else _default_list_text_area_height(items),
     }
     if placeholder:
         widget_args["placeholder"] = placeholder
