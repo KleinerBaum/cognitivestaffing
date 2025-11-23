@@ -63,9 +63,7 @@ def _stub_streamlit(monkeypatch: pytest.MonkeyPatch, container: DummyContainer) 
 def test_followup_render_error_coalesced(monkeypatch: pytest.MonkeyPatch) -> None:
     """Rendering failures should be logged once per step and halt subsequent questions."""
 
-    SessionBootstrap(
-        followups=[make_followup("team.size", "Size?"), make_followup("team.stack", "Stack?")]
-    ).apply()
+    SessionBootstrap(followups=[make_followup("team.size", "Size?"), make_followup("team.stack", "Stack?")]).apply()
     data: ProfileDict = empty_profile()
     fake_logger = FakeLogger()
     monkeypatch.setattr(followups, "logger", fake_logger)

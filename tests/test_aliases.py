@@ -245,9 +245,7 @@ def test_profile_paths_cover_schema_and_ui() -> None:
     assert not unexpected_stray, f"Wizard pages reference unknown paths: {sorted(unexpected_stray)}"
 
     alias_coverage = {alias for alias, target in WIZARD_ALIASES.items() if target in wizard_paths}
-    alias_optional_coverage = {
-        alias for alias, target in WIZARD_ALIASES.items() if target in OPTIONAL_WIZARD_FIELDS
-    }
+    alias_optional_coverage = {alias for alias, target in WIZARD_ALIASES.items() if target in OPTIONAL_WIZARD_FIELDS}
     legacy_coverage = wizard_paths | alias_coverage | alias_optional_coverage
     legacy_alias_keys = set(WIZARD_ALIASES.keys())
     missing_legacy = (legacy_alias_keys - legacy_coverage) - OPTIONAL_WIZARD_FIELDS

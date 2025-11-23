@@ -278,9 +278,7 @@ class NeedAnalysisOutputParser:
                 except ValidationError as canonical_error:
                     canonical_validation_error = canonical_error
                 else:
-                    logger.info(
-                        "NeedAnalysis payload validated after schema canonicalization."
-                    )
+                    logger.info("NeedAnalysis payload validated after schema canonicalization.")
                     return fallback_model, canonical_data
             if canonical_validation_error is not None:
                 validation_error = canonical_validation_error

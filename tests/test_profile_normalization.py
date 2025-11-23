@@ -203,5 +203,3 @@ def test_normalize_profile_enriches_skill_mappings() -> None:
 
     soft_skill = skill_mappings["soft_skills_optional"][0]
     assert soft_skill["normalized_name"] == "Teamwork"
-
-

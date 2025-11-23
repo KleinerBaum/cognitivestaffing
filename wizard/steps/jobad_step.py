@@ -38,9 +38,7 @@ def _prime_extraction_settings_state() -> None:
         st.session_state.get(UIKeys.EXTRACTION_STRICT_FORMAT, strict_enabled)
     )
 
-    reasoning_mode = str(
-        st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise"
-    ).strip().lower()
+    reasoning_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").strip().lower()
     st.session_state[UIKeys.EXTRACTION_REASONING_MODE] = reasoning_mode
 
 
