@@ -489,3 +489,7 @@ Fix: NeedAnalysis-Aliasfelder (Department/Team) vor der Validierung bewahren, da
 chore: consolidate company logo session key and expand title aliases for schema payloads
 
 Wartung: Sitzungsschlüssel für Firmenlogos vereinheitlicht und Titel-Aliasse im Schema erweitert
+
+fix: map "Must Have"/"Nice To Have" skill sections into required vs. optional requirements, keep German "Anforderungen" bullets in requirements, and route tools into tools_and_technologies instead of mixing all skills together
+
+Fix: "Must Have"-/"Nice To Have"-Skill-Abschnitte werden den Pflicht- bzw. Optional-Requirements zugeordnet, deutsche "Anforderungen"-Stichpunkte bleiben in den Requirements, und Tools wandern in tools_and_technologies statt alle Skills zu vermischen
