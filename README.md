@@ -45,6 +45,7 @@ Architecture at a glance
 * Cached generations: Expensive parsing and guide-generation calls run once per input and write their results into `st.session_state`, so UI rerenders simply display cached data without re-triggering LLM work.
 * Response schemas: Structured OpenAI responses share validated JSON schemas stored in `llm/response_schemas.py`, which are checked before dispatch so missing required fields trigger logged fallbacks instead of runtime errors.
 * Summary exports now open in focused tabs (Role tasks & search, Job ad, Interview guide) so recruiters can move through each output without scrolling a single long panel.
+* The Summary step highlights the original job-ad excerpt separately from AI-generated suggestions, making it clear which text comes from the source and which comes from the model.
 * Developers: See `docs/DEV_GUIDE.md` for extending steps, adding fields, and keeping schema/UI/export sync.
 
 Model routing & modes

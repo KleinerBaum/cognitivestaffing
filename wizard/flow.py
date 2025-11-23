@@ -11012,6 +11012,33 @@ def _render_job_ad_tab(
     is_de = lang.lower().startswith("de")
     field_labels = {field.key: field.label_de if is_de else field.label_en for field in JOB_AD_FIELDS}
 
+    raw_source_text = st.session_state.get(StateKeys.RAW_TEXT, "")
+    raw_source_excerpt = ""
+    if isinstance(raw_source_text, str):
+        condensed_source = " ".join(raw_source_text.split()).strip()
+        if condensed_source:
+            raw_source_excerpt = textwrap.shorten(condensed_source, width=720, placeholder="…")
+
+    if raw_source_excerpt:
+        st.subheader(tr("Originale Stellenanzeige (Auszug)", "Original job description excerpt"))
+        with st.container(border=True):
+            st.caption(
+                tr(
+                    "Direkter Auszug aus der importierten Anzeige als Vergleichsbasis für die KI-Vorschläge.",
+                    "Direct excerpt from the imported posting to compare against the AI suggestions.",
+                )
+            )
+            st.write(raw_source_excerpt)
+        st.divider()
+
+    st.subheader(tr("KI-Vorschläge & Zusammenfassung", "AI suggestions & summary"))
+    st.caption(
+        tr(
+            "Alle generierten Empfehlungen und Textbausteine sind unten gebündelt und klar vom Original getrennt.",
+            "All generated recommendations and text blocks sit below, clearly separated from the source.",
+        )
+    )
+
     render_section_heading(
         tr("Stellenanzeige erstellen", "Create a job ad"),
         icon="📝",
