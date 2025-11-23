@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Documented schema gaps from sample job ads (benefits capture, role summaries, hiring contacts) in `docs/schema_gap_analysis.md` and outlined next steps.
+  DE: Schema-Lücken aus Beispiel-Stellenanzeigen (Benefits, Rollenübersicht, Kontaktzuordnung) in `docs/schema_gap_analysis.md` dokumentiert und nächste Schritte skizziert.
+
 - EN: Split normalization utilities into focused geo/contact/profile modules, centralised the TypedDict payloads, and added
   module-level tests to guard behaviour after the refactor.
   DE: Normalisierungs-Helfer in Geo-/Kontakt-/Profil-Module aufgeteilt, die TypedDict-Payloads zentralisiert und modulbezogene
