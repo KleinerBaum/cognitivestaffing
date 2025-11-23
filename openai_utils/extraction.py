@@ -19,6 +19,10 @@ import config as app_config
 from config import ModelTask, VECTOR_STORE_ID, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt
+from llm.response_schemas import (
+    INTERVIEW_GUIDE_SCHEMA_NAME,
+    get_response_schema,
+)
 from prompts import prompt_registry
 from ingest.heuristics import apply_basic_fallbacks
 from llm.rag_pipeline import (
@@ -1786,7 +1790,7 @@ def generate_interview_guide(
 
     try:
         messages = _build_interview_guide_prompt(payload)
-        schema = guard_no_additional_properties(InterviewGuide.model_json_schema())
+        schema = get_response_schema(INTERVIEW_GUIDE_SCHEMA_NAME)
         response = api.call_chat_api(
             messages,
             model=model,
@@ -1800,7 +1804,11 @@ def generate_interview_guide(
         data = _parse_json_object(_chat_content(response))
         guide = InterviewGuide.model_validate(data).ensure_markdown()
         return guide
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Interview guide generation via chat API failed; returning deterministic fallback.",
+            exc_info=exc,
+        )
         return fallback
 
 

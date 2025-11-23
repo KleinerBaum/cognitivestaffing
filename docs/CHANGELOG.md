@@ -21,6 +21,9 @@ Changed / Geändert
 - EN: Split the Summary export tools into dedicated tabs (Role tasks & search, Job ad, Interview guide) so recruiters navigate outputs without scrolling a single long page.
   DE: Export-Werkzeuge der Summary in eigene Tabs (Aufgaben & Suche, Stellenanzeige, Interviewleitfaden) aufgeteilt, damit Recruiter:innen die Ergebnisse ohne endloses Scrollen durchgehen können.
 
+- EN: Centralised OpenAI response schemas in `llm/response_schemas.py`, validated them before dispatch, and added concise logging plus deterministic fallbacks when schemas are invalid or responses come back empty.
+  DE: OpenAI-Response-Schemas in `llm/response_schemas.py` gebündelt, vor dem Versand validiert und bei ungültigen Schemas oder leeren Antworten klare Logs sowie einen deterministischen Fallback hinterlegt.
+
 - EN: Queued interview-guide generation outside the UI layer and cached the results in `st.session_state`, so rerenders read existing data instead of repeating LLM calls.
   DE: Die Interviewleitfaden-Generierung aus der UI-Schicht ausgelagert und in `st.session_state` zwischengespeichert, damit Neu-Renderings auf vorhandene Daten zugreifen und keine LLM-Aufrufe doppelt ausführen.
 

@@ -32,6 +32,7 @@ from openai_utils.api import (
     model_supports_temperature,
     SchemaFormatBundle,
 )
+from llm.response_schemas import validate_response_schema
 from utils.retry import retry_with_backoff
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
@@ -71,7 +72,10 @@ def build_json_schema_format(
     from core.schema import _prune_unsupported_formats
     from core.schema_guard import guard_no_additional_properties
 
-    schema_payload = guard_no_additional_properties(_prune_unsupported_formats(deepcopy(dict(schema))))
+    schema_payload = guard_no_additional_properties(
+        _prune_unsupported_formats(deepcopy(dict(schema)))
+    )
+    schema_payload = validate_response_schema(name.strip(), schema_payload)
     schema_config: dict[str, Any] = {
         "name": name.strip(),
         "schema": deepcopy(dict(schema_payload)),
