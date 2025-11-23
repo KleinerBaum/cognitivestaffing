@@ -184,21 +184,17 @@ def test_task_list_and_key_responsibilities_headings_detected():
     ]
 
 
-def test_german_role_and_skills_headings_detected() -> None:
-    text = """Rolle & Aufgaben:
-    - Produktstrategie entwickeln
-    - Stakeholder abstimmen
+def test_your_mission_and_ihr_profil_headings_detected():
+    text = """Your Mission
+    - Build integrations
+    - Ship features
 
-    Skills & Anforderungen
-    - Erfahrung mit Mobilitätskonzepten
-    - Kommunikationsstärke
+    Ihr Profil
+    - Erfahrung mit Python
+    - Freude an Zusammenarbeit
     """
 
     sections = _extract_section_hints(text)
 
-    assert sections.get("responsibilities") == [
-        "Produktstrategie entwickeln\nStakeholder abstimmen",
-    ]
-    assert sections.get("requirements") == [
-        "Erfahrung mit Mobilitätskonzepten\nKommunikationsstärke",
-    ]
+    assert sections.get("responsibilities") == ["Build integrations\nShip features"]
+    assert sections.get("requirements") == ["Erfahrung mit Python\nFreude an Zusammenarbeit"]
