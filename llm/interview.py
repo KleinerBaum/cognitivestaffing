@@ -9,6 +9,10 @@ from typing import Any, Mapping, Sequence
 
 from config import ModelTask, REASONING_EFFORT, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses
+from llm.response_schemas import (
+    INTERVIEW_GUIDE_SCHEMA_NAME,
+    get_response_schema,
+)
 from models.interview_guide import (
     InterviewGuide,
     InterviewGuideFocusArea,
@@ -429,14 +433,14 @@ def generate_interview_guide(
         model = get_model_for(ModelTask.INTERVIEW_GUIDE)
 
     messages = _build_messages(payload)
-    schema = InterviewGuide.model_json_schema()
+    schema = get_response_schema(INTERVIEW_GUIDE_SCHEMA_NAME)
 
     try:
         response = call_responses(
             messages,
             model=model,
             response_format=build_json_schema_format(
-                name="interviewGuide",
+                name=INTERVIEW_GUIDE_SCHEMA_NAME,
                 schema=schema,
             ),
             temperature=0.6,
@@ -444,15 +448,24 @@ def generate_interview_guide(
             reasoning_effort=REASONING_EFFORT,
             task=ModelTask.INTERVIEW_GUIDE,
         )
+        if not (response.content or "").strip():
+            raise ValueError("Responses API returned empty interview guide content")
         data = json.loads(response.content or "{}")
         guide = InterviewGuide.model_validate(data).ensure_markdown()
         return InterviewGuideResult(guide=guide, used_fallback=False)
     except Exception as exc:  # pragma: no cover - defensive fallback
         error_detail = f"{type(exc).__name__}: {exc}".strip()
-        logger.exception("Interview guide generation failed; using deterministic fallback.")
+        logger.error(
+            "Interview guide generation failed; returning deterministic fallback: %s",
+            error_detail,
+            exc_info=exc,
+        )
+        user_fallback_detail = (
+            "Fallback interview guide shown because the AI response was unavailable or invalid."
+        )
         fallback_with_markdown = fallback.ensure_markdown()
         return InterviewGuideResult(
             guide=fallback_with_markdown,
             used_fallback=True,
-            error_detail=error_detail,
+            error_detail=f"{user_fallback_detail} ({error_detail})",
         )

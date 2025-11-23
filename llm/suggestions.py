@@ -9,6 +9,11 @@ from typing import Any, Sequence
 import config as app_config
 from config import ModelTask, REASONING_EFFORT, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses_safe
+from llm.response_schemas import (
+    BENEFIT_SUGGESTION_SCHEMA_NAME,
+    SKILL_SUGGESTION_SCHEMA_NAME,
+    get_response_schema,
+)
 from openai_utils.extraction import _format_prompt, _style_prompt_hint
 
 logger = logging.getLogger(__name__)
@@ -239,23 +244,8 @@ def suggest_skills_for_role(
         [{"role": "user", "content": prompt}],
         model=model,
         response_format=build_json_schema_format(
-            name="skill_suggestions",
-            schema={
-                "type": "object",
-                "properties": {
-                    "tools_and_technologies": {"type": "array", "items": {"type": "string"}},
-                    "hard_skills": {"type": "array", "items": {"type": "string"}},
-                    "soft_skills": {"type": "array", "items": {"type": "string"}},
-                    "certificates": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": [
-                    "tools_and_technologies",
-                    "hard_skills",
-                    "soft_skills",
-                    "certificates",
-                ],
-                "additionalProperties": False,
-            },
+            name=SKILL_SUGGESTION_SCHEMA_NAME,
+            schema=get_response_schema(SKILL_SUGGESTION_SCHEMA_NAME),
         ),
         max_completion_tokens=400,
         reasoning_effort=REASONING_EFFORT,
@@ -427,19 +417,8 @@ def suggest_benefits(
         [{"role": "user", "content": prompt}],
         model=model,
         response_format=build_json_schema_format(
-            name="benefit_suggestions",
-            schema={
-                "type": "object",
-                "properties": {
-                    "items": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "maxItems": 5,
-                    }
-                },
-                "required": ["items"],
-                "additionalProperties": False,
-            },
+            name=BENEFIT_SUGGESTION_SCHEMA_NAME,
+            schema=get_response_schema(BENEFIT_SUGGESTION_SCHEMA_NAME),
         ),
         temperature=0.5,
         max_completion_tokens=200,
