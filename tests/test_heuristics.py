@@ -520,28 +520,26 @@ def test_responsibility_and_skill_split_mixed_entries() -> None:
     assert not any("lead a global team" in req.lower() for req in requirement_entries)
 
 
-def test_skill_headings_map_to_required_optional_and_tools() -> None:
+def test_inline_tech_stack_and_language_capture() -> None:
     text = (
-        "Must Have Skills:\n"
-        "- Python\n"
-        "- Strong communication\n"
-        "Nice To Have Skills:\n"
-        "- AWS\n"
-        "- Cross-team collaboration\n"
-        "Anforderungen:\n"
-        "- Erfahrung mit Machine Learning\n"
-        "- Teamfähigkeit\n"
+        "Tech Stack: Python, TensorFlow, AWS\n"
+        "Responsibilities:\n"
+        "- Build and deploy machine learning models\n"
+        "Requirements:\n"
+        "- PMP certification\n"
+        "- Fluent English and German\n"
     )
 
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
 
-    assert "Python" in profile.requirements.hard_skills_required
-    assert "Erfahrung mit Machine Learning" in profile.requirements.hard_skills_required
-    assert "AWS" in profile.requirements.hard_skills_optional
-    assert "Strong communication" in profile.requirements.soft_skills_required
-    assert "Cross-team collaboration" in profile.requirements.soft_skills_optional
-    assert "Teamfähigkeit" in profile.requirements.soft_skills_required
-    assert any(tool.lower() == "aws" for tool in profile.requirements.tools_and_technologies)
+    tools = {tool.lower() for tool in profile.requirements.tools_and_technologies}
+    assert {"aws", "tensorflow"}.issubset(tools)
+
+    languages = {lang.lower() for lang in profile.requirements.languages_required}
+    assert {"english", "german"}.issubset(languages)
+
+    assert any("pmp" in cert.lower() for cert in profile.requirements.certifications)
+    assert any("pmp" in cert.lower() for cert in profile.requirements.certificates)
 
 
 def test_salary_single_value_detection() -> None:

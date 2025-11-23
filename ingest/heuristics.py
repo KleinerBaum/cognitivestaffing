@@ -1096,6 +1096,7 @@ _REQ_REQUIRED_HEADINGS = {
     "was sie mitbringen",
     "was wir erwarten",
     "what you bring",
+    "tech stack",
 }
 _REQ_OPTIONAL_HEADINGS = {
     "nice-to-haves",
@@ -1116,6 +1117,44 @@ _REQ_OPTIONAL_HEADINGS = {
     "idealerweise",
     "idealerweise bringst du mit",
 }
+
+_INLINE_REQ_SEP_RE = re.compile(r"[,;/]|\band\b|\bund\b", re.IGNORECASE)
+
+
+def _match_requirement_heading(line: str, headings: set[str]) -> tuple[bool, list[str]]:
+    """Return whether ``line`` starts with a requirement heading and trailing items.
+
+    The helper recognises inline formats such as ``"Tech Stack: Python, AWS"`` so
+    that tools, languages, or certifications listed on the same line are captured
+    as requirement entries instead of being ignored.
+    """
+
+    stripped = line.strip()
+    if not stripped:
+        return False, []
+
+    cleaned = _clean_bullet(stripped)
+    normalized = re.sub(r"\s+", " ", cleaned).strip(" -–—•\t")
+    if not normalized:
+        return False, []
+
+    lower = normalized.lower()
+    for heading in headings:
+        if lower == heading:
+            return True, []
+        if lower.startswith(heading):
+            remainder = normalized[len(heading) :]
+            if remainder and not re.match(r"^[\s,;:/-]", remainder):
+                continue
+            trailing = remainder.lstrip(" :：,;–—-/\t")
+            if trailing:
+                parts = [part.strip(" -–—•\t") for part in _INLINE_REQ_SEP_RE.split(trailing) if part.strip()]
+                return True, parts or [trailing]
+            return True, []
+
+    return False, []
+
+
 _OPTIONAL_HINTS = {
     "nice-to-have",
     "nice to have",
@@ -1224,6 +1263,7 @@ _TECH_KEYWORD_CATEGORIES: Dict[str, str] = {
     "spark": "tool",
     "spring": "framework",
     "sql": "language",
+    "tensorflow": "tool",
     "swift": "language",
     "tableau": "tool",
     "terraform": "tool",
@@ -1287,6 +1327,7 @@ _TECH_KEYWORD_VARIANTS: Dict[str, Set[str]] = {
     "spark": {"spark", "pyspark"},
     "spring": {"spring", "spring boot", "springboot"},
     "sql": {"sql"},
+    "tensorflow": {"tensorflow"},
     "swift": {"swift"},
     "tableau": {"tableau"},
     "terraform": {"terraform"},
@@ -1751,11 +1792,17 @@ def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
         lower = line.lower().rstrip(":")
         if not line:
             continue
-        if lower in _REQ_REQUIRED_HEADINGS:
+
+        heading_req, trailing_req = _match_requirement_heading(raw, _REQ_REQUIRED_HEADINGS)
+        heading_opt, trailing_opt = _match_requirement_heading(raw, _REQ_OPTIONAL_HEADINGS)
+
+        if heading_req:
             mode = "req"
+            required.extend(trailing_req)
             continue
-        if lower in _REQ_OPTIONAL_HEADINGS:
+        if heading_opt:
             mode = "opt"
+            optional.extend(trailing_opt)
             continue
         if mode and lower in _RESP_HEADINGS:
             mode = None
