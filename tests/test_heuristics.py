@@ -520,6 +520,30 @@ def test_responsibility_and_skill_split_mixed_entries() -> None:
     assert not any("lead a global team" in req.lower() for req in requirement_entries)
 
 
+def test_skill_headings_map_to_required_optional_and_tools() -> None:
+    text = (
+        "Must Have Skills:\n"
+        "- Python\n"
+        "- Strong communication\n"
+        "Nice To Have Skills:\n"
+        "- AWS\n"
+        "- Cross-team collaboration\n"
+        "Anforderungen:\n"
+        "- Erfahrung mit Machine Learning\n"
+        "- Teamfähigkeit\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert "Python" in profile.requirements.hard_skills_required
+    assert "Erfahrung mit Machine Learning" in profile.requirements.hard_skills_required
+    assert "AWS" in profile.requirements.hard_skills_optional
+    assert "Strong communication" in profile.requirements.soft_skills_required
+    assert "Cross-team collaboration" in profile.requirements.soft_skills_optional
+    assert "Teamfähigkeit" in profile.requirements.soft_skills_required
+    assert any(tool.lower() == "aws" for tool in profile.requirements.tools_and_technologies)
+
+
 def test_salary_single_value_detection() -> None:
     text = "Gehalt ab 75.000 € brutto"
     profile = NeedAnalysisProfile()
