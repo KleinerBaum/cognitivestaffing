@@ -1,6 +1,6 @@
 Cognitive Staffing
 
-Cognitive Staffing automates the extraction and enrichment of vacancy profiles from PDFs, URLs, or pasted text. It turns unstructured job ads into structured JSON, highlights missing data, and orchestrates multiple AI agents to draft follow-up questions, job ads, interview guides, and Boolean searches. By default, all LLM calls run through the OpenAI Responses API using cost-effective models: lightweight tasks run on gpt-4.1-mini, while reasoning-heavy flows (summaries, explanations, document rewrites) escalate to the Responses reasoning tier o4-mini with automatic fallbacks through o3 and gpt-4o. This setup lets us enforce structured outputs, stream long generations, and fall back gracefully when rate limits occur. If needed, set the USE_CLASSIC_API environment variable to route all calls through the standard Chat Completions API instead.
+Cognitive Staffing automates the extraction and enrichment of vacancy profiles from PDFs, URLs, or pasted text. It turns unstructured job ads into structured JSON, highlights missing data, and orchestrates multiple AI agents to draft follow-up questions, job ads, interview guides, and Boolean searches. Skill extraction now parses job descriptions more thoroughly so hard skills, soft skills, tools, and languages remain distinct even in mixed bullet lists. By default, all LLM calls run through the OpenAI Responses API using cost-effective models: lightweight tasks run on gpt-4.1-mini, while reasoning-heavy flows (summaries, explanations, document rewrites) escalate to the Responses reasoning tier o4-mini with automatic fallbacks through o3 and gpt-4o. This setup lets us enforce structured outputs, stream long generations, and fall back gracefully when rate limits occur. If needed, set the USE_CLASSIC_API environment variable to route all calls through the standard Chat Completions API instead.
 
 Getting started
 ---------------
@@ -12,6 +12,7 @@ Getting started
 
 2) Configuration
    * Set an OpenAI API key before launching the app; AI-triggering controls remain disabled without it.
+   * Create a local `.env` file (for example, `cp .env.example .env`) and populate at least `OPENAI_API_KEY=<your key>`; Streamlit and the wizard read the same environment on startup.
    * Core environment variables:
 
 | Name | Required? | Purpose |
@@ -27,13 +28,21 @@ Getting started
 
 3) Run the app
    * Start Streamlit: `poetry run streamlit run app.py`.
-   * The wizard opens in the browser; keep the terminal running to preserve the session state.
+   * The wizard opens in the browser; keep the terminal running to preserve the session state. If environment variables live in `.env`, ensure your shell exports them (e.g., `export $(cat .env | xargs)`) before launching Streamlit.
 
 4) Basic usage
    * On the first page, upload a PDF/job ad or paste plain text; the wizard runs heuristics plus the extractor to prefill fields.
    * Walk through the eight steps (Onboarding → Summary). You can download structured JSON on the Summary step or continue to exports (job ads, interview guides, Boolean strings).
    * Switch between quick and precise modes via the in-app toggle; quick requests use gpt-4.1-mini, while precise/"genau" routes use the higher reasoning tier configured via REASONING_EFFORT. If the Responses API struggles, set `USE_CLASSIC_API=1` to fall back to Chat Completions.
    * Open the sidebar **Help & guidance / Hilfe & Hinweise** expander for a quick recap of the Role Tasks analysis, Summary exports, and the AI-powered interview guide requirements (internet/API key, updated schema). / Nutze den Sidebar-Aufklapper **Hilfe & Hinweise / Help & guidance** für eine kurze Erklärung der Aufgabenanalyse, der Summary-Exporte sowie der KI-gestützten Interviewleitfaden-Generierung (Internet/API-Key, behobenes Schema).
+
+Wizard navigation & outputs
+---------------------------
+
+* Steps/pages: The wizard walks through Onboarding → Company → Team & Structure → Role & Tasks → Skills & Requirements → Compensation → Hiring Process → Summary. Each stage shows localized intros and inline validations before you proceed.
+* Role & Tasks step: Uses the improved extraction pipeline to split responsibilities from skills and to group action-led bullets cleanly; skill chips display as styled badges.
+* Summary tabs: The Summary step now splits exports into focused tabs—**Role tasks & search**, **Job ad**, and **Interview guide**—so you can review each output without scrolling a single long panel.
+* Navigation: Use the **Next/Weiter** and **Back/Zurück** buttons on each page, or jump via the sidebar workflow tracker; unsaved required fields keep the step locked and surface bilingual warnings until resolved.
 
 Architecture at a glance
 ------------------------
