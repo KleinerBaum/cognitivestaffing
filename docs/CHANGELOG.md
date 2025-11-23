@@ -18,6 +18,9 @@ Unreleased – Sidebar Polish / Sidebar-Feinschliff
 
 Changed / Geändert
 
+- EN: Documented the wizard navigation flow and bound `WizardRouter` summary labels to the `WIZARD_PAGES` order so reordering steps updates navigation automatically.
+  DE: Die Wizard-Navigation dokumentiert und die `WizardRouter`-Summary-Beschriftungen an die `WIZARD_PAGES`-Reihenfolge gekoppelt, damit Umreihungen die Navigation automatisch mitziehen.
+
 - EN: Relaxed the need-analysis JSON schema so optional sections (department/team, process details, salary breakdowns) no longer fail validation when absent; only core fields like company name and job title stay required.
   DE: Need-Analysis-JSON-Schema gelockert, damit optionale Abschnitte (Abteilung/Team, Prozessdetails, Gehaltsangaben) ohne Werte die Validierung nicht mehr blockieren; nur Kernfelder wie Firmenname und Jobtitel bleiben verpflichtend.
 

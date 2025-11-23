@@ -83,20 +83,9 @@ class _PageProgressSnapshot:
     completion_ratio: float
 
 
-logger = logging.getLogger(__name__)
-
-_SUMMARY_LABELS: tuple[tuple[str, str], ...] = (
-    ("Onboarding", "Onboarding"),
-    ("Unternehmen", "Company"),
-    ("Team & Kontext", "Team & context"),
-    ("Rolle & Aufgaben", "Role & tasks"),
-    ("Skills & Anforderungen", "Skills & requirements"),
-    ("Leistungen & Benefits", "Rewards & Benefits"),
-    ("Prozess", "Process"),
-    ("Summary", "Summary"),
-)
-
 LocalizedText = tuple[str, str]
+
+logger = logging.getLogger(__name__)
 
 _REQUIRED_FIELD_VALIDATORS: Final[dict[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]]] = {
     str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
@@ -246,6 +235,7 @@ class WizardRouter:
         self._renderers: dict[str, StepRenderer] = dict(renderers)
         self._context: WizardContext = context
         self._resolve_value: Callable[[Mapping[str, object], str, object | None], object | None] = value_resolver
+        self._summary_labels: tuple[LocalizedText, ...] = tuple(page.label for page in self._pages)
         self._local_state: dict[str, object] | None = None
         self._pending_validation_errors: dict[str, LocalizedText] = {}
         self._ensure_state_defaults()
@@ -298,7 +288,7 @@ class WizardRouter:
             self._state["_last_rendered_step"] = current_key
         self._maybe_scroll_to_top()
         lang = st.session_state.get("lang", "de")
-        summary_labels = [tr(de, en, lang=lang) for de, en in _SUMMARY_LABELS]
+        summary_labels = [tr(de, en, lang=lang) for de, en in self._summary_labels]
         st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
         try:
             renderer.callback(self._context)
