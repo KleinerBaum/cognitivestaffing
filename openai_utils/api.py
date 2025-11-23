@@ -1782,6 +1782,14 @@ class ChatStream(Iterable[str]):
         else:
             self._finalise(final_response)
 
+        if (self._result is None or not (self._result.content or "").strip()) and not self._api_mode.is_classic:
+            fallback = self._retry_chat_completion(client)
+            if fallback is not None:
+                logger.warning(
+                    "Streaming returned empty content; falling back to chat completions.",
+                )
+                self._finalise(fallback)
+
     def _recover_stream_response(self, client: OpenAI) -> Any | None:
         """Return a non-streamed payload to finalise the request if possible."""
 
