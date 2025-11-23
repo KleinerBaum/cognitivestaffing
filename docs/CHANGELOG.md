@@ -63,6 +63,9 @@ Changed / Geändert
 - EN: Expanded German-aware skill classification so soft skills (Teamfähigkeit/Kundenorientierung), languages (Englisch/Deutsch with levels), and programming languages or tools (Python, Jira, Excel) land in the correct requirements buckets instead of being lumped into hard skills.
   DE: Die deutsche Skill-Klassifizierung wurde erweitert, sodass Soft Skills (Teamfähigkeit/Kundenorientierung), Sprachen (Englisch/Deutsch mit Level) sowie Programmiersprachen oder Tools (Python, Jira, Excel) in den passenden Requirements-Buckets landen und nicht mehr bei den Hard Skills zusammenfallen.
 
+- EN: Added inline "Tech Stack" heading recognition so tools, languages, and certifications listed on a single line are captured into requirements (e.g., Python/TensorFlow/AWS, English/German, PMP).
+  DE: "Tech Stack"-Überschriften mit Inline-Listen werden jetzt erkannt, sodass Tools, Sprachen und Zertifizierungen auf einer Zeile korrekt in die Requirements übernommen werden (z. B. Python/TensorFlow/AWS, Englisch/Deutsch, PMP).
+
 - EN: Hardened extraction fallbacks so empty or invalid Responses payloads return an empty profile and heuristic parsing rather than crashing the wizard.
   DE: Extraktions-Fallback robuster gemacht, sodass leere oder ungültige Responses-Payloads ein leeres Profil liefern und heuristisch fortfahren, statt den Wizard abzubrechen.
 

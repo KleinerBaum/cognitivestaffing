@@ -520,6 +520,28 @@ def test_responsibility_and_skill_split_mixed_entries() -> None:
     assert not any("lead a global team" in req.lower() for req in requirement_entries)
 
 
+def test_inline_tech_stack_and_language_capture() -> None:
+    text = (
+        "Tech Stack: Python, TensorFlow, AWS\n"
+        "Responsibilities:\n"
+        "- Build and deploy machine learning models\n"
+        "Requirements:\n"
+        "- PMP certification\n"
+        "- Fluent English and German\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    tools = {tool.lower() for tool in profile.requirements.tools_and_technologies}
+    assert {"aws", "tensorflow"}.issubset(tools)
+
+    languages = {lang.lower() for lang in profile.requirements.languages_required}
+    assert {"english", "german"}.issubset(languages)
+
+    assert any("pmp" in cert.lower() for cert in profile.requirements.certifications)
+    assert any("pmp" in cert.lower() for cert in profile.requirements.certificates)
+
+
 def test_salary_single_value_detection() -> None:
     text = "Gehalt ab 75.000 € brutto"
     profile = NeedAnalysisProfile()
