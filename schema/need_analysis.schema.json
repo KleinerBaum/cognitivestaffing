@@ -150,6 +150,12 @@
                         "null"
                     ]
                 },
+                "reports_to": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
                 "reporting_manager_name": {
                     "type": [
                         "string",

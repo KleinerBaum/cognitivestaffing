@@ -306,6 +306,8 @@ class Position(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    reports_to: str | None = None
+    supervises: int | None = None
     reporting_manager_name: str | None = None
     customer_contact_required: bool | None = None
     customer_contact_details: str | None = None
@@ -544,6 +546,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "role.relocation": "employment.relocation_support",
         "role.team_structure": "team.name",
         "role.reporting_line": "team.reporting_line",
+        "role.reports_to": "position.reports_to",
         "role.reporting_manager_name": "position.reporting_manager_name",
         "role.role_summary": "position.role_summary",
         "role.summary": "position.role_summary",
@@ -573,6 +576,7 @@ ALIASES: Mapping[str, str] = MappingProxyType(
         "position.department": "department.name",
         "position.team_structure": "team.name",
         "position.reporting_line": "team.reporting_line",
+        "position.reports_to": "role.reports_to",
         "position.team_size": "team.headcount_target",
         "position.supervises": "team.headcount_current",
     }
@@ -587,6 +591,7 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
         "position.department": "department.name",
         "position.team_structure": "team.name",
         "position.reporting_line": "team.reporting_line",
+        "position.reports_to": "role.reports_to",
         "position.team_size": "team.headcount_target",
         "position.supervises": "team.headcount_current",
         "position.seniority_level": "role.seniority",
@@ -606,6 +611,7 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
         "requirements.certificates": "skills.certifications",
         "role.department": "department.name",
         "role.team": "team.name",
+        "role.reports_to": "position.reports_to",
         "role.work_policy": "role.work_model",
         "company.headquarters": "company.hq_location",
         "company.hq": "company.hq_location",
