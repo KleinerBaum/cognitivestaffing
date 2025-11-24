@@ -2008,6 +2008,32 @@ def _is_missing_completion_event_error(error: BaseException | None) -> bool:
     return "response.completed" in lowered or "completion event" in lowered
 
 
+def _clean_response_format_for_chat(response_format: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a Chat-friendly ``response_format`` without Responses-only fields."""
+
+    cleaned = deepcopy(response_format)
+    removed_fields: list[str] = []
+
+    if "strict" in cleaned:
+        cleaned.pop("strict", None)
+        removed_fields.append("response_format.strict")
+
+    json_schema_block = cleaned.get("json_schema")
+    if isinstance(json_schema_block, Mapping) and "strict" in json_schema_block:
+        json_schema_block = dict(json_schema_block)
+        json_schema_block.pop("strict", None)
+        cleaned["json_schema"] = json_schema_block
+        removed_fields.append("response_format.json_schema.strict")
+
+    if removed_fields:
+        logger.debug(
+            "Cleaning Responses-only fields from chat response_format: %s",
+            ", ".join(removed_fields),
+        )
+
+    return cleaned
+
+
 def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, Any] | None:
     """Translate a Responses payload to a Chat Completions payload when possible."""
 
@@ -2073,7 +2099,9 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
                 if strict_value is not None:
                     json_schema_payload["strict"] = strict_value
                 schema_bundle = build_schema_format_bundle(json_schema_payload)
-                chat_payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
+                chat_payload["response_format"] = _clean_response_format_for_chat(
+                    schema_bundle.chat_response_format
+                )
 
     return chat_payload
 
@@ -2103,9 +2131,15 @@ def _build_chat_fallback_payload(
 
     response_format = payload.get("response_format")
     if isinstance(response_format, Mapping):
-        chat_payload["response_format"] = deepcopy(response_format)
+        chat_payload["response_format"] = _clean_response_format_for_chat(response_format)
     elif schema_bundle is not None:
-        chat_payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
+        chat_payload["response_format"] = _clean_response_format_for_chat(
+            schema_bundle.chat_response_format
+        )
+
+    if "strict" in chat_payload:
+        chat_payload.pop("strict", None)
+        logger.debug("Removed top-level strict flag from chat fallback payload.")
 
     return chat_payload
 
