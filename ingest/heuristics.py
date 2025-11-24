@@ -1664,8 +1664,8 @@ def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
     return base
 
 
-def _extract_hiring_process(text: str, *, max_lines: int = 8) -> str | None:
-    """Return a hiring process description extracted from ``text``."""
+def _extract_hiring_process(text: str, *, max_lines: int = 8) -> list[str] | None:
+    """Return a hiring process description extracted from ``text`` as a list."""
 
     if not text.strip():
         return None
@@ -1703,7 +1703,7 @@ def _extract_hiring_process(text: str, *, max_lines: int = 8) -> str | None:
 
     if collected:
         unique_lines = _merge_unique([], collected)
-        return "\n".join(unique_lines).strip()
+        return unique_lines
 
     return None
 
@@ -2706,12 +2706,16 @@ def apply_basic_fallbacks(
                     detail=f"with value {profile.employment.work_schedule!r}",
                 )
 
-    def _needs_value(value: Optional[str], field: str) -> bool:
+    def _needs_value(value: object, field: str) -> bool:
         if field in high_confidence and field not in invalid_fields:
             return False
         if field in invalid_fields:
             return True
-        return not (value and value.strip())
+        if isinstance(value, str):
+            return not value.strip()
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return not any(str(item).strip() for item in value if isinstance(item, str))
+        return not value
 
     def _is_locked(field: str) -> bool:
         return field in locked_fields
@@ -2926,7 +2930,7 @@ def apply_basic_fallbacks(
             _log_heuristic_fill(
                 hiring_process_field,
                 "hiring_process_section",
-                detail=f"with {len(process_description.splitlines())} lines",
+                detail=f"with {len(process_description)} steps",
             )
     if not profile.responsibilities.items:
         tasks = extract_responsibilities(text)

@@ -901,9 +901,12 @@
                 },
                 "hiring_process": {
                     "type": [
-                        "string",
+                        "array",
                         "null"
-                    ]
+                    ],
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "process_notes": {
                     "type": [
