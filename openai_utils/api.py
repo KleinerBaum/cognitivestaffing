@@ -56,6 +56,7 @@ from config import (
     normalise_verbosity,
     resolve_api_mode,
     select_model,
+    get_reasoning_mode,
 )
 from constants.keys import StateKeys
 from llm.cost_router import PromptCostEstimate, route_model_for_messages
@@ -145,8 +146,6 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
 
     responses_format: dict[str, Any] = {
         "type": "json_schema",
-        "name": schema_name,
-        "schema": deepcopy(sanitized_schema),
         "json_schema": {
             "name": schema_name,
             "schema": deepcopy(sanitized_schema),
@@ -156,7 +155,6 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
     if strict_value:
         chat_format["json_schema"]["strict"] = strict_value
         chat_format["strict"] = strict_value
-        responses_format["strict"] = strict_value
         responses_format["json_schema"]["strict"] = strict_value
 
     return SchemaFormatBundle(
@@ -1466,6 +1464,13 @@ def _prepare_payload(
             model = base_model
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
+
+    effort_value = reasoning_effort.strip().lower() if isinstance(reasoning_effort, str) else None
+    mode = get_reasoning_mode()
+    if mode == "quick" and effort_value not in {"minimal", "low"}:
+        reasoning_effort = "low"
+    elif mode == "precise" and effort_value in {None, "minimal", "low"}:
+        reasoning_effort = "high"
 
     candidate_models = get_model_candidates(selected_task, override=candidate_override)
     if model and model not in candidate_models:

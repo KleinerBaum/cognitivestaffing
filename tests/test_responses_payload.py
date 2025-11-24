@@ -207,7 +207,11 @@ def test_chat_fallback_strips_strict_flag(monkeypatch: pytest.MonkeyPatch) -> No
     assert result is not None
     assert captured["json_schema"] == {
         "name": "need_analysis_profile",
-        "schema": {"type": "object", "additionalProperties": False},
+        "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "additionalProperties": False,
+        },
     }
     assert "strict" not in captured["json_schema"]
 
