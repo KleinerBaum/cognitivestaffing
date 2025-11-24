@@ -28,6 +28,9 @@ Changelog
 - EN: Added hiring/interview process capture to the NeedAnalysis schema, prompt, heuristics, and wizard UI so stated steps (e.g., phone screen, onsite) prefill `process.hiring_process`.
   DE: Den Hiring-/Interviewprozess als Feld `process.hiring_process` im Schema, Prompt, Heuristiken und Wizard-UI ergänzt, damit beschriebene Schritte (z. B. Telefonat, Onsite) automatisch vorbefüllt werden.
 
+- EN: Honoured the USE_RESPONSES_API / USE_CLASSIC_API toggles, kept RESPONSES_ALLOW_TOOLS in sync for tool payload fallbacks, refreshed routing defaults to `gpt-4.1-mini` (quick) and `o4-mini`/`o3` (precise via REASONING_EFFORT), and added EU base URL + tier override env vars for OpenAI calls.
+  DE: USE_RESPONSES_API-/USE_CLASSIC_API-Schalter wieder strikt beachtet, RESPONSES_ALLOW_TOOLS für Tool-Fallbacks synchronisiert, Routing-Defaults auf `gpt-4.1-mini` (Schnell) sowie `o4-mini`/`o3` (Genau via REASONING_EFFORT) aktualisiert und EU-Basis-URL plus Tier-Overrides als OpenAI-Env-Vars ergänzt.
+
 - EN: Auto-classify extracted requirements into hard/soft skills, tools & technologies, languages, and certifications using ESCO-aware heuristics so the requirements section is consistently populated.
   DE: Extrahierte Anforderungen werden jetzt ESCO-gestützt in Hard-/Soft-Skills, Tools/Technologien, Sprachen und Zertifizierungen eingeordnet, damit der Requirements-Abschnitt zuverlässig befüllt wird.
 

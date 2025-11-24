@@ -10,7 +10,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 - **Hiring process extraction**: Interview or application steps called out as "Hiring process", "Interview process", "Bewerbungsprozess" etc. are captured into the process section so reviewers see known stages immediately (DE: Als „Hiring/Interview/Bewerbungsprozess“ beschriebene Abläufe werden im Prozess-Abschnitt übernommen, damit bekannte Schritte direkt sichtbar sind.).
 - **Company intro parsing**: About-us blurbs or opening paragraphs are summarised into `company.description` and the main sector is captured in `company.industry` so recruiters get instant context (DE: „Über uns“-Abschnitte werden kurz zusammengefasst und die Branche in `company.industry` eingetragen, damit der Kontext direkt ersichtlich ist.).
 - **Schema-safe defaults**: Required NeedAnalysis fields are auto-populated with neutral placeholders so summaries and follow-ups always render. (DE: Pflichtfelder des NeedAnalysis-Schemas werden mit neutralen Platzhaltern aufgefüllt, damit Zusammenfassungen und Follow-ups stets angezeigt werden.)
-- **Quick vs. Precise modes**: The in-app toggle routes **Quick/Schnell** flows to `gpt-4o-mini` (fast, low reasoning effort) and **Precise/Genau** flows to the high-reasoning `gpt-5.1` tier (via `REASONING_EFFORT` and routing fallbacks). Cache keys are mode-aware so switching modes refreshes results.
+- **Quick vs. Precise modes**: The in-app toggle routes **Quick/Schnell** flows to `gpt-4.1-mini` (fast, low reasoning effort) and **Precise/Genau** flows to the reasoning tier (`o4-mini` for medium effort or `o3` for high effort) via `REASONING_EFFORT` and routing fallbacks. Cache keys are mode-aware so switching modes refreshes results.
 - **Responses vs. Chat API**: By default `USE_RESPONSES_API=1` keeps structured calls on the OpenAI Responses API; set `USE_CLASSIC_API=1` (or clear `USE_RESPONSES_API`) to force the legacy Chat Completions fallback. When Responses returns empty streams, the client cascades to Chat and then curated static suggestions.
 - **Boolean search & exports**: Build Boolean strings, job ads, and interview guides directly from the stored profile. Summary tabs separate **Role tasks & search**, **Job ad**, and **Interview guide** for easy review.
 - **ESCO integration**: Optional ESCO skill lookups (read-only GET) enrich extracted skills with cached taxonomy mappings.
@@ -29,6 +29,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
      - `OPENAI_API_BASE_URL=https://eu.api.openai.com/v1` to use the EU endpoint.
      - `USE_RESPONSES_API=1` (default) / `USE_CLASSIC_API=1` to select Responses vs. Chat.
      - `RESPONSES_ALLOW_TOOLS=0/1` to control tool payloads when allowlisted.
+     - `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, or `HIGH_REASONING_MODEL` to override the quick/medium/high routing tiers.
      - `VECTOR_STORE_ID` to enable OpenAI Vector Store retrieval.
 
 ## Running
