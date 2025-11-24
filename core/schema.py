@@ -176,6 +176,7 @@ class Company(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
+    description: str | None = None
     legal_name: str | None = None
     brand_name: str | None = None
     tagline: str | None = None

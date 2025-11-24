@@ -38,6 +38,7 @@ class Company(BaseModel):
     _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
     name: Optional[str] = None
+    description: Optional[str] = None
     brand_name: Optional[str] = None
     industry: Optional[str] = None
     hq_location: Optional[str] = None

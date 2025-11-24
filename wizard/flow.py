@@ -4576,6 +4576,15 @@ def _render_review_company_tab(profile: dict[str, Any]) -> None:
         value_formatter=_string_or_empty,
     )
 
+    description = st.text_area(
+        tr("Unternehmensbeschreibung", "Company description"),
+        value=_string_or_empty(company.get("description")),
+        placeholder=tr("Kurzvorstellung des Unternehmens", "Short intro about the company"),
+        key="ui.extraction.company.description",
+    )
+    _apply_extraction_profile_update(ProfilePaths.COMPANY_DESCRIPTION, description)
+    company["description"] = description
+
     contact_cols = st.columns(3, gap="small")
     contact_name_container = contact_cols[0].container()
     with contact_name_container:
@@ -6751,6 +6760,18 @@ def _step_company() -> None:
         ),
         value_formatter=_string_or_empty,
     )
+
+    description = st.text_area(
+        tr("Unternehmensbeschreibung", "Company description"),
+        value=_string_or_empty(company.get("description")),
+        placeholder=tr(
+            "Kurzbeschreibung des Unternehmens (max. 50 Wörter)",
+            "Brief company overview (max. 50 words)",
+        ),
+        key="ui.company.description",
+    )
+    _update_profile(ProfilePaths.COMPANY_DESCRIPTION, description)
+    company["description"] = description
 
     company["culture"] = widget_factory.text_input(
         ProfilePaths.COMPANY_CULTURE,
@@ -9682,6 +9703,11 @@ def _summary_company() -> None:
         value=data["company"].get("mission", ""),
         key="ui.summary.company.mission",
     )
+    description = st.text_area(
+        tr("Unternehmensbeschreibung", "Company description"),
+        value=data["company"].get("description", ""),
+        key="ui.summary.company.description",
+    )
     culture = st.text_area(
         tr("Kultur", "Culture"),
         value=data["company"].get("culture", ""),
@@ -9733,6 +9759,7 @@ def _summary_company() -> None:
     _update_profile(ProfilePaths.COMPANY_SIZE, size)
     _update_profile(ProfilePaths.COMPANY_WEBSITE, website)
     _update_profile(ProfilePaths.COMPANY_MISSION, mission)
+    _update_profile(ProfilePaths.COMPANY_DESCRIPTION, description)
     _update_profile(ProfilePaths.COMPANY_CULTURE, culture)
     _update_profile(ProfilePaths.COMPANY_BRAND_KEYWORDS, brand)
     _update_profile(ProfilePaths.COMPANY_CONTACT_NAME, contact_name)

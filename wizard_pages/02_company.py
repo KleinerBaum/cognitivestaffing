@@ -23,6 +23,7 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
     "company.culture",
     "company.values",
     "company.brand_keywords",
+    "company.description",
     "company.contact_name",
     "company.contact_email",
     "company.contact_phone",
