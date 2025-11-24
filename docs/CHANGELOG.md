@@ -2,6 +2,13 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Fixed chat fallbacks by stripping Responses-only strict flags before
+  calling Chat Completions, avoiding unknown-parameter errors and logging
+  the cleanup for debugging.
+  DE: Chat-Fallbacks bereinigen jetzt Responses-spezifische Strict-Flags vor
+  dem Aufruf der Chat Completions, um Unknown-Parameter-Fehler zu verhindern
+  und die Bereinigung zu protokollieren.
+
 - EN: Marked AI-suggested summary entries in italics with a bilingual note so reviewers can distinguish job-ad content from assistant additions before exporting.
   DE: KI-ergänzte Angaben in der Zusammenfassung kursiv markiert und mit Hinweis versehen, damit Anzeigeninhalte und Assistenten-Ergänzungen vor dem Export klar getrennt sind.
 

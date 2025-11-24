@@ -278,7 +278,15 @@ def _run_chat_fallback(
     try:
         schema_bundle = _build_schema_bundle_from_format(response_format)
         chat_schema = deepcopy(schema_bundle.chat_response_format["json_schema"])
-        chat_schema.pop("strict", None)
+        removed_fields: list[str] = []
+        if "strict" in chat_schema:
+            chat_schema.pop("strict", None)
+            removed_fields.append("json_schema.strict")
+        if removed_fields:
+            logger_instance.debug(
+                "Cleaning Responses-only fields before chat fallback: %s",
+                ", ".join(removed_fields),
+            )
     except (ResponsesSchemaError, TypeError) as schema_error:
         logger_instance.warning(
             "Unable to run chat fallback for %s due to schema guard: %s",

@@ -1,7 +1,10 @@
 """Unit tests for OpenAI payload sanitation and error logging helpers."""
 
+from copy import deepcopy
 from types import SimpleNamespace
 from typing import Any
+
+from openai import OpenAIError
 
 import openai_utils.api as openai_api
 
@@ -72,3 +75,49 @@ def test_execute_response_prunes_chat_fields_in_responses_mode(monkeypatch):
     assert "response_format" not in captured
     assert "max_completion_tokens" not in captured
     assert captured["metadata"] == {"source": "responses"}
+
+
+def test_chat_fallback_payload_strips_strict(monkeypatch, caplog):
+    """Responses fallbacks should drop strict flags before Chat Completions calls."""
+
+    caplog.set_level("DEBUG")
+
+    captured: dict[str, Any] = {}
+
+    def _boom(*_: Any, **__: Any) -> None:
+        raise OpenAIError("fail")
+
+    class _DummyCompletions:
+        def create(self, **kwargs: Any) -> Any:  # noqa: D401
+            captured.update(kwargs)
+            return SimpleNamespace(
+                choices=[{"message": {"content": "ok"}}],
+                usage={},
+                id="chat-fallback",
+            )
+
+    dummy_client = SimpleNamespace(chat=SimpleNamespace(completions=_DummyCompletions()))
+
+    monkeypatch.setattr(openai_api, "_execute_response", _boom)
+    monkeypatch.setattr(openai_api, "get_client", lambda: dummy_client)
+
+    schema_bundle = openai_api.build_schema_format_bundle(
+        {"name": "fallback_schema", "schema": {"type": "object"}, "strict": True}
+    )
+
+    result = openai_api.call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        json_schema={
+            "name": schema_bundle.name,
+            "schema": deepcopy(schema_bundle.schema),
+            "strict": True,
+        },
+    )
+
+    response_format = captured.get("response_format", {})
+    assert response_format.get("type") == "json_schema"
+    assert "strict" not in response_format
+    assert "strict" not in response_format.get("json_schema", {})
+    assert any("Responses-only fields" in record.getMessage() for record in caplog.records)
+    assert result.content == "ok"
