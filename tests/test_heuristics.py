@@ -6,6 +6,7 @@ import ingest.heuristics as heuristics
 
 from ingest.heuristics import (
     apply_basic_fallbacks,
+    _extract_benefits_from_text,
     guess_city,
     guess_company,
     guess_employment_details,
@@ -247,6 +248,22 @@ def test_apply_basic_fallbacks_logs_benefits(caplog: pytest.LogCaptureFixture) -
     )
     assert record is not None
     assert record.heuristic_rule == "benefits_section"
+
+
+def test_extract_benefits_from_text_bilingual_headings() -> None:
+    text = """Wir bieten:
+    - Unbefristeter Arbeitsvertrag
+    - 30 Tage Urlaub
+    - Firmenwagen
+    """
+
+    benefits = _extract_benefits_from_text(text)
+
+    assert benefits == [
+        "Unbefristeter Arbeitsvertrag",
+        "30 Tage Urlaub",
+        "Firmenwagen",
+    ]
 
 
 @pytest.mark.skipif(
