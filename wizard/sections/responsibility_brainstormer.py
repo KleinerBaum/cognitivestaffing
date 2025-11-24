@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 import streamlit as st
 
 import config
+from components.chatkit_widget import render_chatkit_widget
 from constants.keys import StateKeys
 from core.suggestions import get_responsibility_suggestions
 from question_logic import tr
@@ -170,6 +171,29 @@ def render_responsibility_brainstormer(
             lang=lang,
         )
     )
+
+    if config.CHATKIT_RESPONSIBILITIES_WORKFLOW_ID:
+        with st.expander(
+            tr("💬 ChatKit-Widget (Rollenaufgaben)", "💬 ChatKit widget (responsibilities)", lang=lang),
+            expanded=False,
+        ):
+            render_chatkit_widget(
+                workflow_id=config.CHATKIT_RESPONSIBILITIES_WORKFLOW_ID,
+                conversation_key="responsibility_brainstormer",
+                title_md=tr(
+                    "##### Live-Chat für Aufgabenideen",
+                    "##### Live chat for responsibility ideas",
+                    lang=lang,
+                ),
+                description=tr(
+                    "Nutze den eingebetteten ChatKit-Assistenten, um Aufgaben vorzuschlagen, die zum Rollenfokus passen.",
+                    "Use the embedded ChatKit assistant to suggest responsibilities tailored to this role.",
+                    lang=lang,
+                ),
+                lang=lang,
+                height=520,
+            )
+        st.write("---")
 
     disabled_reasons: list[str] = []
     if has_missing_key:

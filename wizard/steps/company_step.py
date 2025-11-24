@@ -11,6 +11,8 @@ import requests
 
 import streamlit as st
 
+import config
+from components.chatkit_widget import render_chatkit_widget
 from components import widget_factory
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from wizard.company_validators import persist_contact_email, persist_primary_city
@@ -375,6 +377,30 @@ def _render_company_insights_assistant(company: dict[str, Any], location_data: d
                     lang=lang,
                 ).format(city=city_hint)
             )
+
+        chatkit_workflow = config.CHATKIT_COMPANY_WORKFLOW_ID
+        if chatkit_workflow:
+            with st.expander(
+                tr("💬 ChatKit-Unternehmenschat", "💬 ChatKit company chat", lang=lang),
+                expanded=False,
+            ):
+                render_chatkit_widget(
+                    workflow_id=chatkit_workflow,
+                    conversation_key="company.assistant",
+                    title_md=tr(
+                        "##### Live-Chat für Firmenprofil",
+                        "##### Live chat for the company profile",
+                        lang=lang,
+                    ),
+                    description=tr(
+                        "Hole fehlende Branchendetails oder HQ/Website-Angaben per ChatKit ein.",
+                        "Use ChatKit to gather missing industry, HQ, or website details.",
+                        lang=lang,
+                    ),
+                    lang=lang,
+                    height=520,
+                )
+            st.write("---")
 
         lookup_col, apply_col = st.columns((1.4, 1))
         if lookup_col.button(

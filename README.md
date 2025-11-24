@@ -40,7 +40,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
      - `RESPONSES_ALLOW_TOOLS=0/1` to control tool payloads when allowlisted.
      - `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, or `HIGH_REASONING_MODEL` to override the quick/medium/high routing tiers.
      - `VECTOR_STORE_ID` to enable OpenAI Vector Store retrieval.
-     - `CHATKIT_ENABLED=1` to surface the ChatKit follow-up assistant (default). Set `CHATKIT_DOMAIN_KEY` and `CHATKIT_WORKFLOW_ID` when embedding the hosted widget on your allow-listed Streamlit domain.
+     - `CHATKIT_ENABLED=1` to surface the ChatKit follow-up assistant (default). Set `CHATKIT_DOMAIN_KEY` so the hosted widget renders on your allow-listed domain and configure workflow IDs per widget: `CHATKIT_FOLLOWUPS_WORKFLOW_ID` (defaults to `CHATKIT_WORKFLOW_ID`), `CHATKIT_RESPONSIBILITIES_WORKFLOW_ID`, `CHATKIT_COMPANY_WORKFLOW_ID`, `CHATKIT_TEAM_WORKFLOW_ID`, `CHATKIT_SKILLS_WORKFLOW_ID`, `CHATKIT_COMPENSATION_WORKFLOW_ID`, or `CHATKIT_PROCESS_WORKFLOW_ID`.
 
 ## Running
 - Start the Streamlit app: `poetry run streamlit run app.py` (or `streamlit run app.py` in your active environment).

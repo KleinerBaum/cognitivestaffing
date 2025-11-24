@@ -22,6 +22,7 @@ import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
 import config
+from components.chatkit_widget import render_chatkit_widget
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from utils.i18n import tr
 from wizard.followups import followup_has_response
@@ -580,6 +581,25 @@ def _render_chatkit_followup_assistant(
         return
 
     lang = st.session_state.get("lang", "de")
+    chatkit_workflow = config.CHATKIT_FOLLOWUPS_WORKFLOW_ID
+    if config.CHATKIT_DOMAIN_KEY and chatkit_workflow:
+        render_chatkit_widget(
+            workflow_id=chatkit_workflow,
+            conversation_key=f"followups.{section_key}",
+            title_md=tr(
+                "### 🧠 ChatKit-Assistent für fehlende Angaben",
+                "### 🧠 ChatKit assistant for missing info",
+                lang=lang,
+            ),
+            description=tr(
+                "Der eingebettete ChatKit-Flow ist für diese Domain freigeschaltet und kann Pflichtfelder einsammeln.",
+                "The embedded ChatKit flow is allow-listed for this domain and can capture required fields.",
+                lang=lang,
+            ),
+            lang=lang,
+            height=580,
+        )
+        return
     state = _get_chat_state(section_key)
     pending_fields = [str(item.get("field", "")) for item in followup_items if item.get("field")]
     pending_fields = [field for field in pending_fields if field]
