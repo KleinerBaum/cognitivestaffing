@@ -9,6 +9,34 @@ Changelog
   ergänzt; er schlägt titelbezogene Stichpunkte vor, erlaubt das Hinzufügen oder
   Verwerfen per Klick und berücksichtigt eigene Fokus-Hinweise.
 
+- EN: Added a bilingual compensation range assistant that surfaces market-based salary suggestions or converts stated budgets, then writes salary_min/salary_max/currency into the compensation step on approval.
+  DE: Zweisprachiger Gehaltsassistent ergänzt, der marktbasierte Spannen vorschlägt oder Budgets umrechnet und nach Freigabe salary_min/salary_max/Währung im Vergütungs-Schritt setzt.
+
+- EN: Added a bilingual Company insights assistant to the Company step that
+  fetches public hints (offline catalogue + light Wikipedia/autocomplete lookups)
+  to prefill industry, HQ, size, website, or a short blurb, then prompts the
+  user for any still-missing company details.
+  DE: Im Schritt „Unternehmen“ ergänzt ein zweisprachiger Unternehmens-Insights-
+  Assistent öffentliche Hinweise (Offline-Katalog plus leichte Wikipedia-/
+  Autocomplete-Abfragen), füllt Branche, Hauptsitz, Größe, Website oder eine
+  Kurzbeschreibung vor und fragt fehlende Unternehmensdetails gezielt ab.
+
+  - EN: Introduced a ChatKit-powered responsibility brainstormer on the Role & Tasks
+  step that proposes tailored bullets for the job title, lets users add/dismiss
+  items individually, and accepts custom focus hints.
+  DE: ChatKit-gestützten Aufgaben-Brainstormer im Schritt Rolle & Aufgaben
+  ergänzt; er schlägt titelbezogene Stichpunkte vor, erlaubt das Hinzufügen oder
+  Verwerfen per Klick und berücksichtigt eigene Fokus-Hinweise.
+
+- EN: Added a Skill-Set Expander assistant to the Skills & Requirements step
+  so AI can propose missing skills or certifications and users can accept each
+  suggestion as required or optional with dedicated buttons.
+  DE: Einen Skill-Set-Expander im Skill-Schritt ergänzt: Die KI schlägt
+  fehlende Skills oder Zertifikate vor, und Nutzer:innen übernehmen jeden
+  Vorschlag per Schaltfläche als Pflicht oder Nice-to-have.
+
+- **AI hiring process planner**: A bilingual assistant in the Hiring Process step suggests a seniority-aware stage sequence (screening, technical, panel, leadership), lets you reorder or trim steps, and saves the confirmed list into `process.hiring_process` (DE: Ein zweisprachiger Assistent im Prozess-Schritt schlägt je nach Seniorität passende Stufen vor, erlaubt Umordnen oder Entfernen und speichert die finale Liste in `process.hiring_process`).
+  
 - EN: Replaced static missing-field banners with a bilingual ChatKit follow-up
   assistant that asks for critical NeedAnalysisProfile fields in-context and
   writes answers into the wizard in real time (manual forms remain available
