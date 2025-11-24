@@ -32,7 +32,7 @@ from openai_utils.api import (
     model_supports_temperature,
     SchemaFormatBundle,
 )
-from llm.response_schemas import validate_response_schema
+from llm.response_schemas import INTERVIEW_GUIDE_SCHEMA_NAME, validate_response_schema
 from utils.retry import retry_with_backoff
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
@@ -79,6 +79,20 @@ def build_json_schema_format(
     # payload is assembled.
     schema_payload = guard_no_additional_properties(_prune_unsupported_formats(deepcopy(dict(schema))))
     schema_payload = validate_response_schema(name.strip(), schema_payload)
+
+    if name.strip() == INTERVIEW_GUIDE_SCHEMA_NAME:
+        focus_definitions = schema_payload.get("$defs")
+        focus_schema = None
+        if isinstance(focus_definitions, Mapping):
+            focus_schema = focus_definitions.get("InterviewGuideFocusArea")
+        if isinstance(focus_schema, Mapping):
+            required_fields = list(focus_schema.get("required") or [])
+            for field in ("label", "items"):
+                if field not in required_fields:
+                    required_fields.append(field)
+            focus_schema["required"] = required_fields
+            focus_definitions["InterviewGuideFocusArea"] = focus_schema
+
     schema_config: dict[str, Any] = {
         "name": name.strip(),
         "schema": deepcopy(dict(schema_payload)),
@@ -108,25 +122,41 @@ def _build_schema_bundle_from_format(response_format: Mapping[str, Any]) -> Sche
         raise TypeError("response_format must be a mapping payload.")
 
     json_schema_payload = response_format.get("json_schema")
-    if json_schema_payload is None:
-        raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
-    if not isinstance(json_schema_payload, Mapping):
+    if json_schema_payload is not None and not isinstance(json_schema_payload, Mapping):
         raise TypeError("response_format['json_schema'] must be a mapping payload.")
 
-    schema_payload = json_schema_payload.get("schema")
+    schema_payload = None
+    schema_name: str | None = None
+    strict_value: Any | None = None
+
+    if isinstance(json_schema_payload, Mapping):
+        schema_payload = json_schema_payload.get("schema")
+        schema_name_candidate = json_schema_payload.get("name")
+        schema_name = str(schema_name_candidate).strip() if schema_name_candidate is not None else None
+        if "strict" in json_schema_payload:
+            strict_value = json_schema_payload.get("strict")
+
+    if schema_payload is None and "schema" in response_format:
+        schema_payload = response_format.get("schema")
+
+    if schema_name is None and "name" in response_format:
+        schema_name_candidate = response_format.get("name")
+        schema_name = str(schema_name_candidate or "").strip()
+
     if schema_payload is None:
         raise ResponsesSchemaError("Responses payload requires a schema. [RESPONSES_PAYLOAD_GUARD]")
     if not isinstance(schema_payload, Mapping):
-        raise TypeError("response_format['json_schema']['schema'] must be a mapping payload.")
+        raise TypeError("Responses payload requires a mapping schema. [RESPONSES_PAYLOAD_GUARD]")
 
-    schema_name = json_schema_payload.get("name")
-    if not isinstance(schema_name, str) or not schema_name.strip():
+    if not schema_name:
         raise ResponsesSchemaError("Responses payload requires a schema name. [RESPONSES_PAYLOAD_GUARD]")
-    schema_name = schema_name.strip()
+
+    if strict_value is None and "strict" in response_format:
+        strict_value = response_format.get("strict")
 
     schema_config: dict[str, Any] = {"name": schema_name, "schema": schema_payload}
-    if "strict" in json_schema_payload:
-        schema_config["strict"] = json_schema_payload.get("strict")
+    if strict_value is not None:
+        schema_config["strict"] = strict_value
 
     return build_schema_format_bundle(schema_config)
 

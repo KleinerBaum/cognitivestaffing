@@ -72,6 +72,7 @@ def test_v2025_minimal_payload(_patch_client: _FakeResponsesClient) -> None:
     assert format_payload["schema"] == {
         "type": "object",
         "additionalProperties": False,
+        "$schema": "http://json-schema.org/draft-07/schema#",
     }
 
 
