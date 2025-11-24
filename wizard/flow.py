@@ -109,6 +109,7 @@ from wizard.date_utils import (
     parse_timeline_range as _parse_timeline_range,
     timeline_default_range as _timeline_default_range,
 )
+from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.steps import company_step, jobad_step, team_step
 
@@ -8191,6 +8192,8 @@ def _step_compensation() -> None:
         st.session_state[StateKeys.LOCAL_BENEFIT_SUGGESTIONS] = []
 
     data = profile
+
+    render_compensation_assistant(data)
 
     slider_defaults = _derive_salary_range_defaults(profile)
     inject_salary_slider_styles()

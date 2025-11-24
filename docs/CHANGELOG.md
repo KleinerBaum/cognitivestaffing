@@ -2,6 +2,9 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Added a bilingual compensation range assistant that surfaces market-based salary suggestions or converts stated budgets, then writes salary_min/salary_max/currency into the compensation step on approval.
+  DE: Zweisprachiger Gehaltsassistent ergänzt, der marktbasierte Spannen vorschlägt oder Budgets umrechnet und nach Freigabe salary_min/salary_max/Währung im Vergütungs-Schritt setzt.
+
 - EN: Replaced static missing-field banners with a bilingual ChatKit follow-up
   assistant that asks for critical NeedAnalysisProfile fields in-context and
   writes answers into the wizard in real time (manual forms remain available
