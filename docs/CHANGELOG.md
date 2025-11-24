@@ -35,7 +35,8 @@ Changelog
   fehlende Skills oder Zertifikate vor, und Nutzer:innen übernehmen jeden
   Vorschlag per Schaltfläche als Pflicht oder Nice-to-have.
 
-- **AI hiring process planner**: A bilingual assistant in the Hiring Process step suggests a seniority-aware stage sequence (screening, technical, panel, leadership), lets you reorder or trim steps, and saves the confirmed list into `process.hiring_process` (DE: Ein zweisprachiger Assistent im Prozess-Schritt schlägt je nach Seniorität passende Stufen vor, erlaubt Umordnen oder Entfernen und speichert die finale Liste in `process.hiring_process`).
+- EN: Converted `process.hiring_process` into an ordered list of stages across schema, prompts, heuristics, UI, and exports, and added a bilingual planner assistant in the Process step that proposes seniority-aware stages and saves the confirmed sequence.
+  DE: `process.hiring_process` als geordnete Schrittliste in Schema, Prompts, Heuristiken, UI und Export umgestellt und einen zweisprachigen Planer im Prozess-Schritt ergänzt, der je nach Seniorität passende Stufen vorschlägt und die bestätigte Reihenfolge speichert.
   
 - EN: Replaced static missing-field banners with a bilingual ChatKit follow-up
   assistant that asks for critical NeedAnalysisProfile fields in-context and
