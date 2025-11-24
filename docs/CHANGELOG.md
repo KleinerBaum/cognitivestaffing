@@ -2,6 +2,12 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Fixed wizard team/company step imports so employment help texts load
+  consistently, preventing Streamlit crashes when binding flow dependencies.
+  DE: Wizard-Schritte Team/Unternehmen importieren die Employment-Hilfetexte
+  nun zuverlässig, sodass beim Laden der Flow-Abhängigkeiten keine Streamlit-
+  Abstürze mehr auftreten.
+
 - EN: Fixed chat fallbacks by stripping Responses-only strict flags before
   calling Chat Completions, avoiding unknown-parameter errors and logging
   the cleanup for debugging.
