@@ -10,6 +10,7 @@ This document explains how the multi-step wizard keeps navigation order, renderi
 ## Rendering callbacks (`wizard.flow`)
 
 * `wizard/flow.py` wires each `WizardPage` key to a `StepRenderer` with the actual Streamlit callback used to render the page.
+* Step UIs gradually move into `wizard/steps/` modules (e.g., `company_step.py`, `team_step.py`) so `flow.py` focuses on orchestration and shared helpers instead of per-step layouts.
 * `legacy_index` on `StepRenderer` keeps backwards compatibility with older session keys (`StateKeys.STEP` and `_wizard_step_summary`) while navigation relies solely on `WIZARD_PAGES` order.
 
 ## Router and navigation (`wizard_router.py`)

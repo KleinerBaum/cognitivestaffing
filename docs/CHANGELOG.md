@@ -2,6 +2,14 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Split the wizard's Company and Team steps into dedicated modules
+  (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`) so
+  `wizard/flow.py` remains lean and step-specific changes stay isolated.
+  DE: Die Wizard-Schritte Unternehmen und Team in eigene Module ausgelagert
+  (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`), damit
+  `wizard/flow.py` schlank bleibt und schrittbezogene Anpassungen getrennt
+  bleiben.
+
 - EN: Prompted the extractor to actively capture benefits/perks sections (e.g., "Benefits", "Wir bieten", "Unser Angebot") into compensation.benefits and expanded heading detectors to stop at perks blocks.
   DE: Der Extraktor achtet nun gezielt auf Benefits-/Perk-Abschnitte (z. B. „Benefits“, „Wir bieten“, „Unser Angebot“) und schreibt sie in compensation.benefits; die Heading-Erkennung bricht bei Perk-Blöcken korrekt ab.
 
