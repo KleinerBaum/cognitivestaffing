@@ -57,6 +57,7 @@ from llm.model_router import pick_model  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
+from components.chatkit_widget import inject_chatkit_script  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
@@ -155,6 +156,7 @@ def inject_global_css() -> None:
 
 
 inject_global_css()
+inject_chatkit_script()
 
 
 def _set_intro_banner_visibility(visible: bool) -> None:

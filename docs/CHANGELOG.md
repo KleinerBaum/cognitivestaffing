@@ -2,6 +2,13 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Embedded the hosted ChatKit widgets with the allow-listed domain key,
+  unified styling, and per-assistant workflow IDs so follow-up, responsibility,
+  and company chats render reliably inside Streamlit.
+  DE: Gehostete ChatKit-Widgets mit Domain-Key, vereinheitlichter Optik und
+  eigenen Workflow-IDs pro Assistent eingebettet, damit Follow-up-, Aufgaben-
+  und Unternehmens-Chats zuverlässig in Streamlit erscheinen.
+
 - EN: Introduced a ChatKit-powered responsibility brainstormer on the Role & Tasks
   step that proposes tailored bullets for the job title, lets users add/dismiss
   items individually, and accepts custom focus hints.
