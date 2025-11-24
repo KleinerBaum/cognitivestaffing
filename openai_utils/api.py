@@ -743,6 +743,36 @@ def _extract_output_text(response_obj: Any) -> Optional[str]:
     return text
 
 
+def _normalise_content_payload(content: Any) -> str | None:
+    """Coerce ``content`` into a serialisable string when possible."""
+
+    if content is None:
+        return None
+
+    if isinstance(content, Mapping):
+        try:
+            return json.dumps(dict(content), ensure_ascii=False)
+        except TypeError:
+            return str(content)
+
+    if isinstance(content, str):
+        stripped = content.strip()
+        if not stripped:
+            return stripped
+        if stripped.startswith(("{", "[")):
+            try:
+                loaded = json.loads(stripped)
+            except json.JSONDecodeError:
+                return stripped
+            try:
+                return json.dumps(loaded, ensure_ascii=False)
+            except TypeError:
+                return stripped
+        return stripped
+
+    return str(content)
+
+
 def _normalise_usage(usage_obj: Any) -> Mapping[str, Any]:
     """Return a plain dictionary describing token usage."""
 
@@ -1850,6 +1880,7 @@ class ChatStream(Iterable[str]):
                 "Streaming responses requested tool execution. Use call_chat_api for tool-enabled prompts."
             )
         content = _extract_output_text(response)
+        normalised_content = _normalise_content_payload(content)
         usage_block = _normalise_usage(_extract_usage_block(response) or {})
         usage = _numeric_usage(usage_block)
         _update_usage_counters(usage, task=self._task)
@@ -2040,6 +2071,38 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
                     json_schema_payload["strict"] = strict_value
                 schema_bundle = build_schema_format_bundle(json_schema_payload)
                 chat_payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
+
+    return chat_payload
+
+
+def _build_chat_fallback_payload(
+    payload: Mapping[str, Any],
+    messages: Sequence[Mapping[str, Any]],
+    schema_bundle: SchemaFormatBundle | None,
+) -> dict[str, Any]:
+    """Construct a Chat Completions payload mirroring ``payload``."""
+
+    converted = _convert_responses_payload_to_chat(payload)
+    if converted is not None:
+        return converted
+
+    chat_payload: dict[str, Any] = {
+        "model": payload.get("model"),
+        "messages": [dict(message) for message in messages],
+        "timeout": payload.get("timeout", OPENAI_REQUEST_TIMEOUT),
+    }
+
+    if "temperature" in payload and model_supports_temperature(payload.get("model")):
+        chat_payload["temperature"] = payload.get("temperature")
+
+    if "max_output_tokens" in payload:
+        chat_payload["max_completion_tokens"] = payload.get("max_output_tokens")
+
+    response_format = payload.get("response_format")
+    if isinstance(response_format, Mapping):
+        chat_payload["response_format"] = deepcopy(response_format)
+    elif schema_bundle is not None:
+        chat_payload["response_format"] = deepcopy(schema_bundle.chat_response_format)
 
     return chat_payload
 
@@ -2239,6 +2302,10 @@ def _call_chat_api_single(
     payload = dict(request.payload)
     api_mode_override = request.api_mode_override
 
+    schema_bundle: SchemaFormatBundle | None = None
+    if json_schema is not None and use_response_format:
+        schema_bundle = build_schema_format_bundle(json_schema)
+
     message_key = "messages" if "messages" in payload else "input"
     base_messages = payload.get(message_key)
     if isinstance(base_messages, list):
@@ -2270,8 +2337,16 @@ def _call_chat_api_single(
 
             if not active_mode.is_classic and not fallback_to_chat_attempted:
                 fallback_to_chat_attempted = True
-                fallback_payload = _convert_responses_payload_to_chat(payload)
+                fallback_payload = _build_chat_fallback_payload(
+                    payload,
+                    messages_list,
+                    schema_bundle,
+                )
                 if fallback_payload:
+                    logger.warning(
+                        "Responses API failed; using Chat Completions fallback for model %s.",
+                        current_model,
+                    )
                     logger.info(
                         "Attempting Chat Completions fallback after Responses error for model %s.",
                         current_model,
@@ -2323,6 +2398,7 @@ def _call_chat_api_single(
             payload["previous_response_id"] = response_id
 
         content = _extract_output_text(response)
+        normalised_content = _normalise_content_payload(content)
 
         tool_calls = _collect_tool_calls(response)
 
@@ -2341,7 +2417,7 @@ def _call_chat_api_single(
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = retry_state.last_tool_calls
             return ChatCallResult(
-                content,
+                normalised_content,
                 result_tool_calls,
                 merged_usage,
                 response_id=response_id,
@@ -2362,7 +2438,7 @@ def _call_chat_api_single(
             _update_usage_counters(merged_usage, task=task)
             result_tool_calls = tool_calls or retry_state.last_tool_calls
             return ChatCallResult(
-                content,
+                normalised_content,
                 result_tool_calls,
                 merged_usage,
                 response_id=response_id,
