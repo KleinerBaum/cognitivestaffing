@@ -18,6 +18,13 @@ Changelog
   ab und überträgt die Antworten direkt ins Profil (manuelle Formulare bleiben
   über einen Aufklapper verfügbar).
 
+- EN: Added a bilingual team-composition advisor to the Team & Structure step.
+  It suggests realistic reporting lines and direct-report counts based on the
+  role and company size, plus one-click apply actions for the suggested values.
+  DE: Im Schritt „Team & Kontext“ steht jetzt ein zweisprachiger Team-Kompositions-
+  Assistent bereit, der passende Berichtslinien und übliche Teamgrößen je nach
+  Rolle und Unternehmensgröße vorschlägt und die Werte per Klick übernehmen lässt.
+
 - EN: Split the wizard's Company and Team steps into dedicated modules
   (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`) so
   `wizard/flow.py` remains lean and step-specific changes stay isolated.
@@ -41,8 +48,8 @@ Changelog
 - EN: Company introductions from job ads (e.g., "About us" blurbs) are now summarised into `company.description` and the industry is captured in `company.industry` when evidence exists, leaving both blank when the ad is silent.
   DE: Unternehmensvorstellungen aus Stellenanzeigen (z. B. „Über uns“-Abschnitte) werden jetzt in `company.description` zusammengefasst und die Branche in `company.industry` eingetragen, sofern Hinweise vorhanden sind; andernfalls bleiben beide Felder leer.
 
-- EN: Added hiring/interview process capture to the NeedAnalysis schema, prompt, heuristics, and wizard UI so stated steps (e.g., phone screen, onsite) prefill `process.hiring_process`.
-  DE: Den Hiring-/Interviewprozess als Feld `process.hiring_process` im Schema, Prompt, Heuristiken und Wizard-UI ergänzt, damit beschriebene Schritte (z. B. Telefonat, Onsite) automatisch vorbefüllt werden.
+- EN: Converted `process.hiring_process` into an ordered list of stages across schema, prompts, heuristics, UI, and exports, and added a bilingual planner assistant in the Process step that proposes seniority-aware stages and saves the confirmed sequence.
+  DE: `process.hiring_process` als geordnete Schrittliste in Schema, Prompts, Heuristiken, UI und Export umgestellt und einen zweisprachigen Planer im Prozess-Schritt ergänzt, der je nach Seniorität passende Stufen vorschlägt und die bestätigte Reihenfolge speichert.
 
 - EN: Honoured the USE_RESPONSES_API / USE_CLASSIC_API toggles, kept RESPONSES_ALLOW_TOOLS in sync for tool payload fallbacks, refreshed routing defaults to `gpt-4.1-mini` (quick) and `o4-mini`/`o3` (precise via REASONING_EFFORT), and added EU base URL + tier override env vars for OpenAI calls.
   DE: USE_RESPONSES_API-/USE_CLASSIC_API-Schalter wieder strikt beachtet, RESPONSES_ALLOW_TOOLS für Tool-Fallbacks synchronisiert, Routing-Defaults auf `gpt-4.1-mini` (Schnell) sowie `o4-mini`/`o3` (Genau via REASONING_EFFORT) aktualisiert und EU-Basis-URL plus Tier-Overrides als OpenAI-Env-Vars ergänzt.

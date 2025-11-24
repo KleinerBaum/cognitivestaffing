@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import re
+from collections.abc import Sequence
 from typing import Any, ClassVar, List, Literal, Optional
 
 from pydantic import (
@@ -432,12 +433,39 @@ class Process(BaseModel):
     stakeholders: List[Stakeholder] = Field(default_factory=list)
     phases: List[Phase] = Field(default_factory=list)
     recruitment_timeline: Optional[str] = None
-    hiring_process: Optional[str] = None
+    hiring_process: List[str] = Field(default_factory=list)
     process_notes: Optional[str] = None
     application_instructions: Optional[str] = None
     onboarding_process: Optional[str] = None
     hiring_manager_name: Optional[str] = None
     hiring_manager_role: Optional[str] = None
+
+    @field_validator("hiring_process", mode="before")
+    @classmethod
+    def _coerce_hiring_process(cls, value: object) -> list[str]:
+        """Normalise hiring process steps into a list of strings."""
+
+        if value is None:
+            return []
+
+        def _clean_steps(raw_steps: Sequence[str]) -> list[str]:
+            cleaned_steps: list[str] = []
+            for step in raw_steps:
+                if not isinstance(step, str):
+                    continue
+                cleaned = step.strip().lstrip("-•").strip()
+                if cleaned:
+                    cleaned_steps.append(cleaned)
+            return cleaned_steps
+
+        if isinstance(value, str):
+            parts = re.split(r"[\n|]+", value)
+            return _clean_steps(parts)
+
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return _clean_steps(list(value))
+
+        return []
 
 
 class Meta(BaseModel):

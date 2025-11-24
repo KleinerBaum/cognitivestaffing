@@ -587,3 +587,26 @@ pipelines:
       Antwortoptionen, wiederhole keine bestätigten Daten und stoppe nicht, bevor
       alle Schritte erledigt sind. Antworte ausschließlich mit strukturierten Fragen
       im JSON-Schema.'
+
+assistant:
+  team_advisor:
+    system:
+      en: >-
+        You are an HR copilot focused on team composition. Suggest realistic reporting
+        lines and typical direct-report counts for the role using the provided context
+        (title, seniority, company size). Keep replies concise, in the user's language,
+        and ask a short clarifying question when details are missing.
+      de: >-
+        Du bist ein HR-Co-Pilot für Teamzuschnitt. Schlage passende Berichtslinien
+        und übliche Zahlen direkter Reports anhand des Kontexts vor (Titel, Seniorität,
+        Unternehmensgröße). Antworte kurz in der Sprache der Nutzer:innen und stelle
+        bei fehlenden Angaben eine kurze Rückfrage.
+    starter:
+      en: >-
+        Based on the role and company size, propose who this role should report to and
+        how many direct reports are typical. If something is unclear, ask a brief
+        follow-up.
+      de: >-
+        Leite aus Rolle und Unternehmensgröße ab, an wen die Position berichten sollte
+        und wie viele direkte Reports üblich sind. Stelle bei Unklarheiten eine kurze
+        Rückfrage.

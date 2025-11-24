@@ -109,6 +109,7 @@ from wizard.date_utils import (
     parse_timeline_range as _parse_timeline_range,
     timeline_default_range as _timeline_default_range,
 )
+from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.steps import company_step, jobad_step, team_step
 
@@ -527,6 +528,11 @@ from components.chip_multiselect import (
     chip_multiselect_mapped,
     group_chip_options_by_label,
     render_chip_button_grid,
+)
+from wizard.components.process_planner_assistant import (
+    format_hiring_process_text,
+    normalize_hiring_process_steps,
+    render_process_planner_assistant,
 )
 
 render_stepper = _render_stepper
@@ -8122,6 +8128,8 @@ def _step_compensation() -> None:
 
     data = profile
 
+    render_compensation_assistant(data)
+
     slider_defaults = _derive_salary_range_defaults(profile)
     inject_salary_slider_styles()
     slider_label = tr("Gehaltsspanne (Brutto)", "Salary range (gross)", lang=lang)
@@ -8452,6 +8460,7 @@ def _step_compensation() -> None:
 def _step_process() -> None:
     """Render the hiring process step."""
 
+    lang = st.session_state.get("lang", "de")
     profile = _get_profile_state()
     title, subtitle, intros = _resolve_step_copy("interview", profile)
     render_step_heading(title, subtitle)
@@ -8459,6 +8468,7 @@ def _step_process() -> None:
     for intro in intros:
         st.caption(intro)
     data = profile["process"]
+    data["hiring_process"] = normalize_hiring_process_steps(data.get("hiring_process"))
 
     stakeholders_raw = data.get("stakeholders")
     stakeholders_list = stakeholders_raw if isinstance(stakeholders_raw, list) else []
@@ -8582,14 +8592,24 @@ def _step_process() -> None:
                     ),
                 )
 
-    data["hiring_process"] = st.text_area(
+    render_process_planner_assistant(profile, lang=lang)
+
+    hiring_process_value = format_hiring_process_text(data.get("hiring_process", []))
+    manual_process_input = st.text_area(
         tr("Bewerbungsprozess", "Hiring process"),
-        value=data.get("hiring_process", ""),
+        value=hiring_process_value,
         key="ui.process.hiring_process",
         help=tr(
             "Wenn die Anzeige Schritte nennt, hier kurz zusammenfassen.",
             "Summarise the described steps if the ad mentions a process.",
         ),
+    )
+    manual_steps = normalize_hiring_process_steps(manual_process_input)
+    data["hiring_process"] = manual_steps
+    _update_profile(
+        "process.hiring_process",
+        manual_steps,
+        session_value=manual_process_input,
     )
 
     c1, c2 = st.columns(2)
@@ -9433,6 +9453,7 @@ def _summary_process() -> None:
     """Editable summary tab for hiring process details."""
 
     process = st.session_state[StateKeys.PROFILE]["process"]
+    process["hiring_process"] = normalize_hiring_process_steps(process.get("hiring_process"))
 
     hiring_cols = st.columns(2)
     hiring_manager = hiring_cols[0].text_input(
@@ -9446,9 +9467,10 @@ def _summary_process() -> None:
         key="ui.summary.process.hiring_manager_role",
     )
 
+    hiring_process_value = format_hiring_process_text(process.get("hiring_process", []))
     hiring_process = st.text_area(
         tr("Bewerbungsprozess", "Hiring process"),
-        value=process.get("hiring_process", ""),
+        value=hiring_process_value,
         key="ui.summary.process.hiring_process",
     )
 
@@ -9497,7 +9519,11 @@ def _summary_process() -> None:
     _update_profile("process.onboarding_process", onboarding)
     _update_profile("process.hiring_manager_name", hiring_manager)
     _update_profile("process.hiring_manager_role", hiring_role)
-    _update_profile("process.hiring_process", hiring_process)
+    _update_profile(
+        "process.hiring_process",
+        normalize_hiring_process_steps(hiring_process),
+        session_value=hiring_process,
+    )
 
 
 def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:
