@@ -23,6 +23,13 @@ Changelog
   Modus gleichermaßen normalisiertes `NeedAnalysisProfile`-JSON liefern, und
   Regressionstests ergänzt, die Schema-Ausgaben über beide API-Modi hinweg
   vergleichen.
+- EN: Filled missing NeedAnalysis required fields with neutral defaults and
+  normalized schema-required list entries so extraction payloads stay valid and
+  follow-ups can highlight gaps.
+  DE: Fehlende Pflichtfelder des NeedAnalysis-Schemas werden jetzt mit neutralen
+  Platzhaltern ergänzt und schema-pflichtige Listeneinträge normalisiert, damit
+  Extraktions-Payloads gültig bleiben und Follow-ups Lücken zuverlässig
+  anzeigen.
 
 ## [1.1.2] - 2025-12-01
 
