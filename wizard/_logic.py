@@ -105,6 +105,65 @@ def get_in(data: Mapping[str, Any] | None, path: str, default: Any = None) -> An
     return cursor
 
 
+def _coerce_ai_contributions() -> dict[str, Any]:
+    """Normalize the AI contribution tracking structure in session state."""
+
+    raw = st.session_state.get(StateKeys.AI_CONTRIBUTIONS, {}) or {}
+    fields_raw = raw.get("fields", set())
+    items_raw = raw.get("items", {})
+
+    field_set: set[str] = set()
+    for entry in fields_raw or []:
+        if isinstance(entry, str):
+            field_set.add(entry)
+        else:
+            field_set.add(str(entry))
+
+    item_map: dict[str, set[str]] = {}
+    if isinstance(items_raw, Mapping):
+        for key, values in items_raw.items():
+            key_str = str(key)
+            cleaned_values: set[str] = set()
+            for value in values or []:
+                if isinstance(value, str):
+                    cleaned_values.add(value)
+                else:
+                    cleaned_values.add(str(value))
+            item_map[key_str] = cleaned_values
+
+    normalized = {"fields": field_set, "items": item_map}
+    st.session_state[StateKeys.AI_CONTRIBUTIONS] = normalized
+    return normalized
+
+
+def mark_ai_field(path: str) -> None:
+    """Record that ``path`` was populated by an AI suggestion."""
+
+    state = _coerce_ai_contributions()
+    state["fields"].add(path)
+    st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
+
+
+def mark_ai_list_item(path: str, value: str) -> None:
+    """Record that ``value`` for list ``path`` was suggested by AI."""
+
+    cleaned = (value or "").strip()
+    if not cleaned:
+        return
+    state = _coerce_ai_contributions()
+    items = state["items"].setdefault(path, set())
+    items.add(cleaned)
+    state["items"][path] = items
+    st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
+
+
+def get_ai_contributions() -> tuple[set[str], dict[str, set[str]]]:
+    """Return tracked AI contribution metadata (fields, list items)."""
+
+    state = _coerce_ai_contributions()
+    return set(state["fields"]), {key: set(values) for key, values in state["items"].items()}
+
+
 def _get_profile_state() -> dict[str, Any]:
     """Return the mutable profile mapping from session state."""
 
@@ -384,6 +443,7 @@ def _update_profile(
     *,
     session_value: Any = _MISSING,
     sync_widget_state: bool = True,
+    mark_ai: bool = False,
 ) -> None:
     """Update profile data and clear derived outputs if changed.
 
@@ -446,6 +506,14 @@ def _update_profile(
             _clear_generated()
             _remove_field_lock_metadata(path)
             _sync_followup_completion(path, normalized_value_for_path, data)
+            if mark_ai:
+                mark_ai_field(path)
+            else:
+                state = _coerce_ai_contributions()
+                state["fields"].discard(path)
+                if path in state.get("items", {}):
+                    state["items"].pop(path, None)
+                st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
         raise
     except Exception as error:  # pragma: no cover - defensive guard

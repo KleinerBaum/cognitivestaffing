@@ -178,6 +178,7 @@ class StateKeys:
     """Keys for data stored in ``st.session_state``."""
 
     PROFILE = "profile_data"
+    AI_CONTRIBUTIONS = "ai_contributions"
     RAW_TEXT = "profile_raw_text"
     RAW_BLOCKS = "profile_raw_blocks"
     STEP = "current_step"

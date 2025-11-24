@@ -11,6 +11,7 @@ from components.chatkit_widget import render_chatkit_widget
 from constants.keys import StateKeys
 from core.suggestions import get_responsibility_suggestions
 from question_logic import tr
+from wizard._logic import mark_ai_list_item
 from utils.llm_state import llm_disabled_message
 
 
@@ -71,6 +72,7 @@ def _render_suggestions(
             }
             st.session_state[responsibilities_key] = "\n".join(updated_items)
             st.session_state[responsibilities_seed_key] = "\n".join(updated_items)
+            mark_ai_list_item("responsibilities.items", suggestion_text)
             st.toast(
                 tr("Aufgabe übernommen.", "Responsibility added.", lang=lang),
                 icon="✅",
