@@ -16,6 +16,13 @@ Changelog
   `gpt-4o-mini` für „Schnell“ beibehalten, veraltete `strict`-Flags aus
   Responses-Payloads entfernt und einen Fallback-Test ergänzt, der Chat-
   Completions bei Responses-400-Fehlern absichert.
+- EN: Hardened Responses → Chat fallback handling so quick and precise flows
+  both yield normalized `NeedAnalysisProfile` JSON, and added regression tests
+  to compare schema outputs across API modes.
+  DE: Responses-→-Chat-Fallback robuster gestaltet, damit Schnell- und Genau-
+  Modus gleichermaßen normalisiertes `NeedAnalysisProfile`-JSON liefern, und
+  Regressionstests ergänzt, die Schema-Ausgaben über beide API-Modi hinweg
+  vergleichen.
 
 ## [1.1.2] - 2025-12-01
 
