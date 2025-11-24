@@ -60,5 +60,22 @@ def test_suggest_responsibilities_for_role_context(monkeypatch):
     assert "Bereits abgedeckte Aufgaben: Code-Reviews; Pair Programming" in prompt
 
 
+def test_suggest_responsibilities_for_role_focus(monkeypatch):
+    captured: dict[str, str] = {}
+
+    def fake_call(messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return ChatCallResult(json.dumps({"responsibilities": []}), [], {})
+
+    monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call)
+    suggest_responsibilities_for_role(
+        "Product Designer",
+        focus_hints=["UX research", "Design systems"],
+    )
+
+    prompt = captured["prompt"]
+    assert "Please emphasise: UX research; Design systems" in prompt
+
+
 def test_suggest_responsibilities_for_role_empty_title():
     assert suggest_responsibilities_for_role("") == []

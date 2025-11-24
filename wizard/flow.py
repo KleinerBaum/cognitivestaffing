@@ -109,6 +109,7 @@ from wizard.date_utils import (
     parse_timeline_range as _parse_timeline_range,
     timeline_default_range as _timeline_default_range,
 )
+from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.steps import company_step, jobad_step, team_step
 
@@ -513,7 +514,6 @@ from openai_utils import (
 from core.suggestions import (
     get_benefit_suggestions,
     get_onboarding_suggestions,
-    get_responsibility_suggestions,
     get_skill_suggestions,
     get_static_benefit_shortlist,
 )
@@ -528,6 +528,11 @@ from components.chip_multiselect import (
     chip_multiselect_mapped,
     group_chip_options_by_label,
     render_chip_button_grid,
+)
+from wizard.components.process_planner_assistant import (
+    format_hiring_process_text,
+    normalize_hiring_process_steps,
+    render_process_planner_assistant,
 )
 
 render_stepper = _render_stepper
@@ -558,6 +563,7 @@ from core.job_ad import (
 )
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 from sidebar.salary import resolve_sidebar_benefits
+from wizard.sections.responsibility_brainstormer import render_responsibility_brainstormer
 
 ROOT = Path(__file__).parent
 # Onboarding visual reuses the colourful transparent logo that previously
@@ -8041,93 +8047,23 @@ def _step_requirements() -> None:
             )
 
             lang_code = st.session_state.get("lang", "de")
-            last_ai_state = st.session_state.get(StateKeys.RESPONSIBILITY_SUGGESTIONS)
-            if isinstance(last_ai_state, Mapping) and last_ai_state.get("_lang") == lang_code:
-                status = last_ai_state.get("status")
-                if status in {"applied", "empty"}:
-                    if status == "applied" and last_ai_state.get("items"):
-                        st.success(
-                            tr(
-                                "KI-Aufgaben eingefügt – bitte nach Bedarf feinjustieren.",
-                                "AI responsibilities inserted – adjust them as needed.",
-                            )
-                        )
-                        st.markdown("\n".join(f"- {item}" for item in last_ai_state.get("items", [])))
-                    elif status == "empty":
-                        st.info(
-                            tr(
-                                "Keine neuen Aufgaben gefunden – ergänze mehr Kontext oder formuliere sie manuell.",
-                                "No new responsibilities were generated – add more context or enter them manually.",
-                            )
-                        )
-                    updated_state = dict(last_ai_state)
-                    updated_state["status"] = None
-                    st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = updated_state
-
             job_title = str(data.get("position", {}).get("job_title") or "").strip()
             company_name = str(data.get("company", {}).get("name") or "").strip()
             team_structure = str(data.get("position", {}).get("team_structure") or "").strip()
             industry = str(data.get("company", {}).get("industry") or "").strip()
             tone_style = st.session_state.get(UIKeys.TONE_SELECT)
 
-            button_label = "💡 " + tr("Aufgaben vorschlagen", "Suggest responsibilities")
-            disabled_reasons: list[str] = []
-            if has_missing_key:
-                disabled_reasons.append(llm_disabled_message())
-            if not job_title:
-                disabled_reasons.append(
-                    tr(
-                        "Jobtitel erforderlich, um KI-Vorschläge zu erhalten.",
-                        "Add a job title to enable AI suggestions.",
-                    )
-                )
-
-            for reason in disabled_reasons:
-                st.caption(reason)
-
-            if st.button(
-                button_label,
-                key=UIKeys.RESPONSIBILITY_SUGGEST,
-                disabled=bool(disabled_reasons),
-            ):
-                with st.spinner(tr("KI schlägt Aufgaben vor…", "Fetching AI responsibilities…")):
-                    responsibility_suggestions, suggestion_error = get_responsibility_suggestions(
-                        job_title,
-                        lang=lang_code,
-                        tone_style=tone_style,
-                        company_name=company_name,
-                        team_structure=team_structure,
-                        industry=industry,
-                        existing_items=cleaned_responsibilities,
-                    )
-                if suggestion_error:
-                    st.error(
-                        tr(
-                            "Aufgaben-Vorschläge fehlgeschlagen: {error}",
-                            "Responsibility suggestions failed: {error}",
-                        ).format(error=suggestion_error)
-                    )
-                    if is_admin_debug_session_active():
-                        st.session_state["responsibility_suggest_error"] = suggestion_error
-                else:
-                    if responsibility_suggestions:
-                        merged = merge_unique_items(cleaned_responsibilities, responsibility_suggestions)
-                        responsibilities["items"] = merged
-                        joined = "\n".join(merged)
-                        st.session_state[responsibilities_key] = joined
-                        st.session_state[responsibilities_seed_key] = joined
-                        st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
-                            "_lang": lang_code,
-                            "items": responsibility_suggestions,
-                            "status": "applied",
-                        }
-                    else:
-                        st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
-                            "_lang": lang_code,
-                            "items": [],
-                            "status": "empty",
-                        }
-                    st.rerun()
+            render_responsibility_brainstormer(
+                cleaned_responsibilities=cleaned_responsibilities,
+                responsibilities_key=responsibilities_key,
+                responsibilities_seed_key=responsibilities_seed_key,
+                job_title=job_title,
+                company_name=company_name,
+                team_structure=team_structure,
+                industry=industry,
+                tone_style=tone_style,
+                has_missing_key=has_missing_key,
+            )
 
     st.markdown("___")
 
@@ -8615,6 +8551,8 @@ def _step_compensation() -> None:
 
     data = profile
 
+    render_compensation_assistant(data)
+
     slider_defaults = _derive_salary_range_defaults(profile)
     inject_salary_slider_styles()
     slider_label = tr("Gehaltsspanne (Brutto)", "Salary range (gross)", lang=lang)
@@ -8945,6 +8883,7 @@ def _step_compensation() -> None:
 def _step_process() -> None:
     """Render the hiring process step."""
 
+    lang = st.session_state.get("lang", "de")
     profile = _get_profile_state()
     title, subtitle, intros = _resolve_step_copy("interview", profile)
     render_step_heading(title, subtitle)
@@ -8952,6 +8891,7 @@ def _step_process() -> None:
     for intro in intros:
         st.caption(intro)
     data = profile["process"]
+    data["hiring_process"] = normalize_hiring_process_steps(data.get("hiring_process"))
 
     stakeholders_raw = data.get("stakeholders")
     stakeholders_list = stakeholders_raw if isinstance(stakeholders_raw, list) else []
@@ -9075,14 +9015,24 @@ def _step_process() -> None:
                     ),
                 )
 
-    data["hiring_process"] = st.text_area(
+    render_process_planner_assistant(profile, lang=lang)
+
+    hiring_process_value = format_hiring_process_text(data.get("hiring_process", []))
+    manual_process_input = st.text_area(
         tr("Bewerbungsprozess", "Hiring process"),
-        value=data.get("hiring_process", ""),
+        value=hiring_process_value,
         key="ui.process.hiring_process",
         help=tr(
             "Wenn die Anzeige Schritte nennt, hier kurz zusammenfassen.",
             "Summarise the described steps if the ad mentions a process.",
         ),
+    )
+    manual_steps = normalize_hiring_process_steps(manual_process_input)
+    data["hiring_process"] = manual_steps
+    _update_profile(
+        "process.hiring_process",
+        manual_steps,
+        session_value=manual_process_input,
     )
 
     c1, c2 = st.columns(2)
@@ -9926,6 +9876,7 @@ def _summary_process() -> None:
     """Editable summary tab for hiring process details."""
 
     process = st.session_state[StateKeys.PROFILE]["process"]
+    process["hiring_process"] = normalize_hiring_process_steps(process.get("hiring_process"))
 
     hiring_cols = st.columns(2)
     hiring_manager = hiring_cols[0].text_input(
@@ -9939,9 +9890,10 @@ def _summary_process() -> None:
         key="ui.summary.process.hiring_manager_role",
     )
 
+    hiring_process_value = format_hiring_process_text(process.get("hiring_process", []))
     hiring_process = st.text_area(
         tr("Bewerbungsprozess", "Hiring process"),
-        value=process.get("hiring_process", ""),
+        value=hiring_process_value,
         key="ui.summary.process.hiring_process",
     )
 
@@ -9990,7 +9942,11 @@ def _summary_process() -> None:
     _update_profile("process.onboarding_process", onboarding)
     _update_profile("process.hiring_manager_name", hiring_manager)
     _update_profile("process.hiring_manager_role", hiring_role)
-    _update_profile("process.hiring_process", hiring_process)
+    _update_profile(
+        "process.hiring_process",
+        normalize_hiring_process_steps(hiring_process),
+        session_value=hiring_process,
+    )
 
 
 def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:

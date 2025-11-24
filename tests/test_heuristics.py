@@ -277,9 +277,9 @@ def test_extract_hiring_process_heading_and_steps() -> None:
     result = _extract_hiring_process(text)
 
     assert result is not None
-    assert "Phone interview" in result
-    assert "Final reference check" in result
-    assert "On-site meeting" in result
+    assert any("Phone interview" in step for step in result)
+    assert any("Final reference check" in step for step in result)
+    assert any("On-site meeting" in step for step in result)
 
 
 def test_extract_hiring_process_inline_german() -> None:
@@ -291,9 +291,9 @@ def test_extract_hiring_process_inline_german() -> None:
     result = _extract_hiring_process(text)
 
     assert result is not None
-    assert "Telefonat" in result
-    assert "Fachgespräch" in result
-    assert "Kennenlernen vor Ort" in result
+    assert any("Telefonat" in step for step in result)
+    assert any("Fachgespräch" in step for step in result)
+    assert any("Kennenlernen vor Ort" in step for step in result)
 
 
 def test_apply_basic_fallbacks_extracts_hiring_process() -> None:
@@ -301,8 +301,8 @@ def test_apply_basic_fallbacks_extracts_hiring_process() -> None:
 
     profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
 
-    assert profile.process.hiring_process is not None
-    assert "phone screen" in profile.process.hiring_process
+    assert profile.process.hiring_process
+    assert any("phone screen" in step for step in profile.process.hiring_process)
 
 
 @pytest.mark.skipif(

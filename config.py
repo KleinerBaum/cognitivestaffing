@@ -647,6 +647,7 @@ class ModelTask(StrEnum):
     EXPLANATION = "explanation"
     SALARY_ESTIMATE = "salary_estimate"
     JSON_REPAIR = "json_repair"
+    TEAM_ADVICE = "team_advice"
 
 
 def _load_model_routing_overrides() -> Dict[str, str]:
@@ -699,6 +700,7 @@ MODEL_ROUTING: Dict[str, str] = {
     ModelTask.DOCUMENT_REFINEMENT.value: REASONING_MODEL,
     ModelTask.EXPLANATION.value: REASONING_MODEL,
     ModelTask.SALARY_ESTIMATE.value: REASONING_MODEL,
+    ModelTask.TEAM_ADVICE.value: REASONING_MODEL,
     ModelTask.JSON_REPAIR.value: LIGHTWEIGHT_MODEL,
     "embedding": EMBED_MODEL,
 }
