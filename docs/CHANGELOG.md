@@ -2,6 +2,15 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Replaced static missing-field banners with a bilingual ChatKit follow-up
+  assistant that asks for critical NeedAnalysisProfile fields in-context and
+  writes answers into the wizard in real time (manual forms remain available
+  via an expander).
+  DE: Statt statischer Fehlermeldungen führt nun ein zweisprachiger ChatKit-
+  Assistent durch die fehlenden Pflichtfelder, fragt diese Schritt für Schritt
+  ab und überträgt die Antworten direkt ins Profil (manuelle Formulare bleiben
+  über einen Aufklapper verfügbar).
+
 - EN: Split the wizard's Company and Team steps into dedicated modules
   (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`) so
   `wizard/flow.py` remains lean and step-specific changes stay isolated.

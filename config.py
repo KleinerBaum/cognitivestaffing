@@ -181,6 +181,10 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
 
+CHATKIT_ENABLED = _is_truthy_flag(os.getenv("CHATKIT_ENABLED", "1"))
+CHATKIT_DOMAIN_KEY = os.getenv("CHATKIT_DOMAIN_KEY", "")
+CHATKIT_WORKFLOW_ID = os.getenv("CHATKIT_WORKFLOW_ID", "")
+
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
 
 
