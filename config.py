@@ -1,11 +1,12 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
 The application favours the officially supported OpenAI Responses models and
-keeps lightweight tasks on ``gpt-4o-mini`` while escalating reasoning-heavy
-workloads to ``gpt-5.1``. Automatic fallbacks continue down the stack
-(``gpt-5.1`` → ``o4-mini`` → ``o3`` → ``gpt-4o-mini`` → ``gpt-4o`` →
-``gpt-4`` → ``gpt-3.5-turbo``) so the platform remains resilient when specific
-tiers experience downtime. Structured retrieval continues to use
+keeps lightweight tasks on ``gpt-4.1-mini`` while escalating reasoning-heavy
+workloads through ``o4-mini`` and ``o3`` depending on the configured
+``REASONING_EFFORT``. Automatic fallbacks continue down the stack
+(``o3`` → ``o4-mini`` → ``gpt-4o-mini`` → ``gpt-4o`` → ``gpt-4`` →
+``gpt-3.5-turbo``) so the platform remains resilient when specific tiers
+experience downtime. Structured retrieval continues to use
 ``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
 
 Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
@@ -203,17 +204,20 @@ def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -
 
 REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
-REASONING_MODEL_DEFAULT = GPT51
+LIGHTWEIGHT_MODEL_DEFAULT = GPT41_MINI
+MEDIUM_REASONING_MODEL_DEFAULT = O4_MINI
+REASONING_MODEL_DEFAULT = O3
 
 _SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
+    MEDIUM_REASONING_MODEL_DEFAULT,
     REASONING_MODEL_DEFAULT,
     GPT51,
     GPT41_NANO,
     GPT41_MINI,
     O3,
     O3_MINI,
+    O4_MINI,
     GPT4O,
     GPT4O_MINI,
     GPT4,
@@ -241,23 +245,27 @@ LIGHTWEIGHT_MODEL = _resolve_supported_model(
     os.getenv("LIGHTWEIGHT_MODEL"),
     LIGHTWEIGHT_MODEL_DEFAULT,
 )
-REASONING_MODEL = _resolve_supported_model(
-    os.getenv("REASONING_MODEL"),
+MEDIUM_REASONING_MODEL = _resolve_supported_model(
+    os.getenv("MEDIUM_REASONING_MODEL"),
+    MEDIUM_REASONING_MODEL_DEFAULT,
+)
+HIGH_REASONING_MODEL = _resolve_supported_model(
+    os.getenv("REASONING_MODEL") or os.getenv("HIGH_REASONING_MODEL"),
     REASONING_MODEL_DEFAULT,
 )
 
 _REASONING_MODEL_MAP: Dict[str, str] = {
     "minimal": LIGHTWEIGHT_MODEL,
     "low": LIGHTWEIGHT_MODEL,
-    "medium": REASONING_MODEL,
-    "high": REASONING_MODEL,
+    "medium": MEDIUM_REASONING_MODEL,
+    "high": HIGH_REASONING_MODEL,
 }
 
 
 def _model_for_reasoning_level(level: str) -> str:
     """Return the preferred model for ``level`` of reasoning effort."""
 
-    return _REASONING_MODEL_MAP.get(level, REASONING_MODEL)
+    return _REASONING_MODEL_MAP.get(level, HIGH_REASONING_MODEL)
 
 
 def _canonical_model_name(value: str | None) -> str:
@@ -277,6 +285,7 @@ def _detect_default_model() -> str:
     return _model_for_reasoning_level(REASONING_EFFORT)
 
 
+REASONING_MODEL = _model_for_reasoning_level(REASONING_EFFORT)
 DEFAULT_MODEL = _detect_default_model()
 VERBOSITY_LEVELS = ("low", "medium", "high")
 
@@ -415,7 +424,8 @@ def get_openai_api_key() -> str:
 
 OPENAI_API_KEY = get_openai_api_key()
 OPENAI_MODEL = _resolve_supported_model(os.getenv("OPENAI_MODEL"), DEFAULT_MODEL)
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip()
+_OPENAI_BASE_URL_ENV = os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE_URL")
+OPENAI_BASE_URL = (_OPENAI_BASE_URL_ENV or "").strip()
 OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
 OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)

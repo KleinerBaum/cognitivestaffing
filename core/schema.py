@@ -776,10 +776,12 @@ _ENUMERATION_HINTS = tuple({*(_LANGUAGE_MARKERS + _CERTIFICATION_MARKERS + _TOOL
 
 
 def _looks_like_language(value: str) -> bool:
-    normalized = normalize_language(value)
-    if normalized:
-        return True
     lower = value.casefold()
+    if lower in _TOOL_MARKERS:
+        return False
+    normalized = normalize_language(value)
+    if normalized and normalized.casefold() not in _TOOL_MARKERS:
+        return True
     return any(marker in lower for marker in _LANGUAGE_MARKERS)
 
 
@@ -946,6 +948,9 @@ def _esco_category_for_term(
 def _classify_skill_term(
     term: str, *, lang: str = "en"
 ) -> Literal["language", "certification", "soft", "tool", "hard"]:
+    normalized_term = term.strip().casefold()
+    if normalized_term in _TOOL_MARKERS:
+        return "tool"
     if _looks_like_language(term):
         return "language"
     if _looks_like_certification(term):
@@ -1062,6 +1067,10 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
         if not pool:
             return False
 
+        total = len(pool)
+        if total <= 1:
+            return False
+
         category_counts: dict[str, int] = {label: 0 for label in key_category_map.values()}
         predicted_counts: dict[str, int] = {label: 0 for label in key_category_map.values()}
         mismatches = 0
@@ -1074,7 +1083,6 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
 
         non_empty_categories = sum(1 for count in category_counts.values() if count)
         dominant_len = max(category_counts.values() or [0])
-        total = sum(category_counts.values())
         collapsed = non_empty_categories <= 2 or (total >= 5 and dominant_len >= int(total * 0.7))
         missing_target = (
             (

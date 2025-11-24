@@ -62,7 +62,7 @@ This document describes the end-to-end flow for extracting structured vacancy pr
 When modifying or extending the extraction pipeline:
 
 1. **Schema propagation**: Update the JSON schema, `NeedAnalysisProfile`, UI components, exports, and tests together.
-2. **Cost and latency controls**: Keep prompts concise, prefer `gpt-4o-mini` where acceptable, and scope vector retrieval to relevant fields.
+2. **Cost and latency controls**: Keep prompts concise, prefer `gpt-4.1-mini` where acceptable, and scope vector retrieval to relevant fields.
 3. **Validation**: Maintain strict Pydantic validation; never accept free-form text for structured fields.
 4. **Localization**: Extend both English and German resources when adding user-facing copy.
 5. **Testing**: Run `ruff format`, `ruff check`, `mypy`, and `pytest` locally; update or add golden samples for regression coverage.
