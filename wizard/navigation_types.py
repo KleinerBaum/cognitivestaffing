@@ -3,9 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Mapping, Sequence
 
-from wizard.types import LocalizedText
-
-
 @dataclass(frozen=True)
 class WizardContext:
     """Context passed to step renderer callables."""

@@ -579,3 +579,7 @@ Wartung: Sitzungsschlüssel für Firmenlogos vereinheitlicht und Titel-Aliasse i
 fix: map "Must Have"/"Nice To Have" skill sections into required vs. optional requirements, keep German "Anforderungen" bullets in requirements, and route tools into tools_and_technologies instead of mixing all skills together
 
 Fix: "Must Have"-/"Nice To Have"-Skill-Abschnitte werden den Pflicht- bzw. Optional-Requirements zugeordnet, deutsche "Anforderungen"-Stichpunkte bleiben in den Requirements, und Tools wandern in tools_and_technologies statt alle Skills zu vermischen
+
+fix: align NeedAnalysisProfile JSON schema required flags with the Pydantic model and regenerate the Responses schema artifact
+
+Fix: NeedAnalysisProfile-JSON-Schema-Required-Flags an das Pydantic-Modell angepasst und das Responses-Schema-Artefakt neu erzeugt

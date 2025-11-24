@@ -97,7 +97,9 @@ class _StubStreamlit:
         return value or ""
 
 
-def _stub_text_input(_: str, __: str, *, widget_factory: Any | None = None, default: Any | None = None, **___: Any) -> str:
+def _stub_text_input(
+    _: str, __: str, *, widget_factory: Any | None = None, default: Any | None = None, **___: Any
+) -> str:
     factory = widget_factory or (lambda *args, **kwargs: default or "")
     return factory("", value=default or "", key=None)
 

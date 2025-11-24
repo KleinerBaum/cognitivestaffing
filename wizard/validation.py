@@ -39,7 +39,6 @@ def validate_required_field_inputs(
     """Re-run profile-bound validators for ``fields`` using widget/profile state."""
 
     profile = session_state.get(StateKeys.PROFILE, {}) or {}
-    profile_snapshot = copy.deepcopy(profile)
     errors: dict[str, LocalizedText] = {}
     for field in fields:
         validator = required_field_validators.get(field)

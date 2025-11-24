@@ -1880,7 +1880,7 @@ class ChatStream(Iterable[str]):
                 "Streaming responses requested tool execution. Use call_chat_api for tool-enabled prompts."
             )
         content = _extract_output_text(response)
-        normalised_content = _normalise_content_payload(content)
+        content = _normalise_content_payload(content)
         usage_block = _normalise_usage(_extract_usage_block(response) or {})
         usage = _numeric_usage(usage_block)
         _update_usage_counters(usage, task=self._task)

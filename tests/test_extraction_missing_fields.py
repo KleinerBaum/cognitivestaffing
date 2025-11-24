@@ -8,7 +8,6 @@ import streamlit as st
 import openai_utils
 from constants.keys import StateKeys
 from openai_utils import ChatCallResult
-from models.need_analysis import NeedAnalysisProfile
 
 
 def _fake_response(payload: dict[str, Any]) -> ChatCallResult:

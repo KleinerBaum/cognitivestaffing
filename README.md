@@ -47,5 +47,6 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 New contributors should:
 - Follow PEP 8 and include type hints in all Python code.
 - Run quality gates before opening a PR: `ruff format && ruff check`, `mypy --config-file pyproject.toml`, and `pytest -q` (or `-m "not integration"`).
+- Keep `schema/need_analysis.schema.json` in sync with `NeedAnalysisProfile` via `PYTHONPATH=. python cli/generate_schema.py` whenever schema fields change (CS_SCHEMA_PROPAGATE).
 - Work on feature branches named `feat/<short-description>` and open PRs against `dev` (no direct merges to `main`). Every PR should include release notes and Changelog updates.
 - Read `docs/DEV_GUIDE.md` for details on adding wizard steps, follow-up questions, and schema propagation. See `CONTRIBUTING.md` for a concise checklist.
