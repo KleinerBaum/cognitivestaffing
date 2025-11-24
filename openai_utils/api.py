@@ -2008,6 +2008,36 @@ def _is_missing_completion_event_error(error: BaseException | None) -> bool:
     return "response.completed" in lowered or "completion event" in lowered
 
 
+SUPPORTED_CHAT_PAYLOAD_FIELDS: Final[set[str]] = {
+    "model",
+    "messages",
+    "temperature",
+    "top_p",
+    "max_tokens",
+    "max_completion_tokens",
+    "response_format",
+    "tools",
+    "tool_choice",
+    "functions",
+    "function_call",
+    "stop",
+    "n",
+    "presence_penalty",
+    "frequency_penalty",
+    "logit_bias",
+    "logprobs",
+    "metadata",
+    "stream",
+    "stream_options",
+    "user",
+    "seed",
+    "timeout",
+    "extra_headers",
+    "extra_query",
+    "extra_body",
+}
+
+
 def _clean_response_format_for_chat(response_format: Mapping[str, Any]) -> dict[str, Any]:
     """Return a Chat-friendly ``response_format`` without Responses-only fields."""
 
@@ -2034,10 +2064,25 @@ def _clean_response_format_for_chat(response_format: Mapping[str, Any]) -> dict[
     return cleaned
 
 
+def _strip_unsupported_chat_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove unexpected fields from a Chat Completions payload."""
+
+    unexpected = sorted(set(payload) - SUPPORTED_CHAT_PAYLOAD_FIELDS)
+    if unexpected:
+        for field in unexpected:
+            payload.pop(field, None)
+        logger.debug(
+            "Removed unsupported fields from Chat Completions fallback payload: %s",
+            ", ".join(unexpected),
+        )
+
+    return payload
+
+
 def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, Any] | None:
     """Translate a Responses payload to a Chat Completions payload when possible."""
 
-    raw_messages = payload.get("input")
+    raw_messages = payload.get("input") or payload.get("messages")
     if not isinstance(raw_messages, Sequence):
         return None
 
@@ -2059,7 +2104,10 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
         chat_payload["temperature"] = temperature
 
     max_tokens = payload.get("max_output_tokens")
+    if not isinstance(max_tokens, int):
+        max_tokens = cast(Optional[int], payload.get("max_completion_tokens"))
     if max_tokens is not None:
+        chat_payload["max_tokens"] = max_tokens
         chat_payload["max_completion_tokens"] = max_tokens
 
     text_block = payload.get("text")
@@ -2103,7 +2151,7 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
                     schema_bundle.chat_response_format
                 )
 
-    return chat_payload
+    return _strip_unsupported_chat_fields(chat_payload)
 
 
 def _build_chat_fallback_payload(
@@ -2141,7 +2189,7 @@ def _build_chat_fallback_payload(
         chat_payload.pop("strict", None)
         logger.debug("Removed top-level strict flag from chat fallback payload.")
 
-    return chat_payload
+    return _strip_unsupported_chat_fields(chat_payload)
 
 
 def get_client() -> OpenAI:
