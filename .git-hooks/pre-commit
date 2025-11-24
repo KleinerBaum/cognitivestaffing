@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STAGED_DIFF=$(git diff --cached --unified=0)
+python3 .tooling/promptgen.py --diff - <<< "$STAGED_DIFF" --out .tooling/out_prompts

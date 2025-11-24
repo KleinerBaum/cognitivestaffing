@@ -1,5 +1,14 @@
 Changelog
 
+## [Unreleased]
+
+- EN: Added a built-in prompt generator pre-commit hook that converts staged
+  diffs into Codex-ready JSON payloads and stores them under
+  `.tooling/out_prompts/`.
+  DE: Eingebauten Prompt-Generator-Pre-Commit-Hook ergänzt, der gestagte Diffs
+  in Codex-taugliche JSON-Payloads umwandelt und unter `.tooling/out_prompts/`
+  ablegt.
+
 ## [1.1.2] - 2025-12-01
 
 - EN: Added clearer README guidance on setup, Quick vs. Precise routing, and Responses vs. Chat API toggles so users can start the Streamlit wizard with the right model settings.

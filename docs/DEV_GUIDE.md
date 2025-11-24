@@ -4,6 +4,32 @@ This guide complements the high-level README with step-by-step recipes for
 extending the wizard, extraction pipeline, and regression tests. Follow the
 `CS_SCHEMA_PROPAGATE` principle: schema ↔ logic ↔ UI ↔ exports must stay in sync.
 
+## Prompt generator hook / Prompt-Generator-Hook
+
+**EN:**
+
+- The repository ships a pre-commit hook under `.git-hooks/pre-commit` that
+  turns staged diffs into Codex-ready prompts via `.tooling/promptgen.py` and
+  saves them to `.tooling/out_prompts/`.
+- Enable it once per clone with `git config core.hooksPath .git-hooks` and make
+  sure Python 3.11+ is available; the hook uses `git diff --cached` so only
+  staged changes are captured.
+- Prompt templates live in `.tooling/templates/{feature,bugfix,refactor}.md`;
+  adjust them if the prompting rules evolve. Generated JSON files are ignored
+  by git.
+
+**DE:**
+
+- Das Repo enthält einen Pre-Commit-Hook unter `.git-hooks/pre-commit`, der
+  gestagte Diffs per `.tooling/promptgen.py` in Codex-taugliche Prompts
+  umwandelt und in `.tooling/out_prompts/` ablegt.
+- Aktiviere ihn einmalig pro Clone mit `git config core.hooksPath .git-hooks`
+  und stelle sicher, dass Python ≥ 3.11 verfügbar ist; der Hook nutzt `git diff
+  --cached`, daher landen nur gestagte Änderungen im Prompt.
+- Die Prompt-Vorlagen liegen in `.tooling/templates/{feature,bugfix,refactor}.md`
+  und können bei geänderten Prompting-Vorgaben angepasst werden. Generierte JSONs
+  sind git-ignored.
+
 ## Adding a wizard section / Einen Wizard-Abschnitt ergänzen
 
 **EN:**
