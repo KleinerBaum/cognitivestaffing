@@ -17,8 +17,8 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
 
 PAGE = WizardPage(
     key="interview",
-    label=("Interviewprozess", "Interview process"),
-    panel_header=("Hiring Journey", "Hiring journey"),
+    label=("Bewerbungsprozess", "Hiring Process"),
+    panel_header=("Bewerbungsprozess", "Hiring Process"),
     panel_subheader=("Phasen & Beteiligte", "Stages & stakeholders"),
     panel_intro_variants=(
         (

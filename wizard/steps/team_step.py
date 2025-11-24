@@ -111,7 +111,7 @@ def _step_team() -> None:
 
     missing_here = _missing_fields_for_section(2)
 
-    render_section_heading(tr("Team & Kontext", "Team & context"))
+    render_section_heading(tr("Team & Struktur", "Team & Structure"))
     role_cols = st.columns((1.3, 1))
     title_label = tr("Jobtitel", "Job title")
     if "position.job_title" in missing_here:

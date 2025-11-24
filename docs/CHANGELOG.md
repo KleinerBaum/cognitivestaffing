@@ -2,6 +2,14 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Renamed wizard steps to Onboarding → Company → Team & Structure → Role &
+  Tasks → Skills & Requirements → Compensation → Hiring Process → Summary, with
+  bilingual headings and navigation labels aligned to the intended flow.
+  DE: Wizard-Schritte in Onboarding → Unternehmen → Team & Struktur → Rolle &
+  Aufgaben → Fähigkeiten & Anforderungen → Vergütung → Bewerbungsprozess →
+  Zusammenfassung umbenannt und die zweisprachigen Überschriften/Navigations-
+  label angepasst.
+
 - EN: Introduced a ChatKit-powered responsibility brainstormer on the Role & Tasks
   step that proposes tailored bullets for the job title, lets users add/dismiss
   items individually, and accepts custom focus hints.

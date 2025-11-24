@@ -8,9 +8,9 @@ _SUMMARY_FIELDS: tuple[str, ...] = ()
 
 PAGE = WizardPage(
     key="jobad",
-    label=("Stellenvorbereitung", "Job ad intake"),
-    panel_header=("Erfasste Eingaben", "Captured inputs"),
-    panel_subheader=("Aus der Anzeigenbasis", "From the source material"),
+    label=("Onboarding", "Onboarding"),
+    panel_header=("Onboarding", "Onboarding"),
+    panel_subheader=("Quelle & Import", "Source & intake"),
     panel_intro_variants=(
         (
             "Nutze Upload, URL oder Textfeld, um die Stelle zu initialisieren.",

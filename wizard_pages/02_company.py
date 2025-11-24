@@ -37,11 +37,8 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
 PAGE = WizardPage(
     key="company",
     label=("Unternehmen", "Company"),
-    panel_header=("Unternehmensdaten prüfen", "Review company details"),
-    panel_subheader=(
-        "Kontakt & Standort – fehlende Angaben ergänzen oder Vorbefüllung prüfen",
-        "Contact & location – fill gaps or confirm the prefill",
-    ),
+    panel_header=("Unternehmen", "Company"),
+    panel_subheader=("Profil & Kontakt", "Profile & contact"),
     panel_intro_variants=(
         (
             "Falls nichts erkannt wurde, ergänze Name, Branche und Kontakt – sonst bitte kurz prüfen und bestätigen.",
