@@ -808,6 +808,117 @@ _SKILL_FOCUS_PRESETS: dict[str, list[str]] = {
     ],
 }
 
+_RELATED_SKILL_HINTS: Final[dict[str, tuple[str, ...]]] = {
+    "python": ("pandas", "numpy", "scikit-learn"),
+    "java": ("spring", "spring boot", "maven"),
+    "javascript": ("react", "node.js", "typescript"),
+    "typescript": ("react", "node.js"),
+    "c#": (".net", "asp.net"),
+    "c++": ("qt", "boost"),
+    "sql": ("postgresql", "mysql"),
+    "aws": ("terraform", "docker"),
+    "azure": ("devops", "terraform"),
+    "gcp": ("bigquery", "kubernetes"),
+    "data analysis": ("power bi", "tableau"),
+    "project management": ("scrum", "kanban"),
+    "communication": ("stakeholder management", "presentation skills"),
+}
+
+_LANGUAGE_MARKERS: Final[dict[str, str]] = {
+    "english": "English",
+    "englisch": "Englisch",
+    "german": "German",
+    "deutsch": "Deutsch",
+    "french": "French",
+    "französisch": "Französisch",
+    "spanish": "Spanish",
+    "spanisch": "Spanisch",
+    "italian": "Italian",
+    "italienisch": "Italienisch",
+    "dutch": "Dutch",
+    "niederländisch": "Niederländisch",
+    "portuguese": "Portuguese",
+    "portugiesisch": "Portugiesisch",
+    "chinese": "Chinese",
+    "chinesisch": "Chinesisch",
+    "japanese": "Japanese",
+    "japanisch": "Japanisch",
+    "korean": "Korean",
+    "koreanisch": "Koreanisch",
+}
+
+_SOFT_SKILL_MARKERS: Final[tuple[str, ...]] = (
+    "communication",
+    "kommunikation",
+    "teamwork",
+    "teamfähigkeit",
+    "leadership",
+    "führung",
+    "stakeholder",
+    "collaboration",
+    "collaborative",
+    "problem solving",
+    "problemlösung",
+    "presentation",
+    "empathy",
+    "adaptability",
+    "agil",
+    "agile mindset",
+    "time management",
+    "zeitmanagement",
+    "negotiation",
+    "coaching",
+    "mentoring",
+)
+
+_TOOL_MARKERS: Final[tuple[str, ...]] = (
+    "aws",
+    "azure",
+    "gcp",
+    "docker",
+    "kubernetes",
+    "terraform",
+    "ansible",
+    "jenkins",
+    "git",
+    "react",
+    "node.js",
+    "nodejs",
+    "django",
+    "flask",
+    "spring",
+    "pandas",
+    "numpy",
+    "spark",
+    "power bi",
+    "tableau",
+    "salesforce",
+    "sql",
+    "postgresql",
+    "mysql",
+    ".net",
+    "c#",
+    "c++",
+    "java",
+    "python",
+    "javascript",
+)
+
+_CERTIFICATION_MARKERS: Final[tuple[str, ...]] = (
+    "certification",
+    "certificate",
+    "certified",
+    "zertifikat",
+    "pmp",
+    "cfa",
+    "cpa",
+    "cissp",
+    "aws certified",
+    "azure certified",
+    "gcp certified",
+    "iso",
+)
+
 _SUGGESTION_GROUP_LABEL_KEYS: dict[str, str] = {
     "llm": "suggestion_group_llm",
     "esco": "suggestion_group_esco_skill",
@@ -853,6 +964,203 @@ SkillContainerType = Literal[
     "target_must",
     "target_nice",
 ]
+
+
+class SkillExpansionSuggestion(TypedDict):
+    """Structured suggestion for the skill expander assistant."""
+
+    name: str
+    reason: str
+
+
+def _normalize_skill_name(value: str) -> str:
+    """Return a stripped skill name."""
+
+    return str(value or "").strip()
+
+
+def _detect_language_label(skill: str) -> str | None:
+    """Return a normalized language label when the skill resembles a language."""
+
+    lower = _normalize_skill_name(skill).casefold()
+    for marker, label in _LANGUAGE_MARKERS.items():
+        if re.search(rf"\b{re.escape(marker)}\b", lower):
+            return label
+    return None
+
+
+def _classify_skill_bucket(skill: str) -> str:
+    """Classify a skill into a requirements bucket."""
+
+    language_label = _detect_language_label(skill)
+    if language_label:
+        return "language"
+
+    lower = skill.casefold()
+    if any(marker in lower for marker in _CERTIFICATION_MARKERS):
+        return "certificate"
+    if any(re.search(rf"\b{re.escape(marker)}\b", lower) for marker in _SOFT_SKILL_MARKERS):
+        return "soft"
+    if any(marker in lower for marker in _TOOL_MARKERS):
+        return "tool"
+    return "hard"
+
+
+def _collect_existing_requirement_terms(requirements: Mapping[str, Any]) -> list[str]:
+    """Collect existing requirement terms for de-duplication of suggestions."""
+
+    collected: list[str] = []
+    source_keys = (
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+        "tools_and_technologies",
+        "certificates",
+        "languages_required",
+        "languages_optional",
+    )
+    for key_name in source_keys:
+        for entry in requirements.get(key_name, []) or []:
+            if not isinstance(entry, str):
+                continue
+            cleaned = entry.strip()
+            if cleaned:
+                collected.append(cleaned)
+    return collected
+
+
+def _update_skill_multiselect_state(skill: str, state_root: str) -> None:
+    """Mirror programmatic updates into chip multiselect session keys."""
+
+    ms_key = f"ms_{state_root}"
+    options_key = f"ui.chip_options.{state_root}"
+    st.session_state[ms_key] = merge_unique_items(st.session_state.get(ms_key, []), [skill])
+    st.session_state[options_key] = merge_unique_items(st.session_state.get(options_key, []), [skill])
+
+
+def _apply_skill_choice(skill: str, *, required: bool, requirements: dict[str, Any]) -> str:
+    """Add ``skill`` to the appropriate requirement bucket and return the target key."""
+
+    cleaned = _normalize_skill_name(skill)
+    if not cleaned:
+        return ""
+
+    bucket = _classify_skill_bucket(cleaned)
+    if bucket == "language":
+        target_key = "languages_required" if required else "languages_optional"
+    elif bucket == "soft":
+        target_key = "soft_skills_required" if required else "soft_skills_optional"
+    elif bucket == "tool":
+        target_key = "tools_and_technologies"
+    elif bucket == "certificate":
+        target_key = "certificates"
+    else:
+        target_key = "hard_skills_required" if required else "hard_skills_optional"
+
+    if target_key == "certificates":
+        merged = merge_unique_items(requirements.get("certificates", []), [cleaned])
+        _set_requirement_certificates(requirements, merged)
+    else:
+        merged = merge_unique_items(requirements.get(target_key, []), [cleaned])
+        requirements[target_key] = merged
+
+    state_root = f"requirements.{target_key}"
+    _update_skill_multiselect_state(cleaned, state_root)
+    if target_key == "certificates":
+        _update_skill_multiselect_state(cleaned, "requirements.certifications")
+    return target_key
+
+
+def _related_skill_suggestions(existing: Collection[str], *, lang: str) -> list[SkillExpansionSuggestion]:
+    """Build lightweight related-skill suggestions from a curated hint map."""
+
+    suggestions: list[SkillExpansionSuggestion] = []
+    existing_markers = {item.casefold() for item in existing}
+    for anchor, candidates in _RELATED_SKILL_HINTS.items():
+        if anchor in existing_markers:
+            for candidate in candidates:
+                cleaned = _normalize_skill_name(candidate)
+                if not cleaned:
+                    continue
+                marker = cleaned.casefold()
+                if marker in existing_markers:
+                    continue
+                suggestions.append(
+                    {
+                        "name": cleaned,
+                        "reason": tr("Verwandt mit bestehenden Skills", "Related to existing skills", lang=lang),
+                    }
+                )
+    return suggestions
+
+
+def _prepare_skill_expander_suggestions(
+    profile: Mapping[str, Any],
+    *,
+    focus_terms: Sequence[str],
+    lang: str,
+) -> tuple[list[SkillExpansionSuggestion], str | None]:
+    """Prepare suggestion candidates for the skill expander assistant."""
+
+    requirements = profile.get("requirements", {}) if isinstance(profile, Mapping) else {}
+    existing_terms = _collect_existing_requirement_terms(requirements)
+    existing_markers = {item.casefold() for item in existing_terms}
+    job_title = str(profile.get("position", {}).get("job_title") or "").strip()
+    responsibilities = [
+        str(item).strip()
+        for item in (profile.get("responsibilities", {}) or {}).get("items", [])
+        if isinstance(item, str) and str(item).strip()
+    ]
+
+    suggestion_entries: list[SkillExpansionSuggestion] = []
+    fetched, error = get_skill_suggestions(
+        job_title,
+        lang=lang,
+        focus_terms=list(focus_terms),
+        tone_style=st.session_state.get(UIKeys.TONE_SELECT),
+        existing_skills=existing_terms,
+        responsibilities=responsibilities,
+    )
+
+    lang_code = lang or "de"
+    for field, groups in fetched.items():
+        if not isinstance(groups, Mapping):
+            continue
+        for group_key, values in groups.items():
+            label_key = _SUGGESTION_GROUP_LABEL_KEYS.get(group_key)
+            label_prefix = translate_key(label_key, lang_code) if label_key else group_key.title()
+            reason = tr("Quelle: {label}", "Source: {label}", lang=lang_code).format(label=label_prefix)
+            for value in values:
+                cleaned = _normalize_skill_name(value)
+                if not cleaned:
+                    continue
+                marker = cleaned.casefold()
+                if marker in existing_markers:
+                    continue
+                suggestion_entries.append({"name": cleaned, "reason": reason})
+                existing_markers.add(marker)
+
+    esco_missing = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, [])
+    for value in esco_missing or []:
+        cleaned = _normalize_skill_name(value)
+        if not cleaned:
+            continue
+        marker = cleaned.casefold()
+        if marker in existing_markers:
+            continue
+        suggestion_entries.append(
+            {
+                "name": cleaned,
+                "reason": tr("Von ESCO als fehlend markiert", "Flagged as missing by ESCO", lang=lang_code),
+            }
+        )
+        existing_markers.add(marker)
+
+    suggestion_entries.extend(_related_skill_suggestions(existing_terms or existing_markers, lang=lang_code))
+
+    limited = suggestion_entries[:12]
+    return limited, error
 
 
 class SkillBubbleMeta(TypedDict):
@@ -7173,27 +7481,6 @@ def _step_requirements() -> None:
     raw_position = data.get("position")
     position_mapping: Mapping[str, Any] | None = raw_position if isinstance(raw_position, Mapping) else None
 
-    def _collect_existing_requirement_terms() -> list[str]:
-        """Collect existing requirement terms for de-duplication of suggestions."""
-
-        collected: list[str] = []
-        source_keys = (
-            "hard_skills_required",
-            "hard_skills_optional",
-            "soft_skills_required",
-            "soft_skills_optional",
-            "tools_and_technologies",
-            "certificates",
-        )
-        for key_name in source_keys:
-            for entry in requirements.get(key_name, []) or []:
-                if not isinstance(entry, str):
-                    continue
-                cleaned = entry.strip()
-                if cleaned:
-                    collected.append(cleaned)
-        return collected
-
     helper_columns = st.columns((2.5, 1.5), gap="large")
     with helper_columns[0]:
         focus_selection = chip_multiselect(
@@ -7231,7 +7518,7 @@ def _step_requirements() -> None:
             disabled=bool(disabled_hints),
         ):
             focus_signature_local = tuple(sorted(focus_selection, key=str.casefold))
-            existing_terms = _collect_existing_requirement_terms()
+            existing_terms = _collect_existing_requirement_terms(requirements)
             responsibility_items = [
                 str(item).strip()
                 for item in (data.get("responsibilities", {}) or {}).get("items", [])
@@ -7557,6 +7844,140 @@ def _step_requirements() -> None:
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
+    def _render_skill_expander_assistant(*, focus_terms: Sequence[str], lang: str) -> None:
+        """Render the interactive assistant that classifies extra skills."""
+
+        assistant_key = StateKeys.SKILL_EXPANDER
+        stored_state = st.session_state.get(assistant_key, {}) or {}
+        job_title_local = job_title
+        if stored_state.get("_lang") != lang or stored_state.get("_title") != job_title_local:
+            stored_state = {
+                "pending": [],
+                "handled": [],
+                "error": None,
+                "_lang": lang,
+                "_title": job_title_local,
+            }
+
+        disabled_reasons: list[str] = []
+        if has_missing_key:
+            disabled_reasons.append(llm_disabled_message())
+        if not job_title_local:
+            disabled_reasons.append(
+                tr(
+                    "Bitte Jobtitel angeben, um Skill-Vorschläge zu erhalten.",
+                    "Add a job title to fetch skill suggestions.",
+                    lang=lang,
+                )
+            )
+
+        expander_title = tr("💡 Skill-Set erweitern", "💡 Expand the skill set", lang=lang)
+        expander_caption = tr(
+            "KI schlägt ergänzende Skills vor und fragt nach Pflicht oder Nice-to-have.",
+            "AI suggests complementary skills and lets you mark them as required or optional.",
+            lang=lang,
+        )
+
+        with st.expander(expander_title, expanded=False):
+            st.caption(expander_caption)
+            pending: list[SkillExpansionSuggestion] = list(stored_state.get("pending", []))
+            error_message = stored_state.get("error") or None
+
+            if error_message:
+                st.warning(
+                    tr(
+                        "Skill-Vorschläge nicht verfügbar: {error}",
+                        "Skill suggestions unavailable: {error}",
+                        lang=lang,
+                    ).format(error=error_message)
+                )
+
+            fetch_label = tr("Neue Vorschläge abrufen", "Fetch new suggestions", lang=lang)
+            if st.button(
+                fetch_label,
+                key="skill_expander.fetch",
+                disabled=bool(disabled_reasons),
+            ):
+                suggestions, fetch_error = _prepare_skill_expander_suggestions(
+                    data,
+                    focus_terms=focus_terms,
+                    lang=lang,
+                )
+                stored_state = {
+                    "pending": suggestions,
+                    "handled": [],
+                    "error": fetch_error,
+                    "_lang": lang,
+                    "_title": job_title_local,
+                }
+                st.session_state[assistant_key] = stored_state
+                st.rerun()
+
+            if disabled_reasons:
+                for reason in disabled_reasons:
+                    st.caption(reason)
+
+            pending = list(stored_state.get("pending", []))
+            if pending:
+                st.caption(
+                    tr(
+                        "Ordne die Vorschläge direkt zu (Pflicht oder Nice-to-have).",
+                        "Assign each suggestion as required or nice-to-have.",
+                        lang=lang,
+                    )
+                )
+                for index, suggestion in enumerate(pending):
+                    name = str(suggestion.get("name") or "").strip()
+                    if not name:
+                        continue
+                    reason = str(suggestion.get("reason") or "").strip()
+                    st.markdown(f"**{name}** — {reason}")
+                    col_req, col_opt, col_skip = st.columns(3)
+                    required_label = tr("Pflicht aufnehmen", "Add as required", lang=lang)
+                    optional_label = tr("Optional aufnehmen", "Add as optional", lang=lang)
+                    skip_label = tr("Überspringen", "Skip", lang=lang)
+
+                    if col_req.button(
+                        required_label,
+                        key=f"skill_expander.req.{index}.{name}",
+                    ):
+                        _apply_skill_choice(name, required=True, requirements=requirements)
+                        updated = pending[:index] + pending[index + 1 :]
+                        stored_state["pending"] = updated
+                        stored_state.setdefault("handled", []).append({"name": name, "choice": "required"})
+                        st.session_state[assistant_key] = stored_state
+                        st.rerun()
+
+                    if col_opt.button(
+                        optional_label,
+                        key=f"skill_expander.opt.{index}.{name}",
+                    ):
+                        _apply_skill_choice(name, required=False, requirements=requirements)
+                        updated = pending[:index] + pending[index + 1 :]
+                        stored_state["pending"] = updated
+                        stored_state.setdefault("handled", []).append({"name": name, "choice": "optional"})
+                        st.session_state[assistant_key] = stored_state
+                        st.rerun()
+
+                    if col_skip.button(
+                        skip_label,
+                        key=f"skill_expander.skip.{index}.{name}",
+                    ):
+                        stored_state["pending"] = pending[:index] + pending[index + 1 :]
+                        stored_state.setdefault("handled", []).append({"name": name, "choice": "skipped"})
+                        st.session_state[assistant_key] = stored_state
+                        st.rerun()
+            else:
+                st.caption(
+                    tr(
+                        "Keine offenen Vorschläge – klicke oben auf „Neue Vorschläge abrufen“.",
+                        "No pending suggestions – click “Fetch new suggestions” above.",
+                        lang=lang,
+                    )
+                )
+
+            st.session_state[assistant_key] = stored_state
+
     responsibilities_container = st.container()
     requirements_container = st.container()
 
@@ -7711,6 +8132,8 @@ def _step_requirements() -> None:
             esco_skills=esco_skill_candidates,
             missing_esco_skills=missing_esco_skills,
         )
+
+        _render_skill_expander_assistant(focus_terms=focus_selection, lang=lang)
 
         with requirement_panel(
             icon="🔒",
