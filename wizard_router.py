@@ -10,7 +10,6 @@ from streamlit.errors import StreamlitAPIException
 from constants.keys import ProfilePaths, StateKeys
 from utils.i18n import tr
 from wizard.company_validators import persist_contact_email, persist_primary_city
-from wizard.metadata import get_missing_critical_fields
 from wizard.navigation_controller import NavigationController, PageProgressSnapshot
 from wizard.navigation_types import StepRenderer, WizardContext
 from wizard.navigation_ui import (

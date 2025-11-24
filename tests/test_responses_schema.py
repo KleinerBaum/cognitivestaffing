@@ -85,29 +85,7 @@ def test_ensure_responses_schema_sets_draft_and_required_keys() -> None:
     sanitized = ensure_responses_json_schema({"type": "object", "properties": {"foo": {"type": "string"}}})
 
     assert sanitized["$schema"] == "http://json-schema.org/draft-07/schema#"
-    assert sanitized["required"] == ["foo"]
-
-
-def _assert_all_properties_required(node: Mapping[str, Any]) -> None:
-    if not isinstance(node, Mapping):
-        return
-
-    if node.get("type") == "object" and "properties" in node:
-        properties = node["properties"]
-        required = node.get("required")
-        assert isinstance(required, list), "Every object schema must define required"
-        assert sorted(required) == sorted(properties), "Required keys must cover all properties"
-        for child in properties.values():
-            if isinstance(child, Mapping):
-                _assert_all_properties_required(child)
-
-    if node.get("type") == "array" and isinstance(node.get("items"), Mapping):
-        _assert_all_properties_required(node["items"])
-
-    if isinstance(node.get("anyOf"), list):
-        for option in node["anyOf"]:
-            if isinstance(option, Mapping):
-                _assert_all_properties_required(option)
+    assert sanitized["required"] == []
 
 
 def _allows_null(node: Mapping[str, Any]) -> bool:
@@ -124,15 +102,21 @@ def _allows_null(node: Mapping[str, Any]) -> bool:
     return False
 
 
-def test_responses_schema_marks_required_and_allows_null_for_optional_fields() -> None:
-    """Responses schema enforces strict required lists while tolerating null optionals."""
+def test_responses_schema_respects_required_fields_from_model() -> None:
+    """Responses schema keeps only model-required properties in ``required`` lists."""
 
     schema = build_need_analysis_responses_schema()
 
-    _assert_all_properties_required(schema)
+    company_required = schema["properties"]["company"].get("required")
+    position_required = schema["properties"]["position"].get("required")
+    assert company_required == []
+    assert position_required == []
 
-    company_props = schema["properties"]["company"]["properties"]
-    assert _allows_null(company_props["name"])
+    stakeholder_required = schema["properties"]["process"]["properties"]["stakeholders"]["items"].get("required")
+    assert stakeholder_required == ["name", "role"]
+
+    phase_required = schema["properties"]["process"]["properties"]["phases"]["items"].get("required")
+    assert phase_required == ["name"]
 
     employment_props = schema["properties"]["employment"]["properties"]
     assert _allows_null(employment_props["travel_required"])

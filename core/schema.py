@@ -1223,23 +1223,17 @@ def _ensure_required_fields(schema: dict[str, Any], fields: Iterable[str]) -> No
 
 
 def _ensure_required_for_nested_objects(node: MutableMapping[str, Any]) -> None:
-    """Ensure every object schema lists all property keys in ``required``.
-
-    Strict JSON schema validation used by OpenAI rejects object definitions
-    whose ``required`` array omits properties. This helper recursively walks
-    the schema tree and appends any missing keys so added fields (for example
-    ``company.location``) are always reflected in the ``required`` list.
-    """
+    """Ensure every object schema carries a ``required`` list placeholder."""
 
     if node.get("type") == "object":
         properties = node.get("properties")
         if isinstance(properties, MutableMapping):
-            required = node.setdefault("required", [])
-            if not isinstance(required, list):
-                required = [entry for entry in required] if isinstance(required, Iterable) else []
-                node["required"] = required
-
-            _ensure_required_fields(node, list(properties))
+            required = node.get("required")
+            if required is None:
+                node["required"] = []
+            elif not isinstance(required, list):
+                normalized = [entry for entry in required] if isinstance(required, Iterable) else []
+                node["required"] = normalized
 
             for child in properties.values():
                 if isinstance(child, MutableMapping):
@@ -1266,22 +1260,19 @@ def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return deepcopy(cached)
 
     properties: dict[str, Any] = {}
+    required_fields: list[str] = []
     for name, field in model.model_fields.items():
         annotation = field.annotation or Any
         properties[name] = _schema_from_type(annotation)
-        if isinstance(properties[name], dict) and properties[name].get("type") == "object":
-            nested_properties = properties[name].get("properties")
-            if isinstance(nested_properties, dict) and nested_properties:
-                _ensure_required_fields(properties[name], list(nested_properties))
+        if field.is_required():
+            required_fields.append(name)
 
     schema: dict[str, Any] = {
         "type": "object",
         "additionalProperties": False,
         "properties": properties,
+        "required": required_fields,
     }
-    required = list(properties.keys())
-    if required:
-        schema["required"] = required
 
     _RESPONSES_SCHEMA_CACHE[model] = deepcopy(schema)
     return schema
@@ -1424,12 +1415,12 @@ def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     sanitized = _strip_disallowed_keywords(sanitized, disallowed_keys={"uniqueItems"})
     sanitized.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     if isinstance(sanitized, MutableMapping):
-        _ensure_required_recursive(sanitized)
+        _ensure_required_for_nested_objects(sanitized)
         defs = sanitized.get("$defs")
         if isinstance(defs, MutableMapping):
             for definition in defs.values():
                 if isinstance(definition, MutableMapping):
-                    _ensure_required_recursive(definition)
+                    _ensure_required_for_nested_objects(definition)
     _ensure_valid_json_schema(sanitized)
     return sanitized
 
@@ -1462,7 +1453,6 @@ def build_need_analysis_responses_schema(*, sections: Collection[str] | None = N
     if isinstance(company_schema, dict):
         company_properties = company_schema.get("properties")
         if isinstance(company_properties, dict):
-            _ensure_required_fields(company_schema, list(company_properties))
             contact_email_schema = company_properties.get("contact_email")
             if isinstance(contact_email_schema, dict):
                 email_type = contact_email_schema.get("type")
@@ -1480,7 +1470,6 @@ def build_need_analysis_responses_schema(*, sections: Collection[str] | None = N
                 contact_email_schema["type"] = normalized_type if len(normalized_type) > 1 else normalized_type[0]
                 contact_email_schema.setdefault("format", "email")
 
-    _ensure_required_for_nested_objects(schema)
     schema.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
     schema.setdefault("title", NeedAnalysisProfile.__name__)
     return ensure_responses_json_schema(schema)

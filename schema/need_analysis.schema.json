@@ -120,9 +120,7 @@
                     }
                 }
             },
-            "required": [
-                "name"
-            ]
+            "required": []
         },
         "position": {
             "type": "object",
@@ -225,9 +223,7 @@
                     ]
                 }
             },
-            "required": [
-                "job_title"
-            ]
+            "required": []
         },
         "department": {
             "type": "object",
@@ -263,7 +259,8 @@
                         "null"
                     ]
                 }
-            }
+            },
+            "required": []
         },
         "team": {
             "type": "object",
@@ -311,7 +308,8 @@
                         "null"
                     ]
                 }
-            }
+            },
+            "required": []
         },
         "location": {
             "type": "object",
@@ -335,7 +333,8 @@
                         "null"
                     ]
                 }
-            }
+            },
+            "required": []
         },
         "responsibilities": {
             "type": "object",
@@ -347,7 +346,8 @@
                         "type": "string"
                     }
                 }
-            }
+            },
+            "required": []
         },
         "requirements": {
             "type": "object",
@@ -464,10 +464,7 @@
                                     }
                                 },
                                 "required": [
-                                    "name",
-                                    "normalized_name",
-                                    "esco_uri",
-                                    "weight"
+                                    "name"
                                 ]
                             }
                         },
@@ -500,10 +497,7 @@
                                     }
                                 },
                                 "required": [
-                                    "name",
-                                    "normalized_name",
-                                    "esco_uri",
-                                    "weight"
+                                    "name"
                                 ]
                             }
                         },
@@ -536,10 +530,7 @@
                                     }
                                 },
                                 "required": [
-                                    "name",
-                                    "normalized_name",
-                                    "esco_uri",
-                                    "weight"
+                                    "name"
                                 ]
                             }
                         },
@@ -572,10 +563,7 @@
                                     }
                                 },
                                 "required": [
-                                    "name",
-                                    "normalized_name",
-                                    "esco_uri",
-                                    "weight"
+                                    "name"
                                 ]
                             }
                         },
@@ -608,21 +596,12 @@
                                     }
                                 },
                                 "required": [
-                                    "name",
-                                    "normalized_name",
-                                    "esco_uri",
-                                    "weight"
+                                    "name"
                                 ]
                             }
                         }
                     },
-                    "required": [
-                        "hard_skills_required",
-                        "hard_skills_optional",
-                        "soft_skills_required",
-                        "soft_skills_optional",
-                        "tools_and_technologies"
-                    ]
+                    "required": []
                 }
             },
             "required": []
@@ -739,17 +718,15 @@
                         "null"
                     ]
                 }
-            }
+            },
+            "required": []
         },
         "compensation": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
                 "salary_provided": {
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": "boolean"
                 },
                 "salary_min": {
                     "type": [
@@ -805,7 +782,8 @@
                         "type": "string"
                     }
                 }
-            }
+            },
+            "required": []
         },
         "process": {
             "type": "object",
@@ -848,10 +826,7 @@
                         },
                         "required": [
                             "name",
-                            "role",
-                            "email",
-                            "primary",
-                            "information_loop_phases"
+                            "role"
                         ]
                     }
                 },
@@ -902,13 +877,7 @@
                             }
                         },
                         "required": [
-                            "name",
-                            "interview_format",
-                            "participants",
-                            "docs_required",
-                            "assessment_tests",
-                            "timeframe",
-                            "task_assignments"
+                            "name"
                         ]
                     }
                 },
@@ -948,7 +917,8 @@
                         "null"
                     ]
                 }
-            }
+            },
+            "required": []
         },
         "meta": {
             "type": "object",
@@ -972,20 +942,11 @@
                         "type": "string"
                     }
                 }
-            }
+            },
+            "required": []
         }
     },
-    "required": [
-        "company",
-        "position",
-        "location",
-        "responsibilities",
-        "requirements",
-        "employment",
-        "compensation",
-        "process",
-        "meta"
-    ],
+    "required": [],
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "NeedAnalysisProfile"
 }
