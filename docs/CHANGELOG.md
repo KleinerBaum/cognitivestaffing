@@ -26,6 +26,8 @@ Changelog
   DE: Eingebauten Prompt-Generator-Pre-Commit-Hook ergänzt, der gestagte Diffs
   in Codex-taugliche JSON-Payloads umwandelt und unter `.tooling/out_prompts/`
   ablegt.
+- EN: Separated the need-analysis extraction pipeline from Streamlit UI code via `pipelines.need_analysis.extract_need_analysis_profile`, making the LLM orchestration reusable beyond the wizard.
+  DE: Die Need-Analysis-Extraktion über `pipelines.need_analysis.extract_need_analysis_profile` vom Streamlit-UI-Code entkoppelt, sodass die LLM-Orchestrierung auch außerhalb des Wizards wiederverwendbar ist.
 - EN: Migrated default LLM routing to `gpt-5.1` for precise mode, kept
   `gpt-4o-mini` for quick paths, removed deprecated `strict` flags from
   Responses payloads, and added a fallback test ensuring Chat completions catch
