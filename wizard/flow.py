@@ -4821,7 +4821,7 @@ def _render_extraction_review() -> bool:
     tabs = st.tabs(
         [
             tr("Unternehmen", "Company"),
-            tr("Team & Kontext", "Team & context"),
+            tr("Team & Struktur", "Team & Structure"),
             tr("Standort & Rahmen", "Location & logistics"),
             tr("Anforderungen", "Requirements"),
             tr("Prozess", "Process"),

@@ -22,9 +22,9 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
 
 PAGE = WizardPage(
     key="benefits",
-    label=("Vergütung & Benefits", "Compensation & benefits"),
+    label=("Vergütung", "Compensation"),
     panel_header=("Vergütung", "Compensation"),
-    panel_subheader=("Gehalt & Zusatzleistungen", "Salary & perks"),
+    panel_subheader=("Gehalt & Zusatzleistungen", "Salary & benefits"),
     panel_intro_variants=(
         (
             "Lege Gehaltsrahmen, Bonusmodell und Benefits transparent fest.",

@@ -73,13 +73,13 @@ def _apply_reasoning_mode(mode: str) -> None:
 
 
 STEP_LABELS: list[tuple[str, str]] = [
-    ("jobad", tr("Job-Import", "Job ad intake")),
+    ("jobad", tr("Onboarding", "Onboarding")),
     ("company", tr("Unternehmen", "Company")),
-    ("team", tr("Team & Kontext", "Team & context")),
-    ("role_tasks", tr("Rolle & Aufgaben", "Role & tasks")),
-    ("skills", tr("Skills & Anforderungen", "Skills & requirements")),
-    ("benefits", tr("Vergütung & Benefits", "Compensation & benefits")),
-    ("interview", tr("Interviewprozess", "Interview process")),
+    ("team", tr("Team & Struktur", "Team & Structure")),
+    ("role_tasks", tr("Rolle & Aufgaben", "Role & Tasks")),
+    ("skills", tr("Fähigkeiten & Anforderungen", "Skills & Requirements")),
+    ("benefits", tr("Vergütung", "Compensation")),
+    ("interview", tr("Bewerbungsprozess", "Hiring Process")),
     ("summary", tr("Zusammenfassung", "Summary")),
 ]
 

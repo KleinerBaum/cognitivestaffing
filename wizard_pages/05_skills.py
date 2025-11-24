@@ -18,9 +18,9 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
 
 PAGE = WizardPage(
     key="skills",
-    label=("Kompetenzen", "Skills"),
-    panel_header=("Skill-Portfolio", "Skill portfolio"),
-    panel_subheader=("Muss & Nice-to-have", "Must & nice-to-have"),
+    label=("Fähigkeiten & Anforderungen", "Skills & Requirements"),
+    panel_header=("Skills & Anforderungen", "Skills & Requirements"),
+    panel_subheader=("Pflicht & Nice-to-have", "Must-have & nice-to-have"),
     panel_intro_variants=(
         (
             "Lege fest, welche Kompetenzen zwingend und welche optional sind.",
