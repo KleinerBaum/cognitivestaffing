@@ -8,6 +8,7 @@ from collections.abc import ItemsView, Mapping, MutableMapping
 from copy import deepcopy
 import types
 from enum import StrEnum
+from functools import lru_cache
 from typing import (
     Any,
     Collection,
@@ -44,11 +45,13 @@ from llm.profile_normalization import normalize_interview_stages_field
 from models.need_analysis import NeedAnalysisProfile
 from utils.normalization import (
     NormalizedProfilePayload,
+    normalize_language,
     normalize_company_size,
     normalize_phone_number,
     normalize_profile,
     normalize_website_url,
 )
+from core.esco_utils import lookup_esco_skill
 
 from .validators import deduplicate_preserve_order, ensure_canonical_keys
 from llm.json_repair import repair_profile_payload
@@ -626,6 +629,7 @@ WIZARD_ALIASES: Mapping[str, str] = MappingProxyType(
 )
 
 _LIST_SPLIT_RE = re.compile(r"[,\n;•]+")
+_CONJUNCTION_SPLIT_RE = re.compile(r"\b(?:and|und|oder|or|&|/)\b", re.IGNORECASE)
 _TRUE_VALUES = {"true", "yes", "1", "ja"}
 _FALSE_VALUES = {"false", "no", "0", "nein"}
 _SOFT_SKILL_MARKERS: tuple[str, ...] = (
@@ -634,6 +638,7 @@ _SOFT_SKILL_MARKERS: tuple[str, ...] = (
     "teamwork",
     "teamfähigkeit",
     "teamfaehigkeit",
+    "team player",
     "leadership",
     "führung",
     "fuehrung",
@@ -643,6 +648,7 @@ _SOFT_SKILL_MARKERS: tuple[str, ...] = (
     "kundenorient",
     "problem solving",
     "analytical",
+    "critical thinking",
     "attention to detail",
     "presentation",
     "mentoring",
@@ -652,6 +658,9 @@ _SOFT_SKILL_MARKERS: tuple[str, ...] = (
     "organization",
     "self-starter",
     "ownership",
+    "work ethic",
+    "interpersonal",
+    "communication skills",
 )
 _LANGUAGE_MARKERS: tuple[str, ...] = (
     "english",
@@ -696,11 +705,19 @@ _LANGUAGE_MARKERS: tuple[str, ...] = (
     "dänisch",
     "daenisch",
     "finnish",
+    "ukrainian",
+    "ukrainisch",
+    "hungarian",
+    "magyar",
+    "romanian",
+    "rumänisch",
+    "romanisch",
 )
 _CERTIFICATION_MARKERS: tuple[str, ...] = (
     "certificate",
     "certification",
     "certified",
+    "zertifikat",
     "pmp",
     "prince2",
     "csm",
@@ -710,6 +727,7 @@ _CERTIFICATION_MARKERS: tuple[str, ...] = (
     "cfa",
     "cpa",
     "itil",
+    "foundation",
 )
 _TOOL_MARKERS: tuple[str, ...] = (
     "aws",
@@ -718,11 +736,79 @@ _TOOL_MARKERS: tuple[str, ...] = (
     "salesforce",
     "sap",
     "excel",
+    "word",
+    "powerpoint",
+    "power bi",
+    "tableau",
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "sql",
+    "c++",
+    "c#",
+    "go",
+    "golang",
+    "rust",
+    "ruby",
+    "php",
+    "scala",
+    "matlab",
+    "r ",
     "jira",
     "confluence",
-    "tableau",
-    "power bi",
+    "notion",
+    "figma",
+    "git",
+    "docker",
+    "kubernetes",
+    "terraform",
+    "scrum",
 )
+_ENUMERATION_HINTS = tuple({*(_LANGUAGE_MARKERS + _CERTIFICATION_MARKERS + _TOOL_MARKERS + _SOFT_SKILL_MARKERS)})
+
+
+def _looks_like_language(value: str) -> bool:
+    normalized = normalize_language(value)
+    if normalized:
+        return True
+    lower = value.casefold()
+    return any(marker in lower for marker in _LANGUAGE_MARKERS)
+
+
+def _looks_like_certification(value: str) -> bool:
+    lower = value.casefold()
+    return any(marker in lower for marker in _CERTIFICATION_MARKERS)
+
+
+def _looks_like_soft_skill(value: str) -> bool:
+    lower = value.casefold()
+    return any(marker in lower for marker in _SOFT_SKILL_MARKERS)
+
+
+def _looks_like_tool(value: str) -> bool:
+    lower = value.casefold()
+    return any(marker in lower for marker in _TOOL_MARKERS)
+
+
+def _should_split_on_conjunction(value: str) -> bool:
+    lower = value.casefold()
+    if not _CONJUNCTION_SPLIT_RE.search(lower):
+        return False
+    return any(hint in lower for hint in _ENUMERATION_HINTS)
+
+
+def _split_skill_text(value: str) -> list[str]:
+    base_parts = [part.strip() for part in _LIST_SPLIT_RE.split(value) if part.strip()]
+    split_parts: list[str] = []
+    for part in base_parts:
+        if _should_split_on_conjunction(part):
+            split_parts.extend(
+                [candidate.strip(" ,;•") for candidate in _CONJUNCTION_SPLIT_RE.split(part) if candidate.strip(" ,;•")]
+            )
+        else:
+            split_parts.append(part)
+    return split_parts
 
 
 def _to_mutable(data: Any) -> Any:
@@ -800,9 +886,7 @@ def _stringify_skill_entries(value: object) -> list[str]:
         cleaned = value.strip()
         if not cleaned:
             return []
-        if _LIST_SPLIT_RE.search(cleaned):
-            return [part.strip() for part in _LIST_SPLIT_RE.split(cleaned) if part.strip()]
-        return [cleaned]
+        return _split_skill_text(cleaned)
     if isinstance(value, Mapping):
         name = value.get("name")
         if isinstance(name, str):
@@ -823,15 +907,50 @@ def _append_unique(target: list[str], item: str) -> None:
         target.append(item)
 
 
-def _classify_skill_term(term: str) -> Literal["language", "certification", "soft", "tool", "hard"]:
-    lower = term.casefold()
-    if any(marker in lower for marker in _LANGUAGE_MARKERS):
+@lru_cache(maxsize=256)
+def _esco_category_for_term(
+    term: str, lang: str = "en"
+) -> Literal["language", "certification", "soft", "tool", "hard"] | None:
+    try:
+        meta = lookup_esco_skill(term, lang=lang)
+    except Exception:
+        return None
+
+    if not meta:
+        return None
+
+    label = str(meta.get("preferredLabel") or term).strip()
+    if _looks_like_language(label):
         return "language"
-    if any(marker in lower for marker in _CERTIFICATION_MARKERS):
+    if _looks_like_certification(label):
         return "certification"
-    if any(marker in lower for marker in _SOFT_SKILL_MARKERS):
+    if _looks_like_tool(label):
+        return "tool"
+
+    skill_type = str(meta.get("skillType") or "").rsplit("/", 1)[-1].casefold()
+    if skill_type == "competence":
         return "soft"
-    if any(marker in lower for marker in _TOOL_MARKERS):
+    if skill_type == "knowledge":
+        return "hard"
+
+    return None
+
+
+def _classify_skill_term(
+    term: str, *, lang: str = "en"
+) -> Literal["language", "certification", "soft", "tool", "hard"]:
+    if _looks_like_language(term):
+        return "language"
+    if _looks_like_certification(term):
+        return "certification"
+
+    esco_category = _esco_category_for_term(term, lang=lang)
+    if esco_category:
+        return esco_category
+
+    if _looks_like_soft_skill(term):
+        return "soft"
+    if _looks_like_tool(term):
         return "tool"
     return "hard"
 
@@ -847,6 +966,13 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
 
     if not isinstance(skills_section, Mapping):
         skills_section = {}
+
+    lang = "en"
+    meta_section = payload.get("meta")
+    if isinstance(meta_section, Mapping):
+        lang_candidate = meta_section.get("lang")
+        if isinstance(lang_candidate, str) and lang_candidate.strip():
+            lang = lang_candidate.strip()
 
     normalized: dict[str, list[str]] = {}
     for key in (
@@ -890,7 +1016,7 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
 
     def _assign(entries: list[str], *, required: bool) -> None:
         for entry in entries:
-            category = _classify_skill_term(entry)
+            category = _classify_skill_term(entry, lang=lang)
             if category == "language":
                 _append_unique(
                     normalized["languages_required" if required else "languages_optional"],
@@ -934,7 +1060,7 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
         mismatches = 0
         for entry in pool:
             category_counts[entry.source_category] += 1
-            predicted = _classify_skill_term(entry.value)
+            predicted = _classify_skill_term(entry.value, lang=lang)
             predicted_counts[predicted] = predicted_counts.get(predicted, 0) + 1
             if predicted != entry.source_category:
                 mismatches += 1
@@ -967,7 +1093,7 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
             _append_unique(bucket, value)
 
         for entry in pool:
-            target = _classify_skill_term(entry.value)
+            target = _classify_skill_term(entry.value, lang=lang)
             if target == "language":
                 destination = "languages_required" if entry.required else "languages_optional"
                 _append(destination, entry.value)

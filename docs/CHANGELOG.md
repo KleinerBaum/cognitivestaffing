@@ -2,6 +2,9 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Auto-classify extracted requirements into hard/soft skills, tools & technologies, languages, and certifications using ESCO-aware heuristics so the requirements section is consistently populated.
+  DE: Extrahierte Anforderungen werden jetzt ESCO-gestützt in Hard-/Soft-Skills, Tools/Technologien, Sprachen und Zertifizierungen eingeordnet, damit der Requirements-Abschnitt zuverlässig befüllt wird.
+
 - EN: Expanded heading synonyms (e.g., "Ihre Aufgaben", "Your Tasks", "Was Sie mitbringen") so German/English job ads map tasks and requirements into the right NeedAnalysis fields during extraction.
   DE: Heading-Synonyme erweitert (z. B. „Ihre Aufgaben“, „Your Tasks“, „Was Sie mitbringen“), damit deutsche/englische Stellenanzeigen Aufgaben und Anforderungen korrekt in die NeedAnalysis-Felder einsortieren.
 
