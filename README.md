@@ -4,6 +4,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 
 ## Features
 - **Eight-step wizard**: Onboarding → Company → Team & Structure → Role & Tasks → Skills & Requirements → Compensation → Hiring Process → Summary. Each step shows bilingual intros, validations, and inline follow-ups.
+- **Required field guardrails**: Required inputs are marked with asterisks in both languages, the Next button shows bilingual warnings listing missing fields, and navigation is blocked until the current step’s mandatory data is provided. (DE: Pflichtfelder sind mit Sternchen markiert, beim Weiterklicken erscheinen zweisprachige Warnungen mit den fehlenden Feldern, und ein Schritt lässt sich erst nach dem Ausfüllen der Pflichtangaben verlassen.)
 - **AI extraction & enrichment**: Ingest heuristics plus OpenAI Responses API map job ads into the NeedAnalysisProfile schema, highlight missing fields, and surface focused follow-up questions.
 - **Interactive ChatKit assistant**: Missing critical fields open a bilingual ChatKit helper that asks concise follow-ups inside each step and writes the responses directly into the NeedAnalysisProfile.
 - **Skill-set expander assistant**: On the Skills & Requirements step, an AI helper proposes related skills or certifications and lets you classify them as required or nice-to-have with one click (DE: KI schlägt ergänzende Skills/Zertifikate vor und du ordnest sie per Klick als Pflicht oder Optional zu.).

@@ -152,10 +152,10 @@ def build_navigation_state(
         next_hint: LocalizedText | None = None
         if missing_tuple:
             next_hint = (
-                "Pflichtfelder fehlen – du kannst trotzdem weitergehen und später ergänzen.",
-                "Required fields are missing — you can continue and fill them later.",
+                "Bitte fülle die markierten Pflichtfelder aus, bevor du fortfährst.",
+                "Please complete the marked required fields before continuing.",
             )
-        enabled = not missing_tuple
+        enabled = True
         next_button = NavigationButtonState(
             direction=NavigationDirection.NEXT,
             label=("Weiter ▶", "Next ▶"),

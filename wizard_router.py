@@ -10,6 +10,11 @@ from streamlit.errors import StreamlitAPIException
 from constants.keys import ProfilePaths, StateKeys
 from utils.i18n import tr
 from wizard.company_validators import persist_contact_email, persist_primary_city
+from wizard.metadata import (
+    PAGE_SECTION_INDEXES,
+    get_missing_critical_fields,
+    resolve_section_for_field,
+)
 from wizard.navigation_controller import NavigationController, PageProgressSnapshot
 from wizard.navigation_types import StepRenderer, WizardContext
 from wizard.navigation_ui import (
@@ -170,7 +175,18 @@ class WizardRouter:
         return self._controller.build_progress_snapshots()
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
-        return self._controller.resolve_missing_required_fields(page, validator=self._validate_required_field_inputs)
+        missing = self._controller.resolve_missing_required_fields(page, validator=self._validate_required_field_inputs)
+        section_index = PAGE_SECTION_INDEXES.get(page.key)
+        if section_index is None:
+            return missing
+
+        critical_missing = [
+            field
+            for field in get_missing_critical_fields(max_section=section_index)
+            if resolve_section_for_field(field) == section_index
+        ]
+        combined = list(dict.fromkeys((*missing, *critical_missing)))
+        return combined
 
     def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
         return self._controller.validate_required_field_inputs(fields)

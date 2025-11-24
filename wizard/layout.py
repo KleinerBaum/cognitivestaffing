@@ -8,16 +8,55 @@ from base64 import b64encode
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Literal, Optional, Sequence
+from typing import Any, Callable, Final, Iterable, Literal, Optional, Sequence
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from utils.i18n import tr
 
 
 LocalizedText = tuple[str, str]
+
+_REQUIRED_FIELD_LABELS: Final[dict[str, tuple[str, str]]] = {
+    str(ProfilePaths.COMPANY_NAME): ("Unternehmensname", "Company name"),
+    str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt-E-Mail", "Contact email"),
+    str(ProfilePaths.COMPANY_CONTACT_PHONE): ("Kontakt-Telefon", "Contact phone"),
+    str(ProfilePaths.LOCATION_PRIMARY_CITY): ("Primäre Stadt", "Primary city"),
+    str(ProfilePaths.LOCATION_COUNTRY): ("Land", "Country"),
+    str(ProfilePaths.DEPARTMENT_NAME): ("Abteilung", "Department"),
+    str(ProfilePaths.TEAM_REPORTING_LINE): ("Berichtslinie", "Reporting line"),
+    str(ProfilePaths.POSITION_REPORTING_MANAGER_NAME): (
+        "Vorgesetzte Person",
+        "Reporting manager",
+    ),
+    str(ProfilePaths.POSITION_JOB_TITLE): ("Jobtitel", "Job title"),
+    str(ProfilePaths.POSITION_ROLE_SUMMARY): ("Rollen-Zusammenfassung", "Role summary"),
+    str(ProfilePaths.META_TARGET_START_DATE): ("Startdatum", "Start date"),
+    "responsibilities.items": ("Kernaufgaben", "Core responsibilities"),
+    "requirements.hard_skills_required": ("Muss-Have-Skills", "Must-have skills"),
+    "requirements.soft_skills_required": ("Muss-Have-Soft-Skills", "Must-have soft skills"),
+}
+
+
+def _format_missing_field_list(fields: Iterable[str]) -> str:
+    lang = st.session_state.get("lang", "de")
+    labels = []
+    for field_path in fields:
+        label = _REQUIRED_FIELD_LABELS.get(field_path)
+        if label:
+            labels.append(tr(*label, lang=lang))
+        else:
+            labels.append(field_path)
+    unique_labels = list(dict.fromkeys(labels))
+    if not unique_labels:
+        return ""
+    if len(unique_labels) == 1:
+        return unique_labels[0]
+    if lang == "de":
+        return ", ".join(unique_labels[:-1]) + " und " + unique_labels[-1]
+    return ", ".join(unique_labels[:-1]) + " and " + unique_labels[-1]
 
 
 class NavigationDirection(str, Enum):
@@ -158,6 +197,15 @@ def _render_navigation_button(
 
     if wrapper_open:
         column.markdown("</div>", unsafe_allow_html=True)
+
+    if triggered and button.direction is NavigationDirection.NEXT and state.missing_fields:
+        missing_fields = _format_missing_field_list(state.missing_fields)
+        warning_message = tr(
+            "Bitte fülle die erforderlichen Felder aus: {fields}.",
+            "Please complete the required fields: {fields}.",
+        ).format(fields=missing_fields)
+        st.warning(warning_message)
+        return
 
     if triggered and button.on_click is not None:
         button.on_click()
