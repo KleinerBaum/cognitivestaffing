@@ -95,12 +95,12 @@ from utils.url_utils import is_supported_url
 from config import REASONING_EFFORT
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
+from pipelines.need_analysis import ExtractionResult, extract_need_analysis_profile
 from core.schema import coerce_and_fill
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
-from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse_structured_payload
+from core.extraction import InvalidExtractionPayload, mark_low_confidence
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
-from llm.client import extract_json
 from wizard_pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
@@ -2736,7 +2736,7 @@ def _cached_extract_profile(
     url_hint: str | None,
     locked_items: tuple[tuple[str, str], ...],
     reasoning_effort: str,
-) -> str:
+) -> ExtractionResult:
     """Return cached structured extraction output for ``text``."""
 
     locked_fields = {key: value for key, value in locked_items}
@@ -2749,11 +2749,11 @@ def _cached_extract_profile(
     try:
         if reasoning_effort and previous_effort != reasoning_effort:
             st.session_state[StateKeys.REASONING_EFFORT] = reasoning_effort
-        return extract_json(
+        return extract_need_analysis_profile(
             text,
-            title=title_hint,
-            company=company_hint,
-            url=url_hint,
+            title_hint=title_hint,
+            company_hint=company_hint,
+            url_hint=url_hint,
             locked_fields=locked_fields or None,
         )
     finally:
@@ -3702,7 +3702,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     locked_items = tuple(sorted(locked_hints.items()))
     effort_value = str(st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT) or REASONING_EFFORT)
     try:
-        raw_json = _cached_extract_profile(
+        extraction_result = _cached_extract_profile(
             text,
             title_hint=title_hint,
             company_hint=company_hint,
@@ -3710,13 +3710,12 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             locked_items=locked_items,
             reasoning_effort=effort_value,
         )
-    except ExtractionError as exc:
+    except (ExtractionError, InvalidExtractionPayload) as exc:
         llm_error = exc
     else:
-        try:
-            extracted_data, recovered, extraction_issues = parse_structured_payload(raw_json)
-        except InvalidExtractionPayload as exc:
-            llm_error = exc
+        extracted_data = extraction_result.data
+        recovered = extraction_result.recovered
+        extraction_issues = extraction_result.issues
 
     if llm_error:
         extracted_data = deepcopy(rule_patch)
