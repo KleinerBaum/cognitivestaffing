@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 INTERVIEW_GUIDE_SCHEMA_NAME = "interviewGuide"
 SKILL_SUGGESTION_SCHEMA_NAME = "skill_suggestions"
 BENEFIT_SUGGESTION_SCHEMA_NAME = "benefit_suggestions"
+TEAM_ADVICE_SCHEMA_NAME = "team_advice"
 
 
 def _validate_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
@@ -80,6 +81,20 @@ _SCHEMA_REGISTRY: dict[str, Callable[[], Mapping[str, Any]]] = {
         "required": ["items"],
         "additionalProperties": False,
     },
+    TEAM_ADVICE_SCHEMA_NAME: lambda: {
+        "type": "object",
+        "properties": {
+            "assistant_message": {"type": "string"},
+            "reporting_line_suggestion": {"type": "string"},
+            "direct_reports_suggestion": {
+                "type": "integer",
+                "minimum": 0,
+            },
+            "follow_up_question": {"type": "string"},
+        },
+        "required": ["assistant_message"],
+        "additionalProperties": False,
+    },
 }
 
 
@@ -102,6 +117,7 @@ def validate_response_schema(name: str, schema: Mapping[str, Any]) -> dict[str, 
 
 __all__ = [
     "BENEFIT_SUGGESTION_SCHEMA_NAME",
+    "TEAM_ADVICE_SCHEMA_NAME",
     "INTERVIEW_GUIDE_SCHEMA_NAME",
     "SKILL_SUGGESTION_SCHEMA_NAME",
     "get_response_schema",

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from functools import lru_cache, partial
+import logging
 from types import ModuleType
-from typing import Any, cast
-from functools import partial
+from typing import Any, Mapping, cast
+from urllib.parse import quote
+
+import requests
 
 import streamlit as st
 
@@ -14,6 +19,507 @@ from wizard_router import WizardContext
 from utils.i18n import tr
 
 __all__ = ["step_company"]
+
+
+logger = logging.getLogger(__name__)
+
+_ASSISTANT_STATE_KEY = "company.insights.assistant"
+
+
+@dataclass
+class CompanyLookupResult:
+    name: str
+    industry: str | None = None
+    size: str | None = None
+    hq_location: str | None = None
+    website: str | None = None
+    summary: str | None = None
+    source: str | None = None
+    disclaimer: str | None = None
+
+
+def _load_sample_profiles() -> tuple[Mapping[str, str], ...]:
+    """Return a small offline catalogue for demo lookups."""
+
+    return (
+        {
+            "name": "OpenAI",
+            "industry": "Artificial intelligence research and deployment",
+            "size": "1500+",
+            "hq_location": "San Francisco, United States",
+            "website": "https://openai.com",
+            "summary": "Research and deploy safe, beneficial AI across digital products and platforms.",
+        },
+        {
+            "name": "Cofinpro AG",
+            "industry": "Financial services consulting",
+            "size": "200-500",
+            "hq_location": "Frankfurt am Main, Germany",
+            "website": "https://www.cofinpro.de",
+            "summary": "German consultancy focused on banks and asset managers, covering technology delivery and strategy.",
+        },
+        {
+            "name": "Notion Labs",
+            "industry": "Productivity software",
+            "size": "500-1000",
+            "hq_location": "San Francisco, United States",
+            "website": "https://www.notion.so",
+            "summary": "Builds Notion, a connected workspace for docs, projects, and knowledge bases.",
+        },
+    )
+
+
+def _get_assistant_state() -> dict[str, Any]:
+    """Return persisted state for the insights assistant."""
+
+    base_state = st.session_state.setdefault(
+        _ASSISTANT_STATE_KEY,
+        {"messages": [], "pending": [], "result": None},
+    )
+    if "messages" not in base_state or not isinstance(base_state.get("messages"), list):
+        base_state["messages"] = []
+    if "pending" not in base_state or not isinstance(base_state.get("pending"), list):
+        base_state["pending"] = []
+    return base_state
+
+
+def _store_assistant_state(state: Mapping[str, Any]) -> None:
+    """Persist the assistant state into session memory."""
+
+    st.session_state[_ASSISTANT_STATE_KEY] = {
+        "messages": list(state.get("messages", [])),
+        "pending": list(state.get("pending", [])),
+        "result": state.get("result"),
+    }
+
+
+@lru_cache(maxsize=32)
+def _lookup_company_profile(company_name: str) -> CompanyLookupResult | None:
+    """Try to find public company details via offline samples and light web lookups."""
+
+    normalized = company_name.strip().lower()
+    for sample in _load_sample_profiles():
+        if sample.get("name", "").strip().lower() == normalized:
+            return CompanyLookupResult(
+                name=sample.get("name", company_name),
+                industry=sample.get("industry"),
+                size=sample.get("size"),
+                hq_location=sample.get("hq_location"),
+                website=sample.get("website"),
+                summary=sample.get("summary"),
+                source="offline_catalogue",
+                disclaimer="Static sample – please confirm accuracy.",
+            )
+
+    web_result = _fetch_public_company_data(company_name)
+    if web_result:
+        return web_result
+    return None
+
+
+def _fetch_public_company_data(company_name: str) -> CompanyLookupResult | None:
+    """Combine a lightweight web suggestion with a Wikipedia summary if available."""
+
+    wikipedia_summary = _fetch_wikipedia_summary(company_name)
+    clearbit_profile = _fetch_clearbit_profile(company_name)
+    if not wikipedia_summary and not clearbit_profile:
+        return None
+
+    website = clearbit_profile.get("website") if clearbit_profile else None
+    industry = clearbit_profile.get("industry") if clearbit_profile else None
+    summary = None
+    if wikipedia_summary:
+        summary = wikipedia_summary.get("summary") or wikipedia_summary.get("description")
+    elif clearbit_profile:
+        summary = clearbit_profile.get("description")
+
+    wikipedia_city = wikipedia_summary.get("title") if wikipedia_summary else None
+    hq_location = clearbit_profile.get("hq_location") if clearbit_profile else None
+    if not hq_location:
+        hq_location = wikipedia_city
+
+    resolved_name = str(clearbit_profile.get("name") if clearbit_profile else company_name).strip() or company_name
+
+    return CompanyLookupResult(
+        name=resolved_name,
+        industry=industry,
+        size=clearbit_profile.get("size") if clearbit_profile else None,
+        hq_location=hq_location,
+        website=website,
+        summary=summary,
+        source="open_web",
+        disclaimer=(
+            "Public web hint – verify details before applying." if clearbit_profile or wikipedia_summary else None
+        ),
+    )
+
+
+def _fetch_clearbit_profile(company_name: str) -> Mapping[str, str] | None:
+    """Return a basic public profile suggestion from the Clearbit autocomplete API."""
+
+    if not company_name.strip():
+        return None
+    try:
+        response = requests.get(
+            "https://autocomplete.clearbit.com/v1/companies/suggest",
+            params={"query": company_name},
+            timeout=5,
+            headers={"Accept": "application/json"},
+        )
+    except requests.RequestException as exc:  # pragma: no cover - network dependency
+        logger.debug("Unable to fetch company suggestion: %s", exc)
+        return None
+    if not response.ok:
+        return None
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, list):
+        return None
+    first_hit = next((item for item in payload if isinstance(item, Mapping)), None)
+    if not first_hit:
+        return None
+    name = str(first_hit.get("name") or company_name).strip()
+    domain = str(first_hit.get("domain") or "").strip()
+    website = f"https://{domain}" if domain else ""
+    description = str(first_hit.get("description") or "").strip()
+    return {"name": name, "website": website, "description": description}
+
+
+def _fetch_wikipedia_summary(company_name: str) -> Mapping[str, str] | None:
+    """Fetch a brief Wikipedia summary for the company if available."""
+
+    if not company_name.strip():
+        return None
+    try:
+        response = requests.get(
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(company_name)}",
+            timeout=5,
+            headers={"Accept": "application/json"},
+        )
+    except requests.RequestException as exc:  # pragma: no cover - network dependency
+        logger.debug("Wikipedia summary lookup failed: %s", exc)
+        return None
+    if not response.ok:
+        return None
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    summary = str(payload.get("extract") or "").strip()
+    description = str(payload.get("description") or "").strip()
+    title = str(payload.get("title") or company_name).strip()
+    if not summary and not description:
+        return None
+    return {
+        "summary": summary or description,
+        "description": description,
+        "title": title,
+    }
+
+
+def _describe_lookup_result(result: CompanyLookupResult, lang: str) -> str:
+    """Return a localized markdown block describing the lookup result."""
+
+    lines: list[str] = []
+    lines.append(tr("Gefundene Hinweise:", "Found signals:", lang=lang))
+    if result.industry:
+        lines.append(f"- {tr('Branche', 'Industry', lang=lang)}: {result.industry}")
+    if result.size:
+        lines.append(f"- {tr('Größe', 'Size', lang=lang)}: {result.size}")
+    if result.hq_location:
+        lines.append(f"- {tr('Hauptsitz', 'Headquarters', lang=lang)}: {result.hq_location}")
+    if result.website:
+        lines.append(f"- {tr('Website', 'Website', lang=lang)}: {result.website}")
+    if result.summary:
+        lines.append(f"- {tr('Kurzbeschreibung', 'Short summary', lang=lang)}: {result.summary}")
+    if not any([result.industry, result.size, result.hq_location, result.website, result.summary]):
+        lines.append(tr("Keine verwertbaren Details gefunden.", "No usable details found.", lang=lang))
+    if result.disclaimer:
+        lines.append(f"_{result.disclaimer}_")
+    if result.source:
+        lines.append(tr("Quelle: {source}", "Source: {source}", lang=lang).format(source=result.source))
+    return "\n".join(lines)
+
+
+def _apply_company_insights(
+    company: dict[str, Any],
+    result: CompanyLookupResult,
+    lang: str,
+) -> list[str]:
+    """Apply lookup data to the profile where fields are still empty."""
+
+    applied: list[str] = []
+    if result.industry and not (company.get("industry") or "").strip():
+        company["industry"] = result.industry
+        _update_profile(ProfilePaths.COMPANY_INDUSTRY, result.industry)
+        applied.append(tr("Branche aktualisiert", "Updated industry", lang=lang))
+    if result.size and not (company.get("size") or "").strip():
+        company["size"] = result.size
+        _update_profile(ProfilePaths.COMPANY_SIZE, result.size)
+        applied.append(tr("Größe ergänzt", "Added size", lang=lang))
+    if result.hq_location and not (company.get("hq_location") or "").strip():
+        company["hq_location"] = result.hq_location
+        _update_profile(ProfilePaths.COMPANY_HQ_LOCATION, result.hq_location)
+        applied.append(tr("Hauptsitz gesetzt", "Set headquarters", lang=lang))
+    if result.website and not (company.get("website") or "").strip():
+        company["website"] = result.website
+        _update_profile(ProfilePaths.COMPANY_WEBSITE, result.website)
+        applied.append(tr("Website ergänzt", "Added website", lang=lang))
+    if result.summary and not (company.get("description") or "").strip():
+        company["description"] = result.summary
+        _update_profile(ProfilePaths.COMPANY_DESCRIPTION, result.summary)
+        applied.append(tr("Kurzbeschreibung eingefügt", "Inserted short description", lang=lang))
+    if applied:
+        st.toast(tr("Vorschläge übernommen.", "Suggestions applied.", lang=lang), icon="✅")
+    else:
+        st.info(
+            tr(
+                "Keine Felder überschrieben – vorhandene Angaben bleiben bestehen.",
+                "Nothing changed – existing values are kept.",
+                lang=lang,
+            )
+        )
+    return applied
+
+
+def _build_company_questions(lang: str) -> list[dict[str, str]]:
+    """Return the ordered list of questions for missing details."""
+
+    return [
+        {
+            "field": "industry",
+            "label": tr("Branche", "Industry", lang=lang),
+            "question": tr(
+                "Welche Branche beschreibt das Unternehmen am besten?",
+                "Which industry best describes the company?",
+                lang=lang,
+            ),
+        },
+        {
+            "field": "size",
+            "label": tr("Unternehmensgröße", "Company size", lang=lang),
+            "question": tr(
+                "Wie viele Mitarbeitende (oder Größenkategorie) hat das Unternehmen?",
+                "Roughly how many employees does the company have?",
+                lang=lang,
+            ),
+        },
+        {
+            "field": "hq_location",
+            "label": tr("Hauptsitz", "Headquarters", lang=lang),
+            "question": tr(
+                "Wo befindet sich der Hauptsitz?",
+                "Where is the headquarters located?",
+                lang=lang,
+            ),
+        },
+        {
+            "field": "website",
+            "label": tr("Website", "Website", lang=lang),
+            "question": tr(
+                "Wie lautet die Unternehmenswebsite?",
+                "What is the official company website?",
+                lang=lang,
+            ),
+        },
+        {
+            "field": "description",
+            "label": tr("Kurzbeschreibung", "Short description", lang=lang),
+            "question": tr(
+                "Bitte formuliere eine kurze Unternehmensbeschreibung (1-2 Sätze).",
+                "Please share a short company blurb (1-2 sentences).",
+                lang=lang,
+            ),
+        },
+    ]
+
+
+def _render_company_insights_assistant(company: dict[str, Any], location_data: dict[str, Any]) -> None:
+    """Render the ChatKit-style assistant for company enrichment."""
+
+    lang = st.session_state.get("lang", "de")
+    state = _get_assistant_state()
+    questions = _build_company_questions(lang)
+    with st.expander(
+        tr("🧠 KI-Unterstützung für Unternehmensprofil", "🧠 Company insights assistant", lang=lang),
+        expanded=False,
+    ):
+        st.caption(
+            tr(
+                "Fragt öffentliche Quellen ab oder sammelt fehlende Details zum Unternehmen.",
+                "Checks public sources or collects missing company details.",
+                lang=lang,
+            )
+        )
+
+        company_name = (company.get("name") or "").strip()
+        if not company_name:
+            st.info(
+                tr(
+                    "Bitte zuerst den offiziellen Firmennamen angeben.",
+                    "Please provide the official company name first.",
+                    lang=lang,
+                )
+            )
+            _store_assistant_state(state)
+            return
+
+        city_hint = (location_data.get("primary_city") or "").strip()
+        if city_hint and not (company.get("hq_location") or "").strip():
+            st.caption(
+                tr(
+                    "Tipp: Wir nutzen {city} als Ausgangspunkt für den Hauptsitz – passe ihn bei Bedarf an.",
+                    "Hint: Using {city} as a starting point for the headquarters – adjust as needed.",
+                    lang=lang,
+                ).format(city=city_hint)
+            )
+
+        lookup_col, apply_col = st.columns((1.4, 1))
+        if lookup_col.button(
+            tr("🔎 Öffentliche Firmendaten abrufen", "🔎 Fetch public company data", lang=lang),
+            key="company.insights.lookup",
+        ):
+            fresh_result = _lookup_company_profile(company_name)
+            state["result"] = fresh_result
+            if fresh_result:
+                st.success(tr("Hinweise gefunden.", "Found public hints.", lang=lang))
+            else:
+                st.warning(
+                    tr(
+                        "Keine Treffer – bitte manuell ergänzen.",
+                        "No matches – please add details manually.",
+                        lang=lang,
+                    )
+                )
+
+        lookup_result: CompanyLookupResult | None = cast(CompanyLookupResult | None, state.get("result"))
+        if lookup_result:
+            st.markdown(_describe_lookup_result(lookup_result, lang))
+            if lookup_result.disclaimer:
+                st.caption(tr("Hinweis: {text}", "Disclaimer: {text}", lang=lang).format(text=lookup_result.disclaimer))
+            if apply_col.button(
+                tr("Vorschläge übernehmen", "Apply suggestions", lang=lang),
+                key="company.insights.apply",
+            ):
+                _apply_company_insights(company, lookup_result, lang)
+
+        missing_fields: list[str] = []
+        for descriptor in questions:
+            field = descriptor.get("field")
+            if not field:
+                continue
+            if field == "hq_location" and not (company.get("hq_location") or "").strip():
+                missing_fields.append(field)
+            elif field == "industry" and not (company.get("industry") or "").strip():
+                missing_fields.append(field)
+            elif field == "size" and not (company.get("size") or "").strip():
+                missing_fields.append(field)
+            elif field == "website" and not (company.get("website") or "").strip():
+                missing_fields.append(field)
+            elif field == "description" and not (company.get("description") or "").strip():
+                missing_fields.append(field)
+
+        pending = [field for field in state.get("pending", []) if field in missing_fields]
+        for field in missing_fields:
+            if field not in pending:
+                pending.append(field)
+        state["pending"] = pending
+
+        if not state.get("messages") and pending:
+            friendly_labels = [descriptor["label"] for descriptor in questions if descriptor.get("field") in pending]
+            intro = tr(
+                "Ich kann folgende Punkte ergänzen: {labels}.",
+                "I can help capture these: {labels}.",
+                lang=lang,
+            ).format(labels=", ".join(friendly_labels))
+            state["messages"] = [
+                {"role": "assistant", "content": intro, "field": None},
+            ]
+
+        current_field = pending[0] if pending else None
+        if current_field and not any(
+            message.get("role") == "assistant" and message.get("field") == current_field
+            for message in state.get("messages", [])
+        ):
+            descriptor_lookup: dict[str, dict[str, str]] = {
+                str(item["field"]): item for item in questions if item.get("field")
+            }
+            question_text = descriptor_lookup.get(current_field, {}).get("question")
+            if question_text:
+                state.setdefault("messages", []).append(
+                    {"role": "assistant", "content": question_text, "field": current_field}
+                )
+
+        for message in state.get("messages", []):
+            role = str(message.get("role") or "assistant")
+            content = str(message.get("content") or "")
+            if not content.strip():
+                continue
+            st.chat_message(role).markdown(content)
+
+        prompt = st.chat_input(
+            tr("Antwort eingeben …", "Share your answer …", lang=lang),
+            key="company.insights.input",
+            disabled=not current_field,
+        )
+        if prompt is not None:
+            normalized = prompt.strip()
+            if not normalized:
+                st.toast(
+                    tr("Bitte eine kurze Antwort eingeben.", "Please enter a short answer.", lang=lang),
+                    icon="ℹ️",
+                )
+            else:
+                if current_field is None:
+                    _store_assistant_state(state)
+                    return
+                state.setdefault("messages", []).append({"role": "user", "content": normalized, "field": current_field})
+                if current_field == "industry":
+                    company["industry"] = normalized
+                    _update_profile(ProfilePaths.COMPANY_INDUSTRY, normalized)
+                elif current_field == "size":
+                    company["size"] = normalized
+                    _update_profile(ProfilePaths.COMPANY_SIZE, normalized)
+                elif current_field == "hq_location":
+                    company["hq_location"] = normalized
+                    _update_profile(ProfilePaths.COMPANY_HQ_LOCATION, normalized)
+                elif current_field == "website":
+                    company["website"] = normalized
+                    _update_profile(ProfilePaths.COMPANY_WEBSITE, normalized)
+                elif current_field == "description":
+                    company["description"] = normalized
+                    _update_profile(ProfilePaths.COMPANY_DESCRIPTION, normalized)
+
+                label_lookup: dict[str, str] = {
+                    str(item["field"]): str(item.get("label") or "") for item in questions if item.get("field")
+                }
+                ack = tr("Gespeichert: {label}.", "Saved: {label}.", lang=lang).format(
+                    label=label_lookup.get(current_field, current_field)
+                )
+                state["messages"].append({"role": "assistant", "content": ack, "field": current_field})
+                pending = [field for field in pending if field != current_field]
+                state["pending"] = pending
+                if pending:
+                    next_field: str = pending[0]
+                    descriptor_lookup = {str(item["field"]): item for item in questions if item.get("field")}
+                    follow_up = descriptor_lookup.get(next_field, {}).get("question")
+                    if follow_up:
+                        state["messages"].append({"role": "assistant", "content": follow_up, "field": next_field})
+                else:
+                    state["messages"].append(
+                        {
+                            "role": "assistant",
+                            "content": tr(
+                                "Danke – alle angefragten Felder sind nun ausgefüllt.",
+                                "Thanks – all requested fields are now filled.",
+                                lang=lang,
+                            ),
+                            "field": None,
+                        }
+                    )
+        _store_assistant_state(state)
 
 
 _FLOW_DEPENDENCIES: tuple[str, ...] = (
@@ -193,6 +699,7 @@ def _step_company() -> None:
 
     company_identity_container = st.container()
 
+    _render_company_insights_assistant(company, location_data)
     _render_company_research_tools(company.get("website", ""))
 
     with company_identity_container:
