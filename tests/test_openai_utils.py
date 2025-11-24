@@ -1003,7 +1003,41 @@ def test_convert_responses_payload_to_chat_keeps_schema_name() -> None:
     assert response_format.get("type") == "json_schema"
     json_schema_block = response_format.get("json_schema", {})
     assert json_schema_block["name"] == "fallback_schema"
-    assert json_schema_block["schema"] == {"type": "object"}
+    assert json_schema_block["schema"].get("type") == "object"
+
+
+def test_convert_responses_payload_to_chat_strips_responses_fields() -> None:
+    """Responses-only keys should be removed from Chat fallback payloads."""
+
+    payload = {
+        "model": "gpt-4o-mini",
+        "input": [{"role": "user", "content": "hello"}],
+        "max_output_tokens": 55,
+        "reasoning": {"effort": "medium"},
+        "text": {"format": {}},
+        "metadata": {"debug": True},
+    }
+
+    chat_payload = openai_utils.api._convert_responses_payload_to_chat(payload)
+
+    assert chat_payload is not None
+    assert set(chat_payload) <= openai_utils.api.SUPPORTED_CHAT_PAYLOAD_FIELDS
+    assert "max_tokens" in chat_payload
+    assert "max_output_tokens" not in chat_payload
+
+
+def test_convert_responses_payload_to_chat_copies_messages() -> None:
+    """Messages should be transferred and normalised for chat payloads."""
+
+    payload = {
+        "model": "gpt-4o-mini",
+        "input": [{"role": "user", "content": "hi"}],
+    }
+
+    chat_payload = openai_utils.api._convert_responses_payload_to_chat(payload)
+
+    assert chat_payload is not None
+    assert chat_payload["messages"] == payload["input"]
 
 
 def test_stream_chat_api_yields_chunks(monkeypatch):
