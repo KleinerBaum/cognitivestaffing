@@ -56,7 +56,8 @@ class NeedAnalysisOutputParser:
                     name="profile",
                     description=(
                         "JSON object that strictly matches the NeedAnalysisProfile schema. "
-                        "Return null for unknown primitive values and empty arrays when no entries are available."
+                        "Return null for unknown primitive values and empty arrays when no entries are available. "
+                        "Do not omit any required fields; include empty strings or empty objects when information is missing."
                     ),
                 )
             ]

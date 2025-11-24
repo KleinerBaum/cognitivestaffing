@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping, Sequence
+import json
+from collections.abc import Mapping, MutableMapping, Sequence
+from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from pydantic import ValidationError
@@ -21,6 +24,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("cognitive_needs.normalization")
 HEURISTICS_LOGGER = logging.getLogger("cognitive_needs.heuristics")
+
+_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schema" / "need_analysis.schema.json"
+_MISSING = object()
 
 _WHITESPACE_RE = re.compile(r"\s+")
 _TRAILING_SEPARATORS_RE = re.compile(r"[\s\-\u2013\u2014|/:,;]+$")
@@ -55,6 +61,167 @@ _COMPANY_SIZE_SNIPPET_RE = re.compile(
 )
 
 _COMPANY_SIZE_THOUSAND_SEP_RE = re.compile(r"(?<=\d)[.,](?=\d{3}(?:\D|$))")
+
+
+@lru_cache(maxsize=1)
+def _load_need_analysis_schema() -> dict[str, Any]:
+    """Return the NeedAnalysis JSON schema from disk with caching."""
+
+    try:
+        return json.loads(_SCHEMA_PATH.read_text())
+    except FileNotFoundError:
+        logger.warning("NeedAnalysis schema file missing at %s", _SCHEMA_PATH)
+    except json.JSONDecodeError:
+        logger.exception("NeedAnalysis schema contains invalid JSON at %s", _SCHEMA_PATH)
+    return {}
+
+
+def _extract_type_set(schema: Mapping[str, Any]) -> set[str]:
+    """Return a normalised set of ``type`` markers from ``schema``."""
+
+    type_value = schema.get("type")
+    if isinstance(type_value, str):
+        return {type_value}
+    if isinstance(type_value, Sequence):
+        return {entry for entry in type_value if isinstance(entry, str)}
+    return set()
+
+
+def _resolve_schema_for_defaults(schema: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Return the schema branch that best describes the expected type."""
+
+    if _extract_type_set(schema):
+        return schema
+    for composite_key in ("anyOf", "oneOf", "allOf"):
+        options = schema.get(composite_key)
+        if isinstance(options, Sequence):
+            for option in options:
+                if isinstance(option, Mapping) and _extract_type_set(option):
+                    return option
+    return schema
+
+
+def _default_for_schema(schema: Mapping[str, Any]) -> Any:
+    """Return a neutral default value compatible with ``schema``."""
+
+    resolved = _resolve_schema_for_defaults(schema)
+    types = _extract_type_set(resolved)
+    allows_null = "null" in types
+
+    if "object" in types:
+        return {}
+    if "array" in types:
+        return []
+    if "integer" in types:
+        return None if allows_null else 0
+    if "number" in types:
+        return None if allows_null else 0.0
+    if "boolean" in types:
+        return None if allows_null else False
+    if "string" in types:
+        return ""
+    return None
+
+
+def _coerce_enum_value(schema: Mapping[str, Any], value: Any) -> Any:
+    """Return ``value`` adjusted to fit enum constraints when present."""
+
+    resolved = _resolve_schema_for_defaults(schema)
+    enum_values = resolved.get("enum")
+    if not isinstance(enum_values, Sequence) or isinstance(enum_values, (str, bytes, bytearray)):
+        return value
+    allowed_values = [entry for entry in enum_values if not isinstance(entry, Mapping)]
+    if not allowed_values:
+        return value
+    if value in allowed_values:
+        return value
+    return allowed_values[0]
+
+
+def _has_valid_type(value: Any, types: set[str]) -> bool:
+    if "object" in types and isinstance(value, Mapping):
+        return True
+    if "array" in types and isinstance(value, list):
+        return True
+    if "string" in types and isinstance(value, str):
+        return True
+    if "integer" in types and isinstance(value, int) and not isinstance(value, bool):
+        return True
+    if "number" in types and isinstance(value, (int, float)) and not isinstance(value, bool):
+        return True
+    if "boolean" in types and isinstance(value, bool):
+        return True
+    return False
+
+
+def _ensure_required_fields(schema: Mapping[str, Any], payload: MutableMapping[str, Any]) -> None:
+    """Recursively insert defaults for required fields missing in ``payload``."""
+
+    resolved_schema = _resolve_schema_for_defaults(schema)
+    required_fields = resolved_schema.get("required")
+    properties = resolved_schema.get("properties") if isinstance(resolved_schema, Mapping) else None
+    if not isinstance(required_fields, Sequence):
+        required_fields = []
+    if not isinstance(properties, Mapping):
+        properties = {}
+
+    for field in required_fields:
+        if not isinstance(field, str):
+            continue
+        field_schema = properties.get(field, {}) if isinstance(properties, Mapping) else {}
+        field_schema_resolved = _resolve_schema_for_defaults(field_schema)
+        field_types = _extract_type_set(field_schema_resolved)
+        allows_null = "null" in field_types
+
+        existing = payload.get(field, _MISSING)
+        if existing is _MISSING:
+            default_value = _default_for_schema(field_schema_resolved)
+            payload[field] = default_value
+            if isinstance(default_value, MutableMapping):
+                _ensure_required_fields(field_schema_resolved, default_value)
+            continue
+        if existing is None and allows_null:
+            continue
+        if existing is None or (field_types and not _has_valid_type(existing, field_types)):
+            default_value = _default_for_schema(field_schema_resolved)
+            payload[field] = default_value
+            if isinstance(default_value, MutableMapping):
+                _ensure_required_fields(field_schema_resolved, default_value)
+            continue
+
+        coerced_value = _coerce_enum_value(field_schema_resolved, existing)
+        if coerced_value is not existing:
+            payload[field] = coerced_value
+            existing = coerced_value
+
+        if isinstance(existing, MutableMapping):
+            _ensure_required_fields(field_schema_resolved, existing)
+        elif isinstance(existing, Mapping):
+            nested = dict(existing)
+            payload[field] = nested
+            _ensure_required_fields(field_schema_resolved, nested)
+        elif isinstance(existing, list):
+            items_schema = field_schema_resolved.get("items") if isinstance(field_schema_resolved, Mapping) else None
+            if isinstance(items_schema, Mapping):
+                for index, item in enumerate(existing):
+                    if isinstance(item, MutableMapping):
+                        _ensure_required_fields(items_schema, item)
+                    elif isinstance(item, Mapping):
+                        nested_item = dict(item)
+                        existing[index] = nested_item
+                        _ensure_required_fields(items_schema, nested_item)
+
+
+def _ensure_required_profile_fields(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``payload`` with required schema fields present."""
+
+    normalized_payload = dict(payload)
+    schema = _load_need_analysis_schema()
+    if not schema:
+        return normalized_payload
+    if isinstance(schema, Mapping):
+        _ensure_required_fields(schema, normalized_payload)
+    return normalized_payload
 
 
 def _normalize_company_size_input(value: str) -> str:
@@ -404,6 +571,7 @@ def normalize_profile(
         raise TypeError("profile must be a mapping or NeedAnalysisProfile instance")
 
     normalized = _normalize_profile_mapping(data)
+    normalized = _ensure_required_profile_fields(normalized)
 
     if is_model_input and normalized == data:
         assert model_dump is not None
