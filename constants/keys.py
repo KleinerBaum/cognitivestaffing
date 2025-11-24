@@ -77,6 +77,7 @@ class ProfilePaths(StrEnum):
     COMPANY_CONTACT_NAME = "company.contact_name"
     COMPANY_CONTACT_PHONE = "company.contact_phone"
     COMPANY_CULTURE = "company.culture"
+    COMPANY_DESCRIPTION = "company.description"
     COMPANY_HQ_LOCATION = "company.hq_location"
     COMPANY_INDUSTRY = "company.industry"
     COMPANY_LOGO_URL = "company.logo_url"

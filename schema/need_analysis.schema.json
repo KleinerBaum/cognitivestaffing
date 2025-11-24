@@ -12,6 +12,12 @@
                         "null"
                     ]
                 },
+                "description": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
                 "brand_name": {
                     "type": [
                         "string",
