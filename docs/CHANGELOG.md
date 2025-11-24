@@ -8,6 +8,14 @@ Changelog
   DE: Eingebauten Prompt-Generator-Pre-Commit-Hook ergänzt, der gestagte Diffs
   in Codex-taugliche JSON-Payloads umwandelt und unter `.tooling/out_prompts/`
   ablegt.
+- EN: Migrated default LLM routing to `gpt-5.1` for precise mode, kept
+  `gpt-4o-mini` for quick paths, removed deprecated `strict` flags from
+  Responses payloads, and added a fallback test ensuring Chat completions catch
+  Responses 400 errors.
+  DE: Standard-LLM-Routing auf `gpt-5.1` für den Modus „Genau“ umgestellt,
+  `gpt-4o-mini` für „Schnell“ beibehalten, veraltete `strict`-Flags aus
+  Responses-Payloads entfernt und einen Fallback-Test ergänzt, der Chat-
+  Completions bei Responses-400-Fehlern absichert.
 
 ## [1.1.2] - 2025-12-01
 

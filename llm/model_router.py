@@ -12,12 +12,13 @@ PREF_ENV = "COGNITIVE_PREFERRED_MODEL"
 FB_ENV = "COGNITIVE_MODEL_FALLBACKS"
 
 DEFAULT_CANDIDATES = [
+    "gpt-5.1",
+    "gpt-4o-mini",
     "gpt-4.1-mini",
     "gpt-4.1-nano",
     "o4-mini",
     "o3",
     "o3-mini",
-    "gpt-4o-mini",
     "gpt-4o",
 ]
 
