@@ -146,6 +146,8 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
 
     responses_format: dict[str, Any] = {
         "type": "json_schema",
+        "name": schema_name,
+        "schema": deepcopy(sanitized_schema),
         "json_schema": {
             "name": schema_name,
             "schema": deepcopy(sanitized_schema),
@@ -156,6 +158,7 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
         chat_format["json_schema"]["strict"] = strict_value
         chat_format["strict"] = strict_value
         responses_format["json_schema"]["strict"] = strict_value
+        responses_format["strict"] = strict_value
 
     return SchemaFormatBundle(
         name=schema_name,
