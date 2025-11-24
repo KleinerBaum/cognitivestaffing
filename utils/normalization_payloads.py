@@ -161,7 +161,7 @@ class ProcessPayload(TypedDict, total=False):
     stakeholders: list[StakeholderPayload]
     phases: list[PhasePayload]
     recruitment_timeline: str | None
-    hiring_process: str | None
+    hiring_process: list[str] | None
     process_notes: str | None
     application_instructions: str | None
     onboarding_process: str | None

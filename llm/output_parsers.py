@@ -108,11 +108,13 @@ class NeedAnalysisOutputParser:
             missing.append("company.culture")
         process_overview_values = (
             profile.process.recruitment_timeline,
-            profile.process.hiring_process,
             profile.process.process_notes,
             profile.process.application_instructions,
         )
-        if not any(cls._has_text(value) for value in process_overview_values):
+        has_hiring_steps = cls._sequence_has_text(profile.process.hiring_process) or cls._has_text(
+            profile.process.hiring_process
+        )
+        if not any(cls._has_text(value) for value in process_overview_values) and not has_hiring_steps:
             missing.append("process.overview")
         return missing
 
