@@ -9579,6 +9579,16 @@ def _step_process() -> None:
                     ),
                 )
 
+    data["hiring_process"] = st.text_area(
+        tr("Bewerbungsprozess", "Hiring process"),
+        value=data.get("hiring_process", ""),
+        key="ui.process.hiring_process",
+        help=tr(
+            "Wenn die Anzeige Schritte nennt, hier kurz zusammenfassen.",
+            "Summarise the described steps if the ad mentions a process.",
+        ),
+    )
+
     c1, c2 = st.columns(2)
     original_timeline = data.get("recruitment_timeline", "")
     default_start, default_end = _timeline_default_range(original_timeline)
@@ -10427,6 +10437,12 @@ def _summary_process() -> None:
         key="ui.summary.process.hiring_manager_role",
     )
 
+    hiring_process = st.text_area(
+        tr("Bewerbungsprozess", "Hiring process"),
+        value=process.get("hiring_process", ""),
+        key="ui.summary.process.hiring_process",
+    )
+
     _render_stakeholders(process, "ui.summary.process.stakeholders")
     _update_profile("process.stakeholders", process.get("stakeholders", []))
 
@@ -10472,6 +10488,7 @@ def _summary_process() -> None:
     _update_profile("process.onboarding_process", onboarding)
     _update_profile("process.hiring_manager_name", hiring_manager)
     _update_profile("process.hiring_manager_role", hiring_role)
+    _update_profile("process.hiring_process", hiring_process)
 
 
 def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:

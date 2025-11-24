@@ -135,6 +135,7 @@ class ProfilePaths(StrEnum):
     POSITION_TEAM_SIZE = "position.team_size"
     POSITION_TEAM_STRUCTURE = "position.team_structure"
     PROCESS_APPLICATION_INSTRUCTIONS = "process.application_instructions"
+    PROCESS_HIRING_PROCESS = "process.hiring_process"
     PROCESS_HIRING_MANAGER_NAME = "process.hiring_manager_name"
     PROCESS_HIRING_MANAGER_ROLE = "process.hiring_manager_role"
     PROCESS_INTERVIEW_STAGES = "process.interview_stages"

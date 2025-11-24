@@ -229,6 +229,28 @@ _CITY_TRAILING_STOPWORDS = {
     "hours",
 }
 
+_HIRING_PROCESS_HEADINGS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bhiring process\b", re.IGNORECASE),
+    re.compile(r"\binterview process\b", re.IGNORECASE),
+    re.compile(r"\bapplication process\b", re.IGNORECASE),
+    re.compile(r"\bselection process\b", re.IGNORECASE),
+    re.compile(r"\bbewerbungsprozess\b", re.IGNORECASE),
+    re.compile(r"\bbewerbungsverfahren\b", re.IGNORECASE),
+    re.compile(r"\binterviewprozess\b", re.IGNORECASE),
+    re.compile(r"\bauswahlverfahren\b", re.IGNORECASE),
+)
+
+_HIRING_PROCESS_INLINE: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bhiring process\b", re.IGNORECASE),
+    re.compile(r"\binterview process\b", re.IGNORECASE),
+    re.compile(r"\bapplication process\b", re.IGNORECASE),
+    re.compile(r"\bbewerbungsprozess\b", re.IGNORECASE),
+    re.compile(r"\binterviewprozess\b", re.IGNORECASE),
+    re.compile(r"\bbewerbungsverfahren\b", re.IGNORECASE),
+    re.compile(r"\bauswahlverfahren\b", re.IGNORECASE),
+    re.compile(r"\bvorstellungsgespr[aä]ch\b", re.IGNORECASE),
+)
+
 BENEFIT_LEXICON: dict[str, str] = {
     "flexible arbeitszeiten": "Flexible Arbeitszeiten",
     "flexible arbeitszeit": "Flexible Arbeitszeiten",
@@ -1615,6 +1637,50 @@ def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
     return base
 
 
+def _extract_hiring_process(text: str, *, max_lines: int = 8) -> str | None:
+    """Return a hiring process description extracted from ``text``."""
+
+    if not text.strip():
+        return None
+
+    collected: list[str] = []
+    collecting = False
+    line_budget = max_lines
+
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        lowered = stripped.casefold()
+        if not collecting and stripped:
+            if any(pattern.search(lowered) for pattern in _HIRING_PROCESS_HEADINGS):
+                collecting = True
+                continue
+        if collecting:
+            if not stripped:
+                if collected:
+                    break
+                continue
+            cleaned = _clean_bullet(stripped)
+            if cleaned:
+                collected.append(cleaned)
+                line_budget -= 1
+                if line_budget <= 0:
+                    break
+
+    if not collected:
+        sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text.strip()) if sentence.strip()]
+        for sentence in sentences:
+            if any(pattern.search(sentence) for pattern in _HIRING_PROCESS_INLINE):
+                collected.append(sentence)
+            if len(collected) >= 3:
+                break
+
+    if collected:
+        unique_lines = _merge_unique([], collected)
+        return "\n".join(unique_lines).strip()
+
+    return None
+
+
 def _normalize_skill_marker(value: str) -> str:
     """Return a normalized marker for comparing skill labels."""
 
@@ -2823,6 +2889,16 @@ def apply_basic_fallbacks(
                 "meta.target_start_date",
                 "start_date_guess",
                 detail=f"with value {start!r}",
+            )
+    hiring_process_field = "process.hiring_process"
+    if not _is_locked(hiring_process_field) and _needs_value(profile.process.hiring_process, hiring_process_field):
+        process_description = _extract_hiring_process(text)
+        if process_description:
+            profile.process.hiring_process = process_description
+            _log_heuristic_fill(
+                hiring_process_field,
+                "hiring_process_section",
+                detail=f"with {len(process_description.splitlines())} lines",
             )
     if not profile.responsibilities.items:
         tasks = extract_responsibilities(text)

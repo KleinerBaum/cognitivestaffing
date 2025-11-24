@@ -108,6 +108,7 @@ class NeedAnalysisOutputParser:
             missing.append("company.culture")
         process_overview_values = (
             profile.process.recruitment_timeline,
+            profile.process.hiring_process,
             profile.process.process_notes,
             profile.process.application_instructions,
         )

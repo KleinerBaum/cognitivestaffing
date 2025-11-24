@@ -8,6 +8,7 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
     "process.phases",
     "process.stakeholders",
     "process.recruitment_timeline",
+    "process.hiring_process",
     "process.process_notes",
     "process.application_instructions",
     "process.onboarding_process",
