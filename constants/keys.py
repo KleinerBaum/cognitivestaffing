@@ -128,6 +128,7 @@ class ProfilePaths(StrEnum):
     POSITION_OCCUPATION_URI = "position.occupation_uri"
     POSITION_PERFORMANCE_INDICATORS = "position.performance_indicators"
     POSITION_REPORTING_LINE = "position.reporting_line"
+    POSITION_REPORTS_TO = "position.reports_to"
     POSITION_REPORTING_MANAGER_NAME = "position.reporting_manager_name"
     POSITION_ROLE_SUMMARY = "position.role_summary"
     POSITION_SENIORITY = "position.seniority_level"

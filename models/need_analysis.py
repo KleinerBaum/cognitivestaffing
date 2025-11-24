@@ -152,6 +152,7 @@ class Position(BaseModel):
     seniority_level: Optional[str] = None
     team_structure: Optional[str] = None
     reporting_line: Optional[str] = None
+    reports_to: Optional[str] = None
     reporting_manager_name: Optional[str] = None
     role_summary: Optional[str] = None
     occupation_label: Optional[str] = None

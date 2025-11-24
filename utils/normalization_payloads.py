@@ -29,6 +29,7 @@ class PositionPayload(TypedDict, total=False):
     seniority_level: str | None
     team_structure: str | None
     reporting_line: str | None
+    reports_to: str | None
     reporting_manager_name: str | None
     role_summary: str | None
     occupation_label: str | None

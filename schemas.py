@@ -102,6 +102,7 @@ _VACANCY_PROPERTIES.update(
                 "remote_timezone": {"type": "string"},
                 "team_structure": {"type": "string"},
                 "reporting_line": {"type": "string"},
+                "reports_to": {"type": "string"},
                 "reporting_manager_name": {"type": "string"},
                 "role_summary": {"type": "string"},
                 "occupation_label": {"type": "string"},

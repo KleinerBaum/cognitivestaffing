@@ -138,7 +138,18 @@ _TEAM_STRUCTURE_CONNECTOR_RE = re.compile(r"^(?:mit|with|in)\s+", re.IGNORECASE)
 _ROLE_CONTACT_RE = re.compile(
     r"(?P<title>[A-ZÄÖÜ][^:\n]{0,80}?)\s*:\s*(?P<name>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){0,3})(?=[\s,;|).]|$)",
 )
-_REPORTS_TO_RE = re.compile(r"\breport(?:s|ing)?\s+to\s+(?P<target>[^.\n]+)", re.IGNORECASE)
+_REPORTS_TO_RE = re.compile(
+    r"\b(?:"
+    r"reports?\s+to"
+    r"|reporting\s+to"
+    r"|direct(?:ly)?\s+reporting\s+to"
+    r"|berichten?\s+(?:direkt\s+)?an"
+    r"|berichtest\s+(?:direkt\s+)?an"
+    r"|berichtest\s+direkt\s+an"
+    r"|direkt\s+an\s+"
+    r")\s+(?P<target>[^.\n]+)",
+    re.IGNORECASE,
+)
 _REPORTING_EXCLUDE_KEYWORDS = tuple(
     {
         *(_CONTACT_KEYWORDS),
@@ -181,8 +192,18 @@ _TEAM_SIZE_RE = re.compile(
     re.IGNORECASE,
 )
 _DIRECT_REPORTS_RE = re.compile(
-    r"\b(?P<count>\d{1,3})\+?\s*(?:direct\s+reports?|reports?|mitarbeiter(?:innen)?|people)\b",
-    re.IGNORECASE,
+    r"""
+    (?:
+        \b(?:lead|leads|leading|manage|manages|managing|supervise|supervises|supervising|head|heading|oversee|oversees|overseeing|build|building|built|leite(?:st|n)?|f[üu]hrst?|verantwortest|verantworten)
+        \s+(?:ein(?:e)?\s+)?(?:team|gruppe|squad|crew|abteilung|bereich)
+        \s+(?:von|of)\s+(?P<count>\d{1,3})\b
+    )
+    |
+    (?:
+        \b(?P<count_alt>\d{1,3})\+?\s*(?:direct\s+reports?|reports?|direct\s+reporting\s+lines?|mitarbeiter(?:innen)?|mitarbeitenden?|teammitglieder|team\s+members)\b
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 _INVALID_CITY_KEYWORDS: Tuple[str, ...] = (
@@ -470,7 +491,10 @@ def _extract_direct_reports(text: str) -> int | None:
     """Return the number of direct reports mentioned in ``text``."""
 
     for match in _DIRECT_REPORTS_RE.finditer(text):
-        value = int(match.group("count"))
+        count_str = match.group("count") or match.group("count_alt")
+        if not count_str:
+            continue
+        value = int(count_str)
         if value > 0:
             return value
     return None
@@ -758,6 +782,9 @@ def _extract_reporting_line(text: str) -> tuple[str, str]:
         target = reports_match.group("target").strip()
         if target:
             reporting_line = re.sub(r"\s+", " ", target).strip(" .;:,")
+            reporting_line = re.sub(
+                r"^(?:the|den|der|dem|die|das|ein(?:e|en)?|la|le)\s+", "", reporting_line, flags=re.IGNORECASE
+            )
             manager_name = ""
             name_match = _NAME_RE.search(reporting_line)
             if name_match:
@@ -2639,6 +2666,7 @@ def apply_basic_fallbacks(
     travel_field = "employment.travel_share"
     team_size_field = "position.team_size"
     supervises_field = "position.supervises"
+    reports_to_field = "position.reports_to"
     city_invalid = city_field in invalid_fields
     country_invalid = country_field in invalid_fields
 
@@ -2954,12 +2982,20 @@ def apply_basic_fallbacks(
     manager_name_needed = not _is_locked(manager_name_field) and _needs_value(
         profile.position.reporting_manager_name, manager_name_field
     )
-    if reporting_line_needed or manager_name_needed:
+    reports_to_needed = not _is_locked(reports_to_field) and _needs_value(profile.position.reports_to, reports_to_field)
+    if reporting_line_needed or manager_name_needed or reports_to_needed:
         reporting_line, manager_name = _extract_reporting_line(text)
         if reporting_line_needed and reporting_line:
             profile.position.reporting_line = reporting_line
             _log_heuristic_fill(
                 reporting_line_field,
+                "reporting_line_match",
+                detail=f"with value {reporting_line!r}",
+            )
+        if reports_to_needed and reporting_line:
+            profile.position.reports_to = reporting_line
+            _log_heuristic_fill(
+                reports_to_field,
                 "reporting_line_match",
                 detail=f"with value {reporting_line!r}",
             )

@@ -4737,6 +4737,15 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         (ProfilePaths.POSITION_REPORTING_MANAGER_NAME,), profile, container=reporting_manager_container
     )
 
+    reports_to_container = st.container()
+    with reports_to_container:
+        position["reports_to"] = widget_factory.text_input(
+            ProfilePaths.POSITION_REPORTS_TO,
+            tr("Berichtet an (Funktion)", "Reports to (title)"),
+            value_formatter=_string_or_empty,
+        )
+    _render_inline_followups((ProfilePaths.POSITION_REPORTS_TO,), profile, container=reports_to_container)
+
     dept_cols = st.columns((1.2, 1.2), gap="medium")
     department["function"] = widget_factory.text_input(
         ProfilePaths.DEPARTMENT_FUNCTION,

@@ -598,3 +598,7 @@ Fix: "Must Have"-/"Nice To Have"-Skill-Abschnitte werden den Pflicht- bzw. Optio
 fix: align NeedAnalysisProfile JSON schema required flags with the Pydantic model and regenerate the Responses schema artifact
 
 Fix: NeedAnalysisProfile-JSON-Schema-Required-Flags an das Pydantic-Modell angepasst und das Responses-Schema-Artefakt neu erzeugt
+
+feat: parse reporting lines and direct report counts to prefill position.reports_to and position.supervises
+
+Feature: Berichtslinien und Teamgrößen werden erkannt, um position.reports_to und position.supervises vorab zu befüllen
