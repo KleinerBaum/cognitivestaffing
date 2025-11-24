@@ -18,6 +18,7 @@ from utils.normalization import (
     normalize_country,
     normalize_language_list,
     normalize_profile,
+    categorize_bullet,
 )
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
@@ -1740,6 +1741,63 @@ def _contains_optional_hint(text: str) -> bool:
     return any(hint in lower for hint in _OPTIONAL_HINTS)
 
 
+def _realign_responsibility_requirement_lists(
+    profile: NeedAnalysisProfile,
+) -> tuple[list[str], list[str], list[str]]:
+    """Move misfiled bullets between responsibilities and requirements.
+
+    Returns a tuple of (required_requirements, optional_requirements,
+    tasks_from_requirements).
+    """
+
+    required_from_responsibilities: list[str] = []
+    optional_from_responsibilities: list[str] = []
+    tasks_from_requirements: list[str] = []
+
+    cleaned_responsibilities: list[str] = []
+    for entry in list(profile.responsibilities.items or []):
+        cleaned = _clean_bullet(entry)
+        if not cleaned:
+            continue
+        category = categorize_bullet(cleaned)
+        if category == "requirement":
+            if _contains_optional_hint(cleaned):
+                optional_from_responsibilities.append(cleaned)
+            else:
+                required_from_responsibilities.append(cleaned)
+        else:
+            cleaned_responsibilities.append(cleaned)
+    profile.responsibilities.items = cleaned_responsibilities
+
+    requirement_fields = [
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+        "tools_and_technologies",
+        "languages_required",
+        "languages_optional",
+        "certificates",
+        "certifications",
+    ]
+    for field in requirement_fields:
+        items = getattr(profile.requirements, field)
+        keep: list[str] = []
+        for item in items:
+            cleaned_item = _clean_bullet(item)
+            if not cleaned_item:
+                continue
+            category = categorize_bullet(cleaned_item)
+            if category == "responsibility":
+                if cleaned_item not in tasks_from_requirements:
+                    tasks_from_requirements.append(cleaned_item)
+            else:
+                keep.append(cleaned_item)
+        setattr(profile.requirements, field, keep)
+
+    return required_from_responsibilities, optional_from_responsibilities, tasks_from_requirements
+
+
 def _rebalance_optional_skills(requirements: Requirements) -> None:
     """Move skills with optional markers into the *_optional buckets."""
 
@@ -1959,17 +2017,20 @@ def _harvest_skills_from_responsibilities(
 def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysisProfile:
     """Enrich ``profile.requirements`` using heuristics from ``text``."""
 
+    misplaced_required, misplaced_optional, tasks_from_requirements = _realign_responsibility_requirement_lists(profile)
     _split_soft_from_hard(profile)
     _extract_tools_from_lists(profile)
 
     req_bullets, opt_bullets = _extract_requirement_bullets(text)
+    req_bullets = list(req_bullets) + misplaced_required
+    opt_bullets = list(opt_bullets) + misplaced_optional
     hard_req: List[str] = []
     soft_req: List[str] = []
     hard_opt: List[str] = []
     soft_opt: List[str] = []
     tech_tools: Set[str] = set()
 
-    profile.responsibilities.items = list(profile.responsibilities.items or [])
+    profile.responsibilities.items = _merge_unique(list(profile.responsibilities.items or []), tasks_from_requirements)
 
     def _siphon_responsibility_bullets(bullets: List[str], *, optional: bool) -> List[str]:
         cleaned: List[str] = []
