@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping, Set
 
 from core.schema import ALL_FIELDS, build_need_analysis_responses_schema
-from core.schema_registry import load_need_analysis_schema
+from core.schema_registry import (
+    iter_need_analysis_field_paths,
+    load_need_analysis_schema,
+)
 from llm.prompts import FIELDS_ORDER
 
 
@@ -43,9 +46,12 @@ def test_prompt_schema_and_model_fields_align() -> None:
 
     schema = load_need_analysis_schema()
     schema_fields = _collect_schema_paths(schema)
+    registry_fields = set(iter_need_analysis_field_paths())
     model_fields = set(ALL_FIELDS)
     prompt_fields = set(FIELDS_ORDER)
 
+    assert registry_fields == schema_fields, "Registry field paths must mirror JSON schema properties"
+    assert list(iter_need_analysis_field_paths()) == FIELDS_ORDER, "Prompt ordering must follow registry order"
     assert FIELDS_ORDER == ALL_FIELDS, "Prompt field ordering must follow NeedAnalysisProfile"
     assert schema_fields == model_fields, (
         "JSON schema fields must match NeedAnalysisProfile dot-paths; run "

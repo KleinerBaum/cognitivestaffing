@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import re
 from typing import Any, Mapping, Sequence
 
-from core.schema import ALL_FIELDS
+from core.schema_registry import iter_need_analysis_field_paths
 from prompts import prompt_registry
 from utils.i18n import tr
 
@@ -15,7 +15,7 @@ from utils.i18n import tr
 # ----------------------------------------------------------------------------
 
 # Export schema order for prompt rendering
-FIELDS_ORDER: list[str] = ALL_FIELDS
+FIELDS_ORDER: list[str] = list(iter_need_analysis_field_paths())
 
 _QUICK_FIELD_NAMES: set[str] = {
     "company.name",

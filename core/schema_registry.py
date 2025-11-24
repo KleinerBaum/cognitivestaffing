@@ -12,7 +12,7 @@ import json
 import logging
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Collection, Mapping
+from typing import Any, Collection, Iterable, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,7 @@ def _trim_sections(schema: Mapping[str, Any], sections: Collection[str]) -> dict
     selected_properties: dict[str, Any] = {}
     if isinstance(properties, Mapping):
         selected_properties = {
-            name: value
-            for name, value in properties.items()
-            if isinstance(name, str) and name in sections
+            name: value for name, value in properties.items() if isinstance(name, str) and name in sections
         }
 
     selected_required: list[str] = []
@@ -80,4 +78,36 @@ def load_need_analysis_schema(*, sections: Collection[str] | None = None) -> dic
     return _load_schema_cached(section_tuple)
 
 
-__all__ = ["load_need_analysis_schema"]
+def _flatten_schema_fields(schema: Mapping[str, Any], prefix: str = "") -> list[str]:
+    """Return dotted field paths from ``schema`` preserving property order."""
+
+    properties = schema.get("properties")
+    if not isinstance(properties, Mapping):
+        return []
+
+    fields: list[str] = []
+    for name, subschema in properties.items():
+        path = f"{prefix}{name}" if not prefix else f"{prefix}.{name}"
+        nested_props = subschema.get("properties") if isinstance(subschema, Mapping) else None
+        type_marker = subschema.get("type") if isinstance(subschema, Mapping) else None
+        types: set[str] = set()
+        if isinstance(type_marker, str):
+            types.add(type_marker)
+        elif isinstance(type_marker, Iterable):
+            types.update(str(entry) for entry in type_marker)
+
+        if nested_props and ("object" in types or not types):
+            fields.extend(_flatten_schema_fields(subschema, prefix=path))
+        else:
+            fields.append(path)
+    return fields
+
+
+def iter_need_analysis_field_paths(*, sections: Collection[str] | None = None) -> tuple[str, ...]:
+    """Return dotted NeedAnalysis field paths derived from the JSON schema."""
+
+    schema = load_need_analysis_schema(sections=sections)
+    return tuple(_flatten_schema_fields(schema))
+
+
+__all__ = ["iter_need_analysis_field_paths", "load_need_analysis_schema"]
