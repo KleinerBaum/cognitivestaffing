@@ -5,6 +5,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 ## Features
 - **Eight-step wizard**: Onboarding → Company → Team & Structure → Role & Tasks → Skills & Requirements → Compensation → Hiring Process → Summary. Each step shows bilingual intros, validations, and inline follow-ups.
 - **AI extraction & enrichment**: Ingest heuristics plus OpenAI Responses API map job ads into the NeedAnalysisProfile schema, highlight missing fields, and surface focused follow-up questions.
+- **Interactive ChatKit assistant**: Missing critical fields open a bilingual ChatKit helper that asks concise follow-ups inside each step and writes the responses directly into the NeedAnalysisProfile.
 - **Multilingual section detection**: German and English headings such as "Ihre Aufgaben"/"Your Tasks" or "Ihr Profil"/"Your Profile" are recognised so responsibilities and requirements land in the right fields (DE: Deutsche und englische Abschnittsüberschriften wie „Ihre Aufgaben“/„Your Tasks" bzw. „Ihr Profil“/„Your Profile“ werden erkannt, damit Aufgaben und Anforderungen korrekt zugeordnet werden.).
 - **Benefits & perks capture**: Benefit sections like "Benefits", "Wir bieten", or "Unser Angebot" are pulled into compensation.benefits so offers show up in summaries and exports (DE: Benefit-Abschnitte wie „Benefits“, „Wir bieten“ oder „Unser Angebot“ werden in compensation.benefits übernommen, damit Angebote in Zusammenfassungen und Exporten erscheinen.).
 - **Hiring process extraction**: Interview or application steps called out as "Hiring process", "Interview process", "Bewerbungsprozess" etc. are captured into the process section so reviewers see known stages immediately (DE: Als „Hiring/Interview/Bewerbungsprozess“ beschriebene Abläufe werden im Prozess-Abschnitt übernommen, damit bekannte Schritte direkt sichtbar sind.).
@@ -31,6 +32,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
      - `RESPONSES_ALLOW_TOOLS=0/1` to control tool payloads when allowlisted.
      - `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, or `HIGH_REASONING_MODEL` to override the quick/medium/high routing tiers.
      - `VECTOR_STORE_ID` to enable OpenAI Vector Store retrieval.
+     - `CHATKIT_ENABLED=1` to surface the ChatKit follow-up assistant (default). Set `CHATKIT_DOMAIN_KEY` and `CHATKIT_WORKFLOW_ID` when embedding the hosted widget on your allow-listed Streamlit domain.
 
 ## Running
 - Start the Streamlit app: `poetry run streamlit run app.py` (or `streamlit run app.py` in your active environment).
@@ -39,7 +41,7 @@ Cognitive Staffing is a Streamlit wizard that converts unstructured job ads (PDF
 
 ## Usage at a glance
 1. Upload a PDF, paste a URL, or drop raw text on **Onboarding**. The app heuristically extracts emails, phones, and locations before calling the LLM.
-2. Step through the wizard, reviewing AI-prefilled fields and inline follow-ups. Missing critical fields show bilingual banners.
+2. Step through the wizard, reviewing AI-prefilled fields and inline follow-ups. Missing critical fields launch the bilingual ChatKit assistant, which captures answers and mirrors them into the profile instantly.
 3. On **Summary**, download structured JSON/Markdown, generate Boolean searches, or open the job-ad and interview-guide tabs. Exports reuse the stored profile, so edits stay in sync.
 
 ## Troubleshooting & FAQ

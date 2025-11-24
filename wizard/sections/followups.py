@@ -21,6 +21,7 @@ from typing import (
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
+import config
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from utils.i18n import tr
 from wizard.followups import followup_has_response
@@ -46,6 +47,7 @@ InterviewGenerator = Callable[[Mapping[str, Any], str, int, str, bool, bool], bo
 REQUIRED_PREFIX: Final[str] = ":red[*] "
 FOLLOWUP_STYLE_KEY: Final[str] = "_followup_styles_v1"
 FOLLOWUP_FOCUS_BUDGET_KEY: Final[str] = "_followup_focus_consumed"
+CHATKIT_STATE_KEY: Final[str] = "wizard.chatkit.followups"
 logger = logging.getLogger(__name__)
 
 YES_NO_FOLLOWUP_FIELDS: Final[set[str]] = {
@@ -505,6 +507,222 @@ def _missing_fields_for_section(section_index: int) -> list[str]:
     return section_missing
 
 
+def _humanize_followup_label(path: str, lang: str) -> str:
+    """Return a readable label for a follow-up field path."""
+
+    cleaned = path.replace("_", " ").replace(".", " ").strip()
+    readable = " ".join(part.capitalize() for part in cleaned.split()) or path
+    return tr(readable, readable, lang=lang)
+
+
+def _chatkit_enabled() -> bool:
+    """Return ``True`` when the ChatKit assistant should be rendered."""
+
+    return bool(config.CHATKIT_ENABLED)
+
+
+def _get_chat_state(section_key: str) -> dict[str, Any]:
+    """Return the persisted chat state for ``section_key``."""
+
+    base_state = st.session_state.setdefault(CHATKIT_STATE_KEY, {})
+    state = base_state.get(section_key)
+    if not isinstance(state, dict):
+        state = {"messages": [], "pending": [], "current_field": None}
+        base_state[section_key] = state
+    if "messages" not in state:
+        state["messages"] = []
+    if "pending" not in state:
+        state["pending"] = []
+    if "current_field" not in state:
+        state["current_field"] = None
+    return state
+
+
+def _store_chat_state(section_key: str, state: Mapping[str, Any]) -> None:
+    """Persist chat state back into session."""
+
+    base_state = st.session_state.setdefault(CHATKIT_STATE_KEY, {})
+    base_state[section_key] = {
+        "messages": list(state.get("messages", [])),
+        "pending": list(state.get("pending", [])),
+        "current_field": state.get("current_field"),
+    }
+    st.session_state[CHATKIT_STATE_KEY] = base_state
+
+
+def _build_question_text(question: Mapping[str, Any], lang: str) -> str:
+    """Return a localized question including optional suggestions."""
+
+    prompt = str(question.get("question") or "").strip()
+    description = str(question.get("description") or "").strip()
+    suggestions = question.get("suggestions") or []
+    suggestion_lines = [str(item).strip() for item in suggestions if str(item).strip()]
+    segments = [prompt or tr("Welche Information fehlt?", "Which detail is missing?", lang=lang)]
+    if description:
+        segments.append(description)
+    if suggestion_lines:
+        bullet_prefix = tr("Vorschläge:", "Suggestions:", lang=lang)
+        formatted = "\n".join(f"- {line}" for line in suggestion_lines)
+        segments.append(f"{bullet_prefix}\n{formatted}")
+    return "\n\n".join(segment for segment in segments if segment)
+
+
+def _render_chatkit_followup_assistant(
+    *,
+    followup_items: Sequence[Mapping[str, Any]],
+    data: dict,
+    step_label: str | None,
+    section_key: str,
+) -> None:
+    """Render the interactive ChatKit assistant for missing fields."""
+
+    if not _chatkit_enabled():
+        return
+
+    lang = st.session_state.get("lang", "de")
+    state = _get_chat_state(section_key)
+    pending_fields = [str(item.get("field", "")) for item in followup_items if item.get("field")]
+    pending_fields = [field for field in pending_fields if field]
+    if not pending_fields:
+        _store_chat_state(section_key, state)
+        return
+
+    state_pending = [field for field in state.get("pending", []) if field in pending_fields]
+    for field in pending_fields:
+        if field not in state_pending:
+            state_pending.append(field)
+    state["pending"] = state_pending
+    question_lookup = {str(item.get("field")): item for item in followup_items if item.get("field")}
+
+    if not state.get("messages"):
+        intro = tr(
+            "Ich helfe, die fehlenden Pflichtfelder Schritt für Schritt zu ergänzen.",
+            "I’ll help capture the missing required fields step by step.",
+            lang=lang,
+        )
+        if step_label:
+            intro = f"{intro}\n\n{tr('Abschnitt:', 'Section:', lang=lang)} {step_label}"
+        state["messages"] = [
+            {"role": "assistant", "content": intro, "field": None},
+        ]
+
+    current_field = state.get("current_field")
+    if current_field not in state_pending:
+        current_field = state_pending[0] if state_pending else None
+    if current_field and not any(
+        message.get("role") == "assistant" and message.get("field") == current_field
+        for message in state.get("messages", [])
+    ):
+        question_text = _build_question_text(question_lookup.get(current_field, {}), lang)
+        state.setdefault("messages", []).append({"role": "assistant", "content": question_text, "field": current_field})
+
+    with st.container():
+        st.markdown(
+            tr(
+                "### 🧠 ChatKit-Assistent für fehlende Angaben",
+                "### 🧠 ChatKit assistant for missing info",
+                lang=lang,
+            )
+        )
+        if config.CHATKIT_DOMAIN_KEY or config.CHATKIT_WORKFLOW_ID:
+            st.caption(
+                tr(
+                    "ChatKit ist eingebunden und darf auf dieser Domain antworten.",
+                    "ChatKit is embedded and authorized for this domain.",
+                    lang=lang,
+                )
+            )
+        else:
+            st.caption(
+                tr(
+                    "Lokaler Fallback aktiv – Antworten werden trotzdem live übernommen.",
+                    "Local fallback is active — answers are still applied live.",
+                    lang=lang,
+                )
+            )
+
+        for message in state.get("messages", []):
+            role = str(message.get("role") or "assistant")
+            content = str(message.get("content") or "")
+            if not content.strip():
+                continue
+            st.chat_message(role).markdown(content)
+
+        input_key = f"chatkit.input.{section_key}"
+        prompt = st.chat_input(
+            tr("Antwort eingeben …", "Share your answer …", lang=lang),
+            key=input_key,
+            disabled=not current_field,
+        )
+
+        if prompt is not None:
+            normalized_prompt = prompt.strip()
+            if not normalized_prompt:
+                st.toast(
+                    tr(
+                        "Bitte gib eine kurze Antwort ein, damit ich das Feld ausfüllen kann.",
+                        "Please provide an answer so I can fill the field.",
+                        lang=lang,
+                    ),
+                )
+            else:
+                state.setdefault("messages", []).append(
+                    {"role": "user", "content": normalized_prompt, "field": current_field}
+                )
+                if current_field:
+                    _update_profile(current_field, normalized_prompt)
+                    try:
+                        set_in(data, current_field, normalized_prompt)
+                    except Exception:
+                        logger.debug("Unable to mirror ChatKit update into local data map", exc_info=True)
+                    label = _humanize_followup_label(current_field, lang)
+                    ack = tr(
+                        "Verstanden – ich habe {label} aktualisiert.",
+                        "Got it — I’ve updated {label}.",
+                        lang=lang,
+                    ).format(label=label)
+                    state["messages"].append({"role": "assistant", "content": ack, "field": current_field})
+                    state_pending = [field for field in state_pending if field != current_field]
+                    state["pending"] = state_pending
+                    if state_pending:
+                        next_field = state_pending[0]
+                        state["current_field"] = next_field
+                        next_question = _build_question_text(
+                            question_lookup.get(next_field, {}),
+                            lang,
+                        )
+                        state["messages"].append(
+                            {
+                                "role": "assistant",
+                                "content": next_question,
+                                "field": next_field,
+                            }
+                        )
+                    else:
+                        state["current_field"] = None
+                        state["messages"].append(
+                            {
+                                "role": "assistant",
+                                "content": tr(
+                                    "Alle Pflichtfelder in diesem Schritt sind nun ausgefüllt. Danke!",
+                                    "All required fields for this step are now filled. Thank you!",
+                                    lang=lang,
+                                ),
+                                "field": None,
+                            }
+                        )
+                else:
+                    state["messages"].append(
+                        {
+                            "role": "assistant",
+                            "content": tr("Danke für die Rückmeldung!", "Thanks for the update!", lang=lang),
+                            "field": None,
+                        }
+                    )
+
+    _store_chat_state(section_key, state)
+
+
 def _normalize_list_value(existing_value: Any) -> str:
     """Flatten stored list data into the textarea-friendly format."""
 
@@ -807,6 +1025,24 @@ def _render_followups_for_section(
         target_container = container
         if target_container is None:
             target_container = container_factory() if container_factory else st.container()
+
+        chat_section_key = step_label or "|".join(normalized_prefixes)
+        chat_enabled = _chatkit_enabled()
+        if chat_enabled:
+            _render_chatkit_followup_assistant(
+                followup_items=followup_items,
+                data=data,
+                step_label=step_label,
+                section_key=chat_section_key,
+            )
+            target_container = target_container.expander(
+                tr(
+                    "Manuelle Eingabe anzeigen",
+                    "Show manual capture",
+                ),
+                expanded=False,
+            )
+
         with target_container:
             st.markdown("<div class='wizard-followup-card'>", unsafe_allow_html=True)
             st.markdown(
