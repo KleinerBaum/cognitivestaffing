@@ -142,7 +142,7 @@ def _render_autofill_suggestion(
             key=f"autofill.accept.{field_path}.{suggestion_hash}",
             type="primary",
         ):
-            _update_profile(field_path, cleaned_suggestion)
+            _update_profile(field_path, cleaned_suggestion, mark_ai=True)
             st.toast(success_message, icon=success_icon)
             st.rerun()
         if reject_col.button(

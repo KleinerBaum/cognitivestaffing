@@ -2,6 +2,9 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Marked AI-suggested summary entries in italics with a bilingual note so reviewers can distinguish job-ad content from assistant additions before exporting.
+  DE: KI-ergänzte Angaben in der Zusammenfassung kursiv markiert und mit Hinweis versehen, damit Anzeigeninhalte und Assistenten-Ergänzungen vor dem Export klar getrennt sind.
+
 - EN: Embedded the hosted ChatKit widgets with the allow-listed domain key,
   unified styling, and per-assistant workflow IDs so follow-up, responsibility,
   and company chats render reliably inside Streamlit.

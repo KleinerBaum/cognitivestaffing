@@ -228,8 +228,10 @@ from ._logic import (
     _set_company_logo,
     _update_profile,
     _render_localized_error,
+    get_ai_contributions,
     get_in,
     _normalize_semantic_empty,
+    mark_ai_list_item,
     merge_unique_items,
     set_in,
     unique_normalized,
@@ -7291,6 +7293,12 @@ def _step_requirements() -> None:
     render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
+    st.caption(
+        tr(
+            "Hinweis: Kursiv formatierte Einträge wurden von der KI vorgeschlagen.",
+            "Note: Italicized entries were suggested by AI.",
+        )
+    )
     location_data = data.setdefault("location", {})
 
     raw_requirements = data.get("requirements")
@@ -7831,6 +7839,7 @@ def _step_requirements() -> None:
                 _set_requirement_certificates(data["requirements"], merged)
             else:
                 data["requirements"][target_key] = merged
+            mark_ai_list_item(f"requirements.{target_key}", value)
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
@@ -9955,6 +9964,7 @@ def _render_summary_group_entries(
     """Display collected values for the summary view."""
 
     is_de = lang.lower().startswith("de")
+    ai_fields, ai_items = get_ai_contributions()
 
     group_fields = [field for field in JOB_AD_FIELDS if field.group == group]
     field_entries: dict[str, list[tuple[str, str]]] = {}
@@ -9994,7 +10004,15 @@ def _render_summary_group_entries(
                 unsafe_allow_html=True,
             )
 
-        items_html = "".join(f"<li>{html.escape(entry_text)}</li>" for _, entry_text in entries)
+        item_fragments: list[str] = []
+        ai_item_set = ai_items.get(field_def.key, set())
+        for _entry_id, entry_text in entries:
+            entry_value = str(entry_text)
+            escaped = html.escape(entry_value)
+            if field_def.key in ai_fields or entry_value in ai_item_set:
+                escaped = f"<em>{escaped}</em>"
+            item_fragments.append(f"<li>{escaped}</li>")
+        items_html = "".join(item_fragments)
         field_box.markdown(
             f"<ul class='summary-field-list'>{items_html}</ul>",
             unsafe_allow_html=True,
@@ -11208,6 +11226,12 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     render_step_warning_banner()
     for intro in intros:
         st.caption(intro)
+    st.caption(
+        tr(
+            "Hinweis: Kursiv formatierte Einträge wurden von der KI vorgeschlagen.",
+            "Note: Italicized entries were suggested by AI.",
+        )
+    )
 
     missing_critical = get_missing_critical_fields()
     if missing_critical:
