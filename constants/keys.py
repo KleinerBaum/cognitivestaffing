@@ -196,6 +196,7 @@ class StateKeys:
     EXTRACTION_STRICT_FORMAT = "extraction.strict_format"
     SKILL_SUGGESTIONS = "skill_suggestions"
     SKILL_SUGGESTION_HINTS = "skill_suggestion_hints"
+    SKILL_EXPANDER = "skill_expander"
     SKILL_BOARD_STATE = "ui.requirements.skill_board"
     SKILL_BOARD_META = "ui.requirements.skill_board_meta"
     REQUIREMENTS_ESCO_OPT_IN = "requirements.esco_opt_in"

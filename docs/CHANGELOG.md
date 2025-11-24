@@ -11,6 +11,13 @@ Changelog
   ab und überträgt die Antworten direkt ins Profil (manuelle Formulare bleiben
   über einen Aufklapper verfügbar).
 
+- EN: Added a Skill-Set Expander assistant to the Skills & Requirements step
+  so AI can propose missing skills or certifications and users can accept each
+  suggestion as required or optional with dedicated buttons.
+  DE: Einen Skill-Set-Expander im Skill-Schritt ergänzt: Die KI schlägt
+  fehlende Skills oder Zertifikate vor, und Nutzer:innen übernehmen jeden
+  Vorschlag per Schaltfläche als Pflicht oder Nice-to-have.
+
 - EN: Split the wizard's Company and Team steps into dedicated modules
   (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`) so
   `wizard/flow.py` remains lean and step-specific changes stay isolated.
