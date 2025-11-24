@@ -159,13 +159,13 @@ llm:
       user:
         en: 'Generate 3-5 core responsibilities for the role "{job_title}". Focus
           on the major duties, ownership areas, and success outcomes that define the
-          position.{context_clause}{existing_clause}
+          position.{context_clause}{focus_clause}{existing_clause}
 
           Respond in JSON with an array field named "responsibilities" containing
           concise bullet-style strings.'
         de: 'Formuliere 3-5 zentrale Aufgaben für die Position "{job_title}". Konzentriere
           dich auf Verantwortungsbereiche, Zielbilder und Erfolgskriterien dieser
-          Rolle.{context_clause}{existing_clause}
+          Rolle.{context_clause}{focus_clause}{existing_clause}
 
           Antworte als JSON mit einem Array-Feld "responsibilities", das prägnante
           Stichpunkte enthält.'
@@ -176,6 +176,13 @@ llm:
         de: '
 
           Bereits abgedeckte Aufgaben: {existing_responsibilities}'
+      focus_clause:
+        en: '
+
+          Please emphasise: {focus_points}'
+        de: '
+
+          Bitte lege besonderen Fokus auf: {focus_points}'
     benefits:
       user:
         en: List up to 5 benefits or perks commonly offered for a {job_title} role{industry_clause}.

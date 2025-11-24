@@ -1012,6 +1012,7 @@ def suggest_responsibilities_for_role(
     industry: str | None = None,
     tone_style: str | None = None,
     existing_responsibilities: Sequence[str] | None = None,
+    focus_hints: Sequence[str] | None = None,
 ) -> list[str]:
     """Suggest core responsibilities for a job title."""
 
@@ -1057,11 +1058,21 @@ def suggest_responsibilities_for_role(
             existing_responsibilities="; ".join(existing_values[:8]),
         )
 
+    focus_lines = [str(hint).strip() for hint in (focus_hints or []) if isinstance(hint, str) and str(hint).strip()]
+    focus_clause = ""
+    if focus_lines:
+        focus_clause = _format_prompt(
+            "llm.extraction.responsibility_suggestions.focus_clause",
+            locale=locale,
+            focus_points="; ".join(focus_lines[:6]),
+        )
+
     prompt = _format_prompt(
         "llm.extraction.responsibility_suggestions.user",
         locale=locale,
         job_title=job_title,
         context_clause=context_clause,
+        focus_clause=focus_clause,
         existing_clause=existing_clause,
     )
     tone_hint = _style_prompt_hint(tone_style, locale)
