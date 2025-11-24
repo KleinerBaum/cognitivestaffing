@@ -468,6 +468,56 @@ def test_responsibility_heading_variants() -> None:
     ]
 
 
+def test_multilingual_heading_mapping_german() -> None:
+    text = (
+        "Ihre Aufgaben:\n"
+        "- Entwickeln neuer Features\n"
+        "- Kunden betreuen\n\n"
+        "Ihr Profil:\n"
+        "- Erfahrung mit Python\n"
+        "- Kommunikationsstärke\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert "Entwickeln neuer Features" in profile.responsibilities.items
+    assert "Kunden betreuen" in profile.responsibilities.items
+
+    requirement_entries = [
+        *profile.requirements.hard_skills_required,
+        *profile.requirements.soft_skills_required,
+        *profile.requirements.tools_and_technologies,
+    ]
+    joined = " ".join(requirement_entries).lower()
+    assert "python" in joined
+    assert any("kommunikation" in entry.lower() for entry in requirement_entries)
+
+
+def test_multilingual_heading_mapping_english() -> None:
+    text = (
+        "What you'll do:\n"
+        "- Build backend services\n"
+        "- Improve reliability\n\n"
+        "What you'll need:\n"
+        "- Java expertise\n"
+        "- Problem-solving mindset\n"
+    )
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert "Build backend services" in profile.responsibilities.items
+    assert "Improve reliability" in profile.responsibilities.items
+
+    requirement_entries = [
+        *profile.requirements.hard_skills_required,
+        *profile.requirements.soft_skills_required,
+        *profile.requirements.tools_and_technologies,
+    ]
+    joined = " ".join(requirement_entries).lower()
+    assert "java" in joined
+    assert any("problem" in entry.lower() for entry in requirement_entries)
+
+
 def test_responsibilities_extracted_from_jobbeschreibung_section() -> None:
     text = (
         "Jobbeschreibung\n"

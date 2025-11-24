@@ -2,6 +2,9 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Expanded heading synonyms (e.g., "Ihre Aufgaben", "Your Tasks", "Was Sie mitbringen") so German/English job ads map tasks and requirements into the right NeedAnalysis fields during extraction.
+  DE: Heading-Synonyme erweitert (z. B. „Ihre Aufgaben“, „Your Tasks“, „Was Sie mitbringen“), damit deutsche/englische Stellenanzeigen Aufgaben und Anforderungen korrekt in die NeedAnalysis-Felder einsortieren.
+
 - EN: Gave hidden Streamlit inputs non-empty, bilingual labels (kept visually collapsed) to remove empty-label warnings and improve accessibility.
   DE: Verdeckte Streamlit-Eingaben mit nicht-leeren, zweisprachigen Labels versehen (optisch eingeklappt), um leere-Label-Warnungen zu entfernen und die Zugänglichkeit zu verbessern.
 
