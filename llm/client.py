@@ -5,9 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 from copy import deepcopy
-from pathlib import Path
 from collections.abc import MutableMapping, Sequence
 from typing import Any, Callable, Mapping, Optional
 
@@ -36,6 +34,7 @@ from .output_parsers import (
 from .prompts import FIELDS_ORDER, PreExtractionInsights
 from core.errors import ExtractionError
 from core.schema import NeedAnalysisProfile, canonicalize_profile_payload
+from core.schema_registry import load_need_analysis_schema
 from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -403,11 +402,7 @@ def _generate_error_report(instance: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
-with open(SCHEMA_PATH, "r", encoding="utf-8") as _f:
-    raw = _f.read()
-    cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
-    NEED_ANALYSIS_SCHEMA = json.loads(cleaned)
+NEED_ANALYSIS_SCHEMA = load_need_analysis_schema()
 NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)

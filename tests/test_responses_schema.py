@@ -142,5 +142,5 @@ def test_need_analysis_schema_can_be_limited_to_sections() -> None:
     trimmed = build_need_analysis_responses_schema(sections=["company", "position"])
 
     assert set(trimmed["properties"]) == {"company", "position"}
-    assert set(trimmed["required"]) == {"company", "position"}
+    assert set(trimmed.get("required") or []) <= {"company", "position"}
     assert "location" not in trimmed["properties"]

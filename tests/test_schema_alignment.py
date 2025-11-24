@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any, Mapping, Set
 
-from core.schema import ALL_FIELDS
+from core.schema import ALL_FIELDS, build_need_analysis_responses_schema
+from core.schema_registry import load_need_analysis_schema
 from llm.prompts import FIELDS_ORDER
 
 
@@ -42,7 +41,7 @@ def _collect_schema_paths(schema: Mapping[str, Any], prefix: str = "") -> Set[st
 def test_prompt_schema_and_model_fields_align() -> None:
     """Ensure model, JSON schema, and prompt field lists cannot drift."""
 
-    schema = json.loads(Path("schema/need_analysis.schema.json").read_text())
+    schema = load_need_analysis_schema()
     schema_fields = _collect_schema_paths(schema)
     model_fields = set(ALL_FIELDS)
     prompt_fields = set(FIELDS_ORDER)
@@ -55,3 +54,22 @@ def test_prompt_schema_and_model_fields_align() -> None:
     assert prompt_fields == model_fields, (
         "Prompt field list must stay aligned with NeedAnalysisProfile; update llm/prompts.py if new fields are added."
     )
+
+
+def test_schema_registry_tracks_builder_output() -> None:
+    """The registry must return the canonical builder schema for all consumers."""
+
+    registry_schema = load_need_analysis_schema()
+    generated = build_need_analysis_responses_schema()
+
+    assert registry_schema == generated
+
+
+def test_schema_registry_can_trim_sections() -> None:
+    """Registry section filtering should mirror the builder's behaviour."""
+
+    sections = ["company", "position"]
+    registry_schema = load_need_analysis_schema(sections=sections)
+    generated = build_need_analysis_responses_schema(sections=sections)
+
+    assert registry_schema == generated

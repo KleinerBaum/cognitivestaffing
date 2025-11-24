@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 import re
-import json
 from collections.abc import Mapping, MutableMapping, Sequence
 from functools import lru_cache
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from pydantic import ValidationError
 
+from core.schema_registry import load_need_analysis_schema
 from llm.profile_normalization import normalize_interview_stages_field
 from utils.normalization_payloads import NormalizedProfilePayload
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
@@ -24,8 +23,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("cognitive_needs.normalization")
 HEURISTICS_LOGGER = logging.getLogger("cognitive_needs.heuristics")
-
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schema" / "need_analysis.schema.json"
 _MISSING = object()
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -65,15 +62,9 @@ _COMPANY_SIZE_THOUSAND_SEP_RE = re.compile(r"(?<=\d)[.,](?=\d{3}(?:\D|$))")
 
 @lru_cache(maxsize=1)
 def _load_need_analysis_schema() -> dict[str, Any]:
-    """Return the NeedAnalysis JSON schema from disk with caching."""
+    """Return the NeedAnalysis JSON schema from the central registry."""
 
-    try:
-        return json.loads(_SCHEMA_PATH.read_text())
-    except FileNotFoundError:
-        logger.warning("NeedAnalysis schema file missing at %s", _SCHEMA_PATH)
-    except json.JSONDecodeError:
-        logger.exception("NeedAnalysis schema contains invalid JSON at %s", _SCHEMA_PATH)
-    return {}
+    return load_need_analysis_schema()
 
 
 def _extract_type_set(schema: Mapping[str, Any]) -> set[str]:

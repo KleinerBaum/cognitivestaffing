@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from config import ModelTask, get_model_for, is_llm_enabled
+from core.schema_registry import load_need_analysis_schema
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.profile_normalization import normalize_interview_stages_field
 from pydantic import AnyUrl, HttpUrl
@@ -16,7 +16,6 @@ from pydantic import AnyUrl, HttpUrl
 logger = logging.getLogger(__name__)
 
 _SCHEMA_NAME = "need_analysis_profile"
-_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schema" / "need_analysis.schema.json"
 
 
 def _coerce_json_serializable(value: Any) -> Any:
@@ -41,12 +40,9 @@ def _load_schema() -> Mapping[str, Any] | None:
     """Return the cached NeedAnalysisProfile JSON schema."""
 
     try:
-        with _SCHEMA_PATH.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except FileNotFoundError:
-        logger.error("Need analysis schema file missing: %s", _SCHEMA_PATH)
-    except json.JSONDecodeError as exc:  # pragma: no cover - defensive
-        logger.error("Failed to parse need analysis schema: %s", exc)
+        return load_need_analysis_schema()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Failed to load need analysis schema: %s", exc)
     return None
 
 
