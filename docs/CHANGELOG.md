@@ -2,6 +2,13 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Introduced a ChatKit-powered responsibility brainstormer on the Role & Tasks
+  step that proposes tailored bullets for the job title, lets users add/dismiss
+  items individually, and accepts custom focus hints.
+  DE: ChatKit-gestützten Aufgaben-Brainstormer im Schritt Rolle & Aufgaben
+  ergänzt; er schlägt titelbezogene Stichpunkte vor, erlaubt das Hinzufügen oder
+  Verwerfen per Klick und berücksichtigt eigene Fokus-Hinweise.
+
 - EN: Replaced static missing-field banners with a bilingual ChatKit follow-up
   assistant that asks for critical NeedAnalysisProfile fields in-context and
   writes answers into the wizard in real time (manual forms remain available

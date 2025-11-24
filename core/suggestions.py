@@ -359,6 +359,7 @@ def get_responsibility_suggestions(
     team_structure: str | None = None,
     industry: str | None = None,
     existing_items: Sequence[str] | None = None,
+    focus_hints: Sequence[str] | None = None,
 ) -> Tuple[List[str], str | None]:
     """Fetch AI-generated responsibility suggestions for a role."""
 
@@ -383,6 +384,7 @@ def get_responsibility_suggestions(
             team_structure=team_structure or "",
             industry=industry or "",
             existing_responsibilities=cleaned_existing,
+            focus_hints=focus_hints,
         )
     except Exception as exc:  # pragma: no cover - error path tested separately
         return [], str(exc)

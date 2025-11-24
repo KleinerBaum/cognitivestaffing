@@ -202,6 +202,7 @@ class StateKeys:
     BENEFIT_SUGGESTIONS = "benefit_suggestions"
     BENEFIT_SUGGESTION_HINTS = "benefit_suggestion_hints"
     RESPONSIBILITY_SUGGESTIONS = "responsibility_suggestions"
+    RESPONSIBILITY_BRAINSTORMER = "responsibility_brainstormer"
     LOCAL_BENEFIT_SUGGESTIONS = "benefit_suggestions.local"
     LOCAL_BENEFIT_CONTEXT = "benefit_suggestions.local_context"
     ONBOARDING_SUGGESTIONS = "onboarding_suggestions"
