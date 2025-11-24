@@ -11,6 +11,13 @@ Changelog
   ab und überträgt die Antworten direkt ins Profil (manuelle Formulare bleiben
   über einen Aufklapper verfügbar).
 
+- EN: Added a bilingual team-composition advisor to the Team & Structure step.
+  It suggests realistic reporting lines and direct-report counts based on the
+  role and company size, plus one-click apply actions for the suggested values.
+  DE: Im Schritt „Team & Kontext“ steht jetzt ein zweisprachiger Team-Kompositions-
+  Assistent bereit, der passende Berichtslinien und übliche Teamgrößen je nach
+  Rolle und Unternehmensgröße vorschlägt und die Werte per Klick übernehmen lässt.
+
 - EN: Split the wizard's Company and Team steps into dedicated modules
   (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`) so
   `wizard/flow.py` remains lean and step-specific changes stay isolated.

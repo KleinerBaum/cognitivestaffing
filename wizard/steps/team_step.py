@@ -12,6 +12,7 @@ from constants.keys import ProfilePaths
 from wizard.layout import render_section_heading, render_step_heading, render_step_warning_banner
 from wizard_router import WizardContext
 from utils.i18n import tr
+from wizard.sections.team_advisor import render_team_advisor
 
 __all__ = ["step_team"]
 
@@ -103,6 +104,7 @@ def _step_team() -> None:
     data = profile
     data.setdefault("company", {})
     position = data.setdefault("position", {})
+    team = data.setdefault("team", {})
     data.setdefault("location", {})
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
@@ -146,6 +148,42 @@ def _step_team() -> None:
         widget_factory=role_cols[1].text_input,
         placeholder=tr("Karrierestufe angeben", "Enter the seniority level"),
         value_formatter=_string_or_empty,
+    )
+
+    reporting_cols = st.columns((1, 1))
+    reporting_label = tr("Berichtslinie (Funktion)", "Reporting line (function)")
+    if ProfilePaths.TEAM_REPORTING_LINE in missing_here:
+        reporting_label += REQUIRED_SUFFIX
+    team["reporting_line"] = widget_factory.text_input(
+        ProfilePaths.TEAM_REPORTING_LINE,
+        reporting_label,
+        widget_factory=reporting_cols[0].text_input,
+        placeholder=tr("Zugeordnete Leitung eintragen", "Enter the overseeing function"),
+        value_formatter=_string_or_empty,
+    )
+    _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team.get("reporting_line", ""))
+    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team.get("reporting_line", ""))
+    if ProfilePaths.TEAM_REPORTING_LINE in missing_here and not team.get("reporting_line"):
+        reporting_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    _render_followups_for_fields(
+        (ProfilePaths.TEAM_REPORTING_LINE,),
+        data,
+        container_factory=reporting_cols[0].container,
+    )
+
+    reports_to_label = tr("Berichtet an (Funktion)", "Reports to (title)")
+    position["reports_to"] = widget_factory.text_input(
+        ProfilePaths.POSITION_REPORTS_TO,
+        reports_to_label,
+        widget_factory=reporting_cols[1].text_input,
+        placeholder=tr("Führungstitel eintragen", "Enter the manager title"),
+        value_formatter=_string_or_empty,
+    )
+    _update_profile(ProfilePaths.POSITION_REPORTS_TO, position.get("reports_to", ""))
+    _render_followups_for_fields(
+        (ProfilePaths.POSITION_REPORTS_TO,),
+        data,
+        container_factory=reporting_cols[1].container,
     )
 
     manager_cols = st.columns((1, 1))
@@ -233,6 +271,8 @@ def _step_team() -> None:
         value=position.get("supervises", 0),
         step=1,
     )
+
+    render_team_advisor(profile=data, position=position, update_profile=_update_profile)
 
     with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
         position["performance_indicators"] = st.text_area(
