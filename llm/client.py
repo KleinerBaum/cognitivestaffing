@@ -81,6 +81,7 @@ def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[st
             "type": "object",
             "properties": {
                 "recruitment_timeline": {"type": ["string", "null"]},
+                "hiring_process": {"type": ["string", "null"]},
                 "process_notes": {"type": ["string", "null"]},
                 "application_instructions": {"type": ["string", "null"]},
             },

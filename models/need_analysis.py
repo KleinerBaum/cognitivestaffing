@@ -430,6 +430,7 @@ class Process(BaseModel):
     stakeholders: List[Stakeholder] = Field(default_factory=list)
     phases: List[Phase] = Field(default_factory=list)
     recruitment_timeline: Optional[str] = None
+    hiring_process: Optional[str] = None
     process_notes: Optional[str] = None
     application_instructions: Optional[str] = None
     onboarding_process: Optional[str] = None

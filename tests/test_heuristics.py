@@ -7,6 +7,7 @@ import ingest.heuristics as heuristics
 from ingest.heuristics import (
     apply_basic_fallbacks,
     _extract_benefits_from_text,
+    _extract_hiring_process,
     guess_city,
     guess_company,
     guess_employment_details,
@@ -264,6 +265,44 @@ def test_extract_benefits_from_text_bilingual_headings() -> None:
         "30 Tage Urlaub",
         "Firmenwagen",
     ]
+
+
+def test_extract_hiring_process_heading_and_steps() -> None:
+    text = """Our hiring process:
+    1. Phone interview
+    2. On-site meeting with the team
+    3. Final reference check
+    """
+
+    result = _extract_hiring_process(text)
+
+    assert result is not None
+    assert "Phone interview" in result
+    assert "Final reference check" in result
+    assert "On-site meeting" in result
+
+
+def test_extract_hiring_process_inline_german() -> None:
+    text = (
+        "Unser Bewerbungsprozess ist dreistufig: Zunächst ein kurzes Telefonat, "
+        "dann ein Fachgespräch und abschließend ein Kennenlernen vor Ort."
+    )
+
+    result = _extract_hiring_process(text)
+
+    assert result is not None
+    assert "Telefonat" in result
+    assert "Fachgespräch" in result
+    assert "Kennenlernen vor Ort" in result
+
+
+def test_apply_basic_fallbacks_extracts_hiring_process() -> None:
+    text = "Interview process: phone screen, onsite interviews, final offer call."
+
+    profile = apply_basic_fallbacks(NeedAnalysisProfile(), text)
+
+    assert profile.process.hiring_process is not None
+    assert "phone screen" in profile.process.hiring_process
 
 
 @pytest.mark.skipif(

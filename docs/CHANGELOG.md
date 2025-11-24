@@ -5,6 +5,9 @@ Changelog
 - EN: Prompted the extractor to actively capture benefits/perks sections (e.g., "Benefits", "Wir bieten", "Unser Angebot") into compensation.benefits and expanded heading detectors to stop at perks blocks.
   DE: Der Extraktor achtet nun gezielt auf Benefits-/Perk-Abschnitte (z. B. „Benefits“, „Wir bieten“, „Unser Angebot“) und schreibt sie in compensation.benefits; die Heading-Erkennung bricht bei Perk-Blöcken korrekt ab.
 
+- EN: Added hiring/interview process capture to the NeedAnalysis schema, prompt, heuristics, and wizard UI so stated steps (e.g., phone screen, onsite) prefill `process.hiring_process`.
+  DE: Den Hiring-/Interviewprozess als Feld `process.hiring_process` im Schema, Prompt, Heuristiken und Wizard-UI ergänzt, damit beschriebene Schritte (z. B. Telefonat, Onsite) automatisch vorbefüllt werden.
+
 - EN: Auto-classify extracted requirements into hard/soft skills, tools & technologies, languages, and certifications using ESCO-aware heuristics so the requirements section is consistently populated.
   DE: Extrahierte Anforderungen werden jetzt ESCO-gestützt in Hard-/Soft-Skills, Tools/Technologien, Sprachen und Zertifizierungen eingeordnet, damit der Requirements-Abschnitt zuverlässig befüllt wird.
 

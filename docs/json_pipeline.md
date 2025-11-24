@@ -25,8 +25,9 @@ field names below use the dot-paths from `constants/keys.ProfilePaths`.
   `tools_and_technologies`, `languages_required`, `languages_optional`,
   `certificates`, `certifications`, `language_level_english`.
 - **process:** `interview_stages`, `stakeholders`, `phases`,
-  `recruitment_timeline`, `process_notes`, `application_instructions`,
-  `onboarding_process`, `hiring_manager_name`, `hiring_manager_role`.
+  `recruitment_timeline`, `hiring_process`, `process_notes`,
+  `application_instructions`, `onboarding_process`, `hiring_manager_name`,
+  `hiring_manager_role`.
 - **meta:** `target_start_date`, `application_deadline`, `followups_answered`.
 
 **DE:** `NeedAnalysisProfile` bündelt kanonische Vakanzdaten in eigenen Abschnitten.
@@ -54,8 +55,9 @@ Die Feldnamen unten verwenden die Dot-Pfade aus `constants/keys.ProfilePaths`.
   `tools_and_technologies`, `languages_required`, `languages_optional`,
   `certificates`, `certifications`, `language_level_english`.
 - **process:** `interview_stages`, `stakeholders`, `phases`,
-  `recruitment_timeline`, `process_notes`, `application_instructions`,
-  `onboarding_process`, `hiring_manager_name`, `hiring_manager_role`.
+  `recruitment_timeline`, `hiring_process`, `process_notes`,
+  `application_instructions`, `onboarding_process`, `hiring_manager_name`,
+  `hiring_manager_role`.
 - **meta:** `target_start_date`, `application_deadline`, `followups_answered`.
 
 **EN:** `company.name` is optional in the structured output schema. When the extractor
@@ -165,6 +167,7 @@ ausfüllen, ohne die Validierung zu verletzen.
       }
     ],
     "recruitment_timeline": "Offer target within 4 weeks",
+    "hiring_process": "Phone interview → onsite panel → reference check",
     "application_instructions": "Apply via techcorp.example/careers",
     "hiring_manager_name": "Alex Example",
     "hiring_manager_role": "Director of Engineering"
