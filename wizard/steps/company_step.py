@@ -709,9 +709,7 @@ def _step_company() -> None:
     _set_requirement_certificates(data["requirements"], combined_certificates)
     missing_here = _missing_fields_for_section(1)
 
-    label_company = tr(*COMPANY_NAME_LABEL)
-    if "company.name" in missing_here:
-        label_company += REQUIRED_SUFFIX
+    label_company = tr(*COMPANY_NAME_LABEL) + REQUIRED_SUFFIX
     company_lock = _field_lock_config(
         ProfilePaths.COMPANY_NAME,
         label_company,
@@ -849,9 +847,7 @@ def _step_company() -> None:
         data,
         container_factory=contact_cols[1].container,
     )
-    phone_label = tr(*COMPANY_CONTACT_PHONE_LABEL)
-    if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here:
-        phone_label += REQUIRED_SUFFIX
+    phone_label = tr(*COMPANY_CONTACT_PHONE_LABEL) + REQUIRED_SUFFIX
     contact_phone = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_PHONE,
         phone_label,
@@ -897,9 +893,7 @@ def _step_company() -> None:
         container_factory=city_col.container,
     )
 
-    country_label = tr(*PRIMARY_COUNTRY_LABEL)
-    if ProfilePaths.LOCATION_COUNTRY in missing_here:
-        country_label += REQUIRED_SUFFIX
+    country_label = tr(*PRIMARY_COUNTRY_LABEL) + REQUIRED_SUFFIX
     country_lock = _field_lock_config(
         ProfilePaths.LOCATION_COUNTRY,
         country_label,

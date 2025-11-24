@@ -7652,8 +7652,6 @@ def _step_requirements() -> None:
     )
     st.caption(requirements_caption)
 
-    missing_here = _missing_fields_for_section(3)
-
     def _render_required_caption(condition: bool) -> None:
         """Render a small caption when a requirement field is mandatory."""
 
@@ -8011,10 +8009,8 @@ def _step_requirements() -> None:
         responsibilities_seed_key = f"{responsibilities_key}.__seed"
 
         responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
-        responsibilities_required = "responsibilities.items" in missing_here
-        display_label = (
-            f"{responsibilities_label}{REQUIRED_SUFFIX}" if responsibilities_required else responsibilities_label
-        )
+        responsibilities_required = True
+        display_label = f"{responsibilities_label}{REQUIRED_SUFFIX}"
 
         with requirement_panel(
             icon="🧠",
@@ -8147,9 +8143,7 @@ def _step_requirements() -> None:
                 "Everything in this block is required for candidate matching.",
             ),
         ):
-            label_hard_req = tr("Hard Skills (Pflicht)", "Hard skills (required)")
-            if "requirements.hard_skills_required" in missing_here:
-                label_hard_req += REQUIRED_SUFFIX
+            label_hard_req = tr("Hard Skills (Pflicht)", "Hard skills (required)") + REQUIRED_SUFFIX
             data["requirements"]["hard_skills_required"] = chip_multiselect(
                 label_hard_req,
                 options=data["requirements"].get("hard_skills_required", []),
@@ -8162,10 +8156,7 @@ def _step_requirements() -> None:
                 add_more_hint=ADD_MORE_HARD_SKILLS_REQUIRED_HINT,
                 state_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
             )
-            _render_required_caption(
-                "requirements.hard_skills_required" in missing_here
-                and not data["requirements"].get("hard_skills_required")
-            )
+            _render_required_caption(not data["requirements"].get("hard_skills_required"))
             _render_ai_suggestions(
                 source_key="hard_skills",
                 target_key="hard_skills_required",
@@ -8181,9 +8172,7 @@ def _step_requirements() -> None:
                 data,
                 container_factory=st.container,
             )
-            label_soft_req = tr("Soft Skills (Pflicht)", "Soft skills (required)")
-            if "requirements.soft_skills_required" in missing_here:
-                label_soft_req += REQUIRED_SUFFIX
+            label_soft_req = tr("Soft Skills (Pflicht)", "Soft skills (required)") + REQUIRED_SUFFIX
             data["requirements"]["soft_skills_required"] = chip_multiselect(
                 label_soft_req,
                 options=data["requirements"].get("soft_skills_required", []),
@@ -8196,10 +8185,7 @@ def _step_requirements() -> None:
                 add_more_hint=ADD_MORE_SOFT_SKILLS_REQUIRED_HINT,
                 state_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
             )
-            _render_required_caption(
-                "requirements.soft_skills_required" in missing_here
-                and not data["requirements"].get("soft_skills_required")
-            )
+            _render_required_caption(not data["requirements"].get("soft_skills_required"))
             _render_ai_suggestions(
                 source_key="soft_skills",
                 target_key="soft_skills_required",

@@ -113,9 +113,7 @@ def _step_team() -> None:
 
     render_section_heading(tr("Team & Struktur", "Team & Structure"))
     role_cols = st.columns((1.3, 1))
-    title_label = tr("Jobtitel", "Job title")
-    if "position.job_title" in missing_here:
-        title_label += REQUIRED_SUFFIX
+    title_label = tr("Jobtitel", "Job title") + REQUIRED_SUFFIX
     title_lock = _field_lock_config(
         ProfilePaths.POSITION_JOB_TITLE,
         title_label,
@@ -151,9 +149,7 @@ def _step_team() -> None:
     )
 
     reporting_cols = st.columns((1, 1))
-    reporting_label = tr("Berichtslinie (Funktion)", "Reporting line (function)")
-    if ProfilePaths.TEAM_REPORTING_LINE in missing_here:
-        reporting_label += REQUIRED_SUFFIX
+    reporting_label = tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX
     team["reporting_line"] = widget_factory.text_input(
         ProfilePaths.TEAM_REPORTING_LINE,
         reporting_label,
@@ -189,7 +185,7 @@ def _step_team() -> None:
     manager_cols = st.columns((1, 1))
     position["reporting_manager_name"] = widget_factory.text_input(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-        tr("Vorgesetzte Person", "Reporting manager"),
+        tr("Vorgesetzte Person", "Reporting manager") + REQUIRED_SUFFIX,
         widget_factory=manager_cols[0].text_input,
         placeholder=tr(
             "Name der vorgesetzten Person eintragen",

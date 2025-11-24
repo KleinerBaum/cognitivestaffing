@@ -44,6 +44,9 @@ Changelog
 
 - EN: Converted `process.hiring_process` into an ordered list of stages across schema, prompts, heuristics, UI, and exports, and added a bilingual planner assistant in the Process step that proposes seniority-aware stages and saves the confirmed sequence.
   DE: `process.hiring_process` als geordnete Schrittliste in Schema, Prompts, Heuristiken, UI und Export umgestellt und einen zweisprachigen Planer im Prozess-Schritt ergänzt, der je nach Seniorität passende Stufen vorschlägt und die bestätigte Reihenfolge speichert.
+
+- EN: Added hard-stop validation for required fields: mandatory inputs are visibly marked with asterisks, and clicking “Next” now shows bilingual warnings listing missing fields instead of navigating forward until the step is complete.
+  DE: Pflichtfelder werden jetzt konsequent mit Sternchen markiert; beim Klick auf „Weiter“ erscheint eine zweisprachige Warnung mit den fehlenden Angaben und blockiert den Schritt, bis alle Pflichtdaten ausgefüllt sind.
   
 - EN: Replaced static missing-field banners with a bilingual ChatKit follow-up
   assistant that asks for critical NeedAnalysisProfile fields in-context and
