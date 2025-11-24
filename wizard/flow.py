@@ -4801,7 +4801,7 @@ def _render_review_role_tab(profile: dict[str, Any]) -> None:
         st.markdown(f"**{tr('Direkte Reports', 'Direct reports')}**")
         supervises_default = _coerce_followup_number(position.get("supervises"))
         supervises_value = st.number_input(
-            "",
+            tr("Direkte Reports", "Direct reports"),
             min_value=0,
             value=supervises_default,
             step=1,

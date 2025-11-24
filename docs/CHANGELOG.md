@@ -2,6 +2,9 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Gave hidden Streamlit inputs non-empty, bilingual labels (kept visually collapsed) to remove empty-label warnings and improve accessibility.
+  DE: Verdeckte Streamlit-Eingaben mit nicht-leeren, zweisprachigen Labels versehen (optisch eingeklappt), um leere-Label-Warnungen zu entfernen und die Zugänglichkeit zu verbessern.
+
 - EN: Added a built-in prompt generator pre-commit hook that converts staged
   diffs into Codex-ready JSON payloads and stores them under
   `.tooling/out_prompts/`.
