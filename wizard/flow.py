@@ -5020,7 +5020,11 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
             height=120,
         )
     requirements["tools_and_technologies"] = tools
-    _update_profile(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES, tools)
+    _apply_extraction_profile_update(
+        ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES,
+        tools,
+        sync_widget_state=False,
+    )
     _render_inline_followups((ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES,), profile, container=tools_container)
 
     languages_container = st.container()
@@ -5032,7 +5036,11 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
             height=110,
         )
     requirements["languages_required"] = languages
-    _update_profile(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED, languages)
+    _apply_extraction_profile_update(
+        ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,
+        languages,
+        sync_widget_state=False,
+    )
     _render_inline_followups((ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,), profile, container=languages_container)
 
     st.markdown("</div>", unsafe_allow_html=True)
