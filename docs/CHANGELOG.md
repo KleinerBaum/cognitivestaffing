@@ -11,6 +11,15 @@ Changelog
   ab und überträgt die Antworten direkt ins Profil (manuelle Formulare bleiben
   über einen Aufklapper verfügbar).
 
+- EN: Added a bilingual Company insights assistant to the Company step that
+  fetches public hints (offline catalogue + light Wikipedia/autocomplete lookups)
+  to prefill industry, HQ, size, website, or a short blurb, then prompts the
+  user for any still-missing company details.
+  DE: Im Schritt „Unternehmen“ ergänzt ein zweisprachiger Unternehmens-Insights-
+  Assistent öffentliche Hinweise (Offline-Katalog plus leichte Wikipedia-/
+  Autocomplete-Abfragen), füllt Branche, Hauptsitz, Größe, Website oder eine
+  Kurzbeschreibung vor und fragt fehlende Unternehmensdetails gezielt ab.
+
 - EN: Split the wizard's Company and Team steps into dedicated modules
   (`wizard/steps/company_step.py`, `wizard/steps/team_step.py`) so
   `wizard/flow.py` remains lean and step-specific changes stay isolated.
