@@ -53,6 +53,7 @@ New contributors should:
 - Follow PEP 8 and include type hints in all Python code.
 - Run quality gates before opening a PR: `ruff format && ruff check`, `mypy --config-file pyproject.toml`, and `pytest -q` (or `-m "not integration"`).
 - Keep `schema/need_analysis.schema.json` in sync with `NeedAnalysisProfile` via `PYTHONPATH=. python cli/generate_schema.py` whenever schema fields change (CS_SCHEMA_PROPAGATE).
+- Load the NeedAnalysis JSON schema via `core.schema_registry.load_need_analysis_schema()` rather than reading files directly so prompts, repairs, and CLIs share the same source of truth.
 - Work on feature branches named `feat/<short-description>` and open PRs against `dev` (no direct merges to `main`). Every PR should include release notes and Changelog updates.
 - Keep wizard step UIs in `wizard/steps/` modules (e.g., `company_step.py`, `team_step.py`) and let `wizard/flow.py` focus on routing/orchestration. (DE: Wizard-Schritte liegen in `wizard/steps/`; `wizard/flow.py` bündelt nur das Routing.)
 - Route LLM orchestration through reusable pipeline helpers (e.g., `pipelines.need_analysis.extract_need_analysis_profile`) so Streamlit rendering stays UI-only (DE: LLM-Orchestrierung über wiederverwendbare Pipeline-Helfer wie `pipelines.need_analysis.extract_need_analysis_profile` führen, damit die Streamlit-Logik UI-only bleibt.).

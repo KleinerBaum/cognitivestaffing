@@ -26,8 +26,8 @@ def main() -> None:
 
     from ingest.extractors import extract_text_from_file
     from ingest.reader import clean_structured_document
-    from config_loader import load_json
     from openai_utils import extract_with_function
+    from core.schema_registry import load_need_analysis_schema
     from config import ModelTask, VECTOR_STORE_ID, get_model_for
     from llm.rag_pipeline import (
         build_field_queries,
@@ -48,7 +48,7 @@ def main() -> None:
     if not text:
         raise SystemExit("No text could be extracted from the file.")
 
-    schema = load_json("schema/need_analysis.schema.json", fallback={})
+    schema = load_need_analysis_schema()
     specs = build_field_queries(schema)
     contexts = collect_field_contexts(
         specs,

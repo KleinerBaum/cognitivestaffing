@@ -10,6 +10,15 @@ Changelog
   `wizard/flow.py` schlank bleibt und schrittbezogene Anpassungen getrennt
   bleiben.
 
+- EN: Added `core.schema_registry.load_need_analysis_schema()` as the single
+  access point for the NeedAnalysis JSON schema so CLI tools, prompts, and
+  repair flows all use the generated Pydantic schema instead of reading the
+  file separately.
+  DE: `core.schema_registry.load_need_analysis_schema()` als zentrale
+  Zugriffsstelle für das NeedAnalysis-JSON-Schema ergänzt, damit CLI-Tools,
+  Prompts und Repair-Flows das generierte Pydantic-Schema nutzen, statt die
+  Datei separat einzulesen.
+
 - EN: Prompted the extractor to actively capture benefits/perks sections (e.g., "Benefits", "Wir bieten", "Unser Angebot") into compensation.benefits and expanded heading detectors to stop at perks blocks.
   DE: Der Extraktor achtet nun gezielt auf Benefits-/Perk-Abschnitte (z. B. „Benefits“, „Wir bieten“, „Unser Angebot“) und schreibt sie in compensation.benefits; die Heading-Erkennung bricht bei Perk-Blöcken korrekt ab.
 

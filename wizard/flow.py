@@ -93,6 +93,7 @@ from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from pipelines.need_analysis import ExtractionResult, extract_need_analysis_profile
 from core.schema import coerce_and_fill
+from core.schema_registry import load_need_analysis_schema
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.extraction import InvalidExtractionPayload, mark_low_confidence
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
@@ -10950,11 +10951,7 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
     critical: list[str] = st.session_state.get("_critical_list") or []
 
     if not schema:
-        try:
-            with (ROOT / "schema" / "need_analysis.schema.json").open("r", encoding="utf-8") as file:
-                schema = json.load(file)
-        except Exception:
-            schema = {}
+        schema = load_need_analysis_schema()
     if not critical:
         try:
             with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as file:

@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import json
 from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
-
-def _load_json_schema(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as schema_file:
-        return json.load(schema_file)
+from core.schema_registry import load_need_analysis_schema
 
 
 def _ensure_required_fields(schema: dict[str, Any], fields: list[str]) -> None:
@@ -20,8 +15,7 @@ def _ensure_required_fields(schema: dict[str, Any], fields: list[str]) -> None:
             required.append(field)
 
 
-_NEED_ANALYSIS_SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "need_analysis.schema.json"
-NEED_ANALYSIS_SCHEMA: dict[str, Any] = _load_json_schema(_NEED_ANALYSIS_SCHEMA_PATH)
+NEED_ANALYSIS_SCHEMA: dict[str, Any] = load_need_analysis_schema()
 _NEED_ANALYSIS_PROPERTIES: dict[str, Any] = deepcopy(NEED_ANALYSIS_SCHEMA.get("properties", {}))
 
 
