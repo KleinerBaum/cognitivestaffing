@@ -1,0 +1,23 @@
+Job Description – Senior Backend Engineer
+Northwind Logistics – Hamburg
+
+Responsibilities
+- Build scalable APIs for parcel routing and real-time tracking.
+- Improve reliability and monitoring for our Go services.
+- Partner with product to design roadmap experiments.
+
+Requirements
+- Strong experience with Go or Python and cloud-native stacks.
+- Background in event-driven architectures and message queues.
+- Ability to mentor engineers and collaborate with operations teams.
+
+Compensation & perks
+- Salary range €80,000–€95,000 plus equity and on-call allowance.
+- Remote-friendly within Germany with quarterly team weeks.
+- Equipment budget and private health add-ons.
+
+Process
+- Intro call, technical pairing session, architecture interview, founder chat.
+
+Team
+We are a small platform engineering group embedded in our parcel operations tribe.
