@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
+from functools import lru_cache
 from typing import Any, Callable, Mapping
 
 from jsonschema import Draft202012Validator, exceptions as jsonschema_exceptions
@@ -188,9 +189,8 @@ _SCHEMA_REGISTRY: dict[str, Callable[[], Mapping[str, Any]]] = {
 }
 
 
-def get_response_schema(name: str) -> dict[str, Any]:
-    """Return a validated schema payload for ``name`` from the registry."""
-
+@lru_cache(maxsize=None)
+def _get_response_schema_cached(name: str, schema_version: str | None) -> dict[str, Any]:
     try:
         schema_factory = _SCHEMA_REGISTRY[name]
     except KeyError as exc:  # pragma: no cover - defensive
@@ -198,6 +198,18 @@ def get_response_schema(name: str) -> dict[str, Any]:
 
     raw_schema = _validate_schema(name, schema_factory())
     return _sanitize_response_schema(name, raw_schema)
+
+
+def clear_response_schema_cache() -> None:
+    """Clear cached response schemas (useful for hot reloads)."""
+
+    _get_response_schema_cached.cache_clear()
+
+
+def get_response_schema(name: str, *, schema_version: str | None = None) -> dict[str, Any]:
+    """Return a validated schema payload for ``name`` from the registry."""
+
+    return _get_response_schema_cached(name, schema_version)
 
 
 def validate_response_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:

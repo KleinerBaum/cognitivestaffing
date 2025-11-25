@@ -2,10 +2,45 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+
+@lru_cache(maxsize=4)
+def _load_registry_from_path(path: Path, version: str | None) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle) or {}
+
+
+@lru_cache(maxsize=512)
+def _resolve_prompt_value(
+    path: Path, key: str, locale: str | None, version: str | None
+) -> Any:
+    data: Any = _load_registry_from_path(path, version)
+    for part in key.split("."):
+        if isinstance(data, dict) and part in data:
+            data = data[part]
+        else:  # pragma: no cover - defensive branch
+            raise KeyError(f"Prompt key '{key}' not found")
+
+    if locale is None:
+        return data
+
+    if not isinstance(data, dict):
+        raise KeyError(f"Prompt key '{key}' does not support locales")
+
+    normalized = locale.lower()
+    if normalized in data:
+        return data[normalized]
+
+    short = normalized.split("-")[0]
+    if short in data:
+        return data[short]
+
+    raise KeyError(f"Prompt key '{key}' missing locale '{locale}'")
 
 _PROMPTS_PATH = Path(__file__).resolve().parent / "registry.yaml"
 
@@ -13,9 +48,9 @@ _PROMPTS_PATH = Path(__file__).resolve().parent / "registry.yaml"
 class PromptRegistry:
     """Load and serve prompt templates from :mod:`prompts/registry.yaml`."""
 
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(self, path: Path | None = None, *, version: str | None = None) -> None:
         self._path = path or _PROMPTS_PATH
-        self._cache: dict[str, Any] | None = None
+        self._version = version
 
     @property
     def path(self) -> Path:
@@ -23,10 +58,7 @@ class PromptRegistry:
         return self._path
 
     def _load(self) -> dict[str, Any]:
-        if self._cache is None:
-            with self._path.open("r", encoding="utf-8") as handle:
-                self._cache = yaml.safe_load(handle)
-        return self._cache
+        return _load_registry_from_path(self._path, self._version)
 
     def get_raw(self, key: str) -> Any:
         """Return the raw registry entry for ``key`` using dot traversal."""
@@ -56,30 +88,11 @@ class PromptRegistry:
         """
 
         try:
-            value = self.get_raw(key)
+            return _resolve_prompt_value(self._path, key, locale, self._version)
         except KeyError:
             if default is not None:
                 return default
             raise
-
-        if locale is None:
-            return value
-
-        if not isinstance(value, dict):
-            raise KeyError(f"Prompt key '{key}' does not support locales")
-
-        normalized = locale.lower()
-        if normalized in value:
-            return value[normalized]
-
-        short = normalized.split("-")[0]
-        if short in value:
-            return value[short]
-
-        if default is not None:
-            return default
-
-        raise KeyError(f"Prompt key '{key}' missing locale '{locale}'")
 
     def format(
         self,
@@ -98,7 +111,21 @@ class PromptRegistry:
             raise TypeError(f"Prompt key '{key}' must resolve to a string")
         return template.format(**params)
 
+    def clear_cache(self) -> None:
+        """Clear registry caches for this instance and module-level helpers."""
+
+        clear_prompt_cache()
+
 
 prompt_registry = PromptRegistry()
 
-__all__ = ["PromptRegistry", "prompt_registry"]
+
+def clear_prompt_cache() -> None:
+    """Clear cached prompt registries and resolved templates."""
+
+    for func in (_load_registry_from_path, _resolve_prompt_value):
+        cache_clear = getattr(func, "cache_clear", None)
+        if callable(cache_clear):  # pragma: no branch - defensive
+            cache_clear()
+
+__all__ = ["PromptRegistry", "clear_prompt_cache", "prompt_registry"]
