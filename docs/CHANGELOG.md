@@ -35,6 +35,9 @@ Changelog
 - EN: Added a bilingual compensation range assistant that surfaces market-based salary suggestions or converts stated budgets, then writes salary_min/salary_max/currency into the compensation step on approval.
   DE: Zweisprachiger Gehaltsassistent ergänzt, der marktbasierte Spannen vorschlägt oder Budgets umrechnet und nach Freigabe salary_min/salary_max/Währung im Vergütungs-Schritt setzt.
 
+- EN: Hardened automatic follow-up generation: Responses payloads always include text.format.name, chat fallbacks scrub Responses-only strict flags, and follow-up API calls now fail softly with logged warnings instead of crashing the wizard.
+  DE: Automatische Anschlussfragen robuster: Responses-Payloads enthalten stets text.format.name, Chat-Fallbacks bereinigen Responses-spezifische Strict-Flags und fehlgeschlagene Aufrufe melden nur noch Warnungen, ohne den Wizard abzubrechen.
+
 - EN: Added a bilingual Company insights assistant to the Company step that
   fetches public hints (offline catalogue + light Wikipedia/autocomplete lookups)
   to prefill industry, HQ, size, website, or a short blurb, then prompts the
