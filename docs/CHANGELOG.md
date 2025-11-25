@@ -31,6 +31,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Added recursive validation and sanitization for Responses JSON schemas (need analysis, pre-analysis, follow-up questions) to
   prevent invalid_json_schema errors and enforce property coverage in automated tests.
 - Restored the dedicated missing-sections extraction prompt so retries no longer fall back to plain error strings.
+- Stabilised structured JSON extraction by classifying repairs vs. failures, logging low-confidence recoveries, and adding tests
+  for malformed payload recovery.
 
 ---
 

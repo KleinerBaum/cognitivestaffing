@@ -12,6 +12,7 @@ from core.schema_registry import load_need_analysis_schema
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.profile_normalization import normalize_interview_stages_field
 from pydantic import AnyUrl, HttpUrl
+from utils.json_repair import JsonRepairResult, JsonRepairStatus, parse_json_with_repair
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,12 @@ def _format_error_summary(errors: Sequence[Mapping[str, Any]] | None) -> str:
         message = str(entry.get("msg") or entry.get("type") or "invalid value")
         lines.append(f"- {path or '<root>'}: {message}")
     return "\n".join(lines)
+
+
+def parse_profile_json(raw: str, *, errors: Sequence[Mapping[str, Any]] | None = None) -> JsonRepairResult:
+    """Parse ``raw`` and attempt to repair invalid NeedAnalysis JSON."""
+
+    return parse_json_with_repair(raw, errors=errors, repair_func=repair_profile_payload)
 
 
 def repair_profile_payload(
@@ -156,4 +163,4 @@ def repair_profile_payload(
     return result
 
 
-__all__ = ["repair_profile_payload"]
+__all__ = ["parse_profile_json", "repair_profile_payload"]
