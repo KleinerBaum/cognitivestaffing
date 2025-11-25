@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from dataclasses import dataclass
 from copy import deepcopy
 from collections.abc import MutableMapping, Sequence
 from typing import Any, Callable, Mapping, Optional
@@ -15,7 +16,9 @@ from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 import streamlit as st
 
+from openai import BadRequestError
 from openai_utils import call_chat_api
+from openai_utils.api import is_unrecoverable_schema_error
 from constants.keys import StateKeys
 from prompts import prompt_registry
 from .context import build_extract_messages, build_preanalysis_messages
@@ -43,6 +46,15 @@ from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
 tracer = trace.get_tracer(__name__)
+
+
+@dataclass(frozen=True)
+class StructuredExtractionOutcome:
+    """Result envelope for structured extraction attempts."""
+
+    content: str
+    source: str
+    low_confidence: bool = False
 
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
@@ -488,7 +500,7 @@ def _run_pre_extraction_analysis(
     return insights
 
 
-def _structured_extraction(payload: dict[str, Any]) -> str:
+def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutcome:
     """Call the chat API and validate the structured extraction output."""
 
     chain = _STRUCTURED_EXTRACTION_CHAIN
@@ -497,9 +509,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
 
     prompt_digest = _summarise_prompt(payload.get("messages"))
     strict_format = _strict_extraction_enabled()
+    low_confidence = False
+    source = "responses"
 
-    def _build_chat_call() -> Callable[[], str | None]:
-        def _invoke() -> str | None:
+    def _build_chat_call() -> Callable[[], StructuredExtractionOutcome]:
+        def _invoke() -> StructuredExtractionOutcome:
             chat_kwargs: dict[str, Any] = {
                 "messages": payload["messages"],
                 "model": payload["model"],
@@ -514,15 +528,12 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                     "schema": NEED_ANALYSIS_SCHEMA,
                 }
             call_result = call_chat_api(**chat_kwargs)
-            return (call_result.content or "").strip()
+            content_value = (call_result.content or "").strip()
+            return StructuredExtractionOutcome(content=content_value, source="chat", low_confidence=low_confidence)
 
         return _invoke
 
-    # Keep attempts ordered to preserve the retry cascade:
-    # 1) Responses with strict JSON schema (preferred when enabled)
-    # 2) Chat JSON mode
-    # A final non-streaming Chat call below guards against empty streams.
-    attempts: list[tuple[str, Callable[[], str | None]]] = []
+    attempts: list[tuple[str, Callable[[], StructuredExtractionOutcome]]] = []
 
     if strict_format and _responses_api_enabled():
         response_format = build_json_schema_format(
@@ -530,40 +541,65 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             schema=NEED_ANALYSIS_SCHEMA,
         )
 
-        def _call_responses() -> str | None:
-            result = call_responses_safe(
-                payload["messages"],
-                model=payload["model"],
-                response_format=response_format,
-                temperature=0,
-                reasoning_effort=payload.get("reasoning_effort"),
-                max_completion_tokens=payload.get("max_completion_tokens"),
-                retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
-                task=ModelTask.EXTRACTION,
-                logger_instance=logger,
-                context="structured extraction",
-            )
+        def _call_responses() -> StructuredExtractionOutcome:
+            try:
+                result = call_responses_safe(
+                    payload["messages"],
+                    model=payload["model"],
+                    response_format=response_format,
+                    temperature=0,
+                    reasoning_effort=payload.get("reasoning_effort"),
+                    max_completion_tokens=payload.get("max_completion_tokens"),
+                    retries=payload.get("retries", _STRUCTURED_RESPONSE_RETRIES),
+                    task=ModelTask.EXTRACTION,
+                    logger_instance=logger,
+                    context="structured extraction",
+                )
+            except BadRequestError as err:
+                if is_unrecoverable_schema_error(err):
+                    logger.warning(
+                        "Responses schema invalid for %s; switching to chat fallback without retrying.",
+                        prompt_digest,
+                    )
+                    return StructuredExtractionOutcome(content="", source="responses", low_confidence=True)
+                raise
+
             if result is None:
-                return None
+                return StructuredExtractionOutcome(content="", source="responses", low_confidence=True)
+            outcome_source = "responses"
             if result.used_chat_fallback:
+                outcome_source = "chat"
+                low_confidence_result = True
                 logger.info(
                     "Structured extraction fell back to chat completions for %s",
                     prompt_digest,
                 )
-            return (result.content or "").strip()
+            else:
+                low_confidence_result = low_confidence
+            content_value = (result.content or "").strip()
+            return StructuredExtractionOutcome(
+                content=content_value,
+                source=outcome_source,
+                low_confidence=low_confidence_result,
+            )
 
         attempts.append(("responses", _call_responses))
 
     attempts.append(("chat", _build_chat_call()))
 
-    content: str | None = None
+    content: StructuredExtractionOutcome | None = None
     last_error: Exception | None = None
 
     for label, attempt in attempts:
         try:
-            content = attempt()
-            if content:
+            candidate = attempt()
+            if candidate.content:
+                content = candidate
+                low_confidence = low_confidence or candidate.low_confidence
+                source = candidate.source
                 break
+            low_confidence = low_confidence or candidate.low_confidence
+            source = candidate.source
         except Exception as err:  # pragma: no cover - network/SDK issues
             last_error = err
             logger.warning(
@@ -573,7 +609,7 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                 err,
             )
 
-    if content is None or not content.strip():
+    if content is None or not content.content.strip():
         logger.warning(
             "Structured extraction streaming returned empty content; retrying via chat completions for %s.",
             prompt_digest,
@@ -591,17 +627,22 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
             task=ModelTask.EXTRACTION,
             api_mode="chat",
         )
-        content = (call_result.content or "").strip()
-    if not content:
+        fallback_content = (call_result.content or "").strip()
+        content = StructuredExtractionOutcome(content=fallback_content, source="chat", low_confidence=True)
+        low_confidence = True
+        source = "chat"
+
+    if not content.content:
         logger.warning(
             "Structured extraction returned empty response for %s; defaulting to an empty profile.",
             prompt_digest,
         )
-        return NeedAnalysisProfile().model_dump_json()
+        empty_payload = NeedAnalysisProfile().model_dump_json()
+        return StructuredExtractionOutcome(content=empty_payload, source=source, low_confidence=True)
 
     parser = get_need_analysis_output_parser()
     try:
-        profile, raw_data = parser.parse(content)
+        profile, raw_data = parser.parse(content.content)
     except NeedAnalysisParserError as err:
         missing_sections = _collect_missing_paths(err.errors)
         if missing_sections and isinstance(payload.get("source_text"), str):
@@ -626,7 +667,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
                         "Structured extraction recovered missing sections: %s",
                         ", ".join(missing_sections),
                     )
-                    return validated.model_dump_json()
+                    return StructuredExtractionOutcome(
+                        content=validated.model_dump_json(),
+                        source="chat" if low_confidence else source,
+                        low_confidence=True,
+                    )
         if err.data:
             report = _generate_error_report(err.data)
             if report:
@@ -657,7 +702,11 @@ def _structured_extraction(payload: dict[str, Any]) -> str:
         validated_payload = (
             json.dumps(raw_data, ensure_ascii=False) if raw_data is not None else profile.model_dump_json()
         )
-        return validated_payload
+        return StructuredExtractionOutcome(
+            content=validated_payload,
+            source=source,
+            low_confidence=low_confidence,
+        )
 
     if last_error is not None:
         raise ValueError("Structured extraction failed") from last_error
@@ -677,7 +726,7 @@ def _minimal_messages(text: str) -> list[dict[str, str]]:
     ]
 
 
-def extract_json(
+def _extract_json_outcome(
     text: str,
     title: Optional[str] = None,
     company: Optional[str] = None,
@@ -685,7 +734,7 @@ def extract_json(
     locked_fields: Optional[Mapping[str, str]] = None,
     *,
     minimal: bool = False,
-) -> str:
+) -> StructuredExtractionOutcome:
     """Extract schema fields via JSON mode with optional plain fallback.
 
     Args:
@@ -695,7 +744,7 @@ def extract_json(
         url: Optional source URL.
 
     Returns:
-        Raw JSON string as returned by the model.
+        StructuredExtractionOutcome describing the extracted payload.
     """
 
     with tracer.start_as_current_span("llm.extract_json") as span:
@@ -732,7 +781,7 @@ def extract_json(
         span.set_attribute("llm.model", model)
         span.set_attribute("llm.extract.minimal", minimal)
         try:
-            output = _structured_extraction(
+            outcome = _structured_extraction(
                 {
                     "messages": messages,
                     "model": model,
@@ -742,6 +791,9 @@ def extract_json(
                     "source_text": text,
                 }
             )
+            span.set_attribute("llm.extract.source", outcome.source)
+            span.set_attribute("llm.extract.low_confidence", bool(outcome.low_confidence))
+            output = outcome.content
             if locked_fields:
                 data = json.loads(output)
                 _merge_locked_fields(data, locked_fields)
@@ -775,7 +827,11 @@ def extract_json(
             span.add_event("structured_call_failed")
         else:
             span.set_attribute("llm.extract.fallback", False)
-            return output
+            return StructuredExtractionOutcome(
+                content=output,
+                source=outcome.source,
+                low_confidence=outcome.low_confidence,
+            )
 
         span.set_attribute("llm.extract.fallback", True)
         try:
@@ -806,11 +862,45 @@ def extract_json(
                     exc_info=err3,
                 )
                 empty_profile = NeedAnalysisProfile()
-                return empty_profile.model_dump_json()
-            return json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False)
+                return StructuredExtractionOutcome(
+                    content=empty_profile.model_dump_json(),
+                    source="chat",
+                    low_confidence=True,
+                )
+            return StructuredExtractionOutcome(
+                content=json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False),
+                source="chat",
+                low_confidence=True,
+            )
         span.set_status(Status(StatusCode.ERROR, "empty_response"))
         logger.info(
             "Plain-text fallback returned no content; defaulting to an empty profile.",
         )
         empty_profile = NeedAnalysisProfile()
-        return empty_profile.model_dump_json()
+        return StructuredExtractionOutcome(
+            content=empty_profile.model_dump_json(),
+            source="chat",
+            low_confidence=True,
+        )
+
+
+def extract_json(
+    text: str,
+    title: Optional[str] = None,
+    company: Optional[str] = None,
+    url: Optional[str] = None,
+    locked_fields: Optional[Mapping[str, str]] = None,
+    *,
+    minimal: bool = False,
+) -> str:
+    """Compatibility wrapper returning only the extracted JSON string."""
+
+    outcome = _extract_json_outcome(
+        text,
+        title=title,
+        company=company,
+        url=url,
+        locked_fields=locked_fields,
+        minimal=minimal,
+    )
+    return outcome.content

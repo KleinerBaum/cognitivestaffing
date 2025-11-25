@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from core.extraction import parse_structured_payload
-from llm.client import extract_json
+from llm.client import _extract_json_outcome
 
 __all__ = ["ExtractionResult", "extract_need_analysis_profile"]
 
@@ -19,6 +19,7 @@ class ExtractionResult:
     data: dict[str, Any]
     recovered: bool
     issues: list[str]
+    low_confidence: bool = False
 
 
 def extract_need_analysis_profile(
@@ -51,12 +52,20 @@ def extract_need_analysis_profile(
         InvalidExtractionPayload: When the payload cannot be parsed.
     """
 
-    raw_json = extract_json(
+    outcome = _extract_json_outcome(
         text,
         title=title_hint,
         company=company_hint,
         url=url_hint,
         locked_fields=locked_fields or None,
     )
-    data, recovered, issues = parse_structured_payload(raw_json, source_text=text)
-    return ExtractionResult(raw_json=raw_json, data=data, recovered=recovered, issues=issues)
+    data, recovered, issues = parse_structured_payload(outcome.content, source_text=text)
+    if outcome.low_confidence:
+        issues.append("extraction_fallback_active")
+    return ExtractionResult(
+        raw_json=outcome.content,
+        data=data,
+        recovered=recovered,
+        issues=issues,
+        low_confidence=outcome.low_confidence,
+    )

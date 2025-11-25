@@ -2494,7 +2494,9 @@ def _call_chat_api_single(
         try:
             response = _execute_response(payload, current_model, api_mode=api_mode_override)
         except OpenAIError as err:
-            logger.warning(
+            schema_error = isinstance(err, BadRequestError) and is_unrecoverable_schema_error(err)
+            log_level = logger.warning if not schema_error else logger.error
+            log_level(
                 "OpenAI %s call failed for model %s: %s",
                 active_mode.value,
                 current_model,
@@ -2502,7 +2504,7 @@ def _call_chat_api_single(
                 exc_info=err,
             )
 
-            if not active_mode.is_classic and not fallback_to_chat_attempted:
+            if not active_mode.is_classic and (schema_error or not fallback_to_chat_attempted):
                 fallback_to_chat_attempted = True
                 fallback_payload = _build_chat_fallback_payload(
                     payload,
@@ -2510,12 +2512,9 @@ def _call_chat_api_single(
                     schema_bundle,
                 )
                 if fallback_payload:
-                    logger.warning(
-                        "Responses API failed; using Chat Completions fallback for model %s.",
-                        current_model,
-                    )
                     logger.info(
-                        "Attempting Chat Completions fallback after Responses error for model %s.",
+                        "%s; using Chat Completions fallback for model %s.",
+                        "Responses schema rejected" if schema_error else "Responses API failed",
                         current_model,
                     )
                     try:
@@ -2530,7 +2529,7 @@ def _call_chat_api_single(
                 else:
                     response = None
                 if response is None:
-                    raise
+                    raise err
             elif active_mode.is_classic and chat_retry_attempts < max_chat_retries:
                 delay = 0.5 * (2**chat_retry_attempts)
                 chat_retry_attempts += 1
