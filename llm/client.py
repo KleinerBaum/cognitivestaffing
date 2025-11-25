@@ -254,7 +254,7 @@ _PRE_ANALYSIS_SCHEMA: dict[str, Any] = {
             "description": "Short notes about the available information in the document.",
         },
     },
-    "required": ["relevant_fields"],
+    "required": ["relevant_fields", "missing_fields", "summary"],
     "additionalProperties": False,
 }
 

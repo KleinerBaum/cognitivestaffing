@@ -42,6 +42,38 @@ def fake_responses_call(*args, **kwargs):  # noqa: D401
     )
 
 
+def test_run_pre_extraction_analysis_enforces_required_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pre-analysis schema should require every declared property."""
+
+    captured: dict[str, Any] = {}
+
+    def _fake_chat(*_args: Any, **kwargs: Any) -> ChatCallResult:
+        captured["json_schema"] = kwargs.get("json_schema")
+        return ChatCallResult(
+            content=json.dumps(
+                {
+                    "relevant_fields": ["company.name"],
+                    "missing_fields": ["process.overview"],
+                    "summary": "Notes",
+                }
+            ),
+            tool_calls=[],
+            usage={},
+        )
+
+    monkeypatch.setattr(client, "build_preanalysis_messages", lambda *_a, **_k: [])
+    monkeypatch.setattr(client, "select_model", lambda *_a, **_k: "gpt-4o-mini")
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+
+    insights = client._run_pre_extraction_analysis("Sample text")
+
+    assert insights is not None
+    schema = captured["json_schema"]["schema"]
+    assert set(schema["required"]) == set(schema["properties"].keys())
+
+
 def test_extract_json_smoke(monkeypatch):
     """Smoke test for the extraction helper."""
 
