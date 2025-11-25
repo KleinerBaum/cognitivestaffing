@@ -38,6 +38,13 @@ Changelog
   Konfigs verständliche zweisprachige Hinweise, damit Nutzer:innen erneut
   versuchen oder manuell weitermachen können, ohne dass die Navigation hängt.
 
+- EN: Follow-up generation now always returns a parsed `{"questions": [...]}`
+  payload, guarding against `None` responses and malformed shapes when the LLM
+  call fails.
+  DE: Die Nachfragen-Generierung liefert nun stets ein geparstes
+  `{"questions": [...]}`-Payload und schützt vor `None`-Antworten oder
+  falschen Strukturen, falls der LLM-Aufruf scheitert.
+
 - EN: Fixed wizard team/company step imports so employment help texts load
   consistently, preventing Streamlit crashes when binding flow dependencies.
   DE: Wizard-Schritte Team/Unternehmen importieren die Employment-Hilfetexte
