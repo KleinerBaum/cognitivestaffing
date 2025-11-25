@@ -88,6 +88,13 @@ def _build_page_progress_fields() -> dict[str, tuple[str, ...]]:
 
 PAGE_PROGRESS_FIELDS: dict[str, tuple[str, ...]] = _build_page_progress_fields()
 
+# Prefix-based overrides used to align families of fields with the correct wizard
+# section without enumerating every schema path (e.g., all ``compensation.*``
+# fields belong to the benefits step).
+_SECTION_PREFIX_OVERRIDES: Final[dict[str, int]] = {
+    "compensation.": PAGE_SECTION_INDEXES.get("benefits", COMPANY_STEP_INDEX),
+}
+
 
 def _build_field_section_map() -> dict[str, int]:
     """Derive mapping of schema fields to wizard section indexes."""
@@ -112,7 +119,11 @@ CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
 # step but shouldn't block the early company/role sections because salary and
 # requirements insights can still run with just the country. Once the full
 # wizard is considered we still treat it as critical.
-SECTION_FILTER_OVERRIDES: dict[str, int] = {}
+SECTION_FILTER_OVERRIDES: dict[str, int] = {
+    "position.seniority_level": PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
+    "employment.remote_percentage": PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
+    "process.interview_stages": PAGE_SECTION_INDEXES.get("interview", COMPANY_STEP_INDEX),
+}
 
 _VALIDATED_CRITICAL_FIELDS: Final[dict[str, Callable[[str | None], tuple[str | None, tuple[str, str] | None]]]] = {
     str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
@@ -122,6 +133,10 @@ _VALIDATED_CRITICAL_FIELDS: Final[dict[str, Callable[[str | None], tuple[str | N
 
 def resolve_section_for_field(field: str) -> int:
     """Return the wizard section index responsible for ``field``."""
+
+    for prefix, section_index in _SECTION_PREFIX_OVERRIDES.items():
+        if field.startswith(prefix):
+            return section_index
 
     if field in SECTION_FILTER_OVERRIDES:
         return SECTION_FILTER_OVERRIDES[field]
