@@ -639,8 +639,20 @@ def _get_flow_module() -> ModuleType:
 
 
 def _bind_flow_dependencies(flow: ModuleType) -> None:
+    bound: list[str] = []
+    missing: list[str] = []
+
     for name in _FLOW_DEPENDENCIES:
-        globals()[name] = getattr(flow, name)
+        if hasattr(flow, name):
+            globals()[name] = getattr(flow, name)
+            bound.append(name)
+        else:
+            missing.append(name)
+
+    if bound:
+        logger.debug("Bound company step dependencies: %s", ", ".join(sorted(bound)))
+    if missing:
+        logger.warning("Missing flow dependencies for company step: %s", ", ".join(sorted(missing)))
 
 
 def _step_company() -> None:
