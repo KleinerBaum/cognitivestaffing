@@ -155,6 +155,21 @@ llm:
       responsibility_clause:
         en: ' Align suggestions with these core responsibilities: {responsibilities}.'
         de: ' Richte die Vorschläge an diesen Kernaufgaben aus: {responsibilities}.'
+    missing_sections:
+      system: 'You repair incomplete NeedAnalysis profiles. Plan silently, extract only the missing sections listed, and return
+        valid JSON for those fields without changing confirmed data. / Du ergänzt unvollständige NeedAnalysis-Profile. Plane
+        im Kopf, extrahiere ausschließlich die genannten fehlenden Abschnitte und gib gültiges JSON nur für diese Felder zurück,
+        ohne bestätigte Daten zu verändern.'
+      user: 'The previous extraction missed these sections: {sections}. Extract only those sections from the source text and
+        return JSON that matches the schema for the missing fields. Leave unrelated fields untouched; use null/empty strings/[]
+        when no evidence exists. / Die vorherige Extraktion hat diese Abschnitte verfehlt: {sections}. Extrahiere nur diese
+        Abschnitte aus dem Quelltext und gib JSON zurück, das dem Schema für die fehlenden Felder entspricht. Unbeteiligte
+        Felder bleiben unverändert; nutze null/leere Strings/[] wenn keine Hinweise vorhanden sind.
+
+
+        Text:
+
+        {text}'
     responsibility_suggestions:
       user:
         en: 'Generate 3-5 core responsibilities for the role "{job_title}". Focus
