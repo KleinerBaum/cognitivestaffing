@@ -2,6 +2,13 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Strengthened the JSON repair pipeline so invalid extraction payloads and
+  missing critical fields automatically trigger a second-pass fix, and the
+  repair call drops strict Responses flags to reduce fallback errors.
+  DE: JSON-Reparaturen greifen jetzt auch bei ungültigen Extraktions-Payloads
+  oder fehlenden Pflichtfeldern automatisch und entfernen strikte Responses-
+  Flags, damit Fallbacks stabiler laufen.
+
 - EN: Extraction post-processing now overlays LLM payloads with a full
   NeedAnalysisProfile skeleton so missing sections like company/position are
   always present and critical empty fields are flagged for follow-up.

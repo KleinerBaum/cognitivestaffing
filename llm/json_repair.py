@@ -77,7 +77,7 @@ def repair_profile_payload(
         return None
 
     model = get_model_for(ModelTask.JSON_REPAIR)
-    response_format = build_json_schema_format(name=_SCHEMA_NAME, schema=schema, strict=True)
+    response_format = build_json_schema_format(name=_SCHEMA_NAME, schema=schema)
 
     serializable_payload = _coerce_json_serializable(payload)
 

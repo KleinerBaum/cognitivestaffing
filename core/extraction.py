@@ -121,6 +121,48 @@ def _prune_error_paths(payload: MutableMapping[str, Any], errors: Sequence[Mappi
     return removed
 
 
+def _validate_with_repair(
+    payload: Mapping[str, Any],
+    *,
+    issues: list[str],
+) -> tuple[dict[str, Any], NeedAnalysisProfile, bool]:
+    """Validate ``payload`` and repair it if the schema check fails."""
+
+    used_repair = False
+    canonical_payload = canonicalize_profile_payload(payload)
+    try:
+        validated_model = NeedAnalysisProfile.model_validate(canonical_payload)
+    except ValidationError as exc:
+        errors = exc.errors()
+        issues.extend(_collect_validation_issues(errors))
+        repaired = repair_profile_payload(canonical_payload, errors=errors)
+        if repaired:
+            canonical_payload = canonicalize_profile_payload(repaired)
+            used_repair = True
+        else:
+            removed_paths = _prune_error_paths(canonical_payload, errors)
+            if removed_paths:
+                logger.warning(
+                    "Structured extraction pruned invalid fields: %s",
+                    ", ".join(removed_paths),
+                )
+            for path in removed_paths:
+                issues.append(f"{path}: removed invalid value")
+        try:
+            validated_model = NeedAnalysisProfile.model_validate(canonical_payload)
+        except ValidationError as final_error:
+            raise InvalidExtractionPayload("Model returned JSON that could not be validated.") from final_error
+
+    validated_dump = validated_model.model_dump(mode="python")
+    cleaned_payload = _clean_validated_payload(
+        validated_dump,
+        canonical_payload,
+        issues=issues,
+    )
+
+    return cleaned_payload, validated_model, used_repair
+
+
 def _deduplicate_issues(issues: Iterable[str]) -> list[str]:
     """Return ``issues`` without duplicates while preserving order."""
 
@@ -243,74 +285,81 @@ def parse_structured_payload(raw: str) -> tuple[dict[str, Any], bool, list[str]]
     """Parse ``raw`` into a dictionary, tolerating surrounding noise."""
 
     issues: list[str] = []
+    used_repair = False
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         start = raw.find("{")
         end = raw.rfind("}")
+        parse_issue = f"JSON parsing error at line {exc.lineno}, column {exc.colno}: {exc.msg}"
+        issues.append(parse_issue)
         if start == -1 or end == -1 or end <= start:
-            raise InvalidExtractionPayload("Model returned invalid JSON") from exc
-        fragment = raw[start : end + 1]
-        parsed = json.loads(fragment)
-        recovered = True
-        issues.append(f"JSON parsing error at line {exc.lineno}, column {exc.colno}: {exc.msg}")
+            repaired = repair_profile_payload(
+                {},
+                errors=[{"loc": ("<root>",), "msg": parse_issue}],
+            )
+            if repaired:
+                parsed = dict(repaired)
+                recovered = True
+                used_repair = True
+            else:
+                raise InvalidExtractionPayload("Model returned invalid JSON") from exc
+        else:
+            fragment = raw[start : end + 1]
+            parsed = json.loads(fragment)
+            recovered = True
     else:
         recovered = False
 
     if not isinstance(parsed, dict):
-        raise InvalidExtractionPayload("Model returned JSON that is not an object.")
-
-    canonical_payload: dict[str, Any] = canonicalize_profile_payload(parsed)
-    validated_model: NeedAnalysisProfile | None = None
-    try:
-        validated_model = NeedAnalysisProfile.model_validate(canonical_payload)
-    except ValidationError as exc:
-        errors = exc.errors()
-        issues.extend(_collect_validation_issues(errors))
-        repaired = repair_profile_payload(canonical_payload, errors=errors)
+        error_message = "Model returned JSON that is not an object."
+        issues.append(error_message)
+        repaired = repair_profile_payload({}, errors=[{"loc": ("<root>",), "msg": error_message}])
         if repaired:
-            canonical_payload = canonicalize_profile_payload(repaired)
+            parsed = dict(repaired)
+            recovered = True
+            used_repair = True
         else:
-            removed_paths = _prune_error_paths(canonical_payload, errors)
-            if removed_paths:
-                logger.warning(
-                    "Structured extraction pruned invalid fields: %s",
-                    ", ".join(removed_paths),
-                )
-            for path in removed_paths:
-                issues.append(f"{path}: removed invalid value")
-        try:
-            validated_model = NeedAnalysisProfile.model_validate(canonical_payload)
-        except ValidationError as final_error:
-            raise InvalidExtractionPayload("Model returned JSON that could not be validated.") from final_error
+            raise InvalidExtractionPayload(error_message)
 
-    if validated_model is None:  # pragma: no cover - defensive guard
-        validated_model = NeedAnalysisProfile.model_validate(canonical_payload)
-
-    validated_dump = validated_model.model_dump(mode="python")
-    canonical_payload = _clean_validated_payload(
-        validated_dump,
-        canonical_payload,
-        issues=issues,
-    )
+    cleaned_payload, _validated_model, repaired_in_validation = _validate_with_repair(parsed, issues=issues)
+    used_repair = used_repair or repaired_in_validation
 
     try:
-        filled_profile = coerce_and_fill(canonical_payload)
+        filled_profile = coerce_and_fill(cleaned_payload)
     except ValidationError as exc:  # pragma: no cover - defensive
         raise InvalidExtractionPayload("Model returned JSON that could not be normalised.") from exc
 
     merged_payload = merge_profile_with_defaults(filled_profile.model_dump(mode="python"))
-    added_paths = _collect_present_paths(merged_payload) - _collect_present_paths(canonical_payload)
+
+    for_missing = [
+        path for path in sorted(_REQUIRED_PATHS) if not _has_meaningful_value(_get_path_value(merged_payload, path))
+    ]
+    if for_missing:
+        for path in for_missing:
+            issues.append(f"{path}: missing value")
+        repaired_missing = repair_profile_payload(
+            merged_payload,
+            errors=[{"loc": tuple(path.split(".")), "msg": "missing required value"} for path in for_missing],
+        )
+        if repaired_missing:
+            used_repair = True
+            try:
+                cleaned_payload, _validated_model, repaired_in_validation = _validate_with_repair(
+                    repaired_missing, issues=issues
+                )
+                used_repair = used_repair or repaired_in_validation
+                filled_profile = coerce_and_fill(cleaned_payload)
+                merged_payload = merge_profile_with_defaults(filled_profile.model_dump(mode="python"))
+            except InvalidExtractionPayload as exc:  # pragma: no cover - defensive
+                logger.warning("Repaired payload could not be validated: %s", exc)
+
+    added_paths = _collect_present_paths(merged_payload) - _collect_present_paths(cleaned_payload)
     for path in sorted(added_paths):
         if path in _REQUIRED_PATHS:
             issues.append(f"{path}: added missing default")
 
-    for path in sorted(_REQUIRED_PATHS):
-        value = _get_path_value(merged_payload, path)
-        if not _has_meaningful_value(value):
-            issues.append(f"{path}: missing value")
-
-    return merged_payload, recovered, _deduplicate_issues(issues)
+    return merged_payload, recovered or used_repair, _deduplicate_issues(issues)
 
 
 def mark_low_confidence(
