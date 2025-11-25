@@ -2,6 +2,13 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Extraction post-processing now overlays LLM payloads with a full
+  NeedAnalysisProfile skeleton so missing sections like company/position are
+  always present and critical empty fields are flagged for follow-up.
+  DE: Die Extraktionsnachbearbeitung legt LLM-Payloads jetzt über ein komplettes
+  NeedAnalysisProfile-Skelett, damit fehlende Bereiche (z.B. Unternehmen/Position)
+  stets vorhanden sind und leere Pflichtfelder für Nachfragen markiert werden.
+
 - EN: Wizard steps now display clearer bilingual recovery hints for AI bad
   requests and missing help-text/config errors so users can retry or proceed
   manually without blocking navigation.

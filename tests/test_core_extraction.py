@@ -13,7 +13,7 @@ def test_parse_structured_payload_adds_missing_sections_and_defaults() -> None:
     assert recovered is False
     assert payload["position"]["job_title"] == "Developer"
     assert "company" in payload
-    assert payload["company"]["name"] == ""
+    assert payload["company"]["name"] is None
     assert any(
         entry.startswith("company:") or entry.startswith("company ") or entry.startswith("company.") for entry in issues
     )
@@ -24,7 +24,7 @@ def test_parse_structured_payload_sets_placeholders() -> None:
     payload, recovered, issues = parse_structured_payload("{}")
 
     assert recovered is False
-    assert payload["company"]["name"] == ""
+    assert payload["company"]["name"] is None
     assert payload["company"]["contact_email"] == ""
     assert payload["location"]["primary_city"] == ""
     assert any("company.contact_email" in entry for entry in issues)
