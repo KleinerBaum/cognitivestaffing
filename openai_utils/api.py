@@ -1,10 +1,15 @@
-"""OpenAI API client and chat helpers.
+"""High-level OpenAI API facade and chat helpers.
 
-This module isolates low-level interactions with the OpenAI Responses and
-Chat Completions APIs. It provides a :func:`call_chat_api` helper that also
-executes any requested function tools and feeds the results back to the
-model, effectively acting as a small agent loop regardless of the selected
-endpoint.
+This module orchestrates the dedicated OpenAI helpers:
+
+* :mod:`openai_utils.payloads` for assembling request payloads.
+* :class:`openai_utils.client.OpenAIClient` for network execution and retries.
+* :mod:`openai_utils.schemas` for JSON schema preparation.
+* :mod:`openai_utils.tools` for handling tool calls and execution loops.
+
+It exposes :func:`call_chat_api`, which wires these pieces together to call the
+Responses or Chat Completions APIs while executing requested tools and feeding
+results back to the model.
 """
 
 from __future__ import annotations
@@ -24,7 +29,6 @@ from openai import (
     APITimeoutError,
     AuthenticationError,
     BadRequestError,
-    OpenAI,
     OpenAIError,
     RateLimitError,
 )
@@ -62,6 +66,8 @@ from .client import (
     create_retry_state,
     model_supports_reasoning,
     model_supports_temperature,
+    _mark_model_without_reasoning,
+    _mark_model_without_temperature,
     _is_reasoning_unsupported_error,
     _is_temperature_unsupported_error,
 )
@@ -160,91 +166,6 @@ def _inject_verbosity_hint(
         new_messages.insert(0, {"role": "system", "content": instruction})
 
     return new_messages
-
-
-def _normalise_model_name(model: Optional[str]) -> str:
-    """Return ``model`` as a lower-cased identifier without surrounding whitespace."""
-
-    if not model:
-        return ""
-    return model.strip().lower()
-
-
-def _mark_model_without_temperature(model: Optional[str]) -> None:
-    """Remember that ``model`` rejects the ``temperature`` parameter."""
-
-    normalized = _normalise_model_name(model)
-    if normalized:
-        _MODELS_WITHOUT_TEMPERATURE.add(normalized)
-
-
-def _mark_model_without_reasoning(model: Optional[str]) -> None:
-    """Remember that ``model`` rejects the ``reasoning`` parameter."""
-
-    normalized = _normalise_model_name(model)
-    if normalized:
-        _MODELS_WITHOUT_REASONING.add(normalized)
-
-
-def model_supports_reasoning(model: Optional[str]) -> bool:
-    """Return ``True`` if ``model`` accepts a reasoning payload.
-
-    OpenAI exposes the explicit ``reasoning`` parameter only on the dedicated
-    reasoning-capable families (``o1`` variants and names containing the
-    ``reasoning`` suffix). We heuristically detect those models to avoid
-    sending the parameter to regular chat models that would reject it.
-    """
-
-    normalized = _normalise_model_name(model)
-    if not normalized:
-        return False
-    if normalized in _MODELS_WITHOUT_REASONING:
-        return False
-    if _REASONING_MODEL_PATTERN.match(normalized):
-        return True
-    return "reasoning" in normalized
-
-
-def model_supports_temperature(model: Optional[str]) -> bool:
-    """Return ``True`` if ``model`` accepts a temperature parameter.
-
-    The OpenAI reasoning models (``o1`` family and related previews) reject the
-    ``temperature`` argument. To keep compatibility across models, we detect
-    those names heuristically and omit the parameter when necessary.
-    """
-
-    normalized = _normalise_model_name(model)
-    if not normalized:
-        return True
-    if normalized in _MODELS_WITHOUT_TEMPERATURE:
-        return False
-    if model_supports_reasoning(model):
-        return False
-    return "reasoning" not in normalized
-
-
-def _should_mark_model_unavailable(error: OpenAIError) -> bool:
-    """Return ``True`` if ``error`` indicates the selected model is unavailable."""
-
-    code = getattr(error, "code", "") or getattr(getattr(error, "error", {}), "code", "")
-    if isinstance(code, str):
-        lowered_code = code.lower()
-        if lowered_code in {"model_not_found", "model_not_available", "invalid_model"}:
-            return True
-    message = getattr(error, "message", str(error))
-    lowered = message.lower()
-    if "model" not in lowered:
-        return False
-    phrases = [
-        "does not exist",
-        "not found",
-        "currently unavailable",
-        "currently overloaded",
-        "was not found",
-        "has been deprecated",
-        "is not available",
-    ]
-    return any(phrase in lowered for phrase in phrases)
 
 
 def _message_indicates_parameter_unsupported(message: str, parameter: str) -> bool:
