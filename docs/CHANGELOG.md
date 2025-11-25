@@ -2,6 +2,12 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Added deduplicated warnings when extraction outputs miss company names or
+  empty list sections despite source hints, helping monitor schema omissions.
+  DE: Deduplizierte Warnungen ergänzt, wenn Extraktionen Firmennamen oder
+  Listenabschnitte trotz Hinweise im Quelltext auslassen, um Schema-Lücken
+  besser zu beobachten.
+
 - EN: Tightened structured-output prompts so team advice responses always include
   all schema keys (assistant_message, reporting_line_suggestion, direct_reports_suggestion,
   follow_up_question) with nulls when unknown, and benefit suggestions now return
