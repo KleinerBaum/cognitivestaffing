@@ -155,8 +155,6 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
     }
 
     if strict_value:
-        chat_format["json_schema"]["strict"] = strict_value
-        chat_format["strict"] = strict_value
         responses_format["json_schema"]["strict"] = strict_value
         responses_format["strict"] = strict_value
 
@@ -2174,11 +2172,17 @@ def _build_chat_fallback_payload(
 
     converted = _convert_responses_payload_to_chat(payload)
     if converted is not None:
+        if schema_bundle is not None and schema_bundle.strict:
+            converted["messages"] = _inject_json_hint(converted.get("messages", []))
         return converted
+
+    message_payload: list[dict[str, Any]] = [dict(message) for message in messages]
+    if schema_bundle is not None and schema_bundle.strict:
+        message_payload = _inject_json_hint(message_payload)
 
     chat_payload: dict[str, Any] = {
         "model": payload.get("model"),
-        "messages": [dict(message) for message in messages],
+        "messages": message_payload,
         "timeout": payload.get("timeout", OPENAI_REQUEST_TIMEOUT),
     }
 
