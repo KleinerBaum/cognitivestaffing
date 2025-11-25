@@ -23,6 +23,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Tightened wording and structure of README “Architecture overview” and “Configuration” sections to reflect current directory layout and environment flags.
 - Consolidated contributor expectations (formatting, type checking, testing, schema propagation) into `CONTRIBUTING.md` + `AGENTS.md`, referenced from README.
 - Improved documentation around how NeedAnalysisProfile schema, Pydantic models, and LLM response schemas must stay in sync.
+- Refactored the OpenAI API facade to orchestrate the shared client/payload/schema/tool helpers and added unit coverage for the new components.
 
 ### Fixed
 - Company step no longer raises an AttributeError when binding autofill helpers; missing flow dependencies are logged and autofill rejection tracking remains available.
