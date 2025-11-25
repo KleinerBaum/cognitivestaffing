@@ -10,6 +10,13 @@ import pytest
 from openai import OpenAIError
 
 from llm import openai_responses
+from config import APIMode
+from openai_utils.api import (
+    PayloadContext,
+    ResponsesPayloadBuilder,
+    _build_chat_fallback_payload,
+    build_schema_format_bundle,
+)
 
 
 class _FakeResponsesClient:
@@ -317,3 +324,69 @@ def test_temperature_omitted_when_unsupported(
     captured = _patch_client.captured
     assert captured is not None
     assert "temperature" not in captured
+
+
+def test_responses_builder_includes_format_name() -> None:
+    """Responses payloads must include a top-level schema name."""
+
+    schema_bundle = build_schema_format_bundle({"name": "followup_questions", "schema": {"type": "object"}})
+    context = PayloadContext(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        temperature=0.0,
+        max_completion_tokens=None,
+        candidate_models=["gpt-4o-mini"],
+        tool_specs=[],
+        tool_functions={},
+        tool_choice=None,
+        schema_bundle=schema_bundle,
+        reasoning_effort=None,
+        extra=None,
+        router_estimate=None,
+        previous_response_id=None,
+        force_classic_for_tools=False,
+        api_mode=APIMode.RESPONSES,
+        api_mode_override=None,
+    )
+
+    request = ResponsesPayloadBuilder(context).build()
+
+    text_block = request.payload.get("text")
+    assert isinstance(text_block, Mapping)
+    format_block = text_block.get("format")
+    assert isinstance(format_block, Mapping)
+    assert format_block.get("name") == "followup_questions"
+    assert format_block.get("schema", {}).get("type") == "object"
+
+
+def test_chat_fallback_payload_strips_responses_only_fields() -> None:
+    """Responses→Chat fallback payloads drop strict flags and extras."""
+
+    schema_bundle = build_schema_format_bundle({"name": "followup_questions", "schema": {"type": "object"}})
+    raw_payload = {
+        "model": "gpt-4o-mini",
+        "input": [{"role": "user", "content": "hi"}],
+        "timeout": 12,
+        "text": {"format": schema_bundle.responses_format},
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "followup_questions", "schema": {"type": "object"}, "strict": True},
+            "strict": True,
+        },
+        "max_output_tokens": 10,
+        "extra_field": "remove-me",
+        "strict": True,
+    }
+
+    fallback = _build_chat_fallback_payload(raw_payload, raw_payload["input"], schema_bundle)
+
+    assert "strict" not in fallback
+    response_format = fallback.get("response_format")
+    assert isinstance(response_format, Mapping)
+    assert "strict" not in response_format
+    json_schema_block = response_format.get("json_schema", {})
+    assert "strict" not in json_schema_block
+    assert fallback.get("max_tokens") == 10
+    assert fallback.get("max_completion_tokens") == 10
+    assert "extra_field" not in fallback
+    assert fallback.get("messages") == [{"role": "user", "content": "hi"}]

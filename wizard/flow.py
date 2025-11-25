@@ -63,10 +63,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 from utils.i18n import (
-    EMPLOYMENT_OVERTIME_TOGGLE_HELP,
     EMPLOYMENT_RELOCATION_TOGGLE_HELP,
-    EMPLOYMENT_SECURITY_TOGGLE_HELP,
-    EMPLOYMENT_SHIFT_TOGGLE_HELP,
     EMPLOYMENT_TRAVEL_TOGGLE_HELP,
     EMPLOYMENT_VISA_TOGGLE_HELP,
     POSITION_CUSTOMER_CONTACT_DETAILS_HINT,
@@ -226,7 +223,6 @@ from ._logic import (
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
-    _autofill_was_rejected,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
@@ -4236,7 +4232,10 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
                 if isinstance(raw_questions, list):
                     followup_candidates = [q for q in raw_questions if isinstance(q, Mapping)]
         except Exception:
-            logger.exception("Automatic follow-up generation failed; continuing without new questions.")
+            logger.warning(
+                "Automatic follow-up generation failed; continuing without new questions.",
+                exc_info=True,
+            )
 
     filtered_followups = filter_followups_by_context(followup_candidates, data)
     if filtered_followups:

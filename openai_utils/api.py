@@ -1400,7 +1400,9 @@ class ChatPayloadBuilder(_BasePayloadBuilder):
         if self.context.max_completion_tokens is not None:
             payload["max_completion_tokens"] = self.context.max_completion_tokens
         if self.context.schema_bundle is not None:
-            payload["response_format"] = deepcopy(self.context.schema_bundle.chat_response_format)
+            payload["response_format"] = _clean_response_format_for_chat(
+                deepcopy(self.context.schema_bundle.chat_response_format)
+            )
         if self.context.tool_specs:
             functions = _convert_tools_to_functions(self.context.tool_specs)
             if functions:
@@ -1431,7 +1433,12 @@ class ResponsesPayloadBuilder(_BasePayloadBuilder):
         if self.context.schema_bundle is not None:
             text_config: dict[str, Any] = dict(payload.get("text") or {})
             text_config.pop("type", None)
-            text_config["format"] = deepcopy(self.context.schema_bundle.responses_format)
+            format_payload = deepcopy(self.context.schema_bundle.responses_format)
+            format_payload.setdefault("name", self.context.schema_bundle.name)
+            if isinstance(format_payload.get("json_schema"), Mapping):
+                format_payload["json_schema"].setdefault("name", self.context.schema_bundle.name)
+            format_payload.setdefault("schema", deepcopy(self.context.schema_bundle.schema))
+            text_config["format"] = format_payload
             payload["text"] = text_config
         if self.context.extra:
             payload.update(self.context.extra)
@@ -2147,11 +2154,15 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
                 if strict_value is not None:
                     json_schema_payload["strict"] = strict_value
                 schema_bundle = build_schema_format_bundle(json_schema_payload)
-                chat_payload["response_format"] = _clean_response_format_for_chat(
-                    schema_bundle.chat_response_format
-                )
+                chat_payload["response_format"] = _clean_response_format_for_chat(schema_bundle.chat_response_format)
 
-    return _strip_unsupported_chat_fields(chat_payload)
+    cleaned_payload = _strip_unsupported_chat_fields(chat_payload)
+    logger.debug(
+        "Prepared chat fallback payload keys: %s",
+        ", ".join(sorted(cleaned_payload)),
+    )
+
+    return cleaned_payload
 
 
 def _build_chat_fallback_payload(
@@ -2181,9 +2192,7 @@ def _build_chat_fallback_payload(
     if isinstance(response_format, Mapping):
         chat_payload["response_format"] = _clean_response_format_for_chat(response_format)
     elif schema_bundle is not None:
-        chat_payload["response_format"] = _clean_response_format_for_chat(
-            schema_bundle.chat_response_format
-        )
+        chat_payload["response_format"] = _clean_response_format_for_chat(schema_bundle.chat_response_format)
 
     if "strict" in chat_payload:
         chat_payload.pop("strict", None)

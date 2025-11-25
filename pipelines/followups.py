@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from config import ModelTask, get_active_verbosity, get_model_for
@@ -11,6 +12,9 @@ from prompts import prompt_registry
 from schemas import FOLLOW_UPS_SCHEMA
 
 __all__ = ["generate_followups"]
+
+
+logger = logging.getLogger(__name__)
 
 
 def generate_followups(
@@ -34,13 +38,21 @@ def generate_followups(
         tools.append(build_file_search_tool(vector_store_id))
         tool_choice = "auto"
 
-    return call_chat_api(
-        messages=[system, user],
-        model=get_model_for(ModelTask.FOLLOW_UP_QUESTIONS),
-        temperature=0.2,
-        tools=tools or None,
-        tool_choice=tool_choice,
-        json_schema={"name": "FollowUpQuestions", "schema": FOLLOW_UPS_SCHEMA},
-        task=ModelTask.FOLLOW_UP_QUESTIONS,
-        verbosity=get_active_verbosity(),
-    )
+    try:
+        return call_chat_api(
+            messages=[system, user],
+            model=get_model_for(ModelTask.FOLLOW_UP_QUESTIONS),
+            temperature=0.2,
+            tools=tools or None,
+            tool_choice=tool_choice,
+            json_schema={
+                "name": "FollowUpQuestions",
+                "schema": FOLLOW_UPS_SCHEMA,
+                "strict": False,
+            },
+            task=ModelTask.FOLLOW_UP_QUESTIONS,
+            verbosity=get_active_verbosity(),
+        )
+    except Exception as exc:  # pragma: no cover - defensive guard for UI fallback
+        logger.warning("Follow-up generation failed; returning no questions.", exc_info=exc)
+        return None
