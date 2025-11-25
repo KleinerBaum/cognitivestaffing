@@ -35,6 +35,10 @@ from .prompts import FIELDS_ORDER, PreExtractionInsights
 from core.errors import ExtractionError
 from core.schema import NeedAnalysisProfile, canonicalize_profile_payload
 from core.schema_registry import load_need_analysis_schema
+from llm.response_schemas import (
+    PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME,
+    get_response_schema,
+)
 from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -44,6 +48,7 @@ tracer = trace.get_tracer(__name__)
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 3
 USE_RESPONSES_API: bool | None = None
+_PRE_ANALYSIS_SCHEMA: dict[str, Any] = get_response_schema(PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME)
 
 
 def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[str, Any]:
