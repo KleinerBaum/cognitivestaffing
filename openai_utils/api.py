@@ -11,18 +11,14 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import time
 from copy import deepcopy
-from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
 from typing import Any, Callable, Dict, Final, Iterable, Iterator, Mapping, Optional, Sequence, cast
 
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 from openai import (
     APIConnectionError,
     APIError,
@@ -39,12 +35,8 @@ from prompts import prompt_registry
 import config as app_config
 from config import (
     OPENAI_API_KEY,
-    OPENAI_BASE_URL,
-    OPENAI_ORGANIZATION,
-    OPENAI_PROJECT,
     OPENAI_REQUEST_TIMEOUT,
     REASONING_EFFORT,
-    STRICT_JSON,
     VERBOSITY,
     ModelTask,
     APIMode,
@@ -72,182 +64,26 @@ from .client import (
     ToolCallPayload,
     ToolMessagePayload,
     UsageDict,
+    OpenAIClient,
     build_fallback_context,
     create_retry_state,
+    model_supports_reasoning,
+    model_supports_temperature,
+    _is_reasoning_unsupported_error,
+    _is_temperature_unsupported_error,
+)
+from .schemas import (
+    SchemaFormatBundle,
+    build_need_analysis_json_schema_payload,  # noqa: F401
+    build_schema_format_bundle,
 )
 
 logger = logging.getLogger("cognitive_needs.openai")
-tracer = trace.get_tracer(__name__)
 
-# Global client instance (monkeypatchable in tests)
-client: OpenAI | None = None
+openai_client = OpenAIClient()
+client = openai_client
 
-
-_REASONING_MODEL_PATTERN = re.compile(r"^o\d")
-_MODELS_WITHOUT_TEMPERATURE: set[str] = set()
-_MODELS_WITHOUT_REASONING: set[str] = set()
 _USAGE_LOCK = Lock()
-
-
-@lru_cache(maxsize=None)
-def _need_analysis_schema(sections: tuple[str, ...] | None = None) -> dict[str, Any]:
-    """Return cached NeedAnalysis schema for Responses structured output."""
-
-    from core.schema import build_need_analysis_responses_schema
-
-    return build_need_analysis_responses_schema(sections=sections)
-
-
-def _assert_responses_schema_valid(schema: Mapping[str, Any], *, path: str = "$") -> None:
-    """Raise if any object schema lists partial ``required`` keys."""
-
-    if not isinstance(schema, Mapping):
-        return
-
-    if schema.get("type") == "object":
-        properties = schema.get("properties")
-        if isinstance(properties, Mapping):
-            required = schema.get("required")
-            if required is not None and set(required) != set(properties):
-                missing = sorted(set(properties) - set(required or []))
-                extra = sorted(set(required or []) - set(properties))
-                raise ValueError(
-                    "Responses JSON schema requires 'required' to include all properties at %s (missing=%s, extra=%s)"
-                    % (path, ",".join(missing), ",".join(extra))
-                )
-            for key, value in properties.items():
-                if isinstance(value, Mapping):
-                    _assert_responses_schema_valid(value, path=f"{path}.{key}")
-
-    items = schema.get("items")
-    if isinstance(items, Mapping):
-        _assert_responses_schema_valid(items, path=f"{path}[*]")
-
-    for composite_key in ("anyOf", "oneOf", "allOf"):
-        options = schema.get(composite_key)
-        if isinstance(options, list):
-            for index, option in enumerate(options):
-                if isinstance(option, Mapping):
-                    _assert_responses_schema_valid(option, path=f"{path}.{composite_key}[{index}]")
-
-
-def _sanitize_json_schema_for_responses(schema: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate ``schema`` for Responses usage without circular imports."""
-
-    from core.schema import ensure_responses_json_schema
-
-    sanitized = ensure_responses_json_schema(schema)
-    _assert_responses_schema_valid(sanitized)
-    return sanitized
-
-
-@dataclass(frozen=True)
-class SchemaFormatBundle:
-    """Container describing schema payloads for both OpenAI APIs."""
-
-    name: str
-    schema: dict[str, Any]
-    strict: bool | None
-    chat_response_format: dict[str, Any]
-    responses_format: dict[str, Any]
-
-
-def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> SchemaFormatBundle:
-    """Return normalised schema payloads for chat and Responses requests."""
-
-    if not isinstance(json_schema_payload, Mapping):
-        raise TypeError("json_schema payload must be a mapping")
-
-    schema_name_candidate = json_schema_payload.get("name")
-    schema_name = str(schema_name_candidate or "").strip()
-    if not schema_name:
-        raise ValueError("json_schema payload requires a non-empty 'name'.")
-
-    schema_body = json_schema_payload.get("schema")
-    if not isinstance(schema_body, Mapping):
-        raise ValueError("json_schema payload requires a mapping 'schema'.")
-
-    strict_override = json_schema_payload.get("strict") if "strict" in json_schema_payload else None
-    strict_value = STRICT_JSON if strict_override is None else bool(strict_override)
-
-    sanitized_schema = deepcopy(_sanitize_json_schema_for_responses(schema_body))
-
-    chat_format: dict[str, Any] = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": schema_name,
-            "schema": deepcopy(sanitized_schema),
-        },
-    }
-
-    responses_format: dict[str, Any] = {
-        "type": "json_schema",
-        "name": schema_name,
-        "schema": deepcopy(sanitized_schema),
-        "json_schema": {
-            "name": schema_name,
-            "schema": deepcopy(sanitized_schema),
-        },
-    }
-
-    if strict_value:
-        responses_format["json_schema"]["strict"] = strict_value
-        responses_format["strict"] = strict_value
-
-    return SchemaFormatBundle(
-        name=schema_name,
-        schema=sanitized_schema,
-        strict=strict_value if strict_value else None,
-        chat_response_format=chat_format,
-        responses_format=responses_format,
-    )
-
-
-def build_need_analysis_json_schema_payload(
-    *,
-    sections: Sequence[str] | None = None,
-) -> dict[str, Any]:
-    """Return the JSON schema payload for need analysis responses.
-
-    The payload is used for both Chat Completions and Responses requests and
-    always includes the canonical schema name. ``sections`` can limit the
-    schema to a subset of the NeedAnalysisProfile when running staged
-    extraction passes.  # RESPONSES_V2025_SCHEMA_FIX
-    """
-
-    section_tuple = tuple(sections) if sections else None
-    return {
-        "name": "need_analysis_profile",
-        "schema": deepcopy(_need_analysis_schema(section_tuple)),
-    }
-
-
-def _sanitize_response_format_payload(response_format: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a sanitized copy of ``response_format`` for Responses calls."""
-
-    cleaned = dict(response_format)
-    format_type = str(cleaned.get("type") or "").lower()
-    if format_type != "json_schema":
-        return cleaned
-
-    json_schema_block = cleaned.get("json_schema") if isinstance(cleaned.get("json_schema"), Mapping) else None
-    schema_payload = None
-    if isinstance(json_schema_block, Mapping):
-        schema_payload = (
-            json_schema_block.get("schema") if isinstance(json_schema_block.get("schema"), Mapping) else None
-        )
-    if schema_payload is None:
-        schema_payload = cleaned.get("schema") if isinstance(cleaned.get("schema"), Mapping) else None
-
-    if schema_payload is not None:
-        sanitized_schema = _sanitize_json_schema_for_responses(schema_payload)
-        if json_schema_block is not None:
-            json_schema_block = dict(json_schema_block)
-            json_schema_block["schema"] = sanitized_schema
-            cleaned["json_schema"] = json_schema_block
-        cleaned["schema"] = sanitized_schema
-
-    return cleaned
 
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
@@ -535,53 +371,6 @@ def is_unrecoverable_schema_error(error: Exception) -> bool:
     return False
 
 
-def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> dict[str, Any]:
-    """Return ``payload`` without fields unsupported by ``api_mode``.
-
-    The helper normalises message keys and strips obviously invalid fields so we
-    avoid OpenAI ``invalid_request_error`` or ``invalid_json_schema`` responses
-    before the request leaves the application. This keeps retries from
-    repeatedly submitting malformed payloads.
-    """
-
-    cleaned = dict(payload)
-    removed: list[str] = []
-
-    for key in list(cleaned):
-        if key.startswith("_"):
-            removed.append(key)
-            cleaned.pop(key, None)
-
-    mode = api_mode if api_mode in {"chat", "responses"} else "responses"
-
-    if mode == "chat":
-        if "input" in cleaned and "messages" not in cleaned and isinstance(cleaned["input"], Sequence):
-            cleaned["messages"] = cleaned["input"]
-        for invalid_field in ("input", "text", "previous_response_id", "max_output_tokens"):
-            if invalid_field in cleaned:
-                removed.append(invalid_field)
-                cleaned.pop(invalid_field, None)
-    else:
-        if "messages" in cleaned and "input" not in cleaned:
-            cleaned["input"] = cleaned.pop("messages")
-        for invalid_field in ("functions", "function_call", "max_completion_tokens"):
-            if invalid_field in cleaned:
-                removed.append(invalid_field)
-                cleaned.pop(invalid_field, None)
-        if "response_format" in cleaned:
-            cleaned.pop("response_format")
-            removed.append("response_format")
-
-    if removed:
-        logger.debug(
-            "Pruned unsupported fields for %s API payload: %s",
-            mode,
-            ", ".join(sorted(set(removed))),
-        )
-
-    return cleaned
-
-
 def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
     """Record additional context for known, non-retriable OpenAI failures."""
 
@@ -593,22 +382,6 @@ def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
         )
 
 
-def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: APIMode | str | bool | None = None) -> Any:
-    """Execute a Responses create call with configured timeout handling."""
-
-    request_kwargs = dict(payload)
-    mode_override = api_mode or request_kwargs.pop("_api_mode", None)
-    timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
-    response_format_payload = request_kwargs.get("response_format")
-    if isinstance(response_format_payload, Mapping):
-        request_kwargs["response_format"] = _sanitize_response_format_payload(response_format_payload)
-    mode = resolve_api_mode(mode_override).value
-    cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
-    if mode == "chat":
-        return get_client().chat.completions.create(timeout=timeout, **cleaned_payload)
-    return get_client().responses.create(timeout=timeout, **cleaned_payload)
-
-
 def _execute_response(
     payload: Dict[str, Any],
     model: Optional[str],
@@ -617,44 +390,15 @@ def _execute_response(
 ) -> Any:
     """Send ``payload`` to the configured OpenAI API with retry handling."""
 
-    with tracer.start_as_current_span("openai.execute_response") as span:
-        mode_enum = resolve_api_mode(api_mode)
-        mode = mode_enum.value
-        if model:
-            span.set_attribute("llm.model", model)
-        span.set_attribute("llm.has_tools", "functions" in payload or "tools" in payload)
-        if "temperature" in payload:
-            temperature_value = payload.get("temperature")
-            if isinstance(temperature_value, (int, float)):
-                span.set_attribute("llm.temperature", float(temperature_value))
-            elif temperature_value is not None:
-                span.set_attribute("llm.temperature", str(temperature_value))
-        try:
-            return _create_response_with_timeout(payload, api_mode=mode_enum)
-        except BadRequestError as err:
-            span.record_exception(err)
-            _log_known_openai_error(err, api_mode=mode)
-            if "temperature" in payload and _is_temperature_unsupported_error(err):
-                span.add_event("retry_without_temperature")
-                _mark_model_without_temperature(model)
-                payload.pop("temperature", None)
-                return _create_response_with_timeout(payload, api_mode=mode_enum)
-            if "reasoning" in payload and _is_reasoning_unsupported_error(err):
-                span.add_event("retry_without_reasoning")
-                _mark_model_without_reasoning(model)
-                payload.pop("reasoning", None)
-                return _create_response_with_timeout(payload, api_mode=mode_enum)
-            if model and _should_mark_model_unavailable(err):
-                mark_model_unavailable(model)
-            span.set_status(Status(StatusCode.ERROR, str(err)))
-            raise
-        except OpenAIError as err:
-            span.record_exception(err)
-            _log_known_openai_error(err, api_mode=mode)
-            if model and _should_mark_model_unavailable(err):
-                mark_model_unavailable(model)
-            span.set_status(Status(StatusCode.ERROR, str(err)))
-            raise
+    mode_value = resolve_api_mode(api_mode).value
+    return openai_client.execute_request(
+        payload,
+        model,
+        api_mode=mode_value,
+        giveup=is_unrecoverable_schema_error,
+        on_giveup=_on_api_giveup,
+        on_known_error=_log_known_openai_error,
+    )
 
 
 def _to_mapping(item: Any) -> dict[str, Any] | None:
@@ -2277,26 +2021,11 @@ def _build_chat_fallback_payload(
 def get_client() -> OpenAI:
     """Return a configured OpenAI client."""
 
-    global client
-    if client is None:
-        key = OPENAI_API_KEY
-        if not key:
-            _show_missing_api_key_alert()
-            raise RuntimeError(resolve_message(_MISSING_API_KEY_RUNTIME_MESSAGE))
-        base = OPENAI_BASE_URL or None
-        init_kwargs: dict[str, Any] = {
-            "api_key": key,
-            "base_url": base,
-            "timeout": OPENAI_REQUEST_TIMEOUT,
-        }
-        organisation = OPENAI_ORGANIZATION.strip() if isinstance(OPENAI_ORGANIZATION, str) else OPENAI_ORGANIZATION
-        if organisation:
-            init_kwargs["organization"] = organisation
-        project = OPENAI_PROJECT.strip() if isinstance(OPENAI_PROJECT, str) else OPENAI_PROJECT
-        if project:
-            init_kwargs["project"] = project
-        client = OpenAI(**init_kwargs)
-    return client
+    try:
+        return openai_client.get_client()
+    except RuntimeError:
+        _show_missing_api_key_alert()
+        raise
 
 
 def _show_missing_api_key_alert() -> None:
