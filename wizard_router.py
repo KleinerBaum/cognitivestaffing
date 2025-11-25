@@ -12,6 +12,7 @@ from utils.i18n import tr
 from wizard.company_validators import persist_contact_email, persist_primary_city
 from wizard.metadata import (
     PAGE_SECTION_INDEXES,
+    field_belongs_to_page,
     get_missing_critical_fields,
     resolve_section_for_field,
 )
@@ -186,7 +187,12 @@ class WizardRouter:
             if resolve_section_for_field(field) == section_index
         ]
         combined = list(dict.fromkeys((*missing, *critical_missing)))
-        return combined
+        if not combined:
+            return combined
+
+        return [
+            field for field in combined if field_belongs_to_page(field, page.key)
+        ]
 
     def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
         return self._controller.validate_required_field_inputs(fields)

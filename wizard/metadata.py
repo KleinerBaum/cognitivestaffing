@@ -110,6 +110,11 @@ def _build_field_section_map() -> dict[str, int]:
 
 
 FIELD_SECTION_MAP: dict[str, int] = _build_field_section_map()
+PAGE_FIELD_MAP: dict[str, str] = {
+    field: page_key
+    for page_key, fields in PAGE_PROGRESS_FIELDS.items()
+    for field in fields
+}
 CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
     PAGE_SECTION_INDEXES[key] for key in _CRITICAL_SECTION_KEYS if key in PAGE_SECTION_INDEXES
 )
@@ -146,6 +151,19 @@ def resolve_section_for_field(field: str) -> int:
     if CRITICAL_SECTION_ORDER:
         return CRITICAL_SECTION_ORDER[0]
     return COMPANY_STEP_INDEX
+
+
+def field_belongs_to_page(field: str, page_key: str) -> bool:
+    """Return ``True`` when ``field`` is part of the specified wizard page."""
+
+    if PAGE_FIELD_MAP.get(field) == page_key:
+        return True
+
+    for prefix in PAGE_FOLLOWUP_PREFIXES.get(page_key, ()): 
+        if field.startswith(prefix):
+            return True
+
+    return False
 
 
 def _field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
@@ -304,11 +322,13 @@ __all__ = [
     "CRITICAL_SECTION_ORDER",
     "filter_followups_by_context",
     "FIELD_SECTION_MAP",
+    "PAGE_FIELD_MAP",
     "PAGE_FOLLOWUP_PREFIXES",
     "PAGE_PROGRESS_FIELDS",
     "PAGE_SECTION_INDEXES",
     "SECTION_FILTER_OVERRIDES",
     "VIRTUAL_PAGE_FIELD_PREFIX",
     "get_missing_critical_fields",
+    "field_belongs_to_page",
     "resolve_section_for_field",
 ]
