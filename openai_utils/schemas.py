@@ -106,17 +106,21 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
 
 
 @lru_cache(maxsize=None)
-def need_analysis_schema(sections: tuple[str, ...] | None = None) -> dict[str, Any]:
+def need_analysis_schema(
+    sections: tuple[str, ...] | None = None, _schema_version: str | None = None
+) -> dict[str, Any]:
     from core.schema import build_need_analysis_responses_schema
 
     return build_need_analysis_responses_schema(sections=sections)
 
 
-def build_need_analysis_json_schema_payload(*, sections: Sequence[str] | None = None) -> dict[str, Any]:
+def build_need_analysis_json_schema_payload(
+    *, sections: Sequence[str] | None = None, schema_version: str | None = None
+) -> dict[str, Any]:
     section_tuple = tuple(sections) if sections else None
     return {
         "name": "need_analysis_profile",
-        "schema": deepcopy(need_analysis_schema(section_tuple)),
+        "schema": deepcopy(need_analysis_schema(section_tuple, schema_version)),
     }
 
 

@@ -54,7 +54,9 @@ def _trim_sections(schema: Mapping[str, Any], sections: Collection[str]) -> dict
 
 
 @lru_cache(maxsize=8)
-def _load_schema_cached(section_tuple: tuple[str, ...] | None) -> dict[str, Any]:
+def _load_schema_cached(
+    section_tuple: tuple[str, ...] | None, _schema_version: str | None
+) -> dict[str, Any]:
     """Return the canonical NeedAnalysis JSON schema with optional section limiting."""
 
     try:
@@ -71,11 +73,13 @@ def _load_schema_cached(section_tuple: tuple[str, ...] | None) -> dict[str, Any]
     return schema
 
 
-def load_need_analysis_schema(*, sections: Collection[str] | None = None) -> dict[str, Any]:
+def load_need_analysis_schema(
+    *, sections: Collection[str] | None = None, schema_version: str | None = None
+) -> dict[str, Any]:
     """Return the canonical NeedAnalysis JSON schema with optional section limiting."""
 
     section_tuple = tuple(sections) if sections else None
-    return _load_schema_cached(section_tuple)
+    return _load_schema_cached(section_tuple, schema_version)
 
 
 def _flatten_schema_fields(schema: Mapping[str, Any], prefix: str = "") -> list[str]:
@@ -110,4 +114,10 @@ def iter_need_analysis_field_paths(*, sections: Collection[str] | None = None) -
     return tuple(_flatten_schema_fields(schema))
 
 
-__all__ = ["iter_need_analysis_field_paths", "load_need_analysis_schema"]
+def clear_schema_cache() -> None:
+    """Clear cached NeedAnalysis schema variants."""
+
+    _load_schema_cached.cache_clear()
+
+
+__all__ = ["clear_schema_cache", "iter_need_analysis_field_paths", "load_need_analysis_schema"]
