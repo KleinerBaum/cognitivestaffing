@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from core.confidence import DEFAULT_AI_TIER
-from core.schema import canonicalize_profile_payload, coerce_and_fill
+from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_profile_with_defaults
 from llm.json_repair import repair_profile_payload
 from models.need_analysis import NeedAnalysisProfile
 
@@ -171,6 +171,17 @@ def _iter_paths(data: Mapping[str, Any], prefix: str = "") -> Iterable[str]:
         yield path
 
 
+def _get_path_value(data: Mapping[str, Any], path: str) -> Any:
+    """Return the value located at ``path`` within ``data`` if present."""
+
+    target: Any = data
+    for part in path.split("."):
+        if not isinstance(target, Mapping):
+            return None
+        target = target.get(part)
+    return target
+
+
 def _has_meaningful_value(value: Any) -> bool:
     """Return ``True`` if ``value`` contains data worth preserving."""
 
@@ -288,13 +299,18 @@ def parse_structured_payload(raw: str) -> tuple[dict[str, Any], bool, list[str]]
     except ValidationError as exc:  # pragma: no cover - defensive
         raise InvalidExtractionPayload("Model returned JSON that could not be normalised.") from exc
 
-    filled_payload = filled_profile.model_dump(mode="python")
-    added_paths = _collect_present_paths(filled_payload) - _collect_present_paths(canonical_payload)
+    merged_payload = merge_profile_with_defaults(filled_profile.model_dump(mode="python"))
+    added_paths = _collect_present_paths(merged_payload) - _collect_present_paths(canonical_payload)
     for path in sorted(added_paths):
         if path in _REQUIRED_PATHS:
             issues.append(f"{path}: added missing default")
 
-    return filled_payload, recovered, _deduplicate_issues(issues)
+    for path in sorted(_REQUIRED_PATHS):
+        value = _get_path_value(merged_payload, path)
+        if not _has_meaningful_value(value):
+            issues.append(f"{path}: missing value")
+
+    return merged_payload, recovered, _deduplicate_issues(issues)
 
 
 def mark_low_confidence(

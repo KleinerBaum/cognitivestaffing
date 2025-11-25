@@ -1694,6 +1694,30 @@ def _ensure_placeholder_strings(payload: NormalizedProfilePayload) -> Normalized
     return cast(NormalizedProfilePayload, normalized)
 
 
+def merge_profile_with_defaults(data: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return ``data`` merged with a skeleton ``NeedAnalysisProfile`` dump.
+
+    The helper preserves any values supplied by the caller while ensuring that
+    every top-level section exists. Nested mappings are merged recursively so
+    missing sections such as ``company`` or ``position`` are always available
+    for downstream consumers.
+    """
+
+    skeleton = NeedAnalysisProfile().model_dump(mode="python")
+
+    def _merge(target: dict[str, Any], source: Mapping[str, Any]) -> None:
+        for key, value in source.items():
+            if isinstance(value, Mapping) and isinstance(target.get(key), dict):
+                _merge(target[key], value)
+            else:
+                target[key] = value
+
+    if isinstance(data, Mapping):
+        _merge(skeleton, data)
+
+    return skeleton
+
+
 def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """Validate ``data`` and ensure required fields are present.
 
@@ -1702,6 +1726,7 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """
 
     payload = canonicalize_profile_payload(data)
+    payload = merge_profile_with_defaults(payload)
 
     try:
         profile = NeedAnalysisProfile.model_validate(payload)

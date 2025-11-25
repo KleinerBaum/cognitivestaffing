@@ -559,20 +559,9 @@ def _error_paths(errors: Sequence[Mapping[str, object]]) -> list[str]:
 def _merge_with_profile_defaults(raw: Mapping[str, Any] | None) -> dict[str, Any]:
     """Overlay ``raw`` data onto a default NeedAnalysisProfile dump."""
 
-    from models.need_analysis import NeedAnalysisProfile
+    from core.schema import merge_profile_with_defaults
 
-    merged: dict[str, Any] = copy.deepcopy(NeedAnalysisProfile().model_dump())
-
-    def _merge(target: dict[str, Any], source: Mapping[str, Any]) -> None:
-        for key, value in source.items():
-            if isinstance(value, Mapping) and isinstance(target.get(key), dict):
-                _merge(target[key], value)
-            else:
-                target[key] = value
-
-    if isinstance(raw, Mapping):
-        _merge(merged, raw)
-    return merged
+    return merge_profile_with_defaults(raw)
 
 
 def _prune_invalid_paths(payload: Mapping[str, Any], errors: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
