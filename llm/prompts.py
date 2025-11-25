@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import re
 from typing import Any, Mapping, Sequence
 
 from core.schema_registry import iter_need_analysis_field_paths
+from models.need_analysis import NeedAnalysisProfile
 from prompts import prompt_registry
 from utils.i18n import tr
 
@@ -63,6 +65,17 @@ _QUICK_FIELD_NAMES: set[str] = {
 FIELDS_ORDER_QUICK: list[str] = [field for field in FIELDS_ORDER if field in _QUICK_FIELD_NAMES]
 if not FIELDS_ORDER_QUICK:
     FIELDS_ORDER_QUICK = FIELDS_ORDER.copy()
+
+
+@lru_cache(maxsize=1)
+def build_schema_coverage_hint() -> str:
+    """Return a sentence reminding the model to include every schema section."""
+
+    top_level_keys = ", ".join(NeedAnalysisProfile.model_fields)
+    return (
+        "Include every top-level schema key in the JSON output "
+        f"({top_level_keys}) and use null/[] for unknown values."
+    )
 
 
 @dataclass(slots=True)

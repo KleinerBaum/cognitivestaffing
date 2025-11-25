@@ -11,6 +11,7 @@ from .prompts import (
     FIELDS_ORDER_QUICK,
     SYSTEM_JSON_EXTRACTOR,
     build_user_json_extract_prompt,
+    build_schema_coverage_hint,
     render_field_bullets,
     PreExtractionInsights,
 )
@@ -78,10 +79,13 @@ def build_extract_messages(
     if locked_fields:
         system_intro = f"{SYSTEM_JSON_EXTRACTOR} {LOCKED_SYSTEM_HINT}".strip()
 
+    schema_coverage_hint = build_schema_coverage_hint()
+
     system_content = "\n\n".join(
         block
         for block in (
             system_intro.strip(),
+            schema_coverage_hint,
             field_reference_block,
             format_instructions.strip(),
         )
