@@ -226,6 +226,7 @@ from ._logic import (
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
+    _autofill_was_rejected,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
