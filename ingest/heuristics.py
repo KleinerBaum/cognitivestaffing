@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
 
 from config import ModelTask, get_model_for
 from core.rules import COMMON_CITY_NAMES
@@ -253,6 +253,7 @@ _CITY_TRAILING_STOPWORDS = {
 
 _HIRING_PROCESS_HEADINGS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bhiring process\b", re.IGNORECASE),
+    re.compile(r"\brecruitment process\b", re.IGNORECASE),
     re.compile(r"\binterview process\b", re.IGNORECASE),
     re.compile(r"\bapplication process\b", re.IGNORECASE),
     re.compile(r"\bselection process\b", re.IGNORECASE),
@@ -264,6 +265,7 @@ _HIRING_PROCESS_HEADINGS: tuple[re.Pattern[str], ...] = (
 
 _HIRING_PROCESS_INLINE: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bhiring process\b", re.IGNORECASE),
+    re.compile(r"\brecruitment process\b", re.IGNORECASE),
     re.compile(r"\binterview process\b", re.IGNORECASE),
     re.compile(r"\bapplication process\b", re.IGNORECASE),
     re.compile(r"\bbewerbungsprozess\b", re.IGNORECASE),
@@ -272,6 +274,12 @@ _HIRING_PROCESS_INLINE: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bauswahlverfahren\b", re.IGNORECASE),
     re.compile(r"\bvorstellungsgespr[aä]ch\b", re.IGNORECASE),
 )
+
+_PROCESS_STEP_SPLIT_RE = re.compile(
+    r"\s*(?:->|→|➔|➡|➜|➝|➞|›|»|then|dann|danach|anschließend|anschliessend)\s*",
+    re.IGNORECASE,
+)
+_PROCESS_COMMA_SPLIT_RE = re.compile(r"[,;]")
 
 BENEFIT_LEXICON: dict[str, str] = {
     "flexible arbeitszeiten": "Flexible Arbeitszeiten",
@@ -301,12 +309,20 @@ BENEFIT_LEXICON: dict[str, str] = {
     "vacation days": "Vacation Days",
     "urlaubstage": "Urlaubstage",
     "30 tage urlaub": "30 Tage Urlaub",
+    "30 tage jahresurlaub": "30 Tage Urlaub",
     "30 days vacation": "30 Days Vacation",
     "free drinks": "Free Drinks",
     "free snacks": "Free Snacks",
     "fruit basket": "Fresh Fruit",
     "gym membership": "Gym Membership",
     "fitnessstudio": "Gym Membership",
+    "unbefristeter arbeitsvertrag": "Unbefristeter Arbeitsvertrag",
+    "unbefristeter vertrag": "Unbefristeter Arbeitsvertrag",
+    "deutschlandticket": "Jobticket",
+    "deutschlandticket job": "Jobticket",
+    "job ticket": "Jobticket",
+    "firmenticket": "Jobticket",
+    "betriebsrente": "Betriebliche Altersvorsorge",
     "bonus": "Bonus",
     "annual bonus": "Annual Bonus",
     "training budget": "Training Budget",
@@ -1561,10 +1577,13 @@ _BENEFIT_HEADINGS = {
     "was wir bieten",
     "was wir dir bieten",
     "was wir ihnen bieten",
+    "das bieten wir",
+    "was dich erwartet",
     "unsere vorteile",
     "deine vorteile",
     "vorteile",
     "leistungen",
+    "unsere leistungen",
     "unser angebot",
     "angebote",
 }
@@ -1601,10 +1620,11 @@ def _normalize_benefit_entries(values: List[str]) -> List[str]:
         cleaned = cleaned.strip()
         if not cleaned:
             continue
-        key = cleaned.lower()
+        label = _benefit_label_for_phrase(cleaned) or cleaned
+        key = label.lower()
         if key not in seen:
             seen.add(key)
-            normalized.append(cleaned)
+            normalized.append(label)
     return normalized
 
 
@@ -1714,6 +1734,38 @@ def _merge_unique(base: List[str], extras: List[str]) -> List[str]:
     return base
 
 
+def _split_process_steps(lines: Iterable[str]) -> list[str]:
+    """Return individual hiring steps split from ``lines``."""
+
+    steps: list[str] = []
+    for line in lines:
+        normalized = re.sub(r"\s+", " ", line).strip(" -–—•·\t")
+        if not normalized:
+            continue
+        heading_prefix = re.match(r"^(?P<title>[^:]{1,80}):\s*(?P<body>.+)$", normalized)
+        if heading_prefix:
+            title = heading_prefix.group("title")
+            if any(pattern.search(title) for pattern in _HIRING_PROCESS_HEADINGS):
+                normalized = heading_prefix.group("body").strip()
+        arrow_parts = [
+            part.strip(" -–—•·\t") for part in _PROCESS_STEP_SPLIT_RE.split(normalized) if part.strip(" -–—•·\t")
+        ]
+        if len(arrow_parts) >= 2:
+            steps.extend(arrow_parts)
+            continue
+
+        comma_parts = [
+            part.strip(" -–—•·\t") for part in _PROCESS_COMMA_SPLIT_RE.split(normalized) if part.strip(" -–—•·\t")
+        ]
+        if len(comma_parts) >= 2 and len(normalized) <= 200:
+            steps.extend(comma_parts)
+            continue
+
+        steps.append(normalized)
+
+    return steps
+
+
 def _extract_hiring_process(text: str, *, max_lines: int = 8) -> list[str] | None:
     """Return a hiring process description extracted from ``text`` as a list."""
 
@@ -1752,7 +1804,8 @@ def _extract_hiring_process(text: str, *, max_lines: int = 8) -> list[str] | Non
                 break
 
     if collected:
-        unique_lines = _merge_unique([], collected)
+        split_steps = _split_process_steps(collected)
+        unique_lines = _merge_unique([], split_steps)
         return unique_lines
 
     return None
