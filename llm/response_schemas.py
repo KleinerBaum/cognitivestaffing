@@ -16,6 +16,9 @@ INTERVIEW_GUIDE_SCHEMA_NAME = "interviewGuide"
 SKILL_SUGGESTION_SCHEMA_NAME = "skill_suggestions"
 BENEFIT_SUGGESTION_SCHEMA_NAME = "benefit_suggestions"
 TEAM_ADVICE_SCHEMA_NAME = "team_advice"
+NEED_ANALYSIS_PROFILE_SCHEMA_NAME = "need_analysis_profile"
+PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME = "pre_extraction_analysis"
+FOLLOW_UP_QUESTIONS_SCHEMA_NAME = "FollowUpQuestions"
 
 
 def _validate_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
@@ -38,6 +41,68 @@ def _validate_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError(message)
 
     return schema_copy
+
+
+def _assert_responses_schema_valid(schema: Mapping[str, Any], *, path: str = "$") -> None:
+    """Raise ``ValueError`` if any object declares partial ``required`` keys."""
+
+    if not isinstance(schema, Mapping):
+        return
+
+    if schema.get("type") == "object":
+        properties = schema.get("properties")
+        if isinstance(properties, Mapping):
+            required = schema.get("required")
+            if required is not None:
+                if set(required) != set(properties):
+                    missing = sorted(set(properties) - set(required or []))
+                    extra = sorted(set(required or []) - set(properties))
+                    details = ", ".join(
+                        filter(
+                            None,
+                            [
+                                f"missing from required: {', '.join(missing)}" if missing else "",
+                                f"unknown required keys: {', '.join(extra)}" if extra else "",
+                            ],
+                        )
+                    ).strip(" ,")
+                    raise ValueError(f"Schema '{path}' must list all object properties in required; {details}")
+            for key, value in properties.items():
+                if isinstance(value, Mapping):
+                    _assert_responses_schema_valid(value, path=f"{path}.{key}")
+
+    items = schema.get("items")
+    if isinstance(items, Mapping):
+        _assert_responses_schema_valid(items, path=f"{path}[*]")
+
+    for composite_key in ("anyOf", "oneOf", "allOf"):
+        options = schema.get(composite_key)
+        if isinstance(options, list):
+            for index, option in enumerate(options):
+                if isinstance(option, Mapping):
+                    _assert_responses_schema_valid(option, path=f"{path}.{composite_key}[{index}]")
+
+
+def _sanitize_response_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a schema normalised for Responses compatibility."""
+
+    from core.schema import ensure_responses_json_schema
+
+    sanitized = ensure_responses_json_schema(schema)
+    _assert_responses_schema_valid(sanitized, path=name)
+    return sanitized
+
+
+def _build_need_analysis_schema() -> Mapping[str, Any]:
+    from core.schema import build_need_analysis_responses_schema
+
+    return build_need_analysis_responses_schema()
+
+
+def _build_followup_schema() -> Mapping[str, Any]:
+    from schemas import FOLLOW_UPS_SCHEMA
+
+    return guard_no_additional_properties(deepcopy(FOLLOW_UPS_SCHEMA))
 
 
 def _interview_guide_schema() -> Mapping[str, Any]:
@@ -95,6 +160,31 @@ _SCHEMA_REGISTRY: dict[str, Callable[[], Mapping[str, Any]]] = {
         "required": ["assistant_message"],
         "additionalProperties": False,
     },
+    NEED_ANALYSIS_PROFILE_SCHEMA_NAME: _build_need_analysis_schema,
+    PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME: lambda: {
+        "type": "object",
+        "properties": {
+            "relevant_fields": {
+                "type": "array",
+                "description": "Schema field keys that likely have evidence in the text.",
+                "items": {"type": "string"},
+                "minItems": 0,
+            },
+            "missing_fields": {
+                "type": "array",
+                "description": "Schema fields that appear absent or weak in the text.",
+                "items": {"type": "string"},
+                "minItems": 0,
+            },
+            "summary": {
+                "type": "string",
+                "description": "Short notes about the available information in the document.",
+            },
+        },
+        "required": ["relevant_fields", "missing_fields", "summary"],
+        "additionalProperties": False,
+    },
+    FOLLOW_UP_QUESTIONS_SCHEMA_NAME: lambda: _build_followup_schema(),
 }
 
 
@@ -106,7 +196,8 @@ def get_response_schema(name: str) -> dict[str, Any]:
     except KeyError as exc:  # pragma: no cover - defensive
         raise KeyError(f"Unknown response schema '{name}'") from exc
 
-    return _validate_schema(name, schema_factory())
+    raw_schema = _validate_schema(name, schema_factory())
+    return _sanitize_response_schema(name, raw_schema)
 
 
 def validate_response_schema(name: str, schema: Mapping[str, Any]) -> dict[str, Any]:
@@ -118,6 +209,9 @@ def validate_response_schema(name: str, schema: Mapping[str, Any]) -> dict[str, 
 __all__ = [
     "BENEFIT_SUGGESTION_SCHEMA_NAME",
     "TEAM_ADVICE_SCHEMA_NAME",
+    "FOLLOW_UP_QUESTIONS_SCHEMA_NAME",
+    "NEED_ANALYSIS_PROFILE_SCHEMA_NAME",
+    "PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME",
     "INTERVIEW_GUIDE_SCHEMA_NAME",
     "SKILL_SUGGESTION_SCHEMA_NAME",
     "get_response_schema",

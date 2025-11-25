@@ -97,12 +97,47 @@ def _need_analysis_schema(sections: tuple[str, ...] | None = None) -> dict[str, 
     return build_need_analysis_responses_schema(sections=sections)
 
 
-def _sanitize_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+def _assert_responses_schema_valid(schema: Mapping[str, Any], *, path: str = "$") -> None:
+    """Raise if any object schema lists partial ``required`` keys."""
+
+    if not isinstance(schema, Mapping):
+        return
+
+    if schema.get("type") == "object":
+        properties = schema.get("properties")
+        if isinstance(properties, Mapping):
+            required = schema.get("required")
+            if required is not None and set(required) != set(properties):
+                missing = sorted(set(properties) - set(required or []))
+                extra = sorted(set(required or []) - set(properties))
+                raise ValueError(
+                    "Responses JSON schema requires 'required' to include all properties at %s (missing=%s, extra=%s)"
+                    % (path, ",".join(missing), ",".join(extra))
+                )
+            for key, value in properties.items():
+                if isinstance(value, Mapping):
+                    _assert_responses_schema_valid(value, path=f"{path}.{key}")
+
+    items = schema.get("items")
+    if isinstance(items, Mapping):
+        _assert_responses_schema_valid(items, path=f"{path}[*]")
+
+    for composite_key in ("anyOf", "oneOf", "allOf"):
+        options = schema.get(composite_key)
+        if isinstance(options, list):
+            for index, option in enumerate(options):
+                if isinstance(option, Mapping):
+                    _assert_responses_schema_valid(option, path=f"{path}.{composite_key}[{index}]")
+
+
+def _sanitize_json_schema_for_responses(schema: Mapping[str, Any]) -> dict[str, Any]:
     """Validate ``schema`` for Responses usage without circular imports."""
 
     from core.schema import ensure_responses_json_schema
 
-    return ensure_responses_json_schema(schema)
+    sanitized = ensure_responses_json_schema(schema)
+    _assert_responses_schema_valid(sanitized)
+    return sanitized
 
 
 @dataclass(frozen=True)
@@ -134,7 +169,7 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
     strict_override = json_schema_payload.get("strict") if "strict" in json_schema_payload else None
     strict_value = STRICT_JSON if strict_override is None else bool(strict_override)
 
-    sanitized_schema = deepcopy(_sanitize_json_schema(schema_body))
+    sanitized_schema = deepcopy(_sanitize_json_schema_for_responses(schema_body))
 
     chat_format: dict[str, Any] = {
         "type": "json_schema",
@@ -184,6 +219,34 @@ def build_need_analysis_json_schema_payload(
         "name": "need_analysis_profile",
         "schema": deepcopy(_need_analysis_schema(section_tuple)),
     }
+
+
+def _sanitize_response_format_payload(response_format: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a sanitized copy of ``response_format`` for Responses calls."""
+
+    cleaned = dict(response_format)
+    format_type = str(cleaned.get("type") or "").lower()
+    if format_type != "json_schema":
+        return cleaned
+
+    json_schema_block = cleaned.get("json_schema") if isinstance(cleaned.get("json_schema"), Mapping) else None
+    schema_payload = None
+    if isinstance(json_schema_block, Mapping):
+        schema_payload = (
+            json_schema_block.get("schema") if isinstance(json_schema_block.get("schema"), Mapping) else None
+        )
+    if schema_payload is None:
+        schema_payload = cleaned.get("schema") if isinstance(cleaned.get("schema"), Mapping) else None
+
+    if schema_payload is not None:
+        sanitized_schema = _sanitize_json_schema_for_responses(schema_payload)
+        if json_schema_block is not None:
+            json_schema_block = dict(json_schema_block)
+            json_schema_block["schema"] = sanitized_schema
+            cleaned["json_schema"] = json_schema_block
+        cleaned["schema"] = sanitized_schema
+
+    return cleaned
 
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
@@ -535,6 +598,9 @@ def _create_response_with_timeout(payload: Dict[str, Any], *, api_mode: APIMode 
     request_kwargs = dict(payload)
     mode_override = api_mode or request_kwargs.pop("_api_mode", None)
     timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
+    response_format_payload = request_kwargs.get("response_format")
+    if isinstance(response_format_payload, Mapping):
+        request_kwargs["response_format"] = _sanitize_response_format_payload(response_format_payload)
     mode = resolve_api_mode(mode_override).value
     cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
     if mode == "chat":

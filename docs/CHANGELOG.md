@@ -28,6 +28,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Various small documentation inconsistencies (outdated model names or incomplete environment variable lists).
 - Responses JSON schema now marks all object properties as required before hitting the Responses API to avoid 400 errors and
   keep generated artifacts (schema files, exports, wizard types) in sync.
+- Added recursive validation and sanitization for Responses JSON schemas (need analysis, pre-analysis, follow-up questions) to
+  prevent invalid_json_schema errors and enforce property coverage in automated tests.
 
 ---
 
