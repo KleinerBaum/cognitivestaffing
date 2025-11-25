@@ -11,8 +11,8 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **Eight-step bilingual wizard**  
   Onboarding → Company → Team & Structure → Role & Tasks → Skills & Requirements → Compensation → Hiring Process → Summary. Each step includes EN/DE intros, validations, and inline helper texts.
 
-- **Required field & missing‑info guardrails**  
-  Required fields are clearly marked; the *Next* button shows bilingual warnings listing missing required fields and blocks navigation until they are filled. Critical fields per step drive focused follow‑up questions and ChatKit prompts stored in `critical_fields.json`.
+- **Required field & missing‑info guardrails**
+  Required fields are clearly marked; the *Next* button shows bilingual warnings listing missing required fields and blocks navigation until they are filled. Critical fields per step drive focused follow‑up questions and ChatKit prompts stored in `critical_fields.json`. Step validation now aligns field ownership with the correct sections so later-stage items (e.g., seniority, compensation ranges, remote percentage, interview stages) only gate the step where they belong.
 
 - **AI extraction & NeedAnalysisProfile normalization**
   Ingest heuristics plus OpenAI’s Responses API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data.
