@@ -389,4 +389,20 @@ def test_chat_fallback_payload_strips_responses_only_fields() -> None:
     assert fallback.get("max_tokens") == 10
     assert fallback.get("max_completion_tokens") == 10
     assert "extra_field" not in fallback
-    assert fallback.get("messages") == [{"role": "user", "content": "hi"}]
+    messages = fallback.get("messages")
+    assert isinstance(messages, list)
+    assert messages[0].get("role") == "system"
+    assert "JSON object" in messages[0].get("content", "")
+    assert messages[1:] == [{"role": "user", "content": "hi"}]
+
+
+def test_schema_bundle_applies_strict_only_to_responses_format() -> None:
+    """Strict JSON should be reserved for Responses payloads."""
+
+    bundle = build_schema_format_bundle({"name": "strict_example", "schema": {"type": "object"}, "strict": True})
+
+    assert bundle.strict is True
+    assert "strict" not in bundle.chat_response_format
+    assert "strict" not in bundle.chat_response_format.get("json_schema", {})
+    assert bundle.responses_format.get("strict") is True
+    assert bundle.responses_format.get("json_schema", {}).get("strict") is True
