@@ -197,6 +197,41 @@ def test_followups_without_vector_store(monkeypatch: pytest.MonkeyPatch) -> None
     assert captured["model"] == "model-followups"
 
 
+def test_followups_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {
+        "questions": [
+            {
+                "field": "company.name",
+                "question": "What is the company name?",
+                "priority": "critical",
+                "suggestions": [],
+            }
+        ]
+    }
+
+    def fake_call(messages: list[dict[str, Any]], **_: Any) -> _FakeResult:
+        return _FakeResult(content=json.dumps(payload))
+
+    monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
+
+    result = followups_mod.generate_followups({}, "en")
+
+    assert result == payload
+
+
+def test_followups_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call(messages: list[dict[str, Any]], **_: Any) -> _FakeResult:
+        raise RuntimeError("test failure")
+
+    monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
+    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
+
+    result = followups_mod.generate_followups({}, "de")
+
+    assert result == {"questions": []}
+
+
 def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
