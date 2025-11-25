@@ -48,15 +48,13 @@ _RESPONSIBILITY_PREFIXES: tuple[str, ...] = (
     "koordinierst",
     "unterstützt",
     "unterstuetzt",
-    "du ",
-    "sie ",
-    "wir ",
 )
 
 _REQUIREMENT_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b\d+\s*\+?\s*(?:years|yrs|jahr|jahre)\b.*\berfahrung\b", re.IGNORECASE),
     re.compile(r"\bexperience\s+(?:with|in|of)\b", re.IGNORECASE),
     re.compile(r"\berfahrung\b", re.IGNORECASE),
+    re.compile(r"bringst du mit", re.IGNORECASE),
     re.compile(r"\bkenntnisse\b", re.IGNORECASE),
     re.compile(r"\bknowledge\b", re.IGNORECASE),
     re.compile(r"\bdegree\b|\bbachelor'?s?\b|\bmaster'?s?\b|\bstudium\b|\babschluss\b", re.IGNORECASE),
@@ -99,9 +97,21 @@ def looks_like_responsibility(text: str) -> bool:
     cleaned = _clean_bullet(text).casefold()
     if not cleaned:
         return False
+
+    normalized = cleaned
+    for pronoun in ("you ", "du ", "sie ", "wir "):
+        if normalized.startswith(pronoun):
+            normalized = normalized[len(pronoun) :]
+            break
+
+    tokens = normalized.split()
+    while tokens and tokens[0] in {"gemeinsam", "zusammen", "mit", "als"}:
+        tokens = tokens[1:]
+    normalized = " ".join(tokens)
+
     if " you will " in cleaned:
         return True
-    return any(cleaned.startswith(prefix) for prefix in _RESPONSIBILITY_PREFIXES)
+    return any(normalized.startswith(prefix) or cleaned.startswith(prefix) for prefix in _RESPONSIBILITY_PREFIXES)
 
 
 def looks_like_requirement(text: str) -> bool:
@@ -111,7 +121,19 @@ def looks_like_requirement(text: str) -> bool:
     if not cleaned:
         return False
     lower = cleaned.casefold()
-    if lower.startswith(("you have", "you'll have", "bring", "must have", "required:")):
+    if lower.startswith(
+        (
+            "you have",
+            "you'll have",
+            "bring",
+            "must have",
+            "required:",
+            "du bist",
+            "bist du",
+            "du bringst",
+            "darauf freuen wir uns",
+        )
+    ):
         return True
     for pattern in _REQUIREMENT_PATTERNS:
         if pattern.search(cleaned):
