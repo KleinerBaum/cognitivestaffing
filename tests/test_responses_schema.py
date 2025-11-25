@@ -79,13 +79,49 @@ def test_unique_items_pruned_from_responses_schema() -> None:
     assert "uniqueItems" not in sanitized["properties"]["tags"]
 
 
+def test_ensure_responses_schema_recursively_adds_required_fields() -> None:
+    """Required arrays include every property across nested objects and defs."""
+
+    sanitized = ensure_responses_json_schema(
+        {
+            "type": "object",
+            "properties": {
+                "outer": {
+                    "type": "object",
+                    "properties": {
+                        "inner": {
+                            "type": "object",
+                            "properties": {"leaf": {"type": "string"}},
+                        }
+                    },
+                }
+            },
+            "$defs": {
+                "item": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                }
+            },
+        }
+    )
+
+    assert sanitized["required"] == ["outer"]
+    outer_schema = sanitized["properties"]["outer"]
+    assert outer_schema["required"] == ["inner"]
+    inner_schema = outer_schema["properties"]["inner"]
+    assert inner_schema["required"] == ["leaf"]
+
+    defs_required = sanitized["$defs"]["item"]["required"]
+    assert defs_required == ["name"]
+
+
 def test_ensure_responses_schema_sets_draft_and_required_keys() -> None:
     """Responses schema helper enforces Draft-07 and required arrays."""
 
     sanitized = ensure_responses_json_schema({"type": "object", "properties": {"foo": {"type": "string"}}})
 
     assert sanitized["$schema"] == "http://json-schema.org/draft-07/schema#"
-    assert sanitized["required"] == []
+    assert sanitized["required"] == ["foo"]
 
 
 def _allows_null(node: Mapping[str, Any]) -> bool:
@@ -102,21 +138,26 @@ def _allows_null(node: Mapping[str, Any]) -> bool:
     return False
 
 
-def test_responses_schema_respects_required_fields_from_model() -> None:
-    """Responses schema keeps only model-required properties in ``required`` lists."""
+def test_responses_schema_marks_all_properties_as_required() -> None:
+    """Responses schema requires every declared property for Responses compatibility."""
 
     schema = build_need_analysis_responses_schema()
 
-    company_required = schema["properties"]["company"].get("required")
-    position_required = schema["properties"]["position"].get("required")
-    assert company_required == []
-    assert position_required == []
+    company_schema = schema["properties"]["company"]
+    company_required = company_schema.get("required")
+    assert set(company_required or []) == set(company_schema["properties"])
+
+    position_schema = schema["properties"]["position"]
+    position_required = position_schema.get("required")
+    assert set(position_required or []) == set(position_schema["properties"])
 
     stakeholder_required = schema["properties"]["process"]["properties"]["stakeholders"]["items"].get("required")
-    assert stakeholder_required == ["name", "role"]
+    stakeholder_props = schema["properties"]["process"]["properties"]["stakeholders"]["items"]["properties"]
+    assert set(stakeholder_required or []) == set(stakeholder_props)
 
     phase_required = schema["properties"]["process"]["properties"]["phases"]["items"].get("required")
-    assert phase_required == ["name"]
+    phase_props = schema["properties"]["process"]["properties"]["phases"]["items"]["properties"]
+    assert set(phase_required or []) == set(phase_props)
 
     employment_props = schema["properties"]["employment"]["properties"]
     assert _allows_null(employment_props["travel_required"])
@@ -142,5 +183,5 @@ def test_need_analysis_schema_can_be_limited_to_sections() -> None:
     trimmed = build_need_analysis_responses_schema(sections=["company", "position"])
 
     assert set(trimmed["properties"]) == {"company", "position"}
-    assert set(trimmed.get("required") or []) <= {"company", "position"}
+    assert set(trimmed.get("required") or []) == {"company", "position"}
     assert "location" not in trimmed["properties"]

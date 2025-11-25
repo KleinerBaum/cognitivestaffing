@@ -126,7 +126,25 @@
                     }
                 }
             },
-            "required": []
+            "required": [
+                "name",
+                "description",
+                "brand_name",
+                "industry",
+                "hq_location",
+                "size",
+                "website",
+                "mission",
+                "culture",
+                "contact_name",
+                "contact_email",
+                "contact_phone",
+                "brand_keywords",
+                "logo_url",
+                "brand_color",
+                "claim",
+                "benefits"
+            ]
         },
         "position": {
             "type": "object",
@@ -235,7 +253,25 @@
                     ]
                 }
             },
-            "required": []
+            "required": [
+                "job_title",
+                "seniority_level",
+                "team_structure",
+                "reporting_line",
+                "reports_to",
+                "reporting_manager_name",
+                "role_summary",
+                "occupation_label",
+                "occupation_uri",
+                "occupation_group",
+                "supervises",
+                "performance_indicators",
+                "decision_authority",
+                "key_projects",
+                "team_size",
+                "customer_contact_required",
+                "customer_contact_details"
+            ]
         },
         "department": {
             "type": "object",
@@ -272,7 +308,13 @@
                     ]
                 }
             },
-            "required": []
+            "required": [
+                "name",
+                "function",
+                "leader_name",
+                "leader_title",
+                "strategic_goals"
+            ]
         },
         "team": {
             "type": "object",
@@ -321,7 +363,15 @@
                     ]
                 }
             },
-            "required": []
+            "required": [
+                "name",
+                "mission",
+                "reporting_line",
+                "headcount_current",
+                "headcount_target",
+                "collaboration_tools",
+                "locations"
+            ]
         },
         "location": {
             "type": "object",
@@ -346,7 +396,11 @@
                     ]
                 }
             },
-            "required": []
+            "required": [
+                "primary_city",
+                "country",
+                "onsite_ratio"
+            ]
         },
         "responsibilities": {
             "type": "object",
@@ -359,7 +413,9 @@
                     }
                 }
             },
-            "required": []
+            "required": [
+                "items"
+            ]
         },
         "requirements": {
             "type": "object",
@@ -476,7 +532,10 @@
                                     }
                                 },
                                 "required": [
-                                    "name"
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
                                 ]
                             }
                         },
@@ -509,7 +568,10 @@
                                     }
                                 },
                                 "required": [
-                                    "name"
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
                                 ]
                             }
                         },
@@ -542,7 +604,10 @@
                                     }
                                 },
                                 "required": [
-                                    "name"
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
                                 ]
                             }
                         },
@@ -575,7 +640,10 @@
                                     }
                                 },
                                 "required": [
-                                    "name"
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
                                 ]
                             }
                         },
@@ -608,15 +676,39 @@
                                     }
                                 },
                                 "required": [
-                                    "name"
+                                    "name",
+                                    "normalized_name",
+                                    "esco_uri",
+                                    "weight"
                                 ]
                             }
                         }
                     },
-                    "required": []
+                    "required": [
+                        "hard_skills_required",
+                        "hard_skills_optional",
+                        "soft_skills_required",
+                        "soft_skills_optional",
+                        "tools_and_technologies"
+                    ]
                 }
             },
-            "required": []
+            "required": [
+                "hard_skills_required",
+                "hard_skills_optional",
+                "soft_skills_required",
+                "soft_skills_optional",
+                "tools_and_technologies",
+                "languages_required",
+                "languages_optional",
+                "certificates",
+                "certifications",
+                "language_level_english",
+                "background_check_required",
+                "portfolio_required",
+                "reference_check_required",
+                "skill_mappings"
+            ]
         },
         "employment": {
             "type": "object",
@@ -731,7 +823,26 @@
                     ]
                 }
             },
-            "required": []
+            "required": [
+                "job_type",
+                "work_policy",
+                "contract_type",
+                "work_schedule",
+                "remote_percentage",
+                "contract_end",
+                "travel_required",
+                "travel_share",
+                "travel_region_scope",
+                "travel_regions",
+                "travel_continents",
+                "travel_details",
+                "overtime_expected",
+                "relocation_support",
+                "relocation_details",
+                "visa_sponsorship",
+                "security_clearance_required",
+                "shift_work"
+            ]
         },
         "compensation": {
             "type": "object",
@@ -795,7 +906,18 @@
                     }
                 }
             },
-            "required": []
+            "required": [
+                "salary_provided",
+                "salary_min",
+                "salary_max",
+                "currency",
+                "period",
+                "variable_pay",
+                "bonus_percentage",
+                "commission_structure",
+                "equity_offered",
+                "benefits"
+            ]
         },
         "process": {
             "type": "object",
@@ -838,7 +960,10 @@
                         },
                         "required": [
                             "name",
-                            "role"
+                            "role",
+                            "email",
+                            "primary",
+                            "information_loop_phases"
                         ]
                     }
                 },
@@ -889,7 +1014,13 @@
                             }
                         },
                         "required": [
-                            "name"
+                            "name",
+                            "interview_format",
+                            "participants",
+                            "docs_required",
+                            "assessment_tests",
+                            "timeframe",
+                            "task_assignments"
                         ]
                     }
                 },
@@ -900,10 +1031,7 @@
                     ]
                 },
                 "hiring_process": {
-                    "type": [
-                        "array",
-                        "null"
-                    ],
+                    "type": "array",
                     "items": {
                         "type": "string"
                     }
@@ -939,7 +1067,18 @@
                     ]
                 }
             },
-            "required": []
+            "required": [
+                "interview_stages",
+                "stakeholders",
+                "phases",
+                "recruitment_timeline",
+                "hiring_process",
+                "process_notes",
+                "application_instructions",
+                "onboarding_process",
+                "hiring_manager_name",
+                "hiring_manager_role"
+            ]
         },
         "meta": {
             "type": "object",
@@ -964,10 +1103,26 @@
                     }
                 }
             },
-            "required": []
+            "required": [
+                "target_start_date",
+                "application_deadline",
+                "followups_answered"
+            ]
         }
     },
-    "required": [],
+    "required": [
+        "company",
+        "position",
+        "department",
+        "team",
+        "location",
+        "responsibilities",
+        "requirements",
+        "employment",
+        "compensation",
+        "process",
+        "meta"
+    ],
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "NeedAnalysisProfile"
 }
