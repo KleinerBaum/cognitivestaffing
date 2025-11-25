@@ -13,12 +13,13 @@ from models.need_analysis import NeedAnalysisProfile, Requirements
 from nlp.entities import extract_location_entities
 from utils.normalization import (
     NormalizedProfilePayload,
+    categorize_bullet,
+    classify_bullets,
     extract_company_size,
     normalize_city_name,
     normalize_country,
     normalize_language_list,
     normalize_profile,
-    categorize_bullet,
 )
 from utils.patterns import GENDER_SUFFIX_INLINE_RE, GENDER_SUFFIX_TRAILING_RE
 
@@ -1149,12 +1150,14 @@ _REQ_REQUIRED_HEADINGS = {
     "skills & experience",
     "was du mitbringst",
     "was dich auszeichnet",
+    "darauf freuen wir uns",
     "was sie mitbringen",
     "was sie benötigen",
     "what you'll bring",
     "what you will bring",
     "what you'll need",
     "what you need",
+    "your profile",
     "was wir erwarten",
     "what you bring",
     "who you are",
@@ -1183,6 +1186,29 @@ _REQ_OPTIONAL_HEADINGS = {
 }
 
 _INLINE_REQ_SEP_RE = re.compile(r"[,;/]|\band\b|\bund\b", re.IGNORECASE)
+
+
+def _is_section_heading(line: str, headings: set[str]) -> bool:
+    """Return True if ``line`` matches a section heading in ``headings``."""
+
+    stripped = line.strip()
+    if not stripped:
+        return False
+
+    cleaned = _clean_bullet(stripped)
+    normalized = re.sub(r"\s+", " ", cleaned).strip(" -–—•\t")
+    if not normalized:
+        return False
+
+    lower = normalized.casefold()
+    if lower in headings:
+        return True
+
+    for heading in headings:
+        if lower.startswith(heading) and (len(lower) == len(heading) or re.match(r"^[\s,;:/-]", lower[len(heading) :])):
+            return True
+
+    return False
 
 
 def _match_requirement_heading(line: str, headings: set[str]) -> tuple[bool, list[str]]:
@@ -1234,6 +1260,29 @@ _OPTIONAL_HINTS = {
     "wäre ein plus",
     "idealerweise",
 }
+
+
+def _looks_german_text(text: str) -> bool:
+    """Return True when ``text`` contains common German markers."""
+
+    lower = text.casefold()
+    markers = (
+        "ä",
+        "ö",
+        "ü",
+        "ß",
+        " dein ",
+        " deine ",
+        " dich ",
+        " du ",
+        " ihr ",
+        " profil",
+        " mitbringst",
+        " aufgaben",
+    )
+    return any(marker in lower for marker in markers)
+
+
 _SOFT_SKILL_KEYWORDS = {
     "communication",
     "kommunikation",
@@ -1411,8 +1460,10 @@ _RESP_HEADINGS = {
     "aufgaben",
     "aufgabenbereich",
     "dein spielfeld",
+    "dein aufgabengebiet",
     "deine aufgaben",
     "deine mission",
+    "deine verantwortung",
     "jobbeschreibung",
     "hauptaufgaben",
     "ihre aufgaben",
@@ -1427,10 +1478,12 @@ _RESP_HEADINGS = {
     "was dich erwartet",
     "was du tun wirst",
     "was sie tun",
+    "was wir erwarten dich",
     "your mission",
     "your role",
     "your responsibilities",
     "your tasks",
+    "your tasks and responsibilities",
     "what you need to do",
     "what you will do",
     "what you'll do",
@@ -1475,9 +1528,6 @@ _RESPONSIBILITY_STARTERS: tuple[str, ...] = (
     "betreust",
     "koordinierst",
     "unterstützt",
-    "du ",
-    "sie ",
-    "wir ",
 )
 
 _SKILL_TAIL_RE = re.compile(
@@ -1960,9 +2010,9 @@ def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
     required: List[str] = []
     optional: List[str] = []
     mode: Optional[str] = None
+    stop_headings = _RESP_HEADINGS | _REQ_REQUIRED_HEADINGS | _REQ_OPTIONAL_HEADINGS | _BENEFIT_HEADINGS
     for raw in lines:
         line = raw.strip()
-        lower = line.lower().rstrip(":")
         if not line:
             continue
 
@@ -1977,10 +2027,10 @@ def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
             mode = "opt"
             optional.extend(trailing_opt)
             continue
-        if mode and lower in _RESP_HEADINGS:
+        if mode and _is_section_heading(raw, stop_headings - (_REQ_REQUIRED_HEADINGS | _REQ_OPTIONAL_HEADINGS)):
             mode = None
             continue
-        if mode and _is_bullet_line(line):
+        if mode and _is_bullet_line(raw):
             cleaned = _clean_bullet(raw)
             if mode == "req":
                 required.append(cleaned)
@@ -1990,7 +2040,7 @@ def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
             mode = None
         elif (
             mode
-            and not _is_bullet_line(line)
+            and not _is_bullet_line(raw)
             and line
             and not line.endswith(":")
             and (required if mode == "req" else optional)
@@ -1999,6 +2049,15 @@ def _extract_requirement_bullets(text: str) -> Tuple[List[str], List[str]]:
                 required[-1] += f" {line}"
             else:
                 optional[-1] += f" {line}"
+
+    if not required and not optional:
+        bullets = [_clean_bullet(raw) for raw in lines if _is_bullet_line(raw)]
+        if _looks_german_text(text):
+            classified = classify_bullets(bullets)
+            required = classified["requirements"] + classified["responsibilities"]
+        else:
+            required = bullets
+
     return required, optional
 
 
@@ -2206,35 +2265,75 @@ def extract_responsibilities(text: str) -> List[str]:
 
     lines = text.splitlines()
     items: List[str] = []
-    in_section = False
+    buffer: List[str] = []
+    stop_headings = _RESP_HEADINGS | _REQ_REQUIRED_HEADINGS | _REQ_OPTIONAL_HEADINGS | _BENEFIT_HEADINGS
+
+    def _flush_buffer() -> None:
+        nonlocal buffer
+        if buffer:
+            items.extend(buffer)
+            buffer = []
+
+    collecting = False
     for raw_line in lines:
+        if _is_section_heading(raw_line, _RESP_HEADINGS):
+            _flush_buffer()
+            collecting = True
+            continue
+
+        if not collecting:
+            continue
+
         line = raw_line.strip()
-        lower = line.lower().rstrip(":")
-        if in_section:
-            if not line:
-                if items:
-                    break
-                continue
-            if (lower in _RESP_HEADINGS or line.endswith(":")) and not _is_bullet_line(line):
-                break
-            if _is_bullet_line(line):
-                items.append(_clean_bullet(raw_line))
-            elif items:
-                items[-1] += f" {line}"
-        elif lower in _RESP_HEADINGS:
-            in_section = True
+        if not line:
+            _flush_buffer()
+            collecting = False
+            continue
+
+        if _is_section_heading(raw_line, stop_headings - _RESP_HEADINGS):
+            _flush_buffer()
+            collecting = False
+            continue
+
+        if _is_bullet_line(raw_line):
+            buffer.append(_clean_bullet(raw_line))
+        elif buffer:
+            buffer[-1] += f" {line}"
+        else:
+            buffer.append(line)
+
+    _flush_buffer()
+
+    if not items and _looks_german_text(text):
+        bullets = [_clean_bullet(raw) for raw in lines if _is_bullet_line(raw)]
+        if bullets:
+            classified = classify_bullets(bullets)
+            items = classified["responsibilities"]
+
     return [i for i in items if i]
 
 
 def _looks_like_responsibility_line(line: str) -> bool:
     """Return ``True`` when ``line`` is action-oriented (duty statement)."""
 
-    cleaned = _clean_bullet(line).strip().lower()
+    cleaned = _clean_bullet(line).strip().casefold()
     if not cleaned:
         return False
+
+    normalized = cleaned
+    for pronoun in ("you ", "du ", "sie ", "wir "):
+        if normalized.startswith(pronoun):
+            normalized = normalized[len(pronoun) :]
+            break
+
+    tokens = normalized.split()
+    while tokens and tokens[0] in {"gemeinsam", "zusammen", "mit", "als"}:
+        tokens = tokens[1:]
+    normalized = " ".join(tokens)
+
     if " you will " in cleaned:
         return True
-    return any(cleaned.startswith(prefix) for prefix in _RESPONSIBILITY_STARTERS)
+    return any(normalized.startswith(prefix) or cleaned.startswith(prefix) for prefix in _RESPONSIBILITY_STARTERS)
 
 
 def _extract_skill_phrases_from_bullet(entry: str) -> List[str]:
