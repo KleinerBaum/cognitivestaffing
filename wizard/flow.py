@@ -219,10 +219,11 @@ from .layout import (
     render_step_heading,
     render_step_warning_banner,
 )
-from ._logic import (
+from ._logic import (  # noqa: F401 - re-exported for step modules
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
+    _autofill_was_rejected,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,

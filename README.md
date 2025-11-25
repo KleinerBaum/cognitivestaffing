@@ -50,8 +50,10 @@ Live app: https://cognitivestaffing.streamlit.app/
   - build interview guides and question sets.  
   Summary tabs separate Role & search, Job ad, and Interview guide for quick review.
 
-- **AI transparency & auditability**  
+- **AI transparency & auditability**
   The Summary view visually distinguishes AI‑suggested values (for example via italics and labels like “AI-suggested”) so recruiters know what to double‑check before exporting. Internally, the profile tracks which fields were touched by AI, enabling future audit trails and confidence indicators.
+- **Resilient autofill controls**
+  Accept/reject decisions for AI autofill suggestions are tracked across steps, and the Company step now binds its dependencies defensively so autofill UI remains available even when optional helpers are missing.
 
 ---
 
