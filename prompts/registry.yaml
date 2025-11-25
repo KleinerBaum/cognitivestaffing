@@ -183,14 +183,19 @@ llm:
         de: '
 
           Bitte lege besonderen Fokus auf: {focus_points}'
-    benefits:
-      user:
-        en: List up to 5 benefits or perks commonly offered for a {job_title} role{industry_clause}.
-          Respond as a JSON array and avoid mentioning any benefit already listed
-          below.{existing_clause}{focus_clause}
-        de: Nenne bis zu 5 Vorteile oder Zusatzleistungen, die für eine Stelle als
-          {job_title} üblich sind{industry_clause}. Antworte als JSON-Liste und vermeide
-          Vorteile, die bereits in der Liste unten stehen.{existing_clause}{focus_clause}
+  benefits:
+    user:
+      en: >-
+        List up to 5 benefits or perks commonly offered for a {job_title} role{industry_clause}.
+        Respond with a JSON object {"items": []} that always includes the key "items" as an
+        array of benefit strings (use an empty array when nothing relevant is found) and avoid
+        mentioning any benefit already listed below.{existing_clause}{focus_clause}
+      de: >-
+        Nenne bis zu 5 Vorteile oder Zusatzleistungen, die für eine Stelle als {job_title}
+        üblich sind{industry_clause}. Antworte mit einem JSON-Objekt {"items": []}, das immer
+        den Schlüssel "items" als Array von Benefit-Einträgen enthält (bei fehlenden Angaben
+        leeres Array setzen) und vermeide Vorteile, die bereits in der Liste unten
+        stehen.{existing_clause}{focus_clause}
       industry_clause:
         en: ' in the {industry} industry'
         de: ' in der Branche {industry}'
@@ -594,19 +599,30 @@ assistant:
       en: >-
         You are an HR copilot focused on team composition. Suggest realistic reporting
         lines and typical direct-report counts for the role using the provided context
-        (title, seniority, company size). Keep replies concise, in the user's language,
-        and ask a short clarifying question when details are missing.
+        (title, seniority, company size). Reply only with JSON using the keys
+        "assistant_message" (string summary), "reporting_line_suggestion" (string or
+        null), "direct_reports_suggestion" (non-negative integer or null), and
+        "follow_up_question" (short clarifying question or null). Keep replies concise,
+        match the user's language, and fill every key, using null when data is unknown.
       de: >-
         Du bist ein HR-Co-Pilot für Teamzuschnitt. Schlage passende Berichtslinien
         und übliche Zahlen direkter Reports anhand des Kontexts vor (Titel, Seniorität,
-        Unternehmensgröße). Antworte kurz in der Sprache der Nutzer:innen und stelle
-        bei fehlenden Angaben eine kurze Rückfrage.
+        Unternehmensgröße). Antworte ausschließlich mit JSON und nutze die Schlüssel
+        "assistant_message" (Kurztext), "reporting_line_suggestion" (String oder null),
+        "direct_reports_suggestion" (nichtnegative Ganzzahl oder null) sowie
+        "follow_up_question" (kurze Rückfrage oder null). Antworte kurz, halte die
+        Sprache der Nutzer:innen ein und fülle jeden Schlüssel, unbekannte Angaben
+        -> null.
     starter:
       en: >-
         Based on the role and company size, propose who this role should report to and
-        how many direct reports are typical. If something is unclear, ask a brief
-        follow-up.
+        how many direct reports are typical. Respond with JSON containing
+        "assistant_message", "reporting_line_suggestion", "direct_reports_suggestion",
+        and "follow_up_question", using null when details are unknown. If something is
+        unclear, include a brief follow-up question.
       de: >-
         Leite aus Rolle und Unternehmensgröße ab, an wen die Position berichten sollte
-        und wie viele direkte Reports üblich sind. Stelle bei Unklarheiten eine kurze
-        Rückfrage.
+        und wie viele direkte Reports üblich sind. Antworte als JSON mit
+        "assistant_message", "reporting_line_suggestion", "direct_reports_suggestion"
+        und "follow_up_question" und setze unbekannte Angaben auf null. Bei
+        Unklarheiten eine kurze Rückfrage einbauen.

@@ -2,6 +2,15 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Tightened structured-output prompts so team advice responses always include
+  all schema keys (assistant_message, reporting_line_suggestion, direct_reports_suggestion,
+  follow_up_question) with nulls when unknown, and benefit suggestions now return
+  an object with an items array instead of a bare list.
+  DE: Strukturierte Prompts geschärft: Team-Antworten liefern stets alle Schema-
+  Schlüssel (assistant_message, reporting_line_suggestion, direct_reports_suggestion,
+  follow_up_question) mit null bei unbekannten Werten, und Benefit-Vorschläge
+  kommen nun als Objekt mit einem items-Array statt einer bloßen Liste.
+
 - EN: Strengthened the JSON repair pipeline so invalid extraction payloads and
   missing critical fields automatically trigger a second-pass fix, and the
   repair call drops strict Responses flags to reduce fallback errors.
