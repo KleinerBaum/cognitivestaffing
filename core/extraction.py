@@ -13,8 +13,9 @@ from pydantic import ValidationError
 
 from core.confidence import DEFAULT_AI_TIER
 from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_profile_with_defaults
-from llm.json_repair import repair_profile_payload
+from llm.json_repair import parse_profile_json, repair_profile_payload
 from models.need_analysis import NeedAnalysisProfile
+from utils.json_repair import JsonRepairStatus
 
 logger = logging.getLogger("cognitive_needs.core.extraction")
 
@@ -399,42 +400,15 @@ def parse_structured_payload(raw: str, *, source_text: str | None = None) -> tup
     """
 
     issues: list[str] = []
-    used_repair = False
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        parse_issue = f"JSON parsing error at line {exc.lineno}, column {exc.colno}: {exc.msg}"
-        issues.append(parse_issue)
-        if start == -1 or end == -1 or end <= start:
-            repaired = repair_profile_payload(
-                {},
-                errors=[{"loc": ("<root>",), "msg": parse_issue}],
-            )
-            if repaired:
-                parsed = dict(repaired)
-                recovered = True
-                used_repair = True
-            else:
-                raise InvalidExtractionPayload("Model returned invalid JSON") from exc
-        else:
-            fragment = raw[start : end + 1]
-            parsed = json.loads(fragment)
-            recovered = True
-    else:
-        recovered = False
+    repair_result = parse_profile_json(raw)
+    issues.extend(repair_result.issues)
 
-    if not isinstance(parsed, dict):
-        error_message = "Model returned JSON that is not an object."
-        issues.append(error_message)
-        repaired = repair_profile_payload({}, errors=[{"loc": ("<root>",), "msg": error_message}])
-        if repaired:
-            parsed = dict(repaired)
-            recovered = True
-            used_repair = True
-        else:
-            raise InvalidExtractionPayload(error_message)
+    if repair_result.status is JsonRepairStatus.FAILED or repair_result.payload is None:
+        raise InvalidExtractionPayload("Model returned invalid JSON")
+
+    parsed = dict(repair_result.payload)
+    recovered = repair_result.status is JsonRepairStatus.REPAIRED
+    used_repair = recovered
 
     cleaned_payload, _validated_model, repaired_in_validation = _validate_with_repair(parsed, issues=issues)
     used_repair = used_repair or repaired_in_validation

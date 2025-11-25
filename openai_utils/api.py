@@ -61,6 +61,7 @@ from config import (
 from constants.keys import StateKeys
 from llm.cost_router import PromptCostEstimate, route_model_for_messages
 from utils.errors import display_error, resolve_message
+from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from utils.llm_state import llm_disabled_message
 from utils.retry import retry_with_backoff
 from .client import (
@@ -1777,6 +1778,8 @@ class ChatCallResult:
     secondary_raw_response: Any | None = None
     secondary_file_search_results: Optional[list[FileSearchResult]] = None
     secondary_response_id: str | None = None
+    low_confidence: bool = False
+    repair_status: JsonRepairStatus | None = None
 
 
 ComparisonBuilder = Callable[["ChatCallResult", "ChatCallResult"], Mapping[str, Any]]
@@ -2563,6 +2566,39 @@ def _call_chat_api_single(
 
         content = _extract_output_text(response)
         normalised_content = _normalise_content_payload(content)
+        low_confidence = False
+        repair_status: JsonRepairStatus | None = None
+
+        if schema_bundle is not None and normalised_content:
+            repair_attempt = parse_json_with_repair(normalised_content)
+            repair_status = repair_attempt.status
+            if repair_attempt.payload is not None:
+                normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
+            if repair_attempt.status is JsonRepairStatus.FAILED and not active_mode.is_classic:
+                logger.warning(
+                    "Structured extraction JSON parse failed during %s; retrying via chat.",
+                    current_model,
+                )
+                fallback_payload = _build_chat_fallback_payload(payload, messages_list, schema_bundle)
+                if fallback_payload:
+                    fallback_to_chat_attempted = True
+                    try:
+                        fallback_response = get_client().chat.completions.create(**fallback_payload)
+                        fallback_content = _normalise_content_payload(_extract_output_text(fallback_response))
+                        repair_attempt = parse_json_with_repair(fallback_content or "")
+                        repair_status = repair_attempt.status
+                        if repair_attempt.payload is not None:
+                            normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
+                        elif fallback_content:
+                            normalised_content = fallback_content
+                    except Exception as exc:  # pragma: no cover - defensive
+                        logger.warning("Chat fallback after repair failure failed: %s", exc)
+                else:
+                    logger.warning(
+                        "Structured extraction parse failed for %s without chat fallback payload; returning raw content.",
+                        current_model,
+                    )
+            low_confidence = repair_attempt.status is JsonRepairStatus.REPAIRED
 
         tool_calls = _collect_tool_calls(response)
 
@@ -2587,6 +2623,8 @@ def _call_chat_api_single(
                 response_id=response_id,
                 raw_response=response if include_raw_response else None,
                 file_search_results=retry_state.file_search_results or None,
+                low_confidence=low_confidence,
+                repair_status=repair_status,
             )
 
         tool_messages, executed = _execute_tool_invocations(
@@ -2608,6 +2646,8 @@ def _call_chat_api_single(
                 response_id=response_id,
                 raw_response=response if include_raw_response else None,
                 file_search_results=retry_state.file_search_results or None,
+                low_confidence=low_confidence,
+                repair_status=repair_status,
             )
 
 
