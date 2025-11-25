@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Collection, Mapping, MutableMapping, Sequence
 
+from openai import BadRequestError
 import streamlit as st
 
 from constants.keys import StateKeys
@@ -19,6 +20,50 @@ from wizard.validation import (
 from wizard_pages import WizardPage
 
 logger = logging.getLogger(__name__)
+
+_CONFIG_ERROR_TYPES: tuple[type[Exception], ...] = (
+    AttributeError,
+    ImportError,
+    KeyError,
+)
+
+
+def _resolve_step_error_messages(page: WizardPage, error: Exception) -> LocalizedText:
+    """Return a localized error tuple tailored to the failure cause."""
+
+    label_de = page.label_for("de")
+    label_en = page.label_for("en")
+    if isinstance(error, BadRequestError):
+        return (
+            (
+                "Die KI konnte für den Schritt „{label}“ kein Ergebnis erzeugen. "
+                "Du kannst es erneut versuchen oder die Felder manuell ausfüllen."
+            ).format(label=label_de),
+            (
+                "The AI could not generate a result for the “{label}” step. "
+                "You can try again or fill the fields in manually."
+            ).format(label=label_en),
+        )
+
+    if isinstance(error, _CONFIG_ERROR_TYPES):
+        return (
+            (
+                "Für den Schritt „{label}“ fehlen Konfigurationsdaten (z. B. Hilfetexte). "
+                "Bitte aktualisiere die Anwendung und fülle die Felder manuell, falls nötig."
+            ).format(label=label_de),
+            (
+                "Configuration data for the “{label}” step is missing (e.g., help text). "
+                "Please update the app and fill the fields manually if needed."
+            ).format(label=label_en),
+        )
+
+    return (
+        (
+            "Beim Rendern des Schritts „{label}“ ist ein Fehler aufgetreten. "
+            "Bitte bearbeite die Felder manuell oder versuche es erneut."
+        ).format(label=label_de),
+        ("We couldn't render the “{label}” step. Please edit the fields manually or try again.").format(label=label_en),
+    )
 
 
 @dataclass(frozen=True)
@@ -349,17 +394,11 @@ class NavigationController:
         return missing
 
     def handle_step_exception(self, page: WizardPage, error: Exception) -> None:
-        label_de = page.label_for("de")
-        label_en = page.label_for("en")
         logger.warning("Failed to render wizard step '%s'", page.key, exc_info=error)
         from wizard._logic import _render_localized_error
 
-        _render_localized_error(
-            f"Beim Rendern des Schritts „{label_de}“ ist ein Fehler aufgetreten. "
-            "Bitte bearbeite die Felder manuell oder versuche es erneut.",
-            f"We couldn't render the “{label_en}” step. Please edit the fields manually or try again.",
-            error,
-        )
+        message_de, message_en = _resolve_step_error_messages(page, error)
+        _render_localized_error(message_de, message_en, error)
 
     def render_step(self, page: WizardPage) -> None:
         renderer = self._renderers.get(page.key)

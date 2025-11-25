@@ -2,6 +2,13 @@ Changelog
 
 ## [Unreleased]
 
+- EN: Wizard steps now display clearer bilingual recovery hints for AI bad
+  requests and missing help-text/config errors so users can retry or proceed
+  manually without blocking navigation.
+  DE: Wizard-Schritte zeigen bei KI-Bad-Requests oder fehlenden Hilfetexten/
+  Konfigs verständliche zweisprachige Hinweise, damit Nutzer:innen erneut
+  versuchen oder manuell weitermachen können, ohne dass die Navigation hängt.
+
 - EN: Fixed wizard team/company step imports so employment help texts load
   consistently, preventing Streamlit crashes when binding flow dependencies.
   DE: Wizard-Schritte Team/Unternehmen importieren die Employment-Hilfetexte
