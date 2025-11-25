@@ -58,5 +58,5 @@ def extract_need_analysis_profile(
         url=url_hint,
         locked_fields=locked_fields or None,
     )
-    data, recovered, issues = parse_structured_payload(raw_json)
+    data, recovered, issues = parse_structured_payload(raw_json, source_text=text)
     return ExtractionResult(raw_json=raw_json, data=data, recovered=recovered, issues=issues)

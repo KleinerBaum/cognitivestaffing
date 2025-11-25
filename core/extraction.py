@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from __future__ import annotations
-
 import json
 import logging
+import re
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -38,6 +37,24 @@ def _load_required_paths() -> set[str]:
 
 
 _REQUIRED_PATHS: set[str] = _load_required_paths()
+_OMISSION_LOG_KEYS: set[str] = set()
+
+_RESPONSIBILITY_PATTERNS: tuple[str, ...] = (
+    r"\bresponsibil",
+    r"\baufgaben",
+    r"what you will do",
+    r"was du machst",
+    r"your tasks",
+)
+
+_REQUIREMENT_PATTERNS: tuple[str, ...] = (
+    r"\brequirement",
+    r"\bqualifications?",
+    r"\bprofil",
+    r"was du mitbringst",
+    r"what you bring",
+    r"skills?",
+)
 
 
 class InvalidExtractionPayload(ValueError):
@@ -177,6 +194,98 @@ def _deduplicate_issues(issues: Iterable[str]) -> list[str]:
     return ordered
 
 
+def _log_once(key: str, message: str) -> None:
+    """Emit ``message`` at warning level only once per process."""
+
+    if key in _OMISSION_LOG_KEYS:
+        return
+    _OMISSION_LOG_KEYS.add(key)
+    logger.warning(message)
+
+
+def _text_contains_bullets(text: str, *, min_count: int = 3) -> bool:
+    """Return ``True`` if ``text`` contains at least ``min_count`` bullet lines."""
+
+    if not text:
+        return False
+    bullet_count = 0
+    for line in text.splitlines():
+        if re.match(r"^\s*[-*•·]", line.strip()):
+            bullet_count += 1
+            if bullet_count >= min_count:
+                return True
+    return False
+
+
+def _contains_keywords(text: str, patterns: Sequence[str]) -> bool:
+    """Return ``True`` when any regex in ``patterns`` matches ``text``."""
+
+    if not text:
+        return False
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+
+def _log_schema_omissions(profile: Mapping[str, Any], *, source_text: str | None = None) -> None:
+    """Log schema omissions that hint at prompt or model gaps.
+
+    The logging is deduplicated per interpreter session to avoid noisy output
+    while still surfacing repeated omission patterns in monitoring.
+    """
+
+    company_name = ""
+    company = profile.get("company") if isinstance(profile, Mapping) else None
+    if isinstance(company, Mapping):
+        company_name = str(company.get("name") or "").strip()
+        other_company_values = any(key != "name" and _has_meaningful_value(value) for key, value in company.items())
+        if not company_name and other_company_values:
+            _log_once(
+                "company.name_missing",
+                "LLM output missing company.name; other company fields present.",
+            )
+
+    if not source_text or not source_text.strip():
+        return
+
+    source_text_normalized = source_text.strip()
+    has_list_signals = _text_contains_bullets(source_text_normalized)
+
+    if isinstance(company, Mapping) and has_list_signals and not company_name:
+        # Additional context logged above; no extra message needed.
+        pass
+
+    responsibilities = profile.get("responsibilities") if isinstance(profile, Mapping) else None
+    if isinstance(responsibilities, Mapping):
+        items = responsibilities.get("items")
+        if (not isinstance(items, list) or not items) and (
+            has_list_signals or _contains_keywords(source_text_normalized, _RESPONSIBILITY_PATTERNS)
+        ):
+            _log_once(
+                "responsibilities.items_empty",
+                "LLM output returned empty responsibilities list despite source content.",
+            )
+
+    requirements = profile.get("requirements") if isinstance(profile, Mapping) else None
+    if isinstance(requirements, Mapping):
+        requirement_lists = [
+            requirements.get("hard_skills_required"),
+            requirements.get("hard_skills_optional"),
+            requirements.get("soft_skills_required"),
+            requirements.get("soft_skills_optional"),
+            requirements.get("tools_and_technologies"),
+            requirements.get("languages_required"),
+            requirements.get("languages_optional"),
+            requirements.get("certificates"),
+        ]
+        has_requirements = any(isinstance(entry, list) and entry for entry in requirement_lists)
+        if (not has_requirements) and (
+            has_list_signals or _contains_keywords(source_text_normalized, _REQUIREMENT_PATTERNS)
+        ):
+            _log_once(
+                "requirements.empty",
+                "LLM output missing requirement lists while source text shows requirement cues.",
+            )
+
+
 def _collect_present_paths(data: Mapping[str, Any], prefix: str = "") -> set[str]:
     """Return dotted paths for mapping keys present in ``data``."""
 
@@ -281,8 +390,13 @@ def _clean_validated_payload(
     return cleaned
 
 
-def parse_structured_payload(raw: str) -> tuple[dict[str, Any], bool, list[str]]:
-    """Parse ``raw`` into a dictionary, tolerating surrounding noise."""
+def parse_structured_payload(raw: str, *, source_text: str | None = None) -> tuple[dict[str, Any], bool, list[str]]:
+    """Parse ``raw`` into a dictionary, tolerating surrounding noise.
+
+    Args:
+        raw: Model response payload to parse.
+        source_text: Optional source text used during extraction for omission logging.
+    """
 
     issues: list[str] = []
     used_repair = False
@@ -358,6 +472,8 @@ def parse_structured_payload(raw: str) -> tuple[dict[str, Any], bool, list[str]]
     for path in sorted(added_paths):
         if path in _REQUIRED_PATHS:
             issues.append(f"{path}: added missing default")
+
+    _log_schema_omissions(merged_payload, source_text=source_text)
 
     return merged_payload, recovered or used_repair, _deduplicate_issues(issues)
 
