@@ -151,6 +151,7 @@ def _retry_missing_sections(
         return None
 
     section_list = ", ".join(missing_sections)
+    logger.info("Retrying missing sections with dedicated prompt: %s", section_list)
     messages = [
         {
             "role": "system",
