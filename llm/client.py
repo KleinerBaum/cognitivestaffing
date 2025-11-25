@@ -166,6 +166,9 @@ def _retry_missing_sections(
         schema=_build_missing_section_schema(missing_sections),
     )
 
+    effort = _resolve_extraction_effort()
+    verbosity = get_active_verbosity()
+
     result = call_responses_safe(
         messages,
         model=model,
@@ -173,6 +176,8 @@ def _retry_missing_sections(
         temperature=0,
         max_completion_tokens=800,
         retries=retries,
+        reasoning_effort=effort,
+        verbosity=verbosity,
         task=ModelTask.EXTRACTION,
         logger_instance=logger,
         context="missing_section_retry",

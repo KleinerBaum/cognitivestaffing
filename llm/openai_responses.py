@@ -19,9 +19,11 @@ from openai_utils.api import (
     _extract_output_text,
     _extract_response_id,
     _extract_usage_block,
+    _inject_verbosity_hint,
     _is_temperature_unsupported_error,
     _mark_model_without_temperature,
     _normalise_usage,
+    _resolve_verbosity,
     _to_mapping,
     _update_usage_counters,
     build_schema_format_bundle,
@@ -191,6 +193,7 @@ def _run_chat_fallback(
     temperature: float | None,
     max_completion_tokens: int | None,
     reasoning_effort: str | None,
+    verbosity: str | None,
     task: ModelTask | str | None,
     reason: str,
     exc: Exception | None,
@@ -319,6 +322,7 @@ def _run_chat_fallback(
                 max_completion_tokens=max_completion_tokens,
                 json_schema=chat_schema,
                 reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
                 task=task,
                 extra={"_api_mode": "chat"},
                 use_response_format=False,
@@ -357,6 +361,7 @@ def call_responses(
     temperature: float | None = None,
     max_completion_tokens: int | None = None,
     reasoning_effort: str | None = None,
+    verbosity: str | None = None,
     retries: int = 2,
     task: ModelTask | str | None = None,
 ) -> ResponsesCallResult:
@@ -364,9 +369,13 @@ def call_responses(
 
     schema_bundle = _build_schema_bundle_from_format(response_format)
 
+    prepared_messages = _prepare_messages(
+        _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
+    )
+
     payload: dict[str, Any] = {
         "model": model,
-        "input": _prepare_messages(messages),
+        "input": prepared_messages,
         "timeout": OPENAI_REQUEST_TIMEOUT,
     }
 
@@ -442,6 +451,7 @@ def call_responses_safe(
     logger_instance: logging.Logger | None = None,
     context: str = "call",
     allow_empty: bool = False,
+    verbosity: str | None = None,
     **kwargs: Any,
 ) -> ResponsesCallResult | None:
     """Return a Responses result or ``None`` when the call should fall back.
@@ -472,6 +482,7 @@ def call_responses_safe(
             logger_instance=active_logger,
             context=context,
             allow_empty=allow_empty,
+            verbosity=verbosity,
             temperature=kwargs.get("temperature"),
             max_completion_tokens=kwargs.get("max_completion_tokens"),
             reasoning_effort=kwargs.get("reasoning_effort"),
@@ -485,6 +496,7 @@ def call_responses_safe(
             messages,
             model=model,
             response_format=response_format,
+            verbosity=verbosity,
             **kwargs,
         )
     except ResponsesSchemaError as exc:
