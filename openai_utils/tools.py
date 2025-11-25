@@ -8,6 +8,7 @@ extraction tasks.
 
 from __future__ import annotations
 
+import json
 from collections import deque
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
@@ -15,6 +16,7 @@ from typing import Any, cast
 
 from prompts import prompt_registry
 from core.schema_guard import guard_no_additional_properties
+from .client import ToolCallPayload, ToolMessagePayload
 
 
 def _prepare_schema(obj: dict[str, Any], *, require_all: bool) -> dict[str, Any]:
@@ -205,6 +207,230 @@ def build_function_tools(
             functions[name] = callable_obj
 
     return tools, functions
+
+
+def _serialise_tool_payload(value: Any) -> str | None:
+    """Return ``value`` as a JSON string when possible."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+
+    try:
+        return json.dumps(value)
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+
+def _normalise_tool_spec(spec: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Return a copy of ``spec`` normalised to the Responses API schema."""
+
+    prepared = dict(spec)
+    raw_function_payload = prepared.get("function")
+    function_payload = raw_function_payload if isinstance(raw_function_payload, Mapping) else None
+    tool_type = prepared.get("type")
+    has_function_payload = function_payload is not None
+    has_parameters = "parameters" in prepared or (function_payload is not None and "parameters" in function_payload)
+    is_function_tool = bool(tool_type == "function" or has_function_payload or has_parameters)
+
+    if not is_function_tool:
+        name_value = prepared.get("name")
+        if isinstance(name_value, str) and name_value.strip():
+            prepared["name"] = name_value.strip()
+            has_name = True
+        else:
+            fallback = tool_type.strip() if isinstance(tool_type, str) else ""
+            if fallback:
+                prepared["name"] = fallback
+                has_name = True
+            else:
+                has_name = False
+        return prepared, has_name
+
+    function_dict = dict(function_payload) if function_payload is not None else {}
+    top_level_name = prepared.get("name")
+
+    for field in ("description", "parameters"):
+        if field in prepared and field not in function_dict:
+            function_dict[field] = prepared[field]
+        prepared.pop(field, None)
+
+    function_name = function_dict.get("name")
+    if not (isinstance(function_name, str) and function_name.strip()):
+        if isinstance(top_level_name, str) and top_level_name.strip():
+            function_dict["name"] = top_level_name.strip()
+            function_name = function_dict["name"]
+        else:
+            function_name = None
+    else:
+        function_name = function_name.strip()
+
+    if function_name:
+        function_dict["name"] = function_name
+        prepared["name"] = function_name
+        has_name = True
+    else:
+        prepared.pop("name", None)
+        has_name = False
+
+    prepared["type"] = "function"
+    prepared["function"] = function_dict
+    return prepared, has_name
+
+
+def _normalise_tool_choice_spec(choice: Any) -> Any:
+    """Translate legacy function ``tool_choice`` payloads to the new schema."""
+
+    if not isinstance(choice, Mapping):
+        return choice
+
+    normalised = dict(choice)
+    if normalised.get("type") != "function":
+        return normalised
+
+    merged_function: dict[str, Any] = {}
+    existing_function = normalised.get("function")
+    if isinstance(existing_function, Mapping):
+        merged_function.update(existing_function)
+
+    sentinel = object()
+    for field in ("name", "arguments", "reasoning"):
+        value = normalised.pop(field, sentinel)
+        if value is sentinel:
+            continue
+        if field not in merged_function:
+            merged_function[field] = value
+
+    if merged_function:
+        normalised["function"] = merged_function
+    else:
+        normalised.pop("function", None)
+
+    return normalised
+
+
+def _convert_tool_choice_to_function_call(choice: Any) -> Any:
+    """Translate a Responses tool choice payload to ``function_call``."""
+
+    if choice is None:
+        return None
+    if isinstance(choice, str):
+        lowered = choice.strip().lower()
+        if lowered in {"none", "auto"}:
+            return lowered
+        if lowered:
+            return {"name": lowered}
+        return None
+    if not isinstance(choice, Mapping):
+        return None
+
+    choice_type = str(choice.get("type") or "").strip().lower()
+    if choice_type and choice_type != "function":
+        if choice_type in {"none", "auto"}:
+            return choice_type
+        return None
+
+    function_payload = choice.get("function")
+    if isinstance(function_payload, Mapping):
+        name_value = function_payload.get("name")
+        if isinstance(name_value, str) and name_value.strip():
+            return {"name": name_value.strip()}
+
+    fallback_name = choice.get("name")
+    if isinstance(fallback_name, str) and fallback_name.strip():
+        return {"name": fallback_name.strip()}
+
+    return None
+
+
+def _convert_tools_to_functions(tool_specs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Return classic ``functions`` payload derived from ``tool_specs``."""
+
+    functions: list[dict[str, Any]] = []
+    for spec in tool_specs:
+        if str(spec.get("type") or "").strip().lower() != "function":
+            continue
+        function_payload: dict[str, Any] = {}
+        raw_function = spec.get("function")
+        if isinstance(raw_function, Mapping):
+            function_payload.update(raw_function)
+        for field in ("description", "parameters"):
+            if field in spec and field not in function_payload:
+                function_payload[field] = spec[field]
+
+        name_value = function_payload.get("name") or spec.get("name")
+        if isinstance(name_value, str) and name_value.strip():
+            function_payload["name"] = name_value.strip()
+        else:
+            continue
+
+        functions.append(function_payload)
+    return functions
+
+
+def _execute_tool_invocations(
+    tool_calls: Sequence[ToolCallPayload],
+    *,
+    tool_functions: Mapping[str, Callable[..., Any]] | None,
+) -> tuple[list[ToolMessagePayload], bool]:
+    """Return tool response messages emitted after executing ``tool_calls``."""
+
+    executed = False
+    tool_messages: list[ToolMessagePayload] = []
+
+    for call in tool_calls:
+        call_type = str(call.get("type") or "")
+        call_identifier = call.get("call_id") or call.get("id")
+        tool_identifier = str(call_identifier or "tool_call")
+
+        if "tool_response" in call_type:
+            payload_text = call.get("output") or call.get("content")
+            serialised_payload = _serialise_tool_payload(payload_text)
+            if serialised_payload is None:
+                continue
+            tool_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_identifier,
+                    "content": serialised_payload,
+                }
+            )
+            executed = True
+            continue
+
+        func_block = call.get("function")
+        func_info = dict(func_block) if isinstance(func_block, Mapping) else {}
+        name_value = func_info.get("name")
+        if not isinstance(name_value, str) or tool_functions is None or name_value not in tool_functions:
+            continue
+        tool_payload = func_info.get("input")
+        if tool_payload is None:
+            tool_payload = func_info.get("arguments")
+
+        args: dict[str, Any] = {}
+        if isinstance(tool_payload, Mapping):
+            args = dict(tool_payload)
+        elif isinstance(tool_payload, str):
+            raw_text = tool_payload or "{}"
+            try:
+                parsed: Any = json.loads(raw_text)
+                if isinstance(parsed, Mapping):
+                    args = dict(parsed)
+            except Exception:  # pragma: no cover - defensive
+                args = {}
+
+        result = tool_functions[name_value](**args)
+        tool_messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": tool_identifier or name_value,
+                "content": json.dumps(result),
+            }
+        )
+        executed = True
+
+    return tool_messages, executed
 
 
 def build_file_search_tool(
