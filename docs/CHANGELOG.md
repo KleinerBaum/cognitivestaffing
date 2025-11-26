@@ -24,6 +24,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Tightened wording and structure of README “Architecture overview” and “Configuration” sections to reflect current directory layout and environment flags.
+- Wizard steps now surface warning badges, bilingual summaries, and inline label/tooltips for missing critical fields, improving visibility before export.
 - Consolidated contributor expectations (formatting, type checking, testing, schema propagation) into `CONTRIBUTING.md` + `AGENTS.md`, referenced from README.
 - Improved documentation around how NeedAnalysisProfile schema, Pydantic models, and LLM response schemas must stay in sync.
 - Refactored the OpenAI API facade to orchestrate the shared client/payload/schema/tool helpers and added unit coverage for the new components.

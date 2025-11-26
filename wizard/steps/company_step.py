@@ -16,7 +16,13 @@ from components.chatkit_widget import render_chatkit_widget
 from components import widget_factory
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from wizard.company_validators import persist_contact_email, persist_primary_city
-from wizard.layout import render_step_heading, render_step_warning_banner
+from wizard.layout import (
+    format_missing_label,
+    merge_missing_help,
+    render_missing_field_summary,
+    render_step_heading,
+    render_step_warning_banner,
+)
 from wizard_router import WizardContext
 from utils.circuit_breaker import CircuitBreaker
 from utils.i18n import tr
@@ -767,6 +773,8 @@ def _step_company() -> None:
             ),
         ],
     )
+    missing_here = _missing_fields_for_section(1)
+
     company_caption = _format_dynamic_message(
         default=(
             "Basisinformationen zum Unternehmen angeben.",
@@ -790,8 +798,9 @@ def _step_company() -> None:
             ),
         ],
     )
-    render_step_heading(company_header, company_caption)
+    render_step_heading(company_header, company_caption, missing_fields=missing_here)
     render_step_warning_banner()
+    render_missing_field_summary(missing_here)
     data = profile
     company = data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -800,9 +809,11 @@ def _step_company() -> None:
     location_data = data.setdefault("location", {})
     combined_certificates = _collect_combined_certificates(data["requirements"])
     _set_requirement_certificates(data["requirements"], combined_certificates)
-    missing_here = _missing_fields_for_section(1)
-
-    label_company = tr(*COMPANY_NAME_LABEL) + REQUIRED_SUFFIX
+    label_company = format_missing_label(
+        tr(*COMPANY_NAME_LABEL) + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.COMPANY_NAME,
+        missing_fields=missing_here,
+    )
     company_lock = _field_lock_config(
         ProfilePaths.COMPANY_NAME,
         label_company,
@@ -811,7 +822,13 @@ def _step_company() -> None:
     )
     company_kwargs = _apply_field_lock_kwargs(
         company_lock,
-        {"help": tr(*COMPANY_NAME_HELP)},
+        {
+            "help": merge_missing_help(
+                tr(*COMPANY_NAME_HELP),
+                field_path=ProfilePaths.COMPANY_NAME,
+                missing_fields=missing_here,
+            )
+        },
     )
 
     company_identity_container = st.container()
@@ -909,17 +926,30 @@ def _step_company() -> None:
     contact_cols = st.columns((1.2, 1.2, 1), gap="small")
     widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_NAME,
-        tr(*COMPANY_CONTACT_NAME_LABEL),
+        format_missing_label(
+            tr(*COMPANY_CONTACT_NAME_LABEL),
+            field_path=ProfilePaths.COMPANY_CONTACT_NAME,
+            missing_fields=missing_here,
+        ),
         widget_factory=contact_cols[0].text_input,
         placeholder=tr(*COMPANY_CONTACT_NAME_PLACEHOLDER),
         value_formatter=_string_or_empty,
+        help=merge_missing_help(
+            None,
+            field_path=ProfilePaths.COMPANY_CONTACT_NAME,
+            missing_fields=missing_here,
+        ),
     )
     _render_followups_for_fields(
         (ProfilePaths.COMPANY_CONTACT_NAME,),
         data,
         container_factory=contact_cols[0].container,
     )
-    contact_email_label = tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX
+    contact_email_label = format_missing_label(
+        tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.COMPANY_CONTACT_EMAIL,
+        missing_fields=missing_here,
+    )
     contact_email_value = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_EMAIL,
         contact_email_label,
@@ -928,6 +958,11 @@ def _step_company() -> None:
         value_formatter=_string_or_empty,
         allow_callbacks=False,
         sync_session_state=False,
+        help=merge_missing_help(
+            tr(*COMPANY_CONTACT_EMAIL_CAPTION),
+            field_path=ProfilePaths.COMPANY_CONTACT_EMAIL,
+            missing_fields=missing_here,
+        ),
     )
     contact_cols[1].caption(tr(*COMPANY_CONTACT_EMAIL_CAPTION))
     if _email_format_invalid(contact_email_value):
@@ -940,13 +975,22 @@ def _step_company() -> None:
         data,
         container_factory=contact_cols[1].container,
     )
-    phone_label = tr(*COMPANY_CONTACT_PHONE_LABEL) + REQUIRED_SUFFIX
+    phone_label = format_missing_label(
+        tr(*COMPANY_CONTACT_PHONE_LABEL) + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.COMPANY_CONTACT_PHONE,
+        missing_fields=missing_here,
+    )
     contact_phone = widget_factory.text_input(
         ProfilePaths.COMPANY_CONTACT_PHONE,
         phone_label,
         widget_factory=contact_cols[2].text_input,
         placeholder=tr(*COMPANY_CONTACT_PHONE_PLACEHOLDER),
         value_formatter=_string_or_empty,
+        help=merge_missing_help(
+            None,
+            field_path=ProfilePaths.COMPANY_CONTACT_PHONE,
+            missing_fields=missing_here,
+        ),
     )
     if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
         contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
@@ -957,14 +1001,27 @@ def _step_company() -> None:
     )
 
     city_col, country_col = st.columns(2, gap="small")
-    city_label = tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX
+    city_label = format_missing_label(
+        tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.LOCATION_PRIMARY_CITY,
+        missing_fields=missing_here,
+    )
     city_lock = _field_lock_config(
         ProfilePaths.LOCATION_PRIMARY_CITY,
         city_label,
         container=city_col,
         context="step",
     )
-    city_kwargs = _apply_field_lock_kwargs(city_lock)
+    city_kwargs = _apply_field_lock_kwargs(
+        city_lock,
+        {
+            "help": merge_missing_help(
+                tr(*PRIMARY_CITY_CAPTION),
+                field_path=ProfilePaths.LOCATION_PRIMARY_CITY,
+                missing_fields=missing_here,
+            )
+        },
+    )
     city_value_input = widget_factory.text_input(
         ProfilePaths.LOCATION_PRIMARY_CITY,
         city_lock["label"],
@@ -986,14 +1043,27 @@ def _step_company() -> None:
         container_factory=city_col.container,
     )
 
-    country_label = tr(*PRIMARY_COUNTRY_LABEL) + REQUIRED_SUFFIX
+    country_label = format_missing_label(
+        tr(*PRIMARY_COUNTRY_LABEL) + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.LOCATION_COUNTRY,
+        missing_fields=missing_here,
+    )
     country_lock = _field_lock_config(
         ProfilePaths.LOCATION_COUNTRY,
         country_label,
         container=country_col,
         context="step",
     )
-    country_kwargs = _apply_field_lock_kwargs(country_lock)
+    country_kwargs = _apply_field_lock_kwargs(
+        country_lock,
+        {
+            "help": merge_missing_help(
+                None,
+                field_path=ProfilePaths.LOCATION_COUNTRY,
+                missing_fields=missing_here,
+            )
+        },
+    )
     location_data["country"] = widget_factory.text_input(
         ProfilePaths.LOCATION_COUNTRY,
         country_lock["label"],

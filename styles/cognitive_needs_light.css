@@ -18,6 +18,8 @@
   --aurora-amber-400: #ffb65c;
   --aurora-berry-400: #f28dad;
 
+  --warning-color: #c2410c;
+
   --tone-50: #f2f6ff;
   --tone-100: #dee7fb;
   --tone-200: #c5d3f3;
@@ -867,6 +869,59 @@ footer, #MainMenu {
   50% {
     background: var(--surface-accent-soft);
   }
+}
+
+.missing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--surface-critical);
+  color: var(--warning-color);
+  border: 1px solid var(--warning-color);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: var(--font-size-small);
+  line-height: 1.1;
+  box-shadow: 0 8px 24px rgba(232, 92, 115, 0.18);
+}
+
+.missing-summary-panel {
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  background: rgba(232, 92, 115, 0.12);
+  border: 1px solid var(--warning-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 30px rgba(232, 92, 115, 0.16);
+}
+
+.missing-summary-panel__title {
+  color: var(--warning-color);
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+}
+
+.missing-summary-panel__intro {
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.missing-summary-panel__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-strong);
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.missing-summary__label {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.missing-summary__reason {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
 }
 
 /* Hide the built-in Streamlit multipage navigation so only the custom wizard sidebar is visible */
