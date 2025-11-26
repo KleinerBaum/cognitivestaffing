@@ -1,6 +1,6 @@
 [project]
 name = "cognitivestaffing"
-version = "1.1.0"
+version = "1.2.0"
 requires-python = ">=3.11,<4.0"
 dependencies = [
     "backoff>=2.2",
@@ -55,7 +55,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "cognitivestaffing"
-version = "1.1.0"
+version = "1.2.0"
 package-mode = false
 
 [tool.setuptools.packages.find]

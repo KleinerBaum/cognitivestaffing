@@ -4,6 +4,20 @@ This guide complements the high-level README with step-by-step recipes for
 extending the wizard, extraction pipeline, and regression tests. Follow the
 `CS_SCHEMA_PROPAGATE` principle: schema ↔ logic ↔ UI ↔ exports must stay in sync.
 
+## Model defaults & overrides / Modell-Defaults & Overrides
+
+**EN:**
+
+- Quick/Schnell mode uses `gpt-5.1-mini` with minimal `REASONING_EFFORT`; Precise/Genau escalates to `gpt-5.1` with `o4-mini`/`o3` fallbacks.
+- Override the primary model with `OPENAI_MODEL` or `DEFAULT_MODEL`; set `LIGHTWEIGHT_MODEL` for Quick routing and `REASONING_MODEL`/`MEDIUM_REASONING_MODEL` for higher tiers. Tune `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) to shift reasoning costs.
+- Responses API is the default path; toggle with `USE_RESPONSES_API`/`USE_CLASSIC_API` as needed. Keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
+
+**DE:**
+
+- Schnell/Quick nutzt standardmäßig `gpt-5.1-mini` mit minimalem `REASONING_EFFORT`; Genau/Precise hebt auf `gpt-5.1` an und fällt bei Bedarf auf `o4-mini`/`o3` zurück.
+- Das Hauptmodell lässt sich über `OPENAI_MODEL` oder `DEFAULT_MODEL` überschreiben; `LIGHTWEIGHT_MODEL` steuert den Schnellpfad, `REASONING_MODEL`/`MEDIUM_REASONING_MODEL` die höheren Stufen. Über `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) regelst du die Denktiefe.
+- Standard ist die Responses API; bei Bedarf mit `USE_RESPONSES_API`/`USE_CLASSIC_API` umschalten und Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) zur Mandantenfähigkeit passend setzen.
+
 ## Prompt generator hook / Prompt-Generator-Hook
 
 **EN:**
