@@ -98,6 +98,7 @@ from config import REASONING_EFFORT
 from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from pipelines.need_analysis import ExtractionResult, extract_need_analysis_profile
+from pipelines.workflow import SkipTask, Task, TaskStatus, WorkflowContext, WorkflowRunner
 from core.schema import coerce_and_fill
 from core.schema_registry import load_need_analysis_schema
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
@@ -4011,6 +4012,14 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     title_hint = locked_hints.get(str(ProfilePaths.POSITION_JOB_TITLE))
     company_hint = locked_hints.get(str(ProfilePaths.COMPANY_NAME))
 
+    workflow_status: dict[str, dict[str, Any]] = {}
+    try:
+        existing_status = st.session_state.get(StateKeys.WORKFLOW_STATUS) or {}
+        if isinstance(existing_status, Mapping):
+            workflow_status = dict(existing_status)
+    except Exception:  # pragma: no cover - defensive Streamlit guard
+        workflow_status = {}
+
     llm_error: Exception | None = None
     extraction_warning: str | None = None
     extraction_issues: list[str] = []
@@ -4018,8 +4027,11 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     recovered = False
     locked_items = tuple(sorted(locked_hints.items()))
     effort_value = str(st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT) or REASONING_EFFORT)
-    try:
-        extraction_result = _cached_extract_profile(
+
+    def _structured_extraction_task(_: WorkflowContext) -> ExtractionResult:
+        if not is_llm_available():
+            raise SkipTask("llm_unavailable")
+        return _cached_extract_profile(
             text,
             title_hint=title_hint,
             company_hint=company_hint,
@@ -4027,19 +4039,27 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             locked_items=locked_items,
             reasoning_effort=effort_value,
         )
-    except (
-        ExtractionError,
-        InvalidExtractionPayload,
-        SchemaValidationError,
-        LLMResponseFormatError,
-        ExternalServiceError,
-        NeedAnalysisPipelineError,
-    ) as exc:
-        llm_error = exc
+
+    extraction_run = WorkflowRunner(
+        [Task(name="structured_extraction", func=_structured_extraction_task, retries=1)],
+        logger_=logger,
+    ).run()
+    workflow_status["extraction"] = extraction_run.as_dict()
+    st.session_state[StateKeys.WORKFLOW_STATUS] = workflow_status
+
+    extraction_result = extraction_run.get("structured_extraction")
+    if extraction_result and extraction_result.status is TaskStatus.SUCCESS:
+        extracted_payload = extraction_result.result
+        extracted_data = extracted_payload.data
+        recovered = extracted_payload.recovered
+        extraction_issues = extracted_payload.issues
     else:
-        extracted_data = extraction_result.data
-        recovered = extraction_result.recovered
-        extraction_issues = extraction_result.issues
+        if extraction_result and extraction_result.error:
+            llm_error = extraction_result.error
+        elif extraction_result and extraction_result.status is TaskStatus.SKIPPED:
+            llm_error = extraction_result.error or ExtractionError("structured_extraction skipped")
+        else:
+            llm_error = ExtractionError("structured_extraction missing result")
 
     if llm_error:
         extracted_data = deepcopy(rule_patch)
@@ -4234,22 +4254,48 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             missing.append(field)
 
     followup_candidates: list[Mapping[str, object]] = []
-    if is_llm_available():
-        try:
-            followup_response = generate_followups(
-                vacancy_json=profile.model_dump(),
-                lang=str(lang),
-                vector_store_id=vector_store_id or None,
-            )
-            if isinstance(followup_response, Mapping):
-                raw_questions = followup_response.get("questions", [])
-                if isinstance(raw_questions, list):
-                    followup_candidates = [q for q in raw_questions if isinstance(q, Mapping)]
-        except Exception:
-            logger.warning(
-                "Automatic follow-up generation failed; continuing without new questions.",
-                exc_info=True,
-            )
+
+    def _followup_generation_task(context: WorkflowContext) -> Mapping[str, Any]:
+        if not is_llm_available():
+            raise SkipTask("llm_unavailable")
+        payload = context.get("profile_payload")
+        if not isinstance(payload, Mapping):
+            raise SkipTask("profile_payload_missing")
+        lang_value = str(context.get("lang") or lang)
+        store_value = context.get("vector_store_id")
+        vector_store_value = str(store_value) if store_value else None
+        return generate_followups(
+            vacancy_json=dict(payload),
+            lang=lang_value,
+            vector_store_id=vector_store_value,
+        )
+
+    followup_run = WorkflowRunner(
+        [Task(name="followup_generation", func=_followup_generation_task, retries=1)],
+        logger_=logger,
+    ).run(
+        {
+            "profile_payload": profile.model_dump(),
+            "lang": str(lang),
+            "vector_store_id": vector_store_id or None,
+        }
+    )
+
+    workflow_status["followups"] = followup_run.as_dict()
+    st.session_state[StateKeys.WORKFLOW_STATUS] = workflow_status
+
+    followup_result = followup_run.get("followup_generation")
+    if followup_result and followup_result.status is TaskStatus.SUCCESS:
+        if isinstance(followup_result.result, Mapping):
+            raw_questions = followup_result.result.get("questions", [])
+            if isinstance(raw_questions, list):
+                followup_candidates = [q for q in raw_questions if isinstance(q, Mapping)]
+    elif followup_result and followup_result.status is TaskStatus.FAILED:
+        error = followup_result.error
+        logger.warning(
+            "Automatic follow-up generation failed; continuing without new questions.",
+            exc_info=(type(error), error, error.__traceback__) if error else True,
+        )
 
     filtered_followups = filter_followups_by_context(followup_candidates, data)
     if filtered_followups:

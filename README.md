@@ -79,6 +79,7 @@ The repository is organized so that **schema**, **domain logic**, **LLM integrat
   - `openai_utils/` – OpenAI client wrapper (Responses vs. Chat, streaming, retries, fallbacks, vector store integration).
   - `llm/` – response schemas, prompt assembly, and LLM‑specific utilities.
   - `pipelines/` – end‑to‑end flows (ingest → extraction → repair → exports).
+    - `pipelines/workflow.py` – lightweight workflow runner capturing task dependencies, retries, and per-step status.
   - `integrations/` – external services like OpenAI Vector Store, company info, etc.
   - `generators/` – generators for job ads, interview guides, Boolean searches and other exports.
   - `infra/` – ChatKit / Agents server integration and other infra helpers.

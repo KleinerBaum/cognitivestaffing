@@ -213,6 +213,7 @@ class StateKeys:
     EXTRACTION_MISSING = "extraction_missing"
     EXTRACTION_RAW_PROFILE = "extraction_raw_profile"
     PROFILE_METADATA = "profile_metadata"
+    WORKFLOW_STATUS = "workflow.status"
     ESCO_SKILLS = "extraction_esco_skills"
     ESCO_MISSING_SKILLS = "extraction_esco_missing_skills"
     # NOTE: ``ESCO_OCCUPATION_OPTIONS`` was historically reused for both the
