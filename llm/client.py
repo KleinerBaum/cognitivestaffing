@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from copy import deepcopy
 from collections.abc import MutableMapping, Sequence
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional, Final
 
 from jsonschema import Draft7Validator
 from opentelemetry import trace
@@ -67,6 +67,7 @@ _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 3
 USE_RESPONSES_API: bool | None = None
 _PRE_ANALYSIS_SCHEMA: dict[str, Any] = get_response_schema(PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME)
+_EXTRACTION_MAX_COMPLETION_TOKENS: Final[int] = 500
 
 
 def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[str, Any]:
@@ -524,6 +525,7 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 "messages": payload["messages"],
                 "model": payload["model"],
                 "temperature": 0,
+                "max_completion_tokens": payload.get("max_completion_tokens"),
                 "reasoning_effort": payload.get("reasoning_effort"),
                 "verbosity": payload.get("verbosity"),
                 "task": ModelTask.EXTRACTION,
@@ -818,6 +820,7 @@ def _extract_json_outcome(
                     "verbosity": get_active_verbosity(),
                     "retries": _STRUCTURED_RESPONSE_RETRIES,
                     "source_text": text,
+                    "max_completion_tokens": _EXTRACTION_MAX_COMPLETION_TOKENS,
                 }
             )
             span.set_attribute("llm.extract.source", outcome.source)
@@ -868,6 +871,7 @@ def _extract_json_outcome(
                 messages,
                 model=model,
                 temperature=0,
+                max_completion_tokens=_EXTRACTION_MAX_COMPLETION_TOKENS,
                 reasoning_effort=effort,
                 verbosity=get_active_verbosity(),
                 task=ModelTask.EXTRACTION,
