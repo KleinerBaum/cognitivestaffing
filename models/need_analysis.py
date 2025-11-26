@@ -31,6 +31,9 @@ from utils.normalization import (
 _EMAIL_ADAPTER: TypeAdapter[EmailStr] = TypeAdapter(EmailStr)
 
 
+CURRENT_SCHEMA_VERSION = 1
+
+
 class Company(BaseModel):
     """Details about the hiring company and its branding metadata."""
 
@@ -489,6 +492,7 @@ class NeedAnalysisProfile(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    schema_version: int = Field(default=CURRENT_SCHEMA_VERSION)
     company: Company = Field(default_factory=Company)
     position: Position = Field(default_factory=Position)
     department: Department = Field(default_factory=Department)
