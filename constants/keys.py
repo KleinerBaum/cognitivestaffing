@@ -7,6 +7,8 @@ class UIKeys:
     PROFILE_TEXT_INPUT = "ui.profile_text_input"
     PROFILE_FILE_UPLOADER = "ui.profile_file_uploader"
     PROFILE_URL_INPUT = "ui.profile_url_input"
+    PROFILE_EXPORT = "ui.profile_export"
+    PROFILE_IMPORT = "ui.profile_import"
     LANG_SELECT = "ui.lang_select"
     INPUT_METHOD = "ui.input_method"
     COMPANY_LOGO = "ui.company_logo"
@@ -217,6 +219,8 @@ class StateKeys:
     WORKFLOW_STATUS = "workflow.status"
     ESCO_SKILLS = "extraction_esco_skills"
     ESCO_MISSING_SKILLS = "extraction_esco_missing_skills"
+    AUTOSAVE = "wizard.autosave"
+    AUTOSAVE_PROMPT_ACK = "wizard.autosave.prompt_ack"
     # NOTE: ``ESCO_OCCUPATION_OPTIONS`` was historically reused for both the
     # extraction snapshot and the UI cache.  The names were split in 2024-08 to
     # prevent UI refreshes from wiping extraction results.  Keep the

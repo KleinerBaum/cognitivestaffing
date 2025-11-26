@@ -9,6 +9,7 @@ import streamlit as st
 
 from constants.keys import StateKeys
 from utils.i18n import tr
+from state.autosave import persist_session_snapshot
 import wizard.metadata as wizard_metadata
 from wizard.navigation_types import StepRenderer, WizardContext
 from wizard.types import LocalizedText
@@ -223,6 +224,7 @@ class NavigationController:
     def set_current_step(self, target_key: str) -> None:
         self.state["current_step"] = target_key
         self._query_params["step"] = target_key
+        persist_session_snapshot()
 
     def mark_step_completed(self, step_key: str, *, skipped: bool) -> None:
         completed = self.state.get("completed_steps")
@@ -239,6 +241,7 @@ class NavigationController:
                     skipped_steps.append(step_key)
             else:
                 self.state["skipped_steps"] = [step_key]
+        persist_session_snapshot()
 
     def apply_pending_incomplete_jump(self) -> None:
         if not self._session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, False):

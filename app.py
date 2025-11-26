@@ -57,6 +57,7 @@ from llm.model_router import pick_model  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
+from state.autosave import maybe_render_autosave_prompt  # noqa: E402
 from components.chatkit_widget import inject_chatkit_script  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
@@ -120,6 +121,8 @@ if st.session_state.get("openai_base_url_invalid"):
             "⚠️ OPENAI_BASE_URL appears invalid and will be ignored.",
         )
     )
+
+maybe_render_autosave_prompt()
 
 
 def _load_background_image(dark_mode: bool) -> str | None:

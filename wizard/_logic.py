@@ -25,6 +25,7 @@ from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from core.normalization import sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
 from state import ensure_state
+from state.autosave import persist_session_snapshot
 from utils.normalization import (
     country_to_iso2,
     normalize_company_size,
@@ -514,6 +515,7 @@ def _update_profile(
                 if path in state.get("items", {}):
                     state["items"].pop(path, None)
                 st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
+            persist_session_snapshot()
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
         raise
     except Exception as error:  # pragma: no cover - defensive guard
