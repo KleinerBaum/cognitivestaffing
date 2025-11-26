@@ -8,6 +8,8 @@ from config import (
     GPT4O,
     GPT4O_MINI,
     GPT41_MINI,
+    GPT51,
+    GPT51_MINI,
     O3,
     O4_MINI,
     OPENAI_MODEL,
@@ -23,6 +25,14 @@ def model_selector(key: str = "model") -> str:
     option_entries: list[tuple[str | None, str]] = [
         (None, tr("Automatisch: Ausgewogen (empfohlen)", "Auto: Balanced (recommended)")),
         (
+            GPT51,
+            tr("GPT-5.1 (präzise, aktuelle Generation)", "GPT-5.1 (precise, current generation)"),
+        ),
+        (
+            GPT51_MINI,
+            tr("GPT-5.1 mini (günstig, schnelle Antworten)", "GPT-5.1 mini (cost-efficient, fast)"),
+        ),
+        (
             GPT4O,
             tr("GPT-4o (ausgewogen)", "GPT-4o (balanced)"),
         ),
@@ -32,7 +42,7 @@ def model_selector(key: str = "model") -> str:
         ),
         (
             GPT41_MINI,
-            tr("GPT-4.1 mini (aktuelles Mini-Modell)", "GPT-4.1 mini (latest mini tier)"),
+            tr("GPT-4.1 mini (Legacy, Fallback)", "GPT-4.1 mini (legacy fallback)"),
         ),
         (
             O4_MINI,
@@ -71,8 +81,8 @@ def model_selector(key: str = "model") -> str:
         resolved = OPENAI_MODEL
         st.caption(
             tr(
-                "Auto-Routing nutzt o4 mini für anspruchsvolle Reasoning-Aufgaben und GPT-4.1 mini für kostengünstige Antworten.",
-                "Auto routing uses o4 mini for demanding reasoning tasks and GPT-4.1 mini for cost-efficient replies.",
+                "Auto-Routing nutzt GPT-5.1 für anspruchsvollere Reasoning-Aufgaben und GPT-5.1 mini für kostengünstige Antworten.",
+                "Auto routing uses GPT-5.1 for demanding reasoning tasks and GPT-5.1 mini for cost-efficient replies.",
             )
         )
     else:

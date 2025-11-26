@@ -1,8 +1,8 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
 The application favours the officially supported OpenAI Responses models and
-keeps lightweight tasks on ``gpt-4.1-mini`` while escalating reasoning-heavy
-workloads through ``o4-mini`` and ``o3`` depending on the configured
+keeps lightweight tasks on ``gpt-5.1-mini`` while escalating reasoning-heavy
+workloads through ``gpt-5.1`` and ``o3`` depending on the configured
 ``REASONING_EFFORT``. Automatic fallbacks continue down the stack
 (``o3`` → ``o4-mini`` → ``gpt-4o-mini`` → ``gpt-4o`` → ``gpt-4`` →
 ``gpt-3.5-turbo``) so the platform remains resilient when specific tiers
@@ -64,6 +64,8 @@ GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
 GPT4O_MINI = "gpt-4o-mini"
 GPT51 = "gpt-5.1"
+GPT51_MINI = "gpt-5.1-mini"
+GPT51_NANO = "gpt-5.1-nano"
 GPT41_MINI = "gpt-4.1-mini"
 GPT41_NANO = "gpt-4.1-nano"
 O4_MINI = "o4-mini"
@@ -75,6 +77,10 @@ GPT35 = "gpt-3.5-turbo"
 _LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-5.1", GPT51),
     ("gpt-5.1-latest", GPT51),
+    ("gpt-5.1-mini", GPT51_MINI),
+    ("gpt-5.1-mini-latest", GPT51_MINI),
+    ("gpt-5.1-nano", GPT51_NANO),
+    ("gpt-5.1-nano-latest", GPT51_NANO),
     ("gpt-4.1-mini", GPT41_MINI),
     ("gpt-4.1-mini-latest", GPT41_MINI),
     ("gpt-4.1-nano", GPT41_NANO),
@@ -164,6 +170,10 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         return GPT41_MINI
     if lowered.startswith("gpt-4.1-nano"):
         return GPT41_NANO
+    if lowered.startswith("gpt-5.1-mini"):
+        return GPT51_MINI
+    if lowered.startswith("gpt-5.1-nano"):
+        return GPT51_NANO
     if lowered.startswith("gpt-5.1"):
         return GPT51
     if lowered.startswith("o4-mini"):
@@ -215,14 +225,16 @@ def _normalise_reasoning_effort(value: str | None, *, default: str = "medium") -
 
 REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "medium"))
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT41_MINI
-MEDIUM_REASONING_MODEL_DEFAULT = O4_MINI
+LIGHTWEIGHT_MODEL_DEFAULT = GPT51_MINI
+MEDIUM_REASONING_MODEL_DEFAULT = GPT51
 REASONING_MODEL_DEFAULT = O3
 
 _SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
     MEDIUM_REASONING_MODEL_DEFAULT,
     REASONING_MODEL_DEFAULT,
+    GPT51_MINI,
+    GPT51_NANO,
     GPT51,
     GPT41_NANO,
     GPT41_MINI,
@@ -752,8 +764,27 @@ _PRECISION_TASKS: frozenset[str] = frozenset(
 MODEL_FALLBACKS: Dict[str, list[str]] = {
     _canonical_model_name(GPT51): [
         GPT51,
+        GPT51_MINI,
         O4_MINI,
         O3,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT51_MINI): [
+        GPT51_MINI,
+        GPT41_MINI,
+        GPT41_NANO,
+        GPT4O_MINI,
+        GPT4O,
+        GPT4,
+        GPT35,
+    ],
+    _canonical_model_name(GPT51_NANO): [
+        GPT51_NANO,
+        GPT51_MINI,
+        GPT41_NANO,
+        GPT4O_MINI,
         GPT4O,
         GPT4,
         GPT35,

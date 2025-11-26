@@ -9,7 +9,7 @@ following environment variables are available:
 | Variable | Purpose |
 | --- | --- |
 | `OPENAI_API_KEY` | Required for every LLM request. |
-| `OPENAI_MODEL` | Optional default model override (defaults to the `REASONING_EFFORT` tier: `gpt-4.1-mini` for `minimal`/`low`, `o4-mini` for `medium`, `o3` for `high`). |
+| `OPENAI_MODEL` | Optional default model override (defaults to the `REASONING_EFFORT` tier: `gpt-5.1-mini` for `minimal`/`low`, `gpt-5.1` for `medium`, `o3` for `high`). |
 | `VECTOR_STORE_ID` | Optional OpenAI vector store identifier for RAG. |
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optional reasoning effort hint (`minimal` … `high`). |
@@ -39,7 +39,7 @@ folgende Umgebungsvariablen relevant:
 | Variable | Zweck |
 | --- | --- |
 | `OPENAI_API_KEY` | Pflichtwert für alle LLM-Anfragen. |
-| `OPENAI_MODEL` | Optionaler Standard (Standard: REASONING_EFFORT-Tier – `gpt-4.1-mini` für `minimal`/`low`, `o4-mini` für `medium`, `o3` für `high`). |
+| `OPENAI_MODEL` | Optionaler Standard (Standard: REASONING_EFFORT-Tier – `gpt-5.1-mini` für `minimal`/`low`, `gpt-5.1` für `medium`, `o3` für `high`). |
 | `VECTOR_STORE_ID` | Optionale OpenAI-Vector-Store-ID für RAG. |
 | `VERBOSITY` | Optionale UI-Erklärtiefe (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`minimal` … `high`). |
