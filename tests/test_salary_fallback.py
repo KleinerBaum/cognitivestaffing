@@ -9,6 +9,8 @@ from typing import Any
 
 import pytest
 
+from openai_utils.api import ChatCallResult
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -222,3 +224,102 @@ def test_call_salary_model_includes_city_and_skills(monkeypatch) -> None:
     assert payload["languages_optional"] == ["German"]
     assert payload["language_level_english"] == "C1"
     assert "company_size" not in payload
+
+
+def test_call_salary_model_parses_content(monkeypatch) -> None:
+    tools: list[dict[str, object]] = []
+
+    def fake_build_extraction_tool(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+        return tools
+
+    def fake_call_chat_api(messages: list[dict[str, object]], **kwargs: object) -> ChatCallResult:
+        assert kwargs["model"]
+        assert isinstance(messages, list) and messages
+        return ChatCallResult(
+            json.dumps(
+                {
+                    "salary_min": 75000,
+                    "salary_max": 95000,
+                    "currency": "USD",
+                    "explanation": "Range for role",
+                }
+            ),
+            [],
+            {},
+        )
+
+    monkeypatch.setattr(salary, "build_extraction_tool", fake_build_extraction_tool)
+    monkeypatch.setattr(salary, "call_chat_api", fake_call_chat_api)
+
+    inputs = salary._SalaryInputs(
+        job_title="Data Scientist",
+        country="United States",
+        primary_city="New York",
+        hq_location=None,
+        seniority="Mid",
+        work_policy="Remote",
+        employment_type="Full-time",
+        company_size="201-500",
+        industry="Tech",
+        current_min=None,
+        current_max=None,
+        current_currency=None,
+        required_hard_skills=[],
+        required_soft_skills=[],
+        hard_skills_optional=[],
+        soft_skills_optional=[],
+        tools_and_technologies=[],
+        certificates=[],
+        languages_required=[],
+        languages_optional=[],
+        language_level_english=None,
+        core_responsibilities=[],
+        must_have_requirements=[],
+        nice_to_have_requirements=[],
+        tools_tech_certificates=[],
+    )
+
+    result, explanation = salary._call_salary_model(inputs)
+
+    assert result == {"salary_min": 75000, "salary_max": 95000, "currency": "USD", "explanation": "Range for role"}
+    assert explanation == "Range for role"
+
+
+def test_call_salary_model_handles_errors(monkeypatch) -> None:
+    def failing_call_chat_api(*_args: object, **_kwargs: object) -> None:
+        raise TypeError("Missing required arguments")
+
+    monkeypatch.setattr(salary, "call_chat_api", failing_call_chat_api)
+
+    inputs = salary._SalaryInputs(
+        job_title="Engineer",
+        country="Germany",
+        primary_city="Berlin",
+        hq_location=None,
+        seniority=None,
+        work_policy=None,
+        employment_type=None,
+        company_size=None,
+        industry=None,
+        current_min=None,
+        current_max=None,
+        current_currency=None,
+        required_hard_skills=[],
+        required_soft_skills=[],
+        hard_skills_optional=[],
+        soft_skills_optional=[],
+        tools_and_technologies=[],
+        certificates=[],
+        languages_required=[],
+        languages_optional=[],
+        language_level_english=None,
+        core_responsibilities=[],
+        must_have_requirements=[],
+        nice_to_have_requirements=[],
+        tools_tech_certificates=[],
+    )
+
+    result, explanation = salary._call_salary_model(inputs)
+
+    assert result is None
+    assert explanation is None
