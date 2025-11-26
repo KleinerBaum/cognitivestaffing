@@ -29,13 +29,13 @@ from openai import (
     APITimeoutError,
     AuthenticationError,
     BadRequestError,
+    OpenAI,
     OpenAIError,
     RateLimitError,
 )
 import streamlit as st
 from prompts import prompt_registry
 
-import config as app_config
 from config import (
     OPENAI_API_KEY,
     OPENAI_REQUEST_TIMEOUT,
@@ -44,7 +44,6 @@ from config import (
     VERBOSITY,
     get_active_verbosity,
     is_model_available,
-    mark_model_unavailable,
     normalise_verbosity,
     resolve_api_mode,
 )
@@ -56,23 +55,26 @@ from utils.retry import retry_with_backoff
 from .client import (
     FileSearchKey,
     FileSearchResult,
-    ResponsesRequest,
     RetryState,
     ToolCallPayload,
-    ToolMessagePayload,
     UsageDict,
     OpenAIClient,
     build_fallback_context,
     create_retry_state,
     model_supports_reasoning,
     model_supports_temperature,
-    _mark_model_without_reasoning,
-    _mark_model_without_temperature,
-    _is_reasoning_unsupported_error,
-    _is_temperature_unsupported_error,
+    _mark_model_without_reasoning,  # noqa: F401
+    _mark_model_without_temperature,  # noqa: F401
 )
 from .errors import ExternalServiceError, LLMResponseFormatError, NeedAnalysisPipelineError, SchemaValidationError
-from .payloads import _build_chat_fallback_payload, _convert_responses_payload_to_chat, _prepare_payload
+from .payloads import (
+    ChatPayloadBuilder,  # noqa: F401
+    PayloadContext,  # noqa: F401
+    ResponsesPayloadBuilder,  # noqa: F401
+    _build_chat_fallback_payload,
+    _convert_responses_payload_to_chat,
+    _prepare_payload,
+)
 from .schemas import (
     SchemaFormatBundle,
     build_need_analysis_json_schema_payload,  # noqa: F401

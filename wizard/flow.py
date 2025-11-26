@@ -102,7 +102,7 @@ from pipelines.workflow import SkipTask, Task, TaskStatus, WorkflowContext, Work
 from core.schema import coerce_and_fill
 from core.schema_registry import load_need_analysis_schema
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
-from core.extraction import InvalidExtractionPayload, mark_low_confidence
+from core.extraction import mark_low_confidence
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
 from wizard_pages import WIZARD_PAGES, WizardPage
