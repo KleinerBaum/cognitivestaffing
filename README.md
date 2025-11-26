@@ -100,6 +100,8 @@ The repository is organized so that **schema**, **domain logic**, **LLM integrat
 - **State & helpers**
   - `state/` – `st.session_state` helpers, profile persistence, mode toggles.
   - `constants/` – step IDs, enum constants, keys.
+  - `utils/logging_context.py` – structured logging context (session ID, wizard step, pipeline task, model) for correlating
+    multi-step runs.
   - `typing_shims/` – compatibility shims.
 
 - **Reference data**

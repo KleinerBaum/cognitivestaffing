@@ -51,6 +51,7 @@ from constants.keys import StateKeys
 from utils.errors import display_error, resolve_message
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from utils.llm_state import llm_disabled_message
+from utils.logging_context import log_context, set_model
 from utils.retry import retry_with_backoff
 from .client import (
     FileSearchKey,
@@ -1002,74 +1003,85 @@ class ChatStream(Iterable[str]):
                 str(response_format.get("name") or response_format.get("json_schema", {}).get("name") or "").strip()
                 or None
             )
-        if not self._api_mode.is_classic and _has_strict_json_schema_format(self._payload):
-            logger.info(
-                "Strict JSON schema detected for streaming request; retrying without streaming.",
-            )
-            recovered_response = self._retry_responses_without_stream(client)
-            if recovered_response is None:
-                recovered_response = self._retry_chat_completion(client)
-
-            if recovered_response is None:
-                _handle_streaming_error(
-                    RuntimeError("Streaming is unavailable for strict JSON schema payloads."),
-                    model=context_model,
-                    schema_name=schema_name,
-                    step=str(self._task),
-                    api_mode=self._api_mode.value,
+        with log_context(pipeline_task=str(self._task) if self._task is not None else None, model=context_model):
+            set_model(context_model)
+            if not self._api_mode.is_classic and _has_strict_json_schema_format(self._payload):
+                logger.info(
+                    "Strict JSON schema detected for streaming request; retrying without streaming.",
                 )
+                recovered_response = self._retry_responses_without_stream(client)
+                if recovered_response is None:
+                    recovered_response = self._retry_chat_completion(client)
+
+                if recovered_response is None:
+                    _handle_streaming_error(
+                        RuntimeError("Streaming is unavailable for strict JSON schema payloads."),
+                        model=context_model,
+                        schema_name=schema_name,
+                        step=str(self._task),
+                        api_mode=self._api_mode.value,
+                    )
+                    return
+
+                self._finalise(recovered_response)
                 return
 
-            self._finalise(recovered_response)
-            return
-
-        final_response: Any | None = None
-        missing_completion_event = False
-        try:
-            if self._api_mode.is_classic:
-                with client.chat.completions.stream(**self._payload) as stream:
-                    for chat_event in stream:
-                        for chunk in _stream_event_chunks(chat_event):
-                            if chunk:
-                                self._buffer.append(chunk)
-                                yield chunk
-                    final_response = stream.get_final_completion()
-            else:
-                with client.responses.stream(**self._payload) as stream:
-                    for responses_event in stream:
-                        for chunk in _stream_event_chunks(responses_event):
-                            if chunk:
-                                self._buffer.append(chunk)
-                                yield chunk
-                    try:
-                        final_response = stream.get_final_response()
-                        if final_response is None:
-                            missing_completion_event = True
-                            logger.warning(
-                                "Responses stream returned no final payload; retrying without streaming.",
-                            )
-                    except RuntimeError as error:
-                        if _is_missing_completion_event_error(error):
-                            missing_completion_event = True
-                            logger.warning(
-                                "Responses stream missing completion event; retrying without streaming.",
-                                exc_info=error,
-                            )
-                        else:
-                            raise
-        except (OpenAIError, RuntimeError) as error:
-            if _is_missing_completion_event_error(error) or missing_completion_event:
-                logger.warning("Streaming failure detected; attempting fallback via API retries.", exc_info=error)
-                recovered = self._recover_stream_response(client)
-                if recovered is not None:
-                    final_response = recovered
-                elif self._buffer:
-                    logger.warning(
-                        "Streaming finished without completion event; finalising buffered text.",
-                        exc_info=error,
-                    )
-                    self._finalise_partial()
-                    return
+            final_response: Any | None = None
+            missing_completion_event = False
+            try:
+                if self._api_mode.is_classic:
+                    with client.chat.completions.stream(**self._payload) as stream:
+                        for chat_event in stream:
+                            for chunk in _stream_event_chunks(chat_event):
+                                if chunk:
+                                    self._buffer.append(chunk)
+                                    yield chunk
+                        final_response = stream.get_final_completion()
+                else:
+                    with client.responses.stream(**self._payload) as stream:
+                        for responses_event in stream:
+                            for chunk in _stream_event_chunks(responses_event):
+                                if chunk:
+                                    self._buffer.append(chunk)
+                                    yield chunk
+                        try:
+                            final_response = stream.get_final_response()
+                            if final_response is None:
+                                missing_completion_event = True
+                                logger.warning(
+                                    "Responses stream returned no final payload; retrying without streaming.",
+                                )
+                        except RuntimeError as error:
+                            if _is_missing_completion_event_error(error):
+                                missing_completion_event = True
+                                logger.warning(
+                                    "Responses stream missing completion event; retrying without streaming.",
+                                    exc_info=error,
+                                )
+                            else:
+                                raise
+            except (OpenAIError, RuntimeError) as error:
+                if _is_missing_completion_event_error(error) or missing_completion_event:
+                    logger.warning("Streaming failure detected; attempting fallback via API retries.", exc_info=error)
+                    recovered = self._recover_stream_response(client)
+                    if recovered is not None:
+                        final_response = recovered
+                    elif self._buffer:
+                        logger.warning(
+                            "Streaming finished without completion event; finalising buffered text.",
+                            exc_info=error,
+                        )
+                        self._finalise_partial()
+                        return
+                    else:
+                        _handle_streaming_error(
+                            error,
+                            model=context_model,
+                            schema_name=schema_name,
+                            step=str(self._task),
+                            api_mode=self._api_mode.value,
+                        )
+                        return
                 else:
                     _handle_streaming_error(
                         error,
@@ -1080,36 +1092,27 @@ class ChatStream(Iterable[str]):
                     )
                     return
             else:
-                _handle_streaming_error(
-                    error,
-                    model=context_model,
-                    schema_name=schema_name,
-                    step=str(self._task),
-                    api_mode=self._api_mode.value,
-                )
-                return
-        else:
-            if final_response is None and missing_completion_event:
-                final_response = self._recover_stream_response(client)
-                if final_response is None and self._buffer:
+                if final_response is None and missing_completion_event:
+                    final_response = self._recover_stream_response(client)
+                    if final_response is None and self._buffer:
+                        logger.warning(
+                            "Streaming ended without completion event; using buffered text as final output.",
+                        )
+                        self._finalise_partial()
+                        return
+
+            if final_response is None:
+                self._finalise_partial()
+            else:
+                self._finalise(final_response)
+
+            if (self._result is None or not (self._result.content or "").strip()) and not self._api_mode.is_classic:
+                fallback = self._retry_chat_completion(client)
+                if fallback is not None:
                     logger.warning(
-                        "Streaming ended without completion event; using buffered text as final output.",
+                        "Streaming returned empty content; falling back to chat completions.",
                     )
-                    self._finalise_partial()
-                    return
-
-        if final_response is None:
-            self._finalise_partial()
-        else:
-            self._finalise(final_response)
-
-        if (self._result is None or not (self._result.content or "").strip()) and not self._api_mode.is_classic:
-            fallback = self._retry_chat_completion(client)
-            if fallback is not None:
-                logger.warning(
-                    "Streaming returned empty content; falling back to chat completions.",
-                )
-                self._finalise(fallback)
+                    self._finalise(fallback)
 
     def _recover_stream_response(self, client: OpenAI) -> Any | None:
         """Return a non-streamed payload to finalise the request if possible."""
@@ -1566,163 +1569,175 @@ def _call_chat_api_single(
     current_model = context.initial_model()
     payload["model"] = current_model
 
-    retry_state = create_retry_state()
-    fallback_to_chat_attempted = False
-    chat_retry_attempts = 0
-    max_chat_retries = 2
 
-    while True:
-        try:
-            response = _execute_response(payload, current_model, api_mode=api_mode_override)
-        except OpenAIError as err:
-            schema_error = isinstance(err, BadRequestError) and is_unrecoverable_schema_error(err)
-            log_level = logger.warning if not schema_error else logger.error
-            log_level(
-                "OpenAI %s call failed for model %s: %s",
-                active_mode.value,
-                current_model,
-                getattr(err, "message", str(err)),
-                exc_info=err,
-            )
-
-            if not active_mode.is_classic and (schema_error or not fallback_to_chat_attempted):
-                fallback_to_chat_attempted = True
-                fallback_payload = _build_chat_fallback_payload(
-                    payload,
-                    messages_list,
-                    schema_bundle,
-                )
-                if fallback_payload:
-                    logger.info(
-                        "%s; using Chat Completions fallback for model %s.",
-                        "Responses schema rejected" if schema_error else "Responses API failed",
+    with log_context(pipeline_task=step_label, model=current_model):
+        set_model(current_model)
+        retry_state = create_retry_state()
+        fallback_to_chat_attempted = False
+        chat_retry_attempts = 0
+        max_chat_retries = 2
+    
+        while True:
+            with log_context(model=current_model):
+                try:
+                    response = _execute_response(payload, current_model, api_mode=api_mode_override)
+                except OpenAIError as err:
+                    schema_error = isinstance(err, BadRequestError) and is_unrecoverable_schema_error(err)
+                    log_level = logger.warning if not schema_error else logger.error
+                    log_level(
+                        "OpenAI %s call failed for model %s: %s",
+                        active_mode.value,
                         current_model,
+                        getattr(err, "message", str(err)),
+                        exc_info=err,
                     )
-                    try:
-                        response = get_client().chat.completions.create(**fallback_payload)
-                    except OpenAIError as chat_error:
-                        logger.error(
-                            "Chat Completions fallback failed: %s",
-                            getattr(chat_error, "message", str(chat_error)),
-                            exc_info=chat_error,
+    
+                    if not active_mode.is_classic and (schema_error or not fallback_to_chat_attempted):
+                        fallback_to_chat_attempted = True
+                        fallback_payload = _build_chat_fallback_payload(
+                            payload,
+                            messages_list,
+                            schema_bundle,
                         )
-                        response = None
-                else:
-                    response = None
-                if response is None:
-                    raise _wrap_openai_exception(
-                        err,
-                        model=current_model,
-                        schema_name=schema_name,
-                        step=step_label,
-                        api_mode=active_mode.value,
-                    )
-            elif active_mode.is_classic and chat_retry_attempts < max_chat_retries:
-                delay = 0.5 * (2**chat_retry_attempts)
-                chat_retry_attempts += 1
-                logger.info(
-                    "Retrying Chat Completions after error (attempt %d/%d) in %.1fs.",
-                    chat_retry_attempts,
-                    max_chat_retries,
-                    delay,
-                )
-                time.sleep(delay)
-                continue
-            elif is_model_available(current_model):
-                raise _wrap_openai_exception(
-                    err,
-                    model=current_model,
-                    schema_name=schema_name,
-                    step=step_label,
-                    api_mode=active_mode.value,
-                )
-            else:
-                next_model = context.register_failure(current_model)
-
-                if next_model is None:
-                    raise _wrap_openai_exception(
-                        err,
-                        model=current_model,
-                        schema_name=schema_name,
-                        step=step_label,
-                        api_mode=active_mode.value,
-                    )
-
-                logger.warning(
-                    "Model '%s' unavailable (%s); retrying with fallback '%s'.",
-                    current_model,
-                    getattr(err, "message", str(err)),
-                    next_model,
-                )
-                payload["model"] = next_model
-                current_model = next_model
-                continue
-
-        response_id = _extract_response_id(response)
-        if response_id and not active_mode.is_classic and api_mode_override != "chat":
-            payload["previous_response_id"] = response_id
-
-        content = _extract_output_text(response)
-        normalised_content = _normalise_content_payload(content)
-        low_confidence = False
-        repair_status: JsonRepairStatus | None = None
-
-        if schema_bundle is not None and normalised_content:
-            repair_attempt = parse_json_with_repair(normalised_content)
-            repair_status = repair_attempt.status
-            if repair_attempt.payload is not None:
-                normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
-            if repair_attempt.status is JsonRepairStatus.FAILED and not active_mode.is_classic:
-                logger.warning(
-                    "Structured extraction JSON parse failed during %s; retrying via chat.",
-                    current_model,
-                )
-                fallback_payload = _build_chat_fallback_payload(payload, messages_list, schema_bundle)
-                if fallback_payload:
-                    fallback_to_chat_attempted = True
-                    try:
-                        fallback_response = get_client().chat.completions.create(**fallback_payload)
-                        fallback_content = _normalise_content_payload(_extract_output_text(fallback_response))
-                        repair_attempt = parse_json_with_repair(fallback_content or "")
-                        repair_status = repair_attempt.status
-                        if repair_attempt.payload is not None:
-                            normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
-                        elif fallback_content:
-                            normalised_content = fallback_content
-                    except Exception as exc:  # pragma: no cover - defensive
-                        logger.warning("Chat fallback after repair failure failed: %s", exc)
-                else:
+                        if fallback_payload:
+                            logger.info(
+                                "%s; using Chat Completions fallback for model %s.",
+                                "Responses schema rejected" if schema_error else "Responses API failed",
+                                current_model,
+                            )
+                            try:
+                                response = get_client().chat.completions.create(**fallback_payload)
+                            except OpenAIError as chat_error:
+                                logger.error(
+                                    "Chat Completions fallback failed: %s",
+                                    getattr(chat_error, "message", str(chat_error)),
+                                    exc_info=chat_error,
+                                )
+                                response = None
+                        else:
+                            response = None
+                        if response is None:
+                            raise _wrap_openai_exception(
+                                err,
+                                model=current_model,
+                                schema_name=schema_name,
+                                step=step_label,
+                                api_mode=active_mode.value,
+                            )
+                    elif active_mode.is_classic and chat_retry_attempts < max_chat_retries:
+                        delay = 0.5 * (2**chat_retry_attempts)
+                        chat_retry_attempts += 1
+                        logger.info(
+                            "Retrying Chat Completions after error (attempt %d/%d) in %.1fs.",
+                            chat_retry_attempts,
+                            max_chat_retries,
+                            delay,
+                        )
+                        time.sleep(delay)
+                        continue
+                    elif is_model_available(current_model):
+                        raise _wrap_openai_exception(
+                            err,
+                            model=current_model,
+                            schema_name=schema_name,
+                            step=step_label,
+                            api_mode=active_mode.value,
+                        )
+                    else:
+                        next_model = context.register_failure(current_model)
+    
+                        if next_model is None:
+                            raise _wrap_openai_exception(
+                                err,
+                                model=current_model,
+                                schema_name=schema_name,
+                                step=step_label,
+                                api_mode=active_mode.value,
+                            )
+    
+                        logger.warning(
+                            "Model '%s' unavailable (%s); retrying with fallback '%s'.",
+                            current_model,
+                            getattr(err, "message", str(err)),
+                            next_model,
+                        )
+                        payload["model"] = next_model
+                        current_model = next_model
+                        set_model(current_model)
+                        continue
+    
+            response_id = _extract_response_id(response)
+            if response_id and not active_mode.is_classic and api_mode_override != "chat":
+                payload["previous_response_id"] = response_id
+    
+            content = _extract_output_text(response)
+            normalised_content = _normalise_content_payload(content)
+            low_confidence = False
+            repair_status: JsonRepairStatus | None = None
+    
+            if schema_bundle is not None and normalised_content:
+                repair_attempt = parse_json_with_repair(normalised_content)
+                repair_status = repair_attempt.status
+                if repair_attempt.payload is not None:
+                    normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
+                if repair_attempt.status is JsonRepairStatus.FAILED and not active_mode.is_classic:
                     logger.warning(
-                        "Structured extraction parse failed for %s without chat fallback payload; returning raw content.",
+                        "Structured extraction JSON parse failed during %s; retrying via chat.",
                         current_model,
                     )
-            low_confidence = repair_attempt.status is JsonRepairStatus.REPAIRED
-        elif schema_bundle is not None and not normalised_content:
-            raise LLMResponseFormatError(
-                "Model output could not be parsed into the expected schema.",
-                step=step_label,
-                model=current_model,
-                details={"schema": schema_name, "api_mode": active_mode.value},
-                schema=schema_name,
-                raw_content=_extract_output_text(response),
-            )
-
-        tool_calls = _collect_tool_calls(response)
-
-        usage_block = _normalise_usage(_extract_usage_block(response) or {})
-        numeric_usage = _numeric_usage(usage_block)
-        _accumulate_usage(retry_state, numeric_usage)
-
-        if capture_file_search:
-            _record_file_search_results(retry_state, response)
-
-        if tool_calls:
-            retry_state.last_tool_calls = tool_calls
-
-        if not tool_calls:
+                    fallback_payload = _build_chat_fallback_payload(payload, messages_list, schema_bundle)
+                    if fallback_payload:
+                        fallback_to_chat_attempted = True
+                        try:
+                            fallback_response = get_client().chat.completions.create(**fallback_payload)
+                            fallback_content = _normalise_content_payload(_extract_output_text(fallback_response))
+                            repair_attempt = parse_json_with_repair(fallback_content or "")
+                            repair_status = repair_attempt.status
+                            if repair_attempt.payload is not None:
+                                normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
+                            elif fallback_content:
+                                normalised_content = fallback_content
+                        except Exception as exc:  # pragma: no cover - defensive
+                            logger.warning("Chat fallback after repair failure failed: %s", exc)
+                    else:
+                        logger.warning(
+                            "Structured extraction parse failed for %s without chat fallback payload; returning raw content.",
+                            current_model,
+                        )
+                low_confidence = repair_attempt.status is JsonRepairStatus.REPAIRED
+            elif schema_bundle is not None and not normalised_content:
+                raise LLMResponseFormatError(
+                    "Model output could not be parsed into the expected schema.",
+                    step=step_label,
+                    model=current_model,
+                    details={"schema": schema_name, "api_mode": active_mode.value},
+                )
+    
+            normalised_secondary_content: str | None = None
+            comparison_metadata: Mapping[str, Any] | None = None
+            comparison_responses: tuple[Any, Any] | None = None
+            secondary_usage: UsageDict | None = None
+    
+            if comparison_messages is not None and comparison_result is not None:
+                comparison_content = _normalise_content_payload(
+                    _extract_output_text(comparison_result.raw_response)
+                )
+                normalised_secondary_content = comparison_content
+                if schema_bundle is not None and comparison_content:
+                    repair_attempt = parse_json_with_repair(comparison_content)
+                    if repair_attempt.payload is not None:
+                        normalised_secondary_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
+                    comparison_metadata = _build_comparison_metadata(
+                        primary=primary_result,
+                        secondary=comparison_result,
+                        label=comparison_label,
+                        custom=options.get("metadata_builder", metadata_builder),
+                    )
+                comparison_responses = (response, comparison_result.raw_response)
+                secondary_usage = comparison_result.usage
+    
             merged_usage = _usage_snapshot(retry_state, numeric_usage)
             _update_usage_counters(merged_usage, task=task)
-            result_tool_calls = retry_state.last_tool_calls
             return ChatCallResult(
                 normalised_content,
                 result_tool_calls,
@@ -1730,6 +1745,13 @@ def _call_chat_api_single(
                 response_id=response_id,
                 raw_response=response if include_raw_response else None,
                 file_search_results=retry_state.file_search_results or None,
+                secondary_content=normalised_secondary_content,
+                secondary_tool_calls=comparison_result.secondary_tool_calls if comparison_result else None,
+                secondary_usage=secondary_usage,
+                comparison=comparison_metadata,
+                secondary_raw_response=comparison_result.raw_response if comparison_result else None,
+                secondary_file_search_results=comparison_result.file_search_results if comparison_result else None,
+                secondary_response_id=comparison_result.response_id if comparison_result else None,
                 low_confidence=low_confidence,
                 repair_status=repair_status,
             )

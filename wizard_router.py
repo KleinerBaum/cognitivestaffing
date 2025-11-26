@@ -15,6 +15,7 @@ from openai_utils.errors import (
     SchemaValidationError,
 )
 from utils.i18n import tr
+from utils.logging_context import log_context, set_wizard_step
 from wizard.company_validators import persist_contact_email, persist_primary_city
 from wizard.metadata import (
     PAGE_SECTION_INDEXES,
@@ -135,34 +136,37 @@ class WizardRouter:
             st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
             return
 
-        st.session_state[StateKeys.STEP] = renderer.legacy_index
-        last_rendered = self._state.get("_last_rendered_step")
-        if last_rendered != current_key:
-            st.session_state["_wizard_scroll_to_top"] = True
-            self._state["_last_rendered_step"] = current_key
-        maybe_scroll_to_top()
-        lang = st.session_state.get("lang", "de")
-        summary_labels = [tr(de, en, lang=lang) for de, en in self._summary_labels]
-        st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
-        try:
-            renderer.callback(self._context)
-        except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
-            raise
-        except _STEP_RECOVERABLE_ERRORS as error:
-            self._controller.handle_step_exception(page, error)
-        except Exception as error:  # pragma: no cover - defensive guard
-            self._controller.handle_step_exception(page, error)
-        missing = self._missing_required_fields(page)
-        nav_state = build_navigation_state(
-            page=page,
-            missing=missing,
-            previous_key=self._controller.previous_key(page),
-            next_key=self._controller.next_key(page),
-            allow_skip=page.allow_skip,
-            navigate_factory=self._build_nav_callback,
-        )
-        render_navigation(nav_state)
-        render_validation_warnings(self._controller.pending_validation_errors)
+        with log_context(wizard_step=page.key):
+            set_wizard_step(page.key)
+            logger.info("Entering wizard step %s", page.key)
+            st.session_state[StateKeys.STEP] = renderer.legacy_index
+            last_rendered = self._state.get("_last_rendered_step")
+            if last_rendered != current_key:
+                st.session_state["_wizard_scroll_to_top"] = True
+                self._state["_last_rendered_step"] = current_key
+            maybe_scroll_to_top()
+            lang = st.session_state.get("lang", "de")
+            summary_labels = [tr(de, en, lang=lang) for de, en in self._summary_labels]
+            st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
+            try:
+                renderer.callback(self._context)
+            except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
+                raise
+            except _STEP_RECOVERABLE_ERRORS as error:
+                self._controller.handle_step_exception(page, error)
+            except Exception as error:  # pragma: no cover - defensive guard
+                self._controller.handle_step_exception(page, error)
+            missing = self._missing_required_fields(page)
+            nav_state = build_navigation_state(
+                page=page,
+                missing=missing,
+                previous_key=self._controller.previous_key(page),
+                next_key=self._controller.next_key(page),
+                allow_skip=page.allow_skip,
+                navigate_factory=self._build_nav_callback,
+            )
+            render_navigation(nav_state)
+            render_validation_warnings(self._controller.pending_validation_errors)
 
     # ------------------------------------------------------------------
     # Internal helpers

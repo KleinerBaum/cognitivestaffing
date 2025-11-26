@@ -177,6 +177,7 @@ class ProfilePaths(StrEnum):
 class StateKeys:
     """Keys for data stored in ``st.session_state``."""
 
+    SESSION_ID = "session.id"
     PROFILE = "profile_data"
     AI_CONTRIBUTIONS = "ai_contributions"
     RAW_TEXT = "profile_raw_text"

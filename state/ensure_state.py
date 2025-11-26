@@ -8,6 +8,7 @@ from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
 from typing import Any, Callable, Sequence
 from urllib.parse import urlparse
+from uuid import uuid4
 
 import streamlit as st
 from pydantic import ValidationError
@@ -33,6 +34,7 @@ from utils.normalization import NormalizedProfilePayload, normalize_profile
 from utils.i18n import tr
 from llm.json_repair import repair_profile_payload
 from llm.profile_normalization import normalize_interview_stages_field
+from utils.logging_context import configure_logging, set_model, set_session_id
 
 
 import config as app_config
@@ -71,6 +73,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.EXTRACTION_SUMMARY: dict,
         StateKeys.EXTRACTION_MISSING: list,
         StateKeys.EXTRACTION_RAW_PROFILE: dict,
+        StateKeys.SESSION_ID: lambda: str(uuid4()),
         StateKeys.ESCO_SKILLS: list,
         StateKeys.ESCO_MISSING_SKILLS: list,
         StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS: list,
@@ -231,6 +234,13 @@ def ensure_state() -> None:
     flat keys are upgraded via :func:`_migrate_legacy_profile_keys`.
     """
 
+    configure_logging()
+    session_id = st.session_state.get(StateKeys.SESSION_ID)
+    if not isinstance(session_id, str) or not session_id.strip():
+        session_id = str(uuid4())
+        st.session_state[StateKeys.SESSION_ID] = session_id
+    set_session_id(session_id)
+
     _migrate_legacy_profile_keys()
     existing = st.session_state.get(StateKeys.PROFILE)
     auto_populated_paths: list[str] = []
@@ -340,6 +350,9 @@ def ensure_state() -> None:
     else:
         override = normalise_model_override(st.session_state.get("model_override"))
         st.session_state["model_override"] = override or ""
+    resolved_model = st.session_state.get("router.resolved_model") or st.session_state.get("model")
+    if isinstance(resolved_model, str):
+        set_model(resolved_model)
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "openai_api_key_missing" not in st.session_state:

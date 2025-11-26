@@ -10,6 +10,10 @@ from enum import StrEnum
 from threading import Lock
 from typing import Any, Callable, Iterable, Mapping
 
+from utils.logging_context import configure_logging, log_context, set_pipeline_task
+
+configure_logging()
+
 logger = logging.getLogger(__name__)
 
 WorkflowCallable = Callable[["WorkflowContext"], Any]
@@ -135,16 +139,17 @@ class WorkflowRunner:
                     candidate_task = self._tasks[candidate_name]
                     outcome = results[candidate_name]
 
-                    if self._should_skip(candidate_task, results):
-                        outcome.status = TaskStatus.SKIPPED
-                        self._logger.info(
-                            "Skipping task %s due to failed dependencies", candidate_task.name
-                        )
-                        for child in dependants[candidate_name]:
-                            pending_dependencies[child] -= 1
-                            if pending_dependencies[child] == 0:
-                                ready.append(child)
-                        continue
+                    with log_context(pipeline_task=candidate_task.name):
+                        if self._should_skip(candidate_task, results):
+                            outcome.status = TaskStatus.SKIPPED
+                            self._logger.info(
+                                "Skipping task %s due to failed dependencies", candidate_task.name
+                            )
+                            for child in dependants[candidate_name]:
+                                pending_dependencies[child] -= 1
+                                if pending_dependencies[child] == 0:
+                                    ready.append(child)
+                            continue
 
                     if not candidate_task.parallelizable and in_flight:
                         done, _ = wait(in_flight.keys())
@@ -154,7 +159,8 @@ class WorkflowRunner:
                         ready.appendleft(candidate_name)
                         continue
 
-                    self._logger.info("Starting task %s", candidate_task.name)
+                    with log_context(pipeline_task=candidate_task.name):
+                        self._logger.info("Starting task %s", candidate_task.name)
                     outcome.status = TaskStatus.RUNNING
                     future = executor.submit(self._execute, candidate_task, ctx)
                     in_flight[future] = candidate_task
@@ -191,18 +197,21 @@ class WorkflowRunner:
                 outcome.status = TaskStatus.SKIPPED
                 outcome.error = skip_exc
                 outcome.attempts = getattr(skip_exc, "attempts", 1)
-                self._logger.info("Task %s marked as skipped: %s", task.name, skip_exc)
+                with log_context(pipeline_task=task.name):
+                    self._logger.info("Task %s marked as skipped: %s", task.name, skip_exc)
             except Exception as exc:  # noqa: BLE001 - capture for status tracking
                 outcome.status = TaskStatus.FAILED
                 outcome.error = exc
                 outcome.attempts = getattr(exc, "attempts", 1)
-                self._logger.exception("Task %s failed", task.name)
+                with log_context(pipeline_task=task.name):
+                    self._logger.exception("Task %s failed", task.name)
             else:
                 outcome.status = TaskStatus.SUCCESS
                 outcome.result = result
                 outcome.attempts = attempts_used
                 ctx[task.name] = result
-                self._logger.info("Completed task %s", task.name)
+                with log_context(pipeline_task=task.name):
+                    self._logger.info("Completed task %s", task.name)
 
             for child in dependants.get(task.name, []):
                 pending_dependencies[child] -= 1
@@ -212,40 +221,42 @@ class WorkflowRunner:
     def _execute(self, task: Task, context: WorkflowContext) -> tuple[Any, int]:
         attempts = 0
         last_error: Exception | None = None
-        for attempt in range(task.retries + 1):
-            attempts = attempt + 1
-            try:
-                if task.timeout is not None:
-                    with ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(task.func, context)
-                        return future.result(timeout=task.timeout), attempts
-                return task.func(context), attempts
-            except SkipTask as exc:
-                setattr(exc, "attempts", attempts)
-                raise
-            except FuturesTimeoutError as exc:
-                last_error = exc
-                self._logger.warning(
-                    "Task %s exceeded timeout after %.2fs (attempt %s/%s)",
-                    task.name,
-                    task.timeout,
-                    attempts,
-                    task.retries + 1,
-                )
-            except Exception as exc:  # noqa: BLE001 - propagate to retry handler
-                last_error = exc
-                if attempt < task.retries:
+        with log_context(pipeline_task=task.name):
+            set_pipeline_task(task.name)
+            for attempt in range(task.retries + 1):
+                attempts = attempt + 1
+                try:
+                    if task.timeout is not None:
+                        with ThreadPoolExecutor(max_workers=1) as executor:
+                            future = executor.submit(task.func, context)
+                            return future.result(timeout=task.timeout), attempts
+                    return task.func(context), attempts
+                except SkipTask as exc:
+                    setattr(exc, "attempts", attempts)
+                    raise
+                except FuturesTimeoutError as exc:
+                    last_error = exc
                     self._logger.warning(
-                        "Task %s failed (attempt %s/%s); retrying",
+                        "Task %s exceeded timeout after %.2fs (attempt %s/%s)",
                         task.name,
+                        task.timeout,
                         attempts,
                         task.retries + 1,
-                        exc_info=exc,
                     )
-                else:
-                    self._logger.debug("Task %s failed on final attempt", task.name)
-            if last_error and attempt < task.retries:
-                continue
+                except Exception as exc:  # noqa: BLE001 - propagate to retry handler
+                    last_error = exc
+                    if attempt < task.retries:
+                        self._logger.warning(
+                            "Task %s failed (attempt %s/%s); retrying",
+                            task.name,
+                            attempts,
+                            task.retries + 1,
+                            exc_info=exc,
+                        )
+                    else:
+                        self._logger.debug("Task %s failed on final attempt", task.name)
+                if last_error and attempt < task.retries:
+                    continue
         if last_error:
             if hasattr(last_error, "args"):
                 setattr(last_error, "attempts", attempts)
