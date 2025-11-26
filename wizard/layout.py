@@ -308,10 +308,9 @@ def render_navigation_controls(state: NavigationState, *, location: Literal["top
 
     marker_class = f"wizard-nav-marker wizard-nav-marker--{location}"
     st.markdown(f"<div class='{marker_class}'></div>", unsafe_allow_html=True)
-    cols = st.columns((1.1, 1.1, 1), gap="small")
+    cols = st.columns((1, 1), gap="small")
     _render_navigation_button(cols[0], state.previous, state, location=location)
     _render_navigation_button(cols[1], state.next, state, location=location)
-    _render_navigation_button(cols[2], state.skip, state, location=location)
 
 
 def _render_navigation_button(
