@@ -9,7 +9,14 @@ import streamlit as st
 from components import widget_factory
 from components.form_fields import text_input_with_state
 from constants.keys import ProfilePaths
-from wizard.layout import render_section_heading, render_step_heading, render_step_warning_banner
+from wizard.layout import (
+    format_missing_label,
+    merge_missing_help,
+    render_missing_field_summary,
+    render_section_heading,
+    render_step_heading,
+    render_step_warning_banner,
+)
 from wizard_router import WizardContext
 from utils.i18n import tr
 from wizard.sections.team_advisor import render_team_advisor
@@ -96,9 +103,11 @@ def _step_team() -> None:
     """
 
     profile = _get_profile_state()
+    missing_here = _missing_fields_for_section(2)
     title, subtitle, intros = _resolve_step_copy("team", profile)
-    render_step_heading(title, subtitle)
+    render_step_heading(title, subtitle, missing_fields=missing_here)
     render_step_warning_banner()
+    render_missing_field_summary(missing_here)
     for intro in intros:
         st.caption(intro)
     data = profile
@@ -109,18 +118,29 @@ def _step_team() -> None:
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
 
-    missing_here = _missing_fields_for_section(2)
-
     render_section_heading(tr("Team & Struktur", "Team & Structure"))
     role_cols = st.columns((1.3, 1))
-    title_label = tr("Jobtitel", "Job title") + REQUIRED_SUFFIX
+    title_label = format_missing_label(
+        tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.POSITION_JOB_TITLE,
+        missing_fields=missing_here,
+    )
     title_lock = _field_lock_config(
         ProfilePaths.POSITION_JOB_TITLE,
         title_label,
         container=role_cols[0],
         context="step",
     )
-    job_title_kwargs = _apply_field_lock_kwargs(title_lock)
+    job_title_kwargs = _apply_field_lock_kwargs(
+        title_lock,
+        {
+            "help": merge_missing_help(
+                None,
+                field_path=ProfilePaths.POSITION_JOB_TITLE,
+                missing_fields=missing_here,
+            )
+        },
+    )
     position["job_title"] = widget_factory.text_input(
         ProfilePaths.POSITION_JOB_TITLE,
         title_lock["label"],
@@ -149,13 +169,22 @@ def _step_team() -> None:
     )
 
     reporting_cols = st.columns((1, 1))
-    reporting_label = tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX
+    reporting_label = format_missing_label(
+        tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX,
+        field_path=ProfilePaths.TEAM_REPORTING_LINE,
+        missing_fields=missing_here,
+    )
     team["reporting_line"] = widget_factory.text_input(
         ProfilePaths.TEAM_REPORTING_LINE,
         reporting_label,
         widget_factory=reporting_cols[0].text_input,
         placeholder=tr("Zugeordnete Leitung eintragen", "Enter the overseeing function"),
         value_formatter=_string_or_empty,
+        help=merge_missing_help(
+            None,
+            field_path=ProfilePaths.TEAM_REPORTING_LINE,
+            missing_fields=missing_here,
+        ),
     )
     _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team.get("reporting_line", ""))
     _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team.get("reporting_line", ""))
@@ -185,13 +214,22 @@ def _step_team() -> None:
     manager_cols = st.columns((1, 1))
     position["reporting_manager_name"] = widget_factory.text_input(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-        tr("Vorgesetzte Person", "Reporting manager") + REQUIRED_SUFFIX,
+        format_missing_label(
+            tr("Vorgesetzte Person", "Reporting manager") + REQUIRED_SUFFIX,
+            field_path=ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+            missing_fields=missing_here,
+        ),
         widget_factory=manager_cols[0].text_input,
         placeholder=tr(
             "Name der vorgesetzten Person eintragen",
             "Enter the reporting manager's name",
         ),
         value_formatter=_string_or_empty,
+        help=merge_missing_help(
+            None,
+            field_path=ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+            missing_fields=missing_here,
+        ),
     )
     _update_profile(
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
@@ -225,7 +263,11 @@ def _step_team() -> None:
         ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
         position.get("customer_contact_details"),
     )
-    summary_label = tr(*ROLE_SUMMARY_LABEL)
+    summary_label = format_missing_label(
+        tr(*ROLE_SUMMARY_LABEL),
+        field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
+        missing_fields=missing_here,
+    )
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
         summary_label += REQUIRED_SUFFIX
     position["role_summary"] = st.text_area(
@@ -233,6 +275,11 @@ def _step_team() -> None:
         value=st.session_state.get(ProfilePaths.POSITION_ROLE_SUMMARY, position.get("role_summary", "")),
         height=120,
         key=ProfilePaths.POSITION_ROLE_SUMMARY,
+        help=merge_missing_help(
+            None,
+            field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
+            missing_fields=missing_here,
+        ),
     )
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
         st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
@@ -245,7 +292,9 @@ def _step_team() -> None:
     render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
 
     timing_cols = st.columns(3)
-    start_selection = _render_target_start_date_input(timing_cols[0], meta_data)
+    start_selection = _render_target_start_date_input(
+        timing_cols[0], meta_data, missing_fields=missing_here
+    )
     meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
     _render_followups_for_fields(
         (ProfilePaths.META_TARGET_START_DATE,),

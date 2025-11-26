@@ -8,12 +8,13 @@ from base64 import b64encode
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Final, Iterable, Literal, Optional, Sequence
+from typing import Any, Callable, Collection, Final, Iterable, Literal, Optional, Sequence
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
 from constants.keys import ProfilePaths, StateKeys
+from wizard.sections.followups import CRITICAL_FIELD_PROMPTS
 from utils.i18n import tr
 
 
@@ -38,6 +39,142 @@ _REQUIRED_FIELD_LABELS: Final[dict[str, tuple[str, str]]] = {
     "requirements.hard_skills_required": ("Muss-Have-Skills", "Must-have skills"),
     "requirements.soft_skills_required": ("Muss-Have-Soft-Skills", "Must-have soft skills"),
 }
+
+_MISSING_FIELD_ICON: Final[str] = "⚠️"
+
+
+def _lookup_field_label(field_path: str, lang: str) -> str:
+    """Return a localized label for ``field_path``.
+
+    Falls back to a humanized path when no explicit mapping exists.
+    """
+
+    mapped_label = _REQUIRED_FIELD_LABELS.get(field_path)
+    if mapped_label:
+        return tr(*mapped_label, lang=lang)
+
+    cleaned = field_path.replace("_", " ").replace(".", " ").strip()
+    readable = " ".join(part.capitalize() for part in cleaned.split()) or field_path
+    return tr(readable, readable, lang=lang)
+
+
+def _lookup_field_reason(field_path: str, lang: str) -> str:
+    """Return a localized rationale for the missing field."""
+
+    prompt_config = CRITICAL_FIELD_PROMPTS.get(field_path)
+    if prompt_config:
+        description = prompt_config.get("description")
+        if isinstance(description, (list, tuple)):
+            return tr(*description, lang=lang)
+        prompt = prompt_config.get("prompt")
+        if isinstance(prompt, (list, tuple)):
+            return tr(*prompt, lang=lang)
+
+    return tr(
+        "Benötigt für Exporte und Folgeprozesse.",
+        "Required for exports and downstream steps.",
+        lang=lang,
+    )
+
+
+def build_missing_field_descriptors(
+    missing_fields: Collection[str],
+) -> list[dict[str, str]]:
+    """Return structured descriptors for ``missing_fields`` with labels and reasons."""
+
+    lang = st.session_state.get("lang", "de")
+    descriptors: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for field_path in missing_fields:
+        if not field_path or field_path in seen:
+            continue
+        label = _lookup_field_label(field_path, lang)
+        reason = _lookup_field_reason(field_path, lang)
+        descriptors.append({"field": field_path, "label": label, "reason": reason})
+        seen.add(field_path)
+    return descriptors
+
+
+def format_missing_label(
+    label: str, *, field_path: str, missing_fields: Collection[str]
+) -> str:
+    """Prefix ``label`` with a warning indicator when ``field_path`` is missing."""
+
+    if field_path not in missing_fields:
+        return label
+    return f"{_MISSING_FIELD_ICON} {label}"
+
+
+def merge_missing_help(
+    help_text: str | None, *, field_path: str, missing_fields: Collection[str]
+) -> str | None:
+    """Append a localized missing-field hint to ``help_text`` when relevant."""
+
+    if field_path not in missing_fields:
+        return help_text
+
+    lang = st.session_state.get("lang", "de")
+    reason = _lookup_field_reason(field_path, lang)
+    missing_hint = tr(
+        "Pflichtfeld: {reason}",
+        "Critical field: {reason}",
+        lang=lang,
+    ).format(reason=reason)
+
+    parts = [text for text in (help_text, missing_hint) if text]
+    if not parts:
+        return None
+    return "\n\n".join(parts)
+
+
+def render_missing_field_summary(
+    missing_fields: Collection[str], *, scope: Literal["step", "global"] = "step"
+) -> None:
+    """Render a highlighted summary for missing critical fields."""
+
+    descriptors = build_missing_field_descriptors(missing_fields)
+    if not descriptors:
+        return
+
+    lang = st.session_state.get("lang", "de")
+    intro = (
+        tr(
+            "Bitte ergänze diese Angaben in diesem Abschnitt.",
+            "Please fill these items in this section.",
+            lang=lang,
+        )
+        if scope == "step"
+        else tr(
+            "Diese Felder fehlen noch insgesamt, bevor Exporte vollständig sind.",
+            "These fields are still missing overall before exports are complete.",
+            lang=lang,
+        )
+    )
+
+    items = "".join(
+        (
+            "<li>"
+            f"<span class='missing-summary__label'>{html.escape(item['label'])}</span>"
+            f"<div class='missing-summary__reason'>{html.escape(item['reason'])}</div>"
+            "</li>"
+        )
+        for item in descriptors
+    )
+
+    st.markdown(
+        """
+<div class="missing-summary-panel">
+  <div class="missing-summary-panel__title">⚠️ {title}</div>
+  <div class="missing-summary-panel__intro">{intro}</div>
+  <ul class="missing-summary-panel__list">{items}</ul>
+</div>
+        """.format(
+            title=tr("Fehlende Pflichtfelder", "Missing critical fields", lang=lang),
+            intro=html.escape(intro),
+            items=items,
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _format_missing_field_list(fields: Iterable[str]) -> str:
@@ -661,10 +798,33 @@ def render_onboarding_hero(animation_bytes: bytes | None, *, mime_type: str = "i
     st.markdown(hero_html, unsafe_allow_html=True)
 
 
-def render_step_heading(title: str, subtitle: Optional[str] = None) -> None:
+def render_step_heading(
+    title: str,
+    subtitle: Optional[str] = None,
+    *,
+    missing_fields: Collection[str] | None = None,
+) -> None:
     """Render a consistent heading block for wizard steps."""
 
-    st.header(title)
+    lang = st.session_state.get("lang", "de")
+    missing = tuple(missing_fields or ())
+
+    if missing:
+        title_col, badge_col = st.columns((1, "auto"))
+        with title_col:
+            st.header(title)
+        badge_label = tr(
+            "Pflichtfelder fehlen",
+            "Critical fields missing",
+            lang=lang,
+        )
+        badge_col.markdown(
+            f"<div class='missing-badge'>{_MISSING_FIELD_ICON} {badge_label}</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.header(title)
+
     if subtitle:
         st.subheader(subtitle)
 
@@ -838,6 +998,10 @@ __all__ = [
     "render_list_text_area",
     "render_navigation_controls",
     "inject_salary_slider_styles",
+    "build_missing_field_descriptors",
+    "format_missing_label",
+    "merge_missing_help",
+    "render_missing_field_summary",
     "render_onboarding_hero",
     "render_section_heading",
     "render_step_heading",

@@ -155,16 +155,29 @@ def _coerce_date_widget_value(widget_key: str, raw_value: Any) -> date:
     return coerced_default
 
 
-def _render_target_start_date_input(column: Any, meta: Mapping[str, Any]) -> date:
+def _render_target_start_date_input(
+    column: Any, meta: Mapping[str, Any], *, missing_fields: Collection[str] | None = None
+) -> date:
     """Render the target start date widget with resilient defaults."""
 
     widget_key = str(ProfilePaths.META_TARGET_START_DATE)
     target_start_value = _coerce_date_widget_value(widget_key, meta.get("target_start_date"))
-    return column.date_input(
+    label = format_missing_label(
         tr("Gewünschtes Startdatum", "Desired start date"),
+        field_path=ProfilePaths.META_TARGET_START_DATE,
+        missing_fields=missing_fields or (),
+    )
+    help_text = merge_missing_help(
+        None,
+        field_path=ProfilePaths.META_TARGET_START_DATE,
+        missing_fields=missing_fields or (),
+    )
+    return column.date_input(
+        label,
         value=target_start_value,
         format="YYYY-MM-DD",
         key=widget_key,
+        help=help_text,
     )
 
 
@@ -219,8 +232,11 @@ from ._agents import (
 )
 from .layout import (
     COMPACT_STEP_STYLE,
+    format_missing_label,
     inject_salary_slider_styles,
+    merge_missing_help,
     render_list_text_area,
+    render_missing_field_summary,
     render_onboarding_hero,
     render_section_heading,
     render_step_heading,
@@ -11310,15 +11326,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     )
 
     missing_critical = get_missing_critical_fields()
-    if missing_critical:
-        readable_fields = ", ".join(_humanize_path(field, lang) for field in missing_critical)
-        st.warning(
-            tr(
-                "Bitte fülle alle Pflichtfelder aus, bevor du exportierst: {fields}",
-                "Please complete all critical fields before exporting: {fields}",
-                lang=lang,
-            ).format(fields=readable_fields)
-        )
+    render_missing_field_summary(missing_critical, scope="global")
 
     _render_followups_for_step("summary", data)
 
