@@ -14,7 +14,7 @@ import streamlit as st
 from pydantic import BaseModel, ConfigDict, Field
 import plotly.graph_objects as go
 
-from config import APIMode, ModelTask, get_model_for
+from config import ModelTask, get_model_for
 from constants.keys import StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from core.suggestions import get_static_benefit_shortlist
@@ -920,20 +920,23 @@ def _call_salary_model(
 
     schema = SalaryExpectationResponse.model_json_schema()
     tools = tool_factory(FUNCTION_NAME, schema, allow_extra=False)
-    model = get_model_for(ModelTask.SALARY_ESTIMATE)
-    result = api(
-        messages,
-        temperature=0.2,
-        max_completion_tokens=180,
-        tools=tools,
-        tool_choice={
-            "type": "function",
-            "function": {"name": FUNCTION_NAME},
-        },
-        model=model,
-        task=ModelTask.SALARY_ESTIMATE,
-        api_mode=APIMode.CLASSIC,
-    )
+    model = get_model_for(ModelTask.SALARY_ESTIMATE) or get_model_for(ModelTask.DEFAULT)
+    try:
+        result = api(
+            messages,
+            temperature=0.2,
+            max_completion_tokens=180,
+            tools=tools,
+            tool_choice={
+                "type": "function",
+                "function": {"name": FUNCTION_NAME},
+            },
+            model=model,
+            task=ModelTask.SALARY_ESTIMATE,
+        )
+    except Exception as exc:  # noqa: BLE001 - propagate controlled failure to trigger fallback
+        logger.debug("Salary model call failed: %s", exc, exc_info=exc)
+        return None, None
 
     arguments = _extract_tool_arguments(result, FUNCTION_NAME)
     data: dict[str, Any] | None = None
