@@ -20,6 +20,12 @@ import importlib
 from types import ModuleType
 from typing import Any, Iterable, Iterator
 
+from .errors import (
+    ExternalServiceError,
+    LLMResponseFormatError,
+    NeedAnalysisPipelineError,
+    SchemaValidationError,
+)
 from .api import ChatCallResult as ChatCallResult  # noqa: F401
 from .api import call_chat_api as call_chat_api  # noqa: F401
 from .api import stream_chat_api as stream_chat_api  # noqa: F401
@@ -67,6 +73,10 @@ __all__: _LazyExportList = _LazyExportList(
         "model_supports_temperature",
         "build_extraction_tool",
         "build_function_tools",
+        "SchemaValidationError",
+        "LLMResponseFormatError",
+        "ExternalServiceError",
+        "NeedAnalysisPipelineError",
     )
 )
 

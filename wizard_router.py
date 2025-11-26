@@ -8,6 +8,12 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
 from constants.keys import ProfilePaths, StateKeys
+from openai_utils.errors import (
+    ExternalServiceError,
+    LLMResponseFormatError,
+    NeedAnalysisPipelineError,
+    SchemaValidationError,
+)
 from utils.i18n import tr
 from wizard.company_validators import persist_contact_email, persist_primary_city
 from wizard.metadata import (
@@ -65,6 +71,10 @@ _STEP_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
     StreamlitAPIException,
     ValidationError,
     ValueError,
+    NeedAnalysisPipelineError,
+    SchemaValidationError,
+    LLMResponseFormatError,
+    ExternalServiceError,
 )
 
 
@@ -190,9 +200,7 @@ class WizardRouter:
         if not combined:
             return combined
 
-        return [
-            field for field in combined if field_belongs_to_page(field, page.key)
-        ]
+        return [field for field in combined if field_belongs_to_page(field, page.key)]
 
     def _validate_required_field_inputs(self, fields: Sequence[str]) -> dict[str, LocalizedText]:
         return self._controller.validate_required_field_inputs(fields)

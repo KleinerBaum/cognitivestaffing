@@ -75,6 +75,12 @@ from config import set_api_mode, set_responses_allow_tools
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
+from openai_utils.errors import (
+    ExternalServiceError,
+    LLMResponseFormatError,
+    NeedAnalysisPipelineError,
+    SchemaValidationError,
+)
 from state import ensure_state
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
@@ -4021,7 +4027,14 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             locked_items=locked_items,
             reasoning_effort=effort_value,
         )
-    except (ExtractionError, InvalidExtractionPayload) as exc:
+    except (
+        ExtractionError,
+        InvalidExtractionPayload,
+        SchemaValidationError,
+        LLMResponseFormatError,
+        ExternalServiceError,
+        NeedAnalysisPipelineError,
+    ) as exc:
         llm_error = exc
     else:
         extracted_data = extraction_result.data
@@ -4035,7 +4048,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             errors_map = dict(errors_map)
         else:
             errors_map = {}
-        detail_text = str(llm_error).strip()
+        detail_text = f"{llm_error.__class__.__name__}: {str(llm_error).strip()}".strip()
         errors_map["extraction"] = detail_text
         metadata["llm_errors"] = errors_map
         extraction_warning = tr(
@@ -4341,7 +4354,13 @@ def _maybe_run_extraction(schema: dict) -> None:
         with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
             try:
                 _extract_and_summarize(raw_clean, schema)
-            except ExtractionError as span_exc:
+            except (
+                ExtractionError,
+                SchemaValidationError,
+                LLMResponseFormatError,
+                ExternalServiceError,
+                NeedAnalysisPipelineError,
+            ) as span_exc:
                 span.record_exception(span_exc)
                 span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
                 raise
@@ -4349,7 +4368,13 @@ def _maybe_run_extraction(schema: dict) -> None:
                 span.record_exception(span_exc)
                 span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
                 raise
-    except ExtractionError as exc:
+    except (
+        ExtractionError,
+        SchemaValidationError,
+        LLMResponseFormatError,
+        ExternalServiceError,
+        NeedAnalysisPipelineError,
+    ) as exc:
         st.session_state.pop("__last_extracted_hash__", None)
         metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
         metadata = dict(metadata) if isinstance(metadata, Mapping) else {}
@@ -4375,7 +4400,8 @@ def _maybe_run_extraction(schema: dict) -> None:
         st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
         st.session_state[StateKeys.PROFILE_METADATA] = metadata
         logger.info(
-            "Plain-text heuristic recovery used after extraction failure: %s",
+            "Plain-text heuristic recovery used after %s: %s",
+            exc.__class__.__name__,
             exc,
         )
     except Exception as exc:
