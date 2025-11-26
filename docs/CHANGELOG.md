@@ -36,6 +36,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Improved documentation around how NeedAnalysisProfile schema, Pydantic models, and LLM response schemas must stay in sync.
 - Refactored the OpenAI API facade to orchestrate the shared client/payload/schema/tool helpers and added unit coverage for the new components.
 - Strengthened structured extraction prompts with clearer bilingual section mapping (Aufgaben/Hauptaufgaben → responsibilities, Anforderungen/Profil/Voraussetzungen → requirements) and benefit/process reminders to reduce missed German bullets.
+- Default LLM routing now prefers `gpt-5.1-mini` (with GPT-5.1/GPT-4 fallbacks) for quick tasks and medium reasoning tiers to reduce cost while preserving resilience.
 - Added rule-based section markers in extraction prompts so German headings are annotated with English cues, improving recall of responsibilities and requirements lists.
 - Expanded benefits and hiring-process detection (e.g., "Wir bieten", "Bewerbungsprozess") so compensation.benefits and process.hiring_process consistently capture enumerated perks and interview stages during extraction.
 - Introduced structured error classes for OpenAI interactions and wizard flows to distinguish schema validation, response formatting, and external dependency failures.

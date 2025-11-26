@@ -38,9 +38,9 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **Structured skill buckets & ESCO integration**  
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
 
-- **OpenAI model routing (Quick vs. Precise)**  
-  - **Quick / Schnell mode:** routes to a lightweight model tier (e.g. `gpt-4.1-mini`) with minimal reasoning for fast, cheap iterations.  
-  - **Precise / Genau mode:** routes to reasoning‑tier models (e.g. `o4-mini`, optionally `o3`) with configurable `REASONING_EFFORT` for complex extraction, repair, and normalization flows.  
+- **OpenAI model routing (Quick vs. Precise)**
+  - **Quick / Schnell mode:** routes to a lightweight model tier (e.g. `gpt-5.1-mini`) with minimal reasoning for fast, cheap iterations.
+  - **Precise / Genau mode:** routes to reasoning‑tier models (e.g. `gpt-5.1`, `o4-mini`, optionally `o3`) with configurable `REASONING_EFFORT` for complex extraction, repair, and normalization flows.
   Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
 
 - **Responses API first, Chat Completions fallback**

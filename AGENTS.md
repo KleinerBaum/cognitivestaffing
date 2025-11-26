@@ -57,9 +57,9 @@ Screenshots: If the UI changes, update any relevant screenshots under images/ in
 
 API & tools integration
 
-OpenAI usage: Use the OpenAI Responses API with available tools (e.g. WebSearchTool, FileSearchTool) and always request structured outputs (validated via Pydantic models or JSON schema). The default model is gpt-4.1-mini for cost-efficiency and speed. If the user selects “genau” (precise mode), switch to a higher reasoning model (e.g. o4-mini or o3) based on the REASONING_EFFORT setting.
+OpenAI usage: Use the OpenAI Responses API with available tools (e.g. WebSearchTool, FileSearchTool) and always request structured outputs (validated via Pydantic models or JSON schema). The default model is gpt-5.1-mini for cost-efficiency and speed. If the user selects “genau” (precise mode), switch to a higher reasoning model (e.g. gpt-5.1, o4-mini or o3) based on the REASONING_EFFORT setting.
 
-Quick vs Precise toggle: The wizard settings expose a bilingual quick/precise selector. Respect the stored mode by routing quick requests to gpt-4.1-mini with low reasoning effort and precise requests to the configured reasoning tier (o4-mini/o3) with higher verbosity. Keep cache keys (for extraction reuse or salary lookups) mode-aware so switching modes invalidates stale responses.
+Quick vs Precise toggle: The wizard settings expose a bilingual quick/precise selector. Respect the stored mode by routing quick requests to gpt-5.1-mini with low reasoning effort and precise requests to the configured reasoning tier (gpt-5.1/o4-mini/o3) with higher verbosity. Keep cache keys (for extraction reuse or salary lookups) mode-aware so switching modes invalidates stale responses.
 
 Responses vs. Chat completions: USE_RESPONSES_API is on by default and must stay in sync with USE_CLASSIC_API. Clearing the Responses flag (or setting USE_CLASSIC_API=1) forces all calls through the legacy Chat Completions API. Suggestion helpers should preserve the retry cascade: Responses → Chat → curated static copy when outages persist.
 

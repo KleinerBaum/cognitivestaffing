@@ -12,6 +12,7 @@ PREF_ENV = "COGNITIVE_PREFERRED_MODEL"
 FB_ENV = "COGNITIVE_MODEL_FALLBACKS"
 
 DEFAULT_CANDIDATES = [
+    "gpt-5.1-mini",
     "gpt-5.1",
     "gpt-4o-mini",
     "gpt-4.1-mini",
@@ -23,8 +24,9 @@ DEFAULT_CANDIDATES = [
 ]
 
 ALIASES = {
-    "gpt-5.1-mini": "gpt-4.1-mini",
-    "gpt-5.1-nano": "gpt-4.1-nano",
+    "gpt-5.1-mini-latest": "gpt-5.1-mini",
+    "gpt-5.1-latest": "gpt-5.1",
+    "gpt-5.1-nano-latest": "gpt-5.1-nano",
 }
 
 

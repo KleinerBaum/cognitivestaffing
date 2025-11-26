@@ -299,7 +299,7 @@ def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyP
 
     st.session_state.clear()
     st.session_state["lang"] = "en"
-    st.session_state["model_override"] = "  gpt-4.1-mini-latest  "
+    st.session_state["model_override"] = "  gpt-5.1-mini-latest  "
 
     captured: dict[str, object] = {}
 
@@ -315,6 +315,6 @@ def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyP
 
     resolved = model_selector_component.model_selector()
 
-    assert captured["index"] == 3
-    assert resolved == config.GPT41_MINI
-    assert st.session_state["model_override"] == config.GPT41_MINI
+    assert captured["index"] == 2
+    assert resolved == config.GPT51_MINI
+    assert st.session_state["model_override"] == config.GPT51_MINI
