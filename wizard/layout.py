@@ -298,10 +298,16 @@ def _render_autofill_suggestion(
             st.rerun()
 
 
-def render_navigation_controls(state: NavigationState) -> None:
-    """Render the navigation controls based on ``state``."""
+def render_navigation_controls(state: NavigationState, *, location: Literal["top", "bottom"] = "bottom") -> None:
+    """Render the navigation controls based on ``state``.
 
-    st.markdown("<div class='wizard-nav-marker'></div>", unsafe_allow_html=True)
+    Args:
+        state: The navigation state for the current step.
+        location: Whether the controls are rendered at the top or bottom of the page.
+    """
+
+    marker_class = f"wizard-nav-marker wizard-nav-marker--{location}"
+    st.markdown(f"<div class='{marker_class}'></div>", unsafe_allow_html=True)
     cols = st.columns((1.1, 1.1, 1), gap="small")
     _render_navigation_button(cols[0], state.previous, state)
     _render_navigation_button(cols[1], state.next, state)

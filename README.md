@@ -8,8 +8,11 @@ Live app: https://cognitivestaffing.streamlit.app/
 
 ## Key features
 
-- **Eight-step bilingual wizard**  
+- **Eight-step bilingual wizard**
   Onboarding → Company → Team & Structure → Role & Tasks → Skills & Requirements → Compensation → Hiring Process → Summary. Each step includes EN/DE intros, validations, and inline helper texts.
+
+- **Responsive layout for mobile & tablets**
+  Wizard columns reflow to one or two per row on narrow screens, navigation buttons are mirrored at the top and bottom of each step, and wide tables/text areas stay usable via horizontal-safe containers so the flow remains scroll- and tap-friendly.
 
   - **Required field & missing‑info guardrails**
     Required fields are clearly marked; the *Next* button shows bilingual warnings listing missing required fields and blocks navigation until they are filled. Step headers now surface ⚠️ badges and a bilingual summary panel when critical fields are missing, and inline labels gain warning indicators/tooltips so users see what needs attention immediately. Critical fields per step drive focused follow‑up questions and ChatKit prompts stored in `critical_fields.json`. Step validation now aligns field ownership with the correct sections so later-stage items (e.g., seniority, compensation ranges, remote percentage, interview stages) only gate the step where they belong.
