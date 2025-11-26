@@ -12,6 +12,9 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Fixed
+- Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
+
 ## [1.2.0] – 2025-02-24
 
 ### Changed

@@ -19,13 +19,15 @@ _NAVIGATION_STYLE = """
 <style>
 .wizard-nav-marker + div[data-testid="stHorizontalBlock"] {
     display: flex;
+    justify-content: center;
     gap: var(--space-sm, 0.6rem);
     align-items: stretch;
-    margin: 1.2rem 0 0.65rem;
+    margin: 1.2rem auto 0.65rem;
+    max-width: 520px;
 }
 
 .wizard-nav-marker--top + div[data-testid="stHorizontalBlock"] {
-    margin: 0 0 0.9rem;
+    margin: 0 auto 0.9rem;
 }
 
 .wizard-nav-marker + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
