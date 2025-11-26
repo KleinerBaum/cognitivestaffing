@@ -11,6 +11,11 @@ import streamlit as st
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
+from state.ai_failures import (
+    increment_step_failure,
+    is_step_ai_skipped,
+    reset_step_failures,
+)
 from utils.i18n import tr
 from utils.normalization import country_to_iso2
 from wizard._logic import (
@@ -21,6 +26,7 @@ from wizard._logic import (
     _record_autofill_rejection,
     _update_profile,
 )
+from wizard.ai_skip import render_skip_cta, render_skipped_banner
 
 
 @dataclass(slots=True)
@@ -368,6 +374,27 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
     )
 
     with st.expander(tr("💬 Gehaltsassistent", "💬 Salary assistant", lang=lang), expanded=False):
+        if is_step_ai_skipped("compensation"):
+            render_skipped_banner(
+                "compensation",
+                lang=lang,
+                message=(
+                    "Gehaltsvorschläge der KI wurden übersprungen. Bitte trage den Rahmen manuell ein.",
+                    "AI salary suggestions were skipped. Please enter the range manually.",
+                ),
+            )
+            return
+
+        render_skip_cta(
+            "compensation",
+            lang=lang,
+            warning_text=(
+                "Die KI antwortet nicht zuverlässig. Überspringe den Assistenten, falls du die Spanne selbst setzen möchtest.",
+                "The AI is failing repeatedly. Skip the assistant if you want to set the range yourself.",
+            ),
+            button_key="compensation_assistant.skip.cta",
+        )
+
         if not state["messages"]:
             intro = tr(
                 "Ich helfe dir, eine realistische Gehaltsspanne zu setzen – mit Marktbezug oder basierend auf deinem Budget.",
@@ -401,7 +428,28 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
                 lang=lang,
             ),
         ):
-            suggestion = _suggest_from_benchmark(job_title, country)
+            try:
+                suggestion = _suggest_from_benchmark(job_title, country)
+            except Exception as error:  # pragma: no cover - network/runtime guard
+                st.warning(
+                    tr(
+                        "Marktspanne konnte nicht geladen werden: {error}",
+                        "Could not fetch market range: {error}",
+                        lang=lang,
+                    ).format(error=error)
+                )
+                increment_step_failure("compensation")
+                render_skip_cta(
+                    "compensation",
+                    lang=lang,
+                    warning_text=(
+                        "Mehrfache Abruf-Fehler – überspringe den Assistenten und setze die Werte manuell.",
+                        "Multiple fetch errors – skip the assistant and set values manually.",
+                    ),
+                    button_key="compensation_assistant.skip.error",
+                )
+                return
+            reset_step_failures("compensation")
             message = _format_range_message(suggestion, lang, job_title=job_title, country=country)
             state.setdefault("messages", []).append({"role": "assistant", "content": message})
             state["last_suggestion"] = suggestion
@@ -420,6 +468,7 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
                 state.setdefault("messages", []).append({"role": "user", "content": normalized})
                 suggestion = _suggest_from_user_budget(normalized, profile.get("compensation", {}).get("currency"))
                 if suggestion:
+                    reset_step_failures("compensation")
                     message = _format_range_message(suggestion, lang, job_title=job_title, country=country)
                     state.setdefault("messages", []).append({"role": "assistant", "content": message})
                     state["last_suggestion"] = suggestion
@@ -430,6 +479,16 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
                         lang=lang,
                     )
                     state.setdefault("messages", []).append({"role": "assistant", "content": fallback})
+                    increment_step_failure("compensation")
+                    render_skip_cta(
+                        "compensation",
+                        lang=lang,
+                        warning_text=(
+                            "Die KI konnte keine Zahl erkennen. Du kannst die Spanne auch direkt selbst eingeben.",
+                            "The AI could not parse an amount. You can also enter the range manually instead.",
+                        ),
+                        button_key="compensation_assistant.skip.parse",
+                    )
 
         suggestion = state.get("last_suggestion")
         if (

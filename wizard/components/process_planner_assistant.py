@@ -12,10 +12,16 @@ import config as app_config
 from config import ModelTask, get_model_for
 from openai_utils.api import call_chat_api
 from openai_utils.tools import build_function_tools
+from state.ai_failures import (
+    increment_step_failure,
+    is_step_ai_skipped,
+    reset_step_failures,
+)
 from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
 from constants.keys import StateKeys
 from wizard._logic import _update_profile
+from wizard.ai_skip import render_skip_cta, render_skipped_banner
 
 PLANNER_STATE_KEY: Final[str] = "wizard.process_planner.state"
 PLANNER_UI_KEY: Final[str] = "ui.process.hiring_process"
@@ -151,7 +157,7 @@ def _run_planner_turn(
     job_title: str,
     seniority: str | None,
     existing_steps: Sequence[str],
-) -> None:
+) -> bool:
     """Execute a single planner turn and append the assistant reply."""
 
     system_prompt = _build_system_prompt(
@@ -203,14 +209,27 @@ def _run_planner_turn(
                     "Assistent konnte nicht antworten: {error}",
                     "Assistant could not respond: {error}",
                     lang=lang,
-                ).format(error=exc)
+                    ).format(error=exc)
             )
-            return
+            increment_step_failure("process")
+            render_skip_cta(
+                "process",
+                lang=lang,
+                warning_text=(
+                    "KI-Antworten sind mehrfach fehlgeschlagen. Du kannst die Planung überspringen und Schritte manuell erfassen.",
+                    "AI replies failed repeatedly. Skip the planner and capture the steps manually instead.",
+                ),
+                button_key="process_planner.skip.error",
+            )
+            return False
+
+    reset_step_failures("process")
 
     assistant_reply = (result.content or "").strip()
     if assistant_reply:
         state.setdefault("messages", []).append({"role": "assistant", "content": assistant_reply})
     st.session_state[PLANNER_STATE_KEY] = state
+    return True
 
 
 def render_process_planner_assistant(profile: Mapping[str, Any], *, lang: str) -> None:
@@ -237,6 +256,27 @@ def render_process_planner_assistant(profile: Mapping[str, Any], *, lang: str) -
                 "Get a suggested interview flow and adjust the order before saving it to the profile.",
                 lang=lang,
             )
+        )
+
+        if is_step_ai_skipped("process"):
+            render_skipped_banner(
+                "process",
+                lang=lang,
+                message=(
+                    "KI-Vorschläge für den Prozess wurden übersprungen. Du kannst die Schritte unten manuell pflegen.",
+                    "AI suggestions for the process were skipped. Continue managing the steps manually below.",
+                ),
+            )
+            return
+
+        render_skip_cta(
+            "process",
+            lang=lang,
+            warning_text=(
+                "Mehrere Fehlversuche erkannt – überspringe den KI-Planer, wenn du die Schritte manuell eingeben möchtest.",
+                "Multiple failed attempts detected – skip the AI planner if you prefer to enter steps manually.",
+            ),
+            button_key="process_planner.skip.cta",
         )
 
         if not is_llm_available():
