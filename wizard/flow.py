@@ -83,6 +83,12 @@ from openai_utils.errors import (
     SchemaValidationError,
 )
 from state import ensure_state
+from state.ai_failures import (
+    get_skipped_steps,
+    increment_step_failure,
+    is_step_ai_skipped,
+    reset_step_failures,
+)
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
 from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
@@ -120,6 +126,7 @@ from wizard.date_utils import (
 from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.steps import company_step, jobad_step, team_step
+from wizard.ai_skip import render_skip_cta, render_skipped_banner
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
@@ -7422,6 +7429,8 @@ def _step_requirements() -> None:
     """Render the requirements step for skills and certifications."""
 
     data = _get_profile_state()
+    lang = st.session_state.get("lang", "de")
+    skill_ai_skipped = is_step_ai_skipped("skills")
     title, subtitle, intros = _resolve_step_copy("role_tasks", data)
     render_step_heading(title, subtitle)
     render_step_warning_banner()
@@ -7610,14 +7619,26 @@ def _step_requirements() -> None:
         """Display a user-friendly warning when suggestions fail to load."""
 
         if not error:
+            reset_step_failures("skills")
             return
+        increment_step_failure("skills")
         if is_admin_debug_session_active():
             st.session_state["skill_suggest_error"] = error
         st.warning(
             tr(
                 "Skill-Vorschläge nicht verfügbar (API-Fehler)",
                 "Skill suggestions not available (API error)",
+                lang=lang,
             )
+        )
+        render_skip_cta(
+            "skills",
+            lang=lang,
+            warning_text=(
+                "Skill-Vorschläge sind mehrfach fehlgeschlagen. Du kannst ohne KI-Unterstützung fortfahren.",
+                "Skill suggestions failed repeatedly. You can continue without AI assistance.",
+            ),
+            button_key="skill_suggest.skip.error",
         )
 
     raw_position = data.get("position")
@@ -7625,6 +7646,26 @@ def _step_requirements() -> None:
 
     helper_columns = st.columns((2.5, 1.5), gap="large")
     with helper_columns[0]:
+        if skill_ai_skipped:
+            render_skipped_banner(
+                "skills",
+                lang=lang,
+                message=(
+                    "KI-Skill-Vorschläge wurden übersprungen. Bitte pflege die Anforderungen manuell.",
+                    "AI skill suggestions were skipped. Please maintain the requirements manually.",
+                ),
+            )
+
+        render_skip_cta(
+            "skills",
+            lang=lang,
+            warning_text=(
+                "Mehrfache Fehler bei KI-Vorschlägen erkannt. Überspringe die Automatik und ergänze Skills manuell.",
+                "Multiple AI suggestion errors detected. Skip automation and enter skills manually.",
+            ),
+            button_key="skill_suggest.skip.cta",
+        )
+
         focus_selection = chip_multiselect(
             tr("Fokus für KI-Skill-Vorschläge", "Focus for AI skill suggestions"),
             options=focus_options,
@@ -7647,6 +7688,14 @@ def _step_requirements() -> None:
                     "Provide a job title to unlock skill suggestions.",
                 )
             )
+        if skill_ai_skipped:
+            disabled_hints.append(
+                tr(
+                    "KI-Unterstützung wurde deaktiviert. Du kannst die Liste unten trotzdem manuell bearbeiten.",
+                    "AI assistance was disabled. You can still edit the lists manually below.",
+                    lang=lang,
+                )
+            )
         for hint in disabled_hints:
             st.caption(hint)
         if st.button(
@@ -7657,7 +7706,7 @@ def _step_requirements() -> None:
                 "Lässt die KI zusätzliche passende Skills vorschlagen.",
                 "Ask the AI for additional relevant skills.",
             ),
-            disabled=bool(disabled_hints),
+            disabled=bool(disabled_hints) or skill_ai_skipped,
         ):
             focus_signature_local = tuple(sorted(focus_selection, key=str.casefold))
             existing_terms = _collect_existing_requirement_terms(requirements)
@@ -11366,6 +11415,30 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             "Note: Italicized entries were suggested by AI.",
         )
     )
+
+    skipped_ai_steps = get_skipped_steps()
+    skip_messages: dict[str, tuple[str, str]] = {
+        "team": (
+            "Team-Kompositions-Vorschläge wurden übersprungen. Bitte prüfe Berichtslinien und Teamgrößen manuell.",
+            "Team composition suggestions were skipped. Please review reporting lines and team sizes manually.",
+        ),
+        "skills": (
+            "Skill-Empfehlungen wurden aufgrund von KI-Fehlern übersprungen. Ergänze die Anforderungen manuell.",
+            "Skill recommendations were skipped after AI errors. Please complete the requirements manually.",
+        ),
+        "compensation": (
+            "Gehaltsvorschläge der KI fehlen. Überprüfe die Vergütungseinträge manuell.",
+            "AI salary suggestions are missing. Please verify the compensation fields manually.",
+        ),
+        "process": (
+            "Der KI-Prozessplaner wurde übersprungen. Prüfe den Bewerbungsablauf und die Phasen manuell.",
+            "The AI process planner was skipped. Review the hiring flow and phases manually.",
+        ),
+    }
+    for step_key in sorted(skipped_ai_steps):
+        message = skip_messages.get(step_key)
+        if message:
+            st.warning(tr(*message, lang=lang))
 
     missing_critical = get_missing_critical_fields()
     render_missing_field_summary(missing_critical, scope="global")

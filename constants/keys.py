@@ -258,6 +258,8 @@ class StateKeys:
     WIZARD_AUTOFILL_DECISIONS = "wizard.autofill_decisions"
     WIZARD_SESSION_READY = "wizard.session_ready"
     WIZARD_NAVIGATION_WARNING = "wizard.navigation_warning"
+    STEP_FAILURES = "wizard.step_failures"
+    STEP_AI_SKIPPED = "wizard.step_ai_skipped"
     PROFILE_REPAIR_FIELDS = "wizard.profile_repair_fields"
 
 

@@ -23,6 +23,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Schema versioning for NeedAnalysisProfile plus migration helpers to stabilise autosave and import of legacy profiles.
 - Session autosave snapshots with JSON export/import controls to recover NeedAnalysisProfile progress.
 - Friendly bilingual loading spinners and timeout messaging for LLM-driven extraction steps so users see progress and retry hints instead of raw errors when calls run long.
+- Per-step AI failure tracking with skip affordances for team, skills, compensation, and process assistants, including summary banners when AI content was skipped.
 
 ### Changed
 - Tightened wording and structure of README “Architecture overview” and “Configuration” sections to reflect current directory layout and environment flags.

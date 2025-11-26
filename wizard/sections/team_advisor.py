@@ -9,7 +9,13 @@ import streamlit as st
 
 from constants.keys import ProfilePaths
 from llm.team_advisor import TeamAdvice, advise_team_structure
+from state.ai_failures import (
+    increment_step_failure,
+    is_step_ai_skipped,
+    reset_step_failures,
+)
 from utils.i18n import tr
+from wizard.ai_skip import render_skip_cta, render_skipped_banner
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +162,27 @@ def render_team_advisor(
         tr("🧠 Team-Kompositions-Assistent", "🧠 Team composition advisor", lang=lang),
         expanded=False,
     ):
+        if is_step_ai_skipped("team"):
+            render_skipped_banner(
+                "team",
+                lang=lang,
+                message=(
+                    "KI-Vorschläge zur Teamstruktur wurden übersprungen. Bitte prüfe die Angaben manuell.",
+                    "AI team structure suggestions were skipped. Please review the fields manually.",
+                ),
+            )
+            return
+
+        render_skip_cta(
+            "team",
+            lang=lang,
+            warning_text=(
+                "Die KI hat mehrfach nicht geantwortet. Du kannst den Assistenten überspringen und manuell fortfahren.",
+                "The AI did not respond multiple times. You can skip this assistant and continue manually.",
+            ),
+            button_key="team_advisor.skip.cta",
+        )
+
         st.caption(
             tr(
                 "Frag die KI nach typischen Berichtslinien und Teamgrößen für diese Rolle.",
@@ -171,7 +198,29 @@ def render_team_advisor(
                 key="team_advisor.start",
             ):
                 state["started"] = True
-                advice = advise_team_structure(state.get("messages"), profile, lang=lang)
+                try:
+                    advice = advise_team_structure(state.get("messages"), profile, lang=lang)
+                except Exception as error:  # pragma: no cover - UI guard
+                    logger.warning("Team advisor failed", exc_info=error)
+                    st.warning(
+                        tr(
+                            "Assistent konnte nicht antworten: {error}",
+                            "Assistant could not respond: {error}",
+                            lang=lang,
+                        ).format(error=error)
+                    )
+                    increment_step_failure("team")
+                    render_skip_cta(
+                        "team",
+                        lang=lang,
+                        warning_text=(
+                            "Mehrfache Fehler erkannt – überspringe den Assistenten, wenn du manuell fortfahren möchtest.",
+                            "Multiple errors detected – skip the assistant to continue manually.",
+                        ),
+                        button_key="team_advisor.skip.failed",
+                    )
+                    return
+                reset_step_failures("team")
                 _record_advice(
                     advice,
                     state,
@@ -190,7 +239,31 @@ def render_team_advisor(
 
         if prompt:
             _append_message(state, "user", prompt.strip())
-            advice = advise_team_structure(state.get("messages"), profile, lang=lang, user_input=prompt)
+            try:
+                advice = advise_team_structure(
+                    state.get("messages"), profile, lang=lang, user_input=prompt
+                )
+            except Exception as error:  # pragma: no cover - UI guard
+                logger.warning("Team advisor prompt failed", exc_info=error)
+                st.warning(
+                    tr(
+                        "Assistent konnte nicht antworten: {error}",
+                        "Assistant could not respond: {error}",
+                        lang=lang,
+                    ).format(error=error)
+                )
+                increment_step_failure("team")
+                render_skip_cta(
+                    "team",
+                    lang=lang,
+                    warning_text=(
+                        "Mehrfache Fehler erkannt – überspringe den Assistenten, wenn du manuell fortfahren möchtest.",
+                        "Multiple errors detected – skip the assistant to continue manually.",
+                    ),
+                    button_key="team_advisor.skip.followup",
+                )
+                return
+            reset_step_failures("team")
             _record_advice(
                 advice,
                 state,
