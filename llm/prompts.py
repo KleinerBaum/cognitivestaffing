@@ -115,8 +115,10 @@ FOCUS_REMAINING_HINT: str = prompt_registry.get("llm.json_extractor.focus_remain
 FOCUS_FIELDS_HINT: str = prompt_registry.get("llm.json_extractor.focus_fields_hint")
 ALL_LOCKED_HINT: str = prompt_registry.get("llm.json_extractor.all_locked_hint")
 SECTION_PRIMER: str = (
-    "The following text describes the role's responsibilities, the required skills, and the hiring details. "
-    "Use any headings (e.g., Aufgaben, Anforderungen) to align evidence to the matching schema fields."
+    "The following text describes the role's responsibilities, required skills, benefits, and hiring details. "
+    "Use headings to align evidence to schema fields (e.g., Aufgaben/Hauptaufgaben/Verantwortung → responsibilities, "
+    "Anforderungen/Profil/Voraussetzungen → requirements, Wir bieten/Unser Angebot/Benefits → compensation.benefits, "
+    "Prozess/Bewerbungsverfahren → process)."
 )
 
 _SECTION_LABELS: dict[str, str] = {
@@ -127,6 +129,8 @@ _SECTION_LABELS: dict[str, str] = {
 _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
     "responsibilities": (
         r"\baufgabenbereich\b",
+        r"\bhauptaufgaben\b",
+        r"\bverantwortung(en)?\b",
         r"\bresponsibilit",
         r"^responsibilities\b",
         r"^key responsibilities\b",
@@ -155,6 +159,8 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
     "requirements": (
         r"\brequirement",
         r"\banforderungen\b",
+        r"\banforderungsprofil\b",
+        r"\bvoraussetzungen\b",
         r"\bskills\s*[&+]\s*anforderungen\b",
         r"\bskills?\b",
         r"\bskills\s+und\s+anforderungen\b",
@@ -293,6 +299,28 @@ def _render_section_hints(job_text: str) -> str:
     return "\n".join(lines)
 
 
+def _insert_section_markers(job_text: str) -> str:
+    """Inject English markers before detected section headings.
+
+    This helps the model anchor long bilingual sections (e.g., "Ihre Aufgaben",
+    "Anforderungsprofil") to the correct schema targets even when the original
+    heading is lengthy or implicit.
+    """
+
+    if not job_text.strip():
+        return job_text
+
+    labelled_lines: list[str] = []
+    for raw_line in job_text.splitlines():
+        heading = _match_section_heading(raw_line.strip())
+        if heading:
+            label = _SECTION_LABELS.get(heading)
+            if label:
+                labelled_lines.append(f"{label}:")
+        labelled_lines.append(raw_line)
+    return "\n".join(labelled_lines)
+
+
 def build_user_json_extract_prompt(
     fields_list: list[str],
     job_text: str,
@@ -362,6 +390,7 @@ def build_user_json_extract_prompt(
         analysis_block = "\n".join(analysis_lines)
 
     section_hints = _render_section_hints(job_text)
+    annotated_job_text = _insert_section_markers(job_text)
 
     blocks: list[str] = []
     if extras_block:
@@ -374,7 +403,7 @@ def build_user_json_extract_prompt(
         blocks.append(section_hints)
     blocks.append(SECTION_PRIMER)
     blocks.append(instructions)
-    blocks.append(f"Text:\n{job_text}")
+    blocks.append(f"Text:\n{annotated_job_text}")
     prompt = "\n\n".join(blocks)
     return prompt
 
