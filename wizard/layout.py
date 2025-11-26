@@ -824,7 +824,7 @@ def render_step_heading(
     missing = tuple(missing_fields or ())
 
     if missing:
-        title_col, badge_col = st.columns((1, "auto"))
+        title_col, badge_col = st.columns((0.85, 0.15))
         with title_col:
             st.header(title)
         badge_label = tr(
@@ -833,7 +833,13 @@ def render_step_heading(
             lang=lang,
         )
         badge_col.markdown(
-            f"<div class='missing-badge'>{_MISSING_FIELD_ICON} {badge_label}</div>",
+            """
+            <div style="display: flex; justify-content: flex-end;">
+                <div class='missing-badge'>
+                    {_MISSING_FIELD_ICON} {badge_label}
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
     else:

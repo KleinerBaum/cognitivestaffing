@@ -17,7 +17,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Fixed
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
-- Salary estimation now calls the chat API with a valid default model and guards malformed calls, so AI ranges render instead of silently falling back.
+- Streamlit step headers no longer crash on missing-field badges; column ratios are fully numeric again.
 
 ## [1.2.0] – 2025-02-24
 
