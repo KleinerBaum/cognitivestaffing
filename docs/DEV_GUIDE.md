@@ -159,10 +159,11 @@ unveränderlichen Keys und bringen Sidebar- bzw. Summary-Badges aus dem Takt.
 - Regex and keyword heuristics live in `core/rules.py` with helper utilities in
   `ingest/heuristics.py`. Add or adjust patterns there and include descriptive
   identifiers so telemetry can highlight which rule fired.
-- Section cues for responsibilities/requirements/benefits live in
+- Section cues for responsibilities/requirements/benefits/process live in
   `llm/prompts.py::_SECTION_PATTERNS`; extend those tuples when adding new
   headings or languages so the extractor stops at benefit blocks (e.g., "Wir
-  bieten") and keeps tasks separate from requirements.
+  bieten") and captures hiring steps (e.g., "Bewerbungsprozess") without
+  mixing tasks and requirements.
 - When rules feed brand metadata, prefer the dedicated helpers in
   `ingest/branding.py` (`fetch_branding_assets` returns logo URL, claim, brand
   colour and accent palette).
@@ -176,10 +177,11 @@ unveränderlichen Keys und bringen Sidebar- bzw. Summary-Badges aus dem Takt.
 - Regex- und Keyword-Heuristiken liegen in `core/rules.py`, unterstützende
   Helfer in `ingest/heuristics.py`. Muster dort hinzufügen/anpassen und eine
   sprechende ID vergeben, damit Telemetrie erkennt, welche Regel ausgelöst hat.
-- Abschnitts-Hinweise für Verantwortlichkeiten/Anforderungen/Benefits stehen in
-  `llm/prompts.py::_SECTION_PATTERNS`; erweitere diese Tupel bei neuen
-  Überschriften oder Sprachen, damit der Extraktor an Benefit-Blöcken (z. B.
-  „Wir bieten“) stoppt und Aufgaben von Anforderungen getrennt bleiben.
+- Abschnitts-Hinweise für Verantwortlichkeiten/Anforderungen/Benefits/Process
+  stehen in `llm/prompts.py::_SECTION_PATTERNS`; erweitere diese Tupel bei
+  neuen Überschriften oder Sprachen, damit der Extraktor an Benefit-Blöcken
+  (z. B. „Wir bieten“) stoppt, Hiring-Schritte (z. B. „Bewerbungsprozess“)
+  erkennt und Aufgaben von Anforderungen getrennt bleiben.
 - Branding-Metadaten besser über die dedizierten Helfer in
   `ingest/branding.py` einbinden (`fetch_branding_assets` liefert Logo-URL,
   Claim, Markenfarbe und Akzentpalette).
