@@ -60,7 +60,9 @@ llm:
     user_base: 'Work through the schema in order: 1) review extras, locked fields,
       and hints, 2) scan the text for evidence, 3) fill the JSON, setting unknown
       scalar fields to null and unknown array fields to []. Return only the schema
-      JSON. Use position.job_title for the neutral title, company.name for the employer,
+      JSON. Important: Do not omit any bullet points—include every listed task in
+      responsibilities.items and every listed qualification or skill in requirements.*.
+      Use position.job_title for the neutral title, company.name for the employer,
       location.primary_city for the primary city, and list responsibilities.items
       individually. Do not merge or summarise tasks—keep every duty from sections
       such as "Task List", "Key Responsibilities", or numbered lists as a distinct

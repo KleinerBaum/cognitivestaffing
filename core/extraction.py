@@ -43,6 +43,8 @@ _OMISSION_LOG_KEYS: set[str] = set()
 _RESPONSIBILITY_PATTERNS: tuple[str, ...] = (
     r"\bresponsibil",
     r"\baufgaben",
+    r"\bhauptaufgaben",
+    r"\bverantwortung",
     r"what you will do",
     r"was du machst",
     r"your tasks",
@@ -51,6 +53,8 @@ _RESPONSIBILITY_PATTERNS: tuple[str, ...] = (
 _REQUIREMENT_PATTERNS: tuple[str, ...] = (
     r"\brequirement",
     r"\bqualifications?",
+    r"\banforderungsprofil",
+    r"\bvoraussetzungen",
     r"\bprofil",
     r"was du mitbringst",
     r"what you bring",

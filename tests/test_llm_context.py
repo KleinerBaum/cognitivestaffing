@@ -143,6 +143,21 @@ def test_section_hints_are_injected_when_headings_exist():
     assert SECTION_PRIMER in user
 
 
+def test_section_markers_are_added_for_german_headings():
+    text = """Hauptaufgaben:
+    - Team führen
+
+    Voraussetzungen:
+    - Mehrjährige Erfahrung im Projektmanagement
+    """
+
+    msgs = build_extract_messages(text)
+    user = msgs[1]["content"]
+
+    assert "Responsibilities / Aufgaben:" in user
+    assert "Requirements / Anforderungen:" in user
+
+
 def test_german_jobbeschreibung_and_benefits_are_split_correctly():
     text = """Jobbeschreibung:
     - Leiten von Projekten
@@ -198,3 +213,19 @@ def test_your_mission_and_ihr_profil_headings_detected():
 
     assert sections.get("responsibilities") == ["Build integrations\nShip features"]
     assert sections.get("requirements") == ["Erfahrung mit Python\nFreude an Zusammenarbeit"]
+
+
+def test_hauptaufgaben_and_anforderungsprofil_detected():
+    text = """Hauptaufgaben
+    - Qualitätssicherung
+    - Wartung der Anlagen
+
+    Anforderungsprofil
+    - Abgeschlossene technische Ausbildung
+    - Reisebereitschaft
+    """
+
+    sections = _extract_section_hints(text)
+
+    assert sections.get("responsibilities") == ["Qualitätssicherung\nWartung der Anlagen"]
+    assert sections.get("requirements") == ["Abgeschlossene technische Ausbildung\nReisebereitschaft"]
