@@ -29,36 +29,31 @@ def reset_model_availability() -> None:
 
 
 def test_extraction_uses_cost_optimised_chain() -> None:
-    """Extraction should start on GPT-5.1 mini and cascade through 4.1 → 4o → 4."""
+    """Extraction should start on GPT-4o mini and cascade through resilient fallbacks."""
 
     fallbacks = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
-    assert fallbacks[:6] == [
-        config.GPT51_MINI,
-        config.GPT41_MINI,
-        config.GPT41_NANO,
+    assert fallbacks[:4] == [
         config.GPT4O_MINI,
         config.GPT4O,
         config.GPT4,
+        config.GPT35,
     ]
 
 
-def test_fallback_to_gpt41_when_gpt5_mini_unavailable(caplog: pytest.LogCaptureFixture) -> None:
-    """When GPT-5.1 mini is unavailable we should warn and fall back to GPT-4.1 mini."""
+def test_fallback_to_gpt4o_when_mini_unavailable(caplog: pytest.LogCaptureFixture) -> None:
+    """When GPT-4o mini is unavailable we should warn and fall back to GPT-4o."""
 
-    config.mark_model_unavailable(config.GPT51_MINI)
+    config.mark_model_unavailable(config.GPT4O_MINI)
     with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):
         model = config.get_first_available_model(config.ModelTask.EXTRACTION)
-    assert model == config.GPT41_MINI
-    assert config.GPT51_MINI in caplog.text
-    assert config.GPT41_MINI in caplog.text
+    assert model == config.GPT4O
+    assert config.GPT4O_MINI in caplog.text
+    assert config.GPT4O in caplog.text
 
 
 def test_fallback_cascades_to_gpt4(caplog: pytest.LogCaptureFixture) -> None:
-    """If newer mini tiers are down, GPT-4 should be selected with telemetry."""
+    """If newer tiers are down, GPT-4 should be selected with telemetry."""
 
-    config.mark_model_unavailable(config.GPT51_MINI)
-    config.mark_model_unavailable(config.GPT41_MINI)
-    config.mark_model_unavailable(config.GPT41_NANO)
     config.mark_model_unavailable(config.GPT4O_MINI)
     config.mark_model_unavailable(config.GPT4O)
     with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):

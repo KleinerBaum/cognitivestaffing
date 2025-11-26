@@ -794,15 +794,15 @@ def _render_settings() -> None:
     if selected_mode == "quick":
         st.caption(
             tr(
-                "Nutze gpt-5.1-mini mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
-                "Leans on gpt-5.1-mini with minimal reasoning for faster, shorter outputs.",
+                "Nutze gpt-4o-mini mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
+                "Leans on gpt-4o-mini with minimal reasoning for faster, shorter outputs.",
             )
         )
     else:
         st.caption(
             tr(
-                "Verwendet gpt-5.1 (Fallback o4/o3) und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
-                "Uses gpt-5.1 (fallback o4/o3) and allows richer reasoning for maximum accuracy.",
+                "Verwendet o3 (Fallback o4/gpt-4o) und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
+                "Uses o3 (fallback o4/gpt-4o) and allows richer reasoning for maximum accuracy.",
             )
         )
 

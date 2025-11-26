@@ -12,21 +12,21 @@ PREF_ENV = "COGNITIVE_PREFERRED_MODEL"
 FB_ENV = "COGNITIVE_MODEL_FALLBACKS"
 
 DEFAULT_CANDIDATES = [
-    "gpt-5.1-mini",
-    "gpt-5.1",
     "gpt-4o-mini",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    "o4-mini",
-    "o3",
     "o3-mini",
+    "o3",
+    "o4-mini",
     "gpt-4o",
+    "gpt-4",
 ]
 
 ALIASES = {
-    "gpt-5.1-mini-latest": "gpt-5.1-mini",
-    "gpt-5.1-latest": "gpt-5.1",
-    "gpt-5.1-nano-latest": "gpt-5.1-nano",
+    "gpt-5.1-mini": "gpt-4o-mini",
+    "gpt-5.1-mini-latest": "gpt-4o-mini",
+    "gpt-5.1": "gpt-4o",
+    "gpt-5.1-latest": "gpt-4o",
+    "gpt-5.1-nano": "gpt-4o-mini",
+    "gpt-5.1-nano-latest": "gpt-4o-mini",
 }
 
 
@@ -48,10 +48,16 @@ def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) ->
     candidates.extend(DEFAULT_CANDIDATES)
 
     available = _available_models(client)
+    resolved_candidates: list[str] = []
     for candidate in candidates:
         target = ALIASES.get(candidate, candidate)
-        if target in available:
-            return target
+        if target not in available:
+            continue
+        if target not in resolved_candidates:
+            resolved_candidates.append(target)
+
+    if resolved_candidates:
+        return resolved_candidates[0]
 
     if "gpt-4o" in available:
         return "gpt-4o"
