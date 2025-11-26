@@ -70,6 +70,10 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **Session-aware circuit breakers for external hints**
   Company enrichment calls to Clearbit and Wikipedia use per-session circuit breakers, preventing repeated failures from slowing down the wizard and surfacing bilingual notices when lookups are skipped.
 
+## Error handling reference
+
+See [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) for the current exception taxonomy, user-facing error messages, and the Responses → Chat → heuristics fallback chains used by the extraction and follow-up pipelines.
+
 ---
 
 ## Architecture overview
