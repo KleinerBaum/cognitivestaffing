@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache, partial
 import logging
 from types import ModuleType
-from typing import Any, Mapping, cast
+from typing import Any, Iterable, Mapping, MutableMapping, cast
 from urllib.parse import quote
 
 import requests
@@ -18,6 +18,7 @@ from constants.keys import ProfilePaths, StateKeys, UIKeys
 from wizard.company_validators import persist_contact_email, persist_primary_city
 from wizard.layout import render_step_heading, render_step_warning_banner
 from wizard_router import WizardContext
+from utils.circuit_breaker import CircuitBreaker
 from utils.i18n import tr
 
 __all__ = ["step_company"]
@@ -26,6 +27,54 @@ __all__ = ["step_company"]
 logger = logging.getLogger(__name__)
 
 _ASSISTANT_STATE_KEY = "company.insights.assistant"
+_CIRCUIT_STORE: MutableMapping[str, Any] | None = None
+_CLEARBIT_BREAKER_NAME = "clearbit.autocomplete"
+_WIKIPEDIA_BREAKER_NAME = "wikipedia.summary"
+
+
+def _get_circuit_store() -> MutableMapping[str, Any]:
+    """Return the per-session circuit breaker store."""
+
+    global _CIRCUIT_STORE
+    if _CIRCUIT_STORE is None:
+        try:
+            _CIRCUIT_STORE = cast(MutableMapping[str, Any], st.session_state)
+        except Exception:  # pragma: no cover - defensive fallback for tests
+            _CIRCUIT_STORE = {}
+    return _CIRCUIT_STORE
+
+
+def _get_breaker(service_name: str) -> CircuitBreaker:
+    """Instantiate a per-session circuit breaker for ``service_name``."""
+
+    return CircuitBreaker(
+        service_name,
+        store=_get_circuit_store(),
+        failure_threshold=3,
+        recovery_timeout=60,
+    )
+
+
+def _render_service_warnings(skipped_services: Iterable[str], lang: str) -> None:
+    """Surface user-facing notices for skipped external calls."""
+
+    services = {service.lower() for service in skipped_services}
+    if "clearbit" in services:
+        st.info(
+            tr(
+                "Der Unternehmensdaten-Dienst ist vorübergehend nicht erreichbar – bitte manuell ergänzen.",
+                "Company enrichment service is temporarily unavailable; you can proceed with manual input.",
+                lang=lang,
+            )
+        )
+    if "wikipedia" in services:
+        st.info(
+            tr(
+                "Öffentliche Web-Hinweise wurden übersprungen, weil externe Quellen derzeit nicht erreichbar sind.",
+                "Public web hints were skipped because external sources are currently unavailable.",
+                lang=lang,
+            )
+        )
 
 
 @dataclass
@@ -96,36 +145,44 @@ def _store_assistant_state(state: Mapping[str, Any]) -> None:
 
 
 @lru_cache(maxsize=32)
-def _lookup_company_profile(company_name: str) -> CompanyLookupResult | None:
+def _lookup_company_profile(company_name: str) -> tuple[CompanyLookupResult | None, set[str]]:
     """Try to find public company details via offline samples and light web lookups."""
 
     normalized = company_name.strip().lower()
     for sample in _load_sample_profiles():
         if sample.get("name", "").strip().lower() == normalized:
-            return CompanyLookupResult(
-                name=sample.get("name", company_name),
-                industry=sample.get("industry"),
-                size=sample.get("size"),
-                hq_location=sample.get("hq_location"),
-                website=sample.get("website"),
-                summary=sample.get("summary"),
-                source="offline_catalogue",
-                disclaimer="Static sample – please confirm accuracy.",
+            return (
+                CompanyLookupResult(
+                    name=sample.get("name", company_name),
+                    industry=sample.get("industry"),
+                    size=sample.get("size"),
+                    hq_location=sample.get("hq_location"),
+                    website=sample.get("website"),
+                    summary=sample.get("summary"),
+                    source="offline_catalogue",
+                    disclaimer="Static sample – please confirm accuracy.",
+                ),
+                set(),
             )
 
-    web_result = _fetch_public_company_data(company_name)
+    web_result, skipped_services = _fetch_public_company_data(company_name)
     if web_result:
-        return web_result
-    return None
+        return web_result, skipped_services
+    return None, skipped_services
 
 
-def _fetch_public_company_data(company_name: str) -> CompanyLookupResult | None:
+def _fetch_public_company_data(company_name: str) -> tuple[CompanyLookupResult | None, set[str]]:
     """Combine a lightweight web suggestion with a Wikipedia summary if available."""
 
-    wikipedia_summary = _fetch_wikipedia_summary(company_name)
-    clearbit_profile = _fetch_clearbit_profile(company_name)
+    skipped_services: set[str] = set()
+    wikipedia_summary, wikipedia_skipped = _fetch_wikipedia_summary(company_name)
+    clearbit_profile, clearbit_skipped = _fetch_clearbit_profile(company_name)
+    if wikipedia_skipped:
+        skipped_services.add("wikipedia")
+    if clearbit_skipped:
+        skipped_services.add("clearbit")
     if not wikipedia_summary and not clearbit_profile:
-        return None
+        return None, skipped_services
 
     website = clearbit_profile.get("website") if clearbit_profile else None
     industry = clearbit_profile.get("industry") if clearbit_profile else None
@@ -142,25 +199,31 @@ def _fetch_public_company_data(company_name: str) -> CompanyLookupResult | None:
 
     resolved_name = str(clearbit_profile.get("name") if clearbit_profile else company_name).strip() or company_name
 
-    return CompanyLookupResult(
-        name=resolved_name,
-        industry=industry,
-        size=clearbit_profile.get("size") if clearbit_profile else None,
-        hq_location=hq_location,
-        website=website,
-        summary=summary,
-        source="open_web",
-        disclaimer=(
-            "Public web hint – verify details before applying." if clearbit_profile or wikipedia_summary else None
+    return (
+        CompanyLookupResult(
+            name=resolved_name,
+            industry=industry,
+            size=clearbit_profile.get("size") if clearbit_profile else None,
+            hq_location=hq_location,
+            website=website,
+            summary=summary,
+            source="open_web",
+            disclaimer=(
+                "Public web hint – verify details before applying." if clearbit_profile or wikipedia_summary else None
+            ),
         ),
+        skipped_services,
     )
 
 
-def _fetch_clearbit_profile(company_name: str) -> Mapping[str, str] | None:
+def _fetch_clearbit_profile(company_name: str) -> tuple[Mapping[str, str] | None, bool]:
     """Return a basic public profile suggestion from the Clearbit autocomplete API."""
 
     if not company_name.strip():
-        return None
+        return None, False
+    breaker = _get_breaker(_CLEARBIT_BREAKER_NAME)
+    if not breaker.allow_request():
+        return None, True
     try:
         response = requests.get(
             "https://autocomplete.clearbit.com/v1/companies/suggest",
@@ -170,30 +233,39 @@ def _fetch_clearbit_profile(company_name: str) -> Mapping[str, str] | None:
         )
     except requests.RequestException as exc:  # pragma: no cover - network dependency
         logger.debug("Unable to fetch company suggestion: %s", exc)
-        return None
+        breaker.record_failure()
+        return None, False
     if not response.ok:
-        return None
+        breaker.record_failure()
+        return None, False
     try:
         payload = response.json()
     except ValueError:
-        return None
+        breaker.record_failure()
+        return None, False
     if not isinstance(payload, list):
-        return None
+        breaker.record_failure()
+        return None, False
     first_hit = next((item for item in payload if isinstance(item, Mapping)), None)
     if not first_hit:
-        return None
+        breaker.record_success()
+        return None, False
     name = str(first_hit.get("name") or company_name).strip()
     domain = str(first_hit.get("domain") or "").strip()
     website = f"https://{domain}" if domain else ""
     description = str(first_hit.get("description") or "").strip()
-    return {"name": name, "website": website, "description": description}
+    breaker.record_success()
+    return {"name": name, "website": website, "description": description}, False
 
 
-def _fetch_wikipedia_summary(company_name: str) -> Mapping[str, str] | None:
+def _fetch_wikipedia_summary(company_name: str) -> tuple[Mapping[str, str] | None, bool]:
     """Fetch a brief Wikipedia summary for the company if available."""
 
     if not company_name.strip():
-        return None
+        return None, False
+    breaker = _get_breaker(_WIKIPEDIA_BREAKER_NAME)
+    if not breaker.allow_request():
+        return None, True
     try:
         response = requests.get(
             f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(company_name)}",
@@ -202,23 +274,28 @@ def _fetch_wikipedia_summary(company_name: str) -> Mapping[str, str] | None:
         )
     except requests.RequestException as exc:  # pragma: no cover - network dependency
         logger.debug("Wikipedia summary lookup failed: %s", exc)
-        return None
+        breaker.record_failure()
+        return None, False
     if not response.ok:
-        return None
+        breaker.record_failure()
+        return None, False
     try:
         payload = response.json()
     except ValueError:
-        return None
+        breaker.record_failure()
+        return None, False
     summary = str(payload.get("extract") or "").strip()
     description = str(payload.get("description") or "").strip()
     title = str(payload.get("title") or company_name).strip()
     if not summary and not description:
-        return None
+        breaker.record_success()
+        return None, False
+    breaker.record_success()
     return {
         "summary": summary or description,
         "description": description,
         "title": title,
-    }
+    }, False
 
 
 def _describe_lookup_result(result: CompanyLookupResult, lang: str) -> str:
@@ -407,8 +484,9 @@ def _render_company_insights_assistant(company: dict[str, Any], location_data: d
             tr("🔎 Öffentliche Firmendaten abrufen", "🔎 Fetch public company data", lang=lang),
             key="company.insights.lookup",
         ):
-            fresh_result = _lookup_company_profile(company_name)
+            fresh_result, skipped_services = _lookup_company_profile(company_name)
             state["result"] = fresh_result
+            state["skipped_services"] = list(skipped_services)
             if fresh_result:
                 st.success(tr("Hinweise gefunden.", "Found public hints.", lang=lang))
             else:
@@ -420,7 +498,10 @@ def _render_company_insights_assistant(company: dict[str, Any], location_data: d
                     )
                 )
 
-        lookup_result: CompanyLookupResult | None = cast(CompanyLookupResult | None, state.get("result"))
+        lookup_result = cast(CompanyLookupResult | None, state.get("result"))
+        skipped_services = set(cast(list[str] | set[str] | None, state.get("skipped_services")) or [])
+        if skipped_services:
+            _render_service_warnings(skipped_services, lang)
         if lookup_result:
             st.markdown(_describe_lookup_result(lookup_result, lang))
             if lookup_result.disclaimer:
