@@ -71,6 +71,7 @@ from .client import (
     _is_reasoning_unsupported_error,
     _is_temperature_unsupported_error,
 )
+from .errors import ExternalServiceError, LLMResponseFormatError, NeedAnalysisPipelineError, SchemaValidationError
 from .payloads import _build_chat_fallback_payload, _convert_responses_payload_to_chat, _prepare_payload
 from .schemas import (
     SchemaFormatBundle,
@@ -991,6 +992,14 @@ class ChatStream(Iterable[str]):
 
     def _consume(self) -> Iterator[str]:
         client = get_client()
+        context_model = str(self._payload.get("model") or "").strip() or None
+        schema_name: str | None = None
+        response_format = self._payload.get("response_format")
+        if isinstance(response_format, Mapping):
+            schema_name = (
+                str(response_format.get("name") or response_format.get("json_schema", {}).get("name") or "").strip()
+                or None
+            )
         if not self._api_mode.is_classic and _has_strict_json_schema_format(self._payload):
             logger.info(
                 "Strict JSON schema detected for streaming request; retrying without streaming.",
@@ -1002,6 +1011,10 @@ class ChatStream(Iterable[str]):
             if recovered_response is None:
                 _handle_streaming_error(
                     RuntimeError("Streaming is unavailable for strict JSON schema payloads."),
+                    model=context_model,
+                    schema_name=schema_name,
+                    step=str(self._task),
+                    api_mode=self._api_mode.value,
                 )
                 return
 
@@ -1056,10 +1069,22 @@ class ChatStream(Iterable[str]):
                     self._finalise_partial()
                     return
                 else:
-                    _handle_streaming_error(error)
+                    _handle_streaming_error(
+                        error,
+                        model=context_model,
+                        schema_name=schema_name,
+                        step=str(self._task),
+                        api_mode=self._api_mode.value,
+                    )
                     return
             else:
-                _handle_streaming_error(error)
+                _handle_streaming_error(
+                    error,
+                    model=context_model,
+                    schema_name=schema_name,
+                    step=str(self._task),
+                    api_mode=self._api_mode.value,
+                )
                 return
         else:
             if final_response is None and missing_completion_event:
@@ -1341,23 +1366,81 @@ def _describe_openai_error(error: OpenAIError) -> tuple[str, str]:
     return user_msg, f"Unexpected OpenAI error: {fallback}"
 
 
-def _handle_openai_error(error: OpenAIError) -> None:
-    """Raise a user-friendly ``RuntimeError`` for OpenAI failures."""
+def _wrap_openai_exception(
+    error: OpenAIError,
+    *,
+    model: str | None,
+    schema_name: str | None,
+    step: str | None,
+    api_mode: str,
+) -> NeedAnalysisPipelineError:
+    """Translate OpenAI SDK errors into domain-specific exceptions."""
+
+    message = getattr(error, "message", str(error))
+    details: dict[str, Any] = {
+        "api_mode": api_mode,
+        "schema": schema_name,
+    }
+    if isinstance(error, BadRequestError) and is_unrecoverable_schema_error(error):
+        return SchemaValidationError(
+            resolve_message(_INVALID_REQUEST_ERROR_MESSAGE),
+            step=step,
+            model=model,
+            details=details,
+            schema=schema_name,
+            original=error,
+        )
+
+    return ExternalServiceError(
+        resolve_message(
+            _NETWORK_ERROR_MESSAGE
+            if isinstance(error, (APIConnectionError, APITimeoutError))
+            else _RATE_LIMIT_ERROR_MESSAGE
+        )
+        if isinstance(error, (RateLimitError, APIConnectionError, APITimeoutError))
+        else resolve_message((f"OpenAI-Fehler: {message}", f"OpenAI error: {message}")),
+        step=step,
+        model=model,
+        details={**details, "error_type": error.__class__.__name__},
+        service="openai",
+        original=error,
+    )
+
+
+def _handle_openai_error(
+    error: OpenAIError,
+    *,
+    model: str | None,
+    schema_name: str | None,
+    step: str | None,
+    api_mode: str,
+) -> None:
+    """Raise a user-friendly domain error for OpenAI failures."""
 
     user_msg, log_msg = _describe_openai_error(error)
-    logger.error(log_msg, exc_info=error)
+    wrapped = _wrap_openai_exception(error, model=model, schema_name=schema_name, step=step, api_mode=api_mode)
+    logger.error(
+        "%s (%s)", log_msg, wrapped.__class__.__name__, exc_info=error, extra={"schema": schema_name, "step": step}
+    )
     try:  # pragma: no cover - Streamlit may not be initialised in tests
         st.error(user_msg)
     except Exception:  # noqa: BLE001
         pass
-    raise RuntimeError(user_msg) from error
+    raise wrapped from error
 
 
-def _handle_streaming_error(error: Exception) -> None:
+def _handle_streaming_error(
+    error: Exception,
+    *,
+    model: str | None = None,
+    schema_name: str | None = None,
+    step: str | None = None,
+    api_mode: str = "responses",
+) -> None:
     """Surface streaming failures with user-facing feedback before re-raising."""
 
     if isinstance(error, OpenAIError):
-        _handle_openai_error(error)
+        _handle_openai_error(error, model=model, schema_name=schema_name, step=step, api_mode=api_mode)
         return
 
     message = str(error)
@@ -1384,7 +1467,20 @@ def _handle_streaming_error(error: Exception) -> None:
         st.error(user_msg)
     except Exception:  # noqa: BLE001
         pass
-    raise RuntimeError(user_msg) from error
+    logger.error(
+        "Streaming error encountered (%s)",
+        error.__class__.__name__,
+        exc_info=error,
+        extra={"schema": schema_name, "step": step},
+    )
+    raise ExternalServiceError(
+        user_msg,
+        step=step,
+        model=model,
+        details={"schema": schema_name, "api_mode": api_mode},
+        service="openai",
+        original=error,
+    ) from error
 
 
 def _on_api_giveup(details: Any) -> None:
@@ -1392,9 +1488,16 @@ def _on_api_giveup(details: Any) -> None:
 
     err = details.get("exception")
     if isinstance(err, BadRequestError):
-        raise err
+        raise SchemaValidationError(
+            resolve_message(_INVALID_REQUEST_ERROR_MESSAGE),
+            schema=None,
+            model=None,
+            step=None,
+            details={},
+            original=err,
+        )
     if isinstance(err, OpenAIError):  # pragma: no cover - defensive
-        _handle_openai_error(err)
+        _handle_openai_error(err, model=None, schema_name=None, step=None, api_mode="responses")
     raise err  # pragma: no cover - re-raise unexpected errors
 
 
@@ -1421,6 +1524,7 @@ def _call_chat_api_single(
     """Execute a single chat completion call with optional tool handling."""
 
     active_mode = resolve_api_mode(api_mode)
+    step_label = str(task.value) if isinstance(task, ModelTask) else str(task) if task is not None else None
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
     request = _prepare_payload(
@@ -1446,6 +1550,7 @@ def _call_chat_api_single(
     schema_bundle: SchemaFormatBundle | None = None
     if json_schema is not None and use_response_format:
         schema_bundle = build_schema_format_bundle(json_schema)
+    schema_name = schema_bundle.name if schema_bundle is not None else None
 
     message_key = "messages" if "messages" in payload else "input"
     base_messages = payload.get(message_key)
@@ -1503,7 +1608,13 @@ def _call_chat_api_single(
                 else:
                     response = None
                 if response is None:
-                    raise err
+                    raise _wrap_openai_exception(
+                        err,
+                        model=current_model,
+                        schema_name=schema_name,
+                        step=step_label,
+                        api_mode=active_mode.value,
+                    )
             elif active_mode.is_classic and chat_retry_attempts < max_chat_retries:
                 delay = 0.5 * (2**chat_retry_attempts)
                 chat_retry_attempts += 1
@@ -1516,12 +1627,24 @@ def _call_chat_api_single(
                 time.sleep(delay)
                 continue
             elif is_model_available(current_model):
-                raise
+                raise _wrap_openai_exception(
+                    err,
+                    model=current_model,
+                    schema_name=schema_name,
+                    step=step_label,
+                    api_mode=active_mode.value,
+                )
             else:
                 next_model = context.register_failure(current_model)
 
                 if next_model is None:
-                    raise
+                    raise _wrap_openai_exception(
+                        err,
+                        model=current_model,
+                        schema_name=schema_name,
+                        step=step_label,
+                        api_mode=active_mode.value,
+                    )
 
                 logger.warning(
                     "Model '%s' unavailable (%s); retrying with fallback '%s'.",
@@ -1572,6 +1695,15 @@ def _call_chat_api_single(
                         current_model,
                     )
             low_confidence = repair_attempt.status is JsonRepairStatus.REPAIRED
+        elif schema_bundle is not None and not normalised_content:
+            raise LLMResponseFormatError(
+                "Model output could not be parsed into the expected schema.",
+                step=step_label,
+                model=current_model,
+                details={"schema": schema_name, "api_mode": active_mode.value},
+                schema=schema_name,
+                raw_content=_extract_output_text(response),
+            )
 
         tool_calls = _collect_tool_calls(response)
 
@@ -1625,7 +1757,8 @@ def _call_chat_api_single(
 
 
 @retry_with_backoff(
-    giveup=lambda exc: isinstance(exc, BadRequestError) or is_unrecoverable_schema_error(exc),
+    giveup=lambda exc: isinstance(exc, (BadRequestError, SchemaValidationError, LLMResponseFormatError))
+    or is_unrecoverable_schema_error(exc),
     on_giveup=_on_api_giveup,
 )
 def call_chat_api(

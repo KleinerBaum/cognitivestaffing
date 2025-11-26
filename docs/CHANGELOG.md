@@ -24,6 +24,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Consolidated contributor expectations (formatting, type checking, testing, schema propagation) into `CONTRIBUTING.md` + `AGENTS.md`, referenced from README.
 - Improved documentation around how NeedAnalysisProfile schema, Pydantic models, and LLM response schemas must stay in sync.
 - Refactored the OpenAI API facade to orchestrate the shared client/payload/schema/tool helpers and added unit coverage for the new components.
+- Introduced structured error classes for OpenAI interactions and wizard flows to distinguish schema validation, response formatting, and external dependency failures.
 
 ### Fixed
 - Wizard navigation now maps seniority, compensation, remote-percentage, and interview-stage fields to their respective steps so "Next" only blocks on fields that belong to the current section.
