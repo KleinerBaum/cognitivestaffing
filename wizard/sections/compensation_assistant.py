@@ -13,7 +13,14 @@ from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from utils.i18n import tr
 from utils.normalization import country_to_iso2
-from wizard._logic import _clamp_salary_value, _infer_currency_from_range, _parse_salary_range_text, _update_profile
+from wizard._logic import (
+    _autofill_was_rejected,
+    _clamp_salary_value,
+    _infer_currency_from_range,
+    _parse_salary_range_text,
+    _record_autofill_rejection,
+    _update_profile,
+)
 
 
 @dataclass(slots=True)
@@ -141,30 +148,213 @@ def _suggest_from_user_budget(message: str, currency_hint: str | None) -> Salary
     )
 
 
-def _apply_suggestion(suggestion: SalarySuggestion, profile: MutableMapping[str, Any]) -> None:
-    salary_min = _clamp_salary_value(suggestion.salary_min)
-    salary_max = _clamp_salary_value(suggestion.salary_max)
-    currency = suggestion.currency or str(profile.get("compensation", {}).get("currency") or "").strip() or "EUR"
+def _normalize_conflict_value(value: Any) -> str:
+    """Return a trimmed representation for conflict comparison."""
 
-    _update_profile(ProfilePaths.COMPENSATION_SALARY_MIN, salary_min)
-    _update_profile(ProfilePaths.COMPENSATION_SALARY_MAX, salary_max)
-    _update_profile(ProfilePaths.COMPENSATION_SALARY_PROVIDED, bool(salary_min or salary_max))
-    _update_profile(ProfilePaths.COMPENSATION_CURRENCY, currency)
+    if value is None:
+        return ""
+    if isinstance(value, (int, float)):
+        return str(int(value))
+    return " ".join(str(value).strip().split())
 
-    comp = profile.setdefault("compensation", {})
-    comp["salary_min"] = salary_min
-    comp["salary_max"] = salary_max
-    comp["salary_provided"] = bool(salary_min or salary_max)
-    comp["currency"] = currency
 
+def _sync_salary_state(compensation: Mapping[str, Any], source: str) -> None:
+    """Persist the applied salary values into session state."""
+
+    salary_min = _clamp_salary_value(compensation.get("salary_min"))
+    salary_max = _clamp_salary_value(compensation.get("salary_max"))
+    currency = str(compensation.get("currency") or "").strip()
     st.session_state[UIKeys.SALARY_ESTIMATE] = {
         "salary_min": salary_min,
         "salary_max": salary_max,
         "currency": currency,
-        "source": suggestion.source,
+        "source": source,
     }
     st.session_state[UIKeys.SALARY_REFRESH] = datetime.utcnow().isoformat()
     st.session_state["ui.compensation.salary_range"] = (salary_min, salary_max)
+
+
+def _apply_salary_provided(compensation: MutableMapping[str, Any]) -> bool:
+    """Update and return the provided flag for compensation data."""
+
+    provided = bool(compensation.get("salary_min") or compensation.get("salary_max"))
+    compensation["salary_provided"] = provided
+    _update_profile(ProfilePaths.COMPENSATION_SALARY_PROVIDED, provided, mark_ai=True)
+    return provided
+
+
+def _queue_salary_conflicts(
+    *,
+    profile: MutableMapping[str, Any],
+    suggestion: SalarySuggestion,
+    state: MutableMapping[str, Any],
+) -> None:
+    """Store conflicts for manual confirmation before applying."""
+
+    compensation = profile.setdefault("compensation", {})
+    conflict_entries: list[dict[str, Any]] = []
+    applied_any = False
+
+    field_meta = (
+        (
+            ProfilePaths.COMPENSATION_SALARY_MIN,
+            "salary_min",
+            tr("Aktuelles Minimum", "Current minimum"),
+            compensation.get("salary_min"),
+            suggestion.salary_min,
+        ),
+        (
+            ProfilePaths.COMPENSATION_SALARY_MAX,
+            "salary_max",
+            tr("Aktuelles Maximum", "Current maximum"),
+            compensation.get("salary_max"),
+            suggestion.salary_max,
+        ),
+        (
+            ProfilePaths.COMPENSATION_CURRENCY,
+            "currency",
+            tr("Aktuelle Währung", "Current currency"),
+            compensation.get("currency"),
+            suggestion.currency or "EUR",
+        ),
+    )
+
+    for path, comp_key, label, current, proposed in field_meta:
+        normalized_current = _normalize_conflict_value(current)
+        normalized_proposed = _normalize_conflict_value(proposed)
+        if not normalized_proposed:
+            continue
+        if not normalized_current:
+            _update_profile(path, proposed, mark_ai=True)
+            compensation[comp_key] = proposed
+            applied_any = True
+            continue
+        if _autofill_was_rejected(path, str(proposed or "")):
+            continue
+        if normalized_current != normalized_proposed:
+            conflict_entries.append(
+                {
+                    "path": path,
+                    "comp_key": comp_key,
+                    "label": label,
+                    "current": str(current or ""),
+                    "proposed": str(proposed or ""),
+                }
+            )
+
+    if conflict_entries:
+        suggestion_token = f"{suggestion.salary_min}:{suggestion.salary_max}:{suggestion.currency}"
+        state["pending_conflicts"] = {
+            "fields": conflict_entries,
+            "suggestion_token": suggestion_token,
+            "source": suggestion.source,
+        }
+        st.session_state[StateKeys.COMPENSATION_ASSISTANT] = state
+        if applied_any:
+            _apply_salary_provided(compensation)
+            _sync_salary_state(compensation, suggestion.source)
+    else:
+        if applied_any:
+            _apply_salary_provided(compensation)
+            _sync_salary_state(compensation, suggestion.source)
+        st.toast(
+            tr("Spanne übernommen.", "Salary range applied.", lang=st.session_state.get("lang", "de")),
+            icon="✅",
+        )
+
+
+def _render_conflict_confirmation(profile: MutableMapping[str, Any], state: MutableMapping[str, Any]) -> None:
+    """Display a confirmation UI for conflicting salary suggestions."""
+
+    pending = state.get("pending_conflicts")
+    if not pending:
+        return
+
+    conflicts: list[Mapping[str, Any]] = pending.get("fields", [])
+    if not conflicts:
+        state.pop("pending_conflicts", None)
+        st.session_state[StateKeys.COMPENSATION_ASSISTANT] = state
+        return
+
+    lang = st.session_state.get("lang", "de")
+    suggestion_token = str(pending.get("suggestion_token") or "")
+    selection_key = f"salary_conflict_selection.{suggestion_token}"
+    if selection_key not in st.session_state:
+        st.session_state[selection_key] = {entry["path"]: True for entry in conflicts}
+
+    st.markdown("### 🤖➜✍️ " + tr("Vorschlag bestätigen", "Confirm AI proposal", lang=lang))
+    st.caption(
+        tr(
+            "KI möchte bestehende Werte überschreiben. Prüfe Unterschiede und entscheide pro Feld oder für alle.",
+            "The assistant wants to overwrite existing values. Review the differences and decide per field or in bulk.",
+            lang=lang,
+        )
+    )
+
+    for entry in conflicts:
+        path = str(entry.get("path"))
+        label = str(entry.get("label") or path)
+        current_value = str(entry.get("current") or "")
+        proposed_value = str(entry.get("proposed") or "")
+        with st.container(border=True):
+            cols = st.columns([0.1, 0.45, 0.45])
+            is_selected = cols[0].checkbox(
+                "",
+                key=f"{selection_key}.{path}",
+                value=st.session_state[selection_key].get(path, True),
+            )
+            st.session_state[selection_key][path] = is_selected
+            cols[1].markdown(f"**{tr('Meine Angabe', 'My input', lang=lang)} – {label}**")
+            cols[1].code(current_value or tr("(leer)", "(empty)", lang=lang))
+            cols[2].markdown(f"**{tr('KI-Vorschlag', 'AI suggestion', lang=lang)} – {label}**")
+            cols[2].code(proposed_value)
+
+    apply_selected = st.button(
+        tr("AI-Wert übernehmen", "Accept AI suggestion", lang=lang),
+        type="primary",
+        key=f"apply_selected.{suggestion_token}",
+    )
+    apply_all = st.button(
+        tr("Alle Felder übernehmen", "Accept for all fields", lang=lang),
+        key=f"apply_all.{suggestion_token}",
+    )
+    keep_manual = st.button(
+        tr("Meine Werte behalten", "Keep my version", lang=lang),
+        key=f"keep_manual.{suggestion_token}",
+    )
+
+    def _apply_conflicts(selected_paths: set[str]) -> None:
+        compensation = profile.setdefault("compensation", {})
+        for entry in conflicts:
+            path = str(entry.get("path"))
+            proposed_value = entry.get("proposed")
+            comp_key = str(entry.get("comp_key"))
+            if path in selected_paths:
+                _update_profile(path, proposed_value, mark_ai=True)
+                compensation[comp_key] = proposed_value
+            else:
+                _record_autofill_rejection(path, str(proposed_value or ""))
+        _apply_salary_provided(compensation)
+        _sync_salary_state(compensation, str(pending.get("source") or "assistant"))
+        state.pop("pending_conflicts", None)
+        st.session_state[StateKeys.COMPENSATION_ASSISTANT] = state
+        st.toast(
+            tr("Entscheidung gespeichert.", "Choice saved.", lang=lang),
+            icon="✅",
+        )
+        st.rerun()
+
+    if apply_all:
+        _apply_conflicts({str(entry.get("path")) for entry in conflicts})
+    elif apply_selected:
+        selected = {
+            path
+            for path in st.session_state.get(selection_key, {})
+            if st.session_state[selection_key].get(path)
+        }
+        _apply_conflicts(selected)
+    elif keep_manual:
+        _apply_conflicts(set())
 
 
 def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
@@ -222,6 +412,8 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
             disabled=False,
         )
 
+        _render_conflict_confirmation(profile, state)
+
         if prompt:
             normalized = prompt.strip()
             if normalized:
@@ -252,12 +444,13 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
                 lang=lang,
             )
             if st.button(apply_label, key=f"apply_salary_{state.get('counter', 0)}", help=tooltip):
-                _apply_suggestion(suggestion, profile)
-                confirmation = tr(
-                    "Erledigt – Spanne und Währung wurden eingetragen.",
-                    "Done — range and currency have been set.",
-                    lang=lang,
-                )
-                state.setdefault("messages", []).append({"role": "assistant", "content": confirmation})
+                _queue_salary_conflicts(profile=profile, suggestion=suggestion, state=state)
+                if not state.get("pending_conflicts"):
+                    confirmation = tr(
+                        "Erledigt – Spanne und Währung wurden eingetragen.",
+                        "Done — range and currency have been set.",
+                        lang=lang,
+                    )
+                    state.setdefault("messages", []).append({"role": "assistant", "content": confirmation})
 
         st.session_state[StateKeys.COMPENSATION_ASSISTANT] = state
