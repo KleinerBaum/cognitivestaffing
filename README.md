@@ -150,3 +150,24 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 - **English:** If the app falls back to older models because of environment overrides, clear the flags in your `.env` or Streamlit secrets. Run `python -m cli.reset_api_flags` to strip `USE_CLASSIC_API`, `USE_RESPONSES_API`, and model tier overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
 - **Deutsch:** Falls die App wegen gesetzter Umgebungsvariablen auf alte Modelle zurückfällt, entferne die Flags aus deiner `.env` oder den Streamlit-Secrets. Nutze `python -m cli.reset_api_flags`, um `USE_CLASSIC_API`, `USE_RESPONSES_API` sowie Modell-Overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`) zu löschen. Mit `-k EXTRA_KEY` entfernst du weitere Schlüssel.
+
+### Quickstart for devs (English / Deutsch)
+
+1. `poetry install` – install all dependencies into the virtual environment.
+2. Export `OPENAI_API_KEY=<your key>` (or configure it via `.env`/`st.secrets`). Without a key the UI keeps AI-triggered widgets disabled.
+3. `streamlit run app.py` – launches the wizard at http://localhost:8501.
+4. Optional / Optional: set `OPENAI_API_BASE_URL=https://eu.api.openai.com/v1` if you need the EU endpoint.
+
+### Testing
+
+- **Unit test suite (default) / Unit-Tests (Standard):**
+  - `poetry run pytest`
+  - `pytest.ini` applies `-m "not llm and not integration"` by default, so the standard run covers fast unit tests only.
+- **Integration flows with mocked/recorded OpenAI responses / Integrations-Tests mit Mocks:**
+  - Many end-to-end wizard and extraction flows stub the OpenAI client (for example `tests/test_integration_extraction_real_ads.py` monkeypatches `pipelines.need_analysis._extract_json_outcome` to return fixture payloads), so they can run offline without hitting the API.
+  - Run them with `poetry run pytest --override-ini "addopts=" -m "integration and not llm"` to include all integration-marked tests while still skipping live-LLM cases.
+- **Live LLM coverage / Tests mit echtem OpenAI-Schlüssel:**
+  - Only needed when validating real Responses/Chat behaviour. Provide a real `OPENAI_API_KEY` and run `poetry run pytest --override-ini "addopts=" -m "llm"` (or combine with `integration` markers) knowing these calls may incur cost and rate limits.
+- **Environment notes / Hinweise zur Umgebung:**
+  - `tests/conftest.py` injects `OPENAI_API_KEY="test-key"` and enables `LLM_ENABLED` for most tests, so dummy keys are sufficient unless you explicitly opt into `-m llm`.
+  - CI mirrors the commands above: the default job runs `poetry run pytest` (unit only), while integration or LLM jobs should drop the default `addopts` filter as shown.
