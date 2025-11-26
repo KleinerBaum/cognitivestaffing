@@ -40,10 +40,13 @@ Live app: https://cognitivestaffing.streamlit.app/
   - **Precise / Genau mode:** routes to reasoning‑tier models (e.g. `o4-mini`, optionally `o3`) with configurable `REASONING_EFFORT` for complex extraction, repair, and normalization flows.  
   Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
 
-- **Responses API first, Chat Completions fallback**  
+- **Responses API first, Chat Completions fallback**
   Structured calls use the OpenAI Responses API with JSON schemas and retries. If streaming fails, returns empty content, or violates `response_format`, the client falls back to Chat Completions and, if needed, to static curated suggestions.
 
-- **Boolean search & exports**  
+- **Responsive loading and timeout handling**
+  LLM-triggered actions render Streamlit spinners (“Analysiere die Stellenbeschreibung… / Analyzing your job description…”) so users know work is in progress. Friendly bilingual timeout notices (“⏳ … länger als erwartet / taking longer than usual…”) surface when OpenAI calls exceed the user-facing timeout guard, guiding users to retry or continue manually instead of seeing low-level errors.
+
+- **Boolean search & exports**
   From the stored profile you can:
   - generate Boolean search strings,
   - assemble exportable job ads,

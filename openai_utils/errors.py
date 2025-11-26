@@ -38,3 +38,11 @@ class ExternalServiceError(NeedAnalysisPipelineError):
     """Raised when an upstream dependency returns an error."""
 
     service: str | None = None
+
+
+@dataclass
+class LLMTimeoutError(NeedAnalysisPipelineError):
+    """Raised when an LLM request exceeds the configured timeout."""
+
+    timeout_seconds: float | None = None
+    service: str | None = "openai"

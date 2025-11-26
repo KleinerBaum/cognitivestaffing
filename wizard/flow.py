@@ -78,6 +78,7 @@ from core.errors import ExtractionError
 from openai_utils.errors import (
     ExternalServiceError,
     LLMResponseFormatError,
+    LLMTimeoutError,
     NeedAnalysisPipelineError,
     SchemaValidationError,
 )
@@ -4369,6 +4370,59 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = bool(first_incomplete)
 
 
+def _format_timeout_message() -> str:
+    """Return a bilingual timeout hint for long-running LLM calls."""
+
+    return tr(
+        "⏳ Die Analyse dauert länger als erwartet. Bitte erneut versuchen oder die Felder manuell ausfüllen.",
+        "⏳ This is taking longer than usual. Please try again or continue filling the fields manually.",
+    )
+
+
+def _resolve_extraction_warning(exc: Exception) -> str:
+    """Return the appropriate warning text for a failed extraction."""
+
+    if isinstance(exc, LLMTimeoutError):
+        return _format_timeout_message()
+    return tr(
+        "⚠️ Extraktion fehlgeschlagen – heuristische Felder verwendet.",
+        "⚠️ Extraction failed – populated basic fields heuristically.",
+    )
+
+
+def _apply_extraction_failure_fallback(
+    raw_clean: str, metadata: Mapping[str, Any], warning_message: str, *, error: Exception | None = None
+) -> None:
+    """Populate heuristic defaults after extraction fails and surface warnings."""
+
+    safe_metadata = dict(metadata) if isinstance(metadata, Mapping) else {}
+    st.warning(warning_message)
+    fallback_profile = apply_basic_fallbacks(
+        NeedAnalysisProfile(),
+        raw_clean,
+        metadata=safe_metadata,
+    )
+    profile_data = fallback_profile.model_dump()
+    st.session_state[StateKeys.PROFILE] = profile_data
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = profile_data
+    st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_message
+    st.session_state[StateKeys.STEPPER_WARNING] = warning_message
+    st.session_state[StateKeys.SKILL_BUCKETS] = {
+        "must": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_required", [])),
+        "nice": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_optional", [])),
+    }
+    missing_fields = [field for field in CRITICAL_FIELDS if not get_in(profile_data, field, None)]
+    st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
+    st.session_state[StateKeys.PROFILE_METADATA] = safe_metadata
+    if error:
+        logger.info(
+            "Plain-text heuristic recovery used after %s: %s",
+            error.__class__.__name__,
+            error,
+        )
+        display_error(error)
+
+
 def _maybe_run_extraction(schema: dict) -> None:
     """Trigger extraction when the corresponding flag is set in session state."""
 
@@ -4412,24 +4466,38 @@ def _maybe_run_extraction(schema: dict) -> None:
     st.session_state["__prefill_profile_doc__"] = cleaned_doc
     st.session_state["__last_extracted_hash__"] = digest
     _autodetect_lang(raw_clean)
+
+    def _current_metadata() -> dict[str, Any]:
+        current_meta = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+        return dict(current_meta) if isinstance(current_meta, Mapping) else {}
+
+    spinner_label = tr(
+        "Analysiere die Stellenbeschreibung…",
+        "Analyzing your job description…",
+    )
     try:
-        with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
-            try:
-                _extract_and_summarize(raw_clean, schema)
-            except (
-                ExtractionError,
-                SchemaValidationError,
-                LLMResponseFormatError,
-                ExternalServiceError,
-                NeedAnalysisPipelineError,
-            ) as span_exc:
-                span.record_exception(span_exc)
-                span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
-                raise
-            except Exception as span_exc:
-                span.record_exception(span_exc)
-                span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
-                raise
+        with st.spinner(spinner_label):
+            with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
+                try:
+                    _extract_and_summarize(raw_clean, schema)
+                except (
+                    ExtractionError,
+                    SchemaValidationError,
+                    LLMResponseFormatError,
+                    ExternalServiceError,
+                    NeedAnalysisPipelineError,
+                ) as span_exc:
+                    span.record_exception(span_exc)
+                    span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
+                    raise
+                except Exception as span_exc:
+                    span.record_exception(span_exc)
+                    span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
+                    raise
+    except LLMTimeoutError as exc:
+        st.session_state.pop("__last_extracted_hash__", None)
+        warning_message = _resolve_extraction_warning(exc)
+        _apply_extraction_failure_fallback(raw_clean, _current_metadata(), warning_message, error=exc)
     except (
         ExtractionError,
         SchemaValidationError,
@@ -4438,34 +4506,8 @@ def _maybe_run_extraction(schema: dict) -> None:
         NeedAnalysisPipelineError,
     ) as exc:
         st.session_state.pop("__last_extracted_hash__", None)
-        metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
-        metadata = dict(metadata) if isinstance(metadata, Mapping) else {}
-        fallback_profile = apply_basic_fallbacks(
-            NeedAnalysisProfile(),
-            raw_clean,
-            metadata=metadata,
-        )
-        warning_message = tr(
-            "⚠️ Extraktion fehlgeschlagen – heuristische Felder verwendet.",
-            "⚠️ Extraction failed – populated basic fields heuristically.",
-        )
-        profile_data = fallback_profile.model_dump()
-        st.session_state[StateKeys.PROFILE] = profile_data
-        st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = profile_data
-        st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_message
-        st.session_state[StateKeys.STEPPER_WARNING] = warning_message
-        st.session_state[StateKeys.SKILL_BUCKETS] = {
-            "must": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_required", [])),
-            "nice": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_optional", [])),
-        }
-        missing_fields = [field for field in CRITICAL_FIELDS if not get_in(profile_data, field, None)]
-        st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
-        st.session_state[StateKeys.PROFILE_METADATA] = metadata
-        logger.info(
-            "Plain-text heuristic recovery used after %s: %s",
-            exc.__class__.__name__,
-            exc,
-        )
+        warning_message = _resolve_extraction_warning(exc)
+        _apply_extraction_failure_fallback(raw_clean, _current_metadata(), warning_message, error=exc)
     except Exception as exc:
         st.session_state.pop("__last_extracted_hash__", None)
         warning_message = tr(

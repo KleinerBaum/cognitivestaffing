@@ -25,6 +25,7 @@ from .schemas import sanitize_response_format_payload
 
 logger = logging.getLogger("cognitive_needs.openai")
 tracer = trace.get_tracer(__name__)
+USER_FRIENDLY_TIMEOUT_SECONDS: float = 60.0
 
 ToolCallable = Callable[..., Any]
 UsageDict: TypeAlias = dict[str, int]
@@ -293,7 +294,9 @@ class OpenAIClient:
                     "base_url": base,
                     "timeout": OPENAI_REQUEST_TIMEOUT,
                 }
-                organisation = OPENAI_ORGANIZATION.strip() if isinstance(OPENAI_ORGANIZATION, str) else OPENAI_ORGANIZATION
+                organisation = (
+                    OPENAI_ORGANIZATION.strip() if isinstance(OPENAI_ORGANIZATION, str) else OPENAI_ORGANIZATION
+                )
                 if organisation:
                     init_kwargs["organization"] = organisation
                 project = OPENAI_PROJECT.strip() if isinstance(OPENAI_PROJECT, str) else OPENAI_PROJECT
@@ -302,12 +305,15 @@ class OpenAIClient:
                 self._client = OpenAI(**init_kwargs)
             return self._client
 
-    def _create_response_with_timeout(
-        self, payload: dict[str, Any], *, api_mode: str
-    ) -> Any:
+    def _create_response_with_timeout(self, payload: dict[str, Any], *, api_mode: str) -> Any:
         request_kwargs = dict(payload)
         mode_override = request_kwargs.pop("_api_mode", None)
-        timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
+        raw_timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
+        try:
+            timeout_value = float(raw_timeout)
+        except (TypeError, ValueError):  # pragma: no cover - defensive parsing
+            timeout_value = float(OPENAI_REQUEST_TIMEOUT)
+        timeout = min(timeout_value, USER_FRIENDLY_TIMEOUT_SECONDS)
         response_format_payload = request_kwargs.get("response_format")
         if isinstance(response_format_payload, Mapping):
             request_kwargs["response_format"] = sanitize_response_format_payload(response_format_payload)
