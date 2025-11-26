@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-from collections import deque
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from collections import defaultdict, deque
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, wait
 from dataclasses import dataclass, field
 from enum import StrEnum
+from threading import Lock
 from typing import Any, Callable, Iterable, Mapping
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,18 @@ class SkipTask(RuntimeError):
 class WorkflowContext(dict[str, Any]):
     """Mutable context shared between workflow tasks."""
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: D401 - thin wrapper
+        super().__init__(*args, **kwargs)
+        self._lock = Lock()
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        with self._lock:
+            super().__setitem__(key, value)
+
+    def update(self, *args: Any, **kwargs: Any) -> None:  # noqa: D401 - thin wrapper
+        with self._lock:
+            super().update(*args, **kwargs)
+
 
 @dataclass(frozen=True)
 class Task:
@@ -41,6 +54,7 @@ class Task:
     dependencies: tuple[str, ...] = field(default_factory=tuple)
     retries: int = 0
     timeout: float | None = None
+    parallelizable: bool = True
 
     def __post_init__(self) -> None:
         if self.retries < 0:
@@ -85,30 +99,94 @@ class WorkflowRunResult:
 class WorkflowRunner:
     """Execute tasks in dependency order with retry/timeout handling."""
 
-    def __init__(self, tasks: Iterable[Task], *, logger_: logging.Logger | None = None):
+    def __init__(
+        self,
+        tasks: Iterable[Task],
+        *,
+        logger_: logging.Logger | None = None,
+        max_workers: int | None = None,
+    ):
         tasks_list = list(tasks)
         self._logger = logger_ or logger
         self._tasks: dict[str, Task] = {task.name: task for task in tasks_list}
         if len(self._tasks) != len(tasks_list):
             raise ValueError("Task names must be unique within a workflow")
         self._order = self._resolve_order()
+        self._max_workers = max_workers
 
     def run(self, context: Mapping[str, Any] | None = None) -> WorkflowRunResult:
         ctx = WorkflowContext(context or {})
         results: dict[str, TaskResult] = {name: TaskResult() for name in self._tasks}
 
-        for task_name in self._order:
-            task = self._tasks[task_name]
-            outcome = results[task_name]
-            if self._should_skip(task, results):
-                outcome.status = TaskStatus.SKIPPED
-                self._logger.info("Skipping task %s due to failed dependencies", task.name)
-                continue
+        dependants: dict[str, list[str]] = defaultdict(list)
+        pending_dependencies: dict[str, int] = {}
+        for task in self._tasks.values():
+            pending_dependencies[task.name] = len(task.dependencies)
+            for dependency in task.dependencies:
+                dependants[dependency].append(task.name)
 
-            self._logger.info("Starting task %s", task.name)
-            outcome.status = TaskStatus.RUNNING
+        ready: deque[str] = deque([name for name, count in pending_dependencies.items() if count == 0])
+        in_flight: dict[Future[tuple[Any, int]], Task] = {}
+
+        with ThreadPoolExecutor(max_workers=self._max_workers or len(self._tasks)) as executor:
+            while ready or in_flight:
+                while ready:
+                    candidate_name = ready.popleft()
+                    candidate_task = self._tasks[candidate_name]
+                    outcome = results[candidate_name]
+
+                    if self._should_skip(candidate_task, results):
+                        outcome.status = TaskStatus.SKIPPED
+                        self._logger.info(
+                            "Skipping task %s due to failed dependencies", candidate_task.name
+                        )
+                        for child in dependants[candidate_name]:
+                            pending_dependencies[child] -= 1
+                            if pending_dependencies[child] == 0:
+                                ready.append(child)
+                        continue
+
+                    if not candidate_task.parallelizable and in_flight:
+                        done, _ = wait(in_flight.keys())
+                        self._collect_finished(
+                            done, in_flight, results, ctx, dependants, pending_dependencies, ready
+                        )
+                        ready.appendleft(candidate_name)
+                        continue
+
+                    self._logger.info("Starting task %s", candidate_task.name)
+                    outcome.status = TaskStatus.RUNNING
+                    future = executor.submit(self._execute, candidate_task, ctx)
+                    in_flight[future] = candidate_task
+
+                    if not candidate_task.parallelizable:
+                        break
+
+                if not in_flight:
+                    continue
+
+                done, _ = wait(in_flight.keys(), return_when=FIRST_COMPLETED)
+                self._collect_finished(
+                    done, in_flight, results, ctx, dependants, pending_dependencies, ready
+                )
+
+        return WorkflowRunResult(results=results, context=ctx)
+
+    def _collect_finished(
+        self,
+        finished: set[Future[tuple[Any, int]]],
+        in_flight: dict[Future[tuple[Any, int]], Task],
+        results: dict[str, TaskResult],
+        ctx: WorkflowContext,
+        dependants: Mapping[str, list[str]],
+        pending_dependencies: dict[str, int],
+        ready: deque[str],
+    ) -> None:
+        for future in finished:
+            task = in_flight.pop(future)
+            outcome = results[task.name]
             try:
-                result, attempts_used = self._execute(task, ctx)
+                result, attempts_used = future.result()
             except SkipTask as skip_exc:
                 outcome.status = TaskStatus.SKIPPED
                 outcome.error = skip_exc
@@ -126,7 +204,10 @@ class WorkflowRunner:
                 ctx[task.name] = result
                 self._logger.info("Completed task %s", task.name)
 
-        return WorkflowRunResult(results=results, context=ctx)
+            for child in dependants.get(task.name, []):
+                pending_dependencies[child] -= 1
+                if pending_dependencies[child] == 0:
+                    ready.append(child)
 
     def _execute(self, task: Task, context: WorkflowContext) -> tuple[Any, int]:
         attempts = 0
