@@ -14,7 +14,7 @@ import streamlit as st
 from pydantic import BaseModel, ConfigDict, Field
 import plotly.graph_objects as go
 
-from config import ModelTask, get_model_for
+from config import APIMode, ModelTask, get_model_for
 from constants.keys import StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from core.suggestions import get_static_benefit_shortlist
@@ -932,6 +932,7 @@ def _call_salary_model(
         },
         model=model,
         task=ModelTask.SALARY_ESTIMATE,
+        api_mode=APIMode.CLASSIC,
     )
 
     arguments = _extract_tool_arguments(result, FUNCTION_NAME)
