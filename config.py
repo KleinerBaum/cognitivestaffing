@@ -227,7 +227,8 @@ REASONING_EFFORT = _normalise_reasoning_effort(os.getenv("REASONING_EFFORT", "me
 
 LIGHTWEIGHT_MODEL_DEFAULT = GPT51_MINI
 MEDIUM_REASONING_MODEL_DEFAULT = GPT51
-REASONING_MODEL_DEFAULT = O3
+HIGH_REASONING_MODEL_DEFAULT = GPT51
+REASONING_MODEL_DEFAULT = GPT51
 
 _SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
@@ -274,7 +275,7 @@ MEDIUM_REASONING_MODEL = _resolve_supported_model(
 )
 HIGH_REASONING_MODEL = _resolve_supported_model(
     os.getenv("REASONING_MODEL") or os.getenv("HIGH_REASONING_MODEL"),
-    REASONING_MODEL_DEFAULT,
+    HIGH_REASONING_MODEL_DEFAULT,
 )
 
 _REASONING_MODEL_MAP: Dict[str, str] = {
@@ -750,12 +751,9 @@ for key, value in list(MODEL_ROUTING.items()):
 
 _PRECISION_TASKS: frozenset[str] = frozenset(
     {
-        ModelTask.JOB_AD.value,
-        ModelTask.INTERVIEW_GUIDE.value,
-        ModelTask.PROFILE_SUMMARY.value,
-        ModelTask.CANDIDATE_MATCHING.value,
-        ModelTask.DOCUMENT_REFINEMENT.value,
-        ModelTask.RAG_SUGGESTIONS.value,
+        # The generic reasoning alias remains precision-first, but quick mode
+        # should otherwise prefer the lightweight chain to keep GPT-5.1-mini in
+        # play for fast iterations across tasks.
         "reasoning",
     }
 )
