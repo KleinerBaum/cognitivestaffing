@@ -346,7 +346,7 @@ class OpenAIClient:
             except BadRequestError as err:
                 span.record_exception(err)
                 if on_known_error is not None:
-                    on_known_error(err, api_mode)
+                    on_known_error(err, api_mode=api_mode)
                 if "temperature" in payload and _is_temperature_unsupported_error(err):
                     span.add_event("retry_without_temperature")
                     _mark_model_without_temperature(model)
@@ -364,7 +364,7 @@ class OpenAIClient:
             except OpenAIError as err:
                 span.record_exception(err)
                 if on_known_error is not None:
-                    on_known_error(err, api_mode)
+                    on_known_error(err, api_mode=api_mode)
                 if model and _should_mark_model_unavailable(err):
                     mark_model_unavailable(model)
                 span.set_status(Status(StatusCode.ERROR, str(err)))
