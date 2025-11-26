@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import json
 from contextlib import contextmanager
 from typing import Any, Mapping
 
@@ -222,6 +223,86 @@ def test_chat_fallback_strips_strict_flag(monkeypatch: pytest.MonkeyPatch) -> No
         },
     }
     assert "strict" not in captured["json_schema"]
+
+
+def test_invalid_json_is_repaired_without_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Malformed JSON should be repaired when possible instead of crashing."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
+    )
+
+    def _return_malformed(*_: Any, **__: Any) -> openai_responses.ResponsesCallResult:
+        return openai_responses.ResponsesCallResult(
+            content='{"foo": "bar",}',
+            usage={},
+            response_id="resp-999",
+            raw_response={"id": "resp-999"},
+        )
+
+    monkeypatch.setattr(openai_responses, "call_responses", _return_malformed)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+    )
+
+    assert result is not None
+    assert result.used_chat_fallback is False
+    assert json.loads(result.content) == {"foo": "bar"}
+
+
+def test_invalid_json_triggers_chat_fallback_with_messages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Chat fallback must receive a valid chat payload when repair fails."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
+    )
+
+    def _return_unparseable(*_: Any, **__: Any) -> openai_responses.ResponsesCallResult:
+        return openai_responses.ResponsesCallResult(
+            content="not json",
+            usage={},
+            response_id="resp-998",
+            raw_response={"id": "resp-998"},
+        )
+
+    fallback_capture: dict[str, Any] = {}
+
+    class _FakeChatResult:
+        def __init__(self) -> None:
+            self.content = "fallback"
+            self.usage = {"input_tokens": 1}
+            self.response_id = "chat-999"
+            self.raw_response = {"id": "chat-999"}
+
+    def _fake_chat(messages: Any, **kwargs: Any) -> _FakeChatResult:
+        fallback_capture["messages"] = messages
+        fallback_capture.update(kwargs)
+        return _FakeChatResult()
+
+    @contextmanager
+    def _noop_context() -> Any:
+        yield
+
+    monkeypatch.setattr(openai_responses, "call_responses", _return_unparseable)
+    monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+    )
+
+    assert result is not None
+    assert result.used_chat_fallback is True
+    assert fallback_capture.get("model") == "gpt-4o-mini"
+    assert isinstance(fallback_capture.get("messages"), list)
+    assert fallback_capture.get("messages")[0]["role"] == "user"
 
 
 def test_function_call_chat_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
