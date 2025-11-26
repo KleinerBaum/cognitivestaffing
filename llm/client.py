@@ -27,9 +27,15 @@ from config import (
     REASONING_EFFORT,
     ModelTask,
     get_active_verbosity,
+    get_model_for,
+    mark_model_unavailable,
     select_model,
 )
-from .openai_responses import build_json_schema_format, call_responses_safe
+from .openai_responses import (
+    ResponsesCallResult,
+    build_json_schema_format,
+    call_responses_safe,
+)
 from .output_parsers import (
     NeedAnalysisParserError,
     get_need_analysis_output_parser,
@@ -542,10 +548,10 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
         )
 
         def _call_responses() -> StructuredExtractionOutcome:
-            try:
-                result = call_responses_safe(
+            def _attempt(model_name: str) -> ResponsesCallResult | None:
+                return call_responses_safe(
                     payload["messages"],
-                    model=payload["model"],
+                    model=model_name,
                     response_format=response_format,
                     temperature=0,
                     reasoning_effort=payload.get("reasoning_effort"),
@@ -555,6 +561,11 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                     logger_instance=logger,
                     context="structured extraction",
                 )
+
+            active_model = payload["model"]
+
+            try:
+                result = _attempt(active_model)
             except BadRequestError as err:
                 if is_unrecoverable_schema_error(err):
                     logger.warning(
@@ -565,7 +576,25 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 raise
 
             if result is None:
-                return StructuredExtractionOutcome(content="", source="responses", low_confidence=True)
+                logger.info(
+                    "Structured extraction returned empty content for %s; attempting alternate model.",
+                    prompt_digest,
+                )
+                mark_model_unavailable(active_model)
+                alternate_model = get_model_for(ModelTask.EXTRACTION)
+                if alternate_model != active_model:
+                    logger.warning(
+                        "Retrying structured extraction with alternate model: %s",
+                        alternate_model,
+                    )
+                    active_model = alternate_model
+                    result = _attempt(active_model)
+                if result is None:
+                    logger.error(
+                        "All API attempts failed for structured extraction via Responses for %s.",
+                        prompt_digest,
+                    )
+                    return StructuredExtractionOutcome(content="", source="responses", low_confidence=True)
             outcome_source = "responses"
             if result.used_chat_fallback:
                 outcome_source = "chat"

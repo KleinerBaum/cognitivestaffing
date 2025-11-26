@@ -505,7 +505,11 @@ def call_responses_safe(
             context,
             exc,
         )
-        return _attempt_fallback("schema_guard", exc)
+        fallback = _attempt_fallback("schema_guard", exc)
+        if fallback is not None:
+            return fallback
+        active_logger.error("All API attempts failed for %s (schema_guard).", context)
+        return None
     except OpenAIError as exc:
         active_logger.warning(
             "Responses API %s failed; triggering chat fallback: %s",
@@ -513,7 +517,10 @@ def call_responses_safe(
             exc,
         )
         fallback = _attempt_fallback("api_error", exc)
-        return fallback
+        if fallback is not None:
+            return fallback
+        active_logger.error("All API attempts failed for %s (api_error).", context)
+        return None
     except Exception as exc:  # pragma: no cover - defensive
         active_logger.warning(
             "Unexpected error during Responses API %s; triggering chat fallback",
@@ -521,7 +528,10 @@ def call_responses_safe(
             exc_info=exc,
         )
         fallback = _attempt_fallback("unexpected_error", exc)
-        return fallback
+        if fallback is not None:
+            return fallback
+        active_logger.error("All API attempts failed for %s (unexpected_error).", context)
+        return None
 
     content = (result.content or "").strip()
     expects_json = False
@@ -540,6 +550,7 @@ def call_responses_safe(
             fallback = _attempt_fallback("invalid_json", exc)
             if fallback is not None:
                 return fallback
+            active_logger.error("All API attempts failed for %s (invalid_json).", context)
             return None
     if not allow_empty and not content:
         active_logger.warning(
@@ -549,6 +560,7 @@ def call_responses_safe(
         fallback = _attempt_fallback("empty_response")
         if fallback is not None:
             return fallback
+        active_logger.error("All API attempts failed for %s (empty_response).", context)
         return None
 
     result.content = content

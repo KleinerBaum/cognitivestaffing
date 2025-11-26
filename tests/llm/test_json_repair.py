@@ -99,3 +99,36 @@ def test_repair_profile_payload_serializes_http_url(monkeypatch: pytest.MonkeyPa
 
     assert result == {"company": {"logo_url": "https://example.com/logo.svg"}}
     assert "https://example.com/logo.svg" in captured.get("content", "")
+
+
+def test_repair_profile_payload_retries_alternate_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(json_repair, "is_llm_enabled", lambda: True)
+    json_repair._load_schema.cache_clear()
+
+    schema = {"type": "object", "properties": {}, "additionalProperties": True}
+    monkeypatch.setattr(json_repair, "_load_schema", lambda: schema)
+
+    attempts: list[str] = []
+    marked: list[str] = []
+
+    def fake_get_model_for(*_args, **_kwargs):
+        return "primary-model" if not attempts else "secondary-model"
+
+    def fake_mark_unavailable(model: str) -> None:
+        marked.append(model)
+
+    def fake_call(messages, model: str, **kwargs):  # type: ignore[unused-ignore]
+        attempts.append(model)
+        if model == "primary-model":
+            return None
+        return DummyResponse(json.dumps({"status": "ok"}))
+
+    monkeypatch.setattr(json_repair, "get_model_for", fake_get_model_for)
+    monkeypatch.setattr(json_repair, "mark_model_unavailable", fake_mark_unavailable)
+    monkeypatch.setattr(json_repair, "call_responses_safe", fake_call)
+
+    result = repair_profile_payload({"company": {}}, errors=None)
+
+    assert result == {"status": "ok"}
+    assert attempts == ["primary-model", "secondary-model"]
+    assert marked == ["primary-model"]

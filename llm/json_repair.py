@@ -7,9 +7,13 @@ import logging
 from functools import lru_cache
 from typing import Any, Mapping, Sequence
 
-from config import ModelTask, get_model_for, is_llm_enabled
+from config import ModelTask, get_model_for, is_llm_enabled, mark_model_unavailable
 from core.schema_registry import load_need_analysis_schema
-from llm.openai_responses import build_json_schema_format, call_responses_safe
+from llm.openai_responses import (
+    ResponsesCallResult,
+    build_json_schema_format,
+    call_responses_safe,
+)
 from llm.profile_normalization import normalize_interview_stages_field
 from pydantic import AnyUrl, HttpUrl
 from utils.json_repair import JsonRepairResult, parse_json_with_repair
@@ -122,24 +126,37 @@ def repair_profile_payload(
         {"role": "user", "content": user_prompt},
     ]
 
-    try:
-        response = call_responses_safe(
-            messages,
-            model=model,
-            response_format=response_format,
-            temperature=0.0,
-            max_completion_tokens=1600,
-            task=ModelTask.JSON_REPAIR,
-            logger_instance=logger,
-            context="json repair",
-        )
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("JSON repair call failed: %s", exc)
-        return None
+    def _invoke_repair(target_model: str) -> ResponsesCallResult | None:
+        try:
+            return call_responses_safe(
+                messages,
+                model=target_model,
+                response_format=response_format,
+                temperature=0.0,
+                max_completion_tokens=1600,
+                task=ModelTask.JSON_REPAIR,
+                logger_instance=logger,
+                context="json repair",
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("JSON repair call failed: %s", exc)
+            return None
 
-    if response is None:
-        logger.warning("JSON repair call returned no content after fallback attempts")
-        return None
+    response = _invoke_repair(model)
+
+    if response is None or not (response.content or "").strip():
+        logger.info("Primary JSON repair attempt returned no content; searching for alternate model.")
+        mark_model_unavailable(model)
+        alternate_model = get_model_for(ModelTask.JSON_REPAIR)
+        if alternate_model != model:
+            logger.warning("Retrying JSON repair with alternate model: %s", alternate_model)
+            response = _invoke_repair(alternate_model)
+            if response is None or not (response.content or "").strip():
+                logger.error("All API attempts failed for JSON repair task.")
+                return None
+        else:
+            logger.error("All API attempts failed for JSON repair task; no alternate model available.")
+            return None
 
     if response.used_chat_fallback:
         logger.info("JSON repair succeeded via classic chat fallback")
