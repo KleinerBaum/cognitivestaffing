@@ -59,7 +59,7 @@ from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from state.autosave import maybe_render_autosave_prompt  # noqa: E402
 from components.chatkit_widget import inject_chatkit_script  # noqa: E402
-from sidebar import render_sidebar  # noqa: E402
+import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.2.0"
@@ -404,7 +404,7 @@ SIDEBAR_STYLE = """
 
 st.markdown(SIDEBAR_STYLE, unsafe_allow_html=True)
 
-sidebar_plan = render_sidebar(
+sidebar_plan = sidebar.render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
     logo_data_uri=APP_LOGO_DATA_URI,
     defer=True,
@@ -412,7 +412,7 @@ sidebar_plan = render_sidebar(
 
 run_wizard()
 
-render_sidebar(
+sidebar.render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
     logo_data_uri=APP_LOGO_DATA_URI,
     plan=sidebar_plan,

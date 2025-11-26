@@ -17,6 +17,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Fixed
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
+- Resolved Streamlit startup ImportError by importing the sidebar module explicitly before calling `render_sidebar`, preventing rerun crashes.
 
 ## [1.2.0] – 2025-02-24
 
