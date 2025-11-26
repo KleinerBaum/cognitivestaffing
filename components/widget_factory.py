@@ -6,7 +6,7 @@ from typing import Any, Callable, Sequence, TypeVar
 
 import streamlit as st
 
-from wizard._logic import get_value, resolve_display_value
+from wizard._logic import get_value, resolve_display_value, with_ai_badge
 from wizard._widget_state import _build_on_change, _ensure_widget_state
 
 T = TypeVar("T")
@@ -73,8 +73,12 @@ def text_input(
     if allow_callbacks:
         call_kwargs.setdefault("on_change", _build_on_change(path, widget_key))
 
+    decorated_label, updated_help = with_ai_badge(label, path, help_text=call_kwargs.get("help"))
+    if updated_help is not None:
+        call_kwargs["help"] = updated_help
+
     return factory(
-        label,
+        decorated_label,
         value=display_value,
         key=widget_key,
         **call_kwargs,
@@ -122,9 +126,13 @@ def select(
     call_kwargs = dict(kwargs)
     _normalize_width_kwarg(call_kwargs)
 
+    decorated_label, updated_help = with_ai_badge(label, path, help_text=call_kwargs.get("help"))
+    if updated_help is not None:
+        call_kwargs["help"] = updated_help
+
     factory = widget_factory or st.selectbox
     return factory(
-        label,
+        decorated_label,
         option_list,
         index=resolved_index,
         key=widget_key,
@@ -169,9 +177,13 @@ def multiselect(
     call_kwargs = dict(kwargs)
     _normalize_width_kwarg(call_kwargs)
 
+    decorated_label, updated_help = with_ai_badge(label, path, help_text=call_kwargs.get("help"))
+    if updated_help is not None:
+        call_kwargs["help"] = updated_help
+
     factory = widget_factory or st.multiselect
     selection = factory(
-        label,
+        decorated_label,
         option_list,
         default=default_selection,
         key=widget_key,

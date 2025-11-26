@@ -13,6 +13,7 @@ import logging
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from pydantic import ValidationError
@@ -25,6 +26,15 @@ from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from core.normalization import sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
 from state import ensure_state
+from state.ai_contributions import (
+    AIContributionState,
+    ContributionRecord,
+    get_ai_contribution_state,
+    get_field_contribution,
+    record_field_contribution,
+    record_list_item_contribution,
+    remove_field_contribution,
+)
 from state.autosave import persist_session_snapshot
 from utils.normalization import (
     country_to_iso2,
@@ -106,73 +116,109 @@ def get_in(data: Mapping[str, Any] | None, path: str, default: Any = None) -> An
     return cursor
 
 
-def _coerce_ai_contributions() -> dict[str, Any]:
-    """Normalize the AI contribution tracking structure in session state."""
-
-    raw = st.session_state.get(StateKeys.AI_CONTRIBUTIONS, {}) or {}
-    fields_raw = raw.get("fields", set())
-    items_raw = raw.get("items", {})
-
-    field_set: set[str] = set()
-    for entry in fields_raw or []:
-        if isinstance(entry, str):
-            field_set.add(entry)
-        else:
-            field_set.add(str(entry))
-
-    item_map: dict[str, set[str]] = {}
-    if isinstance(items_raw, Mapping):
-        for key, values in items_raw.items():
-            key_str = str(key)
-            cleaned_values: set[str] = set()
-            for value in values or []:
-                if isinstance(value, str):
-                    cleaned_values.add(value)
-                else:
-                    cleaned_values.add(str(value))
-            item_map[key_str] = cleaned_values
-
-    normalized = {"fields": field_set, "items": item_map}
-    st.session_state[StateKeys.AI_CONTRIBUTIONS] = normalized
-    return normalized
-
-
-def mark_ai_field(path: str) -> None:
+def mark_ai_field(
+    path: str,
+    *,
+    source: str | None = None,
+    model: str | None = None,
+    timestamp: datetime | None = None,
+) -> None:
     """Record that ``path`` was populated by an AI suggestion."""
 
-    state = _coerce_ai_contributions()
-    state["fields"].add(path)
-    st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
+    record_field_contribution(path, source=source or "assistant", model=model, timestamp=timestamp)
 
 
-def mark_ai_list_item(path: str, value: str) -> None:
+def mark_ai_list_item(
+    path: str,
+    value: str,
+    *,
+    source: str | None = None,
+    model: str | None = None,
+    timestamp: datetime | None = None,
+) -> None:
     """Record that ``value`` for list ``path`` was suggested by AI."""
 
-    cleaned = (value or "").strip()
-    if not cleaned:
-        return
-    state = _coerce_ai_contributions()
-    items = state["items"].setdefault(path, set())
-    items.add(cleaned)
-    state["items"][path] = items
-    st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
+    record_list_item_contribution(
+        path,
+        value,
+        source=source or "assistant",
+        model=model,
+        timestamp=timestamp,
+    )
 
 
-def get_ai_contributions() -> tuple[set[str], dict[str, set[str]]]:
+def get_ai_contributions() -> AIContributionState:
     """Return tracked AI contribution metadata (fields, list items)."""
 
-    state = _coerce_ai_contributions()
-    return set(state["fields"]), {key: set(values) for key, values in state["items"].items()}
+    return get_ai_contribution_state()
 
 
-def _persist_generated_value(path: str, value: str, *, mark_ai: bool = True) -> None:
+def _format_contribution_hint(contribution: ContributionRecord, *, lang: str) -> str:
+    """Return a localized hint describing the AI provenance."""
+
+    if not contribution:
+        return ""
+
+    source = contribution.get("source") or "assistant"
+    model = contribution.get("model")
+    timestamp = contribution.get("timestamp") or ""
+    source_label = tr("Quelle", "Source", lang=lang)
+    timestamp_label = tr("Zeitstempel", "Timestamp", lang=lang)
+    model_label = tr("Modell", "Model", lang=lang)
+
+    parts = [f"{source_label}: {source}"]
+    if model:
+        parts.append(f"{model_label}: {model}")
+    if timestamp:
+        parts.append(f"{timestamp_label}: {timestamp}")
+    return " • ".join(parts)
+
+
+def _merge_help_text(help_text: str | None, addition: str | None) -> str | None:
+    if not addition:
+        return help_text
+    if not help_text:
+        return addition
+    return "\n\n".join([help_text, addition])
+
+
+def with_ai_badge(
+    label: str,
+    field_path: str,
+    *,
+    help_text: str | None = None,
+    lang: str | None = None,
+) -> tuple[str, str | None]:
+    """Decorate ``label`` with an AI badge and tooltip when AI contributed."""
+
+    contribution = get_field_contribution(field_path)
+    if not contribution:
+        return label, help_text
+
+    active_lang = (lang or st.session_state.get("lang") or "de")[:2]
+    hint = _format_contribution_hint(contribution, lang=active_lang)
+    badge = tr("🤖 KI", "🤖 AI", lang=active_lang)
+    decorated_label = f"{label} {badge}"
+    merged_help = _merge_help_text(help_text, hint)
+    return decorated_label, merged_help
+
+
+def _persist_generated_value(
+    path: str,
+    value: str,
+    *,
+    mark_ai: bool = True,
+    ai_source: str | None = None,
+    ai_model: str | None = None,
+    ai_timestamp: datetime | None = None,
+) -> None:
     """Persist generated collateral to the profile and optionally mark AI usage."""
 
     profile_state = _get_profile_state()
     set_in(profile_state, path, value)
     st.session_state[StateKeys.PROFILE] = profile_state
     if mark_ai:
-        mark_ai_field(path)
+        mark_ai_field(path, source=ai_source, model=ai_model, timestamp=ai_timestamp)
 
 
 def approve_generated_preview(preview_key: str, final_key: str, profile_path: str) -> str | None:
@@ -195,12 +241,26 @@ def discard_generated_preview(preview_key: str) -> None:
 
 
 def update_saved_generated_output(
-    source_key: str, final_key: str, profile_path: str, *, mark_ai: bool = False
+    source_key: str,
+    final_key: str,
+    profile_path: str,
+    *,
+    mark_ai: bool = False,
+    ai_source: str | None = None,
+    ai_model: str | None = None,
+    ai_timestamp: datetime | None = None,
 ) -> str:
     """Synchronise manual edits of generated content back to the profile."""
 
     updated = str(st.session_state.get(source_key) or "").strip()
-    _persist_generated_value(profile_path, updated, mark_ai=mark_ai)
+    _persist_generated_value(
+        profile_path,
+        updated,
+        mark_ai=mark_ai,
+        ai_source=ai_source,
+        ai_model=ai_model,
+        ai_timestamp=ai_timestamp,
+    )
     st.session_state[final_key] = updated
     return updated
 
@@ -489,6 +549,9 @@ def _update_profile(
     session_value: Any = _MISSING,
     sync_widget_state: bool = True,
     mark_ai: bool = False,
+    ai_source: str | None = None,
+    ai_model: str | None = None,
+    ai_timestamp: datetime | None = None,
 ) -> None:
     """Update profile data and clear derived outputs if changed.
 
@@ -552,13 +615,9 @@ def _update_profile(
             _remove_field_lock_metadata(path)
             _sync_followup_completion(path, normalized_value_for_path, data)
             if mark_ai:
-                mark_ai_field(path)
+                mark_ai_field(path, source=ai_source, model=ai_model, timestamp=ai_timestamp)
             else:
-                state = _coerce_ai_contributions()
-                state["fields"].discard(path)
-                if path in state.get("items", {}):
-                    state["items"].pop(path, None)
-                st.session_state[StateKeys.AI_CONTRIBUTIONS] = state
+                remove_field_contribution(path)
             persist_session_snapshot()
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
         raise

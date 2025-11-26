@@ -187,9 +187,7 @@ def render_interview_guide_section(
         )
 
     saved_guide = (
-        st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD)
-        or getattr(profile.generated, "interview_guide", "")
-        or ""
+        st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD) or getattr(profile.generated, "interview_guide", "") or ""
     )
     if StateKeys.INTERVIEW_GUIDE_MD not in st.session_state and saved_guide:
         st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = saved_guide
@@ -236,6 +234,7 @@ def render_interview_guide_section(
             StateKeys.INTERVIEW_GUIDE_MD,
             "generated.interview_guide",
             mark_ai=True,
+            ai_source="interview_generator",
         )
         st.success(tr("Leitfaden gespeichert.", "Guide saved."))
 

@@ -59,7 +59,7 @@ Live app: https://cognitivestaffing.streamlit.app/
   Job ads, interview guides, and Boolean searches now render inside dedicated preview panels with bilingual “Approve & save” / “Discard” actions before they are written into the NeedAnalysisProfile or exported. Approved text stays fully editable for manual polishing.
 
 - **AI transparency & auditability**
-  The Summary view visually distinguishes AI‑suggested values (for example via italics and labels like “AI-suggested”) so recruiters know what to double‑check before exporting. Internally, the profile tracks which fields were touched by AI, enabling future audit trails and confidence indicators.
+  AI-authored values are marked with 🤖 badges and tooltips (source, model, timestamp) in the form steps, list chips, and the summary panels. A dedicated change-log expander in the Summary step lists every field or list item the assistants created or modified during the session, so reviewers can double-check provenance before exporting.
 - **Resilient autofill controls**
   Accept/reject decisions for AI autofill suggestions are tracked across steps, and the Company step now binds its dependencies defensively so autofill UI remains available even when optional helpers are missing. The compensation assistant now previews AI ranges against any existing manual values and asks for explicit acceptance (per field or in bulk) before overwriting data.
 - **Autosave, export, and restore**
