@@ -583,8 +583,22 @@ def _update_profile(
                 st.session_state.pop(path, None)
                 return
             current_session_value = st.session_state.get(path, _MISSING)
-            if current_session_value is _MISSING or current_session_value != new_value:
-                st.session_state[path] = new_value
+            if current_session_value is _MISSING:
+                try:
+                    st.session_state[path] = new_value
+                except StreamlitAPIException as error:
+                    logger.debug(
+                        "Skipping session state sync for %s because Streamlit rejected the update: %s",
+                        path,
+                        error,
+                    )
+            elif current_session_value != new_value:
+                logger.debug(
+                    "Skipping session state sync for widget-controlled key %s (existing=%r, new=%r)",
+                    path,
+                    current_session_value,
+                    new_value,
+                )
 
         if normalized_value is None:
             if session_value is _MISSING:

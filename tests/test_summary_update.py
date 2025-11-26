@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
 from constants.keys import StateKeys, UIKeys
 from tests.utils import ProfileDict
@@ -77,4 +78,31 @@ def test_update_profile_allows_overwrite_without_streamlit_exception(
 
     assert not errors
     assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "ABC Corp"
-    assert st.session_state["company.name"] == "ABC Corp"
+    assert st.session_state["company.name"] == "Existing"
+
+
+def test_update_profile_skips_widget_managed_country_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Updating a widget-controlled country should not trigger Streamlit errors."""
+
+    st.session_state.clear()
+    profile: ProfileDict = {"location": {"country": "Germany"}}
+    st.session_state[StateKeys.PROFILE] = profile
+    st.session_state["location.country"] = "Germany"
+
+    original_setitem = st.session_state.__setitem__
+
+    def raising_setitem(key: str, value: object) -> None:
+        if key == "location.country":
+            raise StreamlitAPIException(
+                "st.session_state.location.country cannot be modified after the widget is instantiated",
+            )
+        original_setitem(key, value)
+
+    monkeypatch.setattr(st.session_state, "__setitem__", raising_setitem)
+
+    _update_profile("location.country", "France")
+
+    assert st.session_state[StateKeys.PROFILE]["location"]["country"] == "France"
+    assert st.session_state["location.country"] == "Germany"
