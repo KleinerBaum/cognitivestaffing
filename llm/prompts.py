@@ -73,8 +73,7 @@ def build_schema_coverage_hint() -> str:
 
     top_level_keys = ", ".join(NeedAnalysisProfile.model_fields)
     return (
-        "Include every top-level schema key in the JSON output "
-        f"({top_level_keys}) and use null/[] for unknown values."
+        f"Include every top-level schema key in the JSON output ({top_level_keys}) and use null/[] for unknown values."
     )
 
 
@@ -117,13 +116,32 @@ ALL_LOCKED_HINT: str = prompt_registry.get("llm.json_extractor.all_locked_hint")
 SECTION_PRIMER: str = (
     "The following text describes the role's responsibilities, required skills, benefits, and hiring details. "
     "Use headings to align evidence to schema fields (e.g., Aufgaben/Hauptaufgaben/Verantwortung → responsibilities, "
-    "Anforderungen/Profil/Voraussetzungen → requirements, Wir bieten/Unser Angebot/Benefits → compensation.benefits, "
-    "Prozess/Bewerbungsverfahren → process)."
+    "Anforderungen/Profil/Voraussetzungen → requirements, Wir bieten/Unser Angebot/Benefits/Perks → compensation.benefits "
+    "(list each perk), Bewerbungsprozess/Interview Process/Selection Process → process.hiring_process (one stage per bullet)."
+)
+
+_BENEFITS_BREAK_PATTERNS: tuple[str, ...] = (
+    r"\bwir bieten\b",
+    r"\bdas bieten wir\b",
+    r"\bunser angebot\b",
+    r"\bwe offer\b",
+    r"\bour offer\b",
+    r"\bour benefits\b",
+    r"\bbenefits and perks\b",
+    r"\bperks\b",
+    r"\bwhat we offer\b",
+    r"\bwhat you get\b",
+    r"\bwhy you will love working here\b",
+    r"\bwir bieten dir\b",
+    r"\bwir bieten ihnen\b",
+    r"\bbenefits?\b",
 )
 
 _SECTION_LABELS: dict[str, str] = {
     "responsibilities": "Responsibilities / Aufgaben",
     "requirements": "Requirements / Anforderungen",
+    "benefits": "Benefits / Wir bieten",
+    "process": "Hiring process / Bewerbungsprozess",
 }
 
 _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
@@ -181,24 +199,19 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
         r"\bqualifikationen\b",
         r"\brequired qualifications\b",
     ),
+    "benefits": _BENEFITS_BREAK_PATTERNS,
+    "process": (
+        r"\bbewerbungsprozess\b",
+        r"\bbewerbungsverfahren\b",
+        r"\binterviewprozess\b",
+        r"\bselection process\b",
+        r"\binterview process\b",
+        r"\bapplication process\b",
+        r"\binterview stages\b",
+        r"\brecruitment process\b",
+        r"\binterview steps\b",
+    ),
 }
-
-_BENEFITS_BREAK_PATTERNS: tuple[str, ...] = (
-    r"\bwir bieten\b",
-    r"\bdas bieten wir\b",
-    r"\bunser angebot\b",
-    r"\bwe offer\b",
-    r"\bour offer\b",
-    r"\bour benefits\b",
-    r"\bbenefits and perks\b",
-    r"\bperks\b",
-    r"\bwhat we offer\b",
-    r"\bwhat you get\b",
-    r"\bwhy you will love working here\b",
-    r"\bwir bieten dir\b",
-    r"\bwir bieten ihnen\b",
-    r"\bbenefits?\b",
-)
 
 
 def _normalise_hint_line(line: str) -> str:
@@ -229,7 +242,7 @@ def _matches_benefits_heading(line: str) -> bool:
 
 
 def _extract_section_hints(job_text: str, max_lines: int = 8) -> dict[str, list[str]]:
-    """Return detected section snippets (responsibilities/requirements) from ``job_text``."""
+    """Return detected section snippets (responsibilities/requirements/benefits/process) from ``job_text``."""
 
     sections: dict[str, list[str]] = {}
     if not job_text.strip():
@@ -284,7 +297,7 @@ def _render_section_hints(job_text: str) -> str:
         return ""
 
     lines: list[str] = ["Section cues detected via rule-based scan (use for orientation, not as ground truth):"]
-    for key in ("responsibilities", "requirements"):
+    for key in ("responsibilities", "requirements", "benefits", "process"):
         snippets = sections.get(key)
         if not snippets:
             continue

@@ -174,6 +174,7 @@ def test_german_jobbeschreibung_and_benefits_are_split_correctly():
     assert sections.get("responsibilities") == [
         "Leiten von Projekten\nKoordination von Teams",
     ]
+    assert sections.get("benefits") == ["30 Tage Urlaub\nFlexible Arbeitszeiten"]
 
 
 def test_task_list_and_key_responsibilities_headings_detected():
@@ -229,3 +230,21 @@ def test_hauptaufgaben_and_anforderungsprofil_detected():
 
     assert sections.get("responsibilities") == ["Qualitätssicherung\nWartung der Anlagen"]
     assert sections.get("requirements") == ["Abgeschlossene technische Ausbildung\nReisebereitschaft"]
+
+
+def test_bewerbungsprozess_headings_are_detected_and_annotated():
+    text = """Bewerbungsprozess:
+    - Telefoninterview
+    - Fachgespräch
+    - Finale Entscheidung
+    """
+
+    sections = _extract_section_hints(text)
+
+    assert sections.get("process") == ["Telefoninterview\nFachgespräch\nFinale Entscheidung"]
+
+    msgs = build_extract_messages(text)
+    user = msgs[1]["content"]
+
+    assert "Hiring process / Bewerbungsprozess:" in user
+    assert "Telefoninterview" in user

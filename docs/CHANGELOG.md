@@ -37,6 +37,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Refactored the OpenAI API facade to orchestrate the shared client/payload/schema/tool helpers and added unit coverage for the new components.
 - Strengthened structured extraction prompts with clearer bilingual section mapping (Aufgaben/Hauptaufgaben → responsibilities, Anforderungen/Profil/Voraussetzungen → requirements) and benefit/process reminders to reduce missed German bullets.
 - Added rule-based section markers in extraction prompts so German headings are annotated with English cues, improving recall of responsibilities and requirements lists.
+- Expanded benefits and hiring-process detection (e.g., "Wir bieten", "Bewerbungsprozess") so compensation.benefits and process.hiring_process consistently capture enumerated perks and interview stages during extraction.
 - Introduced structured error classes for OpenAI interactions and wizard flows to distinguish schema validation, response formatting, and external dependency failures.
 - Workflow runner now schedules independent tasks in parallel with a thread-safe context to cut down perceived latency and comes with regression coverage for concurrent execution.
 - Structured logging now includes session IDs, wizard step markers, pipeline task names, and active model metadata to simplify correlating multi-step failures in logs.

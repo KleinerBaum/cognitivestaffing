@@ -32,8 +32,8 @@ Live app: https://cognitivestaffing.streamlit.app/
   - **Compensation range assistant** – proposes salary ranges and helps fill `compensation.salary_min/max` and benefits.
   - **Hiring process planner** – drafts stage sequences and writes them into `process.hiring_process`.
 
-- **Multilingual section detection & mapping**  
-  German and English headings like *“Ihre Aufgaben / Your Tasks”*, *“Ihr Profil / Your Profile”*, *“Benefits / Unser Angebot / Wir bieten”* are recognized so responsibilities, requirements, benefits, and process sections land in the correct fields.
+- **Multilingual section detection & mapping**
+  German and English headings like *“Ihre Aufgaben / Your Tasks”*, *“Ihr Profil / Your Profile”*, *“Benefits / Unser Angebot / Wir bieten”*, *“Bewerbungsprozess / Interview Process”* are recognized so responsibilities, requirements, benefits, and process sections land in the correct fields.
 
 - **Structured skill buckets & ESCO integration**  
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
