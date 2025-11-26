@@ -97,6 +97,8 @@ client = openai_client
 
 _USAGE_LOCK = Lock()
 
+DEFAULT_TEMPERATURE: Final[float] = 0.1
+
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
 _MISSING_API_KEY_ALERT_MESSAGE: Final[tuple[str, str]] = (
@@ -1539,7 +1541,7 @@ def _call_chat_api_single(
     messages: Sequence[dict],
     *,
     model: str | None = None,
-    temperature: float | None = 0.2,
+    temperature: float | None = DEFAULT_TEMPERATURE,
     max_completion_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
@@ -1826,7 +1828,7 @@ def call_chat_api(
     messages: Sequence[dict],
     *,
     model: str | None = None,
-    temperature: float | None = 0.2,
+    temperature: float | None = DEFAULT_TEMPERATURE,
     max_completion_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     tools: Optional[list] = None,
@@ -1979,7 +1981,7 @@ def stream_chat_api(
     messages: Sequence[dict],
     *,
     model: str | None = None,
-    temperature: float | None = 0.2,
+    temperature: float | None = DEFAULT_TEMPERATURE,
     max_completion_tokens: int | None = None,
     json_schema: Optional[dict] = None,
     reasoning_effort: str | None = None,

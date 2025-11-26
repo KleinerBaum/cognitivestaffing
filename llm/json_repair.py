@@ -133,7 +133,7 @@ def repair_profile_payload(
                 model=target_model,
                 response_format=response_format,
                 temperature=0.0,
-                max_completion_tokens=1600,
+                max_completion_tokens=800,
                 task=ModelTask.JSON_REPAIR,
                 logger_instance=logger,
                 context="json repair",
