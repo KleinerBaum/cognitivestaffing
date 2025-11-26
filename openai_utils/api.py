@@ -64,10 +64,17 @@ from .client import (
     create_retry_state,
     model_supports_reasoning,
     model_supports_temperature,
+    USER_FRIENDLY_TIMEOUT_SECONDS,
     _mark_model_without_reasoning,  # noqa: F401
     _mark_model_without_temperature,  # noqa: F401
 )
-from .errors import ExternalServiceError, LLMResponseFormatError, NeedAnalysisPipelineError, SchemaValidationError
+from .errors import (
+    ExternalServiceError,
+    LLMResponseFormatError,
+    LLMTimeoutError,
+    NeedAnalysisPipelineError,
+    SchemaValidationError,
+)
 from .payloads import (
     ChatPayloadBuilder,  # noqa: F401
     PayloadContext,  # noqa: F401
@@ -125,6 +132,10 @@ def _llm_disabled() -> bool:
 _NETWORK_ERROR_MESSAGE: Final[tuple[str, str]] = (
     "Netzwerkfehler bei der Kommunikation mit OpenAI. Bitte Verbindung prüfen und erneut versuchen.",
     "Network error communicating with OpenAI. Please check your connection and retry.",
+)
+_TIMEOUT_ERROR_MESSAGE: Final[tuple[str, str]] = (
+    "⏳ Die Anfrage dauert länger als erwartet. Bitte erneut versuchen oder die Felder manuell ausfüllen.",
+    "⏳ This is taking longer than usual. Please try again or continue filling the fields manually.",
 )
 _INVALID_REQUEST_ERROR_MESSAGE: Final[tuple[str, str]] = (
     "❌ Interner Fehler bei der Verarbeitung der Anfrage. (Die App hat eine ungültige Anfrage an das KI-Modell gesendet.)",
@@ -1349,7 +1360,14 @@ def _describe_openai_error(error: OpenAIError) -> tuple[str, str]:
             f"OpenAI rate limit error: {detail}",
         )
 
-    if isinstance(error, (APIConnectionError, APITimeoutError)):
+    if isinstance(error, APITimeoutError):
+        detail = getattr(error, "message", str(error))
+        return (
+            resolve_message(_TIMEOUT_ERROR_MESSAGE),
+            f"OpenAI timeout error: {detail}",
+        )
+
+    if isinstance(error, APIConnectionError):
         detail = getattr(error, "message", str(error))
         return (
             resolve_message(_NETWORK_ERROR_MESSAGE),
@@ -1396,13 +1414,24 @@ def _wrap_openai_exception(
             original=error,
         )
 
-    return ExternalServiceError(
-        resolve_message(
-            _NETWORK_ERROR_MESSAGE
-            if isinstance(error, (APIConnectionError, APITimeoutError))
-            else _RATE_LIMIT_ERROR_MESSAGE
+    if isinstance(error, APITimeoutError):
+        return LLMTimeoutError(
+            resolve_message(_TIMEOUT_ERROR_MESSAGE),
+            step=step,
+            model=model,
+            details={
+                **details,
+                "error_type": error.__class__.__name__,
+                "timeout_seconds": USER_FRIENDLY_TIMEOUT_SECONDS,
+            },
+            schema=schema_name,
+            original=error,
+            timeout_seconds=USER_FRIENDLY_TIMEOUT_SECONDS,
         )
-        if isinstance(error, (RateLimitError, APIConnectionError, APITimeoutError))
+
+    return ExternalServiceError(
+        resolve_message(_NETWORK_ERROR_MESSAGE if isinstance(error, APIConnectionError) else _RATE_LIMIT_ERROR_MESSAGE)
+        if isinstance(error, (RateLimitError, APIConnectionError))
         else resolve_message((f"OpenAI-Fehler: {message}", f"OpenAI error: {message}")),
         step=step,
         model=model,
