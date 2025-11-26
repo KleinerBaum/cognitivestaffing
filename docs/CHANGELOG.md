@@ -29,6 +29,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Refactored the OpenAI API facade to orchestrate the shared client/payload/schema/tool helpers and added unit coverage for the new components.
 - Introduced structured error classes for OpenAI interactions and wizard flows to distinguish schema validation, response formatting, and external dependency failures.
 - Workflow runner now schedules independent tasks in parallel with a thread-safe context to cut down perceived latency and comes with regression coverage for concurrent execution.
+- Structured logging now includes session IDs, wizard step markers, pipeline task names, and active model metadata to simplify correlating multi-step failures in logs.
 
 ### Fixed
 - Wizard navigation now maps seniority, compensation, remote-percentage, and interview-stage fields to their respective steps so "Next" only blocks on fields that belong to the current section.
