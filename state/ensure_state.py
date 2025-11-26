@@ -101,6 +101,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.JOB_AD_MD: lambda: "",
         StateKeys.BOOLEAN_STR: lambda: "",
         StateKeys.INTERVIEW_GUIDE_MD: lambda: "",
+        StateKeys.AUTOSAVE_PROMPT_ACK: lambda: False,
         StateKeys.REASONING_EFFORT: lambda: REASONING_EFFORT,
         "debug": lambda: False,
         UIKeys.DEBUG_DETAILS: lambda: False,

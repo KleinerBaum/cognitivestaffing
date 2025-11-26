@@ -6,6 +6,7 @@ from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime
 from collections.abc import Sequence
+import json
 from functools import partial
 from io import BytesIO
 from typing import Any, Iterable, Literal, Mapping, TypeAlias
@@ -19,6 +20,7 @@ from PIL.Image import Image as PILImage
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.preview import build_prefilled_sections, preview_value_to_text
 from state import reset_state
+from state.autosave import apply_snapshot_to_session, persist_session_snapshot, serialize_snapshot
 from utils.i18n import tr
 from utils.admin_debug import ADMIN_DEBUG_DETAILS_HINT, is_admin_debug_session_active
 from utils.llm_state import is_llm_available, llm_disabled_message
@@ -678,6 +680,57 @@ def _build_context() -> SidebarContext:
     )
 
 
+def _render_backup_controls() -> None:
+    """Allow users to export or import profile snapshots."""
+
+    lang = st.session_state.get("lang", "de")
+    st.markdown(f"### 💾 {tr('Sichern & Wiederherstellen', 'Backup & restore', lang=lang)}")
+    st.caption(
+        tr(
+            "Exportiere den aktuellen Stand als JSON oder importiere eine gespeicherte Sitzung.",
+            "Export the current state as JSON or import a saved session.",
+            lang=lang,
+        )
+    )
+
+    snapshot = persist_session_snapshot()
+    export_bytes = serialize_snapshot(snapshot)
+    st.download_button(
+        tr("⬇️ Profil exportieren", "⬇️ Export current profile", lang=lang),
+        export_bytes,
+        file_name="need-analysis-profile-export.json",
+        mime="application/json",
+        key=UIKeys.PROFILE_EXPORT,
+        use_container_width=True,
+    )
+
+    uploaded = st.file_uploader(
+        tr("Gespeichertes Profil importieren", "Import saved profile", lang=lang),
+        type=["json"],
+        key=UIKeys.PROFILE_IMPORT,
+        accept_multiple_files=False,
+    )
+    if uploaded is not None:
+        try:
+            payload = json.load(uploaded)
+            if not isinstance(payload, Mapping):
+                raise ValueError("Uploaded payload is not a JSON object")
+            apply_snapshot_to_session(payload)
+            st.session_state[StateKeys.AUTOSAVE_PROMPT_ACK] = True
+            st.success(tr("Profil importiert.", "Profile imported.", lang=lang))
+            st.toast(tr("Sitzung geladen.", "Session loaded.", lang=lang), icon="💾")
+            st.rerun()
+        except Exception as error:  # pragma: no cover - Streamlit surface for bad uploads
+            st.error(
+                tr(
+                    "Import fehlgeschlagen – bitte gültige JSON-Datei hochladen.",
+                    "Import failed – please upload a valid JSON file.",
+                    lang=lang,
+                )
+                + f"\n{error}"
+            )
+
+
 def _render_settings() -> None:
     """Show language and theme controls."""
 
@@ -752,6 +805,10 @@ def _render_settings() -> None:
                 "Uses o4-mini and allows richer reasoning for maximum accuracy.",
             )
         )
+
+    st.divider()
+
+    _render_backup_controls()
 
     st.divider()
 

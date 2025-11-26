@@ -1569,14 +1569,13 @@ def _call_chat_api_single(
     current_model = context.initial_model()
     payload["model"] = current_model
 
-
     with log_context(pipeline_task=step_label, model=current_model):
         set_model(current_model)
         retry_state = create_retry_state()
         fallback_to_chat_attempted = False
         chat_retry_attempts = 0
         max_chat_retries = 2
-    
+
         while True:
             with log_context(model=current_model):
                 try:
@@ -1591,7 +1590,7 @@ def _call_chat_api_single(
                         getattr(err, "message", str(err)),
                         exc_info=err,
                     )
-    
+
                     if not active_mode.is_classic and (schema_error or not fallback_to_chat_attempted):
                         fallback_to_chat_attempted = True
                         fallback_payload = _build_chat_fallback_payload(
@@ -1645,7 +1644,7 @@ def _call_chat_api_single(
                         )
                     else:
                         next_model = context.register_failure(current_model)
-    
+
                         if next_model is None:
                             raise _wrap_openai_exception(
                                 err,
@@ -1654,7 +1653,7 @@ def _call_chat_api_single(
                                 step=step_label,
                                 api_mode=active_mode.value,
                             )
-    
+
                         logger.warning(
                             "Model '%s' unavailable (%s); retrying with fallback '%s'.",
                             current_model,
@@ -1665,16 +1664,27 @@ def _call_chat_api_single(
                         current_model = next_model
                         set_model(current_model)
                         continue
-    
+
             response_id = _extract_response_id(response)
             if response_id and not active_mode.is_classic and api_mode_override != "chat":
                 payload["previous_response_id"] = response_id
-    
+
             content = _extract_output_text(response)
             normalised_content = _normalise_content_payload(content)
             low_confidence = False
             repair_status: JsonRepairStatus | None = None
-    
+
+            comparison_messages: Sequence[dict] | None = None
+            comparison_result: ChatCallResult | None = None
+            comparison_label: str | None = None
+            options: Mapping[str, Any] = {}
+            metadata_builder: Callable[..., Any] | None = None
+            primary_result: ChatCallResult | None = None
+            usage_block = _normalise_usage(_extract_usage_block(response) or {})
+            numeric_usage = _numeric_usage(usage_block)
+            tool_calls = _collect_tool_calls(response)
+            result_tool_calls = tool_calls
+
             if schema_bundle is not None and normalised_content:
                 repair_attempt = parse_json_with_repair(normalised_content)
                 repair_status = repair_attempt.status
@@ -1712,16 +1722,14 @@ def _call_chat_api_single(
                     model=current_model,
                     details={"schema": schema_name, "api_mode": active_mode.value},
                 )
-    
+
             normalised_secondary_content: str | None = None
             comparison_metadata: Mapping[str, Any] | None = None
-            comparison_responses: tuple[Any, Any] | None = None
+            _comparison_responses: tuple[Any, Any] | None = None
             secondary_usage: UsageDict | None = None
-    
-            if comparison_messages is not None and comparison_result is not None:
-                comparison_content = _normalise_content_payload(
-                    _extract_output_text(comparison_result.raw_response)
-                )
+
+            if comparison_messages is not None and comparison_result is not None and primary_result is not None:
+                comparison_content = _normalise_content_payload(_extract_output_text(comparison_result.raw_response))
                 normalised_secondary_content = comparison_content
                 if schema_bundle is not None and comparison_content:
                     repair_attempt = parse_json_with_repair(comparison_content)
@@ -1733,9 +1741,9 @@ def _call_chat_api_single(
                         label=comparison_label,
                         custom=options.get("metadata_builder", metadata_builder),
                     )
-                comparison_responses = (response, comparison_result.raw_response)
+                _comparison_responses = (response, comparison_result.raw_response)
                 secondary_usage = comparison_result.usage
-    
+
             merged_usage = _usage_snapshot(retry_state, numeric_usage)
             _update_usage_counters(merged_usage, task=task)
             return ChatCallResult(
