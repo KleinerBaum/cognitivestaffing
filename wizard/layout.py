@@ -309,15 +309,17 @@ def render_navigation_controls(state: NavigationState, *, location: Literal["top
     marker_class = f"wizard-nav-marker wizard-nav-marker--{location}"
     st.markdown(f"<div class='{marker_class}'></div>", unsafe_allow_html=True)
     cols = st.columns((1.1, 1.1, 1), gap="small")
-    _render_navigation_button(cols[0], state.previous, state)
-    _render_navigation_button(cols[1], state.next, state)
-    _render_navigation_button(cols[2], state.skip, state)
+    _render_navigation_button(cols[0], state.previous, state, location=location)
+    _render_navigation_button(cols[1], state.next, state, location=location)
+    _render_navigation_button(cols[2], state.skip, state, location=location)
 
 
 def _render_navigation_button(
     column: DeltaGenerator,
     button: NavigationButtonState | None,
     state: NavigationState,
+    *,
+    location: Literal["top", "bottom"],
 ) -> None:
     """Render a single navigation button if configured."""
 
@@ -326,7 +328,7 @@ def _render_navigation_button(
         return
 
     label = tr(*button.label)
-    key = f"wizard_{button.direction.value}_{state.current_key}"
+    key = f"wizard_{button.direction.value}_{state.current_key}_{location}"
     button_type: Literal["primary", "secondary"] = "primary" if button.primary else "secondary"
     wrapper_open = False
     if button.direction is NavigationDirection.NEXT:
