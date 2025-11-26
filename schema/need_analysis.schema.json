@@ -1112,6 +1112,35 @@
                 "application_deadline",
                 "followups_answered"
             ]
+        },
+        "generated": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "job_ad": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "interview_guide": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "boolean_search": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "required": [
+                "job_ad",
+                "interview_guide",
+                "boolean_search"
+            ]
         }
     },
     "required": [
@@ -1126,7 +1155,8 @@
         "employment",
         "compensation",
         "process",
-        "meta"
+        "meta",
+        "generated"
     ],
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "NeedAnalysisProfile"

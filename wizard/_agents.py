@@ -153,7 +153,7 @@ def generate_job_ad_content(
                     job_ad_md = fallback_doc
                 placeholder.markdown(job_ad_md)
 
-    st.session_state[StateKeys.JOB_AD_MD] = job_ad_md
+    st.session_state[StateKeys.JOB_AD_PREVIEW] = job_ad_md
     findings = scan_bias_language(job_ad_md, lang)
     st.session_state[StateKeys.BIAS_FINDINGS] = findings
     return True
@@ -229,10 +229,12 @@ def _store_interview_result(result: InterviewGuideGenerationResult, audience: st
     st.session_state[StateKeys.INTERVIEW_AUDIENCE] = audience
     st.session_state.setdefault(UIKeys.AUDIENCE_SELECT, audience)
     if result.success:
-        st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = result.guide_md
+        st.session_state[StateKeys.INTERVIEW_GUIDE_PREVIEW] = result.guide_md
+        st.session_state.pop(StateKeys.INTERVIEW_GUIDE_MD, None)
         st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = result.guide_data or {}
     else:
         st.session_state.pop(StateKeys.INTERVIEW_GUIDE_MD, None)
+        st.session_state.pop(StateKeys.INTERVIEW_GUIDE_PREVIEW, None)
         st.session_state.pop(StateKeys.INTERVIEW_GUIDE_DATA, None)
     st.session_state["interview_guide_warning"] = result.warning
     st.session_state["interview_guide_error"] = result.error

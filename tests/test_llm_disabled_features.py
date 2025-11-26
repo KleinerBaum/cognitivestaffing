@@ -34,6 +34,7 @@ def test_generate_job_ad_content_skips_when_llm_disabled(monkeypatch) -> None:
 
     assert result is False
     assert StateKeys.JOB_AD_MD not in st.session_state
+    assert StateKeys.JOB_AD_PREVIEW not in st.session_state
 
 
 def test_generate_interview_guide_content_skips_when_llm_disabled(monkeypatch) -> None:
@@ -54,3 +55,4 @@ def test_generate_interview_guide_content_skips_when_llm_disabled(monkeypatch) -
 
     assert result is False
     assert StateKeys.INTERVIEW_GUIDE_MD not in st.session_state
+    assert StateKeys.INTERVIEW_GUIDE_PREVIEW not in st.session_state

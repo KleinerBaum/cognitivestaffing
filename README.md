@@ -53,8 +53,10 @@ Live app: https://cognitivestaffing.streamlit.app/
   From the stored profile you can:
   - generate Boolean search strings,
   - assemble exportable job ads,
-  - build interview guides and question sets.  
+  - build interview guides and question sets.
   Summary tabs separate Role & search, Job ad, and Interview guide for quick review.
+- **Preview + approval for AI outputs**
+  Job ads, interview guides, and Boolean searches now render inside dedicated preview panels with bilingual “Approve & save” / “Discard” actions before they are written into the NeedAnalysisProfile or exported. Approved text stays fully editable for manual polishing.
 
 - **AI transparency & auditability**
   The Summary view visually distinguishes AI‑suggested values (for example via italics and labels like “AI-suggested”) so recruiters know what to double‑check before exporting. Internally, the profile tracks which fields were touched by AI, enabling future audit trails and confidence indicators.

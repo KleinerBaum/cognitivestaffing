@@ -165,6 +165,46 @@ def get_ai_contributions() -> tuple[set[str], dict[str, set[str]]]:
     return set(state["fields"]), {key: set(values) for key, values in state["items"].items()}
 
 
+def _persist_generated_value(path: str, value: str, *, mark_ai: bool = True) -> None:
+    """Persist generated collateral to the profile and optionally mark AI usage."""
+
+    profile_state = _get_profile_state()
+    set_in(profile_state, path, value)
+    st.session_state[StateKeys.PROFILE] = profile_state
+    if mark_ai:
+        mark_ai_field(path)
+
+
+def approve_generated_preview(preview_key: str, final_key: str, profile_path: str) -> str | None:
+    """Commit a generated preview to the profile and clear the preview state."""
+
+    candidate = str(st.session_state.get(preview_key) or "").strip()
+    if not candidate:
+        return None
+
+    _persist_generated_value(profile_path, candidate, mark_ai=True)
+    st.session_state[final_key] = candidate
+    st.session_state.pop(preview_key, None)
+    return candidate
+
+
+def discard_generated_preview(preview_key: str) -> None:
+    """Remove a generated preview without touching the saved output."""
+
+    st.session_state.pop(preview_key, None)
+
+
+def update_saved_generated_output(
+    source_key: str, final_key: str, profile_path: str, *, mark_ai: bool = False
+) -> str:
+    """Synchronise manual edits of generated content back to the profile."""
+
+    updated = str(st.session_state.get(source_key) or "").strip()
+    _persist_generated_value(profile_path, updated, mark_ai=mark_ai)
+    st.session_state[final_key] = updated
+    return updated
+
+
 def _get_profile_state() -> dict[str, Any]:
     """Return the mutable profile mapping from session state."""
 
@@ -189,13 +229,17 @@ def _clear_generated() -> None:
 
     for key in (
         StateKeys.JOB_AD_MD,
+        StateKeys.JOB_AD_PREVIEW,
         StateKeys.BOOLEAN_STR,
+        StateKeys.BOOLEAN_PREVIEW,
         StateKeys.INTERVIEW_GUIDE_MD,
+        StateKeys.INTERVIEW_GUIDE_PREVIEW,
         StateKeys.INTERVIEW_GUIDE_DATA,
     ):
         st.session_state.pop(key, None)
     for key in (
         UIKeys.JOB_AD_OUTPUT,
+        UIKeys.BOOLEAN_OUTPUT,
         UIKeys.INTERVIEW_OUTPUT,
     ):
         st.session_state.pop(key, None)
@@ -883,8 +927,11 @@ __all__ = [
     "_record_autofill_rejection",
     "_store_autofill_decisions",
     "_update_profile",
+    "approve_generated_preview",
+    "discard_generated_preview",
     "_set_company_logo",
     "_to_int",
+    "update_saved_generated_output",
     "get_in",
     "merge_unique_items",
     "normalize_text_area_list",
