@@ -78,21 +78,32 @@ def test_aliases_map_to_supported_model(monkeypatch: pytest.MonkeyPatch) -> None
     """Legacy IDs should be normalised using the alias mapping."""
 
     monkeypatch.setenv(model_router.PREF_ENV, "gpt-5.1-mini-latest")
-    client = FakeOpenAIClient(["gpt-5.1-mini"])
+    client = FakeOpenAIClient(["gpt-4o-mini"])
 
     chosen = model_router.pick_model(client)
 
-    assert chosen == "gpt-5.1-mini"
+    assert chosen == "gpt-4o-mini"
 
 
 def test_default_candidates_used_when_no_env_overrides() -> None:
     """The router falls back to the built-in candidate list."""
 
-    client = FakeOpenAIClient(["gpt-5.1-mini", "gpt-4o"])
+    client = FakeOpenAIClient(["gpt-4o-mini", "gpt-4o"])
 
     chosen = model_router.pick_model(client)
 
-    assert chosen == "gpt-5.1-mini"
+    assert chosen == "gpt-4o-mini"
+
+
+def test_filters_invalid_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unavailable aliases should be skipped in favour of real models."""
+
+    monkeypatch.setenv(model_router.PREF_ENV, "gpt-5.1")
+    client = FakeOpenAIClient(["gpt-4o", "gpt-4"])
+
+    chosen = model_router.pick_model(client)
+
+    assert chosen == "gpt-4o"
 
 
 def test_raises_when_no_candidates_available() -> None:

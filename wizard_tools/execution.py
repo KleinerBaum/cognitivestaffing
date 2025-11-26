@@ -10,9 +10,6 @@ from typing import Any, Dict, List, Literal, Optional
 from agents import function_tool
 
 ModelName = Literal[
-    "gpt-5.1",
-    "gpt-5.1-mini",
-    "gpt-5.1-nano",
     "gpt-4o",
     "gpt-4o-mini",
     "gpt-4.1-mini",
@@ -20,6 +17,8 @@ ModelName = Literal[
     "o4-mini",
     "o3",
     "o3-mini",
+    "gpt-4",
+    "gpt-3.5-turbo",
 ]
 ReasoningEffort = Literal["minimal", "medium", "high"]
 ToolChoiceMode = Literal["auto", "none", "force"]
@@ -30,7 +29,7 @@ RetryStrategy = Literal["same_inputs", "regenerate", "raise_effort"]
 class StageRuntimeConfig:
     """Configuration that influences how a stage is executed."""
 
-    model: ModelName = "gpt-5.1-mini"
+    model: ModelName = "gpt-4o-mini"
     reasoning_effort: ReasoningEffort = "minimal"
     tool_choice_mode: ToolChoiceMode = "auto"
     tool_choice_function_name: Optional[str] = None
