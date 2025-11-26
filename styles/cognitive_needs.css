@@ -92,7 +92,7 @@
   --space-xl: 1.5rem;
   --space-2xl: 2.25rem;
 
-  --container-max-width: 1200px;
+  --container-max-width: 1100px;
 
   --color-primary: var(--accent);
   --color-secondary: var(--accent-2);
@@ -176,7 +176,8 @@
 
 /* Main content container: glass card */
 section.main > div.block-container {
-  max-width: var(--container-max-width);
+  max-width: min(var(--container-max-width), 96vw);
+  width: min(100%, var(--container-max-width));
   margin-top: var(--space-lg);
   padding: var(--space-lg) var(--space-xl);
   background: var(--surface-1);
@@ -645,6 +646,35 @@ div[data-testid="stMultiSelect"] > div:first-of-type {
 }
 .stMultiSelect [data-baseweb="input"] {
   min-height: 44px;
+}
+
+.stTextArea textarea {
+  width: 100% !important;
+  min-width: 100% !important;
+  min-height: 120px;
+  box-sizing: border-box;
+}
+
+[data-testid="stTable"],
+[data-testid="stDataFrame"] {
+  overflow-x: auto;
+}
+
+[data-testid="stTable"] > div,
+[data-testid="stDataFrame"] > div {
+  width: 100% !important;
+}
+
+@media (max-width: 1200px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap;
+    row-gap: var(--space-md);
+  }
+
+  [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    flex: 1 1 320px !important;
+    min-width: min(340px, 100%);
+  }
 }
 
 .chip-section-title {

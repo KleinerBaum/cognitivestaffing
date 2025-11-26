@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from typing import Callable, Literal, Sequence
 
 import streamlit as st
 
@@ -22,6 +22,10 @@ _NAVIGATION_STYLE = """
     gap: var(--space-sm, 0.6rem);
     align-items: stretch;
     margin: 1.2rem 0 0.65rem;
+}
+
+.wizard-nav-marker--top + div[data-testid="stHorizontalBlock"] {
+    margin: 0 0 0.9rem;
 }
 
 .wizard-nav-marker + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
@@ -86,6 +90,11 @@ _NAVIGATION_STYLE = """
         bottom: 1rem;
         z-index: 10;
         box-shadow: 0 16px 32px rgba(15, 23, 42, 0.22);
+    }
+
+    .wizard-nav-marker--top + div[data-testid="stHorizontalBlock"] .wizard-nav-next button {
+        position: static;
+        box-shadow: 0 16px 32px rgba(37, 58, 95, 0.2);
     }
 
     .wizard-nav-marker + div[data-testid="stHorizontalBlock"] button {
@@ -186,8 +195,15 @@ def build_navigation_state(
     )
 
 
-def render_navigation(state: NavigationState) -> None:
-    render_navigation_controls(state)
+def render_navigation(state: NavigationState, *, location: Literal["top", "bottom"] = "bottom") -> None:
+    """Render wizard navigation controls.
+
+    Args:
+        state: The current navigation state.
+        location: Whether to place the controls at the top or bottom of the step.
+    """
+
+    render_navigation_controls(state, location=location)
 
 
 def render_validation_warnings(pending_validation_errors: dict[str, LocalizedText]) -> None:

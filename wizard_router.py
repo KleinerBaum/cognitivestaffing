@@ -148,6 +148,7 @@ class WizardRouter:
             lang = st.session_state.get("lang", "de")
             summary_labels = [tr(de, en, lang=lang) for de, en in self._summary_labels]
             st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
+            top_nav_placeholder = st.container()
             try:
                 renderer.callback(self._context)
             except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
@@ -165,6 +166,8 @@ class WizardRouter:
                 allow_skip=page.allow_skip,
                 navigate_factory=self._build_nav_callback,
             )
+            with top_nav_placeholder:
+                render_navigation(nav_state, location="top")
             render_navigation(nav_state)
             render_validation_warnings(self._controller.pending_validation_errors)
 
