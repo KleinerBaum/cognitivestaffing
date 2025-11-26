@@ -12,7 +12,7 @@ from core.schema_registry import load_need_analysis_schema
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.profile_normalization import normalize_interview_stages_field
 from pydantic import AnyUrl, HttpUrl
-from utils.json_repair import JsonRepairResult, JsonRepairStatus, parse_json_with_repair
+from utils.json_repair import JsonRepairResult, parse_json_with_repair
 
 logger = logging.getLogger(__name__)
 
