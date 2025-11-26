@@ -62,7 +62,7 @@ from components.chatkit_widget import inject_chatkit_script  # noqa: E402
 from sidebar import render_sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 INTRO_BANNER_STATE_KEY: Final[str] = "ui.show_intro_banner"
 
 setup_tracing()

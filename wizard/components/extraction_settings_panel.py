@@ -54,8 +54,8 @@ def render_extraction_settings_panel(
         apply_parsing_mode(selected_mode)
         st_module.caption(
             tr(
-                "Schnell nutzt gpt-4.1 mini mit minimalem Denkaufwand; Gründlich erhöht den REASONING_EFFORT und wählt ein präziseres Modell.",
-                "Fast leans on gpt-4.1 mini with minimal reasoning; Thorough raises the REASONING_EFFORT and opts for a more precise model.",
+                "Schnell nutzt gpt-5.1 mini mit minimalem Denkaufwand; Gründlich erhöht den REASONING_EFFORT und wählt ein präziseres Modell (gpt-5.1 mit o4-mini/o3-Fallback).",
+                "Fast leans on gpt-5.1 mini with minimal reasoning; Thorough raises the REASONING_EFFORT and opts for a more precise model (gpt-5.1 with o4-mini/o3 fallback).",
             )
         )
 

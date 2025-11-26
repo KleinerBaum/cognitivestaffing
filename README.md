@@ -1,6 +1,6 @@
 # Cognitive Staffing
 
-Cognitive Staffing is a multi-step Streamlit wizard that turns unstructured job ads (PDF, DOCX, URLs, or pasted text) into a structured **NeedAnalysisProfile** JSON and recruiter‑ready outputs (job ad, interview guide, Boolean search, etc.). It combines rule‑based ingest with OpenAI’s Responses API and reasoning models to prefill company, role, team, process, and compensation details, then guides users through eight bilingual steps to review, enrich, and export the results.
+Cognitive Staffing is a multi-step Streamlit wizard that turns unstructured job ads (PDF, DOCX, URLs, or pasted text) into a structured **NeedAnalysisProfile** JSON and recruiter‑ready outputs (job ad, interview guide, Boolean search, etc.). It combines rule‑based ingest with OpenAI’s Responses API and GPT‑5 reasoning models to prefill company, role, team, process, and compensation details, then guides users through eight bilingual steps to review, enrich, and export the results.
 
 Live app: https://cognitivestaffing.streamlit.app/
 
@@ -33,7 +33,7 @@ Live app: https://cognitivestaffing.streamlit.app/
   - **Hiring process planner** – drafts stage sequences and writes them into `process.hiring_process`.
 
 - **Multilingual section detection & mapping**
-  German and English headings like *“Ihre Aufgaben / Your Tasks”*, *“Ihr Profil / Your Profile”*, *“Benefits / Unser Angebot / Wir bieten”*, *“Bewerbungsprozess / Interview Process”* are recognized so responsibilities, requirements, benefits, and process sections land in the correct fields.
+  German and English headings like *“Ihre Aufgaben / Your Tasks”*, *“Ihr Profil / Your Profile”*, *“Benefits / Unser Angebot / Wir bieten”*, *“Bewerbungsprozess / Interview Process”* are recognized and mapped so responsibilities, requirements, benefits, and process sections land in the correct fields. Benefits and hiring process bullets now reliably flow into `compensation.benefits` and `process.hiring_process` for DE/EN ads.
 
 - **Structured skill buckets & ESCO integration**  
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).

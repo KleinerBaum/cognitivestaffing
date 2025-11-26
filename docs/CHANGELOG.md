@@ -12,6 +12,15 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [1.2.0] – 2025-02-24
+
+### Changed
+- Documented GPT-5 defaults: Quick/Schnell mode now highlights `gpt-5.1-mini` and Precise/Genau escalates to `gpt-5.1` with `o4-mini`/`o3` fallbacks; sample environment variables align with the new routing.
+- Clarified DE/EN section mapping: benefits and hiring-process bullets are now documented as fully mapped into `compensation.benefits` and `process.hiring_process` after extraction.
+
+### Fixed
+- Updated developer/UI copy to remove stale `gpt-4.x` references and keep model override guidance consistent across README, .env examples, and the extraction settings panel.
+
 ### Added
 - Lightweight workflow engine (`pipelines/workflow.py`) to orchestrate dependent LLM calls with retries and status tracking, now wiring the extraction and follow-up steps for UI progress reporting.
 - Highlight and tracking of missing or critical fields per wizard step to drive follow-up questions and assistive UX.
