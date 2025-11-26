@@ -27,6 +27,7 @@ from typing import (
 
 from types import MappingProxyType
 
+from core.schema_migrations import migrate_profile
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -1728,6 +1729,7 @@ def coerce_and_fill(data: Mapping[str, Any] | None) -> NeedAnalysisProfile:
     """
 
     payload = canonicalize_profile_payload(data)
+    payload = migrate_profile(payload)
     payload = merge_profile_with_defaults(payload)
 
     try:

@@ -2,6 +2,10 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+        "schema_version": {
+            "type": "integer",
+            "minimum": 1
+        },
         "company": {
             "type": "object",
             "additionalProperties": false,
@@ -1111,6 +1115,7 @@
         }
     },
     "required": [
+        "schema_version",
         "company",
         "position",
         "department",

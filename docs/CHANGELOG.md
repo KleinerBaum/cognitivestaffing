@@ -20,6 +20,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Clarified expectations for ChatKit workflows and assistant roles in `agent_setup.py` and `AGENTS.md`.
 - CLI helper `python -m cli.reset_api_flags` to strip model and API mode overrides from `.env` files, plus README guidance on clearing legacy flags.
 - Per-session circuit breaker utility guarding external enrichment (Clearbit/Wikipedia) with UI notices when lookups are skipped.
+- Schema versioning for NeedAnalysisProfile plus migration helpers to stabilise autosave and import of legacy profiles.
 
 ### Changed
 - Tightened wording and structure of README “Architecture overview” and “Configuration” sections to reflect current directory layout and environment flags.
