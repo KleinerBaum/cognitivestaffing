@@ -14,7 +14,12 @@ from utils.export import prepare_download_data
 from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
 from wizard._agents import generate_interview_guide_content
-from wizard._logic import _get_company_logo_bytes
+from wizard._logic import (
+    _get_company_logo_bytes,
+    approve_generated_preview,
+    discard_generated_preview,
+    update_saved_generated_output,
+)
 from wizard.layout import render_section_heading
 
 logger = logging.getLogger(__name__)
@@ -181,17 +186,68 @@ def render_interview_guide_section(
             ).format(details=fallback_detail)
         )
 
-    guide_text = st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD, "")
-    if guide_text:
-        output_key = UIKeys.INTERVIEW_OUTPUT
-        if output_key not in st.session_state or st.session_state.get(output_key) != guide_text:
-            st.session_state[output_key] = guide_text
-        st.text_area(
-            tr("Generierter Leitfaden", "Generated guide"),
-            height=_textarea_height(guide_text),
-            key=output_key,
+    saved_guide = (
+        st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD)
+        or getattr(profile.generated, "interview_guide", "")
+        or ""
+    )
+    if StateKeys.INTERVIEW_GUIDE_MD not in st.session_state and saved_guide:
+        st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = saved_guide
+    preview_guide = str(st.session_state.get(StateKeys.INTERVIEW_GUIDE_PREVIEW) or "").strip()
+    saved_guide = str(st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD) or saved_guide or "").strip()
+
+    if preview_guide:
+        with st.expander(tr("Vorschau Interviewleitfaden", "Preview interview guide"), expanded=True):
+            st.markdown(preview_guide)
+        approve_col, discard_col = st.columns(2)
+        if approve_col.button(
+            tr("✅ Freigeben & speichern", "✅ Approve & save"),
+            key="interview_preview_approve",
+            type="primary",
+        ):
+            approved = approve_generated_preview(
+                StateKeys.INTERVIEW_GUIDE_PREVIEW,
+                StateKeys.INTERVIEW_GUIDE_MD,
+                "generated.interview_guide",
+            )
+            if approved:
+                st.success(tr("Leitfaden gespeichert.", "Guide saved."))
+                st.rerun()
+        if discard_col.button(tr("Verwerfen", "Discard"), key="interview_preview_discard"):
+            discard_generated_preview(StateKeys.INTERVIEW_GUIDE_PREVIEW)
+            st.info(tr("Vorschau verworfen.", "Preview discarded."))
+            st.rerun()
+
+    output_key = UIKeys.INTERVIEW_OUTPUT
+    st.session_state.setdefault(output_key, saved_guide)
+    st.text_area(
+        tr("Freigegebener Leitfaden", "Approved guide"),
+        height=_textarea_height(st.session_state.get(output_key, "")),
+        key=output_key,
+        placeholder=tr(
+            "Nach der Freigabe hier weiter anpassen…",
+            "Refine the approved guide here after saving…",
+        ),
+    )
+
+    if st.button(tr("💾 Leitfaden sichern", "💾 Save guide"), key="interview_manual_save"):
+        saved_guide = update_saved_generated_output(
+            output_key,
+            StateKeys.INTERVIEW_GUIDE_MD,
+            "generated.interview_guide",
+            mark_ai=True,
+        )
+        st.success(tr("Leitfaden gespeichert.", "Guide saved."))
+
+    if preview_guide and not saved_guide:
+        st.info(
+            tr(
+                "Die Vorschau ist noch nicht freigegeben – bitte freigeben oder verwerfen.",
+                "Preview not yet approved – please approve or discard before export.",
+            )
         )
 
+    if saved_guide:
         guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
         font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
         logo_bytes = _get_company_logo_bytes()
@@ -200,7 +256,7 @@ def render_interview_guide_section(
         export_font = font_choice if guide_format in {"docx", "pdf"} else None
         export_logo = logo_bytes if guide_format in {"docx", "pdf"} else None
         payload, mime, ext = prepare_download_data(
-            guide_text,
+            saved_guide,
             guide_format,
             key="interview",
             title=guide_title,

@@ -481,6 +481,16 @@ class Meta(BaseModel):
     followups_answered: List[str] = Field(default_factory=list)
 
 
+class GeneratedContent(BaseModel):
+    """AI-generated collateral tied to the profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_ad: Optional[str] = None
+    interview_guide: Optional[str] = None
+    boolean_search: Optional[str] = None
+
+
 class NeedAnalysisProfile(BaseModel):
     """Aggregate need analysis profile model with normalised sub-sections.
 
@@ -504,6 +514,7 @@ class NeedAnalysisProfile(BaseModel):
     compensation: Compensation = Field(default_factory=Compensation)
     process: Process = Field(default_factory=Process)
     meta: Meta = Field(default_factory=Meta)
+    generated: GeneratedContent = Field(default_factory=GeneratedContent)
 
     @field_validator("company", "position", mode="before")
     @classmethod

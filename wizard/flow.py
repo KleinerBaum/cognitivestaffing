@@ -254,7 +254,9 @@ from ._logic import (  # noqa: F401 - re-exported for step modules
     SALARY_SLIDER_MAX,
     SALARY_SLIDER_MIN,
     SALARY_SLIDER_STEP,
+    approve_generated_preview,
     _autofill_was_rejected,
+    discard_generated_preview,
     _derive_salary_range_defaults,
     _get_company_logo_bytes,
     _set_company_logo,
@@ -266,6 +268,7 @@ from ._logic import (  # noqa: F401 - re-exported for step modules
     mark_ai_list_item,
     merge_unique_items,
     set_in,
+    update_saved_generated_output,
     unique_normalized,
 )
 from .metadata import (
@@ -6892,10 +6895,39 @@ def _render_boolean_interactive_section(
             include_title=include_title_clause,
             title_synonyms=selected_synonyms if selected_synonyms else None,
         )
-    st.session_state[StateKeys.BOOLEAN_STR] = boolean_query
 
-    if boolean_query:
-        st.code(boolean_query, language=None)
+    approved_query = (
+        st.session_state.get(StateKeys.BOOLEAN_STR)
+        or getattr(profile.generated, "boolean_search", "")
+        or ""
+    )
+    if StateKeys.BOOLEAN_STR not in st.session_state and approved_query:
+        st.session_state[StateKeys.BOOLEAN_STR] = approved_query
+
+    st.session_state[StateKeys.BOOLEAN_PREVIEW] = boolean_query
+    preview_query = str(boolean_query).strip()
+    approved_query = str(st.session_state.get(StateKeys.BOOLEAN_STR) or approved_query or "").strip()
+
+    if preview_query:
+        st.code(preview_query, language=None)
+        approve_col, discard_col = st.columns(2)
+        if approve_col.button(
+            tr("✅ Freigeben & speichern", "✅ Approve & save"),
+            key=f"{download_key}.approve",
+            type="primary",
+        ):
+            approved = approve_generated_preview(
+                StateKeys.BOOLEAN_PREVIEW,
+                StateKeys.BOOLEAN_STR,
+                "generated.boolean_search",
+            )
+            if approved:
+                st.success(tr("Boolean-String gespeichert.", "Boolean string saved."))
+                approved_query = approved
+        if discard_col.button(tr("Verwerfen", "Discard"), key=f"{download_key}.discard"):
+            discard_generated_preview(StateKeys.BOOLEAN_PREVIEW)
+            st.info(tr("Vorschau verworfen.", "Preview discarded."))
+            preview_query = ""
     else:
         st.info(
             tr(
@@ -6904,8 +6936,37 @@ def _render_boolean_interactive_section(
             )
         )
 
+    saved_output_key = UIKeys.BOOLEAN_OUTPUT
+    st.session_state.setdefault(saved_output_key, approved_query)
+    st.text_area(
+        tr("Freigegebener Boolean-String", "Approved Boolean string"),
+        value=None,
+        height=_textarea_height(st.session_state.get(saved_output_key, "")),
+        key=saved_output_key,
+        placeholder=tr(
+            "Nach der Freigabe hier manuell anpassen…",
+            "Adjust the approved Boolean string here…",
+        ),
+    )
+    if st.button(tr("💾 Änderungen sichern", "💾 Save changes"), key=f"{download_key}.save"):
+        approved_query = update_saved_generated_output(
+            saved_output_key,
+            StateKeys.BOOLEAN_STR,
+            "generated.boolean_search",
+            mark_ai=True,
+        )
+        st.success(tr("Boolean-String gespeichert.", "Boolean string saved."))
+
+    if preview_query and not approved_query:
+        st.info(
+            tr(
+                "Die Vorschau ist noch nicht freigegeben – bitte freigeben oder verwerfen.",
+                "Preview not yet approved – please approve or discard before export.",
+            )
+        )
+
     _render_boolean_download_button(
-        boolean_query=boolean_query,
+        boolean_query=approved_query,
         job_title_value=job_title_value,
         key=download_key,
     )
@@ -6917,6 +6978,7 @@ def render_boolean_builder(profile: NeedAnalysisProfile) -> None:
     """Render the interactive Boolean builder based on the profile."""
 
     default_boolean_query = build_boolean_search(profile)
+    saved_boolean_query = getattr(profile.generated, "boolean_search", "") or ""
     profile_signature = _boolean_profile_signature(profile)
     stored_signature = st.session_state.get(BOOLEAN_PROFILE_SIGNATURE)
     if stored_signature != profile_signature:
@@ -6924,9 +6986,12 @@ def render_boolean_builder(profile: NeedAnalysisProfile) -> None:
             st.session_state.pop(widget_key, None)
         st.session_state[BOOLEAN_WIDGET_KEYS] = []
         st.session_state[BOOLEAN_PROFILE_SIGNATURE] = profile_signature
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
-    elif StateKeys.BOOLEAN_STR not in st.session_state:
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
+        st.session_state[StateKeys.BOOLEAN_PREVIEW] = default_boolean_query
+        st.session_state.pop(StateKeys.BOOLEAN_STR, None)
+    elif StateKeys.BOOLEAN_PREVIEW not in st.session_state:
+        st.session_state[StateKeys.BOOLEAN_PREVIEW] = default_boolean_query
+    if saved_boolean_query and StateKeys.BOOLEAN_STR not in st.session_state:
+        st.session_state[StateKeys.BOOLEAN_STR] = saved_boolean_query
 
     boolean_skill_terms = _boolean_skill_terms(profile)
     boolean_title_synonyms = _boolean_title_synonyms(profile)
@@ -11051,30 +11116,76 @@ def _render_job_ad_tab(
             lang,
         )
 
-    job_ad_text = st.session_state.get(StateKeys.JOB_AD_MD)
-    output_key = UIKeys.JOB_AD_OUTPUT
-    existing_output = st.session_state.get(output_key, "")
-    display_text = job_ad_text if job_ad_text is not None else existing_output
-    if output_key not in st.session_state or st.session_state[output_key] != display_text:
-        st.session_state[output_key] = display_text
+    saved_job_ad = (
+        st.session_state.get(StateKeys.JOB_AD_MD)
+        or getattr(profile.generated, "job_ad", "")
+        or ""
+    )
+    if StateKeys.JOB_AD_MD not in st.session_state and saved_job_ad:
+        st.session_state[StateKeys.JOB_AD_MD] = saved_job_ad
+    preview_job_ad = str(st.session_state.get(StateKeys.JOB_AD_PREVIEW) or "").strip()
+    saved_job_ad = str(st.session_state.get(StateKeys.JOB_AD_MD) or saved_job_ad or "").strip()
 
-    current_text = st.session_state.get(output_key, "")
+    if preview_job_ad:
+        with st.expander(tr("Vorschau Stellenanzeige", "Preview job ad"), expanded=True):
+            st.markdown(preview_job_ad)
+        approve_col, discard_col = st.columns(2)
+        if approve_col.button(
+            tr("✅ Freigeben & speichern", "✅ Approve & save"),
+            key="job_ad_preview_approve",
+            type="primary",
+        ):
+            approved = approve_generated_preview(
+                StateKeys.JOB_AD_PREVIEW,
+                StateKeys.JOB_AD_MD,
+                "generated.job_ad",
+            )
+            if approved:
+                st.success(tr("Stellenanzeige gespeichert.", "Job ad saved."))
+                st.rerun()
+        if discard_col.button(tr("Verwerfen", "Discard"), key="job_ad_preview_discard"):
+            discard_generated_preview(StateKeys.JOB_AD_PREVIEW)
+            st.info(tr("Vorschau verworfen.", "Preview discarded."))
+            st.rerun()
+
+    output_key = UIKeys.JOB_AD_OUTPUT
+    st.session_state.setdefault(output_key, saved_job_ad)
+
     st.text_area(
-        tr("Generierte Stellenanzeige", "Generated job ad"),
-        height=_textarea_height(current_text),
+        tr("Freigegebene Stellenanzeige", "Approved job ad"),
+        height=_textarea_height(st.session_state.get(output_key, "")),
         key=output_key,
+        placeholder=tr(
+            "Nach der Freigabe hier bearbeiten oder manuell ergänzen…",
+            "Edit or extend the approved ad here after saving…",
+        ),
     )
 
-    if not job_ad_text and current_text:
+    if st.button(tr("💾 Änderungen sichern", "💾 Save changes"), key="job_ad_manual_save"):
+        updated = update_saved_generated_output(
+            output_key,
+            StateKeys.JOB_AD_MD,
+            "generated.job_ad",
+            mark_ai=True,
+        )
+        st.success(
+            tr(
+                "Stellenanzeige gespeichert (manuelle Anpassung).",
+                "Job ad saved with manual edits.",
+            )
+        )
+        saved_job_ad = updated
+
+    if preview_job_ad and not saved_job_ad:
         st.info(
             tr(
-                "Profil geändert – bitte Anzeige neu generieren.",
-                "Profile updated – please regenerate the job ad.",
+                "Die Vorschau ist noch nicht freigegeben – bitte freigeben oder verwerfen.",
+                "Preview not yet approved – please approve or discard before export.",
             )
         )
 
-    if job_ad_text:
-        seo_data = seo_optimize(job_ad_text)
+    if saved_job_ad:
+        seo_data = seo_optimize(saved_job_ad)
         keywords: list[str] = list(seo_data.get("keywords", []))
         meta_description: str = str(seo_data.get("meta_description", ""))
         if keywords or meta_description:
@@ -11108,7 +11219,7 @@ def _render_job_ad_tab(
         export_font = font_choice if format_choice in {"docx", "pdf"} else None
         export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
         payload, mime, ext = prepare_download_data(
-            job_ad_text,
+            saved_job_ad,
             format_choice,
             key="job_ad",
             title=job_title,
@@ -11132,7 +11243,7 @@ def _render_job_ad_tab(
             tr("Was soll angepasst werden?", "What should be adjusted?"),
             key=UIKeys.JOB_AD_FEEDBACK,
         )
-        refine_disabled = not llm_available
+        refine_disabled = not llm_available or not (preview_job_ad or saved_job_ad)
         if not llm_available:
             st.caption(llm_disabled_message())
         if st.button(
@@ -11141,11 +11252,12 @@ def _render_job_ad_tab(
             disabled=refine_disabled,
         ):
             try:
-                refined = refine_document(job_ad_text, feedback)
-                st.session_state[StateKeys.JOB_AD_MD] = refined
+                base_text = preview_job_ad or saved_job_ad
+                refined = refine_document(base_text, feedback)
+                st.session_state[StateKeys.JOB_AD_PREVIEW] = refined
                 findings = scan_bias_language(refined, st.session_state.lang)
                 st.session_state[StateKeys.BIAS_FINDINGS] = findings
-                st.rerun()
+                st.success(tr("Neue Vorschau erstellt.", "Created a new preview."))
             except Exception as exc:
                 st.error(tr("Verfeinerung fehlgeschlagen", "Refinement failed") + f": {exc}")
 
@@ -11303,6 +11415,7 @@ def _render_summary_export_section(
     st.divider()
 
     default_boolean_query = build_boolean_search(profile)
+    saved_boolean_query = getattr(profile.generated, "boolean_search", "") or ""
     profile_signature = _boolean_profile_signature(profile)
     stored_signature = st.session_state.get(BOOLEAN_PROFILE_SIGNATURE)
     if stored_signature != profile_signature:
@@ -11310,9 +11423,12 @@ def _render_summary_export_section(
             st.session_state.pop(widget_key, None)
         st.session_state[BOOLEAN_WIDGET_KEYS] = []
         st.session_state[BOOLEAN_PROFILE_SIGNATURE] = profile_signature
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
-    elif StateKeys.BOOLEAN_STR not in st.session_state:
-        st.session_state[StateKeys.BOOLEAN_STR] = default_boolean_query
+        st.session_state[StateKeys.BOOLEAN_PREVIEW] = default_boolean_query
+        st.session_state.pop(StateKeys.BOOLEAN_STR, None)
+    elif StateKeys.BOOLEAN_PREVIEW not in st.session_state:
+        st.session_state[StateKeys.BOOLEAN_PREVIEW] = default_boolean_query
+    if saved_boolean_query and StateKeys.BOOLEAN_STR not in st.session_state:
+        st.session_state[StateKeys.BOOLEAN_STR] = saved_boolean_query
 
     boolean_skill_terms = _boolean_skill_terms(profile)
     boolean_title_synonyms = _boolean_title_synonyms(profile)

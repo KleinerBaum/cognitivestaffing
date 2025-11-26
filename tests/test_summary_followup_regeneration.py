@@ -128,7 +128,8 @@ def test_summary_boolean_ui_uses_synonyms_and_skills(monkeypatch) -> None:
         include_title=True,
         title_synonyms=boolean_title_synonyms,
     )
-    assert st.session_state[StateKeys.BOOLEAN_STR] == expected_query
+    assert st.session_state[StateKeys.BOOLEAN_PREVIEW] == expected_query
+    assert st.session_state.get(StateKeys.BOOLEAN_STR) in ("", None)
 
     title_key = _boolean_widget_key("boolean.title", "Data Engineer")
     synonym_keys = [_boolean_widget_key("boolean.synonym", synonym) for synonym in boolean_title_synonyms]

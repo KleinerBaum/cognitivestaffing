@@ -16,20 +16,28 @@ def test_update_profile_clears_generated() -> None:
     profile: ProfileDict = {"company": {"name": "Old"}}
     st.session_state[StateKeys.PROFILE] = profile
     st.session_state[StateKeys.JOB_AD_MD] = "old"
+    st.session_state[StateKeys.JOB_AD_PREVIEW] = "preview"
     st.session_state[StateKeys.BOOLEAN_STR] = "old"
+    st.session_state[StateKeys.BOOLEAN_PREVIEW] = "preview"
     st.session_state[StateKeys.INTERVIEW_GUIDE_MD] = "old"
+    st.session_state[StateKeys.INTERVIEW_GUIDE_PREVIEW] = "preview"
     st.session_state[StateKeys.INTERVIEW_GUIDE_DATA] = {"metadata": {}}
     st.session_state[UIKeys.JOB_AD_OUTPUT] = "ui-old"
+    st.session_state[UIKeys.BOOLEAN_OUTPUT] = "ui-old"
     st.session_state[UIKeys.INTERVIEW_OUTPUT] = "ui-old"
 
     _update_profile("company.name", "New")
 
     assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "New"
     assert StateKeys.JOB_AD_MD not in st.session_state
+    assert StateKeys.JOB_AD_PREVIEW not in st.session_state
     assert StateKeys.BOOLEAN_STR not in st.session_state
+    assert StateKeys.BOOLEAN_PREVIEW not in st.session_state
     assert StateKeys.INTERVIEW_GUIDE_MD not in st.session_state
+    assert StateKeys.INTERVIEW_GUIDE_PREVIEW not in st.session_state
     assert StateKeys.INTERVIEW_GUIDE_DATA not in st.session_state
     assert UIKeys.JOB_AD_OUTPUT not in st.session_state
+    assert UIKeys.BOOLEAN_OUTPUT not in st.session_state
     assert UIKeys.INTERVIEW_OUTPUT not in st.session_state
 
 
