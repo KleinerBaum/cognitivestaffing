@@ -72,7 +72,11 @@ def _render_suggestions(
             }
             st.session_state[responsibilities_key] = "\n".join(updated_items)
             st.session_state[responsibilities_seed_key] = "\n".join(updated_items)
-            mark_ai_list_item("responsibilities.items", suggestion_text)
+            mark_ai_list_item(
+                "responsibilities.items",
+                suggestion_text,
+                source="responsibility_brainstormer",
+            )
             st.toast(
                 tr("Aufgabe übernommen.", "Responsibility added.", lang=lang),
                 icon="✅",

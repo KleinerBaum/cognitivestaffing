@@ -89,6 +89,7 @@ from state.ai_failures import (
     is_step_ai_skipped,
     reset_step_failures,
 )
+from state.ai_contributions import AIContributionState, ContributionRecord
 from ingest.extractors import extract_text_from_file, extract_text_from_url
 from ingest.reader import clean_structured_document
 from ingest.types import ContentBlock, StructuredDocument, build_plain_text_document
@@ -258,6 +259,7 @@ from ._logic import (  # noqa: F401 - re-exported for step modules
     _autofill_was_rejected,
     discard_generated_preview,
     _derive_salary_range_defaults,
+    _format_contribution_hint,
     _get_company_logo_bytes,
     _set_company_logo,
     _update_profile,
@@ -5394,6 +5396,7 @@ def _render_review_logistics_tab(profile: dict[str, Any]) -> None:
         with travel_cols[1]:
             travel_regions = render_list_text_area(
                 label=tr("Reisegebiete (eine pro Zeile)", "Travel regions (one per line)"),
+                field_path=str(ProfilePaths.EMPLOYMENT_TRAVEL_REGIONS),
                 session_key=f"review.{ProfilePaths.EMPLOYMENT_TRAVEL_REGIONS}",
                 items=_normalize_list(employment.get("travel_regions")),
                 height=110,
@@ -5438,6 +5441,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     with resp_container:
         resp_items = render_list_text_area(
             label=tr("Aufgaben (eine pro Zeile)", "Responsibilities (one per line)"),
+            field_path=str(ProfilePaths.RESPONSIBILITIES_ITEMS),
             session_key=str(ProfilePaths.RESPONSIBILITIES_ITEMS),
             items=responsibilities.get("items"),
             height=150,
@@ -5454,6 +5458,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     with hard_container:
         hard_required = render_list_text_area(
             label=tr("Pflicht-Hard-Skills", "Required hard skills"),
+            field_path=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
             session_key=str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
             items=requirements.get("hard_skills_required"),
             height=120,
@@ -5470,6 +5475,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     with soft_container:
         soft_required = render_list_text_area(
             label=tr("Pflicht-Soft-Skills", "Required soft skills"),
+            field_path=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
             session_key=str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
             items=requirements.get("soft_skills_required"),
             height=120,
@@ -5486,6 +5492,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     with tools_container:
         tools = render_list_text_area(
             label=tr("Tools & Technologien", "Tools & technologies"),
+            field_path=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
             session_key=str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
             items=requirements.get("tools_and_technologies"),
             height=120,
@@ -5502,6 +5509,7 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     with languages_container:
         languages = render_list_text_area(
             label=tr("Sprachen", "Languages"),
+            field_path=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
             session_key=str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
             items=requirements.get("languages_required"),
             height=110,
@@ -5538,6 +5546,7 @@ def _render_review_process_tab(profile: dict[str, Any]) -> None:
 
     phases = render_list_text_area(
         label=tr("Prozessphasen", "Process phases"),
+        field_path=str(ProfilePaths.PROCESS_PHASES),
         session_key=str(ProfilePaths.PROCESS_PHASES),
         items=process.get("phases"),
         height=120,
@@ -6897,9 +6906,7 @@ def _render_boolean_interactive_section(
         )
 
     approved_query = (
-        st.session_state.get(StateKeys.BOOLEAN_STR)
-        or getattr(profile.generated, "boolean_search", "")
-        or ""
+        st.session_state.get(StateKeys.BOOLEAN_STR) or getattr(profile.generated, "boolean_search", "") or ""
     )
     if StateKeys.BOOLEAN_STR not in st.session_state and approved_query:
         st.session_state[StateKeys.BOOLEAN_STR] = approved_query
@@ -6954,6 +6961,7 @@ def _render_boolean_interactive_section(
             StateKeys.BOOLEAN_STR,
             "generated.boolean_search",
             mark_ai=True,
+            ai_source="boolean_builder",
         )
         st.success(tr("Boolean-String gespeichert.", "Boolean string saved."))
 
@@ -7503,8 +7511,8 @@ def _step_requirements() -> None:
         st.caption(intro)
     st.caption(
         tr(
-            "Hinweis: Kursiv formatierte Einträge wurden von der KI vorgeschlagen.",
-            "Note: Italicized entries were suggested by AI.",
+            "Hinweis: Einträge mit dem 🤖-Symbol stammen aus KI-Vorschlägen; der Tooltip nennt Quelle und Zeitpunkt.",
+            "Reminder: Values with the 🤖 badge were suggested by AI; hover for source and timestamp.",
         )
     )
     location_data = data.setdefault("location", {})
@@ -8087,7 +8095,11 @@ def _step_requirements() -> None:
                 _set_requirement_certificates(data["requirements"], merged)
             else:
                 data["requirements"][target_key] = merged
-            mark_ai_list_item(f"requirements.{target_key}", value)
+            mark_ai_list_item(
+                f"requirements.{target_key}",
+                value,
+                source="skill_suggestions",
+            )
             st.session_state.pop(StateKeys.SKILL_SUGGESTIONS, None)
             st.rerun()
 
@@ -8283,6 +8295,7 @@ def _step_requirements() -> None:
         ):
             cleaned_responsibilities = render_list_text_area(
                 label=display_label,
+                field_path=str(ProfilePaths.RESPONSIBILITIES_ITEMS),
                 session_key=responsibilities_key,
                 items=responsibilities_items,
                 placeholder=tr(
@@ -10204,6 +10217,68 @@ def _summary_group_counts(data: Mapping[str, Any], lang: str) -> dict[str, int]:
     return counts
 
 
+def _ai_marker_html(contribution: ContributionRecord | None, *, lang: str) -> str:
+    """Return an HTML badge for AI-marked content."""
+
+    if not contribution:
+        return ""
+    hint = _format_contribution_hint(contribution, lang=lang)
+    title_attr = f' title="{html.escape(hint)}"' if hint else ""
+    return f"<span class='ai-marker'{title_attr}>🤖</span>"
+
+
+def _flatten_contributions(contributions: AIContributionState) -> list[ContributionRecord]:
+    """Return a combined list of field and list-item contributions."""
+
+    entries: list[ContributionRecord] = []
+    for path, record in contributions.get("fields", {}).items():
+        merged: ContributionRecord = {"path": path, **record}
+        entries.append(merged)
+    for path, item_map in contributions.get("items", {}).items():
+        for value, record in item_map.items():
+            merged: ContributionRecord = {"path": path, "value": value, **record}
+            entries.append(merged)
+    return entries
+
+
+def _render_ai_change_log_panel(contributions: AIContributionState, *, lang: str) -> None:
+    """Render an optional change log for AI-authored fields."""
+
+    log_title = tr("🤖 KI-Änderungsprotokoll", "🤖 AI change log", lang=lang)
+    intro = tr(
+        "Liste der Felder, die während der Sitzung von Assistenten ergänzt oder verändert wurden.",
+        "Fields that assistants created or modified during this session.",
+        lang=lang,
+    )
+    empty_text = tr(
+        "Noch keine KI-Änderungen in dieser Sitzung.",
+        "No AI changes recorded in this session.",
+        lang=lang,
+    )
+    with st.expander(log_title, expanded=False):
+        st.caption(intro)
+        entries = _flatten_contributions(contributions)
+        if not entries:
+            st.info(empty_text)
+            return
+
+        sorted_entries = sorted(entries, key=lambda entry: entry.get("timestamp") or "", reverse=True)
+        for entry in sorted_entries:
+            path = entry.get("path") or ""
+            value = entry.get("value") or ""
+            source = entry.get("source") or "assistant"
+            model = entry.get("model") or ""
+            timestamp = entry.get("timestamp") or tr("Zeit unbekannt", "Time unknown", lang=lang)
+
+            value_segment = f" → {value}" if value else ""
+            model_segment = f" · {model}" if model else ""
+            line = (
+                f"- **{html.escape(path)}{html.escape(value_segment)}** — "
+                f"{html.escape(source)}{html.escape(model_segment)} ({html.escape(timestamp)})"
+            )
+            st.markdown(line, unsafe_allow_html=True)
+
+
 def _render_summary_group_entries(
     group: str,
     data: Mapping[str, Any],
@@ -10212,7 +10287,9 @@ def _render_summary_group_entries(
     """Display collected values for the summary view."""
 
     is_de = lang.lower().startswith("de")
-    ai_fields, ai_items = get_ai_contributions()
+    ai_state = get_ai_contributions()
+    ai_fields = ai_state.get("fields", {})
+    ai_items = ai_state.get("items", {})
 
     group_fields = [field for field in JOB_AD_FIELDS if field.group == group]
     field_entries: dict[str, list[tuple[str, str]]] = {}
@@ -10253,12 +10330,16 @@ def _render_summary_group_entries(
             )
 
         item_fragments: list[str] = []
-        ai_item_set = ai_items.get(field_def.key, set())
+        field_contribution = ai_fields.get(field_def.key)
+        ai_item_map = ai_items.get(field_def.key, {})
         for _entry_id, entry_text in entries:
             entry_value = str(entry_text)
             escaped = html.escape(entry_value)
-            if field_def.key in ai_fields or entry_value in ai_item_set:
-                escaped = f"<em>{escaped}</em>"
+            normalized_entry = entry_value.strip()
+            contribution = ai_item_map.get(normalized_entry) or field_contribution
+            if contribution:
+                marker_html = _ai_marker_html(contribution, lang=lang)
+                escaped = f"<span class='ai-marked'>{marker_html}<span class='ai-marked__text'>{escaped}</span></span>"
             item_fragments.append(f"<li>{escaped}</li>")
         items_html = "".join(item_fragments)
         field_box.markdown(
@@ -11116,11 +11197,7 @@ def _render_job_ad_tab(
             lang,
         )
 
-    saved_job_ad = (
-        st.session_state.get(StateKeys.JOB_AD_MD)
-        or getattr(profile.generated, "job_ad", "")
-        or ""
-    )
+    saved_job_ad = st.session_state.get(StateKeys.JOB_AD_MD) or getattr(profile.generated, "job_ad", "") or ""
     if StateKeys.JOB_AD_MD not in st.session_state and saved_job_ad:
         st.session_state[StateKeys.JOB_AD_MD] = saved_job_ad
     preview_job_ad = str(st.session_state.get(StateKeys.JOB_AD_PREVIEW) or "").strip()
@@ -11167,6 +11244,7 @@ def _render_job_ad_tab(
             StateKeys.JOB_AD_MD,
             "generated.job_ad",
             mark_ai=True,
+            ai_source="job_ad_generator",
         )
         st.success(
             tr(
@@ -11512,6 +11590,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
 
     profile_payload = profile.model_dump(mode="json")
     profile_payload["lang"] = lang
+    ai_state = get_ai_contributions()
 
     profile_bytes, profile_mime, profile_ext = prepare_clean_json(profile_payload)
     job_title_value = (profile.position.job_title or "").strip()
@@ -11605,6 +11684,8 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
                 "Adjust the contents of each section directly within the tabs.",
             )
         )
+
+        _render_ai_change_log_panel(ai_state, lang=lang)
 
         section_tabs = st.tabs([label for _, label in tab_definitions])
         for tab, (group, _label) in zip(section_tabs, tab_definitions):

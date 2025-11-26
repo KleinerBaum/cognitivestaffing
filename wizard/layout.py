@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Collection, Final, Iterable, Literal, Optional, Sequence
 
+from datetime import datetime
+
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
@@ -95,9 +97,7 @@ def build_missing_field_descriptors(
     return descriptors
 
 
-def format_missing_label(
-    label: str, *, field_path: str, missing_fields: Collection[str]
-) -> str:
+def format_missing_label(label: str, *, field_path: str, missing_fields: Collection[str]) -> str:
     """Prefix ``label`` with a warning indicator when ``field_path`` is missing."""
 
     if field_path not in missing_fields:
@@ -105,9 +105,7 @@ def format_missing_label(
     return f"{_MISSING_FIELD_ICON} {label}"
 
 
-def merge_missing_help(
-    help_text: str | None, *, field_path: str, missing_fields: Collection[str]
-) -> str | None:
+def merge_missing_help(help_text: str | None, *, field_path: str, missing_fields: Collection[str]) -> str | None:
     """Append a localized missing-field hint to ``help_text`` when relevant."""
 
     if field_path not in missing_fields:
@@ -127,9 +125,7 @@ def merge_missing_help(
     return "\n\n".join(parts)
 
 
-def render_missing_field_summary(
-    missing_fields: Collection[str], *, scope: Literal["step", "global"] = "step"
-) -> None:
+def render_missing_field_summary(missing_fields: Collection[str], *, scope: Literal["step", "global"] = "step") -> None:
     """Render a highlighted summary for missing critical fields."""
 
     descriptors = build_missing_field_descriptors(missing_fields)
@@ -236,6 +232,7 @@ from ._logic import (
     _record_autofill_rejection,
     _update_profile,
     normalize_text_area_list,
+    with_ai_badge,
 )
 from ._widget_state import _ensure_widget_state
 
@@ -254,6 +251,9 @@ def _render_autofill_suggestion(
     rejection_message: str | None = None,
     success_icon: str = "✅",
     rejection_icon: str = "🗑️",
+    ai_source: str = "wizard_autofill",
+    ai_model: str | None = None,
+    ai_timestamp: datetime | None = None,
 ) -> None:
     """Render an optional autofill prompt for ``suggestion``."""
 
@@ -279,7 +279,14 @@ def _render_autofill_suggestion(
             key=f"autofill.accept.{field_path}.{suggestion_hash}",
             type="primary",
         ):
-            _update_profile(field_path, cleaned_suggestion, mark_ai=True)
+            _update_profile(
+                field_path,
+                cleaned_suggestion,
+                mark_ai=True,
+                ai_source=ai_source,
+                ai_model=ai_model,
+                ai_timestamp=ai_timestamp,
+            )
             st.toast(success_message, icon=success_icon)
             st.rerun()
         if reject_col.button(
@@ -950,6 +957,7 @@ def _default_list_text_area_height(items: Sequence[str] | None) -> int:
 def render_list_text_area(
     *,
     label: str,
+    field_path: str | None = None,
     session_key: str,
     items: Sequence[str] | None = None,
     placeholder: str | None = None,
@@ -977,6 +985,12 @@ def render_list_text_area(
     }
     if placeholder:
         widget_args["placeholder"] = placeholder
+
+    if field_path:
+        decorated_label, updated_help = with_ai_badge(label, field_path, help_text=widget_args.get("help"))
+        widget_args["label"] = decorated_label
+        if updated_help is not None:
+            widget_args["help"] = updated_help
 
     raw_value = st.text_area(**widget_args)
     cleaned_items = normalize_text_area_list(raw_value, strip_bullets=strip_bullets)

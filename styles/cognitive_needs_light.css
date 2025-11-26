@@ -924,6 +924,25 @@ footer, #MainMenu {
   font-size: var(--font-size-caption);
 }
 
+.ai-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85em;
+  margin-right: 6px;
+}
+
+.ai-marked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-style: italic;
+}
+
+.ai-marked__text {
+  display: inline-block;
+}
+
 /* Hide the built-in Streamlit multipage navigation so only the custom wizard sidebar is visible */
 nav[data-testid="stSidebarNav"],
 [data-testid="stSidebarNav"] {

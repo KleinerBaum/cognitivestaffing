@@ -42,6 +42,9 @@ class SalarySuggestion:
     debug: dict[str, Any] = field(default_factory=dict)
 
 
+_AI_SOURCE = "compensation_assistant"
+
+
 def _format_currency(value: int, lang: str) -> str:
     formatted = f"{value:,.0f}"
     if lang == "de":
@@ -185,7 +188,12 @@ def _apply_salary_provided(compensation: MutableMapping[str, Any]) -> bool:
 
     provided = bool(compensation.get("salary_min") or compensation.get("salary_max"))
     compensation["salary_provided"] = provided
-    _update_profile(ProfilePaths.COMPENSATION_SALARY_PROVIDED, provided, mark_ai=True)
+    _update_profile(
+        ProfilePaths.COMPENSATION_SALARY_PROVIDED,
+        provided,
+        mark_ai=True,
+        ai_source=_AI_SOURCE,
+    )
     return provided
 
 
@@ -231,7 +239,12 @@ def _queue_salary_conflicts(
         if not normalized_proposed:
             continue
         if not normalized_current:
-            _update_profile(path, proposed, mark_ai=True)
+            _update_profile(
+                path,
+                proposed,
+                mark_ai=True,
+                ai_source=suggestion.source or _AI_SOURCE,
+            )
             compensation[comp_key] = proposed
             applied_any = True
             continue
@@ -336,7 +349,12 @@ def _render_conflict_confirmation(profile: MutableMapping[str, Any], state: Muta
             proposed_value = entry.get("proposed")
             comp_key = str(entry.get("comp_key"))
             if path in selected_paths:
-                _update_profile(path, proposed_value, mark_ai=True)
+                _update_profile(
+                    path,
+                    proposed_value,
+                    mark_ai=True,
+                    ai_source=str(pending.get("source") or _AI_SOURCE),
+                )
                 compensation[comp_key] = proposed_value
             else:
                 _record_autofill_rejection(path, str(proposed_value or ""))
@@ -354,9 +372,7 @@ def _render_conflict_confirmation(profile: MutableMapping[str, Any], state: Muta
         _apply_conflicts({str(entry.get("path")) for entry in conflicts})
     elif apply_selected:
         selected = {
-            path
-            for path in st.session_state.get(selection_key, {})
-            if st.session_state[selection_key].get(path)
+            path for path in st.session_state.get(selection_key, {}) if st.session_state[selection_key].get(path)
         }
         _apply_conflicts(selected)
     elif keep_manual:
