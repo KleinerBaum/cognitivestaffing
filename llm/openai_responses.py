@@ -35,6 +35,7 @@ from openai_utils.api import (
     SchemaFormatBundle,
 )
 from llm.response_schemas import INTERVIEW_GUIDE_SCHEMA_NAME, validate_response_schema
+from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from utils.retry import retry_with_backoff
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
@@ -539,19 +540,26 @@ def call_responses_safe(
         format_type = str(response_format.get("type") or "").lower()
         expects_json = format_type == "json_schema" or bool(response_format.get("json_schema"))
     if expects_json and content:
-        try:
-            json.loads(content)
-        except json.JSONDecodeError as exc:
-            active_logger.warning(
-                "Responses API %s returned invalid JSON; triggering chat fallback.",
-                context,
-                exc_info=exc,
-            )
-            fallback = _attempt_fallback("invalid_json", exc)
-            if fallback is not None:
-                return fallback
-            active_logger.error("All API attempts failed for %s (invalid_json).", context)
-            return None
+        repair_attempt = parse_json_with_repair(content)
+        if repair_attempt.payload is not None:
+            repaired_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
+            result.content = repaired_content.strip()
+            if repair_attempt.status is JsonRepairStatus.REPAIRED:
+                active_logger.info(
+                    "Responses API %s JSON was repaired before returning result.",
+                    context,
+                )
+            return result
+
+        active_logger.warning(
+            "Responses API %s returned invalid JSON; triggering chat fallback.",
+            context,
+        )
+        fallback = _attempt_fallback("invalid_json")
+        if fallback is not None:
+            return fallback
+        active_logger.error("All API attempts failed for %s (invalid_json).", context)
+        return None
     if not allow_empty and not content:
         active_logger.warning(
             "Responses API %s returned empty content; triggering chat fallback",

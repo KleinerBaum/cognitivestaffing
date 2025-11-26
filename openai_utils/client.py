@@ -212,14 +212,14 @@ def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> di
     mode = api_mode if api_mode in {"chat", "responses"} else "responses"
 
     if mode == "chat":
-        if "input" in cleaned and "messages" not in cleaned and isinstance(cleaned["input"], Sequence):
-            cleaned["messages"] = cleaned["input"]
+        if "messages" not in cleaned:
+            raw_input = cleaned.get("input")
+            if isinstance(raw_input, Sequence):
+                cleaned["messages"] = raw_input
         for invalid_field in ("input", "text", "previous_response_id", "max_output_tokens"):
             if invalid_field in cleaned:
                 removed.append(invalid_field)
                 cleaned.pop(invalid_field, None)
-        if "messages" in cleaned and "input" not in cleaned:
-            cleaned["input"] = cleaned.pop("messages")
         for invalid_field in ("functions", "function_call", "max_completion_tokens"):
             if invalid_field in cleaned:
                 removed.append(invalid_field)
