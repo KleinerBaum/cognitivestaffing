@@ -175,3 +175,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 - **Environment notes / Hinweise zur Umgebung:**
   - `tests/conftest.py` injects `OPENAI_API_KEY="test-key"` and enables `LLM_ENABLED` for most tests, so dummy keys are sufficient unless you explicitly opt into `-m llm`.
   - CI mirrors the commands above: the default job runs `poetry run pytest` (unit only), while integration or LLM jobs should drop the default `addopts` filter as shown.
+
+### Developer references
+
+- [Schema versioning and migrations](docs/SCHEMA_VERSIONING.md) – how to bump `schema_version`, write migration steps, and keep profile imports compatible.
