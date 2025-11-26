@@ -43,6 +43,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Fixed
 - Wizard navigation now maps seniority, compensation, remote-percentage, and interview-stage fields to their respective steps so "Next" only blocks on fields that belong to the current section.
 - Company step no longer raises an AttributeError when binding autofill helpers; missing flow dependencies are logged and autofill rejection tracking remains available.
+- Team step toggle tooltips for overtime, security clearance, and shift work now bind correctly, eliminating AttributeErrors and restoring help text visibility.
 - Various small documentation inconsistencies (outdated model names or incomplete environment variable lists).
 - Responses JSON schema now marks all object properties as required before hitting the Responses API to avoid 400 errors and
   keep generated artifacts (schema files, exports, wizard types) in sync.
