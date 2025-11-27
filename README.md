@@ -41,8 +41,9 @@ Live app: https://cognitivestaffing.streamlit.app/
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
 
 - **OpenAI model routing (Quick vs. Precise)**
-- **Quick / Schnell mode:** consistently routes to the lightweight tier (`gpt-4.1-mini`) with minimal reasoning for fast, cost-efficient iterations across tasks and escalates to `gpt-5-mini` → `gpt-5-nano` only when the primary is unavailable.
+- **Quick / Schnell mode:** consistently routes to the lightweight tier (`gpt-4.1-mini`) with minimal reasoning for fast, cost-efficient iterations across tasks and escalates to `gpt-5-mini` → `gpt-5-nano` only when the primary is unavailable. `REASONING_EFFORT` now defaults to `minimal` so the quick path stays lean unless a higher mode is explicitly selected.
 - **Precise / Genau mode:** starts on `gpt-4.1-mini` as well, with `gpt-5-mini` and `gpt-5-nano` as the ordered fallbacks when higher reasoning is required or the default tier is unavailable. The `REASONING_EFFORT` flag controls when to escalate.
+  Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
   Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
 
 - **Chat Completions with strict JSON schema enforcement**
