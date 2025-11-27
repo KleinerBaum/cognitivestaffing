@@ -28,7 +28,6 @@ pytestmark = pytest.mark.integration
 import openai_utils
 from openai_utils import ChatCallResult
 from openai import BadRequestError
-from components import model_selector as model_selector_component
 
 
 def test_suggest_skills_for_role_model(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -252,23 +251,3 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     assert attempts[0] == model_config.GPT4O_MINI
     assert attempts[1] == model_config.GPT4O
     assert any("retrying with fallback" in record.message for record in caplog.records)
-
-
-def test_model_selector_sets_locked_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The selector should expose the fixed default model and clear overrides."""
-
-    st.session_state.clear()
-    st.session_state["lang"] = "de"
-    captured: list[str] = []
-
-    def fake_caption(message: str, *_, **__) -> None:
-        captured.append(message)
-
-    monkeypatch.setattr(st, "caption", fake_caption)
-
-    resolved = model_selector_component.model_selector()
-
-    assert resolved == model_config.OPENAI_MODEL
-    assert st.session_state["model"] == model_config.OPENAI_MODEL
-    assert st.session_state["model_override"] == ""
-    assert any(model_config.OPENAI_MODEL in message for message in captured)

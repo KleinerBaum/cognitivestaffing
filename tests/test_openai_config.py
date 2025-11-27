@@ -74,7 +74,7 @@ def test_ensure_state_normalises_legacy_models():
     st.session_state["model_override"] = model_config.GPT4O_MINI
     es.ensure_state()
     assert st.session_state["model"] == model_config.GPT4O
-    assert st.session_state["model_override"] == ""
+    assert "model_override" not in st.session_state
 
 
 def test_ensure_state_preserves_minimal_reasoning_level():
@@ -289,7 +289,9 @@ def test_env_openai_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog:
         importlib.reload(config)
 
 
-def test_env_default_model_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_env_default_model_override_is_ignored(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     previous_env = os.environ.get("DEFAULT_MODEL")
 
     try:

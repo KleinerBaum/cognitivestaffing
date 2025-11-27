@@ -84,7 +84,7 @@ The repository is organized so that **schema**, **domain logic**, **LLM integrat
 
 - **Entry & configuration**
   - `app.py` – Streamlit entrypoint and global layout.
-  - `config.py`, `config_loader.py` – environment variables, feature flags (Responses vs. Chat, ChatKit on/off, model overrides).
+  - `config.py`, `config_loader.py` – environment variables, feature flags (Responses vs. Chat, ChatKit on/off, model routing defaults with UI overrides disabled).
   - `schemas.py` – Pydantic models mirroring `NeedAnalysisProfile` and related objects.
   - `wizard_router.py` – step routing, navigation guards, step IDs.
   - `i18n.py` – bilingual texts and helper utilities.
