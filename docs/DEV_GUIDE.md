@@ -8,15 +8,15 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 
 **EN:**
 
-- The primary model is fixed to `gpt-4.1-mini` inside `config/models.py`; environment overrides such as `OPENAI_MODEL` or `DEFAULT_MODEL` are ignored with a warning. Quick/Schnell mode uses `gpt-4o-mini`, Precise/Genau escalates to `o3-mini`/`o3` with `o4-mini`/`gpt-4o` fallbacks.
-- Tune `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) to shift reasoning costs and adjust `LIGHTWEIGHT_MODEL`/`MEDIUM_REASONING_MODEL`/`REASONING_MODEL` in code when defaults need to change.
-- Responses API is the default path; toggle with `USE_RESPONSES_API`/`USE_CLASSIC_API` as needed. Keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
+- Model selection is fixed to `gpt-4.1-mini` inside `config/models.py` with automatic escalation to `gpt-5-mini` for heavier or resilience-driven tasks. There is no Quick/Precise toggle or UI dropdown; routing stays internal for consistent performance and cost control.
+- Legacy overrides such as `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, and `REASONING_MODEL` are deprecated and cleaned up by `python -m cli.reset_api_flags`; adjust model names only in `config/models.py`.
+- Responses API remains the default path; toggle with `USE_RESPONSES_API`/`USE_CLASSIC_API` as needed. Keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
 
 **DE:**
 
-- Das Primärmodell ist in `config/models.py` fest auf `gpt-4.1-mini` gesetzt; Umgebungsvariablen wie `OPENAI_MODEL` oder `DEFAULT_MODEL` werden mit einer Warnung ignoriert. Schnell/Quick nutzt `gpt-4o-mini`, Genau/Precise hebt auf `o3-mini`/`o3` mit `o4-mini`/`gpt-4o`-Fallbacks an.
-- Steuere die Kosten über `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) und passe `LIGHTWEIGHT_MODEL`/`MEDIUM_REASONING_MODEL`/`REASONING_MODEL` bei Bedarf direkt im Code an.
-- Standard ist die Responses API; bei Bedarf mit `USE_RESPONSES_API`/`USE_CLASSIC_API` umschalten und Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) zur Mandantenfähigkeit passend setzen.
+- Die Modellauswahl ist in `config/models.py` fest auf `gpt-4.1-mini` eingestellt und hebt automatisch auf `gpt-5-mini` an, wenn mehr Reasoning oder Ausfallsicherheit nötig ist. Es gibt keinen Schnell/Quick- bzw. Genau/Precise-Schalter und kein UI-Dropdown mehr; das Routing läuft intern, um Leistung und Kosten stabil zu halten.
+- Veraltete Overrides wie `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL` und `REASONING_MODEL` sind abgeschaltet und werden durch `python -m cli.reset_api_flags` bereinigt; Modellnamen werden nur in `config/models.py` angepasst.
+- Standard ist weiterhin die Responses API; bei Bedarf mit `USE_RESPONSES_API`/`USE_CLASSIC_API` umschalten und Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) passend zur Mandantenfähigkeit setzen.
 
 ## Prompt generator hook / Prompt-Generator-Hook
 

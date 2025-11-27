@@ -40,11 +40,8 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **Structured skill buckets & ESCO integration**  
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
 
-- **OpenAI model routing (Quick vs. Precise)**
-- **Quick / Schnell mode:** consistently routes to the lightweight tier (`gpt-4.1-mini`) with minimal reasoning for fast, cost-efficient iterations across tasks and escalates to `gpt-5-mini` → `gpt-5-nano` only when the primary is unavailable. `REASONING_EFFORT` now defaults to `minimal` so the quick path stays lean unless a higher mode is explicitly selected.
-- **Precise / Genau mode:** starts on `gpt-4.1-mini` as well, with `gpt-5-mini` and `gpt-5-nano` as the ordered fallbacks when higher reasoning is required or the default tier is unavailable. The `REASONING_EFFORT` flag controls when to escalate.
-  Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
-  Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
+- **OpenAI model routing (automatic, fixed defaults)**
+  The app standardizes on `gpt-4.1-mini` for all operations and automatically escalates to `gpt-5-mini` for harder tasks or when resilience is required. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
 
 - **Chat Completions with strict JSON schema enforcement**
   Structured calls use the OpenAI Chat Completions API directly with JSON schemas and always keep strict mode enabled. Invalid JSON responses are repaired automatically (or retried on the chat client when needed) without asking users to toggle strictness, reducing noisy logs and latency.
@@ -86,7 +83,8 @@ The repository is organized so that **schema**, **domain logic**, **LLM integrat
 
 - **Entry & configuration**
   - `app.py` – Streamlit entrypoint and global layout.
-  - `config.py`, `config_loader.py` – environment variables, feature flags (Responses vs. Chat, ChatKit on/off, model routing defaults with UI overrides disabled).
+- `config.py`, `config_loader.py` – environment variables and feature flags (Responses vs. Chat, ChatKit on/off).
+- `config/models.py` – centralized model defaults and routing (fixed `gpt-4.1-mini` with automatic `gpt-5-mini` escalation; UI overrides and mode toggles are removed).
   - `schemas.py` – Pydantic models mirroring `NeedAnalysisProfile` and related objects.
   - `wizard_router.py` – step routing, navigation guards, step IDs.
   - `i18n.py` – bilingual texts and helper utilities.
@@ -156,12 +154,12 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ### Reset API mode and model defaults
 
-- **English:** The primary model is locked to `gpt-4.1-mini` in `config/models.py`; environment overrides such as `OPENAI_MODEL` or `DEFAULT_MODEL` are ignored (a warning is logged). `python -m cli.reset_api_flags` still strips legacy toggles like `USE_CLASSIC_API`, `USE_RESPONSES_API`, and model-tier keys (`LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
-- **Deutsch:** Das Basismodell ist in `config/models.py` fest auf `gpt-4.1-mini` eingestellt; Umgebungsvariablen wie `OPENAI_MODEL` oder `DEFAULT_MODEL` werden ignoriert (mit Warnhinweis). `python -m cli.reset_api_flags` entfernt weiterhin alte Schalter wie `USE_CLASSIC_API`, `USE_RESPONSES_API` und Modell-Tier-Keys (`LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Mit `-k EXTRA_KEY` können zusätzliche Schlüssel gelöscht werden.
+- **English:** Model selection is fixed in `config/models.py` to `gpt-4.1-mini` with automatic escalation to `gpt-5-mini` for heavier or resilient workloads. Legacy environment overrides (for example `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) are ignored; use `python -m cli.reset_api_flags` to strip them along with API-mode toggles (`USE_CLASSIC_API`, `USE_RESPONSES_API`) and base URL aliases (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
+- **Deutsch:** Die Modellauswahl ist in `config/models.py` fest auf `gpt-4.1-mini` eingestellt und hebt automatisch auf `gpt-5-mini` an, wenn mehr Reasoning oder Ausfallsicherheit nötig ist. Veraltete Umgebungsvariablen (z. B. `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) werden ignoriert; `python -m cli.reset_api_flags` entfernt sie zusammen mit API-Modus-Schaltern (`USE_CLASSIC_API`, `USE_RESPONSES_API`) und Basis-URL-Aliassen (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Mit `-k EXTRA_KEY` lassen sich weitere Schlüssel löschen.
 - **English:** Model constants, aliases, routing, and fallbacks live in `config/models.py` as the single source of truth—update model names or defaults only there.
 - **Deutsch:** Modellkonstanten, Aliase, Routing und Fallback-Ketten liegen zentral in `config/models.py`; passe Modellnamen oder Defaults nur dort an.
-- **English:** Fallback order is locked to `gpt-4.1-mini` → `gpt-5-mini` → `gpt-5-nano`; higher-cost GPT-4/GPT-3.5 tiers are no longer part of the automatic chain.
-- **Deutsch:** Die Fallback-Reihenfolge ist fix: `gpt-4.1-mini` → `gpt-5-mini` → `gpt-5-nano`; teurere GPT-4-/GPT-3.5-Modelle werden nicht mehr automatisch genutzt.
+- **English:** Fallback order is locked to `gpt-4.1-mini` → `gpt-5-mini`; higher-cost GPT-4/GPT-3.5 tiers are no longer part of the automatic chain.
+- **Deutsch:** Die Fallback-Reihenfolge ist fix: `gpt-4.1-mini` → `gpt-5-mini`; teurere GPT-4-/GPT-3.5-Modelle werden nicht mehr automatisch genutzt.
 
 ### Quickstart for devs (English / Deutsch)
 
