@@ -16,6 +16,7 @@ from config.models import (
     get_first_available_model,
     get_model_candidates,
     get_reasoning_mode,
+    requires_chat_completions,
     select_model,
 )
 from constants.keys import StateKeys
@@ -251,12 +252,13 @@ class PayloadContext:
     router_estimate: PromptCostEstimate | None
     previous_response_id: str | None
     force_classic_for_tools: bool
+    force_classic_for_model: bool
     api_mode: APIMode
     api_mode_override: str | None = None
 
     @property
     def use_classic_api(self) -> bool:
-        return self.api_mode.is_classic or self.force_classic_for_tools
+        return self.api_mode.is_classic or self.force_classic_for_tools or self.force_classic_for_model
 
 
 @dataclass
@@ -448,7 +450,11 @@ def _prepare_payload(
         schema_bundle = build_schema_format_bundle(json_schema)
 
     force_classic_for_tools = bool(combined_tools and not (use_classic_api or app_config.RESPONSES_ALLOW_TOOLS))
-    api_mode_override: str | None = "chat" if force_classic_for_tools else active_mode.value
+    force_classic_for_model = requires_chat_completions(model) or any(
+        requires_chat_completions(candidate) for candidate in candidate_models
+    )
+    force_classic_api = active_mode.is_classic or force_classic_for_tools or force_classic_for_model
+    api_mode_override: str | None = "chat" if force_classic_api else active_mode.value
 
     context = PayloadContext(
         messages=messages_payload,
@@ -465,6 +471,7 @@ def _prepare_payload(
         router_estimate=router_estimate,
         previous_response_id=previous_response_id,
         force_classic_for_tools=force_classic_for_tools,
+        force_classic_for_model=force_classic_for_model,
         api_mode=active_mode,
         api_mode_override=api_mode_override,
     )

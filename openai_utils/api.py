@@ -1748,6 +1748,8 @@ def _call_chat_api_single(
 
     payload = dict(request.payload)
     api_mode_override = request.api_mode_override
+    if api_mode_override is not None:
+        active_mode = resolve_api_mode(api_mode_override)
 
     schema_bundle: SchemaFormatBundle | None = None
     if json_schema is not None and use_response_format:
