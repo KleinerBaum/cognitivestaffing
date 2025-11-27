@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Dict, Mapping, Sequence
 
@@ -124,6 +125,15 @@ class ModelTask(StrEnum):
     TEAM_ADVICE = "team_advice"
 
 
+@dataclass(frozen=True)
+class TaskModelConfig:
+    """Configuration for a specific task including model preferences and capabilities."""
+
+    model: str
+    allow_json_schema: bool = True
+    allow_response_format: bool = True
+
+
 REASONING_EFFORT = "minimal"
 LIGHTWEIGHT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
 MEDIUM_REASONING_MODEL = MEDIUM_REASONING_MODEL_DEFAULT
@@ -133,6 +143,7 @@ DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT
 OPENAI_MODEL = PRIMARY_MODEL_DEFAULT
 
 MODEL_ROUTING: Dict[str, str] = {}
+MODEL_CONFIG: Dict[str, TaskModelConfig] = {}
 TASK_MODEL_FALLBACKS: Dict[str, list[str]] = {}
 
 _UNAVAILABLE_MODELS: set[str] = set()
@@ -281,43 +292,63 @@ def _prefer_lightweight(task: str) -> bool:
     return task in _LIGHTWEIGHT_TASKS and task not in _PRECISION_TASKS
 
 
-def _build_model_routing(overrides: Mapping[str, str] | None) -> Dict[str, str]:
-    routing: Dict[str, str] = {
-        ModelTask.DEFAULT.value: OPENAI_MODEL,
-        ModelTask.EXTRACTION.value: LIGHTWEIGHT_MODEL,
-        ModelTask.COMPANY_INFO.value: LIGHTWEIGHT_MODEL,
-        ModelTask.FOLLOW_UP_QUESTIONS.value: REASONING_MODEL,
-        ModelTask.RAG_SUGGESTIONS.value: REASONING_MODEL,
-        ModelTask.SKILL_SUGGESTION.value: REASONING_MODEL,
-        ModelTask.BENEFIT_SUGGESTION.value: REASONING_MODEL,
-        ModelTask.TASK_SUGGESTION.value: REASONING_MODEL,
-        ModelTask.ONBOARDING_SUGGESTION.value: REASONING_MODEL,
-        ModelTask.JOB_AD.value: REASONING_MODEL,
-        ModelTask.INTERVIEW_GUIDE.value: REASONING_MODEL,
-        ModelTask.PROFILE_SUMMARY.value: REASONING_MODEL,
-        ModelTask.CANDIDATE_MATCHING.value: REASONING_MODEL,
-        ModelTask.DOCUMENT_REFINEMENT.value: REASONING_MODEL,
-        ModelTask.EXPLANATION.value: REASONING_MODEL,
-        ModelTask.SALARY_ESTIMATE.value: LIGHTWEIGHT_MODEL,
-        ModelTask.TEAM_ADVICE.value: REASONING_MODEL,
-        ModelTask.JSON_REPAIR.value: LIGHTWEIGHT_MODEL,
-        "embedding": EMBED_MODEL,
-        "non_reasoning": LIGHTWEIGHT_MODEL,
-        "reasoning": REASONING_MODEL,
+def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskModelConfig]:
+    config: Dict[str, TaskModelConfig] = {
+        ModelTask.DEFAULT.value: TaskModelConfig(model=OPENAI_MODEL),
+        ModelTask.EXTRACTION.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        ModelTask.COMPANY_INFO.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        ModelTask.FOLLOW_UP_QUESTIONS.value: TaskModelConfig(
+            model=REASONING_MODEL,
+            allow_json_schema=False,
+            allow_response_format=False,
+        ),
+        ModelTask.RAG_SUGGESTIONS.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.SKILL_SUGGESTION.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.BENEFIT_SUGGESTION.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.TASK_SUGGESTION.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.ONBOARDING_SUGGESTION.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.JOB_AD.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.INTERVIEW_GUIDE.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.PROFILE_SUMMARY.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.CANDIDATE_MATCHING.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.DOCUMENT_REFINEMENT.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.EXPLANATION.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.SALARY_ESTIMATE.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        ModelTask.TEAM_ADVICE.value: TaskModelConfig(
+            model=REASONING_MODEL,
+            allow_json_schema=False,
+            allow_response_format=False,
+        ),
+        ModelTask.JSON_REPAIR.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        "embedding": TaskModelConfig(
+            model=EMBED_MODEL,
+            allow_json_schema=False,
+            allow_response_format=False,
+        ),
+        "non_reasoning": TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        "reasoning": TaskModelConfig(model=REASONING_MODEL),
     }
     if overrides:
-        default_fallback = routing.get(ModelTask.DEFAULT.value, DEFAULT_MODEL) or DEFAULT_MODEL
+        default_fallback = config.get(ModelTask.DEFAULT.value, TaskModelConfig(DEFAULT_MODEL)).model
         for override_key, override_value in overrides.items():
-            if override_key == "embedding":
-                routing[override_key] = override_value
-                continue
-            fallback = routing.get(override_key, default_fallback) or default_fallback
-            routing[override_key] = resolve_supported_model(override_value, fallback)
-    for key, value in list(routing.items()):
+            base = config.get(override_key)
+            fallback = base.model if base else default_fallback
+            config[override_key] = TaskModelConfig(
+                model=resolve_supported_model(override_value, fallback),
+                allow_json_schema=base.allow_json_schema if base else True,
+                allow_response_format=base.allow_response_format if base else True,
+            )
+    normalised: Dict[str, TaskModelConfig] = {}
+    for key, task_config in config.items():
         if key == "embedding":
+            normalised[key] = task_config
             continue
-        routing[key] = normalise_model_name(value) or value
-    return routing
+        normalised[key] = TaskModelConfig(
+            model=normalise_model_name(task_config.model) or task_config.model,
+            allow_json_schema=task_config.allow_json_schema,
+            allow_response_format=task_config.allow_response_format,
+        )
+    return normalised
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
@@ -377,7 +408,7 @@ def configure_models(
     """Initialise model defaults, routing, and fallbacks."""
 
     global REASONING_EFFORT, LIGHTWEIGHT_MODEL, MEDIUM_REASONING_MODEL, HIGH_REASONING_MODEL
-    global REASONING_MODEL, DEFAULT_MODEL, OPENAI_MODEL, MODEL_ROUTING, TASK_MODEL_FALLBACKS
+    global REASONING_MODEL, DEFAULT_MODEL, OPENAI_MODEL, MODEL_ROUTING, MODEL_CONFIG, TASK_MODEL_FALLBACKS
 
     clear_unavailable_models()
     REASONING_EFFORT = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
@@ -405,7 +436,8 @@ def configure_models(
         )
     DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT
     OPENAI_MODEL = PRIMARY_MODEL_DEFAULT
-    MODEL_ROUTING = _build_model_routing(model_routing_overrides)
+    MODEL_CONFIG = _build_model_config(model_routing_overrides)
+    MODEL_ROUTING = {task: task_config.model for task, task_config in MODEL_CONFIG.items()}
     TASK_MODEL_FALLBACKS = _build_task_fallbacks()
 
 
@@ -451,6 +483,21 @@ def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
             [GPT41_MINI, GPT51_MINI, GPT51_NANO],
         )
     )
+
+
+def get_task_config(task: ModelTask | str) -> TaskModelConfig:
+    """Return the configuration entry for ``task`` with a safe default."""
+
+    key = task.value if isinstance(task, ModelTask) else str(task).strip().lower()
+    if not key:
+        key = ModelTask.DEFAULT.value
+    task_config = MODEL_CONFIG.get(key)
+    if task_config:
+        return task_config
+    default_config = MODEL_CONFIG.get(ModelTask.DEFAULT.value)
+    if default_config:
+        return default_config
+    raise KeyError(f"No model configuration available for task '{task}'.")
 
 
 def normalise_model_override(value: object) -> str | None:
