@@ -45,8 +45,8 @@ Live app: https://cognitivestaffing.streamlit.app/
   - **Precise / Genau mode:** promotes reasoning‑tier models (`o3-mini`/`o3` by default with `o4-mini` and `gpt-4o` as fallbacks) with configurable `REASONING_EFFORT` for complex extraction, repair, and normalization flows.
   Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
 
-- **Chat Completions with JSON schema enforcement**
-  Structured calls use the OpenAI Chat Completions API directly with JSON schemas. Invalid JSON responses are repaired or reported without an extra Responses → chat retry hop, reducing noisy logs and latency.
+- **Chat Completions with strict JSON schema enforcement**
+  Structured calls use the OpenAI Chat Completions API directly with JSON schemas and always keep strict mode enabled. Invalid JSON responses are repaired automatically (or retried on the chat client when needed) without asking users to toggle strictness, reducing noisy logs and latency.
 
 - **Responsive loading and timeout handling**
   LLM-triggered actions render Streamlit spinners (“Analysiere die Stellenbeschreibung… / Analyzing your job description…”) so users know work is in progress. Friendly bilingual timeout notices (“⏳ … länger als erwartet / taking longer than usual…”) surface when OpenAI calls exceed the user-facing timeout guard, guiding users to retry or continue manually instead of seeing low-level errors.

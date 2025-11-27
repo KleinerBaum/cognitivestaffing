@@ -239,11 +239,7 @@ def _responses_api_enabled() -> bool:
 def _strict_extraction_enabled() -> bool:
     """Return whether structured parsing should enforce strict JSON mode."""
 
-    try:
-        state_value = st.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True)
-    except Exception:
-        return True
-    return bool(state_value) if state_value is not None else True
+    return True
 
 
 def _resolve_extraction_effort() -> str:

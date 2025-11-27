@@ -19,6 +19,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
 - Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
+- The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 
 ### Fixed
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
