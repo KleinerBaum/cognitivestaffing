@@ -18,6 +18,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
 - Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling.
+- Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 
 ### Fixed
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.

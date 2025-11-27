@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import warnings
 from enum import StrEnum
-from typing import Dict, Iterator, Mapping, Sequence
+from typing import Dict, Mapping, Sequence
 
 import streamlit as st
 
@@ -416,14 +416,12 @@ def configure_models(
     REASONING_MODEL = _model_for_reasoning_level(REASONING_EFFORT)
     if default_model_override:
         warnings.warn(
-            "DEFAULT_MODEL overrides are ignored; the primary model is fixed to '%s'."
-            % PRIMARY_MODEL_DEFAULT,
+            "DEFAULT_MODEL overrides are ignored; the primary model is fixed to '%s'." % PRIMARY_MODEL_DEFAULT,
             RuntimeWarning,
         )
     if openai_model_override:
         warnings.warn(
-            "OPENAI_MODEL overrides are ignored; the primary model is fixed to '%s'."
-            % PRIMARY_MODEL_DEFAULT,
+            "OPENAI_MODEL overrides are ignored; the primary model is fixed to '%s'." % PRIMARY_MODEL_DEFAULT,
             RuntimeWarning,
         )
     DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT

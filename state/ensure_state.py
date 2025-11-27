@@ -130,7 +130,6 @@ _PRESERVED_RESET_KEYS: frozenset[str] = frozenset(
         "dark_mode",
         "ui.dark_mode",
         "model",
-        "model_override",
         "vector_store_id",
         "auto_reask",
     }
@@ -350,7 +349,8 @@ def ensure_state() -> None:
     else:
         current_model = normalise_model_name(st.session_state.get("model"))
         st.session_state["model"] = current_model or canonical_model
-    st.session_state["model_override"] = ""
+    if "model_override" in st.session_state:
+        del st.session_state["model_override"]
     set_model(canonical_model)
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")

@@ -21,9 +21,7 @@ from threading import RLock
 
 import streamlit as st
 from enum import StrEnum
-from typing import Dict, Iterator, Mapping, Sequence
-
-from constants.keys import StateKeys
+from typing import Dict, Iterator, Mapping
 from . import models as model_config
 
 try:
@@ -107,12 +105,12 @@ CHATKIT_COMPENSATION_WORKFLOW_ID = os.getenv("CHATKIT_COMPENSATION_WORKFLOW_ID",
 CHATKIT_PROCESS_WORKFLOW_ID = os.getenv("CHATKIT_PROCESS_WORKFLOW_ID", "")
 
 REASONING_LEVELS = model_config.REASONING_LEVELS
-REASONING_EFFORT = model_config.normalise_reasoning_effort(
-    os.getenv("REASONING_EFFORT", model_config.REASONING_EFFORT)
-)
+REASONING_EFFORT = model_config.normalise_reasoning_effort(os.getenv("REASONING_EFFORT", model_config.REASONING_EFFORT))
 _lightweight_override = os.getenv("LIGHTWEIGHT_MODEL")
 _medium_reasoning_override = os.getenv("MEDIUM_REASONING_MODEL")
 _high_reasoning_override = os.getenv("REASONING_MODEL") or os.getenv("HIGH_REASONING_MODEL")
+
+
 def _warn_deprecated_model_override(source: str, value: str | None) -> None:
     if not value:
         return
@@ -484,6 +482,7 @@ def is_llm_enabled() -> bool:
 
     return bool(OPENAI_API_KEY)
 
+
 assert not (USE_RESPONSES_API and USE_CLASSIC_API), (
     "USE_RESPONSES_API and USE_CLASSIC_API cannot both be enabled simultaneously"
 )
@@ -541,8 +540,6 @@ _configure_models()
 try:  # pragma: no cover - safe defaults when Streamlit session exists
     if "model" not in st.session_state:
         st.session_state["model"] = OPENAI_MODEL
-    if "model_override" not in st.session_state:
-        st.session_state["model_override"] = ""
 except Exception:
     pass
 

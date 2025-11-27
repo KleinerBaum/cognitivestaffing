@@ -5,7 +5,6 @@ from typing import Any, Callable
 import streamlit as st
 
 import config.models as model_config
-from components import model_selector as model_selector_component
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 
@@ -68,8 +67,6 @@ def render_extraction_settings_panel(
             )
         )
 
-        model_selector_component.model_selector()
-
         strict_enabled = st_module.checkbox(
             tr(
                 "Striktes JSON-Format erzwingen (bei Problemen deaktivieren)",
@@ -93,8 +90,8 @@ def render_extraction_settings_panel(
 
         st_module.divider()
         rerun_help = tr(
-            "Starte die Extraktion mit den aktuellen Einstellungen neu – praktisch nach einem Modellwechsel, Sprach-Switch oder wenn der Strict-Schalter angepasst wurde.",
-            "Re-run extraction with the current settings – useful after switching model, language, or the strict toggle.",
+            "Starte die Extraktion mit den aktuellen Einstellungen neu – praktisch nach einem Sprach-Switch oder wenn der Strict-Schalter angepasst wurde.",
+            "Re-run extraction with the current settings – useful after switching language or adjusting the strict toggle.",
         )
         if st_module.button(
             tr("Extraktion jetzt erneut ausführen", "Re-run extraction now"),
