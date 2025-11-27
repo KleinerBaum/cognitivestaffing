@@ -14,6 +14,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Added
 - Session-level OpenAI token budget guard configurable via `OPENAI_SESSION_TOKEN_LIMIT`/`OPENAI_TOKEN_BUDGET`; further calls are blocked with a bilingual warning once the cap is exceeded.
+- Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
 
 ### Changed
 - Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
@@ -36,6 +37,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Streamlit step headers no longer crash on missing-field badges; column ratios are fully numeric again.
 - NeedAnalysisProfile canonicalization now rebuilds missing or invalid `requirements.skill_mappings` buckets and maps legacy keys (for example, `role.title`) to canonical fields before validation so extraction no longer triggers JSON repairs for empty company/position sections.
 - JSON extraction fallback now applies additional heuristics (trailing comma cleanup, unterminated string repair, and largest-block extraction) before triggering one schema-guided repair call; it only returns a default profile after both parsing and repair fail and sets `meta.extraction_fallback_active` so the wizard can warn users when recovery was needed.
+- Company step now binds autofill suggestion rendering from the wizard flow and skips the UI gracefully if the helper is unavailable, eliminating repeated dependency warnings and missing-suggestion regressions.
 
 ## [1.2.0] – 2025-02-24
 
