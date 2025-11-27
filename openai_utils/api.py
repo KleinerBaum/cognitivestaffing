@@ -306,7 +306,7 @@ def is_unrecoverable_schema_error(error: Exception) -> bool:
     return False
 
 
-def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
+def _log_known_openai_error(error: OpenAIError, api_mode: str) -> None:
     """Record additional context for known, non-retriable OpenAI failures."""
 
     if is_unrecoverable_schema_error(error):
@@ -1543,7 +1543,7 @@ def _on_api_giveup(details: Any) -> None:
             original=err,
         )
     if isinstance(err, OpenAIError):  # pragma: no cover - defensive
-        _handle_openai_error(err, model=None, schema_name=None, step=None, api_mode="responses")
+        _handle_openai_error(err, model=None, schema_name=None, step=None, api_mode="chat")
     raise err  # pragma: no cover - re-raise unexpected errors
 
 
