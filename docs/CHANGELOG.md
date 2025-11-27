@@ -14,6 +14,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Default LLM routing now prefers supported OpenAI models: quick/Schnell mode uses `gpt-4o-mini` and precise/Genau tasks escalate to `o3` with `o4-mini`/`gpt-4o` fallbacks, replacing deprecated GPT-5 placeholders.
+- Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 
 ### Fixed
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.

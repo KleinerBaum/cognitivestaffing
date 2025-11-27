@@ -933,6 +933,98 @@ def _format_profile_repair_warning(summary: Any, lang: str | None) -> str | None
     return " ".join(part for part in (base, detail_text, review_prompt) if part)
 
 
+_WARNING_STYLES: Final[str] = """
+<style>
+.wizard-warning-drawer {
+  position: fixed;
+  bottom: 1rem;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: min(var(--container-max-width, 1100px), 96vw);
+  z-index: 20;
+  background: var(--surface-1, #0a1730);
+  border: 1px solid var(--border-subtle, rgba(95, 210, 255, 0.24));
+  border-radius: var(--radius-md, 18px);
+  box-shadow: var(--shadow-medium, 0 28px 58px rgba(2, 6, 18, 0.56));
+  overflow: hidden;
+  color: var(--color-text-strong, #f4f9ff);
+}
+
+.wizard-warning-drawer summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.85rem 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wizard-warning-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.wizard-warning-body {
+  padding: 0.25rem 1.1rem 1rem;
+  background: var(--surface-2, rgba(15, 35, 68, 0.92));
+  border-top: 1px solid var(--border-subtle, rgba(95, 210, 255, 0.18));
+}
+
+.wizard-warning-body ul {
+  padding-left: 1.2rem;
+  margin: 0.35rem 0 0;
+}
+
+.wizard-warning-body li {
+  margin-bottom: 0.35rem;
+  line-height: 1.5;
+}
+
+.wizard-warning-hint {
+  margin: 0;
+  color: var(--text-muted, rgba(233, 242, 255, 0.82));
+  font-size: 0.95rem;
+}
+</style>
+"""
+
+
+def _render_collapsed_warning(messages: list[str], lang: str | None) -> None:
+    """Render auto-repair warnings collapsed at the bottom of the viewport."""
+
+    if not messages:
+        return
+
+    if not st.session_state.get("_wizard_warning_css_injected"):
+        st.session_state["_wizard_warning_css_injected"] = True
+        st.markdown(_WARNING_STYLES, unsafe_allow_html=True)
+
+    summary_label = tr("Validierungshinweise", "Validation notices", lang=lang)
+    detail_hint = tr(
+        "Automatisch angepasste Felder – zum Prüfen ausklappen.",
+        "Auto-adjusted fields – expand to review.",
+        lang=lang,
+    )
+
+    def _normalize(message: str) -> str:
+        sanitized = html.escape(message)
+        return sanitized.replace("\n", "<br/>")
+
+    list_items = "".join(f"<li>{_normalize(message)}</li>" for message in messages)
+    warning_html = f"""
+<details class="wizard-warning-drawer">
+  <summary>⚠️ {summary_label}</summary>
+  <div class="wizard-warning-body">
+    <p class="wizard-warning-hint">{detail_hint}</p>
+    <ul>{list_items}</ul>
+  </div>
+</details>
+"""
+
+    st.markdown(warning_html, unsafe_allow_html=True)
+
+
 def render_step_warning_banner() -> None:
     """Display a bilingual warning banner when extraction repairs are active."""
 
@@ -955,7 +1047,7 @@ def render_step_warning_banner() -> None:
     if not messages:
         return
 
-    st.warning("\n\n".join(messages))
+    _render_collapsed_warning(messages, lang)
 
 
 def _default_list_text_area_height(items: Sequence[str] | None) -> int:
