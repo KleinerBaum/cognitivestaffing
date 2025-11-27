@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from models.need_analysis import NeedAnalysisProfile
 from core.schema import coerce_and_fill
@@ -19,6 +19,7 @@ _CODE_FENCE_RE = re.compile(
     r"^```[a-zA-Z0-9_+-]*\s*$|^```\s*$|^\uFEFF|^\ufeff",  # fences or BOM at line start
     flags=re.MULTILINE,
 )
+_TRAILING_COMMAS_RE = re.compile(r",\s*([}\]])")
 
 
 def _strip_code_fences(s: str) -> str:
@@ -32,6 +33,117 @@ def _strip_code_fences(s: str) -> str:
     s = s.lstrip("\ufeff").lstrip("\ufeff")
     # Drop fence lines like ``` or ```json
     return _CODE_FENCE_RE.sub("", s)
+
+
+def _trim_to_object(candidate: str) -> str:
+    """Return ``candidate`` cropped to the outermost JSON object if present."""
+
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return candidate[start : end + 1]
+    return candidate
+
+
+def _strip_trailing_commas(candidate: str) -> str:
+    """Remove trailing commas before closing braces/brackets."""
+
+    return _TRAILING_COMMAS_RE.sub(r"\1", candidate)
+
+
+def _balance_braces(candidate: str) -> str:
+    """Append missing closing braces when the payload is clearly unbalanced."""
+
+    opens = candidate.count("{")
+    closes = candidate.count("}")
+    if opens > closes:
+        candidate = f"{candidate}{'}' * (opens - closes)}"
+    return candidate
+
+
+def _largest_balanced_json(s: str) -> Optional[str]:
+    """Return the largest balanced JSON object found within ``s``."""
+
+    if not s:
+        return None
+
+    in_str = False
+    esc = False
+    depth = 0
+    start = -1
+    blocks: list[str] = []
+
+    for i, ch in enumerate(s):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+
+        if ch == '"':
+            in_str = True
+            continue
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start != -1:
+                blocks.append(s[start : i + 1])  # noqa: E203
+    if not blocks:
+        return None
+    return max(blocks, key=len)
+
+
+def _iter_candidates(raw: str) -> Iterable[str]:
+    """Yield sanitised candidates for JSON parsing attempts."""
+
+    sanitized = _strip_code_fences(raw).strip()
+    trimmed = _trim_to_object(sanitized)
+    stripped = _strip_trailing_commas(trimmed)
+    balanced = _balance_braces(stripped)
+
+    seen: set[str] = set()
+
+    for candidate in (sanitized, trimmed, stripped, balanced):
+        key = candidate.strip()
+        if key and key not in seen:
+            seen.add(key)
+            yield key
+
+    largest_block = _largest_balanced_json(sanitized)
+    if largest_block:
+        for candidate in (
+            largest_block,
+            _strip_trailing_commas(largest_block),
+            _balance_braces(_strip_trailing_commas(largest_block)),
+        ):
+            key = candidate.strip()
+            if key and key not in seen:
+                seen.add(key)
+                yield key
+
+
+def _safe_json_loads(raw: str) -> Mapping[str, Any]:
+    """Parse ``raw`` into a mapping using lightweight repair strategies."""
+
+    last_err: Exception | None = None
+    for candidate in _iter_candidates(raw):
+        try:
+            parsed = json.loads(candidate)
+        except Exception as exc:  # JSONDecodeError or similar
+            last_err = exc
+            continue
+        if isinstance(parsed, Mapping):
+            return dict(parsed)
+        last_err = ValueError("Parsed JSON is not an object")
+    if last_err:
+        raise last_err
+    raise ValueError("Empty response; no JSON to parse.")
 
 
 def _first_balanced_json(s: str) -> Optional[str]:
@@ -84,40 +196,30 @@ def parse_extraction(raw: str) -> NeedAnalysisProfile:
 
     Strategy:
       1) Try strict json.loads(raw).
-      2) Strip code fences/BOM, try json.loads again.
-      3) Extract first balanced {...} block and json.loads it.
-      4) If all fail, re-raise the last JSONDecodeError.
+      2) Strip code fences/BOM and trim to the most plausible JSON object.
+      3) Apply lightweight repair (trailing commas, unbalanced braces).
+      4) Extract the largest balanced {...} block and retry.
+      5) If all fail, re-raise the last JSONDecodeError.
 
     Always returns an object validated against :class:`NeedAnalysisProfile`
     to ensure all expected keys exist (with ``""``/``[]`` defaults).
     """
-    last_err = None
+    last_err: Exception | None = None
 
-    def _process(payload: str) -> NeedAnalysisProfile:
-        return coerce_and_fill(json.loads(payload))
-
-    # 1) direct parse
     try:
-        return _process(raw)
-    except Exception as e:
-        last_err = e
+        parsed = _safe_json_loads(raw)
+        return coerce_and_fill(parsed)
+    except Exception as exc:
+        last_err = exc
 
-    # 2) sanitize and retry
-    try:
-        sanitized = _strip_code_fences(raw).strip()
-        return _process(sanitized)
-    except Exception as e:
-        last_err = e
-
-    # 3) balanced extraction
-    block = _first_balanced_json(sanitized if "sanitized" in locals() else raw)
+    block = _first_balanced_json(raw)
     if block:
         try:
-            return _process(block)
-        except Exception as e:
-            last_err = e
+            parsed = _safe_json_loads(block)
+            return coerce_and_fill(parsed)
+        except Exception as exc:  # pragma: no cover - defensive
+            last_err = exc
 
-    # 4) give up
     if last_err:
         raise last_err
     raise ValueError("Empty response; no JSON to parse.")

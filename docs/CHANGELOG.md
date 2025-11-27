@@ -34,6 +34,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Resolved Streamlit startup ImportError by importing the sidebar module explicitly before calling `render_sidebar`, preventing rerun crashes.
 - Streamlit step headers no longer crash on missing-field badges; column ratios are fully numeric again.
 - NeedAnalysisProfile canonicalization now rebuilds missing or invalid `requirements.skill_mappings` buckets and maps legacy keys (for example, `role.title`) to canonical fields before validation so extraction no longer triggers JSON repairs for empty company/position sections.
+- JSON extraction fallback now applies lightweight repairs, grabs the largest valid JSON block, and triggers one schema-guided repair call before returning a default profile; fallback runs mark `meta.extraction_fallback_active` so the wizard can warn users when recovery was needed.
 
 ## [1.2.0] – 2025-02-24
 

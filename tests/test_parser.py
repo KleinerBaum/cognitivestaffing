@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import pytest  # noqa: E402
-from utils.json_parse import parse_extraction  # noqa: E402
+from utils.json_parse import _safe_json_loads, parse_extraction  # noqa: E402
 
 
 def test_parse_pure_json() -> None:
@@ -26,8 +26,8 @@ def test_parse_with_sanitization(raw: str) -> None:
 
 
 def test_parse_mismatched_quotes() -> None:
-    with pytest.raises(json.JSONDecodeError):
-        parse_extraction('{"position": {"job_title": "Dev"}')
+    profile = parse_extraction('{"position": {"job_title": "Dev"}')
+    assert profile.position.job_title == "Dev"
 
 
 def test_parse_benefits_string() -> None:
@@ -60,4 +60,20 @@ def test_parse_type_coercion() -> None:
     assert profile.employment.remote_percentage == 50
     assert profile.employment.travel_required is True
     assert profile.compensation.equity_offered is False
-    assert profile.requirements.hard_skills_required == ["Python", "SQL"]
+    assert profile.requirements.tools_and_technologies == ["Python", "SQL"]
+
+
+def test_safe_json_loads_trailing_commas() -> None:
+    raw = '{"position": {"job_title": "Engineer"},}'
+    parsed = _safe_json_loads(raw)
+    assert parsed["position"]["job_title"] == "Engineer"
+
+
+def test_safe_json_loads_prefers_largest_block() -> None:
+    raw = (
+        "Noise {\"position\": {\"job_title\": \"Ignore\"}} extra text "
+        "{\"position\": {\"job_title\": \"Preferred\"}, \"responsibilities\": {\"items\": [\"Lead\"]}}"
+    )
+    profile = parse_extraction(raw)
+    assert profile.position.job_title == "Preferred"
+    assert profile.responsibilities.items == ["Lead"]

@@ -17,6 +17,7 @@ from llm.output_parsers import NeedAnalysisParserError
 from llm.prompts import PreExtractionInsights
 from models.need_analysis import NeedAnalysisProfile
 from llm.openai_responses import ResponsesCallResult
+from utils.json_repair import JsonRepairResult, JsonRepairStatus
 
 
 @pytest.fixture(autouse=True)
@@ -396,8 +397,8 @@ def test_extract_json_logs_warning_on_responses_failure(monkeypatch, caplog):
     )
 
 
-def test_plain_text_fallback_recovers_with_defaults(monkeypatch, caplog):
-    """Plain-text fallbacks should still return a usable, default profile payload."""
+def test_plain_text_fallback_recovers_with_repair(monkeypatch, caplog):
+    """Plain-text fallbacks should attempt JSON repair before defaulting to empty payloads."""
 
     caplog.set_level("WARNING")
     st.session_state.clear()
@@ -411,17 +412,27 @@ def test_plain_text_fallback_recovers_with_defaults(monkeypatch, caplog):
     def _parse_error(*_args: Any, **_kwargs: Any) -> NeedAnalysisProfile:
         raise ValueError("invalid json")
 
+    def _repair_payload(*_args: Any, **_kwargs: Any) -> JsonRepairResult:
+        return JsonRepairResult(
+            payload={"position": {"job_title": "Recovered"}},
+            status=JsonRepairStatus.REPAIRED,
+            issues=["balanced"],
+        )
+
     monkeypatch.setattr(client, "_run_pre_extraction_analysis", lambda *a, **k: None)
     monkeypatch.setattr(client, "build_extract_messages", lambda *a, **k: [{"role": "user", "content": "Job text"}])
     monkeypatch.setattr(client, "_structured_extraction", _fail_structured)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
     monkeypatch.setattr(client, "parse_extraction", _parse_error)
+    monkeypatch.setattr(client, "parse_profile_json", _repair_payload)
     monkeypatch.setattr(client, "select_model", lambda *_: "gpt-test")
     monkeypatch.setattr(client, "get_active_verbosity", lambda: None)
 
     result = client.extract_json("Job text")
 
-    assert json.loads(result) == NeedAnalysisProfile().model_dump()
+    payload = json.loads(result)
+    assert payload["position"]["job_title"] == "Recovered"
+    assert payload["meta"]["extraction_fallback_active"] is True
     assert any("Plain-text fallback" in record.getMessage() for record in caplog.records)
 
 
