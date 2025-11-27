@@ -168,6 +168,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 2. Export `OPENAI_API_KEY=<your key>` (or configure it via `.env`/`st.secrets`). Without a key the UI keeps AI-triggered widgets disabled.
 3. `streamlit run app.py` – launches the wizard at http://localhost:8501.
 4. Optional / Optional: set `OPENAI_API_BASE_URL=https://eu.api.openai.com/v1` if you need the EU endpoint.
+5. Optional / Optional: set `OPENAI_SESSION_TOKEN_LIMIT=<tokens>` (alias: `OPENAI_TOKEN_BUDGET`) to enable the session budget guard. The app blocks further OpenAI calls and surfaces a bilingual warning once the cap is reached.
 
 ### Testing
 

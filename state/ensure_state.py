@@ -400,6 +400,8 @@ def ensure_state() -> None:
         usage_state.setdefault("input_tokens", 0)
         usage_state.setdefault("output_tokens", 0)
         usage_state.setdefault("by_task", {})
+    if StateKeys.USAGE_BUDGET_EXCEEDED not in st.session_state:
+        st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED] = False
     wizard_state = st.session_state.get("wizard")
     if not isinstance(wizard_state, dict):
         st.session_state["wizard"] = {"current_step": "jobad"}

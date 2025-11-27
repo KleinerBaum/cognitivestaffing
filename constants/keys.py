@@ -198,6 +198,7 @@ class StateKeys:
     BOOLEAN_PREVIEW = "data.boolean_preview"
     INTERVIEW_GUIDE_MD = "data.interview_md"
     INTERVIEW_GUIDE_PREVIEW = "data.interview_md_preview"
+    USAGE_BUDGET_EXCEEDED = "api_usage.budget_exceeded"
     INTERVIEW_GUIDE_DATA = "data.interview_guide"
     REASONING_EFFORT = "reasoning_effort"
     REASONING_MODE = "reasoning_mode"

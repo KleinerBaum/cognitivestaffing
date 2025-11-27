@@ -41,3 +41,9 @@
 **EN:** Token counters persist in `st.session_state[StateKeys.USAGE]`. Legacy aggregate keys remain for analytics compatibility.
 
 **DE:** Token-Zähler liegen in `st.session_state[StateKeys.USAGE]`. Ältere Aggregat-Schlüssel bleiben für Analytics-kompatible Auswertungen erhalten.
+
+## Budget guard / Budget-Schutz
+
+**EN:** Configure `OPENAI_SESSION_TOKEN_LIMIT` (alias: `OPENAI_TOKEN_BUDGET`) to stop OpenAI calls once the session exceeds the token cap. The flag is stored in `st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED]`, and users see a bilingual warning before further calls are blocked.
+
+**DE:** Setze `OPENAI_SESSION_TOKEN_LIMIT` (Alias: `OPENAI_TOKEN_BUDGET`), um OpenAI-Aufrufe nach Überschreiten des Token-Limits zu stoppen. Der Status liegt in `st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED]`, und die App blendet vor dem Blockieren weiterer Aufrufe einen zweisprachigen Hinweis ein.

@@ -42,6 +42,17 @@ CHUNK_OVERLAP = 0.1
 _TRUTHY_ENV_VALUES: tuple[str, ...] = ("1", "true", "yes", "on")
 _API_FLAG_LOCK = RLock()
 
+# Populated by ``_configure_models`` during import.
+DEFAULT_MODEL: str
+EMBED_MODEL: str
+HIGH_REASONING_MODEL: str
+LIGHTWEIGHT_MODEL: str
+MEDIUM_REASONING_MODEL: str
+MODEL_ROUTING: Dict[str, str]
+OPENAI_MODEL: str
+REASONING_MODEL: str
+TASK_MODEL_FALLBACKS: Dict[str, list[str]]
+
 
 class APIMode(StrEnum):
     """Enumerate the supported OpenAI API backends."""
@@ -60,6 +71,36 @@ def _is_truthy_flag(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in _TRUTHY_ENV_VALUES
+
+
+def _parse_positive_int_env(value: object | None, *, env_var: str) -> int | None:
+    """Return a positive integer parsed from ``value`` or ``None``."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return None
+        try:
+            parsed = int(float(candidate))
+        except ValueError:
+            warnings.warn(
+                "%s is not a number; ignoring %s" % (candidate, env_var),
+                RuntimeWarning,
+            )
+            return None
+    elif isinstance(value, (int, float)):
+        parsed = int(value)
+    else:
+        warnings.warn(
+            "Unsupported %s value '%s'; ignoring budget guard." % (env_var, value),
+            RuntimeWarning,
+        )
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
 
 
 SCHEMA_FUNCTION_FALLBACK = _is_truthy_flag(os.getenv("SCHEMA_FUNCTION_FALLBACK"))
@@ -92,6 +133,9 @@ normalise_model_override = model_config.normalise_model_override
 
 STREAMLIT_ENV = os.getenv("STREAMLIT_ENV", "development")
 DEFAULT_LANGUAGE = os.getenv("LANGUAGE", "en")
+
+_raw_budget_limit = os.getenv("OPENAI_SESSION_TOKEN_LIMIT") or os.getenv("OPENAI_TOKEN_BUDGET")
+OPENAI_SESSION_TOKEN_LIMIT = _parse_positive_int_env(_raw_budget_limit, env_var="OPENAI_SESSION_TOKEN_LIMIT")
 
 CHATKIT_ENABLED = _is_truthy_flag(os.getenv("CHATKIT_ENABLED", "1"))
 CHATKIT_DOMAIN_KEY = os.getenv("CHATKIT_DOMAIN_KEY", "")
