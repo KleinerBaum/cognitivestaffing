@@ -209,24 +209,17 @@ def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> di
             removed.append(key)
             cleaned.pop(key, None)
 
-    mode = api_mode if api_mode in {"chat", "responses"} else "responses"
+    mode = api_mode if api_mode in {"chat", "responses"} else "chat"
 
     if mode == "chat":
         if "messages" not in cleaned:
             raw_input = cleaned.get("input")
             if isinstance(raw_input, Sequence):
                 cleaned["messages"] = raw_input
-        for invalid_field in ("input", "text", "previous_response_id", "max_output_tokens"):
+        for invalid_field in ("input", "text", "previous_response_id"):
             if invalid_field in cleaned:
                 removed.append(invalid_field)
                 cleaned.pop(invalid_field, None)
-        for invalid_field in ("functions", "function_call", "max_completion_tokens"):
-            if invalid_field in cleaned:
-                removed.append(invalid_field)
-                cleaned.pop(invalid_field, None)
-        if "response_format" in cleaned:
-            cleaned.pop("response_format")
-            removed.append("response_format")
     else:
         if "messages" in cleaned and "input" not in cleaned:
             cleaned["input"] = cleaned.pop("messages")
@@ -319,9 +312,9 @@ class OpenAIClient:
             request_kwargs["response_format"] = sanitize_response_format_payload(response_format_payload)
         mode = mode_override or api_mode
         cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
-        if mode == "chat":
-            return self.get_client().chat.completions.create(timeout=timeout, **cleaned_payload)
-        return self.get_client().responses.create(timeout=timeout, **cleaned_payload)
+        if mode != "chat":
+            logger.debug("Routing non-chat mode '%s' through chat completions backend", mode)
+        return self.get_client().chat.completions.create(timeout=timeout, **cleaned_payload)
 
     def _execute_once(
         self,

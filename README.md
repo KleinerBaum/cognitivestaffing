@@ -1,6 +1,6 @@
 # Cognitive Staffing
 
-Cognitive Staffing is a multi-step Streamlit wizard that turns unstructured job ads (PDF, DOCX, URLs, or pasted text) into a structured **NeedAnalysisProfile** JSON and recruiter‑ready outputs (job ad, interview guide, Boolean search, etc.). It combines rule‑based ingest with OpenAI’s Responses API and GPT‑5 reasoning models to prefill company, role, team, process, and compensation details, then guides users through eight bilingual steps to review, enrich, and export the results.
+Cognitive Staffing is a multi-step Streamlit wizard that turns unstructured job ads (PDF, DOCX, URLs, or pasted text) into a structured **NeedAnalysisProfile** JSON and recruiter‑ready outputs (job ad, interview guide, Boolean search, etc.). It combines rule‑based ingest with OpenAI’s Chat Completions API and GPT‑5 reasoning models to prefill company, role, team, process, and compensation details, then guides users through eight bilingual steps to review, enrich, and export the results.
 
 Live app: https://cognitivestaffing.streamlit.app/
 
@@ -20,7 +20,7 @@ Live app: https://cognitivestaffing.streamlit.app/
     Auto-repair notices now sit in a collapsed bottom drawer so the main form stays uncluttered while the warning remains visible across the step.
 
 - **AI extraction & NeedAnalysisProfile normalization**
-  Ingest heuristics plus OpenAI’s Responses API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data.
+  Ingest heuristics plus OpenAI’s Chat Completions API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data.
 - **Missing-section repair prompts**
   When structured extraction leaves gaps, a dedicated bilingual prompt retries only the missing fields so follow-up questions and exports stay aligned to the schema instead of falling back to plain error text.
 
@@ -45,8 +45,8 @@ Live app: https://cognitivestaffing.streamlit.app/
   - **Precise / Genau mode:** promotes reasoning‑tier models (`o3-mini`/`o3` by default with `o4-mini` and `gpt-4o` as fallbacks) with configurable `REASONING_EFFORT` for complex extraction, repair, and normalization flows.
   Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
 
-- **Responses API first, Chat Completions fallback**
-  Structured calls use the OpenAI Responses API with JSON schemas and retries. If streaming fails, returns empty content, or violates `response_format`, the client falls back to Chat Completions and, if needed, to static curated suggestions.
+- **Chat Completions with JSON schema enforcement**
+  Structured calls use the OpenAI Chat Completions API directly with JSON schemas. Invalid JSON responses are repaired or reported without an extra Responses → chat retry hop, reducing noisy logs and latency.
 
 - **Responsive loading and timeout handling**
   LLM-triggered actions render Streamlit spinners (“Analysiere die Stellenbeschreibung… / Analyzing your job description…”) so users know work is in progress. Friendly bilingual timeout notices (“⏳ … länger als erwartet / taking longer than usual…”) surface when OpenAI calls exceed the user-facing timeout guard, guiding users to retry or continue manually instead of seeing low-level errors.
@@ -74,7 +74,7 @@ Live app: https://cognitivestaffing.streamlit.app/
 
 ## Error handling reference
 
-See [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) for the current exception taxonomy, user-facing error messages, and the Responses → Chat → heuristics fallback chains used by the extraction and follow-up pipelines.
+See [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) for the current exception taxonomy, user-facing error messages, and the Chat → heuristics fallback chains used by the extraction and follow-up pipelines.
 
 ---
 

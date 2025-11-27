@@ -75,7 +75,7 @@ def parse_profile_json(raw: str, *, errors: Sequence[Mapping[str, Any]] | None =
 
 
 def repair_profile_payload(
-    payload: Mapping[str, Any], *, errors: Sequence[Mapping[str, Any]] | None = None
+    payload: Mapping[str, Any], errors: Sequence[Mapping[str, Any]] | None = None
 ) -> Mapping[str, Any] | None:
     """Return a repaired NeedAnalysisProfile payload using an LLM fallback."""
 

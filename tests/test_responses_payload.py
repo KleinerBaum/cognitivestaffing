@@ -1,181 +1,26 @@
-"""Tests for hardened OpenAI Responses payload generation (v2025)."""
+"""Tests for structured OpenAI payload helpers after Responses deprecation."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-import json
-from contextlib import contextmanager
 from typing import Any, Mapping
 
 import pytest
 from openai import OpenAIError
 
 from llm import openai_responses
-from config import APIMode
-from openai_utils.api import (
-    PayloadContext,
-    ResponsesPayloadBuilder,
-    _build_chat_fallback_payload,
-    build_schema_format_bundle,
-)
 
 
-class _FakeResponsesClient:
-    """Simple stub capturing the last payload passed to responses.create."""
-
-    def __init__(self) -> None:
-        self.captured: dict[str, Any] | None = None
-
-    def create(self, **kwargs: Any) -> Any:  # pragma: no cover - simple stub
-        self.captured = dict(kwargs)
-        return SimpleNamespace(
-            output=[],
-            output_text="{}",
-            usage={},
-            id="resp-test",
-        )
+class _FakeChatResult:
+    def __init__(self, content: str = "{}") -> None:
+        self.content = content
+        self.usage = {"input_tokens": 1}
+        self.response_id = "chat-123"
+        self.raw_response = {"id": self.response_id}
+        self.tool_calls: list[Any] = []
 
 
-class _FakeClient:
-    def __init__(self, responses_client: _FakeResponsesClient) -> None:
-        self.responses = responses_client
-
-
-@pytest.fixture(autouse=True)
-def _patch_client(monkeypatch: pytest.MonkeyPatch) -> _FakeResponsesClient:
-    """Provide a fake OpenAI client for each test."""
-
-    fake_responses = _FakeResponsesClient()
-    monkeypatch.setattr(openai_responses, "get_client", lambda: _FakeClient(fake_responses))
-    return fake_responses
-
-
-def test_v2025_minimal_payload(_patch_client: _FakeResponsesClient) -> None:
-    """Payloads must stick to the minimal v2025 schema contract."""
-
-    fmt = openai_responses.build_json_schema_format(
-        name="need_analysis_profile",
-        schema={"type": "object"},
-    )
-    result = openai_responses.call_responses(
-        messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
-        response_format=fmt,
-    )
-
-    assert result.response_id == "resp-test"
-
-    captured = _patch_client.captured
-    assert captured is not None, "Expected responses.create to be invoked"
-    assert set(captured) == {"model", "input", "timeout", "text"}
-    assert captured["model"] == "gpt-4o-mini"
-    assert isinstance(captured["input"], list)
-    assert captured["timeout"] == openai_responses.OPENAI_REQUEST_TIMEOUT
-
-    text_section = captured["text"]
-    assert set(text_section) == {"format"}
-    format_payload = text_section["format"]
-    assert format_payload["type"] == "json_schema"
-    assert format_payload["name"] == "need_analysis_profile"
-    assert format_payload["schema"] == {
-        "type": "object",
-        "additionalProperties": False,
-        "$schema": "http://json-schema.org/draft-07/schema#",
-    }
-
-
-def test_schema_guard_triggers_fallback(monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient) -> None:
-    """Missing schemas must be caught before dispatch (RESPONSES_PAYLOAD_GUARD)."""
-
-    fmt: Mapping[str, Any] = {"name": "broken", "schema": None}
-
-    dispatched = False
-
-    def _fail_create(**_: Any) -> None:  # pragma: no cover - guard ensures no call
-        nonlocal dispatched
-        dispatched = True
-
-    monkeypatch.setattr(_patch_client, "create", _fail_create)
-
-    result = openai_responses.call_responses_safe(
-        messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
-        response_format=fmt,
-    )
-
-    assert result is None
-    assert dispatched is False
-
-
-def test_schema_guard_requires_name(monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient) -> None:
-    """Schemas must include a non-empty name to pass validation."""
-
-    fmt: Mapping[str, Any] = {"json_schema": {"schema": {"type": "object"}}}
-
-    dispatched = False
-
-    def _fail_create(**_: Any) -> None:  # pragma: no cover - guard ensures no call
-        nonlocal dispatched
-        dispatched = True
-
-    monkeypatch.setattr(_patch_client, "create", _fail_create)
-
-    result = openai_responses.call_responses_safe(
-        messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
-        response_format=fmt,
-    )
-
-    assert result is None
-    assert dispatched is False
-
-
-def test_call_responses_safe_retries_with_chat_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """call_responses_safe should invoke the chat fallback once on Responses errors."""
-
-    fmt = openai_responses.build_json_schema_format(
-        name="need_analysis_profile",
-        schema={"type": "object"},
-    )
-
-    def _raise_error(*_: Any, **__: Any) -> Any:
-        raise OpenAIError("boom")
-
-    fallback_calls = {"count": 0}
-
-    class _FakeChatResult:
-        def __init__(self) -> None:
-            self.content = "fallback"
-            self.usage = {"input_tokens": 1}
-            self.response_id = "chat-123"
-            self.raw_response = {"id": "chat-123"}
-
-    def _fake_chat(*_: Any, **__: Any) -> _FakeChatResult:
-        fallback_calls["count"] += 1
-        return _FakeChatResult()
-
-    @contextmanager
-    def _noop_context() -> Any:
-        yield
-
-    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
-    monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
-    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
-
-    result = openai_responses.call_responses_safe(
-        messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
-        response_format=fmt,
-    )
-
-    assert result is not None
-    assert result.used_chat_fallback is True
-    assert result.content == "fallback"
-    assert fallback_calls["count"] == 1
-
-
-def test_chat_fallback_strips_strict_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Chat fallback must remove the strict flag before hitting the Chat API."""
+def test_call_responses_builds_chat_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """call_responses should construct a chat payload with JSON schema metadata."""
 
     fmt = openai_responses.build_json_schema_format(
         name="need_analysis_profile",
@@ -185,112 +30,57 @@ def test_chat_fallback_strips_strict_flag(monkeypatch: pytest.MonkeyPatch) -> No
 
     captured: dict[str, Any] = {}
 
-    def _raise_error(*_: Any, **__: Any) -> Any:
-        raise OpenAIError("boom")
-
-    class _FakeChatResult:
-        def __init__(self) -> None:
-            self.content = "fallback"
-            self.usage = {"input_tokens": 1}
-            self.response_id = "chat-456"
-            self.raw_response = {"id": "chat-456"}
-
-    def _fake_chat(*_: Any, **kwargs: Any) -> _FakeChatResult:
+    def _fake_chat(messages: Any, **kwargs: Any) -> _FakeChatResult:
+        captured["messages"] = messages
         captured.update(kwargs)
-        return _FakeChatResult()
+        return _FakeChatResult('{"ok": true}')
 
-    @contextmanager
-    def _noop_context() -> Any:
-        yield
-
-    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
     monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
-    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
 
-    result = openai_responses.call_responses_safe(
+    result = openai_responses.call_responses(
         messages=[{"role": "user", "content": "hi"}],
         model="gpt-4o-mini",
         response_format=fmt,
+        temperature=0.0,
+        max_completion_tokens=128,
+        reasoning_effort="low",
+        verbosity="concise",
+        task="extraction",
     )
 
-    assert result is not None
+    assert result.content == '{"ok": true}'
+    assert captured["model"] == "gpt-4o-mini"
+    assert captured["max_completion_tokens"] == 128
+    assert captured["temperature"] == 0.0
+    assert captured["reasoning_effort"] == "low"
+    assert captured["verbosity"] == "concise"
+    assert captured["task"] == "extraction"
     assert captured["json_schema"] == {
         "name": "need_analysis_profile",
         "schema": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
             "additionalProperties": False,
+            "$schema": "http://json-schema.org/draft-07/schema#",
         },
+        "strict": True,
     }
-    assert "strict" not in captured["json_schema"]
+    assert captured["use_response_format"] is True
+    assert captured["include_raw_response"] is True
+    assert captured["messages"][0]["role"] == "system"
 
 
-def test_invalid_json_is_repaired_without_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Malformed JSON should be repaired when possible instead of crashing."""
+def test_call_responses_safe_blocks_invalid_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Invalid schema payloads should not trigger any chat call."""
 
-    fmt = openai_responses.build_json_schema_format(
-        name="need_analysis_profile",
-        schema={"type": "object"},
-    )
+    fmt: Mapping[str, Any] = {"name": "broken", "schema": None}
+    invoked = False
 
-    def _return_malformed(*_: Any, **__: Any) -> openai_responses.ResponsesCallResult:
-        return openai_responses.ResponsesCallResult(
-            content='{"foo": "bar",}',
-            usage={},
-            response_id="resp-999",
-            raw_response={"id": "resp-999"},
-        )
-
-    monkeypatch.setattr(openai_responses, "call_responses", _return_malformed)
-
-    result = openai_responses.call_responses_safe(
-        messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
-        response_format=fmt,
-    )
-
-    assert result is not None
-    assert result.used_chat_fallback is False
-    assert json.loads(result.content) == {"foo": "bar"}
-
-
-def test_invalid_json_triggers_chat_fallback_with_messages(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Chat fallback must receive a valid chat payload when repair fails."""
-
-    fmt = openai_responses.build_json_schema_format(
-        name="need_analysis_profile",
-        schema={"type": "object"},
-    )
-
-    def _return_unparseable(*_: Any, **__: Any) -> openai_responses.ResponsesCallResult:
-        return openai_responses.ResponsesCallResult(
-            content="not json",
-            usage={},
-            response_id="resp-998",
-            raw_response={"id": "resp-998"},
-        )
-
-    fallback_capture: dict[str, Any] = {}
-
-    class _FakeChatResult:
-        def __init__(self) -> None:
-            self.content = "fallback"
-            self.usage = {"input_tokens": 1}
-            self.response_id = "chat-999"
-            self.raw_response = {"id": "chat-999"}
-
-    def _fake_chat(messages: Any, **kwargs: Any) -> _FakeChatResult:
-        fallback_capture["messages"] = messages
-        fallback_capture.update(kwargs)
+    def _fake_chat(*_: Any, **__: Any) -> _FakeChatResult:
+        nonlocal invoked
+        invoked = True
         return _FakeChatResult()
 
-    @contextmanager
-    def _noop_context() -> Any:
-        yield
-
-    monkeypatch.setattr(openai_responses, "call_responses", _return_unparseable)
     monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
-    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
 
     result = openai_responses.call_responses_safe(
         messages=[{"role": "user", "content": "hi"}],
@@ -298,192 +88,54 @@ def test_invalid_json_triggers_chat_fallback_with_messages(monkeypatch: pytest.M
         response_format=fmt,
     )
 
-    assert result is not None
-    assert result.used_chat_fallback is True
-    assert fallback_capture.get("model") == "gpt-4o-mini"
-    assert isinstance(fallback_capture.get("messages"), list)
-    assert fallback_capture.get("messages")[0]["role"] == "user"
+    assert result is None
+    assert invoked is False
 
 
-def test_function_call_chat_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Function-call fallback should mirror the schema via chat completions."""
+def test_call_responses_safe_returns_none_on_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Invalid JSON payloads should return ``None`` without a secondary call."""
 
     fmt = openai_responses.build_json_schema_format(
         name="need_analysis_profile",
-        schema={"type": "object", "properties": {"company": {"type": "string"}}, "required": ["company"]},
+        schema={"type": "object"},
+    )
+
+    def _fake_call(*_: Any, **__: Any) -> openai_responses.ResponsesCallResult:
+        return openai_responses.ResponsesCallResult(
+            content="not-json",
+            usage={},
+            response_id="resp-1",
+            raw_response={},
+        )
+
+    monkeypatch.setattr(openai_responses, "call_responses", _fake_call)
+
+    result = openai_responses.call_responses_safe(
+        messages=[{"role": "user", "content": "hi"}],
+        model="gpt-4o-mini",
+        response_format=fmt,
+    )
+
+    assert result is None
+
+
+def test_call_responses_safe_propagates_api_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API errors should be surfaced as ``None`` without retries."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
     )
 
     def _raise_error(*_: Any, **__: Any) -> Any:
         raise OpenAIError("boom")
 
-    @contextmanager
-    def _noop_context() -> Any:
-        yield
-
-    class _FakeCompletions:
-        def __init__(self) -> None:
-            self.captured: dict[str, Any] | None = None
-
-        def create(self, **kwargs: Any) -> Any:
-            self.captured = dict(kwargs)
-            return SimpleNamespace(
-                id="chat-func",
-                choices=[
-                    {
-                        "message": {
-                            "tool_calls": [
-                                {
-                                    "function": {
-                                        "name": "extract_profile",
-                                        "arguments": '{"company": "ACME"}',
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ],
-                usage={"prompt_tokens": 10, "completion_tokens": 5},
-            )
-
-    class _FakeChat:
-        def __init__(self) -> None:
-            self.completions = _FakeCompletions()
-
-    class _FakeClient:
-        def __init__(self) -> None:
-            self.chat = _FakeChat()
-
-    fake_client = _FakeClient()
-
-    def _fail_chat(*_: Any, **__: Any) -> None:
-        raise AssertionError("chat fallback not expected")
-
     monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
-    monkeypatch.setattr(openai_responses, "call_chat_api", _fail_chat)
-    monkeypatch.setattr(openai_responses, "temporarily_force_classic_api", _noop_context)
-    monkeypatch.setattr(openai_responses, "get_client", lambda: fake_client)
-    monkeypatch.setattr(openai_responses.app_config, "SCHEMA_FUNCTION_FALLBACK", True)
 
     result = openai_responses.call_responses_safe(
         messages=[{"role": "user", "content": "hi"}],
         model="gpt-4o-mini",
         response_format=fmt,
-        allow_empty=False,
     )
 
-    assert result is not None
-    assert result.used_chat_fallback is True
-    assert result.content == '{"company": "ACME"}'
-    assert result.usage.get("prompt_tokens") == 10
-    assert result.usage.get("completion_tokens") == 5
-
-    captured = fake_client.chat.completions.captured
-    assert captured is not None
-    assert captured["function_call"] == {"name": "extract_profile"}
-    assert captured["functions"][0]["parameters"]["properties"] == {"company": {"type": "string"}}
-
-
-def test_temperature_omitted_when_unsupported(
-    monkeypatch: pytest.MonkeyPatch, _patch_client: _FakeResponsesClient
-) -> None:
-    """Temperature should be absent when the model rejects it (TEMP_SUPPORTED)."""
-
-    monkeypatch.setattr(openai_responses, "model_supports_temperature", lambda model: False)
-
-    fmt = openai_responses.build_json_schema_format(
-        name="need_analysis_profile",
-        schema={"type": "object"},
-    )
-
-    openai_responses.call_responses(
-        messages=[{"role": "user", "content": "hi"}],
-        model="o1-mini",
-        response_format=fmt,
-        temperature=0.7,
-    )
-
-    captured = _patch_client.captured
-    assert captured is not None
-    assert "temperature" not in captured
-
-
-def test_responses_builder_includes_format_name() -> None:
-    """Responses payloads must include a top-level schema name."""
-
-    schema_bundle = build_schema_format_bundle({"name": "followup_questions", "schema": {"type": "object"}})
-    context = PayloadContext(
-        messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
-        temperature=0.0,
-        max_completion_tokens=None,
-        candidate_models=["gpt-4o-mini"],
-        tool_specs=[],
-        tool_functions={},
-        tool_choice=None,
-        schema_bundle=schema_bundle,
-        reasoning_effort=None,
-        extra=None,
-        router_estimate=None,
-        previous_response_id=None,
-        force_classic_for_tools=False,
-        api_mode=APIMode.RESPONSES,
-        api_mode_override=None,
-    )
-
-    request = ResponsesPayloadBuilder(context).build()
-
-    text_block = request.payload.get("text")
-    assert isinstance(text_block, Mapping)
-    format_block = text_block.get("format")
-    assert isinstance(format_block, Mapping)
-    assert format_block.get("name") == "followup_questions"
-    assert format_block.get("schema", {}).get("type") == "object"
-
-
-def test_chat_fallback_payload_strips_responses_only_fields() -> None:
-    """Responses→Chat fallback payloads drop strict flags and extras."""
-
-    schema_bundle = build_schema_format_bundle({"name": "followup_questions", "schema": {"type": "object"}})
-    raw_payload = {
-        "model": "gpt-4o-mini",
-        "input": [{"role": "user", "content": "hi"}],
-        "timeout": 12,
-        "text": {"format": schema_bundle.responses_format},
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"name": "followup_questions", "schema": {"type": "object"}, "strict": True},
-            "strict": True,
-        },
-        "max_output_tokens": 10,
-        "extra_field": "remove-me",
-        "strict": True,
-    }
-
-    fallback = _build_chat_fallback_payload(raw_payload, raw_payload["input"], schema_bundle)
-
-    assert "strict" not in fallback
-    response_format = fallback.get("response_format")
-    assert isinstance(response_format, Mapping)
-    assert "strict" not in response_format
-    json_schema_block = response_format.get("json_schema", {})
-    assert "strict" not in json_schema_block
-    assert fallback.get("max_tokens") == 10
-    assert fallback.get("max_completion_tokens") == 10
-    assert "extra_field" not in fallback
-    messages = fallback.get("messages")
-    assert isinstance(messages, list)
-    assert messages[0].get("role") == "system"
-    assert "JSON object" in messages[0].get("content", "")
-    assert messages[1:] == [{"role": "user", "content": "hi"}]
-
-
-def test_schema_bundle_applies_strict_only_to_responses_format() -> None:
-    """Strict JSON should be reserved for Responses payloads."""
-
-    bundle = build_schema_format_bundle({"name": "strict_example", "schema": {"type": "object"}, "strict": True})
-
-    assert bundle.strict is True
-    assert "strict" not in bundle.chat_response_format
-    assert "strict" not in bundle.chat_response_format.get("json_schema", {})
-    assert bundle.responses_format.get("strict") is True
-    assert bundle.responses_format.get("json_schema", {}).get("strict") is True
+    assert result is None

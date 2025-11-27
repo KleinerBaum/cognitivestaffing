@@ -77,7 +77,7 @@ def _inject_json_hint(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, A
 def _clean_response_format_for_chat(response_format: Mapping[str, Any]) -> dict[str, Any]:
     """Return a Chat-friendly ``response_format`` without Responses-only fields."""
 
-    cleaned = deepcopy(response_format)
+    cleaned: dict[str, Any] = dict(deepcopy(response_format))
     removed_fields: list[str] = []
 
     if "strict" in cleaned:

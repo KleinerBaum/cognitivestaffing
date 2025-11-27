@@ -833,7 +833,7 @@ def render_step_heading(
             lang=lang,
         )
         badge_col.markdown(
-            """
+            f"""
             <div style="display: flex; justify-content: flex-end;">
                 <div class='missing-badge'>
                     {_MISSING_FIELD_ICON} {badge_label}

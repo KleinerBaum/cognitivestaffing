@@ -457,8 +457,8 @@ OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
 OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
 # API mode flags are initialised via ``set_api_mode`` to guarantee synchronisation.
-USE_CLASSIC_API = False
-USE_RESPONSES_API = True
+USE_CLASSIC_API = True
+USE_RESPONSES_API = False
 
 ADMIN_DEBUG_PANEL = _normalise_bool(
     os.getenv("ADMIN_DEBUG_PANEL"),
@@ -493,22 +493,22 @@ def _resolve_env_api_mode() -> APIMode:
     """Return the initial API mode derived from environment toggles.
 
     ``USE_RESPONSES_API`` takes precedence when both flags are provided to avoid
-    accidental divergence. When neither variable is set, the Responses API is
-    the default.
+    accidental divergence. When neither variable is set, the Chat Completions
+    API is the default.
     """
 
     responses_raw = os.getenv("USE_RESPONSES_API")
     classic_raw = os.getenv("USE_CLASSIC_API")
 
     if responses_raw is not None:
-        responses_enabled = _normalise_bool(responses_raw, default=True)
+        responses_enabled = _normalise_bool(responses_raw, default=False)
         return APIMode.RESPONSES if responses_enabled else APIMode.CLASSIC
 
     if classic_raw is not None:
-        classic_enabled = _normalise_bool(classic_raw, default=False)
+        classic_enabled = _normalise_bool(classic_raw, default=True)
         return APIMode.CLASSIC if classic_enabled else APIMode.RESPONSES
 
-    return APIMode.RESPONSES
+    return APIMode.CLASSIC
 
 
 def set_responses_allow_tools(allow_tools: bool) -> None:

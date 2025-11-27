@@ -2,44 +2,27 @@
 
 from __future__ import annotations
 
-import logging
 import json
-import re
+import logging
 from dataclasses import dataclass
 from copy import deepcopy
 from typing import Any, Mapping, Sequence
 
-from opentelemetry import trace
-from openai import BadRequestError, OpenAIError
+from openai import OpenAIError
 
-import config as app_config
-from config import OPENAI_REQUEST_TIMEOUT, ModelTask, temporarily_force_classic_api
+from config import ModelTask
 from openai_utils.api import (
-    _coerce_token_count,
-    _extract_output_text,
-    _extract_response_id,
-    _extract_usage_block,
-    _inject_verbosity_hint,
-    _is_temperature_unsupported_error,
-    _mark_model_without_temperature,
-    _normalise_usage,
-    _resolve_verbosity,
-    _to_mapping,
-    _update_usage_counters,
-    build_schema_format_bundle,
-    call_chat_api,
-    get_client,
-    is_unrecoverable_schema_error,
-    model_supports_reasoning,
-    model_supports_temperature,
     SchemaFormatBundle,
+    _inject_verbosity_hint,
+    _resolve_verbosity,
+    build_schema_format_bundle,
+    LLMResponseFormatError,
+    call_chat_api,
 )
 from llm.response_schemas import INTERVIEW_GUIDE_SCHEMA_NAME, validate_response_schema
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
-from utils.retry import retry_with_backoff
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
-tracer = trace.get_tracer(__name__)
 
 
 @dataclass(slots=True)
@@ -164,196 +147,6 @@ def _build_schema_bundle_from_format(response_format: Mapping[str, Any]) -> Sche
     return build_schema_format_bundle(schema_config)
 
 
-def _build_function_tool_from_schema(schema_bundle: SchemaFormatBundle) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Return a chat ``function`` payload mirroring the JSON schema."""
-
-    configured_name = (app_config.SCHEMA_FUNCTION_NAME or "").strip()
-    base_name = configured_name or f"extract_{schema_bundle.name}"
-    safe_name = re.sub(r"[^\w.-]", "_", base_name) or f"extract_{schema_bundle.name}"
-    description = (app_config.SCHEMA_FUNCTION_DESCRIPTION or "").strip()
-
-    return (
-        {
-            "name": safe_name,
-            "description": description
-            or "Extract the structured profile payload / Extrahiere die strukturierte Profilantwort.",
-            "parameters": deepcopy(schema_bundle.schema),
-        },
-        {"name": safe_name},
-    )
-
-
-def _run_chat_fallback(
-    messages: Sequence[Mapping[str, Any]],
-    *,
-    model: str,
-    response_format: Mapping[str, Any],
-    logger_instance: logging.Logger,
-    context: str,
-    allow_empty: bool,
-    temperature: float | None,
-    max_completion_tokens: int | None,
-    reasoning_effort: str | None,
-    verbosity: str | None,
-    task: ModelTask | str | None,
-    reason: str,
-    exc: Exception | None,
-) -> ResponsesCallResult | None:
-    """Fallback to the classic chat API and return a :class:`ResponsesCallResult`."""
-
-    def _call_function_schema_fallback(schema_bundle: SchemaFormatBundle) -> ResponsesCallResult | None:
-        def _extract_function_payload(response: Any) -> str | None:
-            for choice in getattr(response, "choices", []) or []:
-                choice_map = _to_mapping(choice) or {}
-                message = choice_map.get("message")
-                message_map = _to_mapping(message) or {}
-                tool_calls = message_map.get("tool_calls")
-                if isinstance(tool_calls, Sequence) and not isinstance(tool_calls, (str, bytes)):
-                    for tool_call in tool_calls:
-                        tool_map = _to_mapping(tool_call) or {}
-                        function_block = _to_mapping(tool_map.get("function")) or {}
-                        arguments = function_block.get("arguments") or function_block.get("input")
-                        if isinstance(arguments, str) and arguments.strip():
-                            return arguments.strip()
-                        if isinstance(arguments, Mapping):
-                            return json.dumps(arguments)
-                content_value = message_map.get("content")
-                if isinstance(content_value, str) and content_value.strip():
-                    return content_value.strip()
-            return None
-
-        if not app_config.SCHEMA_FUNCTION_FALLBACK:
-            return None
-
-        try:
-            client = get_client()
-            chat_client = getattr(client, "chat", None)
-            completions_client = getattr(chat_client, "completions", None)
-            create_completion = getattr(completions_client, "create", None)
-        except Exception:
-            return None
-
-        if create_completion is None:
-            return None
-
-        function_payload, function_call = _build_function_tool_from_schema(schema_bundle)
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": _prepare_messages(messages),
-            "functions": [function_payload],
-            "function_call": function_call,
-            "timeout": OPENAI_REQUEST_TIMEOUT,
-        }
-
-        if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
-            payload["temperature"] = float(temperature)
-        if max_completion_tokens is not None:
-            payload["max_completion_tokens"] = int(max_completion_tokens)
-
-        try:
-            response = create_completion(**payload)
-        except OpenAIError as error:
-            logger_instance.warning(
-                "Function-call fallback for %s failed via chat completions: %s",
-                context,
-                error,
-                exc_info=error,
-            )
-            return None
-
-        content = (_extract_function_payload(response) or _extract_output_text(response) or "").strip()
-        if not allow_empty and not content:
-            return None
-
-        response_id = _extract_response_id(response)
-        usage_block = _extract_usage_block(response) or {}
-        usage = {key: _coerce_token_count(value) for key, value in _normalise_usage(usage_block).items()}
-        if usage:
-            _update_usage_counters(usage, task=task)
-
-        return ResponsesCallResult(
-            content=content,
-            usage=usage,
-            response_id=response_id,
-            raw_response=response,
-            used_chat_fallback=True,
-        )
-
-    try:
-        schema_bundle = _build_schema_bundle_from_format(response_format)
-        chat_schema = deepcopy(schema_bundle.chat_response_format["json_schema"])
-        removed_fields: list[str] = []
-        if "strict" in chat_schema:
-            chat_schema.pop("strict", None)
-            removed_fields.append("json_schema.strict")
-        if removed_fields:
-            logger_instance.debug(
-                "Cleaning Responses-only fields before chat fallback: %s",
-                ", ".join(removed_fields),
-            )
-    except (ResponsesSchemaError, TypeError) as schema_error:
-        logger_instance.warning(
-            "Unable to run chat fallback for %s due to schema guard: %s",
-            context,
-            schema_error,
-        )
-        return None
-
-    if exc is None:
-        logger_instance.info("Falling back to chat completions for %s (%s)", context, reason)
-    else:
-        logger_instance.info(
-            "Falling back to chat completions for %s (%s): %s",
-            context,
-            reason,
-            exc,
-        )
-
-    function_result = _call_function_schema_fallback(schema_bundle)
-    if function_result is not None:
-        return function_result
-
-    prepared_messages = _prepare_messages(messages)
-    try:
-        with temporarily_force_classic_api():
-            chat_result = call_chat_api(
-                prepared_messages,
-                model=model,
-                temperature=temperature,
-                max_completion_tokens=max_completion_tokens,
-                json_schema=chat_schema,
-                reasoning_effort=reasoning_effort,
-                verbosity=verbosity,
-                task=task,
-                extra={"_api_mode": "chat"},
-                use_response_format=False,
-            )
-    except Exception as fallback_error:  # pragma: no cover - network/SDK issues
-        logger_instance.warning(
-            "Classic chat fallback for %s failed: %s",
-            context,
-            fallback_error,
-            exc_info=fallback_error,
-        )
-        return None
-
-    fallback_content = (chat_result.content or "").strip()
-    if not allow_empty and not fallback_content:
-        logger_instance.warning(
-            "Classic chat fallback for %s returned empty content",
-            context,
-        )
-        return None
-
-    return ResponsesCallResult(
-        content=fallback_content,
-        usage=dict(chat_result.usage or {}),
-        response_id=chat_result.response_id,
-        raw_response=chat_result.raw_response,
-        used_chat_fallback=True,
-    )
-
-
 def call_responses(
     messages: Sequence[Mapping[str, Any]],
     *,
@@ -366,81 +159,42 @@ def call_responses(
     retries: int = 2,
     task: ModelTask | str | None = None,
 ) -> ResponsesCallResult:
-    """Execute a Responses API call with retries and return the parsed result."""
+    """Execute a structured chat call with schema enforcement."""
+
+    _ = retries  # retained for backwards compatibility with callers
 
     schema_bundle = _build_schema_bundle_from_format(response_format)
 
-    prepared_messages = _prepare_messages(
-        _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
-    )
+    prepared_messages = _prepare_messages(_inject_verbosity_hint(messages, _resolve_verbosity(verbosity)))
 
-    payload: dict[str, Any] = {
-        "model": model,
-        "input": prepared_messages,
-        "timeout": OPENAI_REQUEST_TIMEOUT,
+    json_schema_payload: dict[str, Any] = {
+        "name": schema_bundle.name,
+        "schema": deepcopy(schema_bundle.schema),
     }
+    if schema_bundle.strict is not None:
+        json_schema_payload["strict"] = schema_bundle.strict
 
-    text_payload = dict(payload.get("text") or {})
-    text_payload.pop("type", None)
-    text_payload["format"] = deepcopy(schema_bundle.responses_format)
-    payload["text"] = text_payload
-
-    if temperature is not None and model_supports_temperature(model):  # TEMP_SUPPORTED
-        payload["temperature"] = float(temperature)
-
-    if max_completion_tokens is not None:
-        payload["max_output_tokens"] = int(max_completion_tokens)
-
-    if reasoning_effort and model_supports_reasoning(model):
-        payload["reasoning"] = {"effort": reasoning_effort}
-
-    max_tries = max(1, int(retries) + 1)
-
-    @retry_with_backoff(
-        max_tries=max_tries,
-        logger=logger,
-        giveup=is_unrecoverable_schema_error,
+    chat_result = call_chat_api(
+        prepared_messages,
+        model=model,
+        temperature=temperature,
+        max_completion_tokens=max_completion_tokens,
+        json_schema=json_schema_payload,
+        reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
+        task=task,
+        include_raw_response=True,
+        use_response_format=True,
     )
-    def _dispatch() -> Any:
-        with tracer.start_as_current_span("openai.responses_call") as span:
-            span.set_attribute("llm.model", model)
-            span.set_attribute("llm.has_schema", True)
-            if "temperature" in payload:
-                span.set_attribute("llm.temperature", payload["temperature"])
-            if "reasoning" in payload and isinstance(payload["reasoning"], Mapping):
-                span.set_attribute("llm.reasoning.effort", payload["reasoning"].get("effort"))
-            return get_client().responses.create(**payload)
 
-    try:
-        response = _dispatch()
-    except BadRequestError as err:
-        if "temperature" in payload and _is_temperature_unsupported_error(err):
-            logger.warning(
-                "Responses model %s rejected temperature; retrying without it.",
-                model,
-            )
-            payload.pop("temperature", None)
-            _mark_model_without_temperature(model)
-            response = _dispatch()
-        else:
-            logger.error("Responses API rejected the request: %s", getattr(err, "message", err))
-            raise
-    except OpenAIError:
-        raise
-
-    content = _extract_output_text(response) or ""
-    response_id = _extract_response_id(response)
-    usage_block = _extract_usage_block(response) or {}
-    usage = {key: _coerce_token_count(value) for key, value in _normalise_usage(usage_block).items()}
-
-    if usage:
-        _update_usage_counters(usage, task=task)
+    content = (chat_result.content or "").strip()
 
     return ResponsesCallResult(
         content=content,
-        usage=usage,
-        response_id=response_id,
-        raw_response=response,
+        usage=dict(chat_result.usage or {}),
+        response_id=chat_result.response_id,
+        raw_response=chat_result.raw_response,
+        used_chat_fallback=False,
     )
 
 
@@ -464,33 +218,6 @@ def call_responses_safe(
     """
 
     active_logger = logger_instance or logger
-    fallback_attempted = False
-
-    def _attempt_fallback(reason: str, exc: Exception | None = None) -> ResponsesCallResult | None:
-        nonlocal fallback_attempted
-        if fallback_attempted:
-            return None
-        fallback_attempted = True
-        active_logger.info(
-            "Responses fallback triggered for %s (reason=%s)",
-            context,
-            reason,
-        )
-        return _run_chat_fallback(
-            messages,
-            model=model,
-            response_format=response_format,
-            logger_instance=active_logger,
-            context=context,
-            allow_empty=allow_empty,
-            verbosity=verbosity,
-            temperature=kwargs.get("temperature"),
-            max_completion_tokens=kwargs.get("max_completion_tokens"),
-            reasoning_effort=kwargs.get("reasoning_effort"),
-            task=kwargs.get("task"),
-            reason=reason,
-            exc=exc,
-        )
 
     try:
         result = call_responses(
@@ -501,37 +228,25 @@ def call_responses_safe(
             **kwargs,
         )
     except ResponsesSchemaError as exc:
-        active_logger.warning(
-            "Responses payload guard blocked %s call; triggering chat fallback: %s",
+        active_logger.error(
+            "Schema payload guard blocked %s call: %s",
             context,
             exc,
         )
-        fallback = _attempt_fallback("schema_guard", exc)
-        if fallback is not None:
-            return fallback
-        active_logger.error("All API attempts failed for %s (schema_guard).", context)
         return None
-    except OpenAIError as exc:
-        active_logger.warning(
-            "Responses API %s failed; triggering chat fallback: %s",
+    except (OpenAIError, LLMResponseFormatError) as exc:
+        active_logger.error(
+            "Structured chat call for %s failed: %s",
             context,
             exc,
         )
-        fallback = _attempt_fallback("api_error", exc)
-        if fallback is not None:
-            return fallback
-        active_logger.error("All API attempts failed for %s (api_error).", context)
         return None
     except Exception as exc:  # pragma: no cover - defensive
         active_logger.warning(
-            "Unexpected error during Responses API %s; triggering chat fallback",
+            "Unexpected error during structured %s call",
             context,
             exc_info=exc,
         )
-        fallback = _attempt_fallback("unexpected_error", exc)
-        if fallback is not None:
-            return fallback
-        active_logger.error("All API attempts failed for %s (unexpected_error).", context)
         return None
 
     content = (result.content or "").strip()
@@ -546,29 +261,15 @@ def call_responses_safe(
             result.content = repaired_content.strip()
             if repair_attempt.status is JsonRepairStatus.REPAIRED:
                 active_logger.info(
-                    "Responses API %s JSON was repaired before returning result.",
+                    "Structured %s JSON was repaired before returning result.",
                     context,
                 )
             return result
 
-        active_logger.warning(
-            "Responses API %s returned invalid JSON; triggering chat fallback.",
-            context,
-        )
-        fallback = _attempt_fallback("invalid_json")
-        if fallback is not None:
-            return fallback
-        active_logger.error("All API attempts failed for %s (invalid_json).", context)
+        active_logger.error("Structured %s call returned invalid JSON.", context)
         return None
     if not allow_empty and not content:
-        active_logger.warning(
-            "Responses API %s returned empty content; triggering chat fallback",
-            context,
-        )
-        fallback = _attempt_fallback("empty_response")
-        if fallback is not None:
-            return fallback
-        active_logger.error("All API attempts failed for %s (empty_response).", context)
+        active_logger.info("Structured %s call returned empty content", context)
         return None
 
     result.content = content
