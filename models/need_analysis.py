@@ -479,6 +479,7 @@ class Meta(BaseModel):
     target_start_date: Optional[str] = None
     application_deadline: Optional[str] = None
     followups_answered: List[str] = Field(default_factory=list)
+    extraction_fallback_active: bool = False
 
 
 class GeneratedContent(BaseModel):

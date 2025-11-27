@@ -1105,12 +1105,16 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "extraction_fallback_active": {
+                    "type": "boolean"
                 }
             },
             "required": [
                 "target_start_date",
                 "application_deadline",
-                "followups_answered"
+                "followups_answered",
+                "extraction_fallback_active"
             ]
         },
         "generated": {

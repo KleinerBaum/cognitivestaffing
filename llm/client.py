@@ -42,8 +42,9 @@ from .output_parsers import (
 )
 from .prompts import FIELDS_ORDER, PreExtractionInsights
 from core.errors import ExtractionError
-from core.schema import NeedAnalysisProfile, canonicalize_profile_payload
+from core.schema import NeedAnalysisProfile, canonicalize_profile_payload, coerce_and_fill
 from core.schema_registry import load_need_analysis_schema
+from llm.json_repair import parse_profile_json
 from llm.response_schemas import (
     PRE_EXTRACTION_ANALYSIS_SCHEMA_NAME,
     get_response_schema,
@@ -878,34 +879,51 @@ def _extract_json_outcome(
             raise ExtractionError("LLM call failed") from exc2
         content = (result.content or "").strip()
         if content:
+            profile: NeedAnalysisProfile | None = None
             try:
-                parsed = parse_extraction(content)
+                profile = parse_extraction(content)
             except Exception as err3:  # pragma: no cover - defensive
                 span.record_exception(err3)
                 span.add_event(
                     "fallback_parse_failed",
                     {"error.type": err3.__class__.__name__},
                 )
-                logger.warning(
-                    "Plain-text fallback returned unparseable content; defaulting to an empty profile.",
-                    exc_info=err3,
-                )
-                empty_profile = NeedAnalysisProfile()
+                repair_result = parse_profile_json(content)
+                if repair_result.payload is not None:
+                    try:
+                        profile = coerce_and_fill(repair_result.payload)
+                        span.add_event(
+                            "fallback_repair_succeeded",
+                            {"repair.issues": len(repair_result.issues)},
+                        )
+                    except Exception as err4:  # pragma: no cover - defensive
+                        span.record_exception(err4)
+                        span.add_event(
+                            "fallback_repair_validation_failed",
+                            {"error.type": err4.__class__.__name__},
+                        )
+                else:
+                    logger.warning(
+                        "Plain-text fallback returned unparseable content; repair could not recover JSON.",
+                        exc_info=err3,
+                    )
+            if profile is not None:
+                profile.meta.extraction_fallback_active = True
                 return StructuredExtractionOutcome(
-                    content=empty_profile.model_dump_json(),
+                    content=profile.model_dump_json(),
                     source="chat",
                     low_confidence=True,
                 )
-            return StructuredExtractionOutcome(
-                content=json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False),
-                source="chat",
-                low_confidence=True,
+            span.set_status(Status(StatusCode.ERROR, "fallback_parse_failed"))
+            logger.warning(
+                "Plain-text fallback returned unparseable content; defaulting to an empty profile.",
             )
         span.set_status(Status(StatusCode.ERROR, "empty_response"))
         logger.info(
             "Plain-text fallback returned no content; defaulting to an empty profile.",
         )
         empty_profile = NeedAnalysisProfile()
+        empty_profile.meta.extraction_fallback_active = True
         return StructuredExtractionOutcome(
             content=empty_profile.model_dump_json(),
             source="chat",

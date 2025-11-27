@@ -66,6 +66,15 @@ def _balance_braces(candidate: str) -> str:
 def _attempt_local_repair(raw: str) -> Mapping[str, Any] | None:
     """Try lightweight, local fixes for malformed JSON strings."""
 
+    try:
+        from utils.json_parse import _safe_json_loads
+
+        parsed = _safe_json_loads(raw)
+    except Exception:
+        parsed = None
+    if isinstance(parsed, Mapping):
+        return dict(parsed)
+
     attempts: list[str] = []
     trimmed = _trim_noise(raw)
     attempts.append(trimmed)
