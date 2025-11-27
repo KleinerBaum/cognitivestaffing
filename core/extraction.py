@@ -16,6 +16,7 @@ from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_pro
 from llm.json_repair import parse_profile_json, repair_profile_payload
 from models.need_analysis import NeedAnalysisProfile
 from utils.json_repair import JsonRepairStatus
+from ingest.heuristics import extract_responsibilities, refine_requirements
 
 logger = logging.getLogger("cognitive_needs.core.extraction")
 
@@ -395,6 +396,51 @@ def _clean_validated_payload(
     return cleaned
 
 
+def _apply_heuristic_fallbacks(
+    profile: NeedAnalysisProfile,
+    *,
+    source_text: str | None,
+    issues: list[str],
+) -> tuple[NeedAnalysisProfile, bool]:
+    """Fill missing lists using heuristics when the model output is empty."""
+
+    if not source_text or not source_text.strip():
+        return profile, False
+
+    updated = False
+    normalized_text = source_text.strip()
+
+    if not (profile.responsibilities.items or []):
+        responsibilities = [
+            item.strip() for item in extract_responsibilities(normalized_text) if item.strip()
+        ]
+        if responsibilities:
+            profile.responsibilities.items = responsibilities
+            issues.append("responsibilities.items: filled via heuristics")
+            updated = True
+
+    requirement_fields = (
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+        "tools_and_technologies",
+        "languages_required",
+        "languages_optional",
+        "certificates",
+        "certifications",
+    )
+    has_requirements = any(getattr(profile.requirements, field) for field in requirement_fields)
+    if not has_requirements:
+        refined_profile = refine_requirements(profile, normalized_text)
+        if refined_profile != profile:
+            profile = refined_profile
+            issues.append("requirements: filled via heuristics")
+            updated = True
+
+    return profile, updated
+
+
 def parse_structured_payload(raw: str, *, source_text: str | None = None) -> tuple[dict[str, Any], bool, list[str]]:
     """Parse ``raw`` into a dictionary, tolerating surrounding noise.
 
@@ -423,6 +469,15 @@ def parse_structured_payload(raw: str, *, source_text: str | None = None) -> tup
         raise InvalidExtractionPayload("Model returned JSON that could not be normalised.") from exc
 
     merged_payload = merge_profile_with_defaults(filled_profile.model_dump(mode="python"))
+
+    heuristic_profile = NeedAnalysisProfile.model_validate(merged_payload)
+    heuristic_profile, heuristics_used = _apply_heuristic_fallbacks(
+        heuristic_profile,
+        source_text=source_text,
+        issues=issues,
+    )
+    if heuristics_used:
+        merged_payload = merge_profile_with_defaults(heuristic_profile.model_dump(mode="python"))
 
     for_missing = [
         path for path in sorted(_REQUIRED_PATHS) if not _has_meaningful_value(_get_path_value(merged_payload, path))

@@ -29,3 +29,35 @@ def test_parse_structured_payload_sets_placeholders() -> None:
     assert payload["location"]["primary_city"] == ""
     assert any("company.contact_email" in entry for entry in issues)
     assert any("location.primary_city" in entry for entry in issues)
+
+
+def test_parse_structured_payload_fills_missing_lists_with_heuristics() -> None:
+    raw = """
+    {
+        "position": {"job_title": "Account Manager"},
+        "responsibilities": {"items": []},
+        "requirements": {
+            "hard_skills_required": [],
+            "soft_skills_required": []
+        }
+    }
+    """
+    source_text = (
+        "Ihre Aufgaben:\n"
+        "- Kunden betreuen\n"
+        "- Umsatz steigern\n"
+        "\n"
+        "Was du mitbringst:\n"
+        "- Erfahrung im Vertrieb\n"
+        "- Teamfähigkeit\n"
+    )
+
+    payload, _recovered, _issues = parse_structured_payload(raw, source_text=source_text)
+
+    responsibilities = payload["responsibilities"]["items"]
+    assert responsibilities
+    assert any("Kunden betreuen" in item for item in responsibilities)
+
+    requirements = payload["requirements"]
+    assert requirements["hard_skills_required"] or requirements["soft_skills_required"]
+    assert any("Vertrieb" in skill for skill in requirements["hard_skills_required"])
