@@ -30,6 +30,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Fixed
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
+- Wizard navigation enforces the canonical eight-step order, ignores unknown query parameters, and keeps Next disabled when required fields are missing so steps no longer skip or repeat.
 - Resolved Streamlit startup ImportError by importing the sidebar module explicitly before calling `render_sidebar`, preventing rerun crashes.
 - Streamlit step headers no longer crash on missing-field badges; column ratios are fully numeric again.
 - NeedAnalysisProfile canonicalization now rebuilds missing or invalid `requirements.skill_mappings` buckets and maps legacy keys (for example, `role.title`) to canonical fields before validation so extraction no longer triggers JSON repairs for empty company/position sections.

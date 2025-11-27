@@ -161,17 +161,18 @@ def build_navigation_state(
 
     if next_key:
         next_hint: LocalizedText | None = None
+        next_enabled = True
         if missing_tuple:
             next_hint = (
                 "Bitte fülle die markierten Pflichtfelder aus, bevor du fortfährst.",
                 "Please complete the marked required fields before continuing.",
             )
-        enabled = True
+            next_enabled = allow_skip
         next_button = NavigationButtonState(
             direction=NavigationDirection.NEXT,
             label=("Weiter ▶", "Next ▶"),
             target_key=next_key,
-            enabled=enabled,
+            enabled=next_enabled,
             primary=True,
             hint=next_hint,
             on_click=_nav_callback(next_key, mark_complete=True),
