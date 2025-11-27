@@ -742,6 +742,15 @@ def _bind_flow_dependencies(flow: ModuleType) -> None:
         logger.warning("Missing flow dependencies for company step: %s", ", ".join(sorted(missing)))
 
 
+def _render_autofill_if_available(**kwargs: Any) -> None:
+    """Render autofill suggestions only when the helper is bound."""
+
+    if callable(_render_autofill_suggestion):
+        _render_autofill_suggestion(**kwargs)
+    else:
+        logger.debug("Autofill suggestion helper unavailable; skipping render.")
+
+
 def _step_company() -> None:
     """Render the company information step.
 
@@ -800,6 +809,14 @@ def _step_company() -> None:
     )
     render_step_heading(company_header, company_caption, missing_fields=missing_here)
     render_step_warning_banner()
+    meta = cast(Mapping[str, Any], profile.get("meta", {})) if isinstance(profile.get("meta"), Mapping) else {}
+    if meta.get("extraction_fallback_active"):
+        st.warning(
+            tr(
+                "Wir konnten Teile der Stellenanzeige nicht automatisch auslesen – bitte Felder manuell prüfen.",
+                "We had trouble parsing parts of your job ad — please verify fields manually.",
+            )
+        )
     render_missing_field_summary(missing_here)
     data = profile
     company = data.setdefault("company", {})
@@ -1102,7 +1119,7 @@ def _step_company() -> None:
                 "Nur Land vorhanden – als Hauptsitz übernehmen?",
                 "Only country provided – use it as headquarters?",
             )
-        _render_autofill_suggestion(
+        _render_autofill_if_available(
             field_path=ProfilePaths.COMPANY_HQ_LOCATION,
             suggestion=suggested_hq,
             title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),

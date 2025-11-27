@@ -24,7 +24,7 @@ Live app: https://cognitivestaffing.streamlit.app/
 
 - **AI extraction & NeedAnalysisProfile normalization**
   Ingest heuristics plus OpenAI’s Chat Completions API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data. Canonical schema keys (for example, `company.name`, `position.job_title`, and `requirements.skill_mappings.*`) are enforced so legacy payloads are normalized instead of triggering JSON repairs.
-  Malformed JSON responses are repaired with lightweight heuristics and a single schema-guided repair attempt before the UI falls back to defaults; when a fallback is used the profile marks `meta.extraction_fallback_active` so the wizard can warn the user.
+  Malformed JSON responses are repaired with lightweight heuristics and a single schema-guided repair attempt before the UI falls back to defaults; when a fallback is used the profile marks `meta.extraction_fallback_active` so the wizard can warn the user. The Company step now surfaces a bilingual banner (“Wir konnten … nicht automatisch auslesen / We had trouble parsing…”) so users know to double-check the prefilled values.
 - **Missing-section repair prompts**
   When structured extraction leaves gaps, a dedicated bilingual prompt retries only the missing fields so follow-up questions and exports stay aligned to the schema instead of falling back to plain error text.
 

@@ -252,6 +252,7 @@ from .layout import (
     render_onboarding_hero,
     render_section_heading,
     render_step_heading,
+    _render_autofill_suggestion,
     render_step_warning_banner,
 )
 from ._logic import (  # noqa: F401 - re-exported for step modules
