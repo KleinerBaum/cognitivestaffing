@@ -28,18 +28,11 @@ def render_extraction_settings_panel(
         "precise": tr("🎯 Gründlich (Parsing)", "🎯 Thorough (parsing)"),
     }
 
-    strict_default = bool(
-        st_module.session_state.get(
-            UIKeys.EXTRACTION_STRICT_FORMAT,
-            st_module.session_state.get(StateKeys.EXTRACTION_STRICT_FORMAT, True),
-        )
-    )
-
     with st_module.expander(tr("Extraktionseinstellungen", "Extraction settings"), expanded=False, icon="🛠️"):
         st_module.caption(
             tr(
-                "Passe das Parsing live an – wähle zwischen Schnell vs. Gründlich und steuere das strikte JSON-Schema.",
-                "Adjust parsing on the fly – choose Fast vs. Thorough and decide whether to enforce the strict JSON schema.",
+                "Passe das Parsing live an – wähle zwischen Schnell vs. Gründlich. Striktes JSON bleibt immer aktiv.",
+                "Adjust parsing on the fly – choose Fast vs. Thorough. Strict JSON enforcement stays on by default.",
             )
         )
 
@@ -67,31 +60,13 @@ def render_extraction_settings_panel(
             )
         )
 
-        strict_enabled = st_module.checkbox(
-            tr(
-                "Striktes JSON-Format erzwingen (bei Problemen deaktivieren)",
-                "Enforce strict JSON format (disable if extraction fails)",
-            ),
-            value=strict_default,
-            key=UIKeys.EXTRACTION_STRICT_FORMAT,
-            help=tr(
-                "Wenn aktiviert, hält sich die KI strikt an das Schema. Falls Felder fehlen oder die Extraktion scheitert, deaktiviere es für eine flexiblere Ausgabe.",
-                "When enabled, the AI strictly follows the schema. If fields go missing or extraction fails, turn this off for a more flexible output.",
-            ),
-        )
-        st_module.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = bool(strict_enabled)
-        if not strict_enabled:
-            st_module.info(
-                tr(
-                    "Das Parsing fällt auf die nicht-strikte Chat-Kompletion zurück; bitte Ergebnisse manuell prüfen.",
-                    "Parsing will fall back to non-strict chat completions; please review the results manually.",
-                )
-            )
+        st_module.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = True
+        st_module.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = True
 
         st_module.divider()
         rerun_help = tr(
-            "Starte die Extraktion mit den aktuellen Einstellungen neu – praktisch nach einem Sprach-Switch oder wenn der Strict-Schalter angepasst wurde.",
-            "Re-run extraction with the current settings – useful after switching language or adjusting the strict toggle.",
+            "Starte die Extraktion mit den aktuellen Einstellungen neu – praktisch nach einem Sprach-Switch.",
+            "Re-run extraction with the current settings – useful after switching language.",
         )
         if st_module.button(
             tr("Extraktion jetzt erneut ausführen", "Re-run extraction now"),
