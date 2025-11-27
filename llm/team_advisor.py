@@ -9,8 +9,7 @@ from typing import Any, Mapping, Sequence
 
 from config import REASONING_EFFORT
 from config.models import ModelTask, get_model_for
-from llm.openai_responses import build_json_schema_format, call_responses_safe
-from llm.response_schemas import TEAM_ADVICE_SCHEMA_NAME, get_response_schema
+from openai_utils.api import call_chat_api
 from prompts import prompt_registry
 
 logger = logging.getLogger(__name__)
@@ -133,54 +132,55 @@ def advise_team_structure(
 
     locale = _normalize_lang(lang)
     messages = _build_messages(history, profile, locale, user_input)
-    response_format = build_json_schema_format(
-        name=TEAM_ADVICE_SCHEMA_NAME,
-        schema=get_response_schema(TEAM_ADVICE_SCHEMA_NAME),
-        strict=True,
-    )
     model = get_model_for(ModelTask.TEAM_ADVICE)
-    result = call_responses_safe(
-        messages,
-        model=model,
-        response_format=response_format,
-        reasoning_effort=REASONING_EFFORT,
-        task=str(ModelTask.TEAM_ADVICE),
-    )
-    if result is None:
-        fallback = _fallback_message(locale)
-        return TeamAdvice(message=fallback)
+    try:
+        result = call_chat_api(
+            messages=messages,
+            model=model,
+            temperature=0.3,
+            reasoning_effort=REASONING_EFFORT,
+            task=ModelTask.TEAM_ADVICE,
+            use_response_format=False,
+        )
+    except Exception as exc:  # pragma: no cover - defensive guard for UI fallback
+        logger.warning("Team advice generation failed; returning fallback message.", exc_info=exc)
+        return TeamAdvice(message=_fallback_message(locale))
 
-    content = (result.content or "").strip()
+    content = (getattr(result, "content", "") or "").strip()
+    if not content:
+        return TeamAdvice(message=_fallback_message(locale))
+
     try:
         payload = json.loads(content)
     except json.JSONDecodeError:
-        logger.warning("Team advisor returned non-JSON payload; using raw content")
-        message = content or _fallback_message(locale)
-        return TeamAdvice(message=message)
+        payload = None
 
-    message = str(payload.get("assistant_message") or content or _fallback_message(locale)).strip()
-    reporting_line = str(payload.get("reporting_line_suggestion") or "").strip() or None
+    if isinstance(payload, Mapping):
+        message = str(payload.get("assistant_message") or content or _fallback_message(locale)).strip()
+        reporting_line = str(payload.get("reporting_line_suggestion") or "").strip() or None
 
-    direct_reports_raw = payload.get("direct_reports_suggestion")
-    direct_reports: int | None
-    if isinstance(direct_reports_raw, int):
-        direct_reports = max(direct_reports_raw, 0)
-    elif isinstance(direct_reports_raw, str):
-        try:
-            direct_reports = max(int(direct_reports_raw.strip()), 0)
-        except (TypeError, ValueError):
+        direct_reports_raw = payload.get("direct_reports_suggestion")
+        direct_reports: int | None
+        if isinstance(direct_reports_raw, int):
+            direct_reports = max(direct_reports_raw, 0)
+        elif isinstance(direct_reports_raw, str):
+            try:
+                direct_reports = max(int(direct_reports_raw.strip()), 0)
+            except (TypeError, ValueError):
+                direct_reports = None
+        else:
             direct_reports = None
-    else:
-        direct_reports = None
 
-    follow_up_question = str(payload.get("follow_up_question") or "").strip() or None
+        follow_up_question = str(payload.get("follow_up_question") or "").strip() or None
 
-    return TeamAdvice(
-        message=message,
-        reporting_line=reporting_line,
-        direct_reports=direct_reports,
-        follow_up_question=follow_up_question,
-    )
+        return TeamAdvice(
+            message=message or _fallback_message(locale),
+            reporting_line=reporting_line,
+            direct_reports=direct_reports,
+            follow_up_question=follow_up_question,
+        )
+
+    return TeamAdvice(message=content)
 
 
 __all__ = ["TeamAdvice", "advise_team_structure"]

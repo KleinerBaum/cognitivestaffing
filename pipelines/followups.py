@@ -12,12 +12,117 @@ from config.models import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from openai_utils.tools import build_file_search_tool
 from prompts import prompt_registry
-from schemas import FOLLOW_UPS_SCHEMA
 
 __all__ = ["generate_followups"]
 
 
 logger = logging.getLogger(__name__)
+
+
+_FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
+    "en": [
+        {
+            "field": "company.name",
+            "question": "What is the company's official name?",
+            "priority": "critical",
+            "suggestions": [
+                "Use the registered brand name",
+                "Confirm the correct spelling",
+            ],
+        },
+        {
+            "field": "position.job_title",
+            "question": "What is the exact job title for this role?",
+            "priority": "normal",
+            "suggestions": [
+                "Software Engineer (Backend)",
+                "Product Manager",
+            ],
+        },
+        {
+            "field": "position.location",
+            "question": "Where will the role be based?",
+            "priority": "optional",
+            "suggestions": [
+                "Berlin (onsite)",
+                "Remote (EU)",
+            ],
+        },
+    ],
+    "de": [
+        {
+            "field": "company.name",
+            "question": "Wie lautet der offizielle Firmenname?",
+            "priority": "critical",
+            "suggestions": [
+                "Registrierten Markennamen nutzen",
+                "Schreibweise bestätigen",
+            ],
+        },
+        {
+            "field": "position.job_title",
+            "question": "Wie lautet die genaue Stellenbezeichnung?",
+            "priority": "normal",
+            "suggestions": [
+                "Software Engineer (Backend)",
+                "Product Manager",
+            ],
+        },
+        {
+            "field": "position.location",
+            "question": "Wo ist die Stelle angesiedelt?",
+            "priority": "optional",
+            "suggestions": [
+                "Berlin (vor Ort)",
+                "Remote (EU)",
+            ],
+        },
+    ],
+}
+
+
+def _fallback_followups(lang: str) -> dict[str, Any]:
+    """Return a minimal set of follow-up questions when the LLM fails."""
+
+    locale = "de" if lang.lower().startswith("de") else "en"
+    questions = _FALLBACK_FOLLOWUPS.get(locale, _FALLBACK_FOLLOWUPS["en"])
+    return {"questions": list(questions)}
+
+
+def _normalise_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return a schema-compliant question entry or ``None`` when invalid."""
+
+    field = str(item.get("field") or "").strip()
+    question = str(item.get("question") or "").strip()
+    if not field or not question:
+        return None
+
+    priority = str(item.get("priority") or "normal").strip() or "normal"
+    suggestions_raw = item.get("suggestions")
+    suggestions: list[str] = []
+    if isinstance(suggestions_raw, list):
+        suggestions = [str(s).strip() for s in suggestions_raw if str(s).strip()]
+    if not suggestions:
+        suggestions = [question]
+
+    result: dict[str, Any] = {
+        "field": field,
+        "question": question,
+        "priority": priority,
+        "suggestions": suggestions,
+    }
+
+    depends_on_raw = item.get("depends_on")
+    if isinstance(depends_on_raw, list):
+        depends_on_clean = [str(value).strip() for value in depends_on_raw if str(value).strip()]
+        if depends_on_clean:
+            result["depends_on"] = depends_on_clean
+
+    rationale = item.get("rationale")
+    if isinstance(rationale, str) and rationale.strip():
+        result["rationale"] = rationale.strip()
+
+    return result
 
 
 def _parse_followup_response(response: Any) -> dict[str, Any]:
@@ -46,10 +151,18 @@ def _parse_followup_response(response: Any) -> dict[str, Any]:
         payload = parsed
 
     if isinstance(payload, Mapping):
-        result = dict(payload)
-        if not isinstance(result.get("questions"), list):
-            result["questions"] = []
-        return result
+        questions_raw = payload.get("questions")
+        if not isinstance(questions_raw, list):
+            return default
+
+        questions: list[dict[str, Any]] = []
+        for item in questions_raw:
+            if isinstance(item, Mapping):
+                normalised = _normalise_question(item)
+                if normalised:
+                    questions.append(normalised)
+
+        return {"questions": questions}
 
     return default
 
@@ -82,15 +195,16 @@ def generate_followups(
             temperature=0.2,
             tools=tools or None,
             tool_choice=tool_choice,
-            json_schema={
-                "name": "FollowUpQuestions",
-                "schema": FOLLOW_UPS_SCHEMA,
-                "strict": False,
-            },
+            json_schema=None,
             task=ModelTask.FOLLOW_UP_QUESTIONS,
             verbosity=get_active_verbosity(),
+            use_response_format=False,
         )
-        return _parse_followup_response(response)
+        parsed = _parse_followup_response(response)
+        if parsed.get("questions"):
+            return parsed
+        logger.info("Follow-up generation returned no questions; using fallback prompts.")
+        return _fallback_followups(lang)
     except Exception as exc:  # pragma: no cover - defensive guard for UI fallback
-        logger.warning("Follow-up generation failed; returning no questions.", exc_info=exc)
-        return {"questions": []}
+        logger.warning("Follow-up generation failed; returning fallback questions.", exc_info=exc)
+        return _fallback_followups(lang)
