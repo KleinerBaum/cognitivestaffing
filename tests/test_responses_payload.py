@@ -29,6 +29,9 @@ def test_call_responses_builds_chat_payload(monkeypatch: pytest.MonkeyPatch) -> 
         strict=True,
     )
 
+    assert set(fmt.keys()) == {"type", "json_schema"}
+    assert fmt["json_schema"]["name"] == "need_analysis_profile"
+
     captured: dict[str, Any] = {}
 
     def _fake_chat(messages: Any, **kwargs: Any) -> _FakeChatResult:

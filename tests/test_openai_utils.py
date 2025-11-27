@@ -463,6 +463,7 @@ def test_chat_payload_builder_handles_tools_and_schema():
     assert payload.get("function_call", {}).get("name") == "do"
     assert payload["max_completion_tokens"] == 64
     assert payload["response_format"]["json_schema"]["name"] == "TestPayload"
+    assert "schema" not in payload["response_format"]
     assert request.api_mode_override == "chat"
 
 
@@ -498,6 +499,7 @@ def test_responses_payload_builder_attaches_router_metadata():
     assert payload["max_output_tokens"] == 99
     assert payload["reasoning"]["effort"] == "medium"
     assert payload["text"]["format"]["json_schema"]["name"] == "Router"
+    assert "schema" not in payload["text"]["format"]
     assert payload["metadata"]["router"]["tokens"] == 10
     assert payload["metadata"]["router"]["hard_words"] == 2
     assert payload["metadata"]["source"] == "test-case"

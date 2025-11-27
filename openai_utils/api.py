@@ -333,6 +333,8 @@ def _log_known_openai_error(error: OpenAIError, api_mode: str) -> None:
 def _should_abort_retry(error: Exception) -> bool:
     """Return ``True`` when retries should stop to allow model fallback."""
 
+    if isinstance(error, OpenAIError) and _is_parameter_unsupported_error(error, "response_format"):
+        return True
     return is_unrecoverable_schema_error(error) or isinstance(error, APITimeoutError)
 
 

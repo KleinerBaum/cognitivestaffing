@@ -52,7 +52,10 @@ def test_schema_bundle_sanitises_response_format() -> None:
     assert bundle.chat_response_format["type"] == "json_schema"
 
     cleaned = sanitize_response_format_payload(bundle.responses_format)
+    assert set(cleaned.keys()) == {"type", "json_schema"}
+    assert cleaned["json_schema"]["name"] == "example_payload"
     assert cleaned["json_schema"]["schema"]["properties"] == {"field": {"type": "string"}}
+    assert cleaned["json_schema"].get("strict") is True
 
 
 def test_prepare_payload_builds_chat_and_responses(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -78,9 +81,11 @@ def test_prepare_payload_builds_chat_and_responses(monkeypatch: pytest.MonkeyPat
         use_response_format=True,
     )
 
-    assert responses_request.payload["input"] == messages
-    assert responses_request.payload["text"]["format"]["name"] == "demo"
-    assert responses_request.api_mode_override == APIMode.RESPONSES.value
+    assert responses_request.payload.get("messages") == messages
+    assert "response_format" in responses_request.payload
+    assert responses_request.payload["response_format"]["json_schema"]["name"] == "demo"
+    assert "schema" not in responses_request.payload["response_format"]
+    assert responses_request.api_mode_override == APIMode.CLASSIC.value
 
     chat_request = _prepare_payload(
         messages,
@@ -102,5 +107,6 @@ def test_prepare_payload_builds_chat_and_responses(monkeypatch: pytest.MonkeyPat
 
     assert chat_request.payload["messages"] == messages
     assert "response_format" in chat_request.payload
+    assert "schema" not in chat_request.payload["response_format"]
     assert chat_request.api_mode_override == APIMode.CLASSIC.value
 
