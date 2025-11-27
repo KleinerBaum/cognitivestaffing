@@ -48,6 +48,7 @@ Live app: https://cognitivestaffing.streamlit.app/
 
 - **Chat Completions with strict JSON schema enforcement**
   Structured calls use the OpenAI Chat Completions API directly with JSON schemas and always keep strict mode enabled. Invalid JSON responses are repaired automatically (or retried on the chat client when needed) without asking users to toggle strictness, reducing noisy logs and latency.
+  The GPT-4.1/GPT-5 families now always target `/v1/chat/completions` with native function-calling payloads instead of the deprecated Responses endpoint to stay aligned with the current OpenAI guidance.
 
 - **Responsive loading and timeout handling**
   LLM-triggered actions render Streamlit spinners (“Analysiere die Stellenbeschreibung… / Analyzing your job description…”) so users know work is in progress. Friendly bilingual timeout notices (“⏳ … länger als erwartet / taking longer than usual…”) surface when OpenAI calls exceed the user-facing timeout guard, guiding users to retry or continue manually instead of seeing low-level errors.

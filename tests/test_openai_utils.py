@@ -26,6 +26,7 @@ from openai_utils.api import (
     ResponsesPayloadBuilder,
     build_schema_format_bundle,
 )
+from openai_utils.payloads import _prepare_payload
 from openai_utils.client import ResponsesRequest
 from llm.cost_router import PromptComplexity, PromptCostEstimate
 
@@ -450,6 +451,7 @@ def test_chat_payload_builder_handles_tools_and_schema():
         router_estimate=None,
         previous_response_id=None,
         force_classic_for_tools=True,
+        force_classic_for_model=False,
         api_mode_override="chat",
     )
 
@@ -484,6 +486,7 @@ def test_responses_payload_builder_attaches_router_metadata():
         router_estimate=estimate,
         previous_response_id="resp-1",
         force_classic_for_tools=False,
+        force_classic_for_model=False,
         api_mode_override=None,
     )
 
@@ -498,6 +501,30 @@ def test_responses_payload_builder_attaches_router_metadata():
     assert payload["metadata"]["router"]["tokens"] == 10
     assert payload["metadata"]["router"]["hard_words"] == 2
     assert payload["metadata"]["source"] == "test-case"
+
+
+def test_prepare_payload_forces_chat_for_gpt5_series():
+    """GPT-5 family should force Chat Completions even when Responses is active."""
+
+    request = _prepare_payload(
+        [{"role": "user", "content": "hi"}],
+        model=model_config.GPT51_MINI,
+        temperature=0,
+        max_completion_tokens=None,
+        json_schema=None,
+        tools=None,
+        tool_choice=None,
+        tool_functions=None,
+        reasoning_effort=None,
+        extra=None,
+        include_analysis_tools=False,
+        task=ModelTask.DEFAULT,
+        previous_response_id=None,
+        api_mode=config.APIMode.RESPONSES,
+        use_response_format=True,
+    )
+
+    assert request.api_mode_override == "chat"
 
 
 def test_call_chat_api_classic_mode(monkeypatch):

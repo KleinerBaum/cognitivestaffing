@@ -177,6 +177,15 @@ def normalise_reasoning_effort(value: str | None, *, default: str = "minimal") -
     return default
 
 
+def requires_chat_completions(model: str | None) -> bool:
+    """Return ``True`` when ``model`` must use the Chat Completions API."""
+
+    normalised = normalise_model_name(model).lower()
+    if not normalised:
+        return False
+    return normalised.startswith("gpt-4.1") or normalised.startswith("gpt-5")
+
+
 def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> str:
     """Return ``value`` with optional mapping of legacy aliases to current names."""
 
