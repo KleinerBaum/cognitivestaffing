@@ -12,6 +12,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import config
+import config.models as model_config
 import core.schema as schema_module
 
 from constants.keys import StateKeys
@@ -69,11 +70,11 @@ def test_valid_base_url_eu_does_not_set_flag(monkeypatch):
 
 def test_ensure_state_normalises_legacy_models():
     st.session_state.clear()
-    st.session_state["model"] = "gpt-4o"
-    st.session_state["model_override"] = "gpt-4o-mini"
+    st.session_state["model"] = model_config.GPT4O
+    st.session_state["model_override"] = model_config.GPT4O_MINI
     es.ensure_state()
-    assert st.session_state["model"] == config.GPT4O
-    assert st.session_state["model_override"] == config.GPT4O_MINI
+    assert st.session_state["model"] == model_config.GPT4O
+    assert st.session_state["model_override"] == model_config.GPT4O_MINI
 
 
 def test_ensure_state_preserves_minimal_reasoning_level():
@@ -261,8 +262,8 @@ def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_al
     try:
         es.ensure_state()
 
-        assert config.OPENAI_MODEL == config.REASONING_MODEL
-        assert st.session_state["model"] == config.REASONING_MODEL
+        assert model_config.OPENAI_MODEL == model_config.REASONING_MODEL
+        assert st.session_state["model"] == model_config.REASONING_MODEL
     finally:
         st.session_state.clear()
         monkeypatch.setattr(st, "secrets", {}, raising=False)
@@ -278,7 +279,7 @@ def test_default_model_falls_back_to_reasoning_tier_for_blank_env(monkeypatch, e
         monkeypatch.setenv("DEFAULT_MODEL", env_value)
         importlib.reload(config)
 
-        assert config.DEFAULT_MODEL == config.REASONING_MODEL
+        assert model_config.DEFAULT_MODEL == model_config.REASONING_MODEL
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)
@@ -294,7 +295,7 @@ def test_default_model_alias_falls_back_to_reasoning_tier(monkeypatch):
         monkeypatch.setenv("DEFAULT_MODEL", "o4-mini-latest")
         importlib.reload(config)
 
-        assert config.DEFAULT_MODEL == config.REASONING_MODEL
+        assert model_config.DEFAULT_MODEL == model_config.REASONING_MODEL
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)

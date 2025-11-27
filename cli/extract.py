@@ -28,7 +28,8 @@ def main() -> None:
     from ingest.reader import clean_structured_document
     from openai_utils import extract_with_function
     from core.schema_registry import load_need_analysis_schema
-    from config import ModelTask, VECTOR_STORE_ID, get_model_for
+    from config import VECTOR_STORE_ID
+    from config.models import ModelTask, get_model_for
     from llm.rag_pipeline import (
         build_field_queries,
         build_global_context,

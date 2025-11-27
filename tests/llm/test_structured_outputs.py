@@ -1,6 +1,7 @@
 import pytest
 
-from config import ModelTask
+import config.models as model_config
+from config.models import ModelTask
 import llm.openai_responses as responses
 from models.interview_guide import InterviewGuide
 from llm.openai_responses import build_json_schema_format, call_responses
@@ -59,7 +60,7 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     fmt = build_json_schema_format(name="Profile", schema={"type": "object"})
     result = call_responses(
         [{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         response_format=fmt,
         temperature=0.1,
         max_completion_tokens=256,
@@ -72,7 +73,7 @@ def test_call_responses_invokes_client(monkeypatch: pytest.MonkeyPatch) -> None:
     assert usage_updates == [{"input_tokens": 5}]
 
     payload = payload_box["payload"]
-    assert payload["model"] == "gpt-4o-mini"
+    assert payload["model"] == model_config.GPT4O_MINI
     assert payload["temperature"] == pytest.approx(0.1)
     assert payload["max_output_tokens"] == 256
     format_payload = payload["text"]["format"]

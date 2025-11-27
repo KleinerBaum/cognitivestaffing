@@ -7,7 +7,8 @@ import logging
 from typing import Any, Sequence
 
 import config as app_config
-from config import ModelTask, REASONING_EFFORT, get_model_for
+from config import REASONING_EFFORT
+from config.models import ModelTask, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.response_schemas import (
     BENEFIT_SUGGESTION_SCHEMA_NAME,

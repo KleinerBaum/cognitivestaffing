@@ -8,26 +8,19 @@ from typing import Sequence, Set
 
 from openai import OpenAI
 
+from config import models as model_config
+
 PREF_ENV = "COGNITIVE_PREFERRED_MODEL"
 FB_ENV = "COGNITIVE_MODEL_FALLBACKS"
 
 DEFAULT_CANDIDATES = [
-    "gpt-4o-mini",
-    "o3-mini",
-    "o3",
-    "o4-mini",
-    "gpt-4o",
-    "gpt-4",
+    model_config.GPT4O_MINI,
+    model_config.O3_MINI,
+    model_config.O3,
+    model_config.O4_MINI,
+    model_config.GPT4O,
+    model_config.GPT4,
 ]
-
-ALIASES = {
-    "gpt-5.1-mini": "gpt-4o-mini",
-    "gpt-5.1-mini-latest": "gpt-4o-mini",
-    "gpt-5.1": "gpt-4o",
-    "gpt-5.1-latest": "gpt-4o",
-    "gpt-5.1-nano": "gpt-4o-mini",
-    "gpt-5.1-nano-latest": "gpt-4o-mini",
-}
 
 
 @lru_cache(maxsize=1)
@@ -50,7 +43,7 @@ def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) ->
     available = _available_models(client)
     resolved_candidates: list[str] = []
     for candidate in candidates:
-        target = ALIASES.get(candidate, candidate)
+        target = model_config.normalise_model_name(candidate) or candidate
         if target not in available:
             continue
         if target not in resolved_candidates:
@@ -59,8 +52,8 @@ def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) ->
     if resolved_candidates:
         return resolved_candidates[0]
 
-    if "gpt-4o" in available:
-        return "gpt-4o"
+    if model_config.GPT4O in available:
+        return model_config.GPT4O
 
     sample = sorted(list(available))[:10]
     raise RuntimeError("No usable model found. Tried: %s; Available sample: %s" % (candidates, sample))

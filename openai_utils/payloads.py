@@ -10,15 +10,12 @@ from typing import Any, Callable, Final, Mapping, Optional, Sequence, cast
 import streamlit as st
 
 import config as app_config
-from config import (
-    OPENAI_REQUEST_TIMEOUT,
-    REASONING_EFFORT,
+from config import APIMode, OPENAI_REQUEST_TIMEOUT, REASONING_EFFORT, resolve_api_mode
+from config.models import (
     ModelTask,
-    APIMode,
     get_first_available_model,
     get_model_candidates,
     get_reasoning_mode,
-    resolve_api_mode,
     select_model,
 )
 from constants.keys import StateKeys

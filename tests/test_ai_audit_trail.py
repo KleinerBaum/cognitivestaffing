@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import streamlit as st
 
+import config.models as model_config
 from state.ai_contributions import (
     get_ai_contribution_state,
     record_field_contribution,
@@ -22,7 +23,7 @@ def test_ai_contribution_state_merges_and_clears() -> None:
     record_field_contribution(
         "company.name",
         source="structured_extraction",
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         timestamp=first_timestamp,
     )
 
@@ -30,7 +31,7 @@ def test_ai_contribution_state_merges_and_clears() -> None:
     record_field_contribution(
         "company.name",
         source="team_assistant",
-        model="o3-mini",
+        model=model_config.O3_MINI,
         timestamp=later_timestamp,
     )
 
@@ -45,13 +46,13 @@ def test_ai_contribution_state_merges_and_clears() -> None:
         "requirements.hard_skills_required",
         "Python",
         source="skill_assistant",
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
     )
     record_list_item_contribution(
         "requirements.hard_skills_required",
         " python ",
         source="skill_assistant",
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         timestamp=later_timestamp,
     )
     state = get_ai_contribution_state()

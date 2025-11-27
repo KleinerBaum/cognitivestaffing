@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import config.models as model_config
 import llm.model_router as model_router
 
 
@@ -55,8 +56,8 @@ def clear_router_state(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_prefers_explicit_environment_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """A preferred model configured via env vars should win when available."""
 
-    monkeypatch.setenv(model_router.PREF_ENV, "o4-mini")
-    client = FakeOpenAIClient(["gpt-4o", "o4-mini"])
+    monkeypatch.setenv(model_router.PREF_ENV, model_config.O4_MINI)
+    client = FakeOpenAIClient([model_config.GPT4O, model_config.O4_MINI])
 
     chosen = model_router.pick_model(client)
 
@@ -66,44 +67,44 @@ def test_prefers_explicit_environment_override(monkeypatch: pytest.MonkeyPatch) 
 def test_env_fallback_chain_respected(monkeypatch: pytest.MonkeyPatch) -> None:
     """Configured fallback models are evaluated in-order when preferred fails."""
 
-    monkeypatch.setenv(model_router.FB_ENV, "does-not-exist,gpt-4o")
-    client = FakeOpenAIClient(["gpt-4o"])
+    monkeypatch.setenv(model_router.FB_ENV, "does-not-exist,%s" % model_config.GPT4O)
+    client = FakeOpenAIClient([model_config.GPT4O])
 
     chosen = model_router.pick_model(client)
 
-    assert chosen == "gpt-4o"
+    assert chosen == model_config.GPT4O
 
 
 def test_aliases_map_to_supported_model(monkeypatch: pytest.MonkeyPatch) -> None:
     """Legacy IDs should be normalised using the alias mapping."""
 
-    monkeypatch.setenv(model_router.PREF_ENV, "gpt-5.1-mini-latest")
-    client = FakeOpenAIClient(["gpt-4o-mini"])
+    monkeypatch.setenv(model_router.PREF_ENV, model_config.GPT51_MINI)
+    client = FakeOpenAIClient([model_config.GPT4O_MINI])
 
     chosen = model_router.pick_model(client)
 
-    assert chosen == "gpt-4o-mini"
+    assert chosen == model_config.GPT4O_MINI
 
 
 def test_default_candidates_used_when_no_env_overrides() -> None:
     """The router falls back to the built-in candidate list."""
 
-    client = FakeOpenAIClient(["gpt-4o-mini", "gpt-4o"])
+    client = FakeOpenAIClient([model_config.GPT4O_MINI, model_config.GPT4O])
 
     chosen = model_router.pick_model(client)
 
-    assert chosen == "gpt-4o-mini"
+    assert chosen == model_config.GPT4O_MINI
 
 
 def test_filters_invalid_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
     """Unavailable aliases should be skipped in favour of real models."""
 
-    monkeypatch.setenv(model_router.PREF_ENV, "gpt-5.1")
-    client = FakeOpenAIClient(["gpt-4o", "gpt-4"])
+    monkeypatch.setenv(model_router.PREF_ENV, model_config.GPT51)
+    client = FakeOpenAIClient([model_config.GPT4O, model_config.GPT4])
 
     chosen = model_router.pick_model(client)
 
-    assert chosen == "gpt-4o"
+    assert chosen == model_config.GPT4O
 
 
 def test_raises_when_no_candidates_available() -> None:
@@ -122,10 +123,10 @@ def test_raises_when_no_candidates_available() -> None:
 def test_available_models_cached_for_same_client() -> None:
     """Subsequent calls reuse cached availability results for a client."""
 
-    client = FakeOpenAIClient(["gpt-4o"])
+    client = FakeOpenAIClient([model_config.GPT4O])
 
     first = model_router.pick_model(client)
     second = model_router.pick_model(client)
 
-    assert first == second == "gpt-4o"
+    assert first == second == model_config.GPT4O
     assert client.models.list_calls == 1

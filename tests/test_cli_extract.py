@@ -4,7 +4,7 @@ import sys
 import pytest
 
 from ingest.types import StructuredDocument
-from config import ModelTask
+from config.models import ModelTask
 import cli.extract as cli_extract
 
 

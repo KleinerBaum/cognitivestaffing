@@ -8,6 +8,7 @@ import pytest
 import streamlit as st
 
 import config
+import config.models as model_config
 from openai_utils import ChatCallResult
 
 import llm.client as client
@@ -64,7 +65,7 @@ def test_run_pre_extraction_analysis_enforces_required_schema(
         )
 
     monkeypatch.setattr(client, "build_preanalysis_messages", lambda *_a, **_k: [])
-    monkeypatch.setattr(client, "select_model", lambda *_a, **_k: "gpt-4o-mini")
+    monkeypatch.setattr(client, "select_model", lambda *_a, **_k: model_config.GPT4O_MINI)
     monkeypatch.setattr(client, "call_chat_api", _fake_chat)
 
     insights = client._run_pre_extraction_analysis("Sample text")
@@ -207,7 +208,7 @@ def test_structured_extraction_recovers_missing_sections(monkeypatch):
 
     payload = {
         "messages": [{"role": "user", "content": "text"}],
-        "model": "gpt-4o-mini",
+        "model": model_config.GPT4O_MINI,
         "reasoning_effort": "low",
         "verbosity": None,
         "retries": 1,

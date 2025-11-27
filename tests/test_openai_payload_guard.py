@@ -6,6 +6,7 @@ from typing import Any
 
 from openai import OpenAIError
 
+import config.models as model_config
 import openai_utils.api as openai_api
 
 
@@ -107,7 +108,7 @@ def test_chat_fallback_payload_strips_strict(monkeypatch, caplog):
 
     result = openai_api.call_chat_api(
         [{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         json_schema={
             "name": schema_bundle.name,
             "schema": deepcopy(schema_bundle.schema),

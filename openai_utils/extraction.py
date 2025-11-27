@@ -16,7 +16,8 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 import config as app_config
-from config import ModelTask, VECTOR_STORE_ID, get_model_for
+from config import VECTOR_STORE_ID
+from config.models import ModelTask, get_model_for
 from core.job_ad import JOB_AD_FIELDS, JOB_AD_GROUP_LABELS, iter_field_keys
 from llm.prompts import build_job_ad_prompt, SYSTEM_JSON_EXTRACTOR
 from llm.response_schemas import (

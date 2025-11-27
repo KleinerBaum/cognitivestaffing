@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import config
+import config.models as model_config
 import openai_utils.api as openai_api
 import pytest
 from openai import BadRequestError
@@ -45,7 +46,7 @@ def test_responses_bad_request_falls_back_to_chat(monkeypatch: pytest.MonkeyPatc
     result = openai_api.call_chat_api(
         messages=[{"role": "user", "content": "hi"}],
         json_schema={"name": "test", "schema": {"type": "object"}},
-        task=config.ModelTask.EXTRACTION,
+        task=model_config.ModelTask.EXTRACTION,
     )
 
     assert result.content == "fallback"

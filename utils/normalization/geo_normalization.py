@@ -11,7 +11,8 @@ from types import ModuleType
 from typing import Iterable, List, Optional
 
 import config as app_config
-from config import ModelTask, get_model_for, is_llm_enabled
+from config import is_llm_enabled
+from config.models import ModelTask, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 
 logger = logging.getLogger("cognitive_needs.normalization")

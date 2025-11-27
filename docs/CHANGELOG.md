@@ -16,6 +16,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Default LLM routing now prefers supported OpenAI models: quick/Schnell mode uses `gpt-4o-mini` and precise/Genau tasks escalate to `o3` with `o4-mini`/`gpt-4o` fallbacks, replacing deprecated GPT-5 placeholders.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
+- Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
 
 ### Fixed
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.

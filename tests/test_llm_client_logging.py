@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import config
+import config.models as model_config
 from llm import client
 
 
@@ -46,7 +47,7 @@ def test_structured_extraction_logs_without_pii(monkeypatch: pytest.MonkeyPatch)
                 "content": "Name: John Doe\nCompany: Example Labs\nEmail: john.doe@example.com",
             },
         ],
-        "model": "gpt-4o-mini",
+        "model": model_config.GPT4O_MINI,
     }
 
     try:

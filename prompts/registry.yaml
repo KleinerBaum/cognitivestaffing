@@ -172,6 +172,25 @@ llm:
         Text:
 
         {text}'
+    benefits:
+      user:
+        en: 'List 5-8 concise employee benefits or perks for the role "{job_title}". Provide short bullet-style items, prioritising
+          tangible offerings (e.g., salary extras, flexibility, equipment).{industry_clause}{existing_clause}{focus_clause}
+
+          Return JSON with a single array field "items" containing the benefits.'
+        de: 'Liste 5-8 prägnante Benefits oder Zusatzleistungen für die Rolle "{job_title}" auf. Nutze kurze Stichpunkte
+          und priorisiere greifbare Angebote (z. B. Vergütungsextras, Flexibilität, Ausstattung).{industry_clause}{existing_clause}{focus_clause}
+
+          Gib JSON mit einem Array-Feld "items" zurück, das die Benefits enthält.'
+      industry_clause:
+        en: " Focus on perks valued in the {industry} sector."
+        de: " Lege einen Schwerpunkt auf Vorteile, die in der Branche {industry} geschätzt werden."
+      existing_clause:
+        en: " Avoid repeating existing perks: {existing_benefits}."
+        de: " Vermeide doppelte Nennungen der vorhandenen Benefits: {existing_benefits}."
+      focus_clause:
+        en: " Highlight offerings connected to: {focus_areas}."
+        de: " Hebe Angebote hervor, die zu Folgendem passen: {focus_areas}."
     responsibility_suggestions:
       user:
         en: 'Generate 3-5 core responsibilities for the role "{job_title}". Focus

@@ -26,7 +26,7 @@ if not hasattr(config, "temporarily_force_classic_api"):
 
     setattr(config, "temporarily_force_classic_api", _noop_force_classic_api)
 
-from config import ModelTask
+from config.models import ModelTask
 from constants.keys import StateKeys, UIKeys
 from llm import openai_responses as responses_module
 from llm.openai_responses import ResponsesCallResult

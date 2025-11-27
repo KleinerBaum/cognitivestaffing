@@ -8,17 +8,18 @@ from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Literal, Optional
 
 from agents import function_tool
+from config import models as model_config
 
 ModelName = Literal[
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    "o4-mini",
-    "o3",
-    "o3-mini",
-    "gpt-4",
-    "gpt-3.5-turbo",
+    model_config.GPT4O,
+    model_config.GPT4O_MINI,
+    model_config.GPT41_MINI,
+    model_config.GPT41_NANO,
+    model_config.O4_MINI,
+    model_config.O3,
+    model_config.O3_MINI,
+    model_config.GPT4,
+    model_config.GPT35,
 ]
 ReasoningEffort = Literal["minimal", "medium", "high"]
 ToolChoiceMode = Literal["auto", "none", "force"]
@@ -29,7 +30,7 @@ RetryStrategy = Literal["same_inputs", "regenerate", "raise_effort"]
 class StageRuntimeConfig:
     """Configuration that influences how a stage is executed."""
 
-    model: ModelName = "gpt-4o-mini"
+    model: ModelName = model_config.GPT4O_MINI
     reasoning_effort: ReasoningEffort = "minimal"
     tool_choice_mode: ToolChoiceMode = "auto"
     tool_choice_function_name: Optional[str] = None

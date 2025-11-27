@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
 
-from config import ModelTask, get_model_for
+from config.models import ModelTask, get_model_for
 from core.rules import COMMON_CITY_NAMES
 from core.regexes import CITY_REGEX_IN_PATTERN, FOOTER_CONTACT_PARSE
 from llm.openai_responses import build_json_schema_format, call_responses_safe

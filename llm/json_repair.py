@@ -7,7 +7,8 @@ import logging
 from functools import lru_cache
 from typing import Any, Mapping, Sequence
 
-from config import ModelTask, get_model_for, is_llm_enabled, mark_model_unavailable
+from config import is_llm_enabled
+from config.models import ModelTask, get_model_for, mark_model_unavailable
 from core.schema_registry import load_need_analysis_schema
 from llm.openai_responses import (
     ResponsesCallResult,

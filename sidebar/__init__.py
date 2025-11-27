@@ -25,6 +25,7 @@ from utils.i18n import tr
 from utils.admin_debug import ADMIN_DEBUG_DETAILS_HINT, is_admin_debug_session_active
 from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.usage import build_usage_markdown, usage_totals
+import config.models as model_config
 
 from constants.style_variants import STYLE_VARIANTS, STYLE_VARIANT_ORDER
 
@@ -789,20 +790,20 @@ def _render_settings() -> None:
         index=selected_index,
         key=UIKeys.REASONING_MODE,
         format_func=lambda value: option_labels.get(value, value.title()),
-    )
+        )
     _apply_reasoning_mode(selected_mode)
     if selected_mode == "quick":
         st.caption(
             tr(
-                "Nutze gpt-4o-mini mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
-                "Leans on gpt-4o-mini with minimal reasoning for faster, shorter outputs.",
+                f"Nutze {model_config.GPT4O_MINI} mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
+                f"Leans on {model_config.GPT4O_MINI} with minimal reasoning for faster, shorter outputs.",
             )
         )
     else:
         st.caption(
             tr(
-                "Verwendet o3 (Fallback o4/gpt-4o) und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
-                "Uses o3 (fallback o4/gpt-4o) and allows richer reasoning for maximum accuracy.",
+                f"Verwendet {model_config.O3} (Fallback {model_config.O4_MINI}/{model_config.GPT4O}) und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
+                f"Uses {model_config.O3} (fallback {model_config.O4_MINI}/{model_config.GPT4O}) and allows richer reasoning for maximum accuracy.",
             )
         )
 

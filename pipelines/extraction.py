@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import ModelTask, get_active_verbosity, get_model_for
+from config import get_active_verbosity
+from config.models import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from prompts import prompt_registry
 from schemas import VACANCY_EXTRACTION_SCHEMA

@@ -7,6 +7,7 @@ from openai import APITimeoutError
 
 import streamlit as st
 from config import APIMode, ModelTask
+import config.models as model_config
 from openai_utils.client import OpenAIClient
 from openai_utils.payloads import _prepare_payload
 from openai_utils.schemas import build_schema_format_bundle, sanitize_response_format_payload
@@ -24,7 +25,11 @@ def test_openai_client_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(client, "_create_response_with_timeout", _fake_create)
 
-    result = client.execute_request({"model": "gpt-4o", "messages": []}, "gpt-4o", api_mode="chat")
+    result = client.execute_request(
+        {"model": model_config.GPT4O, "messages": []},
+        model_config.GPT4O,
+        api_mode="chat",
+    )
 
     assert result == {"status": "ok", "mode": "chat"}
     assert call_count["value"] == 2
@@ -57,7 +62,7 @@ def test_prepare_payload_builds_chat_and_responses(monkeypatch: pytest.MonkeyPat
 
     responses_request = _prepare_payload(
         messages,
-        model="gpt-4o",
+        model=model_config.GPT4O,
         temperature=0.1,
         max_completion_tokens=128,
         json_schema=schema_payload,
@@ -79,7 +84,7 @@ def test_prepare_payload_builds_chat_and_responses(monkeypatch: pytest.MonkeyPat
 
     chat_request = _prepare_payload(
         messages,
-        model="gpt-4o",
+        model=model_config.GPT4O,
         temperature=0.3,
         max_completion_tokens=64,
         json_schema=schema_payload,

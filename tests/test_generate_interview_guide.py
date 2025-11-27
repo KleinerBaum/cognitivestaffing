@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from config import ModelTask, get_model_for
+from config.models import ModelTask, get_model_for
 from models import InterviewGuide
 import openai_utils
 from openai_utils import api
