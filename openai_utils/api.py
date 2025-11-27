@@ -114,6 +114,11 @@ _budget_exceeded_flag = False
 
 DEFAULT_TEMPERATURE: Final[float] = 0.1
 
+_TEXT_ONLY_TASKS: Final[set[ModelTask]] = {
+    ModelTask.FOLLOW_UP_QUESTIONS,
+    ModelTask.TEAM_ADVICE,
+}
+
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
 _MISSING_API_KEY_ALERT_MESSAGE: Final[tuple[str, str]] = (
@@ -2065,6 +2070,11 @@ def call_chat_api(
 
     _enforce_usage_budget_guard()
 
+    force_text_only = isinstance(task, ModelTask) and task in _TEXT_ONLY_TASKS
+    if force_text_only:
+        json_schema = None
+        use_response_format = False
+
     active_mode = resolve_api_mode(api_mode)
     single_kwargs: dict[str, Any] = {
         "model": model,
@@ -2125,6 +2135,10 @@ def call_chat_api(
     if options:
         remaining = ", ".join(sorted(options.keys()))
         raise ValueError(f"Unsupported comparison_options keys: {remaining}")
+
+    if force_text_only:
+        secondary_kwargs["json_schema"] = None
+        secondary_kwargs["use_response_format"] = False
 
     if dispatch == "parallel":
         with ThreadPoolExecutor(max_workers=2) as executor:

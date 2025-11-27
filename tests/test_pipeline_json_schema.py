@@ -22,7 +22,6 @@ from pipelines import matching as matching_mod
 from pipelines import profile_summary as profile_summary_mod
 from schemas import (
     CANDIDATE_MATCHES_SCHEMA,
-    FOLLOW_UPS_SCHEMA,
     INTERVIEW_GUIDE_SCHEMA,
     JOB_AD_SCHEMA,
     PROFILE_SUMMARY_SCHEMA,
@@ -154,7 +153,7 @@ def test_extract_vacancy_passes_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["model"] == "model-extraction"
 
 
-def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_followups_use_text_mode_and_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
     def fake_call(messages: list[dict[str, Any]], **kwargs: Any) -> _FakeResult:
@@ -165,10 +164,8 @@ def test_followups_pass_schema_and_tools(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
     followups_mod.generate_followups({}, "en", vector_store_id="store-id")
 
-    schema_cfg = captured.get("json_schema")
-    assert schema_cfg["name"] == "FollowUpQuestions"
-    assert schema_cfg["schema"] == FOLLOW_UPS_SCHEMA
-    _assert_objects_disallow_additional_properties(FOLLOW_UPS_SCHEMA)
+    assert captured.get("json_schema") is None
+    assert captured.get("use_response_format") is False
     assert captured["tools"] == [
         {
             "type": "file_search",
@@ -192,6 +189,8 @@ def test_followups_without_vector_store(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
     followups_mod.generate_followups({}, "de")
 
+    assert captured.get("json_schema") is None
+    assert captured.get("use_response_format") is False
     assert captured.get("tools") is None
     assert captured.get("tool_choice") is None
     assert captured["model"] == "model-followups"
@@ -217,7 +216,12 @@ def test_followups_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = followups_mod.generate_followups({}, "en")
 
-    assert result == payload
+    assert result["questions"]
+    first = result["questions"][0]
+    assert first["field"] == "company.name"
+    assert first["question"] == "What is the company name?"
+    assert first["priority"] == "critical"
+    assert first["suggestions"]
 
 
 def test_followups_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -229,7 +233,8 @@ def test_followups_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = followups_mod.generate_followups({}, "de")
 
-    assert result == {"questions": []}
+    assert result["questions"]
+    assert all(entry.get("suggestions") for entry in result["questions"])
 
 
 def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
