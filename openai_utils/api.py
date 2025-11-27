@@ -44,6 +44,7 @@ from config import (
     VERBOSITY,
     get_active_verbosity,
     is_model_available,
+    mark_model_unavailable,
     normalise_verbosity,
     resolve_api_mode,
 )
@@ -94,6 +95,7 @@ logger = logging.getLogger("cognitive_needs.openai")
 
 openai_client = OpenAIClient()
 client = openai_client
+_create_response_with_timeout = openai_client._create_response_with_timeout
 
 _USAGE_LOCK = Lock()
 
@@ -315,6 +317,12 @@ def _log_known_openai_error(error: OpenAIError, *, api_mode: str) -> None:
         )
 
 
+def _should_abort_retry(error: Exception) -> bool:
+    """Return ``True`` when retries should stop to allow model fallback."""
+
+    return is_unrecoverable_schema_error(error) or isinstance(error, APITimeoutError)
+
+
 def _execute_response(
     payload: Dict[str, Any],
     model: Optional[str],
@@ -328,7 +336,7 @@ def _execute_response(
         payload,
         model,
         api_mode=mode_value,
-        giveup=is_unrecoverable_schema_error,
+        giveup=_should_abort_retry,
         on_giveup=_on_api_giveup,
         on_known_error=_log_known_openai_error,
     )
@@ -1523,6 +1531,8 @@ def _on_api_giveup(details: Any) -> None:
     """Handle a final API error after retries have been exhausted."""
 
     err = details.get("exception")
+    if isinstance(err, APITimeoutError):
+        raise err
     if isinstance(err, BadRequestError):
         raise SchemaValidationError(
             resolve_message(_INVALID_REQUEST_ERROR_MESSAGE),
@@ -1606,6 +1616,7 @@ def _call_chat_api_single(
         fallback_to_chat_attempted = False
         chat_retry_attempts = 0
         max_chat_retries = 2
+        timed_out_models: set[str] = set()
 
         while True:
             with log_context(model=current_model):
@@ -1621,6 +1632,35 @@ def _call_chat_api_single(
                         getattr(err, "message", str(err)),
                         exc_info=err,
                     )
+
+                    timed_out = isinstance(err, APITimeoutError)
+                    if timed_out:
+                        if current_model not in timed_out_models:
+                            timed_out_models.add(current_model)
+                            mark_model_unavailable(current_model)
+                        try:  # pragma: no cover - Streamlit may not be initialised
+                            st.warning(resolve_message(_TIMEOUT_ERROR_MESSAGE))
+                        except Exception:  # noqa: BLE001
+                            pass
+                        next_model = context.register_failure(current_model)
+                        if next_model is None:
+                            raise _wrap_openai_exception(
+                                err,
+                                model=current_model,
+                                schema_name=schema_name,
+                                step=step_label,
+                                api_mode=active_mode.value,
+                            )
+
+                        logger.warning(
+                            "Model '%s' unavailable after timeout; retrying with fallback '%s'.",
+                            current_model,
+                            next_model,
+                        )
+                        payload["model"] = next_model
+                        current_model = next_model
+                        set_model(current_model)
+                        continue
 
                     if not active_mode.is_classic and (schema_error or not fallback_to_chat_attempted):
                         fallback_to_chat_attempted = True
