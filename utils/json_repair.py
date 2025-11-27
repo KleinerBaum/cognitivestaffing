@@ -7,7 +7,10 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
+
+if TYPE_CHECKING:
+    from utils import json_parse
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +69,12 @@ def _balance_braces(candidate: str) -> str:
 def _attempt_local_repair(raw: str) -> Mapping[str, Any] | None:
     """Try lightweight, local fixes for malformed JSON strings."""
 
-    try:
-        from utils.json_parse import _safe_json_loads
+    from utils import json_parse
 
-        parsed = _safe_json_loads(raw)
+    try:
+        parsed = json_parse._safe_json_loads(raw)
     except Exception:
-        parsed = None
+        parsed = json_parse._decode_largest_object(raw)
     if isinstance(parsed, Mapping):
         return dict(parsed)
 

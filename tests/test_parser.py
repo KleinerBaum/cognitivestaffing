@@ -69,10 +69,24 @@ def test_safe_json_loads_trailing_commas() -> None:
     assert parsed["position"]["job_title"] == "Engineer"
 
 
+def test_safe_json_loads_unterminated_string() -> None:
+    raw = '{"position": {"job_title": "Engineer"}, "responsibilities": {"items": ["Lead"]}, "summary": "Great culture}'
+    parsed = _safe_json_loads(raw)
+    assert parsed["position"]["job_title"] == "Engineer"
+    assert parsed["summary"] == "Great culture"
+
+
+def test_safe_json_loads_with_trailing_noise() -> None:
+    raw = '{"position": {"job_title": "Engineer"}, "responsibilities": {"items": ["Lead"]}} extra text "oops'
+    profile = parse_extraction(raw)
+    assert profile.position.job_title == "Engineer"
+    assert profile.responsibilities.items == ["Lead"]
+
+
 def test_safe_json_loads_prefers_largest_block() -> None:
     raw = (
-        "Noise {\"position\": {\"job_title\": \"Ignore\"}} extra text "
-        "{\"position\": {\"job_title\": \"Preferred\"}, \"responsibilities\": {\"items\": [\"Lead\"]}}"
+        'Noise {"position": {"job_title": "Ignore"}} extra text '
+        '{"position": {"job_title": "Preferred"}, "responsibilities": {"items": ["Lead"]}}'
     )
     profile = parse_extraction(raw)
     assert profile.position.job_title == "Preferred"
