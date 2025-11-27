@@ -59,6 +59,7 @@ from utils.retry import retry_with_backoff
 from .client import (
     FileSearchKey,
     FileSearchResult,
+    ResponsesRequest,
     RetryState,
     ToolCallPayload,
     UsageDict,
@@ -1710,6 +1711,48 @@ def _on_api_giveup(details: Any) -> None:
     raise err  # pragma: no cover - re-raise unexpected errors
 
 
+def build_chat_payload(
+    messages: Sequence[Mapping[str, Any]],
+    *,
+    model: str | None = None,
+    temperature: float | None = DEFAULT_TEMPERATURE,
+    max_completion_tokens: int | None = None,
+    json_schema: Optional[dict] = None,
+    tools: Optional[list] = None,
+    tool_choice: Optional[Any] = None,
+    tool_functions: Optional[Mapping[str, Callable[..., Any]]] = None,
+    reasoning_effort: str | None = None,
+    verbosity: str | None = None,
+    extra: Optional[dict] = None,
+    include_analysis_tools: bool = True,
+    task: ModelTask | str | None = None,
+    previous_response_id: str | None = None,
+    api_mode: APIMode | str | bool | None = None,
+    use_response_format: bool = True,
+) -> ResponsesRequest:
+    """Return a prepared OpenAI payload without executing the request."""
+
+    messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
+
+    return _prepare_payload(
+        messages_with_hint,
+        model=model,
+        temperature=temperature,
+        max_completion_tokens=max_completion_tokens,
+        json_schema=json_schema,
+        tools=tools,
+        tool_choice=tool_choice,
+        tool_functions=tool_functions,
+        reasoning_effort=reasoning_effort,
+        extra=extra,
+        include_analysis_tools=include_analysis_tools,
+        task=task,
+        previous_response_id=previous_response_id,
+        api_mode=api_mode,
+        use_response_format=use_response_format,
+    )
+
+
 def _call_chat_api_single(
     messages: Sequence[dict],
     *,
@@ -1734,10 +1777,8 @@ def _call_chat_api_single(
 
     active_mode = resolve_api_mode(api_mode)
     step_label = str(task.value) if isinstance(task, ModelTask) else str(task) if task is not None else None
-    messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
-
-    request = _prepare_payload(
-        messages_with_hint,
+    request = build_chat_payload(
+        messages,
         model=model,
         temperature=temperature,
         max_completion_tokens=max_completion_tokens,
@@ -2219,12 +2260,10 @@ def stream_chat_api(
 
     _enforce_usage_budget_guard()
 
-    messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
-
     active_mode = resolve_api_mode(api_mode)
 
-    request = _prepare_payload(
-        messages_with_hint,
+    request = build_chat_payload(
+        messages,
         model=model,
         temperature=temperature,
         max_completion_tokens=max_completion_tokens,
@@ -2276,6 +2315,7 @@ __all__ = [
     "ChatStream",
     "get_client",
     "client",
+    "build_chat_payload",
     "model_supports_reasoning",
     "model_supports_temperature",
     "_chat_content",
