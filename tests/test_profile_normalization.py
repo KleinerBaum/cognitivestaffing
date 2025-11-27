@@ -59,6 +59,52 @@ def test_canonicalize_profile_payload_classifies_mixed_skills() -> None:
     assert requirements["certifications"] == ["AWS Certified Solutions Architect"]
 
 
+def test_canonicalize_profile_payload_builds_skill_mappings_from_lists() -> None:
+    canonical = canonicalize_profile_payload(
+        {
+            "requirements": {
+                "hard_skills_required": ["Python"],
+            }
+        }
+    )
+
+    mappings = canonical["requirements"]["skill_mappings"]
+    flattened = {entry["name"] for bucket in mappings.values() for entry in bucket}
+    assert set(mappings) == {
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+        "tools_and_technologies",
+    }
+    assert flattened
+    assert flattened <= {"Python"}
+    for bucket in (
+        "hard_skills_required",
+        "hard_skills_optional",
+        "soft_skills_required",
+        "soft_skills_optional",
+        "tools_and_technologies",
+    ):
+        assert bucket in mappings
+
+
+def test_canonicalize_profile_payload_rebuilds_invalid_skill_mappings() -> None:
+    canonical = canonicalize_profile_payload(
+        {
+            "requirements": {
+                "hard_skills_required": ["Python"],
+                "skill_mappings": {"hard_skills_required": ["Python"]},
+            }
+        }
+    )
+
+    mappings = canonical["requirements"]["skill_mappings"]
+    flattened = [entry for bucket in mappings.values() for entry in bucket]
+    assert any(entry["name"] == "Python" for entry in flattened)
+    assert any(entry.get("normalized_name") for entry in flattened)
+
+
 def test_normalize_profile_applies_string_rules() -> None:
     profile = NeedAnalysisProfile.model_validate(
         {

@@ -43,7 +43,7 @@ from pydantic import AnyUrl
 
 from core.normalization import sanitize_optional_url_fields, sanitize_optional_url_value
 from llm.profile_normalization import normalize_interview_stages_field
-from models.need_analysis import NeedAnalysisProfile
+from models.need_analysis import NeedAnalysisProfile, SkillMappings
 from utils.normalization import (
     NormalizedProfilePayload,
     normalize_language,
@@ -52,6 +52,7 @@ from utils.normalization import (
     normalize_profile,
     normalize_website_url,
 )
+from utils.skill_taxonomy import build_skill_mappings
 from core.esco_utils import lookup_esco_skill
 
 from .validators import deduplicate_preserve_order, ensure_canonical_keys
@@ -1131,6 +1132,18 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
         _rebalance(entries)
 
     requirements.update(normalized)
+
+    existing_mappings = requirements.get("skill_mappings")
+    generated_mappings = build_skill_mappings(normalized)
+    if isinstance(existing_mappings, Mapping):
+        try:
+            validated_mappings = SkillMappings.model_validate(existing_mappings)
+        except ValidationError:
+            requirements["skill_mappings"] = generated_mappings
+        else:
+            requirements["skill_mappings"] = validated_mappings.model_dump(mode="python")
+    else:
+        requirements["skill_mappings"] = generated_mappings
 
 
 def _apply_aliases(payload: dict[str, Any], aliases: Mapping[str, str]) -> dict[str, Any]:
