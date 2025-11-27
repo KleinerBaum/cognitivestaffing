@@ -8,6 +8,31 @@ from typing import Any, Mapping, Sequence
 from config import STRICT_JSON
 
 
+def build_json_schema_response_format(
+    *, name: str, schema: Mapping[str, Any], strict: bool | None = None
+) -> dict[str, Any]:
+    """Return a Responses/Chat ``response_format`` payload for ``schema``.
+
+    The OpenAI API expects JSON schema response formats to follow the nested
+    ``{"type": "json_schema", "json_schema": {...}}`` structure. This helper
+    centralises that construction to avoid invalid ``response_format.schema``
+    parameters reaching the API.
+    """
+
+    sanitized_schema = sanitize_json_schema_for_responses(schema)
+    json_schema_block: dict[str, Any] = {
+        "name": name,
+        "schema": deepcopy(sanitized_schema),
+    }
+    if strict is not None:
+        json_schema_block["strict"] = strict
+
+    return {
+        "type": "json_schema",
+        "json_schema": json_schema_block,
+    }
+
+
 def _assert_responses_schema_valid(schema: Mapping[str, Any], *, path: str = "$") -> None:
     if not isinstance(schema, Mapping):
         return
@@ -74,27 +99,13 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
 
     sanitized_schema = deepcopy(sanitize_json_schema_for_responses(schema_body))
 
-    chat_format: dict[str, Any] = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": schema_name,
-            "schema": deepcopy(sanitized_schema),
-        },
-    }
+    chat_format = build_json_schema_response_format(
+        name=schema_name, schema=sanitized_schema, strict=strict_value
+    )
 
-    responses_format: dict[str, Any] = {
-        "type": "json_schema",
-        "name": schema_name,
-        "schema": deepcopy(sanitized_schema),
-        "json_schema": {
-            "name": schema_name,
-            "schema": deepcopy(sanitized_schema),
-        },
-    }
-
-    if strict_value:
-        responses_format["json_schema"]["strict"] = strict_value
-        responses_format["strict"] = strict_value
+    responses_format = build_json_schema_response_format(
+        name=schema_name, schema=sanitized_schema, strict=strict_value
+    )
 
     return SchemaFormatBundle(
         name=schema_name,
@@ -130,25 +141,47 @@ def sanitize_response_format_payload(response_format: Mapping[str, Any]) -> dict
     if format_type != "json_schema":
         return cleaned
 
-    json_schema_block = cleaned.get("json_schema") if isinstance(cleaned.get("json_schema"), Mapping) else None
+    json_schema_block = cleaned.get("json_schema") if isinstance(cleaned.get("json_schema"), Mapping) else {}
+
     schema_payload = None
+    name: str | None = None
+    strict_value: bool | None = None
+
     if isinstance(json_schema_block, Mapping):
-        schema_payload = json_schema_block.get("schema") if isinstance(json_schema_block.get("schema"), Mapping) else None
+        schema_candidate = json_schema_block.get("schema")
+        if isinstance(schema_candidate, Mapping):
+            schema_payload = schema_candidate
+        name_candidate = json_schema_block.get("name")
+        if isinstance(name_candidate, str) and name_candidate.strip():
+            name = name_candidate.strip()
+        if "strict" in json_schema_block:
+            strict_value = bool(json_schema_block.get("strict"))
+
     if schema_payload is None:
-        schema_payload = cleaned.get("schema") if isinstance(cleaned.get("schema"), Mapping) else None
+        schema_candidate = cleaned.get("schema") if isinstance(cleaned.get("schema"), Mapping) else None
+        if isinstance(schema_candidate, Mapping):
+            schema_payload = schema_candidate
 
-    if schema_payload is not None:
-        sanitized_schema = sanitize_json_schema_for_responses(schema_payload)
-        if json_schema_block is not None:
-            json_schema_block = dict(json_schema_block)
-            json_schema_block["schema"] = sanitized_schema
-            cleaned["json_schema"] = json_schema_block
-        cleaned["schema"] = sanitized_schema
+    if name is None and isinstance(cleaned.get("name"), str):
+        name_candidate = cleaned["name"].strip()
+        if name_candidate:
+            name = name_candidate
 
-    return cleaned
+    if strict_value is None and "strict" in cleaned:
+        strict_value = bool(cleaned.get("strict"))
+
+    if schema_payload is None or name is None:
+        return cleaned
+
+    return build_json_schema_response_format(
+        name=name,
+        schema=schema_payload,
+        strict=strict_value,
+    )
 
 
 __all__ = [
+    "build_json_schema_response_format",
     "SchemaFormatBundle",
     "build_need_analysis_json_schema_payload",
     "build_schema_format_bundle",

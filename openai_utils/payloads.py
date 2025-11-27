@@ -22,7 +22,11 @@ from config.models import (
 from constants.keys import StateKeys
 from llm.cost_router import PromptCostEstimate, route_model_for_messages
 from .client import ResponsesRequest, model_supports_reasoning, model_supports_temperature
-from .schemas import SchemaFormatBundle, build_schema_format_bundle
+from .schemas import (
+    SchemaFormatBundle,
+    build_schema_format_bundle,
+    sanitize_response_format_payload,
+)
 from .tools import (
     _convert_tool_choice_to_function_call,
     _convert_tools_to_functions,
@@ -75,27 +79,16 @@ def _inject_json_hint(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, A
 def _clean_response_format_for_chat(response_format: Mapping[str, Any]) -> dict[str, Any]:
     """Return a Chat-friendly ``response_format`` without Responses-only fields."""
 
-    cleaned: dict[str, Any] = dict(deepcopy(response_format))
-    removed_fields: list[str] = []
-
-    if "strict" in cleaned:
-        cleaned.pop("strict", None)
-        removed_fields.append("response_format.strict")
-
+    sanitized = sanitize_response_format_payload(response_format)
+    cleaned: dict[str, Any] = dict(deepcopy(sanitized))
     json_schema_block = cleaned.get("json_schema")
-    if isinstance(json_schema_block, Mapping) and "strict" in json_schema_block:
-        json_schema_block = dict(json_schema_block)
-        json_schema_block.pop("strict", None)
-        cleaned["json_schema"] = json_schema_block
-        removed_fields.append("response_format.json_schema.strict")
+    if not isinstance(json_schema_block, Mapping):
+        return cleaned
 
-    if removed_fields:
-        logger.debug(
-            "Cleaning Responses-only fields from chat response_format: %s",
-            ", ".join(removed_fields),
-        )
-
-    return cleaned
+    return {
+        "type": "json_schema",
+        "json_schema": dict(json_schema_block),
+    }
 
 
 def _strip_unsupported_chat_fields(payload: dict[str, Any]) -> dict[str, Any]:
@@ -319,12 +312,7 @@ class ResponsesPayloadBuilder(_BasePayloadBuilder):
         if self.context.schema_bundle is not None:
             text_config: dict[str, Any] = dict(payload.get("text") or {})
             text_config.pop("type", None)
-            format_payload = deepcopy(self.context.schema_bundle.responses_format)
-            format_payload.setdefault("name", self.context.schema_bundle.name)
-            if isinstance(format_payload.get("json_schema"), Mapping):
-                format_payload["json_schema"].setdefault("name", self.context.schema_bundle.name)
-            format_payload.setdefault("schema", deepcopy(self.context.schema_bundle.schema))
-            text_config["format"] = format_payload
+            text_config["format"] = deepcopy(self.context.schema_bundle.responses_format)
             payload["text"] = text_config
         if self.context.extra:
             payload.update(self.context.extra)

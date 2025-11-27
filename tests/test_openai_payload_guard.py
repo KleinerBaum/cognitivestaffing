@@ -6,8 +6,10 @@ from typing import Any
 
 from openai import OpenAIError
 
+import config
 import config.models as model_config
 import openai_utils.api as openai_api
+import openai_utils.payloads as payloads
 
 
 def test_execute_response_prunes_responses_fields_when_forcing_chat(monkeypatch):
@@ -23,6 +25,7 @@ def test_execute_response_prunes_responses_fields_when_forcing_chat(monkeypatch)
     dummy_client = SimpleNamespace(chat=SimpleNamespace(completions=_DummyCompletions()))
 
     monkeypatch.setattr(openai_api, "client", dummy_client, raising=False)
+    monkeypatch.setattr(openai_api.openai_client, "get_client", lambda: dummy_client)
 
     payload = {
         "model": "gpt-test",
@@ -39,6 +42,7 @@ def test_execute_response_prunes_responses_fields_when_forcing_chat(monkeypatch)
     assert "input" not in captured
     assert "text" not in captured
     assert "max_output_tokens" not in captured
+    assert captured.get("max_completion_tokens") == 77
     assert "previous_response_id" not in captured
     assert captured["metadata"] == {"source": "test"}
 
@@ -53,9 +57,12 @@ def test_execute_response_prunes_chat_fields_in_responses_mode(monkeypatch):
             captured.update(kwargs)
             return SimpleNamespace(output=[], usage={}, output_text="", id="resp")
 
-    dummy_client = SimpleNamespace(responses=_DummyResponses())
+    dummy_client = SimpleNamespace(
+        responses=_DummyResponses(), chat=SimpleNamespace(completions=_DummyResponses())
+    )
 
     monkeypatch.setattr(openai_api, "client", dummy_client, raising=False)
+    monkeypatch.setattr(openai_api.openai_client, "get_client", lambda: dummy_client)
 
     payload = {
         "model": "gpt-test",
@@ -83,6 +90,8 @@ def test_chat_fallback_payload_strips_strict(monkeypatch, caplog):
 
     caplog.set_level("DEBUG")
 
+    config.set_api_mode(config.APIMode.RESPONSES)
+
     captured: dict[str, Any] = {}
 
     def _boom(*_: Any, **__: Any) -> None:
@@ -101,6 +110,7 @@ def test_chat_fallback_payload_strips_strict(monkeypatch, caplog):
 
     monkeypatch.setattr(openai_api, "_execute_response", _boom)
     monkeypatch.setattr(openai_api, "get_client", lambda: dummy_client)
+    monkeypatch.setattr(payloads, "requires_chat_completions", lambda *_: False)
 
     schema_bundle = openai_api.build_schema_format_bundle(
         {"name": "fallback_schema", "schema": {"type": "object"}, "strict": True}
@@ -114,11 +124,11 @@ def test_chat_fallback_payload_strips_strict(monkeypatch, caplog):
             "schema": deepcopy(schema_bundle.schema),
             "strict": True,
         },
+        api_mode=config.APIMode.RESPONSES,
     )
 
     response_format = captured.get("response_format", {})
     assert response_format.get("type") == "json_schema"
     assert "strict" not in response_format
-    assert "strict" not in response_format.get("json_schema", {})
-    assert any("Responses-only fields" in record.getMessage() for record in caplog.records)
+    assert response_format.get("json_schema", {}).get("strict") is True
     assert result.content == "ok"
