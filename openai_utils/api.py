@@ -44,6 +44,7 @@ from config import (
     ModelTask,
     VERBOSITY,
     get_active_verbosity,
+    get_task_config,
     is_model_available,
     mark_model_unavailable,
     normalise_verbosity,
@@ -114,11 +115,6 @@ _CURRENT_USAGE_MESSAGE: Final[tuple[str, str]] = (
 _budget_exceeded_flag = False
 
 DEFAULT_TEMPERATURE: Final[float] = 0.1
-
-_TEXT_ONLY_TASKS: Final[set[ModelTask]] = {
-    ModelTask.FOLLOW_UP_QUESTIONS,
-    ModelTask.TEAM_ADVICE,
-}
 
 
 _MISSING_API_KEY_ALERT_STATE_KEY = "system.openai.api_key_missing_alert"
@@ -2111,9 +2107,17 @@ def call_chat_api(
 
     _enforce_usage_budget_guard()
 
-    force_text_only = isinstance(task, ModelTask) and task in _TEXT_ONLY_TASKS
-    if force_text_only:
+    task_config = None
+    if task is not None:
+        try:
+            task_config = get_task_config(task)
+        except KeyError:
+            task_config = None
+
+    if task_config and not task_config.allow_json_schema:
         json_schema = None
+
+    if task_config and not task_config.allow_response_format:
         use_response_format = False
 
     active_mode = resolve_api_mode(api_mode)

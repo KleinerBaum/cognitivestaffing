@@ -47,6 +47,9 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **OpenAI model routing (automatic, fixed defaults)**
   The app standardizes on `gpt-4.1-mini` for all operations and automatically escalates to `gpt-5-mini` for harder tasks or when resilience is required. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
 
+- **Single-source task capabilities**
+  Every AI task (structured extraction, follow-up drafting, JSON repair, salary estimation, and more) now pulls its preferred model and JSON/text capability flags from a unified `MODEL_CONFIG` map in `config/models.py`, reducing repeated fallbacks and making routing behaviour predictable in logs.
+
 - **Chat Completions with strict JSON schema enforcement**
   Structured calls use the OpenAI Chat Completions API directly with JSON schemas and always keep strict mode enabled. Invalid JSON responses are repaired automatically (or retried on the chat client when needed) without asking users to toggle strictness, reducing noisy logs and latency.
   The GPT-4.1/GPT-5 families now always target `/v1/chat/completions` with native function-calling payloads instead of the deprecated Responses endpoint to stay aligned with the current OpenAI guidance.

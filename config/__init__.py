@@ -49,6 +49,7 @@ HIGH_REASONING_MODEL: str
 LIGHTWEIGHT_MODEL: str
 MEDIUM_REASONING_MODEL: str
 MODEL_ROUTING: Dict[str, str]
+MODEL_CONFIG: Dict[str, model_config.TaskModelConfig]
 OPENAI_MODEL: str
 REASONING_MODEL: str
 TASK_MODEL_FALLBACKS: Dict[str, list[str]]
@@ -199,7 +200,7 @@ VERBOSITY = normalise_verbosity(os.getenv("VERBOSITY", "medium"))
 
 def _configure_models() -> None:
     global DEFAULT_MODEL, EMBED_MODEL, HIGH_REASONING_MODEL, LIGHTWEIGHT_MODEL
-    global MEDIUM_REASONING_MODEL, MODEL_ROUTING, OPENAI_MODEL, REASONING_EFFORT
+    global MEDIUM_REASONING_MODEL, MODEL_ROUTING, MODEL_CONFIG, OPENAI_MODEL, REASONING_EFFORT
     global REASONING_MODEL, TASK_MODEL_FALLBACKS
 
     model_config.configure_models(
@@ -218,6 +219,7 @@ def _configure_models() -> None:
     REASONING_MODEL = model_config.REASONING_MODEL
     DEFAULT_MODEL = model_config.DEFAULT_MODEL
     OPENAI_MODEL = model_config.OPENAI_MODEL
+    MODEL_CONFIG = model_config.MODEL_CONFIG
     MODEL_ROUTING = model_config.MODEL_ROUTING
     TASK_MODEL_FALLBACKS = model_config.TASK_MODEL_FALLBACKS
     EMBED_MODEL = model_config.EMBED_MODEL
@@ -617,6 +619,7 @@ select_model = model_config.select_model
 get_model_candidates = model_config.get_model_candidates
 get_first_available_model = model_config.get_first_available_model
 get_model_fallbacks_for = model_config.get_model_fallbacks_for
+get_task_config = model_config.get_task_config
 get_reasoning_mode = model_config.get_reasoning_mode
 clear_unavailable_models = model_config.clear_unavailable_models
 mark_model_unavailable = model_config.mark_model_unavailable
