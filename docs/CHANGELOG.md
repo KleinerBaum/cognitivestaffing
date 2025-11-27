@@ -17,6 +17,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 
 ### Fixed
+- OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
 - Resolved Streamlit startup ImportError by importing the sidebar module explicitly before calling `render_sidebar`, preventing rerun crashes.
 - Streamlit step headers no longer crash on missing-field badges; column ratios are fully numeric again.
