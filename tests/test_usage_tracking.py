@@ -42,6 +42,7 @@ def _seed_usage_state() -> dict[str, Any]:
 
     usage_state: dict[str, Any] = {"input_tokens": 0, "output_tokens": 0, "by_task": {}}
     st.session_state[StateKeys.USAGE] = usage_state
+    st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED] = False
     return usage_state
 
 
@@ -122,6 +123,28 @@ def test_usage_counters_accumulate_across_helpers(monkeypatch: pytest.MonkeyPatc
     assert usage_state["input_tokens"] == 93
     assert usage_state["output_tokens"] == 27
     assert usage_state["by_task"][ModelTask.INTERVIEW_GUIDE.value] == {"input": 33, "output": 5}
+
+
+def test_budget_guard_blocks_calls_after_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Coverage: budget guard stops further OpenAI calls once the limit is reached."""
+
+    st.session_state["lang"] = "en"
+    _seed_usage_state()
+
+    monkeypatch.setattr(openai_api, "OPENAI_SESSION_TOKEN_LIMIT", 100)
+    monkeypatch.setattr(openai_api, "OPENAI_API_KEY", "sk-test")
+
+    openai_api._update_usage_counters({"input_tokens": 60, "output_tokens": 30}, task=ModelTask.DEFAULT)
+    assert st.session_state[StateKeys.USAGE]["input_tokens"] == 60
+    assert not st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED]
+
+    openai_api._update_usage_counters({"input_tokens": 20, "output_tokens": 20}, task=ModelTask.DEFAULT)
+    assert st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED]
+
+    with pytest.raises(RuntimeError) as excinfo:
+        openai_api.call_chat_api([{"role": "user", "content": "block further"}])
+
+    assert "Cost limit" in str(excinfo.value)
 
 
 def test_missing_api_key_blocks_usage_updates(monkeypatch: pytest.MonkeyPatch) -> None:

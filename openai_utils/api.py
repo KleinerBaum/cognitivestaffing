@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from threading import Lock
-from typing import Any, Callable, Dict, Final, Iterable, Iterator, Mapping, Optional, Sequence, cast
+from typing import Any, Callable, Dict, Final, Iterable, Iterator, Mapping, MutableMapping, Optional, Sequence, cast
 
 from openai import (
     APIConnectionError,
@@ -39,6 +39,7 @@ from prompts import prompt_registry
 from config import (
     OPENAI_API_KEY,
     OPENAI_REQUEST_TIMEOUT,
+    OPENAI_SESSION_TOKEN_LIMIT,
     APIMode,
     ModelTask,
     VERBOSITY,
@@ -50,6 +51,7 @@ from config import (
 )
 from constants.keys import StateKeys
 from utils.errors import display_error, resolve_message
+from utils.i18n import tr
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from utils.llm_state import llm_disabled_message
 from utils.logging_context import log_context, set_model
@@ -98,6 +100,17 @@ client = openai_client
 _create_response_with_timeout = openai_client._create_response_with_timeout
 
 _USAGE_LOCK = Lock()
+_FALLBACK_USAGE_COUNTERS: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
+_BUDGET_GUARD_ALERT_STATE_KEY = "system.openai.budget_guard_alert"
+_BUDGET_EXCEEDED_MESSAGE: Final[tuple[str, str]] = (
+    "Budget-Limit erreicht ({limit} Token pro Sitzung). Bitte Eingaben prüfen oder Budget erhöhen.",
+    "Cost limit reached ({limit} tokens per session). Please review your inputs or raise the budget.",
+)
+_CURRENT_USAGE_MESSAGE: Final[tuple[str, str]] = (
+    "Aktuelle Nutzung: {total} Token.",
+    "Current usage: {total} tokens.",
+)
+_budget_exceeded_flag = False
 
 DEFAULT_TEMPERATURE: Final[float] = 0.1
 
@@ -612,6 +625,108 @@ def _coerce_token_count(value: Any) -> int:
         return 0
 
 
+def _token_budget_limit() -> int | None:
+    """Return the configured per-session token ceiling or ``None`` when disabled."""
+
+    try:
+        limit = int(OPENAI_SESSION_TOKEN_LIMIT) if OPENAI_SESSION_TOKEN_LIMIT is not None else None
+    except (TypeError, ValueError):
+        return None
+    if limit is None:
+        return None
+    if limit <= 0:
+        return None
+    return limit
+
+
+def _budget_guard_message(limit: int, total: int | None = None) -> str:
+    """Return a bilingual budget warning message with optional usage total."""
+
+    base = tr(*_BUDGET_EXCEEDED_MESSAGE).format(limit=limit)
+    if total is None:
+        return base
+    return f"{base} {tr(*_CURRENT_USAGE_MESSAGE).format(total=total)}"
+
+
+def _current_usage_total_locked(usage_state: Mapping[str, Any] | None = None) -> int:
+    """Return the total token count using session or fallback counters."""
+
+    fallback_total = _coerce_token_count(_FALLBACK_USAGE_COUNTERS.get("input_tokens")) + _coerce_token_count(
+        _FALLBACK_USAGE_COUNTERS.get("output_tokens")
+    )
+    if usage_state is None:
+        try:
+            usage_state = st.session_state.get(StateKeys.USAGE)
+        except Exception:  # pragma: no cover - Streamlit session not initialised
+            usage_state = None
+    if not isinstance(usage_state, Mapping):
+        return fallback_total
+    input_tokens = _coerce_token_count(usage_state.get("input_tokens"))
+    output_tokens = _coerce_token_count(usage_state.get("output_tokens"))
+    return input_tokens + output_tokens
+
+
+def _mark_budget_exceeded_locked() -> None:
+    """Record that the session has crossed the configured budget limit."""
+
+    global _budget_exceeded_flag
+    _budget_exceeded_flag = True
+    try:
+        st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED] = True
+    except Exception:  # pragma: no cover - Streamlit session not initialised
+        pass
+
+
+def _show_budget_guard_warning(limit: int, total: int) -> None:
+    """Emit a user-facing warning when the budget guard is hit."""
+
+    try:
+        if st.session_state.get(_BUDGET_GUARD_ALERT_STATE_KEY):
+            return
+    except Exception:  # pragma: no cover - Streamlit session not initialised
+        pass
+
+    message = _budget_guard_message(limit, total)
+    emitted = False
+    for emitter in (display_error, getattr(st, "warning", None), getattr(st, "error", None)):
+        if emitter is None:
+            continue
+        try:
+            emitter(message)
+            emitted = True
+            break
+        except Exception:  # noqa: BLE001 - fall back to the next emitter
+            continue
+
+    if emitted:
+        try:
+            st.session_state[_BUDGET_GUARD_ALERT_STATE_KEY] = True
+        except Exception:  # pragma: no cover - Streamlit session not initialised
+            pass
+
+    logger.warning("Token budget guard engaged (usage=%s, limit=%s)", total, limit)
+
+
+def _enforce_usage_budget_guard() -> None:
+    """Raise when the configured token budget has already been exhausted."""
+
+    limit = _token_budget_limit()
+    if limit is None:
+        return
+
+    exceeded = False
+    total = 0
+    with _USAGE_LOCK:
+        total = _current_usage_total_locked()
+        exceeded = _budget_exceeded_flag or total >= limit
+        if exceeded and not _budget_exceeded_flag:
+            _mark_budget_exceeded_locked()
+
+    if exceeded:
+        _show_budget_guard_warning(limit, total)
+        raise RuntimeError(_budget_guard_message(limit, total))
+
+
 def _normalise_task(task: ModelTask | str | None) -> str:
     """Return a normalised identifier for ``task`` suitable for metrics."""
 
@@ -625,22 +740,53 @@ def _normalise_task(task: ModelTask | str | None) -> str:
 def _update_usage_counters(usage: Mapping[str, Any], *, task: ModelTask | str | None) -> None:
     """Accumulate token usage in the Streamlit session state."""
 
-    if StateKeys.USAGE not in st.session_state:
-        return
+    limit = _token_budget_limit()
+    crossed_threshold = False
+    total_after_update = 0
 
     with _USAGE_LOCK:
-        usage_state = st.session_state[StateKeys.USAGE]
         input_tokens = _coerce_token_count(usage.get("input_tokens"))
         output_tokens = _coerce_token_count(usage.get("output_tokens"))
 
-        usage_state["input_tokens"] = _coerce_token_count(usage_state.get("input_tokens", 0)) + input_tokens
-        usage_state["output_tokens"] = _coerce_token_count(usage_state.get("output_tokens", 0)) + output_tokens
+        _FALLBACK_USAGE_COUNTERS["input_tokens"] = (
+            _coerce_token_count(_FALLBACK_USAGE_COUNTERS.get("input_tokens", 0)) + input_tokens
+        )
+        _FALLBACK_USAGE_COUNTERS["output_tokens"] = (
+            _coerce_token_count(_FALLBACK_USAGE_COUNTERS.get("output_tokens", 0)) + output_tokens
+        )
 
-        task_key = _normalise_task(task)
-        task_map = usage_state.setdefault("by_task", {})
-        task_totals = task_map.setdefault(task_key, {"input": 0, "output": 0})
-        task_totals["input"] = _coerce_token_count(task_totals.get("input", 0)) + input_tokens
-        task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
+        usage_state: MutableMapping[str, Any] | None = None
+        try:
+            usage_candidate = st.session_state.get(StateKeys.USAGE)
+        except Exception:  # pragma: no cover - Streamlit session not initialised
+            usage_candidate = None
+
+        if isinstance(usage_candidate, MutableMapping):
+            usage_state = usage_candidate
+        elif isinstance(usage_candidate, Mapping):
+            usage_state = dict(usage_candidate)
+            try:
+                st.session_state[StateKeys.USAGE] = usage_state
+            except Exception:  # pragma: no cover - Streamlit session not initialised
+                pass
+
+        if usage_state is not None:
+            usage_state["input_tokens"] = _coerce_token_count(usage_state.get("input_tokens", 0)) + input_tokens
+            usage_state["output_tokens"] = _coerce_token_count(usage_state.get("output_tokens", 0)) + output_tokens
+
+            task_key = _normalise_task(task)
+            task_map = usage_state.setdefault("by_task", {})
+            task_totals = task_map.setdefault(task_key, {"input": 0, "output": 0})
+            task_totals["input"] = _coerce_token_count(task_totals.get("input", 0)) + input_tokens
+            task_totals["output"] = _coerce_token_count(task_totals.get("output", 0)) + output_tokens
+
+        total_after_update = _current_usage_total_locked(usage_state)
+        if limit is not None and not _budget_exceeded_flag and total_after_update >= limit:
+            crossed_threshold = True
+            _mark_budget_exceeded_locked()
+
+    if crossed_threshold and limit is not None:
+        _show_budget_guard_warning(limit, total_after_update)
 
 
 def _accumulate_usage(state: RetryState, latest: UsageDict) -> None:
@@ -1913,6 +2059,8 @@ def call_chat_api(
         _show_missing_api_key_alert()
         raise RuntimeError(llm_disabled_message())
 
+    _enforce_usage_budget_guard()
+
     active_mode = resolve_api_mode(api_mode)
     single_kwargs: dict[str, Any] = {
         "model": model,
@@ -2050,6 +2198,8 @@ def stream_chat_api(
     if _llm_disabled():
         _show_missing_api_key_alert()
         raise RuntimeError(llm_disabled_message())
+
+    _enforce_usage_budget_guard()
 
     messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
 
