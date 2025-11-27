@@ -95,7 +95,7 @@ def test_set_max_output_tokens_validation() -> None:
     assert payload["config"]["max_output_tokens"] == 1024
 
     default_payload = json.loads(execution.run_stage("default-stage"))
-    assert default_payload["config"]["max_output_tokens"] == 2048
+    assert default_payload["config"]["max_output_tokens"] == 1024
 
 
 def test_run_all_reports_summary() -> None:

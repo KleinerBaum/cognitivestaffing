@@ -36,7 +36,7 @@ class StageRuntimeConfig:
     tool_choice_mode: ToolChoiceMode = "auto"
     tool_choice_function_name: Optional[str] = None
     temperature: float = 0.2
-    max_output_tokens: int = 2048
+    max_output_tokens: int = 1024
 
     def to_payload(self) -> Dict[str, Any]:
         """Return a JSON-serialisable view of the configuration."""
@@ -311,7 +311,7 @@ def set_temperature(stage_id: Optional[str], value: float = 0.2) -> str:
 
 
 @function_tool
-def set_max_output_tokens(stage_id: Optional[str], value: int = 2048) -> str:
+def set_max_output_tokens(stage_id: Optional[str], value: int = 1024) -> str:
     """Cap output tokens for a stage or globally."""
 
     config = _STATE.set_max_output_tokens(stage_id, value)

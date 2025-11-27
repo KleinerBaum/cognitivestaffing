@@ -1192,6 +1192,16 @@ class ChatStream(Iterable[str]):
         content = _normalise_content_payload(content)
         usage_block = _normalise_usage(_extract_usage_block(response) or {})
         usage = _numeric_usage(usage_block)
+        usage_limit = self._payload.get("max_output_tokens") or self._payload.get("max_completion_tokens")
+        logger.info(
+            "OpenAI usage for task '%s' (model=%s, max_tokens=%s): input=%s, output=%s, total=%s.",
+            self._task or ModelTask.DEFAULT,
+            self._payload.get("model"),
+            usage_limit,
+            usage.get("input_tokens"),
+            usage.get("output_tokens"),
+            usage.get("total_tokens"),
+        )
         _update_usage_counters(usage, task=self._task)
         response_id = _extract_response_id(response)
         self._result = ChatCallResult(

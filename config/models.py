@@ -11,6 +11,8 @@ import streamlit as st
 
 from constants.keys import StateKeys
 
+logger = logging.getLogger("cognitive_needs.model_config")
+
 # Canonical model identifiers as exposed by the OpenAI Responses API.
 GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
@@ -122,7 +124,7 @@ class ModelTask(StrEnum):
     TEAM_ADVICE = "team_advice"
 
 
-REASONING_EFFORT = "medium"
+REASONING_EFFORT = "minimal"
 LIGHTWEIGHT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
 MEDIUM_REASONING_MODEL = MEDIUM_REASONING_MODEL_DEFAULT
 HIGH_REASONING_MODEL = HIGH_REASONING_MODEL_DEFAULT
@@ -158,7 +160,7 @@ PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
 )
 
 
-def normalise_reasoning_effort(value: str | None, *, default: str = "medium") -> str:
+def normalise_reasoning_effort(value: str | None, *, default: str = "minimal") -> str:
     """Return a supported reasoning effort value or ``default`` when invalid."""
 
     if value is None:
@@ -368,6 +370,7 @@ def configure_models(
     global REASONING_EFFORT, LIGHTWEIGHT_MODEL, MEDIUM_REASONING_MODEL, HIGH_REASONING_MODEL
     global REASONING_MODEL, DEFAULT_MODEL, OPENAI_MODEL, MODEL_ROUTING, TASK_MODEL_FALLBACKS
 
+    clear_unavailable_models()
     REASONING_EFFORT = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
     LIGHTWEIGHT_MODEL = resolve_supported_model(lightweight_override, LIGHTWEIGHT_MODEL_DEFAULT)
     MEDIUM_REASONING_MODEL = resolve_supported_model(
@@ -376,6 +379,11 @@ def configure_models(
     )
     HIGH_REASONING_MODEL = resolve_supported_model(high_reasoning_override, HIGH_REASONING_MODEL_DEFAULT)
     REASONING_MODEL = _model_for_reasoning_level(REASONING_EFFORT)
+    logger.info(
+        "Configured model defaults: reasoning_effort='%s', primary_model='%s'.",
+        REASONING_EFFORT,
+        PRIMARY_MODEL_DEFAULT,
+    )
     if default_model_override:
         warnings.warn(
             "DEFAULT_MODEL overrides are ignored; the primary model is fixed to '%s'." % PRIMARY_MODEL_DEFAULT,

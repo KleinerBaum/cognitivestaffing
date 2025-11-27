@@ -13,6 +13,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ## [Unreleased]
 
 ### Changed
+- Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
+- Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
 - Default LLM routing now standardizes on `gpt-4.1-mini` for both quick/Schnell and precise/Genau flows with ordered fallbacks to `gpt-5-mini` and `gpt-5-nano`, removing GPT-4/GPT-3.5 from the automatic chain to control cost.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
