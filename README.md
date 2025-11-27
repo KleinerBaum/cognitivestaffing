@@ -19,6 +19,9 @@ Live app: https://cognitivestaffing.streamlit.app/
     Layout for these badges now uses fixed numeric column ratios so Streamlit renders consistently without type errors on missing-field sections.
     Auto-repair notices now sit in a collapsed bottom drawer so the main form stays uncluttered while the warning remains visible across the step.
 
+  - **Linear Back/Next flow**
+    Navigation strictly follows the eight-step order (Job Ad → Company → Team → Role Tasks → Skills → Benefits → Interview → Summary), ignores unknown step keys in query params, and keeps *Next* disabled on required fields instead of forcing users to hop back-and-forth.
+
 - **AI extraction & NeedAnalysisProfile normalization**
   Ingest heuristics plus OpenAI’s Chat Completions API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data. Canonical schema keys (for example, `company.name`, `position.job_title`, and `requirements.skill_mappings.*`) are enforced so legacy payloads are normalized instead of triggering JSON repairs.
 - **Missing-section repair prompts**

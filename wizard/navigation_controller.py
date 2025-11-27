@@ -185,7 +185,9 @@ class NavigationController:
     def ensure_current_is_valid(self) -> None:
         current = self.state.get("current_step")
         if not isinstance(current, str) or current not in self._page_map:
-            self.state["current_step"] = self._pages[0].key
+            fallback = self._pages[0].key
+            self.state["current_step"] = fallback
+            self._query_params["step"] = fallback
 
     def navigate(self, target_key: str, *, mark_current_complete: bool = False, skipped: bool = False) -> None:
         """Navigate to ``target_key`` and trigger a rerun."""

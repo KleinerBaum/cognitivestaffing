@@ -236,6 +236,22 @@ def _make_router(
     return router, render_log
 
 
+def test_invalid_query_param_defaults_to_first_step(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Unknown step keys in the query string should not break navigation."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}}
+    query_params["step"] = ["EMPLOYMENT_OVERTIME_TOGGLE_HELP"]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    first_step = _STEP_DEFINITIONS[0][0]
+    assert router._state["current_step"] == first_step
+    assert query_params["step"] == [first_step]
+
+
 def test_progress_zero_required_fields_waits_for_completion(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
@@ -311,6 +327,64 @@ def test_navigate_updates_state_and_query(monkeypatch: pytest.MonkeyPatch, query
     completed = wizard_state.get("completed_steps", [])
     assert "jobad" in completed
     assert rerun_called["value"]
+
+
+def test_next_advances_linearly(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
+    """Next should move to the immediate next step without requiring backtracking."""
+
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {"name": "ACME", "contact_email": "contact@example.com"},
+        "location": {"primary_city": "Berlin"},
+        "meta": {},
+    }
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
+    st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    class RerunTriggered(Exception):
+        pass
+
+    responses = {
+        "wizard_next_jobad_bottom": iter([True]),
+        "wizard_next_company_bottom": iter([True]),
+    }
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        key = kwargs.get("key")
+        if key is None:
+            return False
+        sequence = responses.get(key)
+        if sequence is None:
+            return False
+        try:
+            return next(sequence)
+        except StopIteration:
+            return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    assert router._state["current_step"] == "company"
+    assert query_params["step"] == ["company"]
+
+    with pytest.raises(RerunTriggered):
+        router.run()
+
+    assert router._state["current_step"] == "team"
+    assert query_params["step"] == ["team"]
 
 
 def test_pending_incomplete_jump_redirects_to_first_incomplete(
