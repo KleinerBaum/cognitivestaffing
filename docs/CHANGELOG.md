@@ -13,11 +13,11 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ## [Unreleased]
 
 ### Changed
-- Default LLM routing now prefers supported OpenAI models: quick/Schnell mode uses `gpt-4o-mini` and precise/Genau tasks escalate to `o3` with `o4-mini`/`gpt-4o` fallbacks, replacing deprecated GPT-5 placeholders.
+- Default LLM routing now standardizes on `gpt-4.1-mini` for both quick/Schnell and precise/Genau flows with ordered fallbacks to `gpt-5-mini` and `gpt-5-nano`, removing GPT-4/GPT-3.5 from the automatic chain to control cost.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
-- Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling.
+- Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling. All fallback lists were pruned to `gpt-5-mini` → `gpt-5-nano` for escalation.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 

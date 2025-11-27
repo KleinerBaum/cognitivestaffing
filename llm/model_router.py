@@ -14,12 +14,9 @@ PREF_ENV = "COGNITIVE_PREFERRED_MODEL"
 FB_ENV = "COGNITIVE_MODEL_FALLBACKS"
 
 DEFAULT_CANDIDATES = [
-    model_config.GPT4O_MINI,
-    model_config.O3_MINI,
-    model_config.O3,
-    model_config.O4_MINI,
-    model_config.GPT4O,
-    model_config.GPT4,
+    model_config.GPT41_MINI,
+    model_config.GPT51_MINI,
+    model_config.GPT51_NANO,
 ]
 
 
@@ -52,8 +49,8 @@ def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) ->
     if resolved_candidates:
         return resolved_candidates[0]
 
-    if model_config.GPT4O in available:
-        return model_config.GPT4O
+    if model_config.GPT41_MINI in available:
+        return model_config.GPT41_MINI
 
     sample = sorted(list(available))[:10]
     raise RuntimeError("No usable model found. Tried: %s; Available sample: %s" % (candidates, sample))
