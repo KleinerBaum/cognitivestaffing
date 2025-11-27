@@ -59,7 +59,7 @@ def test_stage_specific_model_override() -> None:
 
     execution.set_model("stage-global", model_config.O4_MINI)
     stage_run = json.loads(execution.run_stage("stage-global"))
-    assert stage_run["config"]["model"] == model_config.OPENAI_MODEL
+    assert stage_run["config"]["model"] == model_config.O4_MINI
 
     other_run = json.loads(execution.run_stage("other-stage"))
     assert other_run["config"]["model"] == model_config.OPENAI_MODEL
@@ -82,14 +82,20 @@ def test_set_temperature_validation() -> None:
     payload = json.loads(execution.run_stage("temp-stage"))
     assert payload["config"]["temperature"] == 1.5
 
+    global_payload = json.loads(execution.run_stage("other-stage"))
+    assert global_payload["config"]["temperature"] == 0.2
+
 
 def test_set_max_output_tokens_validation() -> None:
     with pytest.raises(ValueError):
         execution.set_max_output_tokens(None, 0)
 
-    execution.set_max_output_tokens(None, 1024)
+    execution.set_max_output_tokens("tokens-stage", 1024)
     payload = json.loads(execution.run_stage("tokens-stage"))
     assert payload["config"]["max_output_tokens"] == 1024
+
+    default_payload = json.loads(execution.run_stage("default-stage"))
+    assert default_payload["config"]["max_output_tokens"] == 2048
 
 
 def test_run_all_reports_summary() -> None:

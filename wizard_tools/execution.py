@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Literal, Optional
@@ -157,11 +158,19 @@ class _ExecutionState:
         }
 
     def set_model(self, stage_id: Optional[str], model: ModelName) -> StageRuntimeConfig:
-        """No-op placeholder to keep compatibility with deprecated overrides."""
+        """Set a stage-specific model; global overrides are locked."""
 
+        if stage_id is None:
+            _warn_locked_override("set_model")
+            return self._resolved_config(stage_id)
+        config = self._mutable_config(stage_id)
+        config.model = model
         return self._resolved_config(stage_id)
 
     def set_reasoning_effort(self, stage_id: Optional[str], level: ReasoningEffort) -> StageRuntimeConfig:
+        if stage_id is None:
+            _warn_locked_override("set_reasoning_effort")
+            return self._resolved_config(stage_id)
         config = self._mutable_config(stage_id)
         config.reasoning_effort = level
         return self._resolved_config(stage_id)
@@ -172,6 +181,9 @@ class _ExecutionState:
         mode: ToolChoiceMode,
         function_name: Optional[str],
     ) -> StageRuntimeConfig:
+        if stage_id is None:
+            _warn_locked_override("set_tool_choice")
+            return self._resolved_config(stage_id)
         config = self._mutable_config(stage_id)
         config.tool_choice_mode = mode
         config.tool_choice_function_name = function_name if mode == "force" else None
@@ -180,6 +192,9 @@ class _ExecutionState:
     def set_temperature(self, stage_id: Optional[str], value: float) -> StageRuntimeConfig:
         if not 0 <= value <= 2:
             raise ValueError("temperature must be between 0 and 2 inclusive")
+        if stage_id is None:
+            _warn_locked_override("set_temperature")
+            return self._resolved_config(stage_id)
         config = self._mutable_config(stage_id)
         config.temperature = value
         return self._resolved_config(stage_id)
@@ -187,6 +202,9 @@ class _ExecutionState:
     def set_max_output_tokens(self, stage_id: Optional[str], value: int) -> StageRuntimeConfig:
         if value <= 0:
             raise ValueError("max_output_tokens must be greater than zero")
+        if stage_id is None:
+            _warn_locked_override("set_max_output_tokens")
+            return self._resolved_config(stage_id)
         config = self._mutable_config(stage_id)
         config.max_output_tokens = value
         return self._resolved_config(stage_id)
@@ -240,7 +258,7 @@ def set_model(stage_id: Optional[str], model: ModelName) -> str:
         "stage_id": stage_id,
         "model": config.model,
         "scope": "global" if stage_id is None else "stage",
-        "locked": True,
+        "locked": stage_id is None,
     }
     return _response(payload)
 
@@ -322,3 +340,10 @@ __all__ = [
     "set_temperature",
     "set_tool_choice",
 ]
+LOGGER = logging.getLogger(__name__)
+
+
+def _warn_locked_override(action: str) -> None:
+    """Log that a global override attempt was ignored."""
+
+    LOGGER.warning("Global runtime overrides are locked; ignoring %s", action)
