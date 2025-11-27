@@ -176,6 +176,19 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 4. Optional / Optional: set `OPENAI_API_BASE_URL=https://eu.api.openai.com/v1` if you need the EU endpoint.
 5. Optional / Optional: set `OPENAI_SESSION_TOKEN_LIMIT=<tokens>` (alias: `OPENAI_TOKEN_BUDGET`) to enable the session budget guard. The app blocks further OpenAI calls and surfaces a bilingual warning once the cap is reached.
 
+## LLM Configuration & Capabilities
+
+Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-4.1-mini`) handle extraction and schema repair, while longer-form generators can escalate to `gpt-5-mini` when reasoning effort is higher. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out.
+
+| Task | Default model | Structured output? |
+| --- | --- | --- |
+| Extraction / Company info / JSON repair | `gpt-4.1-mini` | JSON schema via `response_format=json_schema` |
+| Follow-up questions / Team advice | `gpt-4.1-mini` | Text only (no JSON schema) |
+| Job ad / Interview guide / Profile summary | `gpt-4.1-mini` (fallback `gpt-5-mini`) | Text/Markdown |
+| Embeddings (vector store) | `text-embedding-3-large` | Not applicable |
+
+For detailed debugging steps, `response_format.schema` remedies, and test commands, see [docs/llm_config_and_debugging.md](docs/llm_config_and_debugging.md).
+
 ### Testing
 
 - **Unit test suite (default) / Unit-Tests (Standard):**
