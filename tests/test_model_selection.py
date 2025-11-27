@@ -131,7 +131,7 @@ def _reset_model_availability() -> Iterator[None]:
 
 
 def test_primary_model_used_when_available() -> None:
-    """The configured GPT-5 model should be used when still available."""
+    """The configured default model should be used when still available."""
 
     fallback_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     assert fallback_chain, "Expected at least one candidate in the fallback chain"
@@ -140,8 +140,8 @@ def test_primary_model_used_when_available() -> None:
     assert selected == fallback_chain[0]
 
 
-def test_falls_back_to_gpt35_when_gpt4o_missing() -> None:
-    """When GPT-4o is unavailable the helper should choose GPT-3.5."""
+def test_falls_back_to_gpt5mini_when_primary_missing() -> None:
+    """When the primary is unavailable the helper should choose GPT-5-mini next."""
 
     fallback_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     assert len(fallback_chain) >= 2, "Expected a secondary fallback entry"
@@ -191,7 +191,7 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
 
     def _fake_create_response(payload: dict[str, Any]) -> Any:
         model = payload.get("model")
-        chosen_model = model_config.GPT4O_MINI if not attempts else model_config.GPT4O
+        chosen_model = model_config.GPT41_MINI if not attempts else model_config.GPT51_MINI
         attempts.append(str(chosen_model))
         payload["model"] = chosen_model
         if len(attempts) == 1:
@@ -207,11 +207,11 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
                 model_config.mark_model_unavailable(str(model))
             logging.getLogger("cognitive_needs.openai").warning(
                 "retrying with fallback from %s to %s",
-                model_config.GPT4O_MINI,
-                model_config.GPT4O,
+                model_config.GPT41_MINI,
+                model_config.GPT51_MINI,
             )
             raise BadRequestError(
-                message="The model gpt-4o-mini is currently overloaded.",
+                message="The model gpt-4.1-mini is currently overloaded.",
                 response=fake_response,
                 body=None,
             )
@@ -228,9 +228,9 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     monkeypatch.setattr(
         model_config,
         "get_model_candidates",
-        lambda *_, **__: [model_config.GPT4O_MINI, model_config.GPT4O],
+        lambda *_, **__: [model_config.GPT41_MINI, model_config.GPT51_MINI],
     )
-    monkeypatch.setattr(model_config, "select_model", lambda *_, **__: model_config.GPT4O_MINI)
+    monkeypatch.setattr(model_config, "select_model", lambda *_, **__: model_config.GPT41_MINI)
     monkeypatch.setattr(
         OpenAIClient,
         "_create_response_with_timeout",
@@ -248,6 +248,6 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     )
 
     assert result.content == "OK"
-    assert attempts[0] == model_config.GPT4O_MINI
-    assert attempts[1] == model_config.GPT4O
+    assert attempts[0] == model_config.GPT41_MINI
+    assert attempts[1] == model_config.GPT51_MINI
     assert any("retrying with fallback" in record.message for record in caplog.records)

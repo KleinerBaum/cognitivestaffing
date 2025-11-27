@@ -16,10 +16,9 @@ GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
 GPT4O_MINI = "gpt-4o-mini"
 
-# Legacy GPT-5 placeholders mapped to supported models for compatibility.
-GPT51 = "o3"
-GPT51_MINI = GPT4O_MINI
-GPT51_NANO = GPT4O_MINI
+GPT51 = "gpt-5"
+GPT51_MINI = "gpt-5-mini"
+GPT51_NANO = "gpt-5-nano"
 
 GPT41_MINI = "gpt-4.1-mini"
 GPT41_NANO = "gpt-4.1-nano"
@@ -33,12 +32,17 @@ EMBED_MODEL = "text-embedding-3-large"  # RAG
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
 
 LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
+    ("gpt-5-mini", GPT51_MINI),
+    ("gpt-5-mini-latest", GPT51_MINI),
+    ("gpt-5-nano", GPT51_NANO),
+    ("gpt-5-nano-latest", GPT51_NANO),
     ("gpt-5.1-nano", GPT51_NANO),
     ("gpt-5.1-nano-latest", GPT51_NANO),
     ("gpt-5.1-mini", GPT51_MINI),
     ("gpt-5.1-mini-latest", GPT51_MINI),
     ("gpt-5.1", GPT51),
     ("gpt-5.1-latest", GPT51),
+    ("gpt-5", GPT51),
     ("gpt-4.1-mini", GPT41_MINI),
     ("gpt-4.1-mini-latest", GPT41_MINI),
     ("gpt-4.1-nano", GPT41_NANO),
@@ -70,10 +74,10 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
-MEDIUM_REASONING_MODEL_DEFAULT = O3_MINI
-HIGH_REASONING_MODEL_DEFAULT = O3
-REASONING_MODEL_DEFAULT = O3
+LIGHTWEIGHT_MODEL_DEFAULT = GPT41_MINI
+MEDIUM_REASONING_MODEL_DEFAULT = GPT41_MINI
+HIGH_REASONING_MODEL_DEFAULT = GPT51_MINI
+REASONING_MODEL_DEFAULT = GPT41_MINI
 PRIMARY_MODEL_DEFAULT = GPT41_MINI
 
 SUPPORTED_MODEL_CHOICES = {
@@ -142,13 +146,15 @@ _LIGHTWEIGHT_TASKS: frozenset[str] = frozenset(
 )
 
 PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
-    GPT51,
+    GPT41_MINI,
+    GPT51_MINI,
+    GPT51_NANO,
     GPT4O_MINI,
     GPT4O,
-    GPT41_MINI,
-    O4_MINI,
     O3_MINI,
     O3,
+    O4_MINI,
+    GPT4,
 )
 
 
@@ -203,6 +209,12 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         return GPT51_MINI
     if lowered.startswith("gpt-5.1-nano"):
         return GPT51_NANO
+    if lowered.startswith("gpt-5-mini"):
+        return GPT51_MINI
+    if lowered.startswith("gpt-5-nano"):
+        return GPT51_NANO
+    if lowered.startswith("gpt-5"):
+        return GPT51
     if lowered.startswith("gpt-5.1"):
         return GPT51
     if lowered.startswith("o4-mini"):
@@ -248,7 +260,7 @@ def _model_for_reasoning_level(level: str) -> str:
     mapping = {
         "minimal": LIGHTWEIGHT_MODEL,
         "low": LIGHTWEIGHT_MODEL,
-        "medium": MEDIUM_REASONING_MODEL,
+        "medium": LIGHTWEIGHT_MODEL,
         "high": HIGH_REASONING_MODEL,
     }
     return mapping.get(level, HIGH_REASONING_MODEL)
@@ -298,68 +310,18 @@ def _build_model_routing(overrides: Mapping[str, str] | None) -> Dict[str, str]:
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(O3): [
-        O3,
-        O4_MINI,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(O3_MINI): [
-        O3_MINI,
-        O3,
-        O4_MINI,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(O4_MINI): [
-        O4_MINI,
-        O3_MINI,
-        O3,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(GPT4O_MINI): [
-        GPT4O_MINI,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(GPT4O): [
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(GPT4): [
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(GPT35): [
-        GPT35,
-    ],
-    _canonical_model_name(GPT41_MINI): [
-        GPT41_MINI,
-        GPT4O_MINI,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(GPT41_NANO): [
-        GPT41_NANO,
-        GPT4O_MINI,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
-    _canonical_model_name(GPT51): [
-        GPT51,
-        O4_MINI,
-        GPT4O,
-        GPT4,
-        GPT35,
-    ],
+    _canonical_model_name(GPT41_MINI): [GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT41_NANO): [GPT41_NANO, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT51_NANO): [GPT51_NANO],
+    _canonical_model_name(GPT51): [GPT51, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(O3): [O3, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(O3_MINI): [O3_MINI, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(O4_MINI): [O4_MINI, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT4O): [GPT4O, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT4): [GPT4, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT35): [GPT35, GPT41_MINI, GPT51_MINI, GPT51_NANO],
 }
 
 
@@ -466,7 +428,12 @@ def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
     fallback_chain = TASK_MODEL_FALLBACKS.get(key)
     if fallback_chain is not None:
         return list(fallback_chain)
-    return list(TASK_MODEL_FALLBACKS.get(ModelTask.DEFAULT.value, [GPT4O, "gpt-3.5-turbo"]))
+    return list(
+        TASK_MODEL_FALLBACKS.get(
+            ModelTask.DEFAULT.value,
+            [GPT41_MINI, GPT51_MINI, GPT51_NANO],
+        )
+    )
 
 
 def normalise_model_override(value: object) -> str | None:
@@ -590,8 +557,8 @@ def get_first_available_model(task: ModelTask | str, *, override: str | None = N
             candidates[-1],
         )
         return candidates[-1]
-    logger.error("No model candidates resolved for task '%s'; falling back to %s.", task, GPT4O)
-    return GPT4O
+    logger.error("No model candidates resolved for task '%s'; falling back to %s.", task, GPT41_MINI)
+    return GPT41_MINI
 
 
 def get_model_for(task: ModelTask | str, *, override: str | None = None) -> str:

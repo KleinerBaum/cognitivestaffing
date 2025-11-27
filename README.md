@@ -41,8 +41,8 @@ Live app: https://cognitivestaffing.streamlit.app/
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
 
 - **OpenAI model routing (Quick vs. Precise)**
-  - **Quick / Schnell mode:** consistently routes to the lightweight tier (`gpt-4o-mini`) with minimal reasoning for fast, cheap iterations across tasks.
-  - **Precise / Genau mode:** promotes reasoning‑tier models (`o3-mini`/`o3` by default with `o4-mini` and `gpt-4o` as fallbacks) with configurable `REASONING_EFFORT` for complex extraction, repair, and normalization flows.
+- **Quick / Schnell mode:** consistently routes to the lightweight tier (`gpt-4.1-mini`) with minimal reasoning for fast, cost-efficient iterations across tasks and escalates to `gpt-5-mini` → `gpt-5-nano` only when the primary is unavailable.
+- **Precise / Genau mode:** starts on `gpt-4.1-mini` as well, with `gpt-5-mini` and `gpt-5-nano` as the ordered fallbacks when higher reasoning is required or the default tier is unavailable. The `REASONING_EFFORT` flag controls when to escalate.
   Cache keys are mode‑aware so switching modes correctly refreshes AI outputs.
 
 - **Chat Completions with strict JSON schema enforcement**
@@ -158,6 +158,8 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 - **Deutsch:** Das Basismodell ist in `config/models.py` fest auf `gpt-4.1-mini` eingestellt; Umgebungsvariablen wie `OPENAI_MODEL` oder `DEFAULT_MODEL` werden ignoriert (mit Warnhinweis). `python -m cli.reset_api_flags` entfernt weiterhin alte Schalter wie `USE_CLASSIC_API`, `USE_RESPONSES_API` und Modell-Tier-Keys (`LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Mit `-k EXTRA_KEY` können zusätzliche Schlüssel gelöscht werden.
 - **English:** Model constants, aliases, routing, and fallbacks live in `config/models.py` as the single source of truth—update model names or defaults only there.
 - **Deutsch:** Modellkonstanten, Aliase, Routing und Fallback-Ketten liegen zentral in `config/models.py`; passe Modellnamen oder Defaults nur dort an.
+- **English:** Fallback order is locked to `gpt-4.1-mini` → `gpt-5-mini` → `gpt-5-nano`; higher-cost GPT-4/GPT-3.5 tiers are no longer part of the automatic chain.
+- **Deutsch:** Die Fallback-Reihenfolge ist fix: `gpt-4.1-mini` → `gpt-5-mini` → `gpt-5-nano`; teurere GPT-4-/GPT-3.5-Modelle werden nicht mehr automatisch genutzt.
 
 ### Quickstart for devs (English / Deutsch)
 
