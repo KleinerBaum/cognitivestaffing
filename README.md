@@ -20,7 +20,7 @@ Live app: https://cognitivestaffing.streamlit.app/
     Auto-repair notices now sit in a collapsed bottom drawer so the main form stays uncluttered while the warning remains visible across the step.
 
 - **AI extraction & NeedAnalysisProfile normalization**
-  Ingest heuristics plus OpenAI’s Chat Completions API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data.
+  Ingest heuristics plus OpenAI’s Chat Completions API map job ads into the `NeedAnalysisProfile` schema (backed by `schema/need_analysis.schema.json` and Pydantic models). Extraction separates responsibilities vs. requirements, maps benefits, hiring process, and company info, and applies schema‑safe defaults so downstream views never crash on missing data. Canonical schema keys (for example, `company.name`, `position.job_title`, and `requirements.skill_mappings.*`) are enforced so legacy payloads are normalized instead of triggering JSON repairs.
 - **Missing-section repair prompts**
   When structured extraction leaves gaps, a dedicated bilingual prompt retries only the missing fields so follow-up questions and exports stay aligned to the schema instead of falling back to plain error text.
 
