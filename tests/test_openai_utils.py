@@ -9,7 +9,8 @@ import pytest
 import httpx
 import openai_utils
 import config
-from config import ModelTask
+import config.models as model_config
+from config.models import ModelTask
 from openai_utils import (
     ChatCallResult,
     build_function_tools,
@@ -405,7 +406,7 @@ def test_prepare_payload_classic_mode(monkeypatch):
 
     request = openai_utils.api._prepare_payload(
         [{"role": "user", "content": "hello"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         temperature=0.4,
         max_completion_tokens=256,
         json_schema={"name": "Test", "schema": {"type": "object"}},
@@ -418,7 +419,7 @@ def test_prepare_payload_classic_mode(monkeypatch):
     )
 
     payload = request.payload
-    assert request.model == "gpt-4o-mini"
+    assert request.model == model_config.GPT4O_MINI
     assert payload["messages"][0]["content"] == "hello"
     assert "functions" in payload and payload["functions"][0]["name"] == "do"
     assert payload.get("function_call", {}).get("name") == "do"
@@ -436,10 +437,10 @@ def test_chat_payload_builder_handles_tools_and_schema():
     schema_bundle = build_schema_format_bundle({"name": "TestPayload", "schema": {"type": "object"}})
     context = PayloadContext(
         messages=[{"role": "user", "content": "hello"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         temperature=0.3,
         max_completion_tokens=64,
-        candidate_models=["gpt-4o-mini"],
+        candidate_models=[model_config.GPT4O_MINI],
         tool_specs=[{"type": "function", "function": {"name": "do", "parameters": {"type": "object"}}}],
         tool_functions={},
         tool_choice={"type": "function", "function": {"name": "do"}},
@@ -992,7 +993,7 @@ def test_convert_responses_payload_to_chat_keeps_schema_name() -> None:
     )
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": model_config.GPT4O_MINI,
         "input": [{"role": "user", "content": "hi"}],
         "text": {"format": deepcopy(schema_bundle.responses_format)},
     }
@@ -1010,7 +1011,7 @@ def test_convert_responses_payload_to_chat_strips_responses_fields() -> None:
     """Responses-only keys should be removed from Chat fallback payloads."""
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": model_config.GPT4O_MINI,
         "input": [{"role": "user", "content": "hello"}],
         "max_output_tokens": 55,
         "reasoning": {"effort": "medium"},
@@ -1030,7 +1031,7 @@ def test_convert_responses_payload_to_chat_copies_messages() -> None:
     """Messages should be transferred and normalised for chat payloads."""
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": model_config.GPT4O_MINI,
         "input": [{"role": "user", "content": "hi"}],
     }
 
@@ -1866,7 +1867,7 @@ def test_model_supports_temperature_detection() -> None:
 
     assert not model_supports_temperature("o1-mini")
     assert not model_supports_temperature("o4-mini")
-    assert model_supports_temperature(config.GPT41_MINI)
+    assert model_supports_temperature(model_config.GPT41_MINI)
 
 
 def test_model_supports_reasoning_detection() -> None:
@@ -1874,7 +1875,7 @@ def test_model_supports_reasoning_detection() -> None:
 
     assert model_supports_reasoning("o1-mini")
     assert model_supports_reasoning("o4-mini")
-    assert not model_supports_reasoning(config.GPT41_MINI)
+    assert not model_supports_reasoning(model_config.GPT41_MINI)
 
 
 def test_extract_with_function(monkeypatch):

@@ -8,7 +8,12 @@ import re
 import unicodedata
 from typing import Iterable, Mapping, Sequence
 
-from config import GPT41_NANO, LIGHTWEIGHT_MODEL, REASONING_MODEL, is_model_available
+from config.models import (
+    GPT41_NANO,
+    LIGHTWEIGHT_MODEL,
+    REASONING_MODEL,
+    is_model_available,
+)
 
 _WORD_PATTERN = re.compile(r"[\w\-]+", flags=re.UNICODE)
 

@@ -4,6 +4,7 @@ from typing import Any, Callable
 
 import streamlit as st
 
+import config.models as model_config
 from components import model_selector as model_selector_component
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
@@ -54,8 +55,16 @@ def render_extraction_settings_panel(
         apply_parsing_mode(selected_mode)
         st_module.caption(
             tr(
-                "Schnell nutzt gpt-5.1 mini mit minimalem Denkaufwand; Gründlich erhöht den REASONING_EFFORT und wählt ein präziseres Modell (gpt-5.1 mit o4-mini/o3-Fallback).",
-                "Fast leans on gpt-5.1 mini with minimal reasoning; Thorough raises the REASONING_EFFORT and opts for a more precise model (gpt-5.1 with o4-mini/o3 fallback).",
+                (
+                    f"Schnell nutzt {model_config.LIGHTWEIGHT_MODEL} mit minimalem Denkaufwand; "
+                    f"Gründlich erhöht den REASONING_EFFORT und wählt ein präziseres Modell "
+                    f"({model_config.REASONING_MODEL} mit {model_config.O4_MINI}/{model_config.O3} Fallback)."
+                ),
+                (
+                    f"Fast leans on {model_config.LIGHTWEIGHT_MODEL} with minimal reasoning; "
+                    f"Thorough raises REASONING_EFFORT and opts for a more precise model "
+                    f"({model_config.REASONING_MODEL} with {model_config.O4_MINI}/{model_config.O3} fallback)."
+                ),
             )
         )
 

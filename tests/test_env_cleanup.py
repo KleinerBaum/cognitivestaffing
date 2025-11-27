@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import config.models as model_config
 from utils.env_cleanup import DEFAULT_FLAG_KEYS, scrub_env_file
 
 
@@ -16,9 +17,9 @@ def tmp_env_file(tmp_path: Path) -> Path:
                 "# comment should stay",
                 "USE_CLASSIC_API=1",
                 "export USE_RESPONSES_API=0",
-                "OPENAI_MODEL=gpt-4o-mini",
+                f"OPENAI_MODEL={model_config.GPT4O_MINI}",
                 "SAFE_KEY=keep-me",
-                "LIGHTWEIGHT_MODEL=gpt-4o-mini",
+                f"LIGHTWEIGHT_MODEL={model_config.GPT4O_MINI}",
                 "",
             ]
         )

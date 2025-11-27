@@ -10,7 +10,7 @@ from typing import Any, Mapping, Sequence
 
 from openai import OpenAIError
 
-from config import ModelTask
+from config.models import ModelTask
 from openai_utils.api import (
     SchemaFormatBundle,
     _inject_verbosity_hint,

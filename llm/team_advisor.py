@@ -7,7 +7,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from config import ModelTask, REASONING_EFFORT, get_model_for
+from config import REASONING_EFFORT
+from config.models import ModelTask, get_model_for
 from llm.openai_responses import build_json_schema_format, call_responses_safe
 from llm.response_schemas import TEAM_ADVICE_SCHEMA_NAME, get_response_schema
 from prompts import prompt_registry

@@ -10,6 +10,7 @@ import streamlit as st
 from openai import APITimeoutError
 
 import config
+import config.models as model_config
 from openai_utils import api as openai_api
 from constants.keys import StateKeys
 
@@ -37,7 +38,7 @@ def test_timeout_marks_model_unavailable_and_falls_back(
     """A timeout should mark the model unavailable and move to the next candidate."""
 
     caplog.set_level("WARNING", logger="cognitive_needs.openai")
-    candidates = config.get_model_candidates(config.ModelTask.EXTRACTION)
+    candidates = model_config.get_model_candidates(model_config.ModelTask.EXTRACTION)
     assert len(candidates) >= 2, "Expected at least one fallback candidate"
     attempts: list[str | None] = []
 
@@ -58,14 +59,14 @@ def test_timeout_marks_model_unavailable_and_falls_back(
 
     result = openai_api.call_chat_api(
         messages=[{"role": "user", "content": "hi"}],
-        task=config.ModelTask.EXTRACTION,
+        task=model_config.ModelTask.EXTRACTION,
     )
 
     assert result.content == "OK"
     assert len(attempts) == 2
     assert attempts[0] != attempts[1]
     assert not config.is_model_available(attempts[0] or "")
-    assert config.get_model_for(config.ModelTask.EXTRACTION) == attempts[1]
+    assert model_config.get_model_for(model_config.ModelTask.EXTRACTION) == attempts[1]
     timeout_logs = [record for record in caplog.records if "timeout" in record.message.lower()]
     assert len(timeout_logs) == 1
 

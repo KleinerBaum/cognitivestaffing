@@ -22,6 +22,7 @@ if "agents" not in sys.modules:
     agents_stub.function_tool = _function_tool  # type: ignore[attr-defined]
     sys.modules["agents"] = agents_stub
 
+import config.models as model_config
 from wizard_tools import execution
 
 
@@ -38,33 +39,33 @@ def test_run_stage_tracks_attempts_and_config() -> None:
     first = json.loads(execution.run_stage("stage.alpha", {"foo": "bar"}))
     assert first["outputs"]["attempt"] == 1
     assert first["inputs"] == {"foo": "bar"}
-    assert first["config"]["model"] == "gpt-4o-mini"
+    assert first["config"]["model"] == model_config.GPT4O_MINI
 
     second = json.loads(execution.run_stage("stage.alpha"))
     assert second["outputs"]["attempt"] == 2
 
 
 def test_retry_stage_uses_strategy_and_config() -> None:
-    execution.set_model("retry-stage", "gpt-4o")
+    execution.set_model("retry-stage", model_config.GPT4O)
     payload = json.loads(execution.retry_stage("retry-stage", "regenerate"))
 
     assert payload["strategy"] == "regenerate"
     assert payload["attempt"] == 1
-    assert payload["config"]["model"] == "gpt-4o"
+    assert payload["config"]["model"] == model_config.GPT4O
 
 
 def test_stage_specific_model_override() -> None:
-    execution.set_model(None, "gpt-4o")
+    execution.set_model(None, model_config.GPT4O)
 
     global_run = json.loads(execution.run_stage("stage-global"))
-    assert global_run["config"]["model"] == "gpt-4o"
+    assert global_run["config"]["model"] == model_config.GPT4O
 
-    execution.set_model("stage-global", "o4-mini")
+    execution.set_model("stage-global", model_config.O4_MINI)
     stage_run = json.loads(execution.run_stage("stage-global"))
-    assert stage_run["config"]["model"] == "o4-mini"
+    assert stage_run["config"]["model"] == model_config.O4_MINI
 
     other_run = json.loads(execution.run_stage("other-stage"))
-    assert other_run["config"]["model"] == "gpt-4o"
+    assert other_run["config"]["model"] == model_config.GPT4O
 
 
 def test_set_temperature_validation() -> None:

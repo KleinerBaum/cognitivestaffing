@@ -9,7 +9,7 @@ from typing import Any, Final
 import streamlit as st
 
 import config as app_config
-from config import ModelTask, get_model_for
+from config.models import ModelTask, get_model_for
 from openai_utils.api import call_chat_api
 from openai_utils.tools import build_function_tools
 from state.ai_failures import (

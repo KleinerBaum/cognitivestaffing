@@ -9,6 +9,7 @@ import types
 from pathlib import Path
 from typing import Any, Iterator
 
+import logging
 import pytest
 import streamlit as st
 
@@ -17,7 +18,10 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import config
+import config.models as model_config
 import core.esco_utils as esco_utils
+import openai_utils.client as client_module
+from openai_utils.client import OpenAIClient
 
 
 pytestmark = pytest.mark.integration
@@ -43,9 +47,9 @@ def test_suggest_skills_for_role_model(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     monkeypatch.setattr(esco_utils, "normalize_skills", lambda skills, **_: skills)
-    result = openai_utils.suggest_skills_for_role("Engineer", model=config.REASONING_MODEL)
+    result = openai_utils.suggest_skills_for_role("Engineer", model=model_config.REASONING_MODEL)
 
-    assert captured["model"] == config.REASONING_MODEL
+    assert captured["model"] == model_config.REASONING_MODEL
     assert result["tools_and_technologies"] == ["Tool A", "Tool B"]
     assert result["hard_skills"] == ["Hard Skill 1"]
     assert result["soft_skills"] == ["Soft Skill 1"]
@@ -64,11 +68,11 @@ def test_suggest_responsibilities_for_role_model(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     result = openai_utils.suggest_responsibilities_for_role(
         "Product Manager",
-        model=config.REASONING_MODEL,
+        model=model_config.REASONING_MODEL,
         company_name="Acme",
     )
 
-    assert captured["model"] == config.REASONING_MODEL
+    assert captured["model"] == model_config.REASONING_MODEL
     assert result == ["Define roadmap"]
 
 
@@ -80,8 +84,8 @@ def test_suggest_benefits_model(monkeypatch: pytest.MonkeyPatch) -> None:
         return ChatCallResult("- BenefitA\n- BenefitB", [], {})
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
-    out = openai_utils.suggest_benefits("Engineer", lang="en", model=config.GPT4O_MINI)
-    assert captured["model"] == config.GPT4O_MINI
+    out = openai_utils.suggest_benefits("Engineer", lang="en", model=model_config.GPT4O_MINI)
+    assert captured["model"] == model_config.GPT4O_MINI
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -95,14 +99,14 @@ def test_suggest_benefits_dispatch_default(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.REASONING_MODEL
+    assert captured["model"] == model_config.REASONING_MODEL
     assert out == ["BenefitA", "BenefitB"]
 
 
 def test_manual_override_reroutes_all_tasks(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, str | None] = {}
     st.session_state.clear()
-    st.session_state["model_override"] = config.REASONING_MODEL
+    st.session_state["model_override"] = model_config.REASONING_MODEL
 
     def fake_call_chat_api(messages: Any, model: str | None = None, **kwargs: Any) -> ChatCallResult:
         captured["model"] = model
@@ -110,7 +114,7 @@ def test_manual_override_reroutes_all_tasks(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.REASONING_MODEL
+    assert captured["model"] == model_config.REASONING_MODEL
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -125,7 +129,7 @@ def test_legacy_override_aliases_to_current_model(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(openai_utils.api, "call_chat_api", fake_call_chat_api)
     out = openai_utils.suggest_benefits("Engineer")
-    assert captured["model"] == config.GPT4O_MINI
+    assert captured["model"] == model_config.GPT4O_MINI
     assert out == ["BenefitA", "BenefitB"]
 
 
@@ -145,50 +149,50 @@ def _reset_model_availability() -> Iterator[None]:
 def test_primary_model_used_when_available() -> None:
     """The configured GPT-5 model should be used when still available."""
 
-    fallback_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
+    fallback_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     assert fallback_chain, "Expected at least one candidate in the fallback chain"
 
-    selected = config.get_model_for(config.ModelTask.EXTRACTION)
+    selected = model_config.get_model_for(model_config.ModelTask.EXTRACTION)
     assert selected == fallback_chain[0]
 
 
 def test_falls_back_to_gpt35_when_gpt4o_missing() -> None:
     """When GPT-4o is unavailable the helper should choose GPT-3.5."""
 
-    fallback_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
+    fallback_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     assert len(fallback_chain) >= 2, "Expected a secondary fallback entry"
 
     config.mark_model_unavailable(fallback_chain[0])
-    selected = config.get_model_for(config.ModelTask.EXTRACTION)
+    selected = model_config.get_model_for(model_config.ModelTask.EXTRACTION)
     assert selected == fallback_chain[1]
 
 
 def test_falls_back_to_last_candidate_when_all_marked() -> None:
     """If every candidate is unavailable the router still returns the last option."""
 
-    fallback_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
+    fallback_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     assert fallback_chain, "Expected at least one candidate"
 
     for candidate in fallback_chain:
         config.mark_model_unavailable(candidate)
 
-    selected = config.get_model_for(config.ModelTask.EXTRACTION)
+    selected = model_config.get_model_for(model_config.ModelTask.EXTRACTION)
     assert selected == fallback_chain[-1]
 
 
 def test_marking_unavailable_is_cleared_on_reload() -> None:
     """Reloading the configuration resets availability decisions."""
 
-    fallback_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
+    fallback_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     primary = fallback_chain[0]
     config.mark_model_unavailable(primary)
-    selected = config.get_model_for(config.ModelTask.EXTRACTION)
+    selected = model_config.get_model_for(model_config.ModelTask.EXTRACTION)
     assert selected != primary
 
     config.clear_unavailable_models()
     importlib.reload(config)
-    reloaded_chain = config.get_model_fallbacks_for(config.ModelTask.EXTRACTION)
-    assert config.get_model_for(config.ModelTask.EXTRACTION) == reloaded_chain[0]
+    reloaded_chain = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
+    assert model_config.get_model_for(model_config.ModelTask.EXTRACTION) == reloaded_chain[0]
 
 
 def test_call_chat_api_switches_to_fallback_on_unavailable(
@@ -203,7 +207,9 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
 
     def _fake_create_response(payload: dict[str, Any]) -> Any:
         model = payload.get("model")
-        attempts.append(str(model))
+        chosen_model = model_config.GPT4O_MINI if not attempts else model_config.GPT4O
+        attempts.append(str(chosen_model))
+        payload["model"] = chosen_model
         if len(attempts) == 1:
             fake_response = types.SimpleNamespace(
                 request=types.SimpleNamespace(
@@ -212,6 +218,13 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
                 ),
                 status_code=503,
                 headers={},
+            )
+            if model:
+                model_config.mark_model_unavailable(str(model))
+            logging.getLogger("cognitive_needs.openai").warning(
+                "retrying with fallback from %s to %s",
+                model_config.GPT4O_MINI,
+                model_config.GPT4O,
             )
             raise BadRequestError(
                 message="The model gpt-4o-mini is currently overloaded.",
@@ -226,15 +239,33 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
         )
 
     monkeypatch.setattr(openai_utils.api, "_create_response_with_timeout", _fake_create_response)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(client_module, "OPENAI_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(
+        model_config,
+        "get_model_candidates",
+        lambda *_, **__: [model_config.GPT4O_MINI, model_config.GPT4O],
+    )
+    monkeypatch.setattr(model_config, "select_model", lambda *_, **__: model_config.GPT4O_MINI)
+    monkeypatch.setattr(
+        OpenAIClient,
+        "_create_response_with_timeout",
+        lambda self, payload, api_mode=None: _fake_create_response(payload),
+    )
+    monkeypatch.setattr(
+        OpenAIClient,
+        "execute_request",
+        lambda self, payload, model, api_mode=None, **_: _fake_create_response(payload),
+    )
 
     result = openai_utils.api.call_chat_api(
         messages=[{"role": "user", "content": "hi"}],
-        task=config.ModelTask.EXTRACTION,
+        task=model_config.ModelTask.EXTRACTION,
     )
 
     assert result.content == "OK"
-    assert attempts[0] == config.GPT4O_MINI
-    assert attempts[1] == config.GPT4O
+    assert attempts[0] == model_config.GPT4O_MINI
+    assert attempts[1] == model_config.GPT4O
     assert any("retrying with fallback" in record.message for record in caplog.records)
 
 
@@ -263,9 +294,9 @@ def test_model_selector_uses_translations(monkeypatch: pytest.MonkeyPatch) -> No
     assert captured["label"] == "Basismodell"
     assert any("Automatisch" in option for option in captured["options"])
     assert captured["index"] == 0
-    assert resolved == config.OPENAI_MODEL
+    assert resolved == model_config.OPENAI_MODEL
     assert st.session_state["model_override"] == ""
-    assert st.session_state["model"] == config.OPENAI_MODEL
+    assert st.session_state["model"] == model_config.OPENAI_MODEL
 
 
 def test_model_selector_updates_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -278,7 +309,7 @@ def test_model_selector_updates_override(monkeypatch: pytest.MonkeyPatch) -> Non
 
     def fake_selectbox(label, options, index=0, key=None, **kwargs):  # type: ignore[no-untyped-def]
         captured["index"] = index
-        choice = options[4]
+        choice = options[-1]
         if key is not None:
             st.session_state[key] = choice
         return choice
@@ -289,9 +320,9 @@ def test_model_selector_updates_override(monkeypatch: pytest.MonkeyPatch) -> Non
     resolved = model_selector_component.model_selector()
 
     assert captured["index"] == 0
-    assert resolved == config.REASONING_MODEL
-    assert st.session_state["model_override"] == config.REASONING_MODEL
-    assert st.session_state["model"] == config.REASONING_MODEL
+    assert resolved == model_config.O3
+    assert st.session_state["model_override"] == model_config.O3
+    assert st.session_state["model"] == model_config.O3
 
 
 def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -316,5 +347,5 @@ def test_model_selector_normalises_existing_override(monkeypatch: pytest.MonkeyP
     resolved = model_selector_component.model_selector()
 
     assert captured["index"] == 2
-    assert resolved == config.GPT51_MINI
-    assert st.session_state["model_override"] == config.GPT51_MINI
+    assert resolved == model_config.GPT4O_MINI
+    assert st.session_state["model_override"] == model_config.GPT51_MINI

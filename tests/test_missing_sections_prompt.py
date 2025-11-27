@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+import config.models as model_config
 import llm.client as client
 from llm.openai_responses import ResponsesCallResult
 
@@ -47,7 +48,7 @@ def test_missing_sections_prompt_invocation(monkeypatch: pytest.MonkeyPatch, cap
     result = client._retry_missing_sections(
         "We need an engineer to design APIs.",
         ["responsibilities.items"],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         retries=1,
     )
 

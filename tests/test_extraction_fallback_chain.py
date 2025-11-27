@@ -1,6 +1,7 @@
 import json
 
 import pytest
+import config.models as model_config
 from llm import client
 from models.need_analysis import NeedAnalysisProfile
 
@@ -40,7 +41,7 @@ def test_responses_schema_error_switches_to_chat_once(monkeypatch: pytest.Monkey
     outcome = client._structured_extraction(
         {
             "messages": [{"role": "user", "content": "text"}],
-            "model": "gpt-4o-mini",
+            "model": model_config.GPT4O_MINI,
             "reasoning_effort": None,
             "verbosity": None,
             "retries": 0,

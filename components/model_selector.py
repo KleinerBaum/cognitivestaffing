@@ -4,17 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from config import (
-    GPT4O,
-    GPT4O_MINI,
-    GPT41_MINI,
-    GPT51,
-    GPT51_MINI,
-    O3,
-    O4_MINI,
-    OPENAI_MODEL,
-    normalise_model_override,
-)
+from config import models as model_config
 from constants.keys import UIKeys
 from utils.i18n import tr
 
@@ -24,38 +14,41 @@ def model_selector(key: str = "model") -> str:
 
     option_entries: list[tuple[str | None, str]] = [
         (None, tr("Automatisch: Ausgewogen (empfohlen)", "Auto: Balanced (recommended)")),
-        (
-            GPT51,
-            tr("GPT-5.1 (präzise, aktuelle Generation)", "GPT-5.1 (precise, current generation)"),
-        ),
-        (
-            GPT51_MINI,
-            tr("GPT-5.1 mini (günstig, schnelle Antworten)", "GPT-5.1 mini (cost-efficient, fast)"),
-        ),
-        (
-            GPT4O,
-            tr("GPT-4o (ausgewogen)", "GPT-4o (balanced)"),
-        ),
-        (
-            GPT4O_MINI,
-            tr("GPT-4o mini (günstig)", "GPT-4o mini (cost saver)"),
-        ),
-        (
-            GPT41_MINI,
-            tr("GPT-4.1 mini (Legacy, Fallback)", "GPT-4.1 mini (legacy fallback)"),
-        ),
-        (
-            O4_MINI,
-            tr("o4 mini (Reasoning, Responses API)", "o4 mini (reasoning, Responses API)"),
-        ),
-        (
-            O3,
-            tr("o3 (erweitertes Reasoning)", "o3 (advanced reasoning)"),
-        ),
     ]
+    label_map = {
+        model_config.GPT51: tr(
+            "GPT-5.1 (präzise, aktuelle Generation)",
+            "GPT-5.1 (precise, current generation)",
+        ),
+        model_config.GPT51_MINI: tr(
+            "GPT-5.1 mini (günstig, schnelle Antworten)",
+            "GPT-5.1 mini (cost-efficient, fast)",
+        ),
+        model_config.GPT4O: tr("GPT-4o (ausgewogen)", "GPT-4o (balanced)"),
+        model_config.GPT4O_MINI: tr("GPT-4o mini (günstig)", "GPT-4o mini (cost saver)"),
+        model_config.GPT41_MINI: tr(
+            "GPT-4.1 mini (Legacy, Fallback)",
+            "GPT-4.1 mini (legacy fallback)",
+        ),
+        model_config.O4_MINI: tr(
+            "o4 mini (Reasoning, Responses API)",
+            "o4 mini (reasoning, Responses API)",
+        ),
+        model_config.O3_MINI: tr(
+            "o3 mini (präzise, kosteneffizient)",
+            "o3 mini (precise, cost-balanced)",
+        ),
+        model_config.O3: tr("o3 (erweitertes Reasoning)", "o3 (advanced reasoning)"),
+    }
+    for model_name in model_config.get_model_candidates_for_ui():
+        if model_name is None:
+            continue
+        label = label_map.get(model_name)
+        if label:
+            option_entries.append((model_name, label))
 
     raw_override = st.session_state.get("model_override", "")
-    current_override = normalise_model_override(raw_override)
+    current_override = model_config.normalise_model_override(raw_override)
     default_index = 0
     if current_override:
         current_lower = current_override.lower()
@@ -74,11 +67,11 @@ def model_selector(key: str = "model") -> str:
     )
 
     selected_value = next(value for value, label in option_entries if label == selection)
-    normalised_value = normalise_model_override(selected_value) if selected_value else None
+    normalised_value = model_config.normalise_model_override(selected_value) if selected_value else None
 
     if normalised_value is None:
         st.session_state["model_override"] = ""
-        resolved = OPENAI_MODEL
+        resolved = model_config.OPENAI_MODEL
         st.caption(
             tr(
                 "Auto-Routing nutzt GPT-5.1 für anspruchsvollere Reasoning-Aufgaben und GPT-5.1 mini für kostengünstige Antworten.",

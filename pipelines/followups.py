@@ -7,7 +7,8 @@ import logging
 from collections.abc import Mapping
 from typing import Any
 
-from config import ModelTask, get_active_verbosity, get_model_for
+from config import get_active_verbosity
+from config.models import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from openai_utils.tools import build_file_search_tool
 from prompts import prompt_registry

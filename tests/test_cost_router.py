@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import config
+import config.models as model_config
 from llm.cost_router import (
     PromptComplexity,
     estimate_prompt_complexity,
@@ -23,8 +24,8 @@ def _make_messages(text: str) -> list[dict[str, str]]:
 
 def test_short_prompt_routes_to_lightweight() -> None:
     messages = _make_messages("Summarise the meeting in two sentences.")
-    model, estimate = route_model_for_messages(messages, default_model=config.REASONING_MODEL)
-    assert model == config.LIGHTWEIGHT_MODEL
+    model, estimate = route_model_for_messages(messages, default_model=model_config.REASONING_MODEL)
+    assert model == model_config.LIGHTWEIGHT_MODEL
     assert estimate.complexity is PromptComplexity.SIMPLE
 
 
@@ -39,15 +40,15 @@ def test_long_prompt_routes_to_reasoning() -> None:
         * 8
     )
     messages = _make_messages(paragraph)
-    model, estimate = route_model_for_messages(messages, default_model=config.LIGHTWEIGHT_MODEL)
-    assert model == config.REASONING_MODEL
+    model, estimate = route_model_for_messages(messages, default_model=model_config.LIGHTWEIGHT_MODEL)
+    assert model == model_config.REASONING_MODEL
     assert estimate.complexity is PromptComplexity.COMPLEX
 
 
 def test_short_prompt_can_downgrade_to_nano() -> None:
     messages = _make_messages("Summarise the meeting in two sentences.")
-    model, estimate = route_model_for_messages(messages, default_model=config.LIGHTWEIGHT_MODEL)
-    assert model in {config.LIGHTWEIGHT_MODEL, config.GPT41_NANO}
+    model, estimate = route_model_for_messages(messages, default_model=model_config.LIGHTWEIGHT_MODEL)
+    assert model in {model_config.LIGHTWEIGHT_MODEL, model_config.GPT41_NANO}
     assert estimate.complexity is PromptComplexity.SIMPLE
 
 

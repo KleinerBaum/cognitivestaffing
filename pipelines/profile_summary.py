@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
-from config import ModelTask, get_active_verbosity, get_model_for
+from config import get_active_verbosity
+from config.models import ModelTask, get_model_for
 from openai_utils import call_chat_api
 from prompts import prompt_registry
 from schemas import PROFILE_SUMMARY_SCHEMA

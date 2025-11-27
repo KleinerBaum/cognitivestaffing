@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Iterable
 
-from config import ModelTask
+from config.models import ModelTask
 from utils.i18n import tr
 
 __all__ = ["usage_totals", "build_usage_rows", "build_usage_markdown"]

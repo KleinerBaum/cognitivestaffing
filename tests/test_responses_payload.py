@@ -7,6 +7,7 @@ from typing import Any, Mapping
 import pytest
 from openai import OpenAIError
 
+import config.models as model_config
 from llm import openai_responses
 
 
@@ -39,7 +40,7 @@ def test_call_responses_builds_chat_payload(monkeypatch: pytest.MonkeyPatch) -> 
 
     result = openai_responses.call_responses(
         messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         response_format=fmt,
         temperature=0.0,
         max_completion_tokens=128,
@@ -49,7 +50,7 @@ def test_call_responses_builds_chat_payload(monkeypatch: pytest.MonkeyPatch) -> 
     )
 
     assert result.content == '{"ok": true}'
-    assert captured["model"] == "gpt-4o-mini"
+    assert captured["model"] == model_config.GPT4O_MINI
     assert captured["max_completion_tokens"] == 128
     assert captured["temperature"] == 0.0
     assert captured["reasoning_effort"] == "low"
@@ -84,7 +85,7 @@ def test_call_responses_safe_blocks_invalid_schema(monkeypatch: pytest.MonkeyPat
 
     result = openai_responses.call_responses_safe(
         messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         response_format=fmt,
     )
 
@@ -112,7 +113,7 @@ def test_call_responses_safe_returns_none_on_invalid_json(monkeypatch: pytest.Mo
 
     result = openai_responses.call_responses_safe(
         messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         response_format=fmt,
     )
 
@@ -134,7 +135,7 @@ def test_call_responses_safe_propagates_api_errors(monkeypatch: pytest.MonkeyPat
 
     result = openai_responses.call_responses_safe(
         messages=[{"role": "user", "content": "hi"}],
-        model="gpt-4o-mini",
+        model=model_config.GPT4O_MINI,
         response_format=fmt,
     )
 
