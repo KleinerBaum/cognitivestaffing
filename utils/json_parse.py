@@ -22,6 +22,28 @@ _CODE_FENCE_RE = re.compile(
 _TRAILING_COMMAS_RE = re.compile(r",\s*([}\]])")
 
 
+def _decode_largest_object(raw: str) -> Mapping[str, Any] | None:
+    """Return the largest JSON object decoded from any brace offset in ``raw``."""
+
+    decoder = json.JSONDecoder()
+    best: tuple[int, Mapping[str, Any]] | None = None
+
+    for match in re.finditer(r"{", raw):
+        try:
+            obj, end = decoder.raw_decode(raw, match.start())
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, Mapping):
+            continue
+        length = end - match.start()
+        if best is None or length > best[0]:
+            best = (length, dict(obj))
+
+    if best is None:
+        return None
+    return best[1]
+
+
 def _strip_code_fences(s: str) -> str:
     """
     Remove Markdown code-fence lines and BOMs that can confuse JSON parsers.
@@ -132,15 +154,46 @@ def _safe_json_loads(raw: str) -> Mapping[str, Any]:
     """Parse ``raw`` into a mapping using lightweight repair strategies."""
 
     last_err: Exception | None = None
-    for candidate in _iter_candidates(raw):
+    candidates = list(_iter_candidates(raw))
+
+    for candidate in candidates:
         try:
             parsed = json.loads(candidate)
         except Exception as exc:  # JSONDecodeError or similar
+            if isinstance(exc, json.JSONDecodeError) and "Unterminated string" in exc.msg:
+                tail_stripped = candidate.rstrip()
+                if tail_stripped.endswith("}"):
+                    closed_string = _balance_braces(f'{tail_stripped[:-1]}"}}')
+                    try:
+                        parsed = json.loads(closed_string)
+                    except Exception:  # pragma: no cover - defensive
+                        parsed = None
+                    if isinstance(parsed, Mapping):
+                        return dict(parsed)
+                repaired_candidate = _balance_braces(f'{candidate}"')
+                try:
+                    parsed = json.loads(repaired_candidate)
+                except Exception:  # pragma: no cover - defensive
+                    truncated = _balance_braces(f'{candidate[: exc.pos]}"')
+                    try:
+                        parsed = json.loads(truncated)
+                    except Exception:  # pragma: no cover - defensive
+                        last_err = exc
+                        continue
+                if isinstance(parsed, Mapping):
+                    return dict(parsed)
             last_err = exc
             continue
         if isinstance(parsed, Mapping):
             return dict(parsed)
         last_err = ValueError("Parsed JSON is not an object")
+    for candidate in candidates:
+        decoded = _decode_largest_object(candidate)
+        if decoded is not None:
+            return decoded
+    decoded = _decode_largest_object(raw)
+    if decoded is not None:
+        return decoded
     if last_err:
         raise last_err
     raise ValueError("Empty response; no JSON to parse.")

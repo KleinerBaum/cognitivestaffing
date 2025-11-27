@@ -436,6 +436,39 @@ def test_plain_text_fallback_recovers_with_repair(monkeypatch, caplog):
     assert any("Plain-text fallback" in record.getMessage() for record in caplog.records)
 
 
+def test_plain_text_fallback_recovers_malformed_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Plain-text fallback should salvage usable JSON instead of returning an empty profile."""
+
+    st.session_state.clear()
+
+    def _fail_structured(*_args: Any, **_kwargs: Any) -> str:
+        raise ValueError("structured path failed")
+
+    def _fake_chat(*_args: Any, **_kwargs: Any) -> ChatCallResult:
+        return ChatCallResult(
+            content=(
+                '{"position": {"job_title": "Engineer"}, "responsibilities": {"items": ["Lead roadmap"]}}'
+                ' trailing text "unterminated'
+            ),
+            tool_calls=[],
+            usage={},
+        )
+
+    monkeypatch.setattr(client, "_run_pre_extraction_analysis", lambda *a, **k: None)
+    monkeypatch.setattr(client, "build_extract_messages", lambda *a, **k: [{"role": "user", "content": "Job text"}])
+    monkeypatch.setattr(client, "_structured_extraction", _fail_structured)
+    monkeypatch.setattr(client, "call_chat_api", _fake_chat)
+    monkeypatch.setattr(client, "select_model", lambda *_: "gpt-test")
+    monkeypatch.setattr(client, "get_active_verbosity", lambda: None)
+
+    result = client.extract_json("Job text")
+
+    payload = json.loads(result)
+    assert payload["position"]["job_title"] == "Engineer"
+    assert payload["responsibilities"]["items"] == ["Lead roadmap"]
+    assert payload["meta"]["extraction_fallback_active"] is True
+
+
 def test_extract_json_reapplies_locked_fields(monkeypatch):
     """Locked field hints should be merged back into the final payload."""
 
