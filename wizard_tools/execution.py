@@ -30,7 +30,7 @@ RetryStrategy = Literal["same_inputs", "regenerate", "raise_effort"]
 class StageRuntimeConfig:
     """Configuration that influences how a stage is executed."""
 
-    model: ModelName = model_config.GPT4O_MINI
+    model: ModelName = model_config.OPENAI_MODEL
     reasoning_effort: ReasoningEffort = "minimal"
     tool_choice_mode: ToolChoiceMode = "auto"
     tool_choice_function_name: Optional[str] = None
@@ -157,8 +157,8 @@ class _ExecutionState:
         }
 
     def set_model(self, stage_id: Optional[str], model: ModelName) -> StageRuntimeConfig:
-        config = self._mutable_config(stage_id)
-        config.model = model
+        """No-op placeholder to keep compatibility with deprecated overrides."""
+
         return self._resolved_config(stage_id)
 
     def set_reasoning_effort(self, stage_id: Optional[str], level: ReasoningEffort) -> StageRuntimeConfig:
@@ -240,6 +240,7 @@ def set_model(stage_id: Optional[str], model: ModelName) -> str:
         "stage_id": stage_id,
         "model": config.model,
         "scope": "global" if stage_id is None else "stage",
+        "locked": True,
     }
     return _response(payload)
 

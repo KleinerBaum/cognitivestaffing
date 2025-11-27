@@ -22,7 +22,6 @@ from config import (
     REASONING_EFFORT,
     VERBOSITY,
     normalise_model_name,
-    normalise_model_override,
     normalise_verbosity,
 )
 from core.schema import (
@@ -351,14 +350,8 @@ def ensure_state() -> None:
     else:
         current_model = normalise_model_name(st.session_state.get("model"))
         st.session_state["model"] = current_model or canonical_model
-    if "model_override" not in st.session_state:
-        st.session_state["model_override"] = ""
-    else:
-        override = normalise_model_override(st.session_state.get("model_override"))
-        st.session_state["model_override"] = override or ""
-    resolved_model = st.session_state.get("router.resolved_model") or st.session_state.get("model")
-    if isinstance(resolved_model, str):
-        set_model(resolved_model)
+    st.session_state["model_override"] = ""
+    set_model(canonical_model)
     if "vector_store_id" not in st.session_state:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "openai_api_key_missing" not in st.session_state:

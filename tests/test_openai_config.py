@@ -74,7 +74,7 @@ def test_ensure_state_normalises_legacy_models():
     st.session_state["model_override"] = model_config.GPT4O_MINI
     es.ensure_state()
     assert st.session_state["model"] == model_config.GPT4O
-    assert st.session_state["model_override"] == model_config.GPT4O_MINI
+    assert st.session_state["model_override"] == ""
 
 
 def test_ensure_state_preserves_minimal_reasoning_level():
@@ -247,13 +247,12 @@ def test_ensure_state_records_profile_repairs(monkeypatch: pytest.MonkeyPatch) -
     assert "company.contact_email" in repairs["auto_populated"]
 
 
-@pytest.mark.parametrize("model_alias", ["o4-mini-latest", "O4-MINI"])
-def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_alias):
+def test_ensure_state_ignores_openai_model_secret(monkeypatch) -> None:
     st.session_state.clear()
     monkeypatch.setattr(
         st,
         "secrets",
-        {"openai": {"OPENAI_MODEL": model_alias}},
+        {"openai": {"OPENAI_MODEL": "gpt-3.5-turbo"}},
         raising=False,
     )
     importlib.reload(config)
@@ -262,8 +261,8 @@ def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_al
     try:
         es.ensure_state()
 
-        assert model_config.OPENAI_MODEL == model_config.REASONING_MODEL
-        assert st.session_state["model"] == model_config.REASONING_MODEL
+        assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
+        assert st.session_state["model"] == model_config.PRIMARY_MODEL_DEFAULT
     finally:
         st.session_state.clear()
         monkeypatch.setattr(st, "secrets", {}, raising=False)
@@ -271,31 +270,36 @@ def test_ensure_state_normalises_openai_model_from_secrets(monkeypatch, model_al
         importlib.reload(es)
 
 
-@pytest.mark.parametrize("env_value", ["", "   "])
-def test_default_model_falls_back_to_reasoning_tier_for_blank_env(monkeypatch, env_value):
-    previous_env = os.environ.get("DEFAULT_MODEL")
+def test_env_openai_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    previous_env = os.environ.get("OPENAI_MODEL")
 
     try:
-        monkeypatch.setenv("DEFAULT_MODEL", env_value)
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        caplog.set_level("WARNING")
         importlib.reload(config)
 
-        assert model_config.DEFAULT_MODEL == model_config.REASONING_MODEL
+        assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
+        assert model_config.get_model_for(model_config.ModelTask.DEFAULT) == model_config.PRIMARY_MODEL_DEFAULT
+        assert any("Ignoring OPENAI_MODEL" in record.message for record in caplog.records)
     finally:
         if previous_env is None:
-            monkeypatch.delenv("DEFAULT_MODEL", raising=False)
+            monkeypatch.delenv("OPENAI_MODEL", raising=False)
         else:
-            monkeypatch.setenv("DEFAULT_MODEL", previous_env)
+            monkeypatch.setenv("OPENAI_MODEL", previous_env)
         importlib.reload(config)
 
 
-def test_default_model_alias_falls_back_to_reasoning_tier(monkeypatch):
+def test_env_default_model_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     previous_env = os.environ.get("DEFAULT_MODEL")
 
     try:
-        monkeypatch.setenv("DEFAULT_MODEL", "o4-mini-latest")
+        monkeypatch.setenv("DEFAULT_MODEL", "o3")
+        caplog.set_level("WARNING")
         importlib.reload(config)
 
-        assert model_config.DEFAULT_MODEL == model_config.REASONING_MODEL
+        assert model_config.DEFAULT_MODEL == model_config.PRIMARY_MODEL_DEFAULT
+        assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
+        assert any("DEFAULT_MODEL" in record.message for record in caplog.records)
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)

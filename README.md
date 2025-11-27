@@ -152,12 +152,12 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ```
 
-### Reset API mode and model overrides
+### Reset API mode and model defaults
 
-- **English:** If the app falls back to older models because of environment overrides, clear the flags in your `.env` or Streamlit secrets. Run `python -m cli.reset_api_flags` to strip `USE_CLASSIC_API`, `USE_RESPONSES_API`, and model tier overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
-- **Deutsch:** Falls die App wegen gesetzter Umgebungsvariablen auf alte Modelle zurückfällt, entferne die Flags aus deiner `.env` oder den Streamlit-Secrets. Nutze `python -m cli.reset_api_flags`, um `USE_CLASSIC_API`, `USE_RESPONSES_API` sowie Modell-Overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`) zu löschen. Mit `-k EXTRA_KEY` entfernst du weitere Schlüssel.
-- **English:** Model constants, aliases, routing, and fallbacks now live in `config/models.py` as the single source of truth—update model names or defaults only there.
-- **Deutsch:** Modellkonstanten, Aliase, Routing und Fallback-Ketten liegen jetzt zentral in `config/models.py`; passe Modellnamen oder Defaults nur noch dort an.
+- **English:** The primary model is locked to `gpt-4.1-mini` in `config/models.py`; environment overrides such as `OPENAI_MODEL` or `DEFAULT_MODEL` are ignored (a warning is logged). `python -m cli.reset_api_flags` still strips legacy toggles like `USE_CLASSIC_API`, `USE_RESPONSES_API`, and model-tier keys (`LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
+- **Deutsch:** Das Basismodell ist in `config/models.py` fest auf `gpt-4.1-mini` eingestellt; Umgebungsvariablen wie `OPENAI_MODEL` oder `DEFAULT_MODEL` werden ignoriert (mit Warnhinweis). `python -m cli.reset_api_flags` entfernt weiterhin alte Schalter wie `USE_CLASSIC_API`, `USE_RESPONSES_API` und Modell-Tier-Keys (`LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Mit `-k EXTRA_KEY` können zusätzliche Schlüssel gelöscht werden.
+- **English:** Model constants, aliases, routing, and fallbacks live in `config/models.py` as the single source of truth—update model names or defaults only there.
+- **Deutsch:** Modellkonstanten, Aliase, Routing und Fallback-Ketten liegen zentral in `config/models.py`; passe Modellnamen oder Defaults nur dort an.
 
 ### Quickstart for devs (English / Deutsch)
 

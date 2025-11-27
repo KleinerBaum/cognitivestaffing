@@ -9,10 +9,11 @@ following environment variables are available:
 | Variable | Purpose |
 | --- | --- |
 | `OPENAI_API_KEY` | Required for every LLM request. |
-| `OPENAI_MODEL` | Optional default model override (defaults to the `REASONING_EFFORT` tier: `gpt-4o-mini` for `minimal`/`low`, `o3-mini` for `medium`, `o3` for `high`). |
 | `VECTOR_STORE_ID` | Optional OpenAI vector store identifier for RAG. |
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optional reasoning effort hint (`minimal` … `high`). |
+
+`OPENAI_MODEL`/`DEFAULT_MODEL` overrides are deprecated and ignored at runtime; adjust the fixed defaults in `config/models.py` if a deployment needs a different primary model.
 
 The Streamlit Community Cloud deployment reads `infra/deployment.toml`. Set the
 `[python]` → `installCommand` entry to `poetry install --no-root` so Streamlit
@@ -39,10 +40,11 @@ folgende Umgebungsvariablen relevant:
 | Variable | Zweck |
 | --- | --- |
 | `OPENAI_API_KEY` | Pflichtwert für alle LLM-Anfragen. |
-| `OPENAI_MODEL` | Optionaler Standard (Standard: REASONING_EFFORT-Tier – `gpt-4o-mini` für `minimal`/`low`, `o3-mini` für `medium`, `o3` für `high`). |
 | `VECTOR_STORE_ID` | Optionale OpenAI-Vector-Store-ID für RAG. |
 | `VERBOSITY` | Optionale UI-Erklärtiefe (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`minimal` … `high`). |
+
+`OPENAI_MODEL`/`DEFAULT_MODEL`-Overrides sind veraltet und werden zur Laufzeit ignoriert; falls ein anderes Primärmodell nötig ist, passe die festen Defaults in `config/models.py` an.
 
 Das Deployment auf Streamlit Community Cloud nutzt `infra/deployment.toml`.
 Setze den Eintrag `[python]` → `installCommand` auf `poetry install --no-root`,

@@ -8,14 +8,14 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 
 **EN:**
 
-- Quick/Schnell mode uses `gpt-4o-mini` with minimal `REASONING_EFFORT`; Precise/Genau escalates to `o3-mini`/`o3` with `o4-mini`/`gpt-4o` fallbacks.
-- Override the primary model with `OPENAI_MODEL` or `DEFAULT_MODEL`; set `LIGHTWEIGHT_MODEL` for Quick routing and `REASONING_MODEL`/`MEDIUM_REASONING_MODEL` for higher tiers. Tune `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) to shift reasoning costs.
+- The primary model is fixed to `gpt-4.1-mini` inside `config/models.py`; environment overrides such as `OPENAI_MODEL` or `DEFAULT_MODEL` are ignored with a warning. Quick/Schnell mode uses `gpt-4o-mini`, Precise/Genau escalates to `o3-mini`/`o3` with `o4-mini`/`gpt-4o` fallbacks.
+- Tune `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) to shift reasoning costs and adjust `LIGHTWEIGHT_MODEL`/`MEDIUM_REASONING_MODEL`/`REASONING_MODEL` in code when defaults need to change.
 - Responses API is the default path; toggle with `USE_RESPONSES_API`/`USE_CLASSIC_API` as needed. Keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
 
 **DE:**
 
-- Schnell/Quick nutzt standardmäßig `gpt-4o-mini` mit minimalem `REASONING_EFFORT`; Genau/Precise hebt auf `o3-mini`/`o3` an und fällt bei Bedarf auf `o4-mini`/`gpt-4o` zurück.
-- Das Hauptmodell lässt sich über `OPENAI_MODEL` oder `DEFAULT_MODEL` überschreiben; `LIGHTWEIGHT_MODEL` steuert den Schnellpfad, `REASONING_MODEL`/`MEDIUM_REASONING_MODEL` die höheren Stufen. Über `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) regelst du die Denktiefe.
+- Das Primärmodell ist in `config/models.py` fest auf `gpt-4.1-mini` gesetzt; Umgebungsvariablen wie `OPENAI_MODEL` oder `DEFAULT_MODEL` werden mit einer Warnung ignoriert. Schnell/Quick nutzt `gpt-4o-mini`, Genau/Precise hebt auf `o3-mini`/`o3` mit `o4-mini`/`gpt-4o`-Fallbacks an.
+- Steuere die Kosten über `REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`) und passe `LIGHTWEIGHT_MODEL`/`MEDIUM_REASONING_MODEL`/`REASONING_MODEL` bei Bedarf direkt im Code an.
 - Standard ist die Responses API; bei Bedarf mit `USE_RESPONSES_API`/`USE_CLASSIC_API` umschalten und Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) zur Mandantenfähigkeit passend setzen.
 
 ## Prompt generator hook / Prompt-Generator-Hook

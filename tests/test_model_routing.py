@@ -68,8 +68,8 @@ def test_fallback_cascades_to_gpt4(caplog: pytest.LogCaptureFixture) -> None:
 def test_default_model_prefers_cost_optimised_tier() -> None:
     """The module-level defaults should prefer the configured reasoning tier."""
 
-    assert model_config.DEFAULT_MODEL == model_config.REASONING_MODEL
-    assert model_config.OPENAI_MODEL == model_config.REASONING_MODEL
+    assert model_config.DEFAULT_MODEL == model_config.PRIMARY_MODEL_DEFAULT
+    assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
 
 
 def test_reasoning_switch() -> None:

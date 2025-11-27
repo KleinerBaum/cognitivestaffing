@@ -9,8 +9,7 @@ workloads through ``o3`` depending on the configured
 experience downtime. Structured retrieval continues to use
 ``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
 
-Set ``DEFAULT_MODEL`` or ``OPENAI_MODEL`` to override the primary model and use
-``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) to control
+``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) controls
 how much reasoning the model performs by default.
 """
 
@@ -114,8 +113,24 @@ REASONING_EFFORT = model_config.normalise_reasoning_effort(
 _lightweight_override = os.getenv("LIGHTWEIGHT_MODEL")
 _medium_reasoning_override = os.getenv("MEDIUM_REASONING_MODEL")
 _high_reasoning_override = os.getenv("REASONING_MODEL") or os.getenv("HIGH_REASONING_MODEL")
-_default_model_override = os.getenv("DEFAULT_MODEL")
-_openai_model_override = os.getenv("OPENAI_MODEL")
+def _warn_deprecated_model_override(source: str, value: str | None) -> None:
+    if not value:
+        return
+    logger.warning(
+        "Ignoring %s model override '%s'; the primary model is fixed to '%s'.",
+        source,
+        value,
+        model_config.PRIMARY_MODEL_DEFAULT,
+    )
+
+
+_default_model_override_env = os.getenv("DEFAULT_MODEL")
+_openai_model_override_env = os.getenv("OPENAI_MODEL")
+_warn_deprecated_model_override("DEFAULT_MODEL env", _default_model_override_env)
+_warn_deprecated_model_override("OPENAI_MODEL env", _openai_model_override_env)
+
+_default_model_override: str | None = None
+_openai_model_override: str | None = None
 _MODEL_ROUTING_OVERRIDES: Dict[str, str] = {}
 VERBOSITY_LEVELS = ("low", "medium", "high")
 
@@ -376,7 +391,11 @@ try:
         section_key = _coerce_secret_value(openai_secrets.get("OPENAI_API_KEY"))
         if section_key:
             OPENAI_API_KEY = section_key
-        _openai_model_override = openai_secrets.get("OPENAI_MODEL", _openai_model_override)
+        if "OPENAI_MODEL" in openai_secrets:
+            _warn_deprecated_model_override(
+                "OPENAI_MODEL secret",
+                _coerce_secret_value(openai_secrets.get("OPENAI_MODEL")),
+            )
         OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
         OPENAI_ORGANIZATION = openai_secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
         OPENAI_PROJECT = openai_secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
