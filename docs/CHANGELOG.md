@@ -18,12 +18,12 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Changed
 - Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
-- Default LLM routing now standardizes on `gpt-4.1-mini` for both quick/Schnell and precise/Genau flows with ordered fallbacks to `gpt-5-mini` and `gpt-5-nano`, removing GPT-4/GPT-3.5 from the automatic chain to control cost.
+- Default LLM routing now standardizes on `gpt-4.1-mini` for all flows and escalates automatically to `gpt-5-mini` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
 - GPT-4.1 and GPT-5 calls now pin to the Chat Completions endpoint (`/v1/chat/completions`) with function-calling payloads instead of the deprecated Responses API to match the latest OpenAI guidance.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
-- Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling. All fallback lists were pruned to `gpt-5-mini` → `gpt-5-nano` for escalation.
+- Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling. Fallbacks are centralized in `config/models.py` with automatic escalation to `gpt-5-mini` and no user-facing mode switches.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 
