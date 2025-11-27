@@ -39,8 +39,8 @@ def render_extraction_settings_panel(
     with st_module.expander(tr("Extraktionseinstellungen", "Extraction settings"), expanded=False, icon="🛠️"):
         st_module.caption(
             tr(
-                "Passe das Parsing live an – wähle zwischen Schnell vs. Gründlich, setze ein Modell-Override und steuere das strikte JSON-Schema.",
-                "Adjust parsing on the fly – choose Fast vs. Thorough, set a model override, and decide whether to enforce the strict JSON schema.",
+                "Passe das Parsing live an – wähle zwischen Schnell vs. Gründlich und steuere das strikte JSON-Schema.",
+                "Adjust parsing on the fly – choose Fast vs. Thorough and decide whether to enforce the strict JSON schema.",
             )
         )
 

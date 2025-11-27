@@ -39,33 +39,37 @@ def test_run_stage_tracks_attempts_and_config() -> None:
     first = json.loads(execution.run_stage("stage.alpha", {"foo": "bar"}))
     assert first["outputs"]["attempt"] == 1
     assert first["inputs"] == {"foo": "bar"}
-    assert first["config"]["model"] == model_config.GPT4O_MINI
+    assert first["config"]["model"] == model_config.OPENAI_MODEL
 
     second = json.loads(execution.run_stage("stage.alpha"))
     assert second["outputs"]["attempt"] == 2
 
 
 def test_retry_stage_uses_strategy_and_config() -> None:
-    execution.set_model("retry-stage", model_config.GPT4O)
     payload = json.loads(execution.retry_stage("retry-stage", "regenerate"))
 
     assert payload["strategy"] == "regenerate"
     assert payload["attempt"] == 1
-    assert payload["config"]["model"] == model_config.GPT4O
+    assert payload["config"]["model"] == model_config.OPENAI_MODEL
 
 
 def test_stage_specific_model_override() -> None:
-    execution.set_model(None, model_config.GPT4O)
-
     global_run = json.loads(execution.run_stage("stage-global"))
-    assert global_run["config"]["model"] == model_config.GPT4O
+    assert global_run["config"]["model"] == model_config.OPENAI_MODEL
 
     execution.set_model("stage-global", model_config.O4_MINI)
     stage_run = json.loads(execution.run_stage("stage-global"))
-    assert stage_run["config"]["model"] == model_config.O4_MINI
+    assert stage_run["config"]["model"] == model_config.OPENAI_MODEL
 
     other_run = json.loads(execution.run_stage("other-stage"))
-    assert other_run["config"]["model"] == model_config.GPT4O
+    assert other_run["config"]["model"] == model_config.OPENAI_MODEL
+
+
+def test_set_model_reports_locked_state() -> None:
+    payload = json.loads(execution.set_model(None, model_config.GPT4O))
+
+    assert payload["locked"] is True
+    assert payload["model"] == model_config.OPENAI_MODEL
 
 
 def test_set_temperature_validation() -> None:

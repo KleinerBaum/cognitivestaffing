@@ -74,6 +74,7 @@ LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
 MEDIUM_REASONING_MODEL_DEFAULT = O3_MINI
 HIGH_REASONING_MODEL_DEFAULT = O3
 REASONING_MODEL_DEFAULT = O3
+PRIMARY_MODEL_DEFAULT = GPT41_MINI
 
 SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
@@ -122,8 +123,8 @@ LIGHTWEIGHT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
 MEDIUM_REASONING_MODEL = MEDIUM_REASONING_MODEL_DEFAULT
 HIGH_REASONING_MODEL = HIGH_REASONING_MODEL_DEFAULT
 REASONING_MODEL = REASONING_MODEL_DEFAULT
-DEFAULT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
-OPENAI_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
+DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT
+OPENAI_MODEL = PRIMARY_MODEL_DEFAULT
 
 MODEL_ROUTING: Dict[str, str] = {}
 TASK_MODEL_FALLBACKS: Dict[str, list[str]] = {}
@@ -251,13 +252,6 @@ def _model_for_reasoning_level(level: str) -> str:
         "high": HIGH_REASONING_MODEL,
     }
     return mapping.get(level, HIGH_REASONING_MODEL)
-
-
-def _detect_default_model(reasoning_effort: str, env_default: str | None) -> str:
-    """Determine the default model for generic chat workloads."""
-
-    preferred = env_default or _model_for_reasoning_level(reasoning_effort)
-    return resolve_supported_model(preferred, _model_for_reasoning_level(reasoning_effort))
 
 
 def _prefer_lightweight(task: str) -> bool:
@@ -420,8 +414,20 @@ def configure_models(
     )
     HIGH_REASONING_MODEL = resolve_supported_model(high_reasoning_override, HIGH_REASONING_MODEL_DEFAULT)
     REASONING_MODEL = _model_for_reasoning_level(REASONING_EFFORT)
-    DEFAULT_MODEL = _detect_default_model(REASONING_EFFORT, default_model_override)
-    OPENAI_MODEL = resolve_supported_model(openai_model_override, DEFAULT_MODEL)
+    if default_model_override:
+        warnings.warn(
+            "DEFAULT_MODEL overrides are ignored; the primary model is fixed to '%s'."
+            % PRIMARY_MODEL_DEFAULT,
+            RuntimeWarning,
+        )
+    if openai_model_override:
+        warnings.warn(
+            "OPENAI_MODEL overrides are ignored; the primary model is fixed to '%s'."
+            % PRIMARY_MODEL_DEFAULT,
+            RuntimeWarning,
+        )
+    DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT
+    OPENAI_MODEL = PRIMARY_MODEL_DEFAULT
     MODEL_ROUTING = _build_model_routing(model_routing_overrides)
     TASK_MODEL_FALLBACKS = _build_task_fallbacks()
 
@@ -478,21 +484,6 @@ def normalise_model_override(value: object) -> str | None:
     return normalise_model_name(candidate)
 
 
-def _user_model_override() -> str | None:
-    """Return a manually selected model override, if present."""
-
-    try:
-        raw_value = st.session_state.get("model_override")
-        override = normalise_model_override(raw_value)
-    except Exception:  # pragma: no cover - Streamlit session not initialised
-        override = None
-    if override:
-        if raw_value != override:
-            st.session_state["model_override"] = override
-        return override
-    return None
-
-
 def _get_reasoning_mode() -> str:
     """Return the active reasoning mode (``quick`` or ``precise``)."""
 
@@ -547,14 +538,8 @@ def _collect_candidate_models(task: ModelTask | str, override: str | None) -> li
         if override_name:
             candidates.append(override_name)
             _extend_with_model_chain(override_name)
-    user_override = _user_model_override()
-    if user_override:
-        override_name = normalise_model_name(user_override, prefer_latest=False) or user_override
-        if override_name and override_name not in candidates:
-            candidates.append(override_name)
-            _extend_with_model_chain(override_name)
     fallback_chain = get_model_fallbacks_for(task)
-    mode = _get_reasoning_mode()
+    mode = _get_reasoning_mode() if task_key != ModelTask.DEFAULT.value else None
     if mode == "quick" and _prefer_lightweight(task_key):
         lightweight_chain = MODEL_FALLBACKS.get(
             _canonical_model_name(LIGHTWEIGHT_MODEL),
