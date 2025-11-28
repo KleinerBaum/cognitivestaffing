@@ -8280,6 +8280,17 @@ def _step_requirements() -> None:
         responsibilities_items = [str(item) for item in responsibilities.get("items", []) if isinstance(item, str)]
         responsibilities_key = "ui.requirements.responsibilities"
         responsibilities_seed_key = f"{responsibilities_key}.__seed"
+        suggested_responsibilities_key = f"{responsibilities_key}.__suggested"
+
+        initial_responsibilities = "\n".join(item.strip() for item in responsibilities_items if item.strip())
+        if responsibilities_key not in st.session_state:
+            st.session_state[responsibilities_key] = initial_responsibilities
+            st.session_state[responsibilities_seed_key] = initial_responsibilities
+
+        suggested_responsibilities = st.session_state.pop(suggested_responsibilities_key, None)
+        if suggested_responsibilities is not None:
+            st.session_state[responsibilities_key] = suggested_responsibilities
+            st.session_state[responsibilities_seed_key] = suggested_responsibilities
 
         responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
         responsibilities_required = True
