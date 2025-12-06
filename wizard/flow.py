@@ -271,6 +271,7 @@ from ._logic import (  # noqa: F401 - re-exported for step modules
     get_ai_contributions,
     get_in,
     _normalize_semantic_empty,
+    normalize_text_area_list,
     mark_ai_list_item,
     merge_unique_items,
     set_in,
@@ -7502,6 +7503,22 @@ def _render_onboarding_section(process: dict, key_prefix: str, *, allow_generate
     process["onboarding_process"] = "\n".join(cleaned)
 
 
+def _apply_responsibility_suggestion(
+    *,
+    suggestion_text: str,
+    responsibilities: dict[str, Any],
+    responsibilities_key: str,
+    responsibilities_seed_key: str,
+) -> list[str]:
+    """Update responsibility items and widget seeds from a suggested text block."""
+
+    updated_items = normalize_text_area_list(suggestion_text)
+    responsibilities["items"] = updated_items
+    st.session_state[responsibilities_key] = suggestion_text
+    st.session_state[responsibilities_seed_key] = suggestion_text
+    return updated_items
+
+
 def _step_requirements() -> None:
     """Render the requirements step for skills and certifications."""
 
@@ -8289,8 +8306,12 @@ def _step_requirements() -> None:
 
         suggested_responsibilities = st.session_state.pop(suggested_responsibilities_key, None)
         if suggested_responsibilities is not None:
-            st.session_state[responsibilities_key] = suggested_responsibilities
-            st.session_state[responsibilities_seed_key] = suggested_responsibilities
+            responsibilities_items = _apply_responsibility_suggestion(
+                suggestion_text=str(suggested_responsibilities),
+                responsibilities=responsibilities,
+                responsibilities_key=responsibilities_key,
+                responsibilities_seed_key=responsibilities_seed_key,
+            )
 
         responsibilities_label = tr("Kernaufgaben", "Core responsibilities")
         responsibilities_required = True
