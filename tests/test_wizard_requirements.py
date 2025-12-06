@@ -9,6 +9,7 @@ import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
 from wizard import _render_skill_board, _skill_board_labels, _step_requirements
+from wizard.flow import _apply_responsibility_suggestion
 
 
 pytestmark = pytest.mark.integration
@@ -33,6 +34,31 @@ def _fake_panel_text_input(*_: object, key: object | None = None, value: object 
 
 class StopWizard(RuntimeError):
     """Sentinel exception to abort the requirements step during tests."""
+
+
+def test_responsibility_suggestion_updates_profile_items() -> None:
+    """Suggested responsibilities should refresh the profile and widget seeds."""
+
+    st.session_state.clear()
+    responsibilities = {"items": ["Initial scope alignment"]}
+    responsibilities_key = "ui.requirements.responsibilities"
+    responsibilities_seed_key = f"{responsibilities_key}.__seed"
+    st.session_state[responsibilities_key] = "Initial scope alignment"
+    st.session_state[responsibilities_seed_key] = "Initial scope alignment"
+
+    suggested_text = "Expand roadmap oversight\nInitial scope alignment"
+
+    updated_items = _apply_responsibility_suggestion(
+        suggestion_text=suggested_text,
+        responsibilities=responsibilities,
+        responsibilities_key=responsibilities_key,
+        responsibilities_seed_key=responsibilities_seed_key,
+    )
+
+    assert updated_items == ["Expand roadmap oversight", "Initial scope alignment"]
+    assert responsibilities["items"] == updated_items
+    assert st.session_state[responsibilities_key] == suggested_text
+    assert st.session_state[responsibilities_seed_key] == suggested_text
 
 
 def test_step_requirements_warns_on_skill_suggestion_error(
