@@ -52,6 +52,11 @@ def _render_suggestions(
     responsibilities_seed_key: str,
     lang: str,
 ) -> None:
+    suggested_state_key = f"{responsibilities_key}.__suggested"
+    _ = responsibilities_seed_key  # Parameter kept for compatibility
+    current_value = st.session_state.get(responsibilities_key, "")
+    current_items = [item.strip() for item in current_value.split("\n") if item.strip()]
+    merged_items = list(dict.fromkeys(list(responsibilities) + current_items))
     for suggestion_index, suggestion in enumerate(suggestions):
         suggestion_text = suggestion.strip()
         if not suggestion_text:
@@ -60,18 +65,18 @@ def _render_suggestions(
         dismiss_key = f"{responsibilities_key}.chatkit.dismiss.{message_index}.{suggestion_index}"
         cols = st.columns([0.76, 0.12, 0.12])
         cols[0].markdown(f"- {suggestion_text}")
-        already_present = suggestion_text.casefold() in {item.casefold() for item in responsibilities}
+        already_present = suggestion_text.casefold() in {item.casefold() for item in merged_items}
         if already_present:
             cols[1].button(tr("Bereits erfasst", "Already added", lang=lang), key=f"{add_key}.disabled", disabled=True)
         elif cols[1].button(tr("Hinzufügen", "Add", lang=lang), key=add_key):
-            updated_items = _append_unique(responsibilities, suggestion_text)
+            updated_items = _append_unique(merged_items, suggestion_text)
             st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
                 "_lang": lang,
                 "items": [suggestion_text],
                 "status": "applied",
             }
-            st.session_state[responsibilities_key] = "\n".join(updated_items)
-            st.session_state[responsibilities_seed_key] = "\n".join(updated_items)
+            updated_text = "\n".join(updated_items)
+            st.session_state[suggested_state_key] = updated_text
             mark_ai_list_item(
                 "responsibilities.items",
                 suggestion_text,
@@ -155,6 +160,12 @@ def render_responsibility_brainstormer(
     """Render the ChatKit responsibility brainstormer."""
 
     lang = st.session_state.get("lang", "de")
+    if responsibilities_key not in st.session_state:
+        st.session_state[responsibilities_key] = "\n".join(
+            item.strip() for item in cleaned_responsibilities if item.strip()
+        )
+        st.session_state[responsibilities_seed_key] = st.session_state[responsibilities_key]
+
     state = _get_state()
     if state.get("last_title") != job_title:
         state = {"messages": [], "last_title": job_title, "error": None}
