@@ -59,6 +59,7 @@ from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from state.autosave import maybe_render_autosave_prompt  # noqa: E402
 from components.chatkit_widget import inject_chatkit_script  # noqa: E402
+from components.diary import render_diary_template  # noqa: E402
 import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
@@ -411,6 +412,9 @@ sidebar_plan = sidebar.render_sidebar(
 )
 
 run_wizard()
+
+st.divider()
+render_diary_template()
 
 sidebar.render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
