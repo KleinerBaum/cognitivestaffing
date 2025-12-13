@@ -7,7 +7,6 @@ from typing import Any, Callable
 import pytest
 import streamlit as st
 
-import config
 from constants.keys import StateKeys
 from wizard.sections.responsibility_brainstormer import render_responsibility_brainstormer
 
@@ -37,9 +36,7 @@ class _DummyColumn(_DummyContext):
         return self._button_handler(key)
 
 
-def _install_streamlit_stubs(
-    monkeypatch: pytest.MonkeyPatch, *, triggered_keys: set[str]
-) -> None:
+def _install_streamlit_stubs(monkeypatch: pytest.MonkeyPatch, *, triggered_keys: set[str]) -> None:
     def _button_handler(key: str | None) -> bool:
         if key and key in triggered_keys:
             triggered_keys.remove(key)

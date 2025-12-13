@@ -63,10 +63,10 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 from utils.i18n import (
-    EMPLOYMENT_OVERTIME_TOGGLE_HELP,
+    EMPLOYMENT_OVERTIME_TOGGLE_HELP,  # noqa: F401
     EMPLOYMENT_RELOCATION_TOGGLE_HELP,
-    EMPLOYMENT_SECURITY_TOGGLE_HELP,
-    EMPLOYMENT_SHIFT_TOGGLE_HELP,
+    EMPLOYMENT_SECURITY_TOGGLE_HELP,  # noqa: F401
+    EMPLOYMENT_SHIFT_TOGGLE_HELP,  # noqa: F401
     EMPLOYMENT_TRAVEL_TOGGLE_HELP,
     EMPLOYMENT_VISA_TOGGLE_HELP,
     POSITION_CUSTOMER_CONTACT_DETAILS_HINT,
@@ -78,6 +78,7 @@ from config import set_api_mode, set_responses_allow_tools
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
+from state.progress_inbox import apply_inbox_update, get_tasks
 from openai_utils.errors import (
     ExternalServiceError,
     LLMResponseFormatError,
@@ -252,7 +253,6 @@ from .layout import (
     render_onboarding_hero,
     render_section_heading,
     render_step_heading,
-    _render_autofill_suggestion,
     render_step_warning_banner,
 )
 from ._logic import (  # noqa: F401 - re-exported for step modules
@@ -4082,7 +4082,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     st.session_state[StateKeys.WORKFLOW_STATUS] = workflow_status
 
     extraction_result = extraction_run.get("structured_extraction")
-    if extraction_result and extraction_result.status is TaskStatus.SUCCESS:
+    if extraction_result and extraction_result.status is TaskStatus.SUCCESS and extraction_result.result is not None:
         extracted_payload = extraction_result.result
         extracted_data = extracted_payload.data
         recovered = extracted_payload.recovered
@@ -4437,7 +4437,7 @@ def _apply_extraction_failure_fallback(
             error.__class__.__name__,
             error,
         )
-        display_error(error)
+        display_error(str(error))
 
 
 def _maybe_run_extraction(schema: dict) -> None:
@@ -10272,8 +10272,8 @@ def _flatten_contributions(contributions: AIContributionState) -> list[Contribut
         entries.append(merged)
     for path, item_map in contributions.get("items", {}).items():
         for value, record in item_map.items():
-            merged: ContributionRecord = {"path": path, "value": value, **record}
-            entries.append(merged)
+            merged_item: ContributionRecord = {"path": path, "value": value, **record}
+            entries.append(merged_item)
     return entries
 
 
@@ -10313,6 +10313,96 @@ def _render_ai_change_log_panel(contributions: AIContributionState, *, lang: str
                 f"{html.escape(source)}{html.escape(model_segment)} ({html.escape(timestamp)})"
             )
             st.markdown(line, unsafe_allow_html=True)
+
+
+def _render_progress_inbox_panel(*, lang: str) -> None:
+    """Render the inbox-based progress updater for summary review."""
+
+    tasks = get_tasks()
+    render_section_heading(tr("✉️ Fortschritts-Postfach", "✉️ Progress inbox", lang=lang), icon="✉️")
+    st.caption(
+        tr(
+            "Füge Status-Updates aus dem Postfach hier ein, wir gleichen sie deterministisch mit den Aufgaben ab.",
+            "Paste inbox status updates here and we will deterministically match them to tasks.",
+            lang=lang,
+        )
+    )
+
+    update_text = st.text_area(
+        tr("Progress update", "Progress update", lang=lang),
+        key="summary.progress_update_input",
+        placeholder=tr(
+            "Update-Text aus dem Postfach einfügen…",
+            "Paste the update text from your inbox…",
+            lang=lang,
+        ),
+    )
+
+    if st.button(tr("Update anwenden", "Apply update", lang=lang), key="summary.progress_update_button"):
+        result = apply_inbox_update(update_text)
+        if result.matched_task is None:
+            st.warning(
+                tr(
+                    "Kein passender Task gefunden – es wurden keine Änderungen vorgenommen.",
+                    "No matching task found – no changes applied.",
+                    lang=lang,
+                )
+            )
+        elif result.updated and result.matched_task.progress_target is not None:
+            st.success(
+                tr(
+                    "Fortschritt für „{title}“ aktualisiert: {current}/{target}.",
+                    "Updated progress for “{title}”: {current}/{target}.",
+                    lang=lang,
+                ).format(
+                    title=result.matched_task.title,
+                    current=result.matched_task.progress_current,
+                    target=result.matched_task.progress_target,
+                )
+            )
+        elif result.updated:
+            st.success(
+                tr(
+                    "Notiz zu „{title}“ gespeichert.",
+                    "Added a note to “{title}”.",
+                    lang=lang,
+                ).format(title=result.matched_task.title if result.matched_task else ""),
+            )
+        else:
+            st.info(tr("Keine Änderung vorgenommen.", "No updates applied.", lang=lang))
+
+    st.caption(tr("Aktuelle Aufgaben", "Current tasks", lang=lang))
+    if not tasks:
+        st.info(tr("Keine Aufgaben vorhanden.", "No tasks available.", lang=lang))
+        return
+
+    columns = st.columns(min(len(tasks), 3))
+    for index, task in enumerate(tasks):
+        column = columns[index % len(columns)]
+        with column:
+            st.markdown(f"**{html.escape(task.title)}**")
+            st.caption(task.description)
+            if task.progress_target is not None and task.progress_target > 0:
+                progress_fraction = min(task.progress_current / task.progress_target, 1.0)
+                st.progress(
+                    progress_fraction,
+                    text=tr(
+                        "{current} von {target} erledigt",
+                        "{current} of {target} done",
+                        lang=lang,
+                    ).format(current=task.progress_current, target=task.progress_target),
+                )
+            else:
+                st.caption(
+                    tr(
+                        "Notizen: {count}",
+                        "Notes: {count}",
+                        lang=lang,
+                    ).format(count=len(task.notes))
+                )
+                if task.notes:
+                    latest_note = task.notes[-1]
+                    st.write(latest_note.text)
 
 
 def _render_summary_group_entries(
@@ -11722,6 +11812,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
         )
 
         _render_ai_change_log_panel(ai_state, lang=lang)
+        _render_progress_inbox_panel(lang=lang)
 
         section_tabs = st.tabs([label for _, label in tab_definitions])
         for tab, (group, _label) in zip(section_tabs, tab_definitions):
