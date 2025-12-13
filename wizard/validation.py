@@ -38,7 +38,8 @@ def validate_required_field_inputs(
 ) -> dict[str, LocalizedText]:
     """Re-run profile-bound validators for ``fields`` using widget/profile state."""
 
-    profile = session_state.get(StateKeys.PROFILE, {}) or {}
+    profile_raw = session_state.get(StateKeys.PROFILE, {}) or {}
+    profile: Mapping[str, object] = profile_raw if isinstance(profile_raw, Mapping) else {}
     errors: dict[str, LocalizedText] = {}
     for field in fields:
         validator = required_field_validators.get(field)
@@ -100,7 +101,8 @@ def resolve_missing_required_fields(
 ) -> tuple[list[str], dict[str, LocalizedText]]:
     """Determine missing data for a page and capture validation errors."""
 
-    profile = session_state.get(StateKeys.PROFILE, {}) or {}
+    profile_raw = session_state.get(StateKeys.PROFILE, {}) or {}
+    profile: Mapping[str, object] = profile_raw if isinstance(profile_raw, Mapping) else {}
     profile_snapshot = copy.deepcopy(profile)
     missing: list[str] = []
     validation_errors: dict[str, LocalizedText] = {}

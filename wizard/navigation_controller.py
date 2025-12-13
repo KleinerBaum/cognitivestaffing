@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, Collection, Mapping, MutableMapping, Sequence
+from typing import Callable, Collection, Mapping, MutableMapping, Sequence, cast
 
 from openai import BadRequestError
 import streamlit as st
@@ -100,8 +100,8 @@ class NavigationController:
         self._resolve_value = value_resolver
         self._required_field_validators = required_field_validators
         self._validated_fields = set(validated_fields)
-        self._query_params: MutableMapping[str, object] = query_params or st.query_params
-        self._session_state: MutableMapping[str, object] = session_state or st.session_state
+        self._query_params = cast(MutableMapping[str, object], query_params or st.query_params)
+        self._session_state = cast(MutableMapping[str, object], session_state or st.session_state)
         self._local_state: dict[str, object] | None = None
         self._pending_validation_errors: dict[str, LocalizedText] = {}
         self.ensure_state_defaults()
@@ -129,11 +129,14 @@ class NavigationController:
         if isinstance(raw_state, dict):
             self._local_state = raw_state
             return raw_state
-        coerced: dict[str, object] = dict(raw_state)
-        if not self._store_wizard_state(coerced):
-            self._local_state = coerced
+        if isinstance(raw_state, Mapping):
+            coerced: dict[str, object] = dict(raw_state)
+            if not self._store_wizard_state(coerced):
+                self._local_state = coerced
+                return coerced
             return coerced
-        return coerced
+        self._local_state = {}
+        return self._local_state
 
     def _store_wizard_state(self, state: dict[str, object]) -> bool:
         """Persist ``state`` inside ``st.session_state`` when possible."""
@@ -329,7 +332,8 @@ class NavigationController:
             completed_steps = {step for step in raw_completed if isinstance(step, str)}
         else:
             completed_steps = set()
-        profile = self._session_state.get(StateKeys.PROFILE, {}) or {}
+        raw_profile = self._session_state.get(StateKeys.PROFILE)
+        profile: Mapping[str, object] = raw_profile if isinstance(raw_profile, Mapping) else {}
         snapshots: list[PageProgressSnapshot] = []
         for page in self._pages:
             renderer = self._renderers.get(page.key)
@@ -382,7 +386,8 @@ class NavigationController:
     ) -> list[str]:
         if not fields:
             return []
-        context = profile or (self._session_state.get(StateKeys.PROFILE, {}) or {})
+        context_raw = profile or (self._session_state.get(StateKeys.PROFILE, {}) or {})
+        context: Mapping[str, object] = context_raw if isinstance(context_raw, Mapping) else {}
         completed_lookup = set(completed_steps or [])
         missing: list[str] = []
         for field in fields:

@@ -482,12 +482,14 @@ def render_compensation_assistant(profile: MutableMapping[str, Any]) -> None:
             normalized = prompt.strip()
             if normalized:
                 state.setdefault("messages", []).append({"role": "user", "content": normalized})
-                suggestion = _suggest_from_user_budget(normalized, profile.get("compensation", {}).get("currency"))
-                if suggestion:
+                budget_suggestion: SalarySuggestion | None = _suggest_from_user_budget(
+                    normalized, profile.get("compensation", {}).get("currency")
+                )
+                if budget_suggestion:
                     reset_step_failures("compensation")
-                    message = _format_range_message(suggestion, lang, job_title=job_title, country=country)
+                    message = _format_range_message(budget_suggestion, lang, job_title=job_title, country=country)
                     state.setdefault("messages", []).append({"role": "assistant", "content": message})
-                    state["last_suggestion"] = suggestion
+                    state["last_suggestion"] = budget_suggestion
                 else:
                     fallback = tr(
                         'Ich kann deinen Hinweis nicht als Zahl lesen. Klicke auf "Marktspanne abrufen" oder nenne einen Betrag (z. B. 5500 €/Monat).',

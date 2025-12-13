@@ -200,7 +200,6 @@ def _run_planner_turn(
                 tools=tools,
                 tool_choice="auto",
                 tool_functions=tool_functions,
-                include_analysis_tools=False,
                 task=ModelTask.TASK_SUGGESTION,
             )
         except Exception as exc:  # pragma: no cover - network/runtime guard
@@ -209,7 +208,7 @@ def _run_planner_turn(
                     "Assistent konnte nicht antworten: {error}",
                     "Assistant could not respond: {error}",
                     lang=lang,
-                    ).format(error=exc)
+                ).format(error=exc)
             )
             increment_step_failure("process")
             render_skip_cta(

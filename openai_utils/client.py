@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Callable, Mapping, Sequence, TypedDict, TypeAlias
+from typing import Any, Callable, Iterator, Mapping, Sequence, TypedDict, TypeAlias
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -325,7 +325,7 @@ class OpenAIClient:
         model: str | None,
         *,
         api_mode: str,
-        on_known_error: Callable[[OpenAIError, str], None] | None = None,
+        on_known_error: Callable[..., None] | None = None,
     ) -> Any:
         with tracer.start_as_current_span("openai.execute_response") as span:
             if model:
@@ -374,7 +374,7 @@ class OpenAIClient:
         api_mode: str,
         giveup: Callable[[Exception], bool] | None = None,
         on_giveup: Callable[[Any], None] | None = None,
-        on_known_error: Callable[[OpenAIError, str], None] | None = None,
+        on_known_error: Callable[..., None] | None = None,
     ) -> Any:
         def _should_give_up(exc: Exception) -> bool:
             return isinstance(exc, BadRequestError) or (giveup(exc) if giveup else False)
@@ -408,7 +408,7 @@ def _value_matches_parameter(value: Any, parameter: str) -> bool:
     return lowered_value == parameter or lowered_value.endswith(f".{parameter}")
 
 
-def _iter_error_payloads(error: OpenAIError) -> Sequence[Mapping[str, Any]]:
+def _iter_error_payloads(error: OpenAIError) -> Iterator[Mapping[str, Any]]:
     stack: list[Mapping[str, Any]] = []
     for attr in ("error", "body"):
         value = getattr(error, attr, None)

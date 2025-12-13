@@ -1802,6 +1802,7 @@ def _call_chat_api_single(
 
     message_key = "messages" if "messages" in payload else "input"
     base_messages = payload.get(message_key)
+    messages_with_hint = base_messages if isinstance(base_messages, list) else list(messages)
     if isinstance(base_messages, list):
         messages_list = base_messages
     else:
@@ -2144,6 +2145,7 @@ def call_chat_api(
         return _call_chat_api_single(messages, **single_kwargs)
 
     options = dict(comparison_options or {})
+    force_text_only = bool(options.pop("force_text_only", False))
     dispatch = str(options.pop("dispatch", "parallel")).lower()
     if dispatch not in {"parallel", "sequential"}:
         raise ValueError("comparison_options['dispatch'] must be 'parallel' or 'sequential'")

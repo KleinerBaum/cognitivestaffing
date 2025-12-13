@@ -11,17 +11,7 @@ from typing import Any, Dict, List, Literal, Optional
 from agents import function_tool
 from config import models as model_config
 
-ModelName = Literal[
-    model_config.GPT4O,
-    model_config.GPT4O_MINI,
-    model_config.GPT41_MINI,
-    model_config.GPT41_NANO,
-    model_config.O4_MINI,
-    model_config.O3,
-    model_config.O3_MINI,
-    model_config.GPT4,
-    model_config.GPT35,
-]
+ModelName = str
 ReasoningEffort = Literal["minimal", "medium", "high"]
 ToolChoiceMode = Literal["auto", "none", "force"]
 RetryStrategy = Literal["same_inputs", "regenerate", "raise_effort"]

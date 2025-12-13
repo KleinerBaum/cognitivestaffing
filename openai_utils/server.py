@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Iterable, Mapping, MutableMapping
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 import config
 from agents import Agent, Runner
@@ -68,6 +68,10 @@ def _serialise_messages(items: Iterable[Any]) -> list[MutableMapping[str, Any]]:
         raw: ResponseOutputItem | Mapping[str, Any] | None = getattr(item, "raw_item", None)
         if raw is None:
             raw = item if isinstance(item, Mapping) else None
+        content_items: Sequence[Any] | list[Any] = []
+        role: str | None = None
+        message_id: str | None = None
+        status: str | None = None
         if isinstance(raw, ResponseOutputMessage):
             content_items = raw.content
             role = raw.role
@@ -111,6 +115,7 @@ async def respond(req: Request) -> MutableMapping[str, Any]:
     conversation_id = event.get("conversation_id")
     run_config = {"model": config.REASONING_MODEL, "reasoning": {"effort": "minimal"}}
 
+    input_items: list[Any] = []
     try:
         if event_type == "action_invoked":
             input_items = _action_invocation_input(event["action"])
@@ -121,7 +126,8 @@ async def respond(req: Request) -> MutableMapping[str, Any]:
         else:
             return {"ok": False, "error": f"Unsupported event type: {event_type}"}
 
-        result = await Runner.run(
+        runner = Runner()
+        result = await runner.run(
             _get_agent(),
             input=input_items,
             conversation_id=conversation_id,

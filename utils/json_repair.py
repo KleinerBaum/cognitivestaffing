@@ -7,10 +7,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
-
-if TYPE_CHECKING:
-    from utils import json_parse
+from typing import Any, Callable, Mapping, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +68,7 @@ def _attempt_local_repair(raw: str) -> Mapping[str, Any] | None:
 
     from utils import json_parse
 
+    parsed: Mapping[str, Any] | None
     try:
         parsed = json_parse._safe_json_loads(raw)
     except Exception:
@@ -116,7 +114,7 @@ def parse_json_with_repair(
     except json.JSONDecodeError as exc:
         message = f"JSON parsing error at line {exc.lineno}, column {exc.colno}: {exc.msg}"
         issues.append(message)
-        repaired = _attempt_local_repair(raw)
+        repaired: Mapping[str, Any] | None = _attempt_local_repair(raw)
         if repaired is not None:
             return JsonRepairResult(payload=repaired, status=JsonRepairStatus.REPAIRED, issues=issues)
         if repair_func is not None:
