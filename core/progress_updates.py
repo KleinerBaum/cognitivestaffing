@@ -6,6 +6,8 @@ from difflib import SequenceMatcher
 import re
 from typing import Iterable, Sequence
 
+from models.progress_updates import ProgressAction, ProgressUpdateMatch
+
 
 _PROGRESS_NUMBER_PATTERN = re.compile(
     r"(?P<sign>[+-])?\s*(?P<num>\d+)\s*(?:x|times|bewerbungen|applications)?", re.IGNORECASE
@@ -59,6 +61,10 @@ class ProgressUpdateResult:
     score: float
     progress_delta: int | None = None
     message: str = ""
+    action: ProgressAction | None = None
+    note_text: str | None = None
+    event_id: str | None = None
+    rationale: str | None = None
 
 
 def parse_progress_delta(text: str) -> int | None:
@@ -74,6 +80,179 @@ def parse_progress_delta(text: str) -> int | None:
     raw = int(match.group("num"))
     sign = match.group("sign") or "+"
     return raw if sign == "+" else -raw
+
+
+def _apply_note(
+    task: TodoTask,
+    note_text: str,
+    *,
+    score: float,
+    now: datetime,
+    action: ProgressAction,
+    event_id: str | None = None,
+    rationale: str | None = None,
+) -> ProgressUpdateResult:
+    cleaned_note = note_text.strip() or note_text
+    task.add_note(cleaned_note, created_at=now)
+    return ProgressUpdateResult(
+        updated=True,
+        matched_task=task,
+        score=score,
+        message="Note added to task.",
+        action=action,
+        note_text=cleaned_note,
+        event_id=event_id,
+        rationale=rationale,
+    )
+
+
+def _apply_progress_delta(
+    task: TodoTask,
+    delta: int,
+    *,
+    score: float,
+    now: datetime,
+    event_id: str | None = None,
+    rationale: str | None = None,
+) -> ProgressUpdateResult:
+    if task.progress_target is None:
+        return _apply_note(
+            task,
+            f"Progress update (+{delta})",
+            score=score,
+            now=now,
+            action="add_note",
+            event_id=event_id,
+            rationale=rationale,
+        )
+
+    updated_progress = task.progress_current + delta
+    capped_progress = min(max(updated_progress, 0), task.progress_target)
+    task.progress_current = capped_progress
+
+    return ProgressUpdateResult(
+        updated=True,
+        matched_task=task,
+        score=score,
+        progress_delta=delta,
+        message=(f"Progress updated ({task.progress_current}/{task.progress_target})."),
+        action="increment_progress",
+        event_id=event_id,
+        rationale=rationale,
+    )
+
+
+def _mark_task_done(
+    task: TodoTask,
+    *,
+    score: float,
+    now: datetime,
+    event_id: str | None = None,
+    rationale: str | None = None,
+) -> ProgressUpdateResult:
+    if task.progress_target is None:
+        return _apply_note(
+            task,
+            "Marked as done",
+            score=score,
+            now=now,
+            action="mark_done",
+            event_id=event_id,
+            rationale=rationale,
+        )
+
+    task.progress_current = task.progress_target
+    return ProgressUpdateResult(
+        updated=True,
+        matched_task=task,
+        score=score,
+        progress_delta=0,
+        message=(f"Marked as done ({task.progress_current}/{task.progress_target})."),
+        action="mark_done",
+        event_id=event_id,
+        rationale=rationale,
+    )
+
+
+def apply_action_to_task(
+    task: TodoTask,
+    *,
+    action: ProgressAction,
+    update_text: str,
+    amount: float | None,
+    note: str | None,
+    score: float,
+    now: datetime,
+    event_id: str | None = None,
+    rationale: str | None = None,
+) -> ProgressUpdateResult:
+    if action == "increment_progress":
+        delta = int(round(amount)) if amount is not None else parse_progress_delta(update_text) or 1
+        return _apply_progress_delta(
+            task,
+            delta,
+            score=score,
+            now=now,
+            event_id=event_id,
+            rationale=rationale,
+        )
+
+    if action == "mark_done":
+        return _mark_task_done(
+            task,
+            score=score,
+            now=now,
+            event_id=event_id,
+            rationale=rationale,
+        )
+
+    note_text = note or update_text
+    if action == "move_subtask":
+        prefix = "[Moved subtask] "
+        if not note_text.strip().lower().startswith(prefix.lower()):
+            note_text = f"{prefix}{note_text}"
+    return _apply_note(
+        task,
+        note_text,
+        score=score,
+        now=now,
+        action=action,
+        event_id=event_id,
+        rationale=rationale,
+    )
+
+
+def apply_plan_matches(
+    update_text: str,
+    tasks: Sequence[TodoTask],
+    matches: Sequence[ProgressUpdateMatch],
+    *,
+    now: datetime | None = None,
+    event_id: str | None = None,
+) -> list[ProgressUpdateResult]:
+    """Apply an LLM-produced match plan to the provided tasks."""
+
+    timestamp = now or datetime.now(timezone.utc)
+    results: list[ProgressUpdateResult] = []
+    task_map = {task.task_id: task for task in tasks}
+    for match in matches[:3]:
+        task = task_map.get(match.todo_id)
+        if task is None:
+            continue
+        results.append(
+            apply_action_to_task(
+                task,
+                action=match.action,
+                update_text=update_text,
+                amount=match.amount,
+                note=match.note,
+                score=match.confidence,
+                now=timestamp,
+                event_id=event_id,
+                rationale=match.rationale_short,
+            )
+        )
+    return results
 
 
 def _score_task_match(task: TodoTask, update_tokens: set[str]) -> float:
@@ -134,21 +313,17 @@ def apply_progress_update(
     timestamp = now or datetime.now(timezone.utc)
     if target_task.progress_target is not None:
         delta = parse_progress_delta(update_text) or 1
-        updated_progress = target_task.progress_current + delta
-        capped_progress = min(max(updated_progress, 0), target_task.progress_target)
-        target_task.progress_current = capped_progress
-        return ProgressUpdateResult(
-            updated=True,
-            matched_task=target_task,
+        return _apply_progress_delta(
+            target_task,
+            delta,
             score=match_result.score,
-            progress_delta=delta,
-            message=(f"Progress updated ({target_task.progress_current}/{target_task.progress_target})."),
+            now=timestamp,
         )
 
-    target_task.add_note(update_text, created_at=timestamp)
-    return ProgressUpdateResult(
-        updated=True,
-        matched_task=target_task,
+    return _apply_note(
+        target_task,
+        update_text,
         score=match_result.score,
-        message="Note added to task.",
+        now=timestamp,
+        action="add_note",
     )

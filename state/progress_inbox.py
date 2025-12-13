@@ -1,13 +1,32 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
 import streamlit as st
 
-from core.progress_updates import ProgressUpdateResult, TodoNote, TodoTask, apply_progress_update
+from config import is_llm_enabled
+from core.progress_updates import (
+    ProgressUpdateResult,
+    TodoNote,
+    TodoTask,
+    apply_plan_matches,
+    apply_progress_update,
+)
+from llm.progress_inbox import ProgressPlannerError, plan_progress_updates
+from models.progress_updates import ProgressUpdatePlan
 
 _TASK_STATE_KEY = "progress_inbox.tasks"
+_EVENT_STATE_KEY = "progress_inbox.processed_events"
+
+
+@dataclass(slots=True)
+class ProgressInboxResult:
+    results: list[ProgressUpdateResult]
+    used_ai: bool = False
+    warning: str | None = None
+    event_id: str | None = None
 
 
 def _default_tasks() -> list[TodoTask]:
@@ -102,16 +121,68 @@ def _ensure_tasks() -> list[TodoTask]:
     return tasks
 
 
+def _get_processed_event_ids() -> set[str]:
+    events: set[str] = set()
+    stored = st.session_state.get(_EVENT_STATE_KEY)
+    if isinstance(stored, Iterable):
+        for entry in stored:
+            if isinstance(entry, str) and entry.strip():
+                events.add(entry.strip())
+    return events
+
+
+def _store_processed_event_ids(events: set[str]) -> None:
+    st.session_state[_EVENT_STATE_KEY] = sorted(events)
+
+
 def get_tasks() -> list[TodoTask]:
     """Return the current todo tasks stored in session state."""
 
     return _ensure_tasks()
 
 
-def apply_inbox_update(text: str) -> ProgressUpdateResult:
-    """Apply an update text to the best matching task and persist the result."""
+def apply_inbox_update(text: str, *, event_id: str | None = None, use_ai: bool = True) -> ProgressInboxResult:
+    """Apply an update text to matching tasks and persist the result."""
 
     tasks = _ensure_tasks()
-    result = apply_progress_update(text, tasks)
+    processed_events = _get_processed_event_ids()
+    if event_id and event_id in processed_events:
+        return ProgressInboxResult(
+            results=[],
+            used_ai=False,
+            warning=(
+                "Ereignis bereits verarbeitet – Duplikat wird übersprungen. / "
+                "Event already processed; skipping duplicate."
+            ),
+            event_id=event_id,
+        )
+
+    warning: str | None = None
+    used_ai = False
+    plan: ProgressUpdatePlan | None = None
+    now = datetime.now(timezone.utc)
+
+    if use_ai:
+        if not is_llm_enabled():
+            warning = "KI-Abgleich nicht verfügbar (API-Schlüssel fehlt). / AI matching unavailable (missing API key)."
+        else:
+            try:
+                plan = plan_progress_updates(text, tasks)
+                used_ai = plan is not None
+            except ProgressPlannerError as exc:
+                warning = exc.user_message
+
+    results: list[ProgressUpdateResult] = []
+    if plan and plan.matches:
+        results = apply_plan_matches(text, tasks, plan.matches, now=now, event_id=event_id)
+
+    if not results:
+        fallback_result = apply_progress_update(text, tasks, now=now)
+        results = [fallback_result]
+
+    if event_id and any(result.updated for result in results):
+        processed_events.add(event_id)
+        _store_processed_event_ids(processed_events)
+
     st.session_state[_TASK_STATE_KEY] = [_serialise_task(task) for task in tasks]
-    return result
+    return ProgressInboxResult(results=results, used_ai=used_ai, warning=warning, event_id=event_id)
