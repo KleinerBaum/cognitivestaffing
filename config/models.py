@@ -123,6 +123,7 @@ class ModelTask(StrEnum):
     SALARY_ESTIMATE = "salary_estimate"
     JSON_REPAIR = "json_repair"
     TEAM_ADVICE = "team_advice"
+    PROGRESS_INBOX = "progress_inbox"
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,7 @@ _LIGHTWEIGHT_TASKS: frozenset[str] = frozenset(
         ModelTask.EXTRACTION.value,
         ModelTask.COMPANY_INFO.value,
         ModelTask.JSON_REPAIR.value,
+        ModelTask.PROGRESS_INBOX.value,
         "non_reasoning",
     }
 )
@@ -320,6 +322,7 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
             allow_response_format=False,
         ),
         ModelTask.JSON_REPAIR.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        ModelTask.PROGRESS_INBOX.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
         "embedding": TaskModelConfig(
             model=EMBED_MODEL,
             allow_json_schema=False,

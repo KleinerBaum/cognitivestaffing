@@ -10339,37 +10339,63 @@ def _render_progress_inbox_panel(*, lang: str) -> None:
     )
 
     if st.button(tr("Update anwenden", "Apply update", lang=lang), key="summary.progress_update_button"):
-        result = apply_inbox_update(update_text)
-        if result.matched_task is None:
+        inbox_result = apply_inbox_update(update_text)
+
+        if inbox_result.warning:
             st.warning(
                 tr(
-                    "Kein passender Task gefunden – es wurden keine Änderungen vorgenommen.",
-                    "No matching task found – no changes applied.",
+                    "Hinweis: {reason}",
+                    "Notice: {reason}",
                     lang=lang,
-                )
+                ).format(reason=inbox_result.warning)
             )
-        elif result.updated and result.matched_task.progress_target is not None:
-            st.success(
-                tr(
-                    "Fortschritt für „{title}“ aktualisiert: {current}/{target}.",
-                    "Updated progress for “{title}”: {current}/{target}.",
-                    lang=lang,
-                ).format(
-                    title=result.matched_task.title,
-                    current=result.matched_task.progress_current,
-                    target=result.matched_task.progress_target,
-                )
-            )
-        elif result.updated:
-            st.success(
-                tr(
-                    "Notiz zu „{title}“ gespeichert.",
-                    "Added a note to “{title}”.",
-                    lang=lang,
-                ).format(title=result.matched_task.title if result.matched_task else ""),
-            )
-        else:
+
+        if not inbox_result.results:
             st.info(tr("Keine Änderung vorgenommen.", "No updates applied.", lang=lang))
+        else:
+            for result in inbox_result.results:
+                task = result.matched_task
+                if task is None:
+                    st.warning(
+                        tr(
+                            "Kein passender Task gefunden – es wurden keine Änderungen vorgenommen.",
+                            "No matching task found – no changes applied.",
+                            lang=lang,
+                        )
+                    )
+                    continue
+
+                if result.updated and task.progress_target is not None:
+                    st.success(
+                        tr(
+                            "Fortschritt für „{title}“ aktualisiert: {current}/{target}.",
+                            "Updated progress for “{title}”: {current}/{target}.",
+                            lang=lang,
+                        ).format(
+                            title=task.title,
+                            current=task.progress_current,
+                            target=task.progress_target,
+                        )
+                    )
+                elif result.updated:
+                    st.success(
+                        tr(
+                            "Notiz zu „{title}“ gespeichert.",
+                            "Added a note to “{title}”.",
+                            lang=lang,
+                        ).format(title=task.title),
+                    )
+                else:
+                    st.info(tr("Keine Änderung vorgenommen.", "No updates applied.", lang=lang))
+
+                if result.rationale:
+                    st.caption(result.rationale)
+                elif inbox_result.used_ai:
+                    st.caption(
+                        tr("KI-Konfidenz: {score:.0%}", "AI confidence: {score:.0%}", lang=lang).format(
+                            score=result.score
+                        )
+                    )
 
     st.caption(tr("Aktuelle Aufgaben", "Current tasks", lang=lang))
     if not tasks:

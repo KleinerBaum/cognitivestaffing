@@ -15,7 +15,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Added
 - Session-level OpenAI token budget guard configurable via `OPENAI_SESSION_TOKEN_LIMIT`/`OPENAI_TOKEN_BUDGET`; further calls are blocked with a bilingual warning once the cap is exceeded.
 - Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
-- Progress inbox on the Summary step that matches pasted updates deterministically to hiring tasks and increments goals or appends timestamped notes without any LLM calls.
+- Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.
 
 ### Changed
 - Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
