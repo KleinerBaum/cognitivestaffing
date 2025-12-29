@@ -45,14 +45,13 @@ Live app: https://cognitivestaffing.streamlit.app/
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
 
 - **OpenAI model routing (automatic, fixed defaults)**
-  The app standardizes on `gpt-4.1-mini` for all operations and automatically escalates to `gpt-5-mini` for harder tasks or when resilience is required. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
+  The app standardizes on `gpt-4.1-mini` for all operations and automatically escalates to the GPT-5 family (including `gpt-5.2`, `gpt-5.2-mini`, and `gpt-5.2-nano`) for harder tasks or when resilience is required. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
 
 - **Single-source task capabilities**
   Every AI task (structured extraction, follow-up drafting, JSON repair, salary estimation, and more) now pulls its preferred model and JSON/text capability flags from a unified `MODEL_CONFIG` map in `config/models.py`, reducing repeated fallbacks and making routing behaviour predictable in logs.
 
-- **Chat Completions with strict JSON schema enforcement**
-  Structured calls use the OpenAI Chat Completions API directly with JSON schemas and always keep strict mode enabled. Invalid JSON responses are repaired automatically (or retried on the chat client when needed) without asking users to toggle strictness, reducing noisy logs and latency.
-  The GPT-4.1/GPT-5 families now always target `/v1/chat/completions` with native function-calling payloads instead of the deprecated Responses endpoint to stay aligned with the current OpenAI guidance.
+- **Responses API with strict JSON schema enforcement**
+  Structured calls now use the OpenAI Responses API with JSON schemas (and strict mode where supported), falling back to Chat Completions only when models or payloads require it. Invalid JSON responses are repaired automatically (or retried on the chat client when needed) without asking users to toggle strictness, reducing noisy logs and latency. The upgraded SDK verifies compatibility with `gpt-5.2` and its mini/nano variants so new models stay available to the routing layer.
 
 - **Responsive loading and timeout handling**
   LLM-triggered actions render Streamlit spinners (“Analysiere die Stellenbeschreibung… / Analyzing your job description…”) so users know work is in progress. Friendly bilingual timeout notices (“⏳ … länger als erwartet / taking longer than usual…”) surface when OpenAI calls exceed the user-facing timeout guard, guiding users to retry or continue manually instead of seeing low-level errors.

@@ -230,9 +230,6 @@ def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> di
             if invalid_field in cleaned:
                 removed.append(invalid_field)
                 cleaned.pop(invalid_field, None)
-        if "response_format" in cleaned:
-            cleaned.pop("response_format")
-            removed.append("response_format")
 
     if removed:
         logger.debug(
@@ -315,9 +312,12 @@ class OpenAIClient:
             request_kwargs["response_format"] = sanitize_response_format_payload(response_format_payload)
         mode = mode_override or api_mode
         cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
+        client = self.get_client()
+        if mode == "responses":
+            return client.responses.create(timeout=timeout, **cleaned_payload)
         if mode != "chat":
             logger.debug("Routing non-chat mode '%s' through chat completions backend", mode)
-        return self.get_client().chat.completions.create(timeout=timeout, **cleaned_payload)
+        return client.chat.completions.create(timeout=timeout, **cleaned_payload)
 
     def _execute_once(
         self,

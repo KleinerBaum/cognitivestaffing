@@ -22,8 +22,9 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
 - Default LLM routing now standardizes on `gpt-4.1-mini` for all flows and escalates automatically to `gpt-5-mini` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
+- OpenAI SDK upgraded to the latest Responses-enabled release with first-class support for the `gpt-5.2` family (including mini/nano variants) and explicit routing through `responses.create` for structured calls.
 - Model routing and task capabilities now live in a single `MODEL_CONFIG` map (model preference + JSON/text flags) inside `config/models.py`, eliminating scattered per-pipeline overrides and repeated fallback chains.
-- GPT-4.1 and GPT-5 calls now pin to the Chat Completions endpoint (`/v1/chat/completions`) with function-calling payloads instead of the deprecated Responses API to match the latest OpenAI guidance.
+- Structured calls default to the Responses API (`responses.create`) with automatic fallbacks to Chat Completions when models reject Responses payloads or require tool/function calls outside the allowed configuration.
 - Sidebar step preview now expands list-style requirements, responsibilities, and benefits into individual entries so the data point count reflects each item instead of a single joined preview.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
