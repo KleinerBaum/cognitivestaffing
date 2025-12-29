@@ -937,6 +937,24 @@ def _build_initial_extraction_entries(
 
     step_entries: dict[str, list[tuple[str, str]]] = {key: [] for key in step_order}
 
+    def _expanded_entries(label: str, value: Any) -> list[tuple[str, str]]:
+        if isinstance(value, Mapping):
+            return [
+                (label, preview)
+                for preview in (preview_value_to_text(item) for item in value.values())
+                if preview
+            ]
+        if isinstance(value, Iterable) and not isinstance(value, (str, bytes, Mapping)):
+            parts = []
+            for item in value:
+                preview = preview_value_to_text(item)
+                if preview:
+                    parts.append((label, preview))
+            if parts:
+                return parts
+        preview = preview_value_to_text(value)
+        return [(label, preview)] if preview else []
+
     summary = context.extraction_summary
     known_step_keys = set(step_order)
     if isinstance(summary, Mapping):
@@ -951,26 +969,19 @@ def _build_initial_extraction_entries(
                     continue
                 entries = step_entries[mapped_key]
                 for label, value in values.items():
-                    preview = preview_value_to_text(value)
-                    if preview:
-                        entries.append((str(label), preview))
+                    entries.extend(_expanded_entries(str(label), value))
         else:
             entries = step_entries.setdefault("jobad", [])
             for label, value in summary.items():
-                preview = preview_value_to_text(value)
-                if preview:
-                    entries.append((str(label), preview))
+                entries.extend(_expanded_entries(str(label), value))
 
     for _, items in context.prefilled_sections:
         for path, value in items:
             resolved_step = _resolve_step_key_for_path(str(path))
             if resolved_step is None or resolved_step not in step_entries:
                 continue
-            preview = preview_value_to_text(value)
-            if not preview:
-                continue
             entries = step_entries[resolved_step]
-            entries.append((_format_field_name(path), preview))
+            entries.extend(_expanded_entries(_format_field_name(path), value))
 
     return step_order, step_entries
 

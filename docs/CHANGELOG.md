@@ -24,6 +24,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Default LLM routing now standardizes on `gpt-4.1-mini` for all flows and escalates automatically to `gpt-5-mini` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
 - Model routing and task capabilities now live in a single `MODEL_CONFIG` map (model preference + JSON/text flags) inside `config/models.py`, eliminating scattered per-pipeline overrides and repeated fallback chains.
 - GPT-4.1 and GPT-5 calls now pin to the Chat Completions endpoint (`/v1/chat/completions`) with function-calling payloads instead of the deprecated Responses API to match the latest OpenAI guidance.
+- Sidebar step preview now expands list-style requirements, responsibilities, and benefits into individual entries so the data point count reflects each item instead of a single joined preview.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
