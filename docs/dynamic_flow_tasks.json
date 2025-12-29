@@ -1,0 +1,76 @@
+[
+  {
+    "title": "Consolidate schema and critical field inventory",
+    "description": "Inventory need_analysis.schema.json, critical_fields.json, and related schemas (job_posting_extraction, role_field_map) into a single canonical map that marks required, critical, and optional fields for downstream use. Self-check: Confirms coverage of all critical paths and flags any schema/UI/export drift.",
+    "priority": "high",
+    "dependencies": [],
+    "error_handling": "Log missing or conflicting schema entries and produce a blocking warning if any critical path is undefined."
+  },
+  {
+    "title": "Design conditional schema extensions",
+    "description": "Extend the NeedAnalysis schema with metadata for signal types, follow-up question blocks, and rendering hints (bilingual labels, criticality) while keeping CS_SCHEMA_PROPAGATE in sync across models, UI, and exports. Self-check: Verifies new metadata compiles to valid JSON Schema and is mirrored in Pydantic models.",
+    "priority": "high",
+    "dependencies": [
+      "Consolidate schema and critical field inventory"
+    ],
+    "error_handling": "Reject schema changes that break validation or omit bilingual labels; emit a schema diff report for corrections."
+  },
+  {
+    "title": "Define signal detection taxonomy and mapping",
+    "description": "Create a taxonomy of competencies, signals, and triggers (skills, seniority, compliance, timing, location) and map them to conditional question blocks and autofill targets. Self-check: Ensures every signal has at least one mapped follow-up and target path.",
+    "priority": "high",
+    "dependencies": [
+      "Design conditional schema extensions"
+    ],
+    "error_handling": "On unmapped signals, fall back to default follow-up templates and log gaps for remediation."
+  },
+  {
+    "title": "Implement job text ingestion and extraction pipeline",
+    "description": "Build or refine parsers that ingest job postings and profiles, extract signals/competencies per taxonomy, and normalize them into the unified schema with confidence scores. Self-check: Validates extraction against golden samples and confirms critical fields are populated when present in source text.",
+    "priority": "high",
+    "dependencies": [
+      "Consolidate schema and critical field inventory",
+      "Define signal detection taxonomy and mapping"
+    ],
+    "error_handling": "If extraction fails or confidence is low, surface bilingual retry prompts and default to manual entry while logging the failure."
+  },
+  {
+    "title": "Build dynamic question block generator",
+    "description": "Create a generator that composes follow-up question blocks from detected signals and existing profile state, emitting structured definitions for the wizard (fields, labels, defaults, critical badges). Self-check: Confirms generated blocks only include relevant fields and respect required/critical markers.",
+    "priority": "high",
+    "dependencies": [
+      "Design conditional schema extensions",
+      "Define signal detection taxonomy and mapping",
+      "Implement job text ingestion and extraction pipeline"
+    ],
+    "error_handling": "If block generation fails, fall back to the baseline eight-step flow and record the fallback event."
+  },
+  {
+    "title": "Wire wizard rendering and navigation to dynamic engine",
+    "description": "Integrate the generator into the Streamlit wizard router so only relevant questions render, with bilingual UI text, sidebar sync, and validation per canonical schema paths. Self-check: Verifies navigation, gating on required/critical fields, and state updates remain consistent across steps.",
+    "priority": "high",
+    "dependencies": [
+      "Build dynamic question block generator"
+    ],
+    "error_handling": "Guard against missing session state or API keys by disabling AI widgets and showing bilingual lock/warning panels."
+  },
+  {
+    "title": "Propagate dynamic data to exports and AI assistants",
+    "description": "Update exports (JSON/Markdown), Boolean search, job ads, and interview guides to consume the dynamic profile state, and align LLM prompts/tooling with the conditional schema. Self-check: Confirms outputs remain complete/bilingual when optional blocks are skipped.",
+    "priority": "medium",
+    "dependencies": [
+      "Wire wizard rendering and navigation to dynamic engine"
+    ],
+    "error_handling": "If dynamic fields are missing, mark placeholders and prompt users to review before export; log missing mappings."
+  },
+  {
+    "title": "Validation, telemetry, and rollout hardening",
+    "description": "Add unit/integration tests, mypy coverage, and telemetry for extraction accuracy, block generation success, and fallback rates; document migration/rollback steps in README and CHANGELOG. Self-check: Ensures CI (ruff, mypy, pytest) passes and rollout docs cover schema propagation.",
+    "priority": "high",
+    "dependencies": [
+      "Implement job text ingestion and extraction pipeline",
+      "Propagate dynamic data to exports and AI assistants"
+    ],
+    "error_handling": "On test or telemetry failures, abort rollout, surface bilingual error guidance, and provide a revert path for schema changes."
+  }
+]
