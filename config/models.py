@@ -19,6 +19,10 @@ GPT4 = "gpt-4"
 GPT4O = "gpt-4o"
 GPT4O_MINI = "gpt-4o-mini"
 
+GPT52 = "gpt-5.2"
+GPT52_MINI = "gpt-5.2-mini"
+GPT52_NANO = "gpt-5.2-nano"
+
 GPT51 = "gpt-5"
 GPT51_MINI = "gpt-5-mini"
 GPT51_NANO = "gpt-5-nano"
@@ -35,6 +39,12 @@ EMBED_MODEL = "text-embedding-3-large"  # RAG
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
 
 LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
+    ("gpt-5.2-mini", GPT52_MINI),
+    ("gpt-5.2-mini-latest", GPT52_MINI),
+    ("gpt-5.2-nano", GPT52_NANO),
+    ("gpt-5.2-nano-latest", GPT52_NANO),
+    ("gpt-5.2", GPT52),
+    ("gpt-5.2-latest", GPT52),
     ("gpt-5-mini", GPT51_MINI),
     ("gpt-5-mini-latest", GPT51_MINI),
     ("gpt-5-nano", GPT51_NANO),
@@ -87,6 +97,9 @@ SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
     MEDIUM_REASONING_MODEL_DEFAULT,
     REASONING_MODEL_DEFAULT,
+    GPT52,
+    GPT52_MINI,
+    GPT52_NANO,
     GPT51_MINI,
     GPT51_NANO,
     GPT51,
@@ -162,6 +175,9 @@ _LIGHTWEIGHT_TASKS: frozenset[str] = frozenset(
 
 PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
     GPT41_MINI,
+    GPT52,
+    GPT52_MINI,
+    GPT52_NANO,
     GPT51_MINI,
     GPT51_NANO,
     GPT4O_MINI,
@@ -229,6 +245,12 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         return GPT41_MINI
     if lowered.startswith("gpt-4.1-nano"):
         return GPT41_NANO
+    if lowered.startswith("gpt-5.2-mini"):
+        return GPT52_MINI
+    if lowered.startswith("gpt-5.2-nano"):
+        return GPT52_NANO
+    if lowered.startswith("gpt-5.2"):
+        return GPT52
     if lowered.startswith("gpt-5.1-mini"):
         return GPT51_MINI
     if lowered.startswith("gpt-5.1-nano"):
