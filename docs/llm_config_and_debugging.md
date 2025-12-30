@@ -14,14 +14,14 @@ Model routing is centralized in `config/models.py` via the `MODEL_CONFIG` map an
 | Follow-up questions (`ModelTask.FOLLOW_UP_QUESTIONS`) | `gpt-5.1-mini` | Text only (JSON schema disabled) |
 | Team advice (`ModelTask.TEAM_ADVICE`) | `gpt-5.1-mini` | Text only (JSON schema disabled) |
 | Salary estimates (`ModelTask.SALARY_ESTIMATE`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
-| Job ad / interview guide / summaries (`ModelTask.JOB_AD`, `INTERVIEW_GUIDE`, `PROFILE_SUMMARY`) | `gpt-5.1-mini` (escalates to `gpt-5.2` when needed) | Text with optional Markdown; no JSON schema |
+| Job ad / interview guide / summaries (`ModelTask.JOB_AD`, `INTERVIEW_GUIDE`, `PROFILE_SUMMARY`) | `gpt-5.1-mini` (medium effort promotes to `gpt-5.2-mini`; high effort escalates to `gpt-5.2`) | Text with optional Markdown; no JSON schema |
 | Embeddings (vector store) | `text-embedding-3-large` | Not applicable |
 
 **Routing rules**
 
 - **Fallback chain:** `gpt-5.1-mini → gpt-5.2 → gpt-5.2-mini` for most chat calls; embeddings stay fixed.
 - **Chat Completions vs. Responses:** `gpt-5*` models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
-- **Reasoning effort:** Quick/cheap mode uses the lowest reasoning effort (`none`/`minimal`), mapped to GPT-5.2's `effort: none`; precise mode raises `REASONING_EFFORT` and prefers higher-tier models where configured.
+- **Reasoning effort:** Quick/cheap mode uses the lowest reasoning effort (`none`/`minimal`), mapped to GPT-5.2's `effort: none`; medium effort now upgrades long-form generators to `gpt-5.2-mini`, and precise mode raises `REASONING_EFFORT` and prefers higher-tier models where configured.
 
 ## Response format rules (JSON schema)
 
