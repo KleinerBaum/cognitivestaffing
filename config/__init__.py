@@ -1,12 +1,9 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-The application favours the officially supported OpenAI Responses models and
-keeps lightweight tasks on ``gpt-4o-mini`` while escalating reasoning-heavy
-workloads through ``o3`` depending on the configured
-``REASONING_EFFORT``. Automatic fallbacks continue down the stack
-(``o3`` → ``o4-mini`` → ``gpt-4o-mini`` → ``gpt-4o`` → ``gpt-4`` →
-``gpt-3.5-turbo``) so the platform remains resilient when specific tiers
-experience downtime. Structured retrieval continues to use
+The application now pins OpenAI Responses calls to the GPT-5.2 family with
+lightweight tasks on ``gpt-5.2-nano``/``gpt-5.2-mini`` and heavier reasoning on
+``gpt-5.2``. Fallbacks stay within the GPT-5.2 tiers so routing remains
+predictable while staying resilient. Structured retrieval continues to use
 ``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
 
 ``REASONING_EFFORT`` (``none`` | ``minimal`` | ``low`` | ``medium`` | ``high``)
@@ -153,29 +150,10 @@ CHATKIT_PROCESS_WORKFLOW_ID = os.getenv("CHATKIT_PROCESS_WORKFLOW_ID", "")
 
 REASONING_LEVELS = model_config.REASONING_LEVELS
 REASONING_EFFORT = model_config.normalise_reasoning_effort(os.getenv("REASONING_EFFORT", model_config.REASONING_EFFORT))
-_lightweight_override = os.getenv("LIGHTWEIGHT_MODEL")
-_medium_reasoning_override = os.getenv("MEDIUM_REASONING_MODEL")
-_high_reasoning_override = os.getenv("REASONING_MODEL") or os.getenv("HIGH_REASONING_MODEL")
+_lightweight_override = None
+_medium_reasoning_override = None
+_high_reasoning_override = None
 
-
-def _warn_deprecated_model_override(source: str, value: str | None) -> None:
-    if not value:
-        return
-    logger.warning(
-        "Ignoring %s model override '%s'; the primary model is fixed to '%s'.",
-        source,
-        value,
-        model_config.PRIMARY_MODEL_DEFAULT,
-    )
-
-
-_default_model_override_env = os.getenv("DEFAULT_MODEL")
-_openai_model_override_env = os.getenv("OPENAI_MODEL")
-_warn_deprecated_model_override("DEFAULT_MODEL env", _default_model_override_env)
-_warn_deprecated_model_override("OPENAI_MODEL env", _openai_model_override_env)
-
-_default_model_override: str | None = None
-_openai_model_override: str | None = None
 _MODEL_ROUTING_OVERRIDES: Dict[str, str] = {}
 VERBOSITY_LEVELS = ("low", "medium", "high")
 
@@ -210,8 +188,6 @@ def _configure_models() -> None:
         lightweight_override=_lightweight_override,
         medium_reasoning_override=_medium_reasoning_override,
         high_reasoning_override=_high_reasoning_override,
-        default_model_override=_default_model_override,
-        openai_model_override=_openai_model_override,
         model_routing_overrides=_MODEL_ROUTING_OVERRIDES,
     )
     REASONING_EFFORT = model_config.REASONING_EFFORT
@@ -348,9 +324,10 @@ OPENAI_BASE_URL = (_OPENAI_BASE_URL_ENV or "").strip()
 OPENAI_ORGANIZATION = os.getenv("OPENAI_ORGANIZATION", "").strip()
 OPENAI_PROJECT = os.getenv("OPENAI_PROJECT", "").strip()
 OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"), default=120.0)
-# API mode flags are initialised via ``set_api_mode`` to guarantee synchronisation.
-USE_CLASSIC_API = True
-USE_RESPONSES_API = False
+# API mode defaults to the Responses API; legacy environment toggles are removed
+# but internal callers may still switch modes for testing.
+USE_CLASSIC_API = False
+USE_RESPONSES_API = True
 
 ADMIN_DEBUG_PANEL = _normalise_bool(
     os.getenv("ADMIN_DEBUG_PANEL"),
@@ -366,41 +343,13 @@ def resolve_api_mode(preferred: APIMode | str | bool | None = None) -> APIMode:
 
 
 def set_api_mode(mode: APIMode | str | bool) -> None:
-    """Synchronise the Responses/Classic API flags.
-
-    Args:
-        mode: When truthy/``APIMode.RESPONSES`` the Responses API becomes the
-            active backend. ``False`` or ``APIMode.CLASSIC`` switches the
-            platform to the legacy Chat Completions API.
-    """
+    """Synchronise the Responses/Classic API flags for runtime callers."""
 
     global USE_RESPONSES_API, USE_CLASSIC_API
 
     target_mode = _coerce_api_mode_value(mode, fallback=resolve_api_mode())
     USE_RESPONSES_API = target_mode is APIMode.RESPONSES
     USE_CLASSIC_API = target_mode is APIMode.CLASSIC
-
-
-def _resolve_env_api_mode() -> APIMode:
-    """Return the initial API mode derived from environment toggles.
-
-    ``USE_RESPONSES_API`` takes precedence when both flags are provided to avoid
-    accidental divergence. When neither variable is set, the Chat Completions
-    API is the default.
-    """
-
-    responses_raw = os.getenv("USE_RESPONSES_API")
-    classic_raw = os.getenv("USE_CLASSIC_API")
-
-    if responses_raw is not None:
-        responses_enabled = _normalise_bool(responses_raw, default=False)
-        return APIMode.RESPONSES if responses_enabled else APIMode.CLASSIC
-
-    if classic_raw is not None:
-        classic_enabled = _normalise_bool(classic_raw, default=True)
-        return APIMode.CLASSIC if classic_enabled else APIMode.RESPONSES
-
-    return APIMode.CLASSIC
 
 
 def set_responses_allow_tools(allow_tools: bool) -> None:
@@ -423,7 +372,6 @@ def temporarily_force_classic_api() -> Iterator[None]:
         set_api_mode(previous_mode)
 
 
-set_api_mode(_resolve_env_api_mode())
 # NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
 RESPONSES_ALLOW_TOOLS = _normalise_bool(
     os.getenv("RESPONSES_ALLOW_TOOLS"),
@@ -437,30 +385,11 @@ try:
         section_key = _coerce_secret_value(openai_secrets.get("OPENAI_API_KEY"))
         if section_key:
             OPENAI_API_KEY = section_key
-        if "OPENAI_MODEL" in openai_secrets:
-            _warn_deprecated_model_override(
-                "OPENAI_MODEL secret",
-                _coerce_secret_value(openai_secrets.get("OPENAI_MODEL")),
-            )
         OPENAI_BASE_URL = openai_secrets.get("OPENAI_BASE_URL", OPENAI_BASE_URL)
         OPENAI_ORGANIZATION = openai_secrets.get("OPENAI_ORGANIZATION", OPENAI_ORGANIZATION)
         OPENAI_PROJECT = openai_secrets.get("OPENAI_PROJECT", OPENAI_PROJECT)
         timeout_secret = openai_secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT)
         OPENAI_REQUEST_TIMEOUT = _normalise_timeout(timeout_secret, default=OPENAI_REQUEST_TIMEOUT)
-        if "USE_CLASSIC_API" in openai_secrets:
-            set_api_mode(
-                not _normalise_bool(
-                    openai_secrets.get("USE_CLASSIC_API"),
-                    default=USE_CLASSIC_API,
-                )
-            )
-        if "USE_RESPONSES_API" in openai_secrets:
-            set_api_mode(
-                _normalise_bool(
-                    openai_secrets.get("USE_RESPONSES_API"),
-                    default=USE_RESPONSES_API,
-                )
-            )
         if "RESPONSES_ALLOW_TOOLS" in openai_secrets:
             set_responses_allow_tools(
                 _normalise_bool(
@@ -493,20 +422,6 @@ try:
         st.secrets.get("OPENAI_REQUEST_TIMEOUT", OPENAI_REQUEST_TIMEOUT),
         default=OPENAI_REQUEST_TIMEOUT,
     )
-    if "USE_CLASSIC_API" in st.secrets:
-        set_api_mode(
-            not _normalise_bool(
-                st.secrets.get("USE_CLASSIC_API"),
-                default=USE_CLASSIC_API,
-            )
-        )
-    if "USE_RESPONSES_API" in st.secrets:
-        set_api_mode(
-            _normalise_bool(
-                st.secrets.get("USE_RESPONSES_API"),
-                default=USE_RESPONSES_API,
-            )
-        )
     if "RESPONSES_ALLOW_TOOLS" in st.secrets:
         set_responses_allow_tools(
             _normalise_bool(

@@ -291,7 +291,7 @@ def test_env_openai_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog:
 
         assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
         assert model_config.get_model_for(model_config.ModelTask.DEFAULT) == model_config.PRIMARY_MODEL_DEFAULT
-        assert any("Ignoring OPENAI_MODEL" in record.message for record in caplog.records)
+        assert not caplog.records
     finally:
         if previous_env is None:
             monkeypatch.delenv("OPENAI_MODEL", raising=False)
@@ -312,7 +312,7 @@ def test_env_default_model_override_is_ignored(
 
         assert model_config.DEFAULT_MODEL == model_config.PRIMARY_MODEL_DEFAULT
         assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
-        assert any("DEFAULT_MODEL" in record.message for record in caplog.records)
+        assert not caplog.records
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)

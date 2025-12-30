@@ -166,12 +166,12 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ### Reset API mode and model defaults
 
-- **English:** Model selection is fixed in `config/models.py` to `gpt-5.1-mini` with automatic escalation to GPT-5.2 for heavier or resilient workloads. Legacy environment overrides (for example `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) are ignored; use `python -m cli.reset_api_flags` to strip them along with API-mode toggles (`USE_CLASSIC_API`, `USE_RESPONSES_API`) and base URL aliases (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
-- **Deutsch:** Die Modellauswahl ist in `config/models.py` fest auf `gpt-5.1-mini` eingestellt und hebt automatisch auf GPT-5.2 an, wenn mehr Reasoning oder Ausfallsicherheit nötig ist. Veraltete Umgebungsvariablen (z. B. `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) werden ignoriert; `python -m cli.reset_api_flags` entfernt sie zusammen mit API-Modus-Schaltern (`USE_CLASSIC_API`, `USE_RESPONSES_API`) und Basis-URL-Aliassen (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Mit `-k EXTRA_KEY` lassen sich weitere Schlüssel löschen.
+- **English:** Model selection is fixed in `config/models.py` to GPT-5.2 tiers (`gpt-5.2-mini` default, lightweight paths on `gpt-5.2-nano`, reasoning escalations to `gpt-5.2`). Legacy environment overrides (for example `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) and API-mode toggles (`USE_CLASSIC_API`, `USE_RESPONSES_API`) have been removed; `python -m cli.reset_api_flags` simply cleans lingering keys such as base URL aliases (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
+- **Deutsch:** Die Modellauswahl ist in `config/models.py` fest auf GPT-5.2 gelegt (`gpt-5.2-mini` als Standard, leichte Pfade auf `gpt-5.2-nano`, Reasoning-Eskalationen auf `gpt-5.2`). Veraltete Umgebungsvariablen (z. B. `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) und API-Modus-Schalter (`USE_CLASSIC_API`, `USE_RESPONSES_API`) wurden entfernt; `python -m cli.reset_api_flags` räumt nur noch Rest-Schlüssel wie Basis-URL-Aliasse (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`) auf. Mit `-k EXTRA_KEY` lassen sich weitere Schlüssel löschen.
 - **English:** Model constants, aliases, routing, and fallbacks live in `config/models.py` as the single source of truth—update model names or defaults only there.
 - **Deutsch:** Modellkonstanten, Aliase, Routing und Fallback-Ketten liegen zentral in `config/models.py`; passe Modellnamen oder Defaults nur dort an.
-- **English:** Fallback order is locked to `gpt-5.1-mini` → `gpt-5.2`; higher-cost GPT-4/GPT-3.5 tiers are no longer part of the automatic chain.
-- **Deutsch:** Die Fallback-Reihenfolge ist fix: `gpt-5.1-mini` → `gpt-5.2`; teurere GPT-4-/GPT-3.5-Modelle werden nicht mehr automatisch genutzt.
+- **English:** Fallback order is locked within GPT-5.2 (`gpt-5.2-mini` → `gpt-5.2`); GPT-4/GPT-3.5 tiers are no longer part of the automatic chain.
+- **Deutsch:** Die Fallback-Reihenfolge bleibt innerhalb von GPT-5.2 (`gpt-5.2-mini` → `gpt-5.2`); GPT-4-/GPT-3.5-Modelle sind nicht mehr Teil des automatischen Fallbacks.
 
 ### Quickstart for devs (English / Deutsch)
 
@@ -183,7 +183,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ## LLM Configuration & Capabilities
 
-Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-5.1-mini`) handle extraction and schema repair, while longer-form generators escalate to `gpt-5.2` when reasoning effort is higher. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out. The lowest reasoning tier now defaults to `none` (alias: `minimal`) and is sent as `reasoning: {effort: "none"}` for GPT-5.2 compatibility; Responses payloads include the current verbosity hint except when the target model is a GPT-5 Codex variant.
+Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-5.2-mini`/`gpt-5.2-nano`) handle extraction and schema repair, while longer-form generators stay on GPT-5.2 with reasoning escalations. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out. The lowest reasoning tier now defaults to `none` (alias: `minimal`) and is sent as `reasoning: {effort: "none"}` for GPT-5.2 compatibility; Responses payloads include the current verbosity hint except when the target model is a GPT-5 Codex variant.
 
 | Task | Default model | Structured output? |
 | --- | --- | --- |
