@@ -447,6 +447,7 @@ def test_chat_payload_builder_handles_tools_and_schema():
         tool_choice={"type": "function", "function": {"name": "do"}},
         schema_bundle=schema_bundle,
         reasoning_effort=None,
+        verbosity=None,
         extra=None,
         router_estimate=None,
         previous_response_id=None,
@@ -483,6 +484,7 @@ def test_responses_payload_builder_attaches_router_metadata():
         tool_choice=None,
         schema_bundle=schema_bundle,
         reasoning_effort="medium",
+        verbosity=None,
         extra={"metadata": {"source": "test-case"}},
         router_estimate=estimate,
         previous_response_id="resp-1",
@@ -1505,7 +1507,7 @@ def test_call_chat_api_uses_session_reasoning_default(monkeypatch):
         [{"role": "user", "content": "hi"}],
         model="o1-mini",
     )
-    assert captured["reasoning"] == {"effort": "minimal"}
+    assert captured["reasoning"] == {"effort": "none"}
 
 
 def test_call_chat_api_omits_reasoning_for_standard_models(monkeypatch):
@@ -1558,7 +1560,7 @@ def test_call_chat_api_includes_explicit_verbosity_hint(monkeypatch):
         [{"role": "user", "content": "hi"}],
         verbosity="high",
     )
-    assert "verbosity" not in captured
+    assert captured["verbosity"] == "high"
     system_message = captured["input"][0]
     assert system_message["role"] == "system"
     content = system_message["content"]
@@ -1591,7 +1593,7 @@ def test_call_chat_api_uses_session_verbosity_default(monkeypatch):
     call_chat_api(
         [{"role": "user", "content": "hi"}],
     )
-    assert "verbosity" not in captured
+    assert captured["verbosity"] == "low"
     system_message = captured["input"][0]
     assert system_message["role"] == "system"
     content = system_message["content"]

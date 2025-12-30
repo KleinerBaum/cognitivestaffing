@@ -223,6 +223,9 @@ def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> di
         if "max_output_tokens" in cleaned and "max_completion_tokens" not in cleaned:
             cleaned["max_completion_tokens"] = cleaned.pop("max_output_tokens")
             removed.append("max_output_tokens")
+        if "verbosity" in cleaned:
+            removed.append("verbosity")
+            cleaned.pop("verbosity", None)
     else:
         if "messages" in cleaned and "input" not in cleaned:
             cleaned["input"] = cleaned.pop("messages")

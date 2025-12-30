@@ -9,6 +9,7 @@ from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 
 LEVEL_LABELS: dict[str, tuple[str, str]] = {
+    "none": ("Aus", "None"),
     "minimal": ("Minimal", "Minimal"),
     "low": ("Niedrig", "Low"),
     "medium": ("Mittel", "Medium"),

@@ -1728,7 +1728,8 @@ def build_chat_payload(
 ) -> ResponsesRequest:
     """Return a prepared OpenAI payload without executing the request."""
 
-    messages_with_hint = _inject_verbosity_hint(messages, _resolve_verbosity(verbosity))
+    resolved_verbosity = _resolve_verbosity(verbosity)
+    messages_with_hint = _inject_verbosity_hint(messages, resolved_verbosity)
 
     return _prepare_payload(
         messages_with_hint,
@@ -1740,6 +1741,7 @@ def build_chat_payload(
         tool_choice=tool_choice,
         tool_functions=tool_functions,
         reasoning_effort=reasoning_effort,
+        verbosity=resolved_verbosity,
         extra=extra,
         include_analysis_tools=include_analysis_tools,
         task=task,

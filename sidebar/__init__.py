@@ -68,7 +68,7 @@ def _apply_reasoning_mode(mode: str) -> None:
     st.session_state[StateKeys.REASONING_MODE] = normalized
 
     if normalized == "quick":
-        st.session_state[StateKeys.REASONING_EFFORT] = "minimal"
+        st.session_state[StateKeys.REASONING_EFFORT] = "none"
         st.session_state["verbosity"] = "low"
     else:
         st.session_state[StateKeys.REASONING_EFFORT] = "high"
