@@ -10,8 +10,7 @@ The package is split into focused modules:
 
 Most existing code imports directly from ``openai_utils``; the symbols below are
 re-exported for backward compatibility. The Responses client remains the
-default, but setting ``USE_CLASSIC_API`` switches helpers to the Chat
-Completions interface when required.
+default and legacy Chat Completions switches have been removed.
 """
 
 from __future__ import annotations

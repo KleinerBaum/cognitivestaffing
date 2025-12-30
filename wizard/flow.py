@@ -74,7 +74,7 @@ from utils.i18n import (
     tr,
 )
 import config as app_config
-from config import set_api_mode, set_responses_allow_tools
+from config import set_responses_allow_tools
 from i18n import t as translate_key
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
@@ -12075,31 +12075,12 @@ def _render_admin_debug_panel() -> None:
                 )
             )
 
-        mode_options: tuple[str, ...] = ("responses", "chat")
-        mode_labels = {
-            "responses": tr("Responses-API", "Responses API"),
-            "chat": tr("Chat-Completions-API", "Chat Completions API"),
-        }
-        current_mode = "chat" if app_config.USE_CLASSIC_API else "responses"
-        stored_mode = str(st.session_state.get(UIKeys.DEBUG_API_MODE) or current_mode)
-        if stored_mode not in mode_labels:
-            stored_mode = current_mode
-        selected_mode = api_col.radio(
-            tr("API-Modus", "API mode"),
-            options=mode_options,
-            index=mode_options.index(stored_mode),
-            key=UIKeys.DEBUG_API_MODE,
-            format_func=lambda value: mode_labels.get(value, value.title()),
-            horizontal=True,
-        )
-        if selected_mode != current_mode:
-            set_api_mode(selected_mode == "responses")
-            st.toast(
-                tr("Responses-API aktiv.", "Responses API active.")
-                if selected_mode == "responses"
-                else tr("Chat-Completions-API aktiv.", "Chat Completions API active."),
-                icon="🔁",
+        api_col.caption(
+            tr(
+                "Die Responses-API ist fest aktiviert; Legacy-Chat-Modus-Schalter wurden entfernt.",
+                "Responses API is locked on; legacy chat toggles have been removed.",
             )
+        )
 
         allow_tools = bool(app_config.RESPONSES_ALLOW_TOOLS)
         requested_allow = tools_col.checkbox(

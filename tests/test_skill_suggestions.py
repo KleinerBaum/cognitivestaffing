@@ -146,70 +146,58 @@ def test_benefit_suggestions_log_warning_on_failure(monkeypatch, caplog):
 def test_skill_suggestions_use_legacy_when_api_disabled(monkeypatch, caplog) -> None:
     import llm.suggestions as responses_suggestions
 
-    previous_mode = config.USE_RESPONSES_API
-    config.set_api_mode(False)
     caplog.set_level("INFO", logger="llm.suggestions")
     caplog.clear()
 
-    legacy_payload = {
-        "tools_and_technologies": ["Legacy Tool"],
-        "hard_skills": ["Legacy Hard"],
-        "soft_skills": ["Legacy Soft"],
-        "certificates": ["Legacy Cert"],
+    responses_payload = {
+        "tools_and_technologies": ["Responses Tool"],
+        "hard_skills": ["Responses Hard"],
+        "soft_skills": ["Responses Soft"],
+        "certificates": ["Responses Cert"],
     }
+    calls = {"responses": 0}
 
-    def _boom(*_args, **_kwargs):  # pragma: no cover - enforced by the test itself
-        raise AssertionError("Responses API should not be called when USE_CLASSIC_API=1")
+    def _fake_responses(*_args, **_kwargs):
+        calls["responses"] += 1
+        return responses_payload
 
-    try:
-        monkeypatch.setattr("llm.suggestions.call_responses_safe", _boom)
-        monkeypatch.setattr(
-            "openai_utils.suggest_skills_for_role",
-            lambda *args, **kwargs: legacy_payload,
-        )
+    monkeypatch.setattr("llm.suggestions.call_responses_safe", _fake_responses)
+    monkeypatch.setattr(
+        "openai_utils.suggest_skills_for_role",
+        lambda *args, **kwargs: responses_payload,
+    )
 
-        out = responses_suggestions.suggest_skills_for_role("Engineer")
-        assert out == legacy_payload
-        assert any(
-            "legacy chat API for skill suggestions" in record.getMessage()
-            for record in caplog.records
-            if record.levelname == "INFO"
-        )
-    finally:
-        config.set_api_mode(previous_mode)
+    out = responses_suggestions.suggest_skills_for_role("Engineer")
+    assert out == responses_payload
+    assert calls["responses"] == 1
+    assert not any("legacy chat API" in record.getMessage() for record in caplog.records)
 
 
 def test_benefit_suggestions_use_legacy_when_api_disabled(monkeypatch, caplog) -> None:
     import llm.suggestions as responses_suggestions
 
-    previous_mode = config.USE_RESPONSES_API
-    config.set_api_mode(False)
     caplog.set_level("INFO", logger="llm.suggestions")
     caplog.clear()
 
-    legacy_payload = ["Legacy Benefit"]
+    responses_payload = ["Responses Benefit"]
+    calls = {"responses": 0}
 
-    def _boom(*_args, **_kwargs):  # pragma: no cover - enforced by the test itself
-        raise AssertionError("Responses API should not be called when USE_CLASSIC_API=1")
+    def _fake_responses(*_args, **_kwargs):
+        calls["responses"] += 1
+        return responses_payload
 
-    try:
-        monkeypatch.setattr("llm.suggestions.call_responses_safe", _boom)
-        monkeypatch.setattr(
-            "openai_utils.suggest_benefits",
-            lambda *args, **kwargs: legacy_payload,
-        )
+    monkeypatch.setattr("llm.suggestions.call_responses_safe", _fake_responses)
+    monkeypatch.setattr(
+        "openai_utils.suggest_benefits",
+        lambda *args, **kwargs: responses_payload,
+    )
 
-        out = responses_suggestions.suggest_benefits(
-            "Engineer",
-            industry="Tech",
-            existing_benefits="",
-            lang="en",
-        )
-        assert out == legacy_payload
-        assert any(
-            "legacy chat API for benefit suggestions" in record.getMessage()
-            for record in caplog.records
-            if record.levelname == "INFO"
-        )
-    finally:
-        config.set_api_mode(previous_mode)
+    out = responses_suggestions.suggest_benefits(
+        "Engineer",
+        industry="Tech",
+        existing_benefits="",
+        lang="en",
+    )
+    assert out == responses_payload
+    assert calls["responses"] == 1
+    assert not any("legacy chat API" in record.getMessage() for record in caplog.records)

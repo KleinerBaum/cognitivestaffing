@@ -90,11 +90,11 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT51_NANO
-MEDIUM_REASONING_MODEL_DEFAULT = GPT51_MINI
+LIGHTWEIGHT_MODEL_DEFAULT = GPT52_NANO
+MEDIUM_REASONING_MODEL_DEFAULT = GPT52_MINI
 HIGH_REASONING_MODEL_DEFAULT = GPT52
-REASONING_MODEL_DEFAULT = GPT51_MINI
-PRIMARY_MODEL_DEFAULT = GPT51_MINI
+REASONING_MODEL_DEFAULT = GPT52_MINI
+PRIMARY_MODEL_DEFAULT = GPT52_MINI
 
 SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
@@ -440,8 +440,6 @@ def configure_models(
     lightweight_override: str | None = None,
     medium_reasoning_override: str | None = None,
     high_reasoning_override: str | None = None,
-    default_model_override: str | None = None,
-    openai_model_override: str | None = None,
     model_routing_overrides: Mapping[str, str] | None = None,
 ) -> None:
     """Initialise model defaults, routing, and fallbacks."""
@@ -463,16 +461,6 @@ def configure_models(
         REASONING_EFFORT,
         PRIMARY_MODEL_DEFAULT,
     )
-    if default_model_override:
-        warnings.warn(
-            "DEFAULT_MODEL overrides are ignored; the primary model is fixed to '%s'." % PRIMARY_MODEL_DEFAULT,
-            RuntimeWarning,
-        )
-    if openai_model_override:
-        warnings.warn(
-            "OPENAI_MODEL overrides are ignored; the primary model is fixed to '%s'." % PRIMARY_MODEL_DEFAULT,
-            RuntimeWarning,
-        )
     DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT
     OPENAI_MODEL = PRIMARY_MODEL_DEFAULT
     MODEL_CONFIG = _build_model_config(model_routing_overrides)

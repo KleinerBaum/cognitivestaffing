@@ -31,8 +31,7 @@ def test_structured_extraction_logs_without_pii(monkeypatch: pytest.MonkeyPatch)
 
     fake_logger = FakeLogger()
     monkeypatch.setattr(client, "logger", fake_logger)
-    previous_mode = config.USE_RESPONSES_API
-    config.set_api_mode(False)
+    monkeypatch.setattr(client, "_responses_api_enabled", lambda: False)
     monkeypatch.setattr(
         client,
         "call_chat_api",
@@ -50,11 +49,8 @@ def test_structured_extraction_logs_without_pii(monkeypatch: pytest.MonkeyPatch)
         "model": model_config.GPT4O_MINI,
     }
 
-    try:
-        with pytest.raises(ValueError, match="valid JSON"):
-            client._structured_extraction(payload)
-    finally:
-        config.set_api_mode(previous_mode)
+    with pytest.raises(ValueError, match="valid JSON"):
+        client._structured_extraction(payload)
 
     assert fake_logger.messages, "expected at least one warning to be logged"
     assert any("latest_user_hash=" in msg for msg in fake_logger.messages)

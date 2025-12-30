@@ -62,7 +62,6 @@ class StructuredExtractionOutcome:
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 3
-USE_RESPONSES_API: bool | None = None
 _EXTRACTION_MAX_COMPLETION_TOKENS: Final[int] = 500
 
 
@@ -224,12 +223,7 @@ def _retry_missing_sections(
 def _responses_api_enabled() -> bool:
     """Return whether the structured extraction should use the Responses API."""
 
-    if not _strict_extraction_enabled():
-        return False
-
-    if USE_RESPONSES_API is None:
-        return app_config.USE_RESPONSES_API
-    return bool(USE_RESPONSES_API)
+    return _strict_extraction_enabled() and app_config.USE_RESPONSES_API
 
 
 def _strict_extraction_enabled() -> bool:
