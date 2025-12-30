@@ -435,6 +435,10 @@ def generate_interview_guide(
     messages = _build_messages(payload)
     schema = get_response_schema(INTERVIEW_GUIDE_SCHEMA_NAME)
 
+    effort = REASONING_EFFORT if REASONING_EFFORT else "none"
+    if effort in {"none", "minimal", "low"}:
+        effort = "medium"
+
     try:
         response = call_responses_safe(
             messages,
@@ -445,7 +449,7 @@ def generate_interview_guide(
             ),
             temperature=0.6,
             max_completion_tokens=900,
-            reasoning_effort=REASONING_EFFORT,
+            reasoning_effort=effort,
             task=ModelTask.INTERVIEW_GUIDE,
             logger_instance=logger,
             context="interview guide",

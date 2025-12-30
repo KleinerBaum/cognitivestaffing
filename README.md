@@ -46,6 +46,7 @@ Live app: https://cognitivestaffing.streamlit.app/
 
 - **OpenAI model routing (automatic, fixed defaults)**
   The app standardizes on `gpt-5.1-mini` for all operations and automatically escalates to the GPT-5.2 family (including `gpt-5.2`, `gpt-5.2-pro`, `gpt-5.2-mini`, and `gpt-5.2-nano`) for harder tasks or when resilience is required. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
+  Medium reasoning effort now upgrades long-form generators (job ads, interview guides, profile summaries) to `gpt-5.2-mini` and sends explicit "outline first" hints so GPT-5.2 returns richer bilingual content instead of overly terse answers.
 
 - **Single-source task capabilities**
   Every AI task (structured extraction, follow-up drafting, JSON repair, salary estimation, and more) now pulls its preferred model and JSON/text capability flags from a unified `MODEL_CONFIG` map in `config/models.py`, reducing repeated fallbacks and making routing behaviour predictable in logs.
