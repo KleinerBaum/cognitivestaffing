@@ -90,8 +90,8 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT51_MINI
-MEDIUM_REASONING_MODEL_DEFAULT = GPT52_MINI
+LIGHTWEIGHT_MODEL_DEFAULT = GPT51_NANO
+MEDIUM_REASONING_MODEL_DEFAULT = GPT51_MINI
 HIGH_REASONING_MODEL_DEFAULT = GPT52
 REASONING_MODEL_DEFAULT = GPT51_MINI
 PRIMARY_MODEL_DEFAULT = GPT51_MINI
@@ -173,6 +173,7 @@ _LIGHTWEIGHT_TASKS: frozenset[str] = frozenset(
         ModelTask.COMPANY_INFO.value,
         ModelTask.JSON_REPAIR.value,
         ModelTask.PROGRESS_INBOX.value,
+        ModelTask.SALARY_ESTIMATE.value,
         "non_reasoning",
     }
 )
@@ -314,8 +315,8 @@ def _model_for_reasoning_level(level: str) -> str:
     """Return the preferred model for ``level`` of reasoning effort."""
 
     mapping = {
-        "none": LIGHTWEIGHT_MODEL,
-        "minimal": LIGHTWEIGHT_MODEL,
+        "none": PRIMARY_MODEL_DEFAULT,
+        "minimal": PRIMARY_MODEL_DEFAULT,
         "low": MEDIUM_REASONING_MODEL,
         "medium": MEDIUM_REASONING_MODEL,
         "high": HIGH_REASONING_MODEL,
@@ -388,20 +389,20 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT52_PRO): [GPT52_PRO, GPT52, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT52_PRO): [GPT52_PRO, GPT52, GPT52_MINI, GPT51_MINI, GPT51_NANO],
     _canonical_model_name(GPT52): [GPT52, GPT52_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT52, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(GPT51): [GPT51, GPT52, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT52_MINI, GPT52, GPT51_NANO],
-    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT51_MINI, GPT52_MINI],
-    _canonical_model_name(O3): [O3, GPT52, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(O3_MINI): [O3_MINI, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(O4_MINI): [O4_MINI, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(GPT4O): [GPT4O, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(GPT4): [GPT4, GPT52_MINI, GPT51_MINI],
-    _canonical_model_name(GPT35): [GPT35, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT51_MINI, GPT51_NANO, GPT52],
+    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT51_NANO, GPT51_MINI, GPT52_MINI],
+    _canonical_model_name(GPT51): [GPT51, GPT51_MINI, GPT51_NANO, GPT52_MINI, GPT52],
+    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT51_NANO, GPT52_MINI, GPT52],
+    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT51_MINI, GPT52_MINI, GPT52],
+    _canonical_model_name(O3): [O3, GPT51_MINI, GPT51_NANO, GPT52_MINI, GPT52],
+    _canonical_model_name(O3_MINI): [O3_MINI, GPT51_MINI, GPT51_NANO, GPT52_MINI],
+    _canonical_model_name(O4_MINI): [O4_MINI, GPT51_MINI, GPT51_NANO, GPT52_MINI],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT51_MINI, GPT51_NANO, GPT52_MINI],
+    _canonical_model_name(GPT4O): [GPT4O, GPT51_MINI, GPT51_NANO, GPT52_MINI],
+    _canonical_model_name(GPT4): [GPT4, GPT51_MINI, GPT51_NANO, GPT52_MINI],
+    _canonical_model_name(GPT35): [GPT35, GPT51_NANO, GPT51_MINI, GPT52_MINI],
 }
 
 
