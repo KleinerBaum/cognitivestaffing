@@ -22,7 +22,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Changed
 - Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
-- Default LLM routing now standardizes on `gpt-4.1-mini` for all flows and escalates automatically to `gpt-5-mini` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
+- Default LLM routing now standardizes on `gpt-5.1-mini` for all flows and escalates automatically to `gpt-5.2` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
 - OpenAI SDK upgraded to the latest Responses-enabled release with first-class support for the `gpt-5.2` family (including mini/nano variants) and explicit routing through `responses.create` for structured calls.
 - Model routing and task capabilities now live in a single `MODEL_CONFIG` map (model preference + JSON/text flags) inside `config/models.py`, eliminating scattered per-pipeline overrides and repeated fallback chains.
 - Structured calls default to the Responses API (`responses.create`) with automatic fallbacks to Chat Completions when models reject Responses payloads or require tool/function calls outside the allowed configuration.
@@ -30,7 +30,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
-- Primary model selection is locked to `gpt-4.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling. Fallbacks are centralized in `config/models.py` with automatic escalation to `gpt-5-mini` and no user-facing mode switches.
+- Primary model selection is locked to `gpt-5.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling. Fallbacks are centralized in `config/models.py` with automatic escalation to `gpt-5.2` and no user-facing mode switches.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 
