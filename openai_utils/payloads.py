@@ -17,6 +17,7 @@ from config.models import (
     get_model_candidates,
     get_reasoning_mode,
     requires_chat_completions,
+    normalise_reasoning_effort,
     select_model,
 )
 from constants.keys import StateKeys
@@ -35,6 +36,14 @@ from .tools import (
 )
 
 logger = logging.getLogger("cognitive_needs.openai")
+
+
+def _is_codex_model(model: str | None) -> bool:
+    """Return ``True`` when ``model`` refers to a GPT-5 Codex variant."""
+
+    if not isinstance(model, str):
+        return False
+    return "codex" in model.lower()
 
 SUPPORTED_CHAT_PAYLOAD_FIELDS: Final[set[str]] = {
     "model",
@@ -185,6 +194,19 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
     return cleaned_payload
 
 
+def _map_reasoning_effort_for_api(effort: str | None) -> str | None:
+    """Coerce legacy reasoning hints to GPT-5.2 compatible values."""
+
+    if not isinstance(effort, str):
+        return None
+    candidate = effort.strip().lower()
+    if not candidate:
+        return None
+    if candidate == "minimal":
+        return "none"
+    return candidate
+
+
 def _build_chat_fallback_payload(
     payload: Mapping[str, Any],
     messages: Sequence[Mapping[str, Any]],
@@ -241,6 +263,7 @@ class PayloadContext:
     tool_choice: Any | None
     schema_bundle: SchemaFormatBundle | None
     reasoning_effort: str | None
+    verbosity: str | None
     extra: dict[str, Any] | None
     router_estimate: PromptCostEstimate | None
     previous_response_id: str | None
@@ -305,8 +328,9 @@ class ResponsesPayloadBuilder(_BasePayloadBuilder):
             payload["previous_response_id"] = self.context.previous_response_id
         if self.context.temperature is not None and model_supports_temperature(self.context.model):  # TEMP_SUPPORTED
             payload["temperature"] = self.context.temperature
-        if model_supports_reasoning(self.context.model):
-            payload["reasoning"] = {"effort": self.context.reasoning_effort}
+        effort_hint = _map_reasoning_effort_for_api(self.context.reasoning_effort)
+        if model_supports_reasoning(self.context.model) and effort_hint:
+            payload["reasoning"] = {"effort": effort_hint}
         if self.context.max_completion_tokens is not None:
             payload["max_output_tokens"] = self.context.max_completion_tokens
         if self.context.schema_bundle is not None:
@@ -314,6 +338,8 @@ class ResponsesPayloadBuilder(_BasePayloadBuilder):
             text_config.pop("type", None)
             text_config["format"] = deepcopy(self.context.schema_bundle.responses_format)
             payload["text"] = text_config
+        if self.context.verbosity and not _is_codex_model(self.context.model):
+            payload["verbosity"] = self.context.verbosity
         if self.context.extra:
             payload.update(self.context.extra)
         if self.context.router_estimate is not None:
@@ -343,6 +369,7 @@ def _prepare_payload(
     tool_choice: Optional[Any],
     tool_functions: Optional[Mapping[str, Callable[..., Any]]],
     reasoning_effort: Optional[str],
+    verbosity: Optional[str] = None,
     extra: Optional[dict],
     include_analysis_tools: bool = True,
     task: ModelTask | str | None = None,
@@ -371,10 +398,13 @@ def _prepare_payload(
 
     effort_value = reasoning_effort.strip().lower() if isinstance(reasoning_effort, str) else None
     mode = get_reasoning_mode()
-    if mode == "quick" and effort_value not in {"minimal", "low"}:
+    if mode == "quick" and effort_value not in {"none", "minimal", "low"}:
         reasoning_effort = "low"
-    elif mode == "precise" and effort_value in {None, "minimal", "low"}:
+    elif mode == "precise" and effort_value in {None, "none", "minimal", "low"}:
         reasoning_effort = "high"
+
+    normalised_effort = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
+    verbosity_value = verbosity.strip().lower() if isinstance(verbosity, str) else None
 
     candidate_models = get_model_candidates(selected_task, override=candidate_override)
     if model and model not in candidate_models:
@@ -454,7 +484,8 @@ def _prepare_payload(
         tool_functions=tool_map,
         tool_choice=normalised_tool_choice,
         schema_bundle=schema_bundle,
-        reasoning_effort=reasoning_effort,
+        reasoning_effort=normalised_effort,
+        verbosity=verbosity_value,
         extra=extra,
         router_estimate=router_estimate,
         previous_response_id=previous_response_id,

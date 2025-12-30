@@ -182,7 +182,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ## LLM Configuration & Capabilities
 
-Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-5.1-mini`) handle extraction and schema repair, while longer-form generators escalate to `gpt-5.2` when reasoning effort is higher. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out.
+Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-5.1-mini`) handle extraction and schema repair, while longer-form generators escalate to `gpt-5.2` when reasoning effort is higher. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out. The lowest reasoning tier now defaults to `none` (alias: `minimal`) and is sent as `reasoning: {effort: "none"}` for GPT-5.2 compatibility; Responses payloads include the current verbosity hint except when the target model is a GPT-5 Codex variant.
 
 | Task | Default model | Structured output? |
 | --- | --- | --- |

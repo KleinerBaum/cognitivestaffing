@@ -9,8 +9,10 @@ workloads through ``o3`` depending on the configured
 experience downtime. Structured retrieval continues to use
 ``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
 
-``REASONING_EFFORT`` (``minimal`` | ``low`` | ``medium`` | ``high``) controls
-how much reasoning the model performs by default.
+``REASONING_EFFORT`` (``none`` | ``minimal`` | ``low`` | ``medium`` | ``high``)
+controls how much reasoning the model performs by default. ``none`` maps to the
+lowest reasoning tier (GPT-5.2 default) while ``minimal`` remains a backwards-
+compatible alias.
 """
 
 import logging

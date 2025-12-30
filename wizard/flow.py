@@ -3129,7 +3129,7 @@ def _apply_parsing_mode(mode: str) -> str:
             normalized = "precise"
 
     st.session_state[StateKeys.REASONING_MODE] = normalized
-    st.session_state[StateKeys.REASONING_EFFORT] = "minimal" if normalized == "quick" else "high"
+    st.session_state[StateKeys.REASONING_EFFORT] = "none" if normalized == "quick" else "high"
     st.session_state["verbosity"] = "low" if normalized == "quick" else "high"
     st.session_state[UIKeys.REASONING_MODE] = normalized
     return normalized

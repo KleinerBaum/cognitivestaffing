@@ -246,7 +246,7 @@ def _resolve_extraction_effort() -> str:
     except Exception:
         effort_raw = REASONING_EFFORT
     effort_value = str(effort_raw or "").strip().lower() or REASONING_EFFORT
-    if app_config.get_reasoning_mode() == "precise" and effort_value in {"minimal", "low", "medium"}:
+    if app_config.get_reasoning_mode() == "precise" and effort_value in {"none", "minimal", "low", "medium"}:
         return "high"
     return effort_value
 

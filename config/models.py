@@ -37,7 +37,7 @@ GPT35 = "gpt-3.5-turbo"
 
 EMBED_MODEL = "text-embedding-3-large"  # RAG
 
-REASONING_LEVELS = ("minimal", "low", "medium", "high")
+REASONING_LEVELS = ("none", "minimal", "low", "medium", "high")
 
 LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-5.2-pro", GPT52_PRO),
@@ -152,7 +152,7 @@ class TaskModelConfig:
     allow_response_format: bool = True
 
 
-REASONING_EFFORT = "minimal"
+REASONING_EFFORT = "none"
 LIGHTWEIGHT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
 MEDIUM_REASONING_MODEL = MEDIUM_REASONING_MODEL_DEFAULT
 HIGH_REASONING_MODEL = HIGH_REASONING_MODEL_DEFAULT
@@ -195,7 +195,7 @@ PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
 )
 
 
-def normalise_reasoning_effort(value: str | None, *, default: str = "minimal") -> str:
+def normalise_reasoning_effort(value: str | None, *, default: str = "none") -> str:
     """Return a supported reasoning effort value or ``default`` when invalid."""
 
     if value is None:
@@ -203,6 +203,8 @@ def normalise_reasoning_effort(value: str | None, *, default: str = "minimal") -
     candidate = value.strip().lower()
     if not candidate:
         return default
+    if candidate == "minimal":
+        candidate = "none"
     if candidate in REASONING_LEVELS:
         return candidate
     warnings.warn(
@@ -312,6 +314,7 @@ def _model_for_reasoning_level(level: str) -> str:
     """Return the preferred model for ``level`` of reasoning effort."""
 
     mapping = {
+        "none": LIGHTWEIGHT_MODEL,
         "minimal": LIGHTWEIGHT_MODEL,
         "low": LIGHTWEIGHT_MODEL,
         "medium": LIGHTWEIGHT_MODEL,
@@ -565,7 +568,7 @@ def _get_reasoning_mode() -> str:
         effort_value = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
     except Exception:  # pragma: no cover - Streamlit session not initialised
         effort_value = REASONING_EFFORT
-    if isinstance(effort_value, str) and effort_value.strip().lower() in {"minimal", "low"}:
+    if isinstance(effort_value, str) and effort_value.strip().lower() in {"none", "minimal", "low"}:
         return "quick"
     return "precise"
 

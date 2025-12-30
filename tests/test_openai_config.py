@@ -68,15 +68,15 @@ def test_valid_base_url_eu_does_not_set_flag(monkeypatch):
         st.session_state.clear()
 
 
-def test_reasoning_effort_defaults_to_minimal(monkeypatch):
+def test_reasoning_effort_defaults_to_none(monkeypatch):
     monkeypatch.delenv("REASONING_EFFORT", raising=False)
     st.session_state.clear()
 
     reloaded_models = importlib.reload(model_config)
     reloaded_config = importlib.reload(config)
 
-    assert reloaded_models.REASONING_EFFORT == "minimal"
-    assert reloaded_config.REASONING_EFFORT == "minimal"
+    assert reloaded_models.REASONING_EFFORT == "none"
+    assert reloaded_config.REASONING_EFFORT == "none"
 
 
 def test_ensure_state_normalises_legacy_models():

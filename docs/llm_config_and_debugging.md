@@ -21,7 +21,7 @@ Model routing is centralized in `config/models.py` via the `MODEL_CONFIG` map an
 
 - **Fallback chain:** `gpt-5.1-mini → gpt-5.2 → gpt-5.2-mini` for most chat calls; embeddings stay fixed.
 - **Chat Completions vs. Responses:** `gpt-5*` models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
-- **Reasoning effort:** Quick/cheap mode uses low reasoning effort; precise mode raises `REASONING_EFFORT` and prefers higher-tier models where configured.
+- **Reasoning effort:** Quick/cheap mode uses the lowest reasoning effort (`none`/`minimal`), mapped to GPT-5.2's `effort: none`; precise mode raises `REASONING_EFFORT` and prefers higher-tier models where configured.
 
 ## Response format rules (JSON schema)
 

@@ -373,7 +373,7 @@ def ensure_state() -> None:
     st.session_state[StateKeys.EXTRACTION_STRICT_FORMAT] = True
     st.session_state[UIKeys.EXTRACTION_STRICT_FORMAT] = True
 
-    preferred_mode = "precise" if REASONING_EFFORT not in {"minimal", "low"} else "quick"
+    preferred_mode = "precise" if REASONING_EFFORT not in {"none", "minimal", "low"} else "quick"
     if StateKeys.REASONING_MODE not in st.session_state:
         st.session_state[StateKeys.REASONING_MODE] = preferred_mode
     else:

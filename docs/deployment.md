@@ -11,7 +11,7 @@ environment variables are available:
 | `OPENAI_API_KEY` | Required for every LLM request. |
 | `VECTOR_STORE_ID` | Optional OpenAI vector store identifier for RAG. |
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
-| `REASONING_EFFORT` | Optional reasoning effort hint (`minimal` … `high`). |
+| `REASONING_EFFORT` | Optional reasoning effort hint (`none`/`minimal` … `high`; `none` is the GPT-5.2 default). |
 
 Model routing is locked in `config/models.py` (`gpt-5.1-mini` with automatic GPT-5.2 escalation); user overrides and `OPENAI_MODEL`/`DEFAULT_MODEL` environment values are ignored at runtime.
 
@@ -42,7 +42,7 @@ folgende Umgebungsvariablen relevant:
 | `OPENAI_API_KEY` | Pflichtwert für alle LLM-Anfragen. |
 | `VECTOR_STORE_ID` | Optionale OpenAI-Vector-Store-ID für RAG. |
 | `VERBOSITY` | Optionale UI-Erklärtiefe (`low`, `medium`, `high`). |
-| `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`minimal` … `high`). |
+| `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`none`/`minimal` … `high`; `none` ist der GPT-5.2-Standard). |
 
 Das Routing ist in `config/models.py` festgelegt (`gpt-5.1-mini` mit automatischem GPT-5.2-Fallback); Benutzer-Overrides und `OPENAI_MODEL`/`DEFAULT_MODEL`-Variablen werden zur Laufzeit ignoriert.
 

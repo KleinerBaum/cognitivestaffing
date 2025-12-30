@@ -20,7 +20,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Bilingual diary template with Markdown preview, one-click daily duplication, and optional OneDrive upload using a shared link plus Graph access token, including unit coverage for the upload helper.
 
 ### Changed
-- Default reasoning effort now initializes to `minimal` when no override is set, aligning quick mode with low-cost prompts while keeping precise mode as an explicit opt-in.
+- Default reasoning effort now initializes to `none` (GPT-5.2 default) when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
 - Default LLM routing now standardizes on `gpt-5.1-mini` for all flows and escalates automatically to `gpt-5.2` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
 - OpenAI SDK upgraded to the latest Responses-enabled release with first-class support for the `gpt-5.2` family (including mini/nano variants) and explicit routing through `responses.create` for structured calls.
