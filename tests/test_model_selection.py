@@ -191,7 +191,7 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
 
     def _fake_create_response(payload: dict[str, Any]) -> Any:
         model = payload.get("model")
-        chosen_model = model_config.GPT41_MINI if not attempts else model_config.GPT51_MINI
+        chosen_model = model_config.GPT51_MINI if not attempts else model_config.GPT52
         attempts.append(str(chosen_model))
         payload["model"] = chosen_model
         if len(attempts) == 1:
@@ -207,11 +207,11 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
                 model_config.mark_model_unavailable(str(model))
             logging.getLogger("cognitive_needs.openai").warning(
                 "retrying with fallback from %s to %s",
-                model_config.GPT41_MINI,
                 model_config.GPT51_MINI,
+                model_config.GPT52,
             )
             raise BadRequestError(
-                message="The model gpt-4.1-mini is currently overloaded.",
+                message="The model gpt-5.1-mini is currently overloaded.",
                 response=fake_response,
                 body=None,
             )
@@ -228,9 +228,9 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     monkeypatch.setattr(
         model_config,
         "get_model_candidates",
-        lambda *_, **__: [model_config.GPT41_MINI, model_config.GPT51_MINI],
+        lambda *_, **__: [model_config.GPT51_MINI, model_config.GPT52],
     )
-    monkeypatch.setattr(model_config, "select_model", lambda *_, **__: model_config.GPT41_MINI)
+    monkeypatch.setattr(model_config, "select_model", lambda *_, **__: model_config.GPT51_MINI)
     monkeypatch.setattr(
         OpenAIClient,
         "_create_response_with_timeout",
@@ -248,6 +248,6 @@ def test_call_chat_api_switches_to_fallback_on_unavailable(
     )
 
     assert result.content == "OK"
-    assert attempts[0] == model_config.GPT41_MINI
-    assert attempts[1] == model_config.GPT51_MINI
+    assert attempts[0] == model_config.GPT51_MINI
+    assert attempts[1] == model_config.GPT52
     assert any("retrying with fallback" in record.message for record in caplog.records)

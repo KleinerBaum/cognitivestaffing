@@ -8,13 +8,13 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 
 **EN:**
 
-- Model selection is fixed to `gpt-4.1-mini` inside `config/models.py` with automatic escalation to `gpt-5-mini` for heavier or resilience-driven tasks. There is no Quick/Precise toggle or UI dropdown; routing stays internal for consistent performance and cost control.
+- Model selection is fixed to `gpt-5.1-mini` inside `config/models.py` with automatic escalation to GPT-5.2 for heavier or resilience-driven tasks. There is no Quick/Precise toggle or UI dropdown; routing stays internal for consistent performance and cost control.
 - Legacy overrides such as `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, and `REASONING_MODEL` are deprecated and cleaned up by `python -m cli.reset_api_flags`; adjust model names only in `config/models.py`.
 - Responses API remains the default path; toggle with `USE_RESPONSES_API`/`USE_CLASSIC_API` as needed. Keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
 
 **DE:**
 
-- Die Modellauswahl ist in `config/models.py` fest auf `gpt-4.1-mini` eingestellt und hebt automatisch auf `gpt-5-mini` an, wenn mehr Reasoning oder Ausfallsicherheit nötig ist. Es gibt keinen Schnell/Quick- bzw. Genau/Precise-Schalter und kein UI-Dropdown mehr; das Routing läuft intern, um Leistung und Kosten stabil zu halten.
+- Die Modellauswahl ist in `config/models.py` fest auf `gpt-5.1-mini` eingestellt und hebt automatisch auf GPT-5.2 an, wenn mehr Reasoning oder Ausfallsicherheit nötig ist. Es gibt keinen Schnell/Quick- bzw. Genau/Precise-Schalter und kein UI-Dropdown mehr; das Routing läuft intern, um Leistung und Kosten stabil zu halten.
 - Veraltete Overrides wie `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL` und `REASONING_MODEL` sind abgeschaltet und werden durch `python -m cli.reset_api_flags` bereinigt; Modellnamen werden nur in `config/models.py` angepasst.
 - Standard ist weiterhin die Responses API; bei Bedarf mit `USE_RESPONSES_API`/`USE_CLASSIC_API` umschalten und Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) passend zur Mandantenfähigkeit setzen.
 

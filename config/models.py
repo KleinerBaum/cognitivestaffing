@@ -20,6 +20,7 @@ GPT4O = "gpt-4o"
 GPT4O_MINI = "gpt-4o-mini"
 
 GPT52 = "gpt-5.2"
+GPT52_PRO = "gpt-5.2-pro"
 GPT52_MINI = "gpt-5.2-mini"
 GPT52_NANO = "gpt-5.2-nano"
 
@@ -39,6 +40,8 @@ EMBED_MODEL = "text-embedding-3-large"  # RAG
 REASONING_LEVELS = ("minimal", "low", "medium", "high")
 
 LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
+    ("gpt-5.2-pro", GPT52_PRO),
+    ("gpt-5.2-pro-latest", GPT52_PRO),
     ("gpt-5.2-mini", GPT52_MINI),
     ("gpt-5.2-mini-latest", GPT52_MINI),
     ("gpt-5.2-nano", GPT52_NANO),
@@ -87,17 +90,18 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT41_MINI
-MEDIUM_REASONING_MODEL_DEFAULT = GPT41_MINI
-HIGH_REASONING_MODEL_DEFAULT = GPT51_MINI
-REASONING_MODEL_DEFAULT = GPT41_MINI
-PRIMARY_MODEL_DEFAULT = GPT41_MINI
+LIGHTWEIGHT_MODEL_DEFAULT = GPT51_MINI
+MEDIUM_REASONING_MODEL_DEFAULT = GPT51_MINI
+HIGH_REASONING_MODEL_DEFAULT = GPT52
+REASONING_MODEL_DEFAULT = GPT51_MINI
+PRIMARY_MODEL_DEFAULT = GPT51_MINI
 
 SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
     MEDIUM_REASONING_MODEL_DEFAULT,
     REASONING_MODEL_DEFAULT,
     GPT52,
+    GPT52_PRO,
     GPT52_MINI,
     GPT52_NANO,
     GPT51_MINI,
@@ -174,11 +178,12 @@ _LIGHTWEIGHT_TASKS: frozenset[str] = frozenset(
 )
 
 PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
-    GPT41_MINI,
+    GPT51_MINI,
     GPT52,
+    GPT52_PRO,
     GPT52_MINI,
     GPT52_NANO,
-    GPT51_MINI,
+    GPT51,
     GPT51_NANO,
     GPT4O_MINI,
     GPT4O,
@@ -186,6 +191,7 @@ PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
     O3,
     O4_MINI,
     GPT4,
+    GPT41_MINI,
 )
 
 
@@ -245,6 +251,8 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         return GPT41_MINI
     if lowered.startswith("gpt-4.1-nano"):
         return GPT41_NANO
+    if lowered.startswith("gpt-5.2-pro"):
+        return GPT52_PRO
     if lowered.startswith("gpt-5.2-mini"):
         return GPT52_MINI
     if lowered.startswith("gpt-5.2-nano"):
@@ -377,18 +385,20 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT41_MINI): [GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT41_NANO): [GPT41_NANO, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT51_NANO): [GPT51_NANO],
-    _canonical_model_name(GPT51): [GPT51, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(O3): [O3, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(O3_MINI): [O3_MINI, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(O4_MINI): [O4_MINI, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT4O): [GPT4O, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT4): [GPT4, GPT41_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT35): [GPT35, GPT41_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT52_PRO): [GPT52_PRO, GPT52, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT52): [GPT52, GPT52_MINI, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT52, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT51): [GPT51, GPT52, GPT51_MINI, GPT51_NANO],
+    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT52_MINI, GPT52, GPT51_NANO],
+    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT51_MINI, GPT52_MINI],
+    _canonical_model_name(O3): [O3, GPT52, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(O3_MINI): [O3_MINI, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(O4_MINI): [O4_MINI, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT4O): [GPT4O, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT4): [GPT4, GPT52_MINI, GPT51_MINI],
+    _canonical_model_name(GPT35): [GPT35, GPT51_MINI, GPT51_NANO],
 }
 
 
@@ -505,7 +515,7 @@ def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
     return list(
         TASK_MODEL_FALLBACKS.get(
             ModelTask.DEFAULT.value,
-            [GPT41_MINI, GPT51_MINI, GPT51_NANO],
+            [GPT51_MINI, GPT52_MINI, GPT52],
         )
     )
 

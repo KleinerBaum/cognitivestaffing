@@ -13,7 +13,7 @@ environment variables are available:
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optional reasoning effort hint (`minimal` … `high`). |
 
-Model routing is locked in `config/models.py` (`gpt-4.1-mini` with automatic `gpt-5-mini` escalation); user overrides and `OPENAI_MODEL`/`DEFAULT_MODEL` environment values are ignored at runtime.
+Model routing is locked in `config/models.py` (`gpt-5.1-mini` with automatic GPT-5.2 escalation); user overrides and `OPENAI_MODEL`/`DEFAULT_MODEL` environment values are ignored at runtime.
 
 The Streamlit Community Cloud deployment reads `infra/deployment.toml`. Set the
 `[python]` → `installCommand` entry to `poetry install --no-root` so Streamlit
@@ -44,7 +44,7 @@ folgende Umgebungsvariablen relevant:
 | `VERBOSITY` | Optionale UI-Erklärtiefe (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`minimal` … `high`). |
 
-Das Routing ist in `config/models.py` festgelegt (`gpt-4.1-mini` mit automatischem `gpt-5-mini`-Fallback); Benutzer-Overrides und `OPENAI_MODEL`/`DEFAULT_MODEL`-Variablen werden zur Laufzeit ignoriert.
+Das Routing ist in `config/models.py` festgelegt (`gpt-5.1-mini` mit automatischem GPT-5.2-Fallback); Benutzer-Overrides und `OPENAI_MODEL`/`DEFAULT_MODEL`-Variablen werden zur Laufzeit ignoriert.
 
 Das Deployment auf Streamlit Community Cloud nutzt `infra/deployment.toml`.
 Setze den Eintrag `[python]` → `installCommand` auf `poetry install --no-root`,

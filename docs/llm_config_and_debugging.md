@@ -8,19 +8,19 @@ Model routing is centralized in `config/models.py` via the `MODEL_CONFIG` map an
 
 | Task | Default model | Structured output? |
 | --- | --- | --- |
-| Extraction (`ModelTask.EXTRACTION`) | `gpt-4.1-mini` | JSON schema via `response_format=json_schema` |
-| Company info enrichment (`ModelTask.COMPANY_INFO`) | `gpt-4.1-mini` | JSON schema via `response_format=json_schema` |
-| JSON repair (`ModelTask.JSON_REPAIR`) | `gpt-4.1-mini` | JSON schema via `response_format=json_schema` |
-| Follow-up questions (`ModelTask.FOLLOW_UP_QUESTIONS`) | `gpt-4.1-mini` | Text only (JSON schema disabled) |
-| Team advice (`ModelTask.TEAM_ADVICE`) | `gpt-4.1-mini` | Text only (JSON schema disabled) |
-| Salary estimates (`ModelTask.SALARY_ESTIMATE`) | `gpt-4.1-mini` | JSON schema via `response_format=json_schema` |
-| Job ad / interview guide / summaries (`ModelTask.JOB_AD`, `INTERVIEW_GUIDE`, `PROFILE_SUMMARY`) | `gpt-4.1-mini` (escalates to `gpt-5-mini` when needed) | Text with optional Markdown; no JSON schema |
+| Extraction (`ModelTask.EXTRACTION`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
+| Company info enrichment (`ModelTask.COMPANY_INFO`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
+| JSON repair (`ModelTask.JSON_REPAIR`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
+| Follow-up questions (`ModelTask.FOLLOW_UP_QUESTIONS`) | `gpt-5.1-mini` | Text only (JSON schema disabled) |
+| Team advice (`ModelTask.TEAM_ADVICE`) | `gpt-5.1-mini` | Text only (JSON schema disabled) |
+| Salary estimates (`ModelTask.SALARY_ESTIMATE`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
+| Job ad / interview guide / summaries (`ModelTask.JOB_AD`, `INTERVIEW_GUIDE`, `PROFILE_SUMMARY`) | `gpt-5.1-mini` (escalates to `gpt-5.2` when needed) | Text with optional Markdown; no JSON schema |
 | Embeddings (vector store) | `text-embedding-3-large` | Not applicable |
 
 **Routing rules**
 
-- **Fallback chain:** `gpt-4.1-mini → gpt-5-mini → gpt-5-nano` for most chat calls; embeddings stay fixed.
-- **Chat Completions vs. Responses:** `gpt-4.1*` and `gpt-5*` models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
+- **Fallback chain:** `gpt-5.1-mini → gpt-5.2 → gpt-5.2-mini` for most chat calls; embeddings stay fixed.
+- **Chat Completions vs. Responses:** `gpt-5*` models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
 - **Reasoning effort:** Quick/cheap mode uses low reasoning effort; precise mode raises `REASONING_EFFORT` and prefers higher-tier models where configured.
 
 ## Response format rules (JSON schema)
@@ -46,7 +46,7 @@ When a task expects structured output, calls should set `response_format` to the
 A `response_format.schema` failure appears as:
 
 ```
-ERROR cognitive_needs.openai: OpenAI API error (chat_completions) [session=abc step=company pipeline=extraction model=gpt-4.1-mini]: Invalid response_format.schema: expected object for json_schema.schema
+ERROR cognitive_needs.openai: OpenAI API error (chat_completions) [session=abc step=company pipeline=extraction model=gpt-5.1-mini]: Invalid response_format.schema: expected object for json_schema.schema
 ```
 
 If the model/endpoint mismatch triggers a fallback, logs show:
