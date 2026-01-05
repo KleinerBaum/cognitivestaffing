@@ -11340,14 +11340,25 @@ def _render_job_ad_tab(
         disabled=disabled,
         type="primary",
     ):
-        generate_job_ad_content(
-            filtered_profile,
-            selected_fields,
-            target_value,
-            list(manual_entries),
-            style_reference,
-            lang,
-        )
+        try:
+            generate_job_ad_content(
+                filtered_profile,
+                selected_fields,
+                target_value,
+                list(manual_entries),
+                style_reference,
+                lang,
+            )
+        except Exception as exc:  # pragma: no cover - defensive UI guard
+            logger.exception("Job ad generation failed", exc_info=exc)
+            display_error(
+                (
+                    "Die Stellenanzeige konnte wegen eines technischen Problems nicht erzeugt werden. Deine Eingaben bleiben erhalten – bitte warte kurz und versuche es erneut oder passe die Auswahl an.",
+                    "We couldn’t generate the job ad because of a technical issue. Your inputs are preserved—please wait a moment and try again or adjust the selection.",
+                ),
+                detail=str(exc),
+                lang=lang,
+            )
 
     saved_job_ad = st.session_state.get(StateKeys.JOB_AD_MD) or getattr(profile.generated, "job_ad", "") or ""
     if StateKeys.JOB_AD_MD not in st.session_state and saved_job_ad:

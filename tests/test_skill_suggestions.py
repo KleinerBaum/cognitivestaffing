@@ -4,7 +4,6 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-import config
 import openai_utils
 from openai_utils import ChatCallResult, suggest_skills_for_role
 

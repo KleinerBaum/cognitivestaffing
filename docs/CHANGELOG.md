@@ -46,6 +46,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - NeedAnalysisProfile canonicalization now rebuilds missing or invalid `requirements.skill_mappings` buckets and maps legacy keys (for example, `role.title`) to canonical fields before validation so extraction no longer triggers JSON repairs for empty company/position sections.
 - JSON extraction fallback now applies additional heuristics (trailing comma cleanup, unterminated string repair, and largest-block extraction) before triggering one schema-guided repair call; it only returns a default profile after both parsing and repair fail and sets `meta.extraction_fallback_active` so the wizard can warn users when recovery was needed.
 - Company step now binds autofill suggestion rendering from the wizard flow and skips the UI gracefully if the helper is unavailable, eliminating repeated dependency warnings and missing-suggestion regressions.
+- Job ad generation errors (for example, rate limits) now render a bilingual retry hint instead of bubbling raw stack traces, keeping the final wizard step usable.
 
 ## [1.2.0] – 2025-02-24
 

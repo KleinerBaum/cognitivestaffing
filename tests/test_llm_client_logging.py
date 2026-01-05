@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import config
 import config.models as model_config
 from llm import client
 
