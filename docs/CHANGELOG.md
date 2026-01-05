@@ -17,10 +17,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Session-level OpenAI token budget guard configurable via `OPENAI_SESSION_TOKEN_LIMIT`/`OPENAI_TOKEN_BUDGET`; further calls are blocked with a bilingual warning once the cap is exceeded.
 - Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
 - Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.
-- Bilingual diary template with Markdown preview, one-click daily duplication, and optional OneDrive upload using a shared link plus Graph access token, including unit coverage for the upload helper.
 
 ### Changed
-- Diary template moved to its own tab so the wizard’s final step again focuses on job ad, Boolean-search, and interview-export panels without extra content.
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
@@ -38,6 +36,9 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 - Team & Structure now enforces the job title as a required field and keeps the AI team advisor disabled until job title and reporting-line details are available, preventing empty prompts from running.
+
+### Removed
+- Diary template and OneDrive upload tab have been retired; the landing page now focuses solely on the wizard and export flows.
 
 ### Fixed
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
