@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import streamlit as st
 
@@ -43,61 +43,189 @@ def _append_unique(existing: Sequence[str], new_item: str) -> list[str]:
     return updated
 
 
-def _render_suggestions(
+def _collect_suggestions(
     *,
-    message_index: int,
-    suggestions: Sequence[str],
-    responsibilities: Sequence[str],
+    state: Mapping[str, Any],
+    responsibilities: Iterable[str],
+) -> list[tuple[str, int, str]]:
+    existing = {item.casefold() for item in responsibilities if isinstance(item, str)}
+    collected: list[tuple[str, int, str]] = []
+    for message_index, message in enumerate(state.get("messages", [])):
+        for suggestion_index, suggestion in enumerate(message.get("suggestions") or []):
+            suggestion_text = str(suggestion or "").strip()
+            if not suggestion_text:
+                continue
+            if suggestion_text.casefold() in existing:
+                continue
+            collected.append((f"{message_index}:{suggestion_index}", message_index, suggestion_text))
+    return collected
+
+
+def _render_suggestion_panel(
+    *,
+    state: Mapping[str, Any],
+    suggestions: list[tuple[str, int, str]],
     responsibilities_key: str,
     responsibilities_seed_key: str,
     lang: str,
+    disabled: bool,
 ) -> None:
+    selection_key = f"{responsibilities_key}.chatkit.selection"
     suggested_state_key = f"{responsibilities_key}.__suggested"
-    _ = responsibilities_seed_key  # Parameter kept for compatibility
+    st.session_state.setdefault(selection_key, [])
+    selected_ids = {str(item) for item in st.session_state.get(selection_key, [])}
     current_value = st.session_state.get(responsibilities_key, "")
     current_items = [item.strip() for item in current_value.split("\n") if item.strip()]
-    merged_items = list(dict.fromkeys(list(responsibilities) + current_items))
-    for suggestion_index, suggestion in enumerate(suggestions):
-        suggestion_text = suggestion.strip()
-        if not suggestion_text:
-            continue
-        add_key = f"{responsibilities_key}.chatkit.add.{message_index}.{suggestion_index}"
-        dismiss_key = f"{responsibilities_key}.chatkit.dismiss.{message_index}.{suggestion_index}"
-        cols = st.columns([0.76, 0.12, 0.12])
-        cols[0].markdown(f"- {suggestion_text}")
-        already_present = suggestion_text.casefold() in {item.casefold() for item in merged_items}
-        if already_present:
-            cols[1].button(tr("Bereits erfasst", "Already added", lang=lang), key=f"{add_key}.disabled", disabled=True)
-        elif cols[1].button(tr("Hinzufügen", "Add", lang=lang), key=add_key):
-            updated_items = _append_unique(merged_items, suggestion_text)
-            st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
-                "_lang": lang,
-                "items": [suggestion_text],
-                "status": "applied",
-            }
-            updated_text = "\n".join(updated_items)
-            st.session_state[suggested_state_key] = updated_text
+    merged_items = list(dict.fromkeys(current_items))
+
+    st.sidebar.markdown(
+        "#### "
+        + tr(
+            "Vorschlags-Palette",
+            "Suggestion palette",
+            lang=lang,
+        )
+    )
+    st.sidebar.caption(
+        tr(
+            "Markiere Aufgaben und übernimm sie gesammelt per Klick.",
+            "Select responsibilities and apply them in bulk.",
+            lang=lang,
+        )
+    )
+
+    if not suggestions:
+        st.sidebar.info(
+            tr(
+                "Noch keine neuen Vorschläge – fordere Ideen im Chat an.",
+                "No new suggestions yet — request ideas via the chat.",
+                lang=lang,
+            )
+        )
+        return
+
+    available_ids = {item_id for item_id, _, _ in suggestions}
+    selected_ids = selected_ids.intersection(available_ids)
+
+    for item_id, message_index, suggestion_text in suggestions:
+        checkbox_key = f"{selection_key}.{item_id}"
+        is_selected = item_id in selected_ids
+        updated_selected = st.sidebar.checkbox(
+            suggestion_text,
+            key=checkbox_key,
+            value=is_selected,
+            disabled=disabled,
+        )
+        if updated_selected:
+            selected_ids.add(item_id)
+        else:
+            selected_ids.discard(item_id)
+
+    st.session_state[selection_key] = sorted(selected_ids)
+
+    def _clear_from_state(ids_to_clear: set[str]) -> None:
+        if not ids_to_clear:
+            return
+        messages = list(state.get("messages", []))
+        for item_id in ids_to_clear:
+            if ":" not in item_id:
+                continue
+            message_index_str, suggestion_index_str = item_id.split(":", maxsplit=1)
+            try:
+                message_index_int = int(message_index_str)
+                suggestion_index_int = int(suggestion_index_str)
+            except ValueError:
+                continue
+            if 0 <= message_index_int < len(messages):
+                entry = dict(messages[message_index_int])
+                remaining = [
+                    item for idx, item in enumerate(entry.get("suggestions", [])) if idx != suggestion_index_int
+                ]
+                entry["suggestions"] = remaining
+                messages[message_index_int] = entry
+        updated_state = dict(state)
+        updated_state["messages"] = messages
+        _store_state(updated_state)
+
+    def _apply_selected(ids_to_apply: set[str]) -> None:
+        if not ids_to_apply:
+            st.toast(
+                tr(
+                    "Bitte mindestens einen Vorschlag auswählen.",
+                    "Select at least one suggestion first.",
+                    lang=lang,
+                ),
+                icon="ℹ️",
+            )
+            return
+        additions: list[str] = []
+        for item_id, _, suggestion_text in suggestions:
+            if item_id not in ids_to_apply:
+                continue
+            merged_items[:] = _append_unique(merged_items, suggestion_text)
+            additions.append(suggestion_text)
+        if not additions:
+            st.toast(
+                tr("Keine neuen Aufgaben hinzugefügt.", "No new responsibilities added.", lang=lang),
+                icon="ℹ️",
+            )
+            return
+        updated_text = "\n".join(merged_items)
+        st.session_state[responsibilities_key] = updated_text
+        st.session_state[responsibilities_seed_key] = updated_text
+        st.session_state[suggested_state_key] = updated_text
+        st.session_state[StateKeys.RESPONSIBILITY_SUGGESTIONS] = {
+            "_lang": lang,
+            "items": additions,
+            "status": "applied",
+        }
+        for item in additions:
             mark_ai_list_item(
                 "responsibilities.items",
-                suggestion_text,
+                item,
                 source="responsibility_brainstormer",
             )
-            st.toast(
-                tr("Aufgabe übernommen.", "Responsibility added.", lang=lang),
-                icon="✅",
-            )
-            st.rerun()
-        if cols[2].button(tr("Verwerfen", "Dismiss", lang=lang), key=dismiss_key):
-            state = _get_state()
-            messages = state.get("messages", [])
-            if 0 <= message_index < len(messages):
-                entry = dict(messages[message_index])
-                remaining = [item for idx, item in enumerate(entry.get("suggestions", [])) if idx != suggestion_index]
-                entry["suggestions"] = remaining
-                messages[message_index] = entry
-                state["messages"] = messages
-                _store_state(state)
-                st.rerun()
+        _clear_from_state(ids_to_apply)
+        st.session_state[selection_key] = []
+        st.toast(
+            tr(
+                "Vorschläge übernommen.",
+                "Suggestions applied.",
+                lang=lang,
+            ),
+            icon="✅",
+        )
+        st.rerun()
+
+    def _reject_all() -> None:
+        _clear_from_state(available_ids)
+        st.session_state[selection_key] = []
+        st.toast(
+            tr("Alle Vorschläge verworfen.", "All suggestions dismissed.", lang=lang),
+            icon="🗑️",
+        )
+        st.rerun()
+
+    st.sidebar.divider()
+    apply_all_clicked = st.sidebar.button(
+        "✅ " + tr("Alle übernehmen", "Apply all", lang=lang),
+        disabled=disabled or not suggestions,
+    )
+    apply_selected_clicked = st.sidebar.button(
+        "📥 " + tr("Auswahl übernehmen", "Apply selection", lang=lang),
+        disabled=disabled or not suggestions,
+    )
+    reject_all_clicked = st.sidebar.button(
+        "🗑️ " + tr("Alle verwerfen", "Dismiss all", lang=lang),
+        disabled=disabled or not suggestions,
+    )
+
+    if apply_all_clicked:
+        _apply_selected(available_ids)
+    elif apply_selected_clicked:
+        _apply_selected(selected_ids)
+    elif reject_all_clicked:
+        _reject_all()
 
 
 def _call_assistant(
@@ -124,8 +252,8 @@ def _call_assistant(
     state = _get_state()
     state["error"] = error
     assistant_text = tr(
-        "Hier sind Vorschläge – mit den Buttons kannst du sie übernehmen oder ausblenden.",
-        "Here are suggestions – use the buttons to add or dismiss them.",
+        "Hier sind Vorschläge – nutze die Checkboxen im Seitenpanel, um sie gesammelt zu prüfen.",
+        "Here are suggestions — review them via the side panel checkboxes.",
         lang=lang,
     )
     if error:
@@ -166,14 +294,20 @@ def render_responsibility_brainstormer(
         )
         st.session_state[responsibilities_seed_key] = st.session_state[responsibilities_key]
 
+    current_value = st.session_state.get(
+        responsibilities_key,
+        "\n".join(item.strip() for item in cleaned_responsibilities if item.strip()),
+    )
+    responsibility_items = [item.strip() for item in current_value.split("\n") if item.strip()]
+
     state = _get_state()
     if state.get("last_title") != job_title:
         state = {"messages": [], "last_title": job_title, "error": None}
         _store_state(state)
 
     intro = tr(
-        'Ich kann typische Aufgaben für diese Rolle vorschlagen. Klicke auf "Vorschläge abrufen" oder beschreibe den gewünschten Fokus – jede Idee lässt sich einzeln übernehmen.',
-        'I can suggest common responsibilities for this role. Click "Fetch suggestions" or describe the focus you want — each idea can be added individually.',
+        'Ich kann typische Aufgaben für diese Rolle vorschlagen. Klicke auf "Vorschläge abrufen" oder beschreibe den gewünschten Fokus – neue Ideen landen gesammelt im Seitenpanel.',
+        'I can suggest common responsibilities for this role. Click "Fetch suggestions" or describe the focus you want — new ideas collect in the side panel.',
         lang=lang,
     )
     if not state.get("messages"):
@@ -235,9 +369,22 @@ def render_responsibility_brainstormer(
     for reason in disabled_reasons:
         st.caption(reason)
 
+    suggestions_for_panel = _collect_suggestions(
+        state=state,
+        responsibilities=responsibility_items,
+    )
+    _render_suggestion_panel(
+        state=state,
+        suggestions=suggestions_for_panel,
+        responsibilities_key=responsibilities_key,
+        responsibilities_seed_key=responsibilities_seed_key,
+        lang=lang,
+        disabled=bool(disabled_reasons),
+    )
+
     chat_container = st.container()
     with chat_container:
-        for index, message in enumerate(state.get("messages", [])):
+        for message in state.get("messages", []):
             content = str(message.get("content") or "").strip()
             role = str(message.get("role") or "assistant")
             suggestions = message.get("suggestions") or []
@@ -247,20 +394,19 @@ def render_responsibility_brainstormer(
                 if content:
                     st.markdown(content)
                 if suggestions:
-                    _render_suggestions(
-                        message_index=index,
-                        suggestions=suggestions,
-                        responsibilities=cleaned_responsibilities,
-                        responsibilities_key=responsibilities_key,
-                        responsibilities_seed_key=responsibilities_seed_key,
-                        lang=lang,
+                    st.caption(
+                        tr(
+                            "Vorschläge sind im Seitenpanel auswählbar.",
+                            "Suggestions are selectable in the side panel.",
+                            lang=lang,
+                        )
                     )
 
     button_label = "💡 " + tr("Vorschläge abrufen", "Fetch suggestions", lang=lang)
     if st.button(button_label, disabled=bool(disabled_reasons)):
         _call_assistant(
             job_title=job_title,
-            responsibilities=cleaned_responsibilities,
+            responsibilities=responsibility_items,
             company_name=company_name,
             team_structure=team_structure,
             industry=industry,
@@ -287,7 +433,7 @@ def render_responsibility_brainstormer(
             _store_state(state)
             _call_assistant(
                 job_title=job_title,
-                responsibilities=cleaned_responsibilities,
+                responsibilities=responsibility_items,
                 company_name=company_name,
                 team_structure=team_structure,
                 industry=industry,

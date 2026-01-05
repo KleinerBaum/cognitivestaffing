@@ -33,7 +33,7 @@ Live app: https://cognitivestaffing.streamlit.app/
     - **Follow-Up Q&A assistant** – asks short, targeted questions for missing critical fields on each step and writes answers into the profile.
     - **Company insights assistant** – enriches `company.*` fields (industry, size, HQ, website, description) using light public hints and user Q&A.
     - **Team composition advisor** – suggests typical team sizes, reporting lines, and org context for the role. When the assistant is unavailable (for example, rate limits), the wizard now shows a bilingual notice and still lets you continue to the next step. The advisor now remains disabled until a job title and reporting line are provided so downstream prompts never run with empty context.
-    - **Role responsibilities brainstormer** – proposes role‑specific responsibilities, with accept/reject per bullet.
+    - **Role responsibilities brainstormer** – proposes role‑specific responsibilities, now shown in a side-panel checklist with bulk apply/dismiss controls.
     - **Skill-set expander** – suggests related skills/certifications and classifies them as required vs. nice‑to‑have.
     - **Compensation range assistant** – proposes salary ranges and helps fill `compensation.salary_min/max` and benefits.
     - **Hiring process planner** – drafts stage sequences and writes them into `process.hiring_process`.
