@@ -8,7 +8,7 @@ import streamlit as st
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 from wizard.components.extraction_settings_panel import render_extraction_settings_panel
-from wizard.layout import render_step_heading, render_step_warning_banner
+from wizard.layout import render_section_heading, render_step_heading, render_step_warning_banner
 from wizard_router import WizardContext
 
 
@@ -103,92 +103,97 @@ def _step_onboarding(schema: dict) -> None:
 
     flow._inject_onboarding_source_styles()
 
-    intro_lines = [
-        tr(
-            "Unstrukturierte Bedarfsklärung verbrennt gleich im ersten Schritt kostbare Recruiting-Insights.",
-            "Unstructured intake burns expensive recruiting intelligence in the very first step.",
-        ),
-        tr(
-            "Unsere OpenAI-API-Agents erfassen jedes Detail und strukturieren Anforderungen in Echtzeit.",
-            "Our OpenAI API agents capture every nuance and structure requirements in real time.",
-        ),
-        tr(
-            "ESCO-Skillgraph und Marktprofile liefern Kontext für Skills, Seniorität und Branchensprache.",
-            "ESCO skill graphs and market profiles add context for skills, seniority, and industry language.",
-        ),
-        tr(
-            "Ein dynamischer Info-Gathering-Prozess baut einen vollständigen Datensatz für diese Vakanz auf.",
-            "A dynamic info gathering process assembles a complete dataset for this specific vacancy.",
-        ),
-        tr(
-            "So entstehen Inputs für interne Kommunikations-Automation & Folgeschritte – Ziel: glückliche Kandidat:innen nachhaltig platzieren.",
-            "These inputs fuel internal communication automation and downstream steps – goal: place happy candidates sustainably.",
-        ),
-    ]
-
-    intro_html = "<br/>".join(intro_lines)
-    st.markdown(f"<div class='onboarding-intro'>{intro_html}</div>", unsafe_allow_html=True)
-
-    st.divider()
-
-    if st.session_state.get("source_error"):
-        fallback_message = tr(
-            "Es gab ein Problem beim Import. Versuche URL oder Upload erneut oder kontaktiere unser Support-Team.",
-            "There was an issue while importing the content. Retry the URL/upload or contact our support team.",
-        )
-        error_text = st.session_state.get("source_error_message") or fallback_message
-        st.error(error_text)
-
-    prefill = st.session_state.pop("__prefill_profile_text__", None)
-    if prefill is not None:
-        st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
-        st.session_state[StateKeys.RAW_TEXT] = prefill
-        doc_prefill = st.session_state.get("__prefill_profile_doc__")
-        if doc_prefill:
-            st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
-
-    locked = flow._is_onboarding_locked()
-
-    st.markdown(
-        "<div class='onboarding-source-marker' style='display:none'></div>",
-        unsafe_allow_html=True,
-    )
-    url_column, upload_column = st.columns(2, gap="large")
-    with url_column:
-        st.text_input(
-            tr("Stellenanzeigen-URL einfügen", "Provide the job posting URL"),
-            key=UIKeys.PROFILE_URL_INPUT,
-            on_change=flow.on_url_changed,
-            placeholder=tr("Bitte URL eingeben", "Enter the job posting URL"),
-            help=tr(
-                "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
-                "The URL needs to be accessible without authentication. We will fetch the content automatically.",
-            ),
-            disabled=locked,
+    with st.container():
+        render_section_heading(
+            tr("Pflichtangaben für den Start", "Required details to get started"),
+            icon="📌",
         )
 
-    with upload_column:
-        st.file_uploader(
+        if st.session_state.get("source_error"):
+            fallback_message = tr(
+                "Es gab ein Problem beim Import. Versuche URL oder Upload erneut oder kontaktiere unser Support-Team.",
+                "There was an issue while importing the content. Retry the URL/upload or contact our support team.",
+            )
+            error_text = st.session_state.get("source_error_message") or fallback_message
+            st.error(error_text)
+
+        prefill = st.session_state.pop("__prefill_profile_text__", None)
+        if prefill is not None:
+            st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
+            st.session_state[StateKeys.RAW_TEXT] = prefill
+            doc_prefill = st.session_state.get("__prefill_profile_doc__")
+            if doc_prefill:
+                st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
+
+        locked = flow._is_onboarding_locked()
+
+        st.markdown(
+            "<div class='onboarding-source-marker' style='display:none'></div>",
+            unsafe_allow_html=True,
+        )
+        url_column, upload_column = st.columns(2, gap="large")
+        with url_column:
+            st.text_input(
+                tr("Stellenanzeigen-URL einfügen", "Provide the job posting URL"),
+                key=UIKeys.PROFILE_URL_INPUT,
+                on_change=flow.on_url_changed,
+                placeholder=tr("Bitte URL eingeben", "Enter the job posting URL"),
+                help=tr(
+                    "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
+                    "The URL needs to be accessible without authentication. We will fetch the content automatically.",
+                ),
+                disabled=locked,
+            )
+
+        with upload_column:
+            st.file_uploader(
+                tr(
+                    "Stellenanzeige hochladen (PDF/DOCX/TXT)",
+                    "Upload job posting (PDF/DOCX/TXT)",
+                ),
+                type=["pdf", "docx", "txt"],
+                key=UIKeys.PROFILE_FILE_UPLOADER,
+                on_change=flow.on_file_uploaded,
+                help=tr(
+                    "Direkt nach dem Upload beginnen wir mit der Analyse.",
+                    "We start analysing immediately after the upload finishes.",
+                ),
+                disabled=locked,
+            )
+
+    with st.expander(tr("Was passiert?", "What happens?"), expanded=False):
+        intro_lines = [
             tr(
-                "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-                "Upload job posting (PDF/DOCX/TXT)",
+                "Unstrukturierte Bedarfsklärung verbrennt gleich im ersten Schritt kostbare Recruiting-Insights.",
+                "Unstructured intake burns expensive recruiting intelligence in the very first step.",
             ),
-            type=["pdf", "docx", "txt"],
-            key=UIKeys.PROFILE_FILE_UPLOADER,
-            on_change=flow.on_file_uploaded,
-            help=tr(
-                "Direkt nach dem Upload beginnen wir mit der Analyse.",
-                "We start analysing immediately after the upload finishes.",
+            tr(
+                "Unsere OpenAI-API-Agents erfassen jedes Detail und strukturieren Anforderungen in Echtzeit.",
+                "Our OpenAI API agents capture every nuance and structure requirements in real time.",
             ),
-            disabled=locked,
-        )
+            tr(
+                "ESCO-Skillgraph und Marktprofile liefern Kontext für Skills, Seniorität und Branchensprache.",
+                "ESCO skill graphs and market profiles add context for skills, seniority, and industry language.",
+            ),
+            tr(
+                "Ein dynamischer Info-Gathering-Prozess baut einen vollständigen Datensatz für diese Vakanz auf.",
+                "A dynamic info gathering process assembles a complete dataset for this specific vacancy.",
+            ),
+            tr(
+                "So entstehen Inputs für interne Kommunikations-Automation & Folgeschritte – Ziel: glückliche Kandidat:innen nachhaltig platzieren.",
+                "These inputs fuel internal communication automation and downstream steps – goal: place happy candidates sustainably.",
+            ),
+        ]
 
-    _prime_extraction_settings_state()
-    render_extraction_settings_panel(
-        apply_parsing_mode=flow._apply_parsing_mode,
-        queue_extraction_rerun=flow._queue_extraction_rerun,
-        st_module=st,
-    )
+        intro_html = "<br/>".join(intro_lines)
+        st.markdown(f"<div class='onboarding-intro'>{intro_html}</div>", unsafe_allow_html=True)
+
+        _prime_extraction_settings_state()
+        render_extraction_settings_panel(
+            apply_parsing_mode=flow._apply_parsing_mode,
+            queue_extraction_rerun=flow._queue_extraction_rerun,
+            st_module=st,
+        )
 
     review_rendered = flow._render_extraction_review()
 
