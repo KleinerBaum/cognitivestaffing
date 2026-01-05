@@ -19,7 +19,10 @@ from wizard.layout import (
 )
 from wizard_router import WizardContext
 from utils.i18n import tr
-from wizard.sections.team_advisor import render_team_advisor
+from wizard.sections.team_advisor import (
+    render_team_advisor,
+    render_team_advisor_unavailable_notice,
+)
 
 __all__ = ["step_team"]
 
@@ -110,6 +113,7 @@ def _step_team() -> None:
     render_missing_field_summary(missing_here)
     for intro in intros:
         st.caption(intro)
+    render_team_advisor_unavailable_notice(st.session_state.get("lang", "de"))
     data = profile
     data.setdefault("company", {})
     position = data.setdefault("position", {})

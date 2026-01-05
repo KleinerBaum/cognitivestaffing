@@ -28,15 +28,15 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **Missing-section repair prompts**
   When structured extraction leaves gaps, a dedicated bilingual prompt retries only the missing fields so follow-up questions and exports stay aligned to the schema instead of falling back to plain error text.
 
-- **ChatKit assistants for interactive enrichment**  
-  Multiple embedded assistants help refine the profile:
-  - **Follow-Up Q&A assistant** – asks short, targeted questions for missing critical fields on each step and writes answers into the profile.
-  - **Company insights assistant** – enriches `company.*` fields (industry, size, HQ, website, description) using light public hints and user Q&A.
-  - **Team composition advisor** – suggests typical team sizes, reporting lines, and org context for the role.
-  - **Role responsibilities brainstormer** – proposes role‑specific responsibilities, with accept/reject per bullet.
-  - **Skill-set expander** – suggests related skills/certifications and classifies them as required vs. nice‑to‑have.
-  - **Compensation range assistant** – proposes salary ranges and helps fill `compensation.salary_min/max` and benefits.
-  - **Hiring process planner** – drafts stage sequences and writes them into `process.hiring_process`.
+  - **ChatKit assistants for interactive enrichment**
+    Multiple embedded assistants help refine the profile:
+    - **Follow-Up Q&A assistant** – asks short, targeted questions for missing critical fields on each step and writes answers into the profile.
+    - **Company insights assistant** – enriches `company.*` fields (industry, size, HQ, website, description) using light public hints and user Q&A.
+    - **Team composition advisor** – suggests typical team sizes, reporting lines, and org context for the role. When the assistant is unavailable (for example, rate limits), the wizard now shows a bilingual notice and still lets you continue to the next step.
+    - **Role responsibilities brainstormer** – proposes role‑specific responsibilities, with accept/reject per bullet.
+    - **Skill-set expander** – suggests related skills/certifications and classifies them as required vs. nice‑to‑have.
+    - **Compensation range assistant** – proposes salary ranges and helps fill `compensation.salary_min/max` and benefits.
+    - **Hiring process planner** – drafts stage sequences and writes them into `process.hiring_process`.
 
 - **Multilingual section detection & mapping**
   German and English headings like *“Ihre Aufgaben / Your Tasks”*, *“Ihr Profil / Your Profile”*, *“Benefits / Unser Angebot / Wir bieten”*, *“Bewerbungsprozess / Interview Process”* are recognized and mapped so responsibilities, requirements, benefits, and process sections land in the correct fields. Benefits and hiring process bullets now reliably flow into `compensation.benefits` and `process.hiring_process` for DE/EN ads.
