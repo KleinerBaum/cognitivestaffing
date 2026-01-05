@@ -411,10 +411,15 @@ sidebar_plan = sidebar.render_sidebar(
     defer=True,
 )
 
-run_wizard()
+wizard_tab_label = tr("Wizard & Exporte", "Wizard & exports")
+diary_tab_label = tr("Tagebuch", "Diary")
+wizard_tab, diary_tab = st.tabs([wizard_tab_label, diary_tab_label])
 
-st.divider()
-render_diary_template()
+with wizard_tab:
+    run_wizard()
+
+with diary_tab:
+    render_diary_template()
 
 sidebar.render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,

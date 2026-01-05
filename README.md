@@ -77,8 +77,8 @@ Live app: https://cognitivestaffing.streamlit.app/
   Accept/reject decisions for AI autofill suggestions are tracked across steps, and the Company step now binds its dependencies defensively so autofill UI remains available even when optional helpers are missing. The compensation assistant now previews AI ranges against any existing manual values and asks for explicit acceptance (per field or in bulk) before overwriting data.
 - **Autosave, export, and restore**
   Every profile edit and step completion refreshes an in-memory autosave snapshot (profile plus wizard state). Users can download the current JSON snapshot or import a saved one to recover work after a crash or browser reload.
-- **Diary template with OneDrive export**
-  Create bilingual daily journal entries mirroring the handwritten template (achievements, reactions, gratitude, focus), duplicate a new day with one click, preview Markdown, download locally, or upload directly to a shared OneDrive folder using `DIARY_ONEDRIVE_SHARED_URL` plus `ONEDRIVE_ACCESS_TOKEN`/`DIARY_ONEDRIVE_ACCESS_TOKEN`.
+- **Diary template with OneDrive export (separate tab)**
+  Create bilingual daily journal entries mirroring the handwritten template (achievements, reactions, gratitude, focus), duplicate a new day with one click, preview Markdown, download locally, or upload directly to a shared OneDrive folder using `DIARY_ONEDRIVE_SHARED_URL` plus `ONEDRIVE_ACCESS_TOKEN`/`DIARY_ONEDRIVE_ACCESS_TOKEN`. The diary now lives on its own tab so the wizard’s final step continues to focus on the job ad, Boolean search, and interview exports.
 - **Session-aware circuit breakers for external hints**
   Company enrichment calls to Clearbit and Wikipedia use per-session circuit breakers, preventing repeated failures from slowing down the wizard and surfacing bilingual notices when lookups are skipped.
 
