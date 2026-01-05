@@ -20,6 +20,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Bilingual diary template with Markdown preview, one-click daily duplication, and optional OneDrive upload using a shared link plus Graph access token, including unit coverage for the upload helper.
 
 ### Changed
+- Diary template moved to its own tab so the wizard’s final step again focuses on job ad, Boolean-search, and interview-export panels without extra content.
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
