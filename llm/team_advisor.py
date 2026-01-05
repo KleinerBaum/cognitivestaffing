@@ -31,8 +31,14 @@ def _normalize_lang(lang: str | None) -> str:
 
 def _fallback_message(lang: str) -> str:
     if lang == "de":
-        return "Ich konnte gerade keinen Vorschlag generieren. Versuch es bitte erneut."
-    return "I couldn't generate a suggestion right now. Please try again."
+        return (
+            "Keine KI-Empfehlung verfügbar. Standardtipp: Kläre Berichtslinie und Anzahl direkter "
+            "Reports; versuch es später erneut."
+        )
+    return (
+        "AI advice is unavailable right now. Default tip: clarify the reporting line and number of "
+        "direct reports, then try again later."
+    )
 
 
 def _build_context_block(profile: Mapping[str, Any]) -> str:

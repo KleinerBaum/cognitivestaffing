@@ -49,6 +49,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Company step now binds autofill suggestion rendering from the wizard flow and skips the UI gracefully if the helper is unavailable, eliminating repeated dependency warnings and missing-suggestion regressions.
 - Job ad generation errors (for example, rate limits) now render a bilingual retry hint instead of bubbling raw stack traces, keeping the final wizard step usable.
 - Team advisor failures now surface a bilingual “assistant unavailable” notice without blocking navigation to the next step, preventing loops when rate limits occur.
+- Follow-up question cards and salary estimates now display bilingual fallback notices plus default prompts when OpenAI calls fail or return empty responses, so users understand when AI content could not be delivered.
 
 ## [1.2.0] – 2025-02-24
 

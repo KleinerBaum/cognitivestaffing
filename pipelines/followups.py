@@ -81,12 +81,15 @@ _FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
 }
 
 
-def _fallback_followups(lang: str) -> dict[str, Any]:
+def _fallback_followups(lang: str, *, reason: str | None = None) -> dict[str, Any]:
     """Return a minimal set of follow-up questions when the LLM fails."""
 
     locale = "de" if lang.lower().startswith("de") else "en"
     questions = _FALLBACK_FOLLOWUPS.get(locale, _FALLBACK_FOLLOWUPS["en"])
-    return {"questions": list(questions)}
+    payload: dict[str, Any] = {"questions": list(questions), "source": "fallback"}
+    if reason:
+        payload["fallback_reason"] = reason
+    return payload
 
 
 def _normalise_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -202,9 +205,10 @@ def generate_followups(
         )
         parsed = _parse_followup_response(response)
         if parsed.get("questions"):
+            parsed.setdefault("source", "llm")
             return parsed
         logger.info("Follow-up generation returned no questions; using fallback prompts.")
-        return _fallback_followups(lang)
+        return _fallback_followups(lang, reason="empty_result")
     except Exception as exc:  # pragma: no cover - defensive guard for UI fallback
         logger.warning("Follow-up generation failed; returning fallback questions.", exc_info=exc)
-        return _fallback_followups(lang)
+        return _fallback_followups(lang, reason="llm_error")

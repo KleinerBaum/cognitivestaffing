@@ -108,6 +108,35 @@ INLINE_FOLLOWUP_FIELDS: Final[set[str]] = {
 }
 
 
+def _render_followup_notice(source: str, reason: str, *, lang: str) -> None:
+    if not source or source == "llm":
+        return
+
+    if source == "fallback":
+        detail = tr(
+            "Automatische Anschlussfragen waren nicht verfügbar. Wir zeigen Standardfragen an.",
+            "Automatic follow-ups were unavailable. Showing default prompts instead.",
+            lang=lang,
+        )
+        if reason == "empty_result":
+            detail = tr(
+                "Die KI lieferte keine Anschlussfragen – Standardfragen werden angezeigt.",
+                "The AI returned no follow-up questions – displaying default prompts instead.",
+                lang=lang,
+            )
+        st.info(detail)
+        return
+
+    if source == "error":
+        st.warning(
+            tr(
+                "Konnte keine Anschlussfragen generieren – bitte fehlende Felder manuell ergänzen.",
+                "Unable to generate follow-up questions – please fill missing fields manually.",
+                lang=lang,
+            )
+        )
+
+
 class TargetedPromptConfig(TypedDict, total=False):
     """Configuration for inline critical field prompts."""
 
@@ -1020,6 +1049,11 @@ def _render_followups_for_section(
     normalized_prefixes = tuple(str(prefix) for prefix in prefixes if prefix)
     if not normalized_prefixes:
         return
+
+    lang = st.session_state.get("lang", "de")
+    notice_source = str(st.session_state.get(StateKeys.FOLLOWUPS_SOURCE) or "")
+    notice_reason = str(st.session_state.get(StateKeys.FOLLOWUPS_REASON) or "")
+    _render_followup_notice(notice_source, notice_reason, lang=lang)
 
     profile_data = _get_profile_state()
     st.session_state[FOLLOWUP_FOCUS_BUDGET_KEY] = False
