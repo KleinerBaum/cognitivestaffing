@@ -20,6 +20,7 @@ from wizard.ai_skip import render_skip_cta, render_skipped_banner
 logger = logging.getLogger(__name__)
 
 _TEAM_ADVISOR_STATE_KEY = "wizard.team_advisor.chat"
+_TEAM_ADVISOR_UNAVAILABLE = "wizard.team_advisor.unavailable"
 
 
 def _get_state() -> dict[str, Any]:
@@ -27,6 +28,7 @@ def _get_state() -> dict[str, Any]:
     state.setdefault("messages", [])
     state.setdefault("started", False)
     state.setdefault("pending_suggestion", {})
+    st.session_state.setdefault(_TEAM_ADVISOR_UNAVAILABLE, False)
     return state
 
 
@@ -130,6 +132,19 @@ def _record_advice(
         "reporting_line": advice.reporting_line,
         "direct_reports": advice.direct_reports,
     }
+    st.session_state[_TEAM_ADVISOR_UNAVAILABLE] = False
+
+
+def _mark_unavailable(lang: str, *, reason: str | None = None) -> None:
+    st.session_state[_TEAM_ADVISOR_UNAVAILABLE] = True
+    message = tr(
+        "Team-Tipps sind momentan nicht verfügbar. Du kannst trotzdem weiter zum nächsten Schritt gehen.",
+        "Team advice is currently unavailable. You can still continue to the next step.",
+        lang=lang,
+    )
+    if reason:
+        message = f"{message}\n\n{tr('Hinweis', 'Details', lang=lang)}: {reason}"
+    st.info(message)
 
 
 def _render_pending_actions(
@@ -202,13 +217,8 @@ def render_team_advisor(
                     advice = advise_team_structure(state.get("messages"), profile, lang=lang)
                 except Exception as error:  # pragma: no cover - UI guard
                     logger.warning("Team advisor failed", exc_info=error)
-                    st.warning(
-                        tr(
-                            "Assistent konnte nicht antworten: {error}",
-                            "Assistant could not respond: {error}",
-                            lang=lang,
-                        ).format(error=error)
-                    )
+                    _mark_unavailable(lang, reason=str(error))
+                    state["started"] = False
                     increment_step_failure("team")
                     render_skip_cta(
                         "team",
@@ -245,13 +255,7 @@ def render_team_advisor(
                 )
             except Exception as error:  # pragma: no cover - UI guard
                 logger.warning("Team advisor prompt failed", exc_info=error)
-                st.warning(
-                    tr(
-                        "Assistent konnte nicht antworten: {error}",
-                        "Assistant could not respond: {error}",
-                        lang=lang,
-                    ).format(error=error)
-                )
+                _mark_unavailable(lang, reason=str(error))
                 increment_step_failure("team")
                 render_skip_cta(
                     "team",
@@ -273,4 +277,16 @@ def render_team_advisor(
             )
 
 
-__all__ = ["render_team_advisor"]
+def render_team_advisor_unavailable_notice(lang: str) -> None:
+    if not st.session_state.get(_TEAM_ADVISOR_UNAVAILABLE):
+        return
+    st.info(
+        tr(
+            "Team-Hinweise sind derzeit ausgefallen. Du kannst den Schritt trotzdem abschließen und später erneut versuchen.",
+            "Team insights are currently unavailable. You can still complete this step and retry later.",
+            lang=lang,
+        )
+    )
+
+
+__all__ = ["render_team_advisor", "render_team_advisor_unavailable_notice"]
