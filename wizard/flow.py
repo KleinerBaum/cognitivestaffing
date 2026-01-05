@@ -3080,7 +3080,7 @@ def _cached_extract_company_info(sample_hash: str) -> Mapping[str, Any]:
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def _cached_extract_profile(
+def _cached_extract_profile_impl(
     text: str,
     *,
     title_hint: str | None,
@@ -3111,6 +3111,38 @@ def _cached_extract_profile(
     finally:
         if reasoning_effort and previous_effort != reasoning_effort:
             st.session_state[StateKeys.REASONING_EFFORT] = previous_effort
+
+
+def _cached_extract_profile(
+    text: str,
+    *,
+    title_hint: str | None,
+    company_hint: str | None,
+    url_hint: str | None,
+    locked_items: tuple[tuple[str, str], ...],
+    reasoning_effort: str,
+) -> ExtractionResult:
+    """Proxy to cached extraction that clears stale error entries.
+
+    Streamlit caches exceptions raised by :func:`_cached_extract_profile_impl`,
+    which can cause subsequent runs with the same parameters to raise instantly
+    without retrying OpenAI. To avoid locking users into a cached failure, this
+    wrapper clears the cache when an exception bubbles up so that the next call
+    re-evaluates the extraction.
+    """
+
+    try:
+        return _cached_extract_profile_impl(
+            text,
+            title_hint=title_hint,
+            company_hint=company_hint,
+            url_hint=url_hint,
+            locked_items=locked_items,
+            reasoning_effort=reasoning_effort,
+        )
+    except Exception:
+        _cached_extract_profile_impl.clear()
+        raise
 
 
 def _apply_parsing_mode(mode: str) -> str:

@@ -185,6 +185,11 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 4. Optional / Optional: set `OPENAI_API_BASE_URL=https://eu.api.openai.com/v1` if you need the EU endpoint.
 5. Optional / Optional: set `OPENAI_SESSION_TOKEN_LIMIT=<tokens>` (alias: `OPENAI_TOKEN_BUDGET`) to enable the session budget guard. The app blocks further OpenAI calls and surfaces a bilingual warning once the cap is reached.
 
+### Caching & retries (English / Deutsch)
+
+- **English:** Expensive operations such as structured extraction use `st.cache_data` to avoid duplicate OpenAI calls, but fatal errors purge the cache entry so re-runs with the same inputs will retry instead of raising a cached exception. If you still encounter stale data, rerun the step after adjusting the form or clearing Streamlit’s cache via the menu.
+- **Deutsch:** Aufwendige Operationen wie die strukturierte Extraktion nutzen `st.cache_data`, um doppelte OpenAI-Aufrufe zu vermeiden. Tritt dabei ein schwerer Fehler auf, wird der Cache-Eintrag gelöscht, sodass erneute Durchläufe mit denselben Eingaben einen frischen Versuch starten statt eine gecachte Ausnahme erneut auszulösen. Falls dennoch veraltete Daten auftauchen, wiederhole den Schritt nach einer Formularänderung oder leere den Streamlit-Cache über das Menü.
+
 ## LLM Configuration & Capabilities
 
 Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-4o-mini`) handle extraction and schema repair, while longer-form generators default to `gpt-4o` with precise mode escalating to `o3-mini`. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out. The lowest reasoning tier now defaults to `none` (alias: `minimal`) and is sent as `reasoning: {effort: "none"}` for GPT-4o compatibility; Responses payloads include the current verbosity hint except when the target model is a GPT-5 Codex variant.
