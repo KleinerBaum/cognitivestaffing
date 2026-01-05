@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict, deque
-from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, wait
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+    wait,
+)
 from dataclasses import dataclass, field
 from enum import StrEnum
 from threading import Lock
 from typing import Any, Callable, Iterable, Mapping
+
+try:
+    from streamlit.runtime.scriptruncontext import add_script_run_ctx, get_script_run_ctx
+except (ModuleNotFoundError, RuntimeError):
+    add_script_run_ctx = None
+    get_script_run_ctx = None
 
 from utils.logging_context import configure_logging, log_context, set_pipeline_task
 
@@ -121,6 +133,7 @@ class WorkflowRunner:
     def run(self, context: Mapping[str, Any] | None = None) -> WorkflowRunResult:
         ctx = WorkflowContext(context or {})
         results: dict[str, TaskResult] = {name: TaskResult() for name in self._tasks}
+        script_run_ctx = get_script_run_ctx() if get_script_run_ctx else None
 
         dependants: dict[str, list[str]] = defaultdict(list)
         pending_dependencies: dict[str, int] = {}
@@ -162,7 +175,9 @@ class WorkflowRunner:
                     with log_context(pipeline_task=candidate_task.name):
                         self._logger.info("Starting task %s", candidate_task.name)
                     outcome.status = TaskStatus.RUNNING
-                    future = executor.submit(self._execute, candidate_task, ctx)
+                    future = executor.submit(self._execute, candidate_task, ctx, script_run_ctx)
+                    if add_script_run_ctx and script_run_ctx:
+                        add_script_run_ctx(future, script_run_ctx)
                     in_flight[future] = candidate_task
 
                     if not candidate_task.parallelizable:
@@ -218,7 +233,9 @@ class WorkflowRunner:
                 if pending_dependencies[child] == 0:
                     ready.append(child)
 
-    def _execute(self, task: Task, context: WorkflowContext) -> tuple[Any, int]:
+    def _execute(
+        self, task: Task, context: WorkflowContext, script_run_ctx: Any | None = None
+    ) -> tuple[Any, int]:
         attempts = 0
         last_error: Exception | None = None
         with log_context(pipeline_task=task.name):
@@ -229,6 +246,8 @@ class WorkflowRunner:
                     if task.timeout is not None:
                         with ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(task.func, context)
+                            if add_script_run_ctx and script_run_ctx:
+                                add_script_run_ctx(future, script_run_ctx)
                             return future.result(timeout=task.timeout), attempts
                     return task.func(context), attempts
                 except SkipTask as exc:
