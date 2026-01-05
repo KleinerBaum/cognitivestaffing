@@ -711,8 +711,8 @@ def _extract_logo_brand_color(data: bytes | None) -> str | None:
 
     try:
         with Image.open(io.BytesIO(data)) as img:
-            img = img.convert("RGB")
-            pixels = list(img.getdata())
+            rgb_img = img.convert("RGB")
+            pixels = list(rgb_img.getdata())
     except Exception:  # pragma: no cover - defensive
         return None
 

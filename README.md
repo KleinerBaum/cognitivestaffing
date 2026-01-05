@@ -55,6 +55,7 @@ Live app: https://cognitivestaffing.streamlit.app/
 
 - **Responsive loading and timeout handling**
   LLM-triggered actions render Streamlit spinners (“Analysiere die Stellenbeschreibung… / Analyzing your job description…”) so users know work is in progress. Friendly bilingual timeout notices (“⏳ … länger als erwartet / taking longer than usual…”) surface when OpenAI calls exceed the user-facing timeout guard, guiding users to retry or continue manually instead of seeing low-level errors.
+  Job ad generation now also catches quota/time-limit issues and shows a bilingual retry hint rather than surfacing raw stack traces.
 
 - **AI skip controls for optional assistants**
   After repeated AI failures on the team advisor, skill expander, compensation assistant, or process planner, the wizard shows bilingual warnings with a “Skip AI for this step” action and surfaces skipped-assistant banners on the summary page so users can proceed manually.
