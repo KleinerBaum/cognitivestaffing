@@ -90,11 +90,12 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT52_NANO
-MEDIUM_REASONING_MODEL_DEFAULT = GPT52_MINI
-HIGH_REASONING_MODEL_DEFAULT = GPT52
-REASONING_MODEL_DEFAULT = GPT52_MINI
-PRIMARY_MODEL_DEFAULT = GPT52_MINI
+LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
+MEDIUM_REASONING_MODEL_DEFAULT = GPT4O
+HIGH_REASONING_MODEL_DEFAULT = O3_MINI
+REASONING_MODEL_DEFAULT = GPT4O
+PRIMARY_MODEL_DEFAULT = GPT4O_MINI
+PRIMARY_MODEL = PRIMARY_MODEL_DEFAULT
 
 SUPPORTED_MODEL_CHOICES = {
     LIGHTWEIGHT_MODEL_DEFAULT,
@@ -315,8 +316,8 @@ def _model_for_reasoning_level(level: str) -> str:
     """Return the preferred model for ``level`` of reasoning effort."""
 
     mapping = {
-        "none": PRIMARY_MODEL_DEFAULT,
-        "minimal": PRIMARY_MODEL_DEFAULT,
+        "none": PRIMARY_MODEL,
+        "minimal": PRIMARY_MODEL,
         "low": MEDIUM_REASONING_MODEL,
         "medium": MEDIUM_REASONING_MODEL,
         "high": HIGH_REASONING_MODEL,
@@ -389,20 +390,20 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT52_PRO): [GPT52_PRO, GPT52, GPT52_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT52): [GPT52, GPT52_MINI, GPT51_MINI, GPT51_NANO],
-    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT51_MINI, GPT51_NANO, GPT52],
-    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT51_NANO, GPT51_MINI, GPT52_MINI],
-    _canonical_model_name(GPT51): [GPT51, GPT51_MINI, GPT51_NANO, GPT52_MINI, GPT52],
-    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT51_NANO, GPT52_MINI, GPT52],
-    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT51_MINI, GPT52_MINI, GPT52],
-    _canonical_model_name(O3): [O3, GPT51_MINI, GPT51_NANO, GPT52_MINI, GPT52],
-    _canonical_model_name(O3_MINI): [O3_MINI, GPT51_MINI, GPT51_NANO, GPT52_MINI],
-    _canonical_model_name(O4_MINI): [O4_MINI, GPT51_MINI, GPT51_NANO, GPT52_MINI],
-    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT51_MINI, GPT51_NANO, GPT52_MINI],
-    _canonical_model_name(GPT4O): [GPT4O, GPT51_MINI, GPT51_NANO, GPT52_MINI],
-    _canonical_model_name(GPT4): [GPT4, GPT51_MINI, GPT51_NANO, GPT52_MINI],
-    _canonical_model_name(GPT35): [GPT35, GPT51_NANO, GPT51_MINI, GPT52_MINI],
+    _canonical_model_name(GPT52_PRO): [GPT52_PRO, GPT52, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT52): [GPT52, GPT52_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52],
+    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT4O_MINI, GPT4O, GPT4, GPT35],
+    _canonical_model_name(GPT51): [GPT51, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52_MINI],
+    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT4O_MINI, GPT4O, GPT4, GPT35],
+    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT4O_MINI, GPT4O, GPT4, GPT35],
+    _canonical_model_name(O3): [O3, O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(O3_MINI): [O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(O4_MINI): [O4_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, GPT4, GPT35, GPT52_MINI],
+    _canonical_model_name(GPT4O): [GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52_MINI],
+    _canonical_model_name(GPT4): [GPT4, GPT4O, GPT4O_MINI, GPT35, GPT52_MINI],
+    _canonical_model_name(GPT35): [GPT35, GPT4O_MINI, GPT4O, GPT4, GPT52_MINI],
 }
 
 
@@ -440,12 +441,22 @@ def configure_models(
     lightweight_override: str | None = None,
     medium_reasoning_override: str | None = None,
     high_reasoning_override: str | None = None,
+    primary_override: str | None = None,
+    default_override: str | None = None,
+    openai_override: str | None = None,
     model_routing_overrides: Mapping[str, str] | None = None,
 ) -> None:
     """Initialise model defaults, routing, and fallbacks."""
 
     global REASONING_EFFORT, LIGHTWEIGHT_MODEL, MEDIUM_REASONING_MODEL, HIGH_REASONING_MODEL
-    global REASONING_MODEL, DEFAULT_MODEL, OPENAI_MODEL, MODEL_ROUTING, MODEL_CONFIG, TASK_MODEL_FALLBACKS
+    global \
+        REASONING_MODEL, \
+        DEFAULT_MODEL, \
+        OPENAI_MODEL, \
+        MODEL_ROUTING, \
+        MODEL_CONFIG, \
+        TASK_MODEL_FALLBACKS, \
+        PRIMARY_MODEL
 
     clear_unavailable_models()
     REASONING_EFFORT = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
@@ -455,14 +466,15 @@ def configure_models(
         MEDIUM_REASONING_MODEL_DEFAULT,
     )
     HIGH_REASONING_MODEL = resolve_supported_model(high_reasoning_override, HIGH_REASONING_MODEL_DEFAULT)
+    PRIMARY_MODEL = resolve_supported_model(primary_override, PRIMARY_MODEL_DEFAULT)
+    DEFAULT_MODEL = resolve_supported_model(default_override, PRIMARY_MODEL)
+    OPENAI_MODEL = resolve_supported_model(openai_override, DEFAULT_MODEL)
     REASONING_MODEL = _model_for_reasoning_level(REASONING_EFFORT)
     logger.info(
         "Configured model defaults: reasoning_effort='%s', primary_model='%s'.",
         REASONING_EFFORT,
-        PRIMARY_MODEL_DEFAULT,
+        PRIMARY_MODEL,
     )
-    DEFAULT_MODEL = PRIMARY_MODEL_DEFAULT
-    OPENAI_MODEL = PRIMARY_MODEL_DEFAULT
     MODEL_CONFIG = _build_model_config(model_routing_overrides)
     MODEL_ROUTING = {task: task_config.model for task, task_config in MODEL_CONFIG.items()}
     TASK_MODEL_FALLBACKS = _build_task_fallbacks()
@@ -507,7 +519,7 @@ def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
     return list(
         TASK_MODEL_FALLBACKS.get(
             ModelTask.DEFAULT.value,
-            [GPT51_MINI, GPT52_MINI, GPT52],
+            [PRIMARY_MODEL, GPT4O, GPT35, GPT52_MINI, GPT52],
         )
     )
 

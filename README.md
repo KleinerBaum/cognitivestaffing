@@ -45,8 +45,7 @@ Live app: https://cognitivestaffing.streamlit.app/
   Requirements are split into hard skills, soft skills, tools & technologies, languages, and certifications using heuristics plus optional ESCO lookups and cached reference data (`salary_benchmarks.json`, `skill_market_insights.json`).
 
 - **OpenAI model routing (automatic, fixed defaults)**
-  Lightweight classification or short-form Q&A calls default to `gpt-5-nano`, while richer drafting flows (job ads, interview guides, summaries) use `gpt-5.1-mini` as the standard tier. The routing layer now falls back through nano/mini models before escalating to the GPT-5.2 family (including `gpt-5.2` and `gpt-5.2-pro`) for resilience. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
-  Medium reasoning effort now upgrades long-form generators (job ads, interview guides, profile summaries) to `gpt-5.2-mini` and sends explicit "outline first" hints so GPT-5.2 returns richer bilingual content instead of overly terse answers.
+  Lightweight classification or short-form Q&A calls default to `gpt-4o-mini`, while richer drafting flows (job ads, interview guides, summaries) use `gpt-4o` and escalate to `o3-mini` only for precise/high-effort runs. The routing layer now falls back through `gpt-4o` and `gpt-3.5-turbo` before touching GPT-5.2 tiers so everyday tasks stay inexpensive. Users no longer choose between Quick/Precise modes or base-model dropdowns; routing happens behind the scenes to keep performance and cost predictable. Default assistant outputs cap at 1,024 tokens to reduce cost; long-form generators (job ads, guides) continue to request higher limits where needed to avoid truncation.
 
 - **Single-source task capabilities**
   Every AI task (structured extraction, follow-up drafting, JSON repair, salary estimation, and more) now pulls its preferred model and JSON/text capability flags from a unified `MODEL_CONFIG` map in `config/models.py`, reducing repeated fallbacks and making routing behaviour predictable in logs.
@@ -166,12 +165,12 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ### Reset API mode and model defaults
 
-- **English:** Model selection is fixed in `config/models.py` to GPT-5.2 tiers (`gpt-5.2-mini` default, lightweight paths on `gpt-5.2-nano`, reasoning escalations to `gpt-5.2`). Legacy environment overrides (for example `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) and API-mode toggles (`USE_CLASSIC_API`, `USE_RESPONSES_API`) have been removed; `python -m cli.reset_api_flags` simply cleans lingering keys such as base URL aliases (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`). Add `-k EXTRA_KEY` to remove additional keys.
-- **Deutsch:** Die Modellauswahl ist in `config/models.py` fest auf GPT-5.2 gelegt (`gpt-5.2-mini` als Standard, leichte Pfade auf `gpt-5.2-nano`, Reasoning-Eskalationen auf `gpt-5.2`). Veraltete Umgebungsvariablen (z. B. `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `REASONING_MODEL`) und API-Modus-Schalter (`USE_CLASSIC_API`, `USE_RESPONSES_API`) wurden entfernt; `python -m cli.reset_api_flags` räumt nur noch Rest-Schlüssel wie Basis-URL-Aliasse (`OPENAI_BASE_URL`, `OPENAI_API_BASE_URL`) auf. Mit `-k EXTRA_KEY` lassen sich weitere Schlüssel löschen.
+- **English:** Model selection now defaults to `gpt-4o-mini` with fallbacks through `gpt-4o` and `gpt-3.5-turbo` before escalating to GPT-5.2. Environment and secret overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `HIGH_REASONING_MODEL`) are honoured again so deployments can choose cheaper or enterprise tiers; `python -m cli.reset_api_flags` still cleans legacy API flags such as `OPENAI_BASE_URL`/`OPENAI_API_BASE_URL`.
+- **Deutsch:** Die Modellauswahl nutzt standardmäßig `gpt-4o-mini` und fällt bei Bedarf über `gpt-4o` und `gpt-3.5-turbo` zurück, bevor auf GPT-5.2 eskaliert wird. Umgebungsvariablen und Secrets (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `HIGH_REASONING_MODEL`) werden wieder berücksichtigt, damit Deployments günstigere oder Enterprise-Tiers wählen können; `python -m cli.reset_api_flags` bereinigt weiterhin alte API-Flags wie `OPENAI_BASE_URL`/`OPENAI_API_BASE_URL`.
 - **English:** Model constants, aliases, routing, and fallbacks live in `config/models.py` as the single source of truth—update model names or defaults only there.
 - **Deutsch:** Modellkonstanten, Aliase, Routing und Fallback-Ketten liegen zentral in `config/models.py`; passe Modellnamen oder Defaults nur dort an.
-- **English:** Fallback order is locked within GPT-5.2 (`gpt-5.2-mini` → `gpt-5.2`); GPT-4/GPT-3.5 tiers are no longer part of the automatic chain.
-- **Deutsch:** Die Fallback-Reihenfolge bleibt innerhalb von GPT-5.2 (`gpt-5.2-mini` → `gpt-5.2`); GPT-4-/GPT-3.5-Modelle sind nicht mehr Teil des automatischen Fallbacks.
+- **English:** Fallback order now prefers `gpt-4o-mini` → `gpt-4o` → `gpt-3.5-turbo` before escalating to GPT-5.2 tiers for resilience.
+- **Deutsch:** Die Fallback-Reihenfolge bevorzugt jetzt `gpt-4o-mini` → `gpt-4o` → `gpt-3.5-turbo`, bevor bei Bedarf auf GPT-5.2 eskaliert wird.
 
 ### Quickstart for devs (English / Deutsch)
 
@@ -183,13 +182,13 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 ## LLM Configuration & Capabilities
 
-Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-5.2-mini`/`gpt-5.2-nano`) handle extraction and schema repair, while longer-form generators stay on GPT-5.2 with reasoning escalations. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out. The lowest reasoning tier now defaults to `none` (alias: `minimal`) and is sent as `reasoning: {effort: "none"}` for GPT-5.2 compatibility; Responses payloads include the current verbosity hint except when the target model is a GPT-5 Codex variant.
+Model routing and schema rules live in `config/models.py`. Lightweight chat models (`gpt-4o-mini`) handle extraction and schema repair, while longer-form generators default to `gpt-4o` with precise mode escalating to `o3-mini`. Structured calls rely on `response_format=json_schema` unless a task explicitly opts out. The lowest reasoning tier now defaults to `none` (alias: `minimal`) and is sent as `reasoning: {effort: "none"}` for GPT-4o compatibility; Responses payloads include the current verbosity hint except when the target model is a GPT-5 Codex variant.
 
 | Task | Default model | Structured output? |
 | --- | --- | --- |
-| Extraction / Company info / JSON repair | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
-| Follow-up questions / Team advice | `gpt-5.1-mini` | Text only (no JSON schema) |
-| Job ad / Interview guide / Profile summary | `gpt-5.1-mini` (fallback `gpt-5.2`) | Text/Markdown |
+| Extraction / Company info / JSON repair | `gpt-4o-mini` | JSON schema via `response_format=json_schema` |
+| Follow-up questions / Team advice | `gpt-4o` | Text only (no JSON schema) |
+| Job ad / Interview guide / Profile summary | `gpt-4o` (precise → `o3-mini`) | Text/Markdown |
 | Embeddings (vector store) | `text-embedding-3-large` | Not applicable |
 
 For detailed debugging steps, `response_format.schema` remedies, and test commands, see [docs/llm_config_and_debugging.md](docs/llm_config_and_debugging.md).

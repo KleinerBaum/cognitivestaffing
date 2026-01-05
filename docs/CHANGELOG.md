@@ -21,11 +21,10 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
-- Default reasoning effort now initializes to `none` (GPT-5.2 default) when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
+- Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
-- Default LLM routing now standardizes on `gpt-5.1-mini` for all flows and escalates automatically to `gpt-5.2` for harder tasks, eliminating Quick/Precise mode toggles and GPT-4/GPT-3.5 fallbacks to keep cost predictable.
-- Routing now pins to GPT-5.2 tiers (`gpt-5.2-nano`/`gpt-5.2-mini` → `gpt-5.2`) with API mode fixed to Responses; legacy overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `USE_CLASSIC_API`, `USE_RESPONSES_API`) were removed from runtime/env handling and docs now call out the prompt registry requirement for deployments.
-- Lightweight task routing now prefers `gpt-5-nano` (with nano/mini fallbacks) for extraction, company info, salary checks, JSON repair, and progress inbox updates before escalating to `gpt-5.1-mini` and GPT-5.2 tiers for heavier drafting.
+- Default LLM routing now prefers `gpt-4o-mini` for lightweight and standard tasks, falls back through `gpt-4o` and `gpt-3.5-turbo`, and only escalates to GPT-5.2 tiers when needed; Quick/Precise toggles stay internal but environment and secret overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `HIGH_REASONING_MODEL`) are supported again.
+- Lightweight task routing keeps JSON repair, salary checks, extraction, and progress inbox calls on the cheaper `gpt-4o-mini`/`gpt-4o` path before considering higher-cost models.
 - OpenAI SDK upgraded to the latest Responses-enabled release with first-class support for the `gpt-5.2` family (including mini/nano variants) and explicit routing through `responses.create` for structured calls.
 - Model routing and task capabilities now live in a single `MODEL_CONFIG` map (model preference + JSON/text flags) inside `config/models.py`, eliminating scattered per-pipeline overrides and repeated fallback chains.
 - Structured calls default to the Responses API (`responses.create`) with automatic fallbacks to Chat Completions when models reject Responses payloads or require tool/function calls outside the allowed configuration.
@@ -33,7 +32,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
-- Primary model selection is locked to `gpt-5.1-mini`; `OPENAI_MODEL`/`DEFAULT_MODEL` overrides now log warnings and are ignored across env/secrets/UI tooling. Fallbacks are centralized in `config/models.py` with automatic escalation to `gpt-5.2` and no user-facing mode switches.
+- Primary model selection defaults to `gpt-4o-mini` but can be overridden for deployments that require different cost/quality trade-offs.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 

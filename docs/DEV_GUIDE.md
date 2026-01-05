@@ -8,15 +8,15 @@ extending the wizard, extraction pipeline, and regression tests. Follow the
 
 **EN:**
 
-- Model selection is fixed to `gpt-5.1-mini` inside `config/models.py` with automatic escalation to GPT-5.2 for heavier or resilience-driven tasks. There is no Quick/Precise toggle or UI dropdown; routing stays internal for consistent performance and cost control.
-- Legacy overrides such as `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, and `REASONING_MODEL` have been removed; adjust model names only in `config/models.py` (now pinned to GPT-5.2 tiers).
-- Responses API remains the default path and cannot be switched to legacy Chat via flags. Keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
+- Model selection defaults to `gpt-4o-mini` inside `config/models.py` with fallbacks through `gpt-4o` and `gpt-3.5-turbo` before any GPT-5.2 escalation. There is no Quick/Precise toggle or UI dropdown; routing stays internal for consistent performance and cost control.
+- Overrides such as `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, and `HIGH_REASONING_MODEL` are supported again via environment variables or Streamlit secrets to let deployments choose cheaper tiers.
+- Responses API remains the default path; use `USE_CLASSIC_API` only when explicitly forcing Chat Completions during troubleshooting and keep tool allowances (`RESPONSES_ALLOW_TOOLS`) in sync with tenant capabilities.
 
 **DE:**
 
-- Die Modellauswahl ist in `config/models.py` fest auf `gpt-5.1-mini` eingestellt und hebt automatisch auf GPT-5.2 an, wenn mehr Reasoning oder Ausfallsicherheit nötig ist. Es gibt keinen Schnell/Quick- bzw. Genau/Precise-Schalter und kein UI-Dropdown mehr; das Routing läuft intern, um Leistung und Kosten stabil zu halten.
-- Veraltete Overrides wie `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL` und `REASONING_MODEL` sind entfernt; Modellnamen werden nur in `config/models.py` angepasst (jetzt auf GPT-5.2-Tiers fixiert).
-- Standard ist weiterhin die Responses API; Umschalter auf den Legacy-Chat entfallen. Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) passend zur Mandantenfähigkeit setzen.
+- Die Modellauswahl nutzt standardmäßig `gpt-4o-mini` in `config/models.py` und fällt über `gpt-4o` und `gpt-3.5-turbo` zurück, bevor auf GPT-5.2 eskaliert wird. Es gibt keinen Schnell/Quick- bzw. Genau/Precise-Schalter und kein UI-Dropdown; das Routing läuft intern, um Leistung und Kosten stabil zu halten.
+- Overrides wie `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL` und `HIGH_REASONING_MODEL` werden wieder über Umgebungsvariablen oder Streamlit-Secrets unterstützt, sodass Deployments günstigere Tiers wählen können.
+- Standard ist weiterhin die Responses API; `USE_CLASSIC_API` nur gezielt für Fehlersuche nutzen und Tool-Freigaben (`RESPONSES_ALLOW_TOOLS`) passend zur Mandantenfähigkeit setzen.
 
 ## Prompt generator hook / Prompt-Generator-Hook
 

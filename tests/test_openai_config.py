@@ -258,7 +258,7 @@ def test_ensure_state_records_profile_repairs(monkeypatch: pytest.MonkeyPatch) -
     assert "company.contact_email" in repairs["auto_populated"]
 
 
-def test_ensure_state_ignores_openai_model_secret(monkeypatch) -> None:
+def test_ensure_state_respects_openai_model_secret(monkeypatch) -> None:
     st.session_state.clear()
     monkeypatch.setattr(
         st,
@@ -272,8 +272,8 @@ def test_ensure_state_ignores_openai_model_secret(monkeypatch) -> None:
     try:
         es.ensure_state()
 
-        assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
-        assert st.session_state["model"] == model_config.PRIMARY_MODEL_DEFAULT
+        assert model_config.OPENAI_MODEL == model_config.GPT35
+        assert st.session_state["model"] == model_config.GPT35
     finally:
         st.session_state.clear()
         monkeypatch.setattr(st, "secrets", {}, raising=False)
@@ -281,7 +281,7 @@ def test_ensure_state_ignores_openai_model_secret(monkeypatch) -> None:
         importlib.reload(es)
 
 
-def test_env_openai_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_env_openai_override_is_applied(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     previous_env = os.environ.get("OPENAI_MODEL")
 
     try:
@@ -289,9 +289,8 @@ def test_env_openai_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog:
         caplog.set_level("WARNING")
         importlib.reload(config)
 
-        assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
-        assert model_config.get_model_for(model_config.ModelTask.DEFAULT) == model_config.PRIMARY_MODEL_DEFAULT
-        assert not caplog.records
+        assert model_config.OPENAI_MODEL == model_config.GPT35
+        assert model_config.get_model_for(model_config.ModelTask.DEFAULT) == model_config.GPT35
     finally:
         if previous_env is None:
             monkeypatch.delenv("OPENAI_MODEL", raising=False)
@@ -300,7 +299,7 @@ def test_env_openai_override_is_ignored(monkeypatch: pytest.MonkeyPatch, caplog:
         importlib.reload(config)
 
 
-def test_env_default_model_override_is_ignored(
+def test_env_default_model_override_is_applied(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     previous_env = os.environ.get("DEFAULT_MODEL")
@@ -310,9 +309,8 @@ def test_env_default_model_override_is_ignored(
         caplog.set_level("WARNING")
         importlib.reload(config)
 
-        assert model_config.DEFAULT_MODEL == model_config.PRIMARY_MODEL_DEFAULT
-        assert model_config.OPENAI_MODEL == model_config.PRIMARY_MODEL_DEFAULT
-        assert not caplog.records
+        assert model_config.DEFAULT_MODEL == model_config.O3
+        assert model_config.OPENAI_MODEL == model_config.O3
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)
