@@ -92,6 +92,11 @@ def _llm_is_available() -> bool:
     if app_config.is_llm_enabled():
         return True
     try:
+        if bool(st.session_state.get("openai_unavailable")):
+            return False
+    except Exception:  # pragma: no cover - Streamlit not initialised
+        pass
+    try:
         api_key = getattr(api, "OPENAI_API_KEY", "")
     except Exception:  # pragma: no cover - defensive fallback during tests
         api_key = ""

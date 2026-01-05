@@ -38,8 +38,11 @@ def is_llm_available() -> bool:
     """Return ``True`` if LLM-powered features may be used."""
 
     session = _session_state()
-    if session is not None and "openai_api_key_missing" in session:
-        return not bool(session.get("openai_api_key_missing"))
+    if session is not None:
+        if session.get("openai_unavailable"):
+            return False
+        if "openai_api_key_missing" in session:
+            return not bool(session.get("openai_api_key_missing"))
     return is_llm_enabled()
 
 

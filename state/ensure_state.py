@@ -356,6 +356,10 @@ def ensure_state() -> None:
         st.session_state["vector_store_id"] = os.getenv("VECTOR_STORE_ID", "")
     if "openai_api_key_missing" not in st.session_state:
         st.session_state["openai_api_key_missing"] = not app_config.is_llm_enabled()
+    if "openai_unavailable" not in st.session_state:
+        st.session_state["openai_unavailable"] = False
+    if "openai_unavailable_reason" not in st.session_state:
+        st.session_state["openai_unavailable_reason"] = ""
     if "llm_enabled" not in st.session_state:
         st.session_state["llm_enabled"] = app_config.is_llm_enabled()
     if "openai_base_url_invalid" not in st.session_state:

@@ -122,6 +122,13 @@ if st.session_state.get("openai_base_url_invalid"):
             "⚠️ OPENAI_BASE_URL appears invalid and will be ignored.",
         )
     )
+if st.session_state.get("openai_unavailable"):
+    st.error(
+        tr(
+            "🚫 OpenAI-Kontingent aufgebraucht. KI-Funktionen sind vorübergehend deaktiviert.",
+            "🚫 OpenAI quota exceeded. AI features are temporarily disabled.",
+        )
+    )
 
 maybe_render_autosave_prompt()
 
