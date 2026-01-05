@@ -131,6 +131,10 @@ _AUTHENTICATION_ERROR_MESSAGE: Final[tuple[str, str]] = (
     "OpenAI-API-Schlüssel ungültig oder Kontingent aufgebraucht.",
     "OpenAI API key invalid or quota exceeded.",
 )
+_QUOTA_EXCEEDED_MESSAGE: Final[tuple[str, str]] = (
+    "🚫 OpenAI-Kontingent aufgebraucht. KI-Funktionen aktuell nicht verfügbar.",
+    "🚫 OpenAI quota exceeded. AI services are currently unavailable.",
+)
 _RATE_LIMIT_ERROR_MESSAGE: Final[tuple[str, str]] = (
     "OpenAI-API-Rate-Limit erreicht. Bitte später erneut versuchen.",
     "OpenAI API rate limit exceeded. Please retry later.",
@@ -143,6 +147,8 @@ def _llm_disabled() -> bool:
     if not OPENAI_API_KEY:
         return True
     try:
+        if bool(st.session_state.get("openai_unavailable")):
+            return True
         return bool(st.session_state.get("openai_api_key_missing"))
     except Exception:  # pragma: no cover - Streamlit not initialised
         return False
@@ -254,6 +260,43 @@ def _iter_error_payloads(error: OpenAIError) -> Iterator[Mapping[str, Any]]:
                     stack.append(item)
 
 
+def _flag_openai_unavailable(reason: str) -> None:
+    """Mark the current session as OpenAI-unavailable and store the reason."""
+
+    try:
+        st.session_state["openai_unavailable"] = True
+        st.session_state["openai_unavailable_reason"] = reason
+    except Exception:  # pragma: no cover - Streamlit not initialised
+        pass
+
+
+def _is_quota_exceeded_error(error: OpenAIError) -> bool:
+    """Return ``True`` when ``error`` indicates exhausted OpenAI quota."""
+
+    code = getattr(error, "code", None)
+    if isinstance(code, str) and code.lower() == "insufficient_quota":
+        return True
+
+    message = getattr(error, "message", str(error))
+    lowered_message = str(message).lower()
+    if "insufficient_quota" in lowered_message or "exceeded your current quota" in lowered_message:
+        return True
+
+    for payload in _iter_error_payloads(error):
+        payload_code = payload.get("code")
+        if isinstance(payload_code, str) and payload_code.lower() == "insufficient_quota":
+            return True
+        payload_message = payload.get("message")
+        if isinstance(payload_message, str):
+            lowered_payload_message = payload_message.lower()
+            if (
+                "insufficient_quota" in lowered_payload_message
+                or "exceeded your current quota" in lowered_payload_message
+            ):
+                return True
+    return False
+
+
 def _is_parameter_unsupported_error(error: OpenAIError, parameter: str) -> bool:
     """Return ``True`` if ``error`` indicates the model rejected ``parameter``."""
 
@@ -335,8 +378,12 @@ def _log_known_openai_error(error: OpenAIError, api_mode: str) -> None:
 def _should_abort_retry(error: Exception) -> bool:
     """Return ``True`` when retries should stop to allow model fallback."""
 
-    if isinstance(error, OpenAIError) and _is_parameter_unsupported_error(error, "response_format"):
-        return True
+    if isinstance(error, OpenAIError):
+        if _is_quota_exceeded_error(error):
+            _flag_openai_unavailable("insufficient_quota")
+            return True
+        if _is_parameter_unsupported_error(error, "response_format"):
+            return True
     return is_unrecoverable_schema_error(error) or isinstance(error, APITimeoutError)
 
 
@@ -1523,6 +1570,10 @@ def _describe_openai_error(error: OpenAIError) -> tuple[str, str]:
             f"OpenAI authentication error: {detail}",
         )
 
+    if _is_quota_exceeded_error(error):
+        detail = getattr(error, "message", str(error))
+        return resolve_message(_QUOTA_EXCEEDED_MESSAGE), f"OpenAI quota exceeded: {detail}"
+
     if isinstance(error, RateLimitError):
         detail = getattr(error, "message", str(error))
         return (
@@ -1581,6 +1632,17 @@ def _wrap_openai_exception(
             model=model,
             details=details,
             schema=schema_name,
+            original=error,
+        )
+
+    if _is_quota_exceeded_error(error):
+        _flag_openai_unavailable("insufficient_quota")
+        return ExternalServiceError(
+            resolve_message(_QUOTA_EXCEEDED_MESSAGE),
+            step=step,
+            model=model,
+            details={**details, "error_type": error.__class__.__name__, "reason": "insufficient_quota"},
+            service="openai",
             original=error,
         )
 
