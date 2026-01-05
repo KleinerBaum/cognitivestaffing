@@ -55,7 +55,7 @@ from utils.errors import display_error, resolve_message
 from utils.i18n import tr
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from utils.llm_state import llm_disabled_message
-from utils.logging_context import log_context, set_model
+from utils.logging_context import log_context, set_model, wrap_with_current_context
 from utils.retry import retry_with_backoff
 from .client import (
     FileSearchKey,
@@ -2253,11 +2253,11 @@ def call_chat_api(
 
     if dispatch == "parallel":
         with ThreadPoolExecutor(max_workers=2) as executor:
-            primary_future = executor.submit(_call_chat_api_single, messages, **single_kwargs)
+            primary_future = executor.submit(
+                wrap_with_current_context(_call_chat_api_single, messages, **single_kwargs)
+            )
             secondary_future = executor.submit(
-                _call_chat_api_single,
-                comparison_messages,
-                **secondary_kwargs,
+                wrap_with_current_context(_call_chat_api_single, comparison_messages, **secondary_kwargs)
             )
             primary_result = primary_future.result()
             secondary_result = secondary_future.result()

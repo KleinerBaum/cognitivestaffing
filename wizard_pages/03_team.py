@@ -7,6 +7,7 @@ _REQUIRED_FIELDS: tuple[str, ...] = (
     "department.name",
     "team.reporting_line",
     "position.reporting_manager_name",
+    "position.job_title",
 )
 _SUMMARY_FIELDS: tuple[str, ...] = (
     "department.name",

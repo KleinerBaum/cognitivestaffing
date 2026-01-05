@@ -16,6 +16,7 @@ from state.ai_failures import (
 )
 from utils.i18n import tr
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
+from wizard._logic import get_in
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +174,14 @@ def render_team_advisor(
     state = _get_state()
     lang = st.session_state.get("lang", "de")
 
+    missing_context: list[str] = []
+    job_title = (get_in(profile, str(ProfilePaths.POSITION_JOB_TITLE), "") or "").strip()
+    reporting_line = (get_in(profile, str(ProfilePaths.TEAM_REPORTING_LINE), "") or "").strip()
+    if not job_title:
+        missing_context.append(tr("Jobtitel", "Job title", lang=lang))
+    if not reporting_line:
+        missing_context.append(tr("Berichtslinie", "Reporting line", lang=lang))
+
     with st.expander(
         tr("🧠 Team-Kompositions-Assistent", "🧠 Team composition advisor", lang=lang),
         expanded=False,
@@ -205,6 +214,22 @@ def render_team_advisor(
                 lang=lang,
             )
         )
+
+        if missing_context:
+            st.info(
+                tr(
+                    "Bitte fülle zuerst {fields}, bevor du den Assistenten startest.",
+                    "Please complete {fields} before launching the assistant.",
+                    lang=lang,
+                ).format(fields=", ".join(missing_context))
+            )
+            st.button(
+                tr("Assistent starten", "Launch assistant", lang=lang),
+                type="secondary",
+                key="team_advisor.start.disabled",
+                disabled=True,
+            )
+            return
 
         if not state.get("started"):
             if st.button(
@@ -250,9 +275,7 @@ def render_team_advisor(
         if prompt:
             _append_message(state, "user", prompt.strip())
             try:
-                advice = advise_team_structure(
-                    state.get("messages"), profile, lang=lang, user_input=prompt
-                )
+                advice = advise_team_structure(state.get("messages"), profile, lang=lang, user_input=prompt)
             except Exception as error:  # pragma: no cover - UI guard
                 logger.warning("Team advisor prompt failed", exc_info=error)
                 _mark_unavailable(lang, reason=str(error))

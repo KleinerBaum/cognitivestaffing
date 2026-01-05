@@ -36,9 +36,11 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Primary model selection defaults to `gpt-4o-mini` but can be overridden for deployments that require different cost/quality trade-offs.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
+- Team & Structure now enforces the job title as a required field and keeps the AI team advisor disabled until job title and reporting-line details are available, preventing empty prompts from running.
 
 ### Fixed
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
+- Background thread pools now propagate the active session logging context so session identifiers stay visible inside worker logs.
 - OpenAI quota exhaustion now sets a session-level circuit breaker: retries stop immediately, a bilingual availability warning appears, and further AI-triggered actions are disabled to avoid repeated 429 failures.
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
 - Wizard navigation enforces the canonical eight-step order, ignores unknown query parameters, and keeps Next disabled when required fields are missing so steps no longer skip or repeat.
