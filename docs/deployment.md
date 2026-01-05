@@ -13,7 +13,7 @@ environment variables are available:
 | `VERBOSITY` | Optional UI verbosity (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optional reasoning effort hint (`none`/`minimal` … `high`; `none` is the GPT-5.2 default). |
 
-Model routing is locked in `config/models.py` (GPT-5.2 tiers with `gpt-5.2-mini` as the default); user overrides and `OPENAI_MODEL`/`DEFAULT_MODEL` environment values are ignored at runtime and API-mode flags (`USE_CLASSIC_API`, `USE_RESPONSES_API`) are no longer supported.
+Model routing defaults to `gpt-4o-mini` (with `gpt-4o`/`gpt-3.5-turbo` fallbacks before any GPT-5.2 escalation) and can be overridden via environment variables or Streamlit secrets such as `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, and `MEDIUM_REASONING_MODEL`.
 
 The Streamlit Community Cloud deployment reads `infra/deployment.toml`. Set the
 `[python]` → `installCommand` entry to `poetry install --no-root` so Streamlit
@@ -44,7 +44,7 @@ folgende Umgebungsvariablen relevant:
 | `VERBOSITY` | Optionale UI-Erklärtiefe (`low`, `medium`, `high`). |
 | `REASONING_EFFORT` | Optionale Steuerung der Reasoning-Tiefe (`none`/`minimal` … `high`; `none` ist der GPT-5.2-Standard). |
 
-Das Routing ist in `config/models.py` festgelegt (GPT-5.2-Tiers mit `gpt-5.2-mini` als Standard); Benutzer-Overrides und `OPENAI_MODEL`/`DEFAULT_MODEL`-Variablen werden zur Laufzeit ignoriert, API-Modus-Schalter (`USE_CLASSIC_API`, `USE_RESPONSES_API`) sind nicht mehr unterstützt.
+Das Routing nutzt standardmäßig `gpt-4o-mini` (mit Fallback über `gpt-4o`/`gpt-3.5-turbo`, bevor auf GPT-5.2 eskaliert wird) und kann über Umgebungsvariablen oder Streamlit-Secrets wie `OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL` und `MEDIUM_REASONING_MODEL` angepasst werden.
 
 Das Deployment auf Streamlit Community Cloud nutzt `infra/deployment.toml`.
 Setze den Eintrag `[python]` → `installCommand` auf `poetry install --no-root`,

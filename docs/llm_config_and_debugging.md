@@ -11,17 +11,17 @@ Model routing is centralized in `config/models.py` via the `MODEL_CONFIG` map an
 | Extraction (`ModelTask.EXTRACTION`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
 | Company info enrichment (`ModelTask.COMPANY_INFO`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
 | JSON repair (`ModelTask.JSON_REPAIR`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
-| Follow-up questions (`ModelTask.FOLLOW_UP_QUESTIONS`) | `gpt-5.1-mini` | Text only (JSON schema disabled) |
-| Team advice (`ModelTask.TEAM_ADVICE`) | `gpt-5.1-mini` | Text only (JSON schema disabled) |
-| Salary estimates (`ModelTask.SALARY_ESTIMATE`) | `gpt-5.1-mini` | JSON schema via `response_format=json_schema` |
-| Job ad / interview guide / summaries (`ModelTask.JOB_AD`, `INTERVIEW_GUIDE`, `PROFILE_SUMMARY`) | `gpt-5.1-mini` (medium effort promotes to `gpt-5.2-mini`; high effort escalates to `gpt-5.2`) | Text with optional Markdown; no JSON schema |
+| Follow-up questions (`ModelTask.FOLLOW_UP_QUESTIONS`) | `gpt-4o` | Text only (JSON schema disabled) |
+| Team advice (`ModelTask.TEAM_ADVICE`) | `gpt-4o` | Text only (JSON schema disabled) |
+| Salary estimates (`ModelTask.SALARY_ESTIMATE`) | `gpt-4o-mini` | JSON schema via `response_format=json_schema` |
+| Job ad / interview guide / summaries (`ModelTask.JOB_AD`, `INTERVIEW_GUIDE`, `PROFILE_SUMMARY`) | `gpt-4o` (high effort promotes to `o3-mini`; fallbacks include `gpt-3.5-turbo` and GPT-5.2 tiers) | Text with optional Markdown; no JSON schema |
 | Embeddings (vector store) | `text-embedding-3-large` | Not applicable |
 
 **Routing rules**
 
-- **Fallback chain:** `gpt-5.1-mini → gpt-5.2 → gpt-5.2-mini` for most chat calls; embeddings stay fixed.
-- **Chat Completions vs. Responses:** `gpt-5*` models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
-- **Reasoning effort:** Quick/cheap mode uses the lowest reasoning effort (`none`/`minimal`), mapped to GPT-5.2's `effort: none`; medium effort now upgrades long-form generators to `gpt-5.2-mini`, and precise mode raises `REASONING_EFFORT` and prefers higher-tier models where configured.
+- **Fallback chain:** `gpt-4o-mini → gpt-4o → gpt-3.5-turbo → gpt-5.2-mini → gpt-5.2` for most chat calls; embeddings stay fixed.
+- **Chat Completions vs. Responses:** GPT-4o/3.5/5 models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
+- **Reasoning effort:** Quick/cheap mode uses the lowest reasoning effort (`none`/`minimal`) on `gpt-4o-mini`; medium effort upgrades long-form generators to `gpt-4o`, and precise mode raises `REASONING_EFFORT` to route to `o3-mini` where configured.
 
 ## Response format rules (JSON schema)
 

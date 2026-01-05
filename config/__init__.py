@@ -1,15 +1,15 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-The application now pins OpenAI Responses calls to the GPT-5.2 family with
-lightweight tasks on ``gpt-5.2-nano``/``gpt-5.2-mini`` and heavier reasoning on
-``gpt-5.2``. Fallbacks stay within the GPT-5.2 tiers so routing remains
-predictable while staying resilient. Structured retrieval continues to use
-``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
+Model routing defaults to cost-efficient GPT-4o tiers with ``gpt-4o-mini`` as
+the primary assistant model, ``gpt-4o`` for medium reasoning, and ``o3-mini``
+for high/precise workloads. Fallbacks reintroduce GPT-4/GPT-3.5 options before
+escalating to GPT-5.2 so lightweight tasks stay affordable. Structured
+retrieval continues to use ``text-embedding-3-large`` (3,072 dimensions) for
+higher-fidelity RAG vectors.
 
 ``REASONING_EFFORT`` (``none`` | ``minimal`` | ``low`` | ``medium`` | ``high``)
 controls how much reasoning the model performs by default. ``none`` maps to the
-lowest reasoning tier (GPT-5.2 default) while ``minimal`` remains a backwards-
-compatible alias.
+lowest reasoning tier while ``minimal`` remains a backwards-compatible alias.
 """
 
 import logging
@@ -150,6 +150,9 @@ CHATKIT_PROCESS_WORKFLOW_ID = os.getenv("CHATKIT_PROCESS_WORKFLOW_ID", "")
 
 REASONING_LEVELS = model_config.REASONING_LEVELS
 REASONING_EFFORT = model_config.normalise_reasoning_effort(os.getenv("REASONING_EFFORT", model_config.REASONING_EFFORT))
+_primary_model_override = None
+_default_model_override = None
+_openai_model_override = None
 _lightweight_override = None
 _medium_reasoning_override = None
 _high_reasoning_override = None
@@ -188,6 +191,9 @@ def _configure_models() -> None:
         lightweight_override=_lightweight_override,
         medium_reasoning_override=_medium_reasoning_override,
         high_reasoning_override=_high_reasoning_override,
+        primary_override=_primary_model_override,
+        default_override=_default_model_override,
+        openai_override=_openai_model_override,
         model_routing_overrides=_MODEL_ROUTING_OVERRIDES,
     )
     REASONING_EFFORT = model_config.REASONING_EFFORT
@@ -259,9 +265,6 @@ def _normalise_bool(value: object | None, *, default: bool = False) -> bool:
     return default
 
 
-_missing_api_key_logged = False
-
-
 def _coerce_secret_value(value: object) -> str:
     """Return ``value`` as a trimmed string without raising on unexpected types."""
 
@@ -275,6 +278,42 @@ def _coerce_secret_value(value: object) -> str:
         except Exception:  # pragma: no cover - defensive branch for binary blobs
             return ""
     return str(value).strip()
+
+
+def _load_model_override(key: str) -> str | None:
+    """Return a model override from environment variables or Streamlit secrets."""
+
+    env_value = _coerce_secret_value(os.getenv(key))
+    if env_value:
+        return env_value
+
+    try:
+        secrets_value = _coerce_secret_value(st.secrets.get(key))
+    except Exception:
+        secrets_value = ""
+    if secrets_value:
+        return secrets_value
+
+    try:
+        openai_secrets = st.secrets.get("openai")
+    except Exception:
+        openai_secrets = None
+    if isinstance(openai_secrets, Mapping):
+        secret_value = _coerce_secret_value(openai_secrets.get(key))
+        if secret_value:
+            return secret_value
+    return None
+
+
+_primary_model_override = _load_model_override("OPENAI_MODEL") or _load_model_override("DEFAULT_MODEL")
+_default_model_override = _load_model_override("DEFAULT_MODEL")
+_openai_model_override = _load_model_override("OPENAI_MODEL")
+_lightweight_override = _load_model_override("LIGHTWEIGHT_MODEL")
+_medium_reasoning_override = _load_model_override("MEDIUM_REASONING_MODEL")
+_high_reasoning_override = _load_model_override("HIGH_REASONING_MODEL") or _load_model_override("REASONING_MODEL")
+
+
+_missing_api_key_logged = False
 
 
 def get_openai_api_key() -> str:
