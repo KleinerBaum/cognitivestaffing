@@ -189,6 +189,8 @@ class StateKeys:
     SCROLL_TO_TOP = "ui.scroll_to_top"
     FOLLOWUPS = "followup_questions"
     FOLLOWUPS_RESPONSE_ID = "followups.response_id"
+    FOLLOWUPS_SOURCE = "followups.source"
+    FOLLOWUPS_REASON = "followups.fallback_reason"
     RAG_CONTEXT_SKIPPED = "followups.rag_skipped"
     AUTOFILL_DECISIONS = "autofill_decisions"
     USAGE = "api_usage"

@@ -61,6 +61,9 @@ Live app: https://cognitivestaffing.streamlit.app/
 - **AI skip controls for optional assistants**
   After repeated AI failures on the team advisor, skill expander, compensation assistant, or process planner, the wizard shows bilingual warnings with a “Skip AI for this step” action and surfaces skipped-assistant banners on the summary page so users can proceed manually.
 
+- **Visible fallbacks for AI outages**
+  Team advice, follow-up question cards, and salary estimates now surface bilingual notices and default suggestions whenever OpenAI calls fail or return empty results, so users understand what is missing and can continue manually.
+
 - **Progress inbox with AI matching + deterministic fallback**
   Paste progress snippets from your hiring inbox and let the app map them to up to three tasks using structured OpenAI outputs (increment progress, mark done, add notes, or move subtasks). If AI is disabled or unavailable, deterministic matching keeps working so updates still apply.
 

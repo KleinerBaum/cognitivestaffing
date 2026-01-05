@@ -13,9 +13,15 @@ logger = logging.getLogger(__name__)
 def _fallback_team_advice(lang: str) -> TeamAdvice:
     locale = "de" if lang.lower().startswith("de") else "en"
     if locale == "de":
-        message = "Ich konnte gerade keinen Vorschlag generieren. Versuch es bitte erneut."
+        message = (
+            "Keine KI-Empfehlung verfügbar. Standardtipp: Kläre Berichtslinie und Anzahl direkter"
+            " Reports; versuch es später erneut."
+        )
     else:
-        message = "I couldn't generate a suggestion right now. Please try again."
+        message = (
+            "AI advice is unavailable right now. Default tip: clarify the reporting line and number "
+            "of direct reports, then try again later."
+        )
     return TeamAdvice(message=message)
 
 

@@ -4288,6 +4288,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             missing.append(field)
 
     followup_candidates: list[Mapping[str, object]] = []
+    followup_source = "llm"
+    followup_reason = ""
 
     def _followup_generation_task(context: WorkflowContext) -> Mapping[str, Any]:
         if not is_llm_available():
@@ -4324,14 +4326,23 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             raw_questions = followup_result.result.get("questions", [])
             if isinstance(raw_questions, list):
                 followup_candidates = [q for q in raw_questions if isinstance(q, Mapping)]
+            followup_source = str(followup_result.result.get("source") or "llm")
+            followup_reason = str(followup_result.result.get("fallback_reason") or "")
     elif followup_result and followup_result.status is TaskStatus.FAILED:
         error = followup_result.error
         logger.warning(
             "Automatic follow-up generation failed; continuing without new questions.",
             exc_info=(type(error), error, error.__traceback__) if error else True,
         )
+        followup_source = "error"
+        followup_reason = "generation_failed"
 
     filtered_followups = filter_followups_by_context(followup_candidates, data)
+    st.session_state[StateKeys.FOLLOWUPS_SOURCE] = followup_source
+    if followup_reason:
+        st.session_state[StateKeys.FOLLOWUPS_REASON] = followup_reason
+    else:
+        st.session_state.pop(StateKeys.FOLLOWUPS_REASON, None)
     if filtered_followups:
         st.session_state[StateKeys.FOLLOWUPS] = filtered_followups
     else:

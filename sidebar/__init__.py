@@ -1231,9 +1231,17 @@ def _render_salary_expectation(profile: Mapping[str, Any]) -> None:
             f"**{tr('Eingegebene Spanne', 'Entered range')}**: {format_salary_range(user_min, user_max, user_currency)}"
         )
 
-    source_label = _salary_source_label(str(estimate.get("source", "")))
+    raw_source = str(estimate.get("source", ""))
+    source_label = _salary_source_label(raw_source)
     if source_label:
         st.caption(tr("Quelle der Schätzung: {source}", "Estimate source: {source}").format(source=source_label))
+    if raw_source and raw_source != "model":
+        st.info(
+            tr(
+                "KI-Schätzung derzeit nicht verfügbar – es wird eine Benchmark-Spanne angezeigt.",
+                "AI-generated salary estimate is unavailable right now – showing a benchmark fallback instead.",
+            )
+        )
 
     st.markdown(f"#### {tr('Berechnung', 'Calculation')}")
     if is_admin_debug_session_active():

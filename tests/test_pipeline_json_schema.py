@@ -217,6 +217,7 @@ def test_followups_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
     result = followups_mod.generate_followups({}, "en")
 
     assert result["questions"]
+    assert result.get("source") == "llm"
     first = result["questions"][0]
     assert first["field"] == "company.name"
     assert first["question"] == "What is the company name?"
@@ -235,6 +236,8 @@ def test_followups_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result["questions"]
     assert all(entry.get("suggestions") for entry in result["questions"])
+    assert result.get("source") == "fallback"
+    assert result.get("fallback_reason") == "llm_error"
 
 
 def test_profile_summary_schema(monkeypatch: pytest.MonkeyPatch) -> None:
