@@ -73,6 +73,7 @@ from utils.i18n import (
     POSITION_CUSTOMER_CONTACT_TOGGLE_HELP,
     tr,
 )
+from utils.logging_context import wrap_with_current_context
 import config as app_config
 from config import set_responses_allow_tools
 from i18n import t as translate_key
@@ -3511,7 +3512,8 @@ def _bulk_fetch_company_sections(
     max_workers = min(4, len(sections)) or 1
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_section = {
-            executor.submit(_fetch_company_page, base_url, section["slugs"]): section for section in sections
+            executor.submit(wrap_with_current_context(_fetch_company_page, base_url, section["slugs"])): section
+            for section in sections
         }
         for future in as_completed(future_to_section):
             section = future_to_section[future]

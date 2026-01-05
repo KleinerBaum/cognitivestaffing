@@ -22,7 +22,12 @@ except (ModuleNotFoundError, RuntimeError):
     add_script_run_ctx = None
     get_script_run_ctx = None
 
-from utils.logging_context import configure_logging, log_context, set_pipeline_task
+from utils.logging_context import (
+    configure_logging,
+    log_context,
+    set_pipeline_task,
+    wrap_with_current_context,
+)
 
 configure_logging()
 
@@ -155,9 +160,7 @@ class WorkflowRunner:
                     with log_context(pipeline_task=candidate_task.name):
                         if self._should_skip(candidate_task, results):
                             outcome.status = TaskStatus.SKIPPED
-                            self._logger.info(
-                                "Skipping task %s due to failed dependencies", candidate_task.name
-                            )
+                            self._logger.info("Skipping task %s due to failed dependencies", candidate_task.name)
                             for child in dependants[candidate_name]:
                                 pending_dependencies[child] -= 1
                                 if pending_dependencies[child] == 0:
@@ -166,16 +169,16 @@ class WorkflowRunner:
 
                     if not candidate_task.parallelizable and in_flight:
                         done, _ = wait(in_flight.keys())
-                        self._collect_finished(
-                            done, in_flight, results, ctx, dependants, pending_dependencies, ready
-                        )
+                        self._collect_finished(done, in_flight, results, ctx, dependants, pending_dependencies, ready)
                         ready.appendleft(candidate_name)
                         continue
 
                     with log_context(pipeline_task=candidate_task.name):
                         self._logger.info("Starting task %s", candidate_task.name)
                     outcome.status = TaskStatus.RUNNING
-                    future = executor.submit(self._execute, candidate_task, ctx, script_run_ctx)
+                    future = executor.submit(
+                        wrap_with_current_context(self._execute, candidate_task, ctx, script_run_ctx)
+                    )
                     if add_script_run_ctx and script_run_ctx:
                         add_script_run_ctx(future, script_run_ctx)
                     in_flight[future] = candidate_task
@@ -187,9 +190,7 @@ class WorkflowRunner:
                     continue
 
                 done, _ = wait(in_flight.keys(), return_when=FIRST_COMPLETED)
-                self._collect_finished(
-                    done, in_flight, results, ctx, dependants, pending_dependencies, ready
-                )
+                self._collect_finished(done, in_flight, results, ctx, dependants, pending_dependencies, ready)
 
         return WorkflowRunResult(results=results, context=ctx)
 
@@ -233,9 +234,7 @@ class WorkflowRunner:
                 if pending_dependencies[child] == 0:
                     ready.append(child)
 
-    def _execute(
-        self, task: Task, context: WorkflowContext, script_run_ctx: Any | None = None
-    ) -> tuple[Any, int]:
+    def _execute(self, task: Task, context: WorkflowContext, script_run_ctx: Any | None = None) -> tuple[Any, int]:
         attempts = 0
         last_error: Exception | None = None
         with log_context(pipeline_task=task.name):
@@ -245,7 +244,7 @@ class WorkflowRunner:
                 try:
                     if task.timeout is not None:
                         with ThreadPoolExecutor(max_workers=1) as executor:
-                            future = executor.submit(task.func, context)
+                            future = executor.submit(wrap_with_current_context(task.func, context))
                             if add_script_run_ctx and script_run_ctx:
                                 add_script_run_ctx(future, script_run_ctx)
                             return future.result(timeout=task.timeout), attempts

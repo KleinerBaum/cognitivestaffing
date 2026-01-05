@@ -16,6 +16,7 @@ from config import VECTOR_STORE_ID, ModelTask, get_model_for
 from openai_utils.api import call_chat_api
 from openai_utils.tools import build_file_search_tool
 from prompts import prompt_registry
+from utils.logging_context import wrap_with_current_context
 
 
 logger = logging.getLogger("cognitive_needs.rag")
@@ -277,7 +278,9 @@ class RAGPipeline:
 
         max_workers = min(4, len(specs))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_spec = {executor.submit(self._retrieve_for, spec): spec for spec in specs}
+            future_to_spec = {
+                executor.submit(wrap_with_current_context(self._retrieve_for, spec)): spec for spec in specs
+            }
             for future in as_completed(future_to_spec):
                 spec = future_to_spec[future]
                 chunks = future.result()

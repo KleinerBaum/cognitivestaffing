@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextvars
 import logging
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Callable, Iterator, TypeVar
 
 _DEFAULT_LOG_FORMAT = (
     "%(asctime)s %(levelname)s [session=%(session_id)s step=%(wizard_step)s "
@@ -16,6 +16,8 @@ _pipeline_task_var: contextvars.ContextVar[str] = contextvars.ContextVar("pipeli
 _model_var: contextvars.ContextVar[str] = contextvars.ContextVar("model", default="-")
 _DEFAULT_RECORD_FACTORY = logging.getLogRecordFactory()
 _RECORD_FACTORY_INSTALLED = False
+
+_T = TypeVar("_T")
 
 
 def _apply_context(record: logging.LogRecord) -> None:
@@ -89,6 +91,23 @@ def set_model(model: str | None) -> None:
     """Bind the active model identifier to the logging context."""
 
     _model_var.set(_coerce(model))
+
+
+def wrap_with_current_context(func: Callable[..., _T], /, *args: object, **kwargs: object) -> Callable[[], _T]:
+    """Capture and propagate logging context into background executions.
+
+    Context variables in Python do not automatically flow into new threads. When
+    submitting work to a ``ThreadPoolExecutor`` we wrap the callable with the
+    active ``contextvars`` snapshot so that ``session_id``, ``wizard_step``, and
+    related metadata stay attached to log records inside worker threads.
+    """
+
+    context = contextvars.copy_context()
+
+    def _runner() -> _T:
+        return context.run(func, *args, **kwargs)
+
+    return _runner
 
 
 @contextmanager
