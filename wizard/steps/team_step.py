@@ -113,7 +113,6 @@ def _step_team() -> None:
     render_missing_field_summary(missing_here)
     for intro in intros:
         st.caption(intro)
-    render_team_advisor_unavailable_notice(st.session_state.get("lang", "de"))
     data = profile
     data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -122,47 +121,102 @@ def _step_team() -> None:
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
 
+    render_section_heading(
+        tr("Pflichtangaben", "Required basics"),
+        icon="📌",
+        size="compact",
+    )
+    required_block = st.container()
+
+    with required_block:
+        job_title_cols = st.columns((1.8, 1))
+        title_label = format_missing_label(
+            tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
+            field_path=ProfilePaths.POSITION_JOB_TITLE,
+            missing_fields=missing_here,
+        )
+        title_lock = _field_lock_config(
+            ProfilePaths.POSITION_JOB_TITLE,
+            title_label,
+            container=job_title_cols[0],
+            context="step",
+        )
+        job_title_kwargs = _apply_field_lock_kwargs(
+            title_lock,
+            {
+                "help": merge_missing_help(
+                    None,
+                    field_path=ProfilePaths.POSITION_JOB_TITLE,
+                    missing_fields=missing_here,
+                )
+            },
+        )
+        position["job_title"] = widget_factory.text_input(
+            ProfilePaths.POSITION_JOB_TITLE,
+            title_lock["label"],
+            widget_factory=job_title_cols[0].text_input,
+            placeholder=tr("Jobtitel eingeben", "Enter the job title"),
+            value_formatter=_string_or_empty,
+            **job_title_kwargs,
+        )
+        _update_profile(ProfilePaths.POSITION_JOB_TITLE, position["job_title"])
+        if ProfilePaths.POSITION_JOB_TITLE in missing_here and not position.get("job_title"):
+            job_title_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+        job_title_followups = job_title_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
+        _render_followups_for_fields(
+            (ProfilePaths.POSITION_JOB_TITLE,),
+            data,
+            container_factory=job_title_followups.container,
+        )
+
+        reporting_cols = st.columns((1.8, 1))
+        reporting_label = format_missing_label(
+            tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX,
+            field_path=ProfilePaths.TEAM_REPORTING_LINE,
+            missing_fields=missing_here,
+        )
+        team["reporting_line"] = widget_factory.text_input(
+            ProfilePaths.TEAM_REPORTING_LINE,
+            reporting_label,
+            widget_factory=reporting_cols[0].text_input,
+            placeholder=tr("Zugeordnete Leitung eintragen", "Enter the overseeing function"),
+            value_formatter=_string_or_empty,
+            help=merge_missing_help(
+                None,
+                field_path=ProfilePaths.TEAM_REPORTING_LINE,
+                missing_fields=missing_here,
+            ),
+        )
+        _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team.get("reporting_line", ""))
+        _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team.get("reporting_line", ""))
+        if ProfilePaths.TEAM_REPORTING_LINE in missing_here and not team.get("reporting_line"):
+            reporting_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+        reporting_followups = reporting_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
+        _render_followups_for_fields(
+            (ProfilePaths.TEAM_REPORTING_LINE,),
+            data,
+            container_factory=reporting_followups.container,
+        )
+
+        start_cols = st.columns((1.2, 1))
+        start_selection = _render_target_start_date_input(start_cols[0], meta_data, missing_fields=missing_here)
+        meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
+        start_followups = start_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
+        _render_followups_for_fields(
+            (ProfilePaths.META_TARGET_START_DATE,),
+            data,
+            container_factory=start_followups.container,
+        )
+
+    advisor_expander = st.expander(tr("Team Advisor", "Team Advisor"), expanded=False)
+    with advisor_expander:
+        render_team_advisor_unavailable_notice(st.session_state.get("lang", "de"))
+        render_team_advisor(profile=data, position=position, update_profile=_update_profile)
+
     render_section_heading(tr("Team & Struktur", "Team & Structure"))
     role_cols = st.columns((1.3, 1))
-    title_label = format_missing_label(
-        tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
-        field_path=ProfilePaths.POSITION_JOB_TITLE,
-        missing_fields=missing_here,
-    )
-    title_lock = _field_lock_config(
-        ProfilePaths.POSITION_JOB_TITLE,
-        title_label,
-        container=role_cols[0],
-        context="step",
-    )
-    job_title_kwargs = _apply_field_lock_kwargs(
-        title_lock,
-        {
-            "help": merge_missing_help(
-                None,
-                field_path=ProfilePaths.POSITION_JOB_TITLE,
-                missing_fields=missing_here,
-            )
-        },
-    )
-    position["job_title"] = widget_factory.text_input(
-        ProfilePaths.POSITION_JOB_TITLE,
-        title_lock["label"],
-        widget_factory=role_cols[0].text_input,
-        placeholder=tr("Jobtitel eingeben", "Enter the job title"),
-        value_formatter=_string_or_empty,
-        **job_title_kwargs,
-    )
-    _update_profile(ProfilePaths.POSITION_JOB_TITLE, position["job_title"])
-    if ProfilePaths.POSITION_JOB_TITLE in missing_here and not position.get("job_title"):
-        role_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    _render_followups_for_fields(
-        (ProfilePaths.POSITION_JOB_TITLE,),
-        data,
-        container_factory=role_cols[0].container,
-    )
-
-    _render_esco_occupation_selector(position)
+    with role_cols[0]:
+        _render_esco_occupation_selector(position)
 
     position["seniority_level"] = widget_factory.text_input(
         ProfilePaths.POSITION_SENIORITY,
@@ -172,47 +226,21 @@ def _step_team() -> None:
         value_formatter=_string_or_empty,
     )
 
-    reporting_cols = st.columns((1, 1))
-    reporting_label = format_missing_label(
-        tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX,
-        field_path=ProfilePaths.TEAM_REPORTING_LINE,
-        missing_fields=missing_here,
-    )
-    team["reporting_line"] = widget_factory.text_input(
-        ProfilePaths.TEAM_REPORTING_LINE,
-        reporting_label,
-        widget_factory=reporting_cols[0].text_input,
-        placeholder=tr("Zugeordnete Leitung eintragen", "Enter the overseeing function"),
-        value_formatter=_string_or_empty,
-        help=merge_missing_help(
-            None,
-            field_path=ProfilePaths.TEAM_REPORTING_LINE,
-            missing_fields=missing_here,
-        ),
-    )
-    _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team.get("reporting_line", ""))
-    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team.get("reporting_line", ""))
-    if ProfilePaths.TEAM_REPORTING_LINE in missing_here and not team.get("reporting_line"):
-        reporting_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    _render_followups_for_fields(
-        (ProfilePaths.TEAM_REPORTING_LINE,),
-        data,
-        container_factory=reporting_cols[0].container,
-    )
-
+    reporting_fields = st.columns((1.8, 1))
     reports_to_label = tr("Berichtet an (Funktion)", "Reports to (title)")
     position["reports_to"] = widget_factory.text_input(
         ProfilePaths.POSITION_REPORTS_TO,
         reports_to_label,
-        widget_factory=reporting_cols[1].text_input,
+        widget_factory=reporting_fields[0].text_input,
         placeholder=tr("Führungstitel eintragen", "Enter the manager title"),
         value_formatter=_string_or_empty,
     )
     _update_profile(ProfilePaths.POSITION_REPORTS_TO, position.get("reports_to", ""))
+    reports_to_followups = reporting_fields[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
     _render_followups_for_fields(
         (ProfilePaths.POSITION_REPORTS_TO,),
         data,
-        container_factory=reporting_cols[1].container,
+        container_factory=reports_to_followups.container,
     )
 
     manager_cols = st.columns((1, 1))
@@ -239,10 +267,11 @@ def _step_team() -> None:
         ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
         position.get("reporting_manager_name", ""),
     )
+    manager_followups = manager_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
     _render_followups_for_fields(
         (ProfilePaths.POSITION_REPORTING_MANAGER_NAME,),
         data,
-        container_factory=manager_cols[0].container,
+        container_factory=manager_followups.container,
     )
     position["customer_contact_required"] = manager_cols[1].toggle(
         tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
@@ -267,6 +296,7 @@ def _step_team() -> None:
         ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
         position.get("customer_contact_details"),
     )
+    summary_cols = st.columns((1.8, 1))
     summary_label = format_missing_label(
         tr(*ROLE_SUMMARY_LABEL),
         field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
@@ -274,7 +304,7 @@ def _step_team() -> None:
     )
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
         summary_label += REQUIRED_SUFFIX
-    position["role_summary"] = st.text_area(
+    position["role_summary"] = summary_cols[0].text_area(
         summary_label,
         value=st.session_state.get(ProfilePaths.POSITION_ROLE_SUMMARY, position.get("role_summary", "")),
         height=120,
@@ -286,42 +316,31 @@ def _step_team() -> None:
         ),
     )
     if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
-        st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+        summary_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+    summary_followups = summary_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
     _render_followups_for_fields(
         (ProfilePaths.POSITION_ROLE_SUMMARY,),
         data,
-        container_factory=st.container,
+        container_factory=summary_followups.container,
     )
 
     render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
 
-    timing_cols = st.columns(3)
-    start_selection = _render_target_start_date_input(
-        timing_cols[0], meta_data, missing_fields=missing_here
-    )
-    meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
-    _render_followups_for_fields(
-        (ProfilePaths.META_TARGET_START_DATE,),
-        data,
-        container_factory=timing_cols[0].container,
-    )
-
+    timing_cols = st.columns((1.4, 1))
     application_deadline_default = _default_date(meta_data.get("application_deadline"))
-    deadline_selection = timing_cols[1].date_input(
+    deadline_selection = timing_cols[0].date_input(
         tr("Bewerbungsschluss", "Application deadline"),
         value=application_deadline_default,
         format="YYYY-MM-DD",
     )
     meta_data["application_deadline"] = deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
 
-    position["supervises"] = timing_cols[2].number_input(
+    position["supervises"] = timing_cols[1].number_input(
         tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
         min_value=0,
         value=position.get("supervises", 0),
         step=1,
     )
-
-    render_team_advisor(profile=data, position=position, update_profile=_update_profile)
 
     with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
         position["performance_indicators"] = st.text_area(
