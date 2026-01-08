@@ -692,6 +692,42 @@ def _is_sidebar_stepper_enabled() -> bool:
     return bool(st.session_state.get("feature.sidebar_stepper_v1"))  # GREP:SIDEBAR_STEPPER_FLAG_V1
 
 
+def _is_sidebar_stepper_nav_enabled() -> bool:
+    return bool(st.session_state.get("feature.sidebar_stepper_nav_v1"))  # GREP:SIDEBAR_STEPPER_NAV_V1
+
+
+def _navigate_to_step(target_key: str) -> None:
+    """Navigate to the requested wizard step using existing state routing."""
+
+    if not isinstance(target_key, str) or not target_key:
+        return
+
+    wizard_state = st.session_state.get("wizard")
+    if not isinstance(wizard_state, dict):
+        wizard_state = {}
+        st.session_state["wizard"] = wizard_state
+
+    if wizard_state.get("current_step") == target_key:
+        return
+
+    wizard_state["current_step"] = target_key
+    st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
+    st.session_state["_wizard_scroll_to_top"] = True
+    st.query_params["step"] = target_key
+    st.rerun()
+
+
+@dataclass(frozen=True)
+class SidebarStepperItem:
+    key: str
+    badge: str
+    label: str
+    note: str
+    missing_count: int
+    is_current: bool
+    is_previous: bool
+
+
 def _render_sidebar_stepper(context: SidebarContext) -> None:
     """Render a non-interactive wizard stepper in the sidebar."""
 
@@ -704,7 +740,9 @@ def _render_sidebar_stepper(context: SidebarContext) -> None:
     if not isinstance(current_key, str):
         current_key = STEPS[0].key if STEPS else ""
 
-    items: list[str] = []
+    step_keys = [step.key for step in STEPS]
+    current_index = step_keys.index(current_key) if current_key in step_keys else 0
+    items: list[SidebarStepperItem] = []
     for index, step in enumerate(STEPS, start=1):
         page = page_lookup.get(step.key)
         label = page.label_for(lang) if page else step.key
@@ -713,12 +751,7 @@ def _render_sidebar_stepper(context: SidebarContext) -> None:
             missing = compute_step_missing(context.profile, page)
             missing_count = len(missing.required) + len(missing.critical)
 
-        classes = ["sidebar-step"]
-        if step.key == current_key:
-            classes.append("sidebar-step--current")
-        if missing_count:
-            classes.append("sidebar-step--warning")
-
+        is_current = step.key == current_key
         base_note = (
             tr("Fehlt: {count}", "Missing: {count}", lang=lang).format(count=missing_count)
             if missing_count
@@ -726,22 +759,55 @@ def _render_sidebar_stepper(context: SidebarContext) -> None:
         )
         note = (
             tr("Aktuell · {status}", "Current · {status}", lang=lang).format(status=base_note)
-            if step.key == current_key
+            if is_current
             else base_note
         )
+        is_previous = index - 1 < current_index
         items.append(
+            SidebarStepperItem(
+                key=step.key,
+                badge=str(index),
+                label=label,
+                note=note,
+                missing_count=missing_count,
+                is_current=is_current,
+                is_previous=is_previous,
+            )
+        )
+
+    if _is_sidebar_stepper_nav_enabled():
+        for item in items:
+            label = f"{item.badge}. {item.label} · {item.note}"
+            st.button(
+                label,
+                key=f"sidebar.stepper.nav.{item.key}",
+                disabled=not item.is_previous,
+                on_click=_navigate_to_step,
+                args=(item.key,),
+                use_container_width=True,
+            )
+        return
+
+    html_items: list[str] = []
+    for item in items:
+        classes = ["sidebar-step"]
+        if item.is_current:
+            classes.append("sidebar-step--current")
+        if item.missing_count:
+            classes.append("sidebar-step--warning")
+        html_items.append(
             '<li class="{classes}"><span class="sidebar-step__badge">{badge}</span>'
             '<span class="sidebar-step__label">{label}</span>'
             '<span class="sidebar-step__note">{note}</span></li>'.format(
                 classes=" ".join(classes),
-                badge=html.escape(str(index)),
-                label=html.escape(label),
-                note=html.escape(note),
+                badge=html.escape(item.badge),
+                label=html.escape(item.label),
+                note=html.escape(item.note),
             )
         )
 
     st.markdown(
-        '<ul class="sidebar-stepper">{items}</ul>'.format(items="".join(items)),
+        '<ul class="sidebar-stepper">{items}</ul>'.format(items="".join(html_items)),
         unsafe_allow_html=True,
     )
 
