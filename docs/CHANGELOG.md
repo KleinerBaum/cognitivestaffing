@@ -18,6 +18,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
 - Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.
 - Missing-field detection helpers in `wizard/missing_fields.py` with unit coverage.
+- Step-level status helpers for missing required vs. critical fields in `wizard/step_status.py` with unit coverage.
 - Step layout helper for consistent Known/Missing tabs with an optional tools expander.
 - Wizard step registry metadata with ordered keys for shared navigation references.
 
