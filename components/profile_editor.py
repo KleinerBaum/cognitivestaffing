@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Callable, Literal, Mapping, Sequence
 
 import streamlit as st
 
@@ -19,6 +19,8 @@ class ProfileEditorField:
     help_text: tuple[str, str] | None = None
     placeholder: tuple[str, str] | None = None
     widget: Literal["text", "textarea"] = "text"
+    formatter: Callable[[Any], str] | None = None
+    parser: Callable[[str], Any] | None = None
 
 
 def safe_get_in(data: Mapping[str, Any] | None, path: str, default: Any = "") -> Any:
@@ -59,6 +61,24 @@ def _stringify(value: Any) -> str:
     return str(value)
 
 
+def format_list(value: Any) -> str:
+    """Return a list-like value as newline-delimited text."""
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        items = [str(item).strip() for item in value if str(item).strip()]
+        return "\n".join(items)
+    return _stringify(value)
+
+
+def parse_list(value: str) -> list[str]:
+    """Parse comma or newline separated text into a list."""
+
+    if not value:
+        return []
+    items = [item.strip() for chunk in value.splitlines() for item in chunk.split(",")]
+    return [item for item in items if item]
+
+
 def render_profile_editor(
     *,
     profile: dict[str, Any],
@@ -74,7 +94,8 @@ def render_profile_editor(
         help_text = tr(*field.help_text, lang=active_lang) if field.help_text else None
         placeholder = tr(*field.placeholder, lang=active_lang) if field.placeholder else None
         key = f"{key_prefix}.{field.path}"
-        value = _stringify(safe_get_in(profile, field.path, ""))
+        raw_value = safe_get_in(profile, field.path, "")
+        value = field.formatter(raw_value) if field.formatter else _stringify(raw_value)
         if field.widget == "textarea":
             updated = st.text_area(
                 label,
@@ -92,4 +113,5 @@ def render_profile_editor(
                 placeholder=placeholder,
             )
         if updated != value:
-            safe_set_in(profile, field.path, updated)
+            parsed = field.parser(updated) if field.parser else updated
+            safe_set_in(profile, field.path, parsed)
