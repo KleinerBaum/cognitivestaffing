@@ -20,9 +20,10 @@ from wizard.layout import (
     format_missing_label,
     merge_missing_help,
     render_missing_field_summary,
-    render_step_heading,
     render_step_warning_banner,
 )
+from wizard.missing_fields import missing_fields
+from wizard.step_layout import render_step_layout
 from wizard_router import WizardContext
 from utils.circuit_breaker import CircuitBreaker
 from utils.i18n import tr
@@ -751,6 +752,24 @@ def _render_autofill_if_available(**kwargs: Any) -> None:
         logger.debug("Autofill suggestion helper unavailable; skipping render.")
 
 
+COMPANY_REQUIRED_FIELDS: tuple[str, ...] = (
+    ProfilePaths.COMPANY_NAME,
+    ProfilePaths.COMPANY_CONTACT_EMAIL,
+    ProfilePaths.COMPANY_CONTACT_PHONE,
+    ProfilePaths.LOCATION_PRIMARY_CITY,
+    ProfilePaths.LOCATION_COUNTRY,
+)
+
+
+def _compute_company_missing_fields(profile: Mapping[str, Any]) -> list[str]:
+    """Return the missing fields for the company step."""
+
+    if callable(_missing_fields_for_section):
+        missing = _missing_fields_for_section(1)
+        return list(missing) if missing else []
+    return missing_fields(profile, COMPANY_REQUIRED_FIELDS)
+
+
 def _step_company() -> None:
     """Render the company information step.
 
@@ -782,7 +801,7 @@ def _step_company() -> None:
             ),
         ],
     )
-    missing_here = _missing_fields_for_section(1)
+    missing_here = _compute_company_missing_fields(profile)
 
     company_caption = _format_dynamic_message(
         default=(
@@ -807,17 +826,6 @@ def _step_company() -> None:
             ),
         ],
     )
-    render_step_heading(company_header, company_caption, missing_fields=missing_here)
-    render_step_warning_banner()
-    meta = cast(Mapping[str, Any], profile.get("meta", {})) if isinstance(profile.get("meta"), Mapping) else {}
-    if meta.get("extraction_fallback_active"):
-        st.warning(
-            tr(
-                "Wir konnten Teile der Stellenanzeige nicht automatisch auslesen – bitte Felder manuell prüfen.",
-                "We had trouble parsing parts of your job ad — please verify fields manually.",
-            )
-        )
-    render_missing_field_summary(missing_here)
     data = profile
     company = data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -848,502 +856,491 @@ def _step_company() -> None:
         },
     )
 
-    company_identity_container = st.container()
+    def _render_company_tools() -> None:
+        _render_company_insights_assistant(company, location_data)
+        _render_company_research_tools(company.get("website", ""))
 
-    _render_company_insights_assistant(company, location_data)
-    _render_company_research_tools(company.get("website", ""))
+    def _render_company_missing() -> None:
+        _render_followups_for_fields((ProfilePaths.COMPANY_NAME,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.COMPANY_CONTACT_NAME,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.COMPANY_CONTACT_EMAIL,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.COMPANY_CONTACT_PHONE,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.LOCATION_PRIMARY_CITY,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.LOCATION_COUNTRY,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.DEPARTMENT_NAME,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.TEAM_REPORTING_LINE,), data, container_factory=st.container)
+        _render_followups_for_step("company", data)
 
-    with company_identity_container:
-        company["name"] = widget_factory.text_input(
-            ProfilePaths.COMPANY_NAME,
-            company_lock["label"],
-            placeholder=tr(*COMPANY_NAME_PLACEHOLDER),
+    def _render_company_known() -> None:
+        render_step_warning_banner()
+        meta = cast(Mapping[str, Any], profile.get("meta", {})) if isinstance(profile.get("meta"), Mapping) else {}
+        if meta.get("extraction_fallback_active"):
+            st.warning(
+                tr(
+                    "Wir konnten Teile der Stellenanzeige nicht automatisch auslesen – bitte Felder manuell prüfen.",
+                    "We had trouble parsing parts of your job ad — please verify fields manually.",
+                )
+            )
+        render_missing_field_summary(missing_here)
+
+        company_identity_container = st.container()
+        with company_identity_container:
+            company["name"] = widget_factory.text_input(
+                ProfilePaths.COMPANY_NAME,
+                company_lock["label"],
+                placeholder=tr(*COMPANY_NAME_PLACEHOLDER),
+                value_formatter=_string_or_empty,
+                **company_kwargs,
+            )
+            _render_prefill_badge(company_lock, container=company_identity_container)
+            if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
+                st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+            hq_col, size_col, industry_col = st.columns(3, gap="small")
+            hq_initial = _string_or_empty(company.get("hq_location"))
+            if not hq_initial.strip():
+                city_hint = _string_or_empty(location_data.get("primary_city"))
+                if city_hint.strip():
+                    hq_initial = city_hint.strip()
+            company["hq_location"] = widget_factory.text_input(
+                ProfilePaths.COMPANY_HQ_LOCATION,
+                tr("Hauptsitz", "Headquarters"),
+                widget_factory=hq_col.text_input,
+                placeholder=tr("Stadt und Land eingeben", "Enter city and country"),
+                default=hq_initial,
+                value_formatter=_string_or_empty,
+            )
+            company["size"] = widget_factory.text_input(
+                ProfilePaths.COMPANY_SIZE,
+                tr("Größe", "Size"),
+                widget_factory=size_col.text_input,
+                placeholder=tr("Unternehmensgröße eintragen", "Enter the company size"),
+                value_formatter=_string_or_empty,
+            )
+            company["industry"] = widget_factory.text_input(
+                ProfilePaths.COMPANY_INDUSTRY,
+                tr("Branche", "Industry"),
+                widget_factory=industry_col.text_input,
+                placeholder=tr("Branche beschreiben", "Describe the industry"),
+                value_formatter=_string_or_empty,
+            )
+
+        website_col, mission_col = st.columns(2, gap="small")
+        company["website"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_WEBSITE,
+            tr("Website", "Website"),
+            widget_factory=website_col.text_input,
+            placeholder=tr("Unternehmenswebsite eingeben", "Enter the company website"),
             value_formatter=_string_or_empty,
-            **company_kwargs,
         )
-        _render_prefill_badge(company_lock, container=company_identity_container)
-        if ProfilePaths.COMPANY_NAME in missing_here and not company["name"]:
-            st.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-        _render_followups_for_fields(
-            (ProfilePaths.COMPANY_NAME,),
-            data,
-            container_factory=st.container,
-        )
-
-        hq_col, size_col, industry_col = st.columns(3, gap="small")
-        hq_initial = _string_or_empty(company.get("hq_location"))
-        if not hq_initial.strip():
-            city_hint = _string_or_empty(location_data.get("primary_city"))
-            if city_hint.strip():
-                hq_initial = city_hint.strip()
-        company["hq_location"] = widget_factory.text_input(
-            ProfilePaths.COMPANY_HQ_LOCATION,
-            tr("Hauptsitz", "Headquarters"),
-            widget_factory=hq_col.text_input,
-            placeholder=tr("Stadt und Land eingeben", "Enter city and country"),
-            default=hq_initial,
-            value_formatter=_string_or_empty,
-        )
-        company["size"] = widget_factory.text_input(
-            ProfilePaths.COMPANY_SIZE,
-            tr("Größe", "Size"),
-            widget_factory=size_col.text_input,
-            placeholder=tr("Unternehmensgröße eintragen", "Enter the company size"),
-            value_formatter=_string_or_empty,
-        )
-        company["industry"] = widget_factory.text_input(
-            ProfilePaths.COMPANY_INDUSTRY,
-            tr("Branche", "Industry"),
-            widget_factory=industry_col.text_input,
-            placeholder=tr("Branche beschreiben", "Describe the industry"),
+        company["mission"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_MISSION,
+            tr("Mission", "Mission"),
+            widget_factory=mission_col.text_input,
+            placeholder=tr(
+                "Mission in eigenen Worten beschreiben",
+                "Describe the company mission",
+            ),
             value_formatter=_string_or_empty,
         )
 
-    website_col, mission_col = st.columns(2, gap="small")
-    company["website"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_WEBSITE,
-        tr("Website", "Website"),
-        widget_factory=website_col.text_input,
-        placeholder=tr("Unternehmenswebsite eingeben", "Enter the company website"),
-        value_formatter=_string_or_empty,
-    )
-    company["mission"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_MISSION,
-        tr("Mission", "Mission"),
-        widget_factory=mission_col.text_input,
-        placeholder=tr(
-            "Mission in eigenen Worten beschreiben",
-            "Describe the company mission",
-        ),
-        value_formatter=_string_or_empty,
-    )
+        description = st.text_area(
+            tr("Unternehmensbeschreibung", "Company description"),
+            value=_string_or_empty(company.get("description")),
+            placeholder=tr(
+                "Kurzbeschreibung des Unternehmens (max. 50 Wörter)",
+                "Brief company overview (max. 50 words)",
+            ),
+            key="ui.company.description",
+        )
+        _update_profile(ProfilePaths.COMPANY_DESCRIPTION, description)
+        company["description"] = description
 
-    description = st.text_area(
-        tr("Unternehmensbeschreibung", "Company description"),
-        value=_string_or_empty(company.get("description")),
-        placeholder=tr(
-            "Kurzbeschreibung des Unternehmens (max. 50 Wörter)",
-            "Brief company overview (max. 50 words)",
-        ),
-        key="ui.company.description",
-    )
-    _update_profile(ProfilePaths.COMPANY_DESCRIPTION, description)
-    company["description"] = description
+        company["culture"] = widget_factory.text_input(
+            ProfilePaths.COMPANY_CULTURE,
+            tr("Unternehmenskultur", "Company culture"),
+            placeholder=tr(
+                "Unternehmenskultur skizzieren",
+                "Summarise the company culture",
+            ),
+            value_formatter=_string_or_empty,
+        )
 
-    company["culture"] = widget_factory.text_input(
-        ProfilePaths.COMPANY_CULTURE,
-        tr("Unternehmenskultur", "Company culture"),
-        placeholder=tr(
-            "Unternehmenskultur skizzieren",
-            "Summarise the company culture",
-        ),
-        value_formatter=_string_or_empty,
-    )
-
-    contact_cols = st.columns((1.2, 1.2, 1), gap="small")
-    widget_factory.text_input(
-        ProfilePaths.COMPANY_CONTACT_NAME,
-        format_missing_label(
-            tr(*COMPANY_CONTACT_NAME_LABEL),
-            field_path=ProfilePaths.COMPANY_CONTACT_NAME,
-            missing_fields=missing_here,
-        ),
-        widget_factory=contact_cols[0].text_input,
-        placeholder=tr(*COMPANY_CONTACT_NAME_PLACEHOLDER),
-        value_formatter=_string_or_empty,
-        help=merge_missing_help(
-            None,
-            field_path=ProfilePaths.COMPANY_CONTACT_NAME,
-            missing_fields=missing_here,
-        ),
-    )
-    _render_followups_for_fields(
-        (ProfilePaths.COMPANY_CONTACT_NAME,),
-        data,
-        container_factory=contact_cols[0].container,
-    )
-    contact_email_label = format_missing_label(
-        tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX,
-        field_path=ProfilePaths.COMPANY_CONTACT_EMAIL,
-        missing_fields=missing_here,
-    )
-    contact_email_value = widget_factory.text_input(
-        ProfilePaths.COMPANY_CONTACT_EMAIL,
-        contact_email_label,
-        widget_factory=contact_cols[1].text_input,
-        placeholder=tr(*COMPANY_CONTACT_EMAIL_PLACEHOLDER),
-        value_formatter=_string_or_empty,
-        allow_callbacks=False,
-        sync_session_state=False,
-        help=merge_missing_help(
-            tr(*COMPANY_CONTACT_EMAIL_CAPTION),
+        contact_cols = st.columns((1.2, 1.2, 1), gap="small")
+        widget_factory.text_input(
+            ProfilePaths.COMPANY_CONTACT_NAME,
+            format_missing_label(
+                tr(*COMPANY_CONTACT_NAME_LABEL),
+                field_path=ProfilePaths.COMPANY_CONTACT_NAME,
+                missing_fields=missing_here,
+            ),
+            widget_factory=contact_cols[0].text_input,
+            placeholder=tr(*COMPANY_CONTACT_NAME_PLACEHOLDER),
+            value_formatter=_string_or_empty,
+            help=merge_missing_help(
+                None,
+                field_path=ProfilePaths.COMPANY_CONTACT_NAME,
+                missing_fields=missing_here,
+            ),
+        )
+        contact_email_label = format_missing_label(
+            tr(*COMPANY_CONTACT_EMAIL_LABEL) + REQUIRED_SUFFIX,
             field_path=ProfilePaths.COMPANY_CONTACT_EMAIL,
             missing_fields=missing_here,
-        ),
-    )
-    contact_cols[1].caption(tr(*COMPANY_CONTACT_EMAIL_CAPTION))
-    if _email_format_invalid(contact_email_value):
-        contact_cols[1].warning(tr(*CONTACT_EMAIL_PATTERN_WARNING))
-    _, contact_email_error = persist_contact_email(contact_email_value)
-    if contact_email_error:
-        contact_cols[1].error(tr(*contact_email_error))
-    _render_followups_for_fields(
-        (ProfilePaths.COMPANY_CONTACT_EMAIL,),
-        data,
-        container_factory=contact_cols[1].container,
-    )
-    phone_label = format_missing_label(
-        tr(*COMPANY_CONTACT_PHONE_LABEL) + REQUIRED_SUFFIX,
-        field_path=ProfilePaths.COMPANY_CONTACT_PHONE,
-        missing_fields=missing_here,
-    )
-    contact_phone = widget_factory.text_input(
-        ProfilePaths.COMPANY_CONTACT_PHONE,
-        phone_label,
-        widget_factory=contact_cols[2].text_input,
-        placeholder=tr(*COMPANY_CONTACT_PHONE_PLACEHOLDER),
-        value_formatter=_string_or_empty,
-        help=merge_missing_help(
-            None,
+        )
+        contact_email_value = widget_factory.text_input(
+            ProfilePaths.COMPANY_CONTACT_EMAIL,
+            contact_email_label,
+            widget_factory=contact_cols[1].text_input,
+            placeholder=tr(*COMPANY_CONTACT_EMAIL_PLACEHOLDER),
+            value_formatter=_string_or_empty,
+            allow_callbacks=False,
+            sync_session_state=False,
+            help=merge_missing_help(
+                tr(*COMPANY_CONTACT_EMAIL_CAPTION),
+                field_path=ProfilePaths.COMPANY_CONTACT_EMAIL,
+                missing_fields=missing_here,
+            ),
+        )
+        contact_cols[1].caption(tr(*COMPANY_CONTACT_EMAIL_CAPTION))
+        if _email_format_invalid(contact_email_value):
+            contact_cols[1].warning(tr(*CONTACT_EMAIL_PATTERN_WARNING))
+        _, contact_email_error = persist_contact_email(contact_email_value)
+        if contact_email_error:
+            contact_cols[1].error(tr(*contact_email_error))
+        phone_label = format_missing_label(
+            tr(*COMPANY_CONTACT_PHONE_LABEL) + REQUIRED_SUFFIX,
             field_path=ProfilePaths.COMPANY_CONTACT_PHONE,
             missing_fields=missing_here,
-        ),
-    )
-    if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
-        contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    _render_followups_for_fields(
-        (ProfilePaths.COMPANY_CONTACT_PHONE,),
-        data,
-        container_factory=contact_cols[2].container,
-    )
-
-    city_col, country_col = st.columns(2, gap="small")
-    city_label = format_missing_label(
-        tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX,
-        field_path=ProfilePaths.LOCATION_PRIMARY_CITY,
-        missing_fields=missing_here,
-    )
-    city_lock = _field_lock_config(
-        ProfilePaths.LOCATION_PRIMARY_CITY,
-        city_label,
-        container=city_col,
-        context="step",
-    )
-    city_kwargs = _apply_field_lock_kwargs(
-        city_lock,
-        {
-            "help": merge_missing_help(
-                tr(*PRIMARY_CITY_CAPTION),
-                field_path=ProfilePaths.LOCATION_PRIMARY_CITY,
-                missing_fields=missing_here,
-            )
-        },
-    )
-    city_value_input = widget_factory.text_input(
-        ProfilePaths.LOCATION_PRIMARY_CITY,
-        city_lock["label"],
-        widget_factory=city_col.text_input,
-        placeholder=tr(*PRIMARY_CITY_PLACEHOLDER),
-        value_formatter=_string_or_empty,
-        allow_callbacks=False,
-        sync_session_state=False,
-        **city_kwargs,
-    )
-    _render_prefill_badge(city_lock, container=city_col)
-    city_col.caption(tr(*PRIMARY_CITY_CAPTION))
-    _, primary_city_error = persist_primary_city(city_value_input)
-    if primary_city_error:
-        city_col.error(tr(*primary_city_error))
-    _render_followups_for_fields(
-        (ProfilePaths.LOCATION_PRIMARY_CITY,),
-        data,
-        container_factory=city_col.container,
-    )
-
-    country_label = format_missing_label(
-        tr(*PRIMARY_COUNTRY_LABEL) + REQUIRED_SUFFIX,
-        field_path=ProfilePaths.LOCATION_COUNTRY,
-        missing_fields=missing_here,
-    )
-    country_lock = _field_lock_config(
-        ProfilePaths.LOCATION_COUNTRY,
-        country_label,
-        container=country_col,
-        context="step",
-    )
-    country_kwargs = _apply_field_lock_kwargs(
-        country_lock,
-        {
-            "help": merge_missing_help(
+        )
+        contact_phone = widget_factory.text_input(
+            ProfilePaths.COMPANY_CONTACT_PHONE,
+            phone_label,
+            widget_factory=contact_cols[2].text_input,
+            placeholder=tr(*COMPANY_CONTACT_PHONE_PLACEHOLDER),
+            value_formatter=_string_or_empty,
+            help=merge_missing_help(
                 None,
-                field_path=ProfilePaths.LOCATION_COUNTRY,
+                field_path=ProfilePaths.COMPANY_CONTACT_PHONE,
                 missing_fields=missing_here,
-            )
-        },
-    )
-    location_data["country"] = widget_factory.text_input(
-        ProfilePaths.LOCATION_COUNTRY,
-        country_lock["label"],
-        widget_factory=country_col.text_input,
-        placeholder=tr(*PRIMARY_COUNTRY_PLACEHOLDER),
-        value_formatter=_string_or_empty,
-        **country_kwargs,
-    )
-    _render_prefill_badge(country_lock, container=country_col)
-    if ProfilePaths.LOCATION_COUNTRY in missing_here and not location_data.get("country"):
-        country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    _render_followups_for_fields(
-        (ProfilePaths.LOCATION_COUNTRY,),
-        data,
-        container_factory=country_col.container,
-    )
-
-    city_value = (location_data.get("primary_city") or "").strip()
-    country_value = (location_data.get("country") or "").strip()
-    hq_value = (company.get("hq_location") or "").strip()
-    suggested_hq_parts = [part for part in (city_value, country_value) if part]
-    suggested_hq = ", ".join(suggested_hq_parts)
-    if suggested_hq and not hq_value and not _autofill_was_rejected(ProfilePaths.COMPANY_HQ_LOCATION, suggested_hq):
-        if city_value and country_value:
-            description = tr(
-                "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
-                "Combined city and country into a potential headquarters.",
-            )
-        elif city_value:
-            description = tr(
-                "Nur Stadt vorhanden – als Hauptsitz übernehmen?",
-                "Only city provided – use it as headquarters?",
-            )
-        else:
-            description = tr(
-                "Nur Land vorhanden – als Hauptsitz übernehmen?",
-                "Only country provided – use it as headquarters?",
-            )
-        _render_autofill_if_available(
-            field_path=ProfilePaths.COMPANY_HQ_LOCATION,
-            suggestion=suggested_hq,
-            title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),
-            description=description,
-            icon="🏙️",
-            success_message=tr(
-                "Hauptsitz mit Standortangaben gefüllt.",
-                "Headquarters filled from location details.",
-            ),
-            rejection_message=tr(
-                "Vorschlag ignoriert – wir fragen nicht erneut.",
-                "Suggestion dismissed – we will not offer it again.",
             ),
         )
+        if ProfilePaths.COMPANY_CONTACT_PHONE in missing_here and not (contact_phone or "").strip():
+            contact_cols[2].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    dept_cols = st.columns(2, gap="small")
-    department["name"] = dept_cols[0].text_input(
-        tr("Abteilung", "Department"),
-        value=department.get("name", ""),
-        key=ProfilePaths.DEPARTMENT_NAME,
-        placeholder=tr("Abteilung beschreiben", "Describe the department"),
-    )
-    _update_profile(ProfilePaths.DEPARTMENT_NAME, department.get("name", ""))
-    _render_followups_for_fields(
-        (ProfilePaths.DEPARTMENT_NAME,),
-        data,
-        container_factory=dept_cols[0].container,
-    )
-    department["function"] = dept_cols[1].text_input(
-        tr("Funktion", "Function"),
-        value=department.get("function", ""),
-        key=ProfilePaths.DEPARTMENT_FUNCTION,
-        placeholder=tr("Aufgabe des Bereichs skizzieren", "Outline the department's function"),
-    )
-    _update_profile(ProfilePaths.DEPARTMENT_FUNCTION, department.get("function", ""))
-
-    leader_cols = st.columns(2, gap="small")
-    department["leader_name"] = leader_cols[0].text_input(
-        tr("Abteilungsleitung", "Department lead"),
-        value=department.get("leader_name", ""),
-        key=ProfilePaths.DEPARTMENT_LEADER_NAME,
-        placeholder=tr("Name der Leitung", "Name of the lead"),
-    )
-    _update_profile(ProfilePaths.DEPARTMENT_LEADER_NAME, department.get("leader_name", ""))
-    department["leader_title"] = leader_cols[1].text_input(
-        tr("Titel der Leitung", "Lead title"),
-        value=department.get("leader_title", ""),
-        key=ProfilePaths.DEPARTMENT_LEADER_TITLE,
-        placeholder=tr("Rollenbezeichnung der Leitung", "Lead's title"),
-    )
-    _update_profile(ProfilePaths.DEPARTMENT_LEADER_TITLE, department.get("leader_title", ""))
-
-    department["strategic_goals"] = st.text_area(
-        tr("Strategische Ziele", "Strategic goals"),
-        value=department.get("strategic_goals", ""),
-        key=ProfilePaths.DEPARTMENT_STRATEGIC_GOALS,
-        height=90,
-    )
-    _update_profile(ProfilePaths.DEPARTMENT_STRATEGIC_GOALS, department.get("strategic_goals", ""))
-
-    team_cols = st.columns((1, 1), gap="small")
-    team["name"] = team_cols[0].text_input(
-        tr("Teamname", "Team name"),
-        value=team.get("name", ""),
-        key=ProfilePaths.TEAM_NAME,
-        placeholder=tr("Team benennen", "Name the team"),
-    )
-    _update_profile(ProfilePaths.TEAM_NAME, team.get("name", ""))
-    team["mission"] = team_cols[1].text_input(
-        tr("Teamauftrag", "Team mission"),
-        value=team.get("mission", ""),
-        key=ProfilePaths.TEAM_MISSION,
-        placeholder=tr("Mission oder Zweck", "Mission or purpose"),
-    )
-    _update_profile(ProfilePaths.TEAM_MISSION, team.get("mission", ""))
-
-    reporting_cols = st.columns((1, 1), gap="small")
-    team_reporting_value = reporting_cols[0].text_input(
-        tr("Berichtslinie", "Reporting line"),
-        value=team.get("reporting_line", position.get("reporting_line", "")),
-        key=ProfilePaths.TEAM_REPORTING_LINE,
-        placeholder=tr("Berichtslinie erläutern", "Describe the reporting line"),
-    )
-    team["reporting_line"] = team_reporting_value
-    _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting_value)
-    position["reporting_line"] = team_reporting_value
-    _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting_value)
-    _render_followups_for_fields(
-        (ProfilePaths.TEAM_REPORTING_LINE,),
-        data,
-        container_factory=reporting_cols[0].container,
-    )
-
-    team_headcount_cols = st.columns(2, gap="small")
-    team["headcount_current"] = team_headcount_cols[0].number_input(
-        tr("Headcount aktuell", "Current headcount"),
-        min_value=0,
-        step=1,
-        value=int(team.get("headcount_current") or 0),
-        key=ProfilePaths.TEAM_HEADCOUNT_CURRENT,
-    )
-    _update_profile(ProfilePaths.TEAM_HEADCOUNT_CURRENT, team.get("headcount_current"))
-    team["headcount_target"] = team_headcount_cols[1].number_input(
-        tr("Headcount Ziel", "Target headcount"),
-        min_value=0,
-        step=1,
-        value=int(team.get("headcount_target") or 0),
-        key=ProfilePaths.TEAM_HEADCOUNT_TARGET,
-    )
-    _update_profile(ProfilePaths.TEAM_HEADCOUNT_TARGET, team.get("headcount_target"))
-
-    team_details_cols = st.columns(2, gap="small")
-    team["collaboration_tools"] = team_details_cols[0].text_input(
-        tr("Tools", "Collaboration tools"),
-        value=team.get("collaboration_tools", ""),
-        key=ProfilePaths.TEAM_COLLABORATION_TOOLS,
-        placeholder=tr("Genutzte Tools", "Tools in use"),
-    )
-    _update_profile(ProfilePaths.TEAM_COLLABORATION_TOOLS, team.get("collaboration_tools", ""))
-    team["locations"] = team_details_cols[1].text_input(
-        tr("Team-Standorte", "Team locations"),
-        value=team.get("locations", ""),
-        key=ProfilePaths.TEAM_LOCATIONS,
-        placeholder=tr("Verteilte Standorte", "Distributed locations"),
-    )
-    _update_profile(ProfilePaths.TEAM_LOCATIONS, team.get("locations", ""))
-
-    position["team_structure"] = st.text_input(
-        tr("Teamstruktur", "Team structure"),
-        value=position.get("team_structure", ""),
-        key=ProfilePaths.POSITION_TEAM_STRUCTURE,
-        placeholder=tr("Teamstruktur erläutern", "Explain the team structure"),
-    )
-
-    position["key_projects"] = st.text_area(
-        tr("Schlüsselprojekte", "Key projects"),
-        value=position.get("key_projects", ""),
-        height=90,
-    )
-
-    brand_cols = st.columns((2, 1), gap="small")
-    company["brand_name"] = brand_cols[0].text_input(
-        tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
-        value=_string_or_empty(company.get("brand_name")),
-        placeholder=tr(
-            "Marken- oder Tochtername eintragen",
-            "Enter the brand or subsidiary name",
-        ),
-    )
-    company["claim"] = brand_cols[0].text_input(
-        tr("Claim/Slogan", "Claim/Tagline"),
-        value=_string_or_empty(company.get("claim")),
-        placeholder=tr("Claim hinzufügen", "Add claim"),
-    )
-    company["brand_color"] = brand_cols[0].text_input(
-        tr("Markenfarbe (Hex)", "Brand color (hex)"),
-        value=_string_or_empty(company.get("brand_color")),
-        placeholder=tr("Hex-Farbcode eingeben", "Enter a hex colour code"),
-    )
-
-    with brand_cols[1]:
-        company["logo_url"] = st.text_input(
-            tr("Logo-URL", "Logo URL"),
-            value=_string_or_empty(company.get("logo_url")),
-            placeholder=tr("Logo-URL hinzufügen", "Add logo URL"),
+        city_col, country_col = st.columns(2, gap="small")
+        city_label = format_missing_label(
+            tr(*PRIMARY_CITY_LABEL) + REQUIRED_SUFFIX,
+            field_path=ProfilePaths.LOCATION_PRIMARY_CITY,
+            missing_fields=missing_here,
         )
-        st.file_uploader(
-            tr("Branding-Assets", "Brand assets"),
-            type=["png", "jpg", "jpeg", "svg", "pdf"],
-            key=UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
-            on_change=partial(
-                _persist_branding_asset_from_state,
-                UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+        city_lock = _field_lock_config(
+            ProfilePaths.LOCATION_PRIMARY_CITY,
+            city_label,
+            container=city_col,
+            context="step",
+        )
+        city_kwargs = _apply_field_lock_kwargs(
+            city_lock,
+            {
+                "help": merge_missing_help(
+                    tr(*PRIMARY_CITY_CAPTION),
+                    field_path=ProfilePaths.LOCATION_PRIMARY_CITY,
+                    missing_fields=missing_here,
+                )
+            },
+        )
+        city_value_input = widget_factory.text_input(
+            ProfilePaths.LOCATION_PRIMARY_CITY,
+            city_lock["label"],
+            widget_factory=city_col.text_input,
+            placeholder=tr(*PRIMARY_CITY_PLACEHOLDER),
+            value_formatter=_string_or_empty,
+            allow_callbacks=False,
+            sync_session_state=False,
+            **city_kwargs,
+        )
+        _render_prefill_badge(city_lock, container=city_col)
+        city_col.caption(tr(*PRIMARY_CITY_CAPTION))
+        _, primary_city_error = persist_primary_city(city_value_input)
+        if primary_city_error:
+            city_col.error(tr(*primary_city_error))
+
+        country_label = format_missing_label(
+            tr(*PRIMARY_COUNTRY_LABEL) + REQUIRED_SUFFIX,
+            field_path=ProfilePaths.LOCATION_COUNTRY,
+            missing_fields=missing_here,
+        )
+        country_lock = _field_lock_config(
+            ProfilePaths.LOCATION_COUNTRY,
+            country_label,
+            container=country_col,
+            context="step",
+        )
+        country_kwargs = _apply_field_lock_kwargs(
+            country_lock,
+            {
+                "help": merge_missing_help(
+                    None,
+                    field_path=ProfilePaths.LOCATION_COUNTRY,
+                    missing_fields=missing_here,
+                )
+            },
+        )
+        location_data["country"] = widget_factory.text_input(
+            ProfilePaths.LOCATION_COUNTRY,
+            country_lock["label"],
+            widget_factory=country_col.text_input,
+            placeholder=tr(*PRIMARY_COUNTRY_PLACEHOLDER),
+            value_formatter=_string_or_empty,
+            **country_kwargs,
+        )
+        _render_prefill_badge(country_lock, container=country_col)
+        if ProfilePaths.LOCATION_COUNTRY in missing_here and not location_data.get("country"):
+            country_col.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+        city_value = (location_data.get("primary_city") or "").strip()
+        country_value = (location_data.get("country") or "").strip()
+        hq_value = (company.get("hq_location") or "").strip()
+        suggested_hq_parts = [part for part in (city_value, country_value) if part]
+        suggested_hq = ", ".join(suggested_hq_parts)
+        if suggested_hq and not hq_value and not _autofill_was_rejected(ProfilePaths.COMPANY_HQ_LOCATION, suggested_hq):
+            if city_value and country_value:
+                description = tr(
+                    "Stadt und Land kombiniert – soll das der Hauptsitz sein?",
+                    "Combined city and country into a potential headquarters.",
+                )
+            elif city_value:
+                description = tr(
+                    "Nur Stadt vorhanden – als Hauptsitz übernehmen?",
+                    "Only city provided – use it as headquarters?",
+                )
+            else:
+                description = tr(
+                    "Nur Land vorhanden – als Hauptsitz übernehmen?",
+                    "Only country provided – use it as headquarters?",
+                )
+            _render_autofill_if_available(
+                field_path=ProfilePaths.COMPANY_HQ_LOCATION,
+                suggestion=suggested_hq,
+                title=tr("🏙️ Hauptsitz übernehmen?", "🏙️ Use this as headquarters?"),
+                description=description,
+                icon="🏙️",
+                success_message=tr(
+                    "Hauptsitz mit Standortangaben gefüllt.",
+                    "Headquarters filled from location details.",
+                ),
+                rejection_message=tr(
+                    "Vorschlag ignoriert – wir fragen nicht erneut.",
+                    "Suggestion dismissed – we will not offer it again.",
+                ),
+            )
+
+        dept_cols = st.columns(2, gap="small")
+        department["name"] = dept_cols[0].text_input(
+            tr("Abteilung", "Department"),
+            value=department.get("name", ""),
+            key=ProfilePaths.DEPARTMENT_NAME,
+            placeholder=tr("Abteilung beschreiben", "Describe the department"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_NAME, department.get("name", ""))
+        department["function"] = dept_cols[1].text_input(
+            tr("Funktion", "Function"),
+            value=department.get("function", ""),
+            key=ProfilePaths.DEPARTMENT_FUNCTION,
+            placeholder=tr("Aufgabe des Bereichs skizzieren", "Outline the department's function"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_FUNCTION, department.get("function", ""))
+
+        leader_cols = st.columns(2, gap="small")
+        department["leader_name"] = leader_cols[0].text_input(
+            tr("Abteilungsleitung", "Department lead"),
+            value=department.get("leader_name", ""),
+            key=ProfilePaths.DEPARTMENT_LEADER_NAME,
+            placeholder=tr("Name der Leitung", "Name of the lead"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_LEADER_NAME, department.get("leader_name", ""))
+        department["leader_title"] = leader_cols[1].text_input(
+            tr("Titel der Leitung", "Lead title"),
+            value=department.get("leader_title", ""),
+            key=ProfilePaths.DEPARTMENT_LEADER_TITLE,
+            placeholder=tr("Rollenbezeichnung der Leitung", "Lead's title"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_LEADER_TITLE, department.get("leader_title", ""))
+
+        department["strategic_goals"] = st.text_area(
+            tr("Strategische Ziele", "Strategic goals"),
+            value=department.get("strategic_goals", ""),
+            key=ProfilePaths.DEPARTMENT_STRATEGIC_GOALS,
+            height=90,
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_STRATEGIC_GOALS, department.get("strategic_goals", ""))
+
+        team_cols = st.columns((1, 1), gap="small")
+        team["name"] = team_cols[0].text_input(
+            tr("Teamname", "Team name"),
+            value=team.get("name", ""),
+            key=ProfilePaths.TEAM_NAME,
+            placeholder=tr("Team benennen", "Name the team"),
+        )
+        _update_profile(ProfilePaths.TEAM_NAME, team.get("name", ""))
+        team["mission"] = team_cols[1].text_input(
+            tr("Teamauftrag", "Team mission"),
+            value=team.get("mission", ""),
+            key=ProfilePaths.TEAM_MISSION,
+            placeholder=tr("Mission oder Zweck", "Mission or purpose"),
+        )
+        _update_profile(ProfilePaths.TEAM_MISSION, team.get("mission", ""))
+
+        reporting_cols = st.columns((1, 1), gap="small")
+        team_reporting_value = reporting_cols[0].text_input(
+            tr("Berichtslinie", "Reporting line"),
+            value=team.get("reporting_line", position.get("reporting_line", "")),
+            key=ProfilePaths.TEAM_REPORTING_LINE,
+            placeholder=tr("Berichtslinie erläutern", "Describe the reporting line"),
+        )
+        team["reporting_line"] = team_reporting_value
+        _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting_value)
+        position["reporting_line"] = team_reporting_value
+        _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting_value)
+
+        team_headcount_cols = st.columns(2, gap="small")
+        team["headcount_current"] = team_headcount_cols[0].number_input(
+            tr("Headcount aktuell", "Current headcount"),
+            min_value=0,
+            step=1,
+            value=int(team.get("headcount_current") or 0),
+            key=ProfilePaths.TEAM_HEADCOUNT_CURRENT,
+        )
+        _update_profile(ProfilePaths.TEAM_HEADCOUNT_CURRENT, team.get("headcount_current"))
+        team["headcount_target"] = team_headcount_cols[1].number_input(
+            tr("Headcount Ziel", "Target headcount"),
+            min_value=0,
+            step=1,
+            value=int(team.get("headcount_target") or 0),
+            key=ProfilePaths.TEAM_HEADCOUNT_TARGET,
+        )
+        _update_profile(ProfilePaths.TEAM_HEADCOUNT_TARGET, team.get("headcount_target"))
+
+        team_details_cols = st.columns(2, gap="small")
+        team["collaboration_tools"] = team_details_cols[0].text_input(
+            tr("Tools", "Collaboration tools"),
+            value=team.get("collaboration_tools", ""),
+            key=ProfilePaths.TEAM_COLLABORATION_TOOLS,
+            placeholder=tr("Genutzte Tools", "Tools in use"),
+        )
+        _update_profile(ProfilePaths.TEAM_COLLABORATION_TOOLS, team.get("collaboration_tools", ""))
+        team["locations"] = team_details_cols[1].text_input(
+            tr("Team-Standorte", "Team locations"),
+            value=team.get("locations", ""),
+            key=ProfilePaths.TEAM_LOCATIONS,
+            placeholder=tr("Verteilte Standorte", "Distributed locations"),
+        )
+        _update_profile(ProfilePaths.TEAM_LOCATIONS, team.get("locations", ""))
+
+        position["team_structure"] = st.text_input(
+            tr("Teamstruktur", "Team structure"),
+            value=position.get("team_structure", ""),
+            key=ProfilePaths.POSITION_TEAM_STRUCTURE,
+            placeholder=tr("Teamstruktur erläutern", "Explain the team structure"),
+        )
+
+        position["key_projects"] = st.text_area(
+            tr("Schlüsselprojekte", "Key projects"),
+            value=position.get("key_projects", ""),
+            height=90,
+        )
+
+        brand_cols = st.columns((2, 1), gap="small")
+        company["brand_name"] = brand_cols[0].text_input(
+            tr("Marke/Tochterunternehmen", "Brand/Subsidiary"),
+            value=_string_or_empty(company.get("brand_name")),
+            placeholder=tr(
+                "Marken- oder Tochtername eintragen",
+                "Enter the brand or subsidiary name",
             ),
         )
+        company["claim"] = brand_cols[0].text_input(
+            tr("Claim/Slogan", "Claim/Tagline"),
+            value=_string_or_empty(company.get("claim")),
+            placeholder=tr("Claim hinzufügen", "Add claim"),
+        )
+        company["brand_color"] = brand_cols[0].text_input(
+            tr("Markenfarbe (Hex)", "Brand color (hex)"),
+            value=_string_or_empty(company.get("brand_color")),
+            placeholder=tr("Hex-Farbcode eingeben", "Enter a hex colour code"),
+        )
 
-        branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
-        if branding_asset:
-            asset_name = branding_asset.get("name") or tr("Hochgeladene Datei", "Uploaded file")
-            st.caption(
-                tr(
-                    "Aktuelle Datei: {name}",
-                    "Current asset: {name}",
-                ).format(name=asset_name)
+        with brand_cols[1]:
+            company["logo_url"] = st.text_input(
+                tr("Logo-URL", "Logo URL"),
+                value=_string_or_empty(company.get("logo_url")),
+                placeholder=tr("Logo-URL hinzufügen", "Add logo URL"),
             )
-            if isinstance(branding_asset.get("data"), (bytes, bytearray)) and str(
-                branding_asset.get("type", "")
-            ).startswith("image/"):
-                try:
-                    st.image(branding_asset["data"], width=160)
-                except Exception:  # pragma: no cover - graceful fallback
-                    pass
-            if st.button(
-                tr("Datei entfernen", "Remove file"),
-                key="company.branding.remove",
-            ):
-                st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
-                for upload_key in (
-                    UIKeys.COMPANY_BRANDING_UPLOAD,
+            st.file_uploader(
+                tr("Branding-Assets", "Brand assets"),
+                type=["png", "jpg", "jpeg", "svg", "pdf"],
+                key=UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+                on_change=partial(
+                    _persist_branding_asset_from_state,
                     UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+                ),
+            )
+
+            branding_asset = st.session_state.get(StateKeys.COMPANY_BRANDING_ASSET)
+            if branding_asset:
+                asset_name = branding_asset.get("name") or tr("Hochgeladene Datei", "Uploaded file")
+                st.caption(
+                    tr(
+                        "Aktuelle Datei: {name}",
+                        "Current asset: {name}",
+                    ).format(name=asset_name)
+                )
+                if isinstance(branding_asset.get("data"), (bytes, bytearray)) and str(
+                    branding_asset.get("type", "")
+                ).startswith("image/"):
+                    try:
+                        st.image(branding_asset["data"], width=160)
+                    except Exception:  # pragma: no cover - graceful fallback
+                        pass
+                if st.button(
+                    tr("Datei entfernen", "Remove file"),
+                    key="company.branding.remove",
                 ):
-                    st.session_state.pop(upload_key, None)
-                st.rerun()
+                    st.session_state.pop(StateKeys.COMPANY_BRANDING_ASSET, None)
+                    for upload_key in (
+                        UIKeys.COMPANY_BRANDING_UPLOAD,
+                        UIKeys.COMPANY_BRANDING_UPLOAD_LEGACY,
+                    ):
+                        st.session_state.pop(upload_key, None)
+                    st.rerun()
 
-        logo_upload = st.file_uploader(
-            tr("Logo hochladen (optional)", "Upload logo (optional)"),
-            type=["png", "jpg", "jpeg", "svg"],
-            key=UIKeys.COMPANY_LOGO,
-        )
-        if logo_upload is not None:
-            _set_company_logo(logo_upload.getvalue())
+            logo_upload = st.file_uploader(
+                tr("Logo hochladen (optional)", "Upload logo (optional)"),
+                type=["png", "jpg", "jpeg", "svg"],
+                key=UIKeys.COMPANY_LOGO,
+            )
+            if logo_upload is not None:
+                _set_company_logo(logo_upload.getvalue())
 
-        logo_bytes = _get_company_logo_bytes()
-        if logo_bytes:
-            try:
-                st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=160)
-            except Exception:
-                st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
-            if st.button(tr("Logo entfernen", "Remove logo"), key="company.logo.remove"):
-                _set_company_logo(None)
-                st.rerun()
+            logo_bytes = _get_company_logo_bytes()
+            if logo_bytes:
+                try:
+                    st.image(logo_bytes, caption=tr("Aktuelles Logo", "Current logo"), width=160)
+                except Exception:
+                    st.caption(tr("Logo erfolgreich geladen.", "Logo uploaded successfully."))
+                if st.button(tr("Logo entfernen", "Remove logo"), key="company.logo.remove"):
+                    _set_company_logo(None)
+                    st.rerun()
 
-    # Inline follow-up questions for Company section
-    _render_followups_for_step("company", data)
+    render_step_layout(
+        company_header,
+        company_caption,
+        known_cb=_render_company_known,
+        missing_cb=_render_company_missing,
+        missing_paths=missing_here,
+        tools_cb=_render_company_tools,
+    )
 
 
 def step_company(context: WizardContext) -> None:
