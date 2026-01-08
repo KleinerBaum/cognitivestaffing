@@ -586,6 +586,7 @@ from wizard.components.process_planner_assistant import (
 render_stepper = _render_stepper
 from components.form_fields import text_input_with_state
 from components.requirements_insights import render_skill_market_insights
+from components.profile_editor import ProfileEditorField, render_profile_editor
 from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.normalization import (
@@ -11925,7 +11926,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     # and warnings/validation checks.
     # GREP:SUMMARY_TABS_V1
     overview_label = tr("📋 Überblick", "📋 Overview", lang=lang)
-    edit_label = tr("✏️ Bearbeiten (Platzhalter)", "✏️ Edit (placeholder)", lang=lang)
+    edit_label = tr("✏️ Bearbeiten", "✏️ Edit", lang=lang)
     export_label = tr("📤 Exporte", "📤 Exports", lang=lang)
     warnings_label = tr("⚠️ Hinweise", "⚠️ Warnings", lang=lang)
     overview_tab, edit_tab, export_tab, warnings_tab = st.tabs(
@@ -11972,13 +11973,106 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
         _render_skill_insights(profile_payload, lang=lang)
 
     with edit_tab:
-        st.info(
+        # GREP:SUMMARY_EDIT_COMPANY_TEAM_V1
+        st.caption(
             tr(
-                "Dieser Tab ist als Platzhalter für kommende Bearbeitungsfunktionen vorgesehen.",
-                "This tab is reserved as a placeholder for upcoming edit capabilities.",
+                "Bearbeite hier die Kernfelder für Unternehmen und Team. Änderungen werden sofort im Profil gespeichert.",
+                "Edit the core company and team fields here. Updates are saved immediately to the profile.",
                 lang=lang,
             )
         )
+        profile = _get_profile_state()
+        render_section_heading(tr("Unternehmen (Kernfelder)", "Company core fields", lang=lang), icon="🏢")
+        render_profile_editor(
+            profile=profile,
+            fields=(
+                ProfileEditorField(
+                    path="company.name",
+                    label=("Unternehmensname", "Company name"),
+                    help_text=(
+                        "Der offizielle Name des Unternehmens.",
+                        "The official name of the company.",
+                    ),
+                ),
+                ProfileEditorField(
+                    path="company.industry",
+                    label=("Branche", "Industry"),
+                ),
+                ProfileEditorField(
+                    path="company.hq_location",
+                    label=("Hauptsitz (Stadt, Land)", "Headquarters (city, country)"),
+                ),
+                ProfileEditorField(
+                    path="company.size",
+                    label=("Größe", "Size"),
+                ),
+                ProfileEditorField(
+                    path="company.website",
+                    label=("Website", "Website"),
+                ),
+                ProfileEditorField(
+                    path="company.description",
+                    label=("Unternehmensbeschreibung", "Company description"),
+                    widget="textarea",
+                ),
+                ProfileEditorField(
+                    path="company.contact_name",
+                    label=("Kontaktperson", "Contact name"),
+                ),
+                ProfileEditorField(
+                    path="company.contact_email",
+                    label=("Kontakt-E-Mail", "Contact email"),
+                ),
+                ProfileEditorField(
+                    path="company.contact_phone",
+                    label=("Kontakttelefon", "Contact phone"),
+                ),
+            ),
+            key_prefix="ui.summary.edit.company",
+            lang=lang,
+        )
+        render_section_heading(tr("Team (Kernfelder)", "Team core fields", lang=lang), icon="👥")
+        render_profile_editor(
+            profile=profile,
+            fields=(
+                ProfileEditorField(
+                    path="position.job_title",
+                    label=("Jobtitel", "Job title"),
+                ),
+                ProfileEditorField(
+                    path="team.reporting_line",
+                    label=("Berichtslinie (Funktion)", "Reporting line (function)"),
+                ),
+                ProfileEditorField(
+                    path="position.seniority_level",
+                    label=("Seniorität", "Seniority"),
+                ),
+                ProfileEditorField(
+                    path="position.reports_to",
+                    label=("Berichtet an (Funktion)", "Reports to (title)"),
+                ),
+                ProfileEditorField(
+                    path="team.name",
+                    label=("Teamname", "Team name"),
+                ),
+                ProfileEditorField(
+                    path="team.mission",
+                    label=("Team-Mission", "Team mission"),
+                    widget="textarea",
+                ),
+                ProfileEditorField(
+                    path="team.headcount_current",
+                    label=("Teamgröße (aktuell)", "Team size (current)"),
+                ),
+                ProfileEditorField(
+                    path="team.headcount_target",
+                    label=("Teamgröße (Ziel)", "Team size (target)"),
+                ),
+            ),
+            key_prefix="ui.summary.edit.team",
+            lang=lang,
+        )
+        st.session_state[StateKeys.PROFILE] = profile
 
     with export_tab:
         _render_summary_export_section(
