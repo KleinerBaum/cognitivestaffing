@@ -586,7 +586,12 @@ from wizard.components.process_planner_assistant import (
 render_stepper = _render_stepper
 from components.form_fields import text_input_with_state
 from components.requirements_insights import render_skill_market_insights
-from components.profile_editor import ProfileEditorField, render_profile_editor
+from components.profile_editor import (
+    ProfileEditorField,
+    format_list,
+    parse_list,
+    render_profile_editor,
+)
 from utils import build_boolean_query, build_boolean_search, seo_optimize
 from utils.llm_state import is_llm_available, llm_disabled_message
 from utils.normalization import (
@@ -12031,7 +12036,10 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             key_prefix="ui.summary.edit.company",
             lang=lang,
         )
-        render_section_heading(tr("Team (Kernfelder)", "Team core fields", lang=lang), icon="👥")
+        render_section_heading(
+            tr("Team (Kernfelder)", "Team core fields", lang=lang),
+            icon="👥",
+        )
         render_profile_editor(
             profile=profile,
             fields=(
@@ -12072,6 +12080,136 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             key_prefix="ui.summary.edit.team",
             lang=lang,
         )
+        # GREP:SUMMARY_EDIT_ROLE_SKILLS_V1
+        render_section_heading(
+            tr("Rolle & Aufgaben (Kernfelder)", "Role & tasks core fields", lang=lang),
+            icon="🧭",
+        )
+        st.caption(
+            tr(
+                "Ergänze Rollenbeschreibung und Aufgaben. Nutze eine Zeile pro Eintrag oder trenne per Komma.",
+                "Add the role summary and responsibilities. Use one line per entry or separate with commas.",
+                lang=lang,
+            )
+        )
+        render_profile_editor(
+            profile=profile,
+            fields=(
+                ProfileEditorField(
+                    path="position.role_summary",
+                    label=("Rollenbeschreibung", "Role summary"),
+                    help_text=(
+                        "Kurzer Überblick über die Rolle.",
+                        "A short overview of the role.",
+                    ),
+                    widget="textarea",
+                ),
+                ProfileEditorField(
+                    path="responsibilities.items",
+                    label=("Kernaufgaben", "Core responsibilities"),
+                    help_text=(
+                        "Eine Aufgabe pro Zeile oder kommagetrennt.",
+                        "One responsibility per line or comma-separated.",
+                    ),
+                    placeholder=(
+                        "z. B. Stakeholder-Workshops leiten",
+                        "e.g. Lead stakeholder workshops",
+                    ),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+            ),
+            key_prefix="ui.summary.edit.role_tasks",
+            lang=lang,
+        )
+        render_section_heading(
+            tr("Skills (Kernfelder)", "Skills core fields", lang=lang),
+            icon="🎯",
+        )
+        st.caption(
+            tr(
+                "Pflege Skills, Tools, Sprachen und Zertifikate. Nutze eine Zeile pro Eintrag oder trenne per Komma.",
+                "Maintain skills, tools, languages, and certificates. Use one line per entry or separate with commas.",
+                lang=lang,
+            )
+        )
+        render_profile_editor(
+            profile=profile,
+            fields=(
+                ProfileEditorField(
+                    path="requirements.hard_skills_required",
+                    label=("Pflicht-Hard-Skills", "Required hard skills"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.soft_skills_required",
+                    label=("Pflicht-Soft-Skills", "Required soft skills"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.hard_skills_optional",
+                    label=("Optionale Hard-Skills", "Optional hard skills"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.soft_skills_optional",
+                    label=("Optionale Soft-Skills", "Optional soft skills"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.tools_and_technologies",
+                    label=("Tools & Technologien", "Tools & technologies"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.languages_required",
+                    label=("Pflichtsprachen", "Required languages"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.languages_optional",
+                    label=("Optionale Sprachen", "Optional languages"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="requirements.certificates",
+                    label=("Zertifikate", "Certificates"),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+            ),
+            key_prefix="ui.summary.edit.skills",
+            lang=lang,
+        )
+        requirements = profile.get("requirements")
+        if isinstance(requirements, dict):
+            certificates = requirements.get("certificates", [])
+            if isinstance(certificates, str):
+                normalized_certificates = parse_list(certificates)
+            elif isinstance(certificates, list):
+                normalized_certificates = [
+                    str(item).strip() for item in certificates if str(item).strip()
+                ]
+            else:
+                normalized_certificates = []
+            requirements["certificates"] = normalized_certificates
+            requirements["certifications"] = list(normalized_certificates)
         st.session_state[StateKeys.PROFILE] = profile
 
     with export_tab:
