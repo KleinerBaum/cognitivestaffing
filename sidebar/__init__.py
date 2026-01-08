@@ -37,6 +37,9 @@ from ingest.branding import DEFAULT_BRAND_COLOR
 # order assumptions for future contributors.
 from wizard import _update_profile, logic
 from wizard.metadata import FIELD_SECTION_MAP, get_missing_critical_fields
+from wizard.step_registry import STEPS
+from wizard.step_status import compute_step_missing
+from wizard_pages import WIZARD_PAGES
 
 from .salary import (
     SalaryFactorEntry,
@@ -409,6 +412,10 @@ def _render_sidebar_sections(
         if current_step > 0:
             _render_hero(context)
             st.divider()
+        if _is_sidebar_stepper_enabled():  # GREP:SIDEBAR_STEPPER_V1
+            _render_sidebar_stepper(context)
+            st.divider()
+        if current_step > 0:
             _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
@@ -681,6 +688,64 @@ def _build_context() -> SidebarContext:
     )
 
 
+def _is_sidebar_stepper_enabled() -> bool:
+    return bool(st.session_state.get("feature.sidebar_stepper_v1"))  # GREP:SIDEBAR_STEPPER_FLAG_V1
+
+
+def _render_sidebar_stepper(context: SidebarContext) -> None:
+    """Render a non-interactive wizard stepper in the sidebar."""
+
+    lang = st.session_state.get("lang", "de")
+    st.markdown(f"### {tr('Schritte', 'Steps', lang=lang)}")
+
+    page_lookup = {page.key: page for page in WIZARD_PAGES}
+    wizard_state = st.session_state.get("wizard")
+    current_key = wizard_state.get("current_step") if isinstance(wizard_state, dict) else None
+    if not isinstance(current_key, str):
+        current_key = STEPS[0].key if STEPS else ""
+
+    items: list[str] = []
+    for index, step in enumerate(STEPS, start=1):
+        page = page_lookup.get(step.key)
+        label = page.label_for(lang) if page else step.key
+        missing_count = 0
+        if page is not None:
+            missing = compute_step_missing(context.profile, page)
+            missing_count = len(missing.required) + len(missing.critical)
+
+        classes = ["sidebar-step"]
+        if step.key == current_key:
+            classes.append("sidebar-step--current")
+        if missing_count:
+            classes.append("sidebar-step--warning")
+
+        base_note = (
+            tr("Fehlt: {count}", "Missing: {count}", lang=lang).format(count=missing_count)
+            if missing_count
+            else tr("Fertig", "Done", lang=lang)
+        )
+        note = (
+            tr("Aktuell · {status}", "Current · {status}", lang=lang).format(status=base_note)
+            if step.key == current_key
+            else base_note
+        )
+        items.append(
+            '<li class="{classes}"><span class="sidebar-step__badge">{badge}</span>'
+            '<span class="sidebar-step__label">{label}</span>'
+            '<span class="sidebar-step__note">{note}</span></li>'.format(
+                classes=" ".join(classes),
+                badge=html.escape(str(index)),
+                label=html.escape(label),
+                note=html.escape(note),
+            )
+        )
+
+    st.markdown(
+        '<ul class="sidebar-stepper">{items}</ul>'.format(items="".join(items)),
+        unsafe_allow_html=True,
+    )
+
+
 def _render_backup_controls() -> None:
     """Allow users to export or import profile snapshots."""
 
@@ -790,7 +855,7 @@ def _render_settings() -> None:
         index=selected_index,
         key=UIKeys.REASONING_MODE,
         format_func=lambda value: option_labels.get(value, value.title()),
-        )
+    )
     _apply_reasoning_mode(selected_mode)
     if selected_mode == "quick":
         st.caption(
@@ -939,11 +1004,7 @@ def _build_initial_extraction_entries(
 
     def _expanded_entries(label: str, value: Any) -> list[tuple[str, str]]:
         if isinstance(value, Mapping):
-            return [
-                (label, preview)
-                for preview in (preview_value_to_text(item) for item in value.values())
-                if preview
-            ]
+            return [(label, preview) for preview in (preview_value_to_text(item) for item in value.values()) if preview]
         if isinstance(value, Iterable) and not isinstance(value, (str, bytes, Mapping)):
             parts = []
             for item in value:
