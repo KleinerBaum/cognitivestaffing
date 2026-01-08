@@ -123,6 +123,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 - Sidebar stepper/progress:
   - `sidebar/`
 - Shared step layout pattern (recommended):
+  - `wizard/step_layout.py` *(Known/Missing tabs with optional tools expander)*
   - `wizard/step_scaffold.py` *(add if not present; centralize Known/Missing/Validate/Nav)*
 
 ### “I want to change which fields are required/critical”
