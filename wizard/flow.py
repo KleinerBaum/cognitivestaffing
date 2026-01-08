@@ -246,6 +246,7 @@ from ._agents import (
 )
 from .layout import (
     COMPACT_STEP_STYLE,
+    build_missing_field_descriptors,
     format_missing_label,
     inject_salary_slider_styles,
     merge_missing_help,
@@ -286,6 +287,8 @@ from .metadata import (
     get_missing_critical_fields,
     resolve_section_for_field,
 )
+from .step_status import StepMissing, compute_step_missing, iter_step_missing_fields
+from wizard_pages import WIZARD_PAGES, WizardPage
 from sidebar.salary import format_salary_range
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only import path
@@ -11875,13 +11878,59 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
         "process": _summary_process,
     }
 
-    # Summary step – outer tabs split the review into captured content, insights
-    # (benchmarks/skills), and exports/download actions so the layout matches the
-    # wizard narrative of "review ➜ learn ➜ share".
-    overview_label = tr("📋 Überblick", "📋 Overview")
-    insights_label = tr("✨ Insights", "✨ Insights")
-    export_label = tr("📤 Export & Aktionen", "📤 Export & actions")
-    overview_tab, insights_tab, export_tab = st.tabs([overview_label, insights_label, export_label])
+    def _render_missing_list(fields: Sequence[str]) -> None:
+        descriptors = build_missing_field_descriptors(fields)
+        if not descriptors:
+            return
+        lines = []
+        for item in descriptors:
+            label = html.escape(item["label"])
+            reason = html.escape(item["reason"])
+            lines.append(f"- **{label}** — {reason}")
+        st.markdown("\n".join(lines), unsafe_allow_html=True)
+
+    def _render_summary_warnings(profile_data: Mapping[str, Any]) -> None:
+        missing_by_step: list[tuple[WizardPage, StepMissing]] = []
+        for page in WIZARD_PAGES:
+            missing = compute_step_missing(profile_data, page)
+            if missing.required or missing.critical:
+                missing_by_step.append((page, missing))
+
+        if not missing_by_step:
+            st.success(
+                tr(
+                    "Keine offenen Pflichtfelder oder kritischen Angaben gefunden.",
+                    "No missing required or critical fields detected.",
+                    lang=lang,
+                )
+            )
+            return
+
+        for page, missing in missing_by_step:
+            step_label = tr(*page.label, lang=lang)
+            missing_count = len(tuple(iter_step_missing_fields(missing)))
+            header = tr("{step} ({count})", "{step} ({count})", lang=lang).format(
+                step=step_label,
+                count=missing_count,
+            )
+            with st.expander(header):
+                if missing.required:
+                    st.markdown(f"**{tr('Pflichtfelder', 'Required fields', lang=lang)}**")
+                    _render_missing_list(missing.required)
+                if missing.critical:
+                    st.markdown(f"**{tr('Kritische Felder', 'Critical fields', lang=lang)}**")
+                    _render_missing_list(missing.critical)
+
+    # Summary step – top-level tabs for overview, edit placeholder, exports,
+    # and warnings/validation checks.
+    # GREP:SUMMARY_TABS_V1
+    overview_label = tr("📋 Überblick", "📋 Overview", lang=lang)
+    edit_label = tr("✏️ Bearbeiten (Platzhalter)", "✏️ Edit (placeholder)", lang=lang)
+    export_label = tr("📤 Exporte", "📤 Exports", lang=lang)
+    warnings_label = tr("⚠️ Hinweise", "⚠️ Warnings", lang=lang)
+    overview_tab, edit_tab, export_tab, warnings_tab = st.tabs(
+        [overview_label, edit_label, export_label, warnings_label]
+    )
 
     with overview_tab:
         edit_title = tr("Angaben bearbeiten", "Edit captured details")
@@ -11917,9 +11966,19 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             )
         )
 
-    with insights_tab:
+        st.divider()
+        render_section_heading(tr("Insights", "Insights", lang=lang), icon="✨")
         _render_salary_insights(profile, profile_payload, lang=lang)
         _render_skill_insights(profile_payload, lang=lang)
+
+    with edit_tab:
+        st.info(
+            tr(
+                "Dieser Tab ist als Platzhalter für kommende Bearbeitungsfunktionen vorgesehen.",
+                "This tab is reserved as a placeholder for upcoming edit capabilities.",
+                lang=lang,
+            )
+        )
 
     with export_tab:
         _render_summary_export_section(
@@ -11932,6 +11991,16 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             profile_mime=profile_mime,
             profile_filename=profile_filename,
         )
+
+    with warnings_tab:
+        st.caption(
+            tr(
+                "Hier siehst du fehlende Pflicht- und kritische Felder pro Schritt.",
+                "Review missing required and critical fields per step here.",
+                lang=lang,
+            )
+        )
+        _render_summary_warnings(data)
 
 
 # --- Navigation helper ---
