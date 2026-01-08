@@ -17,6 +17,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Session-level OpenAI token budget guard configurable via `OPENAI_SESSION_TOKEN_LIMIT`/`OPENAI_TOKEN_BUDGET`; further calls are blocked with a bilingual warning once the cap is exceeded.
 - Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
 - Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.
+- Missing-field detection helpers in `wizard/missing_fields.py` with unit coverage.
 
 ### Changed
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
@@ -194,4 +195,3 @@ When preparing a release:
    - Mention breaking schema changes, new wizard steps, or new assistants.
    - Link to relevant PRs or issues when helpful.
 4. Tag the release in git: `git tag v0.7.0 && git push origin v0.7.0`.
-
