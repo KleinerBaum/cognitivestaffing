@@ -100,6 +100,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `critical_fields.json` – critical fields per step  
   - `question_logic.py` + `questions/` – follow-up questions & logic  
   - `role_field_map.json` – role-dependent field priorities
+  - `wizard/missing_fields.py` – pure helpers for missing-field detection
 
 - LLM & pipelines  
   - `openai_utils/` – OpenAI client wrapper (Responses vs Chat, retries, fallbacks)  
