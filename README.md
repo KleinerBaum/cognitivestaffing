@@ -72,6 +72,8 @@ Every step MUST render in the same top-down pattern:
 4) **Next / Back navigation**  
    - One primary action: continue.
 
+The Company step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
+
 ### Tools & assistants (UX rule)
 
 AI tools / assistants must NEVER compete with the main “Missing” form.

@@ -17,6 +17,7 @@ def render_step_layout(
     intro: LocalizedText | None,
     *,
     known_cb: Callable[[], None],
+    missing_cb: Callable[[], None] | None = None,
     missing_paths: Sequence[str] | None = None,
     tools_cb: Callable[[], None] | None = None,
 ) -> None:
@@ -43,6 +44,8 @@ def render_step_layout(
             st.markdown(missing_lines)
         else:
             st.info(tr("Keine fehlenden Angaben.", "No missing items.", lang=lang))
+        if missing_cb is not None:
+            missing_cb()
 
     if tools_cb is not None:
         # GREP:TOOLS_EXPANDER_V1
