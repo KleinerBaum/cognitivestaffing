@@ -22,6 +22,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Step layout helper for consistent Known/Missing tabs with an optional tools expander.
 - Wizard step registry metadata with ordered keys for shared navigation references.
 - Feature-flagged sidebar stepper that summarizes per-step missing fields in the sidebar.
+- Sidebar stepper navigation flag (`feature.sidebar_stepper_nav_v1`) to let users jump back to previous steps.
 
 ### Changed
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.

@@ -115,6 +115,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         "auto_reask_round": lambda: 0,
         "auto_reask_total": lambda: 0,
         "dark_mode": lambda: True,
+        "feature.sidebar_stepper_nav_v1": lambda: False,
         "skip_intro": lambda: False,
         "wizard": lambda: {"current_step": "jobad"},
     }
