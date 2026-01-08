@@ -19,6 +19,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.
 - Missing-field detection helpers in `wizard/missing_fields.py` with unit coverage.
 - Step layout helper for consistent Known/Missing tabs with an optional tools expander.
+- Wizard step registry metadata with ordered keys for shared navigation references.
 
 ### Changed
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
