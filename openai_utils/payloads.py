@@ -12,6 +12,7 @@ import streamlit as st
 import config as app_config
 from config import APIMode, OPENAI_REQUEST_TIMEOUT, REASONING_EFFORT, resolve_api_mode
 from config.models import (
+    LIGHTWEIGHT_MODEL,
     ModelTask,
     get_first_available_model,
     get_model_candidates,
@@ -36,6 +37,28 @@ from .tools import (
 )
 
 logger = logging.getLogger("cognitive_needs.openai")
+
+COST_SAVER_MAX_COMPLETION_TOKENS: Final[int] = 600
+COST_SAVER_NON_CRITICAL_TASKS: Final[frozenset[str]] = frozenset(
+    {
+        ModelTask.EXTRACTION.value,
+        ModelTask.COMPANY_INFO.value,
+        ModelTask.JSON_REPAIR.value,
+        ModelTask.PROGRESS_INBOX.value,
+        ModelTask.SALARY_ESTIMATE.value,
+        "non_reasoning",
+    }
+)
+
+
+def _is_cost_saver_enabled() -> bool:
+    return bool(st.session_state.get(StateKeys.COST_SAVER, False))
+
+
+def _clamp_max_completion_tokens(value: int | None, ceiling: int) -> int | None:
+    if value is None:
+        return None
+    return min(value, ceiling)
 
 
 def _is_codex_model(model: str | None) -> bool:
@@ -383,8 +406,10 @@ def _prepare_payload(
     use_classic_api = active_mode.is_classic
 
     selected_task = task or ModelTask.DEFAULT
+    cost_saver_enabled = _is_cost_saver_enabled()
     router_estimate: PromptCostEstimate | None = None
     candidate_override = model
+    explicit_model = model is not None
     if model is None:
         base_model = select_model(selected_task)
         chosen_model, router_estimate = route_model_for_messages(messages, default_model=base_model)
@@ -393,6 +418,17 @@ def _prepare_payload(
             model = get_first_available_model(selected_task, override=chosen_model)
         else:
             model = base_model
+    if cost_saver_enabled and not explicit_model:
+        task_key = selected_task.value if isinstance(selected_task, ModelTask) else str(selected_task).strip().lower()
+        if task_key in COST_SAVER_NON_CRITICAL_TASKS:
+            logger.debug("Cost saver enabled: forcing lightweight model for task '%s'.", task_key)
+        else:
+            logger.debug(
+                "Cost saver enabled: overriding reasoning-heavy task '%s' to lightweight model.",
+                task_key,
+            )
+        model = get_first_available_model(selected_task, override=LIGHTWEIGHT_MODEL)
+        candidate_override = LIGHTWEIGHT_MODEL
     if reasoning_effort is None:
         reasoning_effort = st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT)
 
@@ -404,6 +440,11 @@ def _prepare_payload(
         reasoning_effort = "high"
 
     normalised_effort = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
+    if cost_saver_enabled:
+        max_completion_tokens = _clamp_max_completion_tokens(
+            max_completion_tokens,
+            COST_SAVER_MAX_COMPLETION_TOKENS,
+        )
     verbosity_value = verbosity.strip().lower() if isinstance(verbosity, str) else None
 
     candidate_models = get_model_candidates(selected_task, override=candidate_override)
