@@ -869,6 +869,9 @@ def _render_settings() -> None:
     def _on_theme_toggle() -> None:
         st.session_state["dark_mode"] = st.session_state["ui.dark_mode"]
 
+    def _on_cost_saver_toggle() -> None:
+        st.session_state[StateKeys.COST_SAVER] = bool(st.session_state.get(UIKeys.COST_SAVER, False))
+
     st.markdown(f"### ⚙️ {tr('Einstellungen', 'Settings')}")
     is_dark = st.session_state.get("ui.dark_mode", True)
     st.toggle(
@@ -937,6 +940,24 @@ def _render_settings() -> None:
                 f"Uses {model_config.O3} (fallback {model_config.O4_MINI}/{model_config.GPT4O}) and allows richer reasoning for maximum accuracy.",
             )
         )
+
+    cost_saver_active = bool(st.session_state.get(StateKeys.COST_SAVER, False))
+    st.toggle(
+        tr("💸 Kosten sparen", "💸 Cost saver"),
+        value=cost_saver_active,
+        key=UIKeys.COST_SAVER,
+        on_change=_on_cost_saver_toggle,
+        help=tr(
+            "Erzwingt das günstige Modell und senkt die Token-Obergrenzen für schnellere, günstigere Antworten.",
+            "Forces the lightweight model and tighter token caps for faster, cheaper responses.",
+        ),
+    )
+    st.caption(
+        tr(
+            f"Aktiviert kostet weniger, nutzt standardmäßig {model_config.LIGHTWEIGHT_MODEL}.",
+            f"When enabled, routes through {model_config.LIGHTWEIGHT_MODEL} by default to save cost.",
+        )
+    )
 
     st.divider()
 
