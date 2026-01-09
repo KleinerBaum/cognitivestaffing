@@ -247,6 +247,17 @@ class OnboardingHeroCopy:
     eyebrow: str
     title: str
     subtitle: str
+    cta_label: str
+    timeline: tuple["OnboardingHeroTimelineItem", ...]
+
+
+@dataclass(frozen=True)
+class OnboardingHeroTimelineItem:
+    """Content for a single onboarding hero timeline entry."""
+
+    icon: str
+    title: str
+    description: str
 
 
 def _render_autofill_suggestion(
@@ -730,6 +741,84 @@ ONBOARDING_HERO_STYLE = """
         padding: var(--hero-panel-padding-compact);
     }
 }
+.onboarding-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    align-items: center;
+    margin-top: var(--space-md);
+}
+.onboarding-hero__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 1.4rem;
+    border-radius: 999px;
+    background: linear-gradient(120deg, var(--accent-strong), var(--accent));
+    color: var(--text-on-accent);
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+.onboarding-hero__cta:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+.onboarding-hero__cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.28);
+}
+.onboarding-hero__timeline {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+    padding: 0;
+    list-style: none;
+}
+.onboarding-hero__timeline-item {
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--surface-0);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-soft);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+.onboarding-hero__timeline-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+.onboarding-hero__timeline-icon {
+    font-size: 1.2rem;
+    margin-bottom: var(--space-xs);
+    display: inline-flex;
+}
+.onboarding-hero__timeline-title {
+    font-weight: 600;
+    margin-bottom: var(--space-2xs);
+    color: var(--text-strong);
+}
+.onboarding-hero__timeline-description {
+    font-size: var(--font-size-caption);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+@media (max-width: 768px) {
+    .onboarding-hero__timeline {
+        grid-template-columns: 1fr;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .onboarding-hero__cta,
+    .onboarding-hero__timeline-item {
+        transition: none;
+    }
+    .onboarding-hero__cta:hover,
+    .onboarding-hero__timeline-item:hover {
+        transform: none;
+    }
+}
 </style>
 """
 
@@ -741,54 +830,57 @@ def build_onboarding_hero_copy(
 ) -> OnboardingHeroCopy:
     """Build the localized onboarding hero copy from the shared templates."""
 
-    eyebrow = tr("Recruiting-Intake", "Recruiting intake")
+    eyebrow = tr("Recruiting-Bedarfsanalyse", "Recruitment Need Analysis")
     title = format_message(
         default=(
-            "Aus der Stellenanzeige zum vollständigen Stellenprofil",
-            "From job posting to a complete job profile",
+            "Schluss mit Rätselraten beim Hiring.",
+            "Take the guesswork out of hiring.",
         ),
         context=profile_context,
-        variants=[
-            (
-                (
-                    "Stellenanzeige für {job_title} bei {company_name} in ein vollständiges Stellenprofil verwandeln",
-                    "Turn the job posting for {job_title} at {company_name} into a complete job profile",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Stellenanzeige für {job_title} in ein vollständiges Stellenprofil verwandeln",
-                    "Turn the job posting for {job_title} into a complete job profile",
-                ),
-                ("job_title",),
-            ),
-        ],
+        variants=[],
     )
     subtitle = format_message(
         default=(
-            "Füge URL oder Datei hinzu und wir extrahieren die Anforderungen direkt für den Start.",
-            "Add a URL or file and we will extract the requirements right away to get started.",
+            "Geführter Wizard, Markt- und Gehalts-Insights sowie ESCO-Mapping schaffen ein belastbares Stellenprofil.",
+            "A guided wizard, market and salary insights, plus ESCO mapping build a trustworthy job profile.",
         ),
         context=profile_context,
-        variants=[
-            (
-                (
-                    "Füge die Stellenanzeige für {job_title} bei {company_name} als URL oder Datei hinzu und wir extrahieren die Anforderungen.",
-                    "Add the job posting for {job_title} at {company_name} via URL or file and we will extract the requirements.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Füge die Stellenanzeige für {job_title} als URL oder Datei hinzu und wir extrahieren die Anforderungen.",
-                    "Add the job posting for {job_title} via URL or file and we will extract the requirements.",
-                ),
-                ("job_title",),
-            ),
-        ],
+        variants=[],
     )
-    return OnboardingHeroCopy(eyebrow=eyebrow, title=title, subtitle=subtitle)
+    cta_label = tr("Analyse starten", "Start guided analysis")
+    timeline = (
+        OnboardingHeroTimelineItem(
+            icon="🧭",
+            title=tr("Geführter Wizard", "Guided wizard"),
+            description=tr(
+                "Anforderungen Schritt für Schritt definieren.",
+                "Define requirements step by step.",
+            ),
+        ),
+        OnboardingHeroTimelineItem(
+            icon="📊",
+            title=tr("Markt- & Gehalts-Insights", "Market & salary insights"),
+            description=tr(
+                "Seniorität und Gehaltsrahmen benchmarken.",
+                "Benchmark seniority and salary ranges.",
+            ),
+        ),
+        OnboardingHeroTimelineItem(
+            icon="🧩",
+            title=tr("ESCO Skill Mapping", "ESCO skill mapping"),
+            description=tr(
+                "Skill-Abdeckung präzise ergänzen.",
+                "Fill skill coverage precisely.",
+            ),
+        ),
+    )
+    return OnboardingHeroCopy(
+        eyebrow=eyebrow,
+        title=title,
+        subtitle=subtitle,
+        cta_label=cta_label,
+        timeline=timeline,
+    )
 
 
 def inject_salary_slider_styles() -> None:
@@ -854,16 +946,31 @@ def render_onboarding_hero(
     hero_eyebrow = html.escape(hero_copy.eyebrow)
     hero_title = html.escape(hero_copy.title)
     hero_subtitle = html.escape(hero_copy.subtitle)
+    hero_cta_label = html.escape(hero_copy.cta_label)
+    timeline_items = "".join(
+        (
+            "<li class='onboarding-hero__timeline-item'>"
+            f"<span class='onboarding-hero__timeline-icon'>{html.escape(item.icon)}</span>"
+            f"<div class='onboarding-hero__timeline-title'>{html.escape(item.title)}</div>"
+            f"<div class='onboarding-hero__timeline-description'>{html.escape(item.description)}</div>"
+            "</li>"
+        )
+        for item in hero_copy.timeline
+    )
 
     hero_html = f"""
     <div class="onboarding-hero">
         <div class="onboarding-hero__logo">
-            <img src="data:{mime_type};base64,{animation_base64}" alt="Cognitive Staffing logo" />
+            <img src="data:{mime_type};base64,{animation_base64}" alt="Cognitive Staffing — Recruitment Need Analysis" />
         </div>
         <div class="onboarding-hero__copy">
             <div class="onboarding-hero__eyebrow">{hero_eyebrow}</div>
             <h1 class="onboarding-hero__headline">{hero_title}</h1>
             <p class="onboarding-hero__subheadline">{hero_subtitle}</p>
+            <div class="onboarding-hero__actions">
+                <a class="onboarding-hero__cta" href="#onboarding-source">{hero_cta_label}</a>
+            </div>
+            <ul class="onboarding-hero__timeline">{timeline_items}</ul>
         </div>
     </div>
     """
@@ -1171,6 +1278,7 @@ def render_list_text_area(
 __all__ = [
     "COMPACT_STEP_STYLE",
     "OnboardingHeroCopy",
+    "OnboardingHeroTimelineItem",
     "NavigationButtonState",
     "NavigationDirection",
     "NavigationState",

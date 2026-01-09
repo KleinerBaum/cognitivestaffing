@@ -70,7 +70,7 @@ setup_tracing()
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
 st.set_page_config(
-    page_title="Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool",
+    page_title="Cognitive Staffing — Recruitment Need Analysis",
     page_icon=APP_LOGO_IMAGE or APP_LOGO_BUFFER or "🧭",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -179,7 +179,7 @@ def _set_intro_banner_visibility(visible: bool) -> None:
 def render_app_banner() -> None:
     """Render the global hero banner with logo and bilingual copy."""
 
-    eyebrow = tr("Recruiting-Intake", "Recruiting intake")
+    eyebrow = tr("Recruiting-Bedarfsanalyse", "Recruitment Need Analysis")
     headline = tr(
         "Aus der Stellenanzeige zum vollständigen Stellenprofil",
         "From job posting to a complete job profile",
@@ -194,16 +194,19 @@ def render_app_banner() -> None:
     )
 
     if APP_LOGO_DATA_URI:
-        logo_html = f"<img src='{APP_LOGO_DATA_URI}' alt='Cognitive Staffing logo' />"
+        logo_html = f"<img src='{APP_LOGO_DATA_URI}' alt='Cognitive Staffing — Recruitment Need Analysis' />"
     elif APP_LOGO_IMAGE:
         buffer = BytesIO()
         APP_LOGO_IMAGE.save(buffer, format="PNG")
         encoded = b64encode(buffer.getvalue()).decode("ascii")
-        logo_html = f"<img src='data:image/png;base64,{encoded}' alt='Cognitive Staffing logo' />"
+        logo_html = f"<img src='data:image/png;base64,{encoded}' alt='Cognitive Staffing — Recruitment Need Analysis' />"
     elif APP_LOGO_BUFFER:
         encoded = b64encode(APP_LOGO_BUFFER.getvalue()).decode("ascii")
         mime_type, _ = mimetypes.guess_type(getattr(APP_LOGO_BUFFER, "name", "logo.png"))
-        logo_html = f"<img src='data:{mime_type or 'image/png'};base64,{encoded}' alt='Cognitive Staffing logo' />"
+        logo_html = (
+            f"<img src='data:{mime_type or 'image/png'};base64,{encoded}' "
+            "alt='Cognitive Staffing — Recruitment Need Analysis' />"
+        )
     else:
         logo_html = "<span class='app-banner__logo-placeholder'>🧭</span>"
 

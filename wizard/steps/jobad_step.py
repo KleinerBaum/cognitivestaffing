@@ -58,6 +58,7 @@ def _step_onboarding(schema: dict) -> None:
     render_step_warning_banner()
 
     with st.container():
+        st.markdown("<div id='onboarding-source'></div>", unsafe_allow_html=True)
         render_section_heading(
             tr("Stellenanzeige bereitstellen", "Provide the job posting"),
             icon="📌",
