@@ -59,11 +59,12 @@ from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from state.autosave import maybe_render_autosave_prompt  # noqa: E402
 from components.chatkit_widget import inject_chatkit_script  # noqa: E402
+from constants.keys import UIKeys  # noqa: E402
 import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.2.0"
-INTRO_BANNER_STATE_KEY: Final[str] = "ui.show_intro_banner"
+INTRO_BANNER_STATE_KEY: Final[str] = UIKeys.INTRO_BANNER
 ONBOARDING_STEP_KEY: Final[str] = "jobad"
 
 setup_tracing()

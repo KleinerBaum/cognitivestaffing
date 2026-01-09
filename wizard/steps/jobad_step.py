@@ -54,7 +54,9 @@ def _step_onboarding(schema: dict) -> None:
         format_message=flow._format_dynamic_message,
         profile_context=profile_context,
     )
-    flow._render_onboarding_hero(hero_copy)
+    show_intro_banner = bool(st.session_state.get(UIKeys.INTRO_BANNER, True))
+    if show_intro_banner:
+        flow._render_onboarding_hero(hero_copy)
     render_step_warning_banner()
 
     with st.container():

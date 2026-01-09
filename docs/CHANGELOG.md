@@ -30,6 +30,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Sidebar stepper navigation flag (`feature.sidebar_stepper_nav_v1`) to let users jump back to previous steps.
 
 ### Changed
+- Sidebar settings now include an intro banner toggle that also hides the onboarding hero, clearer language labels, and an advanced expander for LLM-related options.
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
 - Summary step now uses Overview/Edit/Exports/Warnings tabs, with per-step missing required/critical fields surfaced in the Warnings tab.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
